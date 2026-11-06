@@ -3,7 +3,6 @@
 //! The outliner on the core `Tree`: keys, rename, activation, drops, the
 //! active item, trailing cells and filtering, through the public input only.
 
-use crate::support::clean;
 use kivact::prelude::*;
 use kivact::test::Screen;
 use kivact_ui_creative as ui;
@@ -35,7 +34,7 @@ fn the_rows_follow_the_tree_view_keys_and_are_one_tab_stop() {
                     app_outliner(
                         data,
                         ui::OutlinerState {
-                            selection: selected.into(),
+                            selection: selected.into_binding(),
                             ..ui::OutlinerState::new(ids(data))
                         },
                     ),
@@ -73,7 +72,7 @@ fn the_rows_follow_the_tree_view_keys_and_are_one_tab_stop() {
     assert_eq!(item(&screen, "Scene").is_expanded(), Some(true));
     screen.press_key(Key::Char('o'));
     assert!(item(&screen, "Other").is_focused(), "typeahead");
-    clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 
 #[test]
@@ -108,7 +107,7 @@ fn rename_is_f2_and_a_double_click_unless_the_item_is_activated() {
     screen.press_key(Key::Enter);
     assert_eq!(data.get_untracked()[4].label, "Light");
     assert!(item(&screen, "Light").is_focused());
-    clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 
     // Without one, a double click renames, and Escape keeps the name.
     let (screen, (data, rename)) =
@@ -120,7 +119,7 @@ fn rename_is_f2_and_a_double_click_unless_the_item_is_activated() {
                 app_outliner(
                     data,
                     ui::OutlinerState {
-                        renaming: rename.into(),
+                        renaming: rename.into_binding(),
                         ..ui::OutlinerState::new(ids(data))
                     },
                 ),
@@ -141,7 +140,7 @@ fn rename_is_f2_and_a_double_click_unless_the_item_is_activated() {
         .type_text("Mesh");
     screen.press_key(Key::Enter);
     assert_eq!(data.get_untracked()[2].label, "Mesh");
-    clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 
 /// Every item's ID, which an outliner state opens.

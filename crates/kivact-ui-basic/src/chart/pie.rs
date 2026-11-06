@@ -3,20 +3,21 @@
 use super::model::{ChartKind, Frame, Hit, HitRow, series_color};
 use super::polar::{disc, locate, polar};
 use crate::tokens::Tokens;
-use kivact::draw::{Draw, Path, Point, Size, Stroke, TextBaseline, TextStyle};
+use kivact::draw::{Draw, Path, Stroke, TextBaseline, TextFormat};
+use kivact::geometry::{Point, Size};
 use kivact::style::TextAlign;
 
 /// The inner radius of a donut and of the innermost radial ring, against the outer radius.
-const DONUT_INNER: f32 = 0.6;
-const RADIAL_INNER: f32 = 0.3;
+const DONUT_INNER: f64 = 0.6;
+const RADIAL_INNER: f64 = 0.3;
 /// The gap between radial rings.
-const RING_GAP: f32 = 4.0;
+const RING_GAP: f64 = 4.0;
 /// The angle the largest radial ring sweeps.
-const RADIAL_SWEEP: f32 = 270.0;
+const RADIAL_SWEEP: f64 = 270.0;
 /// How far the hovered slice grows.
-const POP: f32 = 4.0;
+const POP: f64 = 4.0;
 /// The angle where slices and rings start: the top.
-const START: f32 = -90.0;
+const START: f64 = -90.0;
 
 /// The slice sizes: the sum of each series, never negative.
 fn totals(f: &Frame) -> Vec<f64> {
@@ -27,7 +28,7 @@ fn totals(f: &Frame) -> Vec<f64> {
 
 /// Paint the chart; `hit` is the slice or ring under the pointer.
 pub(super) fn paint(d: &mut Draw, size: Size, f: &Frame, hit: Option<&Hit>) {
-    let tokens = d.theme().get::<Tokens>();
+    let tokens = d.theme().ext::<Tokens>();
     let hovered = hit.map(|hit| hit.index);
     if f.kind == ChartKind::Radial {
         paint_rings(d, size, f, &tokens, hovered);
@@ -47,7 +48,7 @@ fn paint_slices(d: &mut Draw, size: Size, f: &Frame, tokens: &Tokens, hovered: O
     }
     let mut from = START;
     for (series, total) in totals.iter().enumerate() {
-        let to = from + (360.0 * total / sum) as f32;
+        let to = from + (360.0 * total / sum);
         let outer = if hovered == Some(series) {
             radius + POP
         } else {
@@ -72,32 +73,32 @@ fn paint_slices(d: &mut Draw, size: Size, f: &Frame, tokens: &Tokens, hovered: O
         from = to;
     }
     if donut {
-        let value = TextStyle {
+        let value = TextFormat {
             size: 24.0,
             weight: 700,
             color: tokens.foreground,
             align: TextAlign::Center,
             baseline: TextBaseline::Middle,
-            ..TextStyle::default()
+            ..TextFormat::default()
         };
         d.text(&f.format(sum), Point::new(center.x, center.y - 8.0), value);
-        let label = TextStyle {
+        let label = TextFormat {
             size: 12.0,
             color: tokens.muted_foreground,
             align: TextAlign::Center,
             baseline: TextBaseline::Middle,
-            ..TextStyle::default()
+            ..TextFormat::default()
         };
         d.text(f.total_label, Point::new(center.x, center.y + 14.0), label);
     }
 }
 
 /// The ring geometry: the middle radius and thickness of ring `series` of `count`.
-fn ring(radius: f32, count: usize, series: usize) -> (f32, f32) {
+fn ring(radius: f64, count: usize, series: usize) -> (f64, f64) {
     let inner = radius * RADIAL_INNER;
-    let band = (radius - inner) / count.max(1) as f32;
+    let band = (radius - inner) / count.max(1) as f64;
     (
-        radius - band * (series as f32 + 0.5),
+        radius - band * (series as f64 + 0.5),
         (band - RING_GAP).max(2.0),
     )
 }
@@ -116,7 +117,7 @@ fn paint_rings(d: &mut Draw, size: Size, f: &Frame, tokens: &Tokens, hovered: Op
         let track = Path::new().arc(center, middle, START, START + RADIAL_SWEEP, false);
         d.stroke_path(&track, &Stroke::new(thickness), tokens.muted);
         if largest > 0.0 && *total > 0.0 {
-            let sweep = RADIAL_SWEEP * (total / largest) as f32;
+            let sweep = RADIAL_SWEEP * (total / largest);
             let value = Path::new().arc(center, middle, START, START + sweep, false);
             d.stroke_path(
                 &value,
@@ -138,7 +139,7 @@ pub(super) fn hit(size: Size, f: &Frame, at: Point) -> Option<Hit> {
             if distance > radius || distance < inner {
                 return None;
             }
-            let band = (radius - inner) / totals.len().max(1) as f32;
+            let band = (radius - inner) / totals.len().max(1) as f64;
             Some((((radius - distance) / band) as usize).min(totals.len().saturating_sub(1)))
         }
         kind => {
@@ -154,7 +155,7 @@ pub(super) fn hit(size: Size, f: &Frame, at: Point) -> Option<Hit> {
             let mut end = 0.0;
             totals.iter().position(|total| {
                 end += 360.0 * total / sum;
-                f64::from(angle) < end && *total > 0.0
+                (angle) < end && *total > 0.0
             })
         }
     }?;

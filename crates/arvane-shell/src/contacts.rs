@@ -1,7 +1,7 @@
 //! Role: Normalizes platform touch and pen contacts into shell pointer events.
 //!
 //! Backends supply logical coordinates, pressure, tilt and cancellation in
-//! `PointerInput`. The source id identifies a platform contact until it ends;
+//! `PointerSample`. The source id identifies a platform contact until it ends;
 //! this normalizer assigns a stable identity for its delivered lifetime.
 //!
 //! Invariants:
@@ -18,7 +18,7 @@
 //!   ([`Contacts::deliver`], [`Contacts::cancel`]).
 //!
 use crate::events::ShellEvent;
-use kivact_types::protocol::PointerInput;
+use kivact_types::PointerSample;
 use kivact_types::{Point, PointerButtons, PointerId, PointerKind, PointerPhase};
 
 /// A contact in progress.
@@ -29,6 +29,7 @@ struct Live {
     /// The contact's own pointer id and kind.
     id: PointerId,
     kind: PointerKind,
+    primary: bool,
     /// Where it was last reported (logical window pixels).
     at: Point,
 }
@@ -62,10 +63,10 @@ impl Contacts {
     /// end of a contact that never began; a `Cancel` of the old contact
     /// before the new one's `Down` for a `Down` of a platform id still in
     /// contact (the platform lost its end).
-    pub fn deliver(&mut self, platform: PointerInput) -> Vec<ShellEvent> {
+    pub fn deliver(&mut self, platform: PointerSample) -> Vec<ShellEvent> {
         let at = self.live.iter().position(|c| c.platform == platform.id.0);
         let mut events = Vec::new();
-        let (id, kind) = match (platform.phase, at) {
+        let (id, kind, primary) = match (platform.phase, at) {
             (PointerPhase::Down(_), at) => {
                 if let Some(at) = at {
                     events.push(cancel(self.live.remove(at)));
@@ -76,22 +77,24 @@ impl Contacts {
                     PointerKind::Pen => PointerKind::Pen,
                     PointerKind::Touch | PointerKind::Mouse => PointerKind::Touch,
                 };
+                let primary = !self.live.iter().any(|live| live.kind == kind);
                 self.live.push(Live {
                     platform: platform.id.0,
                     id,
                     kind,
+                    primary,
                     at: platform.position,
                 });
-                (id, kind)
+                (id, kind, primary)
             }
             (PointerPhase::Move, Some(at)) => {
                 let live = &mut self.live[at];
                 live.at = platform.position;
-                (live.id, live.kind)
+                (live.id, live.kind, live.primary)
             }
             (PointerPhase::Up(_) | PointerPhase::Cancel, Some(at)) => {
                 let live = self.live.remove(at);
-                (live.id, live.kind)
+                (live.id, live.kind, live.primary)
             }
             // A window reports contacts, not a pen hovering (`Enter`,
             // `Leave`), nor a move or an end of one that never began.
@@ -100,9 +103,10 @@ impl Contacts {
                 return events;
             }
         };
-        events.push(ShellEvent::Pointer(PointerInput {
+        events.push(ShellEvent::Pointer(PointerSample {
             id,
             kind,
+            is_primary: primary,
             ..platform
         }));
         events
@@ -117,7 +121,7 @@ impl Contacts {
 
 /// The `Cancel` of `live` where it was last reported.
 fn cancel(live: Live) -> ShellEvent {
-    ShellEvent::Pointer(PointerInput {
+    ShellEvent::Pointer(PointerSample {
         id: live.id,
         kind: live.kind,
         phase: PointerPhase::Cancel,
@@ -125,5 +129,10 @@ fn cancel(live: Live) -> ShellEvent {
         buttons: PointerButtons::NONE,
         pressure: None,
         tilt: None,
+        button: None,
+        press: None,
+        time_ns: 0,
+        modifiers: kivact_types::Modifiers::default(),
+        is_primary: live.primary,
     })
 }

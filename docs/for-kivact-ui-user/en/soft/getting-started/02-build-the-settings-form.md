@@ -12,14 +12,14 @@ fn settings(save: impl Fn(String) + 'static) -> impl IntoView {
     let display_name = signal(String::new());
 
     column((
-        soft::heading(1, "Profile"),
+        kivact::ui::heading("Profile", 1),
         text_input("Display name", display_name),
         button("Save")
-            .variant(ButtonVariant::Primary)
+            .variant(kivact::ui::ButtonVariant::Primary)
             .disabled(move || display_name.get().trim().is_empty())
             .on_press(move || save(display_name.get().trim().to_owned())),
     ))
-    .style(|| style().gap(soft::tokens().spacing.s3))
+    .style(|| style().gap(kivact::style::use_tokens::<soft::Tokens>().spacing.s3))
 }
 ```
 

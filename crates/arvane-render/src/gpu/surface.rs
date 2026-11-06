@@ -41,11 +41,14 @@
 //! `DXGI_SCALING_STRETCH`, stretched to the window; either way the content
 //! would be wrong while the window is dragged.
 
-use super::state::{Configured, FORMAT, GpuContext, GpuSurface, Presentation, Swapchain};
+use super::external::ExternalPass;
+use super::state::{
+    Configured, FORMAT, GpuContext, GpuSurface, LastConfigure, Presentation, Retain, Swapchain,
+};
 use super::texture::target_texture;
 use crate::error::RenderError;
 use kivact_types::Size;
-use kivact_types::protocol::{CpuFrame, Scene};
+use kivact_types::render::{CpuFrame, RenderScene};
 use std::time::{Duration, Instant};
 
 impl GpuSurface {
@@ -54,7 +57,7 @@ impl GpuSurface {
             surface,
             swapchain: Swapchain::Unconfigured,
             raster: None,
-            keep: false,
+            keep: Retain::Drop,
         }
     }
 
@@ -81,7 +84,7 @@ impl GpuSurface {
     /// Keep each presented frame for [`GpuContext::read_back`] (tests): the
     /// frames are drawn into a texture and copied to the window.
     pub fn keep_frames(&mut self) {
-        self.keep = true;
+        self.keep = Retain::Keep;
     }
 }
 
@@ -92,24 +95,29 @@ impl GpuContext {
     pub fn present(
         &mut self,
         surface: &mut GpuSurface,
-        scene: &Scene,
+        scene: &RenderScene,
         size: Size,
-        scale: f32,
+        scale: f64,
         physical: (u32, u32),
     ) -> Result<(Presentation, Duration), RenderError> {
-        self.with_external(scene, |context| {
-            context.present_frame(surface, scene, size, scale, physical)
-        })
+        let mut external = std::mem::take(&mut self.external);
+        let drawn = (|| {
+            let pass = ExternalPass::begin(&mut external, scene)?;
+            self.present_frame(surface, scene, size, scale, physical, pass)
+        })();
+        self.external = external;
+        drawn
     }
 
     /// [`GpuContext::present`] between the external frames' hand-offs.
     fn present_frame(
         &mut self,
         surface: &mut GpuSurface,
-        scene: &Scene,
+        scene: &RenderScene,
         size: Size,
-        scale: f32,
+        scale: f64,
         (width, height): (u32, u32),
+        pass: ExternalPass<'_>,
     ) -> Result<(Presentation, Duration), RenderError> {
         let (raster_size, info) = self.dimensions(scene, size, scale)?;
         if width == 0 || height == 0 {
@@ -128,21 +136,12 @@ impl GpuContext {
             self.reconfigure(surface, width, height, false)?;
         }
         let format = surface.configured().config.format;
-        let direct = !surface.keep && format == FORMAT && raster_size == (width, height);
-        if direct {
-            // Up to 64 MiB that frames drawn straight into the swapchain
-            // do not need; made again when one is drawn for a copy.
-            surface.raster = None;
-        } else if surface
-            .raster
-            .as_ref()
-            .is_none_or(|t| (t.width(), t.height()) != raster_size)
-        {
-            surface.raster = Some(target_texture(&self.device, raster_size.0, raster_size.1));
-        }
+        let direct =
+            surface.keep == Retain::Drop && format == FORMAT && raster_size == (width, height);
+        prepare_raster(&self.device, surface, direct, raster_size);
         // After a skipped frame, take the buffer first: no recording while
         // the window stays occluded.
-        let early = if !alongside && surface.configured().skipped {
+        let early = if !alongside && surface.configured().last == LastConfigure::Skipped {
             let waiting = Instant::now();
             let acquired = self.acquire(surface, width, height)?;
             let waited = waiting.elapsed();
@@ -159,12 +158,17 @@ impl GpuContext {
             // Windows' NVIDIA Vulkan driver): a scoped thread does it while
             // this one records the frame. Vulkan's swapchain calls do not
             // message the window's thread.
-            self.encode_alongside(scene, scale, raster_size, &info, true, |device, adapter| {
-                configure(device, adapter, surface, width, height, false)
-            })?;
+            self.encode_alongside(
+                scene,
+                scale,
+                raster_size,
+                &info,
+                pass.frame(),
+                |device, adapter| configure(device, adapter, surface, width, height, false),
+            )?;
             self.check()?;
         } else {
-            self.encode(scene, scale, raster_size, &info, true);
+            self.encode(scene, scale, raster_size, &info, true, pass.frame());
         }
         let ((texture, suboptimal), mut waited) = match early {
             Some(early) => early,
@@ -178,14 +182,34 @@ impl GpuContext {
                 (acquired, waited)
             }
         };
+        let encoder = self.draw_presentation(surface, &texture.texture, raster_size, direct)?;
+        self.queue.submit([encoder.finish()]);
+        let submitted = pass.submit();
+        let presenting = Instant::now();
+        texture.present();
+        waited += presenting.elapsed();
+        if suboptimal {
+            self.reconfigure(surface, width, height, true)?;
+        }
+        self.check()?;
+        submitted.finish()?;
+        Ok((Presentation::Shown, waited))
+    }
+
+    /// Draw directly or copy the retained raster into the acquired texture.
+    fn draw_presentation(
+        &mut self,
+        surface: &GpuSurface,
+        texture: &wgpu::Texture,
+        raster_size: (u32, u32),
+        direct: bool,
+    ) -> Result<wgpu::CommandEncoder, RenderError> {
         let mut encoder = self
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
                 label: Some("Arvane present"),
             });
-        let view = texture
-            .texture
-            .create_view(&wgpu::TextureViewDescriptor::default());
+        let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
         if direct {
             self.draw(&mut encoder, raster_size, &view)?;
         } else {
@@ -200,16 +224,7 @@ impl GpuContext {
                 .blitter
                 .copy(&self.device, &mut encoder, &raster, &view);
         }
-        self.queue.submit([encoder.finish()]);
-        self.external.submitted();
-        let presenting = Instant::now();
-        texture.present();
-        waited += presenting.elapsed();
-        if suboptimal {
-            self.reconfigure(surface, width, height, true)?;
-        }
-        self.check()?;
-        Ok((Presentation::Shown, waited))
+        Ok(encoder)
     }
 
     /// Present a frame drawn elsewhere to `surface`, a `width` × `height`
@@ -298,7 +313,7 @@ impl GpuContext {
         let texture = surface
             .raster
             .as_ref()
-            .filter(|_| surface.keep)
+            .filter(|_| surface.keep == Retain::Keep)
             .ok_or_else(|| RenderError::Surface("no frame was kept".into()))?;
         self.read_texture(texture)
     }
@@ -312,7 +327,11 @@ impl GpuContext {
         height: u32,
     ) -> Result<Option<(wgpu::SurfaceTexture, bool)>, RenderError> {
         let acquired = self.next_texture(surface, width, height)?;
-        surface.configured_mut().skipped = acquired.is_none();
+        surface.configured_mut().last = if acquired.is_none() {
+            LastConfigure::Skipped
+        } else {
+            LastConfigure::Applied
+        };
         Ok(acquired)
     }
 
@@ -404,7 +423,7 @@ fn configure(
     surface.swapchain = Swapchain::Configured(Configured {
         blitter: wgpu::util::TextureBlitter::new(device, config.format),
         config,
-        skipped: false,
+        last: LastConfigure::Applied,
     });
     Ok(())
 }
@@ -506,4 +525,24 @@ where
         ));
     }
     Ok(GpuSurface::new(surface))
+}
+
+/// Keep an intermediate raster only when direct swapchain rendering is unavailable.
+fn prepare_raster(
+    device: &wgpu::Device,
+    surface: &mut GpuSurface,
+    direct: bool,
+    raster_size: (u32, u32),
+) {
+    if direct {
+        // Up to 64 MiB that frames drawn straight into the swapchain
+        // do not need; made again when one is drawn for a copy.
+        surface.raster = None;
+    } else if surface
+        .raster
+        .as_ref()
+        .is_none_or(|t| (t.width(), t.height()) != raster_size)
+    {
+        surface.raster = Some(target_texture(device, raster_size.0, raster_size.1));
+    }
 }

@@ -26,9 +26,9 @@ fn shell() -> impl IntoView {
     let sidebar = basic::sidebar()
         .collapsible(basic::SidebarCollapsible::Icon)
         .rail(true)
-        .header(|| basic::large("Acme Inc"))
-        .content(move || {
-            basic::sidebar_group("Application").content(move || {
+        .header(basic::large("Acme Inc"))
+        .content({
+            basic::sidebar_group("Application").content({
                 basic::sidebar_menu((
                     entry("home", "Home", "house"),
                     entry("inbox", "Inbox", "inbox"),
@@ -42,21 +42,21 @@ fn shell() -> impl IntoView {
             basic::separator()
                 .orientation(Orientation::Vertical)
                 .style(style().height(16)),
-            basic::breadcrumb_content((
-                basic::breadcrumb_link("Acme"),
-                basic::breadcrumb_separator(),
-                basic::breadcrumb_page(move || page.get().to_string()),
-            )),
+            kivact::ui::breadcrumb(move || vec![
+                kivact::interaction::ListItem::new("root", "Acme"),
+                kivact::interaction::ListItem::new("current", page.get().to_string()),
+            ])
+            .separator(|| icon("chevron-right").style(style().size(14, 14))),
         ))
         .style(style().height(48).padding_x(12).gap(8).align_items(Align::Center)),
-        basic::h4(move || page.get().to_string()).style(style().padding(12)),
+        kivact::ui::heading(move || page.get().to_string(), 4).style(style().padding(12)),
     ))
     .style(style().grow(1));
     column(basic::sidebar_provider(open, sidebar, content)).style(
         style()
             .size(pct(100), pct(100))
-            .background(basic::Color::Background)
-            .color(basic::Color::Foreground),
+            .background(basic::ColorName::Background)
+            .color(basic::ColorName::Foreground),
     )
 }
 ```
@@ -91,7 +91,7 @@ fn account() -> impl IntoView {
                 "account" => ("Account", "Make changes to your account here."),
                 _ => ("Password", "Change your password here."),
             };
-            column((basic::h4(title), basic::muted(body))).style(style().gap(8).padding_top(16))
+            column((kivact::ui::heading(title, 4), basic::muted(body))).style(style().gap(8).padding_top(16))
         })
 }
 ```
@@ -102,7 +102,7 @@ fn account() -> impl IntoView {
 
 ## 今どこにいるかを示す
 
-パンくずは、リンク、区切り、現在のページを並べた `basic::breadcrumb_content((..))` です。リンクは `.on_press(..)` を取り、現在のページはリンクではありません。
+`kivact::ui::breadcrumb(items)` にキー付きの `ListItem` を渡します。最後の項目が現在のページで、それ以前の項目を押すと `.on_activate(..)` がキーを受け取ります。
 
 ```rust,no_run
 use kivact::prelude::*;
@@ -110,21 +110,21 @@ use kivact_ui_basic as basic;
 
 fn trail() -> impl IntoView {
     let at = signal(String::from("Components"));
-    basic::breadcrumb_content((
-        basic::breadcrumb_link("Home").on_press(move || at.set("Home".into())),
-        basic::breadcrumb_separator(),
-        basic::breadcrumb_link("Components").on_press(move || at.set("Components".into())),
-        basic::breadcrumb_separator(),
-        basic::breadcrumb_page(at),
-    ))
+    kivact::ui::breadcrumb(move || vec![
+        kivact::interaction::ListItem::new("home", "Home"),
+        kivact::interaction::ListItem::new("components", "Components"),
+        kivact::interaction::ListItem::new("current", at.get()),
+    ])
+    .on_activate(move |key| at.set(if key == "home" { "Home" } else { "Components" }.into()))
+    .separator(|| icon("chevron-right").style(style().size(14, 14)))
 }
 ```
 
-隠した階層の代わりに、区切りの間へ `basic::breadcrumb_ellipsis()` を置きます。名前の一覧だけで足りるなら、`basic::breadcrumb(vec!["Home".to_string(), "Docs".to_string()])` が文字だけからパンくず全体を作ります。
+省略する階層は無効な項目にして、`.item(..)` スロットで ellipsis を描きます。`.separator(..)` で区切りのアイコンを渡し、右から左の境界では `chevron-left` を使います。
 
 ## メニューバーを足す
 
-`basic::menubar(menus, choose)` は `(タイトル, 項目)` の組の一覧を取り、タイトルを横に並べます。それぞれが標準のメニューを開きます。`choose` は、選ばれた項目の key を受け取ります。
+`basic::menubar(menus).on_activate(choose)` は `(タイトル, 項目)` の組の一覧を取り、タイトルを横に並べます。それぞれが標準のメニューを開きます。`choose` は、選ばれた項目の key を受け取ります。
 
 ```rust,no_run
 use kivact::prelude::*;
@@ -133,26 +133,23 @@ use kivact_ui_basic as basic;
 fn bar() -> impl IntoView {
     let last = signal(String::from("Nothing chosen yet."));
     column((
-        basic::menubar(
-            vec![
+        basic::menubar(vec![
                 (
                     "File".to_string(),
                     vec![
-                        MenuEntry::item("new", "New tab").shortcut("Ctrl+T"),
+                        MenuEntry::item("new", "New tab").with_shortcut("Ctrl+T"),
                         MenuEntry::separator(),
-                        MenuEntry::item("print", "Print...").shortcut("Ctrl+P"),
+                        MenuEntry::item("print", "Print...").with_shortcut("Ctrl+P"),
                     ],
                 ),
                 (
                     "Edit".to_string(),
                     vec![
-                        MenuEntry::item("undo", "Undo").shortcut("Ctrl+Z"),
-                        MenuEntry::item("redo", "Redo").shortcut("Ctrl+Y"),
+                        MenuEntry::item("undo", "Undo").with_shortcut("Ctrl+Z"),
+                        MenuEntry::item("redo", "Redo").with_shortcut("Ctrl+Y"),
                     ],
                 ),
-            ],
-            move |key: &'static str| last.set(format!("Chosen: {key}")),
-        )
+            ]).on_activate(move |key: &'static str| last.set(format!("Chosen: {key}")))
         .style(style().width(240)),
         basic::muted(last),
     ))
@@ -164,7 +161,7 @@ fn bar() -> impl IntoView {
 
 ## ページの上部からセクションへ移動する
 
-`basic::navigation_menu(items)` は `NavItem` を並べた行です。`NavItem::link(label, action)` は押されると `action` を実行します。`NavItem::menu(label, content)` は、項目の下にパネルを開き、`content` がそのパネルの view を作る関数です。パネルの中の行には `basic::navigation_menu_link(title)` を使います。
+`kivact::ui::navigation_menu(label)` はナビゲーションの行を作ります。`navigation_menu(...).action(key, label, action)` は押されると `action` を実行します。`navigation_menu(...).link(key, label, content)` は、項目の下にパネルを開き、`content` がそのパネルの view を作る関数です。パネルの中の行には `kivact::ui::navigation_menu_link(title)` を使います。
 
 ```rust,no_run
 use kivact::prelude::*;
@@ -174,19 +171,19 @@ fn top_nav() -> impl IntoView {
     let clicks = signal(0usize);
     let getting_started = move || {
         column((
-            basic::navigation_menu_link("Introduction")
+            kivact::ui::navigation_menu_link("Introduction")
                 .description("How the pieces fit together."),
-            basic::navigation_menu_link("Installation")
+            kivact::ui::navigation_menu_link("Installation")
                 .description("Add the crates to your project.")
                 .icon(icon("download")),
         ))
         .style(style().width(320))
     };
     column((
-        basic::navigation_menu(vec![
-            basic::NavItem::menu("Getting started", getting_started),
-            basic::NavItem::link("Docs", move || clicks.update(|n| *n += 1)),
-        ]),
+        kivact::ui::navigation_menu("Navigation")
+            .link("getting-started", "Getting started", getting_started)
+            .action("docs", "Docs", move || clicks.update(|n| *n += 1))
+            .close_delay(std::time::Duration::ZERO),
         basic::muted(move || format!("Docs pressed: {}", clicks.get())),
     ))
     .style(style().gap(12))
@@ -195,7 +192,7 @@ fn top_nav() -> impl IntoView {
 
 ## 長い一覧をページに分ける
 
-`basic::pagination(page, count)` は、前へ・次へのボタンとページ番号を表示し、ページが多いときは省略記号を使います。`page` は 0 から数える signal、`count` はページ数です。
+`kivact::ui::pagination(count, page)` は、前へ・次へのボタンとページ番号を表示し、ページが多いときは省略記号を使います。`page` は 0 から数える signal、`count` はページ数です。
 
 ```rust,no_run
 use kivact::prelude::*;
@@ -204,7 +201,7 @@ use kivact_ui_basic as basic;
 fn pager() -> impl IntoView {
     let page = signal(0usize);
     column((
-        basic::pagination(page, 12usize),
+        kivact::ui::pagination(12usize, page),
         basic::muted(move || format!("Page {} of 12", page.get() + 1)),
     ))
     .style(style().gap(12).align_items(Align::Center))
@@ -212,7 +209,7 @@ fn pager() -> impl IntoView {
 ```
 
 - `.label_format(|number| format!("p.{number}"))` は、ページ番号の表記を変えます。
-- 細かく決めたいときは、`basic::pagination_content((basic::pagination_previous(), basic::pagination_link("1"), basic::pagination_link("2").active(true), basic::pagination_ellipsis(), basic::pagination_next()))` を自分で組み立てます。
+- `.item(|cell| ..)` でセルの表示内容を変更します。選択と移動は同じページ束縛が管理します。
 - 「Previous」「Next」の語と accessible label は `basic.pagination.*` のメッセージから来ます。置き換え方は[テーマとトークン](theme-and-tokens.md)を参照してください。
 - 表の行をページに分けるなら、`data_table(..).page(page, size)` にページ分けが組み込まれています。[データの表示](data-display.md)を参照してください。
 
@@ -221,3 +218,5 @@ fn pager() -> impl IntoView {
 - [オーバーレイ](overlays.md): メニュー、ポップオーバー、ダイアログ。
 - [データの表示](data-display.md): 並べ替えとページ分けのある表。
 - rustdoc: サイドバーの部品とナビゲーションのコンポーネントは `cargo doc -p kivact-ui-basic --open`。
+
+`basic::MenuVariant::Bar` は Basic menubar が使う標準メニューの公開されたコンパクトな外観です。同じ外観を直接組み立てる場合は `.variant(..)` で渡します。

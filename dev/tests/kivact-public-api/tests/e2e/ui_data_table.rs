@@ -8,7 +8,7 @@
 use crate::support::mount_with;
 use kivact::interaction::{ScalarRange, SortOrder, TableFocus};
 use kivact::prelude::*;
-use kivact::test::{RenderOptions, Screen, WindowMode};
+use kivact::test::{MirrorMode, RenderOptions, Screen};
 use kivact::view::{A11yAction, Modifiers, MouseButton, SortDirection};
 
 #[derive(Clone, Debug, PartialEq)]
@@ -42,18 +42,15 @@ fn columns() -> Vec<DataColumn<Person>> {
 }
 
 fn options() -> RenderOptions {
-    RenderOptions {
-        window: WindowMode::Real,
-        reduced_motion: true,
-        width: 720.0,
-        height: 600.0,
-        ..RenderOptions::from_env()
-    }
+    RenderOptions::from_env()
+        .window_size(720.0, 600.0)
+        .mirror(MirrorMode::Required)
+        .reduced_motion()
 }
 
 /// The names shown by the rows, top to bottom.
 fn names(screen: &Screen) -> Vec<String> {
-    let mut found: Vec<(f32, String)> = people()
+    let mut found: Vec<(f64, String)> = people()
         .iter()
         .filter_map(|p| screen.query_by_role(Role::GridCell, p.name))
         .map(|cell| (cell.rect().expect("laid out").y, cell.name()))
@@ -92,10 +89,10 @@ fn a_column_context_menu_preserves_header_sorting() {
             menu(
                 "Name options",
                 vec![MenuEntry::item("inspect", "Inspect names")],
-                move |_| {
-                    selected.set(true);
-                },
             )
+            .on_activate(move |_| {
+                selected.set(true);
+            })
         });
         (selected, data_table(people(), |p: &Person| p.id, columns))
     });
@@ -341,7 +338,7 @@ fn ineligible_rows_keep_focus_but_are_skipped_by_selection_gestures() {
         (
             selected,
             data_table(people(), |p: &Person| p.id, columns())
-                .focus(TableFocus::Rows(kivact::interaction::ListPolicy::default()))
+                .focus(TableFocus::Rows(kivact::interaction::ListOptions::default()))
                 .selection(selected)
                 .row_selectable(|person| person.id != 2),
         )
@@ -396,16 +393,13 @@ fn row_context_menu_opens_from_a_cell_without_changing_selection() {
             data_table(people(), |p: &Person| p.id, columns())
                 .selection(selected)
                 .row_context_menu(move |person| {
-                    menu(
-                        "Person actions",
-                        move || {
-                            vec![MenuEntry::item(
-                                "inspect",
-                                person.with(|p| format!("Inspect {}", p.name)),
-                            )]
-                        },
-                        move |_| chosen.set(Some(person.with(|p| p.id))),
-                    )
+                    menu("Person actions", move || {
+                        vec![MenuEntry::item(
+                            "inspect",
+                            person.with(|p| format!("Inspect {}", p.name)),
+                        )]
+                    })
+                    .on_activate(move |_| chosen.set(Some(person.with(|p| p.id))))
                 }),
         )
     });
@@ -441,7 +435,7 @@ fn a_cell_that_claims_secondary_input_suppresses_the_row_menu() {
         columns[0] = columns[0].clone().cell(move |person| {
             text(person.name).on_pointer(move |event| {
                 if matches!(
-                    event.phase,
+                    event.phase(),
                     kivact::view::PointerPhase::Down(press)
                         | kivact::view::PointerPhase::Up(press)
                         if press.button == MouseButton::Secondary
@@ -459,8 +453,8 @@ fn a_cell_that_claims_secondary_input_suppresses_the_row_menu() {
                 menu(
                     "Row options",
                     vec![MenuEntry::item("inspect", "Inspect row")],
-                    |_| (),
                 )
+                .on_activate(|_| ())
             }),
         )
     });

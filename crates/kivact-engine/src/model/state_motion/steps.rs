@@ -1,9 +1,9 @@
 //! Role: Prepare, retarget, step and shift the transitions of state styles.
 
-use super::state::{AnimPhase, StateAnimation};
+use super::state::{ColorChannels, StateAnimPhase, StateAnimation};
 use crate::model::Model;
-use kivact_wire::motion::SpringRun;
-use kivact_wire::{NodeId, PaintProps, PaintVec};
+use kivact_types::motion::SpringRun;
+use kivact_types::{NodeId, PaintProps, PaintVec};
 
 impl Model {
     /// Capture the displayed value before the host changes a state.
@@ -18,7 +18,12 @@ impl Model {
 
     fn capture_state_motion(&mut self, id: NodeId, entering: bool) {
         if let Some(a) = self.motion.0.get_mut(&id) {
-            a.phase = AnimPhase::Captured;
+            if let StateAnimPhase::Running { from, to, .. } = &a.phase {
+                a.phase = StateAnimPhase::Captured {
+                    from: from.clone(),
+                    to: to.clone(),
+                };
+            }
             return;
         }
         let Some(transition) = self
@@ -47,17 +52,21 @@ impl Model {
         let mut current = PaintVec::of(&paint).components().to_vec();
         current.extend_from_slice(&[c.r, c.g, c.b, c.a]);
         let len = current.len();
+        let mut colors = ColorChannels::default();
+        colors.set(ColorChannels::TEXT, colors_text);
         let a = StateAnimation {
             transition,
             target: paint,
-            current,
+            current: current.clone(),
             spring: SpringRun {
                 velocity: vec![0.0; len],
                 ..SpringRun::default()
             },
-            colors_text,
-            colors_base_text: false,
-            phase: AnimPhase::Captured,
+            colors,
+            phase: StateAnimPhase::Captured {
+                from: current.clone(),
+                to: current,
+            },
         };
         self.motion.0.insert(id, a);
     }
@@ -72,33 +81,48 @@ impl Model {
             if self.tree.get(*id).is_none() {
                 return false;
             }
-            if !matches!(a.phase, AnimPhase::Captured) {
+            let StateAnimPhase::Captured {
+                from: previous_from,
+                to: previous_to,
+            } = &a.phase
+            else {
                 return true;
-            }
+            };
             let target = self.target_paint(*id);
             let Some(timing) = target.transition.clone() else {
                 return false;
             };
             a.transition = timing;
-            a.colors_text |= self
-                .tree
-                .get(*id)
-                .and_then(|n| n.states())
-                .is_some_and(|s| s.deltas().any(|d| d.text_color.is_some()));
+            let colors_text = a.colors.contains(ColorChannels::TEXT)
+                || self
+                    .tree
+                    .get(*id)
+                    .and_then(|n| n.states())
+                    .is_some_and(|s| s.deltas().any(|d| d.text_color.is_some()));
             let c = self.text_color(*id);
-            a.colors_base_text = !a.colors_text && c != a.current_color();
+            a.colors.set(ColorChannels::TEXT, colors_text);
+            a.colors.set(
+                ColorChannels::BASE_TEXT,
+                !colors_text && c != a.current_color(),
+            );
             let mut to = PaintVec::of(&target).components().to_vec();
             to.extend_from_slice(&[c.r, c.g, c.b, c.a]);
             if to == a.current || (reduced && a.transition.decorative) {
                 return false;
             }
+            a.transition = std::sync::Arc::new(a.transition.retargeted(
+                previous_from,
+                previous_to,
+                &a.current,
+                &to,
+            ));
             a.target = target;
             if let Some(n) = self.tree.get_mut(*id) {
                 n.place.transformed |=
                     !a.current_paint().transform.is_none() || !a.target.transform.is_none();
             }
             a.spring.restart(now);
-            a.phase = AnimPhase::Running {
+            a.phase = StateAnimPhase::Running {
                 from: a.current.clone(),
                 to,
                 start: now,
@@ -127,7 +151,7 @@ impl Model {
                 phase,
                 ..
             } = a;
-            let AnimPhase::Running { from, to, start } = phase else {
+            let StateAnimPhase::Running { from, to, start } = phase else {
                 return true;
             };
             let done = if reduced && transition.decorative {
@@ -139,8 +163,10 @@ impl Model {
             if target.transform != PaintProps::default().transform
                 || self.tree.get(*id).is_some_and(|n| n.place.transformed)
             {
-                self.changes.a11y_subtrees.insert(*id);
-                self.changes.needs_layout = true;
+                self.a11y.subtree(*id);
+                self.changes
+                    .layout
+                    .insert(crate::model::changes::LayoutReasons::PASS);
                 self.changes.moved();
             }
             if done && let Some(n) = self.tree.get_mut(*id) {
@@ -150,14 +176,14 @@ impl Model {
         });
         let active = animations
             .values()
-            .any(|a| matches!(a.phase, AnimPhase::Running { .. }));
+            .any(|a| matches!(a.phase, StateAnimPhase::Running { .. }));
         self.motion.0 = animations;
         active
     }
 
     pub(crate) fn shift_state_times(&mut self, paused: u64, now: u64) {
         for a in self.motion.0.values_mut() {
-            if let AnimPhase::Running { start, .. } = &mut a.phase {
+            if let StateAnimPhase::Running { start, .. } = &mut a.phase {
                 *start = if *start <= paused {
                     start.saturating_add(now.saturating_sub(paused))
                 } else {

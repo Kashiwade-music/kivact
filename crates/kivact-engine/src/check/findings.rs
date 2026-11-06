@@ -2,20 +2,20 @@
 
 use super::boxes::{Axes, ancestors, clips, padding_box, reach, visual_parent};
 use super::shaped_lines::shape;
+#[cfg(feature = "testing")]
+use crate::contract::NodeType;
 use crate::model::Model;
 use crate::model::interact::visual;
 use crate::model::semantics::semantic_role;
 use crate::tree::node::HostNode;
-#[cfg(feature = "testing")]
-use kivact_wire::NodeType;
-use kivact_wire::{
+use kivact_types::{
     Align, FlexDirection, Justify, LayoutCheck, LayoutFinding, LayoutLimit, LayoutProps,
     LayoutRule, NodeId, Position, Rect,
 };
 
 /// How far (px) the whole-pixel layout can move a box from its ideal
 /// place.
-const PIXEL_ROUNDING: f32 = 0.5;
+const PIXEL_ROUNDING: f64 = 0.5;
 
 /// The findings of the texts in the subtree of `scope` (the whole tree
 /// without one), in tree order; `ink`: the vertical extent of a line is
@@ -41,15 +41,14 @@ pub(crate) fn layout_findings(
         if n.hidden() || ignores(n, check) {
             continue;
         }
-        if n.kind() == NodeType::Text
-            || host.editors[n.index.0]
-                .as_deref()
-                .map(|editor| editor.editor.state())
-                .is_some()
-        {
+        if n.kind() == NodeType::Text || host.editors[n.index.0].is_some() {
             text_findings(host, engine, check, id, ink, &mut out);
         }
-        stack.extend(host.tree().children_ids(n).rev());
+        stack.extend(
+            host.tree()
+                .flat_children(host.tree().nodes.id_at(n.index))
+                .rev(),
+        );
     }
     out
 }
@@ -88,10 +87,7 @@ pub(crate) fn text_findings(
     if shaped.lines.is_empty() {
         return;
     }
-    let input = host.editors[n.index.0]
-        .as_deref()
-        .map(|editor| editor.editor.state())
-        .is_some();
+    let input = host.editors[n.index.0].is_some();
     let tolerance = check.overflow_tolerance;
     let text = shaped.rect();
     let up = ancestors(host, id);
@@ -109,14 +105,14 @@ pub(crate) fn text_findings(
     // Clipped with no ellipsis: by the nearest box that cuts a line.
     let mut clipped_at = None;
     for clip in clips(host, id, &up) {
-        let cut: Vec<(f32, Rect)> = shaped
+        let cut: Vec<(f64, Rect)> = shaped
             .lines
             .iter()
             .filter(|l| !l.cut)
             .map(|l| (reach(l.ink, clip.rect, clip.axes), l.ink))
             .filter(|(by, _)| *by > tolerance)
             .collect();
-        if let Some(most) = cut.iter().map(|(by, _)| *by).reduce(f32::max) {
+        if let Some(most) = cut.iter().map(|(by, _)| *by).reduce(f64::max) {
             let rect = cut
                 .iter()
                 .map(|(_, r)| *r)
@@ -157,47 +153,7 @@ pub(crate) fn text_findings(
         }
     }
 
-    // Wrapped: more than one line below a role that expects one.
-    let lines = shaped.lines.len();
-    if lines >= 2 && !n.content().is_some_and(|c| c.contains('\n')) {
-        let clamped = host.text_props(id).more().max_lines.is_some_and(|m| m >= 2);
-        let owner = std::iter::once(id)
-            .chain(up.iter().copied())
-            .find(|a| single_line(host, *a, check));
-        if let (false, Some(owner)) = (clamped, owner)
-            && let Some(limit) = host.rect(owner)
-        {
-            let extra = shaped.lines[1..].iter().map(|l| l.height).sum();
-            push(
-                LayoutRule::Wrapped {
-                    lines: lines as u32,
-                },
-                extra,
-                text,
-                limit,
-            );
-        }
-    }
-
-    // Off center: every box up to the visual parent centers it.
-    if let (1, Some(v)) = (lines, vp) {
-        let upto = up.iter().position(|a| *a == v).map_or(0, |i| i + 1);
-        let line = &shaped.lines[0];
-        if line.cap_height > 0.0 && centered_in(host, id, &up[..upto]) {
-            let content = visual::text_box(host, v);
-            let middle = line.baseline - line.cap_height / 2.0;
-            let off = (middle - (content.y + content.height / 2.0)).abs();
-            // The layout rounds boxes to whole pixels: half a pixel of
-            // slack on top, or an odd leftover would always be off.
-            let allowed = check
-                .center_tolerance
-                .unwrap_or_else(|| (shaped.font_size * 0.08).max(1.0))
-                + PIXEL_ROUNDING;
-            if off > allowed {
-                push(LayoutRule::OffCenter, off, text, content);
-            }
-        }
-    }
+    text_alignment_findings(host, check, id, &shaped, &up, vp, &mut push);
 }
 
 /// Whether the role of `id` expects its text on one line.
@@ -253,7 +209,7 @@ fn centers(host: &Model, parent: &HostNode, child: NodeId) -> bool {
             layout.justify == Some(Justify::Center)
                 && host
                     .tree()
-                    .children_ids(parent)
+                    .flat_children(host.tree().nodes.id_at(parent.index))
                     .filter(|c| *c != child)
                     .filter_map(|c| host.node(c))
                     .all(|c| {
@@ -261,6 +217,60 @@ fn centers(host: &Model, parent: &HostNode, child: NodeId) -> bool {
                             || c.is_layer()
                             || c.layout().is_some_and(|l| l.position == Position::Absolute)
                     })
+        }
+    }
+}
+
+fn text_alignment_findings(
+    host: &Model,
+    check: &LayoutCheck,
+    id: NodeId,
+    shaped: &super::shaped_lines::Shaped,
+    up: &[NodeId],
+    vp: Option<NodeId>,
+    push: &mut impl FnMut(LayoutRule, f64, Rect, Rect),
+) {
+    // Wrapped: more than one line below a role that expects one.
+    let n = host.node(id).expect("invariant: checked text node exists");
+    let text = shaped.rect();
+    let lines = shaped.lines.len();
+    if lines >= 2 && !n.content().is_some_and(|c| c.contains('\n')) {
+        let clamped = host.text_props(id).max_lines.is_some_and(|m| m >= 2);
+        let owner = std::iter::once(id)
+            .chain(up.iter().copied())
+            .find(|a| single_line(host, *a, check));
+        if let (false, Some(owner)) = (clamped, owner)
+            && let Some(limit) = host.rect(owner)
+        {
+            let extra = shaped.lines[1..].iter().map(|l| l.height).sum();
+            push(
+                LayoutRule::Wrapped {
+                    lines: lines as u32,
+                },
+                extra,
+                text,
+                limit,
+            );
+        }
+    }
+
+    // Off center: every box up to the visual parent centers it.
+    if let (1, Some(v)) = (lines, vp) {
+        let upto = up.iter().position(|a| *a == v).map_or(0, |i| i + 1);
+        let line = &shaped.lines[0];
+        if line.cap_height > 0.0 && centered_in(host, id, &up[..upto]) {
+            let content = visual::text_box(host, v);
+            let middle = line.baseline - line.cap_height / 2.0;
+            let off = (middle - (content.y + content.height / 2.0)).abs();
+            // The layout rounds boxes to whole pixels: half a pixel of
+            // slack on top, or an odd leftover would always be off.
+            let allowed = check
+                .center_tolerance
+                .unwrap_or_else(|| (shaped.font_size * 0.08).max(1.0))
+                + PIXEL_ROUNDING;
+            if off > allowed {
+                push(LayoutRule::OffCenter, off, text, content);
+            }
         }
     }
 }

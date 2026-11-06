@@ -16,10 +16,14 @@ const ACCURACY: f64 = 1e-3;
 struct Contour {
     start: KPoint,
     segs: Vec<PathSeg>,
-    closed: bool,
-    /// Whether the closing edge is the last of `segs` (it is not when the
-    /// contour already ends where it starts).
-    closing_edge: bool,
+    end: ContourEnd,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum ContourEnd {
+    Open,
+    Closed,
+    ClosingEdge,
 }
 
 impl Contour {
@@ -30,9 +34,9 @@ impl Contour {
     /// The whole contour, as it was written.
     fn emit_all(&self, out: &mut BezPath) {
         out.move_to(self.start);
-        let drawn = self.segs.len() - usize::from(self.closing_edge);
+        let drawn = self.segs.len() - usize::from(self.end == ContourEnd::ClosingEdge);
         out.extend(self.segs[..drawn].iter().map(PathSeg::as_path_el));
-        if self.closed {
+        if self.end != ContourEnd::Open {
             out.close_path();
         }
     }
@@ -53,8 +57,7 @@ fn contours(path: &BezPath) -> Vec<Contour> {
         let contour = open.get_or_insert_with(|| Contour {
             start: origin,
             segs: Vec::new(),
-            closed: false,
-            closing_edge: false,
+            end: ContourEnd::Open,
         });
         match *el {
             PathEl::LineTo(p) => {
@@ -76,9 +79,10 @@ fn contours(path: &BezPath) -> Vec<Contour> {
                     contour
                         .segs
                         .push(PathSeg::Line(Line::new(last, contour.start)));
-                    contour.closing_edge = true;
+                    contour.end = ContourEnd::ClosingEdge;
+                } else {
+                    contour.end = ContourEnd::Closed;
                 }
-                contour.closed = true;
                 (last, origin) = (contour.start, contour.start);
                 out.extend(open.take().filter(|c| !c.segs.is_empty()));
             }
@@ -94,18 +98,19 @@ impl Path {
     /// closing edge counts, the distance between contours does not.
     ///
     /// ```
-    /// use kivact::draw::{Path, Point};
+    /// use kivact::draw::{Path};
+    /// use kivact::geometry::Point;
     /// let line = Path::new().move_to(Point::new(0.0, 0.0)).line_to(Point::new(30.0, 40.0));
     /// assert!((line.length() - 50.0).abs() < 1e-3);
     /// // A circle of radius 10 (the cubics are within 0.01 px of it).
     /// let circle = Path::new().arc(Point::new(0.0, 0.0), 10, 0, 360, false).close();
     /// assert!((circle.length() - 62.83).abs() < 0.05);
     /// ```
-    pub fn length(&self) -> f32 {
+    pub fn length(&self) -> f64 {
         self.bez().map_or(0.0, |bez| {
             bez.segments()
                 .map(|segment| segment.arclen(ACCURACY))
-                .sum::<f64>() as f32
+                .sum::<f64>()
         })
     }
 
@@ -127,7 +132,8 @@ impl Path {
     /// an empty path.
     ///
     /// ```
-    /// use kivact::draw::{Path, Point};
+    /// use kivact::draw::{Path};
+    /// use kivact::geometry::Point;
     /// let line = Path::new().move_to(Point::new(0.0, 0.0)).line_to(Point::new(100.0, 0.0));
     /// let part = line.trim(0.25, 0.5, 0.0);
     /// let b = part.bounds().unwrap();
@@ -136,7 +142,7 @@ impl Path {
     /// let turned = line.trim(0.0, 0.25, 0.75);
     /// assert!((turned.length() - 25.0).abs() < 1e-3);
     /// ```
-    pub fn trim(&self, start: f32, end: f32, offset: f32) -> Path {
+    pub fn trim(&self, start: f64, end: f64, offset: f64) -> Path {
         let empty = Path {
             cmds: Vec::new(),
             even_odd: self.even_odd,
@@ -145,10 +151,7 @@ impl Path {
             return empty;
         }
         let (start, end) = {
-            let (a, b) = (
-                f64::from(start).clamp(0.0, 1.0),
-                f64::from(end).clamp(0.0, 1.0),
-            );
+            let (a, b) = (start.clamp(0.0, 1.0), end.clamp(0.0, 1.0));
             (a.min(b), a.max(b))
         };
         let Some(bez) = self.bez() else { return empty };
@@ -163,7 +166,7 @@ impl Path {
             contours.iter().for_each(|c| c.emit_all(&mut all));
             return Path::from_bez(&all, self.even_odd);
         }
-        let begin = (start + f64::from(offset)).rem_euclid(1.0) * total;
+        let begin = (start + offset).rem_euclid(1.0) * total;
         let stop = begin + (end - start) * total;
         let intervals: Vec<(f64, f64)> = if stop > total {
             vec![(begin, total), (0.0, stop - total)]
@@ -171,7 +174,7 @@ impl Path {
             vec![(begin, stop)]
         };
         // A closed contour that is the whole path continues across its seam.
-        let seam = contours.len() == 1 && contours[0].closed;
+        let seam = contours.len() == 1 && contours[0].end != ContourEnd::Open;
         let mut out = BezPath::new();
         for (n, (low, high)) in intervals.into_iter().enumerate() {
             let mut at = 0.0;
@@ -223,7 +226,7 @@ mod tests {
     //! Role: Tests for path trimming.
     use super::*;
     use crate::geometry::{Point, Rect};
-    use kivact_wire::PathCmd;
+    use kivact_types::PathCmd;
 
     fn moves(path: &Path) -> usize {
         path.cmds
@@ -264,8 +267,8 @@ mod tests {
     fn an_empty_stretch_or_invalid_value_is_empty() {
         for (s, e, o) in [
             (0.5, 0.5, 0.0),
-            (f32::NAN, 1.0, 0.0),
-            (0.0, 0.5, f32::INFINITY),
+            (f64::NAN, 1.0, 0.0),
+            (0.0, 0.5, f64::INFINITY),
         ] {
             assert!(square().trim(s, e, o).cmds.is_empty(), "{s} {e} {o}");
         }

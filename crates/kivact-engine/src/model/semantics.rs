@@ -25,7 +25,8 @@
 //!   technology). The accessibility tree and the test driver take the
 //!   exposure from this one function.
 
-use kivact_wire::{A11yAction, NodeId, NodeType, RegionId, Role};
+use crate::contract::NodeType;
+use kivact_types::{A11yAction, NodeId, RegionId, Role};
 
 use crate::model::Model;
 use crate::tree::node::HostNode;
@@ -115,10 +116,7 @@ impl Model {
                 out.push(*a);
             }
         }
-        if self.editors[n.index.0]
-            .as_deref()
-            .map(|editor| editor.editor.state())
-            .is_some()
+        if self.editors[n.index.0].is_some()
             && !n.read_only()
             && !out.contains(&A11yAction::SetValue)
         {
@@ -135,10 +133,10 @@ impl Model {
         self.tree
             .get(id)
             .and_then(|n| n.region(region))
-            .filter(|r| !r.disabled && !r.hidden)
+            .filter(|r| !r.semantics.disabled && !r.semantics.hidden)
             .map(|r| {
-                let mut actions = r.actions.clone();
-                if r.focusable && !actions.contains(&A11yAction::Focus) {
+                let mut actions = r.semantics.actions.clone().unwrap_or_default();
+                if r.semantics.focusable && !actions.contains(&A11yAction::Focus) {
                     actions.push(A11yAction::Focus);
                 }
                 actions

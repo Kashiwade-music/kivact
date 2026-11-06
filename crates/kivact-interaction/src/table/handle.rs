@@ -1,21 +1,21 @@
-//! Role: The `Table` handle: options, sort, widths, and its grid, row and cell parts.
+//! Role: Table options, sorting, widths and grid, row and cell parts.
 
 use super::data::{SortOrder, TableCellState, TableFocus, TableHeaderState, TableRowState};
 use super::model::ColumnDef;
-use super::state::State;
-use super::{cells, state};
+use super::state::{State, Target};
+use super::{cells, sort as sorting, state};
+use crate::Selection;
 use crate::axis::check_list_axis;
 use crate::policy::scalar::{ScalarRange, ScalarRangeError};
-use crate::{ListGesture, ListMode, ListSelection, SplitterState, use_splitter};
-use kivact_core::diagnostics::ErrorKind;
-use kivact_core::primitive::{Owned, Part, PartState, part, raise, require_setup};
-use kivact_core::view::{
-    Handled, IntoValue, Key, KeyEvent, Orientation, Role, SortDirection, current_modifiers,
-};
-use kivact_core::{Binding, Value, binding, memo, var};
+use crate::roving::Member;
+use crate::{ListGesture, ListMode, SplitterState, use_splitter};
+use kivact_core::ErrorKind;
+use kivact_core::custom::{NodeRefExt, Owner};
+use kivact_core::custom::{Owned, Part, PartState, part, raise, require_setup};
+use kivact_core::state::IntoValue;
+use kivact_core::state::{Value, binding, memo, var};
+use kivact_core::view::{Handled, Key, KeyEvent, Orientation, Role, SortDirection, modifiers};
 use std::collections::HashMap;
-use std::hash::Hash;
-use std::panic::Location;
 use std::rc::Rc;
 
 /// A Copy table handle over caller-owned rows, columns and selection.
@@ -24,11 +24,11 @@ use std::rc::Rc;
 /// column, and rows and cells with `for_each`, attaching
 /// [`grid`](Self::grid), [`header`](Self::header), [`row`](Self::row),
 /// [`cell`](Self::cell) and [`resize`](Self::resize). The table keeps the
-/// row order, the selection through a [`List`](crate::List), the sort state,
+/// row order, the selection through a [`ListApi`](crate::ListApi), the sort state,
 /// the column widths and the keyboard focus; it creates no visible node.
 ///
-/// Sorting the data is the caller's job: read [`sort_value`](Self::sort_value) and order
-/// the rows passed to [`use_table`]. A caller that orders the rows before
+/// Sorting the data is the caller's job: read [`sort_value`](Self::sort) and order
+/// the rows passed to [`use_data_table`]. A caller that orders the rows before
 /// creating the table keeps the sort state in its own binding and passes it
 /// with [`sort`](Self::sort). Activating a sortable header
 /// sorts by its column ascending, and activating it again flips the
@@ -36,22 +36,28 @@ use std::rc::Rc;
 ///
 /// [`TableFocus`] chooses the keyboard pattern. With
 /// [`Cells`](TableFocus::Cells) (the default, an ARIA data grid) one cell is
-/// the tab stop and the arrows, Home, End, Ctrl+Home and Ctrl+End move it
+/// the tab stop and the arrows, PageUp, PageDown, Home, End, Ctrl+Home and Ctrl+End move it
 /// ([`GridMove`](crate::GridMove)); Space selects its row, Ctrl+Space
 /// toggles it, Shift+ArrowUp/Down extend the selection and Ctrl+A or Cmd+A
 /// selects every row. With [`Rows`](TableFocus::Rows) the rows are the items
 /// of a list: one row is the tab stop and the list keys, pointer selection
 /// and typeahead apply to rows. The variant carries the policy and is the
-/// fifth argument of [`use_table`]; the other setters may be called before or
+/// fifth argument of [`use_data_table`]; the other setters may be called before or
 /// after the parts are made.
 ///
 /// ```no_run
 /// # mod kivact {
 /// #     //! Role: Supply facade paths for this documentation example.
-/// #     pub use kivact_core::{control, prelude, view};
+/// # pub use kivact_core::{view, state, style};
+/// # pub mod prelude {
+/// # //! Role: Supply the canonical imports used by this documentation example.
+/// # pub use kivact_core::state::{Callback, IntoBinding, IntoText, IntoValue, Signal, Value, binding, effect, memo, on_cleanup, on_mount, signal};
+/// # pub use kivact_core::view::{EditPhase, Component, IntoView, NodeBuilder, Orientation, Role, column, for_each, node, node_ref, row, show, text};
+/// # pub use kivact_core::style::{ColorToken, Cursor, Style, style};
+/// # }
 /// #     pub extern crate kivact_interaction as interaction;
 /// # }
-/// use kivact::interaction::{ColumnDef, ListSelection, TableFocus, use_table};
+/// use kivact::interaction::{ColumnDef, TableFocus, use_data_table};
 /// use kivact::prelude::*;
 /// use kivact::view::for_each;
 /// #[derive(Clone, PartialEq)]
@@ -62,12 +68,13 @@ use std::rc::Rc;
 ///     ColumnDef::new("name", "Name").compare(|a: &Person, b: &Person| a.name.cmp(&b.name)),
 ///     ColumnDef::new("age", "Age").compare(|a: &Person, b: &Person| a.age.cmp(&b.age)),
 /// ];
-/// let t = use_table(people, |p: &Person| p.id, columns.clone(),
-///     ListSelection::Multiple(selected.into()), TableFocus::default());
+/// let t = use_data_table(people, |p: &Person| p.id, columns.clone(),
+///     selected, TableFocus::default());
 /// let head = row(columns.iter().map(|c| {
 ///     node().part(t.header(*c.key())).child(text(c.label())).into_view()
 /// }).collect::<Vec<_>>());
-/// let body = for_each(people, |p| p.id, move |id, person| {
+/// let body = for_each(people, |p| p.id, move |person| {
+///     let id = person.with(|p| p.id);
 ///     row((
 ///         node().part(t.cell(id, "name")).child(text(move || person.get().name)),
 ///         node().part(t.cell(id, "age")).child(text(move || person.get().age.to_string())),
@@ -76,13 +83,13 @@ use std::rc::Rc;
 /// });
 /// let view = column((head, body)).part(t.grid());
 /// ```
-pub struct Table<K: Clone + Eq + Hash + 'static, C: Clone + Eq + Hash + 'static> {
-    state: Owned<State<K, C>>,
+pub struct DataTableApi<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey> {
+    state: Owned<Rc<State<K, C>>>,
 }
 
-impl<K: Clone + Eq + Hash + 'static, C: Clone + Eq + Hash + 'static> Copy for Table<K, C> {}
+impl<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey> Copy for DataTableApi<K, C> {}
 
-impl<K: Clone + Eq + Hash + 'static, C: Clone + Eq + Hash + 'static> Clone for Table<K, C> {
+impl<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey> Clone for DataTableApi<K, C> {
     fn clone(&self) -> Self {
         *self
     }
@@ -92,36 +99,35 @@ impl<K: Clone + Eq + Hash + 'static, C: Clone + Eq + Hash + 'static> Clone for T
 ///
 /// `rows` is the caller's data in display order, `key` its stable row
 /// identity, `columns` the column definitions in display order (a
-/// [`TableModel`](super::TableModel)'s [`columns`](super::TableModel::columns) are the shown ones) and
+/// [`DataTableModelApi`](super::DataTableModelApi)'s [`columns`](super::DataTableModelApi::columns) are the shown ones) and
 /// `selection` the
 /// caller's authoritative row selection. `focus` chooses the keyboard
 /// pattern with the policy it uses ([`TableFocus`]); `TableFocus::Rows` with a
 /// policy whose mode is not `ListMode::Select` is a usage error. Rows whose
 /// key repeats are reported, and the first one wins, as in a
-/// [`List`](crate::List). Setup only.
+/// [`ListApi`](crate::ListApi). Setup only.
 #[track_caller]
-pub fn use_table<R, K, C>(
+pub fn use_data_table<R, K, C>(
     rows: impl IntoValue<Vec<R>>,
     key: impl Fn(&R) -> K + 'static,
     columns: impl IntoValue<Vec<ColumnDef<R, C>>>,
-    selection: ListSelection<K>,
+    selection: impl crate::IntoSelection<K>,
     focus: TableFocus,
-) -> Table<K, C>
+) -> DataTableApi<K, C>
 where
-    R: Clone + PartialEq + 'static,
-    K: Clone + Eq + Hash + 'static,
-    C: Clone + Eq + Hash + 'static,
+    R: kivact_core::state::PropValue,
+    K: kivact_core::state::ItemKey,
+    C: kivact_core::state::ItemKey,
 {
-    let at = Location::caller();
+    let selection = selection.into_selection();
     if let TableFocus::Rows(policy) = focus {
         if policy.mode != ListMode::Select {
             raise(
                 ErrorKind::Message,
-                "use_table: TableFocus::Rows needs ListMode::Select",
-                at,
+                "use_data_table: TableFocus::Rows needs ListMode::Select",
             );
         }
-        check_list_axis(policy.axis, "use_table");
+        check_list_axis(policy.axis, "use_data_table");
     }
     let rows = rows.into_value();
     let keys = memo(move || rows.with(|rows| rows.iter().map(&key).collect::<Vec<_>>()));
@@ -134,12 +140,71 @@ where
                 .collect::<Vec<_>>()
         })
     });
-    Table {
-        state: state::create(keys, headers, selection, focus, at),
+    DataTableApi {
+        state: state::create(keys, headers, selection, focus),
     }
 }
 
-impl<K: Clone + Eq + Hash + 'static, C: Clone + Eq + Hash + 'static> Table<K, C> {
+impl<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey> DataTableApi<K, C> {
+    /// Drawing state of the mounted table container.
+    pub fn grid_state(self) -> Value<PartState> {
+        let observed = self.state().grid_state;
+        memo(move || observed.get().map(|state| state.get()).unwrap_or_default())
+    }
+    /// Drawing state of the mounted column header.
+    pub fn header_state(self, column: C) -> Value<TableHeaderState> {
+        let observed = self.state().header_states;
+        memo(move || {
+            observed
+                .with(|states| states.get(&column).copied())
+                .map(|state| state.get())
+                .unwrap_or(TableHeaderState {
+                    input: PartState::default(),
+                    sort: None,
+                    sortable: false,
+                    sort_rank: None,
+                })
+        })
+    }
+    /// Drawing state of the mounted row.
+    pub fn row_state(self, key: K) -> Value<TableRowState> {
+        let shared = self.state();
+        let row = shared.list.item_state(key.clone());
+        memo(move || {
+            shared
+                .row_states
+                .with(|states| states.get(&key).copied())
+                .map(|state| state.get())
+                .unwrap_or_else(|| {
+                    let row = row.get();
+                    TableRowState {
+                        input: row.input,
+                        selected: row.selected,
+                        active: row.active,
+                    }
+                })
+        })
+    }
+    /// Drawing state of the mounted cell.
+    pub fn cell_state(self, key: K, column: C) -> Value<TableCellState> {
+        let shared = self.state();
+        let row = shared.list.item_state(key.clone());
+        memo(move || {
+            shared
+                .cell_states
+                .with(|states| states.get(&(key.clone(), column.clone())).copied())
+                .map(|state| state.get())
+                .unwrap_or_else(|| {
+                    let row = row.get();
+                    TableCellState {
+                        input: PartState::default(),
+                        selected: row.selected,
+                        active: false,
+                    }
+                })
+        })
+    }
+
     #[track_caller]
     fn state(self) -> Rc<State<K, C>> {
         self.state.get()
@@ -151,9 +216,9 @@ impl<K: Clone + Eq + Hash + 'static, C: Clone + Eq + Hash + 'static> Table<K, C>
     #[track_caller]
     pub fn row_label(self, label: impl Fn(&K) -> String + 'static) -> Self {
         let state = self.state();
-        require_setup("Table::row_label");
+        require_setup("DataTableApi::row_label");
         let label: Rc<dyn Fn(&K) -> String> = Rc::new(label);
-        state.label.update(|current| *current = Some(label));
+        state.options.update(|options| options.label = Some(label));
         self
     }
 
@@ -163,12 +228,17 @@ impl<K: Clone + Eq + Hash + 'static, C: Clone + Eq + Hash + 'static> Table<K, C>
     /// to start sorted, or to order the rows before creating the table. Setup
     /// only.
     #[track_caller]
-    pub fn sort(self, sort: impl Into<Binding<Option<(C, SortOrder)>>>) -> Self {
+    pub fn with_sort(
+        self,
+        sort: impl kivact_core::state::IntoBinding<Option<(C, SortOrder)>>,
+    ) -> Self {
         let state = self.state();
-        require_setup("Table::sort");
-        let sort = sort.into();
-        state.sort.update(|current| *current = sort);
-        state.multi_sort.update(|current| *current = None);
+        require_setup("DataTableApi::sort");
+        let sort = sort.into_binding();
+        state.options.update(|options| {
+            options.sort = sort;
+            options.multi_sort = None;
+        });
         self
     }
 
@@ -176,11 +246,15 @@ impl<K: Clone + Eq + Hash + 'static, C: Clone + Eq + Hash + 'static> Table<K, C>
     /// activation replaces the list. Each key cycles ascending, descending,
     /// and unsorted. Setup only.
     #[track_caller]
-    pub fn multi_sort(self, sort: impl Into<Binding<Vec<(C, SortOrder)>>>) -> Self {
-        require_setup("Table::multi_sort");
+    pub fn multi_sort(
+        self,
+        sort: impl kivact_core::state::IntoBinding<Vec<(C, SortOrder)>>,
+    ) -> Self {
+        require_setup("DataTableApi::multi_sort");
+        let sort = sort.into_binding();
         self.state()
-            .multi_sort
-            .update(|current| *current = Some(sort.into()));
+            .options
+            .update(|options| options.multi_sort = Some(sort));
         self
     }
 
@@ -189,11 +263,14 @@ impl<K: Clone + Eq + Hash + 'static, C: Clone + Eq + Hash + 'static> Table<K, C>
     /// The table's own widths start from each [`ColumnDef::width`]. Resize parts
     /// offer the whole next map to the binding's writer. Setup only.
     #[track_caller]
-    pub fn widths(self, widths: impl Into<Binding<HashMap<C, f64>>>) -> Self {
+    pub fn with_widths(
+        self,
+        widths: impl kivact_core::state::IntoBinding<HashMap<C, f64>>,
+    ) -> Self {
         let state = self.state();
-        require_setup("Table::widths");
-        let widths = widths.into();
-        state.widths.update(|current| *current = widths);
+        require_setup("DataTableApi::widths");
+        let widths = widths.into_binding();
+        state.options.update(|options| options.widths = widths);
         self
     }
 
@@ -206,28 +283,31 @@ impl<K: Clone + Eq + Hash + 'static, C: Clone + Eq + Hash + 'static> Table<K, C>
     pub fn resize_limits(
         self,
         range: ScalarRange,
-        key_step: f64,
+        key_step: impl Into<f64>,
     ) -> Result<Self, ScalarRangeError> {
+        let key_step = key_step.into();
         if !key_step.is_finite() || key_step <= 0.0 {
             return Err(ScalarRangeError::InvalidStep);
         }
         let state = self.state();
-        require_setup("Table::resize_limits");
-        state.resize.set((range, key_step));
+        require_setup("DataTableApi::resize_limits");
+        state
+            .options
+            .update(|options| options.resize = (range, key_step));
         Ok(self)
     }
 
     /// Read the sort column and direction; `None` is the caller's own order.
     #[track_caller]
-    pub fn sort_value(self) -> Value<Option<(C, SortOrder)>> {
-        let sort = self.state().sort;
+    pub fn sort(self) -> Value<Option<(C, SortOrder)>> {
+        let sort = self.state().sort();
         (move || sort.with(|sort| sort.get())).into_value()
     }
 
     /// Read the column widths, in the caller's unit, by column key.
     #[track_caller]
-    pub fn widths_value(self) -> Value<HashMap<C, f64>> {
-        let widths = self.state().widths;
+    pub fn widths(self) -> Value<HashMap<C, f64>> {
+        let widths = self.state().widths();
         (move || widths.with(|widths| widths.get())).into_value()
     }
 
@@ -243,27 +323,40 @@ impl<K: Clone + Eq + Hash + 'static, C: Clone + Eq + Hash + 'static> Table<K, C>
         self
     }
 
-    /// Table or grid semantics, without appearance or children.
+    /// DataTableApi or grid semantics, without appearance or children.
     #[track_caller]
     pub fn grid(self) -> Part<PartState> {
         let state = self.state();
-        require_setup("Table::grid");
-        match state.focus {
-            TableFocus::None => part(|input| input).role(Role::Table),
-            TableFocus::Rows(_) => state.list.list().role(Role::Grid),
-            TableFocus::Cells(_) => part(|input| input)
-                .role(Role::Grid)
-                .multiselectable(matches!(state.selection, ListSelection::Multiple(_))),
-        }
+        require_setup("DataTableApi::grid");
+        let input = if matches!(state.focus, TableFocus::Rows(_)) {
+            state.list.list()
+        } else {
+            part(|input| input)
+        };
+        let part_state = input.state();
+        state.grid_state.set(Some(part_state));
+        Part::new(part_state, move |host| {
+            let host = host.part(input).role(if state.focus == TableFocus::None {
+                Role::Table
+            } else {
+                Role::Grid
+            });
+            if matches!(state.focus, TableFocus::Cells(_)) {
+                host.roving_focus(Orientation::Horizontal)
+                    .multiselectable(matches!(state.selection, Selection::Multiple(_)))
+            } else {
+                host
+            }
+        })
     }
 
     /// A column header with its label, sort semantics and sort activation.
     #[track_caller]
     pub fn header(self, column: C) -> Part<TableHeaderState> {
         let state = self.state();
-        require_setup("Table::header");
+        require_setup("DataTableApi::header");
         let reference = state.header_ref(&column);
-        let (columns, sort, multi_sort) = (state.columns, state.sort, state.multi_sort);
+        let columns = state.columns;
         let key = var(column);
         let info = memo(move || {
             key.with(|key| {
@@ -276,39 +369,7 @@ impl<K: Clone + Eq + Hash + 'static, C: Clone + Eq + Hash + 'static> Table<K, C>
             })
         });
         let sortable = memo(move || info.with(|info| info.as_ref().is_some_and(|info| info.1)));
-        let direction = memo(move || {
-            key.with(|key| {
-                if let Some(multi_sort) = multi_sort.get() {
-                    return multi_sort.with(|items| {
-                        items
-                            .iter()
-                            .find(|(column, _)| column == key)
-                            .map(|(_, order)| *order)
-                    });
-                }
-                sort.with(|sort| {
-                    sort.with(|sort| match sort {
-                        Some((column, order)) if column == key => Some(*order),
-                        _ => None,
-                    })
-                })
-            })
-        });
-        let rank = memo(move || {
-            multi_sort.get().and_then(|sort| {
-                sort.with(|items| {
-                    if items.len() < 2 {
-                        return None;
-                    }
-                    key.with(|key| {
-                        items
-                            .iter()
-                            .position(|(column, _)| column == key)
-                            .map(|index| (index + 1, items.len()))
-                    })
-                })
-            })
-        });
+        let (direction, rank) = header_sort(&state, key);
         let priority = kivact_core::i18n::message_with(
             "data_table.sort_priority",
             "Priority {rank} of {total}",
@@ -317,84 +378,58 @@ impl<K: Clone + Eq + Hash + 'static, C: Clone + Eq + Hash + 'static> Table<K, C>
                 [("rank", rank.to_string()), ("total", total.to_string())]
             },
         );
+        let state_for_sort = state.clone();
         let activate = move |extend: bool| {
-            if !sortable.get() {
-                return;
-            }
-            if let Some(binding) = multi_sort.get_untracked() {
-                let column = key.get();
-                let mut keys = binding.get_untracked();
-                let index = keys.iter().position(|(key, _)| *key == column);
-                let next = match index.map(|index| keys[index].1) {
-                    None => Some(SortOrder::Ascending),
-                    Some(SortOrder::Ascending) => Some(SortOrder::Descending),
-                    Some(SortOrder::Descending) => None,
-                };
-                if !extend {
-                    keys.clear();
-                    keys.extend(next.map(|next| (column, next)));
-                } else if let Some(index) = index {
-                    if let Some(next) = next {
-                        keys[index].1 = next;
-                    } else {
-                        keys.remove(index);
-                    }
-                } else if let Some(next) = next {
-                    keys.push((column, next));
-                }
-                binding.set(keys);
-                return;
-            }
-            let next = match direction.get() {
-                Some(SortOrder::Ascending) => SortOrder::Descending,
-                _ => SortOrder::Ascending,
-            };
-            sort.get_untracked().set(Some((key.get(), next)));
+            activate_header(&state_for_sort, &key.get(), sortable.get(), extend);
         };
         let focused = reference.focused();
-        part(move |input| TableHeaderState {
+        let focus_mode = state.focus;
+        let focusable = memo(move || sortable.get() || matches!(focus_mode, TableFocus::Cells(_)));
+        let keyboard = state.clone();
+        let mounted = state.clone();
+        let input = part(move |input| TableHeaderState {
             input,
             sort: direction.get(),
             sortable: sortable.get(),
             sort_rank: rank.get().map(|(rank, _)| rank),
+        });
+        let part_state = input.state();
+        observe_header(&state, key, part_state);
+        Part::new(part_state, move |host| {
+            host.part(input)
+                .role(Role::ColumnHeader)
+                .name(move || {
+                    info.with(|info| info.as_ref().map(|info| info.0.clone()))
+                        .unwrap_or_default()
+                })
+                .sort(move || {
+                    direction
+                        .get()
+                        .map_or(SortDirection::None, SortDirection::from)
+                })
+                .focusable(focusable)
+                .description(move || {
+                    if rank.get().is_some() {
+                        priority.get()
+                    } else {
+                        String::new()
+                    }
+                })
+                .on_press(move || activate(modifiers().get().shift))
+                .on_attach(move |mount| {
+                    mount_header(mounted.clone(), key.get(), mount);
+                })
+                .on_key(move |event: KeyEvent| {
+                    header_key(
+                        &keyboard,
+                        &key.get(),
+                        &event,
+                        focused.get_untracked(),
+                        sortable.get(),
+                    )
+                })
+                .node_ref(reference)
         })
-        .role(Role::ColumnHeader)
-        .name(move || {
-            info.with(|info| info.as_ref().map(|info| info.0.clone()))
-                .unwrap_or_default()
-        })
-        .sort(move || {
-            direction
-                .get()
-                .map_or(SortDirection::None, SortDirection::from)
-        })
-        .focusable(sortable)
-        .description(move || {
-            if rank.get().is_some() {
-                priority.get()
-            } else {
-                String::new()
-            }
-        })
-        .on_press(move || activate(current_modifiers().shift))
-        .on_key(move |event: KeyEvent| {
-            let modifiers = event.modifiers;
-            if !event.repeat
-                && modifiers.shift
-                && !modifiers.ctrl
-                && !modifiers.alt
-                && !modifiers.meta
-                && matches!(event.key, Key::Enter | Key::Space)
-                && focused.get_untracked()
-                && multi_sort.get_untracked().is_some()
-            {
-                activate(true);
-                Handled::Yes
-            } else {
-                Handled::No
-            }
-        })
-        .reference(reference)
     }
 
     /// A row with its name, selection and, with [`TableFocus::Rows`], the
@@ -402,17 +437,14 @@ impl<K: Clone + Eq + Hash + 'static, C: Clone + Eq + Hash + 'static> Table<K, C>
     #[track_caller]
     pub fn row(self, key: K) -> Part<TableRowState> {
         let state = self.state();
-        require_setup("Table::row");
+        require_setup("DataTableApi::row");
         if matches!(state.focus, TableFocus::Rows(_)) {
-            return state
-                .list
-                .item(key)
-                .map_state(|item| TableRowState {
-                    input: item.input,
-                    selected: item.selected,
-                    active: item.active,
-                })
-                .role(Role::Row);
+            let base = state.list.item(key).map_state(|item| TableRowState {
+                input: item.input,
+                selected: item.selected,
+                active: item.active,
+            });
+            return Part::new(base.state(), move |host| host.part(base).role(Role::Row));
         }
         cells::row(state, key)
     }
@@ -425,23 +457,23 @@ impl<K: Clone + Eq + Hash + 'static, C: Clone + Eq + Hash + 'static> Table<K, C>
     #[track_caller]
     pub fn cell(self, key: K, column: C) -> Part<TableCellState> {
         let state = self.state();
-        require_setup("Table::cell");
-        cells::cell(state, key, column, Location::caller())
+        require_setup("DataTableApi::cell");
+        cells::cell(state, key, column)
     }
 
     /// A splitter on the trailing boundary of a column that edits its width.
     ///
-    /// The width is the column's entry in [`widths_value`](Self::widths_value), else its
+    /// The width is the column's entry in [`widths_value`](Self::widths), else its
     /// [`ColumnDef::width`], else the measured width of its header. Writes go
     /// through [`resize_limits`](Self::resize_limits) to the widths binding.
     /// The caller names the handle and draws it. Setup only.
     #[track_caller]
     pub fn resize(self, column: C) -> Part<SplitterState> {
         let state = self.state();
-        require_setup("Table::resize");
+        require_setup("DataTableApi::resize");
         let rect = state.header_ref(&column).rect();
-        let (columns, widths) = (state.columns, state.widths);
-        let resize = state.resize;
+        let (columns, widths) = (state.columns, state.widths());
+        let resize = state.resize();
         let key = var(column);
         let value = memo(move || {
             key.with(|key| {
@@ -456,7 +488,7 @@ impl<K: Clone + Eq + Hash + 'static, C: Clone + Eq + Hash + 'static> Table<K, C>
                         })
                     })
                     .filter(|width| width.is_finite() && *width > 0.0)
-                    .unwrap_or_else(|| rect.get().map_or(100.0, |rect| f64::from(rect.width)))
+                    .unwrap_or_else(|| rect.get().map_or(100.0, |rect| rect.width))
             })
         });
         let write = move |width: f64| {
@@ -492,4 +524,206 @@ impl<K: Clone + Eq + Hash + 'static, C: Clone + Eq + Hash + 'static> Table<K, C>
             .shift_step_factor(5.0)
             .handle()
     }
+}
+
+type HeaderSort = (Value<Option<SortOrder>>, Value<Option<(usize, usize)>>);
+
+fn header_sort<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey>(
+    state: &State<K, C>,
+    key: kivact_core::state::Var<C>,
+) -> HeaderSort {
+    let sort = state.sort();
+    let multi_sort = state.multi_sort();
+    let direction = memo(move || {
+        key.with(|key| {
+            if let Some(multi_sort) = multi_sort.get() {
+                return multi_sort.with(|items| {
+                    items
+                        .iter()
+                        .find(|(column, _)| column == key)
+                        .map(|(_, order)| *order)
+                });
+            }
+            sort.with(|sort| {
+                sort.with(|sort| match sort {
+                    Some((column, order)) if column == key => Some(*order),
+                    _ => None,
+                })
+            })
+        })
+    });
+    let rank = memo(move || {
+        multi_sort.get().and_then(|sort| {
+            sort.with(|items| {
+                if items.len() < 2 {
+                    return None;
+                }
+                key.with(|key| {
+                    items
+                        .iter()
+                        .position(|(column, _)| column == key)
+                        .map(|index| (index + 1, items.len()))
+                })
+            })
+        })
+    });
+    (direction, rank)
+}
+
+fn activate_header<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey>(
+    state: &State<K, C>,
+    key: &C,
+    sortable: bool,
+    extend: bool,
+) {
+    let sort = state.sort();
+    let multi_sort = state.multi_sort();
+    if !sortable {
+        return;
+    }
+    let multiple = multi_sort.get_untracked();
+    let keys = multiple.map_or_else(
+        || sort.get_untracked().get_untracked().into_iter().collect(),
+        |binding| binding.get_untracked(),
+    );
+    let next = sorting::Sort::activate(sorting::Event {
+        current: sorting::Sort::from_keys(keys),
+        column: key.clone(),
+        extend,
+        multiple: multiple.is_some(),
+    })
+    .keys();
+    if let Some(binding) = multiple {
+        binding.set(next);
+    } else {
+        sort.get_untracked().set(next.into_iter().next());
+    }
+}
+
+fn mount_header<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey>(
+    mounted: Rc<State<K, C>>,
+    key: C,
+    mount: kivact_core::custom::PartMount,
+) {
+    if !matches!(mounted.focus, TableFocus::Cells(_)) {
+        return;
+    }
+    let owner = Owner::current();
+    if Owner::root() != mounted.root {
+        owner.report(
+            ErrorKind::WrongApp,
+            "DataTableApi header belongs to another App",
+        );
+        return;
+    }
+    let target = Target::Header(key);
+    let node = mount.node;
+    mounted.roving.insert(
+        target.clone(),
+        Member {
+            node,
+            eligible: mount.eligible,
+            disabled: mount.disabled,
+            hidden: mount.hidden,
+        },
+    );
+    let token = node.mounted_node();
+    let weak = Rc::downgrade(&mounted);
+    owner.on_cleanup(move || {
+        if let Some(state) = weak.upgrade() {
+            let focused = token.is_some() && state.owner.focused_node() == token;
+            if state.roving.remove(&target, node) && focused {
+                state.roving.restore_from.set(token);
+            }
+        }
+    });
+}
+
+fn header_key<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey>(
+    keyboard: &State<K, C>,
+    key: &C,
+    event: &KeyEvent,
+    focused: bool,
+    sortable: bool,
+) -> Handled {
+    let multi_sort = keyboard.multi_sort();
+    if matches!(keyboard.focus, TableFocus::Cells(_)) && focused {
+        let column = key.clone();
+        let columns = keyboard.columns.with(|columns| {
+            columns
+                .iter()
+                .map(|column| column.key.clone())
+                .collect::<Vec<_>>()
+        });
+        if let Some(index) = columns.iter().position(|key| *key == column) {
+            let destination = match event.key() {
+                Key::ArrowLeft => Some(index.saturating_sub(1)),
+                Key::ArrowRight => Some((index + 1).min(columns.len() - 1)),
+                Key::Home => Some(0),
+                Key::End if !event.modifiers().ctrl && !event.modifiers().meta => {
+                    Some(columns.len() - 1)
+                }
+                _ => None,
+            };
+            if let Some(destination) = destination {
+                keyboard.focus_header(columns[destination].clone());
+                return Handled::Yes;
+            }
+        }
+        let rows = keyboard.keys.get_untracked();
+        let row = match event.key() {
+            Key::ArrowDown => rows.first(),
+            Key::PageDown => rows.get(9).or_else(|| rows.last()),
+            Key::End if event.modifiers().ctrl || event.modifiers().meta => rows.last(),
+            _ => None,
+        };
+        if let Some(row) = row {
+            let column = if event.key() == Key::End {
+                keyboard
+                    .columns
+                    .with(|columns| columns.last().map(|column| column.key.clone()))
+                    .unwrap_or(column)
+            } else {
+                column
+            };
+            keyboard.focus_cell((row.clone(), column));
+            return Handled::Yes;
+        }
+    }
+    let modifiers = event.modifiers();
+    if !event.repeat()
+        && modifiers.shift
+        && !modifiers.ctrl
+        && !modifiers.alt
+        && !modifiers.meta
+        && matches!(event.key(), Key::Enter | Key::Space)
+        && focused
+        && multi_sort.get_untracked().is_some()
+    {
+        activate_header(keyboard, key, sortable, true);
+        Handled::Yes
+    } else {
+        Handled::No
+    }
+}
+
+fn observe_header<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey>(
+    state: &State<K, C>,
+    key: kivact_core::state::Var<C>,
+    part_state: Value<TableHeaderState>,
+) {
+    let observed = state.header_states;
+    observed.update(|states| {
+        states.insert(key.get(), part_state);
+    });
+    kivact_core::state::on_cleanup(move || {
+        if observed.try_get_untracked().is_some() {
+            observed.update(|states| {
+                let key = key.get();
+                if states.get(&key) == Some(&part_state) {
+                    states.remove(&key);
+                }
+            });
+        }
+    });
 }

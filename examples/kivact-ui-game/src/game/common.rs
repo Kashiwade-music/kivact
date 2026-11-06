@@ -1,37 +1,36 @@
 //! Role: Shared layout and input helpers for Game catalog specimens.
 
-use kivact::Binding;
+use kivact::interaction::ListItem;
 use kivact::prelude::{
     ColorToken, IntoText, IntoValue, IntoView, Key, Node, NodeBuilder, column, grid, node, row,
 };
 use kivact::style::{Align, Justify, pct, style};
 use kivact::style::{GridPlacement, Track};
-use kivact::ui::{ListItem, RadioGroup, radio_group};
+use kivact::ui::{RadioGroup, radio_group};
 use kivact::view::{Handled, Orientation};
 use kivact_ui_game as g;
-use std::hash::Hash;
 
 /// A segmented control: a standard radio group in the Game look of slanted
 /// segments.
-pub(super) fn segmented<K: Clone + Eq + Hash + 'static>(
+pub(super) fn segmented<K: kivact::state::ItemKey>(
     label: impl IntoText,
     options: impl IntoValue<Vec<ListItem<K>>>,
-    value: impl Into<Binding<Option<K>>>,
+    value: impl kivact::state::IntoBinding<Option<K>>,
 ) -> RadioGroup<K> {
     radio_group(label, options, value)
         .orientation(Orientation::Horizontal)
-        .variant(g::Segmented)
+        .variant(kivact::ui::RadioGroupVariant::Segmented)
 }
 
 pub(super) fn suppress_search_shortcut(event: kivact::view::KeyEvent) -> Handled {
-    if event.key == Key::Char('/') {
+    if event.key() == Key::Char('/') {
         Handled::Yes
     } else {
         Handled::No
     }
 }
 
-pub(super) fn cards(children: impl IntoView, minimum: f32) -> Node {
+pub(super) fn cards(children: impl IntoView, minimum: f64) -> Node {
     grid(children).style(
         style()
             .grid_template_columns(Track::repeat_auto_fill(Track::minmax(
@@ -47,7 +46,7 @@ pub(super) fn specimen(
     id: &str,
     name: &str,
     body: impl IntoView,
-) -> crate::game::specimens::Specimen {
+) -> crate::game::specimens::Specimen<impl kivact::view::Component> {
     let body = node()
         .child(body)
         .style(style().min_height(if matches!(id, "OVL-01" | "OVL-05") {

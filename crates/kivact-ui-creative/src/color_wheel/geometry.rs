@@ -1,7 +1,8 @@
 //! Role: Shared color picker painting and hit geometry.
 use super::{color_from_hsv, color_to_hsv};
 use crate::editors::shared::metrics::{PICKER_ALPHA, PICKER_GAP};
-use kivact::draw::{Draw, Path, Point, Rect, Size};
+use kivact::draw::{Draw, Path};
+use kivact::geometry::{Point, Rect, Size};
 use kivact::style::Color;
 #[derive(Clone, Copy, PartialEq)]
 pub(super) enum Channel {
@@ -12,7 +13,7 @@ pub(super) enum Channel {
 
 pub(super) struct Geometry {
     center: Point,
-    radius: f32,
+    radius: f64,
     square: Rect,
     alpha: Rect,
 }
@@ -50,26 +51,22 @@ impl Geometry {
         hue: f64,
     ) -> (Color, f64) {
         let (_, mut s, mut v) = color_to_hsv(color);
-        let mut alpha = f64::from(color.components()[3]);
+        let mut alpha = color.components()[3];
         let mut hue = hue;
         match channel {
             Channel::Hue => {
-                hue = f64::from(
-                    (point.y - self.center.y)
-                        .atan2(point.x - self.center.x)
-                        .to_degrees(),
-                )
-                .rem_euclid(360.0)
+                hue = (point.y - self.center.y)
+                    .atan2(point.x - self.center.x)
+                    .to_degrees()
+                    .rem_euclid(360.0)
             }
             Channel::Sv => {
-                s = f64::from((point.x - self.square.x) / self.square.width).clamp(0.0, 1.0);
-                v = 1.0 - f64::from((point.y - self.square.y) / self.square.height).clamp(0.0, 1.0);
+                s = ((point.x - self.square.x) / self.square.width).clamp(0.0, 1.0);
+                v = 1.0 - ((point.y - self.square.y) / self.square.height).clamp(0.0, 1.0);
             }
-            Channel::Alpha => {
-                alpha = f64::from(point.x / self.alpha.width.max(1.0)).clamp(0.0, 1.0)
-            }
+            Channel::Alpha => alpha = (point.x / self.alpha.width.max(1.0)).clamp(0.0, 1.0),
         }
-        (color_from_hsv(hue, s, v, alpha as f32), hue)
+        (color_from_hsv(hue, s, v, alpha), hue)
     }
 }
 
@@ -107,8 +104,8 @@ pub(super) fn paint(draw: &mut Draw, geometry: Geometry, color: Color, hue: f64)
         alpha,
     } = geometry;
     for index in 0..120 {
-        let a = index as f32 * std::f32::consts::TAU / 120.0;
-        let b = (index + 1) as f32 * std::f32::consts::TAU / 120.0;
+        let a = index as f64 * std::f64::consts::TAU / 120.0;
+        let b = (index + 1) as f64 * std::f64::consts::TAU / 120.0;
         let inner = radius * 0.86;
         draw.fill_path(
             &Path::new()
@@ -145,11 +142,11 @@ pub(super) fn paint(draw: &mut Draw, geometry: Geometry, color: Color, hue: f64)
     marker(
         draw,
         Point::new(
-            square.x + s as f32 * square.width,
-            square.y + (1.0 - v as f32) * square.height,
+            square.x + s * square.width,
+            square.y + (1.0 - v) * square.height,
         ),
     );
-    let angle = hue.to_radians() as f32;
+    let angle = hue.to_radians();
     marker(
         draw,
         Point::new(
@@ -163,8 +160,8 @@ pub(super) fn paint(draw: &mut Draw, geometry: Geometry, color: Color, hue: f64)
     for x in 0..(alpha.width / 6.0).ceil() as usize {
         for y in 0..2 {
             draw.fill_rect(
-                Rect::new(x as f32 * 6.0, alpha.y + y as f32 * 6.0, 6.0, 6.0),
-                kivact::style::rgb(if (x + y) % 2 == 0 { 0x57585d } else { 0x272830 }),
+                Rect::new(x as f64 * 6.0, alpha.y + y as f64 * 6.0, 6.0, 6.0),
+                crate::color::checker_color((x + y) % 2 == 0),
             );
         }
     }

@@ -15,27 +15,45 @@
 //!   it; the IME is given no composition range.
 //! - The IME is given its text only when the session, the node's box or
 //!   its transforms changed since the last time; its answers' offsets are
-//!   UTF-16 code units of that text, which starts at byte 0, and reach the
-//!   node as byte offsets (clamped to the text).
+//!   UTF-8 byte offsets of that text, which starts at byte 0, and reach the
+//!   node floored to its char boundaries (clamped to the text).
 
 use super::state::{ImeGiven, SessionSource};
+use crate::contract::{HostEvent, ImeSessionProps};
 use crate::model::Model;
-use crate::model::interact::text_geometry::byte_of_utf16;
 use crate::model::transform::map_rect;
-use kivact_wire::{HostEvent, ImeEvent, ImeSession, NodeId, Rect};
+use kivact_types::{ImeInput, NodeId, Rect};
 
 impl Model {
     /// The focused node that has an IME session (it is not a native editor
     /// and not disabled).
     pub(crate) fn focused_session(&self) -> Option<NodeId> {
-        let target = self.focused().filter(|f| f.region.is_none())?;
-        let n = self.tree.get(target.node)?;
-        (n.properties.ime.is_some() && self.editors[n.index.0].is_none() && !n.disabled())
-            .then_some(target.node)
+        match self.edits.target {
+            super::state::ImeTarget::Session(id) => Some(id),
+            super::state::ImeTarget::None | super::state::ImeTarget::Native(_) => None,
+        }
+    }
+
+    pub(crate) fn update_ime_target(&mut self) {
+        use super::state::{EditorSlot, ImeTarget};
+        self.edits.target = self
+            .focused()
+            .filter(|f| f.region.is_none())
+            .and_then(|f| self.tree.get(f.node).map(|n| (f.node, n)))
+            .filter(|(_, n)| !n.disabled())
+            .map_or(ImeTarget::None, |(id, n)| {
+                if self.editors[n.index.0].is_some() {
+                    ImeTarget::Native(EditorSlot(n.index))
+                } else if n.properties.ime.is_some() {
+                    ImeTarget::Session(id)
+                } else {
+                    ImeTarget::None
+                }
+            });
     }
 
     /// The session of the focused node, if it has one.
-    fn session(&self, id: NodeId) -> Option<&ImeSession> {
+    fn session(&self, id: NodeId) -> Option<&ImeSessionProps> {
         self.tree.get(id)?.properties.ime.as_deref()
     }
 
@@ -63,7 +81,7 @@ impl Model {
 
     /// Send `event` to the focused node with a session; whether there is
     /// one (otherwise the native editors take the event).
-    pub(super) fn session_event(&mut self, event: ImeEvent) -> bool {
+    pub(super) fn session_event(&mut self, event: ImeInput) -> bool {
         let Some(node) = self.focused_session() else {
             return false;
         };
@@ -77,13 +95,13 @@ impl Model {
         text: &str,
         selection: Option<(usize, usize)>,
     ) -> bool {
-        self.session_event(ImeEvent::Preedit {
+        self.session_event(ImeInput::Preedit {
             text: text.to_string(),
             selection: selection.map(|(a, b)| a.min(b)..a.max(b)),
         })
     }
 
-    /// The range the IME took for reconversion (UTF-16 code units of the
+    /// The range the IME took for reconversion (UTF-8 byte offsets of the
     /// session's text), to the focused session node if there is one.
     pub(super) fn session_select(&mut self, start: usize, end: usize) -> bool {
         let Some(id) = self.focused_session() else {
@@ -93,8 +111,11 @@ impl Model {
             return false;
         };
         let text = &session.text;
-        let (a, b) = (byte_of_utf16(text, start), byte_of_utf16(text, end));
-        self.session_event(ImeEvent::Selection(a.min(b)..a.max(b)))
+        let (a, b) = (
+            kivact_types::text_utf::floor_char_boundary(text, start),
+            kivact_types::text_utf::floor_char_boundary(text, end),
+        );
+        self.session_event(ImeInput::Selection(a.min(b)..a.max(b)))
     }
 
     /// What the focused session node `id` shows the IME, when it changed
@@ -115,7 +136,7 @@ impl Model {
         let caret = self.session_rect(id, session.caret);
         let area = self.rect(id).unwrap_or_default();
         let area = map_rect(self.transform_between(id, None).as_ref(), area);
-        let text = if session.password {
+        let text = if session.purpose == kivact_types::InputPurpose::Password {
             arvane::ShellImeText {
                 password: true,
                 rects: vec![caret],
@@ -123,10 +144,7 @@ impl Model {
                 ..arvane::ShellImeText::default()
             }
         } else {
-            let units = |byte: usize| {
-                let byte = floor(&session.text, byte);
-                session.text[..byte].encode_utf16().count()
-            };
+            let units = |byte: usize| kivact_types::text_utf::utf16_offset(&session.text, byte);
             let (start, end) = (units(session.selection.start), units(session.selection.end));
             arvane::ShellImeText {
                 password: false,
@@ -142,13 +160,4 @@ impl Model {
         };
         Some(text)
     }
-}
-
-/// `byte` cut to `text` and to the char boundary at or before it.
-fn floor(text: &str, byte: usize) -> usize {
-    let mut byte = byte.min(text.len());
-    while !text.is_char_boundary(byte) {
-        byte -= 1;
-    }
-    byte
 }

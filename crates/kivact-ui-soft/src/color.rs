@@ -1,66 +1,128 @@
 //! Role: Define the Astryx Neutral palette for light and dark appearances.
-use kivact::style::{Color, rgb, rgba};
+use kivact::style::Color;
+use kivact::style::rgb;
+use kivact::style::rgba;
 
 /// Neutral surface, semantic, categorical, data and syntax colors.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Colors {
+    /// Application canvas behind content surfaces.
     pub bg_body: Color,
+    /// Default content surface background.
     pub bg_surface: Color,
+    /// Card surface background.
     pub bg_card: Color,
+    /// Floating popover surface background.
     pub bg_popover: Color,
+    /// Subdued background for secondary regions.
     pub bg_muted: Color,
+    /// High-contrast inverted surface background.
     pub bg_inverted: Color,
+    /// Inverted error surface background.
     pub bg_error_inverted: Color,
+    /// Translucent neutral fill for secondary controls and placeholders.
     pub neutral: Color,
+    /// Primary action and selection fill.
     pub accent: Color,
+    /// Primary action fill on hover.
     pub accent_hover: Color,
+    /// Hover border for checkboxes and radio indicators.
     pub choice_border_hover: Color,
+    /// Hover surface for checkboxes and radio indicators.
     pub choice_surface_hover: Color,
+    /// Hover track fill for an unchecked switch.
     pub switch_off_hover: Color,
+    /// Subdued accent background.
     pub accent_muted: Color,
+    /// Foreground for content over the accent fill.
     pub on_accent: Color,
+    /// Foreground for content over dark media or surfaces.
     pub on_dark: Color,
+    /// Foreground for content over light media or surfaces.
     pub on_light: Color,
+    /// Text color for primary content.
     pub text_primary: Color,
+    /// Text color for secondary content.
     pub text_secondary: Color,
+    /// Text color for disabled content.
     pub text_disabled: Color,
+    /// Text color for accented content.
     pub text_accent: Color,
+    /// Icon color for primary content.
     pub icon_primary: Color,
+    /// Icon color for secondary content.
     pub icon_secondary: Color,
+    /// Icon color for disabled content.
     pub icon_disabled: Color,
+    /// Icon color for accented content.
     pub icon_accent: Color,
+    /// Default low-emphasis separator and outline color.
     pub border: Color,
+    /// Stronger outline for emphasized boundaries.
     pub border_emphasized: Color,
+    /// Placeholder fill for loading skeletons.
     pub skeleton: Color,
+    /// Unfilled slider track color.
     pub track: Color,
+    /// Base color for surface shadow effects.
     pub shadow: Color,
+    /// Tint applied to hovered surfaces.
     pub tint_hover: Color,
+    /// Scrim behind modal or overlaid content.
     pub overlay_scrim: Color,
+    /// Light scrim for media overlays in either appearance.
+    pub overlay_light_scrim: Color,
+    /// Translucent hover layer over an existing surface.
     pub overlay_hover: Color,
+    /// Translucent pressed layer over an existing surface.
     pub overlay_pressed: Color,
+    /// Outline color identifying keyboard focus.
     pub focus_ring: Color,
+    /// Solid fill for informational status indicators.
     pub info: Color,
+    /// Foreground on the solid info fill.
     pub on_info: Color,
+    /// Subdued background for informational messages.
     pub info_muted: Color,
+    /// Foreground on the subdued info background.
     pub on_info_muted: Color,
+    /// Text color for informational status messages.
     pub text_info: Color,
+    /// Solid fill for successful status indicators.
     pub success: Color,
+    /// Foreground on the solid success fill.
     pub on_success: Color,
+    /// Subdued background for successful messages.
     pub success_muted: Color,
+    /// Foreground on the subdued success background.
     pub on_success_muted: Color,
+    /// Text color for successful status messages.
     pub text_success: Color,
+    /// Solid fill for warning status indicators.
     pub warning: Color,
+    /// Foreground on the solid warning fill.
     pub on_warning: Color,
+    /// Subdued background for warning messages.
     pub warning_muted: Color,
+    /// Foreground on the subdued warning background.
     pub on_warning_muted: Color,
+    /// Text color for warning status messages.
     pub text_warning: Color,
+    /// Solid fill for error status indicators.
     pub error: Color,
+    /// Foreground on the solid error fill.
     pub on_error: Color,
+    /// Subdued background for error messages.
     pub error_muted: Color,
+    /// Foreground on the subdued error background.
     pub on_error_muted: Color,
+    /// Text color for error status messages.
     pub text_error: Color,
+    /// Coordinated categorical background, border, icon and text palettes.
     pub hue: Hues,
+    /// Chart categories and ordered sequential color ramps.
     pub data: DataColors,
+    /// Code-token and diff-highlighting palette.
     pub syntax: SyntaxColors,
 }
 
@@ -98,6 +160,7 @@ impl Colors {
             track: rgb(0xccd3db),
             shadow: rgba(0x000000, 26.0 / 255.0),
             tint_hover: rgb(0x000000),
+            overlay_light_scrim: rgba(0xffffff, 0.6),
             overlay_scrim: rgba(0x000000, 128.0 / 255.0),
             overlay_hover: rgba(0x000000, 13.0 / 255.0),
             overlay_pressed: rgba(0x000000, 26.0 / 255.0),
@@ -161,6 +224,7 @@ impl Colors {
             track: rgb(0x5a5e66),
             shadow: rgba(0x000000, 77.0 / 255.0),
             tint_hover: rgb(0xffffff),
+            overlay_light_scrim: rgba(0xffffff, 0.6),
             overlay_scrim: rgba(0x000000, 204.0 / 255.0),
             overlay_hover: rgba(0xffffff, 13.0 / 255.0),
             overlay_pressed: rgba(0xffffff, 26.0 / 255.0),
@@ -195,24 +259,38 @@ impl Colors {
 /// Colors associated with one categorical hue.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct HueColors {
+    /// Subdued background for this categorical hue.
     pub bg: Color,
+    /// Outline color paired with this hue background.
     pub border: Color,
+    /// Icon foreground for this categorical hue.
     pub icon: Color,
+    /// Text foreground for this categorical hue.
     pub text: Color,
 }
 
 /// Neutral categorical hue palettes.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Hues {
+    /// Red categorical palette with coordinated surface and foreground colors.
     pub red: HueColors,
+    /// Orange categorical palette with coordinated surface and foreground colors.
     pub orange: HueColors,
+    /// Yellow categorical palette with coordinated surface and foreground colors.
     pub yellow: HueColors,
+    /// Green categorical palette with coordinated surface and foreground colors.
     pub green: HueColors,
+    /// Teal categorical palette with coordinated surface and foreground colors.
     pub teal: HueColors,
+    /// Cyan categorical palette with coordinated surface and foreground colors.
     pub cyan: HueColors,
+    /// Blue categorical palette with coordinated surface and foreground colors.
     pub blue: HueColors,
+    /// Purple categorical palette with coordinated surface and foreground colors.
     pub purple: HueColors,
+    /// Pink categorical palette with coordinated surface and foreground colors.
     pub pink: HueColors,
+    /// Gray categorical palette with coordinated surface and foreground colors.
     pub gray: HueColors,
 }
 
@@ -351,24 +429,43 @@ impl Hues {
 /// Neutral syntax and diff colors.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct SyntaxColors {
+    /// Language keywords and control-flow words.
     pub keyword: Color,
+    /// Type names in highlighted source code.
     pub r#type: Color,
+    /// Quoted strings and string literals.
     pub string: Color,
+    /// Source-code comments.
     pub comment: Color,
+    /// Arithmetic, logical and other operator tokens.
     pub operator: Color,
+    /// Source delimiters and punctuation.
     pub punctuation: Color,
+    /// Numeric literals in source code.
     pub number: Color,
+    /// Named constants in source code.
     pub constant: Color,
+    /// Function names in highlighted source code.
     pub function: Color,
+    /// Variable names in highlighted source code.
     pub variable: Color,
+    /// Markup tag names.
     pub tag: Color,
+    /// Markup attribute names.
     pub attribute: Color,
+    /// Object property and member names.
     pub property: Color,
+    /// Background behind highlighted source code.
     pub background: Color,
+    /// Background highlighting for added diff lines.
     pub added: Color,
+    /// Background highlighting for removed diff lines.
     pub removed: Color,
+    /// Diff hunk-header highlighting.
     pub diff_header: Color,
+    /// Foreground for the added-line marker in a diff.
     pub added_marker: Color,
+    /// Foreground for the removed-line marker in a diff.
     pub removed_marker: Color,
 }
 
@@ -425,25 +522,45 @@ impl SyntaxColors {
 /// Categorical data colors and five-stop ramps, darkest stop first.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct DataColors {
+    /// Blue category color for data series.
     pub blue: Color,
+    /// Cyan category color for data series.
     pub cyan: Color,
+    /// Orange category color for data series.
     pub orange: Color,
+    /// Red category color for data series.
     pub red: Color,
+    /// Purple category color for data series.
     pub purple: Color,
+    /// Teal category color for data series.
     pub teal: Color,
+    /// Green category color for data series.
     pub green: Color,
+    /// Brown category color for data series.
     pub brown: Color,
+    /// Pink category color for data series.
     pub pink: Color,
+    /// Indigo category color for data series.
     pub indigo: Color,
+    /// Neutral category color for data series.
     pub neutral: Color,
+    /// Five-stop blue data ramp, ordered from darkest to lightest.
     pub blue_ramp: [Color; 5],
+    /// Five-stop shamrock data ramp, ordered from darkest to lightest.
     pub shamrock_ramp: [Color; 5],
+    /// Five-stop orange data ramp, ordered from darkest to lightest.
     pub orange_ramp: [Color; 5],
+    /// Five-stop pink data ramp, ordered from darkest to lightest.
     pub pink_ramp: [Color; 5],
+    /// Five-stop purple data ramp, ordered from darkest to lightest.
     pub purple_ramp: [Color; 5],
+    /// Five-stop red data ramp, ordered from darkest to lightest.
     pub red_ramp: [Color; 5],
+    /// Five-stop teal data ramp, ordered from darkest to lightest.
     pub teal_ramp: [Color; 5],
+    /// Five-stop yellow data ramp, ordered from darkest to lightest.
     pub yellow_ramp: [Color; 5],
+    /// Five-stop gray data ramp, ordered from darkest to lightest.
     pub gray_ramp: [Color; 5],
 }
 
@@ -517,23 +634,27 @@ impl DataColors {
                 rgb(0xfcec85),
                 rgb(0xfdf6ba),
             ],
-            gray_ramp: if dark {
-                [
-                    rgb(0x333338),
-                    rgb(0x666a72),
-                    rgb(0xb2b8be),
-                    rgb(0xd0d3d6),
-                    rgb(0xf2f4f6),
-                ]
-            } else {
-                [
-                    rgb(0x25363f),
-                    rgb(0x5d6c7b),
-                    rgb(0xafb9c4),
-                    rgb(0xccd3db),
-                    rgb(0xf1f4f7),
-                ]
-            },
+            gray_ramp: gray_data_ramp(dark),
         }
+    }
+}
+
+fn gray_data_ramp(dark: bool) -> [Color; 5] {
+    if dark {
+        [
+            rgb(0x333338),
+            rgb(0x666a72),
+            rgb(0xb2b8be),
+            rgb(0xd0d3d6),
+            rgb(0xf2f4f6),
+        ]
+    } else {
+        [
+            rgb(0x25363f),
+            rgb(0x5d6c7b),
+            rgb(0xafb9c4),
+            rgb(0xccd3db),
+            rgb(0xf1f4f7),
+        ]
     }
 }

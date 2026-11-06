@@ -1,19 +1,19 @@
 //! Role: The hover tooltip card and the legend of a chart.
 
 use super::model::{ChartConfig, Hit, series_color};
-use crate::Color;
-use crate::theme_access::tokens;
+use crate::ColorName;
+
 use crate::typography::MONO;
-use kivact::Signal;
-use kivact::control::{Node, column, node, row, text};
-use kivact::draw::{Point, Size};
+use kivact::geometry::{Point, Size};
 use kivact::prelude::NodeBuilder;
+use kivact::state::Signal;
 use kivact::style::{Align, Direction, Justify, Position, style};
 use kivact::view::{IntoView, Role};
+use kivact::view::{Node, column, node, row, text};
 use std::rc::Rc;
 
 /// The distance between the pointer and the card.
-const OFFSET: f32 = 14.0;
+const OFFSET: f64 = 14.0;
 
 /// The tooltip card for `hit` (chart.tsx `ChartTooltipContent`), placed beside the pointer `at` in a plot of `size`.
 ///
@@ -36,18 +36,22 @@ pub(super) fn tooltip(
                     .size(10, 10)
                     .shrink(0)
                     .radius(2)
-                    .background(series_color(&config, series, &tokens()))
+                    .background(series_color(
+                        &config,
+                        series,
+                        &kivact::style::use_tokens::<crate::Tokens>(),
+                    ))
             }),
             row((
                 text(hit_row.label.clone())
-                    .style(style().color(Color::MutedForeground).line_height(1.0)),
+                    .style(style().color(ColorName::MutedForeground).line_height(1.0)),
                 text(format(hit_row.value)).style(
                     style()
                         .font_family(MONO)
                         .weight(500)
                         .tabular_nums()
                         .line_height(1.0)
-                        .color(Color::Foreground),
+                        .color(ColorName::Foreground),
                 ),
             ))
             .style(
@@ -63,19 +67,19 @@ pub(super) fn tooltip(
     });
     let height = 14.0
         + hit.title.as_ref().map_or(0.0, |_| 22.0)
-        + hit.rows.len() as f32 * 16.0
-        + hit.rows.len().saturating_sub(1) as f32 * 6.0;
+        + hit.rows.len() as f64 * 16.0
+        + hit.rows.len().saturating_sub(1) as f64 * 6.0;
     column((
         hit.title
             .clone()
             .map(|title| text(title).style(style().weight(500).line_height(1.0))),
         column(rows.collect::<Vec<_>>()).style(style().gap(6)),
     ))
-    .role(Role::Group)
+    .with_node(|root| root.role(Role::Group))
     // The pointer passes through the card to the plot (`pointer-events-none`).
     .hit_testable(false)
     .style(move || {
-        let p = tokens();
+        let p = kivact::style::use_tokens::<crate::Tokens>();
         let at = at.get();
         let top = (at.y + OFFSET).min(size.height - height).max(0.0);
         // Laid out at the plot's top left corner (flipped: ending there),
@@ -86,7 +90,7 @@ pub(super) fn tooltip(
         } else {
             placed.left(0).translate(at.x + OFFSET, top)
         };
-        let c = kivact::style::Color::BLACK.with_alpha(0.1);
+        let c = kivact::style::use_theme().get().colors().shadow;
         placed
             .z_index(10)
             .min_width(128)
@@ -117,9 +121,13 @@ pub(super) fn legend(config: &Rc<ChartConfig>) -> Node {
                         .size(8, 8)
                         .shrink(0)
                         .radius(2)
-                        .background(series_color(&colors, index, &tokens()))
+                        .background(series_color(
+                            &colors,
+                            index,
+                            &kivact::style::use_tokens::<crate::Tokens>(),
+                        ))
                 }),
-                text(series.label.clone()).style(style().color(Color::Foreground)),
+                text(series.label.clone()).style(style().color(ColorName::Foreground)),
             ))
             .style(style().gap(6).align_items(Align::Center))
             .into_view()

@@ -23,14 +23,7 @@ fn app() -> impl IntoView {
             button("Next").on_press(move || id.update(|n| *n += 1)),
         ))
         .style(style().gap(8)),
-        dynamic(
-            move || user.state(),
-            |state| match state {
-                AsyncState::Idle | AsyncState::Pending => text("Loading…"),
-                AsyncState::Failed(error) => text(format!("Error: {error}")),
-                AsyncState::Ready(name) => text(name),
-            },
-        ),
+        async_view(user, text),
     ))
     .style(style().padding(24).gap(12))
 }
@@ -50,12 +43,12 @@ mod tests {
     #[test]
     fn next_and_previous_load_and_user_zero_fails() {
         let screen = kivact::test::render(app);
-        screen.get_by_text("Loading…");
+        screen.get_by_role(Role::Status, "Loading");
         screen.advance(LOAD);
         screen.get_by_text("User #1");
 
         screen.get_by_role(Role::Button, "Next").click();
-        screen.get_by_text("Loading…");
+        screen.get_by_role(Role::Status, "Loading");
         screen.advance(LOAD);
         screen.get_by_text("User #2");
 

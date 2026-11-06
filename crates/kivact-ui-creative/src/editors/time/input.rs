@@ -5,14 +5,14 @@ use crate::editors::shared::selection;
 use crate::editors::time::gesture::{Drag, Snapshot, State, Target};
 use crate::editors::time::layout::item_rect;
 use crate::editors::time::model::{TimeItem, TimeRequest};
-use kivact::draw::Point;
-use kivact::interaction::{Drag as Gesture, ListGesture};
+use kivact::geometry::Point;
+use kivact::interaction::{DragApi as Gesture, ListGesture};
 use kivact::view::{Handled, Key, KeyEvent, MouseButton, PointerEvent, PointerPhase, WheelEvent};
 
 /// The press decides what the editor's drag does; the drag's sources (the
 /// canvas and its regions) then follow the pointer until it ends.
 pub(crate) fn pointer<T: TimeItem>(s: State<T>, e: PointerEvent) -> Handled {
-    let PointerPhase::Down(press) = e.phase else {
+    let PointerPhase::Down(press) = e.phase() else {
         return Handled::No;
     };
     if s.gesture.is_active() {
@@ -20,43 +20,34 @@ pub(crate) fn pointer<T: TimeItem>(s: State<T>, e: PointerEvent) -> Handled {
     }
     let target = s.target(e.region());
     match press.button {
-        MouseButton::Middle => start(s, Drag::Pan, s.view_snapshot(), &e, None),
+        MouseButton::Middle => start(s, Drag::Pan, &e, None),
         MouseButton::Primary => {
             s.active.set(target);
             match target {
                 // A lane press only activates on a stationary double click.
-                Some(Target::Lane(_)) => {
-                    s.press
-                        .begin(&e, target, (None, Some(s.snapshot(&[]))), None)
-                }
+                Some(Target::Lane(_)) => s.press.begin(&e, target, None, None),
                 // The press moves the playhead: see `drag`.
-                Some(Target::Playhead) => start(
-                    s,
-                    Drag::Playhead,
-                    Snapshot::Playhead(s.playhead.get()),
-                    &e,
-                    None,
-                ),
+                Some(Target::Playhead) => start(s, Drag::Playhead, &e, None),
                 Some(Target::Trim(id, right)) => {
                     s.choose.select(id, ListGesture::Replace);
-                    start(s, Drag::Trim(id, right), s.snapshot(&[id]), &e, None);
+                    start(s, Drag::Trim(id, right), &e, None);
                 }
                 Some(Target::Item(id)) => {
                     let mut pending = None;
                     match selection::press(
                         &s.selection.get(),
                         id,
-                        e.modifiers,
-                        &kivact::interaction::ListPolicy::default(),
+                        e.modifiers(),
+                        &kivact::interaction::ListOptions::default(),
                     ) {
                         selection::Press::Pending(id) => pending = Some(id),
                         selection::Press::Select(gesture) => {
                             s.choose.select(id, gesture);
                         }
                     }
-                    start(s, Drag::Items, s.snapshot(&s.selection.get()), &e, pending);
+                    start(s, Drag::Items, &e, pending);
                 }
-                None => start(s, Drag::Marquee(e.pos, e.pos), s.snapshot(&[]), &e, None),
+                None => start(s, Drag::Marquee(e.pos(), e.pos()), &e, None),
             }
         }
         _ => return Handled::No,
@@ -67,10 +58,10 @@ pub(crate) fn pointer<T: TimeItem>(s: State<T>, e: PointerEvent) -> Handled {
 /// The editor's drag: a middle-button pan or the primary gesture the press
 /// chose, one edit from its first change. The returned drag has the callbacks
 /// its sources need; `s.gesture` is the same session.
-pub(crate) fn drag<T: TimeItem>(s: State<T>) -> Gesture<()> {
-    let drag = s.gesture.on_start(move |_| {
+pub(crate) fn drag<T: TimeItem>(s: State<T>) -> Gesture<Snapshot> {
+    let drag = s.gesture.on_start(move |update| {
         if s.drag_state() == Some(Drag::Playhead) {
-            motion(s, s.press.origin());
+            motion(s, update.pos, update.start_pos, &update.payload);
         }
     });
     s.press.install(
@@ -84,7 +75,7 @@ pub(crate) fn drag<T: TimeItem>(s: State<T>) -> Gesture<()> {
             },
         ),
         (
-            move |pos| motion(s, pos),
+            move |pos, origin, snapshot| motion(s, pos, origin, snapshot),
             move |region| {
                 s.data
                     .get()
@@ -94,7 +85,9 @@ pub(crate) fn drag<T: TimeItem>(s: State<T>) -> Gesture<()> {
                             *item,
                             &s.visible.get(),
                             s.lane_height,
-                            s.scale.get().clamp(s.bounds.0, s.bounds.1),
+                            s.scale
+                                .get()
+                                .clamp(s.bounds.get().min(), s.bounds.get().max()),
                             s.offset.get(),
                         )
                         .is_some_and(|r| r.intersects(region))
@@ -107,40 +100,18 @@ pub(crate) fn drag<T: TimeItem>(s: State<T>) -> Gesture<()> {
         ),
     )
 }
-fn start<T: TimeItem>(
-    s: State<T>,
-    drag: Drag,
-    initial: Snapshot,
-    e: &PointerEvent,
-    pending: Option<u64>,
-) {
-    s.press.begin(
-        e,
-        s.target(e.region()),
-        (Some(drag), Some(initial)),
-        pending,
-    );
+fn start<T: TimeItem>(s: State<T>, drag: Drag, e: &PointerEvent, pending: Option<u64>) {
+    s.press.begin(e, s.target(e.region()), Some(drag), pending);
 }
-fn motion<T: TimeItem>(s: State<T>, pos: Point) {
+fn motion<T: TimeItem>(s: State<T>, pos: Point, origin: Point, snapshot: &Snapshot) {
     let Some(drag) = s.drag_state() else {
         return;
     };
-    let Some(snapshot) = s.initial() else {
-        return;
-    };
-    let origin = s.press.origin();
+    let snapshot = snapshot.clone();
     if matches!(drag, Drag::Items | Drag::Trim(..)) && !s.press.moved() {
         return;
     }
-    let snap = |value: f64| {
-        if s.snap.get_untracked() {
-            let step = s.step();
-            let rounded = (value / step).round() * step;
-            if rounded.is_finite() { rounded } else { value }
-        } else {
-            value
-        }
-    };
+    let snap = move |value| snap_time(s, value);
     match (drag, snapshot) {
         (Drag::Playhead, _) => {
             let value = snap(s.time(pos.x)).max(0.0);
@@ -149,14 +120,17 @@ fn motion<T: TimeItem>(s: State<T>, pos: Point) {
             }
         }
         (Drag::Marquee(from, _), _) => s.set_drag(Some(Drag::Marquee(from, pos))),
-        (Drag::Pan, Snapshot::View(_, p)) => {
+        (Drag::Pan, Snapshot::View(kivact::interaction::ViewTransform { offset: p, .. })) => {
             let next = Point::new(p.x + pos.x - origin.x, p.y + pos.y - origin.y);
             if next != s.offset.get() {
-                s.gesture.change(|| s.pan.set(next));
+                s.gesture.change(|| s.set_offset(next));
             }
         }
         (Drag::Items, Snapshot::Items(initial)) => {
-            let dx = f64::from(pos.x - origin.x) / s.scale.get().clamp(s.bounds.0, s.bounds.1);
+            let dx = (pos.x - origin.x)
+                / s.scale
+                    .get()
+                    .clamp(s.bounds.get().min(), s.bounds.get().max());
             // The pressed item snaps and the others keep their spacing to it.
             let primary = match s.press.pressed() {
                 Some(Target::Item(id)) => initial.iter().find(|v| v.0 == id),
@@ -191,11 +165,14 @@ fn motion<T: TimeItem>(s: State<T>, pos: Point) {
         }
         (Drag::Trim(id, right), Snapshot::Items(initial)) => {
             if let Some(v) = initial.iter().find(|v| v.0 == id) {
-                let dx = f64::from(pos.x - origin.x) / s.scale.get().clamp(s.bounds.0, s.bounds.1);
+                let dx = (pos.x - origin.x)
+                    / s.scale
+                        .get()
+                        .clamp(s.bounds.get().min(), s.bounds.get().max());
                 let (time, duration) = if right {
-                    (v.1, (snap(v.1 + v.2 + dx) - v.1).max(s.min_duration))
+                    (v.1, (snap(v.1 + v.2 + dx) - v.1).max(s.min_duration.get()))
                 } else {
-                    let time = snap(v.1 + dx).min(v.1 + v.2 - s.min_duration);
+                    let time = snap(v.1 + dx).min(v.1 + v.2 - s.min_duration.get());
                     (time, v.1 + v.2 - time)
                 };
                 if time != v.1 || duration != v.2 || s.edit.is_active() {
@@ -212,29 +189,32 @@ pub(crate) fn wheel<T: TimeItem>(s: State<T>, e: WheelEvent) -> Handled {
     if s.drag_state().is_some() {
         return Handled::Yes;
     }
-    if !e.delta.x.is_finite() || !e.delta.y.is_finite() {
+    if !e.delta().x.is_finite() || !e.delta().y.is_finite() {
         return Handled::No;
     }
-    let scale = s.scale.get().clamp(s.bounds.0, s.bounds.1);
+    let scale = s
+        .scale
+        .get()
+        .clamp(s.bounds.get().min(), s.bounds.get().max());
     let offset = s.offset.get();
-    let zooms = e.modifiers.ctrl || e.modifiers.meta;
+    let zooms = e.modifiers().ctrl || e.modifiers().meta;
     let (next_scale, next_offset) = if zooms {
         wheel_zoom(
             scale,
             offset,
             e,
-            s.bounds,
+            (s.bounds.get().min(), s.bounds.get().max()),
             crate::editors::shared::metrics::SIDEBAR,
         )
     } else {
-        (scale, Point::new(offset.x - e.delta.y, offset.y))
+        (scale, Point::new(offset.x - e.delta().y, offset.y))
     };
     if (next_scale, next_offset) != (scale, offset) {
         s.edit.once(s.view_snapshot(), || {
             if zooms {
-                s.zoom.set(next_scale);
+                s.set_scale(next_scale);
             }
-            s.pan.set(next_offset);
+            s.set_offset(next_offset);
         });
     }
     Handled::Yes
@@ -244,44 +224,42 @@ pub(crate) fn key<T: TimeItem>(s: State<T>, e: KeyEvent) -> Handled {
         return Handled::No;
     }
     // The drag's sources take Escape during a drag.
-    if e.key == Key::Escape {
+    if e.key() == Key::Escape {
         s.choose.clear();
         return Handled::Yes;
     }
     if s.drag_state().is_some() {
         return Handled::Yes;
     }
-    let step = s.step() * if e.modifiers.shift { 10.0 } else { 1.0 };
-    match e.key {
+    let step = s.step() * if e.modifiers().shift { 10.0 } else { 1.0 };
+    match e.key() {
         Key::Enter => {
-            if !e.repeat
-                && let Some(target) = s.target(e.region).or(s.active.get_untracked())
+            if !e.repeat()
+                && let Some(target) = s.target(e.region()).or(s.active.get_untracked())
             {
                 s.activate(target);
             }
         }
         Key::Home => {
             s.edit.once(s.view_snapshot(), || {
-                s.pan.set(Point::new(0.0, 0.0));
-                s.zoom.set(1.0_f64.clamp(s.bounds.0, s.bounds.1));
+                s.set_offset(Point::new(0.0, 0.0));
+                s.set_scale(1.0_f64.clamp(s.bounds.get().min(), s.bounds.get().max()));
             });
         }
         _ if selection::select_all(&e) => s.choose.select_all(),
         Key::Delete | Key::Backspace => {
-            let ids = s.selected_ids();
-            if !ids.is_empty() {
-                s.edit.once(s.snapshot(&ids), || {
-                    s.request(TimeRequest::Delete(ids.clone()));
-                });
-                s.choose.clear();
-            }
+            delete_selected(s);
         }
         Key::ArrowLeft | Key::ArrowRight => {
-            let dx = if e.key == Key::ArrowLeft { -step } else { step };
+            let dx = if e.key() == Key::ArrowLeft {
+                -step
+            } else {
+                step
+            };
             if !dx.is_finite() {
                 return Handled::Yes;
             }
-            let playhead = e.region.is_some_and(|id| {
+            let playhead = e.region().is_some_and(|id| {
                 s.scene.with_untracked(|v| {
                     v.as_ref().ok().and_then(|v| v.target(id)).copied() == Some(Target::Playhead)
                 })
@@ -427,5 +405,25 @@ impl<T: TimeItem> State<T> {
             |target| self.context_for(target),
             |x| self.time(x).max(0.0),
         )
+    }
+}
+
+fn snap_time<T: TimeItem>(s: State<T>, value: f64) -> f64 {
+    if s.snap.get_untracked() {
+        let step = s.step();
+        let rounded = (value / step).round() * step;
+        if rounded.is_finite() { rounded } else { value }
+    } else {
+        value
+    }
+}
+
+fn delete_selected<T: TimeItem>(s: State<T>) {
+    let ids = s.selected_ids();
+    if !ids.is_empty() {
+        s.edit.once(s.snapshot(&ids), || {
+            s.request(TimeRequest::Delete(ids.clone()));
+        });
+        s.choose.clear();
     }
 }

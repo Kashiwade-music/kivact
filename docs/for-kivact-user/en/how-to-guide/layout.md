@@ -365,3 +365,5 @@ or is clipped without an ellipsis; see [Test your app](testing.md).
   layout.
 - [Theming](theming.md): colors, spacing and hover or focus looks.
 - Reference: `cargo doc -p kivact-style --open` lists every `Style` setter.
+
+Touch scrolling continues with platform-configured inertia after release. Apply `.scroll_snap(ScrollSnap::Start)`, `Center`, or `End` to align direct in-flow children when scrolling stops; `Display::Contents` children are flattened. `ScrollSnap::None` disables snapping. Import `ScrollSnap` from `kivact::style`. Programmatic scrolling accepts `ScrollBehavior::Smooth(Easing::EaseOut)` (or another easing) and `ScrollBehavior::Instant`; reduced motion applies the target immediately.

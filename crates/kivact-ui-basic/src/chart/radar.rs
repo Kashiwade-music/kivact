@@ -4,18 +4,19 @@ use super::model::{Frame, Hit, HitRow, series_color};
 use super::polar::{MARGIN, locate, polar};
 use super::scale::{Domain, text_width};
 use crate::tokens::Tokens;
-use kivact::draw::{Draw, LineJoin, Path, Point, Size, Stroke, TextBaseline, TextStyle};
+use kivact::draw::{Draw, LineJoin, Path, Stroke, TextBaseline, TextFormat};
+use kivact::geometry::{Point, Size};
 use kivact::style::TextAlign;
 
 /// The gap between the outer ring and the category labels.
-const LABEL_GAP: f32 = 10.0;
+const LABEL_GAP: f64 = 10.0;
 /// The height the labels above and below the web need.
-const LABEL_ROOM: f32 = 28.0;
+const LABEL_ROOM: f64 = 28.0;
 
 /// The web: its middle, radius, value scale and the angle of each axis.
 struct Web {
     center: Point,
-    radius: f32,
+    radius: f64,
     domain: Domain,
     axes: usize,
 }
@@ -26,7 +27,7 @@ impl Web {
             .rows
             .iter()
             .map(|row| text_width(&row.label, 12.0))
-            .fold(0.0, f32::max);
+            .fold(0.0, f64::max);
         let radius = if f.axis {
             (size.height / 2.0 - LABEL_ROOM).min(size.width / 2.0 - widest - LABEL_GAP - MARGIN)
         } else {
@@ -45,8 +46,8 @@ impl Web {
     }
 
     /// The angle of axis `index`: the first axis points up.
-    fn angle(&self, index: usize) -> f32 {
-        -90.0 + 360.0 * index as f32 / self.axes as f32
+    fn angle(&self, index: usize) -> f64 {
+        -90.0 + 360.0 * index as f64 / self.axes as f64
     }
 
     /// The point of axis `index` at `value`.
@@ -58,7 +59,7 @@ impl Web {
 
 /// Paint the chart; `hit` is the axis under the pointer.
 pub(super) fn paint(d: &mut Draw, size: Size, f: &Frame, hit: Option<&Hit>) {
-    let tokens = d.theme().get::<Tokens>();
+    let tokens = d.theme().ext::<Tokens>();
     let web = Web::new(size, f);
     if f.grid {
         paint_web(d, &web, &tokens);
@@ -136,12 +137,12 @@ fn paint_labels(d: &mut Draw, web: &Web, f: &Frame, tokens: &Tokens) {
         } else {
             TextBaseline::Middle
         };
-        let style = TextStyle {
+        let style = TextFormat {
             size: 12.0,
             color: tokens.muted_foreground,
             align,
             baseline,
-            ..TextStyle::default()
+            ..TextFormat::default()
         };
         d.text(&row.label, at, style);
     }
@@ -157,7 +158,7 @@ pub(super) fn hit(size: Size, f: &Frame, at: Point) -> Option<Hit> {
     if distance > web.radius + LABEL_GAP {
         return None;
     }
-    let step = 360.0 / web.axes as f32;
+    let step = 360.0 / web.axes as f64;
     let index = ((angle + step / 2.0) / step) as usize % web.axes;
     Some(Hit {
         index,

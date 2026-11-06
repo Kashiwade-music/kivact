@@ -7,10 +7,10 @@
 
 use std::sync::Arc;
 
-use kivact_wire::{
-    A11yAction, LayoutProps, NodeKind, NodeProperties, NodeType, Overflow, OverlayProps,
-    PaintProps, Point, Position, Rect, Region, RegionId, Role, Scene, SceneLayer, Size,
-    StateStyles, TextProps,
+use crate::contract::{NodeKind, NodeProperties, NodeType, SceneLayer};
+use kivact_types::{
+    A11yAction, DrawList, FocusTarget, LayoutProps, Overflow, OverlayProps, PaintProps, Point,
+    Position, Rect, Region, RegionId, Role, Size, StateStyles, TextStyle,
 };
 
 /// A stable position in the sole node store, used only by retained links.
@@ -23,10 +23,12 @@ pub(crate) struct HostNode {
     /// The primary slot it was made for, assigned by `NodeStore::reserve`.
     pub(crate) index: NodeIndex,
     pub(crate) properties: NodeProperties,
-    pub(crate) scenes: [Option<Arc<Scene>>; 2],
+    pub(crate) scenes: [Option<Arc<DrawList>>; 2],
     pub(crate) scroll: Point,
-    pub(crate) sent_layout: Option<(Rect, Size, bool)>,
-    pub(crate) sent_scroll: Option<(Point, Size, Size)>,
+    pub(crate) sent_layout: kivact_types::cell::Sent<LayoutReport>,
+    pub(crate) sent_scroll: kivact_types::cell::Sent<ScrollReport>,
+    /// The last published loading status of an `Image` node's asset.
+    pub(crate) sent_image: kivact_types::cell::Sent<kivact_types::ImageStatus>,
     /// Where its paint and layout place it (`model::transform`), read when
     /// its `Paint`, `States` or `Layout` prop is stored.
     pub(crate) place: Place,
@@ -34,20 +36,78 @@ pub(crate) struct HostNode {
     /// scroll of its scrollport (`model::interact::sticky`; zero otherwise).
     pub(crate) shift: Point,
     /// Whether it shows its enter or exit paint (`model::presence`).
-    pub(crate) presence: Presence,
+    pub(crate) presence: NodePresence,
+}
+
+/// The last published geometry and text clipping observation.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) struct LayoutReport(pub(crate) Rect, pub(crate) Size, pub(crate) Clipping);
+/// The last published scroll offset, viewport, content extents and enabled axes.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) struct ScrollReport(
+    pub(crate) Point,
+    pub(crate) Size,
+    pub(crate) Size,
+    pub(crate) (bool, bool),
+);
+/// Whether observed text is clipped.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Clipping {
+    No,
+    Yes,
+}
+/// Whether children require stacking order.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(crate) enum Stacking {
+    #[default]
+    Flat,
+    Stacks,
 }
 
 /// Where a node is between its mount and its removal, for its enter and
 /// exit paint (`StateStyles::enter`, `StateStyles::exit`).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub(crate) enum Presence {
+pub(crate) enum NodePresence {
+    Arriving(ArrivalPhase),
     #[default]
     Mounted,
     /// Removed by kivact and kept, with its subtree, until its exit paint
     /// is reached: drawn, but neither hit, focused nor exposed.
-    Leaving,
+    Leaving(LeavingRole),
 }
 
+/// Whether entrance motion is waiting for attachment or running.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum ArrivalPhase {
+    Pending,
+    Animating,
+}
+
+impl From<NodePresence> for kivact_types::Presence {
+    fn from(presence: NodePresence) -> Self {
+        match presence {
+            NodePresence::Arriving(_) => Self::Entering,
+            NodePresence::Mounted => Self::Present,
+            NodePresence::Leaving(_) => Self::Leaving,
+        }
+    }
+}
+
+/// A leaving subtree root owns the requested completion notification.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum LeavingRole {
+    Root { notify: Notify },
+    Descendant,
+}
+
+/// Whether physical removal reports exit completion.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Notify {
+    Silent,
+    OnComplete,
+}
+
+// xtask-allow(state-fields): Derived placement cache records independent transform, z-order and positioning facts (S-9); stacking has its own enum.
 /// What a node's paint and layout say about where it is: read from its
 /// `Paint`, `States` and `Layout` props when they are stored, so the walks
 /// over the tree (hit testing, the paint list, the geometry reports) skip
@@ -64,7 +124,7 @@ pub(crate) struct Place {
     /// One of its children has (or had) a z-index or a state style that
     /// sets one: its children are ordered by z-index (`Model::stacked`).
     /// Kept once set.
-    pub(crate) stacks: bool,
+    pub(crate) stacks: Stacking,
     /// `position: sticky`: moved by its scrollport's scroll, and drawn and
     /// hit over its in-flow siblings of the same z-index (CSS paints
     /// positioned boxes after in-flow ones).
@@ -89,17 +149,22 @@ impl HostNode {
             index,
             scenes: [None, None],
             scroll: Point::default(),
-            sent_layout: None,
-            sent_scroll: None,
+            sent_layout: Default::default(),
+            sent_scroll: Default::default(),
+            sent_image: Default::default(),
             place: Place::default(),
             shift: Point::default(),
-            presence: Presence::Mounted,
+            presence: NodePresence::Mounted,
         };
         node.update_place();
         node
     }
 
     pub(crate) fn update_place(&mut self) {
+        if self.is_transparent() {
+            self.place = Place::default();
+            return;
+        }
         let base = self.paint();
         let deltas = self.states().into_iter().flat_map(|s| s.deltas());
         let (mut moved, mut z_states) = (false, false);
@@ -118,38 +183,43 @@ impl HostNode {
         self.place.fixed = position == Some(Position::Fixed);
     }
 
-    pub(crate) fn semantics(&self) -> Option<&kivact_wire::NodeSemantics> {
+    pub(crate) fn is_transparent(&self) -> bool {
+        self.layout()
+            .is_some_and(|l| l.display == kivact_types::Display::Contents)
+    }
+
+    pub(crate) fn semantics(&self) -> Option<&kivact_types::Semantics<FocusTarget>> {
         self.properties.semantics.as_deref()
     }
-    pub(crate) fn text_data(&self) -> Option<&kivact_wire::TextData> {
+    pub(crate) fn text_data(&self) -> Option<&kivact_types::TextData> {
         match &self.properties.kind {
             NodeKind::Text(data) => Some(data),
             _ => None,
         }
     }
-    pub(crate) fn input_data(&self) -> Option<&kivact_wire::EditingData> {
+    pub(crate) fn input_data(&self) -> Option<&crate::contract::EditingData> {
         self.properties.editing.as_deref()
     }
-    pub(crate) fn image_data(&self) -> Option<&kivact_wire::ImageData> {
+    pub(crate) fn image_data(&self) -> Option<&kivact_types::ImageData> {
         match &self.properties.kind {
             NodeKind::Image(data) => Some(data),
             _ => None,
         }
     }
-    pub(crate) fn intrinsic(&self) -> Option<&kivact_wire::IntrinsicSize> {
+    pub(crate) fn intrinsic(&self) -> Option<&kivact_types::IntrinsicSize> {
         match &self.properties.kind {
             NodeKind::Box(data) => data.intrinsic.as_ref(),
             NodeKind::Image(data) => data.intrinsic.as_ref(),
             _ => None,
         }
     }
-    pub(crate) fn measure(&self) -> Option<&kivact_wire::LeafMeasure> {
+    pub(crate) fn measure(&self) -> Option<&crate::contract::LeafMeasure> {
         match &self.properties.kind {
             NodeKind::Box(data) => data.measure.as_ref(),
             _ => None,
         }
     }
-    pub(crate) fn image(&self) -> Option<&kivact_wire::Asset> {
+    pub(crate) fn image(&self) -> Option<&kivact_types::Asset> {
         self.image_data()?.image.as_ref()
     }
 
@@ -159,12 +229,12 @@ impl HostNode {
     }
 
     /// The scenes of both draw layers (`Draw`, `DrawOver`).
-    pub(crate) fn scenes(&self) -> &[Option<Arc<Scene>>; 2] {
+    pub(crate) fn scenes(&self) -> &[Option<Arc<DrawList>>; 2] {
         &self.scenes
     }
 
     /// The scene of a draw layer.
-    pub(crate) fn scene(&self, layer: SceneLayer) -> Option<&Arc<Scene>> {
+    pub(crate) fn scene(&self, layer: SceneLayer) -> Option<&Arc<DrawList>> {
         self.scenes[layer_index(layer)].as_ref()
     }
 
@@ -179,13 +249,18 @@ impl HostNode {
     pub(crate) fn content(&self) -> Option<&str> {
         self.text_data()?.content.as_deref()
     }
-    pub(crate) fn spans(&self) -> &[kivact_wire::TextSpan] {
+    pub(crate) fn spans(&self) -> &[kivact_types::TextSpan] {
         self.text_data()
             .and_then(|d| d.spans.as_deref())
             .unwrap_or(&[])
     }
+    pub(crate) fn purpose(&self) -> kivact_types::InputPurpose {
+        self.input_data()
+            .and_then(|d| d.purpose)
+            .unwrap_or_default()
+    }
     pub(crate) fn password(&self) -> bool {
-        self.input_data().and_then(|d| d.password).unwrap_or(false)
+        self.purpose() == kivact_types::InputPurpose::Password
     }
     /// Whether it reports its editing session when it changes.
     pub(crate) fn reports_session(&self) -> bool {
@@ -227,7 +302,7 @@ impl HostNode {
     pub(crate) fn states(&self) -> Option<&StateStyles> {
         self.properties.states.as_deref()
     }
-    pub(crate) fn text(&self) -> Option<&TextProps> {
+    pub(crate) fn text(&self) -> Option<&TextStyle> {
         self.properties.text.as_deref()
     }
     pub(crate) fn overlay(&self) -> Option<OverlayProps> {
@@ -259,6 +334,12 @@ impl HostNode {
         self.properties.input.hit_testable.unwrap_or(true)
     }
 
+    /// Hidden visually while retaining its layout box.
+    pub(crate) fn visibility_hidden(&self) -> bool {
+        self.layout()
+            .is_some_and(|l| l.visibility == kivact_types::Visibility::Hidden)
+    }
+
     pub(crate) fn hidden(&self) -> bool {
         self.properties.input.hidden.unwrap_or(false) || self.layout().is_some_and(|l| l.hidden)
     }
@@ -273,13 +354,13 @@ impl HostNode {
         self.input_data().and_then(|s| s.multiline).unwrap_or(false)
     }
 
-    pub(crate) fn edit_line_layout(&self) -> kivact_wire::EditLineLayout {
+    pub(crate) fn edit_line_layout(&self) -> kivact_types::EditLineLayout {
         if self.multiline() {
             self.input_data()
                 .and_then(|s| s.line_layout)
                 .unwrap_or_default()
         } else {
-            kivact_wire::EditLineLayout::default()
+            kivact_types::EditLineLayout::default()
         }
     }
 
@@ -289,16 +370,17 @@ impl HostNode {
     pub(crate) fn focusable(&self, editor_present: bool) -> bool {
         let focusable = self.properties.input.focusable.unwrap_or(editor_present);
         focusable
+            && !self.is_transparent()
             && (!self.disabled() || self.properties.input.focusable_when_disabled == Some(true))
             && !self.hidden()
     }
 
     /// The declared native pointer focus destination, if currently bound.
-    pub(crate) fn focus_on_press(&self) -> Option<kivact_wire::FocusTarget> {
+    pub(crate) fn focus_on_press(&self) -> Option<kivact_types::FocusTarget> {
         self.properties.input.focus_on_press
     }
 
-    pub(crate) fn roving_focus(&self) -> Option<kivact_wire::RovingFocus> {
+    pub(crate) fn roving_focus(&self) -> Option<crate::contract::RovingFocus> {
         self.properties.input.roving_focus
     }
 
@@ -319,6 +401,9 @@ impl HostNode {
 
     /// Which axes scroll (`overflow: Scroll`), `(x, y)`.
     pub(crate) fn scroll_axes(&self) -> (bool, bool) {
+        if self.is_transparent() {
+            return (false, false);
+        }
         match self.layout() {
             Some(l) => (
                 l.overflow_x == Overflow::Scroll,
@@ -330,10 +415,11 @@ impl HostNode {
 
     /// Clips its children (paint clip or a non-visible overflow).
     pub(crate) fn clips(&self) -> bool {
-        self.paint().is_some_and(|p| p.clip)
-            || self.layout().is_some_and(|l| {
-                l.overflow_x != Overflow::Visible || l.overflow_y != Overflow::Visible
-            })
+        !self.is_transparent()
+            && (self.paint().is_some_and(|p| p.clip)
+                || self.layout().is_some_and(|l| {
+                    l.overflow_x != Overflow::Visible || l.overflow_y != Overflow::Visible
+                }))
     }
 
     /// The scene region `id` of either draw layer.
@@ -352,14 +438,14 @@ impl HostNode {
             .rev()
             .flatten()
             .flat_map(|s| s.regions.iter().rev())
-            .filter(|r| !r.hidden)
+            .filter(|r| !r.semantics.hidden)
             .find(|r| {
-                let Some(inverse) = kivact_lower::path::transform(r.transform).invert() else {
+                let Some(inverse) = r.transform.invert() else {
                     return false;
                 };
                 let point = inverse.apply(local);
                 match &r.shape {
-                    Some(shape) => kivact_lower::scene_shape::shape(shape).contains(point),
+                    Some(shape) => crate::lower::scene_shape::shape(shape).contains(point),
                     None => r.local_rect.contains(point),
                 }
             })

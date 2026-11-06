@@ -1,8 +1,9 @@
 //! Role: What the host event modules share: the stale and modal drops,
 //! the lookup of a node's handler and owner, and the failure-safe handler run.
 
-use kivact_reactive::{Owner, Runtime, UiError};
-use kivact_wire::{HostEvent, KeyPhase, NodeId, PointerPhase};
+use kivact_engine::contract::HostEvent;
+use kivact_runtime::{Owner, Runtime, UiError};
+use kivact_types::{KeyPhase, NodeId, PointerPhase};
 
 use crate::client::state::HostState;
 use crate::view::state::ViewState;
@@ -12,27 +13,26 @@ use crate::view::tree::Handlers;
 /// press to keyboard.
 pub(super) fn track_modality(rt: &Runtime, host_event: &HostEvent) {
     match host_event {
-        HostEvent::Pointer { event, .. } if matches!(event.phase, PointerPhase::Down(_)) => {
-            ViewState::of(rt).set_pointer_modality(true);
+        HostEvent::Pointer(route) if matches!(route.input.phase, PointerPhase::Down(_)) => {
+            ViewState::of(rt).set_pointer_modality(true)
         }
-        HostEvent::Key {
-            phase: KeyPhase::Down { .. },
-            ..
-        } => ViewState::of(rt).set_pointer_modality(false),
+        HostEvent::Key(route) if matches!(route.input.phase, KeyPhase::Down { .. }) => {
+            ViewState::of(rt).set_pointer_modality(false)
+        }
         _ => {}
     }
 }
 
-/// Note the modifier keys the host reported last (`view::current_modifiers`):
+/// Note the modifier keys the host reported last (`view::modifiers`):
 /// key, pointer and wheel events carry them, and `ModifiersChanged` reports a
 /// change between events. Recorded before admission, so an event a modal
 /// drops still updates them.
 pub(super) fn track_modifiers(rt: &Runtime, host_event: &HostEvent) {
     let modifiers = match host_event {
-        HostEvent::Key { modifiers, .. }
-        | HostEvent::Wheel { modifiers, .. }
-        | HostEvent::ModifiersChanged(modifiers) => *modifiers,
-        HostEvent::Pointer { event, .. } => event.modifiers,
+        HostEvent::Key(route) => route.input.modifiers,
+        HostEvent::Wheel(route) => route.input.modifiers,
+        HostEvent::Pointer(route) => route.input.modifiers,
+        HostEvent::ModifiersChanged(modifiers) => *modifiers,
         _ => return,
     };
     ViewState::of(rt).set_modifiers(modifiers);
@@ -44,7 +44,9 @@ pub(super) fn node_owner(rt: &Runtime, id: NodeId) -> Option<Owner> {
 
 pub(super) fn stale(rt: &Runtime, what: &str, id: NodeId) {
     let host = HostState::of(rt);
-    host.stale_events.set(host.stale_events.get() + 1);
+    let mut stats = host.stats.get();
+    stats.stale_events += 1;
+    host.stats.set(stats);
     rt.note(format!("stale {what} event for removed node {}", id.0));
 }
 
@@ -64,7 +66,9 @@ pub(super) fn admitted(rt: &Runtime, event: &HostEvent, what: &str, id: NodeId) 
 /// Count and note an event for `id` dropped because a modal is open.
 pub(super) fn drop_outside_modal(rt: &Runtime, what: &str, id: NodeId) {
     let host = HostState::of(rt);
-    host.stale_events.set(host.stale_events.get() + 1);
+    let mut stats = host.stats.get();
+    stats.stale_events += 1;
+    host.stats.set(stats);
     rt.note(format!(
         "{what} event for node {} outside the open modal overlay dropped",
         id.0

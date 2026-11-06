@@ -1,9 +1,10 @@
-//! Role: A highlighted, selectable code listing with title, copy action and footer.
-
+//! Role: Pure source-highlighting data and Basic code presentation variants.
+mod highlight;
 mod lines;
 mod rust;
 mod view;
-
-pub use lines::{CodeLine, CodeSpan, CodeTone, code_lines};
-pub use rust::rust_lines;
-pub use view::{CodeBlock, CodeBlockSize, code_block};
+pub use highlight::rust_lines;
+pub use lines::{CodeLine, CodeSpan, CodeTone};
+pub use rust::rust_source;
+pub(crate) use view::recipes;
+pub use view::{CodeBlockLook, CodeBlockSize};

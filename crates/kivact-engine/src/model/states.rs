@@ -1,4 +1,4 @@
-//! Role: State styles: a node's base paint plus the deltas of its current states.
+//! Role: Resolve paint and text styles for current interaction states.
 //!
 //! State styles (`StateStyles`): the paint a host draws a node with, its
 //! base paint with the deltas of the states it is in. The core resolves
@@ -35,11 +35,11 @@
 //! - A text color delta colors the text below the node; the nearest
 //!   ancestor-or-self with an active one wins.
 
-use kivact_wire::{ComputedText, NodeId, PaintDelta, PaintProps, Rgba, StateStyles};
+use kivact_types::{ComputedTextStyle, NodeId, PaintDelta, PaintProps, Rgba, StateStyles};
 
 use crate::model::Model;
 use crate::mutation::Mutation;
-use crate::tree::node::Presence;
+use crate::tree::node::NodePresence;
 
 fn merge(p: &mut PaintProps, d: &PaintDelta) {
     if let Some(b) = &d.background {
@@ -99,7 +99,7 @@ impl Model {
         [
             s.focus.as_ref().filter(|_| {
                 self.focused()
-                    == Some(kivact_wire::FocusTarget {
+                    == Some(kivact_types::FocusTarget {
                         node: id,
                         region: None,
                     })
@@ -107,7 +107,7 @@ impl Model {
             s.focus_visible.as_ref().filter(|_| {
                 self.focus.visible()
                     && self.focused()
-                        == Some(kivact_wire::FocusTarget {
+                        == Some(kivact_types::FocusTarget {
                             node: id,
                             region: None,
                         })
@@ -119,7 +119,7 @@ impl Model {
             s.enter.as_ref().filter(|_| entering),
             s.exit
                 .as_ref()
-                .filter(|_| node.presence == Presence::Leaving),
+                .filter(|_| matches!(node.presence, NodePresence::Leaving(_))),
         ]
         .into_iter()
         .flatten()
@@ -164,8 +164,10 @@ impl Model {
             .and_then(|n| n.states())
             .is_some_and(crate::tree::states_place)
         {
-            self.changes.a11y_subtrees.insert(id);
-            self.changes.needs_layout = true;
+            self.a11y.subtree(id);
+            self.changes
+                .layout
+                .insert(crate::model::changes::LayoutReasons::PASS);
             self.changes.moved();
         }
     }
@@ -201,8 +203,8 @@ impl Model {
 
     /// The text style of `id`: the inherited `Text` prop, colored by the
     /// nearest ancestor-or-self with an active text color delta.
-    pub(crate) fn text_style(&self, id: NodeId) -> ComputedText {
-        let mut t = ComputedText::clone(&self.text_props(id));
+    pub(crate) fn text_style(&self, id: NodeId) -> ComputedTextStyle {
+        let mut t = ComputedTextStyle::clone(&self.text_props(id));
         t.color = self.text_color(id);
         t
     }

@@ -12,7 +12,7 @@
 //! single default action, so a native click is reported as `Activate`; the
 //! receiver resolves it against the actions the node declared.
 
-use kivact_types::protocol::{SemanticsTree, SemanticsUpdate};
+use kivact_types::render::{SemanticsTree, SemanticsUpdate};
 use winit::event::WindowEvent;
 use winit::event_loop::ActiveEventLoop;
 use winit::window::Window;
@@ -35,7 +35,7 @@ impl accesskit::ActivationHandler for Activation {
         // a placeholder until that first (complete) update, or, after a
         // deactivation, the tree accepted before it until the application
         // (which stopped keeping it meanwhile) replaces it.
-        self.waker.wake();
+        self.waker.wake(arvane_shell::WakeReasons::A11Y_ACTIONS);
         tree
     }
 }
@@ -51,13 +51,14 @@ impl accesskit::ActionHandler for Actions {
             return;
         };
         if self.shared.queue_action(node, asked) {
-            self.waker.wake();
+            self.waker.wake(arvane_shell::WakeReasons::A11Y_ACTIONS);
         }
     }
 }
 
 struct Deactivation {
     shared: PlatformTree,
+    waker: ShellWaker,
 }
 
 impl accesskit::DeactivationHandler for Deactivation {
@@ -66,6 +67,7 @@ impl accesskit::DeactivationHandler for Deactivation {
     /// application stops building updates and nothing is remembered.
     fn deactivate_accessibility(&mut self) {
         self.shared.deactivate();
+        self.waker.wake(arvane_shell::WakeReasons::A11Y_ACTIONS);
     }
 }
 
@@ -84,7 +86,7 @@ impl NativeAccessibility {
 
     /// A bridge whose logical bounds are mapped to the window's pixels with
     /// `scale`, whatever the window's own scale factor.
-    #[cfg(feature = "testing")]
+    #[cfg(feature = "test")]
     pub(crate) fn with_scale(
         event_loop: &ActiveEventLoop,
         window: &Window,
@@ -111,10 +113,11 @@ impl NativeAccessibility {
             },
             Actions {
                 shared: shared.clone(),
-                waker,
+                waker: waker.clone(),
             },
             Deactivation {
                 shared: shared.clone(),
+                waker,
             },
         );
         Self {
@@ -125,7 +128,7 @@ impl NativeAccessibility {
     }
 
     /// The window's tree, for a handle on another thread.
-    #[cfg(feature = "testing")]
+    #[cfg(feature = "test")]
     pub(crate) fn platform_tree(&self) -> PlatformTree {
         self.shared.clone()
     }
@@ -180,12 +183,6 @@ impl NativeAccessibility {
             .update_if_active(|| shared.pending_with(root, convert_update).expect(TREE_KEPT));
     }
 
-    /// Whether assistive technology reads the tree (it asked for it and has
-    /// not let go of it): otherwise an application need not build it.
-    pub(crate) fn active(&self) -> bool {
-        self.shared.active()
-    }
-
     pub(crate) fn drain_actions(&mut self) -> Vec<ShellEvent> {
         self.shared.drain_actions()
     }
@@ -193,7 +190,7 @@ impl NativeAccessibility {
     /// Forget the accepted tree (a pooled test window handed to a new
     /// test): the platform keeps showing what it was handed until the next
     /// tree, which is complete.
-    #[cfg(feature = "testing")]
+    #[cfg(feature = "test")]
     pub(crate) fn forget(&mut self) {
         self.shared.forget();
     }
@@ -204,7 +201,7 @@ pub(crate) fn convert_update(selection: PlatformUpdate<'_>) -> accesskit::TreeUp
     let tree = selection.tree();
     let mut update = conversion::update(
         tree.root(),
-        tree.focus(),
+        selection.focus(),
         selection.nodes(),
         selection.all_runs(),
     );

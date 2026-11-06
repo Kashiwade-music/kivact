@@ -1,4 +1,5 @@
 //! Role: Catalog page of EmptyState: icon media, outline and with actions.
+use kivact::ui::ButtonVariant;
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;
@@ -9,7 +10,7 @@ pub(crate) fn page() -> Page {
         slug: "empty",
         name: "EmptyState",
         description: "表示する内容がないときの状態を伝える部品です。メディア、題名、説明、操作を中央に並べます。",
-        usage: "use kivact::prelude::*;\nuse kivact_ui_basic as basic;",
+        usage: "use kivact::prelude::*;\nuse kivact::ui::ButtonVariant;\nuse kivact_ui_basic as basic;",
         source: include_str!("empty.rs"),
         align: PreviewAlign::Center,
         examples: vec![
@@ -32,9 +33,9 @@ pub(crate) fn page() -> Page {
 
 // example: default
 fn default() -> impl IntoView {
-    basic::empty_state("No Projects Yet")
-        .media(move || icon("folder"))
-        .media_variant(basic::EmptyMediaVariant::Icon)
+    kivact::ui::empty_state("No Projects Yet")
+        .icon(icon("folder"))
+        .variant(basic::EmptyMediaVariant::Icon)
         .description("Get started by creating your first project.")
         .style(style().width(420))
 }
@@ -42,22 +43,22 @@ fn default() -> impl IntoView {
 
 // example: outline
 fn outline() -> impl IntoView {
-    basic::empty_state("No results")
-        .media(move || icon("search"))
-        .media_variant(basic::EmptyMediaVariant::Icon)
+    kivact::ui::empty_state("No results")
+        .icon(icon("search"))
+        .variant(basic::EmptyMediaVariant::Icon)
         .description("Try adjusting your search terms.")
-        .style(style().border(1, basic::Color::Border))
+        .style(style().border(1, basic::ColorName::Border))
         .style(style().width(420))
 }
 // end example
 
 // example: actions
 fn actions() -> impl IntoView {
-    basic::empty_state("Inbox zero")
-        .media(move || icon("inbox"))
-        .media_variant(basic::EmptyMediaVariant::Icon)
+    kivact::ui::empty_state("Inbox zero")
+        .icon(icon("inbox"))
+        .variant(basic::EmptyMediaVariant::Icon)
         .description("You are all caught up.")
-        .content(move || {
+        .actions({
             row((
                 button("Compose"),
                 button("Refresh").variant(ButtonVariant::Outline),

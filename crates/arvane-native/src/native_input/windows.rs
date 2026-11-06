@@ -78,8 +78,9 @@ use winit::window::Window;
 
 use windows_sys::Win32::UI::Input::KeyboardAndMouse::GetDoubleClickTime;
 
-use super::state::{ContactNote, MouseSettings, NativeInput};
+use super::state::{ContactNote, NativeInput, Subclass as SubclassState};
 use arvane_shell::ShellImeText;
+use arvane_shell::WakeReasons;
 use kivact_types::PointerKind;
 
 /// The subclass id (one subclass per window).
@@ -89,7 +90,6 @@ const HEADER: usize = std::mem::size_of::<RECONVERTSTRING>();
 
 /// The installed subclass; dropping it removes the subclass if the window
 /// still has it.
-#[derive(Debug)]
 pub(crate) struct Subclass {
     hwnd: HWND,
     input: Rc<NativeInput>,
@@ -115,7 +115,7 @@ impl Subclass {
             drop(unsafe { Rc::from_raw(data) });
             return None;
         }
-        input.subclass_installed.set(true);
+        input.subclass_installed.set(SubclassState::Installed);
         Some(Subclass {
             hwnd,
             input: Rc::clone(input),
@@ -125,7 +125,12 @@ impl Subclass {
 
 impl Drop for Subclass {
     fn drop(&mut self) {
-        if self.input.subclass_installed.replace(false) {
+        if self
+            .input
+            .subclass_installed
+            .replace(SubclassState::NotInstalled)
+            == SubclassState::Installed
+        {
             release(self.hwnd, Rc::as_ptr(&self.input));
         }
     }
@@ -203,7 +208,7 @@ unsafe extern "system" fn subclass(
         WM_LBUTTONDOWN | WM_LBUTTONUP | WM_RBUTTONDOWN | WM_RBUTTONUP | WM_MBUTTONDOWN
         | WM_MBUTTONUP | WM_XBUTTONDOWN | WM_XBUTTONUP => {
             let p = point(lparam);
-            input.pointer.set(Some((f64::from(p.x), f64::from(p.y))));
+            input.pointer.put((f64::from(p.x), f64::from(p.y)));
         }
         WM_MOUSEWHEEL | WM_MOUSEHWHEEL => {
             // A wheel message carries a screen position.
@@ -211,20 +216,24 @@ unsafe extern "system" fn subclass(
             // SAFETY: `hwnd` is this procedure's live window; `p` is a
             // valid POINT for the call.
             let mapped = unsafe { ScreenToClient(hwnd, &mut p) } != 0;
-            input
-                .pointer
-                .set(mapped.then(|| (f64::from(p.x), f64::from(p.y))));
+            if mapped {
+                input.pointer.put((f64::from(p.x), f64::from(p.y)));
+            } else {
+                input.pointer.take();
+            }
         }
         WM_TIMER if wparam == FILE_TIMER => {
             let point = cursor_at(hwnd, input.scale.get());
-            if input.file_pointer.replace(point) != point
-                && let Some(waker) = input.waker.borrow().as_ref()
-            {
-                waker.wake();
+            let previous = input.file_pointer.take();
+            if let Some(point) = point {
+                input.file_pointer.put(point);
+            }
+            if previous != point {
+                input.wake(WakeReasons::CLIENT);
             }
         }
         WM_SETTINGCHANGE => {
-            let mouse = mouse_settings();
+            let mouse = pointer_settings(input.scale.get());
             let mut changed = input.mouse.replace(mouse) != mouse;
             if let Some(reduce) = reduced_motion() {
                 changed |= input.reduced_motion.replace(reduce) != reduce;
@@ -232,19 +241,20 @@ unsafe extern "system" fn subclass(
             let locale = super::locale::system_locale();
             changed |= input.locale.replace(locale.clone()) != locale;
             if changed {
-                input.env_changed.set(true);
-                if let Ok(waker) = input.waker.try_borrow()
-                    && let Some(waker) = waker.as_ref()
-                {
-                    waker.wake();
-                }
+                input.env_changed.put(());
+                input.wake(WakeReasons::ENVIRONMENT);
             }
         }
         _ if cfg!(debug_assertions) && message == debug_dpi_message() => {
             debug_dpi_change(hwnd, wparam);
             return 0;
         }
-        WM_NCDESTROY if input.subclass_installed.replace(false) => {
+        WM_NCDESTROY
+            if input
+                .subclass_installed
+                .replace(SubclassState::NotInstalled)
+                == SubclassState::Installed =>
+        {
             // SAFETY: forwards the message down the chain, as every
             // subclass procedure must.
             let result = unsafe { DefSubclassProc(hwnd, message, wparam, lparam) };
@@ -327,7 +337,7 @@ fn note(info: &POINTER_INFO) -> Option<ContactNote> {
 }
 
 /// The tilt of the pen `id` (degrees along x and y), when it reports one.
-fn pen_tilt(id: u32) -> Option<(f32, f32)> {
+fn pen_tilt(id: u32) -> Option<(f64, f64)> {
     // SAFETY: `POINTER_PEN_INFO` is plain data; all zeros is a valid value.
     let mut pen: POINTER_PEN_INFO = unsafe { std::mem::zeroed() };
     // SAFETY: `pen` is a valid `POINTER_PEN_INFO` for the call to fill.
@@ -335,7 +345,7 @@ fn pen_tilt(id: u32) -> Option<(f32, f32)> {
         return None;
     }
     (pen.penMask & (PEN_MASK_TILT_X | PEN_MASK_TILT_Y) != 0)
-        .then_some((pen.tiltX as f32, pen.tiltY as f32))
+        .then_some((pen.tiltX as f64, pen.tiltY as f64))
 }
 
 /// The signed client or screen position packed into a mouse message.
@@ -378,8 +388,16 @@ pub(crate) fn ime_request(
             ))
         }
         IMR_CONFIRMRECONVERTSTRING => {
-            let range = confirmed(lparam, text.text.encode_utf16().collect::<Vec<u16>>().len());
-            input.reconvert.set(range.or(input.reconvert.get()));
+            let range = confirmed(lparam, text.text.encode_utf16().collect::<Vec<u16>>().len())
+                .map(|(start, end)| {
+                    (
+                        kivact_types::text_utf::byte_offset_from_utf16(&text.text, start),
+                        kivact_types::text_utf::byte_offset_from_utf16(&text.text, end),
+                    )
+                });
+            if let Some(range) = range {
+                input.reconvert.put(range);
+            }
             Some(LRESULT::from(range.is_some()))
         }
         IMR_QUERYCHARPOSITION => Some(LRESULT::from(char_position(
@@ -490,8 +508,8 @@ fn char_position(hwnd: HWND, text: &ShellImeText, scale: f64, lparam: LPARAM) ->
     }
     // Saturating: the window procedure must not panic (debug overflow
     // checks), and a casting `as` saturates too.
-    let px = |v: f32| (f64::from(v) * scale).round() as i32;
-    let at = |x: f32, y: f32| {
+    let px = |v: f64| (v * scale).round() as i32;
+    let at = |x: f64, y: f64| {
         (
             origin.x.saturating_add(px(x)),
             origin.y.saturating_add(px(y)),
@@ -513,6 +531,10 @@ fn char_position(hwnd: HWND, text: &ShellImeText, scale: f64, lparam: LPARAM) ->
 /// The id of the registered message `ArvaneDebugDpiChange` (`u32::MAX`,
 /// which no message has, when it cannot be registered).
 fn debug_dpi_message() -> u32 {
+    #[expect(
+        clippy::disallowed_types,
+        reason = "process-wide registered Windows message identity"
+    )]
     static ID: std::sync::OnceLock<u32> = std::sync::OnceLock::new();
     *ID.get_or_init(|| {
         let name: Vec<u16> = "ArvaneDebugDpiChange".encode_utf16().chain([0]).collect();
@@ -572,29 +594,83 @@ fn parameter(action: u32) -> Option<u32> {
     (read != 0).then_some(value)
 }
 
-/// Windows' mouse settings (see `MouseSettings`; a value that cannot be
+/// Windows' pointer settings (see `PointerSettings`; a value that cannot be
 /// read keeps its default).
-pub(crate) fn mouse_settings() -> MouseSettings {
-    let defaults = MouseSettings::default();
+pub(crate) fn pointer_settings(scale: f64) -> kivact_types::PointerSettings {
+    let defaults = kivact_types::PointerSettings::default();
     // SAFETY: a plain query without arguments.
-    let double_click_ms = unsafe { GetDoubleClickTime() };
+    let milliseconds = unsafe { GetDoubleClickTime() };
     let metric = |index| {
         // SAFETY: a plain query of a system metric.
         let value = unsafe { GetSystemMetrics(index) };
-        u32::try_from(value).ok().filter(|v| *v > 0)
+        (value > 0).then_some(f64::from(value) / scale)
     };
-    MouseSettings {
-        double_click_ms: if double_click_ms > 0 {
-            double_click_ms
+    kivact_types::PointerSettings {
+        double_click_ns: if milliseconds > 0 {
+            u64::from(milliseconds) * 1_000_000
         } else {
-            defaults.double_click_ms
+            defaults.double_click_ns
         },
-        double_click_px: (
-            metric(SM_CXDOUBLECLK).unwrap_or(defaults.double_click_px.0),
-            metric(SM_CYDOUBLECLK).unwrap_or(defaults.double_click_px.1),
+        double_click_distance: (
+            metric(SM_CXDOUBLECLK).unwrap_or(defaults.double_click_distance.0 / scale),
+            metric(SM_CYDOUBLECLK).unwrap_or(defaults.double_click_distance.1 / scale),
         ),
         wheel_lines: parameter(SPI_GETWHEELSCROLLLINES).unwrap_or(defaults.wheel_lines),
         wheel_chars: parameter(SPI_GETWHEELSCROLLCHARS).unwrap_or(defaults.wheel_chars),
+        drag_slop: metric(windows_sys::Win32::UI::WindowsAndMessaging::SM_CXDRAG)
+            .zip(metric(
+                windows_sys::Win32::UI::WindowsAndMessaging::SM_CYDRAG,
+            ))
+            .map_or(defaults.drag_slop, |(x, y)| x.max(y)),
+        // SAFETY: both calls only query system metrics.
+        primary: if unsafe {
+            GetSystemMetrics(windows_sys::Win32::UI::WindowsAndMessaging::SM_MOUSEPRESENT)
+        } == 0
+            // SAFETY: this call only queries the system's digitizer capabilities.
+            && unsafe {
+                GetSystemMetrics(windows_sys::Win32::UI::WindowsAndMessaging::SM_DIGITIZER)
+            } & windows_sys::Win32::UI::WindowsAndMessaging::NID_READY as i32
+                != 0
+        {
+            kivact_types::PointerClass::Coarse
+        } else {
+            kivact_types::PointerClass::Fine
+        },
+        ..defaults
+    }
+}
+
+/// Read the documented per-user app color mode; missing settings use light.
+#[cfg(feature = "embed")]
+pub(crate) fn theme_hint() -> kivact_types::ThemeHint {
+    use windows_sys::Win32::System::Registry::{HKEY_CURRENT_USER, RRF_RT_REG_DWORD, RegGetValueW};
+    let key = "Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize"
+        .encode_utf16()
+        .chain(std::iter::once(0))
+        .collect::<Vec<_>>();
+    let name = "AppsUseLightTheme"
+        .encode_utf16()
+        .chain(std::iter::once(0))
+        .collect::<Vec<_>>();
+    let mut light = 1u32;
+    let mut size = std::mem::size_of_val(&light) as u32;
+    // SAFETY: the terminated UTF-16 names live through the call; the DWORD filter
+    // and its four-byte output buffer agree, and no registry handle is retained.
+    let result = unsafe {
+        RegGetValueW(
+            HKEY_CURRENT_USER,
+            key.as_ptr(),
+            name.as_ptr(),
+            RRF_RT_REG_DWORD,
+            std::ptr::null_mut(),
+            (&raw mut light).cast(),
+            &raw mut size,
+        )
+    };
+    if result == 0 && light == 0 {
+        kivact_types::ThemeHint::Dark
+    } else {
+        kivact_types::ThemeHint::Light
     }
 }
 
@@ -617,8 +693,8 @@ fn cursor_at(hwnd: HWND, scale: f64) -> Option<kivact_types::Point> {
         return None;
     }
     Some(kivact_types::Point {
-        x: (f64::from(point.x) / scale) as f32,
-        y: (f64::from(point.y) / scale) as f32,
+        x: (f64::from(point.x) / scale),
+        y: (f64::from(point.y) / scale),
     })
 }
 /// A window timer keeps tracking through Windows' modal OLE drag loop.

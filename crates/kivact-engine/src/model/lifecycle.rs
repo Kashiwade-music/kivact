@@ -1,7 +1,8 @@
 //! Role: Coordinate structural slots and the Model-owned derived columns.
+use crate::contract::NodeKind;
 use crate::model::Model;
 use crate::tree::node::HostNode;
-use kivact_wire::{NodeId, NodeKind};
+use kivact_types::NodeId;
 
 impl Model {
     pub(crate) fn create_slot(&mut self, id: NodeId, kind: NodeKind) {
@@ -9,7 +10,7 @@ impl Model {
         debug_assert!(!self.tree.contains(id), "node ids are unique");
         let (index, fresh) = self.tree.nodes.reserve();
         if fresh {
-            self.layout_columns.push();
+            self.layout.push();
             self.measure.push();
             self.paint.push_slot();
             self.editors.push(None);
@@ -19,7 +20,7 @@ impl Model {
     pub(crate) fn remove_slots(&mut self, id: NodeId) -> Vec<NodeId> {
         let Self {
             tree,
-            layout_columns,
+            layout,
             measure,
             paint,
             editors,
@@ -35,7 +36,7 @@ impl Model {
                 editor,
                 extents,
             };
-            layout_columns.reset(index.0);
+            layout.reset(index.0);
             paint.reset_slot(index.0);
             payload
         })
@@ -44,16 +45,15 @@ impl Model {
 
 // Declaration order preserves raw props/scenes -> native editor -> text extents.
 // Dropped under the existing Model borrow: structural reentry remains OPEN.
+// xtask-allow(state-fields): Removed resources are independent optional node payloads collected only to preserve destruction order.
+#[expect(
+    dead_code,
+    reason = "the fields are held only to be dropped, in declaration order"
+)]
 struct RemovedPayload {
     node: HostNode,
     editor: Option<Box<crate::measure::editor::EditorNode>>,
     extents: Option<Box<crate::measure::state::TextExtents>>,
-}
-impl Drop for RemovedPayload {
-    fn drop(&mut self) {
-        // Fields drop in declaration order after this body.
-        let _ = (&self.node, &self.editor, &self.extents);
-    }
 }
 impl Drop for Model {
     fn drop(&mut self) {

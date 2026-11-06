@@ -28,7 +28,7 @@ For a permanently visible editor, use `color_wheel`:
 ```rust,no_run
 use kivact::prelude::*;
 use kivact::style::rgb;
-use kivact::ui::EditPhase;
+use kivact::view::EditPhase;
 use kivact_ui_creative as ui;
 
 fn grading_wheel() -> impl IntoView {
@@ -77,7 +77,7 @@ A drag is a single edit from press to release. Each key press and each typed ent
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::ui::EditPhase;
+use kivact::view::EditPhase;
 
 /// Records `(before, after)` pairs for the value in `value`.
 fn history<T: Clone + PartialEq + 'static>(

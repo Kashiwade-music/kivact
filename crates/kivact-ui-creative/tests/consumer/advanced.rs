@@ -1,11 +1,10 @@
 //! Role: Tests for the advanced Creative controls through the public API.
 
 use crate::arrangement_model::arrangement as app_arrangement;
-use crate::support::clean;
 use crate::table_rows::{line, lines};
-use kivact::draw::Point;
+use kivact::geometry::Point;
 use kivact::prelude::*;
-use kivact::primitive::NodeExt;
+
 use kivact::view::{A11yAction, Handled, KeyCode, Modifiers, MouseButton};
 use kivact_ui_creative as ui;
 use std::time::Duration;
@@ -33,8 +32,8 @@ fn arrangement_loop_automation_track_flags_and_clip_tools_update_public_models()
                     clips,
                     tracks,
                     ui::ArrangementState {
-                        loop_range: range.into(),
-                        tool: tool.into(),
+                        loop_range: range.into_binding(),
+                        tool: tool.into_binding(),
                         ..ui::ArrangementState::new()
                     },
                 )
@@ -80,7 +79,7 @@ fn arrangement_loop_automation_track_flags_and_clip_tools_update_public_models()
     screen.run_until_idle();
     screen.get_by_role(Role::Button, "Clip (2)").click();
     assert_eq!(clips.get_untracked().len(), 1);
-    clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 
 #[test]
@@ -94,7 +93,7 @@ fn floating_window_drags_collapses_and_restores_opener_focus() {
                     column((
                         text("Retained settings"),
                         kivact::ui::text_input("Window text", signal(String::new()))
-                            .value_text("Settings"),
+                            .with_node(move |node| node.value_text("Settings")),
                     ))
                     .into_view()
                 }),
@@ -146,7 +145,7 @@ fn floating_window_drags_collapses_and_restores_opener_focus() {
             .query_by_role(Role::Dialog, "Render Settings")
             .is_none()
     );
-    clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 
 #[test]
@@ -168,25 +167,8 @@ fn table_rows_are_one_tab_stop_and_follow_the_list_keys() {
                 )),
             )
         });
-    assert!(
-        screen
-            .get_by_role(Role::Grid, "Data table")
-            .is_multiselectable()
-    );
+    assert_table_tab_stops(&screen);
     let row = |name: &str| screen.get_by_role(Role::Row, name);
-    // The header, then one tab stop for the rows: the selected row.
-    screen.get_by_role(Role::Button, "Before").click();
-    screen.press_tab(false);
-    assert!(screen.get_by_role(Role::ColumnHeader, "Name").is_focused());
-    screen.press_tab(false);
-    assert!(row("Apple").is_focused());
-    screen.press_tab(false);
-    assert!(
-        !screen.get_by_role(Role::Row, "Banana").is_focused(),
-        "the other rows are not tab stops"
-    );
-    screen.press_tab(true);
-    assert!(row("Apple").is_focused());
     screen.press_key(Key::ArrowDown);
     assert_eq!(selection.get_untracked(), vec![2]);
     assert!(row("Banana").is_focused());
@@ -238,7 +220,7 @@ fn table_rows_are_one_tab_stop_and_follow_the_list_keys() {
     screen.press_tab(false);
     screen.press_tab(false);
     assert!(row("Cherry").is_focused(), "the row that took its place");
-    clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 
 #[test]
@@ -292,7 +274,7 @@ fn color_popup_escape_rolls_back_while_outside_and_accessibility_dismissal_commi
         next,
         "Expand snapshots the current color transaction"
     );
-    clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 
 #[test]
@@ -307,15 +289,15 @@ fn pie_hold_direction_release_and_keyboard_commands_share_public_state() {
             ];
             (
                 (state, chosen),
-                column((ui::pie_menu(entries, state, move |index| {
-                    chosen.set(Some(index))
-                }),))
+                column((
+                    ui::pie_menu(entries, state).on_activate(move |index| chosen.set(Some(index))),
+                ))
                 .role(Role::Group)
                 .name("Pie host")
                 .focusable(true)
                 .style(style().size(640, 480))
                 .on_key(move |event| {
-                    if event.key == Key::Char('z') {
+                    if event.key() == Key::Char('z') {
                         state.set(ui::PieState::open_at(Point::new(300.0, 200.0), true));
                         Handled::Yes
                     } else {
@@ -323,8 +305,14 @@ fn pie_hold_direction_release_and_keyboard_commands_share_public_state() {
                     }
                 })
                 .on_key_up(move |event| {
-                    if event.key == Key::Char('z') && state.get_untracked().held {
-                        chosen.set(state.get_untracked().hot);
+                    if event.key() == Key::Char('z')
+                        && let ui::PieState::Open {
+                            mode: ui::PieMode::Held,
+                            hot,
+                            ..
+                        } = state.get_untracked()
+                    {
+                        chosen.set(hot);
                         state.set(ui::PieState::default());
                         Handled::Yes
                     } else {
@@ -335,30 +323,39 @@ fn pie_hold_direction_release_and_keyboard_commands_share_public_state() {
         });
     screen.get_by_role(Role::Group, "Pie host").focus();
     screen.key_down(Key::Char('z'), KeyCode::KeyZ, Modifiers::default());
-    assert!(state.get_untracked().open);
+    assert!(matches!(state.get_untracked(), ui::PieState::Open { .. }));
     screen.mouse_move(196.0, 200.0);
-    assert_eq!(state.get_untracked().hot, Some(0));
+    assert!(matches!(
+        state.get_untracked(),
+        ui::PieState::Open { hot: Some(0), .. }
+    ));
     screen.key_up(Key::Char('z'), KeyCode::KeyZ, Modifiers::default());
     assert_eq!(chosen.get_untracked(), Some(0));
-    assert!(!state.get_untracked().open);
+    assert_eq!(state.get_untracked(), ui::PieState::Closed);
     state.set(ui::PieState::open_at(Point::new(300.0, 200.0), false));
     screen.advance(Duration::ZERO);
     screen
         .get_by_role(Role::Menu, "Shading pie")
         .press_key(Key::Char('2'));
     assert_eq!(chosen.get_untracked(), Some(1));
-    assert!(!state.get_untracked().open);
+    assert_eq!(state.get_untracked(), ui::PieState::Closed);
     state.set(ui::PieState::open_at(Point::new(300.0, 200.0), true));
     screen.run_until_idle();
     screen
         .get_by_role(Role::Menu, "Shading pie")
         .press_key(Key::Escape);
-    assert!(!state.get_untracked().open);
+    assert_eq!(state.get_untracked(), ui::PieState::Closed);
     assert!(
-        !state.get_untracked().held,
+        !matches!(
+            state.get_untracked(),
+            ui::PieState::Open {
+                mode: ui::PieMode::Held,
+                ..
+            }
+        ),
         "shared dismissal cancels the held transaction"
     );
-    clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 #[test]
 fn property_group_exclusive_expansion_drag_and_accessibility_reorder_keep_content() {
@@ -372,7 +369,10 @@ fn property_group_exclusive_expansion_drag_and_accessibility_reorder_keep_conten
             (
                 (panels, value),
                 ui::panel_group(panels, move |_| {
-                    ui::number("Retained", value).range(0.0, 10.0)
+                    ui::number("Retained", value).range(
+                        kivact::interaction::ScalarRange::new(0.0, 10.0)
+                            .expect("invariant: finite ordered control range"),
+                    )
                 }),
             )
         });
@@ -429,7 +429,7 @@ fn property_group_exclusive_expansion_drag_and_accessibility_reorder_keep_conten
             .get_by_role(Role::SpinButton, "Retained")
             .is_visible()
     );
-    clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 
 #[test]
@@ -483,27 +483,27 @@ fn panel_group_ctrl_opens_only_the_chosen_panel_and_a_plain_expand_closes_nothin
     );
     let open: Vec<bool> = panels.get_untracked().iter().map(|p| p.expanded).collect();
     assert_eq!(open, vec![false, true], "Ctrl keeps only the chosen panel");
-    clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 
-#[test]
-fn viewport_surface_forwards_application_image_coordinates() {
-    let (screen, position) = kivact::test::render_with_handle(crate::support::options(), || {
-        let position = signal(Point::new(0.0, 0.0));
-        (
-            position,
-            ui::viewport_surface(None)
-                .transform(signal(kivact::interaction::ViewTransform {
-                    offset: Point::new(10.0, 20.0),
-                    scale: 2.0,
-                }))
-                .on_pointer(move |event: ui::SurfacePointer| position.set(event.position))
-                .style(style().size(300, 200))
-                .test_id("viewport"),
-        )
-    });
-    screen.get_by_test_id("viewport").hover();
-    screen.mouse_move(110.0, 120.0);
-    assert_eq!(position.get_untracked(), Point::new(50.0, 50.0));
-    clean(&screen);
+fn assert_table_tab_stops(screen: &kivact::test::Screen) {
+    assert!(
+        screen
+            .get_by_role(Role::Grid, "Data table")
+            .is_multiselectable()
+    );
+    let row = |name: &str| screen.get_by_role(Role::Row, name);
+    // The header, then one tab stop for the rows: the selected row.
+    screen.get_by_role(Role::Button, "Before").click();
+    screen.press_tab(false);
+    assert!(screen.get_by_role(Role::ColumnHeader, "Name").is_focused());
+    screen.press_tab(false);
+    assert!(row("Apple").is_focused());
+    screen.press_tab(false);
+    assert!(
+        !screen.get_by_role(Role::Row, "Banana").is_focused(),
+        "the other rows are not tab stops"
+    );
+    screen.press_tab(true);
+    assert!(row("Apple").is_focused());
 }

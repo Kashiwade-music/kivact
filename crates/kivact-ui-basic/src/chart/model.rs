@@ -96,6 +96,7 @@ pub enum ChartKind {
     Radial,
 }
 
+// xtask-allow(state-fields): Borrowed arguments for one paint or hit test; grid, axis and orientation are independent presentation options, not stored chart state.
 /// The data and options of one paint or hit test.
 pub(super) struct Frame<'a> {
     pub(super) config: &'a ChartConfig,
@@ -162,3 +163,5 @@ pub(super) struct Hit {
     pub(super) title: Option<String>,
     pub(super) rows: Vec<HitRow>,
 }
+
+kivact::state::constant_value!(ChartKind);

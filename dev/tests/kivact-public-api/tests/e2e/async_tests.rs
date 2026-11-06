@@ -14,7 +14,7 @@ use std::rc::Rc;
 use std::time::Duration;
 
 use kivact::prelude::*;
-use kivact::test::render;
+use kivact::test::{Screen, render};
 
 use crate::support::random::{Rng, residue, seeds};
 
@@ -33,28 +33,7 @@ enum Model {
 fn action_request_cancel_retry_matches_the_model() {
     for seed in seeds() {
         let mut rng = Rng::new(seed);
-        let done_log = Rc::new(RefCell::new(Vec::<u32>::new()));
-        let d2 = done_log.clone();
-        let slot: Rc<Cell<Option<Action<u32, u32>>>> = Rc::new(Cell::new(None));
-        let s2 = slot.clone();
-        let screen = render(move || {
-            let act = action(ActionPolicy::Latest, |i: u32| async move {
-                kivact::task::sleep(Duration::from_millis(10 * (i as u64 % 5 + 1))).await;
-                if i % 7 == 3 {
-                    Err(UiError::msg("odd failure"))
-                } else {
-                    Ok(i * 10)
-                }
-            });
-            act.on_done(move |_| {
-                if let Some(input) = act.input() {
-                    d2.borrow_mut().push(input);
-                }
-            });
-            s2.set(Some(act));
-            text(move || format!("{:?}", act.state()))
-        });
-        let act = slot.get().expect("setup");
+        let (screen, act, done_log) = request_model_fixture();
         let baseline = residue(&screen);
         let mut model = Model::Idle;
         let mut last_input: Option<u32> = None;
@@ -139,25 +118,7 @@ enum RModel {
 fn p2b_resource_source_change_refetch_cancel_matches_the_model() {
     for seed in seeds() {
         let mut rng = Rng::new(seed);
-        let slot: Rc<Cell<Option<(Signal<u32>, Resource<u32>)>>> = Rc::new(Cell::new(None));
-        let s2 = slot.clone();
-        let screen = render(move || {
-            let q = signal(1u32);
-            let res = resource(
-                move || q.get(),
-                |v: u32| async move {
-                    kivact::task::sleep(Duration::from_millis(10 * (v as u64 % 4 + 1))).await;
-                    if v % 5 == 4 {
-                        Err(UiError::msg("bad"))
-                    } else {
-                        Ok(v * 10)
-                    }
-                },
-            );
-            s2.set(Some((q, res)));
-            text(move || format!("{:?} {:?}", res.state(), res.latest()))
-        });
-        let (q, res) = slot.get().expect("setup");
+        let (screen, q, res) = resource_model_fixture();
         let delay = |v: u32| 10 * (v as u64 % 4 + 1);
         let mut now = 0u64;
         let mut model = RModel::Loading(1, delay(1));
@@ -220,4 +181,174 @@ fn p2b_resource_source_change_refetch_cancel_matches_the_model() {
             );
         }
     }
+}
+
+#[test]
+fn async_view_shows_loading_then_ready() {
+    #[derive(Clone)]
+    struct Record(String);
+    let screen = render(|| {
+        let value = resource((), |_| async {
+            kivact::task::sleep(Duration::from_millis(10)).await;
+            Ok(Record(String::from("Loaded")))
+        });
+        async_view(value, |record| text(record.0)).loading(|| text("Please wait"))
+    });
+    screen.get_by_text("Please wait");
+    screen.advance(Duration::from_millis(10));
+    screen.get_by_text("Loaded");
+}
+
+#[test]
+fn async_view_fallback_retries() {
+    let screen = render(|| {
+        let attempts = Rc::new(Cell::new(0));
+        let load = action(ActionMode::Latest, move || {
+            let n = attempts.get();
+            attempts.set(n + 1);
+            async move {
+                if n == 0 {
+                    Err(UiError::msg("Offline"))
+                } else {
+                    Ok("Recovered")
+                }
+            }
+        });
+        column((
+            button("Load").on_press(move || load.run(())),
+            async_view(load, text),
+        ))
+    });
+    assert!(
+        screen.query_by_role(Role::Status, "Loading").is_none(),
+        "an idle action has no loading view"
+    );
+    screen.get_by_role(Role::Button, "Load").click();
+    screen.get_by_text("Error: Offline");
+    screen.get_by_role(Role::Button, "Retry").click();
+    screen.get_by_text("Recovered");
+}
+
+#[cfg(feature = "tokio")]
+#[test]
+fn on_tokio_future_resolves_and_wakes_the_ui() {
+    let (send, receive) = async_channel::bounded(1);
+    let receive = Rc::new(RefCell::new(Some(receive)));
+    let screen = render(move || {
+        let receiver = receive.borrow_mut().take().expect("setup runs once");
+        let value = resource((), move |_| {
+            let receiver = receiver.clone();
+            async move {
+                Ok(kivact::task::on_tokio(
+                    async move { receiver.recv().await.expect("sender lives") },
+                )
+                .await)
+            }
+        });
+        async_view(value, text)
+    });
+    screen.get_by_role(Role::Status, "Loading");
+    send.send_blocking(String::from("Worker result"))
+        .expect("receiver lives");
+    let deadline = std::time::Instant::now() + Duration::from_secs(5);
+    loop {
+        screen.run_until_idle();
+        if screen.query_by_text("Worker result").is_some() {
+            break;
+        }
+        assert!(
+            std::time::Instant::now() < deadline,
+            "Tokio completion must wake the UI"
+        );
+        std::thread::yield_now();
+    }
+}
+
+#[cfg(feature = "tokio")]
+#[test]
+fn on_tokio_task_is_aborted_with_its_owner() {
+    struct Dropped(std::sync::mpsc::Sender<()>);
+    impl Drop for Dropped {
+        fn drop(&mut self) {
+            let _ = self.0.send(());
+        }
+    }
+    let (started, observed_start) = std::sync::mpsc::channel();
+    let (dropped, observed_drop) = std::sync::mpsc::channel();
+    let screen = render(move || {
+        let visible = signal(true);
+        column((
+            button("Remove").on_press(move || visible.set(false)),
+            show(visible, move || {
+                let started = started.clone();
+                let dropped = dropped.clone();
+                spawn(async move {
+                    kivact::task::on_tokio(async move {
+                        let _guard = Dropped(dropped);
+                        started.send(()).expect("test waits for start");
+                        std::future::pending::<()>().await;
+                    })
+                    .await;
+                });
+                text("Owner")
+            }),
+        ))
+    });
+    observed_start
+        .recv_timeout(Duration::from_secs(5))
+        .expect("task starts");
+    screen.get_by_role(Role::Button, "Remove").click();
+    observed_drop
+        .recv_timeout(Duration::from_secs(5))
+        .expect("owner disposal aborts task");
+    assert!(screen.query_by_text("Owner").is_none());
+}
+
+fn request_model_fixture() -> (Screen, Action<u32, u32>, Rc<RefCell<Vec<u32>>>) {
+    let done_log = Rc::new(RefCell::new(Vec::<u32>::new()));
+    let d2 = done_log.clone();
+    let slot: Rc<Cell<Option<Action<u32, u32>>>> = Rc::new(Cell::new(None));
+    let s2 = slot.clone();
+    let screen = render(move || {
+        let act = action(ActionMode::Latest, |i: u32| async move {
+            kivact::task::sleep(Duration::from_millis(10 * (i as u64 % 5 + 1))).await;
+            if i % 7 == 3 {
+                Err(UiError::msg("odd failure"))
+            } else {
+                Ok(i * 10)
+            }
+        });
+        let act = act.on_complete(move |_| {
+            if let Some(input) = act.input() {
+                d2.borrow_mut().push(input);
+            }
+        });
+        s2.set(Some(act));
+        text(move || format!("{:?}", act.state()))
+    });
+    let act = slot.get().expect("setup");
+    (screen, act, done_log)
+}
+
+fn resource_model_fixture() -> (Screen, Signal<u32>, Resource<u32>) {
+    let slot: Rc<Cell<Option<(Signal<u32>, Resource<u32>)>>> = Rc::new(Cell::new(None));
+    let s2 = slot.clone();
+    let screen = render(move || {
+        let q = signal(1u32);
+        let res = resource(
+            move || q.get(),
+            |v: u32| async move {
+                kivact::task::sleep(Duration::from_millis(10 * (v as u64 % 4 + 1))).await;
+                if v % 5 == 4 {
+                    Err(UiError::msg("bad"))
+                } else {
+                    Ok(v * 10)
+                }
+            },
+        );
+        s2.set(Some((q, res)));
+        text(move || format!("{:?} {:?}", res.state(), res.latest()))
+    });
+    let (q, res) = slot.get().expect("setup");
+    (screen, q, res)
 }

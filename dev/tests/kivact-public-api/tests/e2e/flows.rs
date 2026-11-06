@@ -4,14 +4,12 @@
 //! `switch`, `for_each`, `for_index`, `virtual_list`, `dynamic`,
 //! `error_boundary`) with plain-function components.
 
-use kivact::primitive::NodeExt;
-
 use crate::support::mount;
 use kivact::prelude::*;
 use kivact::view::{RowHeight, error_boundary};
 
 /// A component with its own state: a click counter.
-fn clicker(label: &'static str) -> impl IntoView {
+fn clicker(label: &'static str) -> impl Component {
     let n = signal(0);
     {
         let label = (move || format!("{label} {}", n.get())).into_value();
@@ -82,7 +80,8 @@ struct Task {
     title: &'static str,
 }
 
-fn task_row(id: u64, task: Value<Task>) -> impl IntoView {
+fn task_row(task: Binding<Task>) -> impl Component {
+    let id = task.get_untracked().id;
     let clicks = signal(0);
     {
         let label = (move || format!("{} #{id} {}", task.get().title, clicks.get())).into_value();
@@ -115,7 +114,10 @@ fn for_each_rows_are_plain_functions_and_keep_state_by_key() {
         let view = column(for_each(
             vec![1u32, 2],
             |n| *n,
-            |k, v| text(move || format!("{k}:{}", v.get())),
+            |v| {
+                let k = v.with(|n| *n);
+                text(move || format!("{k}:{}", v.get()))
+            },
         ));
         ((), view)
     });
@@ -154,7 +156,7 @@ fn virtual_list_mounts_visible_rows_with_plain_rows() {
         let view = virtual_list(
             items,
             |n| *n,
-            |k, v| text(move || format!("row {k} {}", v.get())),
+            |v| text(move || format!("row {0} {0}", v.get())),
         )
         .row_height(RowHeight::Fixed(20.0))
         .style(style().height(200));
@@ -164,7 +166,40 @@ fn virtual_list_mounts_visible_rows_with_plain_rows() {
     assert!(screen.query_by_text("row 900 900").is_none());
 }
 
-fn failing(label: &'static str) -> impl IntoView {
+#[test]
+fn virtual_list_rows_write_back_through_a_signal_source() {
+    let (screen, list) = mount(|| {
+        let list = signal(tasks(&(0..500).collect::<Vec<_>>()));
+        let view = virtual_list(
+            list,
+            |t| t.id,
+            |task: Binding<Task>| {
+                let id = task.get_untracked().id;
+                let label = (move || format!("{} #{id}", task.get().title)).into_value();
+                node()
+                    .role(Role::Button)
+                    .focusable(true)
+                    .name(label)
+                    .child(text(label))
+                    .on_press(move || {
+                        let id = task.get_untracked().id;
+                        task.set(Task { id, title: "done" });
+                    })
+            },
+        )
+        .row_height(RowHeight::Fixed(20.0))
+        .style(style().height(200));
+        (list, view)
+    });
+    screen.get_by_role(Role::Button, "t #2").click();
+    screen.get_by_role(Role::Button, "done #2");
+    let edited = list.get_untracked();
+    assert_eq!(edited[2].title, "done");
+    assert_eq!(edited[1].title, "t", "other rows are untouched");
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+fn failing(label: &'static str) -> impl Component {
     {
         let label = label.into_value();
         node()
@@ -190,7 +225,7 @@ fn error_boundary_fallback_replaces_the_child_and_reset_remounts() {
                         .name(label)
                         .child(text(label))
                 }
-                .on_press(move || reset()),
+                .on_press(move || reset.run()),
             ))
         });
         ((), view)
@@ -229,8 +264,8 @@ fn rows_list(count: u32, height: RowHeight, keep_focused: bool) -> (kivact::test
         let view = virtual_list(
             rows,
             |n| *n,
-            |k, _| {
-                let name = format!("row {k}");
+            |n| {
+                let name = format!("row {}", n.get());
                 node()
                     .role(Role::Button)
                     .focusable(true)
@@ -241,11 +276,15 @@ fn rows_list(count: u32, height: RowHeight, keep_focused: bool) -> (kivact::test
         )
         .row_height(height)
         .overscan(0.0)
-        .keep_focused(keep_focused)
         .scroll_to(target)
         .node_ref(list)
         .test_id("rows")
         .style(style().height(120));
+        let view = if keep_focused {
+            view
+        } else {
+            view.release_offscreen_focus()
+        };
         (Rows { target, list }, view)
     })
 }
@@ -302,16 +341,13 @@ fn scroll_to_brings_a_row_that_is_not_mounted_into_view() {
 /// `scroll_to`.
 #[test]
 fn a_list_navigation_in_a_virtual_list_reaches_the_last_row_and_keeps_the_focus() {
-    use kivact::interaction::{ListPolicy, ListSelection, use_list};
-    use kivact::test::{RenderOptions, WindowMode};
-    use kivact::ui::ListItem;
+    use kivact::interaction::ListItem;
+    use kivact::interaction::{ListOptions, use_list};
+    use kivact::test::{MirrorMode, RenderOptions};
     use kivact::view::Key;
 
     let (screen, nav) = crate::support::mount_with(
-        RenderOptions {
-            window: WindowMode::Real,
-            ..RenderOptions::from_env()
-        },
+        RenderOptions::from_env().mirror(MirrorMode::Required),
         || {
             let keys: Vec<u32> = (0..300).collect();
             let rows = signal(keys.clone());
@@ -324,22 +360,24 @@ fn a_list_navigation_in_a_virtual_list_reaches_the_last_row_and_keeps_the_focus(
                         .map(|key| ListItem::new(key, format!("row {key}")))
                         .collect::<Vec<_>>()
                 },
-                ListSelection::Multiple(selected.into()),
-                ListPolicy::default(),
+                selected.into_selection(),
+                ListOptions::default(),
             )
             .page_size(5)
             .scroll_with(move |key| target.set(Some(key)));
             let list = virtual_list(
                 keys,
                 |n| *n,
-                move |k, _| {
+                move |n| {
+                    let k = n.get();
                     let name = format!("row {k}");
                     (node()
                         .role(Role::Option)
                         .name(name.clone())
                         .child(text(name))
                         .style(style().height(24)))
-                    .part(nav.item(k).role(Role::Option))
+                    .part(nav.item(k))
+                    .role(Role::Option)
                 },
             )
             .row_height(RowHeight::Fixed(24.0))
@@ -347,7 +385,7 @@ fn a_list_navigation_in_a_virtual_list_reaches_the_last_row_and_keeps_the_focus(
             .scroll_to(target)
             .test_id("rows")
             .style(style().height(120));
-            (nav, list.role(Role::ListBox))
+            (nav, list.with_node(move |node| node.role(Role::ListBox)))
         },
     );
     screen.get_by_role(Role::Option, "row 0").click();
@@ -371,4 +409,29 @@ fn a_list_navigation_in_a_virtual_list_reaches_the_last_row_and_keeps_the_focus(
     assert!(screen.get_by_role(Role::Option, "row 150").is_focused());
     assert!(row_in_view(&screen, Role::Option, "row 150"));
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
+fn for_each_row_binding_edits_the_item() {
+    let (screen, items) = mount(|| {
+        let items = signal(vec![(1u32, false), (2, false)]);
+        (
+            items,
+            column(for_each(
+                items,
+                |item| item.0,
+                |item| {
+                    button(move || format!("{}:{}", item.get().0, item.get().1)).on_press(
+                        move || {
+                            let (key, checked) = item.get();
+                            item.set((key, !checked));
+                        },
+                    )
+                },
+            )),
+        )
+    });
+    screen.get_by_role(Role::Button, "2:false").click();
+    assert_eq!(items.get(), vec![(1, false), (2, true)]);
+    screen.get_by_role(Role::Button, "2:true");
 }

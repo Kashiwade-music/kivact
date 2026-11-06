@@ -1,11 +1,12 @@
 //! Role: Catalog specimen framing and token demonstration tiles.
-use super::slot::{Slot, slot};
-use kivact::Value;
-use kivact::control::{Node, NodeBuilder, column, node, row, text};
-use kivact::draw::{Layer, Path, Point, Shape, Transform};
-use kivact::style::{Align, BorderStyle, ColorToken, Justify, current_theme, pct, style};
-use kivact::view::{IntoText, IntoValue, IntoView, Role, View};
-use kivact_ui_game::{Color, Tokens, cut_corner, hud, mono};
+use kivact::draw::{Layer, Path, Shape, Transform};
+use kivact::geometry::Point;
+use kivact::state::Value;
+use kivact::state::{IntoText, IntoValue};
+use kivact::style::{Align, BorderStyle, ColorToken, Justify, pct, style, use_theme};
+use kivact::view::{IntoView, Role, View};
+use kivact::view::{Node, NodeBuilder, column, node, row, text};
+use kivact_ui_game::{ColorName, Tokens, cut_corner, hud, mono};
 /// Supported prototype shape motifs.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum ShapeKind {
@@ -16,13 +17,13 @@ pub(super) enum ShapeKind {
 }
 
 /// A catalog specimen frame. Created by [`specimen`].
-pub(super) struct Specimen {
-    root: Node,
+pub(super) struct Specimen<C: kivact::view::Component> {
+    root: C,
     id: Value<String>,
     title: Value<String>,
     caption: Value<String>,
     content: View,
-    note: Option<Slot>,
+    note: Option<kivact::view::View>,
 }
 
 /// A catalog specimen frame, usable for diagnostics and documentation apps.
@@ -33,7 +34,7 @@ pub(super) fn specimen(
     id: impl IntoText,
     title: impl IntoText,
     content: impl IntoView,
-) -> Specimen {
+) -> Specimen<impl kivact::view::Component> {
     Specimen {
         root: hud(()),
         id: id.into_text_value(),
@@ -43,63 +44,65 @@ pub(super) fn specimen(
         note: None,
     }
 }
-impl Specimen {
+impl<C: kivact::view::Component> Specimen<C> {
     /// A right-aligned machine caption in the header; empty by default.
     pub(super) fn caption(mut self, caption: impl IntoText) -> Self {
         self.caption = caption.into_text_value();
         self
     }
     /// A full-width note under the content, set off by a dashed separator;
-    /// built once by `note` when the specimen mounts.
-    pub(super) fn note<V: IntoView>(mut self, note: impl FnOnce() -> V + 'static) -> Self {
-        self.note = Some(slot(note));
+    /// mounted once with the specimen.
+    pub(super) fn note(mut self, note: impl IntoView) -> Self {
+        self.note = Some(note.into_view());
         self
     }
 }
-impl NodeBuilder for Specimen {
+impl<C: kivact::view::Component> NodeBuilder for Specimen<C> {
     fn node_mut(&mut self) -> &mut Node {
-        &mut self.root
+        self.root.node_mut()
     }
 }
-impl IntoView for Specimen {
+impl<C: kivact::view::Component> IntoView for Specimen<C> {
     fn into_view(self) -> View {
         self.root
-            .child(column((
-                row((
-                    mono(self.id).style(style().color(ColorToken::Accent)),
-                    text(self.title).style(style().weight(700).font_size(12.5)),
-                    node().style(style().grow(1)),
-                    mono(self.caption)
-                        .style(style().font_size(10.5).weight(500).color(Color::Text3)),
-                ))
-                .style(
-                    style()
-                        .height(36)
-                        .padding_x(14)
-                        .gap(10)
-                        .align_items(Align::Center)
-                        .background(ColorToken::SurfaceAlt)
-                        .border_bottom(1, ColorToken::Border),
-                ),
-                node()
-                    .style(move || {
-                        let t = &current_theme();
-                        style().padding(t.get::<Tokens>().padding)
-                    })
-                    .child(self.content),
-                self.note.map(|note| {
-                    node().child(note()).style(move || {
-                        let t = &current_theme();
+            .with_node(move |root| {
+                root.child(column((
+                    row((
+                        mono(self.id).style(style().color(ColorToken::Accent)),
+                        text(self.title).style(style().weight(700).font_size(12.5)),
+                        node().style(style().grow(1)),
+                        mono(self.caption)
+                            .style(style().font_size(10.5).weight(500).color(ColorName::Text3)),
+                    ))
+                    .style(
                         style()
+                            .height(36)
                             .padding_x(14)
-                            .padding_y(10)
-                            .font_size(11.5)
-                            .color(t.get::<Tokens>().text_3)
-                            .border_top(1, t.colors().border)
-                            .border_style(BorderStyle::Dashed)
-                    })
-                }),
-            )))
+                            .gap(10)
+                            .align_items(Align::Center)
+                            .background(ColorToken::SurfaceAlt)
+                            .border_bottom(1, ColorToken::Border),
+                    ),
+                    node()
+                        .style(move || {
+                            let t = &use_theme().get();
+                            style().padding(t.ext::<Tokens>().padding)
+                        })
+                        .child(self.content),
+                    self.note.map(|note| {
+                        node().child(note).style(move || {
+                            let t = &use_theme().get();
+                            style()
+                                .padding_x(14)
+                                .padding_y(10)
+                                .font_size(11.5)
+                                .color(t.ext::<Tokens>().text_3)
+                                .border_top(1, t.colors().border)
+                                .border_style(BorderStyle::Dashed)
+                        })
+                    }),
+                )))
+            })
             .into_view()
     }
 }
@@ -147,7 +150,7 @@ pub(super) fn swatch(
 
 /// Shape specimen, also useful as a small application callout.
 #[track_caller]
-pub(super) fn shape_tile(kind: ShapeKind, label: impl IntoText) -> Node {
+pub(super) fn shape_tile(kind: ShapeKind, label: impl IntoText) -> View {
     let label = mono(label);
     let b = node().style(
         style()
@@ -163,7 +166,8 @@ pub(super) fn shape_tile(kind: ShapeKind, label: impl IntoText) -> Node {
                     .background(ColorToken::Selection)
                     .color(ColorToken::Accent),
             )
-            .child(label.style(style().color(ColorToken::Accent))),
+            .child(label.style(style().color(ColorToken::Accent)))
+            .into_view(),
         ShapeKind::Skew => b
             .style(
                 style()
@@ -177,31 +181,36 @@ pub(super) fn shape_tile(kind: ShapeKind, label: impl IntoText) -> Node {
                         .transform(Transform::new().skew_x(12))
                         .color(ColorToken::AccentText),
                 ),
-            ),
-        ShapeKind::Bracket => hud(label).style(
-            style()
-                .size(92, 64)
-                .align_items(Align::Center)
-                .justify_content(Justify::Center),
-        ),
-        ShapeKind::Stripe => b.draw(|d, s| {
-            d.layer(Layer::new().clip_rect(s.to_rect()), |d| {
-                let p = d.theme().get::<Tokens>();
-                d.fill_rect(s.to_rect(), p.navy);
-                let mut x = -s.height;
-                while x < s.width {
-                    d.fill_path(
-                        &Path::new()
-                            .move_to(Point::new(x, s.height))
-                            .line_to(Point::new(x + s.height, 0.))
-                            .line_to(Point::new(x + s.height + 8., 0.))
-                            .line_to(Point::new(x + 8., s.height))
-                            .close(),
-                        p.yellow,
-                    );
-                    x += 16.;
-                }
-            });
-        }),
+            )
+            .into_view(),
+        ShapeKind::Bracket => hud(label)
+            .style(
+                style()
+                    .size(92, 64)
+                    .align_items(Align::Center)
+                    .justify_content(Justify::Center),
+            )
+            .into_view(),
+        ShapeKind::Stripe => b
+            .draw(|d, s| {
+                d.layer(Layer::new().clip_rect(s.to_rect()), |d| {
+                    let p = d.theme().ext::<Tokens>();
+                    d.fill_rect(s.to_rect(), p.navy);
+                    let mut x = -s.height;
+                    while x < s.width {
+                        d.fill_path(
+                            &Path::new()
+                                .move_to(Point::new(x, s.height))
+                                .line_to(Point::new(x + s.height, 0.))
+                                .line_to(Point::new(x + s.height + 8., 0.))
+                                .line_to(Point::new(x + 8., s.height))
+                                .close(),
+                            p.yellow,
+                        );
+                        x += 16.;
+                    }
+                });
+            })
+            .into_view(),
     }
 }

@@ -61,14 +61,15 @@
 
 use std::ops::Range;
 
-use kivact_wire::{A11yAction, HostEvent, Key, KeyCode, KeyPhase, Modifiers, NodeId, Role};
+use crate::contract::HostEvent;
+use kivact_types::{A11yAction, Key, KeyCode, KeyPhase, Modifiers, NodeId, Role};
 
 use crate::measure::editor::EditorNode;
 use crate::model::Model;
 use crate::model::changes::Dirty;
+use crate::text_input::{EditLines, Shaping};
 use kivact_editing::Journal;
 use kivact_editing::{EditContext, EditLayout, EditOutcome, EditRequest, EditState};
-use kivact_text::{EditLines, Shaping};
 
 /// What became of a key press ([`Model::handle_key`]).
 #[derive(Clone, Debug, PartialEq)]
@@ -109,21 +110,36 @@ fn shortcut_key(key: Key, physical: Option<char>, modifiers: Modifiers) -> Key {
 }
 
 impl Model {
-    /// A key press with the shell's `text` and the US-layout letter of the
+    /// Send the shell's modifier snapshot once per change.
+    pub(crate) fn report_modifiers(&mut self, modifiers: Modifiers) {
+        if self.modifiers.update(modifiers).is_some() {
+            self.push(HostEvent::ModifiersChanged(modifiers));
+        }
+    }
+
+    /// A key event with the shell's input and the US-layout letter of the
     /// physical key (`physical`, for shortcuts on non-Latin layouts). Typed
     /// text goes into the focused text input; copy and paste are left to
     /// the shell.
     pub(crate) fn key(
         &mut self,
-        key: Key,
+        input: kivact_types::KeyInput,
         physical: Option<char>,
-        code: KeyCode,
-        repeat: bool,
-        text: Option<String>,
         engine: &mut arvane::Engine,
     ) -> KeyResult {
+        let kivact_types::KeyInput {
+            key,
+            code,
+            phase,
+            modifiers,
+            pointer,
+        } = input;
+        self.report_modifiers(modifiers);
+        let KeyPhase::Down { repeat, text } = phase else {
+            self.key_up(key, code, pointer, modifiers);
+            return KeyResult::Reported;
+        };
         let text = text.filter(|t| !t.is_empty() && !t.chars().any(char::is_control));
-        let modifiers = self.modifiers;
         let result = self.handle_key(
             key,
             physical,
@@ -131,6 +147,7 @@ impl Model {
             modifiers,
             repeat,
             text.as_deref(),
+            pointer,
             engine,
         );
         if let KeyResult::Text(text) = &result {
@@ -146,34 +163,48 @@ impl Model {
         self.sync();
     }
 
-    /// A key release, reported to the focused node.
-    pub(crate) fn key_up(&mut self, key: Key, code: KeyCode) {
-        let node = self.focused();
-        self.push(HostEvent::Key {
-            node: node.map(|f| f.node),
+    /// A key release, reported to its key down target or the current focus.
+    pub(crate) fn key_up(
+        &mut self,
+        key: Key,
+        code: KeyCode,
+        pointer: Option<kivact_types::Point>,
+        modifiers: Modifiers,
+    ) {
+        let node = self
+            .key_down_targets
+            .0
+            .remove(&code)
+            .filter(|target| code != KeyCode::Unidentified && self.tree.contains(target.node))
+            .or_else(|| self.focused());
+        self.push(HostEvent::Key(crate::contract::Routed {
+            target: node.map(|f| f.node),
             region: node.and_then(|f| f.region),
-            key,
-            code,
-            phase: KeyPhase::Up,
-            modifiers: self.modifiers,
-            pointer: self.pointer.mouse(),
-        });
+            local: pointer
+                .zip(node.map(|f| f.node))
+                .map(|(point, node)| self.to_local(node, point))
+                .unwrap_or_default(),
+            captured: false,
+            activation: None,
+            input: kivact_types::KeyInput {
+                key,
+                code,
+                phase: KeyPhase::Up,
+                modifiers,
+                pointer,
+            },
+        }));
     }
 
     /// The focused text input, if it takes edits (not disabled).
     pub(crate) fn focused_input(&self) -> Option<NodeId> {
-        self.focused()
-            .filter(|f| f.region.is_none())
-            .map(|f| f.node)
-            .filter(|f| {
-                self.tree.get(*f).is_some_and(|n| {
-                    self.editors[n.index.0]
-                        .as_deref()
-                        .map(|editor| editor.editor.state())
-                        .is_some()
-                        && !n.disabled()
-                })
-            })
+        match self.edits.target {
+            crate::model::edit::state::ImeTarget::Native(slot) => {
+                Some(self.tree.nodes.id_at(slot.0))
+            }
+            crate::model::edit::state::ImeTarget::None
+            | crate::model::edit::state::ImeTarget::Session(_) => None,
+        }
     }
 
     /// Edit the text input `id` with `f`, which says whether the value
@@ -194,7 +225,7 @@ impl Model {
         &mut self,
         id: NodeId,
         engine: &mut arvane::Engine,
-        f: impl FnOnce(&mut EditState, &Shaping<'_>, f32) -> bool,
+        f: impl FnOnce(&mut EditState, &Shaping<'_>, f64) -> bool,
     ) -> Option<bool> {
         let width = self.lay_out_lines(id, engine);
         self.edit_editor_with(id, |journal, lines| {
@@ -219,8 +250,7 @@ impl Model {
         let EditorNode {
             editor,
             lines,
-            pending_controlled,
-            controlled_at,
+            controlled,
             ..
         } = self.editors[n.index.0].as_deref_mut()?;
         let mut journal = editor.journal(max_length);
@@ -247,7 +277,7 @@ impl Model {
         if read_only && (journal.text_changed() || journal.state().is_composing()) {
             journal.revert();
         }
-        if EditorNode::adopt_pending_controlled(pending_controlled, controlled_at, &mut journal) {
+        if EditorNode::adopt_pending_controlled(controlled, &mut journal) {
             reported = true;
         }
         let changed = !read_only && reported;
@@ -258,10 +288,15 @@ impl Model {
             session: editor.state().session().clone(),
             text: report.then(|| editor.state().value().to_string()),
         });
+        if let Some(editor) = self.editor_node_mut(id) {
+            editor.flush_damage();
+        }
         self.repaint_text(id);
         if let Some(e) = event {
             self.changes.mark(id, Dirty::MEASURE);
-            self.changes.needs_layout = true;
+            self.changes
+                .layout
+                .insert(crate::model::changes::LayoutReasons::PASS);
             self.push(e);
         }
         Some(changed)
@@ -286,6 +321,7 @@ impl Model {
         modifiers: Modifiers,
         repeat: bool,
         text: Option<&str>,
+        pointer: Option<kivact_types::Point>,
         engine: &mut arvane::Engine,
     ) -> KeyResult {
         let key = shortcut_key(key, physical, modifiers);
@@ -298,52 +334,7 @@ impl Model {
         if editor.is_some_and(EditState::is_composing) {
             return KeyResult::Consumed;
         }
-        let roving_boundary = matches!(
-            key,
-            Key::ArrowLeft | Key::ArrowRight | Key::ArrowUp | Key::ArrowDown
-        ) && input.zip(editor).is_some_and(|(input, editor)| {
-            let selection = editor.selection();
-            if !selection.is_empty() {
-                return false;
-            }
-            let Some(group) = self.roving_focus_for(input) else {
-                return false;
-            };
-            match (group.orientation, &key) {
-                (kivact_wire::Orientation::Horizontal, Key::ArrowLeft | Key::ArrowRight) => {
-                    let end = (key == Key::ArrowRight) != group.rtl;
-                    selection.start == if end { editor.value().len() } else { 0 }
-                }
-                (kivact_wire::Orientation::Vertical, Key::ArrowUp | Key::ArrowDown) => {
-                    self.tree.get(input).is_some_and(|node| !node.multiline())
-                }
-                _ => false,
-            }
-        });
-        let forward = !modifiers.ctrl
-            && !modifiers.alt
-            && !modifiers.meta
-            && (!modifiers.shift || key == Key::Tab)
-            && (roving_boundary
-                || (matches!(
-                    key,
-                    Key::Tab
-                        | Key::ArrowLeft
-                        | Key::ArrowRight
-                        | Key::ArrowUp
-                        | Key::ArrowDown
-                        | Key::Home
-                        | Key::End
-                        | Key::PageUp
-                        | Key::PageDown
-                        | Key::Escape
-                        | Key::Enter
-                        | Key::Backspace
-                ) && input
-                    .and_then(|id| self.tree.get(id))
-                    .and_then(|node| node.input_data())
-                    .and_then(|data| data.forward_keys.as_ref())
-                    .is_some_and(|keys| keys.contains(&key))));
+        let forward = self.forward_edit_key(input, editor, &key, modifiers);
         let focus_key = !forward && key == Key::Tab && !modifiers.ctrl && !modifiers.alt;
         if let Some(i) = input.filter(|_| !forward) {
             let node = self.tree.get(i).expect("invariant: focused input exists");
@@ -399,16 +390,97 @@ impl Model {
             Key::Char(_) | Key::Space => text.map(str::to_string),
             _ => None,
         };
-        self.push(HostEvent::Key {
-            node: self.focused().map(|f| f.node),
-            region: self.focused().and_then(|f| f.region),
-            key,
-            code,
-            phase: KeyPhase::Down { repeat, text },
-            modifiers,
-            pointer: self.pointer.mouse(),
-        });
+        self.report_key_down(key, code, repeat, text, modifiers, pointer);
         KeyResult::Reported
+    }
+
+    fn report_key_down(
+        &mut self,
+        key: Key,
+        code: KeyCode,
+        repeat: bool,
+        text: Option<String>,
+        modifiers: Modifiers,
+        pointer: Option<kivact_types::Point>,
+    ) {
+        if code != KeyCode::Unidentified
+            && let Some(target) = self.focused()
+        {
+            self.key_down_targets.0.entry(code).or_insert(target);
+        }
+        self.push(HostEvent::Key(crate::contract::Routed {
+            target: self.focused().map(|f| f.node),
+            region: self.focused().and_then(|f| f.region),
+            local: pointer
+                .zip(self.focused().map(|f| f.node))
+                .map(|(point, node)| self.to_local(node, point))
+                .unwrap_or_default(),
+            captured: false,
+            activation: None,
+            input: kivact_types::KeyInput {
+                key,
+                code,
+                phase: KeyPhase::Down { repeat, text },
+                modifiers,
+                pointer,
+            },
+        }));
+    }
+
+    fn forward_edit_key(
+        &self,
+        input: Option<NodeId>,
+        editor: Option<&EditState>,
+        key: &Key,
+        modifiers: Modifiers,
+    ) -> bool {
+        let key = *key;
+        let roving_boundary = matches!(
+            key,
+            Key::ArrowLeft | Key::ArrowRight | Key::ArrowUp | Key::ArrowDown
+        ) && input.zip(editor).is_some_and(|(input, editor)| {
+            let selection = editor.selection();
+            if !selection.is_empty() {
+                return false;
+            }
+            let Some(group) = self.roving_focus_for(input) else {
+                return false;
+            };
+            match (group.orientation, &key) {
+                (kivact_types::Orientation::Horizontal, Key::ArrowLeft | Key::ArrowRight) => {
+                    let end = (key == Key::ArrowRight) != group.rtl;
+                    selection.start == if end { editor.value().len() } else { 0 }
+                }
+                (kivact_types::Orientation::Vertical, Key::ArrowUp | Key::ArrowDown) => {
+                    self.tree.get(input).is_some_and(|node| !node.multiline())
+                }
+                _ => false,
+            }
+        });
+        !modifiers.ctrl
+            && !modifiers.alt
+            && !modifiers.meta
+            && (!modifiers.shift || key == Key::Tab)
+            && (roving_boundary
+                || (matches!(
+                    key,
+                    Key::Tab
+                        | Key::ArrowLeft
+                        | Key::ArrowRight
+                        | Key::ArrowUp
+                        | Key::ArrowDown
+                        | Key::Home
+                        | Key::End
+                        | Key::PageUp
+                        | Key::PageDown
+                        | Key::Escape
+                        | Key::Enter
+                        | Key::Backspace
+                ) && input
+                    .and_then(|id| self.tree.get(id))
+                    .and_then(|node| node.input_data())
+                    .and_then(|data| data.forward_keys.as_ref())
+                    .is_some_and(|keys| keys.contains(&key))))
     }
 
     /// Text committed into the focused text input (typing, or an IME
@@ -448,10 +520,7 @@ impl Model {
         };
         let report = n.reports_text();
         let Some(EditorNode {
-            editor,
-            pending_controlled,
-            controlled_at,
-            ..
+            editor, controlled, ..
         }) = self.editors[n.index.0].as_deref_mut()
         else {
             return;
@@ -460,7 +529,7 @@ impl Model {
         if !journal.state_mut().unmark() {
             return;
         }
-        EditorNode::adopt_pending_controlled(pending_controlled, controlled_at, &mut journal);
+        EditorNode::adopt_pending_controlled(controlled, &mut journal);
         let changes = journal.finish();
         let event = HostEvent::TextChanged {
             node: id,
@@ -468,7 +537,12 @@ impl Model {
             session: editor.state().session().clone(),
             text: report.then(|| editor.state().value().to_string()),
         };
+        if let Some(editor) = self.editor_node_mut(id) {
+            editor.flush_damage();
+        }
         self.repaint_text(id);
+        // A controlled value held during the composition may be adopted.
+        self.remeasure(id);
         self.push(event);
     }
 
@@ -513,7 +587,7 @@ impl Model {
 impl Model {
     /// Bring the lines of the text input `id` up to its text for a
     /// behavior to read; the width of the box they are aligned in.
-    fn lay_out_lines(&self, id: NodeId, engine: &mut arvane::Engine) -> f32 {
+    fn lay_out_lines(&self, id: NodeId, engine: &mut arvane::Engine) -> f64 {
         drop(self.edit_lines(id, engine));
         crate::model::interact::visual::text_box(self, id).width
     }
@@ -521,7 +595,7 @@ impl Model {
 
 /// What a behavior is given: the input's `(multiline, read_only,
 /// password)` and its `lines`, aligned in a box `width` wide.
-fn context<'a>(flags: (bool, bool, bool), lines: &'a Shaping<'_>, width: f32) -> EditContext<'a> {
+fn context<'a>(flags: (bool, bool, bool), lines: &'a Shaping<'_>, width: f64) -> EditContext<'a> {
     let (multiline, read_only, password) = flags;
     let layout = EditLayout {
         lines,

@@ -1,14 +1,13 @@
-//! Role: Small Lyra primitives: label, separator, kbd, spinner, skeleton and more.
+//! Role: Small Lyra primitives: label, separators, key groups, captions, crumb ellipsis.
 
-use crate::Color;
-use crate::theme_access::tokens;
-use kivact::Value;
-use kivact::control::icon;
-use kivact::control::{Node, NodeBuilder, node, row, text};
-use kivact::motion::{Animated, Easing, Repeat, Transition};
-use kivact::primitive::NodeExt;
-use kivact::style::{Align, Direction, Justify, pct, style};
-use kivact::view::{IntoText, IntoValue, IntoView, NodeRef, Orientation, Role, View};
+use crate::ColorName;
+
+use kivact::state::Value;
+use kivact::view::{Node, NodeBuilder, icon, node, row, text};
+
+use kivact::state::{IntoText, IntoValue};
+use kivact::style::{Align, Direction, Justify, TextAlign, pct, style};
+use kivact::view::{IntoView, NodeRef, Orientation, Role, View};
 
 /// A form label (label.tsx): 12 px text without leading, centered with its children.
 ///
@@ -22,7 +21,7 @@ pub struct Label {
 ///
 /// ```no_run
 /// use kivact::prelude::*;
-/// use kivact::view::NodeRef;
+/// use kivact::view::{NodeRef};
 /// use kivact_ui_basic as basic;
 ///
 /// fn email() -> impl IntoView {
@@ -45,7 +44,7 @@ pub fn label(text_value: impl IntoText) -> Label {
                 .gap(8)
                 .font_size(12)
                 .line_height(1.0)
-                .color(Color::Foreground)
+                .color(ColorName::Foreground)
                 .disabled(crate::theme_access::disabled()),
         )
         .child(text(text_value));
@@ -62,12 +61,13 @@ impl Label {
         self.root = self
             .root
             .on_press(move || target.activate())
-            .role(Role::Generic);
+            .with_node(|root| root.role(Role::Generic));
         self
     }
 }
 
 impl NodeBuilder for Label {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -92,7 +92,7 @@ pub struct Separator {
 #[track_caller]
 pub fn separator() -> Separator {
     let root = node()
-        .role(Role::Separator)
+        .with_node(|root| root.role(Role::Separator))
         .orientation(Orientation::Horizontal);
     Separator {
         root,
@@ -114,6 +114,7 @@ impl Separator {
 }
 
 impl NodeBuilder for Separator {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -124,7 +125,7 @@ impl IntoView for Separator {
         let orientation = self.orientation;
         self.root
             .base_style(move || {
-                let p = tokens();
+                let p = kivact::style::use_tokens::<crate::Tokens>();
                 let s = style().shrink(0).background(p.border);
                 if orientation.is_some_and(|o| o.get() == Orientation::Vertical) {
                     s.width(1).align_self(Align::Stretch)
@@ -136,132 +137,57 @@ impl IntoView for Separator {
     }
 }
 
-/// A keyboard key cap (kbd.tsx): muted, 20 px high, 12 px medium text.
+/// A horizontal rule between the rows of a `kivact::ui::item_list`, with
+/// 8 px above and below.
 #[track_caller]
-pub fn kbd(text_value: impl IntoText) -> Node {
+pub fn item_separator() -> Node {
     node()
+        .role(Role::Separator)
+        .orientation(Orientation::Horizontal)
         .style(
             style()
-                .direction(Direction::Row)
-                .align_items(Align::Center)
-                .justify_content(Justify::Center)
-                .gap(4)
-                .height(20)
-                .min_width(20)
-                .padding_x(4)
-                .radius(0)
-                .background(Color::Muted)
-                .color(Color::MutedForeground)
-                .font_size(12)
-                .weight(500)
-                .text_wrap(false),
+                .width(pct(100))
+                .height(1)
+                .shrink(0)
+                .margin_y(8)
+                .background(ColorName::Border),
         )
-        .child(text(text_value))
 }
 
-/// Key caps shown together, such as a shortcut (`KbdGroup`).
+/// Key caps of `kivact::ui::kbd` shown together, such as a shortcut
+/// (kbd.tsx `KbdGroup`).
 #[track_caller]
 pub fn kbd_group(children: impl IntoView) -> Node {
     row(children).style(style().align_items(Align::Center).gap(4))
 }
 
-/// A turning Lucide `loader-circle` (spinner.tsx) with `Role::Status`.
-///
-/// Its accessible name is the `spinner.loading` message ("Loading"). The
-/// rotation is essential motion (`Transition::decorative(false)`): it says
-/// that work is going on, so it keeps turning under reduced motion, as the
-/// platforms' own spinners do.
+/// A caption under a `kivact::ui::table`, muted and centered, with 16 px
+/// above it. Put it after the table: it is drawn where it is placed.
 #[track_caller]
-pub fn spinner() -> Node {
-    let turn = Animated::from(
-        0.0f32,
-        360.0f32,
-        Transition::tween(1000, Easing::Linear)
-            .repeat(Repeat::Forever)
-            .decorative(false),
-    );
-    node()
-        .role(Role::Status)
-        .name(kivact::i18n::message("basic.spinner.loading", "Loading"))
-        .style(move || style().size(16, 16).shrink(0).rotate(turn.get()))
-        .child(icon("loader-circle"))
+pub fn table_caption(text_value: impl IntoText) -> Node {
+    text(text_value).style(
+        style()
+            .margin_top(16)
+            .color(ColorName::MutedForeground)
+            .text_align(TextAlign::Center),
+    )
 }
 
-/// A pulsing muted placeholder (skeleton.tsx); size it with `.style(..)`.
-///
-/// The pulse is decorative motion: under reduced motion the block is opaque
-/// and still.
+/// The "…" that stands for hidden crumbs in the `item` slot of a
+/// `kivact::ui::breadcrumb`, read as the `basic.breadcrumb.more` message
+/// ("More").
 #[track_caller]
-pub fn skeleton() -> Skeleton {
-    Skeleton {
-        root: kivact::control::column(()),
-        rows: 1usize.into_value(),
-    }
-}
-/// Presentation builder returned by [`skeleton`].
-pub struct Skeleton {
-    root: Node,
-    rows: kivact::Value<usize>,
-}
-impl Skeleton {
-    /// Reactive row count; one by default.
-    pub fn rows(mut self, rows: impl IntoValue<usize>) -> Self {
-        self.rows = rows.into_value();
-        self
-    }
-}
-impl NodeBuilder for Skeleton {
-    fn node_mut(&mut self) -> &mut Node {
-        &mut self.root
-    }
-}
-impl IntoView for Skeleton {
-    fn into_view(self) -> View {
-        let rows = self.rows;
-        let pulse = Animated::from(
-            1.0f32,
-            0.5f32,
-            Transition::tween(1000, Easing::EaseInOut)
-                .repeat(Repeat::Forever)
-                .alternate(),
-        );
-        self.root
-            .base_style(style().gap(6).clip(true))
-            .child(kivact::view::for_index(
-                move || (0..rows.get()).collect::<Vec<_>>(),
-                move |_, _| {
-                    node().style(move || {
-                        style()
-                            .grow(1)
-                            .min_height(16)
-                            .width(pct(100))
-                            .radius(0)
-                            .background(crate::theme_access::tokens().muted)
-                            .opacity(if kivact::platform::reduced_motion() {
-                                1.
-                            } else {
-                                pulse.get()
-                            })
-                    })
-                },
-            ))
-            .into_view()
-    }
-}
-
-/// A box of the full available width whose height follows `ratio` (width / height).
-///
-/// The child is stretched to the box's width; give it `height(pct(100))`
-/// to fill the box.
-#[track_caller]
-pub fn aspect_ratio(ratio: f32, child: impl IntoView) -> Node {
+pub fn breadcrumb_ellipsis() -> Node {
     node()
+        .role(Role::Text)
+        .name(kivact::i18n::message("basic.breadcrumb.more", "More"))
         .style(
             style()
-                .direction(Direction::Column)
-                .width(pct(100))
-                .aspect_ratio(ratio)
-                .overflow(kivact::style::Overflow::Hidden),
+                .size(20, 20)
+                .shrink(0)
+                .direction(Direction::Row)
+                .align_items(Align::Center)
+                .justify_content(Justify::Center),
         )
-        .child(child)
+        .child(icon("ellipsis"))
 }

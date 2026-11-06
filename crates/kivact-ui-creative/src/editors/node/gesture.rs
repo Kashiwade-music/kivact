@@ -2,10 +2,12 @@
 
 use crate::editors::node::model::{NodeControl, NodeControlValue, NodeData, NodeLink};
 use crate::editors::shared::targets::Scene;
-use kivact::draw::{Point, RegionId};
-use kivact::interaction::{Drag as Gesture, EditSession, List, ViewTransform, ZoomPan};
+use kivact::UiError;
+use kivact::draw::RegionId;
+use kivact::geometry::Point;
+use kivact::interaction::{DragApi as Gesture, EditSession, ListApi, ViewTransform, ZoomPanApi};
+use kivact::state::{Binding, Callback, Machine, MachineHandle, Signal, Step, Value, machine};
 use kivact::view::{NodeRef, Role};
-use kivact::{Binding, Callback, Signal, UiError, Value};
 use std::rc::Rc;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -53,8 +55,10 @@ pub(crate) struct Info {
     pub(crate) name: String,
     pub(crate) value: String,
     pub(crate) role: Role,
+    // xtask-allow(state-fields): Independent optional accessibility checked output.
     pub(crate) checked: Option<bool>,
     pub(crate) selected: bool,
+    // xtask-allow(state-fields): Independent optional accessibility numeric range output.
     pub(crate) range: Option<(f64, f64, f64)>,
 }
 
@@ -79,18 +83,106 @@ pub(crate) enum NodeMode {
     },
 }
 
+enum ModeEvent {
+    Choose(NodeMode),
+    Inputs {
+        focused: bool,
+        blocked: bool,
+        data_valid: bool,
+        editing: bool,
+        dragging: bool,
+        rollback: Rc<dyn Fn()>,
+    },
+}
+struct ModeMachine;
+impl Machine for ModeMachine {
+    type State = NodeMode;
+    type Event = ModeEvent;
+    type Effect = Rc<dyn Fn()>;
+    fn transition(
+        &self,
+        state: &NodeMode,
+        event: ModeEvent,
+    ) -> Step<NodeMode, ModeEvent, Self::Effect> {
+        match event {
+            ModeEvent::Choose(mode) => Step::to(mode),
+            ModeEvent::Inputs {
+                focused,
+                blocked,
+                data_valid,
+                editing,
+                dragging,
+                rollback,
+            } => {
+                if blocked || !data_valid || (!focused && (editing || dragging)) {
+                    Step::to(NodeMode::Idle).with(rollback)
+                } else if !focused && matches!(state, NodeMode::Connecting { .. }) {
+                    Step::to(NodeMode::Idle)
+                } else {
+                    Step::stay()
+                }
+            }
+        }
+    }
+}
+#[derive(Clone, Copy)]
+pub(crate) struct NodeController {
+    machine: MachineHandle<ModeMachine>,
+}
+impl NodeController {
+    pub(crate) fn new() -> Self {
+        Self {
+            machine: machine(NodeMode::Idle, || ModeMachine, |_, rollback| rollback()),
+        }
+    }
+    pub(crate) fn set(self, mode: NodeMode) {
+        self.machine.send(ModeEvent::Choose(mode));
+    }
+    pub(crate) fn update(self, change: impl FnOnce(&mut NodeMode)) {
+        let mut mode = self.get_untracked();
+        change(&mut mode);
+        self.set(mode);
+    }
+    pub(crate) fn with<R>(self, read: impl FnOnce(&NodeMode) -> R) -> R {
+        self.machine.state().with(read)
+    }
+    pub(crate) fn with_untracked<R>(self, read: impl FnOnce(&NodeMode) -> R) -> R {
+        self.machine.state().with_untracked(read)
+    }
+    pub(crate) fn get_untracked(self) -> NodeMode {
+        self.machine.state().get_untracked()
+    }
+    pub(crate) fn inputs(
+        self,
+        focused: bool,
+        blocked: bool,
+        data_valid: bool,
+        editing: bool,
+        dragging: bool,
+        rollback: impl Fn() + 'static,
+    ) {
+        self.machine.send(ModeEvent::Inputs {
+            focused,
+            blocked,
+            data_valid,
+            editing,
+            dragging,
+            rollback: Rc::new(rollback),
+        });
+    }
+}
+
 /// The primary drag the press chose; the payload of `State::press`.
 #[derive(Clone, PartialEq)]
 pub(crate) enum DragMode {
     /// The selected nodes, from their positions at the press.
     Items {
-        origins: Vec<(u64, Point)>,
+        ids: Vec<u64>,
     },
     /// A number control, from the control at the press.
     Control {
         node: u64,
         index: usize,
-        slot: NodeControl,
     },
     /// A link from an output socket to `to`; `rewire` is the link re-routed
     /// from its input socket; `released` is the input socket under the
@@ -108,8 +200,20 @@ pub(crate) enum DragMode {
     },
 }
 
+#[derive(Clone, PartialEq)]
+pub(crate) enum DragSnapshot {
+    Items(Vec<(u64, Point)>),
+    Control {
+        node: u64,
+        index: usize,
+        slot: NodeControl,
+    },
+    None,
+}
+
 #[derive(Clone, Copy)]
 pub(crate) struct State {
+    // xtask-allow(state-fields): Application bindings, immutable callbacks and mounted input facts are independent of the gesture and connection machines.
     pub(crate) on_edit: Option<
         Callback<
             crate::editors::shared::model::EditorEvent<crate::editors::node::model::NodeRequest>,
@@ -119,29 +223,56 @@ pub(crate) struct State {
     pub(crate) nodes: Value<Vec<NodeData>>,
     pub(crate) links: Value<Vec<NodeLink>>,
     pub(crate) selected: Binding<Vec<u64>>,
+    // xtask-allow(state-fields): Application bindings, immutable callbacks and mounted input facts are independent of the gesture and connection machines.
     pub(crate) selected_link: Binding<Option<NodeLink>>,
-    pub(crate) choose: List<u64>,
+    pub(crate) choose: ListApi<u64>,
     pub(crate) transform: Binding<ViewTransform>,
     pub(crate) scene: Value<Result<Rc<Scene<Target>>, UiError>>,
+    // xtask-allow(state-fields): Application bindings, immutable callbacks and mounted input facts are independent of the gesture and connection machines.
     pub(crate) snap: Value<bool>,
+    // xtask-allow(state-fields): Application bindings, immutable callbacks and mounted input facts are independent of the gesture and connection machines.
     pub(crate) active: Signal<Option<(u64, usize)>>,
-    pub(crate) mode: Signal<NodeMode>,
+    pub(crate) mode: NodeController,
     pub(crate) reference: NodeRef,
     pub(crate) texts: crate::editors::shared::texts::Texts,
-    pub(crate) press: crate::editors::shared::gesture::CanvasGesture<Target, DragMode>,
+    pub(crate) press:
+        crate::editors::shared::gesture::CanvasGesture<Target, DragMode, DragSnapshot>,
     /// The editor's drag, without the callbacks its sources carry
     /// (`node_input::drag`).
-    pub(crate) gesture: Gesture<()>,
+    pub(crate) gesture: Gesture<DragSnapshot>,
     /// The editor's edit. The application restores its own items on
     /// `Cancel`, so the session restores nothing.
     pub(crate) edit: EditSession<()>,
+    // xtask-allow(state-fields): Application bindings, immutable callbacks and mounted input facts are independent of the gesture and connection machines.
     /// The editor is disabled, hidden or not visible.
     pub(crate) blocked: Value<bool>,
     /// The canvas's pan and zoom, which also tracks Space.
-    pub(crate) zoom: ZoomPan,
+    pub(crate) zoom: ZoomPanApi,
 }
 
 impl State {
+    pub(crate) fn source_snapshot(self) -> DragSnapshot {
+        match self.drag_state() {
+            Some(DragMode::Items { ids }) => {
+                DragSnapshot::Items(self.nodes.with_untracked(|nodes| {
+                    nodes
+                        .iter()
+                        .filter(|node| ids.contains(&node.id))
+                        .map(|node| (node.id, node.position))
+                        .collect()
+                }))
+            }
+            Some(DragMode::Control { node, index }) => {
+                self.control(node, index)
+                    .map_or(DragSnapshot::None, |slot| DragSnapshot::Control {
+                        node,
+                        index,
+                        slot,
+                    })
+            }
+            _ => DragSnapshot::None,
+        }
+    }
     /// What the pressed drag does; `None` while no press drags.
     pub(crate) fn drag_state(self) -> Option<DragMode> {
         self.press.with_payload(Clone::clone)

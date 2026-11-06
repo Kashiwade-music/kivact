@@ -1,10 +1,10 @@
 //! Role: The Lyra marker: a muted inline note with optional rules and icon.
 
-use crate::Color;
+use crate::ColorName;
 use crate::parts::sized_icon;
-use crate::theme_access::tokens;
-use kivact::control::{Node, NodeBuilder, node, row};
-use kivact::primitive::NodeExt;
+
+use kivact::view::{Node, NodeBuilder, node, row};
+
 use kivact::style::{Align, Direction, pct, style};
 use kivact::view::{IntoView, View};
 
@@ -63,13 +63,14 @@ impl Marker {
 }
 
 impl NodeBuilder for Marker {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
 }
 
 /// A 1 px line that takes the free space of the marker's row.
-fn rule(margin_right: f32, margin_left: f32) -> Node {
+fn rule(margin_right: f64, margin_left: f64) -> Node {
     node().style(
         style()
             .grow(1)
@@ -77,7 +78,7 @@ fn rule(margin_right: f32, margin_left: f32) -> Node {
             .height(1)
             .margin_right(margin_right)
             .margin_left(margin_left)
-            .background(Color::Border),
+            .background(ColorName::Border),
     )
 }
 
@@ -93,7 +94,7 @@ impl IntoView for Marker {
         );
         self.root
             .base_style(move || {
-                let p = tokens();
+                let p = kivact::style::use_tokens::<crate::Tokens>();
                 let s = style()
                     .direction(Direction::Row)
                     .align_items(Align::Center)
@@ -115,3 +116,5 @@ impl IntoView for Marker {
             .into_view()
     }
 }
+
+impl kivact::ui::Variant for MarkerVariant {}

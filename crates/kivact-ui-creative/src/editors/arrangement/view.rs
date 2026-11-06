@@ -5,16 +5,14 @@ use crate::ArrangementState;
 use crate::Clip;
 use crate::editors::arrangement::a11y::texts::ArrangementTexts;
 use crate::editors::arrangement::model::{ArrangementRequest, TimelineMarker, TimelineTrack};
-use kivact::control::{Node, NodeBuilder, node};
-use kivact::interaction::{DragCoordinates, EditSession};
-use kivact::primitive::{NodeExt, NodeRefExt};
+use kivact::custom::NodeRefExt;
+
+use kivact::interaction::EditSession;
+use kivact::state::{Callback, Value, signal};
+use kivact::state::{IntoValue, callback};
 use kivact::style::{Cursor, Overflow, pct, style};
-use kivact::ui::EditPhase;
-use kivact::view::MouseButton;
-use kivact::view::{
-    A11yAction, HandlerResult, IntoValue, IntoView, Role, View, callback, node_ref,
-};
-use kivact::{Callback, Value, signal};
+use kivact::view::{A11yAction, HandlerResult, IntoView, Role, View, node_ref};
+use kivact::view::{Node, NodeBuilder, node};
 
 /// A complete arrange surface with loop locators, markers, tracks, clips and automation.
 pub struct Arrangement {
@@ -23,7 +21,7 @@ pub struct Arrangement {
     tracks: Value<Vec<TimelineTrack>>,
     length: Value<f64>,
     ruler: crate::editors::shared::ruler::Ruler,
-    loop_min_duration: f64,
+    loop_min_duration: Value<f64>,
     state: ArrangementState,
     markers: Value<Vec<TimelineMarker>>,
     snap: Value<bool>,
@@ -56,11 +54,13 @@ pub fn arrangement(
         tracks: tracks.into_value(),
         length: 16_f64.into_value(),
         ruler: crate::editors::shared::ruler::Ruler {
-            zoom: (8.0, 80.0),
-            min_duration: 0.0625,
+            zoom: kivact::interaction::ScalarRange::new(8.0, 80.0)
+                .expect("invariant: default arrangement zoom")
+                .into_value(),
+            min_duration: 0.0625.into_value(),
             ..Default::default()
         },
-        loop_min_duration: crate::editors::shared::metrics::LOOP_MIN_LENGTH,
+        loop_min_duration: crate::editors::shared::metrics::LOOP_MIN_LENGTH.into_value(),
         state,
         markers: (move || Vec::new()).into_value(),
         snap: true.into_value(),
@@ -88,44 +88,29 @@ impl Arrangement {
     }
     /// Logical pixels per beat; the default range is 8..80.
     #[track_caller]
-    pub fn zoom_range(mut self, min: f64, max: f64) -> Self {
-        if min.is_finite() && max.is_finite() && min > 0.0 && min <= max {
-            self.ruler.zoom = (min, max);
-        } else {
-            self.ruler
-                .usage
-                .push("arrangement zoom range must be finite, positive and ordered".into());
-        }
+    pub fn zoom_range(
+        mut self,
+        range: impl kivact::state::IntoValue<kivact::interaction::ScalarRange>,
+    ) -> Self {
+        self.ruler.zoom = kivact::state::IntoValue::into_value(range);
         self
     }
     /// Smallest proposed clip duration in beats; defaults to 1/16.
     #[track_caller]
-    pub fn min_duration(mut self, beats: f64) -> Self {
-        if beats.is_finite() && beats > 0.0 {
-            self.ruler.min_duration = beats;
-        } else {
-            self.ruler
-                .usage
-                .push("arrangement minimum duration must be finite and positive".into());
-        }
+    pub fn min_duration(mut self, duration: impl kivact::state::IntoValue<f64>) -> Self {
+        self.ruler.min_duration = crate::editors::shared::ruler::duration(duration, 0.0625);
         self
     }
     /// Smallest proposed loop range in beats; defaults to 1/4.
     #[track_caller]
-    pub fn loop_min_duration(mut self, beats: f64) -> Self {
-        if beats.is_finite() && beats > 0.0 {
-            self.loop_min_duration = beats;
-        } else {
-            self.ruler
-                .usage
-                .push("arrangement loop minimum duration must be finite and positive".into());
-        }
+    pub fn loop_min_duration(mut self, duration: impl kivact::state::IntoValue<f64>) -> Self {
+        self.loop_min_duration = crate::editors::shared::ruler::duration(duration, 0.0625);
         self
     }
     /// Run when the add-track action is invoked. Setup only.
     #[track_caller]
-    pub fn on_add_track<R: HandlerResult>(mut self, f: impl Fn() -> R + 'static) -> Self {
-        self.add_track = Some(callback(move |_| f()));
+    pub fn on_add_track(mut self, f: impl Into<kivact::state::Callback<()>>) -> Self {
+        self.add_track = Some(f.into());
         self
     }
     pub fn markers(mut self, markers: impl IntoValue<Vec<TimelineMarker>>) -> Self {
@@ -143,6 +128,7 @@ impl Arrangement {
 }
 
 impl NodeBuilder for Arrangement {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -150,6 +136,78 @@ impl NodeBuilder for Arrangement {
 
 impl IntoView for Arrangement {
     fn into_view(self) -> View {
+        let Prepared {
+            root,
+            state,
+            reference,
+            add_track,
+        } = self.prepare();
+        let data = state.data;
+        let track_data = state.track_data;
+        let selection = state.selection;
+        let gesture = super::input::drag(state);
+        let availability = kivact::custom::part(|input| input);
+        observe_inputs(state, reference, availability.state());
+        let action = callback(move |event| super::edit::a11y(state, add_track, event));
+        let semantic_items = kivact::state::memo(move || super::a11y::semantic(state));
+        let root = root.regions(
+            semantic_items,
+            |info| info.id,
+            move |_, info| {
+                // A press on a region drags from there.
+                let attachment = crate::editors::shared::region_parts::attachment(
+                    info.get_untracked().kind,
+                    info,
+                    action,
+                );
+                let drag_source = gesture.source_with(move || super::input::source_snapshot(state));
+                kivact::custom::Part::new(attachment.state(), move |node| {
+                    node.part(attachment).part(drag_source)
+                })
+            },
+        );
+        root.node_ref(reference)
+            .value_text(move || {
+                format!(
+                    "{} clips; {} tracks; {} selected",
+                    data.with(Vec::len),
+                    track_data.with(Vec::len),
+                    selection.with(Vec::len)
+                )
+            })
+            .style(move || {
+                let t = &kivact::style::use_theme().get();
+                style().background(t.ext::<crate::tokens::Tokens>().island)
+            })
+            .a11y_action(A11yAction::Select, move |event| action.call(event))
+            .a11y_action(A11yAction::Activate, move |event| action.call(event))
+            .a11y_action(A11yAction::SetValue, move |event| action.call(event))
+            .draw(move |d, size| super::paint::paint(d, size, state))
+            .on_pointer(move |e| super::input::pointer(state, e))
+            .on_wheel(move |e| super::input::wheel(state, e))
+            .part(availability)
+            .part(gesture.source_with(move || super::input::source_snapshot(state)))
+            // After the drag's sources, which take Escape during a drag.
+            .part({
+                let input_part = kivact::custom::part(|input| input);
+                kivact::custom::Part::new(input_part.state(), move |node| {
+                    node.part(input_part)
+                        .region_events()
+                        .on_key(move |e| super::input::key(state, e))
+                })
+            })
+            .into_view()
+    }
+}
+
+struct Prepared {
+    root: Node,
+    state: State,
+    reference: kivact::view::NodeRef,
+    add_track: Option<Callback<()>>,
+}
+impl Arrangement {
+    fn prepare(self) -> Prepared {
         let Self {
             root,
             items,
@@ -163,8 +221,7 @@ impl IntoView for Arrangement {
                     playhead,
                     loop_range,
                     cycling,
-                    zoom,
-                    pan,
+                    transform,
                     tool: tool_binding,
                 },
             markers,
@@ -174,83 +231,27 @@ impl IntoView for Arrangement {
             on_edit,
         } = self;
         ruler.report();
-        let report = callback(|error| -> kivact::Result<()> { Err(error) });
-        let length = kivact::memo(move || {
-            let value = length.get();
-            if value.is_finite() && value > 0.0 {
-                value
-            } else {
-                report.call(kivact::UiError::msg(
-                    "arrangement length must be finite and positive",
-                ));
-                0.0
-            }
-        });
+        let length = validated_length(length);
         let texts = ArrangementTexts::new();
         let data = items.into_value();
         let track_data = tracks.into_value();
 
-        let selection = selected.into_value();
-        let regions =
-            crate::editors::arrangement::a11y::targets::create(track_data, data, selection);
-        let order = kivact::memo(move || {
-            data.get()
-                .into_iter()
-                .filter(crate::editors::shared::model::drawable)
-                .map(|c| kivact::ui::ListItem::new(c.id, c.label))
-                .collect::<Vec<_>>()
-        });
-        let choose = crate::editors::shared::selection::controller(order, selected);
+        let collection = collection_inputs(data, track_data, selected);
         let frame = playhead.into_value();
         let range = loop_range.into_value();
         let cycle = cycling.into_value();
-        let pixels = zoom.into_value();
-        let offset = pan.into_value();
+        let pixels = kivact::state::memo(move || transform.get().scale);
+        let offset = kivact::state::memo(move || transform.get().offset);
         let tool = tool_binding.into_value();
         let active_auto = signal(None::<(u64, u64)>);
-        let restore = super::edit::Restore {
-            playhead,
-            loop_range,
-            cycling,
-            zoom,
-            pan,
-        };
         let reference = node_ref();
         let rect = reference.rect();
-        let edit = crate::editors::shared::model::observed(
-            EditSession::new(move |snapshot| super::edit::restore(restore, snapshot)),
-            on_edit.map(|observer| {
-                callback(move |phase| {
-                    observer.call(match phase {
-                        EditPhase::Begin => crate::editors::shared::model::EditorEvent::Begin,
-                        EditPhase::Commit => crate::editors::shared::model::EditorEvent::Commit,
-                        EditPhase::Cancel => crate::editors::shared::model::EditorEvent::Cancel,
-                    })
-                })
-            }),
-        );
-        let press = crate::editors::shared::gesture::CanvasGesture::<
-            crate::editors::arrangement::a11y::targets::Target,
-            (
-                Option<crate::editors::arrangement::gesture::Drag>,
-                Option<crate::editors::arrangement::gesture::Snapshot>,
-            ),
-        >::new();
-        // A gesture begins its edit at its first change, from the press's
-        // snapshot; an empty one would restore nothing.
-        let gesture = kivact::interaction::use_drag::<()>(DragCoordinates::Local)
-            .buttons([MouseButton::Middle])
-            .edit_on_change(edit, move || {
-                press
-                    .with_payload(|payload| payload.1.clone())
-                    .flatten()
-                    .unwrap_or_else(|| super::gesture::Snapshot::Clips(Vec::new()))
-            });
+        let edit = arrangement_edit(playhead, loop_range, cycling, transform, on_edit);
+        let (press, gesture) = crate::editors::shared::gesture::CanvasGesture::editor(edit, || {
+            super::gesture::Snapshot::Clips(Vec::new())
+        });
         let state = State {
-            size: kivact::memo(move || {
-                let r = rect.get().unwrap_or_default();
-                kivact::draw::Size::new(r.width, r.height)
-            }),
+            size: crate::editors::shared::model::canvas_size(rect),
             data,
             length,
             bounds: ruler.zoom,
@@ -259,16 +260,15 @@ impl IntoView for Arrangement {
             on_edit,
             track_data,
             selected,
-            selection,
+            selection: collection.selection,
             playhead,
             frame,
             loop_range,
             range,
             cycle,
             cycling,
-            zoom,
+            transform,
             pixels,
-            pan,
             offset,
             tool_binding,
             tool,
@@ -279,76 +279,113 @@ impl IntoView for Arrangement {
             edit,
             press,
             gesture,
-            regions,
+            regions: collection.regions,
             texts,
-            choose,
+            choose: collection.choose,
         };
-        let gesture = super::input::drag(state);
-        let focus = reference.focus_within();
-        kivact::effect(move || {
-            let focused = focus.get();
-            let visible = reference.is_visible();
-            let clips = state.data.get();
-            let tracks = state.track_data.get();
-            let missing = state.initial().is_some_and(|v| match v {
-                super::gesture::Snapshot::Clips(initial) => initial.iter().any(|v| {
-                    !clips
-                        .iter()
-                        .any(|c| c.id == v.0 && tracks.iter().any(|t| t.id == c.lane))
-                }),
-                super::gesture::Snapshot::Automation(track, id, Some(_)) => !tracks
-                    .iter()
-                    .any(|t| t.id == track && t.automation.iter().any(|p| p.id == id)),
-                super::gesture::Snapshot::Automation(track, _, None) => {
-                    !tracks.iter().any(|t| t.id == track)
-                }
-                _ => false,
-            });
-            if state.drag_state().is_some() && (!focused || !visible || missing) {
-                state.cancel();
-            }
-        });
-        let action = callback(move |event| super::edit::a11y(state, add_track, event));
-        let semantic_items = kivact::memo(move || super::a11y::semantic(state));
-        let root = root.regions(
-            semantic_items,
-            |info| info.id,
-            move |_, info| {
-                // A press on a region drags from there.
-                crate::editors::shared::region_parts::attachment(
-                    info.get_untracked().kind,
-                    info,
-                    action,
-                )
-                .with(gesture.source(()))
-            },
-        );
-        root.node_ref(reference)
-            .value_text(move || {
-                format!(
-                    "{} clips; {} tracks; {} selected",
-                    data.with(Vec::len),
-                    track_data.with(Vec::len),
-                    selection.with(Vec::len)
-                )
-            })
-            .style(move || {
-                let t = &kivact::style::current_theme();
-                style().background(t.get::<crate::tokens::Tokens>().island)
-            })
-            .on_a11y_event(A11yAction::Select, move |event| action.call(event))
-            .on_a11y_event(A11yAction::Activate, move |event| action.call(event))
-            .on_a11y_event(A11yAction::SetValue, move |event| action.call(event))
-            .draw(move |d, size| super::paint::paint(d, size, state))
-            .on_pointer(move |e| super::input::pointer(state, e))
-            .on_wheel(move |e| super::input::wheel(state, e))
-            .part(gesture.source(()))
-            // After the drag's sources, which take Escape during a drag.
-            .part(
-                kivact::primitive::part(|input| input)
-                    .region_events()
-                    .on_key(move |e| super::input::key(state, e)),
-            )
-            .into_view()
+        Prepared {
+            root,
+            state,
+            reference,
+            add_track,
+        }
     }
+}
+
+fn observe_inputs(
+    state: State,
+    reference: kivact::view::NodeRef,
+    availability_state: Value<kivact::custom::PartState>,
+) {
+    let focus = reference.focus_within();
+    kivact::state::effect(move || {
+        let focused = focus.get();
+        let visible = reference.is_visible();
+        let clips = state.data.get();
+        let tracks = state.track_data.get();
+        let missing = state.initial().is_some_and(|v| match v {
+            super::gesture::Snapshot::Clips(initial) => initial.iter().any(|v| {
+                !clips
+                    .iter()
+                    .any(|c| c.id == v.0 && tracks.iter().any(|t| t.id == c.lane))
+            }),
+            super::gesture::Snapshot::Automation(track, id, Some(_)) => !tracks
+                .iter()
+                .any(|t| t.id == track && t.automation.iter().any(|p| p.id == id)),
+            super::gesture::Snapshot::Automation(track, _, None) => {
+                !tracks.iter().any(|t| t.id == track)
+            }
+            _ => false,
+        });
+        let input = availability_state.get();
+        state.press.inputs_changed(
+            focused,
+            visible && !input.hidden,
+            !input.disabled,
+            !missing,
+            move || state.cancel(),
+        );
+    });
+}
+
+fn validated_length(length: Value<f64>) -> Value<f64> {
+    let report = callback(|error| -> kivact::Result<()> { Err(error) });
+    kivact::state::memo(move || {
+        let value = length.get();
+        if value.is_finite() && value > 0.0 {
+            value
+        } else {
+            report.call(kivact::UiError::msg(
+                "arrangement length must be finite and positive",
+            ));
+            0.0
+        }
+    })
+    .into_value()
+}
+
+struct CollectionInputs {
+    selection: Value<Vec<u64>>,
+    regions: Value<crate::editors::arrangement::a11y::targets::Regions>,
+    choose: kivact::interaction::ListApi<u64>,
+}
+fn collection_inputs(
+    data: Value<Vec<Clip>>,
+    track_data: Value<Vec<TimelineTrack>>,
+    selected: kivact::state::Binding<Vec<u64>>,
+) -> CollectionInputs {
+    let selection = selected.into_value();
+    let regions = crate::editors::arrangement::a11y::targets::create(track_data, data, selection);
+    let order = kivact::state::memo(move || {
+        data.get()
+            .into_iter()
+            .filter(crate::editors::shared::model::drawable)
+            .map(|c| kivact::interaction::ListItem::new(c.id, c.label))
+            .collect::<Vec<_>>()
+    });
+    let choose = crate::editors::shared::selection::controller(order, selected);
+    CollectionInputs {
+        selection,
+        regions,
+        choose,
+    }
+}
+
+fn arrangement_edit(
+    playhead: kivact::state::Binding<f64>,
+    loop_range: kivact::state::Binding<(f64, f64)>,
+    cycling: kivact::state::Binding<bool>,
+    transform: kivact::state::Binding<kivact::interaction::ViewTransform>,
+    on_edit: Option<Callback<crate::editors::shared::model::EditorEvent<ArrangementRequest>>>,
+) -> EditSession<super::gesture::Snapshot> {
+    let restore = super::edit::Restore {
+        playhead,
+        loop_range,
+        cycling,
+        transform,
+    };
+    crate::editors::shared::model::observed(
+        EditSession::new(move |snapshot| super::edit::restore(restore, snapshot)),
+        crate::editors::shared::model::phase_observer(on_edit),
+    )
 }

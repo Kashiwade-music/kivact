@@ -1,23 +1,28 @@
 //! Role: The App's record of its imports and the adapter signal.
 
-use kivact_reactive::Runtime;
-use kivact_reactive::Signal;
-use kivact_reactive::{ErrorKind, UiError};
-use kivact_wire::{ExternalImageId, ExternalImport, GpuAdapter};
+use kivact_runtime::Signal;
+use kivact_runtime::{ErrorKind, UiError};
+use kivact_runtime::{Owner, Runtime};
+use kivact_types::{ExternalImageId, ExternalImport, GpuAdapter};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::panic::Location;
 
-use crate::view::state::ViewState;
-
 /// What `gpu_interop` keeps per App: its imports. The client installs it as
 /// a runtime extension when the App is created.
-#[derive(Default)]
 pub(crate) struct State {
     imports: RefCell<Imports>,
+    adapter: Signal<Option<GpuAdapter>>,
 }
 
 impl State {
+    pub(crate) fn new(owner: Owner, at: &'static Location<'static>) -> Self {
+        Self {
+            imports: RefCell::default(),
+            adapter: owner.signal(None, at),
+        }
+    }
+
     /// The gpu-interop state of `rt`'s App.
     #[inline]
     pub(crate) fn of(rt: &Runtime) -> &State {
@@ -133,8 +138,8 @@ pub enum ImportStatus {
 /// outside every owner.
 #[track_caller]
 pub fn adapter() -> Option<GpuAdapter> {
-    let rt = kivact_reactive::Owner::ambient("adapter", Location::caller()).runtime();
-    let signal = ViewState::of(&rt).adapter();
+    let rt = kivact_runtime::Owner::ambient("adapter", Location::caller()).runtime();
+    let signal = State::of(&rt).adapter;
     drop(rt);
     signal.get()
 }
@@ -179,7 +184,7 @@ pub(crate) fn adapter_changed(rt: &Runtime, adapter: Option<&GpuAdapter>) {
         .values()
         .map(|import| import.status)
         .collect();
-    let signal = ViewState::of(rt).adapter();
+    let signal = State::of(rt).adapter;
     // Only the adapter and the statuses are written here: no owner applies.
     rt.enter(|| {
         signal.set(adapter.cloned());

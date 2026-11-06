@@ -114,9 +114,46 @@ impl std::fmt::Debug for DebugWith<'_> {
 pub(super) struct Variants(Rc<RefCell<Extensions>>);
 
 impl Variants {
+    /// Merge inherited group decoration while preserving panel-specific types.
+    pub(super) fn inherited(&self, parent: &Self) -> Self {
+        let own = self.0.borrow();
+        let parent = parent.0.borrow();
+        let mut entries = parent
+            .0
+            .iter()
+            .filter(|entry| {
+                !own.0
+                    .iter()
+                    .any(|value| (*value.value).type_id() == (*entry.value).type_id())
+            })
+            .cloned()
+            .collect::<Vec<_>>();
+        entries.extend(own.0.iter().cloned());
+        Self(Rc::new(RefCell::new(Extensions(Rc::new(entries)))))
+    }
+
     pub(super) fn add<T: Variant>(&self, value: T) {
         let mut ext = self.0.borrow_mut();
         *ext = std::mem::take(&mut *ext).with(value);
+    }
+
+    /// Inherit missing presentation types while retaining explicit caller values.
+    pub(super) fn with_defaults(&self, defaults: &Self) -> Self {
+        let merged = Self::default();
+        merged.merge(defaults);
+        merged.merge(self);
+        merged
+    }
+
+    /// Merge presentation values, replacing only values of the same type.
+    pub(super) fn merge(&self, other: &Self) {
+        let incoming = other.0.borrow().clone();
+        let mut current = self.0.borrow_mut();
+        let entries = Rc::make_mut(&mut current.0);
+        for entry in incoming.0.iter() {
+            entries.retain(|existing| (*existing.value).type_id() != (*entry.value).type_id());
+            entries.push(entry.clone());
+        }
     }
 
     /// An independent recipe look for one presentation of this component.
@@ -147,13 +184,13 @@ impl Variants {
 ///
 /// ```
 /// use kivact::style::{Theme, rgb};
-/// use kivact::ui::{CheckState, Look, UiRecipes, Variant};
+/// use kivact::ui::{CheckableState, Look, UiRecipes, Variant};
 /// #[derive(Clone, Copy, Debug, PartialEq)]
 /// struct Pill;
 /// impl Variant for Pill {}
 /// let recipes = UiRecipes::default().radio_group(|table| {
 ///     table.item(|prev| {
-///         move |theme: &Theme, look: &Look<CheckState>| match look.variant::<Pill>() {
+///         move |theme: &Theme, look: &Look<CheckableState>| match look.variant::<Pill>() {
 ///             Some(Pill) => prev(theme, look).radius(999).background(rgb(0xe8eefc)),
 ///             None => prev(theme, look),
 ///         }

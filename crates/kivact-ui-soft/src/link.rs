@@ -1,49 +1,81 @@
 //! Role: Neutral text links with explicit native activation.
+use kivact::state::IntoValue;
 
+use crate::TextKind;
 use crate::feedback::icon_box;
 use crate::recipe_style::ring;
-use crate::{TextKind, tokens};
-use kivact::control::{Node, NodeBuilder, icon, row, text};
-use kivact::primitive::{NodeExt, part};
-use kivact::style::{Align, Cursor, Direction, TextDecorationLine, pct, style};
-use kivact::view::{
-    Handled, HandlerResult, IntoText, IntoView, Key, ReadingDirection, Role, View, callback,
-    current_direction,
-};
-use kivact::{Callback, Value, memo};
+use kivact::custom::part;
+use kivact::state::Callback;
+use kivact::state::IntoText;
+use kivact::state::Value;
+use kivact::state::callback;
+use kivact::state::memo;
+use kivact::style::Align;
+use kivact::style::Cursor;
+use kivact::style::Direction;
+use kivact::style::TextDecorationLine;
+use kivact::style::pct;
+use kivact::style::style;
+use kivact::view::Handled;
+use kivact::view::IntoView;
+use kivact::view::Key;
+use kivact::view::Node;
+use kivact::view::NodeBuilder;
+use kivact::view::ReadingDirection;
+use kivact::view::Role;
+use kivact::view::View;
+use kivact::view::icon;
+use kivact::view::row;
+use kivact::view::text;
+use kivact::view::use_direction;
 
 /// Foreground of a text link.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum LinkColor {
     #[default]
+    /// Use the theme's accent foreground.
     Accent,
+    /// Use the primary text foreground.
     Primary,
+    /// Use the secondary text foreground.
     Secondary,
+    /// Use the disabled text foreground without changing activation availability.
     Disabled,
+    /// Use the secondary foreground for placeholder-style links.
     Placeholder,
+    /// Inherit the surrounding foreground color.
     Inherit,
 }
 
 /// Inline-sized link or link-shaped action.
 pub struct Link {
     root: Node,
+    // xtask-allow(state-fields): Optional accessible label input, independent of activation.
     label: Option<Value<String>>,
     content: View,
+    // xtask-allow(state-fields): Optional caller activation callback.
     press: Option<Callback<()>>,
+    // xtask-allow(state-fields): Optional localized external-link suffix input.
     new_tab_label: Option<Value<String>>,
-    underline: bool,
-    disabled: bool,
-    external: bool,
-    standalone: bool,
-    kind: TextKind,
-    size: Option<f32>,
+    // xtask-allow(state-fields): Independent underline presentation input.
+    underline: Value<bool>,
+    // xtask-allow(state-fields): Independent external-link presentation input.
+    external: Value<bool>,
+    // xtask-allow(state-fields): Independent typography fallback input.
+    standalone: Value<bool>,
+    kind: Value<TextKind>,
+    // xtask-allow(state-fields): Optional readonly font-size override.
+    size: Option<Value<f64>>,
+    // xtask-allow(state-fields): Optional immutable font-weight override.
     weight: Option<u16>,
-    color: LinkColor,
-    max_lines: u32,
-    as_button: bool,
+    color: Value<LinkColor>,
+    max_lines: Value<u32>,
+    // xtask-allow(state-fields): Independent semantic activation-mode construction input.
+    as_button: Value<bool>,
 }
 
 #[track_caller]
+/// Create a text link with the supplied visible and accessible label.
 pub fn link(label: impl IntoText) -> Link {
     let label = label.into_text_value();
     let mut link = link_with(text(label));
@@ -52,6 +84,7 @@ pub fn link(label: impl IntoText) -> Link {
 }
 
 #[track_caller]
+/// Mount custom link content once; use `name` to give it an accessible label.
 pub fn link_with(content: impl IntoView) -> Link {
     Link {
         root: row(()),
@@ -59,88 +92,95 @@ pub fn link_with(content: impl IntoView) -> Link {
         content: content.into_view(),
         press: None,
         new_tab_label: None,
-        underline: false,
-        disabled: false,
-        external: false,
-        standalone: false,
-        kind: TextKind::Body,
+        underline: (false).into_value(),
+        external: (false).into_value(),
+        standalone: (false).into_value(),
+        kind: (TextKind::Body).into_value(),
         size: None,
         weight: None,
-        color: LinkColor::Accent,
-        max_lines: 0,
-        as_button: false,
+        color: (LinkColor::Accent).into_value(),
+        max_lines: 0.into_value(),
+        as_button: (false).into_value(),
     }
 }
 
 impl Link {
+    /// Set the accessible label independently of custom visible content.
     pub fn name(mut self, label: impl IntoText) -> Self {
         self.label = Some(label.into_text_value());
         self
     }
 
-    pub fn on_press<R: HandlerResult>(mut self, press: impl Fn() -> R + 'static) -> Self {
-        self.press = Some(callback(move |_| press()));
+    /// Handle activation; the caller performs navigation or another action.
+    pub fn on_press(mut self, press: impl Into<Callback<()>>) -> Self {
+        let press: Callback<()> = press.into();
+        self.press = Some(callback(move |_| press.call(())));
         self
     }
 
     /// Use the Space and Enter behavior of an action button.
-    pub fn as_button(mut self, value: bool) -> Self {
-        self.as_button = value;
+    pub fn as_button(mut self, value: impl IntoValue<bool>) -> Self {
+        self.as_button = value.into_value();
         self
     }
 
-    pub fn underline(mut self, value: bool) -> Self {
-        self.underline = value;
+    /// Show or hide the link's underline.
+    pub fn underline(mut self, value: impl IntoValue<bool>) -> Self {
+        self.underline = value.into_value();
         self
     }
 
-    pub fn disabled(mut self, value: bool) -> Self {
-        self.disabled = value;
+    /// Show the external-link indicator and announce the new-tab label.
+    pub fn external(mut self, value: impl IntoValue<bool>) -> Self {
+        self.external = value.into_value();
         self
     }
 
-    pub fn external(mut self, value: bool) -> Self {
-        self.external = value;
-        self
-    }
-
+    /// Override the accessible text appended for an external link.
     pub fn new_tab_label(mut self, label: impl IntoText) -> Self {
         self.new_tab_label = Some(label.into_text_value());
         self
     }
 
-    pub fn standalone(mut self, value: bool) -> Self {
-        self.standalone = value;
+    /// Use body typography when the selected text role is `TextKind::Inherit`.
+    pub fn standalone(mut self, value: impl IntoValue<bool>) -> Self {
+        self.standalone = value.into_value();
         self
     }
 
-    pub fn text_type(mut self, kind: TextKind) -> Self {
-        self.kind = kind;
+    /// Choose the theme typography role for the link.
+    pub fn text_type(mut self, kind: impl IntoValue<TextKind>) -> Self {
+        self.kind = kind.into_value();
         self
     }
 
-    pub fn text_size(mut self, px: f32) -> Self {
-        self.size = Some(px);
+    /// Override the text size in pixels, including reactive changes.
+    pub fn text_size(mut self, px: impl IntoValue<f64>) -> Self {
+        self.size = Some(px.into_value());
         self
     }
 
+    /// Override the text weight.
     pub fn weight(mut self, weight: u16) -> Self {
         self.weight = Some(weight);
         self
     }
 
-    pub fn color(mut self, color: LinkColor) -> Self {
-        self.color = color;
+    /// Choose the foreground palette role.
+    pub fn color(mut self, color: impl IntoValue<LinkColor>) -> Self {
+        self.color = color.into_value();
         self
     }
 
-    pub fn max_lines(mut self, lines: u32) -> Self {
-        self.max_lines = lines;
+    /// Limit the visible line count; zero leaves it unrestricted.
+    pub fn max_lines(mut self, lines: impl IntoValue<u32>) -> Self {
+        self.max_lines = lines.into_value();
         self
     }
 }
 
 impl NodeBuilder for Link {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -148,121 +188,177 @@ impl NodeBuilder for Link {
 
 impl IntoView for Link {
     fn into_view(self) -> View {
-        let disabled = self.disabled;
         let interactive = self.press.is_some();
         let attachment = part(|state| state);
         let input = attachment.state();
-        let mut root = self.root.part(attachment);
-        if let Some(press) = self.press {
-            root = root
-                .role(if self.as_button {
-                    Role::Button
-                } else {
-                    Role::Link
-                })
-                .focusable(true)
-                .disabled(disabled)
-                .on_press(move || {
-                    if !disabled {
-                        press.call(());
-                    }
-                });
-            if !self.as_button {
-                root = root.on_key(|event| {
-                    if event.key == Key::Space {
-                        Handled::Yes
-                    } else {
-                        Handled::No
-                    }
-                });
-            }
-        }
-        if let Some(label) = self.label {
-            let label = if self.external {
-                let suffix = self.new_tab_label.unwrap_or_else(|| {
-                    kivact::i18n::message("soft.link.new_tab", "(opens in new tab)")
-                });
-                memo(move || format!("{} {}", label.get(), suffix.get()))
-            } else {
-                label
-            };
-            root = root.name(label);
-        }
-        let direction = if current_direction() == ReadingDirection::Rtl {
+        let mut root = self.root.with_node(move |node| node.part(attachment));
+        root = activate_link(root, self.press, self.as_button);
+        root = name_link(root, self.label, self.external, self.new_tab_label);
+        let direction = if use_direction().get() == ReadingDirection::Rtl {
             Direction::RowReverse
         } else {
             Direction::Row
         };
-        let kind = self.kind;
-        let size = self.size;
-        let weight = self.weight;
-        let underline = self.underline;
-        let color = self.color;
-        let standalone = self.standalone;
+        let appearance = LinkAppearance {
+            kind: self.kind.get(),
+            size: self.size,
+            weight: self.weight,
+            underline: self.underline.get(),
+            color: self.color.get(),
+            standalone: self.standalone.get(),
+            direction,
+            interactive,
+        };
         let lines = self.max_lines;
-        root.base_style(move || {
-            let t = tokens();
-            let typography = &t.typography;
-            let metrics = match kind {
-                TextKind::Body => Some(typography.body),
-                TextKind::Label => Some(typography.label),
-                TextKind::Supporting => Some(typography.supporting),
-                TextKind::Large => Some(typography.large),
-                TextKind::Code => Some(typography.code),
-                TextKind::Display1 => Some(typography.display1),
-                TextKind::Display2 => Some(typography.display2),
-                TextKind::Display3 => Some(typography.display3),
-                TextKind::Inherit if standalone => Some(typography.body),
-                TextKind::Inherit => None,
-            };
-            let ink = match color {
-                LinkColor::Accent => Some(t.colors.text_accent),
-                LinkColor::Primary => Some(t.colors.text_primary),
-                LinkColor::Secondary | LinkColor::Placeholder => Some(t.colors.text_secondary),
-                LinkColor::Disabled => Some(t.colors.text_disabled),
-                LinkColor::Inherit => None,
-            };
-            let mut base = style()
-                .direction(direction)
-                .align_items(Align::Center)
-                .gap(2)
-                .min_width(0)
-                .max_width(pct(100));
-            if let Some(metrics) = metrics {
-                base = base
-                    .font_family(metrics.family)
-                    .font_size(metrics.size_px)
-                    .weight(metrics.weight)
-                    .line_height(metrics.line_height_px / metrics.size_px);
-            }
-            if let Some(ink) = ink {
-                base = base.color(ink);
-            }
-            if let Some(size) = size {
-                base = base.font_size(size);
-            }
-            if let Some(weight) = weight {
-                base = base.weight(weight);
-            }
-            if underline || (interactive && !disabled && input.get().hovered) {
-                base = base.text_decoration(TextDecorationLine::UNDERLINE);
-            }
-            if disabled {
-                base.opacity(t.sizes.disabled_opacity)
-                    .cursor(Cursor::Default)
-            } else if interactive {
-                base.cursor(Cursor::Pointer)
-                    .pressed(style().background(t.colors.overlay_pressed))
-                    .focus_visible(ring(&t, t.colors.focus_ring))
-            } else {
-                base
-            }
-        })
-        .child(row(self.content).style(style().min_width(0).line_clamp(lines)))
-        .child(
-            self.external
-                .then(|| icon_box(icon("external-link").into_view(), 12.0)),
-        )
-        .into_view()
+        root.with_node(move |node| node.base_style(move || appearance.paint(input)))
+            .child(row(self.content).style(move || style().min_width(0).line_clamp(lines.get())))
+            .child(
+                self.external
+                    .get()
+                    .then(|| icon_box(icon("external-link").into_view(), 12.0)),
+            )
+            .into_view()
+    }
+}
+
+kivact::state::constant_value!(LinkColor);
+
+fn activate_link(mut root: Node, press: Option<Callback<()>>, as_button: Value<bool>) -> Node {
+    if let Some(press) = press {
+        root = root
+            .with_node(move |node| {
+                node.role(if as_button.get() {
+                    Role::Button
+                } else {
+                    Role::Link
+                })
+            })
+            .focusable(true)
+            .on_press(move || press.call(()));
+        if !as_button.get() {
+            root = root.on_key(|event| {
+                if event.key() == Key::Space {
+                    Handled::Yes
+                } else {
+                    Handled::No
+                }
+            });
+        }
+    }
+    root
+}
+fn name_link(
+    mut root: Node,
+    label: Option<Value<String>>,
+    external: Value<bool>,
+    new_tab_label: Option<Value<String>>,
+) -> Node {
+    if let Some(label) = label {
+        let label = if external.get() {
+            let suffix = new_tab_label.unwrap_or_else(|| {
+                kivact::i18n::message("soft.link.new_tab", "(opens in new tab)")
+            });
+            memo(move || format!("{} {}", label.get(), suffix.get()))
+        } else {
+            label
+        };
+        root = root.name(label);
+    }
+    root
+}
+// xtask-allow(state-fields): Independent immutable typography and interaction-availability inputs sampled from the Link builder; actual input remains in PartState.
+#[derive(Clone, Copy)]
+struct LinkAppearance {
+    kind: TextKind,
+    // xtask-allow(state-fields): Optional readonly font-size override shared with paint.
+    size: Option<Value<f64>>,
+    // xtask-allow(state-fields): Optional immutable font-weight override.
+    weight: Option<u16>,
+    // xtask-allow(state-fields): Readonly underline choice sampled from the builder.
+    underline: bool,
+    color: LinkColor,
+    // xtask-allow(state-fields): Readonly typography fallback choice sampled from the builder.
+    standalone: bool,
+    direction: Direction,
+    // xtask-allow(state-fields): Readonly presence of the caller activation callback.
+    interactive: bool,
+}
+impl LinkAppearance {
+    fn paint(self, input: Value<kivact::custom::PartState>) -> kivact::style::Style {
+        let Self {
+            kind: _,
+            size,
+            weight,
+            underline,
+            color: _,
+            standalone: _,
+            direction,
+            interactive,
+        } = self;
+        let t = kivact::style::use_tokens::<crate::Tokens>();
+        let metrics = self.metrics(&t);
+        let ink = self.ink(&t);
+        let mut base = style()
+            .direction(direction)
+            .align_items(Align::Center)
+            .gap(2)
+            .min_width(0)
+            .max_width(pct(100));
+        if let Some(metrics) = metrics {
+            base = base
+                .font_family(metrics.family)
+                .font_size(metrics.size_px)
+                .weight(metrics.weight)
+                .line_height(metrics.line_height_px / metrics.size_px);
+        }
+        if let Some(ink) = ink {
+            base = base.color(ink);
+        }
+        if let Some(size) = size {
+            base = base.font_size(size.get());
+        }
+        if let Some(weight) = weight {
+            base = base.weight(weight);
+        }
+        if underline || (interactive && !input.get().disabled && input.get().hovered) {
+            base = base.text_decoration(TextDecorationLine::UNDERLINE);
+        }
+        if input.get().disabled {
+            base.opacity(t.sizes.disabled_opacity)
+                .cursor(Cursor::Default)
+        } else if interactive {
+            base.cursor(Cursor::Pointer)
+                .pressed(style().background(t.colors.overlay_pressed))
+                .focus_visible(ring(&t, t.colors.focus_ring))
+        } else {
+            base
+        }
+    }
+    fn metrics(self, t: &crate::Tokens) -> Option<crate::TypeStyle> {
+        let typography = &t.typography;
+        let kind = self.kind;
+        let standalone = self.standalone;
+        match kind {
+            TextKind::Body => Some(typography.body),
+            TextKind::Label => Some(typography.label),
+            TextKind::Supporting => Some(typography.supporting),
+            TextKind::Large => Some(typography.large),
+            TextKind::Code => Some(typography.code),
+            TextKind::Display1 => Some(typography.display1),
+            TextKind::Display2 => Some(typography.display2),
+            TextKind::Display3 => Some(typography.display3),
+            TextKind::Inherit if standalone => Some(typography.body),
+            TextKind::Inherit => None,
+        }
+    }
+    fn ink(self, t: &crate::Tokens) -> Option<kivact::style::Color> {
+        let color = self.color;
+        match color {
+            LinkColor::Accent => Some(t.colors.text_accent),
+            LinkColor::Primary => Some(t.colors.text_primary),
+            LinkColor::Secondary | LinkColor::Placeholder => Some(t.colors.text_secondary),
+            LinkColor::Disabled => Some(t.colors.text_disabled),
+            LinkColor::Inherit => None,
+        }
     }
 }

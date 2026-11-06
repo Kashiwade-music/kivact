@@ -1,6 +1,6 @@
 //! Role: Fixed-resolution images drawn with the same `Draw` vocabulary as canvases.
 //!
-//! The path from a `Scene` through the engine's `paint::Context` to an
+//! The path from a `DrawList` through the engine's `paint::Context` to an
 //! Arvane scene is the window's. The context keeps the resources, the
 //! raster scale and the first failure; text is measured with a
 //! `bridge::TextMeasurer` that needs no node tree. Only the CPU
@@ -30,24 +30,16 @@
 //!   invalid `window_size`) and the drawing closure is not called.
 //! - Assets load from an inline store and complete at once. Codecs, the
 //!   artwork's time and cancelling between frames are the caller's.
-use super::{Draw, Size};
+use super::Draw;
+use crate::geometry::Size;
 use crate::{Result, UiError};
-use kivact_reactive::ErrorKind;
+use kivact_runtime::ErrorKind;
 use kivact_style::Theme;
 use kivact_style::asset::Asset;
 use kivact_style::draw::Recording;
 use std::panic::Location;
 
-/// A tightly packed image, top row first, in sRGB with straight
-/// (unassociated) alpha: exactly `width * height * 4` bytes in RGBA order,
-/// without row padding. It owns its allocation, independent of the
-/// [`Offscreen`] that drew it, and can move to another thread.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct RgbaImage {
-    pub width: u32,
-    pub height: u32,
-    pub rgba: Vec<u8>,
-}
+use kivact_types::Pixels;
 
 /// Draws into fixed-resolution RGBA images without an `App` or a window
 /// (for exporting artwork or a frame sequence). The `paint` closure of
@@ -79,7 +71,8 @@ pub struct RgbaImage {
 ///
 /// ```no_run
 /// # use kivact_core as kivact;
-/// use kivact::draw::{Offscreen, Rect};
+/// use kivact::draw::{Offscreen};
+/// use kivact::geometry::{Rect};
 /// use kivact::style::rgb;
 ///
 /// let mut renderer = Offscreen::new();
@@ -98,7 +91,7 @@ pub struct RgbaImage {
 /// requires_send::<kivact::draw::Offscreen>();
 /// ```
 pub struct Offscreen {
-    engine: kivact_engine::bridge::Offscreen,
+    engine: kivact_engine::api::OffscreenRenderer,
     theme: Theme,
 }
 
@@ -111,7 +104,7 @@ impl Default for Offscreen {
 impl Offscreen {
     pub fn new() -> Self {
         Self {
-            engine: kivact_engine::bridge::Offscreen::new(),
+            engine: kivact_engine::api::OffscreenRenderer::new(),
             theme: Theme::default(),
         }
     }
@@ -133,7 +126,7 @@ impl Offscreen {
         let at = Location::caller();
         self.engine
             .font(&font.into())
-            .map_err(|message| failed(ErrorKind::Asset, message, at))
+            .map_err(|message| failed(ErrorKind::Asset, message.to_string(), at))
     }
 
     /// Draw `paint` into an image of exactly `width` × `height` pixels;
@@ -160,19 +153,19 @@ impl Offscreen {
         width: u32,
         height: u32,
         paint: impl FnOnce(&mut Draw, Size),
-    ) -> Result<RgbaImage> {
+    ) -> Result<Pixels> {
         let at = Location::caller();
-        if !kivact_engine::bridge::Offscreen::accepts_size(width, height) {
+        if !kivact_engine::api::OffscreenRenderer::accepts_size(width, height) {
             return Err(failed(
                 ErrorKind::Message,
                 format!("invalid or excessive image size {width}x{height}"),
                 at,
             ));
         }
-        let size = Size::new(width as f32, height as f32);
-        let inherited = kivact_wire::ComputedText {
+        let size = Size::new(width as f64, height as f64);
+        let inherited = kivact_types::ComputedTextStyle {
             family: self.theme.text().family.clone(),
-            line_height: Some(self.theme.text().line_height),
+            line_height: self.theme.text().line_height,
             ..Default::default()
         };
         let measurer = self.engine.text_measurer(inherited.clone());
@@ -180,7 +173,7 @@ impl Offscreen {
             scene,
             unsupported: invalid,
             ..
-        } = Draw::record(size, &self.theme, |draw| {
+        } = kivact_style::internal::record(size, &self.theme, |draw| {
             draw.set_text_measurer(measurer);
             paint(draw, size);
         });
@@ -198,15 +191,15 @@ impl Offscreen {
             .engine
             .render(&std::sync::Arc::new(scene), (width, height), &inherited)
             .map_err(|error| match error {
-                kivact_engine::bridge::OffscreenError::Dropped(_) => rejected(),
-                kivact_engine::bridge::OffscreenError::Failed(message) => {
-                    failed(ErrorKind::Asset, message, at)
+                kivact_engine::api::OffscreenError::Dropped(_) => rejected(),
+                kivact_engine::api::OffscreenError::Failed(message) => {
+                    failed(ErrorKind::Asset, message.to_string(), at)
                 }
             })?;
-        Ok(RgbaImage {
+        Ok(Pixels {
             width: image.width,
             height: image.height,
-            rgba: image.rgba,
+            rgba: image.rgba.into(),
         })
     }
 }

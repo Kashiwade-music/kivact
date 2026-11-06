@@ -3,16 +3,15 @@
 use crate::docs::PAGES;
 use crate::look::tokens;
 use crate::page::page_view;
-use kivact::interaction::{ListPolicy, ListSelection, use_list};
+use kivact::interaction::{ListOptions, use_list};
 use kivact::prelude::*;
-use kivact::style::ThemeMode;
 use kivact_ui_basic as basic;
 
 /// The theme text family: Inter for Latin, Noto Sans JP for Japanese.
 const FAMILY: &str = "Inter, 'Noto Sans JP', sans-serif";
 
-const TOP_BAR_HEIGHT: f32 = 56.0;
-const LIST_WIDTH: f32 = 256.0;
+const TOP_BAR_HEIGHT: f64 = 56.0;
+const LIST_WIDTH: f64 = 256.0;
 
 /// Mount the complete catalog through public component APIs.
 pub fn catalog() -> impl IntoView {
@@ -34,7 +33,7 @@ pub fn catalog_with_mode(mode: ThemeMode) -> impl IntoView {
         };
         theme.with_text(text)
     };
-    kivact::view::provide_theme(theme, move || {
+    kivact::style::provide_theme(theme, move || {
         let start = PAGES
             .iter()
             .position(|page| page.slug == "button")
@@ -51,13 +50,13 @@ pub fn catalog_with_mode(mode: ThemeMode) -> impl IntoView {
                 .style(style().grow(1).min_width(0).height(pct(100))),
             ))
             .style(style().grow(1).min_height(0)),
-            kivact::ui::toast_region(kivact::ui::toaster()).hold_all_on_hover(true),
+            kivact::ui::toast_region(kivact::interaction::toaster()).hold_all_on_hover(true),
         ))
         .style(
             style()
                 .size(pct(100), pct(100))
-                .background(basic::Color::Background)
-                .color(basic::Color::Foreground),
+                .background(basic::ColorName::Background)
+                .color(basic::ColorName::Foreground),
         )
     })
 }
@@ -75,7 +74,11 @@ fn top_bar(dark: Signal<bool>) -> Node {
         .on_press(move || dark.update(|dark| *dark = !*dark));
     row((
         text("Kivact UI").style(style().font_size(14).weight(600)),
-        text("Basic").style(style().font_size(14).color(basic::Color::MutedForeground)),
+        text("Basic").style(
+            style()
+                .font_size(14)
+                .color(basic::ColorName::MutedForeground),
+        ),
         spacer(),
         toggle,
     ))
@@ -86,14 +89,12 @@ fn top_bar(dark: Signal<bool>) -> Node {
             .padding_x(16)
             .gap(8)
             .align_items(Align::Center)
-            .border_bottom(1, basic::Color::Border),
+            .border_bottom(1, basic::ColorName::Border),
     )
 }
 
-/// The search field and the alphabetical, keyboard-navigable list of components.
-fn component_list(selected: Signal<Option<usize>>) -> Node {
-    let query = signal(String::new());
-    let items = (move || {
+fn component_items(query: Signal<String>) -> Value<Vec<ListItem<usize>>> {
+    (move || {
         let needle = query.get().trim().to_lowercase();
         PAGES
             .iter()
@@ -106,16 +107,23 @@ fn component_list(selected: Signal<Option<usize>>) -> Node {
             .map(|(index, page)| ListItem::new(index, page.name))
             .collect::<Vec<_>>()
     })
-    .into_value();
+    .into_value()
+}
+
+/// The search field and the alphabetical, keyboard-navigable list of components.
+fn component_list(selected: Signal<Option<usize>>) -> Node {
+    let query = signal(String::new());
+    let items = component_items(query);
     let nav = use_list(
         items,
-        ListSelection::Single(selected.into()),
-        ListPolicy::default(),
+        Selection::Single(selected.into_binding()),
+        ListOptions::default(),
     );
     let rows = for_each(
         items,
         |item| *item.key(),
-        move |key, item| {
+        move |item| {
+            let key = *item.get().key();
             let part = nav.item(key);
             let state = part.state();
             row(text(move || item.get().label()).style(style().single_line()))
@@ -170,6 +178,6 @@ fn component_list(selected: Signal<Option<usize>>) -> Node {
             .width(LIST_WIDTH)
             .shrink(0)
             .height(pct(100))
-            .border_right(1, basic::Color::Border),
+            .border_right(1, basic::ColorName::Border),
     )
 }

@@ -5,34 +5,35 @@ use crate::color::Color;
 use crate::geometry::Point;
 use crate::text::{FontFeature, FontKerning, LineHeight, TextDecorationLine, TextLength};
 use crate::theme::value::Theme;
-use kivact_wire as p;
-use kivact_wire::{SceneCmd, TextMetrics};
+use kivact_types as p;
+use kivact_types::{DrawCmd, TextMetrics};
 
+// xtask-allow(state-fields): Independent authored text formatting options do not represent a lifecycle.
 /// Text style for `Draw::text` and `Draw::measure_text`: the text
 /// vocabulary of element styles, so canvas text matches element text.
 ///
 /// ```
 /// use kivact::prelude::*;
-/// use kivact::draw::TextStyle;
+/// use kivact::draw::TextFormat;
 /// use kivact::style::{TextDecorationLine, em};
-/// let label = TextStyle {
+/// let label = TextFormat {
 ///     size: 11.0,
 ///     weight: 600,
 ///     letter_spacing: em(0.08),
 ///     tabular_nums: true,
 ///     decoration: TextDecorationLine::UNDERLINE,
-///     ..TextStyle::default()
+///     ..TextFormat::default()
 /// };
 /// # let _ = label;
 /// ```
 #[derive(Clone, Debug, PartialEq)]
-pub struct TextStyle {
+pub struct TextFormat {
     /// Horizontal placement relative to the anchor. `Justify` places like
     /// `Start`: a line drawn alone is the last of its paragraph.
     pub align: crate::TextAlign,
     /// Vertical placement relative to the anchor.
     pub baseline: TextBaseline,
-    pub size: f32,
+    pub size: f64,
     pub weight: u16,
     pub color: Color,
     /// A family name or a generic family (`"system-ui"`, `"sans-serif"`,
@@ -67,9 +68,9 @@ pub struct TextStyle {
     pub decoration_color: Option<Color>,
 }
 
-impl Default for TextStyle {
+impl Default for TextFormat {
     fn default() -> Self {
-        TextStyle {
+        TextFormat {
             align: crate::TextAlign::Start,
             baseline: TextBaseline::Top,
             size: 14.0,
@@ -89,58 +90,35 @@ impl Default for TextStyle {
     }
 }
 
-/// The text run of a [`TextStyle`] in the engine's form: what `Draw::text`
-/// draws and `Draw::measure_text` measures. It owns the compiled text, its
-/// spacing and its font features; shaping is the engine's.
-#[derive(Clone, Debug)]
-pub struct TextRun(p::TextRun);
-
-impl TextRun {
-    /// The run of `text` at `origin` in `style` scaled by `scale` (layer
-    /// transforms), colored `color`. Its decoration color resolves against
-    /// `theme`; measuring needs no color and passes `None`. A run without a
-    /// family or a line height keeps taking the inherited one.
-    pub fn from_style(
-        text: &str,
-        origin: p::Point,
-        style: &TextStyle,
-        scale: f32,
-        color: p::Rgba,
-        theme: Option<&Theme>,
-    ) -> Self {
-        let size = style.size * scale;
-        let (features, _) = crate::text::features(Some(&style.features), style.tabular_nums);
-        Self(p::TextRun {
-            text: text.to_string(),
-            origin,
-            font_size: size,
-            weight: style.weight,
-            color,
-            family: style.family.clone(),
-            italic: style.italic,
-            line_height: style.line_height,
-            letter_spacing: style.letter_spacing.to_wire().px(style.size) * scale,
-            word_spacing: style.word_spacing.to_wire().px(style.size) * scale,
-            kerning: style.font_kerning,
-            features,
-            decoration: p::TextDecoration {
-                lines: style.decoration,
-                // Measuring needs no color (and no theme).
-                color: theme.and_then(|t| style.decoration_color.map(|c| c.resolve(t))),
-                ..p::TextDecoration::default()
-            },
-        })
-    }
-
-    /// The run in the engine's form, borrowed (no copy of the text or the
-    /// features).
-    pub fn as_wire(&self) -> &p::TextRun {
-        &self.0
-    }
-
-    /// The run in the engine's form, consumed (for a scene command).
-    pub fn into_wire(self) -> p::TextRun {
-        self.0
+pub fn text_run(
+    text: &str,
+    origin: p::Point,
+    style: &TextFormat,
+    scale: f64,
+    color: p::Rgba,
+    theme: Option<&Theme>,
+) -> p::TextRun {
+    let size = style.size * scale;
+    let (features, _) = crate::text::features(Some(&style.features), style.tabular_nums);
+    p::TextRun {
+        text: text.to_string(),
+        origin,
+        font_size: size,
+        weight: style.weight,
+        color,
+        family: style.family.clone(),
+        italic: style.italic,
+        line_height: style.line_height,
+        letter_spacing: style.letter_spacing.to_wire().px(style.size) * scale,
+        word_spacing: style.word_spacing.to_wire().px(style.size) * scale,
+        kerning: style.font_kerning,
+        features,
+        decoration: p::TextDecoration {
+            lines: style.decoration,
+            // Measuring needs no color (and no theme).
+            color: theme.and_then(|t| style.decoration_color.map(|c| c.resolve(t))),
+            ..p::TextDecoration::default()
+        },
     }
 }
 
@@ -155,7 +133,7 @@ pub enum TextBaseline {
 }
 
 impl Draw {
-    pub fn text(&mut self, text: &str, pos: Point, style: TextStyle) {
+    pub fn text(&mut self, text: &str, pos: Point, style: TextFormat) {
         let mut pos = pos;
         if style.align != crate::TextAlign::Start || style.baseline != TextBaseline::Top {
             let m = self.measure_text(text, &style);
@@ -172,7 +150,7 @@ impl Draw {
                 TextBaseline::Bottom => m.size.height,
             };
         }
-        let run = TextRun::from_style(
+        let run = text_run(
             text,
             pos,
             &style,
@@ -180,7 +158,7 @@ impl Draw {
             self.color(style.color),
             Some(&self.theme),
         );
-        self.cmds.push(SceneCmd::Text(run.into_wire()));
+        self.cmds.push(DrawCmd::Text(run));
     }
 
     /// The extent `text(text, pos, style)` draws `text` with, before the
@@ -191,23 +169,24 @@ impl Draw {
     ///
     /// ```
     /// use kivact::prelude::*;
-    /// use kivact::draw::{Draw, Point, Rect};
-    /// use kivact::draw::TextStyle;
+    /// use kivact::draw::{Draw};
+    /// use kivact::geometry::{Point, Rect};
+    /// use kivact::draw::TextFormat;
     /// // A pill as wide as its label plus 12 px.
     /// fn pill(d: &mut Draw, label: &str, at: Point) {
-    ///     let style = TextStyle { size: 11.0, ..TextStyle::default() };
+    ///     let style = TextFormat { size: 11.0, ..TextFormat::default() };
     ///     let m = d.measure_text(label, &style);
     ///     d.rounded_rect(Rect::new(at.x, at.y, m.size.width + 12.0, m.size.height + 4.0), 4.0, ColorToken::Accent);
     ///     d.text(label, Point::new(at.x + 6.0, at.y + 2.0), style);
     /// }
     /// # let _ = pill;
     /// ```
-    pub fn measure_text(&self, text: &str, style: &TextStyle) -> TextMetrics {
+    pub fn measure_text(&self, text: &str, style: &TextFormat) -> TextMetrics {
         let Some(m) = &self.measurer else {
             return TextMetrics::default();
         };
         let origin = p::Point { x: 0.0, y: 0.0 };
-        let run = TextRun::from_style(text, origin, style, 1.0, p::Rgba::TRANSPARENT, None);
-        m.measure(run.as_wire())
+        let run = text_run(text, origin, style, 1.0, p::Rgba::TRANSPARENT, None);
+        m.measure(&run)
     }
 }

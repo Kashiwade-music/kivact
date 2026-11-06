@@ -1,16 +1,14 @@
 //! Role: Counts client writes independently of derived model synchronization.
 
-use kivact_wire::{NodeId, Revision};
+use kivact_types::{NodeId, Revision};
 use std::collections::HashSet;
 
 /// Client mutation totals and the last committed revision's operation counts.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct WriteStats {
     /// Cumulative accessibility payloads constructed, excluding debug references.
-    #[cfg(feature = "testing")]
     pub a11y_constructed: u64,
     /// Cumulative payloads sent to the window, including rejected attempts.
-    #[cfg(feature = "testing")]
     pub a11y_published: u64,
     pub creates: u64,
     pub set_props: u64,
@@ -92,6 +90,7 @@ impl Writes {
     }
 }
 
+// xtask-allow(state-fields): Independent property-impact facts describe a write; every combination is meaningful and no transition state is stored.
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(crate) struct Mutation {
     /// The layout style is built again (and a layout pass runs).

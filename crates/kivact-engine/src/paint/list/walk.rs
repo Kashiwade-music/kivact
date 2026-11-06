@@ -1,36 +1,49 @@
 //! Role: Rebuild the paint list by walking the tree in paint order within the view.
 
 use super::ink::{grow, ink, local_transform, overlaps, placed, reach};
+use crate::contract::NodeType;
 use crate::model::Model;
 use crate::model::transform::map_rect;
-use crate::paint::state::{ChildIndex, Entry, Look, Step};
+use crate::paint::state::{ChildIndex, Entry, ListState, Look, Step};
 use crate::tree::node::HostNode;
-use kivact_types::protocol::ColorMatrix;
-use kivact_wire::{NodeId, NodeType, Point, Rect};
+use kivact_types::cell::Generation;
+use kivact_types::render::ColorMatrix;
+use kivact_types::{NodeId, Point, Rect};
 use std::collections::{HashMap, HashSet};
 
 /// Logical pixels the clip is grown by before culling: more than a device
 /// pixel at every scale from 0.5 up (and `1 / scale` below).
-const MARGIN: f32 = 2.0;
+const MARGIN: f64 = 2.0;
 
 /// Containers with at least this many children keep a [`ChildIndex`].
 const INDEXED: usize = 32;
 
+/// Whether the listed `step` of node `n` needs a `Close` after its
+/// descendants: it pops a clip, a layer or a transform it pushed, or draws
+/// its `DrawOver` scene.
+fn closes(step: &Step, n: &HostNode) -> bool {
+    step.clips
+        || step.presence_clip.is_some()
+        || step.layers > 0
+        || step.transform.is_some()
+        || (step.own && n.scenes()[1].is_some())
+}
+
 struct Walk<'a> {
     host: &'a Model,
-    margin: f32,
+    margin: f64,
     indices: &'a mut HashMap<NodeId, ChildIndex>,
     /// The layout pass the tree is laid out by.
-    pass: u64,
+    pass: Generation,
     /// The generation of the nodes' inks.
-    generation: u64,
+    generation: Generation,
     /// The containers whose index this walk used.
     used: HashSet<NodeId>,
     out: Vec<Entry>,
     /// The listed nodes' color matrices.
     matrices: Vec<ColorMatrix>,
     /// The listed transformed nodes' transforms.
-    transforms: Vec<kivact_types::protocol::Transform>,
+    transforms: Vec<kivact_types::Transform>,
 }
 
 impl Walk<'_> {
@@ -41,7 +54,7 @@ impl Walk<'_> {
         &mut self,
         id: NodeId,
         origin: Point,
-        parent_alpha: f32,
+        parent_alpha: f64,
         matrix: Option<u32>,
         clip: Rect,
     ) {
@@ -49,7 +62,7 @@ impl Walk<'_> {
         let Some(n) = host.node(id) else {
             return;
         };
-        if n.hidden() {
+        if !host.tree().drawn(id) {
             return;
         }
         let layout = host.layout_at(n.index).unwrap_or_default();
@@ -71,56 +84,12 @@ impl Walk<'_> {
                 return;
             }
         }
-        // A translation moves its origin; another transform is pushed, and
-        // its subtree is culled in its own space.
-        let (transform, clip, o) = match local {
-            Some(t) if t.a == 1.0 && t.b == 0.0 && t.c == 0.0 && t.d == 1.0 => {
-                let o = Point {
-                    x: origin.x + t.e,
-                    y: origin.y + t.f,
-                };
-                (None, clip, o)
-            }
-            Some(t) => {
-                let t = crate::model::transform::placed(t, origin);
-                let Some(back) = t.invert() else {
-                    // Flattened: nothing of it shows.
-                    return;
-                };
-                self.transforms.push(t);
-                let index = (self.transforms.len() - 1) as u32;
-                (Some(index), map_rect(Some(&back), clip), origin)
-            }
-            None => (None, clip, origin),
+        let Some((transform, clip, o)) = self.place_transform(local, clip, origin) else {
+            return;
         };
         let clips = n.clips();
-        // Group opacity over more than one thing it draws.
-        let content = match n.kind() {
-            _ if host.editors[n.index.0]
-                .as_deref()
-                .map(|editor| editor.editor.state())
-                .is_some() =>
-            {
-                2
-            }
-            NodeType::Text | NodeType::Image => 1,
-            _ => 0,
-        };
-        let more = !host.tree().nodes.links(n.index).children.is_empty()
-            || n.scenes().iter().any(Option::is_some)
-            || look.items + content > 1
-            || look.layers > 0;
-        let group = look.opacity < 1.0 && more;
-        let layers = if group {
-            look.layers.max(1)
-        } else {
-            look.layers
-        };
-        let alpha = if group {
-            parent_alpha
-        } else {
-            parent_alpha * look.opacity
-        };
+        let presence_clip = presence_clip(host, id, clip, o, layout.size);
+        let (group, layers, alpha) = opacity(host, id, n, &look, parent_alpha);
         let own_matrix = match look.recolor {
             Some(own) => Some(self.matrix(own, matrix)),
             None => matrix,
@@ -131,6 +100,7 @@ impl Walk<'_> {
             transform,
             alpha,
             clips,
+            presence_clip,
             rounded: look.rounded,
             own: visible,
             layers,
@@ -155,6 +125,7 @@ impl Walk<'_> {
         } else {
             clip
         };
+        let child_clip = presence_clip.map_or(child_clip, |p| child_clip.intersect(&p));
         let scroll = n.scroll();
         // The children's layout locations are relative to this origin.
         let base = Point {
@@ -162,11 +133,39 @@ impl Walk<'_> {
             y: o.y - scroll.y,
         };
         self.children(id, n, base, alpha, own_matrix, child_clip);
-        if listed
-            && (clips || layers > 0 || transform.is_some() || (visible && n.scenes()[1].is_some()))
-        {
+        if listed && closes(&step, n) {
             self.out.push(Entry::Close(step));
         }
+    }
+
+    fn place_transform(
+        &mut self,
+        local: Option<kivact_types::Transform>,
+        clip: Rect,
+        origin: Point,
+    ) -> Option<(Option<u32>, Rect, Point)> {
+        // A translation moves its origin; another transform is pushed, and
+        // its subtree is culled in its own space.
+        Some(match local {
+            Some(t) if t.a == 1.0 && t.b == 0.0 && t.c == 0.0 && t.d == 1.0 => {
+                let o = Point {
+                    x: origin.x + t.e,
+                    y: origin.y + t.f,
+                };
+                (None, clip, o)
+            }
+            Some(t) => {
+                let t = crate::model::transform::placed(t, origin);
+                let Some(back) = t.invert() else {
+                    // Flattened: nothing of it shows.
+                    return None;
+                };
+                self.transforms.push(t);
+                let index = (self.transforms.len() - 1) as u32;
+                (Some(index), map_rect(Some(&back), clip), origin)
+            }
+            None => (None, clip, origin),
+        })
     }
 
     /// The index of the color matrix of a node with the color filters
@@ -187,7 +186,7 @@ impl Walk<'_> {
         id: NodeId,
         n: &HostNode,
         base: Point,
-        alpha: f32,
+        alpha: f64,
         matrix: Option<u32>,
         clip: Rect,
     ) {
@@ -196,7 +195,7 @@ impl Walk<'_> {
             x: base.x + at.x,
             y: base.y + at.y,
         };
-        if host.tree().nodes.links(n.index).children.len() < INDEXED {
+        if host.tree().flat_children(id).len() < INDEXED {
             for child in host.stacked(n) {
                 let Some(c) = host.node(child).filter(|c| !c.is_layer()) else {
                     continue;
@@ -209,7 +208,12 @@ impl Walk<'_> {
         self.used.insert(id);
         let (pass, generation) = (self.pass, self.generation);
         let index = self.indices.entry(id).or_insert_with(|| {
-            ChildIndex::build(host, host.tree().children_ids(n), pass, generation)
+            ChildIndex::build(
+                host,
+                host.tree().flat_children(host.tree().nodes.id_at(n.index)),
+                pass,
+                generation,
+            )
         });
         index.refresh(host, pass, generation);
         // The clip in the index's space (the children's layout space).
@@ -228,7 +232,7 @@ impl Walk<'_> {
         if reached.len() > before {
             reached.sort_by_key(|(order, _, _)| *order);
         }
-        if n.place.stacks {
+        if host.sorts_children(n) {
             reached.sort_by_key(|(_, c, _)| host.stack_key(*c));
         }
         for (_, child, at) in reached {
@@ -256,9 +260,12 @@ impl Model {
     pub(crate) fn paint_list(&mut self) {
         let mut list = std::mem::take(&mut self.paint.list);
         let window = self.window();
-        let key = Some((window, self.paint.scale));
-        if list.stale || list.built_for != key {
-            let margin = MARGIN.max(1.0 / self.paint.scale.max(f32::MIN_POSITIVE));
+        let key = ListState::Built {
+            size: window,
+            scale: self.paint.scale,
+        };
+        if list.state != key {
+            let margin = MARGIN.max(1.0 / self.paint.scale.max(f64::MIN_POSITIVE));
             let reach = margin + list.backdrop_reach;
             let viewport = Rect {
                 x: -reach,
@@ -296,9 +303,106 @@ impl Model {
             // culled with an ancestor) are built again when reached.
             list.indices.retain(|id, _| used.contains(id));
             list.entries = out;
-            list.stale = false;
-            list.built_for = key;
+            list.state = key;
         }
         self.paint.list = list;
     }
+}
+
+impl Model {
+    /// Build an independent list in the target's local output space.
+    pub(crate) fn subtree_paint_list(
+        &self,
+        id: NodeId,
+        clip: Rect,
+    ) -> crate::paint::state::PaintList {
+        let mut indices = HashMap::new();
+        let mut walk = Walk {
+            host: self,
+            margin: MARGIN,
+            indices: &mut indices,
+            pass: self.paint.list.pass,
+            generation: self.paint.list.ink_gen,
+            used: HashSet::new(),
+            out: Vec::new(),
+            matrices: Vec::new(),
+            transforms: Vec::new(),
+        };
+        walk.node(id, Point::default(), 1.0, None, clip);
+        let bounds = self.rect(id).unwrap_or_default();
+        for (layer, origin) in self.layers() {
+            if layer != id && self.tree().is_in_subtree(layer, id) {
+                walk.node(
+                    layer,
+                    Point {
+                        x: origin.x - bounds.x,
+                        y: origin.y - bounds.y,
+                    },
+                    1.0,
+                    None,
+                    clip,
+                );
+            }
+        }
+        crate::paint::state::PaintList {
+            entries: walk.out,
+            matrices: walk.matrices,
+            transforms: walk.transforms,
+            ..Default::default()
+        }
+    }
+}
+
+fn presence_clip(
+    host: &Model,
+    id: NodeId,
+    clip: Rect,
+    o: Point,
+    size: kivact_types::Size,
+) -> Option<Rect> {
+    host.presence.sizes.get(&id).map(|m| {
+        let mut rect = clip;
+        match m.axis {
+            kivact_types::Orientation::Horizontal => {
+                rect.x = o.x;
+                rect.width = size.width;
+            }
+            kivact_types::Orientation::Vertical => {
+                rect.y = o.y;
+                rect.height = size.height;
+            }
+            kivact_types::Orientation::Unspecified => {}
+        }
+        rect
+    })
+}
+fn opacity(
+    host: &Model,
+    id: NodeId,
+    n: &HostNode,
+    look: &Look,
+    parent_alpha: f64,
+) -> (bool, u8, f64) {
+    // Group opacity over more than one thing it draws.
+    let content = match n.kind() {
+        _ if host.editors[n.index.0].is_some() => 2,
+        NodeType::Text | NodeType::Image => 1,
+        _ => 0,
+    };
+    let more = host.tree().flat_children(id).len() != 0
+        || n.scenes().iter().any(Option::is_some)
+        || look.items + content > 1
+        || look.layers > 0;
+    let group = look.opacity < 1.0 && more;
+    let layers = if group {
+        look.layers.max(1)
+    } else {
+        look.layers
+    };
+    let alpha = if group {
+        parent_alpha
+    } else {
+        parent_alpha * look.opacity
+    };
+    (group, layers, alpha)
 }

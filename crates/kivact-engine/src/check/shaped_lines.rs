@@ -1,8 +1,9 @@
 //! Role: Shape a text as it is painted and read its lines' advances and ink.
 
+use crate::contract::NodeType;
 use crate::model::Model;
 use crate::model::interact::visual;
-use kivact_wire::{NodeId, NodeType, Point, Rect};
+use kivact_types::{NodeId, Point, Rect};
 
 /// A shaped line, placed in the layout space.
 pub(super) struct Line {
@@ -10,11 +11,11 @@ pub(super) struct Line {
     /// them, the capitals' top to the descent) down.
     pub(super) ink: Rect,
     /// Its baseline.
-    pub(super) baseline: f32,
+    pub(super) baseline: f64,
     /// The height of the capitals above the baseline.
-    pub(super) cap_height: f32,
+    pub(super) cap_height: f64,
     /// The height of its line box.
-    pub(super) height: f32,
+    pub(super) height: f64,
     /// An ellipsis cut it.
     pub(super) cut: bool,
 }
@@ -22,7 +23,7 @@ pub(super) struct Line {
 /// A text shaped as it is painted, with its lines in the layout space.
 pub(super) struct Shaped {
     pub(super) lines: Vec<Line>,
-    pub(super) font_size: f32,
+    pub(super) font_size: f64,
 }
 
 impl Shaped {
@@ -55,12 +56,7 @@ pub(super) fn shape(
     );
     let area = visual::text_box(host, id);
     let (shaped, origin) = match n.kind() {
-        _ if host.editors[n.index.0]
-            .as_deref()
-            .map(|editor| editor.editor.state())
-            .is_some()
-            && !n.multiline() =>
-        {
+        _ if host.editors[n.index.0].is_some() && !n.multiline() => {
             let line = crate::model::interact::text_geometry::line_box(host, id, engine, area);
             let (mut lines, text) = host.edit_lines(id, engine)?;
             (
@@ -71,46 +67,16 @@ pub(super) fn shape(
                 },
             )
         }
-        NodeType::Text
-            if host.editors[n.index.0]
-                .as_deref()
-                .map(|editor| editor.editor.state())
-                .is_none() =>
-        {
-            (
-                crate::model::interact::text_geometry::shape_static_text(
-                    host, id, engine, area.width,
-                )?,
-                Point {
-                    x: area.x,
-                    y: area.y,
-                },
-            )
-        }
+        NodeType::Text if host.editors[n.index.0].is_none() => (
+            crate::model::interact::text_geometry::shape_static_text(host, id, engine, area.width)?,
+            Point {
+                x: area.x,
+                y: area.y,
+            },
+        ),
         _ => return None,
     };
-    let mut inks: Vec<Option<Rect>> = vec![None; shaped.lines.len()];
-    if ink {
-        for run in &shaped.runs {
-            let (Some(b), Some(g)) = (arvane::glyph_ink_bounds(run), run.glyphs.first()) else {
-                continue;
-            };
-            // The line whose baseline this run sits on.
-            let nearest = (0..shaped.lines.len()).min_by(|a, b| {
-                let d = |i: usize| (shaped.lines[i].baseline - g.y).abs();
-                d(*a).total_cmp(&d(*b))
-            });
-            if let Some(i) = nearest {
-                let b = Rect {
-                    x: origin.x + b.x,
-                    y: origin.y + b.y,
-                    width: b.width,
-                    height: b.height,
-                };
-                inks[i] = Some(inks[i].map_or(b, |a| a.union(b)));
-            }
-        }
-    }
+    let inks = line_inks(&shaped, origin, ink);
     let lines = shaped
         .lines
         .iter()
@@ -149,4 +115,34 @@ pub(super) fn shape(
         lines,
         font_size: props.font_size,
     })
+}
+
+fn line_inks(
+    shaped: &kivact_types::render::ShapedText,
+    origin: Point,
+    ink: bool,
+) -> Vec<Option<Rect>> {
+    let mut inks: Vec<Option<Rect>> = vec![None; shaped.lines.len()];
+    if ink {
+        for run in &shaped.runs {
+            let (Some(b), Some(g)) = (arvane::glyph_ink_bounds(run), run.glyphs.first()) else {
+                continue;
+            };
+            // The line whose baseline this run sits on.
+            let nearest = (0..shaped.lines.len()).min_by(|a, b| {
+                let d = |i: usize| (shaped.lines[i].baseline - g.y).abs();
+                d(*a).total_cmp(&d(*b))
+            });
+            if let Some(i) = nearest {
+                let b = Rect {
+                    x: origin.x + b.x,
+                    y: origin.y + b.y,
+                    width: b.width,
+                    height: b.height,
+                };
+                inks[i] = Some(inks[i].map_or(b, |a| a.union(b)));
+            }
+        }
+    }
+    inks
 }

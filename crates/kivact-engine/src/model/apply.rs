@@ -28,16 +28,22 @@
 
 use std::sync::Arc;
 
+use crate::contract::{HostEvent, NodeKind, NodeProperties, NodeType, SceneLayer};
 use crate::mutation::Mutation;
-use kivact_wire::{
-    ElementTransform, HostEvent, NodeId, NodeKind, NodeProperties, NodeType, Point, RequestId,
-    Revision, Scene, SceneLayer,
-};
+use crate::tree::node::{LeavingRole, NodePresence, Notify};
+use kivact_types::{DrawList, ElementTransform, NodeId, Point, RequestId, Revision};
 
 use crate::model::Model;
 use crate::model::changes::Dirty;
 use crate::model::text::text_reach_of;
-use crate::tree::node::layer_index;
+use crate::tree::node::{HostNode, layer_index};
+
+/// How `node` takes part in its flat parent's children: `None` as a box
+/// of its own, `Some(hidden)` as a Contents node whose children, unless
+/// it is hidden, take its place.
+fn flat_role(node: &HostNode) -> Option<bool> {
+    node.is_transparent().then(|| node.hidden())
+}
 
 impl Model {
     /// End the writes of one revision (the one after the last applied):
@@ -56,18 +62,20 @@ impl Model {
 
     /// Move an attached node before a sibling (append if `None`).
     pub(crate) fn move_before(&mut self, id: NodeId, before: Option<NodeId>) {
-        self.changes.a11y_structure = true;
+        self.a11y.request_publication(std::iter::empty());
         self.changes.restack = true;
         if let Some(parent) = self.tree.detach(id) {
             self.changes.mark(parent, Dirty::LAYOUT_CHAIN);
             self.changes.outdate_viewport();
-            self.changes.layout_changed = true;
+            self.changes
+                .layout
+                .insert(crate::model::changes::LayoutReasons::STYLE);
             self.insert(parent, id, before, false);
         }
     }
 
     /// Set the scene of one draw layer of `id`.
-    pub(crate) fn set_scene(&mut self, id: NodeId, layer: SceneLayer, scene: Arc<Scene>) {
+    pub(crate) fn set_scene(&mut self, id: NodeId, layer: SceneLayer, scene: Arc<DrawList>) {
         self.changes.restack = true;
         let old_order = if self.focused().is_some_and(|focus| focus.node == id) {
             self.focus_order()
@@ -76,8 +84,8 @@ impl Model {
         };
         if let Some(n) = self.tree.get_mut(id) {
             n.scenes[layer_index(layer)] = Some(scene);
-            self.changes
-                .mark(id, Dirty::WRITTEN.union(Dirty::A11Y_METADATA));
+            self.changes.mark(id, Dirty::WRITTEN);
+            self.a11y.node(id);
         }
         if let Some(focus) = self
             .focused()
@@ -97,7 +105,7 @@ impl Model {
     /// Focus `id` on kivact's request and report the result.
     pub(crate) fn focus_request(
         &mut self,
-        id: kivact_wire::FocusTarget,
+        id: kivact_types::FocusTarget,
         request: RequestId,
         visible: bool,
     ) {
@@ -116,9 +124,12 @@ impl Model {
             if n.scroll != offset {
                 self.changes.moved();
                 self.changes.mark(id, Dirty::SCROLLED);
+                self.a11y.subtree(id);
             }
             n.scroll = offset;
-            self.changes.needs_layout = true;
+            self.changes
+                .layout
+                .insert(crate::model::changes::LayoutReasons::PASS);
         }
     }
 
@@ -127,14 +138,16 @@ impl Model {
     pub(crate) fn observe_layout(&mut self, id: NodeId, on: bool) -> bool {
         let changed = self.tree.set_observed(id, on);
         if changed {
-            self.changes.needs_layout = true;
+            self.changes
+                .layout
+                .insert(crate::model::changes::LayoutReasons::PASS);
         }
         changed
     }
 
     /// Create a detached node with its static props.
     pub(crate) fn create(&mut self, id: NodeId, kind: NodeKind) {
-        self.changes.a11y_structure = true;
+        self.a11y.request_publication(std::iter::empty());
         self.create_slot(id, kind);
         self.arrive(id);
         let edit = self
@@ -147,8 +160,12 @@ impl Model {
         }
         self.changes
             .mark(id, Dirty::LAYOUT_STYLE.union(Dirty::WRITTEN));
-        self.changes.layout_changed = true;
-        self.changes.needs_layout = true;
+        self.changes
+            .layout
+            .insert(crate::model::changes::LayoutReasons::STYLE);
+        self.changes
+            .layout
+            .insert(crate::model::changes::LayoutReasons::PASS);
     }
 
     /// Store one typed property of `id` when it differs and record what it
@@ -165,6 +182,7 @@ impl Model {
         let Some(node) = self.tree.get_mut(id) else {
             return false;
         };
+        let role = mutation.style.then(|| flat_role(node));
         let Some(old) = field(&mut node.properties) else {
             return false;
         };
@@ -214,8 +232,27 @@ impl Model {
         } else {
             *old = value;
         }
+        if role.is_some_and(|was| self.tree.get(id).is_some_and(|n| flat_role(n) != was)) {
+            self.reflattened(id);
+        }
         self.changed(id, mutation);
         true
+    }
+
+    /// `id` started or stopped being a Contents node, or a Contents node
+    /// was hidden or shown: the children its flat parent lays out and
+    /// draws changed.
+    fn reflattened(&mut self, id: NodeId) {
+        self.tree.forget_flat();
+        self.changes.restack = true;
+        self.changes
+            .layout
+            .insert(crate::model::changes::LayoutReasons::STYLE);
+        if let Some(parent) = self.tree.get(id).and_then(|n| self.tree.flat_parent(n)) {
+            self.changes.mark(parent, Dirty::LAYOUT_CHAIN);
+            self.changes.regroup(parent);
+            self.a11y.node(parent);
+        }
     }
 
     /// [`Model::set_prop`] for a boxed property: the borrowed value is
@@ -240,26 +277,7 @@ impl Model {
 
     /// Record the consumers affected by one typed property change.
     pub(super) fn changed(&mut self, id: NodeId, mutation: Mutation) {
-        let local = mutation.local_text
-            && !(mutation.style
-                || mutation.text
-                || mutation.placed
-                || mutation.subtree
-                || mutation.restack
-                || mutation.paint
-                || mutation.states
-                || mutation.read_only);
-        self.changes.mark(
-            id,
-            if local {
-                Dirty::A11Y_LOCAL_TEXT
-            } else {
-                Dirty::A11Y_METADATA
-            },
-        );
-        if mutation.style || mutation.text || mutation.placed || mutation.subtree {
-            self.changes.a11y_subtrees.insert(id);
-        }
+        self.invalidate_semantics(id, mutation);
         self.changes.restack |= mutation.restack;
         let Mutation {
             style,
@@ -285,7 +303,9 @@ impl Model {
             let parent = parent.map(|index| self.tree.nodes.id_at(index));
             self.changes.mark(id, Dirty::LAYOUT_STYLE);
             if place.fixed != was.1 {
-                self.changes.layout_changed = true;
+                self.changes
+                    .layout
+                    .insert(crate::model::changes::LayoutReasons::STYLE);
             }
             if let Some(parent) = parent {
                 if place.fixed != was.1 {
@@ -297,6 +317,7 @@ impl Model {
                     // Its parent draws it differently (in flow, stuck, or as a
                     // layer of its own).
                     self.changes.regroup(parent);
+                    self.a11y.node(parent);
                 }
             }
             if !place.sticky
@@ -304,59 +325,95 @@ impl Model {
             {
                 n.shift = Point::default();
             }
-            self.changes.needs_layout = true;
+            self.changes
+                .layout
+                .insert(crate::model::changes::LayoutReasons::PASS);
         }
         if measure {
             self.changes.mark(id, Dirty::MEASURE);
-            self.changes.needs_layout = true;
+            self.changes
+                .layout
+                .insert(crate::model::changes::LayoutReasons::PASS);
         }
         if placed {
             // A new anchor or placement moves the overlay's subtree, a new
             // transform the node's (no layout computation: origins and
             // transforms are placed live), so the geometry reports run and
             // positions are redrawn.
-            self.changes.needs_layout = true;
+            self.changes
+                .layout
+                .insert(crate::model::changes::LayoutReasons::PASS);
             self.changes.moved();
         }
         if text {
-            // An inherited text style: every text below measures again, and
-            // every image below draws again (a monochrome one is painted in
-            // the text color).
-            // The resolved style of every node below is dropped here, in
-            // the write: a state-motion capture of this revision reads the
-            // new one (`model::text`). A text that now paints farther out
-            // (its size or shadows) may show where it was culled, so the
-            // list is built again; a color alone does not.
-            let mut stack = vec![id];
-            while let Some(x) = stack.pop() {
-                let Some(n) = self.tree.get(x) else { continue };
-                stack.extend(self.tree.children_ids(n));
-                let (slot, kind) = (n.index.0, n.kind());
-                let drawn = kind == NodeType::Text
-                    || self.editors[slot]
-                        .as_deref()
-                        .map(|editor| editor.editor.state())
-                        .is_some();
-                let before = self.measure.computed_text(slot);
-                self.measure.forget_computed_text(slot);
-                if drawn {
-                    self.changes.mark(x, Dirty::MEASURE.union(Dirty::REDRAW));
-                    let now = text_reach_of(&self.text_props(x));
-                    self.changes.restack |= before.is_none_or(|b| text_reach_of(&b) != now);
-                } else if kind == NodeType::Image {
-                    self.changes.mark(x, Dirty::REDRAW);
-                }
-            }
-            self.changes.needs_layout = true;
+            self.invalidate_inherited_text(id);
         }
         if let Some(parent) = stacks {
             self.tree.stacks(self.tree.nodes.id_at(parent));
         }
+        if self
+            .node(id)
+            .is_some_and(|n| n.states().is_some_and(crate::tree::states_place))
+        {
+            self.a11y.subtree(id);
+        }
         self.changes.mark(id, Dirty::WRITTEN);
     }
 
-    /// Attach a detached node under `parent`, before `before` (append if
-    /// `None`).
+    fn invalidate_semantics(&mut self, id: NodeId, mutation: Mutation) {
+        let local = mutation.local_text
+            && !(mutation.style
+                || mutation.text
+                || mutation.placed
+                || mutation.subtree
+                || mutation.restack
+                || mutation.paint
+                || mutation.states
+                || mutation.read_only);
+        if local {
+            self.a11y.local_text(id);
+        } else {
+            self.a11y.node(id);
+        }
+        if mutation.style || mutation.text || mutation.placed || mutation.subtree {
+            self.a11y.subtree(id);
+        }
+    }
+
+    fn invalidate_inherited_text(&mut self, id: NodeId) {
+        // An inherited text style: every text below measures again, and
+        // every image below draws again (a monochrome one is painted in
+        // the text color).
+        // The resolved style of every node below is dropped here, in
+        // the write: a state-motion capture of this revision reads the
+        // new one (`model::text`). A text that now paints farther out
+        // (its size or shadows) may show where it was culled, so the
+        // list is built again; a color alone does not.
+        let mut stack = vec![id];
+        while let Some(x) = stack.pop() {
+            let Some(n) = self.tree.get(x) else { continue };
+            stack.extend(self.tree.children_ids(n));
+            let (slot, kind) = (n.index.0, n.kind());
+            let drawn = kind == NodeType::Text || self.editors[slot].is_some();
+            let before = self.measure.computed_text(slot);
+            self.measure.forget_computed_text(slot);
+            if drawn {
+                self.changes.mark(x, Dirty::MEASURE.union(Dirty::REDRAW));
+                self.a11y.node(x);
+                let now = text_reach_of(&self.text_props(x));
+                self.changes.restack |= before.is_none_or(|b| text_reach_of(&b) != now);
+            } else if kind == NodeType::Image {
+                self.changes.mark(x, Dirty::REDRAW);
+                self.a11y.node(x);
+            }
+        }
+        self.changes
+            .layout
+            .insert(crate::model::changes::LayoutReasons::PASS);
+    }
+
+    /// Attach or reparent a node under `parent`, before `before` (append if
+    /// `None`), invalidating both its old and new ancestry.
     pub(crate) fn insert(
         &mut self,
         parent: NodeId,
@@ -364,12 +421,15 @@ impl Model {
         before: Option<NodeId>,
         inherit: bool,
     ) {
-        // New subtrees have no layout cache. A detached tree surviving sync may
-        // have been measured as an overlay or fixed layer before attachment.
-        let inherited =
-            (inherit && self.computed_layout(id).is_some()).then(|| self.text_props(id));
-        self.changes.a11y_structure = true;
-        self.changes.a11y_subtrees.insert(id);
+        // Read inheritance before detaching: transparent roots can have cached
+        // text descendants even though the root itself has no layout box.
+        let inherited = inherit.then(|| self.text_props(id));
+        if let Some(previous) = self.tree.detach(id) {
+            self.changes.mark(previous, Dirty::LAYOUT_CHAIN);
+            self.a11y.subtree(previous);
+        }
+        self.a11y.request_publication(std::iter::empty());
+        self.a11y.subtree(id);
         self.changes.restack = true;
         if self.tree.insert(parent, id, before).is_none() {
             return;
@@ -378,7 +438,9 @@ impl Model {
         self.forget_text_below(id);
         self.changes.mark(parent, Dirty::LAYOUT_CHAIN);
         self.changes.outdate_viewport();
-        self.changes.layout_changed = true;
+        self.changes
+            .layout
+            .insert(crate::model::changes::LayoutReasons::STYLE);
         if inherited.is_some_and(|old| old != self.text_props(id)) {
             let mut stack = vec![id];
             while let Some(child) = stack.pop() {
@@ -386,36 +448,39 @@ impl Model {
                     continue;
                 };
                 stack.extend(self.tree.children_ids(node));
-                if (node.kind() == NodeType::Text
-                    || self.editors[node.index.0]
-                        .as_deref()
-                        .map(|editor| editor.editor.state())
-                        .is_some())
+                if (node.kind() == NodeType::Text || self.editors[node.index.0].is_some())
                     || node.measure().is_some()
                 {
                     self.changes.mark(child, Dirty::MEASURE);
                 }
                 self.changes.mark(child, Dirty::REDRAW);
+                self.a11y.node(child);
             }
         }
         self.changes.regroup(parent);
-        self.changes.needs_layout = true;
+        self.a11y.node(parent);
+        self.changes
+            .layout
+            .insert(crate::model::changes::LayoutReasons::PASS);
     }
 
     /// Remove `id` and its whole subtree: at once, or once the exits in it
     /// end (`model::presence`).
     pub(crate) fn remove(&mut self, id: NodeId, pop_layout: bool, notify: bool) {
-        if notify && self.tree.contains(id) {
-            self.presence.notify_exit.insert(id);
-        }
-        if !self.begin_exit(id, pop_layout) {
+        let notify = if notify {
+            Notify::OnComplete
+        } else {
+            Notify::Silent
+        };
+        if !self.begin_exit(id, pop_layout, notify) {
+            self.transition_presence(id, NodePresence::Leaving(LeavingRole::Root { notify }));
             self.remove_now(id);
         }
     }
 
     /// Remove and destroy `id` and its whole subtree now.
     pub(crate) fn remove_now(&mut self, id: NodeId) {
-        self.changes.a11y_structure = true;
+        self.a11y.request_publication(std::iter::empty());
         self.changes.restack = true;
         let focus_lost = self.focus_in_removal(id);
         let next = if focus_lost.is_some() {
@@ -424,16 +489,43 @@ impl Model {
             None
         };
         let parent = self.tree.get(id).and_then(|n| self.tree.parent_id(n));
-        if let Some(parent) = parent {
+        // Invalidate the contributing box while the removed subtree is still
+        // attached; a transparent logical parent can disappear in this sync.
+        if let Some(parent) = self
+            .tree
+            .get(id)
+            .and_then(|node| self.tree.flat_parent(node))
+        {
             self.changes.mark(parent, Dirty::LAYOUT_CHAIN);
         }
         self.changes.outdate_viewport();
-        self.changes.layout_changed = true;
+        self.changes
+            .layout
+            .insert(crate::model::changes::LayoutReasons::STYLE);
+        let notify: Vec<_> = self
+            .tree
+            .subtree(id)
+            .into_iter()
+            .filter(|gone| {
+                self.tree.get(*gone).is_some_and(|node| {
+                    matches!(
+                        node.presence,
+                        NodePresence::Leaving(LeavingRole::Root {
+                            notify: Notify::OnComplete
+                        })
+                    )
+                })
+            })
+            .collect();
+        for gone in self.tree.subtree(id) {
+            self.forget_presence(gone);
+            self.presence.sizes.remove(&gone);
+        }
         for gone in self.remove_slots(id) {
-            if self.presence.notify_exit.remove(&gone) {
+            if notify.contains(&gone) {
                 self.push(HostEvent::ExitComplete { node: gone });
             }
-            self.changes.a11y_removed.insert(gone);
+            self.a11y.request_publication(std::iter::once(gone));
             let previous = self.set_edit(gone, None);
             debug_assert!(previous.is_none());
             self.changes.forget(gone);
@@ -443,12 +535,15 @@ impl Model {
         self.pointer.forget_missing(&self.tree);
         if let Some(p) = parent {
             self.changes.regroup(p);
+            self.a11y.node(p);
         }
         if let Some(left) = focus_lost {
             // Move the focus to the next tab stop before reporting, out of
             // the groups it was in (read before the removal).
             self.move_focus_off_removed(&left, next);
         }
-        self.changes.needs_layout = true;
+        self.changes
+            .layout
+            .insert(crate::model::changes::LayoutReasons::PASS);
     }
 }

@@ -26,12 +26,12 @@ use std::ops::{Add, Sub};
 pub enum Length {
     #[default]
     Auto,
-    Px(f32),
-    Percent(f32),
+    Px(f64),
+    Percent(f64),
     /// `percent`% of the reference plus `px` (CSS `calc(p% + npx)`).
     Calc {
-        percent: f32,
-        px: f32,
+        percent: f64,
+        px: f64,
     },
     /// As wide (or high) as the content laid out at its narrowest: every
     /// line broken (CSS `min-content`). For `width`, `height` and `basis`,
@@ -58,7 +58,7 @@ pub enum Length {
 
 /// Percentage of the containing box.
 pub fn pct(v: impl Into<f64>) -> Length {
-    Length::Percent(v.into() as f32)
+    Length::Percent(v.into())
 }
 
 pub fn auto() -> Length {
@@ -67,31 +67,31 @@ pub fn auto() -> Length {
 
 impl From<i32> for Length {
     fn from(v: i32) -> Self {
-        Length::Px(v as f32)
+        Length::Px(v as f64)
     }
 }
 
 impl From<u32> for Length {
     fn from(v: u32) -> Self {
-        Length::Px(v as f32)
+        Length::Px(v as f64)
     }
 }
 
 impl From<f32> for Length {
-    fn from(v: f32) -> Self {
-        Length::Px(v)
+    fn from(value: f32) -> Self {
+        Self::Px(f64::from(value))
     }
 }
 
 impl From<f64> for Length {
     fn from(v: f64) -> Self {
-        Length::Px(v as f32)
+        Length::Px(v)
     }
 }
 
 impl Length {
     /// `(percent, px)`, or `None` for `Auto` and the content sizes.
-    fn parts(self) -> Option<(f32, f32)> {
+    fn parts(self) -> Option<(f64, f64)> {
         match self {
             Length::Auto | Length::MinContent | Length::MaxContent | Length::FitContent => None,
             Length::Px(v) => Some((0.0, v)),
@@ -100,7 +100,7 @@ impl Length {
         }
     }
 
-    fn from_parts(percent: f32, px: f32) -> Length {
+    fn from_parts(percent: f64, px: f64) -> Length {
         if percent == 0.0 {
             Length::Px(px)
         } else if px == 0.0 {
@@ -111,8 +111,8 @@ impl Length {
     }
 
     /// The layout form.
-    pub(crate) fn to_wire(self) -> kivact_wire::Dimension {
-        use kivact_wire::Dimension as D;
+    pub(crate) fn to_wire(self) -> kivact_types::Dimension {
+        use kivact_types::Dimension as D;
         match self {
             Length::Auto => D::Auto,
             Length::Px(v) => D::Px(v),
@@ -133,9 +133,9 @@ impl Length {
     }
 
     /// The paint form (`Auto` and the content sizes are zero).
-    pub(crate) fn to_len(self) -> kivact_wire::Len {
+    pub(crate) fn to_len(self) -> kivact_types::Len {
         let (pct, px) = self.parts().unwrap_or((0.0, 0.0));
-        kivact_wire::Len { px, pct }
+        kivact_types::Len { px, pct }
     }
 }
 
@@ -163,30 +163,30 @@ impl<T: Into<Length>> Sub<T> for Length {
     }
 }
 
-kivact_reactive::constant_value!(Length);
+kivact_runtime::constant_value!(Length);
 
 // A number is a constant length in logical px wherever a reactive length
 // is taken (`dialog(..).width(640)`), as it is in `style()`.
-impl kivact_reactive::IntoValue<Length> for i32 {
-    fn into_prop(self) -> kivact_reactive::Prop<Length> {
-        kivact_reactive::Prop::constant(Length::from(self))
+impl kivact_runtime::IntoValue<Length> for i32 {
+    fn into_prop(self) -> kivact_runtime::Prop<Length> {
+        kivact_runtime::Prop::constant(Length::from(self))
     }
 }
 
-impl kivact_reactive::IntoValue<Length> for u32 {
-    fn into_prop(self) -> kivact_reactive::Prop<Length> {
-        kivact_reactive::Prop::constant(Length::from(self))
+impl kivact_runtime::IntoValue<Length> for u32 {
+    fn into_prop(self) -> kivact_runtime::Prop<Length> {
+        kivact_runtime::Prop::constant(Length::from(self))
     }
 }
 
-impl kivact_reactive::IntoValue<Length> for f32 {
-    fn into_prop(self) -> kivact_reactive::Prop<Length> {
-        kivact_reactive::Prop::constant(Length::from(self))
+impl kivact_runtime::IntoValue<Length> for f64 {
+    fn into_prop(self) -> kivact_runtime::Prop<Length> {
+        kivact_runtime::Prop::constant(Length::from(self))
     }
 }
 
-impl kivact_reactive::IntoValue<Length> for f64 {
-    fn into_prop(self) -> kivact_reactive::Prop<Length> {
-        kivact_reactive::Prop::constant(Length::from(self))
+impl kivact_runtime::IntoValue<Length> for f32 {
+    fn into_prop(self) -> kivact_runtime::Prop<Length> {
+        kivact_runtime::Prop::constant(Length::from(self))
     }
 }

@@ -1,4 +1,5 @@
 //! Role: Arvane native backend for top-level and embedded child windows.
+
 //!
 //! Arvane's native backend: top-level windows opened with winit and child
 //! windows embedded in another program's window (`embed`, feature `embed`).
@@ -51,28 +52,23 @@
 //!
 //! A panic in a callback propagates out of the loop: winit carries it across
 //! its window procedure (Win32, macOS) and resumes it after the loop
-//! ([`arvane_shell::ShellEventLoop::run`]).
+//! ([`arvane_shell::Backend::run`]).
 #![deny(unsafe_code)]
 
-#[cfg(feature = "embed")]
-pub mod embed;
+mod port;
+pub use port::embed;
 
 mod a11y;
-mod contacts;
-mod cpu;
-mod detached;
 mod display;
-mod key_code;
+#[cfg(feature = "test")]
+pub mod mirror;
 mod module;
 mod native_input;
 mod open;
-mod runtime;
+mod present;
 mod services;
-#[cfg(feature = "testing")]
-pub mod test_display;
 mod wait;
-mod wheel;
+mod wake;
 
-pub use detached::detached_threads;
 pub use module::retain_module;
-pub use runtime::{Shell, WinitWindow};
+pub use port::winit::{WinitWindow, backend};

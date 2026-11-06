@@ -16,10 +16,25 @@
 use std::path::Path;
 use std::process::ExitCode;
 
+mod api_shape;
+mod canonical_path;
+mod check_cli;
+mod check_policy;
+mod check_source;
+mod effect_writes;
 mod impl_model;
+mod kit_literal_color;
+mod local_checks;
 mod macros;
 mod module_rules;
+mod name_collision;
+mod os_branch;
 mod policy;
+mod public_surface;
+mod public_type_edges;
+mod report;
+mod state_fields;
+mod structural_options;
 
 fn main() -> ExitCode {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -31,8 +46,19 @@ fn main() -> ExitCode {
         .iter()
         .any(|argument| matches!(argument.as_str(), "--help" | "-h"))
     {
+        println!(
+            "Local checks: --only <{}> [--crate <crate> [--module <path>]] [--report]",
+            check_cli::RULES.join("|")
+        );
         return xtask_core::main(root);
     }
+    let (options, arguments) = match check_cli::Options::parse(arguments) {
+        Ok(parsed) => parsed,
+        Err(error) => {
+            eprintln!("{error}");
+            return ExitCode::from(2);
+        }
+    };
     let mut config = match xtask_core::parse_args(root, arguments) {
         Ok(config) => config,
         Err(error) => {
@@ -40,6 +66,27 @@ fn main() -> ExitCode {
             return ExitCode::from(2);
         }
     };
+    let local = match local_checks::check(&config.root, &config.policy, &options) {
+        Ok(errors) => errors,
+        Err(error) => {
+            eprintln!("error: {error}");
+            return ExitCode::FAILURE;
+        }
+    };
+    if options.only.is_some() {
+        for error in &local {
+            if options.report {
+                println!("{error}");
+            } else {
+                eprintln!("error: {error}");
+            }
+        }
+        return if local.is_empty() || options.report {
+            ExitCode::SUCCESS
+        } else {
+            ExitCode::FAILURE
+        };
+    }
     let rules = match policy::prepare(&mut config) {
         Ok(rules) => rules,
         Err(error) => {
@@ -61,17 +108,10 @@ fn main() -> ExitCode {
         Err(error) => report.errors.push(format!("module rules: {error}")),
     }
     report.errors.extend(impl_model::check(&config.root));
-    for note in &report.notes {
-        println!("{note}");
-    }
-    for error in &report.errors {
-        eprintln!("error: {error}");
-    }
-    if report.is_success() {
-        println!("ok");
-        ExitCode::SUCCESS
+    if options.report {
+        report.notes.extend(local);
     } else {
-        eprintln!("{} error(s)", report.errors.len());
-        ExitCode::FAILURE
+        report.errors.extend(local);
     }
+    report::print(&report)
 }

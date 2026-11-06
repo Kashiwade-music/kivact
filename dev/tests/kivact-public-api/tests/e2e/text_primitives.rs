@@ -3,24 +3,25 @@
 //! A shaped paragraph (`TextParagraph`: measured by a primitive's measure
 //! function, laid out and drawn by its draw closure, and queried for
 //! carets, hits and selection bands), the IME session of a node that edits
-//! its own text (`NodeExt::ime_session`, `on_ime`) and the text runs a node
-//! publishes for assistive technology (`NodeExt::semantics_text`). The
+//! its own text (`Node::ime_session`, `on_ime`) and the text runs a node
+//! publishes for assistive technology (`Node::semantics_text`). The
 //! editor built from all three is the `kivact-text-primitives` fixture.
 
 use std::cell::RefCell;
 use std::rc::Rc;
 
 use crate::support::mount;
-use kivact::draw::{InlineBox, InlineParagraph, Point, Rect, Size, TextParagraph, TextStyle};
+use kivact::custom::{Constraints, Primitive, primitive};
+use kivact::draw::{InlineBox, InlineParagraph, TextFormat, TextParagraph};
+use kivact::geometry::{Point, Rect, Size};
 use kivact::prelude::*;
-use kivact::primitive::{Constraints, Primitive, primitive};
 use kivact::style::Align;
 
 /// The text style the tests shape in: a fixed size, so widths are stable.
-fn style_14() -> TextStyle {
-    TextStyle {
+fn style_14() -> TextFormat {
+    TextFormat {
         size: 14.0,
-        ..TextStyle::default()
+        ..TextFormat::default()
     }
 }
 
@@ -34,7 +35,7 @@ struct Seen {
 
 /// A primitive that measures `text` as a paragraph wrapped at `width` and
 /// draws the paragraph it lays out in its draw closure.
-fn paragraph_node(text: &'static str, width: Option<f32>, seen: Rc<RefCell<Seen>>) -> Primitive {
+fn paragraph_node(text: &'static str, width: Option<f64>, seen: Rc<RefCell<Seen>>) -> Primitive {
     let measured = seen.clone();
     primitive()
         .measure(text.to_string(), move |text: &String, c: Constraints| {
@@ -252,7 +253,7 @@ fn retained_inline_control_receives_pointer_input() {
             .on_press(move || flag.set(true));
         (
             pressed,
-            column(kivact::primitive::inline_view(
+            column(kivact::custom::inline_view(
                 "First line\n ",
                 style_14(),
                 [(11, item.into_view())],

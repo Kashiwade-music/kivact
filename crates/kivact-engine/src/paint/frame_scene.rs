@@ -1,26 +1,39 @@
 //! Role: Build a frame's draw commands from the paint list, step by step.
 
 use super::state::{Entry, Step};
+use crate::contract::{HostEvent, NodeType};
+use crate::lower::context::Purpose;
+use crate::lower::effects::Tint;
+use crate::lower::shape::BoxShape;
+use crate::lower::{border, effects, scene, shape};
 use crate::model::Model;
 use crate::model::interact::visual;
 use arvane::asset::{PixelSize, fit_image};
-use kivact_lower::effects::Tint;
-use kivact_lower::shape::BoxShape;
-use kivact_lower::{border, effects, scene, shape};
-use kivact_types::protocol::DrawCommand as D;
-use kivact_wire::{HostEvent, NodeId, NodeType, PaintProps, Point, Rect, Size};
+use kivact_types::render::RenderCmd as D;
+use kivact_types::{NodeId, PaintProps, Point, Rect, Size};
 
 impl Model {
     /// Build the frame's display list from the paint list (`list`): every
     /// listed node with its current content. Every shown image is drawn in
     /// it: a new frame of the asset store's recency.
-    pub(crate) fn scene(&mut self, engine: &mut arvane::Engine) -> kivact_types::protocol::Scene {
+    pub(crate) fn scene(
+        &mut self,
+        engine: &mut arvane::Engine,
+    ) -> kivact_types::render::RenderScene {
         self.paint_list();
+        self.paint_scene_list(engine, Purpose::Window)
+    }
+
+    pub(super) fn paint_scene_list(
+        &mut self,
+        engine: &mut arvane::Engine,
+        purpose: Purpose,
+    ) -> kivact_types::render::RenderScene {
         self.assets.borrow_mut().begin_frame();
-        let mut out = kivact_lower::SceneOut::default();
+        let mut out = crate::lower::SceneOut::default();
         // How much the transforms around a node enlarge it, outermost
         // first: its images are rasterized for that much more.
-        let mut zoom: Vec<f32> = Vec::new();
+        let mut zoom: Vec<f64> = Vec::new();
         for entry in &self.paint.list.entries {
             let at = zoom.last().copied().unwrap_or(1.0);
             match entry {
@@ -39,13 +52,13 @@ impl Model {
                     self.paint
                         .raster
                         .set(self.paint.scale * scene::raster_zoom(at));
-                    self.paint_open(step, engine, &mut out);
+                    self.paint_open(step, engine, &mut out, purpose);
                 }
                 Entry::Close(step) => {
                     self.paint
                         .raster
                         .set(self.paint.scale * scene::raster_zoom(at));
-                    self.paint_close(step, engine, &mut out);
+                    self.paint_close(step, engine, &mut out, purpose);
                     if step.transform.is_some() {
                         zoom.pop();
                     }
@@ -60,7 +73,7 @@ impl Model {
     }
 
     /// The color matrix at `index` of the paint list.
-    fn matrix(&self, index: Option<u32>) -> Option<kivact_types::protocol::ColorMatrix> {
+    fn matrix(&self, index: Option<u32>) -> Option<kivact_types::render::ColorMatrix> {
         self.paint.list.matrices.get(index? as usize).copied()
     }
 
@@ -96,9 +109,9 @@ impl Model {
         step: &Step,
         p: &PaintProps,
         bounds: Rect,
-    ) -> Vec<kivact_types::protocol::Layer> {
+    ) -> Vec<kivact_types::render::Layer> {
         let e = p.effects.as_deref();
-        let outer = kivact_types::protocol::Layer {
+        let outer = kivact_types::render::Layer {
             clip: e
                 .and_then(|e| e.clip_path.as_ref())
                 .map(|s| shape::clip_path(s, bounds)),
@@ -110,9 +123,9 @@ impl Model {
                     y: area.y,
                 };
                 self.layer_paint(m, area, origin)
-                    .map(|paint| kivact_types::protocol::Mask { rect: area, paint })
+                    .map(|paint| kivact_types::render::Mask { rect: area, paint })
             }),
-            ..kivact_types::protocol::Layer::default()
+            ..kivact_types::render::Layer::default()
         };
         let opacity = if step.group { p.opacity } else { 1.0 };
         let parent = self.matrix(step.parent_matrix);
@@ -120,7 +133,7 @@ impl Model {
         // As many as the list counted (it closes as many).
         layers.resize_with(
             usize::from(step.layers),
-            kivact_types::protocol::Layer::default,
+            kivact_types::render::Layer::default,
         );
         layers
     }
@@ -132,7 +145,8 @@ impl Model {
         &self,
         step: &Step,
         engine: &mut arvane::Engine,
-        out: &mut kivact_lower::SceneOut,
+        out: &mut crate::lower::SceneOut,
+        purpose: Purpose,
     ) {
         let host = &self;
         let id = step.id;
@@ -167,32 +181,24 @@ impl Model {
         if step.own {
             self.paint_box(step, &p, &outline, clip_path.is_some(), &tint, out);
         }
-        if step.clips {
-            // Closed as the list says (a rect clip or a rounded layer).
-            let padding =
-                BoxShape::of(bounds, &p.radius).inset(shape::border_widths(p.border.as_ref()));
-            if step.rounded {
-                out.push(D::PushLayer(kivact_types::protocol::Layer {
-                    clip: Some(padding.shape()),
-                    ..kivact_types::protocol::Layer::default()
-                }));
-            } else {
-                out.push(D::PushClip(padding.rect()));
-            }
+        if let Some(clip) = step.presence_clip {
+            out.push(D::PushClip(clip));
         }
+        paint_content_clip(step, bounds, &p, out);
         if !step.own {
             return;
         }
-        if let Some(scene) = &n.scenes()[0] {
-            self.paint_scene(id, 0, scene, canvas, &tint, engine, out);
+        if host.editors[n.index.0].is_none()
+            && let Some(scene) = &n.scenes()[0]
+        {
+            self.paint_scene(id, 0, scene, canvas, &tint, engine, out, purpose);
         }
         match n.kind() {
-            _ if host.editors[n.index.0]
-                .as_deref()
-                .map(|editor| editor.editor.state())
-                .is_some() =>
-            {
-                self.paint_input(id, bounds, step.clip, &tint, engine, out)
+            _ if host.editors[n.index.0].is_some() => {
+                self.paint_input(id, bounds, step.clip, &tint, engine, out);
+                if let Some(scene) = &n.scenes()[0] {
+                    self.paint_scene(id, 0, scene, canvas, &tint, engine, out, purpose);
+                }
             }
             NodeType::Text => {
                 let layout = host.computed_layout(id).unwrap_or_default();
@@ -201,10 +207,7 @@ impl Model {
             }
             _ => {}
         }
-        if host.editors[n.index.0]
-            .as_deref()
-            .map(|editor| editor.editor.state())
-            .is_none()
+        if host.editors[n.index.0].is_none()
             && let Some(asset) = n.image()
         {
             self.paint_image(id, n, asset, canvas, &tint, out);
@@ -220,7 +223,7 @@ impl Model {
         outline: &BoxShape,
         clip_path: bool,
         tint: &Tint,
-        out: &mut kivact_lower::SceneOut,
+        out: &mut crate::lower::SceneOut,
     ) {
         let knockout = !border::opaque(p.background.as_ref(), tint);
         border::shadows(out, outline, &p.shadows, false, knockout, tint);
@@ -253,7 +256,8 @@ impl Model {
         &self,
         step: &Step,
         engine: &mut arvane::Engine,
-        out: &mut kivact_lower::SceneOut,
+        out: &mut crate::lower::SceneOut,
+        purpose: Purpose,
     ) {
         let id = step.id;
         if step.own
@@ -262,7 +266,7 @@ impl Model {
         {
             let (_, _, canvas) = self.placed(id, step.origin);
             let tint = self.tint(step);
-            self.paint_scene(id, 1, scene, canvas, &tint, engine, out);
+            self.paint_scene(id, 1, scene, canvas, &tint, engine, out, purpose);
         }
         let bars = if step.own {
             self.scrollbar_bars(id)
@@ -281,8 +285,8 @@ impl Model {
                         height: rect.height,
                     };
                     out.push(D::FillShape {
-                        shape: kivact_types::protocol::Shape::Rect(rect),
-                        paint: kivact_types::protocol::Paint::Solid(tint.color(color)),
+                        shape: kivact_types::scene::Shape::Rect(rect),
+                        paint: kivact_types::render::Paint::Solid(tint.color(color)),
                     });
                 }
             }
@@ -293,6 +297,9 @@ impl Model {
             } else {
                 D::PopClip
             });
+        }
+        if step.presence_clip.is_some() {
+            out.push(D::PopClip);
         }
         out.extend(std::iter::repeat_n(D::PopLayer, usize::from(step.layers)));
         if step.transform.is_some() {
@@ -310,7 +317,7 @@ impl Model {
         source: &kivact_types::Asset,
         canvas: Rect,
         tint: &Tint,
-        out: &mut kivact_lower::SceneOut,
+        out: &mut crate::lower::SceneOut,
     ) {
         let mut assets = self.assets.borrow_mut();
         let Some(natural) = assets.natural(source) else {
@@ -347,6 +354,22 @@ impl Model {
         });
         if placed.clip {
             out.push(D::PopClip);
+        }
+    }
+}
+
+fn paint_content_clip(step: &Step, bounds: Rect, p: &PaintProps, out: &mut crate::lower::SceneOut) {
+    if step.clips {
+        // Closed as the list says (a rect clip or a rounded layer).
+        let padding =
+            BoxShape::of(bounds, &p.radius).inset(shape::border_widths(p.border.as_ref()));
+        if step.rounded {
+            out.push(D::PushLayer(kivact_types::render::Layer {
+                clip: Some(padding.shape()),
+                ..kivact_types::render::Layer::default()
+            }));
+        } else {
+            out.push(D::PushClip(padding.rect()));
         }
     }
 }

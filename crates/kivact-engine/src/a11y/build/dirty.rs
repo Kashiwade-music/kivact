@@ -7,14 +7,14 @@ use crate::a11y::state::{Dirt, Metadata};
 use crate::model::Model;
 use crate::semantic_role;
 use arvane as a;
-use kivact_wire as wire;
+use kivact_types as types;
 use std::collections::BTreeSet;
 use std::hash::{DefaultHasher, Hash, Hasher};
 
 /// A semantics tree built for publication and the identity metadata it was
 /// built with (`None`: a local text build reused the accepted metadata).
 pub(in crate::a11y) struct Built {
-    pub(in crate::a11y) tree: kivact_types::protocol::SemanticsTree,
+    pub(in crate::a11y) tree: kivact_types::render::SemanticsTree,
     pub(in crate::a11y) metadata: Option<Metadata>,
 }
 
@@ -24,7 +24,7 @@ impl Model {
     pub(crate) fn build_semantics(
         &mut self,
         engine: &mut a::Engine,
-    ) -> kivact_types::protocol::SemanticsTree {
+    ) -> kivact_types::render::SemanticsTree {
         self.build_semantics_for(engine, &Dirt::Full).tree
     }
 
@@ -37,42 +37,7 @@ impl Model {
     ) -> Built {
         let full = *dirt == Dirt::Full;
         let Some(root) = self.tree().root() else {
-            let id = match self.a11y.empty_root {
-                Some(id) => id,
-                None => {
-                    let id = self.next_semantics_identity();
-                    self.a11y.empty_root = Some(id);
-                    id
-                }
-            };
-            let node = structural(
-                wire::NodeId(id),
-                Vec::new(),
-                kivact_types::Rect {
-                    x: 0.0,
-                    y: 0.0,
-                    width: self.viewport.width,
-                    height: self.viewport.height,
-                },
-                kivact_types::Point::default(),
-                kivact_types::protocol::Transform::IDENTITY,
-                false,
-            );
-            #[cfg(feature = "testing")]
-            {
-                self.a11y.constructed += 1;
-            }
-            return Built {
-                tree: kivact_types::protocol::SemanticsTree {
-                    root: kivact_types::NodeId(id),
-                    focus: None,
-                    nodes: vec![node],
-                },
-                metadata: Some(Metadata {
-                    live: BTreeSet::from([id]),
-                    ..Default::default()
-                }),
-            };
+            return self.build_empty_semantics();
         };
         if let Dirt::LocalText { nodes } = dirt {
             return Built {
@@ -89,6 +54,94 @@ impl Model {
             } => (nodes, subtrees, removed),
             _ => (&empty, &empty, &empty),
         };
+        let subtree_roots = subtrees;
+        let (metadata, order) = self.build_identity_metadata();
+        let mut dirty = own.clone();
+        dirty.extend(removed.iter().copied());
+        dirty.extend(
+            metadata
+                .clipped
+                .symmetric_difference(&self.a11y.metadata.clipped)
+                .copied(),
+        );
+        for &id in &order {
+            if metadata.children.get(&id) != self.a11y.metadata.children.get(&id) {
+                dirty.insert(id);
+            }
+            if metadata.parents.get(&id) != self.a11y.metadata.parents.get(&id) {
+                dirty.insert(id);
+                if let Some(Some(p)) = metadata.parents.get(&id) {
+                    dirty.insert(*p);
+                }
+            }
+        }
+        let modal_changed = metadata.modal != self.a11y.metadata.modal;
+        let mut inherited = BTreeSet::new();
+        for &id in &order {
+            let parent_dirty = metadata
+                .parents
+                .get(&id)
+                .and_then(|p| *p)
+                .is_some_and(|p| inherited.contains(&p));
+            if modal_changed || parent_dirty || subtree_roots.contains(&id) {
+                inherited.insert(id);
+                dirty.insert(id);
+            }
+        }
+        self.expand_overlay_dirt(&order, &inherited, &mut dirty);
+        self.expand_relation_dirt(&metadata, &mut dirty);
+        self.invalidate_boxless_ancestors(&mut dirty);
+        let nodes = self.build_dirty_nodes(root, full, &dirty, &metadata, engine);
+        #[cfg(feature = "testing")]
+        {
+            self.a11y.constructed += nodes.len() as u64;
+        }
+        let focus = self.semantics_focus(&metadata.clipped);
+        Built {
+            tree: kivact_types::render::SemanticsTree {
+                root: kivact_types::SemanticsId(root.0),
+                focus,
+                nodes,
+            },
+            metadata: Some(metadata),
+        }
+    }
+    fn build_empty_semantics(&mut self) -> Built {
+        let id = match self.a11y.ids.empty_root {
+            Some(root) if !self.tree.contains(types::NodeId(root.0)) => root.0,
+            _ => self.next_semantics_identity(),
+        };
+        self.a11y.ids.empty_root = Some(types::SemanticsId(id));
+        let node = structural(
+            types::NodeId(id),
+            Vec::new(),
+            kivact_types::Rect {
+                x: 0.0,
+                y: 0.0,
+                width: self.viewport.width,
+                height: self.viewport.height,
+            },
+            kivact_types::Point::default(),
+            kivact_types::Transform::IDENTITY,
+            false,
+        );
+        #[cfg(feature = "testing")]
+        {
+            self.a11y.constructed += 1;
+        }
+        Built {
+            tree: kivact_types::render::SemanticsTree {
+                root: kivact_types::SemanticsId(id),
+                focus: None,
+                nodes: vec![node],
+            },
+            metadata: Some(Metadata {
+                live: BTreeSet::from([id]),
+                ..Default::default()
+            }),
+        }
+    }
+    fn build_identity_metadata(&mut self) -> (Metadata, Vec<types::NodeId>) {
         self.prepare_region_ids();
         let clipped = self.clipped_rows();
         let mut metadata = Metadata {
@@ -96,26 +149,26 @@ impl Model {
             modal: self.modal(),
             ..Default::default()
         };
-        let order = self.tree().preorder();
+        let order = self.semantic_order();
         for &id in &order {
             let Some(n) = self.node(id) else { continue };
             metadata.parents.insert(id, self.tree().parent_id(n));
             let mut children = DefaultHasher::new();
             let mut count = 0usize;
-            for child in self.tree().children_ids(n) {
+            for child in self.semantic_children(id) {
                 child.hash(&mut children);
                 count += 1;
             }
             count.hash(&mut children);
             metadata.children.insert(id, children.finish());
             metadata.live.insert(id.0);
-            let props = n.semantics().and_then(|s| s.accessibility.as_deref());
+            let props = n.semantics();
             let region_props = n
                 .scenes()
                 .iter()
                 .flatten()
                 .flat_map(|s| s.regions.iter())
-                .filter_map(|r| r.properties.as_deref());
+                .map(|r| &r.semantics);
             for props in props.into_iter().chain(region_props) {
                 for target in props
                     .described_by
@@ -147,38 +200,14 @@ impl Model {
                 }
             }
         }
-        let mut dirty = own.clone();
-        dirty.extend(removed.iter().copied());
-        dirty.extend(
-            metadata
-                .clipped
-                .symmetric_difference(&self.a11y.metadata.clipped)
-                .copied(),
-        );
-        for &id in &order {
-            if metadata.children.get(&id) != self.a11y.metadata.children.get(&id) {
-                dirty.insert(id);
-            }
-            if metadata.parents.get(&id) != self.a11y.metadata.parents.get(&id) {
-                dirty.insert(id);
-                if let Some(Some(p)) = metadata.parents.get(&id) {
-                    dirty.insert(*p);
-                }
-            }
-        }
-        let modal_changed = metadata.modal != self.a11y.metadata.modal;
-        let mut inherited = BTreeSet::new();
-        for &id in &order {
-            let parent_dirty = metadata
-                .parents
-                .get(&id)
-                .and_then(|p| *p)
-                .is_some_and(|p| inherited.contains(&p));
-            if modal_changed || parent_dirty || subtrees.contains(&id) {
-                inherited.insert(id);
-                dirty.insert(id);
-            }
-        }
+        (metadata, order)
+    }
+    fn expand_overlay_dirt(
+        &self,
+        order: &[types::NodeId],
+        inherited: &BTreeSet<types::NodeId>,
+        dirty: &mut BTreeSet<types::NodeId>,
+    ) {
         // Existing overlay placement authority also follows anchors outside a subtree.
         // Follow those existing anchor/ancestor dependencies to a fixed point,
         // including overlays anchored in other overlays; do not retain a placement graph.
@@ -195,7 +224,7 @@ impl Model {
                         .iter()
                         .any(|a| inherited.contains(a) || dirty.contains(a))
                 {
-                    for &id in &order {
+                    for &id in order {
                         if self.tree().is_in_subtree(id, overlay) && dirty.insert(id) {
                             expanded = true;
                         }
@@ -206,6 +235,8 @@ impl Model {
                 break;
             }
         }
+    }
+    fn expand_relation_dirt(&self, metadata: &Metadata, dirty: &mut BTreeSet<types::NodeId>) {
         // Both old and current reverse edges matter for removal and relation replacement.
         let mut queue: Vec<_> = dirty.iter().copied().collect();
         while let Some(target) = queue.pop() {
@@ -223,9 +254,18 @@ impl Model {
                 }
             }
         }
+    }
+    fn build_dirty_nodes(
+        &mut self,
+        root: types::NodeId,
+        full: bool,
+        dirty: &BTreeSet<types::NodeId>,
+        metadata: &Metadata,
+        engine: &mut a::Engine,
+    ) -> Vec<kivact_types::render::SemanticsNode> {
         let mut nodes = Vec::new();
         let mut active = BTreeSet::new();
-        let mut stack = vec![(root, wire::Point::default())];
+        let mut stack = vec![(root, types::Point::default())];
         while let Some((id, offset)) = stack.pop() {
             if full || dirty.contains(&id) {
                 self.build_node(
@@ -239,30 +279,18 @@ impl Model {
             }
             if let Some(n) = self.node(id) {
                 let s = n.scroll();
-                let below = wire::Point {
+                let below = types::Point {
                     x: offset.x + s.x,
                     y: offset.y + s.y,
                 };
                 stack.extend(
-                    self.tree()
-                        .children_ids(n)
+                    self.semantic_children(id)
+                        .into_iter()
                         .rev()
                         .map(|child| (child, below)),
                 );
             }
         }
-        #[cfg(feature = "testing")]
-        {
-            self.a11y.constructed += nodes.len() as u64;
-        }
-        let focus = self.semantics_focus(&metadata.clipped);
-        Built {
-            tree: kivact_types::protocol::SemanticsTree {
-                root: kivact_types::NodeId(root.0),
-                focus,
-                nodes,
-            },
-            metadata: Some(metadata),
-        }
+        nodes
     }
 }

@@ -1,38 +1,39 @@
 //! Role: Render panes sized by fractions with a themed splitter handle between each pair.
 //!
 //! The panes share the room the handles leave, by the fractions in the
-//! caller's `Binding<Vec<f32>>`, which only the handles write. A handle is an
+//! caller's `Binding<Vec<f64>>`, which only the handles write. A handle is an
 //! [`use_splitter`] whose value is the boundary after its pane, in percent of
 //! the shared room; the pixels the panes really take are read back from their
 //! rects, so a handle of any thickness (the theme's splitter recipe) moves the
 //! boundary exactly as far as the pointer.
-use super::children::IntoChildren;
 use super::layer::with_recipe_style;
 use super::values::{AxisState, ControlSize};
 use super::variants::{Variant, Variants};
-use kivact_core::control::{Node, NodeBuilder, node};
 use kivact_core::i18n::message;
-use kivact_core::primitive::NodeExt;
+use kivact_core::state::{Binding, Callback, Value, binding, memo};
+use kivact_core::state::{IntoValue, callback};
 use kivact_core::style::{Direction, pct, style};
+use kivact_core::view::EditPhase;
+use kivact_core::view::IntoChildren;
 use kivact_core::view::{
-    HandlerResult, IntoValue, IntoView, NodeRef, Orientation, ReadingDirection, View, callback,
-    current_direction, node_ref, show,
+    HandlerResult, IntoView, NodeRef, Orientation, ReadingDirection, Role, View, node_ref, show,
+    use_direction,
 };
-use kivact_core::{Binding, Callback, Value, binding, memo};
-use kivact_interaction::{EditPhase, ScalarRange, use_splitter};
-use std::rc::Rc;
+use kivact_core::view::{Node, NodeBuilder, node};
+use kivact_interaction::{ScalarRange, use_splitter};
 
 /// The pixels used until the host has laid the panes out.
 const UNMEASURED: f64 = 800.0;
 
+// xtask-allow(state-fields): Setup-only NodeBuilder options; grip visibility and the edit observer are independent construction inputs.
 /// Panes separated by handles, created by [`split`].
 pub struct Split {
     root: Node,
     orientation: Orientation,
-    sizes: Binding<Vec<f32>>,
+    sizes: Binding<Vec<f64>>,
     panes: Vec<View>,
     grip: Value<bool>,
-    min_size: f32,
+    min_size: f64,
     on_edit: Option<Callback<EditPhase>>,
     variants: Variants,
 }
@@ -46,8 +47,9 @@ pub struct Split {
 /// length draws equal panes. Each handle is a `Role::Splitter`
 /// ([`use_splitter`](kivact_interaction::use_splitter)): dragging moves the
 /// boundary, the arrow keys along the group's axis move it by 1 % (Home and
-/// End jump to the limits), Enter or a double click share the two panes
-/// equally, and no pane gets smaller than [`Split::min_size`] (10 % of the
+/// End jump to the limits), Enter collapses and restores the primary pane,
+/// a double click shares the two panes equally, and no pane gets smaller than
+/// [`Split::min_size`] (10 % of the
 /// group unless set). Each key press, action and drag is one edit
 /// ([`on_edit`](Split::on_edit)); Escape or a canceled pointer during a drag
 /// writes the sizes from before the press back. The panes sit side by side
@@ -65,18 +67,21 @@ pub struct Split {
 /// use kivact::ui::split;
 ///
 /// fn workspace() -> impl IntoView {
-///     let sizes = signal(vec![0.25f32, 0.75]);
-///     split((text("Files"), text("Editor")), sizes)
+///     let sizes = signal(vec![0.25f64, 0.75]);
+///     split(sizes, (text("Files"), text("Editor")))
 ///         .grip(true)
 ///         .style(style().height(200).width(400))
 /// }
 /// ```
 #[track_caller]
-pub fn split(panes: impl IntoChildren, sizes: impl Into<Binding<Vec<f32>>>) -> Split {
+pub fn split(
+    sizes: impl kivact_core::state::IntoBinding<Vec<f64>>,
+    panes: impl IntoChildren,
+) -> Split {
     Split {
         root: node(),
         orientation: Orientation::Horizontal,
-        sizes: sizes.into(),
+        sizes: sizes.into_binding(),
         panes: panes.into_views(),
         grip: false.into_value(),
         min_size: 0.1,
@@ -105,7 +110,8 @@ impl Split {
     }
 
     /// The smallest fraction of the group a pane may take (0.1 by default).
-    pub fn min_size(mut self, fraction: f32) -> Self {
+    pub fn min_size(mut self, fraction: impl Into<f64>) -> Self {
+        let fraction = fraction.into();
         self.min_size = if fraction.is_finite() {
             fraction.clamp(0.0, 0.5)
         } else {
@@ -145,28 +151,28 @@ impl NodeBuilder for Split {
 }
 
 /// The normalized shares of `count` panes from the application's `sizes`.
-fn shares(sizes: &[f32], count: usize) -> Vec<f64> {
+fn shares(sizes: &[f64], count: usize) -> Vec<f64> {
     let valid = sizes.len() == count
         && sizes.iter().all(|s| s.is_finite() && *s >= 0.0)
-        && sizes.iter().sum::<f32>() > 0.0;
+        && sizes.iter().sum::<f64>() > 0.0;
     if !valid {
         return vec![1.0 / count.max(1) as f64; count];
     }
-    let total: f64 = sizes.iter().map(|s| f64::from(*s)).sum();
-    sizes.iter().map(|s| f64::from(*s) / total).collect()
+    let total: f64 = sizes.iter().sum();
+    sizes.iter().map(|s| *s / total).collect()
 }
 
 /// What every handle of a group shares.
 #[derive(Clone)]
-struct Group {
-    sizes: Binding<Vec<f32>>,
+struct SplitGroupOptions {
+    sizes: Binding<Vec<f64>>,
     shares: Value<Vec<f64>>,
     shared: Value<f64>,
     axis: Orientation,
     grip: Value<bool>,
-    min_size: f32,
+    min_size: f64,
     on_edit: Option<Callback<EditPhase>>,
-    disabled: Option<Rc<dyn Fn() -> bool>>,
+    disabled: Option<Value<bool>>,
     variants: Variants,
 }
 
@@ -197,10 +203,7 @@ impl IntoView for Split {
         let shared = memo(move || {
             let lengths: Option<Vec<f64>> = rects
                 .iter()
-                .map(|rect| {
-                    rect.get()
-                        .map(|r| f64::from(if stacked { r.height } else { r.width }))
-                })
+                .map(|rect| rect.get().map(|r| if stacked { r.height } else { r.width }))
                 .collect();
             lengths
                 .map_or(UNMEASURED, |lengths| lengths.iter().sum())
@@ -209,7 +212,7 @@ impl IntoView for Split {
         // `.disabled(..)` on the group ignores input and assistive technology
         // and cancels a drag in progress.
         let disabled = root.accessible_disabled();
-        let group = Group {
+        let group = SplitGroupOptions {
             sizes,
             shares: shares_now,
             shared,
@@ -221,9 +224,10 @@ impl IntoView for Split {
             variants,
         };
         let mut children: Vec<View> = Vec::with_capacity(count * 2);
-        for (at, (pane, reference)) in panes.into_iter().zip(refs).enumerate() {
+        for (at, (pane, reference)) in panes.into_iter().zip(refs.iter().copied()).enumerate() {
             children.push(
                 node()
+                    .role(Role::Group)
                     .node_ref(reference)
                     .style(move || {
                         style()
@@ -237,10 +241,10 @@ impl IntoView for Split {
                     .into_view(),
             );
             if at + 1 < count {
-                children.push(handle(at, &group).into_view());
+                children.push(handle(at, reference, &group).into_view());
             }
         }
-        let direction = match (stacked, current_direction()) {
+        let direction = match (stacked, use_direction().get()) {
             (true, _) => Direction::Column,
             (false, ReadingDirection::Ltr) => Direction::Row,
             (false, ReadingDirection::Rtl) => Direction::RowReverse,
@@ -259,8 +263,8 @@ impl IntoView for Split {
 }
 
 /// The handle between pane `at` and pane `at + 1`.
-fn handle(at: usize, group: &Group) -> Node {
-    let Group {
+fn handle(at: usize, primary: NodeRef, group: &SplitGroupOptions) -> Node {
+    let SplitGroupOptions {
         sizes,
         shares: shares_now,
         shared,
@@ -280,18 +284,9 @@ fn handle(at: usize, group: &Group) -> Node {
         let first = (boundary / 100.0 - before).clamp(0.0, pair);
         next[at] = first;
         next[at + 1] = pair - first;
-        sizes.set(next.iter().map(|s| *s as f32).collect());
+        sizes.set(next);
     });
-    let range = memo(move || {
-        let s = shares_now.get();
-        let low: f64 = s[..at].iter().sum::<f64>() * 100.0;
-        let high: f64 = s[..at + 2].iter().sum::<f64>() * 100.0;
-        let least = f64::from(min_size) * 100.0;
-        ScalarRange::new(low + least, high - least)
-            .or_else(|_| ScalarRange::new(low, high))
-            .or_else(|_| ScalarRange::new(0.0, 100.0))
-            .expect("invariant: the whole 0 to 100 range is valid")
-    });
+    let range = memo(move || boundary_range(&shares_now.get(), at, min_size));
     let mut behavior = use_splitter(
         binding(position, move |value| write.try_call(value)),
         range,
@@ -312,7 +307,7 @@ fn handle(at: usize, group: &Group) -> Node {
         }
     });
     if let Some(disabled) = disabled {
-        behavior = behavior.disabled(move || disabled());
+        behavior = behavior.disabled(move || disabled.get());
     }
     let part = behavior.handle();
     let input = part.state();
@@ -333,10 +328,24 @@ fn handle(at: usize, group: &Group) -> Node {
         }
     };
     with_recipe_style(
-        node().part(part).name(message("split.handle", "Resize")),
+        node()
+            .part(part)
+            .name(message("split.handle", "Resize"))
+            .controls(primary),
         |recipes| recipes.splitter_recipes().handle_recipe(),
         &variants,
         state,
     )
     .child(show(grip, mark))
+}
+
+/// Constrain one boundary while preserving both panes' minimum shares.
+fn boundary_range(shares: &[f64], at: usize, min_size: f64) -> ScalarRange {
+    let low: f64 = shares[..at].iter().sum::<f64>() * 100.0;
+    let high: f64 = shares[..at + 2].iter().sum::<f64>() * 100.0;
+    let least = min_size * 100.0;
+    ScalarRange::new(low + least, high - least)
+        .or_else(|_| ScalarRange::new(low, high))
+        .or_else(|_| ScalarRange::new(0.0, 100.0))
+        .expect("invariant: the whole 0 to 100 range is valid")
 }

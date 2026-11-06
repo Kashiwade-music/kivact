@@ -53,13 +53,13 @@ mod tests {
 | 取得元 | 使いどころ |
 | --- | --- |
 | `include_bytes!("logo.png")` や `static` のバイト列 | 実行ファイルに同梱するファイル(ディスクからは読まない) |
-| `Vec<u8>`、`Arc<[u8]>` | ダウンロードなど、実行時に得たバイト列 |
+| `Vec<u8>`、`AssetBytes` | ダウンロードなど、実行時に得たバイト列 |
 | `"photos/cover.jpg"`、`String`、`PathBuf`、`&Path` | 最初に表示するときに読むファイル。カレントディレクトリからの相対パス |
 | `Asset::from(..)` | 上のいずれかを、保持できる値にしたもの |
 | クロージャ、`Signal<Asset>`、`Value<Asset>` | 変化する画像 |
 
 ```rust,no_run
-use kivact::Asset;
+use kivact::view::Asset;
 use kivact::prelude::*;
 
 fn gallery(paths: Vec<&'static str>) -> impl IntoView {
@@ -79,10 +79,10 @@ fn main() -> kivact::Result<()> {
 
 ### 実行時に得たバイト列
 
-`Asset` は内容ではなく**同一性**でキャッシュされます。同じファイルパス、同じ埋め込みスライス、同じ `Arc` のアロケーションが、同じ Asset です。`Asset::from(bytes.clone())` は式が実行されるたびに新しいアロケーションを作り、したがって新しい Asset になって、そのたびにデコードし直されます。自分で作ったバイト列は、セットアップで `Asset` を 1 回だけ作り、その `Asset` を clone してください。
+`Asset` は内容ではなく**同一性**でキャッシュされます。同じファイルパス、同じ埋め込みスライス、同じ `AssetBytes` の不変バッファが、同じ Asset です。`Asset::from(bytes.clone())` は式が実行されるたびに新しいアロケーションを作り、したがって新しい Asset になって、そのたびにデコードし直されます。自分で作ったバイト列は、セットアップで `Asset` を 1 回だけ作り、その `Asset` を clone してください。`AssetBytes` は内部の共有方法を隠した不変バイト列です。通常は `Asset::from(bytes)` に `Vec<u8>` を渡せばよく、自分で共有ポインターを用意する必要はありません。複数の画像やフレームで同じバッファを渡す場合は、作成した `AssetBytes` や `Asset` のハンドルを clone します。
 
 ```rust,no_run
-use kivact::Asset;
+use kivact::view::Asset;
 use kivact::prelude::*;
 
 fn avatar(bytes: Vec<u8>) -> impl IntoView {
@@ -105,7 +105,7 @@ fn main() -> kivact::Result<()> {
 ## サイズとフィット
 
 ```rust,no_run
-use kivact::control::ImageFit;
+use kivact::view::ImageFit;
 use kivact::prelude::*;
 
 static PHOTO: &[u8] = br##"<svg xmlns="http://www.w3.org/2000/svg" width="40" height="20"><rect width="40" height="20" fill="#888"/></svg>"##;
@@ -209,3 +209,5 @@ fn main() -> kivact::Result<()> {
 - [コンポーネントから非同期処理を実行する](async-and-tasks.md): ウィンドウを止めずに画像を読み込む。
 - [翻訳とロケール](i18n.md): 他の文字体系のフォントと文字の向き。
 - リファレンス: `cargo doc -p kivact --open` で `Asset` と `ImageFit` を検索。
+
+NodeRef の `scroll_state()` は `NotScrollable`・`AtStart`・`Middle`・`AtEnd`、`image_status()` は `Loading`・`Ready`・`Failed` のリアクティブな値を返します。reader は setup で作ります。画像の状態は再試行を含めて現在の source に追従します。

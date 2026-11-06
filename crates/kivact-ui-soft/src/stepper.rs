@@ -1,689 +1,301 @@
-//! Role: Render Neutral progress steps and a width-sensitive summary.
-use crate::side_nav::logical_row;
-use crate::stack::rtl;
-use crate::tokens;
-use kivact::control::{Node, NodeBuilder, column, icon, node, row, text};
-use kivact::i18n::message;
-use kivact::motion::Transition;
-use kivact::primitive::NodeExt;
-use kivact::style::{Align, Color, Direction, Justify, TransitionProp, pct, style};
-use kivact::ui::{ButtonVariant, ControlSize, button};
-use kivact::view::{
-    HandlerResult, IntoText, IntoValue, IntoView, Orientation, Role, View, callback, node_ref,
-    provide,
+//! Role: Style canonical progress steps from actual item and responsive layout facts.
+use kivact::state::{IntoValue, Value};
+use kivact::style::{Align, Color, Direction, Justify, Position, Style, Theme, pct, style};
+use kivact::ui::{
+    Look, StepIndicatorKind, StepStatus, StepperItemState, StepperRecipes, StepperState,
 };
-use kivact::{Callback, Value, memo};
-use std::rc::Rc;
-
+use kivact::view::Orientation;
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+/// Spacing and indicator sizing for progress steps.
 pub enum StepDensity {
+    /// Use compact step spacing and indicators.
     Compact,
     #[default]
+    /// Use the standard step spacing and indicators.
     Balanced,
+    /// Use spacious step spacing and indicators.
     Spacious,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+/// Placement of step indicators relative to connector tracks.
 pub enum StepIndicatorPosition {
     #[default]
+    /// Keep each indicator separate from the connector track.
     Separated,
+    /// Place indicators directly on the connector track.
     OnTrack,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+/// Visible details of the responsive collapsed stepper.
 pub enum StepCollapsedVariant {
     #[default]
+    /// Show the current step label and navigation controls.
     WithLabelAndControls,
+    /// Show the current step label without navigation controls.
     WithLabel,
+    /// Hide the current step label in the collapsed presentation.
     HiddenLabel,
 }
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub enum StepStatus {
-    #[default]
-    Default,
-    Accent,
-    Success,
-    Warning,
-    Error,
+/// Reactive presentation choices; orientation, count and selection stay canonical.
+#[derive(Clone, Debug, PartialEq)]
+pub struct StepperAppearance {
+    /// Reactive default density for the stepper.
+    pub density: Value<StepDensity>,
+    /// Reactive placement of indicators relative to connectors.
+    pub position: Value<StepIndicatorPosition>,
+    /// Reactive presentation of the collapsed stepper.
+    pub collapsed: Value<StepCollapsedVariant>,
+    /// Reactive gap between an indicator and its connector, in pixels.
+    pub connector_gap: Value<f64>,
+    /// Per-item density overrides, keyed by zero-based step index.
+    pub item_densities: Vec<(usize, StepDensity)>,
 }
-
-#[derive(Clone, Default)]
-pub enum StepIndicator {
-    #[default]
-    Auto,
-    Number,
-    None,
-    Custom(Rc<dyn Fn() -> View>),
-}
-
-impl StepIndicator {
-    pub fn custom<V: IntoView>(glyph: impl Fn() -> V + 'static) -> Self {
-        Self::Custom(Rc::new(move || glyph().into_view()))
-    }
-}
-
-pub struct Step {
-    root: Node,
-    index: usize,
-    label: Value<String>,
-    description: Option<Value<String>>,
-    content: Option<View>,
-    end: Option<View>,
-    disabled: Value<bool>,
-    optional: bool,
-    status: StepStatus,
-    indicator: StepIndicator,
-    density: Option<StepDensity>,
-}
-
-pub fn step(index: usize, label: impl IntoText) -> Step {
-    let label = label.into_text_value();
-    Step {
-        root: node().role(Role::ListItem).name(label),
-        index,
-        label,
-        description: None,
-        content: None,
-        end: None,
-        disabled: false.into_value(),
-        optional: false,
-        status: StepStatus::Default,
-        indicator: StepIndicator::Auto,
-        density: None,
-    }
-}
-
-impl Step {
-    pub fn description(mut self, description: impl IntoText) -> Self {
-        self.description = Some(description.into_text_value());
-        self
-    }
-    pub fn content<V: IntoView>(mut self, content: impl FnOnce() -> V + 'static) -> Self {
-        self.content = Some(provide((), content));
-        self
-    }
-    pub fn end_content<V: IntoView>(mut self, end: impl FnOnce() -> V + 'static) -> Self {
-        self.end = Some(provide((), end));
-        self
-    }
-    pub fn disabled(mut self, disabled: impl IntoValue<bool>) -> Self {
-        self.disabled = disabled.into_value();
-        self
-    }
-    pub fn optional(mut self, optional: bool) -> Self {
-        self.optional = optional;
-        self
-    }
-    pub fn status(mut self, status: StepStatus) -> Self {
-        self.status = status;
-        self
-    }
-    pub fn indicator(mut self, indicator: StepIndicator) -> Self {
-        self.indicator = indicator;
-        self
-    }
-    pub fn density(mut self, density: StepDensity) -> Self {
-        self.density = Some(density);
-        self
-    }
-}
-
-impl NodeBuilder for Step {
-    fn node_mut(&mut self) -> &mut Node {
-        &mut self.root
-    }
-}
-
-pub struct Stepper {
-    root: Node,
-    active: Value<usize>,
-    steps: Vec<Step>,
-    orientation: Orientation,
-    action: Option<Callback<usize>>,
-    density: StepDensity,
-    position: StepIndicatorPosition,
-    min_width: f32,
-    collapsed: StepCollapsedVariant,
-    connector_gap: f32,
-}
-
-pub fn stepper(active: impl IntoValue<usize>, steps: impl IntoIterator<Item = Step>) -> Stepper {
-    Stepper {
-        root: node().name(message("soft.stepper.label", "Progress")),
-        active: active.into_value(),
-        steps: steps.into_iter().collect(),
-        orientation: Orientation::Horizontal,
-        action: None,
-        density: StepDensity::Balanced,
-        position: StepIndicatorPosition::Separated,
-        min_width: 112.0,
-        collapsed: StepCollapsedVariant::WithLabelAndControls,
-        connector_gap: 0.0,
-    }
-}
-
-impl Stepper {
-    pub fn orientation(mut self, orientation: Orientation) -> Self {
-        self.orientation = orientation;
-        self
-    }
-    pub fn on_step_press<R: HandlerResult>(
-        mut self,
-        action: impl Fn(usize) -> R + 'static,
-    ) -> Self {
-        self.action = Some(callback(action));
-        self
-    }
-    pub fn density(mut self, density: StepDensity) -> Self {
-        self.density = density;
-        self
-    }
-    pub fn indicator_position(mut self, position: StepIndicatorPosition) -> Self {
-        self.position = position;
-        self
-    }
-    pub fn min_step_width(mut self, width: f32) -> Self {
-        self.min_width = width.max(0.0);
-        self
-    }
-    pub fn collapsed_variant(mut self, variant: StepCollapsedVariant) -> Self {
-        self.collapsed = variant;
-        self
-    }
-    pub fn connector_gap(mut self, gap: f32) -> Self {
-        self.connector_gap = gap.clamp(0.0, 8.0);
-        self
-    }
-}
-
-impl NodeBuilder for Stepper {
-    fn node_mut(&mut self) -> &mut Node {
-        &mut self.root
-    }
-}
-
-#[derive(Clone, Copy)]
-struct StepperCx {
-    active: Value<usize>,
-    compact: Value<bool>,
-    vertical: bool,
-    action: Option<Callback<usize>>,
-    density: StepDensity,
-    position: StepIndicatorPosition,
-    connector_gap: f32,
-}
-
-impl IntoView for Stepper {
-    fn into_view(self) -> View {
-        let Self {
-            root,
-            active,
-            steps,
-            orientation,
-            action,
-            density,
-            position,
-            min_width,
-            collapsed,
-            connector_gap,
-        } = self;
-        provide((), move || {
-            let root_ref = node_ref();
-            let rect = root_ref.rect();
-            let count = steps.len();
-            let vertical = orientation == Orientation::Vertical;
-            let compact = memo(move || {
-                !vertical
-                    && count > 0
-                    && rect
-                        .get()
-                        .is_some_and(|r| r.width / (count as f32) < min_width)
-            });
-            let cx = StepperCx {
-                active,
-                compact,
-                vertical,
-                action,
-                density,
-                position,
-                connector_gap,
-            };
-            let summaries: Rc<[_]> = steps
-                .iter()
-                .map(Summary::from_step)
-                .collect::<Vec<_>>()
-                .into();
-            let list = node()
-                .role(Role::List)
-                .style(move || {
-                    let t = tokens();
-                    style()
-                        .direction(if vertical {
-                            Direction::Column
-                        } else {
-                            logical_row()
-                        })
-                        .gap(
-                            if !vertical
-                                && position == StepIndicatorPosition::OnTrack
-                                && !compact.get()
-                            {
-                                0.0
-                            } else {
-                                t.spacing.s1
-                            },
-                        )
-                })
-                .child(
-                    steps
-                        .into_iter()
-                        .enumerate()
-                        .map(|(i, step)| step.build(cx, i == 0, i + 1 == count))
-                        .collect::<Vec<_>>(),
-                );
-            let summary = (collapsed != StepCollapsedVariant::HiddenLabel).then(|| {
-                let step_labels = summaries.clone();
-                let summary = kivact::view::dynamic(active, move |index| {
-                    step_labels
-                        .iter()
-                        .find(|step| step.index == index)
-                        .map(|step| {
-                            column((
-                                row((
-                                    step_indicator(step.clone(), cx)(),
-                                    text(step.label).style(move || step_text(true, false, false)),
-                                ))
-                                .style(|| {
-                                    let t = tokens();
-                                    style()
-                                        .direction(logical_row())
-                                        .align_items(Align::Center)
-                                        .justify_content(Justify::Center)
-                                        .gap(t.spacing.s2)
-                                }),
-                                step.description
-                                    .map(|description| text(description).style(description_style)),
-                            ))
-                            .style(|| {
-                                style()
-                                    .align_items(Align::Center)
-                                    .gap(tokens().spacing.s0_5)
-                            })
-                        })
-                });
-                let controls =
-                    action.is_some() && collapsed == StepCollapsedVariant::WithLabelAndControls;
-                row((
-                    controls.then(|| summary_button(cx, summaries.clone(), false)),
-                    summary,
-                    controls.then(|| summary_button(cx, summaries.clone(), true)),
-                ))
-                .hidden(move || !compact.get())
-                .style(move || {
-                    style()
-                        .direction(logical_row())
-                        .align_items(Align::Center)
-                        .gap(tokens().spacing.s2)
-                        .justify_content(if controls {
-                            Justify::SpaceBetween
-                        } else {
-                            Justify::Center
-                        })
-                })
-            });
-            root.node_ref(root_ref)
-                .base_style(|| {
-                    style()
-                        .direction(Direction::Column)
-                        .gap(tokens().spacing.s2)
-                })
-                .child((list, summary))
-        })
-    }
-}
-
-#[derive(Clone)]
-struct Summary {
-    index: usize,
-    label: Value<String>,
-    description: Option<Value<String>>,
-    disabled: Value<bool>,
-    indicator: StepIndicator,
-    status: StepStatus,
-}
-
-impl Summary {
-    fn from_step(step: &Step) -> Self {
+impl Default for StepperAppearance {
+    fn default() -> Self {
         Self {
-            index: step.index,
-            label: step.label,
-            description: step.description,
-            disabled: step.disabled,
-            indicator: step.indicator.clone(),
-            status: step.status,
+            density: StepDensity::Balanced.into_value(),
+            position: StepIndicatorPosition::Separated.into_value(),
+            collapsed: StepCollapsedVariant::WithLabelAndControls.into_value(),
+            connector_gap: 0.0.into_value(),
+            item_densities: Vec::new(),
         }
     }
 }
+impl kivact::ui::Variant for StepperAppearance {}
+struct Presentation {
+    density: StepDensity,
+    position: StepIndicatorPosition,
+    collapsed: StepCollapsedVariant,
+    connector_gap: f64,
+    item_densities: Vec<(usize, StepDensity)>,
+}
+fn appearance<S>(s: &Look<S>) -> Presentation {
+    s.variant::<StepperAppearance>().map_or_else(
+        || Presentation {
+            density: StepDensity::Balanced,
+            position: StepIndicatorPosition::Separated,
+            collapsed: StepCollapsedVariant::WithLabelAndControls,
+            connector_gap: 0.0,
+            item_densities: Vec::new(),
+        },
+        |v| Presentation {
+            density: v.density.get(),
+            position: v.position.get(),
+            collapsed: v.collapsed.get(),
+            connector_gap: v.connector_gap.get(),
+            item_densities: v.item_densities.clone(),
+        },
+    )
+}
 
-impl IntoView for Step {
-    fn into_view(self) -> View {
-        provide((), move || {
-            let cx = StepperCx {
-                active: self.index.into_value(),
-                compact: false.into_value(),
-                vertical: false,
-                action: None,
-                density: StepDensity::Balanced,
-                position: StepIndicatorPosition::Separated,
-                connector_gap: 0.0,
-            };
-            self.build(cx, true, true)
-        })
+fn logical_row() -> Direction {
+    if crate::stack::rtl() {
+        Direction::RowReverse
+    } else {
+        Direction::Row
     }
 }
-
-impl Step {
-    fn build(self, cx: StepperCx, first: bool, last: bool) -> Node {
-        let summary = Summary::from_step(&self);
-        let Self {
-            root,
-            index,
-            label,
-            description,
-            content,
-            end,
-            disabled,
-            optional,
-            density,
-            ..
-        } = self;
-        let density = density.unwrap_or(cx.density);
-        let on_track = cx.position == StepIndicatorPosition::OnTrack;
-        let has_indicator = !matches!(summary.indicator, StepIndicator::None);
-        let bar = node()
-            .hidden(move || on_track && !cx.compact.get())
-            .style(move || {
-                let t = tokens();
-                let base = style()
-                    .radius(t.radius.full)
-                    .shrink(0)
-                    .background(if index <= cx.active.get() {
-                        t.colors.accent
-                    } else {
-                        t.colors.border
-                    })
-                    .transition(
-                        TransitionProp::Paint,
-                        Transition::tween(t.motion.fast as f64, t.motion.ease_standard),
-                    );
-                if cx.vertical {
-                    base.width(t.spacing.s1).align_self(Align::Stretch)
-                } else {
-                    base.width(pct(100)).height(t.spacing.s1)
-                }
-            });
-        let indicator = step_indicator(summary, cx);
-        let connector = |leading: bool, absent: bool| {
-            node().style(move || {
-                let t = tokens();
-                let filled = if leading {
-                    index <= cx.active.get()
-                } else {
-                    index < cx.active.get()
-                };
-                let base = style()
-                    .grow(1)
-                    .opacity(if absent { 0.0 } else { 1.0 })
-                    .background(if filled {
-                        t.colors.accent
-                    } else {
-                        t.colors.border
-                    });
-                if cx.vertical {
-                    base.width(t.spacing.s1).min_height(t.spacing.s2)
-                } else {
-                    base.height(t.spacing.s1).min_width(t.spacing.s2)
-                }
-            })
-        };
-        let track = on_track.then(|| {
-            let gap = cx.connector_gap;
-            node()
-                .style(move || {
-                    style()
-                        .direction(if cx.vertical {
-                            Direction::Column
-                        } else {
-                            logical_row()
-                        })
-                        .align_items(Align::Center)
-                        .gap(gap)
-                        .shrink(0)
-                })
-                .child((connector(true, first), indicator(), connector(false, last)))
-        });
-        let label_node = text(label).style(move || {
-            step_text(
-                cx.active.get() == index,
-                cx.active.get() < index,
-                disabled.get(),
-            )
-        });
-        let optional = optional.then(|| {
-            text(message("soft.stepper.optional", "• Optional")).style(|| {
-                style()
-                    .color(tokens().colors.text_secondary)
-                    .text_wrap(false)
-            })
-        });
-        let leading = if on_track { None } else { Some(indicator()) };
-        let label_row = row((leading, label_node, optional, end)).style(move || {
-            let t = tokens();
-            style()
-                .direction(logical_row())
-                .align_items(Align::Center)
-                .justify_content(if on_track && !cx.vertical {
-                    Justify::Center
-                } else {
-                    Justify::Start
-                })
-                .gap(if on_track { t.spacing.s1 } else { t.spacing.s2 })
-        });
-        let description = description.map(|description| {
-            text(description).style(move || {
-                let t = tokens();
-                let base = description_style();
-                if has_indicator && !on_track {
-                    if rtl() {
-                        base.padding_right(t.spacing.s6)
-                    } else {
-                        base.padding_left(t.spacing.s6)
-                    }
-                } else {
-                    base
-                }
-            })
-        });
-        let labels = column((label_row, description)).style(move || {
-            let t = tokens();
-            let base = style()
-                .padding_y(density_padding(density))
-                .padding_x(if density == StepDensity::Spacious {
-                    t.spacing.s3
-                } else {
-                    t.spacing.s2
-                })
-                .radius(t.radius.element)
-                .min_width(0);
-            if cx.action.is_some() && !disabled.get() {
-                base.hover(style().background(t.colors.overlay_hover))
-                    .pressed(style().background(t.colors.overlay_pressed))
-                    .focus_visible(crate::recipe_style::ring(&t, t.colors.accent))
-            } else {
-                base
-            }
-        });
-        let labels = if let Some(action) = cx.action {
-            labels
-                .role(Role::Button)
-                .name(label)
-                .focusable(move || !disabled.get())
-                .disabled(disabled)
-                .selected(move || cx.active.get() == index)
-                .on_press(move || {
-                    if !disabled.get() {
-                        action.call(index);
-                    }
-                })
-        } else {
-            labels
-        };
-        let content = content.map(|content| {
-            node()
-                .style(move || {
-                    let t = tokens();
-                    let padding = if density == StepDensity::Spacious {
-                        t.spacing.s3
-                    } else {
-                        t.spacing.s2
-                    };
-                    let start = padding
-                        + if has_indicator && !on_track {
-                            t.spacing.s6
-                        } else {
-                            0.0
-                        };
-                    let base = style().padding_top(t.spacing.s2);
-                    if rtl() {
-                        base.padding_right(start).padding_left(padding)
-                    } else {
-                        base.padding_left(start).padding_right(padding)
-                    }
-                })
-                .child(content)
-        });
-        let body = column((labels, content))
-            .hidden(cx.compact)
-            .style(style().grow(1).min_width(0));
-        let track = track.map(|track| track.hidden(cx.compact));
-        root.base_style(move || {
-            let t = tokens();
-            let base = style().min_width(0).gap(t.spacing.s0_5);
-            if cx.vertical {
-                base.direction(logical_row()).align_items(Align::Stretch)
-            } else {
-                base.direction(Direction::Column).grow(1).basis(0)
-            }
-        })
-        .selected(move || cx.active.get() == index)
-        .current_item(move || (cx.active.get() == index).then_some(kivact::view::CurrentItem::Step))
-        .child((bar, track, body))
+fn on_track(s: &Look<StepperItemState>) -> bool {
+    appearance(s).position == StepIndicatorPosition::OnTrack && !s.collapsed
+}
+fn density(s: &Look<StepperItemState>) -> StepDensity {
+    let a = appearance(s);
+    a.item_densities
+        .iter()
+        .find(|(index, _)| *index == s.index)
+        .map_or_else(|| a.density, |(_, density)| *density)
+}
+pub(crate) fn stepper(r: StepperRecipes) -> StepperRecipes {
+    r.root(|_| |_: &Theme, _: &Look<StepperState>| style().gap(4).padding(0).min_width(0))
+        .item(|_| item)
+        .layout(|_| layout)
+        .track(|_| track)
+        .body(|_| body)
+        .leading(|_| |t: &Theme, s: &Look<StepperItemState>| connector(t, s, true))
+        .trailing(|_| |t: &Theme, s: &Look<StepperItemState>| connector(t, s, false))
+        .progress(|_| progress)
+        .indicator(|_| indicator)
+        .label(|_| label)
+        .description(|_| description)
+        .content(|_| content)
+        .end_content(|_| |_: &Theme, _: &Look<StepperItemState>| style().shrink(0))
+        .previous(|_| |t: &Theme, s: &Look<StepperState>| navigation(t, s, false))
+        .next(|_| |t: &Theme, s: &Look<StepperState>| navigation(t, s, true))
+}
+fn item(theme: &Theme, s: &Look<StepperItemState>) -> Style {
+    let t = theme.ext::<crate::Tokens>();
+    if s.collapsed && appearance(s).collapsed == StepCollapsedVariant::HiddenLabel {
+        return style()
+            .visibility(kivact::style::Visibility::Hidden)
+            .position(Position::Absolute)
+            .size(0, 0);
+    }
+    let base = style()
+        .position(Position::Relative)
+        .min_width(0)
+        .gap(2)
+        .radius(t.radius.element)
+        .focus_visible(crate::recipe_style::ring(&t, t.colors.accent));
+    if s.orientation == Orientation::Horizontal {
+        base.grow(1).basis(0)
+    } else {
+        base
     }
 }
-
-fn step_indicator(step: Summary, cx: StepperCx) -> Rc<dyn Fn() -> View> {
-    Rc::new(move || {
-        let Summary {
-            index,
-            disabled,
-            indicator,
-            status,
-            ..
-        } = step.clone();
-        if matches!(indicator, StepIndicator::None) {
-            return View::empty();
-        }
-        let number = matches!(indicator, StepIndicator::Number);
-        let custom = if let StepIndicator::Custom(glyph) = indicator {
-            Some(glyph)
+fn layout(_: &Theme, s: &Look<StepperItemState>) -> Style {
+    style()
+        .direction(if on_track(s) && s.orientation == Orientation::Horizontal {
+            Direction::Column
         } else {
-            None
-        };
-        let content = kivact::view::dynamic(cx.active, move |active| {
-            if let Some(custom) = &custom {
-                return custom();
-            }
-            let (background, foreground) = indicator_colors(status);
-            let reached = index <= active;
-            if !number && index == active {
-                return node()
-                    .style(move || {
-                        let t = tokens();
-                        style()
-                            .size(t.spacing.s4, t.spacing.s4)
-                            .radius(t.radius.full)
-                            .border(t.spacing.s0_5, background)
-                            .align_items(Align::Center)
-                            .justify_content(Justify::Center)
-                    })
-                    .child(
-                        node().style(move || style().size(8, 8).radius(4).background(background)),
-                    )
-                    .into_view();
-            }
-            if !number
-                && matches!(
-                    status,
-                    StepStatus::Success | StepStatus::Warning | StepStatus::Error
-                )
-            {
-                let (glyph, color) = match status {
-                    StepStatus::Success => ("circle-check", tokens().colors.text_success),
-                    StepStatus::Warning => ("triangle-alert", tokens().colors.text_warning),
-                    _ => ("circle-x", tokens().colors.text_error),
-                };
-                return icon(glyph)
-                    .style(move || style().size(16, 16).color(color))
-                    .into_view();
-            }
-            let badge = move || {
-                let t = tokens();
-                let base = style()
-                    .size(t.spacing.s4, t.spacing.s4)
-                    .radius(t.radius.full)
-                    .justify_content(Justify::Center)
-                    .align_items(Align::Center)
-                    .font_size(t.typography.size_xs)
-                    .weight(t.typography.weight_semibold);
-                if reached {
-                    base.background(background).color(foreground)
-                } else {
-                    base.background(t.colors.bg_muted).color(if disabled.get() {
-                        t.colors.text_disabled
-                    } else {
-                        t.colors.text_secondary
-                    })
-                }
-            };
-            let glyph = if !number && reached {
-                icon("check").style(style().size(12, 12)).into_view()
+            logical_row()
+        })
+        .align_items(if on_track(s) && s.orientation == Orientation::Vertical {
+            Align::Stretch
+        } else {
+            Align::Center
+        })
+        .justify_content(if s.collapsed {
+            Justify::Center
+        } else {
+            Justify::Start
+        })
+        .gap(8)
+        .min_width(0)
+        .padding_top(
+            if !on_track(s) && s.orientation == Orientation::Horizontal && !s.collapsed {
+                6.0
             } else {
-                text(index.saturating_add(1).to_string()).into_view()
-            };
-            node().style(badge).child(glyph).into_view()
-        });
-        node()
-            .style(move || {
-                let t = tokens();
-                style()
-                    .size(t.spacing.s4, t.spacing.s4)
-                    .shrink(0)
-                    .align_items(Align::Center)
-                    .justify_content(Justify::Center)
-                    .opacity(if disabled.get() {
-                        t.sizes.disabled_opacity
-                    } else {
-                        1.0
-                    })
-            })
-            .child(content)
-            .into_view()
-    })
+                0.0
+            },
+        )
+        .padding_left(
+            if !on_track(s) && s.orientation == Orientation::Vertical && !crate::stack::rtl() {
+                6.0
+            } else {
+                0.0
+            },
+        )
+        .padding_right(
+            if !on_track(s) && s.orientation == Orientation::Vertical && crate::stack::rtl() {
+                6.0
+            } else {
+                0.0
+            },
+        )
 }
-
-fn indicator_colors(status: StepStatus) -> (Color, Color) {
-    let c = tokens().colors;
+fn track(_: &Theme, s: &Look<StepperItemState>) -> Style {
+    if s.indicator == StepIndicatorKind::None && !on_track(s) {
+        return style().size(0, 0).position(Position::Absolute);
+    }
+    let a = appearance(s);
+    let base = style()
+        .direction(if on_track(s) && s.orientation == Orientation::Vertical {
+            Direction::Column
+        } else {
+            logical_row()
+        })
+        .align_items(Align::Center)
+        .gap(a.connector_gap.clamp(0.0, 8.0))
+        .shrink(0);
+    if on_track(s) && s.orientation == Orientation::Horizontal {
+        base.width(pct(100))
+    } else {
+        base
+    }
+}
+fn body(theme: &Theme, s: &Look<StepperItemState>) -> Style {
+    let t = theme.ext::<crate::Tokens>();
+    let density = density(s);
+    let padding = match density {
+        StepDensity::Compact => t.spacing.s1,
+        StepDensity::Balanced => t.spacing.s2,
+        StepDensity::Spacious => t.spacing.s3,
+    };
+    let base = style()
+        .direction(Direction::Column)
+        .min_width(0)
+        .grow(1)
+        .padding_y(padding)
+        .padding_x(if density == StepDensity::Spacious {
+            t.spacing.s3
+        } else {
+            t.spacing.s2
+        })
+        .align_items(
+            if s.collapsed || on_track(s) && s.orientation == Orientation::Horizontal {
+                Align::Center
+            } else {
+                Align::Start
+            },
+        )
+        .radius(t.radius.element);
+    if s.interactive && !s.disabled {
+        base.hover(style().background(t.colors.overlay_hover))
+            .pressed(style().background(t.colors.overlay_pressed))
+    } else {
+        base
+    }
+}
+fn connector(theme: &Theme, s: &Look<StepperItemState>, leading: bool) -> Style {
+    if !on_track(s) {
+        return style().size(0, 0);
+    }
+    let t = theme.ext::<crate::Tokens>();
+    let filled = if leading {
+        s.index <= s.current
+    } else {
+        s.index < s.current
+    };
+    let absent = if leading {
+        s.index == 0
+    } else {
+        s.index + 1 == s.count
+    };
+    let base = style()
+        .grow(1)
+        .opacity(if absent { 0.0 } else { 1.0 })
+        .background(if filled {
+            t.colors.accent
+        } else {
+            t.colors.border
+        });
+    if s.orientation == Orientation::Vertical {
+        base.width(t.spacing.s1).min_height(t.spacing.s2)
+    } else {
+        base.height(t.spacing.s1).min_width(t.spacing.s2)
+    }
+}
+fn progress(theme: &Theme, s: &Look<StepperItemState>) -> Style {
+    if on_track(s) || s.collapsed {
+        return style().size(0, 0);
+    }
+    let t = theme.ext::<crate::Tokens>();
+    let base = style()
+        .position(Position::Absolute)
+        .top(0)
+        .radius(t.radius.full)
+        .transition(
+            kivact::style::TransitionProp::Paint,
+            kivact::motion::Transition::tween(t.motion.fast as f64, t.motion.ease_standard),
+        )
+        .background(if s.index <= s.current {
+            t.colors.accent
+        } else {
+            t.colors.border
+        });
+    if s.orientation == Orientation::Horizontal {
+        base.left(0).width(pct(100)).height(t.spacing.s1)
+    } else if crate::stack::rtl() {
+        base.right(0).width(t.spacing.s1).height(pct(100))
+    } else {
+        base.left(0).width(t.spacing.s1).height(pct(100))
+    }
+}
+fn colors(t: &crate::Tokens, status: StepStatus) -> (Color, Color) {
+    let c = t.colors;
     match status {
         StepStatus::Default => (c.accent, c.bg_surface),
         StepStatus::Accent => (c.accent, c.on_accent),
@@ -692,75 +304,173 @@ fn indicator_colors(status: StepStatus) -> (Color, Color) {
         StepStatus::Error => (c.error, c.on_error),
     }
 }
-
-fn density_padding(density: StepDensity) -> f32 {
-    let t = tokens();
-    match density {
-        StepDensity::Compact => t.spacing.s1,
-        StepDensity::Balanced => t.spacing.s2,
-        StepDensity::Spacious => t.spacing.s3,
+fn indicator(theme: &Theme, s: &Look<StepperItemState>) -> Style {
+    let t = theme.ext::<crate::Tokens>();
+    let (bg, ink) = colors(&t, s.status);
+    let reached = s.index <= s.current;
+    let base = style()
+        .size(16, 16)
+        .shrink(0)
+        .radius(t.radius.full)
+        .align_items(Align::Center)
+        .justify_content(Justify::Center)
+        .opacity(if s.disabled {
+            t.sizes.disabled_opacity
+        } else {
+            1.0
+        });
+    if s.indicator == StepIndicatorKind::Custom {
+        return base;
     }
+    if s.indicator == StepIndicatorKind::Number
+        || s.index > s.current && matches!(s.status, StepStatus::Default | StepStatus::Accent)
+    {
+        return base
+            .font_size(t.typography.size_xs)
+            .weight(t.typography.weight_semibold)
+            .background(if reached { bg } else { t.colors.bg_muted })
+            .color(if reached {
+                ink
+            } else if s.disabled {
+                t.colors.text_disabled
+            } else {
+                t.colors.text_secondary
+            });
+    }
+    let status_ink = match s.status {
+        StepStatus::Success => t.colors.text_success,
+        StepStatus::Warning => t.colors.text_warning,
+        StepStatus::Error => t.colors.text_error,
+        _ => bg,
+    };
+    auto_indicator(base, bg, ink, s.index == s.current, s.status, status_ink)
+}
+fn auto_indicator(
+    base: Style,
+    bg: Color,
+    ink: Color,
+    active: bool,
+    status: StepStatus,
+    status_ink: Color,
+) -> Style {
+    base.font_size(0).paint(move |draw, size| {
+        use kivact::draw::{Path, Stroke};
+        use kivact::geometry::Point;
+        let center = Point::new(size.width / 2.0, size.height / 2.0);
+        let circle = Path::new().arc(center, 7, 0, 360, false);
+        let check = Path::new()
+            .move_to(Point::new(4.0, 8.0))
+            .line_to(Point::new(7.0, 11.0))
+            .line_to(Point::new(12.0, 5.0));
+        if active {
+            draw.stroke_path(&circle, &Stroke::new(2), bg);
+            draw.fill_path(&Path::new().arc(center, 4, 0, 360, false), bg);
+        } else if matches!(
+            status,
+            StepStatus::Success | StepStatus::Warning | StepStatus::Error
+        ) {
+            if status == StepStatus::Warning {
+                draw.stroke_path(
+                    &Path::new()
+                        .move_to(Point::new(8.0, 1.0))
+                        .line_to(Point::new(15.0, 14.0))
+                        .line_to(Point::new(1.0, 14.0))
+                        .close(),
+                    &Stroke::new(1.5),
+                    status_ink,
+                );
+                draw.stroke_path(
+                    &Path::new()
+                        .move_to(Point::new(8.0, 5.0))
+                        .line_to(Point::new(8.0, 9.0)),
+                    &Stroke::new(1.5),
+                    status_ink,
+                );
+                draw.fill_path(
+                    &Path::new().arc(Point::new(8.0, 11.5), 0.7, 0, 360, false),
+                    status_ink,
+                );
+            } else {
+                draw.stroke_path(&circle, &Stroke::new(1.5), status_ink);
+                if status == StepStatus::Success {
+                    draw.stroke_path(&check, &Stroke::new(1.5), status_ink);
+                } else {
+                    draw.stroke_path(
+                        &Path::new()
+                            .move_to(Point::new(5.0, 5.0))
+                            .line_to(Point::new(11.0, 11.0))
+                            .move_to(Point::new(11.0, 5.0))
+                            .line_to(Point::new(5.0, 11.0)),
+                        &Stroke::new(1.5),
+                        status_ink,
+                    );
+                }
+            }
+        } else {
+            draw.fill_path(&circle, bg);
+            draw.stroke_path(&check, &Stroke::new(1.5), ink);
+        }
+    })
 }
 
-fn step_text(active: bool, future: bool, disabled: bool) -> kivact::style::Style {
-    let t = tokens();
-    let role = t.typography.body;
+fn label(theme: &Theme, s: &Look<StepperItemState>) -> Style {
+    let t = theme.ext::<crate::Tokens>();
+    let font = t.typography.body;
     style()
-        .font_size(role.size_px)
-        .line_height(role.line_height_px / role.size_px)
-        .color(if disabled {
+        .font_size(font.size_px)
+        .line_height(font.line_height_px / font.size_px)
+        .color(if s.disabled {
             t.colors.text_disabled
-        } else if future {
+        } else if s.index > s.current {
             t.colors.text_secondary
         } else {
             t.colors.text_primary
         })
-        .weight(if active {
+        .weight(if s.index == s.current {
             t.typography.weight_semibold
         } else {
-            role.weight
+            font.weight
         })
         .single_line()
 }
-
-fn description_style() -> kivact::style::Style {
-    let t = tokens();
+fn description(theme: &Theme, _: &Look<StepperItemState>) -> Style {
+    let t = theme.ext::<crate::Tokens>();
     style()
         .font_size(t.typography.supporting.size_px)
         .line_height(t.spacing.s4 / t.typography.supporting.size_px)
         .color(t.colors.text_secondary)
 }
-
-fn summary_button(cx: StepperCx, steps: Rc<[Summary]>, next: bool) -> impl IntoView {
-    let label = if next {
-        message("soft.stepper.next", "Next step")
-    } else {
-        message("soft.stepper.previous", "Previous step")
-    };
-    let target = memo(move || {
-        let active = cx.active.get();
-        let mut candidates = steps.iter().filter(|step| !step.disabled.get());
-        if next {
-            candidates.find(|step| step.index > active)
-        } else {
-            candidates.rfind(|step| step.index < active)
-        }
-        .map(|step| step.index)
-    });
-    let glyph = if next != rtl() {
-        "chevron-right"
-    } else {
-        "chevron-left"
-    };
-    button(label)
-        .variant(ButtonVariant::Ghost)
-        .size(ControlSize::Medium)
-        .icon(icon(glyph))
-        .hide_label(true)
-        .disabled(move || target.get().is_none())
-        .on_press(move || {
-            if let (Some(action), Some(index)) = (cx.action, target.get()) {
-                action.call(index);
-            }
+fn content(_: &Theme, _: &Look<StepperItemState>) -> Style {
+    style().padding_top(8)
+}
+fn navigation(theme: &Theme, s: &Look<StepperState>, next: bool) -> Style {
+    if appearance(s).collapsed != StepCollapsedVariant::WithLabelAndControls {
+        return style()
+            .visibility(kivact::style::Visibility::Hidden)
+            .position(Position::Absolute)
+            .size(0, 0);
+    }
+    let t = theme.ext::<crate::Tokens>();
+    let right = next != crate::stack::rtl();
+    let color = t.colors.text_secondary;
+    style()
+        .size(32, 32)
+        .padding(0)
+        .font_size(0)
+        .background(Color::TRANSPARENT)
+        .border(0, Color::TRANSPARENT)
+        .focus_visible(crate::recipe_style::ring(&t, t.colors.accent))
+        .paint(move |draw, _| {
+            use kivact::draw::{Path, Stroke};
+            let (a, b) = if right { (13.0, 19.0) } else { (19.0, 13.0) };
+            draw.stroke_path(
+                &Path::new()
+                    .move_to(kivact::geometry::Point::new(a, 10.0))
+                    .line_to(kivact::geometry::Point::new(b, 16.0))
+                    .line_to(kivact::geometry::Point::new(a, 22.0)),
+                &Stroke::new(1.5),
+                color,
+            );
         })
 }
+kivact::state::constant_value!(StepDensity, StepIndicatorPosition, StepCollapsedVariant);

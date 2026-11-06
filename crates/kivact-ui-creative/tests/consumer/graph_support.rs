@@ -1,7 +1,7 @@
 //! Role: Consumer-owned graph requests and rollback used by editor window tests.
-use kivact::signal;
-use kivact::ui::EditPhase;
-use kivact::view::callback;
+use kivact::state::callback;
+use kivact::state::signal;
+use kivact::view::EditPhase;
 use kivact_ui_creative as ui;
 pub(super) fn apply_graph(curves: &mut Vec<ui::Curve>, request: &ui::GraphRequest) {
     match request {
@@ -30,10 +30,10 @@ pub(super) fn apply_graph(curves: &mut Vec<ui::Curve>, request: &ui::GraphReques
     }
 }
 pub(super) fn graph_edits<R: kivact::view::HandlerResult>(
-    curves: impl Into<kivact::Binding<Vec<ui::Curve>>>,
+    curves: impl kivact::state::IntoBinding<Vec<ui::Curve>>,
     observer: impl Fn(EditPhase) -> R + 'static,
 ) -> impl Fn(ui::EditorEvent<ui::GraphRequest>) + 'static {
-    let curves = curves.into();
+    let curves = curves.into_binding();
     let observer = callback(observer);
     let initial = signal(None::<Vec<ui::Curve>>);
     let moved = signal(Vec::<u64>::new());
@@ -82,9 +82,9 @@ pub(super) fn graph_edits<R: kivact::view::HandlerResult>(
     }
 }
 pub(super) fn app_graph(
-    curves: impl Into<kivact::Binding<Vec<ui::Curve>>>,
+    curves: impl kivact::state::IntoBinding<Vec<ui::Curve>>,
     state: ui::GraphState,
 ) -> ui::GraphEditor {
-    let curves = curves.into();
+    let curves = curves.into_binding();
     ui::graph_editor(curves, state).on_edit(graph_edits(curves, |_| {}))
 }

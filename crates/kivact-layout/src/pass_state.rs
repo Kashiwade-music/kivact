@@ -18,21 +18,22 @@ impl Epoch {
     }
 }
 
+// xtask-allow(state-fields): Topology generation and fixed traversal cursor are independent derived cache metadata (S-9); changed is a separate invalidation fact.
 /// Pending work and traversal generations for one columns/tree allocation domain.
 /// Keep it paired with the same NodeLayoutColumns and authoritative slot mapping.
 /// Cloning all three produces independent derived state; mixing a state from an
 /// unrelated allocation is unsupported. It owns no authoritative links or nodes.
 #[derive(Clone, Debug)]
-pub struct LayoutState {
+pub(crate) struct LayoutState {
     pub(crate) no_grid: TStyle,
     pub(crate) changed: bool,
     /// The shared generation of derived child traversal cursors.
     pub(crate) epoch: Epoch,
     /// The last indexed fixed child; this is a traversal cursor only.
-    pub(crate) fixed_cursor: Cell<Option<(usize, kivact_wire::NodeId)>>,
+    pub(crate) fixed_cursor: Cell<Option<(usize, kivact_types::NodeId)>>,
     /// Parents of absolute boxes whose layout was invalidated: each is laid
     /// out again on its own before the roots (`tree`).
-    pub(crate) relayout: Vec<kivact_wire::NodeId>,
+    pub(crate) relayout: Vec<kivact_types::NodeId>,
 }
 
 impl Default for LayoutState {
@@ -53,14 +54,14 @@ impl LayoutState {
     /// Call after every parent/child link, root, overlay or fixed-membership edit
     /// within this state's paired tree/columns allocation domain.
     /// Generation exhaustion is an invariant failure rather than a wrapped epoch.
-    pub fn topology_changed(&mut self) {
+    pub(crate) fn topology_changed(&mut self) {
         self.changed = true;
         self.epoch = self.epoch.next();
     }
 
     /// Consume the pending computation flag once before deciding whether to compute.
     /// Geometry reports and scrolling can still require work when this is false.
-    pub fn take_changed(&mut self) -> bool {
+    pub(crate) fn take_changed(&mut self) -> bool {
         std::mem::take(&mut self.changed)
     }
 }

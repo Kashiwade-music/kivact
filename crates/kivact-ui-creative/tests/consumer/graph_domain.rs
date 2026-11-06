@@ -1,10 +1,10 @@
 //! Role: Public graph domain editing, view geometry and selective rollback contracts.
 use crate::graph_support::{app_graph, graph_edits};
-use crate::support::{clean, near};
-use kivact::draw::Point;
+use crate::support::near;
+use kivact::geometry::Point;
 use kivact::prelude::*;
 use kivact::test::Screen;
-use kivact::ui::EditPhase;
+use kivact::view::EditPhase;
 use kivact::view::{A11yAction, KeyCode, Modifiers};
 use kivact_ui_creative as ui;
 #[derive(Clone, Copy)]
@@ -57,9 +57,9 @@ fn fixture() -> (Screen, Model) {
                     app_graph(
                         model.curves,
                         ui::GraphState {
-                            view: model.view.into(),
-                            selection: model.selection.into(),
-                            playhead: model.frame.into(),
+                            view: model.view.into_binding(),
+                            selection: model.selection.into_binding(),
+                            playhead: model.frame.into_binding(),
                         },
                     )
                     .lanes(model.lanes)
@@ -95,8 +95,8 @@ fn real_values_axes_selection_keyboard_and_accessibility() {
     let second = screen.get_by_role(Role::Button, "Position key 8");
     let a = first.rect().unwrap().center();
     let b = second.rect().unwrap().center();
-    assert!(near(f64::from(b.x - a.x), 300.0, 1e-5));
-    assert!(near(f64::from(a.y - b.y), 180.0, 1e-5));
+    assert!(near(b.x - a.x, 300.0, 1e-5));
+    assert!(near(a.y - b.y, 180.0, 1e-5));
     first.a11y(A11yAction::Select);
     assert_eq!(m.selection.get_untracked(), [1]);
     first.press_key(Key::ArrowRight);
@@ -132,7 +132,7 @@ fn real_values_axes_selection_keyboard_and_accessibility() {
     );
     let canvas = screen.get_by_role(Role::Canvas, "Graph");
     canvas.press_key(Key::Char('a'));
-    clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 
 #[test]
@@ -165,7 +165,7 @@ fn space_held_while_focus_leaves_does_not_pan_later() {
         !m.selection.get_untracked().is_empty(),
         "the primary drag selected with a marquee"
     );
-    clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 
 #[test]
@@ -181,12 +181,12 @@ fn graph_tangents_are_draggable_and_keyboard_editable() {
             app_graph(
                 data,
                 ui::GraphState {
-                    selection: (signal(vec![1])).into(),
+                    selection: (signal(vec![1])).into_binding(),
                     view: (signal(ui::GraphView {
                         time: (0.0, 400.0),
                         value: (0.0, 278.0),
                     }))
-                    .into(),
+                    .into_binding(),
                     ..ui::GraphState::new()
                 },
             )
@@ -210,5 +210,5 @@ fn graph_tangents_are_draggable_and_keyboard_editable() {
         ),
         (100.0, 198.0)
     );
-    clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }

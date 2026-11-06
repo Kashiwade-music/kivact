@@ -1,33 +1,33 @@
-//! Role: List input enters the shared selection and navigation state.
+//! Role: ListApi input enters the shared selection and navigation state.
 
-use super::data::{ListActivation, ListGesture, ListMode, ListSelection};
+use super::data::{ListActivation, ListGesture, ListMode};
 use super::order::Movement;
 use super::state::{State, selected};
 use super::typeahead::typeahead_find;
+use crate::Selection;
 use kivact_core::view::{
     ButtonPress, Handled, Key, KeyEvent, Modifiers, MouseButton, Orientation, PointerEvent,
     PointerPhase,
 };
-use std::hash::Hash;
 
-pub(super) fn gesture<K: Clone + Eq + Hash + 'static>(
+pub(super) fn gesture<K: kivact_core::state::ItemKey>(
     state: &State<K>,
     modifiers: Modifiers,
 ) -> ListGesture {
-    if matches!(state.selection, ListSelection::Single(_)) {
+    if matches!(state.selection, Selection::Single(_)) {
         return ListGesture::Replace;
     }
     ListGesture::from_modifiers(modifiers, &state.policy())
 }
 
-pub(super) fn pointer<K: Clone + Eq + Hash + 'static>(
+pub(super) fn pointer<K: kivact_core::state::ItemKey>(
     state: &State<K>,
     key: &K,
     event: PointerEvent,
 ) -> Handled {
     if state.mode != ListMode::Select
         || !matches!(
-            event.phase,
+            event.phase(),
             PointerPhase::Down(ButtonPress {
                 button: MouseButton::Primary,
                 ..
@@ -37,10 +37,10 @@ pub(super) fn pointer<K: Clone + Eq + Hash + 'static>(
     {
         return Handled::No;
     }
-    state.select(key.clone(), gesture(state, event.modifiers));
+    state.select(key.clone(), gesture(state, event.modifiers()));
     let node = state.target(key);
     if node.is_some_and(|node| {
-        use kivact_core::primitive::NodeRefExt;
+        use kivact_core::custom::NodeRefExt;
         node.holds_focus_within()
     }) {
         state.roving.requested.set(Some(key.clone()));
@@ -51,22 +51,25 @@ pub(super) fn pointer<K: Clone + Eq + Hash + 'static>(
 }
 
 /// Where an arrow, Home or End moves. In a right-to-left subtree
-/// ([`current_direction`](kivact_core::view::current_direction)) the rows of
+/// ([`use_direction`](kivact_core::view::use_direction)) the rows of
 /// a horizontal order run from the right, so ArrowLeft moves to the next
 /// row and ArrowRight to the previous one.
-fn movement(event: &KeyEvent, axis: Option<Orientation>, mode: ListMode) -> Option<Movement> {
-    if mode == ListMode::Activate
-        && (event.modifiers.ctrl || event.modifiers.alt || event.modifiers.meta)
-    {
+fn movement(
+    key: Key,
+    modifiers: Modifiers,
+    axis: Option<Orientation>,
+    mode: ListMode,
+) -> Option<Movement> {
+    if mode == ListMode::Activate && (modifiers.ctrl || modifiers.alt || modifiers.meta) {
         return None;
     }
-    let rtl = kivact_core::view::current_direction() == kivact_core::view::ReadingDirection::Rtl;
+    let rtl = kivact_core::view::use_direction().get() == kivact_core::view::ReadingDirection::Rtl;
     let (right, left) = if rtl {
         (Movement::Previous, Movement::Next)
     } else {
         (Movement::Next, Movement::Previous)
     };
-    match event.key {
+    match key {
         Key::ArrowRight if axis != Some(Orientation::Vertical) => Some(right),
         Key::ArrowLeft if axis != Some(Orientation::Vertical) => Some(left),
         Key::ArrowDown if axis != Some(Orientation::Horizontal) => Some(Movement::Next),
@@ -77,22 +80,24 @@ fn movement(event: &KeyEvent, axis: Option<Orientation>, mode: ListMode) -> Opti
     }
 }
 
-pub(super) fn key<K: Clone + Eq + Hash + 'static>(
+pub(super) fn key<K: kivact_core::state::ItemKey>(
     state: &State<K>,
     from: &K,
     event: KeyEvent,
+    command: Option<Key>,
 ) -> Handled {
-    if (!state.retained_focus.get() && !state.holds_focus(from)) || state.target(from).is_none() {
+    if (!state.retains_focus() && !state.holds_focus(from)) || state.target(from).is_none() {
         return Handled::No;
     }
+    let command = command.unwrap_or_else(|| event.key());
     let policy = state.policy();
-    let modifiers = event.modifiers;
+    let modifiers = event.modifiers();
     if state.mode == ListMode::Select {
-        match event.key {
+        match command {
             Key::Space => {
                 let gesture = gesture(state, modifiers);
                 if gesture != ListGesture::Replace
-                    || !kivact_core::untrack(|| selected(state.selection).contains(from))
+                    || !kivact_core::state::untrack(|| selected(state.selection).contains(from))
                 {
                     state.select(from.clone(), gesture);
                 }
@@ -109,9 +114,9 @@ pub(super) fn key<K: Clone + Eq + Hash + 'static>(
             _ => {}
         }
     }
-    let jump = movement(&event, policy.axis, state.mode);
+    let jump = movement(command, modifiers, policy.axis, state.mode);
     let page = if state.mode == ListMode::Select {
-        match event.key {
+        match command {
             Key::PageUp => Some(false),
             Key::PageDown => Some(true),
             _ => None,
@@ -147,17 +152,17 @@ pub(super) fn key<K: Clone + Eq + Hash + 'static>(
 }
 
 /// Share printable-key eligibility and search without exposing raw input publicly.
-pub(super) fn key_typeahead<K: Clone + Eq + Hash + 'static>(
+pub(super) fn key_typeahead<K: kivact_core::state::ItemKey>(
     state: &State<K>,
     from: &K,
     event: &KeyEvent,
     consume_unmatched: bool,
 ) -> Handled {
-    if (!state.retained_focus.get() && !state.holds_focus(from)) || state.target(from).is_none() {
+    if (!state.retains_focus() && !state.holds_focus(from)) || state.target(from).is_none() {
         return Handled::No;
     }
-    let modifiers = event.modifiers;
-    if let Key::Char(c) = event.key
+    let modifiers = event.modifiers();
+    if let Key::Char(c) = event.key()
         && !c.is_control()
         && !modifiers.ctrl
         && !modifiers.alt
@@ -174,7 +179,7 @@ pub(super) fn key_typeahead<K: Clone + Eq + Hash + 'static>(
     Handled::No
 }
 
-fn destination<K: Clone + Eq + Hash + 'static>(
+fn destination<K: kivact_core::state::ItemKey>(
     state: &State<K>,
     from: Option<&K>,
     movement: Option<Movement>,
@@ -196,7 +201,7 @@ fn destination<K: Clone + Eq + Hash + 'static>(
         let at = from
             .and_then(|from| keys.iter().position(|key| key == from))
             .unwrap_or(0);
-        let distance = state.page.get().get_untracked().max(1);
+        let distance = state.options.get().page.get_untracked().max(1);
         let index = if forward {
             at.saturating_add(distance).min(last)
         } else {
@@ -206,16 +211,16 @@ fn destination<K: Clone + Eq + Hash + 'static>(
     })
 }
 
-pub(super) fn typed<K: Clone + Eq + Hash + 'static>(
+pub(super) fn typed<K: kivact_core::state::ItemKey>(
     state: &State<K>,
     from: Option<&K>,
     c: char,
     logical: bool,
 ) -> Handled {
-    let query = state
-        .typed
-        .get()
-        .update(|typed| typed.push(c, kivact_core::primitive::clock_now()));
+    let slot = state.typed.get();
+    let mut typed = slot.get_untracked();
+    let query = typed.push(c, kivact_core::custom::clock_now());
+    slot.set(typed);
     let items = state.items.with_untracked(|items| {
         let mut seen = std::collections::HashSet::new();
         items
@@ -241,21 +246,21 @@ pub(super) fn typed<K: Clone + Eq + Hash + 'static>(
     Handled::Yes
 }
 
-pub(super) fn key_selection<K: Clone + Eq + Hash + 'static>(
+pub(super) fn key_selection<K: kivact_core::state::ItemKey>(
     state: &State<K>,
     event: &KeyEvent,
 ) -> Handled {
-    let current = kivact_core::untrack(|| selected(state.selection).into_iter().next());
+    let current = kivact_core::state::untrack(|| selected(state.selection).into_iter().next());
     let policy = state.policy();
-    if let Some(movement) = movement(event, policy.axis, state.mode) {
+    if let Some(movement) = movement(event.key(), event.modifiers(), policy.axis, state.mode) {
         let Some(next) = destination(state, current.as_ref(), Some(movement), None, true) else {
             return Handled::No;
         };
         state.select(next, ListGesture::Replace);
         return Handled::Yes;
     }
-    let m = event.modifiers;
-    if let Key::Char(c) = event.key
+    let m = event.modifiers();
+    if let Key::Char(c) = event.key()
         && !c.is_control()
         && !m.ctrl
         && !m.alt
@@ -267,8 +272,8 @@ pub(super) fn key_selection<K: Clone + Eq + Hash + 'static>(
     Handled::No
 }
 
-pub(super) fn select_all<K: Clone + Eq + Hash + 'static>(state: &State<K>) {
-    if let ListSelection::Multiple(binding) = state.selection {
+pub(super) fn select_all<K: kivact_core::state::ItemKey>(state: &State<K>) {
+    if let Selection::Multiple(binding) = state.selection {
         let keys = state.order.with_untracked(|order| {
             order
                 .keys()

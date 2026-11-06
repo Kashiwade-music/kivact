@@ -1,28 +1,56 @@
 //! Role: Render desktop and mobile Neutral top navigation and its menus.
 use crate::app_shell::{ShellNavMode, shell_nav_mode};
-use crate::grid::{GridColumns, grid};
+use crate::grid::{GridColumns, layout_grid};
 use crate::mobile_nav::use_app_shell_mobile;
 use crate::nav_heading::{
     NavHeadingMenuItem, NavMenuLook, nav_heading_menu, nav_heading_menu_item, nav_menu_view,
     popup_surface, supporting,
 };
-use crate::side_nav::{SideNavItem, logical_row, side_nav_item, side_row_style};
+use crate::side_navigation::items::{logical_row, side_row_style};
+use crate::side_navigation::{SideNavItem, side_nav_item};
 use crate::stack::{Space, rtl};
-use crate::tokens;
-use kivact::control::{Node, NodeBuilder, column, icon, node, row, scroll, text};
-use kivact::interaction::{Delays, use_dialog, use_hover_surface};
-use kivact::primitive::NodeExt;
-use kivact::style::{Align, Direction, Justify, pct, style};
-use kivact::ui::{ControlSize, DialogKind};
-use kivact::view::{
-    HandlerResult, IntoText, IntoValue, IntoView, NodeRef, OverlayAlign, Placement, Role, View,
-    callback, node_ref, overlay, provide, show, try_context,
-};
-use kivact::{Binding, Callback, Value, binding, effect_on, signal};
+
+use kivact::interaction::Delays;
+use kivact::interaction::use_dialog;
+use kivact::view::IntoViewFn;
+use kivact::view::Node;
+use kivact::view::NodeBuilder;
+use kivact::view::ViewFn;
+use kivact::view::column;
+use kivact::view::icon;
+use kivact::view::node;
+use kivact::view::row;
+use kivact::view::scroll;
+use kivact::view::text;
+
+use kivact::interaction::DialogMode;
+use kivact::state::Binding;
+use kivact::state::Callback;
+use kivact::state::IntoText;
+use kivact::state::IntoValue;
+use kivact::state::Value;
+use kivact::state::callback;
+use kivact::state::effect_on;
+use kivact::state::provide;
+use kivact::state::try_use_context;
+use kivact::style::Align;
+use kivact::style::Direction;
+use kivact::style::Justify;
+use kivact::style::pct;
+use kivact::style::style;
+use kivact::ui::ControlSize;
+use kivact::view::HandlerResult;
+use kivact::view::IntoView;
+use kivact::view::NodeRef;
+use kivact::view::OverlayAlign;
+use kivact::view::Placement;
+use kivact::view::Role;
+use kivact::view::View;
+use kivact::view::node_ref;
+use kivact::view::overlay;
+use kivact::view::show;
 use std::rc::Rc;
 use std::time::Duration;
-
-type Slot = Rc<dyn Fn() -> View>;
 
 #[derive(Clone, Copy)]
 struct TopNavCx {
@@ -30,49 +58,59 @@ struct TopNavCx {
     align: OverlayAlign,
 }
 
+// xtask-allow(state-fields): Independent immutable heading/start/center/end views; these slots store no navigation lifecycle.
 #[derive(Default)]
 struct Slots {
-    heading: Option<Slot>,
-    start: Option<Slot>,
-    center: Option<Slot>,
-    end: Option<Slot>,
+    heading: Option<View>,
+    start: Option<View>,
+    center: Option<View>,
+    end: Option<View>,
 }
 
+/// A top navigation bar with retained heading, start, center and end slots.
 pub struct TopNav {
     root: Node,
     slots: Slots,
 }
 
+/// Create the top navigation bar; supply its content through the retained slots.
 pub fn top_nav() -> TopNav {
     TopNav {
-        root: node().role(Role::Navigation).name(kivact::i18n::message(
-            "soft.top_nav.label",
-            "Top navigation",
-        )),
+        root: node()
+            .with_node(move |node| node.role(Role::Navigation))
+            .name(kivact::i18n::message(
+                "soft.top_nav.label",
+                "Top navigation",
+            )),
         slots: Slots::default(),
     }
 }
 
 impl TopNav {
-    pub fn heading<V: IntoView>(mut self, heading: impl Fn() -> V + 'static) -> Self {
-        self.slots.heading = Some(Rc::new(move || heading().into_view()));
+    /// Mount the brand or heading once within this navigation owner.
+    pub fn heading(mut self, heading: impl IntoView) -> Self {
+        self.slots.heading = Some(heading.into_view());
         self
     }
-    pub fn start<V: IntoView>(mut self, start: impl Fn() -> V + 'static) -> Self {
-        self.slots.start = Some(Rc::new(move || start().into_view()));
+    /// Mount navigation content at the logical start.
+    pub fn start(mut self, start: impl IntoView) -> Self {
+        self.slots.start = Some(start.into_view());
         self
     }
-    pub fn center<V: IntoView>(mut self, center: impl Fn() -> V + 'static) -> Self {
-        self.slots.center = Some(Rc::new(move || center().into_view()));
+    /// Mount navigation content in the central region.
+    pub fn center(mut self, center: impl IntoView) -> Self {
+        self.slots.center = Some(center.into_view());
         self
     }
-    pub fn end<V: IntoView>(mut self, end: impl Fn() -> V + 'static) -> Self {
-        self.slots.end = Some(Rc::new(move || end().into_view()));
+    /// Mount navigation content at the logical end.
+    pub fn end(mut self, end: impl IntoView) -> Self {
+        self.slots.end = Some(end.into_view());
         self
     }
 }
 
 impl NodeBuilder for TopNav {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -90,33 +128,11 @@ impl IntoView for TopNav {
                     end,
                 },
         } = self;
-        provide((), move || {
+        crate::navigation_session::with_navigation_group(move || {
             let anchor = node_ref();
             let mode = shell_nav_mode();
-            let slot = |slot: Option<Slot>, align| {
-                slot.map(|slot| {
-                    provide(TopNavCx { anchor, align }, move || {
-                        node()
-                            .style(move || {
-                                let t = tokens();
-                                style()
-                                    .direction(if mode == ShellNavMode::Drawer {
-                                        Direction::Column
-                                    } else {
-                                        logical_row()
-                                    })
-                                    .gap(t.spacing.s1)
-                                    .align_items(if mode == ShellNavMode::Drawer {
-                                        Align::Stretch
-                                    } else {
-                                        Align::Center
-                                    })
-                            })
-                            .child(slot())
-                    })
-                })
-            };
-            let heading = heading.map(|heading| heading());
+            let slot = move |slot, align| top_slot(slot, align, anchor, mode);
+            let heading = heading;
             let end = slot(end, OverlayAlign::End);
             let start = if mode == ShellNavMode::MobileBar {
                 None
@@ -130,7 +146,7 @@ impl IntoView for TopNav {
             };
             let leading = node()
                 .style(move || {
-                    let t = tokens();
+                    let t = kivact::style::use_tokens::<crate::Tokens>();
                     style()
                         .direction(if mode == ShellNavMode::Drawer {
                             Direction::Column
@@ -150,93 +166,104 @@ impl IntoView for TopNav {
                 })
                 .child((heading, start));
             root.node_ref(anchor)
-                .base_style(move || {
-                    let t = tokens();
-                    let base = style().min_width(0).gap(t.spacing.s1);
-                    if mode == ShellNavMode::Drawer {
-                        base.direction(Direction::Column).width(pct(100))
-                    } else {
-                        let base = base
-                            .direction(logical_row())
-                            .align_items(Align::Center)
-                            .justify_content(Justify::SpaceBetween);
-                        if mode == ShellNavMode::Desktop {
-                            base.padding(t.spacing.s2)
+                .with_node(move |node| {
+                    node.base_style(move || {
+                        let t = kivact::style::use_tokens::<crate::Tokens>();
+                        let base = style().min_width(0).gap(t.spacing.s1);
+                        if mode == ShellNavMode::Drawer {
+                            base.direction(Direction::Column).width(pct(100))
                         } else {
-                            base
+                            let base = base
+                                .direction(logical_row())
+                                .align_items(Align::Center)
+                                .justify_content(Justify::SpaceBetween);
+                            if mode == ShellNavMode::Desktop {
+                                base.padding(t.spacing.s2)
+                            } else {
+                                base
+                            }
                         }
-                    }
+                    })
                 })
                 .child((leading, center, end))
         })
     }
 }
 
+// xtask-allow(state-fields): Independent caller selection, availability and label/icon presentation inputs; active panel state belongs only to the navigation controller.
+/// A top navigation action with optional icon and custom retained label content.
 pub struct TopNavItem {
     root: Node,
     label: Value<String>,
     content: Option<View>,
     icon: Option<View>,
-    icon_only: bool,
+    icon_only: Value<bool>,
     selected: Value<bool>,
-    disabled: Value<bool>,
     action: Option<Callback<()>>,
-    size: ControlSize,
+    size: Value<ControlSize>,
 }
 
+/// Create a top navigation item with the supplied accessible and visible label.
 pub fn top_nav_item(label: impl IntoText) -> TopNavItem {
     TopNavItem {
         root: node(),
         label: label.into_text_value(),
         content: None,
         icon: None,
-        icon_only: false,
+        icon_only: (false).into_value(),
         selected: false.into_value(),
-        disabled: false.into_value(),
         action: None,
-        size: ControlSize::Medium,
+        size: (ControlSize::Medium).into_value(),
     }
 }
 
 impl TopNavItem {
+    /// Mount the leading item icon once.
     pub fn icon(mut self, icon: impl IntoView) -> Self {
         self.icon = Some(icon.into_view());
         self
     }
-    pub fn icon_only(mut self, only: bool) -> Self {
-        self.icon_only = only;
+    /// Hide visible label content while keeping the item's accessible name.
+    pub fn icon_only(mut self, only: impl IntoValue<bool>) -> Self {
+        self.icon_only = only.into_value();
         self
     }
-    pub fn content<V: IntoView>(mut self, content: impl FnOnce() -> V + 'static) -> Self {
-        self.content = Some(provide((), content));
+    /// Mount replacement visible label content once.
+    pub fn content(mut self, content: impl IntoView) -> Self {
+        self.content = Some(kivact::view::component(move || content.into_view()));
         self
     }
+    /// Set whether this item is the current navigation destination.
     pub fn selected(mut self, selected: impl IntoValue<bool>) -> Self {
         self.selected = selected.into_value();
         self
     }
-    pub fn disabled(mut self, disabled: impl IntoValue<bool>) -> Self {
-        self.disabled = disabled.into_value();
+    /// Set the navigation item's control size.
+    pub fn size(mut self, size: impl IntoValue<ControlSize>) -> Self {
+        self.size = size.into_value();
         self
     }
-    pub fn size(mut self, size: ControlSize) -> Self {
-        self.size = size;
-        self
-    }
-    pub fn on_press<R: HandlerResult>(mut self, action: impl Fn() -> R + 'static) -> Self {
-        self.action = Some(callback(move |_| action()));
+    /// Handle activation of the navigation item.
+    pub fn on_press(mut self, action: impl Into<Callback<()>>) -> Self {
+        let action: Callback<()> = action.into();
+        self.action = Some(callback(move |_| action.call(())));
         self
     }
 }
 
 impl NodeBuilder for TopNavItem {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
 }
 
 impl IntoView for TopNavItem {
-    fn into_view(self) -> View {
+    fn into_view(mut self) -> View {
+        let disabled = self
+            .root
+            .accessible_disabled()
+            .unwrap_or_else(|| false.into_value());
         let Self {
             root,
             label,
@@ -244,31 +271,36 @@ impl IntoView for TopNavItem {
             icon,
             icon_only,
             selected,
-            disabled,
             action,
             size,
         } = self;
-        provide((), move || {
+        kivact::view::component(move || {
             let mode = shell_nav_mode();
             let mobile = use_app_shell_mobile();
             let drawer = mode == ShellNavMode::Drawer;
-            let label_view =
-                (!icon_only || drawer).then(|| content.unwrap_or_else(|| text(label).into_view()));
+            let label_view = (!icon_only.get() || drawer)
+                .then(|| content.unwrap_or_else(|| text(label).into_view()));
             let root = root
                 .name(label)
-                .selected(selected)
-                .current_item(move || selected.get().then_some(kivact::view::CurrentItem::Page))
+                .with_node(move |node| node.selected(selected))
+                .with_node(move |node| {
+                    node.current_item(move || {
+                        selected.get().then_some(kivact::view::CurrentItem::Page)
+                    })
+                })
                 .disabled(disabled)
-                .base_style(move || {
-                    if drawer {
-                        side_row_style(size, 0, false, selected.get(), disabled.get())
-                    } else {
-                        top_item_style(icon_only, selected.get(), disabled.get(), false)
-                    }
+                .with_node(move |node| {
+                    node.base_style(move || {
+                        if drawer {
+                            side_row_style(size.get(), 0, false, selected.get(), disabled.get())
+                        } else {
+                            top_item_style(icon_only.get(), selected.get(), disabled.get(), false)
+                        }
+                    })
                 })
                 .child((icon, label_view));
             if let Some(action) = action {
-                root.role(Role::Link)
+                root.with_node(move |node| node.role(Role::Link))
                     .focusable(move || !disabled.get())
                     .on_press(move || {
                         if !disabled.get() {
@@ -291,7 +323,7 @@ fn top_item_style(
     disabled: bool,
     open: bool,
 ) -> kivact::style::Style {
-    let t = tokens();
+    let t = kivact::style::use_tokens::<crate::Tokens>();
     let role = t.typography.label;
     let base = style()
         .direction(logical_row())
@@ -331,22 +363,23 @@ fn top_item_style(
     }
 }
 
-pub type TopNavMenuItem = NavHeadingMenuItem;
-
-pub fn top_nav_menu_item(title: impl IntoText) -> TopNavMenuItem {
+/// Create an action entry for a top navigation menu.
+pub fn top_nav_menu_item(title: impl IntoText) -> NavHeadingMenuItem {
     nav_heading_menu_item(title)
 }
 
+/// A top navigation menu with configurable hover opening and closing delays.
 pub struct TopNavMenu {
     root: Node,
     label: Value<String>,
-    items: Rc<[TopNavMenuItem]>,
+    items: Rc<[NavHeadingMenuItem]>,
     delays: Delays,
 }
 
+/// Create a top navigation menu from the supplied heading-menu entries.
 pub fn top_nav_menu(
     label: impl IntoText,
-    items: impl IntoIterator<Item = TopNavMenuItem>,
+    items: impl IntoIterator<Item = NavHeadingMenuItem>,
 ) -> TopNavMenu {
     TopNavMenu {
         root: node(),
@@ -360,10 +393,12 @@ pub fn top_nav_menu(
 }
 
 impl TopNavMenu {
+    /// Set the pointer-hover opening delay in milliseconds.
     pub fn delay_ms(mut self, delay: u64) -> Self {
         self.delays.open = Duration::from_millis(delay);
         self
     }
+    /// Set the pointer-leave closing delay in milliseconds.
     pub fn hide_delay_ms(mut self, delay: u64) -> Self {
         self.delays.close = Duration::from_millis(delay);
         self
@@ -371,6 +406,7 @@ impl TopNavMenu {
 }
 
 impl NodeBuilder for TopNavMenu {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -384,13 +420,15 @@ impl IntoView for TopNavMenu {
             items,
             delays,
         } = self;
-        provide((), move || {
+        kivact::view::component(move || {
             if shell_nav_mode() == ShellNavMode::Drawer {
                 let item = side_nav_item(label)
                     .children(move || items.iter().map(drawer_menu_item).collect::<Vec<_>>());
                 return root.child(item);
             }
-            let align = try_context::<TopNavCx>().map_or(OverlayAlign::Start, |cx| cx.align);
+            let align = try_use_context::<TopNavCx>()
+                .map(|value| value.get())
+                .map_or(OverlayAlign::Start, |cx| cx.align);
             let menu = nav_heading_menu(items.iter().cloned());
             root.child(nav_menu_view(
                 menu,
@@ -409,7 +447,7 @@ fn menu_trigger(label: Value<String>, open: Value<bool>) -> Node {
     row((
         text(label),
         icon("chevron-down").style(move || {
-            let t = tokens();
+            let t = kivact::style::use_tokens::<crate::Tokens>();
             style()
                 .size(t.sizes.icon_sm, t.sizes.icon_sm)
                 .rotate(if open.get() { 180 } else { 0 })
@@ -419,13 +457,13 @@ fn menu_trigger(label: Value<String>, open: Value<bool>) -> Node {
     .style(move || top_item_style(false, false, false, open.get()))
 }
 
-fn drawer_menu_item(item: &TopNavMenuItem) -> SideNavItem {
+fn drawer_menu_item(item: &NavHeadingMenuItem) -> SideNavItem {
     let mut row = side_nav_item(item.label).disabled(item.disabled);
     if let Some(icon) = &item.icon {
-        row = row.icon(icon());
+        row = row.icon(icon.call(()));
     }
     if let Some(description) = item.description {
-        row = row.end_content(move || text(description).style(supporting));
+        row = row.end_content(text(description).style(supporting));
     }
     if let Some(action) = item.action {
         row = row.on_press(move || action.call(()));
@@ -433,15 +471,18 @@ fn drawer_menu_item(item: &TopNavMenuItem) -> SideNavItem {
     row
 }
 
+// xtask-allow(state-fields): Independent immutable item/featured factories, timing inputs and external change callback; no open or pinned copy is stored.
+/// A wide top navigation flyout with recreated item and featured-content columns.
 pub struct TopNavMegaMenu {
     root: Node,
     label: Value<String>,
-    items: Option<Slot>,
-    featured: Option<Slot>,
+    items: Option<ViewFn>,
+    featured: Option<ViewFn>,
     delays: Delays,
     on_change: Option<Callback<bool>>,
 }
 
+/// Create a named mega-menu flyout with independently configured content columns.
 pub fn top_nav_mega_menu(label: impl IntoText) -> TopNavMegaMenu {
     TopNavMegaMenu {
         root: node(),
@@ -457,22 +498,27 @@ pub fn top_nav_mega_menu(label: impl IntoText) -> TopNavMegaMenu {
 }
 
 impl TopNavMegaMenu {
-    pub fn items<V: IntoView>(mut self, items: impl Fn() -> V + 'static) -> Self {
-        self.items = Some(Rc::new(move || items().into_view()));
+    /// Build the main item column each time the mega menu opens.
+    pub fn items<V: IntoView>(mut self, items: impl IntoViewFn<V>) -> Self {
+        self.items = Some(items.into_view_fn());
         self
     }
-    pub fn featured<V: IntoView>(mut self, featured: impl Fn() -> V + 'static) -> Self {
-        self.featured = Some(Rc::new(move || featured().into_view()));
+    /// Build the featured column each time the mega menu opens.
+    pub fn featured<V: IntoView>(mut self, featured: impl IntoViewFn<V>) -> Self {
+        self.featured = Some(featured.into_view_fn());
         self
     }
+    /// Set the pointer-hover opening delay in milliseconds.
     pub fn delay_ms(mut self, delay: u64) -> Self {
         self.delays.open = Duration::from_millis(delay);
         self
     }
+    /// Set the pointer-leave closing delay in milliseconds.
     pub fn hide_delay_ms(mut self, delay: u64) -> Self {
         self.delays.close = Duration::from_millis(delay);
         self
     }
+    /// Observe changes to the flyout's open state.
     pub fn on_open_change<R: HandlerResult>(
         mut self,
         change: impl Fn(bool) -> R + 'static,
@@ -483,6 +529,7 @@ impl TopNavMegaMenu {
 }
 
 impl NodeBuilder for TopNavMegaMenu {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -501,85 +548,54 @@ impl IntoView for TopNavMegaMenu {
             delays,
             on_change,
         } = self;
-        provide((), move || {
+        kivact::view::component(move || {
             if shell_nav_mode() == ShellNavMode::Drawer {
                 let disclosure = side_nav_item(label).children(move || {
                     column((
-                        items.as_ref().map(|items| items()),
-                        featured.as_ref().map(|featured| featured()),
+                        items.as_ref().map(|items| items.call(())),
+                        featured.as_ref().map(|featured| featured.call(())),
                     ))
                 });
                 return root.child(disclosure);
             }
             let trigger_ref = node_ref();
             let surface_ref = node_ref();
-            let delayed = use_hover_surface(
-                trigger_ref,
-                surface_ref,
-                || !kivact::platform::capabilities().touch,
-                delays,
-            );
-            let pinned = signal(false);
-            let open = binding(
-                move || pinned.get() || delayed.shown().get(),
-                move |open| {
-                    pinned.set(open);
-                    if !open {
-                        delayed.dismiss();
-                    }
-                },
-            );
+            let nav_panel = crate::navigation_session::NavPanel::new(true, delays);
+            let open = nav_panel.open();
             if let Some(change) = on_change {
                 effect_on(open, move |open| {
                     change.call(*open);
                 });
             }
-            let behavior = use_dialog(open, DialogKind::Popover).anchor(trigger_ref);
-            let trigger = menu_trigger(label, open.into_value())
-                .node_ref(trigger_ref)
-                .role(Role::Button)
-                .focusable(true)
-                .expanded(open)
-                .controls(surface_ref)
-                .on_press(move || open.set(!open.get()));
-            let cx = try_context::<TopNavCx>();
+            let behavior = use_dialog(open, DialogMode::Popover).anchor(trigger_ref);
+            let trigger = nav_panel.trigger(
+                menu_trigger(label, open.into_value())
+                    .node_ref(trigger_ref)
+                    .with_node(move |node| node.role(Role::Button))
+                    .focusable(true)
+                    .with_node(move |node| node.with_node(move |node| node.expanded(open)))
+                    .with_node(move |node| node.controls(surface_ref))
+                    .on_press(move || nav_panel.toggle()),
+            );
+            let cx = try_use_context::<TopNavCx>().map(|value| value.get());
             let align = cx.map_or(OverlayAlign::Start, |cx| cx.align);
             let anchor = cx.map_or(trigger_ref, |cx| cx.anchor);
-            let surface = show(behavior.shown(), move || {
-                let grid = items.as_ref().map(|items| {
-                    let items = items.clone();
-                    grid(provide(MegaClose(open), move || items()))
-                        .columns(GridColumns::Fixed(2))
-                        .gap(Space::S2)
-                        .style(style().grow(2).shrink(1).basis(300).min_width(0))
-                });
-                let featured = featured.as_ref().map(|featured| {
-                    let featured = featured.clone();
-                    node()
-                        .child(provide(MegaClose(open), move || featured()))
-                        .style(style().grow(1).shrink(1).basis(200).min_width(0))
-                });
-                let body = row((grid, featured)).style(|| {
-                    let t = tokens();
-                    style()
-                        .direction(logical_row())
-                        .wrap(true)
-                        .gap(t.spacing.s6)
-                        .padding(t.spacing.s3)
-                        .width(960)
-                        .max_width((kivact::platform::window_size().width - t.spacing.s4).max(0.0))
-                });
-                let panel = scroll(body).node_ref(surface_ref).style(|| {
-                    let t = tokens();
-                    popup_surface()
-                        .max_height(pct(100) - t.spacing.s3)
-                        .clip(true)
-                        .border_top(t.sizes.border_width, t.colors.border)
-                });
+            let surface = show(behavior.is_open(), move || {
+                let body = mega_columns(items.as_ref(), featured.as_ref(), open);
+                let panel = nav_panel
+                    .surface(scroll(body))
+                    .node_ref(surface_ref)
+                    .style(|| {
+                        let t = kivact::style::use_tokens::<crate::Tokens>();
+                        popup_surface()
+                            .max_height(pct(100) - t.spacing.s3)
+                            .clip(true)
+                            .border_top(t.sizes.border_width, t.colors.border)
+                    });
                 overlay(anchor, Placement::Below, panel)
                     .offset(4)
                     .align(align)
-                    .part(behavior.content())
+                    .with_node(move |node| node.part(behavior.content()))
                     .name(label)
             });
             root.child((trigger, surface))
@@ -587,6 +603,8 @@ impl IntoView for TopNavMegaMenu {
     }
 }
 
+// xtask-allow(state-fields): Independent immutable title, description, icon and activation slot; this metadata has no panel lifecycle.
+/// An action item with a title, supporting text and an optional icon in a mega menu.
 pub struct TopNavMegaMenuItem {
     root: Node,
     title: Value<String>,
@@ -595,6 +613,7 @@ pub struct TopNavMegaMenuItem {
     action: Option<Callback<()>>,
 }
 
+/// Create a mega-menu action item with a title.
 pub fn top_nav_mega_menu_item(title: impl IntoText) -> TopNavMegaMenuItem {
     TopNavMegaMenuItem {
         root: node(),
@@ -606,21 +625,26 @@ pub fn top_nav_mega_menu_item(title: impl IntoText) -> TopNavMegaMenuItem {
 }
 
 impl TopNavMegaMenuItem {
+    /// Set supporting text below the item title.
     pub fn description(mut self, description: impl IntoText) -> Self {
         self.description = Some(description.into_text_value());
         self
     }
+    /// Mount the item's leading icon once.
     pub fn icon(mut self, icon: impl IntoView) -> Self {
         self.icon = Some(icon.into_view());
         self
     }
-    pub fn on_press<R: HandlerResult>(mut self, action: impl Fn() -> R + 'static) -> Self {
-        self.action = Some(callback(move |_| action()));
+    /// Handle activation of the mega-menu item.
+    pub fn on_press(mut self, action: impl Into<Callback<()>>) -> Self {
+        let action: Callback<()> = action.into();
+        self.action = Some(callback(move |_| action.call(())));
         self
     }
 }
 
 impl NodeBuilder for TopNavMegaMenuItem {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -635,75 +659,60 @@ impl IntoView for TopNavMegaMenuItem {
             icon,
             action,
         } = self;
-        provide((), move || {
+        kivact::view::component(move || {
             let drawer = shell_nav_mode() == ShellNavMode::Drawer;
             let mobile = use_app_shell_mobile();
-            let popup = try_context::<MegaClose>();
-            let glyph = icon.map(|glyph| {
-                node()
-                    .style(move || {
-                        let t = tokens();
-                        let size = if drawer {
-                            t.sizes.control_md
-                        } else {
-                            t.spacing.s10
-                        };
-                        style()
-                            .size(size, size)
-                            .shrink(0)
-                            .radius(t.radius.element)
-                            .background(t.colors.neutral)
-                            .color(t.colors.icon_secondary)
-                            .align_items(Align::Center)
-                            .justify_content(Justify::Center)
-                    })
-                    .child(glyph)
-            });
+            let popup = try_use_context::<MegaClose>().map(|value| value.get());
+            let glyph = icon.map(move |glyph| mega_glyph(glyph, drawer));
             let labels = column((
                 text(title).style(title_style),
                 description.map(|value| text(value).style(supporting)),
             ))
             .style(move || {
                 style().min_width(0).gap(if drawer {
-                    tokens().spacing.s0_5
+                    kivact::style::use_tokens::<crate::Tokens>().spacing.s0_5
                 } else {
-                    tokens().spacing.s1
+                    kivact::style::use_tokens::<crate::Tokens>().spacing.s1
                 })
             });
             let root = root
                 .name(title)
-                .base_style(move || {
-                    let t = tokens();
-                    let base = style()
-                        .direction(logical_row())
-                        .align_items(Align::Start)
-                        .gap(if drawer { t.spacing.s2 } else { t.spacing.s3 })
-                        .padding(t.spacing.s3)
-                        .radius(t.radius.element)
-                        .width(pct(100))
-                        .hover(style().background(t.colors.overlay_hover))
-                        .focus_visible(crate::recipe_style::ring(&t, t.colors.accent));
-                    if drawer {
-                        if rtl() {
-                            base.padding_right(t.spacing.s6)
+                .with_node(move |node| {
+                    node.base_style(move || {
+                        let t = kivact::style::use_tokens::<crate::Tokens>();
+                        let base = style()
+                            .direction(logical_row())
+                            .align_items(Align::Start)
+                            .gap(if drawer { t.spacing.s2 } else { t.spacing.s3 })
+                            .padding(t.spacing.s3)
+                            .radius(t.radius.element)
+                            .width(pct(100))
+                            .hover(style().background(t.colors.overlay_hover))
+                            .focus_visible(crate::recipe_style::ring(&t, t.colors.accent));
+                        if drawer {
+                            if rtl() {
+                                base.padding_right(t.spacing.s6)
+                            } else {
+                                base.padding_left(t.spacing.s6)
+                            }
                         } else {
-                            base.padding_left(t.spacing.s6)
+                            base
                         }
-                    } else {
-                        base
-                    }
+                    })
                 })
                 .child((glyph, labels));
             if let Some(action) = action {
-                root.role(Role::Link).focusable(true).on_press(move || {
-                    action.call(());
-                    if let Some(popup) = popup {
-                        popup.0.set(false);
-                    }
-                    if drawer {
-                        mobile.close();
-                    }
-                })
+                root.with_node(move |node| node.role(Role::Link))
+                    .focusable(true)
+                    .on_press(move || {
+                        action.call(());
+                        if let Some(popup) = popup {
+                            popup.0.set(false);
+                        }
+                        if drawer {
+                            mobile.close();
+                        }
+                    })
             } else {
                 root
             }
@@ -712,7 +721,7 @@ impl IntoView for TopNavMegaMenuItem {
 }
 
 fn title_style() -> kivact::style::Style {
-    let t = tokens();
+    let t = kivact::style::use_tokens::<crate::Tokens>();
     let role = t.typography.body;
     style()
         .font_size(role.size_px)
@@ -721,6 +730,8 @@ fn title_style() -> kivact::style::Style {
         .color(t.colors.text_primary)
 }
 
+// xtask-allow(state-fields): Independent immutable illustration, supporting content and optional link slots; no panel or focus state is stored.
+/// A featured mega-menu card with retained image, body and link slots.
 pub struct TopNavMegaMenuFeaturedCard {
     root: Node,
     title: Value<String>,
@@ -730,6 +741,7 @@ pub struct TopNavMegaMenuFeaturedCard {
     link: Option<(Value<String>, Callback<()>)>,
 }
 
+/// Create a featured card with the supplied title.
 pub fn top_nav_featured_card(title: impl IntoText) -> TopNavMegaMenuFeaturedCard {
     TopNavMegaMenuFeaturedCard {
         root: node(),
@@ -742,29 +754,31 @@ pub fn top_nav_featured_card(title: impl IntoText) -> TopNavMegaMenuFeaturedCard
 }
 
 impl TopNavMegaMenuFeaturedCard {
+    /// Set supporting text below the featured title.
     pub fn description(mut self, description: impl IntoText) -> Self {
         self.description = Some(description.into_text_value());
         self
     }
+    /// Mount featured image content once.
     pub fn image(mut self, image: impl IntoView) -> Self {
         self.image = Some(image.into_view());
         self
     }
+    /// Mount additional featured-card body content once.
     pub fn content(mut self, content: impl IntoView) -> Self {
         self.content = Some(content.into_view());
         self
     }
-    pub fn link<R: HandlerResult>(
-        mut self,
-        label: impl IntoText,
-        action: impl Fn() -> R + 'static,
-    ) -> Self {
-        self.link = Some((label.into_text_value(), callback(move |_| action())));
+    /// Set the featured-card link label and activation action.
+    pub fn link(mut self, label: impl IntoText, action: impl Into<Callback<()>>) -> Self {
+        let action: Callback<()> = action.into();
+        self.link = Some((label.into_text_value(), callback(move |_| action.call(()))));
         self
     }
 }
 
 impl NodeBuilder for TopNavMegaMenuFeaturedCard {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -780,10 +794,10 @@ impl IntoView for TopNavMegaMenuFeaturedCard {
             content,
             link,
         } = self;
-        provide((), move || {
+        kivact::view::component(move || {
             let drawer = shell_nav_mode() == ShellNavMode::Drawer;
             let mobile = use_app_shell_mobile();
-            let popup = try_context::<MegaClose>();
+            let popup = try_use_context::<MegaClose>().map(|value| value.get());
             let image = image.map(|image| {
                 node()
                     .style(style().width(pct(100)).height(140).clip(true))
@@ -792,7 +806,7 @@ impl IntoView for TopNavMegaMenuFeaturedCard {
             let link = link.map(|(label, action)| {
                 row((text(label), text(if rtl() { "←" } else { "→" })))
                     .name(label)
-                    .role(Role::Link)
+                    .with_node(move |node| node.role(Role::Link))
                     .focusable(true)
                     .on_press(move || {
                         action.call(());
@@ -804,7 +818,7 @@ impl IntoView for TopNavMegaMenuFeaturedCard {
                         }
                     })
                     .style(|| {
-                        let t = tokens();
+                        let t = kivact::style::use_tokens::<crate::Tokens>();
                         supporting()
                             .direction(logical_row())
                             .gap(t.spacing.s1)
@@ -820,28 +834,106 @@ impl IntoView for TopNavMegaMenuFeaturedCard {
                 link,
             ))
             .style(|| {
-                let t = tokens();
+                let t = kivact::style::use_tokens::<crate::Tokens>();
                 style().padding(t.spacing.s4).gap(t.spacing.s2)
             });
-            root.base_style(move || {
-                let t = tokens();
-                let base = style()
-                    .direction(Direction::Column)
-                    .clip(true)
-                    .radius(t.radius.container)
-                    .background(t.colors.bg_muted);
-                if drawer {
-                    let base = base.margin_top(t.spacing.s2);
-                    if rtl() {
-                        base.margin_right(t.spacing.s6)
+            root.with_node(move |node| {
+                node.base_style(move || {
+                    let t = kivact::style::use_tokens::<crate::Tokens>();
+                    let base = style()
+                        .direction(Direction::Column)
+                        .clip(true)
+                        .radius(t.radius.container)
+                        .background(t.colors.bg_muted);
+                    if drawer {
+                        let base = base.margin_top(t.spacing.s2);
+                        if rtl() {
+                            base.margin_right(t.spacing.s6)
+                        } else {
+                            base.margin_left(t.spacing.s6)
+                        }
                     } else {
-                        base.margin_left(t.spacing.s6)
+                        base
                     }
-                } else {
-                    base
-                }
+                })
             })
             .child((image, body))
         })
     }
+}
+
+fn top_slot(
+    slot: Option<View>,
+    align: OverlayAlign,
+    anchor: NodeRef,
+    mode: ShellNavMode,
+) -> Option<View> {
+    slot.map(|slot| {
+        provide(TopNavCx { anchor, align }, move || {
+            node()
+                .style(move || {
+                    let t = kivact::style::use_tokens::<crate::Tokens>();
+                    style()
+                        .direction(if mode == ShellNavMode::Drawer {
+                            Direction::Column
+                        } else {
+                            logical_row()
+                        })
+                        .gap(t.spacing.s1)
+                        .align_items(if mode == ShellNavMode::Drawer {
+                            Align::Stretch
+                        } else {
+                            Align::Center
+                        })
+                })
+                .child(slot)
+        })
+    })
+}
+
+fn mega_columns(items: Option<&ViewFn>, featured: Option<&ViewFn>, open: Binding<bool>) -> Node {
+    let grid = items.map(|items| {
+        let items = items.clone();
+        layout_grid(provide(MegaClose(open), move || items.call(())))
+            .columns(GridColumns::Fixed(2))
+            .gap(Space::S2)
+            .style(style().grow(2).shrink(1).basis(300).min_width(0))
+    });
+    let featured = featured.map(|featured| {
+        let featured = featured.clone();
+        node()
+            .child(provide(MegaClose(open), move || featured.call(())))
+            .style(style().grow(1).shrink(1).basis(200).min_width(0))
+    });
+    row((grid, featured)).style(|| {
+        let t = kivact::style::use_tokens::<crate::Tokens>();
+        style()
+            .direction(logical_row())
+            .wrap(true)
+            .gap(t.spacing.s6)
+            .padding(t.spacing.s3)
+            .width(960)
+            .max_width((kivact::platform::window_size().get().width - t.spacing.s4).max(0.0))
+    })
+}
+
+fn mega_glyph(glyph: View, drawer: bool) -> Node {
+    node()
+        .style(move || {
+            let t = kivact::style::use_tokens::<crate::Tokens>();
+            let size = if drawer {
+                t.sizes.control_md
+            } else {
+                t.spacing.s10
+            };
+            style()
+                .size(size, size)
+                .shrink(0)
+                .radius(t.radius.element)
+                .background(t.colors.neutral)
+                .color(t.colors.icon_secondary)
+                .align_items(Align::Center)
+                .justify_content(Justify::Center)
+        })
+        .child(glyph)
 }

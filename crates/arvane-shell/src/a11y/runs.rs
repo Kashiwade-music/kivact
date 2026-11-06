@@ -15,19 +15,19 @@
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
-use kivact_types::protocol::SemanticsNode;
-use kivact_types::{NodeId, SemanticsText, SemanticsTextRun};
+use kivact_types::render::SemanticsNode;
+use kivact_types::{SemanticsId, SemanticsText, SemanticsTextRun};
 
 use super::error::AccessibilityError;
 use super::validation::{check_run, check_selection, check_text_node};
 
 fn text(node: &SemanticsNode) -> Option<&SemanticsText> {
-    node.properties.as_ref()?.text.as_ref()
+    node.semantics.text.as_ref()
 }
 
 /// The runs of a node's text (none without one).
 fn runs_of(node: Option<&SemanticsNode>) -> &[Arc<SemanticsTextRun>] {
-    node.and_then(text).map_or(&[], |t| &t.runs[..])
+    node.and_then(text).map_or(&[], |t| &t.runs.as_shared()[..])
 }
 
 /// The runs of `old` that `new` drops, and those it adds: the runs
@@ -53,18 +53,19 @@ fn diff<'a>(
 /// The runs of the accepted tree.
 #[derive(Default)]
 pub(super) struct Runs {
-    owners: HashMap<NodeId, NodeId>,
-    lengths: HashMap<NodeId, u32>,
+    // Platform nodes and runs share one numeric identity space.
+    owners: HashMap<SemanticsId, SemanticsId>,
+    lengths: HashMap<SemanticsId, u32>,
 }
 
 /// What an update changes of the runs.
 #[derive(Default)]
 pub(super) struct RunEdits {
-    removed: Vec<NodeId>,
+    removed: Vec<SemanticsId>,
     /// The new runs and their nodes, in order.
-    pub(super) added: Vec<(NodeId, Arc<SemanticsTextRun>)>,
+    pub(super) added: Vec<(SemanticsId, Arc<SemanticsTextRun>)>,
     /// The new length of each changed text (`None`: it has none any more).
-    lengths: Vec<(NodeId, Option<u32>)>,
+    lengths: Vec<(SemanticsId, Option<u32>)>,
 }
 
 impl Runs {
@@ -75,7 +76,7 @@ impl Runs {
             let Some(text) = text(node) else { continue };
             let mut length = 0u32;
             for run in text.runs.iter() {
-                runs.owners.insert(run.id, node.id);
+                runs.owners.insert(SemanticsId(run.id.0), node.id);
                 length = length.saturating_add(run.value.chars().count() as u32);
             }
             runs.lengths.insert(node.id, length);
@@ -90,8 +91,8 @@ impl Runs {
     pub(super) fn check<'a>(
         &self,
         changed: &[&'a SemanticsNode],
-        old: impl Fn(NodeId) -> Option<&'a SemanticsNode>,
-        is_node: impl Fn(NodeId) -> bool,
+        old: impl Fn(SemanticsId) -> Option<&'a SemanticsNode>,
+        is_node: impl Fn(SemanticsId) -> bool,
     ) -> Result<RunEdits, AccessibilityError> {
         let diffs: Vec<_> = changed
             .iter()
@@ -100,18 +101,20 @@ impl Runs {
                 (*node, gone, new)
             })
             .collect();
-        let removed: HashSet<NodeId> = diffs
+        let removed: HashSet<SemanticsId> = diffs
             .iter()
-            .flat_map(|(_, gone, _)| gone.iter().map(|run| run.id))
+            .flat_map(|(_, gone, _)| gone.iter().map(|run| SemanticsId(run.id.0)))
             .collect();
-        let taken = |id: NodeId| self.owners.contains_key(&id) && !removed.contains(&id);
+        let taken = |id: SemanticsId| self.owners.contains_key(&id) && !removed.contains(&id);
         let mut edits = RunEdits::default();
         let mut added = HashSet::new();
         for (node, gone, new) in diffs {
             if old(node.id).is_none() && taken(node.id) {
                 return Err(AccessibilityError::DuplicateNode(node.id));
             }
-            edits.removed.extend(gone.iter().map(|run| run.id));
+            edits
+                .removed
+                .extend(gone.iter().map(|run| SemanticsId(run.id.0)));
             let Some(text) = text(node) else {
                 if self.lengths.contains_key(&node.id) {
                     edits.lengths.push((node.id, None));
@@ -125,8 +128,11 @@ impl Runs {
             );
             let mut length = kept;
             for run in new {
-                if is_node(run.id) || taken(run.id) || !added.insert(run.id) {
-                    return Err(AccessibilityError::DuplicateNode(run.id));
+                if is_node(SemanticsId(run.id.0))
+                    || taken(SemanticsId(run.id.0))
+                    || !added.insert(SemanticsId(run.id.0))
+                {
+                    return Err(AccessibilityError::DuplicateNode(SemanticsId(run.id.0)));
                 }
                 length = length
                     .checked_add(check_run(node.id, run)?)
@@ -145,7 +151,7 @@ impl Runs {
             self.owners.remove(id);
         }
         for (owner, run) in &edits.added {
-            self.owners.insert(run.id, *owner);
+            self.owners.insert(SemanticsId(run.id.0), *owner);
         }
         for (node, length) in &edits.lengths {
             match length {
@@ -158,7 +164,7 @@ impl Runs {
     /// `node` left the tree: so did its runs.
     pub(super) fn forget(&mut self, node: &SemanticsNode) {
         for run in runs_of(Some(node)) {
-            self.owners.remove(&run.id);
+            self.owners.remove(&SemanticsId(run.id.0));
         }
         self.lengths.remove(&node.id);
     }

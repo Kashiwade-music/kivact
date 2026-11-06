@@ -1,30 +1,32 @@
 //! Role: Creative appearance of the standard radio group, slider, toasts and splitter.
-use crate::Color;
+use crate::ColorName;
 use crate::feedback::ToneExt;
-use kivact::draw::{Rect, Shadow, Size};
-use kivact::interaction::DisclosureState;
+
+use kivact::custom::PartState;
+use kivact::draw::Shadow;
+use kivact::geometry::{Rect, Size};
 use kivact::interaction::ToastState;
-use kivact::primitive::PartState;
-use kivact::style::{Align, Cursor, Direction, Justify, Position, Style, Theme, pct, rgba, style};
-use kivact::ui::{AxisState, CheckState, RadioGroupRecipes, SliderRecipes};
+use kivact::style::{Align, Cursor, Direction, Justify, Position, Style, Theme, pct, style};
+use kivact::ui::DisclosureRecipeState;
+use kivact::ui::{AxisState, CheckableState, RadioGroupRecipes, SliderRecipes};
 use kivact::ui::{
     DisclosureRecipes, Look, ProgressRecipes, ProgressState, SplitterRecipes, ToastRecipes,
 };
 use kivact::view::Orientation;
 
-use crate::choice::Segmented;
 use crate::tokens::Tokens;
+use kivact::ui::RadioGroupVariant;
 
 pub(crate) fn radio_group(r: RadioGroupRecipes) -> RadioGroupRecipes {
     r.group(|_| radio_group_layout)
         .item(|_| radio_item)
         .indicator(|_| radio_indicator)
         .description(|_| {
-            |_: &Theme, _: &Look<CheckState>| style().font_size(10.5).color(Color::Muted)
+            |_: &Theme, _: &Look<CheckableState>| style().font_size(10.5).color(ColorName::Muted)
         })
 }
 fn radio_group_layout(t: &Theme, orientation: &Look<Orientation>) -> Style {
-    if orientation.variant::<Segmented>().is_some() {
+    if orientation.variant::<RadioGroupVariant>() == Some(&RadioGroupVariant::Segmented) {
         return crate::control_style::segmented_style(t);
     }
     let s = style().gap(8);
@@ -34,20 +36,20 @@ fn radio_group_layout(t: &Theme, orientation: &Look<Orientation>) -> Style {
     }
 }
 /// A radio row: the indicator beside the label.
-fn radio_item(t: &Theme, state: &Look<CheckState>) -> Style {
-    if state.variant::<Segmented>().is_some() {
+fn radio_item(t: &Theme, state: &Look<CheckableState>) -> Style {
+    if state.variant::<RadioGroupVariant>() == Some(&RadioGroupVariant::Segmented) {
         return crate::control_style::segmented_option_style(t);
     }
     crate::control_style::check_style(t)
 }
 /// The 14 px disc of an option: the accent around the theme's `dot`, in the
 /// accent's ink, while chosen.
-fn radio_indicator(t: &Theme, s: &Look<CheckState>) -> Style {
-    if s.variant::<Segmented>().is_some() {
+fn radio_indicator(t: &Theme, s: &Look<CheckableState>) -> Style {
+    if s.variant::<RadioGroupVariant>() == Some(&RadioGroupVariant::Segmented) {
         // A segment shows its choice by its fill, without a disc.
         return style().position(Position::Absolute).size(0, 0).clip(true);
     }
-    let p = t.get::<Tokens>();
+    let p = t.ext::<Tokens>();
     let on = s.checked.is_checked();
     style()
         .size(14, 14)
@@ -61,8 +63,8 @@ fn radio_indicator(t: &Theme, s: &Look<CheckState>) -> Style {
 }
 
 /// The thickness of a slider's bar and the side of its thumb.
-const BAR: f32 = 4.0;
-const THUMB: f32 = 16.0;
+const BAR: f64 = 4.0;
+const THUMB: f64 = 16.0;
 pub(crate) fn slider(r: SliderRecipes) -> SliderRecipes {
     r.track(|_| slider_track)
         .range(|_| slider_range)
@@ -77,7 +79,7 @@ fn bar(size: Size) -> Rect {
     }
 }
 fn slider_track(t: &Theme, s: &Look<AxisState>) -> Style {
-    let color = t.get::<Tokens>().strong;
+    let color = t.ext::<Tokens>().strong;
     let base = style()
         .shrink(0)
         .cursor(Cursor::EwResize)
@@ -88,7 +90,7 @@ fn slider_track(t: &Theme, s: &Look<AxisState>) -> Style {
     }
 }
 fn slider_range(t: &Theme, _: &Look<AxisState>) -> Style {
-    let color = t.get::<Tokens>().accent;
+    let color = t.ext::<Tokens>().accent;
     style().paint(move |d, size| {
         if size.width > 0.0 && size.height > 0.0 {
             d.rounded_rect(bar(size), BAR / 2.0, color);
@@ -100,7 +102,7 @@ fn slider_thumb(t: &Theme, _: &Look<AxisState>) -> Style {
     style()
         .size(THUMB, THUMB)
         .radius(THUMB / 2.0)
-        .background(t.get::<Tokens>().text_high)
+        .background(t.ext::<Tokens>().text_high)
 }
 
 pub(crate) fn toast(r: ToastRecipes) -> ToastRecipes {
@@ -124,7 +126,7 @@ fn toast_region(_: &Theme, _: &Look<PartState>) -> Style {
 }
 /// A glass card edged in the tone's color.
 fn toast_card(t: &Theme, s: &Look<ToastState>) -> Style {
-    let p = t.get::<Tokens>();
+    let p = t.ext::<Tokens>();
     let color = s.tone.color(&p);
     style()
         .direction(Direction::Row)
@@ -135,15 +137,15 @@ fn toast_card(t: &Theme, s: &Look<ToastState>) -> Style {
         .radius(9)
         .align_items(Align::Start)
         .color(p.text)
-        .background(rgba(0x1e1f26, 0.94))
+        .background(crate::color::overlay_surface())
         .backdrop_blur(22)
         .border(1, color.with_alpha(0.22))
-        .shadow(Shadow::new(0.0, 12.0, 30.0, rgba(0x000000, 0.6)))
+        .shadow(Shadow::new(0.0, 12.0, 30.0, crate::color::menu_shadow()))
 }
 /// The square close button around the theme's `x`, like a toolbar action.
 fn toast_close(t: &Theme, _: &Look<ToastState>) -> Style {
     crate::controls::button_style(t)
-        .width(t.get::<Tokens>().row)
+        .width(t.ext::<Tokens>().row)
         .padding(0)
 }
 
@@ -170,7 +172,29 @@ fn splitter_handle(t: &Theme, s: &Look<AxisState>) -> Style {
 
 /// A bar of the field color, filled with the accent from the shown fraction.
 pub(crate) fn progress(r: ProgressRecipes) -> ProgressRecipes {
-    r.track(|_| progress_track).fill(|_| progress_fill)
+    r.track(|prev| {
+        move |t: &Theme, s: &Look<ProgressState>| match s.variant::<kivact::ui::ProgressVariant>() {
+            Some(kivact::ui::ProgressVariant::Ring | kivact::ui::ProgressVariant::Gauge) => {
+                prev(t, s)
+            }
+            _ => progress_track(t, s),
+        }
+    })
+    .fill(|prev| {
+        move |t: &Theme, s: &Look<ProgressState>| match s.variant::<kivact::ui::ProgressVariant>() {
+            Some(kivact::ui::ProgressVariant::Ring | kivact::ui::ProgressVariant::Gauge) => {
+                prev(t, s)
+            }
+            _ => progress_fill(t, s),
+        }
+    })
+    .label(|prev| {
+        move |t: &Theme, s: &Look<ProgressState>| {
+            prev(t, s)
+                .font_family(t.ext::<Tokens>().mono_font.as_str())
+                .font_size(10.5)
+        }
+    })
 }
 
 fn progress_track(_: &Theme, _: &Look<ProgressState>) -> Style {
@@ -179,7 +203,7 @@ fn progress_track(_: &Theme, _: &Look<ProgressState>) -> Style {
         .width(pct(100))
         .radius(4)
         .clip(true)
-        .background(Color::Field)
+        .background(ColorName::Field)
 }
 
 fn progress_fill(_: &Theme, look: &Look<ProgressState>) -> Style {
@@ -189,7 +213,7 @@ fn progress_fill(_: &Theme, look: &Look<ProgressState>) -> Style {
         .height(pct(100))
         .paint(move |d, size| {
             let (x, width) = if state.value.is_some() {
-                (0.0, size.width * state.shown.get().clamp(0.0, 1.0) as f32)
+                (0.0, size.width * state.shown.get().clamp(0.0, 1.0))
             } else {
                 let (start, length) = state.sweep();
                 (size.width * start, size.width * length)
@@ -197,7 +221,7 @@ fn progress_fill(_: &Theme, look: &Look<ProgressState>) -> Style {
             d.rounded_rect(
                 Rect::new(x, 0.0, width, size.height),
                 4.0,
-                d.theme().get::<Tokens>().accent,
+                d.theme().ext::<Tokens>().accent,
             );
         })
 }
@@ -210,33 +234,37 @@ pub(crate) fn disclosure(r: DisclosureRecipes) -> DisclosureRecipes {
         .content(|_| disclosure_content)
 }
 
-fn disclosure_root(_: &Theme, _: &Look<DisclosureState>) -> Style {
+fn disclosure_root(_: &Theme, _: &Look<DisclosureRecipeState>) -> Style {
     style()
         .direction(Direction::Column)
         .radius(7)
-        .background(Color::Island)
-        .border(1, Color::Hair)
+        .background(ColorName::Island)
+        .border(1, ColorName::Hair)
 }
 
 /// The chevron is the trigger's last child, drawn first by the reversed row.
-fn disclosure_trigger(_: &Theme, _: &Look<DisclosureState>) -> Style {
+fn disclosure_trigger(_: &Theme, _: &Look<DisclosureRecipeState>) -> Style {
     style()
         .direction(Direction::RowReverse)
         .height(30)
         .gap(6)
         .padding_x(8)
         .align_items(Align::Center)
-        .background(Color::Header)
+        .background(ColorName::Header)
         .hover(style().background(kivact::style::ColorToken::Hover))
 }
 
-fn disclosure_indicator(_: &Theme, state: &Look<DisclosureState>) -> Style {
+fn disclosure_indicator(_: &Theme, state: &Look<DisclosureRecipeState>) -> Style {
     style()
         .size(16, 16)
         .shrink(0)
         .rotate(if state.open { 0.0 } else { -90.0 })
 }
 
-fn disclosure_content(_: &Theme, _: &Look<DisclosureState>) -> Style {
-    style().direction(Direction::Column).padding(10)
+fn disclosure_content(_: &Theme, _: &Look<DisclosureRecipeState>) -> Style {
+    style()
+        .enter_size(kivact::view::Orientation::Vertical)
+        .exit_size(kivact::view::Orientation::Vertical)
+        .direction(Direction::Column)
+        .padding(10)
 }

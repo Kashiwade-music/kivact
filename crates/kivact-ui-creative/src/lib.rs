@@ -3,7 +3,7 @@
 //! The only dependency is the public `kivact` facade. Components expose
 //! their root through `NodeBuilder`, so ordinary `NodeBuilder` modifiers
 //! apply to official and third-party components in exactly the same way.
-//! Install [`theme`] on an App or with `kivact::view::provide_theme`.
+//! Install [`theme`] on an App or with `kivact::style::provide_theme`.
 //!
 //! The texts the components show themselves (a window's close button, the
 //! transport's button names) are English and read through
@@ -17,7 +17,6 @@
 
 mod audio;
 mod bezier;
-mod choice;
 mod color;
 mod color_popup;
 mod color_wheel;
@@ -44,12 +43,13 @@ mod range;
 mod recipes;
 mod recipes_collections;
 mod recipes_controls;
-mod slot;
+mod recipes_feedback;
+mod recipes_indicators;
+mod recipes_metrics;
 mod tabs;
 mod theme;
 mod timeline;
 mod tokens;
-mod viewport_surface;
 
 pub use crate::audio::view_state::ChannelState;
 pub use crate::editors::arrangement::view_state::ArrangementState;
@@ -68,8 +68,7 @@ pub use crate::editors::time::view_state::TimeState;
 pub use crate::outliner::view_state::OutlinerState;
 pub use audio::{Meter, MixerStrip, Transport, TransportState, meter, mixer_strip, transport};
 pub use bezier::{BezierCurve, CubicBezier, bezier_curve};
-pub use choice::Segmented;
-pub use color::Color;
+pub use color::ColorName;
 pub use color_popup::color_popup;
 pub use color_wheel::{ColorModel, ColorWheel, color_from_hsv, color_to_hsv, color_wheel};
 pub use curve_preview::{CurvePreview, curve_preview};
@@ -87,7 +86,7 @@ pub use editors::node::{NodeEditor, node_editor};
 pub use editors::shared::model::EditorEvent;
 pub use editors::shared::ruler::RulerTicks;
 pub use feedback::{
-    Notice, SplitButton, ToolWindow, ToolWindowBuilder, WindowOptions, WindowPosition, notice,
+    NoticeVariant, SplitButton, ToolWindow, ToolWindowApi, WindowOptions, WindowPosition,
     popup_button, split_button, window, window_button,
 };
 pub use gradient::{GradientEditor, GradientStop, gradient_editor};
@@ -99,13 +98,10 @@ pub use numeric::{
 pub use outliner::{Outliner, Restriction, RestrictionFlag, TreeDrop, TreeItem, outliner};
 pub use panel_group::{InspectorPanel, panel_group};
 pub use picker::{PickerItem, SearchPicker, search_picker};
-pub use pie::{PieEntry, PieState, pie_menu};
+pub use pie::{PieEntry, PieMenu, PieMode, PieState, pie_menu};
 pub use property_row::{PropertyRow, PropertyStateButton, property_row, property_state_button};
 pub use range::{Range, range};
 pub use tabs::{DocumentTabs, document_tabs};
-pub use theme::{ThemeOptions, theme};
+pub use theme::{ThemeOptions, theme, theme_with};
 pub use timeline::{Timeline, timeline};
 pub use tokens::{Accent, Density, LabelTone, Tokens};
-pub use viewport_surface::{
-    SurfacePointer, SurfaceRegion, SurfaceSize, ViewportSurface, viewport_surface,
-};

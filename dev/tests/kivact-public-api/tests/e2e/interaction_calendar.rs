@@ -2,7 +2,7 @@
 
 use crate::support::mount_with;
 use kivact::i18n::{CalendarDate, CalendarMonth, DateRange, Locale, Weekday};
-use kivact::interaction::{CalendarGrid, CalendarPolicy, CalendarSelection, use_calendar_grid};
+use kivact::interaction::{CalendarGridApi, CalendarOptions, CalendarSelection, use_calendar_grid};
 use kivact::prelude::*;
 use kivact::test::{RenderOptions, Screen};
 use kivact::view::{Modifiers, dynamic};
@@ -15,7 +15,7 @@ fn day(y: i32, m: u8, d: u8) -> CalendarDate {
 /// neighbouring months are drawn in the first and last week only when
 /// `outside` is true (two months side by side would repeat them).
 fn drawn(
-    calendar: CalendarGrid,
+    calendar: CalendarGridApi,
     first: Signal<CalendarMonth>,
     months: usize,
     outside: bool,
@@ -77,25 +77,25 @@ fn single(
     selected: Option<CalendarDate>,
     months: usize,
     outside: bool,
-    configure: impl FnOnce(CalendarPolicy) -> CalendarPolicy + 'static,
+    configure: impl FnOnce(CalendarOptions) -> CalendarOptions + 'static,
 ) -> (Screen, Single) {
     mount_with(
-        RenderOptions {
-            locale: Some(Locale::new("en-US")),
-            ..Default::default()
-        },
+        RenderOptions::default().locale(Locale::new("en-US")),
         move || {
             let value = signal(selected);
             let month = signal(selected.unwrap_or(day(2026, 10, 1)).month_of());
             let commits = signal(Vec::<CalendarDate>::new());
             let policy = configure(
-                CalendarPolicy::new()
+                CalendarOptions::new()
                     .months(months)
                     .week_start(Weekday::Monday)
-                    .on_commit(move |date| commits.update(|all| all.push(date))),
+                    .on_activate(move |date| commits.update(|all| all.push(date))),
             );
-            let calendar =
-                use_calendar_grid(month, CalendarSelection::Single(value.into()), policy);
+            let calendar = use_calendar_grid(
+                month,
+                CalendarSelection::Single(value.into_binding()),
+                policy,
+            );
             (
                 Single {
                     value,
@@ -187,17 +187,14 @@ fn the_selected_day_holds_the_tab_stop_and_arrows_home_and_end_move_it() {
 /// A range calendar over October 2026 starting from `initial`.
 fn range(initial: Option<DateRange>) -> (Screen, Signal<Option<DateRange>>) {
     mount_with(
-        RenderOptions {
-            locale: Some(Locale::new("en-US")),
-            ..Default::default()
-        },
+        RenderOptions::default().locale(Locale::new("en-US")),
         move || {
             let value = signal(initial);
             let month = signal(day(2026, 10, 1).month_of());
             let calendar = use_calendar_grid(
                 month,
-                CalendarSelection::Range(value.into()),
-                CalendarPolicy::new().week_start(Weekday::Monday),
+                CalendarSelection::Range(value.into_binding()),
+                CalendarOptions::new().week_start(Weekday::Monday),
             );
             (value, drawn(calendar, month, 1, true))
         },
@@ -208,16 +205,14 @@ fn range(initial: Option<DateRange>) -> (Screen, Signal<Option<DateRange>>) {
 fn a_write_to_the_range_from_elsewhere_starts_the_next_choice_over() {
     let (screen, value) = range(None);
     cell(&screen, "2026-10-05").click();
-    assert_eq!(
-        value.get_untracked(),
-        Some(DateRange::new(day(2026, 10, 5), day(2026, 10, 5)))
-    );
+    assert_eq!(value.get_untracked(), None);
+    assert!(cell(&screen, "2026-10-05").is_selected());
     value.set(Some(DateRange::new(day(2026, 10, 20), day(2026, 10, 22))));
     screen.run_until_idle();
     cell(&screen, "2026-10-08").click();
     assert_eq!(
         value.get_untracked(),
-        Some(DateRange::new(day(2026, 10, 8), day(2026, 10, 8))),
+        Some(DateRange::new(day(2026, 10, 20), day(2026, 10, 22))),
         "the stale first choice is not completed"
     );
     cell(&screen, "2026-10-09").click();
@@ -229,22 +224,63 @@ fn a_write_to_the_range_from_elsewhere_starts_the_next_choice_over() {
 }
 
 #[test]
-fn escape_during_a_range_choice_puts_back_the_range_from_before_it() {
+fn escape_during_a_range_choice_keeps_the_committed_range() {
     let before = DateRange::new(day(2026, 10, 1), day(2026, 10, 3));
     let (screen, value) = range(Some(before));
     cell(&screen, "2026-10-14").click();
-    assert_eq!(
-        value.get_untracked(),
-        Some(DateRange::new(day(2026, 10, 14), day(2026, 10, 14)))
-    );
+    assert_eq!(value.get_untracked(), Some(before));
+    assert!(cell(&screen, "2026-10-14").is_selected());
     cell(&screen, "2026-10-14").focus();
     screen.press_key(Key::Escape);
     assert_eq!(value.get_untracked(), Some(before));
     cell(&screen, "2026-10-20").click();
     assert_eq!(
         value.get_untracked(),
-        Some(DateRange::new(day(2026, 10, 20), day(2026, 10, 20))),
+        Some(before),
         "the next choice starts a range again"
+    );
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
+fn activation_guard_gates_both_range_choices_without_disabling_cells() {
+    let (screen, (value, admit, picking)) = mount_with(
+        RenderOptions::default().locale(Locale::new("en-US")),
+        || {
+            let value = signal(None::<DateRange>);
+            let admit = signal(false);
+            let month = signal(CalendarMonth::new(2026, 10));
+            let calendar = use_calendar_grid(
+                month,
+                CalendarSelection::Range(value.into_binding()),
+                CalendarOptions::new().activation_guard(move |_| admit.get()),
+            );
+            (
+                (value, admit, calendar.is_picking_range()),
+                drawn(calendar, month, 1, true),
+            )
+        },
+    );
+    let start = cell(&screen, "2026-10-05");
+    let end = cell(&screen, "2026-10-09");
+    assert!(!start.is_disabled());
+    start.click();
+    assert!(!picking.get_untracked());
+    assert_eq!(value.get_untracked(), None);
+    admit.set(true);
+    start.click();
+    assert!(picking.get_untracked());
+    assert_eq!(value.get_untracked(), None);
+    admit.set(false);
+    end.click();
+    assert!(picking.get_untracked());
+    assert_eq!(value.get_untracked(), None);
+    admit.set(true);
+    end.click();
+    assert!(!picking.get_untracked());
+    assert_eq!(
+        value.get_untracked(),
+        Some(DateRange::new(day(2026, 10, 5), day(2026, 10, 9)))
     );
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }

@@ -17,15 +17,15 @@
 //!   loads). Without a usable ratio (none, or an empty side) it is the
 //!   reference size's.
 
-use kivact_wire::{Dimension, IntrinsicSize, LayoutProps, MeasureRequest, Size};
+use kivact_types::{Dimension, IntrinsicSize, LayoutProps, MeasureRequest, Size};
 
 /// The content size of an image node from the dimensions its style sets
 /// (`width`, `height`), its optional intrinsic size hint and its natural
 /// size in logical pixels. `None` means the resource provider has no
 /// natural size available, including while loading or after failure.
 pub fn image_content_size(
-    width: Option<f32>,
-    height: Option<f32>,
+    width: Option<f64>,
+    height: Option<f64>,
     intrinsic: Option<&IntrinsicSize>,
     natural: Option<Size>,
 ) -> Size {
@@ -51,7 +51,7 @@ pub fn image_content_size(
 pub fn style_known(
     request: MeasureRequest,
     layout: Option<&LayoutProps>,
-) -> (Option<f32>, Option<f32>) {
+) -> (Option<f64>, Option<f64>) {
     let set = |d: Option<Dimension>| {
         d.is_some_and(|d| {
             matches!(

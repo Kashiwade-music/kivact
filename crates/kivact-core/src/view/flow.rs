@@ -20,5 +20,5 @@ pub(crate) mod virtual_list;
 
 pub use branch::{Show, ShowSome, dynamic, show, show_some};
 pub use error_boundary::{ErrorBoundary, error_boundary};
-pub use list::{for_each, for_index};
+pub use list::{ListInput, ListSource, for_each, for_index};
 pub use virtual_list::{RowHeight, VirtualList, virtual_list};

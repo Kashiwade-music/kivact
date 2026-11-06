@@ -4,25 +4,23 @@
 //! frame (on the CPU and the GPU); and the GPU's frames of the whole
 //! drawing vocabulary against the CPU's.
 
+use kivact_types::AssetBytes;
 use std::sync::Arc;
 
-use kivact_types::protocol::{
-    Backdrop, BoxShadow, ColorMatrix, DrawCommand, Gradient, GradientShape, ImageData, Layer,
-    LayerFilter, Mask, Paint, PathCmd, Pattern, PatternSource, Radius, RoundedRect, Shape,
-    Transform,
+use kivact_types::render::{
+    Backdrop, BoxShadow, ColorMatrix, Gradient, GradientShape, Layer, LayerFilter, Mask, Paint,
+    Pattern, PatternSource, RenderCmd,
 };
+use kivact_types::scene::{PathCmd, Radius, RoundedRect, Shape};
 use kivact_types::{BlendMode, Extend, FillRule, LineCap, Stroke};
+use kivact_types::{Pixels, Transform};
 
 use crate::support::{
     BLUE, RED, WHITE, color, color_alpha, fill, gpu_against_cpu, pt, rect, solid, text_runs,
 };
 
-fn image(
-    rect: kivact_types::Rect,
-    image: ImageData,
-    color_matrix: Option<ColorMatrix>,
-) -> DrawCommand {
-    DrawCommand::Image {
+fn image(rect: kivact_types::Rect, image: Pixels, color_matrix: Option<ColorMatrix>) -> RenderCmd {
+    RenderCmd::Image {
         image,
         rect,
         opacity: 1.0,
@@ -33,25 +31,58 @@ fn image(
 /// A scene of every new command: transforms with text, layers with clips,
 /// blends, filters and masks, gradients, patterns, strokes, shadows, a
 /// backdrop and a filtered image.
-fn vocabulary() -> Vec<DrawCommand> {
+fn vocabulary() -> Vec<RenderCmd> {
     let black = color(0x000000);
-    let mut stripes: Vec<DrawCommand> = (0..60)
-        .map(|i| fill(4.0 * i as f32, 0.0, 2.0, 200.0, 0x203040))
+    let mut stripes: Vec<RenderCmd> = (0..60)
+        .map(|i| fill(4.0 * i as f64, 0.0, 2.0, 200.0, 0x203040))
         .collect();
     stripes.insert(0, fill(0.0, 0.0, 240.0, 200.0, 0xf0e0d0));
     let mut commands = stripes;
-    let checker = ImageData {
+    let checker = Pixels {
         width: 2,
         height: 2,
-        rgba: Arc::from(
+        rgba: AssetBytes::from_shared(Arc::from(
             &[
                 255u8, 0, 0, 255, 0, 0, 255, 255, 0, 0, 255, 255, 255, 0, 0, 255,
             ][..],
-        ),
+        )),
     };
+    commands.extend(transformed_scene());
+    commands.extend(layer_scene(black));
+    commands.extend(stroke_scene(checker.clone()));
+    commands.extend(shadow_scene(checker.clone()));
+    commands.extend(filtered_scene(checker));
+    commands
+}
+
+/// [`vocabulary`] scaled down about the middle: tiles, glyphs and blurs at
+/// other device sizes.
+fn scaled_vocabulary() -> Vec<RenderCmd> {
+    let mut commands = vec![RenderCmd::PushTransform(
+        Transform::scale(0.75).about(pt(120.0, 100.0)),
+    )];
+    commands.extend(vocabulary());
+    commands.push(RenderCmd::PopTransform);
+    commands
+}
+
+#[test]
+fn the_gpu_draws_the_whole_vocabulary_as_the_cpu_does() {
+    if let Some(reason) = arvane::gpu_unavailable() {
+        eprintln!("SKIPPED the_gpu_draws_the_whole_vocabulary_as_the_cpu_does: {reason}");
+        return;
+    }
+    let frames = [vocabulary(), vocabulary(), scaled_vocabulary()];
+    for (frame, diff) in gpu_against_cpu((240.0, 200.0), &frames).iter().enumerate() {
+        diff.assert_within_tolerance(&format!("frame {frame}"));
+    }
+}
+
+fn transformed_scene() -> Vec<RenderCmd> {
+    let mut commands = Vec::new();
     commands.extend([
-        DrawCommand::PushTransform(Transform::rotate_deg(20.0).about(pt(40.0, 30.0))),
-        DrawCommand::BoxShadow(BoxShadow {
+        RenderCmd::PushTransform(Transform::rotate_deg(20.0).about(pt(40.0, 30.0))),
+        RenderCmd::BoxShadow(BoxShadow {
             shape: RoundedRect::new(rect(10.0, 10.0, 60.0, 40.0), 6.0),
             offset: pt(0.0, 4.0),
             spread: 2.0,
@@ -60,7 +91,7 @@ fn vocabulary() -> Vec<DrawCommand> {
             inset: false,
             knockout: false,
         }),
-        DrawCommand::FillShape {
+        RenderCmd::FillShape {
             shape: Shape::RoundedRect(RoundedRect {
                 rect: rect(10.0, 10.0, 60.0, 40.0),
                 radii: [Radius { x: 20.0, y: 10.0 }; 4],
@@ -82,14 +113,18 @@ fn vocabulary() -> Vec<DrawCommand> {
         },
     ]);
     commands.extend(text_runs("Turn", 14.0, pt(20.0, 50.0)));
-    commands.push(DrawCommand::PopTransform);
-    commands.push(DrawCommand::PushTransform(
+    commands.push(RenderCmd::PopTransform);
+    commands.push(RenderCmd::PushTransform(
         Transform::skew_deg(-15.0, 0.0).about(pt(120.0, 30.0)),
     ));
     commands.extend(text_runs("Skew", 14.0, pt(90.0, 20.0)));
-    commands.push(DrawCommand::PopTransform);
-    commands.extend([
-        DrawCommand::PushLayer(Layer {
+    commands.push(RenderCmd::PopTransform);
+    commands
+}
+
+fn layer_scene(black: kivact_types::Rgba) -> Vec<RenderCmd> {
+    vec![
+        RenderCmd::PushLayer(Layer {
             clip: Some(Shape::Polygon {
                 points: vec![
                     pt(160.0, 10.0),
@@ -111,8 +146,8 @@ fn vocabulary() -> Vec<DrawCommand> {
             }),
         }),
         fill(150.0, 0.0, 90.0, 70.0, 0x40c080),
-        DrawCommand::PopLayer,
-        DrawCommand::PushLayer(Layer {
+        RenderCmd::PopLayer,
+        RenderCmd::PushLayer(Layer {
             filter: Some(LayerFilter::DropShadow {
                 offset: pt(4.0, 4.0),
                 std_dev: 3.0,
@@ -120,7 +155,7 @@ fn vocabulary() -> Vec<DrawCommand> {
             }),
             ..Layer::default()
         }),
-        DrawCommand::FillShape {
+        RenderCmd::FillShape {
             shape: Shape::Rect(rect(10.0, 80.0, 50.0, 30.0)),
             paint: Paint::Gradient(Gradient {
                 shape: GradientShape::Conic {
@@ -132,14 +167,19 @@ fn vocabulary() -> Vec<DrawCommand> {
                 extend: Extend::Pad,
             }),
         },
-        DrawCommand::PopLayer,
-        DrawCommand::PushLayer(Layer {
+        RenderCmd::PopLayer,
+        RenderCmd::PushLayer(Layer {
             filter: Some(LayerFilter::Blur { std_dev: 2.0 }),
             ..Layer::default()
         }),
         fill(80.0, 80.0, 30.0, 30.0, 0x8020a0),
-        DrawCommand::PopLayer,
-        DrawCommand::FillShape {
+        RenderCmd::PopLayer,
+    ]
+}
+
+fn stroke_scene(checker: Pixels) -> Vec<RenderCmd> {
+    vec![
+        RenderCmd::FillShape {
             shape: Shape::Rect(rect(120.0, 80.0, 50.0, 30.0)),
             paint: Paint::Pattern(Pattern {
                 source: PatternSource::Image {
@@ -151,7 +191,7 @@ fn vocabulary() -> Vec<DrawCommand> {
                 repeat_y: true,
             }),
         },
-        DrawCommand::StrokeShape {
+        RenderCmd::StrokeShape {
             shape: Shape::RoundedRect(RoundedRect::new(rect(180.0, 80.0, 50.0, 30.0), 8.0)),
             stroke: Stroke {
                 cap: LineCap::Round,
@@ -160,7 +200,7 @@ fn vocabulary() -> Vec<DrawCommand> {
             },
             paint: solid(0x102030),
         },
-        DrawCommand::StrokeShape {
+        RenderCmd::StrokeShape {
             shape: Shape::Path {
                 cmds: vec![
                     PathCmd::MoveTo(pt(10.0, 130.0)),
@@ -183,7 +223,12 @@ fn vocabulary() -> Vec<DrawCommand> {
             },
             paint: solid(0x000000),
         },
-        DrawCommand::BoxShadow(BoxShadow {
+    ]
+}
+
+fn shadow_scene(checker: Pixels) -> Vec<RenderCmd> {
+    vec![
+        RenderCmd::BoxShadow(BoxShadow {
             shape: RoundedRect::new(rect(90.0, 130.0, 50.0, 40.0), 10.0),
             offset: pt(2.0, 2.0),
             spread: 1.0,
@@ -192,7 +237,7 @@ fn vocabulary() -> Vec<DrawCommand> {
             inset: true,
             knockout: false,
         }),
-        DrawCommand::BoxShadow(BoxShadow {
+        RenderCmd::BoxShadow(BoxShadow {
             shape: RoundedRect::ellipse(rect(85.0, 45.0, 50.0, 28.0)),
             offset: pt(-2.0, 2.0),
             spread: 0.0,
@@ -202,7 +247,7 @@ fn vocabulary() -> Vec<DrawCommand> {
             knockout: false,
         }),
         // Strokes painted with a gradient and with a pattern.
-        DrawCommand::StrokeShape {
+        RenderCmd::StrokeShape {
             shape: Shape::Path {
                 cmds: vec![
                     PathCmd::MoveTo(pt(150.0, 66.0)),
@@ -216,7 +261,7 @@ fn vocabulary() -> Vec<DrawCommand> {
                 stops: vec![(0.0, color(RED)), (1.0, color(BLUE))],
             },
         },
-        DrawCommand::StrokeShape {
+        RenderCmd::StrokeShape {
             shape: Shape::Path {
                 cmds: vec![
                     PathCmd::MoveTo(pt(150.0, 74.0)),
@@ -238,7 +283,7 @@ fn vocabulary() -> Vec<DrawCommand> {
                 repeat_y: true,
             }),
         },
-        DrawCommand::BoxShadow(BoxShadow {
+        RenderCmd::BoxShadow(BoxShadow {
             shape: RoundedRect::ellipse(rect(150.0, 130.0, 40.0, 30.0)),
             offset: pt(0.0, 3.0),
             spread: 0.0,
@@ -247,12 +292,17 @@ fn vocabulary() -> Vec<DrawCommand> {
             inset: false,
             knockout: true,
         }),
-        DrawCommand::Backdrop(Backdrop {
+    ]
+}
+
+fn filtered_scene(checker: Pixels) -> Vec<RenderCmd> {
+    vec![
+        RenderCmd::Backdrop(Backdrop {
             shape: Shape::RoundedRect(RoundedRect::new(rect(10.0, 150.0, 70.0, 40.0), 12.0)),
             std_dev: 4.0,
             color_matrix: Some(ColorMatrix::saturate(1.6)),
         }),
-        DrawCommand::FillShape {
+        RenderCmd::FillShape {
             shape: Shape::RoundedRect(RoundedRect::new(rect(10.0, 150.0, 70.0, 40.0), 12.0)),
             paint: Paint::Solid(color_alpha(WHITE, 0.3)),
         },
@@ -262,7 +312,7 @@ fn vocabulary() -> Vec<DrawCommand> {
             Some(ColorMatrix::sepia(1.0)),
         ),
         // A tile larger than the atlas takes: drawn copy by copy.
-        DrawCommand::FillShape {
+        RenderCmd::FillShape {
             shape: Shape::Rect(rect(90.0, 180.0, 150.0, 20.0)),
             paint: Paint::Pattern(Pattern {
                 source: PatternSource::Image {
@@ -274,29 +324,5 @@ fn vocabulary() -> Vec<DrawCommand> {
                 repeat_y: true,
             }),
         },
-    ]);
-    commands
-}
-
-/// [`vocabulary`] scaled down about the middle: tiles, glyphs and blurs at
-/// other device sizes.
-fn scaled_vocabulary() -> Vec<DrawCommand> {
-    let mut commands = vec![DrawCommand::PushTransform(
-        Transform::scale(0.75).about(pt(120.0, 100.0)),
-    )];
-    commands.extend(vocabulary());
-    commands.push(DrawCommand::PopTransform);
-    commands
-}
-
-#[test]
-fn the_gpu_draws_the_whole_vocabulary_as_the_cpu_does() {
-    if let Some(reason) = arvane::test_display::gpu_unavailable() {
-        eprintln!("SKIPPED the_gpu_draws_the_whole_vocabulary_as_the_cpu_does: {reason}");
-        return;
-    }
-    let frames = [vocabulary(), vocabulary(), scaled_vocabulary()];
-    for (frame, diff) in gpu_against_cpu((240.0, 200.0), &frames).iter().enumerate() {
-        diff.assert_within_tolerance(&format!("frame {frame}"));
-    }
+    ]
 }

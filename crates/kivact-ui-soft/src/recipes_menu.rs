@@ -1,25 +1,32 @@
 //! Role: Style the standard dropdown, context and submenu parts.
 use crate::Tokens;
 use crate::recipes_dialog::{anchored, body_text, focus, motion, shadows, supporting_text};
-use kivact::interaction::{MenuItemState, PopupState};
-use kivact::primitive::PartState;
-use kivact::style::{Align, Direction, Style, Theme, auto, style};
-use kivact::ui::{Look, MenuRecipes};
+use kivact::custom::PartState;
+use kivact::interaction::MenuItemState;
+use kivact::interaction::PopupState;
+use kivact::style::Align;
+use kivact::style::Direction;
+use kivact::style::Style;
+use kivact::style::Theme;
+use kivact::style::auto;
+use kivact::style::style;
+use kivact::ui::Look;
+use kivact::ui::MenuRecipes;
 
-const MENU_MIN_FLYOUT_WIDTH: f32 = 160.0;
-const MENU_MAX_HEIGHT: f32 = 300.0;
+const MENU_MIN_FLYOUT_WIDTH: f64 = 160.0;
+const MENU_MAX_HEIGHT: f64 = 300.0;
 
 pub(crate) fn menu(r: MenuRecipes) -> MenuRecipes {
     r.trigger(|_| trigger)
         .surface(|_| {
             |t: &Theme, _: &Look<PopupState>| {
-                let p = t.get::<Tokens>();
+                let p = t.ext::<Tokens>();
                 anchored(surface(&p), &p, 0.0, -p.spacing.s2)
             }
         })
         .context_surface(|_| {
             |t: &Theme, _: &Look<PopupState>| {
-                let p = t.get::<Tokens>();
+                let p = t.ext::<Tokens>();
                 anchored(
                     surface(&p).min_width(MENU_MIN_FLYOUT_WIDTH),
                     &p,
@@ -30,7 +37,7 @@ pub(crate) fn menu(r: MenuRecipes) -> MenuRecipes {
         })
         .sub_surface(|_| {
             |t: &Theme, _: &Look<PopupState>| {
-                let p = t.get::<Tokens>();
+                let p = t.ext::<Tokens>();
                 anchored(
                     surface(&p).min_width(MENU_MIN_FLYOUT_WIDTH),
                     &p,
@@ -42,7 +49,7 @@ pub(crate) fn menu(r: MenuRecipes) -> MenuRecipes {
         .item(|_| item)
         .separator(|_| {
             |t: &Theme, _: &Look<PartState>| {
-                let p = t.get::<Tokens>();
+                let p = t.ext::<Tokens>();
                 style()
                     .height(p.sizes.border_width)
                     .shrink(0)
@@ -52,7 +59,7 @@ pub(crate) fn menu(r: MenuRecipes) -> MenuRecipes {
         })
         .label(|_| {
             |t: &Theme, _: &Look<PartState>| {
-                let p = t.get::<Tokens>();
+                let p = t.ext::<Tokens>();
                 supporting_text(&p)
                     .padding_x(p.spacing.s2)
                     .padding_y(p.spacing.s1)
@@ -60,7 +67,7 @@ pub(crate) fn menu(r: MenuRecipes) -> MenuRecipes {
         })
         .description(|_| {
             |t: &Theme, s: &Look<MenuItemState>| {
-                let p = t.get::<Tokens>();
+                let p = t.ext::<Tokens>();
                 supporting_text(&p).color(if s.destructive {
                     p.colors.text_error
                 } else {
@@ -70,7 +77,7 @@ pub(crate) fn menu(r: MenuRecipes) -> MenuRecipes {
         })
         .shortcut(|_| {
             |t: &Theme, s: &Look<MenuItemState>| {
-                let p = t.get::<Tokens>();
+                let p = t.ext::<Tokens>();
                 supporting_text(&p)
                     .margin_left(auto())
                     .shrink(0)
@@ -85,7 +92,7 @@ pub(crate) fn menu(r: MenuRecipes) -> MenuRecipes {
         .submenu(|_| indicator)
         .inset(|_| {
             |t: &Theme, _: &Look<PartState>| {
-                style().width(t.get::<Tokens>().sizes.icon_sm).shrink(0)
+                style().width(t.ext::<Tokens>().sizes.icon_sm).shrink(0)
             }
         })
 }
@@ -101,7 +108,7 @@ fn surface(p: &Tokens) -> Style {
 }
 
 fn trigger(t: &Theme, s: &Look<PopupState>) -> Style {
-    let p = t.get::<Tokens>();
+    let p = t.ext::<Tokens>();
     let hover = if s.open {
         p.colors.overlay_pressed
     } else {
@@ -128,7 +135,7 @@ fn trigger(t: &Theme, s: &Look<PopupState>) -> Style {
 }
 
 fn item(t: &Theme, s: &Look<MenuItemState>) -> Style {
-    let p = t.get::<Tokens>();
+    let p = t.ext::<Tokens>();
     let highlight = style().background(p.colors.overlay_hover);
     let base = body_text(&p)
         .direction(Direction::Row)
@@ -170,7 +177,7 @@ fn item(t: &Theme, s: &Look<MenuItemState>) -> Style {
 }
 
 fn indicator(t: &Theme, s: &Look<MenuItemState>) -> Style {
-    let p = t.get::<Tokens>();
+    let p = t.ext::<Tokens>();
     style()
         .size(p.sizes.icon_sm, p.sizes.icon_sm)
         .shrink(0)

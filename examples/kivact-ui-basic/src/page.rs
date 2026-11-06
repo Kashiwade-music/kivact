@@ -1,9 +1,8 @@
 //! Role: Render one documentation page: header, usage and example panels with code.
 
 use crate::model::{Example, Page, PreviewAlign};
-use kivact::control::Scroll;
 use kivact::prelude::*;
-use kivact::primitive::NodeExt;
+use kivact::view::Scroll;
 use kivact_ui_basic as basic;
 
 /// The scrolling page of `page`; a new page starts at the top.
@@ -16,12 +15,12 @@ pub(crate) fn page_view(page: &'static Page) -> Scroll {
 fn content(page: &'static Page) -> Node {
     let header = column((
         breadcrumb(page.name),
-        basic::h1(page.name).test_id("catalog-title"),
+        kivact::ui::heading(page.name, 1).test_id("catalog-title"),
         basic::lead(page.description),
     ))
     .style(style().gap(12));
     let usage = column((
-        basic::h2("使い方"),
+        kivact::ui::heading("使い方", 2),
         code_block(page.usage.to_string(), "catalog-usage-code".to_string()),
     ))
     .style(style().gap(16));
@@ -40,12 +39,12 @@ fn content(page: &'static Page) -> Node {
     )
 }
 
-fn breadcrumb(name: &'static str) -> Node {
-    basic::breadcrumb_content((
-        basic::breadcrumb_link("コンポーネント"),
-        basic::breadcrumb_separator(),
-        basic::breadcrumb_page(name),
-    ))
+fn breadcrumb(name: &'static str) -> impl IntoView {
+    kivact::ui::breadcrumb(vec![
+        kivact::interaction::ListItem::new("root", "コンポーネント"),
+        kivact::interaction::ListItem::new("current", name),
+    ])
+    .separator(|| icon("chevron-right").style(style().size(14, 14)))
     .style(style().font_size(14))
 }
 
@@ -56,7 +55,7 @@ fn example_title(title: &'static str) -> Node {
             .font_size(20)
             .line_height(1.4)
             .weight(600)
-            .color(basic::Color::Foreground),
+            .color(basic::ColorName::Foreground),
     )
 }
 
@@ -66,7 +65,7 @@ fn prose(content: &'static str) -> Node {
         style()
             .font_size(14)
             .line_height(24.0 / 14.0)
-            .color(basic::Color::Foreground),
+            .color(basic::ColorName::Foreground),
     )
 }
 
@@ -86,7 +85,7 @@ fn example_section(page: &'static Page, example: &'static Example) -> Node {
                 .padding(40)
                 .align_items(Align::Center)
                 .justify_content(along)
-                .border(1, basic::Color::Border),
+                .border(1, basic::ColorName::Border),
         );
     let code = code_block(page.snippet(example.id), format!("{prefix}-code"))
         .style(style().margin_top(-1));
@@ -99,11 +98,18 @@ fn example_section(page: &'static Page, example: &'static Example) -> Node {
 }
 
 /// A highlighted "Rust" block whose copy button writes `snippet` to the clipboard.
-fn code_block(snippet: String, test_id: String) -> basic::CodeBlock {
-    basic::code_block(basic::rust_lines(&snippet))
+fn code_block(snippet: String, test_id: String) -> kivact::ui::CodeBlock {
+    let parsed = basic::rust_source(&snippet);
+    kivact::ui::code_block(snippet)
+        .highlight(
+            move || {
+                (
+                    parsed.clone(),
+                    kivact::style::use_tokens::<basic::Tokens>().code.clone(),
+                )
+            },
+            basic::rust_lines,
+        )
         .title("Rust")
-        .on_copy(move || {
-            spawn(kivact::platform::copy_text(snippet.clone()));
-        })
         .test_id(test_id)
 }

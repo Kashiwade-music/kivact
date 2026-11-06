@@ -8,7 +8,7 @@
 //! The focus is one `FocusTarget { node, region }`: a scene region is
 //! focused through it, with no focus manager of its own, and keys, focus
 //! changes and accessibility keep that identity. Whether its indicator
-//! shows is kept with it (`Focused::visible`, so nothing shows without a
+//! shows is kept with it (`Focused::visibility`, so nothing shows without a
 //! target): Tab and assistive technology show it, a pointer press hides
 //! it, and kivact's request says which.
 //!

@@ -4,9 +4,9 @@
 //! App or a window. This binary opens no window (the comparison with a
 //! canvas in a window is `e2e/offscreen.rs`).
 
-use kivact::diagnostics::ErrorKind;
-use kivact::draw::{Offscreen, RgbaImage, TextStyle};
-use kivact::draw::{Point, Rect, Size};
+use kivact::ErrorKind;
+use kivact::draw::{Offscreen, Pixels, TextFormat};
+use kivact::geometry::{Point, Rect, Size};
 use kivact::prelude::*;
 use kivact::style::Color;
 use kivact::style::Theme;
@@ -14,7 +14,7 @@ use std::cell::Cell;
 
 static TUFFY: &[u8] = include_bytes!("../../../../crates/arvane/assets/fonts/Tuffy.ttf");
 
-fn px(image: &RgbaImage, x: usize, y: usize) -> [u8; 4] {
+fn px(image: &Pixels, x: usize, y: usize) -> [u8; 4] {
     image.rgba[(y * image.width as usize + x) * 4..][..4]
         .try_into()
         .expect("invariant: four bytes per pixel")
@@ -83,7 +83,7 @@ fn rects_and_text_are_drawn_where_they_are_placed() {
         .render(120, 60, |draw, size| {
             draw.fill_rect(size.to_rect(), Color::WHITE);
             draw.fill_rect(Rect::new(100.0, 40.0, 10.0, 10.0), rgb(0xff0000));
-            let style = TextStyle {
+            let style = TextFormat {
                 size: 20.0,
                 color: Color::BLACK,
                 ..Default::default()
@@ -102,10 +102,10 @@ fn rects_and_text_are_drawn_where_they_are_placed() {
             if px(&image, x, y) != [255, 255, 255, 255] {
                 inked += 1;
                 assert!(
-                    (x as f32) >= 9.0
-                        && (x as f32) <= 10.0 + metrics.size.width + 1.0
-                        && (y as f32) >= 9.0
-                        && (y as f32) <= 10.0 + metrics.size.height + 1.0,
+                    (x as f64) >= 9.0
+                        && (x as f64) <= 10.0 + metrics.size.width + 1.0
+                        && (y as f64) >= 9.0
+                        && (y as f64) <= 10.0 + metrics.size.height + 1.0,
                     "ink at {x},{y} outside the measured {metrics:?}"
                 );
             }

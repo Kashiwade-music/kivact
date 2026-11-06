@@ -41,8 +41,9 @@ fn app() -> impl IntoView {
         column(for_each(
             todos,
             |todo| todo.id,
-            move |id, todo| {
-                let done = todos.item(|t| t.id, id).field(|t| &t.done, |t| &mut t.done);
+            move |todo| {
+                let id = todo.get().id;
+                let done = todo.project(|t| &t.done, |t| &mut t.done);
                 row((
                     checkbox(move || todo.get().title, done),
                     button("Remove")

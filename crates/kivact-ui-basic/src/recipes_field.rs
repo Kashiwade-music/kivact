@@ -20,7 +20,7 @@ pub(crate) fn field(table: FieldRecipes) -> FieldRecipes {
                     .weight(500)
                     .line_height(1.)
                     .color(if state.invalid {
-                        theme.get::<crate::tokens::Tokens>().destructive
+                        theme.ext::<crate::tokens::Tokens>().destructive
                     } else {
                         theme.colors().text
                     })
@@ -31,7 +31,7 @@ pub(crate) fn field(table: FieldRecipes) -> FieldRecipes {
             |theme, _| {
                 style()
                     .font_size(12)
-                    .color(theme.get::<crate::tokens::Tokens>().destructive)
+                    .color(theme.ext::<crate::tokens::Tokens>().destructive)
             }
         })
 }

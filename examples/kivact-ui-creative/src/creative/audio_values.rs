@@ -1,18 +1,21 @@
 //! Role: Audio time formatting and level calculations for catalog views.
 
-use kivact::Signal;
-use kivact::effect;
 use kivact::motion::{FrameRate, frame_loop};
-use kivact::view::IntoValue;
-use kivact::{Binding, binding};
+use kivact::state::IntoValue;
+use kivact::state::Signal;
+use kivact::state::effect;
+use kivact::state::{Binding, binding};
 use kivact_ui_creative as ui;
 
 #[derive(Clone, Debug, PartialEq)]
 pub(super) struct TransportState {
     pub frame: f64,
     pub fps: f64,
+    // xtask-allow(state-fields): Playback is an independent DAW domain fact in the external catalog snapshot.
     pub playing: bool,
+    // xtask-allow(state-fields): Recording is independent of playback; the catalog preserves every valid transport combination.
     pub recording: bool,
+    // xtask-allow(state-fields): Loop enablement is an independent DAW setting, not a transport lifecycle state.
     pub cycling: bool,
     pub loop_start: f64,
     pub loop_end: f64,

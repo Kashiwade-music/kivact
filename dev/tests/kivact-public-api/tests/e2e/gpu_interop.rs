@@ -25,16 +25,17 @@ use std::sync::mpsc;
 use std::time::{Duration, Instant};
 
 use gpu_interop_producer::{Producer, pattern};
-use kivact::control::canvas;
-use kivact::diagnostics::ErrorKind;
-use kivact::draw::{ImageOptions, Rect};
+use kivact::ErrorKind;
+use kivact::draw::ImageOptions;
+use kivact::geometry::Rect;
 use kivact::gpu_interop::{
     self, AdapterMatch, ExternalImage, FramePublisher, GpuAdapter, GpuBackend, GpuPreference,
     ImportStatus, ShareError, ShareLink, ShareMode, ShareRequest, ShareStatus, SharedHandle,
     SharedImage, SharedTextureFormat, SharedTextures,
 };
 use kivact::prelude::*;
-use kivact::test::{RenderOptions, Screen, WindowMode, gpu_unavailable};
+use kivact::test::{MirrorMode, RenderOptions, Screen, gpu_unavailable};
+use kivact::view::canvas;
 
 use super::support::mount_with;
 
@@ -81,7 +82,7 @@ impl Viewport {
                                 pixelated,
                                 ..ImageOptions::default()
                             };
-                            let rect = Rect::new(x as f32, 0.0, W as f32, H as f32);
+                            let rect = Rect::new(x as f64, 0.0, W as f64, H as f64);
                             d.gpu_frame(&f, rect, options);
                         }
                     }
@@ -132,17 +133,14 @@ impl Viewport {
 }
 
 fn gpu_options(backend: GpuBackend) -> RenderOptions {
-    RenderOptions {
-        width: (2 * W) as f32,
-        height: (H + 40) as f32,
-        gpu: true,
-        window: WindowMode::Real,
-        gpu_preference: GpuPreference {
+    RenderOptions::from_env()
+        .window_size((2 * W) as f64, (H + 40) as f64)
+        .gpu()
+        .mirror(MirrorMode::Required)
+        .gpu_preference(GpuPreference {
             backend: Some(backend),
             ..GpuPreference::default()
-        },
-        ..RenderOptions::from_env()
-    }
+        })
 }
 
 /// A GPU viewport of `backend` that can import, and its adapter; why not
@@ -280,6 +278,13 @@ fn unread_textures() -> SharedTextures {
     }
 }
 
+/// Make a GPU-only frame on a CPU host, which refuses the unused handles.
+/// Call only from a test mounted with CPU rendering.
+pub(super) fn unread_frame() -> kivact::gpu_interop::GpuFrame {
+    // SAFETY: the CPU host rejects the import without accessing its handles.
+    unsafe { gpu_interop::import(unread_textures()) }.frame(0, 1)
+}
+
 /// The size `shared_image` asks after `set_size` in the tests.
 const W2: u32 = 224;
 const H2: u32 = 96;
@@ -342,10 +347,10 @@ impl SharedViewport {
                         ..ImageOptions::default()
                     };
                     if let Some(f) = shared.frame() {
-                        let rect = Rect::new(0.0, 0.0, f.width() as f32, f.height() as f32);
+                        let rect = Rect::new(0.0, 0.0, f.width() as f64, f.height() as f64);
                         d.gpu_frame(&f, rect, options);
                     } else if let Some(p) = shared.pixels() {
-                        let rect = Rect::new(0.0, 0.0, p.width as f32, p.height as f32);
+                        let rect = Rect::new(0.0, 0.0, p.width as f64, p.height as f64);
                         d.pixels(&p, rect, options);
                     }
                 })

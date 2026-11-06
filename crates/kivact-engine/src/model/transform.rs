@@ -51,28 +51,24 @@
 //! overlay). A transformed node is hit by its base paint's corners and
 //! clip path, as every node is.
 
-use kivact_wire::{ElementTransform, NodeId, Point, Rect, Size};
+use kivact_types::{ElementTransform, NodeId, Point, Rect, Size};
 
 use crate::model::Model;
 use crate::tree::node::HostNode;
-use crate::tree::node::NodeIndex;
-use crate::tree::{Children, NodeStore};
 
-/// Iterates the authoritative active order; only z-order sorting allocates.
-enum StackOrder<'a> {
-    Tree(Children<'a>),
-    Sorted(std::vec::IntoIter<NodeIndex>),
+/// Iterate cached box order, allocating only when z-order needs sorting.
+enum StackOrder<I> {
+    Tree(I),
+    Sorted(std::vec::IntoIter<NodeId>),
 }
-impl Iterator for StackOrder<'_> {
-    type Item = NodeIndex;
-    #[inline]
-    fn next(&mut self) -> Option<NodeIndex> {
+impl<I: Iterator<Item = NodeId>> Iterator for StackOrder<I> {
+    type Item = NodeId;
+    fn next(&mut self) -> Option<NodeId> {
         match self {
             Self::Tree(i) => i.next(),
             Self::Sorted(i) => i.next(),
         }
     }
-    #[inline]
     fn size_hint(&self) -> (usize, Option<usize>) {
         match self {
             Self::Tree(i) => i.size_hint(),
@@ -80,48 +76,19 @@ impl Iterator for StackOrder<'_> {
         }
     }
 }
-impl DoubleEndedIterator for StackOrder<'_> {
-    #[inline]
-    fn next_back(&mut self) -> Option<NodeIndex> {
+impl<I: DoubleEndedIterator<Item = NodeId>> DoubleEndedIterator for StackOrder<I> {
+    fn next_back(&mut self) -> Option<NodeId> {
         match self {
             Self::Tree(i) => i.next_back(),
             Self::Sorted(i) => i.next_back(),
         }
     }
 }
-impl ExactSizeIterator for StackOrder<'_> {}
-
-struct StackedChildren<'a> {
-    nodes: &'a NodeStore,
-    children: StackOrder<'a>,
-}
-impl Iterator for StackedChildren<'_> {
-    type Item = NodeId;
-    #[inline]
-    fn next(&mut self) -> Option<NodeId> {
-        self.children.next().map(|index| self.nodes.id_at(index))
-    }
-    #[inline]
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        self.children.size_hint()
-    }
-}
-impl DoubleEndedIterator for StackedChildren<'_> {
-    #[inline]
-    fn next_back(&mut self) -> Option<NodeId> {
-        self.children
-            .next_back()
-            .map(|index| self.nodes.id_at(index))
-    }
-}
-impl ExactSizeIterator for StackedChildren<'_> {}
+impl<I: ExactSizeIterator<Item = NodeId>> ExactSizeIterator for StackOrder<I> {}
 
 /// The matrix of `t` for a box of `size`, relative to the box's top-left
 /// corner (`None`: it moves nothing, or a value is not finite).
-pub(crate) fn resolve(
-    t: &ElementTransform,
-    size: Size,
-) -> Option<kivact_types::protocol::Transform> {
+pub(crate) fn resolve(t: &ElementTransform, size: Size) -> Option<kivact_types::Transform> {
     if t.is_none() {
         return None;
     }
@@ -135,7 +102,7 @@ pub(crate) fn resolve(
     };
     let (sx, sy) = (t.scale.x, t.scale.y);
     // translate · rotate · skewX · scale.
-    let m = kivact_types::protocol::Transform {
+    let m = kivact_types::Transform {
         a: cos * sx,
         b: sin * sx,
         c: (cos * k - sin) * sy,
@@ -154,7 +121,7 @@ pub(crate) fn resolve(
 
 /// `sin` and `cos` of `deg` degrees, exact at the quarter turns (a
 /// rotation by 360° is the identity, its text hinted again).
-fn sin_cos_deg(deg: f32) -> (f32, f32) {
+fn sin_cos_deg(deg: f64) -> (f64, f64) {
     let turn = deg.rem_euclid(360.0);
     if turn == 0.0 {
         (0.0, 1.0)
@@ -171,17 +138,14 @@ fn sin_cos_deg(deg: f32) -> (f32, f32) {
 
 /// `t` moved to a box at `at` (its matrix is relative to the box's
 /// top-left corner).
-pub(crate) fn placed(
-    t: kivact_types::protocol::Transform,
-    at: Point,
-) -> kivact_types::protocol::Transform {
-    kivact_types::protocol::Transform::translate(-at.x, -at.y)
+pub(crate) fn placed(t: kivact_types::Transform, at: Point) -> kivact_types::Transform {
+    kivact_types::Transform::translate(-at.x, -at.y)
         .then(t)
-        .then(kivact_types::protocol::Transform::translate(at.x, at.y))
+        .then(kivact_types::Transform::translate(at.x, at.y))
 }
 
 /// The axis-aligned bounds of `r` mapped by `t` (`r` itself without one).
-pub(crate) fn map_rect(t: Option<&kivact_types::protocol::Transform>, r: Rect) -> Rect {
+pub(crate) fn map_rect(t: Option<&kivact_types::Transform>, r: Rect) -> Rect {
     match t {
         Some(t) => t.bounds(r),
         None => r,
@@ -217,17 +181,17 @@ impl Model {
         &self,
         id: NodeId,
         size: Size,
-    ) -> Option<kivact_types::protocol::Transform> {
-        resolve(&self.element_transform(id)?, size)
+    ) -> Option<kivact_types::Transform> {
+        let element = self.element_transform(id).and_then(|t| resolve(&t, size));
+        match (element, self.layout_motion_transform(id)) {
+            (Some(element), Some(layout)) => Some(element.then(layout)),
+            (element, layout) => element.or(layout),
+        }
     }
 
     /// The transform of `id` from its own space to its parent's: about its
     /// box `rect` there (`None`: none).
-    pub(crate) fn transform_at(
-        &self,
-        id: NodeId,
-        rect: Rect,
-    ) -> Option<kivact_types::protocol::Transform> {
+    pub(crate) fn transform_at(&self, id: NodeId, rect: Rect) -> Option<kivact_types::Transform> {
         let size = Size {
             width: rect.width,
             height: rect.height,
@@ -250,15 +214,15 @@ impl Model {
         &self,
         id: NodeId,
         upto: Option<NodeId>,
-    ) -> Option<kivact_types::protocol::Transform> {
-        let mut out: Option<kivact_types::protocol::Transform> = None;
+    ) -> Option<kivact_types::Transform> {
+        let mut out: Option<kivact_types::Transform> = None;
         let mut cur = Some(id);
         while let Some(x) = cur {
             if Some(x) == upto {
                 break;
             }
             let Some(n) = self.tree.get(x) else { break };
-            if n.place.transformed
+            if (n.place.transformed || self.layout_motion_transform(x).is_some())
                 && let Some(r) = self.rect(x)
                 && let Some(t) = self.transform_at(x, r)
             {
@@ -268,7 +232,7 @@ impl Model {
                 // Overlays and fixed boxes are placed in the window.
                 break;
             }
-            cur = self.tree.parent_id(n);
+            cur = self.tree.flat_parent(n);
         }
         out
     }
@@ -341,6 +305,19 @@ impl Model {
         (self.z_index(id), sticky)
     }
 
+    /// Whether the children of the node `n` paint in [`stack_key`] order:
+    /// it stacks, or one of its flat children has a z-index (one under a
+    /// Contents node marks that node, not `n`, as stacking).
+    ///
+    /// [`stack_key`]: Model::stack_key
+    pub(crate) fn sorts_children(&self, n: &HostNode) -> bool {
+        n.place.stacks == crate::tree::node::Stacking::Stacks
+            || self
+                .tree
+                .flat_children(self.tree.nodes.id_at(n.index))
+                .any(|id| self.tree.get(id).is_some_and(|child| child.place.has_z()))
+    }
+
     /// The children of the node `n` in paint order: by [`stack_key`], ties
     /// in tree order.
     ///
@@ -349,16 +326,13 @@ impl Model {
         &'a self,
         n: &'a HostNode,
     ) -> impl DoubleEndedIterator<Item = NodeId> + ExactSizeIterator + 'a {
-        let children = if n.place.stacks {
-            let mut children: Vec<_> = self.tree.nodes.links(n.index).children.iter().collect();
-            children.sort_by_key(|index| self.stack_key(self.tree.nodes.id_at(*index)));
+        let children = self.tree.flat_children(self.tree.nodes.id_at(n.index));
+        if self.sorts_children(n) {
+            let mut children: Vec<_> = children.collect();
+            children.sort_by_key(|id| self.stack_key(*id));
             StackOrder::Sorted(children.into_iter())
         } else {
-            StackOrder::Tree(self.tree.nodes.links(n.index).children.iter())
-        };
-        StackedChildren {
-            nodes: &self.tree.nodes,
-            children,
+            StackOrder::Tree(children)
         }
     }
 }

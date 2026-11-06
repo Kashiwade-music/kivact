@@ -11,11 +11,13 @@
 )]
 
 #[cfg(any(windows, target_os = "linux"))]
-use std::sync::OnceLock;
-#[cfg(any(windows, target_os = "linux"))]
 use std::sync::atomic::{AtomicBool, Ordering};
 #[cfg(any(windows, target_os = "linux"))]
-static MAPPING: OnceLock<Option<&'static str>> = OnceLock::new();
+#[expect(
+    clippy::disallowed_types,
+    reason = "process-wide module mapping initialized once"
+)]
+static MAPPING: std::sync::OnceLock<Option<&'static str>> = std::sync::OnceLock::new();
 #[cfg(any(windows, target_os = "linux"))]
 static REPORTED: AtomicBool = AtomicBool::new(false);
 

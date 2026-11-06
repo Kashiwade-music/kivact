@@ -23,12 +23,13 @@ use taffy::{
     Size,
 };
 
-use kivact_wire::{GridLine, GridPos};
+use kivact_types::{GridLine, GridPos};
 
 /// A full taffy style (named grid lines are never used): a grid
 /// container's (`NodeStyle::grid`).
 pub(crate) type TStyle = taffy::Style<String>;
 
+// xtask-allow(state-fields): Passive converted layout properties are independent optional sizing and alignment parameters.
 /// The taffy style of one layout node (see the module docs).
 #[derive(Clone, Debug)]
 pub(crate) struct NodeStyle {

@@ -4,31 +4,41 @@ use super::model::Hit;
 use super::model::{ChartConfig, ChartKind, ChartRow};
 use super::plot::{Options, hit_test, paint};
 use super::scale::format_value;
-use kivact::control::{Node, NodeBuilder, column, node};
-use kivact::draw::{Point, Size};
+use kivact::geometry::{Point, Size};
 use kivact::i18n::{message, message_with};
+use kivact::state::IntoValue;
+use kivact::state::{Value, memo, signal};
 use kivact::style::{Direction, Length, pct, style};
-use kivact::view::{
-    IntoValue, IntoView, Orientation, PointerEvent, PointerPhase, Role, View, dynamic, show,
-};
-use kivact::{Value, memo, signal};
+use kivact::view::{IntoView, Orientation, PointerEvent, PointerPhase, Role, View, dynamic, show};
+use kivact::view::{Node, NodeBuilder, column, node};
 use std::cell::Cell;
 use std::rc::Rc;
 
 /// The name of a kind in the chart's accessible name.
-fn kind_name(kind: ChartKind) -> Value<String> {
-    match kind {
-        ChartKind::Bar => message("basic.chart.bar", "Bar chart"),
-        ChartKind::StackedBar => message("basic.chart.stacked_bar", "Stacked bar chart"),
-        ChartKind::Line => message("basic.chart.line", "Line chart"),
-        ChartKind::Area => message("basic.chart.area", "Area chart"),
-        ChartKind::Pie => message("basic.chart.pie", "Pie chart"),
-        ChartKind::Donut => message("basic.chart.donut", "Donut chart"),
-        ChartKind::Radar => message("basic.chart.radar", "Radar chart"),
-        ChartKind::Radial => message("basic.chart.radial", "Radial chart"),
-    }
+fn kind_name(kind: Value<ChartKind>) -> Value<String> {
+    let names = [
+        message("basic.chart.bar", "Bar chart"),
+        message("basic.chart.stacked_bar", "Stacked bar chart"),
+        message("basic.chart.line", "Line chart"),
+        message("basic.chart.area", "Area chart"),
+        message("basic.chart.pie", "Pie chart"),
+        message("basic.chart.donut", "Donut chart"),
+        message("basic.chart.radar", "Radar chart"),
+        message("basic.chart.radial", "Radial chart"),
+    ];
+    memo(move || match kind.get() {
+        ChartKind::Bar => names[0].get(),
+        ChartKind::StackedBar => names[1].get(),
+        ChartKind::Line => names[2].get(),
+        ChartKind::Area => names[3].get(),
+        ChartKind::Pie => names[4].get(),
+        ChartKind::Donut => names[5].get(),
+        ChartKind::Radar => names[6].get(),
+        ChartKind::Radial => names[7].get(),
+    })
 }
 
+// xtask-allow(state-fields): Independent chart data, presentation options and slots supplied during construction; this builder owns no pointer or lifecycle state.
 /// A chart (chart.tsx). Created by [`chart`].
 ///
 /// The plot is drawn on one canvas in the theme's chart colors, with a hover
@@ -76,8 +86,8 @@ pub fn chart(config: ChartConfig, data: impl IntoValue<Vec<ChartRow>>) -> Chart 
         config,
         data: data.into_value(),
         options: Options {
-            kind: ChartKind::Bar,
-            horizontal: false,
+            kind: ChartKind::Bar.into_value(),
+            horizontal: false.into_value(),
             grid: true.into_value(),
             axis: true.into_value(),
         },
@@ -90,8 +100,8 @@ pub fn chart(config: ChartConfig, data: impl IntoValue<Vec<ChartRow>>) -> Chart 
 
 impl Chart {
     /// Choose how the data is drawn.
-    pub fn kind(mut self, kind: ChartKind) -> Self {
-        self.options.kind = kind;
+    pub fn kind(mut self, kind: impl IntoValue<ChartKind>) -> Self {
+        self.options.kind = kind.into_value();
         self
     }
 
@@ -99,8 +109,10 @@ impl Chart {
     /// ([`Orientation::Horizontal`]) or as columns ([`Orientation::Vertical`]
     /// and the default `Unspecified`). It affects bar and stacked bar charts
     /// only. A constant, like the kind: it is the shape of the chart.
-    pub fn orientation(mut self, orientation: Orientation) -> Self {
-        self.options.horizontal = orientation == Orientation::Horizontal;
+    pub fn orientation(mut self, orientation: impl IntoValue<Orientation>) -> Self {
+        let orientation = orientation.into_value();
+        self.options.horizontal =
+            (move || orientation.get() == Orientation::Horizontal).into_value();
         self
     }
 
@@ -152,6 +164,7 @@ impl Chart {
 }
 
 impl NodeBuilder for Chart {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -195,22 +208,13 @@ impl IntoView for Chart {
         let at = signal(Point::new(0.0, 0.0));
         let plot = Rc::new(Cell::new(Size::new(0.0, 0.0)));
         let total_label = message("basic.chart.total", "Total");
-        let kind = kind_name(options.kind);
-        let series_names = config
-            .series
-            .iter()
-            .map(|series| series.label.clone())
-            .collect::<Vec<_>>()
-            .join(", ");
-        let name = message_with("basic.chart.summary", "{kind}: {series}", move || {
-            [("kind", kind.get()), ("series", series_names.clone())]
-        });
+        let name = chart_name(options.kind, &config);
         let details = {
             let (config, format) = (config.clone(), format.clone());
             memo(move || data.with(|rows| describe(&config, rows, &*format)))
         };
         let canvas = node()
-            .role(Role::Image)
+            .with_node(|root| root.role(Role::Image))
             .name(name)
             .description(details)
             .style(move || style().width(pct(100)).height(height.get()).shrink(0))
@@ -231,13 +235,13 @@ impl IntoView for Chart {
                     if !with_tooltip.get_untracked() {
                         return;
                     }
-                    match event.phase {
+                    match event.phase() {
                         PointerPhase::Down(_) | PointerPhase::Move | PointerPhase::Enter => {
                             let next = data.with_untracked(|rows| {
                                 let frame = options.frame(&config, rows, "", &*format);
-                                hit_test(plot.get(), &frame, event.pos)
+                                hit_test(plot.get(), &frame, event.pos())
                             });
-                            at.set(event.pos);
+                            at.set(event.pos());
                             hit.set(next);
                         }
                         PointerPhase::Leave | PointerPhase::Cancel => hit.set(None),
@@ -268,4 +272,17 @@ impl IntoView for Chart {
             .child(card);
         root.child(plot_box).child(legend).into_view()
     }
+}
+
+fn chart_name(kind: Value<ChartKind>, config: &ChartConfig) -> Value<String> {
+    let kind = kind_name(kind);
+    let series_names = config
+        .series
+        .iter()
+        .map(|series| series.label.clone())
+        .collect::<Vec<_>>()
+        .join(", ");
+    message_with("basic.chart.summary", "{kind}: {series}", move || {
+        [("kind", kind.get()), ("series", series_names.clone())]
+    })
 }

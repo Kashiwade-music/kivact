@@ -39,13 +39,14 @@ fn main() -> kivact::Result<()> {
 ```
 
 `use kivact::prelude::*;` brings in the everyday names: `App`, `text`,
-`column`, `signal` and so on. You will use it at the top of every page.
+`column`, `signal`, `binding`, `callback` and so on. You will use it at the top
+of every page.
 
 `App::new("Tasks")` describes the application; the string is the window title.
 `.run(app)` opens the window and keeps running until you close it. It calls
 `app` once, and the view it returns becomes the content of the window.
 
-`app` is a **component**: an ordinary function that returns `impl IntoView`.
+`app` is the root **view builder**: an ordinary function returning `impl IntoView`.
 `impl IntoView` means "something that can be shown on screen"; you do not need
 to name the exact type. `text("Tasks")` is the simplest view, a line of text.
 

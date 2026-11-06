@@ -42,10 +42,10 @@ fn full_multiline_enter_reaches_the_parent_key_handler() {
     let screen = render(move || {
         node()
             .on_key(move |event: KeyEvent| {
-                keys.borrow_mut().push(format!("key {:?}", event.key));
+                keys.borrow_mut().push(format!("key {:?}", event.key()));
             })
             .child(
-                kivact::control::node().name("Limited").part(
+                kivact::view::node().name("Limited").part(
                     kivact::interaction::use_text_area(signal(String::from("x")))
                         .max_length(1usize)
                         .control(),
@@ -73,7 +73,7 @@ fn field_screen(initial: &str, area: bool) -> (Screen, Signal<String>, Log) {
         let value = signal(initial);
         tx.send(value).expect("the test waits");
         let (keys, changes, submits) = (out.clone(), out.clone(), out.clone());
-        let edited = kivact::binding(value, move |v: String| {
+        let edited = kivact::state::binding(value, move |v: String| {
             changes.borrow_mut().push(format!("change {v}"));
             value.set(v);
         });
@@ -86,7 +86,7 @@ fn field_screen(initial: &str, area: bool) -> (Screen, Signal<String>, Log) {
         column((
             node()
                 .on_key(move |e: KeyEvent| {
-                    keys.borrow_mut().push(format!("key {:?}", e.key));
+                    keys.borrow_mut().push(format!("key {:?}", e.key()));
                 })
                 .child(
                     node()
@@ -339,7 +339,10 @@ fn on_composition_change_reports_each_change_of_the_composing_state() {
                     .part(
                         field
                             .on_composition_change(move |composing| {
-                                seen.borrow_mut().push((composing, value.get_untracked()));
+                                seen.borrow_mut().push((
+                                    composing == kivact::view::Composition::Composing,
+                                    value.get_untracked(),
+                                ));
                             })
                             .control(),
                     )
@@ -408,4 +411,193 @@ fn a_max_length_set_after_the_control_is_made_limits_the_text() {
     screen.type_text("abcde");
     assert_eq!(value.get_untracked(), "abc");
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
+fn an_editing_node_draws_its_own_layer_over_the_text() {
+    use kivact::custom::{NodeRefExt, TextEditing, TextSession};
+    use kivact::geometry::Rect;
+    use kivact::style::Color;
+    let geometries = Rc::new(RefCell::new(Vec::new()));
+    let observed = geometries.clone();
+    let (tx, rx) = std::sync::mpsc::channel();
+    let screen = render(move || {
+        let editor = kivact::view::node_ref();
+        tx.send(editor).expect("the test receives its editor");
+        node()
+            .node_ref(editor)
+            .role(Role::TextBox)
+            .name("Layered editor")
+            .text_editing(TextEditing::new("Text underneath").multiline())
+            .style(style().size(240, 80).font_size(24).background(Color::WHITE))
+            .child(kivact::custom::inline_view(
+                "Inline",
+                kivact::draw::TextFormat::default(),
+                [(
+                    0,
+                    node()
+                        .name("Inline child")
+                        .style(style().size(4, 4))
+                        .into_view(),
+                )],
+            ))
+            .draw(|draw, size| {
+                draw.fill_rect(Rect::new(0., 0., size.width, size.height), rgb(0xff0000))
+            })
+            .draw_over(|draw, _| draw.fill_rect(Rect::new(20., 0., 8., 8.), rgb(0x00ff00)))
+            .draw_with_layout(move |draw, layout| {
+                if let Some(caret) = layout.carets.first() {
+                    assert!(
+                        layout
+                            .hit_test(kivact::geometry::Point::new(caret.rect.x, caret.rect.y))
+                            .is_some()
+                    );
+                }
+                observed.borrow_mut().push(layout.clone());
+                if let Some(line) = layout.lines.first() {
+                    draw.fill_rect(Rect::new(line.rect.x, line.rect.y, 8., 8.), rgb(0x0000ff));
+                }
+            })
+    });
+    let shot = screen.screenshot();
+    let red = editing_color_count(&shot, 0..80, 0);
+    assert!(red > 500, "custom drawing covers the native text");
+    assert!(
+        editing_color_count(&shot, 0..80, 2) > 10,
+        "layout drawing paints above the first layer"
+    );
+    assert!(
+        geometries
+            .borrow()
+            .iter()
+            .any(|layout| !layout.lines.is_empty() && !layout.carets.is_empty())
+    );
+    let editor = rx.recv().expect("the view sent its editor");
+    editor.set_edit_session(TextSession::select(0, 4));
+    let _ = screen.screenshot();
+    assert!(
+        geometries
+            .borrow()
+            .iter()
+            .any(|layout| !layout.selection.is_empty()),
+        "layout painting observes selection changes"
+    );
+    assert!(screen.errors().is_empty());
+}
+
+#[test]
+fn line_styles_color_each_line() {
+    use kivact::custom::TextEditing;
+    use kivact::style::{Color, StyledRange};
+    let states = Rc::new(RefCell::new(Vec::new()));
+    let visited = states.clone();
+    let screen = render(move || {
+        node()
+            .role(Role::TextBox)
+            .name("Styled lines")
+            .style(
+                style()
+                    .size(240, 120)
+                    .font_size(28)
+                    .background(Color::WHITE),
+            )
+            .text_editing(
+                TextEditing::new("First line\nSecond line")
+                    .multiline()
+                    .line_styles((), move |_, line, state: &usize| {
+                        visited.borrow_mut().push(*state);
+                        (
+                            vec![StyledRange {
+                                range: 0..line.len(),
+                                color: Some(rgb(if *state == 0 { 0xff0000 } else { 0x0000ff })),
+                                background: None,
+                                decoration: None,
+                            }],
+                            state + 1,
+                        )
+                    }),
+            )
+    });
+    let shot = screen.screenshot();
+    assert!(
+        editing_color_count(&shot, 0..45, 0) > 20,
+        "first line has red glyphs"
+    );
+    assert!(
+        editing_color_count(&shot, 25..100, 2) > 20,
+        "second line has blue glyphs"
+    );
+    assert!(
+        states.borrow().contains(&1),
+        "line state reaches the next line"
+    );
+    assert!(screen.errors().is_empty());
+}
+
+#[test]
+fn decorations_mark_a_range() {
+    use kivact::custom::{Decoration, DecorationKind, TextEditing};
+    use kivact::style::{Color, TextDecorationStyle};
+    let screen = render(|| {
+        node()
+            .role(Role::TextBox)
+            .name("Decorated range")
+            .style(
+                style()
+                    .size(240, 120)
+                    .font_size(28)
+                    .background(Color::WHITE),
+            )
+            .text_editing(
+                TextEditing::new("First line\nSecond line")
+                    .multiline()
+                    .decorations((), |_| {
+                        vec![
+                            Decoration {
+                                range: 0..5,
+                                kind: DecorationKind::Background,
+                                color: rgb(0xff0000),
+                            },
+                            Decoration {
+                                range: 11..17,
+                                kind: DecorationKind::Underline(TextDecorationStyle::Wavy),
+                                color: rgb(0x0000ff),
+                            },
+                            Decoration {
+                                range: 6..10,
+                                kind: DecorationKind::Outline,
+                                color: rgb(0x00ff00),
+                            },
+                        ]
+                    }),
+            )
+    });
+    let shot = screen.screenshot();
+    assert!(
+        editing_color_count(&shot, 0..45, 0) > 50,
+        "range background is drawn"
+    );
+    assert!(
+        editing_color_count(&shot, 0..45, 1) > 10,
+        "range outline is drawn"
+    );
+    assert!(
+        editing_color_count(&shot, 25..100, 2) > 10,
+        "second-line wavy underline is drawn"
+    );
+    assert!(screen.errors().is_empty());
+}
+
+fn editing_color_count(
+    shot: &kivact::test::Screenshot,
+    rows: std::ops::Range<u32>,
+    channel: usize,
+) -> usize {
+    rows.flat_map(|y| (0..220).map(move |x| (x, y)))
+        .filter(|&(x, y)| {
+            let rgb = super::paint::pixel(shot, x, y);
+            let pixel = [(rgb >> 16) & 255, (rgb >> 8) & 255, rgb & 255];
+            pixel[channel] > 140 && pixel[(channel + 1) % 3] < 100 && pixel[(channel + 2) % 3] < 100
+        })
+        .count()
 }

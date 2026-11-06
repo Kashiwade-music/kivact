@@ -62,11 +62,11 @@
 //!   rule, so their height matches a text node's. `measure_text` shapes the
 //!   same run the drawing does and returns its size and first baseline.
 
-use kivact_wire as p;
+use kivact_types as p;
 
 use super::color::Color;
 use super::effect::Shadow;
-use super::paint::{Paint, fill_layer};
+use super::paint::Paint;
 use super::theme::value::Theme;
 
 /// A text length: px (a number: `letter_spacing(1)`) or a multiple of the
@@ -75,9 +75,9 @@ use super::theme::value::Theme;
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum TextLength {
     /// Logical px.
-    Px(f32),
+    Px(f64),
     /// A multiple of the text's font size.
-    Em(f32),
+    Em(f64),
 }
 
 impl Default for TextLength {
@@ -88,32 +88,32 @@ impl Default for TextLength {
 
 impl From<i32> for TextLength {
     fn from(v: i32) -> Self {
-        TextLength::Px(v as f32)
+        TextLength::Px(v as f64)
     }
 }
 
 impl From<u32> for TextLength {
     fn from(v: u32) -> Self {
-        TextLength::Px(v as f32)
+        TextLength::Px(v as f64)
     }
 }
 
 impl From<f32> for TextLength {
-    fn from(v: f32) -> Self {
-        TextLength::Px(v)
+    fn from(value: f32) -> Self {
+        Self::Px(f64::from(value))
     }
 }
 
 impl From<f64> for TextLength {
     fn from(v: f64) -> Self {
-        TextLength::Px(v as f32)
+        TextLength::Px(v)
     }
 }
 
 /// `v` times the font size of the text it applies to (CSS `em`), for the
 /// text lengths: `letter_spacing(em(0.08))`, `text_underline_offset(em(0.2))`.
 pub fn em(v: impl Into<f64>) -> TextLength {
-    TextLength::Em(v.into() as f32)
+    TextLength::Em(v.into())
 }
 
 impl TextLength {
@@ -140,25 +140,26 @@ impl TextLength {
 /// A number never changes meaning with its size: `line_height(4.0)` is four
 /// times the font size and `line_height(4.5)` four and a half times.
 #[doc(inline)]
-pub use kivact_wire::LineHeight;
+pub use kivact_types::LineHeight;
 
 /// Which lines decorate text (CSS `text-decoration-line`), combined with
 /// `|`: `TextDecorationLine::UNDERLINE | TextDecorationLine::OVERLINE`.
 #[doc(inline)]
-pub use kivact_wire::DecorationLines as TextDecorationLine;
+pub use kivact_types::DecorationLines as TextDecorationLine;
+pub use kivact_types::TextDecorationStyle;
 
 /// What a line of text that does not fit shows (CSS `text-overflow`).
 #[doc(inline)]
-pub use kivact_wire::TextOverflow;
+pub use kivact_types::TextOverflow;
 
 /// Case conversion when text is drawn (CSS `text-transform`). The text's
 /// accessible name and `Element::text` keep the text as written.
 #[doc(inline)]
-pub use kivact_wire::TextTransform;
+pub use kivact_types::TextTransform;
 
 /// Pair kerning of text (CSS `font-kerning`).
 #[doc(inline)]
-pub use kivact_wire::FontKerning;
+pub use kivact_types::FontKerning;
 
 /// An OpenType feature setting (one entry of CSS `font-feature-settings`):
 /// a four letter tag and its value. `("tnum", 1)`, `("ss01", 1)` and
@@ -210,6 +211,7 @@ impl From<&str> for FontFeature {
     }
 }
 
+// xtask-allow(state-fields): Independent authored text properties use None for unspecified cascading values.
 /// The text properties of a style that are rare enough to keep out of
 /// line (boxed in `Style`).
 #[derive(Clone, Debug, PartialEq, Default)]
@@ -220,6 +222,7 @@ pub(crate) struct TextExtras {
     pub(crate) features: Option<Vec<FontFeature>>,
     pub(crate) tabular_nums: Option<bool>,
     pub(crate) decoration_line: Option<TextDecorationLine>,
+    pub(crate) decoration_style: Option<DecorationStyleValue>,
     pub(crate) decoration_color: Option<Color>,
     pub(crate) decoration_thickness: Option<TextLength>,
     pub(crate) underline_offset: Option<TextLength>,
@@ -250,6 +253,7 @@ impl TextExtras {
             features,
             tabular_nums,
             decoration_line,
+            decoration_style,
             decoration_color,
             decoration_thickness,
             underline_offset,
@@ -293,6 +297,7 @@ pub(crate) fn decoration(
     theme: &Theme,
 ) -> p::TextDecoration {
     p::TextDecoration {
+        style: TextDecorationStyle::default(),
         lines: line.unwrap_or_default(),
         color: color.map(|c| c.resolve(theme)),
         thickness: thickness.map(TextLength::to_wire),
@@ -303,7 +308,7 @@ pub(crate) fn decoration(
 /// Fill `t` (the engine's text props of a style) with the extras `x` it
 /// sets, and return how many values were dropped (a feature tag that is
 /// not four ASCII characters, a text shadow's spread or inset).
-pub(crate) fn resolve_extras(t: &mut p::TextProps, x: &TextExtras, theme: &Theme) -> u32 {
+pub(crate) fn resolve_extras(t: &mut p::TextStyle, x: &TextExtras, theme: &Theme) -> u32 {
     let mut dropped = 0;
     let features = x.features.as_deref().map(|settings| {
         let (features, bad) = self::features(Some(settings), false);
@@ -333,6 +338,7 @@ pub(crate) fn resolve_extras(t: &mut p::TextProps, x: &TextExtras, theme: &Theme
     t.features = features;
     t.tabular_nums = x.tabular_nums;
     t.decoration_lines = x.decoration_line;
+    t.decoration_style = x.decoration_style.as_ref().map(DecorationStyleValue::get);
     t.decoration_color = color(x.decoration_color);
     t.decoration_thickness = x.decoration_thickness.map(TextLength::to_wire);
     t.underline_offset = x.underline_offset.map(TextLength::to_wire);
@@ -347,14 +353,15 @@ pub(crate) fn resolve_extras(t: &mut p::TextProps, x: &TextExtras, theme: &Theme
     dropped
 }
 
+// xtask-allow(state-fields): Independent authored span overrides use None to inherit their paragraph properties.
 /// The text properties of one span of rich text; each one is optional and an
 /// unset one is the paragraph's. A span's decoration lines and features
-/// replace the paragraph's. The `Span` builders of `kivact::control` fill
-/// it, and [`SpanStyle::compile`] turns it into the engine's form.
+/// replace the paragraph's. The `Span` builders of `kivact::view` fill
+/// it, and [`crate::internal::compile_span_style`] turns it into the engine's form.
 #[derive(Clone, Debug, PartialEq, Default)]
 pub struct SpanStyle {
     /// Font size in logical px.
-    pub font_size: Option<f32>,
+    pub font_size: Option<f64>,
     /// Font weight.
     pub weight: Option<u16>,
     /// Color of the glyphs.
@@ -385,7 +392,7 @@ pub struct SpanStyle {
     pub background: Option<Paint>,
 }
 
-/// A [`SpanStyle`] in the engine's form, made by [`SpanStyle::compile`].
+/// A [`SpanStyle`] in the engine's form, made by [`crate::internal::compile_span_style`].
 pub struct CompiledSpanStyle {
     /// The properties the span sets (an unset one stays unset).
     pub props: p::SpanProps,
@@ -393,45 +400,59 @@ pub struct CompiledSpanStyle {
     pub unsupported: u32,
 }
 
-impl SpanStyle {
-    /// Compile the properties that are set, resolving colors and the
-    /// background against `theme`.
-    pub fn compile(&self, theme: &Theme) -> CompiledSpanStyle {
-        let mut unsupported = 0;
-        let features = (self.features.is_some() || self.tabular_nums.is_some()).then(|| {
-            let (features, lost) =
-                features(self.features.as_deref(), self.tabular_nums == Some(true));
-            unsupported += lost;
-            features
-        });
-        let decorated = self.decoration_line.is_some()
-            || self.decoration_color.is_some()
-            || self.decoration_thickness.is_some()
-            || self.underline_offset.is_some();
-        let props = p::SpanProps {
-            font_size: self.font_size,
-            weight: self.weight,
-            color: self.color.map(|c| c.resolve(theme)),
-            family: self.family.clone(),
-            italic: self.italic,
-            letter_spacing: self.letter_spacing.map(TextLength::to_wire),
-            word_spacing: self.word_spacing.map(TextLength::to_wire),
-            kerning: self.kerning,
-            features,
-            decoration: decorated.then(|| {
-                decoration(
-                    self.decoration_line,
-                    self.decoration_color,
-                    self.decoration_thickness,
-                    self.underline_offset,
-                    theme,
-                )
-            }),
-            background: self.background.as_ref().map(|paint| match paint.solid() {
-                Some(c) => p::Fill::Solid(c.resolve(theme)),
-                None => p::Fill::Layers(vec![fill_layer(paint, theme)]),
-            }),
-        };
-        CompiledSpanStyle { props, unsupported }
+/// A tracked decoration input, preserving constant equality and dynamic identity.
+#[derive(Clone)]
+pub(crate) enum DecorationStyleValue {
+    Fixed(TextDecorationStyle),
+    Dynamic(std::rc::Rc<kivact_runtime::Prop<TextDecorationStyle>>),
+}
+impl DecorationStyleValue {
+    pub(crate) fn new(value: impl kivact_runtime::IntoValue<TextDecorationStyle>) -> Self {
+        let value = value.into_prop();
+        match value.fixed() {
+            Some(value) => Self::Fixed(value),
+            None => Self::Dynamic(std::rc::Rc::new(value)),
+        }
     }
+    fn get(&self) -> TextDecorationStyle {
+        match self {
+            Self::Fixed(value) => *value,
+            Self::Dynamic(value) => value.get(),
+        }
+    }
+}
+impl std::fmt::Debug for DecorationStyleValue {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("DecorationStyleValue(..)")
+    }
+}
+impl PartialEq for DecorationStyleValue {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Fixed(a), Self::Fixed(b)) => a == b,
+            (Self::Dynamic(a), Self::Dynamic(b)) => std::rc::Rc::ptr_eq(a, b),
+            _ => false,
+        }
+    }
+}
+
+// xtask-allow(state-fields): Foreground, background and decoration independently override one byte range.
+/// Paint overrides for a UTF-8 byte range within one editing line.
+#[derive(Clone, Debug, PartialEq)]
+pub struct StyledRange {
+    pub range: std::ops::Range<usize>,
+    pub color: Option<Color>,
+    pub background: Option<Color>,
+    pub decoration: Option<TextDecoration>,
+}
+
+// xtask-allow(state-fields): Color and thickness are independently optional authored decoration properties.
+/// Lines, pattern and dimensions of a text decoration.
+#[derive(Clone, Copy, Debug, PartialEq, Default)]
+pub struct TextDecoration {
+    pub lines: TextDecorationLine,
+    pub color: Option<Color>,
+    pub thickness: Option<TextLength>,
+    pub underline_offset: TextLength,
+    pub style: TextDecorationStyle,
 }

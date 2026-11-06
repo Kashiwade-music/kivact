@@ -9,6 +9,7 @@
 #
 # Usage: dev/tools/check-features.sh
 #
+# Shared values live in kivact-types; engine client contracts live in kivact-engine.
 # Each entry is `crate/feature`. The facade (`kivact`, `kivact-ui`) is built
 # with only that feature turned on; the first failure stops the run with a
 # non-zero status.
@@ -19,28 +20,25 @@ cd "$(git rev-parse --show-toplevel)"
 
 entries=(
   arvane-native/embed
-  arvane/embed
-  kivact-engine/embed
   kivact-core/embed
   kivact/embed
+  kivact/gpu
+  kivact/gpu-interop
+  kivact/tokio
+  kivact-core/tokio
+  kivact-runtime/tokio
+  kivact/test
   arvane-render/gpu
   arvane-render/gpu-interop
-  arvane-native/testing
-  arvane/gpu
-  arvane/gpu-interop
-  arvane/testing
+  arvane-native/test
+  arvane-virtual/mirror
   kivact-gpu-share/export
   kivact-gpu-share/import
   kivact-gpu-share/wgpu
-  kivact-core/gpu
   kivact-core/gpu-interop
-  kivact-core/test
-  kivact-engine/gpu
-  kivact-engine/gpu-interop
+  kivact-test/embed
+  kivact-test/gpu-interop
   kivact-engine/testing
-  kivact-lower/gpu-interop
-  kivact-style/gpu-interop
-  kivact-ui-creative/gpu-interop
 )
 
 for entry in "${entries[@]}"; do
@@ -49,7 +47,7 @@ for entry in "${entries[@]}"; do
   if [[ "$crate" != kivact && "$crate" != kivact-ui ]]; then
     packages+=(-p "$crate")
   fi
-  if output="$(cargo check "${packages[@]}" --lib --features "$entry" 2>&1)"; then
+  if output="$(cargo check "${packages[@]}" --no-default-features --lib --features "$entry" 2>&1)"; then
     echo "ok   $entry"
   else
     echo "FAIL $entry" >&2

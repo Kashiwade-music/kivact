@@ -21,17 +21,16 @@
 //!   above a node undone); a scroll container carries its offset and a
 //!   transformed node the transform around its box, the one it is drawn
 //!   and hit with (G-07), so the platform maps it as it is drawn (`build`).
-//! - Sync records one `Dirt` level (clean, local text, metadata with its
+//! - Changes record one `Dirt` level (clean, local text, metadata with its
 //!   own-node, subtree and removed sets, or full). Publication enumerates
 //!   identity/order metadata, constructs only dirty payloads, and compares
 //!   complete fingerprints; the build returns the metadata it was built with,
 //!   which only window acceptance commits (with the hashes). No accepted
 //!   payload tree is retained in the engine. A rejected update requests a
 //!   complete resynchronization (`Dirt::Full`).
-//! - Publication happens after the client's turns, or, when the native
-//!   window has a frame to draw, after that frame
-//!   (`Window::defers_accessibility`).
-//! - Scene regions are flat synthetic leaves of their node, with native ids
+//! - Publication happens after the client's turns, or, when the window
+//!   has a frame to draw, after that frame (the redraw pumps again).
+//! - DrawList regions are flat synthetic leaves of their node, with native ids
 //!   counted down from `u64::MAX` that stay stable while the region exists;
 //!   a region with a non-finite or negative rect is left out alone.
 //! - Rows of a clipping list-like container (virtual list overscan) lying

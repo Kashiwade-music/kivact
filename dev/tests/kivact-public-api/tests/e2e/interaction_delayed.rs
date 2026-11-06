@@ -7,7 +7,7 @@
 use std::time::Duration;
 
 use crate::support::mount;
-use kivact::interaction::{Delayed, Delays, use_delayed};
+use kivact::interaction::{DelayedApi, Delays, use_delayed};
 use kivact::prelude::*;
 use kivact::test::Screen;
 use kivact::view::View;
@@ -32,11 +32,11 @@ fn card_shown(screen: &Screen) -> bool {
 
 /// The card, a button that dismisses it and one that pulses it.
 fn page(wanted: Signal<bool>, delays: Delays) -> View {
-    let card: Delayed = use_delayed(wanted, delays);
+    let card: DelayedApi = use_delayed(wanted, delays);
     column((
         button("Dismiss").on_press(move || card.dismiss()),
         button("Pulse").on_press(move || card.pulse()),
-        show(card.shown(), || text("Card")),
+        show(card.is_open(), || text("Card")),
     ))
     .into_view()
 }

@@ -1,16 +1,15 @@
 //! Role: Two thumbs editing the ends of one range without crossing.
 
-use crate::drag::Drag;
-use crate::edit::EditPhase;
+use crate::drag::DragApi;
 use crate::policy::scalar::{ScalarRange, ScalarRangeError};
-use crate::scalar::{
-    Edit, Grip, IntoScalarRange, Scalar, ScalarOps, ScalarState, Shared, pulled_inside,
-};
-use kivact_core::primitive::{Part, PartState, part};
-use kivact_core::view::{HandlerResult, IntoValue, Orientation};
-use kivact_core::{Binding, Value, binding, effect_on, memo};
+use crate::scalar::{Edit, Grip, ScalarApi, ScalarOps, ScalarState, Shared, follow_ranges};
+use kivact_core::custom::{Part, PartState, part};
+use kivact_core::state::IntoValue;
+use kivact_core::state::{Binding, Value, binding, memo};
+use kivact_core::view::EditPhase;
+use kivact_core::view::{HandlerResult, Orientation};
 
-/// Which end of a [`RangeScalar`] a thumb edits.
+/// Which end of a [`RangeScalarApi`] a thumb edits.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum RangeThumb {
     /// The lower end; it never passes the upper one.
@@ -22,7 +21,7 @@ pub enum RangeThumb {
 /// Copy handle for a slider with two thumbs, the behavior of react-aria's
 /// `useSlider` with two `useSliderThumb`s (Ark UI's range slider).
 ///
-/// Each end is a [`Scalar`] of the same range whose writes stop at the other
+/// Each end is a [`ScalarApi`] of the same range whose writes stop at the other
 /// end, so the thumbs never cross: a write past the other thumb lands on it.
 /// The published `value_min` of the high thumb is the low value, and the
 /// `value_max` of the low thumb is the high value. The [`track`](Self::track)
@@ -33,23 +32,29 @@ pub enum RangeThumb {
 /// technology action are each one edit, and a canceled drag writes both ends
 /// back.
 #[derive(Clone, Copy)]
-pub struct RangeScalar {
-    low: Scalar,
-    high: Scalar,
+pub struct RangeScalarApi {
+    low: ScalarApi,
+    high: ScalarApi,
 }
 
 /// Use the two bindings as the sole writers of the ends of a range of values.
 ///
 /// `range` bounds and quantizes both, as for [`use_scalar`](crate::use_scalar).
 /// The thumbs keep `low <= high` for their own writes; direct writes to the
-/// bindings are not validated. When the range changes, one effect moves both
+/// bindings are not validated. When the range changes, one transition moves both
 /// ends that lie outside the new range to its nearest bound together, so they
 /// stay ordered whatever order the thumbs were made in. Setup only.
 ///
 /// ```no_run
 /// # mod kivact {
 /// #     //! Role: Supply facade paths for this documentation example.
-/// #     pub use kivact_core::{control, prelude};
+/// # pub use kivact_core::{view, state, style};
+/// # pub mod prelude {
+/// # //! Role: Supply the canonical imports used by this documentation example.
+/// # pub use kivact_core::state::{Binding, Callback, IntoText, IntoValue, Signal, Value, binding, effect, memo, on_cleanup, on_mount, signal};
+/// # pub use kivact_core::view::{EditPhase, Component, IntoView, NodeBuilder, Orientation, Role, column, for_each, node, node_ref, row, show, text};
+/// # pub use kivact_core::style::{ColorToken, Cursor, Style, style};
+/// # }
 /// #     pub extern crate kivact_interaction as interaction;
 /// # }
 /// use kivact::interaction::{RangeThumb, ScalarRange, use_range_scalar};
@@ -66,19 +71,19 @@ pub struct RangeScalar {
 /// ```
 #[track_caller]
 pub fn use_range_scalar(
-    low: impl Into<Binding<f64>>,
-    high: impl Into<Binding<f64>>,
-    range: impl IntoScalarRange,
-) -> RangeScalar {
-    let (low, high) = (low.into(), high.into());
-    let range = range.into_range();
+    low: impl kivact_core::state::IntoBinding<f64>,
+    high: impl kivact_core::state::IntoBinding<f64>,
+    range: impl IntoValue<ScalarRange>,
+) -> RangeScalarApi {
+    let (low, high) = (low.into_binding(), high.into_binding());
+    let range = range.into_value();
     let snapshot = memo(move || [low.get(), high.get()]);
     let shared = Shared::new(snapshot, move |[from, to]| {
         low.set(from);
         high.set(to);
     });
     let (low_value, high_value) = (low.into_value(), high.into_value());
-    let end = |index: usize, write: Binding<f64>, bounds: (Value<f64>, Value<f64>)| Scalar {
+    let end = |index: usize, write: Binding<f64>, bounds: (Value<f64>, Value<f64>)| ScalarApi {
         ops: ScalarOps {
             binding: write,
             range,
@@ -87,7 +92,7 @@ pub fn use_range_scalar(
     };
     let min = memo(move || range.get().min());
     let max = memo(move || range.get().max());
-    let ends = RangeScalar {
+    let ends = RangeScalarApi {
         low: end(
             0,
             binding(low_value, move |v: f64| low.set(v.min(high.get()))),
@@ -99,18 +104,7 @@ pub fn use_range_scalar(
             (low_value, max),
         ),
     };
-    // One effect for both ends: moved one at a time, the first would pass the
-    // other, which still lies outside the new range.
-    effect_on(range, move |range| {
-        let from = pulled_inside(low.get_untracked(), *range);
-        let to = pulled_inside(high.get_untracked(), *range);
-        if let Some(from) = from {
-            low.set(from);
-        }
-        if let Some(to) = to {
-            high.set(to);
-        }
-    });
+    follow_ranges(low, high, range);
     shared
         .pointer
         .thumbs
@@ -118,10 +112,11 @@ pub fn use_range_scalar(
     ends
 }
 
-impl RangeScalar {
+impl RangeScalarApi {
     /// Override the positive keyboard and accessibility increment of both
-    /// thumbs, as [`Scalar::key_step`] does.
-    pub fn key_step(self, step: f64) -> Result<Self, ScalarRangeError> {
+    /// thumbs, as [`ScalarApi::key_step`] does.
+    pub fn key_step(self, step: impl IntoValue<f64>) -> Result<Self, ScalarRangeError> {
+        let step = step.into_value();
         // Both ends share the setting.
         self.low.key_step(step)?;
         Ok(self)
@@ -137,27 +132,27 @@ impl RangeScalar {
     }
 
     /// Report the start and end of each edit of either end as an
-    /// [`EditPhase`], with the rules of [`Scalar::on_edit`]. Setup only.
+    /// [`EditPhase`], with the rules of [`ScalarApi::on_edit`]. Setup only.
     pub fn on_edit<R: HandlerResult>(self, f: impl Fn(EditPhase) -> R + 'static) -> Self {
         self.low.on_edit(f);
         self
     }
 
-    /// Run `write` as one edit of the range, as [`Scalar::once`] does; a
+    /// Run `write` as one edit of the range, as [`ScalarApi::once`] does; a
     /// write of both ends (moving the whole interval) is one edit too.
     /// Call it from a handler.
     pub fn once(self, write: impl FnOnce() -> bool) -> bool {
         self.low.once(write)
     }
 
-    /// Make each drag of `drag` one edit of the range, as [`Scalar::scrub`]
+    /// Make each drag of `drag` one edit of the range, as [`ScalarApi::scrub`]
     /// does: a cancel writes both ends from before the press back. Setup only.
-    pub fn scrub<T: Clone + 'static>(self, drag: Drag<T>) -> Drag<T> {
+    pub fn scrub<T: Clone + 'static>(self, drag: DragApi<T>) -> DragApi<T> {
         self.low.scrub(drag)
     }
 
     /// The scalar operations of one end; its writes stop at the other end.
-    pub fn end(self, thumb: RangeThumb) -> Scalar {
+    pub fn end(self, thumb: RangeThumb) -> ScalarApi {
         match thumb {
             RangeThumb::Low => self.low,
             RangeThumb::High => self.high,
@@ -169,14 +164,19 @@ impl RangeScalar {
         self.low.range()
     }
 
-    /// The thumb of one end: [`Scalar::thumb`] with the other end as its
+    /// The thumb of one end: [`ScalarApi::thumb`] with the other end as its
     /// published bound. Setup only.
     #[track_caller]
+    pub fn thumb_state(self, thumb: RangeThumb) -> Value<ScalarState> {
+        self.end(thumb).control_state()
+    }
+
+    /// Attach one end's scalar semantics and input behavior.
     pub fn thumb(self, thumb: RangeThumb) -> Part<ScalarState> {
         self.end(thumb).thumb()
     }
 
-    /// The track both thumbs move along, as [`Scalar::track`]; a press moves
+    /// The track both thumbs move along, as [`ScalarApi::track`]; a press moves
     /// the thumb nearest to it, which takes the focus. A component that keeps
     /// one focus for both ends makes the thumbs `focusable(false)` and the
     /// track focusable: the press then leaves the focus on the track. Setup
@@ -195,8 +195,12 @@ impl RangeScalar {
     #[track_caller]
     pub fn body(self) -> Part<PartState> {
         let edit = self.low.edit;
-        edit.shared
-            .touch_source(part(|input| input).focus_on_press(edit.thumb), Grip::Body)
-            .with(edit.shared.drag.source(Grip::Body))
+        let input = part(|input| input);
+        let part_state = input.state();
+        Part::new(part_state, move |host| {
+            edit.shared
+                .touch_source(host.part(input).focus_on_press(edit.thumb), Grip::Body)
+                .part(edit.shared.drag.source(Grip::Body))
+        })
     }
 }

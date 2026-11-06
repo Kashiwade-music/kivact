@@ -71,12 +71,18 @@ impl<W: Fn()> Drop for WakeOnExit<W> {
 }
 
 pub(crate) struct Worker {
-    /// `None` only in `Drop` (closing the queue ends the thread's wait).
-    jobs: Option<Sender<Job>>,
+    thread: WorkerThread,
     done: Receiver<Done>,
     stop: Arc<AtomicBool>,
-    /// `None` once joined (a resumed panic, or `Drop`).
-    thread: Option<JoinHandle<()>>,
+}
+
+/// Queue and thread ownership move together when the worker is joined or dropped.
+enum WorkerThread {
+    Running {
+        jobs: Sender<Job>,
+        thread: JoinHandle<()>,
+    },
+    Joined,
 }
 
 impl Worker {
@@ -103,18 +109,16 @@ impl Worker {
                 }
             })?;
         Ok(Worker {
-            jobs: Some(jobs),
             done,
             stop,
-            thread: Some(thread),
+            thread: WorkerThread::Running { jobs, thread },
         })
     }
 
     pub(crate) fn submit(&mut self, job: Job) {
-        let jobs = self
-            .jobs
-            .as_ref()
-            .expect("invariant: the queue closes only in Drop");
+        let WorkerThread::Running { jobs, .. } = &self.thread else {
+            unreachable!("invariant: submitting after a worker panic ends the App");
+        };
         if jobs.send(job).is_err() {
             self.resume_panic();
         }
@@ -133,10 +137,11 @@ impl Worker {
     /// The thread ended before `Drop`, which only a panic in a job does:
     /// resume that panic here, on the host thread (it ends the App).
     fn resume_panic(&mut self) -> ! {
-        let thread = self
-            .thread
-            .take()
-            .expect("invariant: a resumed worker panic ends the App, so it is resumed once");
+        let WorkerThread::Running { jobs: _, thread } =
+            std::mem::replace(&mut self.thread, WorkerThread::Joined)
+        else {
+            unreachable!("invariant: a resumed worker panic ends the App, so it is resumed once");
+        };
         match thread.join() {
             Err(payload) => std::panic::resume_unwind(payload),
             Ok(()) => {
@@ -150,8 +155,10 @@ impl Drop for Worker {
     fn drop(&mut self) {
         self.stop.store(true, Ordering::Release);
         // Closing the queue ends the thread's wait once it is idle.
-        self.jobs = None;
-        if let Some(thread) = self.thread.take() {
+        if let WorkerThread::Running { jobs, thread } =
+            std::mem::replace(&mut self.thread, WorkerThread::Joined)
+        {
+            drop(jobs);
             let started = Instant::now();
             while !thread.is_finished() && started.elapsed() < SHUTDOWN_WAIT {
                 std::thread::sleep(Duration::from_millis(1));
@@ -163,7 +170,7 @@ impl Drop for Worker {
                     std::panic::resume_unwind(payload);
                 }
             } else {
-                crate::detached::DETACHED.store(true, Ordering::Release);
+                kivact_types::process::DetachedThreads::note();
                 tracing::warn!(target: "kivact", "asset job still running after the host closed; its thread is detached");
             }
         }

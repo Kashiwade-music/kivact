@@ -9,10 +9,11 @@ In this step the screen learns three things. A switch in the header changes betw
 `profile_card` and `notifications_card` are the ones from step 2. `settings` now takes the `dark` signal, and a new `root` function installs the theme.
 
 ```rust,test_harness
+use kivact::interaction::{DialogMode, Toast, Tone, toaster};
 use kivact::prelude::*;
 use kivact::style::theme::Typography;
 use kivact::style::{Direction, Theme, ThemeMode};
-use kivact::ui::{DialogKind, Toast, Tone, toast_region, toaster};
+use kivact::ui::toast_region;
 use kivact_ui_basic as basic;
 
 fn theme(mode: ThemeMode) -> Theme {
@@ -39,24 +40,34 @@ fn profile_card(
         ListItem::new("de", "German"),
     ];
     let changed = move || name.get() != saved_name.get();
-    basic::card()
-        .header(
-            basic::card_header("Profile")
-                .description("Choose how others see you.")
-                .action(move || {
-                    show(changed, || {
-                        basic::badge("Unsaved changes").variant(basic::BadgeVariant::Secondary)
-                    })
-                }),
-        )
-        .content(move || {
-            basic::field_group((
-                field("Display name", text_input("Display name", name))
-                    .hint("Shown on your public page."),
-                field("Language", select("Language", languages, language)),
+    kivact::ui::card({
+        basic::field_group((
+            field("Display name", text_input("Display name", name))
+                .hint("Shown on your public page."),
+            field("Language", select("Language", languages, language)),
+        ))
+    })
+    .header(
+        row((
+            column((
+                text("Profile").style(style().font_size(14).line_height(20.0 / 14.0).weight(500)),
+                text("Choose how others see you.").style(
+                    style()
+                        .line_height(1.625)
+                        .color(basic::ColorName::MutedForeground),
+                ),
             ))
-        })
-        .style(style().width(420))
+            .style(style().gap(4).grow(1).min_width(0)),
+            row({
+                show(changed, || {
+                    kivact::ui::badge("Unsaved changes").variant(basic::BadgeVariant::Secondary)
+                })
+            })
+            .style(style().align_self(Align::Start).shrink(0)),
+        ))
+        .style(style().align_items(Align::Start).gap(8)),
+    )
+    .style(style().width(420))
 }
 
 fn notifications_card(
@@ -69,26 +80,47 @@ fn notifications_card(
         ListItem::new("weekly", "Weekly"),
         ListItem::new("never", "Never"),
     ];
-    basic::card()
-        .header(
-            basic::card_header("Notifications").description("Choose what you want to hear about."),
-        )
-        .content(move || {
-            basic::field_group((
-                field("Weekly digest", switch("Weekly digest", digest).hide_label(true))
-                    .hint("A summary of your week, every Monday.")
-                    .style(style().direction(Direction::Row).align_items(Align::Center).gap(12)),
-                field("Mentions", switch("Mentions", mentions).hide_label(true))
-                    .hint("Tell me when someone mentions me.")
-                    .style(style().direction(Direction::Row).align_items(Align::Center).gap(12)),
-                basic::field_separator(),
-                field(
-                    "Reminders",
-                    basic::toggle_group(reminders, reminder).variant(basic::ToggleVariant::Outline),
+    kivact::ui::card({
+        basic::field_group((
+            field(
+                "Weekly digest",
+                switch("Weekly digest", digest).hide_label(true),
+            )
+            .hint("A summary of your week, every Monday.")
+            .style(
+                style()
+                    .direction(Direction::Row)
+                    .align_items(Align::Center)
+                    .gap(12),
+            ),
+            field("Mentions", switch("Mentions", mentions).hide_label(true))
+                .hint("Tell me when someone mentions me.")
+                .style(
+                    style()
+                        .direction(Direction::Row)
+                        .align_items(Align::Center)
+                        .gap(12),
                 ),
-            ))
-        })
-        .style(style().width(420))
+            basic::field_separator(),
+            field(
+                "Reminders",
+                kivact::ui::toggle_group("Options", reminders, reminder)
+                    .variant(basic::ToggleVariant::Outline),
+            ),
+        ))
+    })
+    .header(
+        column((
+            text("Notifications").style(style().font_size(14).line_height(20.0 / 14.0).weight(500)),
+            text("Choose what you want to hear about.").style(
+                style()
+                    .line_height(1.625)
+                    .color(basic::ColorName::MutedForeground),
+            ),
+        ))
+        .style(style().gap(4).grow(1).min_width(0)),
+    )
+    .style(style().width(420))
 }
 
 fn settings(dark: Signal<bool>) -> impl IntoView {
@@ -102,7 +134,7 @@ fn settings(dark: Signal<bool>) -> impl IntoView {
     column((
         row((
             column((
-                basic::h3("Settings"),
+                kivact::ui::heading("Settings", 3),
                 basic::muted("Manage your profile and notifications."),
             ))
             .style(style().grow(1).gap(8)),
@@ -127,27 +159,27 @@ fn settings(dark: Signal<bool>) -> impl IntoView {
         ))
         .style(style().gap(12).align_items(Align::Center)),
         basic::separator(),
-        basic::alert("Danger zone")
-            .variant(basic::AlertVariant::Destructive)
+        kivact::ui::alert("Danger zone")
+            .variant(basic::AlertLook::Destructive)
             .icon(icon("triangle-alert"))
             .description("Deleting your account cannot be undone.")
-            .action(move || {
+            .actions({
                 button("Delete account")
-                    .variant(ButtonVariant::Danger)
+                    .variant(kivact::ui::ButtonVariant::Danger)
                     .on_press(move || confirm_delete.set(true))
             })
             .style(style().width(856)),
         dialog("Delete your account?", confirm_delete)
-            .kind(DialogKind::AlertModal)
+            .mode(DialogMode::AlertModal)
             .closable(false)
             .description("All of your settings will be removed.")
             .footer(move || {
                 (
                     button("Cancel")
-                        .variant(ButtonVariant::Outline)
+                        .variant(kivact::ui::ButtonVariant::Outline)
                         .on_press(move || confirm_delete.set(false)),
                     button("Delete")
-                        .variant(ButtonVariant::Danger)
+                        .variant(kivact::ui::ButtonVariant::Danger)
                         .on_press(move || {
                             confirm_delete.set(false);
                             toaster().push(Toast::new("Account deleted"));
@@ -161,15 +193,21 @@ fn settings(dark: Signal<bool>) -> impl IntoView {
             .size(pct(100), pct(100))
             .padding(24)
             .gap(16)
-            .background(basic::Color::Background)
-            .color(basic::Color::Foreground),
+            .background(basic::ColorName::Background)
+            .color(basic::ColorName::Foreground),
     )
 }
 
 fn root() -> impl IntoView {
     let dark = signal(false);
-    kivact::view::provide_theme(
-        move || theme(if dark.get() { ThemeMode::Dark } else { ThemeMode::Light }),
+    kivact::style::provide_theme(
+        move || {
+            theme(if dark.get() {
+                ThemeMode::Dark
+            } else {
+                ThemeMode::Light
+            })
+        },
         move || settings(dark),
     )
 }
@@ -188,19 +226,17 @@ mod tests {
     use kivact::test::{RenderOptions, render_with};
 
     fn options() -> RenderOptions {
-        RenderOptions {
-            theme: theme(ThemeMode::Light),
-            width: 1000.0,
-            height: 800.0,
-            ..RenderOptions::default()
-        }
+        RenderOptions::with_theme(theme(ThemeMode::Light))
+            .window_size(1000.0, 800.0)
     }
 
     #[test]
     fn saving_shows_a_toast_and_clears_the_badge() {
         let screen = render_with(options(), root);
         assert!(screen.query_by_text("Unsaved changes").is_none());
-        screen.get_by_role(Role::TextBox, "Display name").type_text(" Lovelace");
+        screen
+            .get_by_role(Role::TextBox, "Display name")
+            .type_text(" Lovelace");
         screen.get_by_text("Unsaved changes");
         screen.get_by_role(Role::Button, "Save").click();
         screen.get_by_role(Role::Status, "Settings saved");
@@ -218,7 +254,10 @@ mod tests {
         screen.get_by_role(Role::Switch, "Dark mode").click();
         assert!(top_left(&screen) & 0xff < 0x20, "dark page");
         assert_eq!(
-            screen.get_by_role(Role::TextBox, "Display name").value().as_deref(),
+            screen
+                .get_by_role(Role::TextBox, "Display name")
+                .value()
+                .as_deref(),
             Some("Ada")
         );
     }
@@ -229,8 +268,16 @@ mod tests {
         screen.get_by_role(Role::Button, "Delete account").click();
         screen.get_by_role(Role::AlertDialog, "Delete your account?");
         screen.get_by_role(Role::Button, "Cancel").click();
-        assert!(screen.query_by_role(Role::AlertDialog, "Delete your account?").is_none());
-        assert!(screen.query_by_role(Role::Status, "Account deleted").is_none());
+        assert!(
+            screen
+                .query_by_role(Role::AlertDialog, "Delete your account?")
+                .is_none()
+        );
+        assert!(
+            screen
+                .query_by_role(Role::Status, "Account deleted")
+                .is_none()
+        );
 
         screen.get_by_role(Role::Button, "Delete account").click();
         screen.get_by_role(Role::Button, "Delete").click();
@@ -249,8 +296,8 @@ Run `cargo run`. You should see the same two cards with a "Dark mode" switch at 
 
 - **Switching the theme.** `provide_theme(theme, child)` gives the subtree below it a theme. Its first argument is a closure that reads `dark`, so every time `dark` changes the theme is rebuilt and every style re-resolves its colors. Components keep their state because they are not remounted. Pass the same kind of closure instead of a fixed `Theme` whenever the theme can change.
 - **Toasts.** `toast_region(toaster())` is mounted once; it is the place the toasts appear. Any handler can then call `toaster().push(Toast::new(title))`. `.tone(..)` picks the icon and urgency, `.body(..)` adds a second line. A toast closes itself after five seconds, pauses while the pointer is over it, and has a close button.
-- **Alert dialog.** `dialog(title, open)` is the standard dialog; `.kind(DialogKind::AlertModal)` makes it the kit's alert dialog. `open` is a plain `signal(bool)`: a button sets it to `true`, and the buttons in `.footer(..)` set it to `false`. `.closable(false)` removes the close button an alert dialog does not have.
-- **Alert vs. alert dialog.** `basic::alert(..)` is a static callout on the page (the "Danger zone" box). The dialog is the pop-up that interrupts.
+- **Alert dialog.** `dialog(title, open)` is the standard dialog; `.mode(DialogMode::AlertModal)` makes it the kit's alert dialog. `open` is a plain `signal(bool)`: a button sets it to `true`, and the buttons in `.footer(..)` set it to `false`. `.closable(false)` removes the close button an alert dialog does not have.
+- **Alert vs. alert dialog.** `kivact::ui::alert(..)` is a static callout on the page (the "Danger zone" box). The dialog is the pop-up that interrupts.
 
 ## The test
 

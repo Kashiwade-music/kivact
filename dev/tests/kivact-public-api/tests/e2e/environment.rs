@@ -6,7 +6,8 @@
 use std::cell::Cell;
 use std::rc::Rc;
 
-use kivact::platform::{self, Insets};
+use kivact::geometry::Insets;
+use kivact::platform;
 use kivact::prelude::*;
 use kivact::style::Position;
 use kivact::test::render;
@@ -25,15 +26,15 @@ fn a_change_of_one_environment_field_notifies_only_its_readers() {
             column((
                 text(move || {
                     motion.set(motion.get() + 1);
-                    format!("motion {}", platform::reduced_motion())
+                    format!("motion {}", platform::is_motion_reduced().get())
                 }),
                 text(move || {
                     safe.set(safe.get() + 1);
-                    format!("safe {}", platform::safe_area().top)
+                    format!("safe {}", platform::safe_area().get().top)
                 }),
                 text(move || {
                     size.set(size.get() + 1);
-                    format!("size {}", platform::window_size().width)
+                    format!("size {}", platform::window_size().get().width)
                 }),
             ))
         }
@@ -77,7 +78,7 @@ fn a_change_of_one_environment_field_notifies_only_its_readers() {
 fn app_motion_override_survives_system_changes_and_can_be_cleared() {
     let screen = render(|| {
         column((
-            text(move || format!("motion {}", platform::reduced_motion())),
+            text(move || format!("motion {}", platform::is_motion_reduced().get())),
             button("Reduce").on_press(|| {
                 spawn(platform::set_reduced_motion(Some(true)));
             }),
@@ -101,7 +102,7 @@ fn app_motion_override_survives_system_changes_and_can_be_cleared() {
 fn the_safe_area_starts_at_zero_and_follows_the_platform() {
     let screen = render(|| {
         let safe = move || {
-            let s = platform::safe_area();
+            let s = platform::safe_area().get();
             format!("safe {} {} {} {}", s.top, s.right, s.bottom, s.left)
         };
         column((
@@ -110,7 +111,7 @@ fn the_safe_area_starts_at_zero_and_follows_the_platform() {
             node().test_id("bar").style(move || {
                 style()
                     .position(Position::Absolute)
-                    .top(platform::safe_area().top)
+                    .top(platform::safe_area().get().top)
                     .left(0)
                     .size(100, 20)
             }),
@@ -151,7 +152,6 @@ fn the_safe_area_starts_at_zero_and_follows_the_platform() {
 
 #[test]
 fn advanced_semantics_publish_roles_and_reactive_states() {
-    use kivact::primitive::NodeExt;
     use kivact::view::{CurrentItem, PopupKind};
 
     let screen = render(|| {
@@ -169,10 +169,12 @@ fn advanced_semantics_publish_roles_and_reactive_states() {
                         .child(text("Hello")),
                 ),
             button("Choose")
-                .has_popup(Some(PopupKind::ListBox))
-                .current_item(move || current.get().then_some(CurrentItem::Page)),
+                .with_node(move |node| node.has_popup(Some(PopupKind::ListBox)))
+                .with_node(move |node| {
+                    node.current_item(move || current.get().then_some(CurrentItem::Page))
+                }),
             field("Email", text_input("Email", signal(String::new()))).required(true),
-            button("Working").loading(current),
+            button("Working").busy(current),
             button("Clear").on_press(move || current.set(false)),
         ))
     });
@@ -221,5 +223,33 @@ fn control_size_provider_prefers_the_nearest_default_and_explicit_sizes() {
     assert!(height("Small") < height("Ordinary"));
     assert_eq!(height("Explicit medium"), height("Ordinary"));
     assert!(height("Large") > height("Ordinary"));
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
+fn theme_hint_follows_the_platform() {
+    let screen = render(|| text(move || format!("theme {:?}", platform::theme_hint().get())));
+    screen.set_dark(false);
+    screen.get_by_text("theme Light");
+    screen.set_dark(true);
+    screen.get_by_text("theme Dark");
+    screen.set_dark(false);
+    screen.get_by_text("theme Light");
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
+fn pointer_class_is_reported() {
+    let screen = render(|| {
+        text(move || format!("pointer {:?}", platform::pointer_settings().get().primary))
+    });
+    screen.get_by_text("pointer Fine");
+    screen.set_pointer_settings(platform::PointerSettings {
+        primary: platform::PointerClass::Coarse,
+        ..platform::PointerSettings::default()
+    });
+    screen.get_by_text("pointer Coarse");
+    screen.set_pointer_settings(platform::PointerSettings::default());
+    screen.get_by_text("pointer Fine");
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }

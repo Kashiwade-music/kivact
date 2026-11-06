@@ -3,16 +3,16 @@
 //! Layers: group opacity, clips to any shape, blend modes, blur and drop
 //! shadow filters, gradient masks, and how groups must nest.
 
-use kivact_types::protocol::{DrawCommand, Layer, LayerFilter, Paint};
+use kivact_types::render::{Layer, LayerFilter, Paint, RenderCmd};
 
 use crate::support::{
     RED, WHITE, assert_near, color, color_alpha, fill, gray, open, pixel, pt, rect, show,
 };
 
-fn layer(layer: Layer, content: Vec<DrawCommand>) -> Vec<DrawCommand> {
-    let mut commands = vec![DrawCommand::PushLayer(layer)];
+fn layer(layer: Layer, content: Vec<RenderCmd>) -> Vec<RenderCmd> {
+    let mut commands = vec![RenderCmd::PushLayer(layer)];
     commands.extend(content);
-    commands.push(DrawCommand::PopLayer);
+    commands.push(RenderCmd::PopLayer);
     commands
 }
 
@@ -31,7 +31,7 @@ fn group_opacity_fades_the_group_not_each_command() {
     );
     // The same two rects, each half transparent.
     for x in [50.0, 70.0] {
-        commands.push(DrawCommand::Rect {
+        commands.push(RenderCmd::Rect {
             rect: rect(x, 0.0, 30.0, 40.0),
             fill: Paint::Solid(color_alpha(RED, 0.5)),
         });

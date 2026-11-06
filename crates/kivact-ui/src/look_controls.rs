@@ -1,6 +1,6 @@
 //! Role: Default recipes for the radio group, slider, toasts and splitter.
-use super::values::{AxisState, CheckState, ControlSize, ToastGroupState};
-use kivact_core::primitive::PartState;
+use super::values::{AxisState, CheckableState, ControlSize, ToastGroupState};
+use kivact_core::custom::PartState;
 use kivact_core::style::{
     Align, Color, ColorToken, Cursor, Direction, Justify, Position, Style, Theme, pct, style,
 };
@@ -8,7 +8,7 @@ use kivact_core::view::Orientation;
 use kivact_interaction::{ToastState, Tone};
 
 /// The standard checkbox and switch draw their indicators in the root.
-pub(super) fn empty_toggle_part(_: &Theme, _: &CheckState) -> Style {
+pub(super) fn empty_toggle_part(_: &Theme, _: &CheckableState) -> Style {
     style().size(0, 0)
 }
 
@@ -22,7 +22,7 @@ pub(super) fn radio_group(t: &Theme, orientation: &Orientation) -> Style {
 }
 
 /// An option: its indicator beside its label.
-pub(super) fn radio_item(t: &Theme, state: &CheckState) -> Style {
+pub(super) fn radio_item(t: &Theme, state: &CheckableState) -> Style {
     style()
         .direction(Direction::Row)
         .align_items(Align::Center)
@@ -36,7 +36,7 @@ pub(super) fn radio_item(t: &Theme, state: &CheckState) -> Style {
 }
 
 /// The circle of an option, the accent around the `dot` while chosen.
-pub(super) fn radio_indicator(t: &Theme, state: &CheckState) -> Style {
+pub(super) fn radio_indicator(t: &Theme, state: &CheckableState) -> Style {
     let side = (t.text().size + 2.0).round();
     let s = style()
         .size(side, side)
@@ -55,7 +55,7 @@ pub(super) fn radio_indicator(t: &Theme, state: &CheckState) -> Style {
     }
 }
 
-pub(super) fn radio_mark(_: &Theme, state: &CheckState) -> Style {
+pub(super) fn radio_mark(_: &Theme, state: &CheckableState) -> Style {
     if state.checked.is_checked() {
         style()
     } else {
@@ -63,14 +63,14 @@ pub(super) fn radio_mark(_: &Theme, state: &CheckState) -> Style {
     }
 }
 
-pub(super) fn radio_description(t: &Theme, _: &CheckState) -> Style {
+pub(super) fn radio_description(t: &Theme, _: &CheckableState) -> Style {
     style()
         .font_size(t.text().size_small)
         .color(ColorToken::TextMuted)
 }
 
 /// The thickness of a track and the side of a thumb.
-fn slider_metrics(t: &Theme, size: ControlSize) -> (f32, f32) {
+fn slider_metrics(t: &Theme, size: ControlSize) -> (f64, f64) {
     let thumb = match size {
         ControlSize::ExtraSmall | ControlSize::Small => (t.text().size).round(),
         ControlSize::Medium | ControlSize::Large => (t.text().size + 4.0).round(),
@@ -88,9 +88,9 @@ pub(super) fn slider_track(t: &Theme, state: &AxisState) -> Style {
     let s = s.paint(move |d, size| {
         let r = bar / 2.0;
         let rect = if size.width >= size.height {
-            kivact_core::draw::Rect::new(0.0, (size.height - bar) / 2.0, size.width, bar)
+            kivact_core::geometry::Rect::new(0.0, (size.height - bar) / 2.0, size.width, bar)
         } else {
-            kivact_core::draw::Rect::new((size.width - bar) / 2.0, 0.0, bar, size.height)
+            kivact_core::geometry::Rect::new((size.width - bar) / 2.0, 0.0, bar, size.height)
         };
         d.rounded_rect(rect, r, ColorToken::SurfaceAlt);
     });
@@ -105,9 +105,9 @@ pub(super) fn slider_range(t: &Theme, state: &AxisState) -> Style {
     let (bar, _) = slider_metrics(t, state.size);
     style().paint(move |d, size| {
         let rect = if size.width >= size.height && size.height > 0.0 {
-            kivact_core::draw::Rect::new(0.0, (size.height - bar) / 2.0, size.width, bar)
+            kivact_core::geometry::Rect::new(0.0, (size.height - bar) / 2.0, size.width, bar)
         } else {
-            kivact_core::draw::Rect::new((size.width - bar) / 2.0, 0.0, bar, size.height)
+            kivact_core::geometry::Rect::new((size.width - bar) / 2.0, 0.0, bar, size.height)
         };
         d.rounded_rect(rect, bar / 2.0, ColorToken::Accent);
     })
@@ -223,12 +223,22 @@ pub(super) fn splitter_handle(_: &Theme, state: &AxisState) -> Style {
         .paint(|d, size| {
             if size.width <= size.height {
                 d.fill_rect(
-                    kivact_core::draw::Rect::new((size.width - 1.0) / 2.0, 0.0, 1.0, size.height),
+                    kivact_core::geometry::Rect::new(
+                        (size.width - 1.0) / 2.0,
+                        0.0,
+                        1.0,
+                        size.height,
+                    ),
                     ColorToken::Border,
                 );
             } else {
                 d.fill_rect(
-                    kivact_core::draw::Rect::new(0.0, (size.height - 1.0) / 2.0, size.width, 1.0),
+                    kivact_core::geometry::Rect::new(
+                        0.0,
+                        (size.height - 1.0) / 2.0,
+                        size.width,
+                        1.0,
+                    ),
                     ColorToken::Border,
                 );
             }
@@ -238,5 +248,21 @@ pub(super) fn splitter_handle(_: &Theme, state: &AxisState) -> Style {
     match state.orientation {
         Orientation::Vertical => s.height(6).cursor(Cursor::NsResize),
         _ => s.width(6).cursor(Cursor::EwResize),
+    }
+}
+
+/// Shared by all kits: the row owns size presence independently of card paint.
+pub(super) fn toast_row(t: &Theme, _: &PartState) -> Style {
+    let tokens = t.ext::<crate::UiTokens>();
+    let motion = &tokens.toast.row_motion;
+    let base = style()
+        .shrink(0)
+        .enter_size(kivact_core::view::Orientation::Vertical)
+        .exit_size(kivact_core::view::Orientation::Vertical);
+    if let Some(transition) = &motion.transition {
+        base.padding_top(motion.gap)
+            .transition(kivact_core::style::TransitionProp::Size, transition.clone())
+    } else {
+        base
     }
 }

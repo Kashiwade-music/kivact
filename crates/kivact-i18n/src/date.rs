@@ -85,9 +85,12 @@ fn days_from_civil(year: i32, month: u8, day: u8) -> i64 {
     era * 146_097 + doe - 719_468
 }
 
-/// The civil date `days` after 1970-01-01.
+/// The civil date `days` after 1970-01-01, saturating at the first and last
+/// day of the years an `i32` holds.
 fn civil_from_days(days: i64) -> CalendarDate {
-    let z = days + 719_468;
+    let first = days_from_civil(i32::MIN, 1, 1);
+    let last = days_from_civil(i32::MAX, 12, 31);
+    let z = days.clamp(first, last) + 719_468;
     let era = z.div_euclid(146_097);
     let doe = z - era * 146_097;
     let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
@@ -146,18 +149,19 @@ impl CalendarDate {
     }
 
     /// Days since 1970-01-01 (negative before).
-    pub fn to_epoch_days(self) -> i64 {
+    pub fn to_days(self) -> i64 {
         days_from_civil(self.year, self.month, self.day)
     }
 
-    /// The date `days` after 1970-01-01.
-    pub fn from_epoch_days(days: i64) -> Self {
+    /// The date `days` after 1970-01-01, saturating at the first and last
+    /// day of the years an `i32` holds.
+    pub fn from_days(days: i64) -> Self {
         civil_from_days(days)
     }
 
     /// The date `days` later (earlier when negative).
     pub fn add_days(self, days: i32) -> Self {
-        civil_from_days(self.to_epoch_days() + i64::from(days))
+        civil_from_days(self.to_days() + i64::from(days))
     }
 
     /// The date `months` later with the same day, or the last day of a
@@ -170,7 +174,7 @@ impl CalendarDate {
     /// The day of the week.
     pub fn weekday(self) -> Weekday {
         // 1970-01-01 was a Thursday.
-        Weekday::Monday.days_after((self.to_epoch_days() + 3).rem_euclid(7) as usize)
+        Weekday::Monday.days_after((self.to_days() + 3).rem_euclid(7) as usize)
     }
 
     /// The number of days in this date's month.
@@ -289,3 +293,5 @@ impl DateRange {
         self.start <= date && date <= self.end
     }
 }
+
+kivact_runtime::constant_value!(CalendarDate, CalendarMonth, DateRange);

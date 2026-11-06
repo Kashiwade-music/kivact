@@ -1,33 +1,55 @@
 //! Role: Reveal in-place actions on hover and keyboard focus.
-use crate::tokens;
-use kivact::interaction::{Delays, use_delayed};
-use kivact::memo;
+
+use kivact::interaction::Delays;
+use kivact::interaction::use_delayed;
 use kivact::motion::Transition;
-use kivact::style::{Position, Style, TransitionProp, style};
+use kivact::state::memo;
+use kivact::style::Position;
+use kivact::style::Style;
+use kivact::style::TransitionProp;
+use kivact::style::style;
 use kivact::view::NodeRef;
 use std::time::Duration;
 
+/// Override the container hover input used by a reveal.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum RevealForce {
+    /// Treat the container as hovered.
     Active,
+    /// Treat the container as not hovered.
     Inactive,
 }
 
+/// Override visibility while preserving focus in the revealed content.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum RevealVisibility {
+    /// Keep content visible.
     Shown,
+    /// Hide content unless it contains keyboard focus.
     Hidden,
 }
 
+/// Fixed reveal behavior sampled when the reveal is bound.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
+// Immutable reveal construction policy: independent inversion, layout retention, caller overrides and delay; these fields describe no current hover or visibility phase.
 pub struct RevealContent {
+    // xtask-allow(state-fields): Immutable hover-inversion policy, not a current hover flag.
+    /// Reveal away from hover instead of on hover; focus and touch still reveal.
     pub inverted: bool,
+    // xtask-allow(state-fields): Immutable layout-retention policy, not current visibility.
+    /// Keep hidden content in normal layout instead of removing its space.
     pub preserve_layout: bool,
+    // xtask-allow(state-fields): Optional caller visibility policy override, not a stored lifecycle.
+    /// Optional visibility override; focused content remains visible.
     pub force: Option<RevealVisibility>,
+    // xtask-allow(state-fields): Optional independent container hover-input override, not current hover state.
+    /// Optional override of the container hover input.
     pub container_force: Option<RevealForce>,
-    pub hover_delay_ms: f32,
+    /// Delay before hover reveals content, in milliseconds; defaults to zero.
+    pub hover_delay_ms: f64,
 }
 
+/// Mark a base style as a reveal group.
 pub fn reveal_container(base: Style) -> Style {
     base.group()
 }
@@ -42,7 +64,7 @@ pub fn reveal_content(
     let hovered = container.hovered();
     let group_focused = container.focus_within();
     let content_focused = content.focus_within();
-    let touch = kivact::platform::capabilities().touch;
+    let touch = kivact::platform::capabilities().get().touch;
     let hover_delay = if options.hover_delay_ms.is_finite() {
         Duration::from_millis(options.hover_delay_ms.max(0.0) as u64)
     } else {
@@ -59,7 +81,7 @@ pub fn reveal_content(
         let hover = match options.container_force {
             Some(RevealForce::Active) => true,
             Some(RevealForce::Inactive) => false,
-            None => hover.shown().get(),
+            None => hover.is_open().get(),
         };
         let focused = group_focused.get();
         match options.force {
@@ -69,10 +91,10 @@ pub fn reveal_content(
             None => focused || touch || hover,
         }
     });
-    let fade_out = if kivact::platform::reduced_motion() {
+    let fade_out = if kivact::platform::is_motion_reduced().get() {
         0
     } else {
-        tokens().motion.fast
+        kivact::style::use_tokens::<crate::Tokens>().motion.fast
     };
     let in_flow = use_delayed(
         visible,
@@ -82,14 +104,17 @@ pub fn reveal_content(
         },
     );
     move || {
-        let t = tokens();
+        let t = kivact::style::use_tokens::<crate::Tokens>();
         let base = style()
             .opacity(if visible.get() { 1.0 } else { 0.0 })
             .transition(
                 TransitionProp::Paint,
                 Transition::tween(t.motion.fast as f64, t.motion.ease_standard),
             );
-        if !visible.get() && !in_flow.shown().get() && !options.inverted && !options.preserve_layout
+        if !visible.get()
+            && !in_flow.is_open().get()
+            && !options.inverted
+            && !options.preserve_layout
         {
             base.position(Position::Absolute)
         } else {

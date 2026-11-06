@@ -8,43 +8,48 @@ The kit never owns your data. Collections come in as plain `Vec`s (or a signal o
 
 ## Show a small static table
 
-`basic::table` is for content that is laid out by hand. Build it from a header, a body and optionally a footer and caption:
+`kivact::ui::table` is for content that is laid out by hand. Build it from a header, a body and optionally a footer and caption:
 
 ```rust,no_run
 use kivact::prelude::*;
 use kivact_ui_basic as basic;
 
 fn invoices() -> impl IntoView {
-    basic::table((
-        basic::table_header(basic::table_row((
-            basic::table_head("Invoice").width(110.0),
-            basic::table_head("Status"),
-            basic::table_head("Amount").align(basic::TableAlign::End),
-        ))),
-        basic::table_body((
-            basic::table_row((
-                basic::table_cell("INV001").width(110.0),
-                basic::table_cell("Paid"),
-                basic::table_cell("$250.00").align(basic::TableAlign::End),
+    kivact::ui::table((
+        kivact::ui::table_header((kivact::ui::table_row((
+            kivact::ui::table_head("Invoice").width(110.0),
+            kivact::ui::table_head("Status"),
+            kivact::ui::table_head("Amount").align(kivact::style::TextAlign::End),
+        )),)),
+        kivact::ui::table_body((
+            kivact::ui::table_row((
+                kivact::ui::table_cell("INV001").width(110.0),
+                kivact::ui::table_cell("Paid"),
+                kivact::ui::table_cell("$250.00").align(kivact::style::TextAlign::End),
             )),
-            basic::table_row((
-                basic::table_cell("INV002").width(110.0),
-                basic::table_cell("Pending"),
-                basic::table_cell("$150.00").align(basic::TableAlign::End),
+            kivact::ui::table_row((
+                kivact::ui::table_cell("INV002").width(110.0),
+                kivact::ui::table_cell("Pending"),
+                kivact::ui::table_cell("$150.00").align(kivact::style::TextAlign::End),
             )),
         )),
-        basic::table_footer(basic::table_row((
-            basic::table_cell("Total").width(110.0),
-            basic::table_cell(""),
-            basic::table_cell("$400.00").align(basic::TableAlign::End),
-        ))),
-        basic::table_caption("A list of recent invoices."),
+        kivact::ui::table_footer((kivact::ui::table_row((
+            kivact::ui::table_cell("Total").width(110.0),
+            kivact::ui::table_cell(""),
+            kivact::ui::table_cell("$400.00").align(kivact::style::TextAlign::End),
+        )),)),
+        text("A list of recent invoices.").style(
+            style()
+                .margin_top(16)
+                .color(basic::ColorName::MutedForeground)
+                .text_align(kivact::style::TextAlign::Center),
+        ),
     ))
     .style(style().width(460))
 }
 ```
 
-Give the same `.width(..)` to the head and cell of a column that should have a fixed width; the others share the rest. A row can be made selectable: `basic::table_row(..).selected(move || chosen.get() == index).on_press(move || chosen.set(index))`.
+Give the same `.width(..)` to the head and cell of a column that should have a fixed width; the others share the rest. A row can be made selectable: `kivact::ui::table_row(..).selected(move || chosen.get() == index).on_press(move || chosen.set(index))`.
 
 ## Show many rows with sorting, filtering, selection and paging
 
@@ -63,9 +68,21 @@ struct Payment {
 
 fn payments() -> impl IntoView {
     let data = vec![
-        Payment { id: 1, email: "ken99@example.com", amount: 316.0 },
-        Payment { id: 2, email: "abe45@example.com", amount: 242.0 },
-        Payment { id: 3, email: "silas22@example.com", amount: 874.0 },
+        Payment {
+            id: 1,
+            email: "ken99@example.com",
+            amount: 316.0,
+        },
+        Payment {
+            id: 2,
+            email: "abe45@example.com",
+            amount: 242.0,
+        },
+        Payment {
+            id: 3,
+            email: "silas22@example.com",
+            amount: 874.0,
+        },
     ];
     let query = signal(String::new());
     let selected = signal(Vec::<u32>::new());
@@ -117,10 +134,23 @@ fn visitors() -> impl IntoView {
         basic::ChartRow::new("Feb", [305.0, 200.0]),
         basic::ChartRow::new("Mar", [237.0, 120.0]),
     ];
-    basic::card()
-        .header(basic::card_header("Bar chart").description("January - March"))
-        .content(move || basic::chart(config, data).kind(basic::ChartKind::Line).height(220.0))
-        .style(style().width(560))
+    kivact::ui::card(
+        basic::chart(config, data)
+            .kind(basic::ChartKind::Line)
+            .height(220.0),
+    )
+    .header(
+        column((
+            text("Bar chart").style(style().font_size(14).line_height(20.0 / 14.0).weight(500)),
+            text("January - March").style(
+                style()
+                    .line_height(1.625)
+                    .color(basic::ColorName::MutedForeground),
+            ),
+        ))
+        .style(style().gap(4).grow(1).min_width(0)),
+    )
+    .style(style().width(560))
 }
 ```
 
@@ -141,32 +171,33 @@ use kivact_ui_basic as basic;
 fn people() -> impl IntoView {
     column((
         row((
-            basic::badge("Active"),
-            basic::badge("Draft").variant(basic::BadgeVariant::Secondary),
-            basic::badge("Failed").variant(basic::BadgeVariant::Destructive),
-            basic::badge("Verified")
+            kivact::ui::badge("Active"),
+            kivact::ui::badge("Draft").variant(basic::BadgeVariant::Secondary),
+            kivact::ui::badge("Failed").variant(basic::BadgeVariant::Destructive),
+            kivact::ui::badge("Verified")
                 .variant(basic::BadgeVariant::Outline)
-                .icon(icon("badge-check")),
+                .icon(icon("badge-check").style(style().size(12, 12))),
         ))
         .style(style().gap(8).align_items(Align::Center)),
-        basic::avatar_group((
-            basic::avatar("AL"),
-            basic::avatar("GH"),
-            basic::avatar("AT").size(basic::AvatarSize::Lg),
-            basic::avatar_group_count("+3"),
-        )),
+        kivact::ui::avatar_group((
+            kivact::ui::avatar("AL").fallback_content(|| text("AL")),
+            kivact::ui::avatar("GH").fallback_content(|| text("GH")),
+            kivact::ui::avatar("AT")
+                .fallback_content(|| text("AT"))
+                .size(kivact::ui::ControlSize::Large),
+        )).max(3usize).total(6usize),
     ))
     .style(style().gap(12))
 }
 ```
 
 - Badge variants are `Default`, `Secondary`, `Destructive`, `Outline`, `Ghost` and `Link`. A badge becomes a button when you give it `.on_press(..)`.
-- `basic::avatar(fallback).image(bytes)` takes image bytes, such as a `&'static [u8]` from `include_bytes!`. The fallback text shows until the image is available, and when there is none. Sizes are `Sm`, the default and `Lg`. `.badge(|| icon("plus"))` adds a small mark on the corner.
-- `avatar_group` overlaps its avatars; `avatar_group_count("+3")` is the "and more" circle at the end.
+- `kivact::ui::avatar(name).src(Some(asset))` reads reactive images. Use `.fallback_content(|| text("CN"))` for exact fallback text; otherwise the component derives initials from the name. Sizes are `ControlSize::Small`, `Medium` and `Large`. `.status(Some(Tone::Success))` draws a semantic corner dot; `.status_content(view)` accepts custom corner content. `.name_tooltip(true)` shows the name in a tooltip; the Basic theme leaves it off unless asked.
+- `kivact::ui::avatar_group(children)` overlaps its avatars. `.max(limit)` bounds visible children, and `.total(count)` includes participants not yet loaded; the overflow disc shows the actual remainder.
 
 ## Show code with a copy button
 
-`basic::code_block(lines)` draws highlighted lines in a monospaced font. `basic::rust_lines(source)` highlights Rust source and `basic::code_lines(text)` shows plain text. The copy button does not touch the clipboard itself; it calls `.on_copy(..)` and you decide what happens:
+`kivact::ui::code_block(source)` owns selection, scrolling and clipboard feedback. Parse Rust once with `basic::rust_source(source)`, then pass those spans and the current palette to `.highlight(.., basic::rust_lines)`. Plain code needs no highlighter. `.on_copy(..)` observes a copy after Core writes the clipboard:
 
 ```rust,no_run
 use kivact::prelude::*;
@@ -174,23 +205,55 @@ use kivact_ui_basic as basic;
 
 fn snippet() -> impl IntoView {
     let source = "fn main() {\n    println!(\"Hello, Kivact!\");\n}";
-    basic::code_block(basic::rust_lines(source))
+    let parsed=basic::rust_source(source);
+    kivact::ui::code_block(source.to_string())
+        .highlight(move || (parsed.clone(), kivact::style::use_tokens::<basic::Tokens>().code.clone()), basic::rust_lines)
         .title("main.rs")
         .line_numbers(true)
-        .on_copy(move || {
-            spawn(kivact::platform::copy_text(source));
-        })
         .style(style().width(pct(100)))
 }
 ```
 
-- `.max_height(..)` makes a long block scroll, `.size(basic::CodeBlockSize::Sm)` is the compact size, and `.footer(|| ..)` adds a line below the block.
+- `.max_height(..)` makes a long block scroll, `.variant(basic::CodeBlockSize::Sm)` is the compact size, and `.footer(..)` adds a line below the block.
 - For another language, build the lines by hand: a `CodeLine` is a list of `CodeSpan::new(text, CodeTone::Keyword)` and so on (tones: `Plain`, `Keyword`, `String`, `Number`, `Comment`, `Function`, `Type`, `Macro`, `Lifetime`, `Punctuation`, `Attribute`). The colors are the `code` field of the theme's tokens.
 - The code font is `Geist Mono`; register it as described in [Theme and tokens](theme-and-tokens.md#choose-the-fonts). Without it a system monospace font is used.
-- After a successful copy the button reads "Copied" for a moment. The words come from `basic.code_block.*` messages.
+- After a successful copy the button reads "Copied" for a moment. The words come from `code_block.*` messages.
+
+## Show a conversation
+
+Use one `kivact::ui::chat_message(author)` for each entry, with `.content(..)`, `.avatar(..)`, `.footer(..)` and `.align(ChatAlign::End)` as needed. `basic::BubbleVariant` selects the seven Basic color treatments. A standalone bubble uses `.variant(basic::ChatLayout::Bubble)` and an empty author; ordinary rows use the default Message layout. Reactions use the canonical `.reactions(..)` and `.reactions_side(..)` slots.
+
+```rust,no_run
+use kivact::prelude::*;
+use kivact_ui_basic as basic;
+
+fn conversation() -> impl IntoView {
+    kivact::ui::chat_thread(column((
+        kivact::ui::chat_message("Ada")
+            .content("Lunch at noon?")
+            .variant(basic::BubbleVariant::Secondary),
+        kivact::ui::chat_message("You")
+            .content("Sounds good.")
+            .align(kivact::ui::ChatAlign::End),
+    )).style(style().gap(6)))
+    .style(style().height(240).width(360))
+}
+```
+
+`chat_thread` provides the semantic log, scrolling and jump-to-latest action. Give it a bounded height. Core follows new content until the reader scrolls away; it resumes when the reader reaches the end or uses the jump action.
+
+## Show activity details
+
+Use ordinary rows for activity lines. For expandable detail, use `kivact::ui::disclosure(label, open).variant(basic::DisclosureVariant::Trace).content(..).attach(trigger)`. The caller supplies the icon, title and duration in `trigger`; the same `open` binding can rotate its chevron. Core owns activation, keyboard input and expanded semantics, while the Trace variant draws the muted detail and vertical rule.
 
 ## See also
 
 - [Forms](forms.md): inputs, pickers and validation.
 - [Theme and tokens](theme-and-tokens.md): chart and code colors follow the theme's tokens.
 - Rustdoc: `cargo doc -p kivact-ui-basic --open` for the chart, table and code block types, and `cargo doc -p kivact-ui --open` for `data_table`.
+
+`kivact::ui::item_list(children)` groups standard `item_row(title)` rows. Set `basic::ItemVariant` and `basic::ItemMediaVariant` with `.variant(..)`; `basic::ItemSize::Sm` keeps a 32 px image instead of 40 px. For reactive density use `.variant(basic::ItemLook::default().size(size))`. Media, actions, header and footer remain ordinary view slots.
+
+Standard cards use `kivact::ui::card(content)` with ordinary views in `.header(..)`, `.media(..)` and `.footer(..)`. `basic::CardSize::Sm` is a visual variant. Use `.variant(basic::CardLook::default().size(size).header_bordered(bordered))` for reactive spacing and a header rule; the header title, description and action are caller-composed text and row/column views.
+
+Headings use `kivact::ui::heading(text, level)` and the theme keeps the original Basic typography. Progress supports `ProgressVariant::Bar`, `Ring` and `Gauge` through `.variant(..)`; all three use the Basic primary and muted palette. For a fixed media ratio, put `.aspect_ratio(width / height)` on the caller-owned node style. Statistics and description lists use the standard `stat` and `description_list` components.

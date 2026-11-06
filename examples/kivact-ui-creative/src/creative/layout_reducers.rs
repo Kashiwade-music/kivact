@@ -1,6 +1,6 @@
 //! Role: Application reducers for catalog hierarchy and row order.
 
-use kivact::{Signal, signal};
+use kivact::state::{Signal, signal};
 use kivact_ui_creative as ui;
 
 pub(super) fn outliner(items: Signal<Vec<ui::TreeItem>>, state: ui::OutlinerState) -> ui::Outliner {

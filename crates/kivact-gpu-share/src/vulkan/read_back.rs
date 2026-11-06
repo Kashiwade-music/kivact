@@ -11,8 +11,8 @@
 
 use super::raw::{COLOR, barrier, memory_type};
 use crate::common::{Error, api};
-use crate::pool::straighten;
 use ash::vk;
+use kivact_types::color::unpremultiply;
 use std::time::Duration;
 
 /// An engine's image to read back ([`read_back`]): a 2D image of
@@ -158,7 +158,7 @@ pub unsafe fn read_back(
     // SAFETY: the mapping holds `size` bytes, written and made visible to
     // the host (the barrier and the fence).
     unsafe { std::ptr::copy_nonoverlapping(mapped.cast::<u8>(), rgba.as_mut_ptr(), len) };
-    straighten(&mut rgba);
+    unpremultiply(&mut rgba);
     Ok(rgba)
 }
 
@@ -209,25 +209,8 @@ unsafe fn record(
             (transfer, read),
         );
     }
-    let region = vk::BufferImageCopy {
-        buffer_offset: 0,
-        buffer_row_length: 0,
-        buffer_image_height: 0,
-        image_subresource: vk::ImageSubresourceLayers {
-            aspect_mask: COLOR.aspect_mask,
-            mip_level: 0,
-            base_array_layer: 0,
-            layer_count: 1,
-        },
-        image_offset: vk::Offset3D::default(),
-        image_extent: vk::Extent3D {
-            width: image.width,
-            height: image.height,
-            depth: 1,
-        },
-    };
-    // SAFETY: as above, with a buffer of the image's size.
-    unsafe { device.cmd_copy_image_to_buffer(command, image.image, source, buffer, &[region]) };
+    // SAFETY: the image is in transfer-source layout and buffer has its checked extent.
+    unsafe { copy_pixels(device, command, buffer, image) };
     let host = vk::BufferMemoryBarrier::default()
         .src_access_mask(vk::AccessFlags::TRANSFER_WRITE)
         .dst_access_mask(vk::AccessFlags::HOST_READ)
@@ -273,4 +256,44 @@ unsafe fn record(
             );
         }
     }
+}
+
+/// Record the tightly packed image-to-buffer transfer.
+///
+/// # Safety
+/// The command buffer is recording, the image is in transfer-source layout,
+/// and the buffer has room for its pixels.
+unsafe fn copy_pixels(
+    device: &ash::Device,
+    command: vk::CommandBuffer,
+    buffer: vk::Buffer,
+    image: &ReadImage,
+) {
+    let region = vk::BufferImageCopy {
+        buffer_offset: 0,
+        buffer_row_length: 0,
+        buffer_image_height: 0,
+        image_subresource: vk::ImageSubresourceLayers {
+            aspect_mask: COLOR.aspect_mask,
+            mip_level: 0,
+            base_array_layer: 0,
+            layer_count: 1,
+        },
+        image_offset: vk::Offset3D::default(),
+        image_extent: vk::Extent3D {
+            width: image.width,
+            height: image.height,
+            depth: 1,
+        },
+    };
+    // SAFETY: as above, with a buffer of the image's size.
+    unsafe {
+        device.cmd_copy_image_to_buffer(
+            command,
+            image.image,
+            vk::ImageLayout::TRANSFER_SRC_OPTIMAL,
+            buffer,
+            &[region],
+        )
+    };
 }

@@ -1,7 +1,6 @@
 //! Role: Public Bezier control edits, cancellation and read-only curve previews.
-use crate::support::clean;
 use kivact::prelude::*;
-use kivact::ui::EditPhase::{Begin, Commit};
+use kivact::view::EditPhase::{Begin, Commit};
 use kivact::view::{A11yAction, Modifiers};
 use kivact_ui_creative as ui;
 use std::cell::RefCell;
@@ -72,5 +71,5 @@ fn bezier_keys_and_advertised_actions_make_single_edits() {
     first.a11y_set_value("NaN,0.5");
     assert_eq!(log.borrow().len(), 14);
     assert_eq!(value.get_untracked().x2, 0.25);
-    clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }

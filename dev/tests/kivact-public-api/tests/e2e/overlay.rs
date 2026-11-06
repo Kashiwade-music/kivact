@@ -5,28 +5,22 @@
 //! overlay is open, keys go to it and stop at it, and events aimed outside
 //! it are dropped. Overlays flip and stay inside the window.
 
-use kivact::primitive::NodeExt;
 use std::cell::Cell;
 use std::rc::Rc;
 
-use kivact::diagnostics::ErrorKind;
-use kivact::draw::{Point, Rect};
+use kivact::ErrorKind;
+use kivact::geometry::{Point, Rect};
 use kivact::prelude::*;
 use kivact::style::Position;
 use kivact::test::{RenderOptions, render, render_with};
-use kivact::view::{
-    A11yAction, Handled, OverlayAlign, OverlayViewport, Placement, overlay, overlay_at,
-};
+use kivact::view::{A11yAction, Handled, OverlayAlign, Placement, overlay, overlay_at};
 
 #[test]
 fn fitted_overlays_flip_slide_and_respect_the_theme_margin() {
     let screen = render_with(
-        RenderOptions {
-            width: 240.0,
-            height: 180.0,
-            theme: Theme::light().with(OverlayViewport::new(16.0)),
-            ..RenderOptions::from_env()
-        },
+        RenderOptions::from_env()
+            .window_size(240.0, 180.0)
+            .theme(Theme::light().with_overlay_margin(16.0)),
         || {
             let anchor = node_ref();
             let middle = node_ref();
@@ -55,7 +49,7 @@ fn fitted_overlays_flip_slide_and_respect_the_theme_margin() {
                 ),
                 overlay(middle, Placement::Below, node())
                     .align(OverlayAlign::Center)
-                    .keep_anchor_clear(true)
+                    .keep_anchor_clear()
                     .offset(4)
                     .style(style().size(190, 110))
                     .test_id("tooltip"),
@@ -91,7 +85,7 @@ impl Count {
 }
 
 /// A menu button toggling a menu overlay below it, and another button.
-fn menu(dismissed: Count, other: Count) -> impl IntoView {
+fn menu(dismissed: Count, other: Count) -> impl Component {
     let open = signal(false);
     let anchor = node_ref();
     column((
@@ -130,7 +124,7 @@ fn menu(dismissed: Count, other: Count) -> impl IntoView {
             )
             // A role exposes the menu (and its Dismiss) to assistive
             // technology.
-            .role(Role::Menu)
+            .with_node(move |node| node.role(Role::Menu))
             .test_id("menu")
             .on_dismiss(move |_| {
                 d();
@@ -255,10 +249,10 @@ fn keys_go_to_an_open_modal_without_focus_and_stop_there() {
                 let m = m.clone();
                 // No tab stop inside: nothing is focused while it is open.
                 overlay(opener, Placement::Center, text("お知らせ"))
-                    .modal(true)
-                    .role(Role::Dialog)
+                    .modal()
+                    .with_node(move |node| node.role(Role::Dialog))
                     .on_key(move |event| {
-                        assert_eq!(event.target_role, Some(Role::Dialog));
+                        assert_eq!(event.target_role(), Some(Role::Dialog));
                         m();
                         Handled::No
                     })
@@ -295,7 +289,7 @@ fn keys_go_to_an_open_modal_without_focus_and_stop_there() {
 fn overlays_flip_clamp_center_stay_out_of_flow_and_follow_their_anchor() {
     let s = render(|| {
         let (left, right) = (node_ref(), node_ref());
-        let push = signal(0.0_f32);
+        let push = signal(0.0_f64);
         column((
             node()
                 .test_id("push")
@@ -374,8 +368,7 @@ fn overlays_flip_clamp_center_stay_out_of_flow_and_follow_their_anchor() {
 #[test]
 fn at_least_anchor_width_on_a_point_overlay_is_reported() {
     let screen = render(|| {
-        overlay_at(Point::new(10.0, 10.0), Placement::Below, text("menu"))
-            .at_least_anchor_width(true)
+        overlay_at(Point::new(10.0, 10.0), Placement::Below, text("menu")).at_least_anchor_width()
     });
     let errors = screen.errors();
     assert_eq!(errors.len(), 1, "{errors:?}");

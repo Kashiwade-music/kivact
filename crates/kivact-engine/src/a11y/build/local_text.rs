@@ -5,27 +5,27 @@
 use crate::a11y::state::Metadata;
 use crate::model::Model;
 use arvane as a;
-use kivact_wire as wire;
+use kivact_types as types;
 use std::collections::BTreeSet;
 
 impl Model {
     pub(super) fn build_local_text(
         &mut self,
-        root: wire::NodeId,
-        nodes: &BTreeSet<wire::NodeId>,
+        root: types::NodeId,
+        nodes: &BTreeSet<types::NodeId>,
         engine: &mut a::Engine,
-    ) -> kivact_types::protocol::SemanticsTree {
+    ) -> kivact_types::render::SemanticsTree {
         let metadata = std::rc::Rc::clone(&self.a11y.metadata);
         self.build_local_text_with(root, nodes, &metadata, engine)
     }
 
     fn build_local_text_with(
         &mut self,
-        root: wire::NodeId,
-        nodes: &BTreeSet<wire::NodeId>,
+        root: types::NodeId,
+        nodes: &BTreeSet<types::NodeId>,
         metadata: &Metadata,
         engine: &mut a::Engine,
-    ) -> kivact_types::protocol::SemanticsTree {
+    ) -> kivact_types::render::SemanticsTree {
         let mut dirty = nodes.clone();
         let mut queue: Vec<_> = dirty.iter().copied().collect();
         // Current naming policy has no implicit ancestor name. Only raw
@@ -37,6 +37,7 @@ impl Model {
                 }
             }
         }
+        self.invalidate_boxless_ancestors(&mut dirty);
         let mut order: Vec<_> = dirty.into_iter().collect();
         order.sort_by_key(|id| (self.tree().chain(Some(*id)).len(), *id));
         let mut nodes = Vec::new();
@@ -55,8 +56,8 @@ impl Model {
         {
             self.a11y.constructed += nodes.len() as u64;
         }
-        kivact_types::protocol::SemanticsTree {
-            root: kivact_types::NodeId(root.0),
+        kivact_types::render::SemanticsTree {
+            root: kivact_types::SemanticsId(root.0),
             focus: self.semantics_focus(&metadata.clipped),
             nodes,
         }

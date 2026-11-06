@@ -11,11 +11,11 @@
 //! mixed state, and the caller's writer clears it. A disabled control takes no input or
 //! assistive technology action and leaves the tab order.
 
-use kivact_core::primitive::{Part, PartState, part};
-use kivact_core::view::{
-    A11yAction, CheckedState, Handled, IntoValue, Key, KeyEvent, Modifiers, Role,
-};
-use kivact_core::{Binding, Signal, Value, signal};
+use crate::options_cell::OptionsCell;
+use kivact_core::custom::{Part, PartState, part};
+use kivact_core::state::IntoValue;
+use kivact_core::state::{Binding, Signal, Value, signal};
+use kivact_core::view::{A11yAction, CheckedState, Handled, Key, KeyEvent, Modifiers, Role};
 
 /// Copy handle for a momentary button, the behavior of react-aria's
 /// `useButton`. Attach its [`control`](Self::control) to the caller's
@@ -29,14 +29,15 @@ use kivact_core::{Binding, Signal, Value, signal};
 /// else's (a canvas region, a native control).
 #[derive(Clone, Copy)]
 pub struct ButtonApi {
+    observed: Signal<Option<Value<PartState>>>,
     disabled: Signal<Option<Value<bool>>>,
 }
 
 /// Create a momentary button without creating a view. Setup only.
 ///
 /// ```no_run
-/// use kivact_core::control::node;
-/// use kivact_core::control::NodeBuilder;
+/// use kivact_core::view::node;
+/// use kivact_core::view::NodeBuilder;
 /// use kivact_interaction::use_button;
 /// let control = use_button().control();
 /// let view = node().part(control).name("Save").on_press(|| {});
@@ -44,11 +45,22 @@ pub struct ButtonApi {
 #[track_caller]
 pub fn use_button() -> ButtonApi {
     ButtonApi {
+        observed: signal(None),
         disabled: signal(None),
     }
 }
 
 impl ButtonApi {
+    /// Drawing state of the actual mounted control.
+    pub fn control_state(self) -> Value<PartState> {
+        kivact_core::state::memo(move || {
+            self.observed
+                .get()
+                .map(|state| state.get())
+                .unwrap_or_default()
+        })
+    }
+
     /// Ignore input and assistive technology while true.
     ///
     /// Also marks the root disabled and makes it unfocusable. Setup only.
@@ -63,19 +75,27 @@ impl ButtonApi {
     #[track_caller]
     pub fn control(self) -> Part<PartState> {
         let disabled = self.disabled;
-        part(|input| input)
-            .role(Role::Button)
-            .focusable(true)
-            .disabled(move || disabled.with(|d| d.is_some_and(|d| d.get())))
+        let input = part(|input| input);
+        let part_state = input.state();
+        self.observed.set(Some(part_state));
+        Part::new(part_state, move |mut host| {
+            let caller_disabled = host.accessible_disabled();
+
+            host.part(input)
+                .role(Role::Button)
+                .focusable(true)
+                .disabled(move || {
+                    caller_disabled.is_some_and(|value| value.get())
+                        || disabled.with(|d| d.is_some_and(|d| d.get()))
+                })
+        })
     }
 }
 
 /// What a toggle is; the mixed state belongs to the check box.
 #[derive(Clone, Copy)]
 enum Kind {
-    Checkbox {
-        indeterminate: Signal<Option<Value<bool>>>,
-    },
+    Checkbox,
     Switch,
     Button,
 }
@@ -90,9 +110,15 @@ pub struct ToggleState {
 /// What every toggle shares: the binding, the kind and the disabled value.
 #[derive(Clone, Copy)]
 struct Core {
+    // xtask-allow(state-fields): The checked binding is caller-owned input, independent of mount observation.
     checked: Binding<bool>,
     kind: Kind,
-    disabled: Signal<Option<Value<bool>>>,
+    // xtask-allow(state-fields): EditSession already owns the edit lifecycle machine; bool is its payload type.
+    edit: crate::EditSession<bool>,
+    observed: Signal<Option<Value<ToggleState>>>,
+    options: OptionsCell<ToggleOptions>,
+    // xtask-allow(state-fields): Host disabled is a mounted node input, not a lifecycle phase.
+    host_disabled: Signal<Option<Value<bool>>>,
 }
 
 /// Copy handle for a check box ([`use_checkbox`]), react-aria's
@@ -115,7 +141,12 @@ pub struct CheckboxApi {
 /// also flips on Enter; a switch consumes plain Enter without flipping. Caller
 /// key handlers run first. (A check box is a [`CheckboxApi`].)
 #[derive(Clone, Copy)]
-pub struct Toggle {
+pub struct SwitchApi {
+    core: Core,
+}
+
+#[derive(Clone, Copy)]
+pub struct ToggleButtonApi {
     core: Core,
 }
 
@@ -123,8 +154,17 @@ fn core(checked: Binding<bool>, kind: Kind) -> Core {
     Core {
         checked,
         kind,
-        disabled: signal(None),
+        edit: crate::EditSession::new(move |value| checked.set(value)),
+        observed: signal(None),
+        options: OptionsCell::new(ToggleOptions::default()),
+        host_disabled: signal(None),
     }
+}
+
+#[derive(Clone, Default)]
+struct ToggleOptions {
+    disabled: Option<Value<bool>>,
+    indeterminate: Option<Value<bool>>,
 }
 
 /// A check box (`Role::CheckBox`) editing `checked`, react-aria's
@@ -132,8 +172,9 @@ fn core(checked: Binding<bool>, kind: Kind) -> Core {
 /// [`indeterminate`](CheckboxApi::indeterminate). Setup only.
 ///
 /// ```no_run
-/// use kivact_core::{signal, control::node};
-/// use kivact_core::control::NodeBuilder;
+/// use kivact_core::state::{signal};
+/// use kivact_core::{view::node};
+/// use kivact_core::view::NodeBuilder;
 /// use kivact_interaction::use_checkbox;
 /// let checked = signal(false);
 /// let control = use_checkbox(checked).control();
@@ -141,23 +182,18 @@ fn core(checked: Binding<bool>, kind: Kind) -> Core {
 /// let view = node().part(control).name("Remember me");
 /// ```
 #[track_caller]
-pub fn use_checkbox(checked: impl Into<Binding<bool>>) -> CheckboxApi {
+pub fn use_checkbox(checked: impl kivact_core::state::IntoBinding<bool>) -> CheckboxApi {
     CheckboxApi {
-        core: core(
-            checked.into(),
-            Kind::Checkbox {
-                indeterminate: signal(None),
-            },
-        ),
+        core: core(checked.into_binding(), Kind::Checkbox),
     }
 }
 
 /// A switch (`Role::Switch`) editing `checked`, react-aria's `useSwitch`.
 /// Setup only.
 #[track_caller]
-pub fn use_switch(checked: impl Into<Binding<bool>>) -> Toggle {
-    Toggle {
-        core: core(checked.into(), Kind::Switch),
+pub fn use_switch(checked: impl kivact_core::state::IntoBinding<bool>) -> SwitchApi {
+    SwitchApi {
+        core: core(checked.into_binding(), Kind::Switch),
     }
 }
 
@@ -165,13 +201,26 @@ pub fn use_switch(checked: impl Into<Binding<bool>>) -> Toggle {
 /// `aria-pressed`) editing `pressed`, react-aria's `useToggleButton`.
 /// Setup only.
 #[track_caller]
-pub fn use_toggle_button(pressed: impl Into<Binding<bool>>) -> Toggle {
-    Toggle {
-        core: core(pressed.into(), Kind::Button),
+pub fn use_toggle_button(pressed: impl kivact_core::state::IntoBinding<bool>) -> ToggleButtonApi {
+    ToggleButtonApi {
+        core: core(pressed.into_binding(), Kind::Button),
     }
 }
 
 impl CheckboxApi {
+    /// Observe a discrete toggle edit.
+    pub fn on_edit<R: kivact_core::view::HandlerResult>(
+        self,
+        f: impl Fn(kivact_core::view::EditPhase) -> R + 'static,
+    ) -> Self {
+        self.core.edit.on_edit(f);
+        self
+    }
+
+    /// Drawing state of the mounted control.
+    pub fn control_state(self) -> Value<ToggleState> {
+        self.core.control_state()
+    }
     /// Publish a mixed (partially checked) state to assistive technology while
     /// true.
     ///
@@ -185,9 +234,9 @@ impl CheckboxApi {
     #[track_caller]
     pub fn indeterminate(self, mixed: impl IntoValue<bool>) -> Self {
         let mixed = mixed.into_value();
-        if let Kind::Checkbox { indeterminate } = self.core.kind {
-            indeterminate.update(|slot| *slot = Some(mixed));
-        }
+        self.core
+            .options
+            .update(|options| options.indeterminate = Some(mixed));
         self
     }
 
@@ -207,7 +256,49 @@ impl CheckboxApi {
     }
 }
 
-impl Toggle {
+impl SwitchApi {
+    /// Observe a discrete toggle edit.
+    pub fn on_edit<R: kivact_core::view::HandlerResult>(
+        self,
+        f: impl Fn(kivact_core::view::EditPhase) -> R + 'static,
+    ) -> Self {
+        self.core.edit.on_edit(f);
+        self
+    }
+
+    /// Drawing state of the mounted control.
+    pub fn control_state(self) -> Value<ToggleState> {
+        self.core.control_state()
+    }
+    /// Ignore input and assistive technology while true.
+    ///
+    /// Also marks the root disabled and makes it unfocusable. Setup only.
+    #[track_caller]
+    pub fn disabled(self, disabled: impl IntoValue<bool>) -> Self {
+        self.core.set_disabled(disabled.into_value());
+        self
+    }
+
+    /// Create the semantic and input attachment. Read its state before moving it.
+    #[track_caller]
+    pub fn control(self) -> Part<ToggleState> {
+        self.core.control()
+    }
+}
+impl ToggleButtonApi {
+    /// Observe a discrete toggle edit.
+    pub fn on_edit<R: kivact_core::view::HandlerResult>(
+        self,
+        f: impl Fn(kivact_core::view::EditPhase) -> R + 'static,
+    ) -> Self {
+        self.core.edit.on_edit(f);
+        self
+    }
+
+    /// Drawing state of the mounted control.
+    pub fn control_state(self) -> Value<ToggleState> {
+        self.core.control_state()
+    }
     /// Ignore input and assistive technology while true.
     ///
     /// Also marks the root disabled and makes it unfocusable. Setup only.
@@ -225,70 +316,100 @@ impl Toggle {
 }
 
 impl Core {
+    fn control_state(self) -> Value<ToggleState> {
+        kivact_core::state::memo(move || {
+            self.observed
+                .get()
+                .map(|state| state.get())
+                .unwrap_or(ToggleState {
+                    input: PartState::default(),
+                    checked: CheckedState::from_bool(self.checked.get()),
+                })
+        })
+    }
     fn set_disabled(self, disabled: Value<bool>) {
-        self.disabled.update(|slot| *slot = Some(disabled));
+        self.options
+            .update(|options| options.disabled = Some(disabled));
     }
 
     fn is_disabled(self) -> bool {
-        self.disabled
-            .with_untracked(|disabled| disabled.is_some_and(|value| value.get_untracked()))
+        self.options
+            .get()
+            .disabled
+            .is_some_and(|value| value.get_untracked())
+            || self
+                .host_disabled
+                .with_untracked(|value| value.is_some_and(|value| value.get_untracked()))
     }
 
-    /// The mixed value of a check box.
-    fn mixed(self) -> Option<Signal<Option<Value<bool>>>> {
-        match self.kind {
-            Kind::Checkbox { indeterminate } => Some(indeterminate),
-            Kind::Switch | Kind::Button => None,
-        }
+    /// The mixed value is meaningful only for a checkbox.
+    fn is_mixed(self) -> bool {
+        matches!(self.kind, Kind::Checkbox)
+            && self
+                .options
+                .value()
+                .get()
+                .indeterminate
+                .is_some_and(|value| value.get())
     }
 
     fn press(self) {
         if !self.is_disabled() {
-            let mixed = self.mixed().is_some_and(|mixed| {
-                mixed.with_untracked(|mixed| mixed.is_some_and(|value| value.get_untracked()))
+            let mixed = self.is_mixed();
+            self.edit.once(self.checked.get_untracked(), || {
+                self.checked.set(mixed || !self.checked.get())
             });
-            self.checked.set(mixed || !self.checked.get());
         }
     }
 
     #[track_caller]
     fn control(self) -> Part<ToggleState> {
         let checked = self.checked;
-        let mixed = self.mixed();
-        let disabled = self.disabled;
-        let is_mixed = move || {
-            mixed.is_some_and(|mixed| mixed.with(|mixed| mixed.is_some_and(|value| value.get())))
-        };
-        let mut control = part(move |input| ToggleState {
+        let mixed = matches!(self.kind, Kind::Checkbox);
+        let options = self.options.value();
+        let is_mixed = move || self.is_mixed();
+        let input = part(move |input| ToggleState {
             input,
             checked: if is_mixed() {
                 CheckedState::Indeterminate
             } else {
                 CheckedState::from_bool(checked.get())
             },
+        });
+        let part_state = input.state();
+        self.observed.set(Some(part_state));
+        Part::new(part_state, move |mut host| {
+            let caller_disabled = host.accessible_disabled();
+            self.host_disabled.set(caller_disabled);
+
+            let mut control = host
+                .part(input)
+                .role(match self.kind {
+                    Kind::Checkbox => Role::CheckBox,
+                    Kind::Switch => Role::Switch,
+                    Kind::Button => Role::Button,
+                })
+                .focusable(true)
+                .on_press(move || self.press())
+                .checked(checked)
+                .a11y_action(A11yAction::Toggle, move |_| self.press())
+                .disabled(move || {
+                    caller_disabled.is_some_and(|value| value.get())
+                        || options.get().disabled.is_some_and(|value| value.get())
+                });
+            if mixed {
+                control = control.indeterminate(is_mixed);
+            }
+            if !matches!(self.kind, Kind::Button) {
+                control = control.on_key(|event: KeyEvent| {
+                    if event.key() == Key::Enter && event.modifiers() == Modifiers::default() {
+                        Handled::Yes
+                    } else {
+                        Handled::No
+                    }
+                });
+            }
+            control
         })
-        .role(match self.kind {
-            Kind::Checkbox { .. } => Role::CheckBox,
-            Kind::Switch => Role::Switch,
-            Kind::Button => Role::Button,
-        })
-        .focusable(true)
-        .on_press(move || self.press())
-        .checked(checked)
-        .on_a11y(A11yAction::Toggle, move || self.press())
-        .disabled(move || disabled.with(|d| d.is_some_and(|d| d.get())));
-        if mixed.is_some() {
-            control = control.indeterminate(is_mixed);
-        }
-        if !matches!(self.kind, Kind::Button) {
-            control = control.on_key(|event: KeyEvent| {
-                if event.key == Key::Enter && event.modifiers == Modifiers::default() {
-                    Handled::Yes
-                } else {
-                    Handled::No
-                }
-            });
-        }
-        control
     }
 }

@@ -6,9 +6,9 @@
 //!
 //! A [`Style`] is a flat value of `Option` fields, and a node's style is
 //! the list of its `.style(..)` layers. A layer that uses the theme reads
-//! `current_theme()` in its closure (tracked). Each node has one style
+//! `use_theme()` in its closure (tracked). Each node has one style
 //! effect: it reads the theme and the disabled and selected states, merges
-//! the layers in order and resolves them with `Style::compile` into the
+//! the layers in order and resolves them with `crate::internal::compile_style` into the
 //! engine's typed props. The theme switching re-resolves the paint and
 //! remounts nothing.
 //!
@@ -87,7 +87,7 @@
 //!   `Length` and duplicate diagnostics; one side never sets another, so an
 //!   asymmetric layout needs only the public `Style`.
 
-use kivact_wire::{Align, Cursor, ScrollAxes, TextAlign};
+use kivact_types::{Align, Cursor, ScrollAxes, TextAlign};
 
 use super::color::Color;
 use super::draw::{Draw, LocalPaint, Size};
@@ -103,10 +103,10 @@ use super::text::{
 };
 use super::theme::value::ThemeColor;
 use crate::transform::Transform;
-use kivact_motion::Transition;
+use kivact_runtime::Transition;
 
 #[doc(inline)]
-pub use kivact_wire::FlexDirection as Direction;
+pub use kivact_types::FlexDirection as Direction;
 
 /// How content is distributed along an axis (CSS `justify-content`,
 /// `align-content`).
@@ -114,7 +114,7 @@ pub use kivact_wire::FlexDirection as Direction;
 /// `Stretch`: Grow auto grid tracks (or wrapped flex lines) to fill the
 /// container (`align_content`); like `Start` for a flex `justify`.
 #[doc(inline)]
-pub use kivact_wire::Justify;
+pub use kivact_types::Justify;
 
 /// How a box is positioned (CSS `position`), with the insets `top`,
 /// `right`, `bottom`, `left` (`inset` for all four).
@@ -140,10 +140,10 @@ pub use kivact_wire::Justify;
 /// transforms, opacity and filters do not apply to it. It stays in the tree
 /// (focus, Tab order, accessibility, state).
 #[doc(inline)]
-pub use kivact_wire::Position;
+pub use kivact_types::Position;
 
 #[doc(inline)]
-pub use kivact_wire::Overflow;
+pub use kivact_types::Overflow;
 
 /// Property group animated by `Style::transition`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -155,8 +155,11 @@ pub enum TransitionProp {
     /// (brightness .. opacity, blur, drop shadow). Gradients, images,
     /// shapes, the z-index and the filter's order change at once.
     Paint,
+    /// Entrance and exit size along the selected axis.
+    Size,
 }
 
+// xtask-allow(state-fields): Each independently unspecified edge participates in style cascading.
 #[derive(Clone, Copy, Debug, PartialEq, Default)]
 pub(crate) struct Sides {
     pub(crate) top: Option<Length>,
@@ -174,6 +177,7 @@ impl Sides {
     }
 }
 
+// xtask-allow(state-fields): Independent authored style properties use None for unspecified cascading values; this is a passive value.
 /// A style value. Build with [`style()`].
 #[derive(Clone, Debug, PartialEq, Default)]
 pub struct Style {
@@ -189,10 +193,10 @@ pub struct Style {
     pub(super) min_height: Option<Length>,
     pub(super) max_width: Option<Length>,
     pub(super) max_height: Option<Length>,
-    pub(super) grow: Option<f32>,
-    pub(super) shrink: Option<f32>,
+    pub(super) grow: Option<f64>,
+    pub(super) shrink: Option<f64>,
     pub(super) basis: Option<Length>,
-    pub(super) aspect_ratio: Option<f32>,
+    pub(super) aspect_ratio: Option<f64>,
     pub(super) direction: Option<Direction>,
     pub(super) align: Option<Align>,
     pub(super) align_self: Option<Align>,
@@ -200,7 +204,8 @@ pub struct Style {
     pub(super) align_content: Option<Justify>,
     /// Lays the children out as a grid (CSS `display: grid`; set by
     /// `grid(..)` only).
-    pub(super) grid_box: Option<bool>,
+    pub(super) display: Option<kivact_types::Display>,
+    pub(super) visibility: Option<kivact_types::Visibility>,
     /// Grid tracks and placement (rare: boxed).
     pub(super) grid: Option<Box<GridStyle>>,
     pub(super) wrap: Option<bool>,
@@ -208,21 +213,22 @@ pub struct Style {
     pub(super) overflow: Option<Overflow>,
     /// Scroll axes set by `scroll(..)`.
     pub(super) scroll_axes: Option<ScrollAxes>,
+    pub(super) scroll_snap: Option<kivact_types::ScrollSnap>,
     pub(super) background: Option<Background>,
     /// Border widths and colors, top, right, bottom, left.
-    pub(super) border_width: [Option<f32>; 4],
+    pub(super) border_width: [Option<f64>; 4],
     pub(super) border_color: [Option<Color>; 4],
     pub(super) border_style: Option<BorderStyle>,
-    pub(super) ring: Option<(f32, f32, Color)>,
+    pub(super) ring: Option<(f64, f64, Color)>,
     /// Corner radii, top left, top right, bottom right, bottom left.
     pub(super) radius: [Option<CornerRadius>; 4],
     pub(super) shadows: Option<Vec<Shadow>>,
-    pub(super) opacity: Option<f32>,
+    pub(super) opacity: Option<f64>,
     /// CSS `translate` (x, then y: each axis is set and merged on its own),
     /// `rotate`, `scale`, `transform`, `transform-origin`.
     pub(super) translate: [Option<Length>; 2],
-    pub(super) rotate: Option<f32>,
-    pub(super) scale: Option<(f32, f32)>,
+    pub(super) rotate: Option<f64>,
+    pub(super) scale: Option<(f64, f64)>,
     pub(super) transform: Option<Transform>,
     pub(super) transform_origin: Option<(Length, Length)>,
     pub(super) scrollbar: Option<Box<ScrollbarStyle>>,
@@ -234,7 +240,7 @@ pub struct Style {
     pub(super) blend: Option<BlendMode>,
     pub(super) mask: Option<Box<Paint>>,
     pub(super) clip_path: Option<Box<Shape>>,
-    pub(super) font_size: Option<f32>,
+    pub(super) font_size: Option<f64>,
     pub(super) weight: Option<u16>,
     pub(super) color: Option<Color>,
     pub(super) line_height: Option<LineHeight>,
@@ -254,8 +260,11 @@ pub struct Style {
     pub(super) focus_visible: Option<Box<Style>>,
     pub(super) disabled: Option<Box<Style>>,
     pub(super) selected: Option<Box<Style>>,
+    pub(super) enter_size: Option<kivact_types::Orientation>,
+    pub(super) exit_size: Option<kivact_types::Orientation>,
     pub(super) enter: Option<Box<Style>>,
     pub(super) exit: Option<Box<Style>>,
+    pub(super) layout_transition: Option<Transition>,
     pub(super) transitions: Vec<(TransitionProp, Transition)>,
     pub(super) duplicates: u32,
 }
@@ -321,6 +330,11 @@ macro_rules! sides {
 }
 
 impl Style {
+    /// Align direct in-flow children to scroll stops after touch scrolling.
+    pub fn scroll_snap(mut self, snap: kivact_types::ScrollSnap) -> Self {
+        self.scroll_snap = Some(snap);
+        self
+    }
     sides!(padding, padding, [top, right, bottom, left]);
     sides!(padding_x, padding, [left, right]);
     sides!(padding_y, padding, [top, bottom]);
@@ -371,9 +385,9 @@ impl Style {
     setter!(
         /// CSS `aspect-ratio`: width / height (`aspect_ratio(16.0 / 9.0)`). With
         /// one of width and height set (or stretched), the other follows.
-        aspect_ratio, aspect_ratio, impl Into<f64>, |v: f64| v as f32);
-    setter!(grow, grow, impl Into<f64>, |v: f64| v as f32);
-    setter!(shrink, shrink, impl Into<f64>, |v: f64| v as f32);
+        aspect_ratio, aspect_ratio, impl Into<f64>, |v: f64| v);
+    setter!(grow, grow, impl Into<f64>, |v: f64| v);
+    setter!(shrink, shrink, impl Into<f64>, |v: f64| v);
     setter!(direction, direction, Direction, |v| v);
     setter!(
         /// Cross-axis alignment of children.
@@ -402,7 +416,7 @@ impl Style {
         /// The opacity of the node and its subtree, as one group (CSS
         /// `opacity`: overlapping children do not show through each
         /// other).
-        opacity, opacity, f32, |v: f32| v.clamp(0.0, 1.0));
+        opacity, opacity, impl Into<f64>, |v: f64| v.clamp(0.0, 1.0));
     setter!(
         /// CSS `filter`: color functions recolor everything the subtree
         /// draws; `blur` and `drop_shadow` filter the subtree's pixels.
@@ -440,12 +454,12 @@ impl Style {
         /// CSS `rotate`: clockwise, in degrees, after `translate` and
         /// before `scale` and `transform` (CSS's order for the individual
         /// transform properties, whatever the call order).
-        rotate, rotate, impl Into<f64>, |v: f64| v as f32);
+        rotate, rotate, impl Into<f64>, |v: f64| v);
     setter!(
         /// CSS `scale` (uniform), applied after `translate` and `rotate`
         /// and before `transform`. A state style can set it alone:
         /// `.hover(style().scale(1.05))` keeps the node's rotation.
-        scale, scale, impl Into<f64>, |v: f64| (v as f32, v as f32));
+        scale, scale, impl Into<f64>, |v: f64| (v, v));
     setter!(
         /// CSS `z-index`: the order the node is painted and hit in among
         /// its siblings (higher on top; equal values keep the tree order).
@@ -472,7 +486,7 @@ impl Style {
         clip, clip, bool, |v| v);
     setter!(
         /// CSS `font-size` of the text in this node and below.
-        font_size, font_size, impl Into<f64>, |v: f64| v as f32);
+        font_size, font_size, impl Into<f64>, |v: f64| v);
     setter!(
         /// CSS `font-weight` (1 to 1000) of the text in this node and below.
         weight, weight, u16, |v| v);
@@ -586,7 +600,7 @@ impl Style {
         if self.scale.is_some() {
             self.duplicates += 1;
         }
-        self.scale = Some((x.into() as f32, y.into() as f32));
+        self.scale = Some((x.into(), y.into()));
         self
     }
 
@@ -610,33 +624,33 @@ impl Style {
     /// ...) a width is drawn but does not move the content: states change
     /// the paint only.
     pub fn border(self, width: impl Into<f64>, color: impl ThemeColor) -> Self {
-        self.border_sides([0, 1, 2, 3], width.into() as f32, Some(Color::of(color)))
+        self.border_sides([0, 1, 2, 3], width.into(), Some(Color::of(color)))
     }
 
     /// The top border (CSS `border-top: w solid c`).
     pub fn border_top(self, width: impl Into<f64>, color: impl ThemeColor) -> Self {
-        self.border_sides([0], width.into() as f32, Some(Color::of(color)))
+        self.border_sides([0], width.into(), Some(Color::of(color)))
     }
 
     /// The right border (CSS `border-right`).
     pub fn border_right(self, width: impl Into<f64>, color: impl ThemeColor) -> Self {
-        self.border_sides([1], width.into() as f32, Some(Color::of(color)))
+        self.border_sides([1], width.into(), Some(Color::of(color)))
     }
 
     /// The bottom border (CSS `border-bottom`).
     pub fn border_bottom(self, width: impl Into<f64>, color: impl ThemeColor) -> Self {
-        self.border_sides([2], width.into() as f32, Some(Color::of(color)))
+        self.border_sides([2], width.into(), Some(Color::of(color)))
     }
 
     /// The left border (CSS `border-left`).
     pub fn border_left(self, width: impl Into<f64>, color: impl ThemeColor) -> Self {
-        self.border_sides([3], width.into() as f32, Some(Color::of(color)))
+        self.border_sides([3], width.into(), Some(Color::of(color)))
     }
 
     /// Every side's border width (CSS `border-width`); a side without a
     /// color takes `ColorToken::Border`.
     pub fn border_width(self, width: impl Into<f64>) -> Self {
-        self.border_sides([0, 1, 2, 3], width.into() as f32, None)
+        self.border_sides([0, 1, 2, 3], width.into(), None)
     }
 
     /// Every side's border color (CSS `border-color`), keeping the widths
@@ -662,7 +676,7 @@ impl Style {
     fn border_sides<const N: usize>(
         mut self,
         sides: [usize; N],
-        width: f32,
+        width: f64,
         color: Option<Color>,
     ) -> Self {
         if sides.iter().any(|i| self.border_width[*i].is_some()) {
@@ -757,7 +771,7 @@ impl Style {
         if self.ring.is_some() {
             self.duplicates += 1;
         }
-        self.ring = Some((width.into() as f32, offset.into() as f32, Color::of(color)));
+        self.ring = Some((width.into(), offset.into(), Color::of(color)));
         self
     }
 
@@ -902,6 +916,25 @@ impl Style {
         self
     }
 
+    /// Reveal the selected axis at entrance when Size has a transition.
+    pub fn enter_size(mut self, axis: kivact_types::Orientation) -> Self {
+        self.enter_size = Some(axis);
+        self
+    }
+
+    /// Collapse the selected axis before removal when Size has a transition.
+    pub fn exit_size(mut self, axis: kivact_types::Orientation) -> Self {
+        self.exit_size = Some(axis);
+        self
+    }
+
+    /// Animate position and size changes after layout, using a visual transform.
+    /// Layout is computed once; painting interpolates from the previous rectangle.
+    pub fn layout_transition(mut self, transition: Transition) -> Self {
+        self.layout_transition = Some(transition);
+        self
+    }
+
     /// Animate changes of a property group with `t`.
     pub fn transition(mut self, prop: TransitionProp, t: Transition) -> Self {
         self.transitions.retain(|(p, _)| *p != prop);
@@ -909,18 +942,28 @@ impl Style {
         self
     }
 
-    /// Lay the children out as a grid (CSS `display: grid`): the base style
-    /// of the `grid(..)` container, the one way to make a grid box.
-    pub fn display_grid(mut self) -> Style {
-        self.grid_box = Some(true);
+    /// Keep layout space while hiding this subtree from painting and interaction.
+    pub fn visibility(mut self, visibility: kivact_types::Visibility) -> Self {
+        self.visibility = Some(visibility);
         self
     }
 
-    /// Make this a scroll container along `axes`: content overflowing a
-    /// scrolling axis scrolls, the other axis clips (the base style of the
-    /// `scroll(..)` container).
-    pub fn with_scroll_axes(mut self, axes: ScrollAxes) -> Style {
-        self.scroll_axes = Some(axes);
+    /// Set the text decoration pattern, tracking reactive inputs.
+    pub fn text_decoration_style(
+        mut self,
+        value: impl kivact_runtime::IntoValue<crate::text::TextDecorationStyle>,
+    ) -> Self {
+        let x = self.text.get_or_insert_with(Default::default);
+        if x.decoration_style.is_some() {
+            self.duplicates += 1;
+        }
+        x.decoration_style = Some(crate::text::DecorationStyleValue::new(value));
+        self
+    }
+
+    /// Select flex, grid, or a transparent container that contributes no box.
+    pub fn display(mut self, display: kivact_types::Display) -> Style {
+        self.display = Some(display);
         self
     }
 
@@ -952,38 +995,16 @@ impl Style {
                 }
             )*};
         }
-        self.padding.merge(&o.padding);
-        if let Some(other) = &o.scrollbar {
-            let mine = self.scrollbar.get_or_insert_with(Default::default);
-            mine.width = other.width.or(mine.width);
-            mine.colors = other.colors.or(mine.colors);
-        }
-        if let Some(g) = &o.grid {
-            self.grid.get_or_insert_with(Default::default).merge(g);
-        }
-        if let Some(t) = &o.text {
-            self.text.get_or_insert_with(Default::default).merge(t);
-        }
-        self.margin.merge(&o.margin);
-        self.inset.merge(&o.inset);
-        for (a, b) in self.border_width.iter_mut().zip(o.border_width) {
-            *a = b.or(*a);
-        }
-        for (a, b) in self.border_color.iter_mut().zip(o.border_color) {
-            *a = b.or(*a);
-        }
-        for (a, b) in self.radius.iter_mut().zip(o.radius) {
-            *a = b.or(*a);
-        }
-        for (a, b) in self.translate.iter_mut().zip(o.translate) {
-            *a = b.or(*a);
-        }
+        self.merge_compound_properties(o);
         take!(
+            enter_size,
+            exit_size,
             local_paint,
             row_gap,
             column_gap,
             align_content,
-            grid_box,
+            display,
+            visibility,
             width,
             height,
             min_width,
@@ -1002,6 +1023,7 @@ impl Style {
             position,
             overflow,
             scroll_axes,
+            scroll_snap,
             background,
             border_style,
             ring,
@@ -1028,6 +1050,42 @@ impl Style {
             font_family,
             italic
         );
+        self.merge_states(o);
+        self
+    }
+
+    /// Merge compound properties whose individual components cascade independently.
+    fn merge_compound_properties(&mut self, o: &Style) {
+        self.padding.merge(&o.padding);
+        if let Some(other) = &o.scrollbar {
+            let mine = self.scrollbar.get_or_insert_with(Default::default);
+            mine.width = other.width.or(mine.width);
+            mine.colors = other.colors.or(mine.colors);
+        }
+        if let Some(g) = &o.grid {
+            self.grid.get_or_insert_with(Default::default).merge(g);
+        }
+        if let Some(t) = &o.text {
+            self.text.get_or_insert_with(Default::default).merge(t);
+        }
+        self.margin.merge(&o.margin);
+        self.inset.merge(&o.inset);
+        for (a, b) in self.border_width.iter_mut().zip(o.border_width) {
+            *a = b.or(*a);
+        }
+        for (a, b) in self.border_color.iter_mut().zip(o.border_color) {
+            *a = b.or(*a);
+        }
+        for (a, b) in self.radius.iter_mut().zip(o.radius) {
+            *a = b.or(*a);
+        }
+        for (a, b) in self.translate.iter_mut().zip(o.translate) {
+            *a = b.or(*a);
+        }
+    }
+
+    /// Merge independent interaction deltas and transition declarations.
+    fn merge_states(&mut self, o: &Style) {
         self.group |= o.group;
         for (a, b) in [
             (&mut self.hover, &o.hover),
@@ -1048,12 +1106,14 @@ impl Style {
                 }));
             }
         }
+        if o.layout_transition.is_some() {
+            self.layout_transition = o.layout_transition.clone();
+        }
         for t in &o.transitions {
             self.transitions.retain(|(p, _)| *p != t.0);
             self.transitions.push(t.clone());
         }
         self.duplicates += o.duplicates;
-        self
     }
 
     pub(super) fn has_text(&self) -> bool {
@@ -1069,7 +1129,7 @@ impl Style {
     }
 }
 
-kivact_reactive::constant_value!(Style);
+kivact_runtime::constant_value!(Style);
 
 /// Overlay scrollbar width.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
@@ -1082,18 +1142,19 @@ pub enum ScrollbarWidth {
     /// Hidden; scrolling still works.
     None,
     /// Explicit logical pixel width.
-    Px(f32),
+    Px(f64),
 }
-impl From<f32> for ScrollbarWidth {
-    fn from(px: f32) -> Self {
+impl From<f64> for ScrollbarWidth {
+    fn from(px: f64) -> Self {
         Self::Px(px)
     }
 }
 impl From<i32> for ScrollbarWidth {
     fn from(px: i32) -> Self {
-        Self::Px(px as f32)
+        Self::Px(px as f64)
     }
 }
+// xtask-allow(state-fields): Width and colors are independent authored scrollbar options.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub(super) struct ScrollbarStyle {
     pub(super) width: Option<ScrollbarWidth>,
@@ -1298,4 +1359,12 @@ impl Style {
     pub fn place_items(self, a: Align) -> Self {
         self.align_items(a).justify_items(a)
     }
+}
+
+/// Make this a scroll container along `axes`: content overflowing a
+/// scrolling axis scrolls, the other axis clips (the base style of the
+/// `scroll(..)` container).
+pub fn with_scroll_axes(mut style: Style, axes: ScrollAxes) -> Style {
+    style.scroll_axes = Some(axes);
+    style
 }

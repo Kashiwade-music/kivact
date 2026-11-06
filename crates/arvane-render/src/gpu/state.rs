@@ -3,6 +3,7 @@
 use super::external::External;
 use crate::draw;
 use crate::images::ImageCache;
+use kivact_types::cell::Mailbox;
 use kivact_types::{GpuAdapter, GpuBackend, GpuPower, GpuPreference};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -14,8 +15,49 @@ use vello_hybrid::{Renderer, Resources, TextureBindings, TextureId};
 pub(crate) const FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Bgra8Unorm;
 
 /// The first failure the device reported (validation error or loss).
-pub(crate) type Failure = Arc<Mutex<Option<String>>>;
+#[derive(Default)]
+pub(crate) struct DeviceLost {
+    message: Mailbox<String>,
+    /// Serialize the mailbox's read-and-restore operations to retain the first failure.
+    access: Mutex<()>,
+}
+impl DeviceLost {
+    pub(crate) fn record(&self, message: String) {
+        let _access = self
+            .access
+            .lock()
+            .expect("invariant: device loss lock is not poisoned");
+        self.message.put(self.message.take().unwrap_or(message));
+    }
+    pub(crate) fn message(&self) -> Option<String> {
+        let _access = self
+            .access
+            .lock()
+            .expect("invariant: device loss lock is not poisoned");
+        let message = self.message.take()?;
+        self.message.put(message.clone());
+        Some(message)
+    }
+}
+pub(crate) enum Offscreen {
+    None,
+    Allocated {
+        texture: wgpu::Texture,
+        size: (u32, u32),
+    },
+}
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Retain {
+    Drop,
+    Keep,
+}
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(crate) enum LastConfigure {
+    Applied,
+    Skipped,
+}
 
+// xtask-allow(state-fields): Construction options from environment variables; backend and power overrides are independently optional.
 /// How GPU devices are made: as the application wishes
 /// ([`GpuPreference`]), except where the environment says otherwise: the
 /// backends to try (`WGPU_BACKEND`), the adapter's power preference
@@ -84,10 +126,10 @@ pub struct GpuContext {
     /// The textures of the last frame's images and the atlas slots of its
     /// patterns.
     pub(crate) images: Images,
-    pub(crate) failure: Failure,
+    pub(crate) failure: Arc<DeviceLost>,
     /// The offscreen texture of [`GpuContext::render`], reused while the
     /// size holds.
-    pub(crate) offscreen: Option<wgpu::Texture>,
+    pub(crate) offscreen: Offscreen,
 }
 
 /// An image's texture.
@@ -150,7 +192,7 @@ pub struct GpuSurface {
     /// The frame drawn for a copy to the surface.
     pub(crate) raster: Option<wgpu::Texture>,
     /// Draw every frame into `raster`, for [`GpuContext::read_back`].
-    pub(crate) keep: bool,
+    pub(crate) keep: Retain,
 }
 
 /// Whether a surface's swapchain is configured yet.
@@ -168,5 +210,5 @@ pub(crate) struct Configured {
     pub(crate) blitter: wgpu::util::TextureBlitter,
     /// The last acquire found no buffer (timeout, occluded window): the next
     /// frame takes the buffer before recording.
-    pub(crate) skipped: bool,
+    pub(crate) last: LastConfigure,
 }

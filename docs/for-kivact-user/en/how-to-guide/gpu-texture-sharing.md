@@ -42,7 +42,8 @@ kivact = { git = "https://github.com/Kashiwade-music/kivact", features = ["gpu-i
 ```
 
 `gpu-interop` includes `gpu`. In the engine, depend on `kivact-gpu-share`. It does not
-know the UI, so an engine thread never needs `kivact`:
+know the UI, so the engine's rendering code never needs `kivact`; only the thread loop
+that talks to the window uses the `ShareLink` of `kivact::gpu_interop`:
 
 ```toml
 [dependencies]
@@ -72,9 +73,10 @@ Two rules decide whether sharing is possible at all:
 `link()` to the engine's thread, and draw `frame()` in a canvas. `pixels()` is a
 fallback the same image carries for windows that cannot import.
 
-```rust,ignore
-use kivact::control::canvas;
-use kivact::draw::{ImageOptions, Rect};
+```rust,no_run
+use kivact::view::canvas;
+use kivact::draw::{ImageOptions};
+use kivact::geometry::{Rect};
 use kivact::gpu_interop;
 use kivact::prelude::*;
 
@@ -101,27 +103,31 @@ fn viewport() -> impl IntoView {
         text(move || format!("{:?}", status.status())),
     ))
 }
+# fn engine_thread(_link: kivact::gpu_interop::ShareLink) {}
 ```
 
 `SharedImage` is a handle for the UI thread (`Clone`, not `Send`). It belongs to the
 owner it was created in: when that component goes away, the link closes, the engine's
 waits return at once and the window releases the last frame.
 
-With the creative kit, the viewport component takes the same two sources:
+The core viewport takes the same two sources:
 
-```rust,ignore
+```rust,no_run
 use kivact::gpu_interop::shared_image;
-use kivact_ui_creative::viewport_surface;
+use kivact::view::viewport;
+use kivact::draw::Pixels;
+# use kivact::prelude::*;
+# fn view() -> impl IntoView {
 
 let image = shared_image(1280, 720);
 let (frame, pixels, sized) = (image.clone(), image.clone(), image);
-viewport_surface(move || pixels.pixels())
+viewport(move || pixels.pixels().unwrap_or_else(|| Pixels::new(1, 1, [0u8; 4])))
     .gpu_frame(move || frame.frame())
     .on_resize(move |size| sized.set_size(size.physical_width, size.physical_height))
+# }
 ```
 
-It needs the kit's own `gpu-interop` feature. The surface zooms and pans the frame and
-maps the pointer to image pixels.
+It uses `kivact`’s `gpu-interop` feature. Attach `.transform(use_zoom_pan(binding))` for zoom and pan. Its `ZoomPanApi::to_content` and `to_view` convert coordinates. `NodeRef::snapshot` uses the viewport’s CPU pixels even during GPU display.
 
 ### Follow the size of the view
 
@@ -136,7 +142,7 @@ The engine's thread owns a loop with three jobs: take the newest request, serve 
 publish frames. A request carries the mode, the size and a token; each new one replaces
 the old one.
 
-```rust,ignore
+```rust,no_run
 use std::time::Duration;
 
 use kivact_gpu_share::{FrameReady, PoolConfig, wgpu as share};
@@ -175,12 +181,27 @@ fn engine_thread(link: ShareLink) {
         }
     }
 }
+# impl Engine {
+#     fn serve(_: &ShareLink, _: ShareRequest) -> Result<Engine, String> { todo!() }
+#     fn draw_and_publish(&mut self, _: &ShareLink) -> Result<(), ShareError> { todo!() }
+# }
+# fn serve_pixels(_: &ShareLink, _: &ShareRequest) {}
 ```
 
 Serving a GPU request makes a device on the reported adapter, a pool of the request's
 size, and hands the pool to the window:
 
-```rust,ignore
+```rust,no_run
+# use std::time::Duration;
+# use kivact_gpu_share::{FrameReady, PoolConfig, wgpu as share};
+# use kivact::gpu_interop::{ShareError, ShareLink, ShareMode, ShareRequest};
+# struct Engine {
+#     request: ShareRequest,
+#     pool: share::Pool,
+#     device: wgpu::Device,
+#     queue: wgpu::Queue,
+# }
+# fn draw_scene(_: &mut wgpu::CommandEncoder, _: &wgpu::TextureView) {}
 impl Engine {
     fn serve(link: &ShareLink, request: ShareRequest) -> Result<Engine, String> {
         let ShareMode::Gpu(adapter) = &request.mode else {
@@ -256,14 +277,14 @@ When the window cannot import, the engine still has to show something. Serve a `
 request by drawing on the CPU, or by reading back a texture of your own, and publish the
 result:
 
-```rust,ignore
-use std::sync::Arc;
-
+```rust,no_run
 use kivact::draw::Pixels;
+# use kivact::gpu_interop::{ShareLink, ShareRequest};
+# fn render_on_cpu(width: u32, height: u32) -> Vec<u8> { vec![0; (width * height * 4) as usize] }
 
 fn serve_pixels(link: &ShareLink, request: &ShareRequest) {
     let rgba: Vec<u8> = render_on_cpu(request.width, request.height); // straight-alpha RGBA8
-    link.publish_pixels(Pixels::new(request.width, request.height, Arc::from(rgba)));
+    link.publish_pixels(Pixels::new(request.width, request.height, rgba));
 }
 ```
 
@@ -318,9 +339,10 @@ Vulkan UUIDs, and a `generation`; a new generation means a new device.
 To make the window choose a graphics API, a kind of adapter or an exact adapter, which is
 useful when the engine needs a specific one, set a wish:
 
-```rust,ignore
+```rust,no_run
 use kivact::gpu_interop::{GpuBackend, GpuPower, GpuPreference};
 use kivact::prelude::*;
+# fn app() -> impl IntoView { text("Viewport") }
 
 fn main() -> kivact::Result<()> {
     App::new("Viewport")

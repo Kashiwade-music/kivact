@@ -1,6 +1,6 @@
 //! Role: The string rows the consumer tests give the generic table.
 
-use kivact::interaction::{ListMissingAnchor, ListPolicy, ListRangePolicy, TableFocus};
+use kivact::interaction::{ListMissingAnchor, ListOptions, ListRangeOptions, TableFocus};
 use kivact::prelude::*;
 
 /// A row of the tests' string tables: an id and one text per column.
@@ -22,7 +22,7 @@ pub(super) fn line(id: u64, cells: impl IntoIterator<Item = impl Into<String>>) 
 pub(super) fn lines(
     headers: &[&str],
     rows: impl IntoValue<Vec<Line>>,
-    selected: impl Into<kivact::Binding<Vec<u64>>>,
+    selected: impl kivact::state::IntoBinding<Vec<u64>>,
 ) -> kivact::ui::DataTable<Line, u64> {
     let columns = headers
         .iter()
@@ -36,13 +36,13 @@ pub(super) fn lines(
         .collect();
     kivact::ui::data_table(rows, |line: &Line| line.id, columns)
         .selection(selected)
-        .focus(TableFocus::Rows(ListPolicy {
+        .focus(TableFocus::Rows(ListOptions {
             typeahead: true,
-            range: ListRangePolicy {
+            range: ListRangeOptions {
                 missing_anchor: ListMissingAnchor::FirstSelected,
-                ..ListRangePolicy::default()
+                ..ListRangeOptions::default()
             },
-            ..ListPolicy::default()
+            ..ListOptions::default()
         }))
         .toolbar(|_| ())
         .footer(|_| ())

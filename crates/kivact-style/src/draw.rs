@@ -4,7 +4,7 @@
 //! clips, through the renderer. Regions retain their shapes and transforms for hits.
 //! A style's `paint(..)` callback is kept here as a `LocalPaint` (see `CompiledStyle::paint_retained`).
 //!
-//! `canvas`, `draw` and `draw_over` build the wire `Scene`. A group opens
+//! `canvas`, `draw` and `draw_over` build the wire `DrawList`. A group opens
 //! only with `d.layer(Layer, closure)` and closes at the end of the
 //! closure; there is no public pop. A [`Layer`] holds a transform, a clip
 //! (a `Shape`, a [`Path`] or a rectangle) and opacity, blend, filter, mask
@@ -20,7 +20,7 @@
 //! with the element style, so a canvas adds no meaning of its own. Rare
 //! command values are boxed so an ordinary rectangle scene stays small.
 //!
-//! A text's `TextStyle.align` is the shared `TextAlign` (Start, Center,
+//! A text's `TextFormat.align` is the shared `TextAlign` (Start, Center,
 //! End) and places the text horizontally against its anchor (not the
 //! style's child alignment); with [`TextBaseline`] (Top, Middle,
 //! Alphabetic, Bottom) it places the text by the extent and baseline of the
@@ -57,39 +57,40 @@ mod image;
 mod layer;
 mod local_paint;
 mod paragraph;
-mod recorder;
+pub(crate) mod recorder;
 mod regions;
 mod shapes;
 mod text_run;
 pub use super::geometry::{IntrinsicSize, Point, Rect, Size};
 pub use super::path::{FillRule, Path, PathContour};
-#[cfg(feature = "gpu-interop")]
 pub use image::GpuFrame;
 pub use image::{ImageOptions, Pixels};
-pub use kivact_wire::{InlineBox, InlineBoxPlacement};
+pub use kivact_types::{InlineBox, InlineBoxPlacement};
 pub use layer::Layer;
 pub use paragraph::{InlineParagraph, TextParagraph};
 
-pub use kivact_wire::RegionId;
+pub use kivact_types::RegionId;
 
 /// Ends of open contours and dashes.
 #[doc(inline)]
-pub use kivact_wire::LineCap;
+pub use kivact_types::LineCap;
 /// How adjacent segments meet.
 #[doc(inline)]
-pub use kivact_wire::LineJoin;
+pub use kivact_types::LineJoin;
 /// A line's width, caps, joins and repeating dash pattern, in logical px.
 #[doc(inline)]
-pub use kivact_wire::Stroke;
+pub use kivact_types::Stroke;
 
 /// The extent of measured text: [`Draw::measure_text`] and
-/// `Constraints::measure_text` of `kivact::primitive`,
+/// `Constraints::measure_text` of `kivact::custom`,
 /// what `Draw::text` draws (one line, unwrapped) in logical px.
 /// `width` is the line advance, `height` is its height, and `baseline`
 /// is measured from its top (the `pos` passed to `Draw::text`).
 #[doc(inline)]
-pub use kivact_wire::TextMetrics;
+pub use kivact_types::TextMetrics;
 
 pub(crate) use local_paint::LocalPaint;
 pub use recorder::{Draw, Recording, RegionSemantics};
-pub use text_run::{TextBaseline, TextRun, TextStyle};
+pub use text_run::{TextBaseline, TextFormat, text_run};
+
+pub use kivact_types::TextRun;

@@ -1,12 +1,11 @@
 //! Role: Tests for the interactions of Creative controls through the public API.
 
-use crate::support::clean;
-use kivact::draw::Point;
+use kivact::geometry::Point;
+use kivact::interaction::{MenuEntry, toaster};
 use kivact::prelude::*;
-use kivact::ui::{MenuEntry, toaster};
 use kivact::view::A11yAction;
 use kivact_ui_creative as ui;
-use kivact_ui_creative::ThemeOptions;
+
 use std::time::Duration;
 
 #[test]
@@ -17,16 +16,21 @@ fn creative_segments_and_numeric_semantics_survive_a_theme_change() {
             let selected = signal(Some("first"));
             (
                 (theme, selected),
-                kivact::view::provide_theme(theme, move || {
+                kivact::style::provide_theme(theme, move || {
                     column((
                         kivact::ui::radio_group(
                             "Order",
                             choice_options(&[("first", "First"), ("second", "Second")]),
                             selected,
                         )
-                        .orientation(kivact::view::Orientation::Horizontal)
-                        .variant(ui::Segmented),
-                        ui::value_slider("Opacity", signal(0.5)).range(0.0, 1.0),
+                        .with_node(move |node| {
+                            node.orientation(kivact::view::Orientation::Horizontal)
+                        })
+                        .variant(kivact::ui::RadioGroupVariant::Segmented),
+                        ui::value_slider("Opacity", signal(0.5)).range(
+                            kivact::interaction::ScalarRange::new(0.0, 1.0)
+                                .expect("invariant: finite ordered control range"),
+                        ),
                     ))
                 }),
             )
@@ -35,11 +39,13 @@ fn creative_segments_and_numeric_semantics_survive_a_theme_change() {
         .get_by_role(Role::RadioButton, "First")
         .press_key(Key::ArrowRight);
     let before = screen.snapshot();
-    theme.set(
-        ui::theme(kivact::style::ThemeMode::Dark)
-            .accent(ui::Accent::Aqua)
-            .density(ui::Density::Compact),
-    );
+    theme.set(ui::theme_with(
+        kivact::style::ThemeMode::Dark,
+        ui::ThemeOptions {
+            accent: ui::Accent::Aqua,
+            density: ui::Density::Compact,
+        },
+    ));
     screen.run_until_idle();
     assert_eq!(screen.snapshot(), before);
     screen
@@ -50,7 +56,7 @@ fn creative_segments_and_numeric_semantics_survive_a_theme_change() {
         Some("first"),
         "segments are a standard radio group, which wraps"
     );
-    clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 
 #[test]
@@ -103,7 +109,7 @@ fn reordered_document_tabs_keep_identity_and_navigate_in_visible_order() {
         screen.focused().map(|item| item.name()),
         Some("Second".into())
     );
-    clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 
 #[test]
@@ -111,8 +117,8 @@ fn toasts_are_live_pause_for_the_pointer_and_expire_on_the_host_clock() {
     let (screen, (toaster, (undone, undo))) =
         kivact::test::render_with_handle(crate::support::options(), || {
             let undone = signal(false);
-            let undo = kivact::ui::Toast::new("Muted")
-                .tone(kivact::ui::Tone::Info)
+            let undo = kivact::interaction::Toast::new("Muted")
+                .tone(kivact::interaction::Tone::Info)
                 .body("Track 2")
                 .action("Undo", move || undone.set(true))
                 .duration(None);
@@ -122,13 +128,13 @@ fn toasts_are_live_pause_for_the_pointer_and_expire_on_the_host_clock() {
             )
         });
     toaster.push(
-        kivact::ui::Toast::new("Exported")
-            .tone(kivact::ui::Tone::Success)
+        kivact::interaction::Toast::new("Exported")
+            .tone(kivact::interaction::Tone::Success)
             .body("Wrote 3 files"),
     );
     toaster.push(
-        kivact::ui::Toast::new("Render failed")
-            .tone(kivact::ui::Tone::Danger)
+        kivact::interaction::Toast::new("Render failed")
+            .tone(kivact::interaction::Tone::Danger)
             .body("Out of memory"),
     );
     toaster.push(undo);
@@ -156,14 +162,14 @@ fn toasts_are_live_pause_for_the_pointer_and_expire_on_the_host_clock() {
     assert!(undone.get_untracked());
     assert!(screen.query_by_text("Muted").is_none());
     toaster.push(
-        kivact::ui::Toast::new("Clipping")
-            .tone(kivact::ui::Tone::Warning)
+        kivact::interaction::Toast::new("Clipping")
+            .tone(kivact::interaction::Tone::Warning)
             .body("Master bus"),
     );
     screen.run_until_idle();
     screen.get_by_role(Role::Button, "Close").click();
     assert!(screen.query_by_text("Clipping").is_none());
-    clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 
 #[test]
@@ -179,10 +185,10 @@ fn check_switch_toggle_and_disclosure_follow_the_shared_toggle_rules() {
                 column((
                     kivact::ui::checkbox("Visible", check),
                     kivact::ui::switch("Enabled", switch),
-                    kivact::ui::toggle("Bold", bold),
-                    kivact::ui::disclosure("Transform", open, || text("Position"))
-                        .keep_mounted(true),
-                    kivact::ui::checkbox("Locked", signal(false)).disabled(true),
+                    kivact::ui::toggle_button("Bold", bold),
+                    kivact::ui::disclosure("Transform", open).content(|| text("Position")),
+                    kivact::ui::checkbox("Locked", signal(false))
+                        .with_node(move |node| node.disabled(true)),
                 )),
             )
         });
@@ -218,7 +224,7 @@ fn check_switch_toggle_and_disclosure_follow_the_shared_toggle_rules() {
     assert_eq!(transform.is_expanded(), Some(true));
     transform.a11y(A11yAction::Collapse);
     assert!(!open.get_untracked());
-    clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 
 #[test]
@@ -232,7 +238,7 @@ fn modal_contains_input_and_restores_opener_focus() {
                     (
                         kivact::ui::button("Export...")
                             .variant(kivact::ui::ButtonVariant::Secondary)
-                            .expanded(open)
+                            .with_node(move |node| node.expanded(open))
                             .on_press(move || open.set(true)),
                         kivact::ui::dialog("Export...", open)
                             .closable(false)
@@ -241,12 +247,9 @@ fn modal_contains_input_and_restores_opener_focus() {
                                     .into_view()
                             })
                             .footer(move || {
-                                kivact::ui::button(kivact::i18n::message(
-                                    "creative.dialog.close",
-                                    "Close",
-                                ))
-                                .variant(kivact::ui::ButtonVariant::Secondary)
-                                .on_press(move || open.set(false))
+                                kivact::ui::button(kivact::i18n::message("dialog.close", "Close"))
+                                    .variant(kivact::ui::ButtonVariant::Secondary)
+                                    .on_press(move || open.set(false))
                             }),
                     )
                 },
@@ -260,7 +263,7 @@ fn modal_contains_input_and_restores_opener_focus() {
     screen.get_by_role(Role::TextBox, "File name").focus();
     screen.press_key(Key::Escape);
     assert_eq!(screen.focused().map(|e| e.name()), Some("Export...".into()));
-    clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 
 #[test]
@@ -283,14 +286,13 @@ fn nested_menu_keys_choose_a_leaf_key_and_delayed_tooltip_dismisses() {
                         ),
                         MenuEntry::item("camera", "Camera"),
                     ],
-                    move |key: &'static str| selection.set(Some(key)),
                 )
+                .on_activate(move |key: &'static str| selection.set(Some(key)))
                 .offset(0.0)
                 .attach(
                     kivact::ui::button("Add")
                         .variant(kivact::ui::ButtonVariant::Secondary)
-                        .trailing_icon(kivact::control::icon("chevron-down"))
-                        .into_node(),
+                        .trailing(kivact::view::icon("chevron-down")),
                 ),
                 kivact::ui::tooltip("Camera View")
                     .placement(kivact::view::Placement::Below)
@@ -305,7 +307,7 @@ fn nested_menu_keys_choose_a_leaf_key_and_delayed_tooltip_dismisses() {
                     .attach(
                         kivact::ui::button("Help")
                             .variant(kivact::ui::ButtonVariant::Secondary)
-                            .test_id("tooltip-target"),
+                            .with_node(move |node| node.test_id("tooltip-target")),
                     ),
             )),
         )
@@ -327,14 +329,14 @@ fn nested_menu_keys_choose_a_leaf_key_and_delayed_tooltip_dismisses() {
     assert!(screen.get_by_role(Role::Tooltip, "Camera View").exists());
     screen.get_by_role(Role::Button, "Help").click();
     assert!(screen.query_by_role(Role::Tooltip, "Camera View").is_none());
-    clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 
 fn choice_options(
     entries: &[(&'static str, &'static str)],
-) -> Vec<kivact::ui::ListItem<&'static str>> {
+) -> Vec<kivact::interaction::ListItem<&'static str>> {
     entries
         .iter()
-        .map(|(key, label)| kivact::ui::ListItem::new(*key, *label))
+        .map(|(key, label)| kivact::interaction::ListItem::new(*key, *label))
         .collect()
 }

@@ -1,9 +1,9 @@
 //! Role: The toolbar button look shared by the kit's recipes.
 use kivact::motion::{Easing, Transition};
-use kivact::style::{Align, Direction, Justify, Style, Theme, TransitionProp, rgba, style};
+use kivact::style::{Align, Direction, Justify, Style, Theme, TransitionProp, style};
 
 pub(crate) fn button_style(t: &Theme) -> Style {
-    let p = t.get::<crate::tokens::Tokens>();
+    let p = t.ext::<crate::tokens::Tokens>();
     style()
         .direction(Direction::Row)
         .align_items(Align::Center)
@@ -12,13 +12,21 @@ pub(crate) fn button_style(t: &Theme) -> Style {
         .gap(6)
         .padding_x(11)
         .radius(7)
-        .background(rgba(0xffffff, 0.065))
-        .border(1, rgba(0xffffff, 0.04))
+        .background(crate::color::button_surface())
+        .border(1, crate::color::control_border())
         .color(p.text)
         .weight(500)
         .shrink(0)
-        .hover(style().background(rgba(0xffffff, 0.1)).color(p.text_high))
-        .pressed(style().scale(0.97).background(rgba(0xffffff, 0.05)))
+        .hover(
+            style()
+                .background(crate::color::overlay_border())
+                .color(p.text_high),
+        )
+        .pressed(
+            style()
+                .scale(0.97)
+                .background(crate::color::button_pressed()),
+        )
         .selected(
             style()
                 .background(p.selection)

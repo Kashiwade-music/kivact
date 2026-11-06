@@ -7,11 +7,11 @@ use kivact::style::{Theme, ThemeColor};
 ///
 /// Every color input of a style, a gradient or a draw call takes it, so
 /// the color follows a theme switch without a closure that reads the tokens:
-/// `style().background(Color::Background)`. A theme without the kit's tokens
+/// `style().background(ColorName::Background)`. A theme without the kit's tokens
 /// reads the values the tokens fall back to. Take a [`Tokens`] field by hand only to
 /// compute a new color from it (`with_alpha`, `mix_in`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum Color {
+pub enum ColorName {
     /// [`Tokens::background`].
     Background,
     /// [`Tokens::foreground`].
@@ -94,50 +94,50 @@ pub enum Color {
     CodeAttribute,
 }
 
-impl ThemeColor for Color {
+impl ThemeColor for ColorName {
     fn resolve(self, theme: &Theme) -> kivact::style::Color {
-        let p = theme.get::<Tokens>();
+        let p = theme.ext::<Tokens>();
         match self {
-            Color::Background => p.background,
-            Color::Foreground => p.foreground,
-            Color::Card => p.card,
-            Color::CardForeground => p.card_foreground,
-            Color::Popover => p.popover,
-            Color::PopoverForeground => p.popover_foreground,
-            Color::Primary => p.primary,
-            Color::PrimaryForeground => p.primary_foreground,
-            Color::Secondary => p.secondary,
-            Color::SecondaryForeground => p.secondary_foreground,
-            Color::Muted => p.muted,
-            Color::MutedForeground => p.muted_foreground,
-            Color::Accent => p.accent,
-            Color::AccentForeground => p.accent_foreground,
-            Color::Destructive => p.destructive,
-            Color::Border => p.border,
-            Color::Input => p.input,
-            Color::Ring => p.ring,
-            Color::Sidebar => p.sidebar,
-            Color::SidebarForeground => p.sidebar_foreground,
-            Color::SidebarPrimary => p.sidebar_primary,
-            Color::SidebarPrimaryForeground => p.sidebar_primary_foreground,
-            Color::SidebarAccent => p.sidebar_accent,
-            Color::SidebarAccentForeground => p.sidebar_accent_foreground,
-            Color::SidebarBorder => p.sidebar_border,
-            Color::SidebarRing => p.sidebar_ring,
-            Color::Chart1 => p.chart[0],
-            Color::Chart2 => p.chart[1],
-            Color::Chart3 => p.chart[2],
-            Color::Chart4 => p.chart[3],
-            Color::Chart5 => p.chart[4],
-            Color::CodeKeyword => p.code.keyword,
-            Color::CodeString => p.code.string,
-            Color::CodeNumber => p.code.number,
-            Color::CodeComment => p.code.comment,
-            Color::CodeFunction => p.code.function,
-            Color::CodeTypeName => p.code.type_name,
-            Color::CodeMacroCall => p.code.macro_call,
-            Color::CodeLifetime => p.code.lifetime,
-            Color::CodeAttribute => p.code.attribute,
+            ColorName::Background => p.background,
+            ColorName::Foreground => p.foreground,
+            ColorName::Card => p.card,
+            ColorName::CardForeground => p.card_foreground,
+            ColorName::Popover => p.popover,
+            ColorName::PopoverForeground => p.popover_foreground,
+            ColorName::Primary => p.primary,
+            ColorName::PrimaryForeground => p.primary_foreground,
+            ColorName::Secondary => p.secondary,
+            ColorName::SecondaryForeground => p.secondary_foreground,
+            ColorName::Muted => p.muted,
+            ColorName::MutedForeground => p.muted_foreground,
+            ColorName::Accent => p.accent,
+            ColorName::AccentForeground => p.accent_foreground,
+            ColorName::Destructive => p.destructive,
+            ColorName::Border => p.border,
+            ColorName::Input => p.input,
+            ColorName::Ring => p.ring,
+            ColorName::Sidebar => p.sidebar,
+            ColorName::SidebarForeground => p.sidebar_foreground,
+            ColorName::SidebarPrimary => p.sidebar_primary,
+            ColorName::SidebarPrimaryForeground => p.sidebar_primary_foreground,
+            ColorName::SidebarAccent => p.sidebar_accent,
+            ColorName::SidebarAccentForeground => p.sidebar_accent_foreground,
+            ColorName::SidebarBorder => p.sidebar_border,
+            ColorName::SidebarRing => p.sidebar_ring,
+            ColorName::Chart1 => p.chart[0],
+            ColorName::Chart2 => p.chart[1],
+            ColorName::Chart3 => p.chart[2],
+            ColorName::Chart4 => p.chart[3],
+            ColorName::Chart5 => p.chart[4],
+            ColorName::CodeKeyword => p.code.keyword,
+            ColorName::CodeString => p.code.string,
+            ColorName::CodeNumber => p.code.number,
+            ColorName::CodeComment => p.code.comment,
+            ColorName::CodeFunction => p.code.function,
+            ColorName::CodeTypeName => p.code.type_name,
+            ColorName::CodeMacroCall => p.code.macro_call,
+            ColorName::CodeLifetime => p.code.lifetime,
+            ColorName::CodeAttribute => p.code.attribute,
         }
     }
 }

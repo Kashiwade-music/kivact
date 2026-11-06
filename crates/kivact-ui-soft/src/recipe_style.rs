@@ -1,7 +1,11 @@
 //! Role: Share Neutral transitions, outlines and composited control fills.
 use crate::Tokens;
 use kivact::motion::Transition;
-use kivact::style::{Color, Style, Theme, TransitionProp, style};
+use kivact::style::Color;
+use kivact::style::Style;
+use kivact::style::Theme;
+use kivact::style::TransitionProp;
+use kivact::style::style;
 
 pub(super) fn fast(t: &Tokens, base: Style) -> Style {
     base.transition(
@@ -25,7 +29,7 @@ pub(super) fn overlay(theme: &Theme, base: Color, top: Color) -> Color {
     }
     let amount = top.a / alpha;
     let mix = |under, over| under * (1.0 - amount) + over * amount;
-    Color::from_rgba_f32(
+    Color::from_rgba_f64(
         mix(base.r, top.r),
         mix(base.g, top.g),
         mix(base.b, top.b),

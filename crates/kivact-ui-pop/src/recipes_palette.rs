@@ -4,9 +4,9 @@
 //! optional icon, and the hint on the right.
 
 use crate::Tokens;
+use kivact::custom::PartState;
 use kivact::draw::Shadow;
 use kivact::interaction::{ListItemState, PopupState};
-use kivact::primitive::PartState;
 use kivact::style::{Align, Color, ColorToken, Direction, Style, Theme, pct, style};
 use kivact::ui::{CommandPaletteRecipes, Look};
 
@@ -29,11 +29,11 @@ fn scrim(_: &Theme, _: &Look<PartState>) -> Style {
     style()
         .position(kivact::style::Position::Fixed)
         .inset(0)
-        .background(kivact::style::rgba(0x0f172a, 0.45))
+        .background(crate::tokens::overlay_scrim())
 }
 
 fn panel(t: &Theme, _: &Look<PopupState>) -> Style {
-    let p = t.get::<Tokens>();
+    let p = t.ext::<Tokens>();
     style()
         .direction(Direction::Column)
         .width(560)

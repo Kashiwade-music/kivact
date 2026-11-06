@@ -30,12 +30,11 @@
 //! - `sync` takes `LAYOUT_STYLE` before `LAYOUT_CHAIN`; `MEASURE` is the one
 //!   bit that survives a sync (until a layout pass takes it).
 //! - Positions are one [`Geometry`]. `sync` takes what it dispatches with
-//!   [`Changes::dispatch`], which leaves `MEASURE`, `needs_layout`,
-//!   `layout_changed` and `viewport_chain` for the layout pass.
+//!   [`Changes::dispatch`], which leaves `MEASURE` and `LayoutReasons` for the layout pass.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
-use kivact_wire::NodeId;
+use kivact_types::NodeId;
 
 /// The kinds of per-node pending work, as a small bit set.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -58,11 +57,6 @@ impl Dirty {
     pub(crate) const SCROLLED: Self = Self(1 << 5);
     /// Its sticky shift changed (it and its subtree moved).
     pub(crate) const STUCK: Self = Self(1 << 6);
-
-    /// Proven content/session-only writes; mixed unknown changes override this.
-    pub(crate) const A11Y_LOCAL_TEXT: Self = Self(1 << 8);
-    /// An unclassified or metadata-affecting change on this same node.
-    pub(crate) const A11Y_METADATA: Self = Self(1 << 9);
 
     /// Whether every bit of `bits` is set.
     pub(crate) const fn contains(self, bits: Self) -> bool {
@@ -94,6 +88,26 @@ impl Dirty {
     }
 }
 
+/// Pending reasons for a layout pass and its invalidations.
+#[derive(Clone, Copy, Debug, Default)]
+pub(crate) struct LayoutReasons(u8);
+impl LayoutReasons {
+    pub(crate) const PASS: Self = Self(1);
+    pub(crate) const STYLE: Self = Self(2);
+    pub(crate) const VIEWPORT: Self = Self(4);
+    pub(crate) fn insert(&mut self, reason: Self) {
+        self.0 |= reason.0;
+    }
+    pub(crate) fn contains(self, reason: Self) -> bool {
+        self.0 & reason.0 != 0
+    }
+    pub(crate) fn take(&mut self, reason: Self) -> bool {
+        let contained = self.contains(reason);
+        self.0 &= !reason.0;
+        contained
+    }
+}
+
 /// How far boxes may have moved since the last sync.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) enum Geometry {
@@ -107,6 +121,7 @@ pub(crate) enum Geometry {
     LaidOut,
 }
 
+// xtask-allow(state-fields): Paint, restacking and font invalidations are independent cache invalidation facts, with every combination valid (S-9).
 /// Pending work; only sync dispatches visual invalidation.
 #[derive(Default)]
 pub(crate) struct Changes {
@@ -115,19 +130,13 @@ pub(crate) struct Changes {
     /// How far boxes may have moved (a host caching positions draws them
     /// again).
     pub(super) geometry: Geometry,
-    pub(super) needs_layout: bool,
+    pub(super) layout: LayoutReasons,
     pub(super) paint: bool,
     pub(super) restack: bool,
     pub(super) fonts: bool,
-    pub(super) a11y_structure: bool,
-    pub(super) a11y_subtrees: HashSet<NodeId>,
-    pub(super) a11y_removed: HashSet<NodeId>,
-    pub(super) a11y_focus: bool,
-    pub(super) layout_changed: bool,
-    /// The viewport's layout cache is outdated (a fixed box came or went).
-    pub(super) viewport_chain: bool,
 }
 
+// xtask-allow(state-fields): Consumed paint, restacking and font invalidations are independent work facts, not lifecycle phases.
 /// What one sync dispatches into derived work (`Changes::dispatch`).
 pub(crate) struct Dispatched {
     dirty: HashMap<NodeId, Dirty>,
@@ -135,10 +144,6 @@ pub(crate) struct Dispatched {
     pub(crate) paint: bool,
     pub(crate) restack: bool,
     pub(crate) fonts: bool,
-    pub(crate) a11y_structure: bool,
-    pub(crate) a11y_subtrees: HashSet<NodeId>,
-    pub(crate) a11y_removed: HashSet<NodeId>,
-    pub(crate) a11y_focus: bool,
 }
 
 impl Dispatched {
@@ -153,11 +158,6 @@ impl Dispatched {
             .iter()
             .filter(move |(_, d)| d.intersects(bits))
             .map(|(id, _)| *id)
-    }
-
-    /// What is pending for `id`.
-    pub(crate) fn flags(&self, id: NodeId) -> Dirty {
-        self.dirty.get(&id).copied().unwrap_or_default()
     }
 
     /// Whether the layout was computed.
@@ -181,7 +181,7 @@ impl Changes {
     /// The first record: everything is laid out once.
     pub(super) fn initial() -> Self {
         Self {
-            needs_layout: true,
+            layout: LayoutReasons::PASS,
             ..Self::default()
         }
     }
@@ -204,11 +204,10 @@ impl Changes {
 
     /// The viewport's layout cache is outdated (a fixed box came or went).
     pub(crate) fn outdate_viewport(&mut self) {
-        self.viewport_chain = true;
+        self.layout.insert(LayoutReasons::VIEWPORT);
     }
 
-    /// Take what one sync dispatches. `MEASURE` bits, `needs_layout`,
-    /// `layout_changed` and `viewport_chain` stay: the layout pass takes them.
+    /// Take what one sync dispatches. Measurement bits and layout reasons stay.
     pub(super) fn dispatch(&mut self) -> Dispatched {
         let mut dirty = std::mem::take(&mut self.dirty);
         dirty.retain(|id, d| {
@@ -224,10 +223,6 @@ impl Changes {
             paint: std::mem::take(&mut self.paint),
             restack: std::mem::take(&mut self.restack),
             fonts: std::mem::take(&mut self.fonts),
-            a11y_structure: std::mem::take(&mut self.a11y_structure),
-            a11y_subtrees: std::mem::take(&mut self.a11y_subtrees),
-            a11y_removed: std::mem::take(&mut self.a11y_removed),
-            a11y_focus: std::mem::take(&mut self.a11y_focus),
         }
     }
 
@@ -260,7 +255,7 @@ impl Changes {
     /// Start a layout pass: the nodes to measure again, or `None` when the
     /// pass has nothing to do.
     pub(crate) fn begin_layout(&mut self) -> Option<Vec<NodeId>> {
-        if !std::mem::take(&mut self.needs_layout) {
+        if !self.layout.take(LayoutReasons::PASS) {
             return None;
         }
         Some(self.take(Dirty::MEASURE))
@@ -276,14 +271,14 @@ impl Changes {
 
     /// The scroll container `id` moved its content.
     pub(crate) fn scrolled(&mut self, id: NodeId) {
-        self.needs_layout = true;
+        self.layout.insert(LayoutReasons::PASS);
         self.moved();
         self.mark(id, Dirty::SCROLLED);
     }
 
     /// Settling scroll offsets left nothing for another pass.
     pub(crate) fn settled(&mut self) {
-        self.needs_layout = false;
+        self.layout.take(LayoutReasons::PASS);
     }
 
     /// The sticky box `id` moved with its scrollport.

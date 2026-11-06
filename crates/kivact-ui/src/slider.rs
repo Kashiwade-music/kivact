@@ -2,22 +2,19 @@
 use super::layer::{with_base_recipe_style, with_recipe_style};
 use super::values::{AxisState, ControlSize};
 use super::variants::{Variant, Variants};
-use kivact_core::control::{Node, NodeBuilder, node};
-use kivact_core::draw::Rect;
-use kivact_core::motion::{Spring, Transition};
-use kivact_core::primitive::{NodeExt, PartState};
-use kivact_core::style::{
-    Length, Position, Style, Theme, ThemeExtension, TransitionProp, current_theme, style,
-};
+use kivact_core::custom::PartState;
+use kivact_core::geometry::Rect;
+use kivact_core::motion::Transition;
+use kivact_core::state::{Binding, Callback, Value};
+use kivact_core::state::{IntoText, IntoValue, callback};
+use kivact_core::style::{Length, Position, Style, TransitionProp, style, use_theme};
+use kivact_core::view::EditPhase;
 use kivact_core::view::{
-    HandlerResult, IntoText, IntoValue, IntoView, Orientation, ReadingDirection, Role, View,
-    callback, current_direction, node_ref,
+    HandlerResult, IntoView, Orientation, ReadingDirection, Role, View, node_ref, use_direction,
 };
-use kivact_core::{Binding, Callback, Value};
-use kivact_interaction::{
-    EditPhase, IntoScalarRange, RangeThumb, Scalar, ScalarRange, TouchSliderGesture,
-    use_range_scalar, use_scalar,
-};
+use kivact_core::view::{Node, NodeBuilder, node};
+use kivact_interaction::SliderTouchMotion;
+use kivact_interaction::{RangeThumb, ScalarApi, ScalarRange, use_range_scalar, use_scalar};
 
 /// The values a slider edits: one, or the two ends of a range.
 enum Values {
@@ -25,27 +22,7 @@ enum Values {
     Two(Binding<f64>, Binding<f64>),
 }
 
-/// Optional touch behavior and thumb motion installed by a slider theme.
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
-pub enum SliderTouchMotion {
-    /// Keep standard mouse-style pointer tracking for all pointer kinds.
-    #[default]
-    Standard,
-    /// Use touch-specific relative tracking and release motion.
-    Direct {
-        gesture: TouchSliderGesture,
-        lifted_scale: f32,
-        lift: Spring,
-        drop: Spring,
-    },
-}
-
-impl ThemeExtension for SliderTouchMotion {
-    fn fallback(_: &Theme) -> Self {
-        Self::Standard
-    }
-}
-
+// xtask-allow(state-fields): Independent construction constraints, labels and optional edit callback; scalar interaction is owned by ScalarApi.
 /// A themed slider, created by [`slider`] or [`range_slider`].
 pub struct Slider {
     root: Node,
@@ -54,7 +31,7 @@ pub struct Slider {
     range: Option<Value<ScalarRange>>,
     step: Option<f64>,
     orientation: Orientation,
-    size: ControlSize,
+    size: Value<ControlSize>,
     on_edit: Option<Callback<EditPhase>>,
     variants: Variants,
 }
@@ -80,8 +57,8 @@ pub struct Slider {
 /// }
 /// ```
 #[track_caller]
-pub fn slider(label: impl IntoText, value: impl Into<Binding<f64>>) -> Slider {
-    create(label.into_text_value(), Values::One(value.into()))
+pub fn slider(label: impl IntoText, value: impl kivact_core::state::IntoBinding<f64>) -> Slider {
+    create(label.into_text_value(), Values::One(value.into_binding()))
 }
 
 /// A themed slider named `label` with two thumbs editing the ends of a
@@ -91,16 +68,16 @@ pub fn slider(label: impl IntoText, value: impl Into<Binding<f64>>) -> Slider {
 /// `slider.minimum` and `slider.maximum` ("Minimum", "Maximum"). Keys,
 /// pointer, assistive technology and edits are as [`slider`]'s; a press on
 /// the track moves the thumb nearest to it, and a drag of the filled range
-/// between the thumbs moves both ([`RangeScalar::body`](kivact_interaction::RangeScalar::body)).
+/// between the thumbs moves both ([`RangeScalarApi::body`](kivact_interaction::RangeScalarApi::body)).
 #[track_caller]
 pub fn range_slider(
     label: impl IntoText,
-    low: impl Into<Binding<f64>>,
-    high: impl Into<Binding<f64>>,
+    low: impl kivact_core::state::IntoBinding<f64>,
+    high: impl kivact_core::state::IntoBinding<f64>,
 ) -> Slider {
     create(
         label.into_text_value(),
-        Values::Two(low.into(), high.into()),
+        Values::Two(low.into_binding(), high.into_binding()),
     )
 }
 
@@ -114,7 +91,7 @@ fn create(label: Value<String>, values: Values) -> Slider {
         range: None,
         step: None,
         orientation: Orientation::Horizontal,
-        size: super::values::default_control_size(),
+        size: super::values::default_control_size().into_value(),
         on_edit: None,
         variants,
     }
@@ -142,8 +119,8 @@ impl Slider {
     /// (`0.0..=1.0`), a [`ScalarRange`], or a closure, `Signal` or `Value` of
     /// one when the bounds change.
     #[track_caller]
-    pub fn range(mut self, range: impl IntoScalarRange) -> Self {
-        self.range = Some(range.into_range());
+    pub fn range(mut self, range: impl IntoValue<ScalarRange>) -> Self {
+        self.range = Some(range.into_value());
         self
     }
 
@@ -151,12 +128,12 @@ impl Slider {
     /// keys step by it too. The default is continuous (the keys step by 1).
     /// A step that is not a positive finite number is a usage error.
     #[track_caller]
-    pub fn step(mut self, step: f64) -> Self {
+    pub fn step(mut self, step: impl Into<f64>) -> Self {
+        let step = step.into();
         if !(step.is_finite() && step > 0.0) {
-            kivact_core::primitive::raise(
-                kivact_core::diagnostics::ErrorKind::Message,
+            kivact_core::custom::raise(
+                kivact_core::ErrorKind::Message,
                 format!("Slider::step: the step {step} is not a positive finite number"),
-                std::panic::Location::caller(),
             );
         }
         self.step = Some(step);
@@ -173,8 +150,8 @@ impl Slider {
 
     /// The size (default [`ControlSize::Medium`]), given to the recipes in
     /// [`AxisState::size`].
-    pub fn size(mut self, size: ControlSize) -> Self {
-        self.size = size;
+    pub fn size(mut self, size: impl IntoValue<ControlSize>) -> Self {
+        self.size = size.into_value();
         self
     }
 
@@ -193,6 +170,7 @@ impl NodeBuilder for Slider {
     }
 }
 
+// xtask-allow(state-fields): Read-only measured track/thumb geometry and axis direction project actual layout, with no lifecycle state.
 /// Where the thumbs and the filled range go along the track, in the
 /// track's own pixels, once both are laid out.
 struct Geometry {
@@ -205,9 +183,9 @@ struct Geometry {
 impl Geometry {
     /// The offset of a thumb at `fraction` from the track's start edge
     /// (left, or top when vertical), and the thumb's offset across.
-    fn thumb_at(&self, fraction: f64) -> Option<(f32, f32)> {
+    fn thumb_at(&self, fraction: f64) -> Option<(f64, f64)> {
         let (track, thumb) = (self.track.get()?, self.thumb.get()?);
-        let f = fraction.clamp(0.0, 1.0) as f32;
+        let f = fraction.clamp(0.0, 1.0);
         Some(if self.vertical {
             (
                 (1.0 - f) * (track.height - thumb.height),
@@ -295,170 +273,52 @@ impl IntoView for Slider {
         // `.disabled(..)` on the slider ends a drag in progress and ignores
         // input and assistive technology; the track is disabled with its
         // thumbs, so its recipe's disabled state style dims the whole slider.
-        let disabled = root
-            .accessible_disabled()
-            .map(|read| (move || read()).into_value());
+        let disabled = root.accessible_disabled();
         let vertical = orientation == Orientation::Vertical;
-        let range = range.unwrap_or_else(|| {
-            ScalarRange::new(0.0, 100.0)
-                .expect("invariant: 0 to 100 is a valid range")
-                .into_value()
-        });
-        let range = match step {
-            Some(step) => kivact_core::memo(move || {
-                let range = range.get();
-                range.with_step(step).unwrap_or(range)
-            }),
-            None => range,
-        };
-        let axis = if vertical {
-            Orientation::Vertical
-        } else {
-            Orientation::Horizontal
-        };
-        let orientation = if vertical {
-            Orientation::Vertical
-        } else {
-            Orientation::Horizontal
-        };
-        let report = move |phase: EditPhase| {
-            if let Some(on_edit) = on_edit {
-                on_edit.call(phase);
-            }
-        };
-        let with_disabled = move |scalar: Scalar| match disabled {
-            Some(disabled) => scalar.disabled(disabled),
-            None => scalar,
-        };
+        let range = configured_range(range, step);
         let thumb_ref = node_ref();
-        let touch = *current_theme().get::<SliderTouchMotion>();
-        // A range's filled span drags both ends.
-        let mut body = None;
-        let (track_part, thumbs, fractions): (_, Vec<(Scalar, Value<String>)>, _) = match values {
-            Values::One(value) => {
-                let scalar = with_disabled(use_scalar(value, range).on_edit(report));
-                if let SliderTouchMotion::Direct { gesture, .. } = touch {
-                    scalar.touch_gesture(gesture);
-                }
-                (
-                    scalar.track(axis),
-                    vec![(scalar, label)],
-                    Ends {
-                        from: None,
-                        to: scalar.value(),
-                        range,
-                    },
-                )
-            }
-            Values::Two(low, high) => {
-                let pair = use_range_scalar(low, high, range).on_edit(report);
-                let pair = match disabled {
-                    Some(disabled) => pair.disabled(disabled),
-                    None => pair,
-                };
-                if let SliderTouchMotion::Direct { gesture, .. } = touch {
-                    pair.end(RangeThumb::Low).touch_gesture(gesture);
-                }
-                body = Some(pair.body());
-                (
-                    pair.track(axis),
-                    vec![
-                        (
-                            pair.end(RangeThumb::Low),
-                            kivact_core::i18n::message("slider.minimum", "Minimum"),
-                        ),
-                        (
-                            pair.end(RangeThumb::High),
-                            kivact_core::i18n::message("slider.maximum", "Maximum"),
-                        ),
-                    ],
-                    Ends {
-                        from: Some(pair.end(RangeThumb::Low).value()),
-                        to: pair.end(RangeThumb::High).value(),
-                        range,
-                    },
-                )
-            }
-        };
+        let touch = use_theme()
+            .get()
+            .ext::<kivact_interaction::InteractionPolicy>()
+            .slider
+            .touch;
+        let SliderParts {
+            track: track_part,
+            thumbs,
+            fractions,
+            body,
+        } = slider_parts(values, label, range, orientation, disabled, on_edit, touch);
         let track_state = track_part.state();
-        let track_ref = track_part.node_ref();
+        let track_ref = node_ref();
         let geometry = std::rc::Rc::new(Geometry {
             track: track_ref.rect(),
             thumb: thumb_ref.rect(),
             vertical,
-            rtl: !vertical && current_direction() == ReadingDirection::Rtl,
+            rtl: !vertical && use_direction().get() == ReadingDirection::Rtl,
         });
         let state = move |input: PartState| AxisState {
             input,
             orientation,
+            size: size.get(),
+        };
+        let filled = filled_span(
+            geometry.clone(),
+            fractions,
+            body,
+            track_state,
             size,
-        };
-        let filled = {
-            let geometry = geometry.clone();
-            let span = match body {
-                Some(body) => node().part(body),
-                None => node(),
-            };
-            with_recipe_style(
-                span,
-                |r| r.slider_recipes().range_recipe(),
-                &variants,
-                move || state(track_state.get()),
-            )
-            .style(move || {
-                let (from, to) = fractions.get();
-                geometry.range_style(from, to)
-            })
-        };
-        let thumbs: Vec<View> = thumbs
-            .into_iter()
-            .enumerate()
-            .map(|(index, (scalar, name))| {
-                let part = scalar.thumb();
-                let input = part.state();
-                let geometry = geometry.clone();
-                let mut thumb = with_recipe_style(
-                    node().part(part).name(name),
-                    |r| r.slider_recipes().thumb_recipe(),
-                    &variants,
-                    move || state(input.get().input),
-                );
-                // Every thumb has the recipe's size; the first one is measured.
-                if index == 0 {
-                    thumb = thumb.node_ref(thumb_ref);
-                }
-                if let SliderTouchMotion::Direct {
-                    lifted_scale,
-                    lift,
-                    drop,
-                    ..
-                } = touch
-                    && let Some(lifted) = scalar.touch_lifted()
-                {
-                    node()
-                        .child(thumb)
-                        .style(move || {
-                            let position = geometry.thumb_style(input.get().fraction);
-                            if kivact_core::platform::reduced_motion() {
-                                position
-                            } else {
-                                let lifted = lifted.get();
-                                position
-                                    .scale(if lifted { lifted_scale } else { 1.0 })
-                                    .transition(
-                                        TransitionProp::Paint,
-                                        Transition::spring(if lifted { lift } else { drop }),
-                                    )
-                            }
-                        })
-                        .into_view()
-                } else {
-                    thumb
-                        .style(move || geometry.thumb_style(input.get().fraction))
-                        .into_view()
-                }
-            })
-            .collect();
+            orientation,
+            &variants,
+        );
+        let thumbs = thumb_views(
+            thumbs,
+            thumb_ref,
+            geometry,
+            size,
+            orientation,
+            touch,
+            &variants,
+        );
         // The track is disabled with its thumbs, so a look dims the whole
         // slider. Its recipe is the base style, so the caller's styles win.
         let root = with_base_recipe_style(
@@ -467,6 +327,7 @@ impl IntoView for Slider {
             &variants,
             move || state(track_state.get()),
         )
+        .node_ref(track_ref)
         .part(track_part);
         let root = if fractions.from.is_some() {
             let mut root = root.role(Role::Group);
@@ -505,5 +366,199 @@ impl Ends {
             }
         };
         (self.from.map(fraction), fraction(self.to))
+    }
+}
+
+/// The actual scalar parts and immutable range projections used for composition.
+struct SliderParts {
+    track: kivact_core::custom::Part<PartState>,
+    thumbs: Vec<(ScalarApi, Value<String>)>,
+    fractions: Ends,
+    body: Option<kivact_core::custom::Part<PartState>>,
+}
+/// Configure one scalar or a paired range without duplicating interaction state.
+fn slider_parts(
+    values: Values,
+    label: Value<String>,
+    range: Value<ScalarRange>,
+    orientation: Orientation,
+    disabled: Option<Value<bool>>,
+    on_edit: Option<Callback<EditPhase>>,
+    touch: SliderTouchMotion,
+) -> SliderParts {
+    let report = move |phase: EditPhase| {
+        if let Some(on_edit) = on_edit {
+            on_edit.call(phase);
+        }
+    };
+    let with_disabled = move |scalar: ScalarApi| match disabled {
+        Some(disabled) => scalar.disabled(disabled),
+        None => scalar,
+    };
+    // A range's filled span drags both ends.
+    let mut body = None;
+    let (track_part, thumbs, fractions): (_, Vec<(ScalarApi, Value<String>)>, _) = match values {
+        Values::One(value) => {
+            let scalar = with_disabled(use_scalar(value, range).on_edit(report));
+            if let SliderTouchMotion::Direct { gesture, .. } = touch {
+                scalar.touch_gesture(gesture);
+            }
+            (
+                scalar.track(orientation),
+                vec![(scalar, label)],
+                Ends {
+                    from: None,
+                    to: scalar.value(),
+                    range,
+                },
+            )
+        }
+        Values::Two(low, high) => {
+            let pair = use_range_scalar(low, high, range).on_edit(report);
+            let pair = match disabled {
+                Some(disabled) => pair.disabled(disabled),
+                None => pair,
+            };
+            if let SliderTouchMotion::Direct { gesture, .. } = touch {
+                pair.end(RangeThumb::Low).touch_gesture(gesture);
+            }
+            body = Some(pair.body());
+            (
+                pair.track(orientation),
+                vec![
+                    (
+                        pair.end(RangeThumb::Low),
+                        kivact_core::i18n::message("slider.minimum", "Minimum"),
+                    ),
+                    (
+                        pair.end(RangeThumb::High),
+                        kivact_core::i18n::message("slider.maximum", "Maximum"),
+                    ),
+                ],
+                Ends {
+                    from: Some(pair.end(RangeThumb::Low).value()),
+                    to: pair.end(RangeThumb::High).value(),
+                    range,
+                },
+            )
+        }
+    };
+    SliderParts {
+        track: track_part,
+        thumbs,
+        fractions,
+        body,
+    }
+}
+/// Render positioned thumbs with optional direct-touch lift motion.
+fn thumb_views(
+    thumbs: Vec<(ScalarApi, Value<String>)>,
+    thumb_ref: kivact_core::view::NodeRef,
+    geometry: std::rc::Rc<Geometry>,
+    size: Value<ControlSize>,
+    orientation: Orientation,
+    touch: SliderTouchMotion,
+    variants: &Variants,
+) -> Vec<View> {
+    let state = move |input: PartState| AxisState {
+        input,
+        orientation,
+        size: size.get(),
+    };
+    thumbs
+        .into_iter()
+        .enumerate()
+        .map(|(index, (scalar, name))| {
+            let part = scalar.thumb();
+            let input = part.state();
+            let geometry = geometry.clone();
+            let mut thumb = with_recipe_style(
+                node().part(part).name(name),
+                |r| r.slider_recipes().thumb_recipe(),
+                variants,
+                move || state(input.get().input),
+            );
+            // Every thumb has the recipe's size; the first one is measured.
+            if index == 0 {
+                thumb = thumb.node_ref(thumb_ref);
+            }
+            if let SliderTouchMotion::Direct {
+                lifted_scale,
+                lift,
+                drop,
+                ..
+            } = touch
+                && let Some(lifted) = scalar.touch_lifted()
+            {
+                node()
+                    .child(thumb)
+                    .style(move || {
+                        let position = geometry.thumb_style(input.get().fraction);
+                        if kivact_core::platform::is_motion_reduced().get() {
+                            position
+                        } else {
+                            let lifted = lifted.get();
+                            position
+                                .scale(if lifted { lifted_scale } else { 1.0 })
+                                .transition(
+                                    TransitionProp::Paint,
+                                    Transition::spring(if lifted { lift } else { drop }),
+                                )
+                        }
+                    })
+                    .into_view()
+            } else {
+                thumb
+                    .style(move || geometry.thumb_style(input.get().fraction))
+                    .into_view()
+            }
+        })
+        .collect()
+}
+
+/// Position the filled span using actual thumb and track geometry.
+fn filled_span(
+    geometry: std::rc::Rc<Geometry>,
+    fractions: Ends,
+    body: Option<kivact_core::custom::Part<PartState>>,
+    track_state: Value<PartState>,
+    size: Value<ControlSize>,
+    orientation: Orientation,
+    variants: &Variants,
+) -> Node {
+    let state = move |input: PartState| AxisState {
+        input,
+        orientation,
+        size: size.get(),
+    };
+    let span = match body {
+        Some(body) => node().part(body),
+        None => node(),
+    };
+    with_recipe_style(
+        span,
+        |r| r.slider_recipes().range_recipe(),
+        variants,
+        move || state(track_state.get()),
+    )
+    .style(move || {
+        let (from, to) = fractions.get();
+        geometry.range_style(from, to)
+    })
+}
+
+/// Resolve default bounds and apply an independently configured keyboard step.
+fn configured_range(range: Option<Value<ScalarRange>>, step: Option<f64>) -> Value<ScalarRange> {
+    let range = range.unwrap_or_else(|| {
+        ScalarRange::new(0.0, 100.0)
+            .expect("invariant: 0 to 100 is a valid range")
+            .into_value()
+    });
+    match step {
+        Some(step) => kivact_core::state::memo(move || {
+            let range = range.get();
+            range.with_step(step).unwrap_or(range)
+        }),
+        None => range,
     }
 }

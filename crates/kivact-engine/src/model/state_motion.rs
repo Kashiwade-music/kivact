@@ -5,15 +5,15 @@
 //! target paint, the same way whatever changed the target: a paint or
 //! state style write (a signal, a style change), the host's hover,
 //! pressed or focus, a group state, an entrance or an exit. It moves the
-//! components of the paint (`wire::paint_vec`) and the text color: the
+//! components of the paint (`kivact_types::paint::PaintVec`) and the text color: the
 //! canonical transform's parts and origin component by component (so
 //! `rotate(0)` to `rotate(360)` turns once); what it does not interpolate
 //! switches to the target at once.
 //!
 //! Invariants:
 //! - A state change captures the displayed value first
-//!   (`Model::prepare_state_motion`, `AnimPhase::Captured`); sync retargets
-//!   the captures once (`AnimPhase::Running`); frames step only running
+//!   (`Model::prepare_state_motion`, `StateAnimPhase::Captured`); sync retargets
+//!   the captures once (`StateAnimPhase::Running`); frames step only running
 //!   ones.
 //! - Under reduced motion a decorative transition ends at once; a
 //!   transition whose target is what is shown ends without a frame.

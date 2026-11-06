@@ -1,10 +1,9 @@
 //! Role: Catalog page of Aspect Ratio: a photo at 16:9, square and portrait boxes.
 
 use crate::model::{Example, Page, PreviewAlign};
-use kivact::Asset;
-use kivact::control::ImageFit;
 use kivact::prelude::*;
-use kivact_ui_basic as basic;
+use kivact::view::Asset;
+use kivact::view::ImageFit;
 
 pub(crate) fn page() -> Page {
     Page {
@@ -41,13 +40,22 @@ use kivact_ui_basic as basic;",
 // example: wide
 fn wide() -> impl IntoView {
     let photo = Asset::from(include_bytes!("../../assets/images/landscape.png").as_slice());
-    column(basic::aspect_ratio(
-        16.0 / 9.0,
-        image(photo)
-            .fit(ImageFit::Cover)
-            .name("Mountains under a pale sun")
-            .style(style().size(pct(100), pct(100))),
-    ))
+    column(
+        node()
+            .style(
+                style()
+                    .direction(kivact::style::Direction::Column)
+                    .width(pct(100))
+                    .aspect_ratio(16.0 / 9.0)
+                    .overflow(kivact::style::Overflow::Hidden),
+            )
+            .child(
+                image(photo)
+                    .fit(ImageFit::Cover)
+                    .name("Mountains under a pale sun")
+                    .style(style().size(pct(100), pct(100))),
+            ),
+    )
     .style(style().width(450))
 }
 // end example
@@ -55,29 +63,47 @@ fn wide() -> impl IntoView {
 // example: square
 fn square() -> impl IntoView {
     let photo = Asset::from(include_bytes!("../../assets/images/landscape.png").as_slice());
-    column(basic::aspect_ratio(
-        1.0,
-        image(photo)
-            .fit(ImageFit::Cover)
-            .name("Mountains under a pale sun")
-            .style(style().size(pct(100), pct(100))),
-    ))
+    column(
+        node()
+            .style(
+                style()
+                    .direction(kivact::style::Direction::Column)
+                    .width(pct(100))
+                    .aspect_ratio(1.0)
+                    .overflow(kivact::style::Overflow::Hidden),
+            )
+            .child(
+                image(photo)
+                    .fit(ImageFit::Cover)
+                    .name("Mountains under a pale sun")
+                    .style(style().size(pct(100), pct(100))),
+            ),
+    )
     .style(style().width(200))
 }
 // end example
 
 // example: portrait
 fn portrait() -> impl IntoView {
-    column(basic::aspect_ratio(
-        3.0 / 4.0,
-        column(text("3 / 4")).style(
-            style()
-                .height(pct(100))
-                .align_items(Align::Center)
-                .justify_content(Justify::Center)
-                .background(ColorToken::SurfaceAlt),
-        ),
-    ))
+    column(
+        node()
+            .style(
+                style()
+                    .direction(kivact::style::Direction::Column)
+                    .width(pct(100))
+                    .aspect_ratio(3.0 / 4.0)
+                    .overflow(kivact::style::Overflow::Hidden),
+            )
+            .child(
+                column(text("3 / 4")).style(
+                    style()
+                        .height(pct(100))
+                        .align_items(Align::Center)
+                        .justify_content(Justify::Center)
+                        .background(ColorToken::SurfaceAlt),
+                ),
+            ),
+    )
     .style(style().width(150))
 }
 // end example

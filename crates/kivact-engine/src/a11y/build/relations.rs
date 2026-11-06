@@ -1,14 +1,14 @@
 //! Role: Drop relations the published tree cannot carry.
 
 use crate::model::Model;
-use kivact_wire as wire;
+use kivact_types as types;
 
 impl Model {
     /// Validate relationships after resolving node and region platform identities.
     pub(super) fn validate_relations(
         &self,
-        source: wire::FocusTarget,
-        props: &mut kivact_types::protocol::SemanticsProperties,
+        source: types::FocusTarget,
+        props: &mut kivact_types::Semantics<kivact_types::SemanticsId>,
     ) {
         // A relation names nodes the platform tree has: one that is
         // gone, not attached or not exposed (no role) is left out. A
@@ -38,11 +38,14 @@ impl Model {
                 return false;
             }
             if let Some(region) = target.region
-                && (node.disabled() || node.region(region).is_none_or(|r| r.hidden || r.disabled))
+                && (node.disabled()
+                    || node
+                        .region(region)
+                        .is_none_or(|r| r.semantics.hidden || r.semantics.disabled))
             {
                 return false;
             }
-            let inside = |ancestor: wire::FocusTarget| match ancestor.region {
+            let inside = |ancestor: types::FocusTarget| match ancestor.region {
                 Some(_) => target == ancestor,
                 None => self.tree().is_in_subtree(target.node, ancestor.node),
             };

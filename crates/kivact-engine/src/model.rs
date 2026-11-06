@@ -33,8 +33,7 @@
 //! the groups, the model holds the window size (`viewport`, which the
 //! layout fills) and, apart from it, the window title and minimum size to
 //! set after the turn (`window_request`) and the imports and drops of
-//! shared textures to carry out after it (`external_writes`, feature
-//! `gpu-interop`).
+//! shared textures to carry out after it (`external_writes`).
 //!
 //! A group's state lives in a leaf `state` module under the module that
 //! changes it: `focus::state::Focus` (the focus with its indicator and pending
@@ -68,6 +67,7 @@ pub(crate) mod frame;
 mod geometry;
 pub(crate) mod interact;
 pub(crate) mod keys;
+mod layout_motion;
 mod lifecycle;
 pub(crate) mod modal;
 pub(crate) mod pointer;
@@ -79,6 +79,5 @@ pub(crate) mod states;
 pub(crate) mod text;
 pub(crate) mod transform;
 
-#[cfg(feature = "gpu-interop")]
 pub(crate) use aggregate::ExternalWrite;
-pub(crate) use aggregate::Model;
+pub(crate) use aggregate::{DeferredRequest, Model};

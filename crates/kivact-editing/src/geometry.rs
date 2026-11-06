@@ -23,7 +23,7 @@
 
 use std::ops::Range;
 
-use kivact_types::protocol::ShapedText;
+use kivact_types::render::ShapedText;
 use kivact_types::{Point, Rect};
 use unicode_segmentation::UnicodeSegmentation as _;
 
@@ -53,11 +53,7 @@ impl<'a> TextGeometry<'a> {
 
     /// `offset` cut to the text and to the char boundary at or before it.
     pub fn floor(&self, offset: usize) -> usize {
-        let mut offset = offset.min(self.text.len());
-        while !self.text.is_char_boundary(offset) {
-            offset -= 1;
-        }
-        offset
+        kivact_types::text_utf::floor_char_boundary(self.text, offset)
     }
 
     /// The scalar index of the char boundary at or before `offset`.
@@ -113,7 +109,7 @@ impl<'a> TextGeometry<'a> {
         if start == end {
             return from;
         }
-        let mut best: Option<(usize, f32)> = None;
+        let mut best: Option<(usize, f64)> = None;
         let mut index = from;
         let stops = self.text[start..end]
             .grapheme_indices(true)
@@ -176,7 +172,7 @@ impl<'a> TextGeometry<'a> {
                 intervals.push((left.min(right), left.max(right)));
             }
             intervals.sort_by(|a, b| a.0.total_cmp(&b.0));
-            let mut merged: Option<(f32, f32)> = None;
+            let mut merged: Option<(f64, f64)> = None;
             for (left, right) in intervals {
                 if let Some((start, end)) = merged.as_mut() {
                     if left <= *end {

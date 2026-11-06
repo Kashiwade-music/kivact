@@ -1,9 +1,10 @@
 //! Role: Passive list inputs, policies and observable item state.
 
-use kivact_core::Binding;
-use kivact_core::primitive::PartState;
+use kivact_core::custom::PartState;
+use kivact_core::custom::Reactive;
+use kivact_core::state::IntoText;
 use kivact_core::style::Icon;
-use kivact_core::view::{IntoText, Modifiers, Orientation, Reactive};
+use kivact_core::view::{Modifiers, Orientation};
 
 /// A labelled logical choice whose identity belongs to application data.
 ///
@@ -29,9 +30,9 @@ use kivact_core::view::{IntoText, Modifiers, Orientation, Reactive};
 /// #     pub extern crate kivact_interaction as interaction;
 /// # }
 /// use kivact::interaction::ListItem;
-/// let item = ListItem::new("inbox", "Inbox").icon("inbox").description("12 unread");
-/// assert_eq!(item.icon_value().and_then(|icon| icon.name()), Some("inbox"));
-/// assert_eq!(item.description_value().as_deref(), Some("12 unread"));
+/// let item = ListItem::new("inbox", "Inbox").with_icon("inbox").with_description("12 unread");
+/// assert_eq!(item.icon().and_then(|icon| icon.name()), Some("inbox"));
+/// assert_eq!(item.description().as_deref(), Some("12 unread"));
 /// ```
 #[derive(Clone, Debug, PartialEq)]
 pub struct ListItem<K> {
@@ -39,6 +40,7 @@ pub struct ListItem<K> {
     pub(crate) label: Reactive<String>,
     pub(crate) disabled: bool,
     pub(crate) icon: Option<Icon>,
+    pub(crate) pressed_icon: Option<Icon>,
     pub(crate) description: Option<Reactive<String>>,
 }
 
@@ -51,6 +53,7 @@ impl<K> ListItem<K> {
             label: Reactive::new(label.into_text()),
             disabled: false,
             icon: None,
+            pressed_icon: None,
             description: None,
         }
     }
@@ -64,15 +67,26 @@ impl<K> ListItem<K> {
     }
 
     /// Show `icon` beside the label: a name the theme resolves
-    /// (`"check"`) or an image [`Asset`](kivact_core::Asset).
-    pub fn icon(mut self, icon: impl Into<Icon>) -> Self {
+    /// (`"check"`) or an image [`Asset`](kivact_core::view::Asset).
+    pub fn with_icon(mut self, icon: impl Into<Icon>) -> Self {
         self.icon = Some(icon.into());
         self
     }
 
+    /// Show this icon instead of the ordinary icon while a toggle is pressed.
+    pub fn with_pressed_icon(mut self, icon: impl Into<Icon>) -> Self {
+        self.pressed_icon = Some(icon.into());
+        self
+    }
+
+    /// The optional icon used while this choice is pressed.
+    pub fn pressed_icon(&self) -> Option<&Icon> {
+        self.pressed_icon.as_ref()
+    }
+
     /// A secondary line of text under the label, such as a shortcut hint or
     /// a count; like the label, a constant or a reactive value.
-    pub fn description(mut self, text: impl IntoText) -> Self {
+    pub fn with_description(mut self, text: impl IntoText) -> Self {
         self.description = Some(Reactive::new(text.into_text()));
         self
     }
@@ -94,14 +108,14 @@ impl<K> ListItem<K> {
     }
 
     /// The icon given to [`icon`](Self::icon).
-    pub fn icon_value(&self) -> Option<&Icon> {
+    pub fn icon(&self) -> Option<&Icon> {
         self.icon.as_ref()
     }
 
     /// The description's current text; tracked when read inside a
     /// computation.
     #[track_caller]
-    pub fn description_value(&self) -> Option<String> {
+    pub fn description(&self) -> Option<String> {
         self.description.as_ref().map(Reactive::get)
     }
 }
@@ -147,7 +161,7 @@ impl ListGesture {
     /// Interpret selection modifiers using the list's configured range policy.
     /// Shift extends with `shift` or `command_shift`; the configured command
     /// modifier alone toggles, and an ordinary press replaces the selection.
-    pub fn from_modifiers(modifiers: Modifiers, policy: &ListPolicy) -> Self {
+    pub fn from_modifiers(modifiers: Modifiers, policy: &ListOptions) -> Self {
         let range = policy.range;
         let command = match range.command {
             ListCommandModifier::Control => modifiers.ctrl,
@@ -191,14 +205,14 @@ pub enum ListCommandModifier {
 
 /// Selection policies for adapting pointer and keyboard modifiers.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct ListRangePolicy {
+pub struct ListRangeOptions {
     pub shift: ListRangeMode,
     pub command_shift: ListRangeMode,
     pub missing_anchor: ListMissingAnchor,
     pub command: ListCommandModifier,
 }
 
-impl Default for ListRangePolicy {
+impl Default for ListRangeOptions {
     fn default() -> Self {
         Self {
             shift: ListRangeMode::Replace,
@@ -206,18 +220,6 @@ impl Default for ListRangePolicy {
             missing_anchor: ListMissingAnchor::Target,
             command: ListCommandModifier::ControlOrMeta,
         }
-    }
-}
-
-/// The authoritative caller selection, with no internal selection mirror.
-pub enum ListSelection<K: Clone + PartialEq + 'static> {
-    Single(Binding<Option<K>>),
-    Multiple(Binding<Vec<K>>),
-}
-impl<K: Clone + PartialEq + 'static> Copy for ListSelection<K> {}
-impl<K: Clone + PartialEq + 'static> Clone for ListSelection<K> {
-    fn clone(&self) -> Self {
-        *self
     }
 }
 
@@ -235,7 +237,7 @@ pub enum ListMode {
 
 /// Shared navigation, activation, typeahead and range policy.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct ListPolicy {
+pub struct ListOptions {
     /// Which arrow keys move through the logical order: the vertical ones
     /// ([`Orientation::Vertical`]), the horizontal ones
     /// ([`Orientation::Horizontal`]) or all four (`None`).
@@ -246,9 +248,9 @@ pub struct ListPolicy {
     pub activation: ListActivation,
     pub mode: ListMode,
     pub typeahead: bool,
-    pub range: ListRangePolicy,
+    pub range: ListRangeOptions,
 }
-impl Default for ListPolicy {
+impl Default for ListOptions {
     fn default() -> Self {
         Self {
             axis: Some(Orientation::Vertical),
@@ -256,11 +258,11 @@ impl Default for ListPolicy {
             activation: ListActivation::Automatic,
             mode: ListMode::Select,
             typeahead: false,
-            range: ListRangePolicy::default(),
+            range: ListRangeOptions::default(),
         }
     }
 }
-impl ListPolicy {
+impl ListOptions {
     pub fn tabs() -> Self {
         Self {
             axis: Some(Orientation::Horizontal),
@@ -301,5 +303,6 @@ impl ListPolicy {
 pub struct ListItemState {
     pub input: PartState,
     pub selected: bool,
+    // xtask-allow(state-fields): Public derived part output, independent of selection.
     pub active: bool,
 }

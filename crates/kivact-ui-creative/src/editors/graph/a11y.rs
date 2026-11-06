@@ -3,11 +3,11 @@ use crate::editors::graph::gesture::{Info, Settings, State, Target, VisibleKey};
 use crate::editors::graph::model::Curve;
 use crate::editors::graph::model::Interpolation;
 use crate::editors::shared::model::Lane;
-use kivact::control::Node;
-use kivact::interaction::Drag;
-use kivact::primitive::part;
+use kivact::custom::part;
+use kivact::interaction::DragApi;
+use kivact::state::{Binding, Value};
+use kivact::view::Node;
 use kivact::view::{A11yAction, A11yRequest, Role};
-use kivact::{Binding, Value};
 use std::rc::Rc;
 
 pub(crate) fn visible(
@@ -15,7 +15,7 @@ pub(crate) fn visible(
     lanes: Value<Vec<Lane>>,
     settings: Rc<Settings>,
 ) -> Value<Vec<VisibleKey>> {
-    kivact::memo(move || {
+    kivact::state::memo(move || {
         let lanes = lanes.get();
         let mut result = Vec::new();
         for curve in curves
@@ -75,7 +75,7 @@ pub(crate) fn scene(
     })
 }
 fn infos(state: State, settings: Rc<Settings>, lanes: Value<Vec<Lane>>) -> Value<Vec<Info>> {
-    kivact::memo(move || {
+    kivact::state::memo(move || {
         let Ok(scene) = state.scene.get() else {
             return Vec::new();
         };
@@ -147,7 +147,7 @@ fn infos(state: State, settings: Rc<Settings>, lanes: Value<Vec<Lane>>) -> Value
 pub(crate) fn attach(
     root: Node,
     state: State,
-    gesture: Drag<()>,
+    gesture: DragApi<crate::editors::graph::gesture::Snapshot>,
     settings: Rc<Settings>,
     lanes: Value<Vec<Lane>>,
 ) -> Node {
@@ -157,54 +157,68 @@ pub(crate) fn attach(
         move |_, info| {
             let target = info.get_untracked().target;
             // A press on a region drags from there.
-            let mut result = part(|input| input)
-                .role(info.get_untracked().role)
-                .name(move || info.get().name)
-                .value_text(move || info.get().value)
-                .with(gesture.source(()));
+            let mut result = {
+                let input_part = part(|input| input);
+                let drag_source = gesture.source_with(move || state.source_snapshot());
+                kivact::custom::Part::new(input_part.state(), move |node| {
+                    node.part(input_part)
+                        .role(info.get_untracked().role)
+                        .name(move || info.get().name)
+                        .value_text(move || info.get().value)
+                        .part(drag_source)
+                })
+            };
             if matches!(target, Target::Lane(_)) {
-                return result
-                    .focusable(true)
-                    .on_a11y_event(A11yAction::Activate, move |_| state.activate(target));
+                return kivact::custom::Part::new(result.state(), move |node| {
+                    node.part(result)
+                        .focusable(true)
+                        .a11y_action(A11yAction::Activate, move |_| state.activate(target))
+                });
             }
-            result = result.focusable(true);
+            result = kivact::custom::Part::new(result.state(), move |node| {
+                node.part(result).focusable(true)
+            });
             if !matches!(target, Target::Playhead) {
-                result = result
-                    .selected(move || info.get().selected)
-                    .on_a11y_event(A11yAction::Select, move |_| {
-                        if state.drag_state().is_none() {
-                            state.select(target, true);
+                result = kivact::custom::Part::new(result.state(), move |node| {
+                    node.part(result)
+                        .selected(move || info.get().selected)
+                        .a11y_action(A11yAction::Select, move |_| {
+                            if state.drag_state().is_none() {
+                                state.select(target, true);
+                            }
+                        })
+                        .a11y_action(A11yAction::Activate, move |_| {
+                            if state.drag_state().is_none() {
+                                state.select(target, false);
+                            }
+                        })
+                });
+            }
+            kivact::custom::Part::new(result.state(), move |node| {
+                node.part(result)
+                    .a11y_action(A11yAction::SetValue, move |event| {
+                        if let A11yRequest::SetValue(value) = event.request {
+                            let pair = if matches!(target, Target::Playhead) {
+                                value
+                                    .parse::<f64>()
+                                    .ok()
+                                    .filter(|v| v.is_finite())
+                                    .map(|v| (v, 0.0))
+                            } else {
+                                crate::editors::graph::edit::pair(&value)
+                            };
+                            if let Some(pair) = pair {
+                                state.change(target, Some(pair), 0.0);
+                            }
                         }
                     })
-                    .on_a11y_event(A11yAction::Activate, move |_| {
-                        if state.drag_state().is_none() {
-                            state.select(target, false);
-                        }
-                    });
-            }
-            result
-                .on_a11y_event(A11yAction::SetValue, move |event| {
-                    if let A11yRequest::SetValue(value) = event.request {
-                        let pair = if matches!(target, Target::Playhead) {
-                            value
-                                .parse::<f64>()
-                                .ok()
-                                .filter(|v| v.is_finite())
-                                .map(|v| (v, 0.0))
-                        } else {
-                            crate::editors::graph::edit::pair(&value)
-                        };
-                        if let Some(pair) = pair {
-                            state.change(target, Some(pair), 0.0);
-                        }
-                    }
-                })
-                .on_a11y_event(A11yAction::Increment, move |_| {
-                    state.change(target, None, state.step().0)
-                })
-                .on_a11y_event(A11yAction::Decrement, move |_| {
-                    state.change(target, None, -state.step().0)
-                })
+                    .a11y_action(A11yAction::Increment, move |_| {
+                        state.change(target, None, state.step().0)
+                    })
+                    .a11y_action(A11yAction::Decrement, move |_| {
+                        state.change(target, None, -state.step().0)
+                    })
+            })
         },
     )
 }

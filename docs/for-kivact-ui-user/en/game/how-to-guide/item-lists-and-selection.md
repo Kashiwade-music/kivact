@@ -9,7 +9,7 @@ writes the player's choices back; it keeps no copy.
 
 ## Pick one item from a list
 
-`list(label, items, selected)` is a standard component. The Game theme draws
+`list(label, items).selection(selected)` is a standard component. The Game theme draws
 it with hard edges and a selection edge.
 
 ```rust,no_run
@@ -20,12 +20,12 @@ use kivact_ui_game as game;
 fn inventory() -> impl IntoView {
     let selected = signal(Some(2_u32));
     let items = vec![
-        ListItem::new(1, "Rail Rifle").description("POWER 42").icon("bolt"),
-        ListItem::new(2, "Pulse Blade").description("POWER 35"),
-        ListItem::new(3, "Prototype Cannon").description("LOCKED").disabled(true),
+        ListItem::new(1, "Rail Rifle").with_description("POWER 42").with_icon("bolt"),
+        ListItem::new(2, "Pulse Blade").with_description("POWER 35"),
+        ListItem::new(3, "Prototype Cannon").with_description("LOCKED").disabled(true),
     ];
     column((
-        list("Inventory", items, selected),
+        list("Inventory", items).selection(selected),
         game::mono(move || format!("SELECTED {:?}", selected.get())),
     ))
     .style(style().gap(12).width(320).margin(24))
@@ -69,11 +69,11 @@ fn weapons(all: Signal<Vec<Weapon>>, selected: Signal<Option<u32>>) -> impl Into
     let rows = memo(move || {
         all.with(|all| {
             all.iter()
-                .map(|w| ListItem::new(w.id, w.name.clone()).description(format!("AMMO {}", w.ammo)))
+                .map(|w| ListItem::new(w.id, w.name.clone()).with_description(format!("AMMO {}", w.ammo)))
                 .collect::<Vec<_>>()
         })
     });
-    list("Weapons", rows, selected)
+    list("Weapons", rows).selection(selected)
 }
 # fn main() {}
 ```
@@ -83,9 +83,8 @@ list never edits your signals except to write the player's choice.
 
 ## Pick several items
 
-`.multiple(signal)` turns the list into a multi-select. The list then reads and
-writes only that signal (a `Signal<Vec<K>>`); the single `selected` argument is
-unused, so pass any signal. A click selects one, Ctrl (Cmd on macOS) toggles
+`.selection(signal)` accepts `Signal<Option<K>>` for one choice or
+`Signal<Vec<K>>` for several. A click selects one, Ctrl (Cmd on macOS) toggles
 one, and Shift extends from the last one.
 
 ```rust,no_run
@@ -99,10 +98,7 @@ fn squad() -> impl IntoView {
             ListItem::new(1, "Aya"),
             ListItem::new(2, "Ben"),
             ListItem::new(3, "Cho"),
-        ],
-        signal(None::<u32>),
-    )
-    .multiple(picked)
+        ]).selection(picked)
 }
 # fn main() {}
 ```
@@ -121,9 +117,7 @@ fn missions() -> impl IntoView {
     let selected = signal(Some("alpha"));
     list(
         "Missions",
-        vec![ListItem::new("alpha", "Alpha"), ListItem::new("bravo", "Bravo")],
-        selected,
-    )
+        vec![ListItem::new("alpha", "Alpha"), ListItem::new("bravo", "Bravo")]).selection(selected)
     .item(|item, state| {
         row((
             game::mono(move || if state.get().selected { ">" } else { " " }),
@@ -140,55 +134,61 @@ row updates when they change.
 
 ## Show a hierarchy as a tree
 
-`game::tree(entries, selection)` draws a file tree. `entries` is a list of
-`game::TreeEntry`, built with `TreeEntry::file(id, label)` and
-`TreeEntry::folder(id, label, children)`; `selection` is a
-`Signal<Option<String>>` holding the id of the selected **leaf**, `None` while
-none is selected.
+`kivact::ui::tree(label, nodes)` renders flat `TreeNode` data under the Game theme. The application owns expansion, selection and revision markers. Guard the selection binding to select only leaves; use `.on_activate(..)` to toggle a folder on Enter or double click. A folder starts closed when its key is absent from `expanded`. The row slot can combine icons, labels and revision markers. The tree remains one Tab stop with arrow navigation and a pointer expander. Reactive node labels follow their source.
 
 ```rust,no_run
 use kivact::prelude::*;
+use kivact::interaction::TreeNode;
 use kivact_ui_game as game;
 
 fn files() -> impl IntoView {
-    let selected = signal(Some(String::from("save-1")));
-    let entries = vec![
-        game::TreeEntry::folder(
-            "saves",
-            "saves",
-            vec![
-                game::TreeEntry::file("save-1", "slot-1.sav"),
-                game::TreeEntry::file("save-2", "slot-2.sav").marker("M"),
-            ],
-        ),
-        game::TreeEntry::folder("mods", "mods", vec![]).collapsed(),
-        game::TreeEntry::file("readme", "README.txt"),
+    let selected = signal(Some("save-1".to_owned()));
+    let expanded = signal(vec!["saves".to_owned()]);
+    let nodes = vec![
+        TreeNode::new("saves".to_owned(), None, "saves"),
+        TreeNode::new("save-1".to_owned(), Some("saves".to_owned()), "slot-1.sav"),
+        TreeNode::new("save-2".to_owned(), Some("saves".to_owned()), "slot-2.sav"),
+        TreeNode::new("mods".to_owned(), None, "mods"),
+        TreeNode::new("readme".to_owned(), None, "README.txt"),
     ];
     column((
-        game::tree(entries, selected),
+        kivact::ui::tree("Files", nodes).expanded(expanded)
+            .selection(binding(selected, move |key: Option<String>| {
+                if key.as_deref().is_none_or(|id| !["saves", "mods"].contains(&id)) {
+                    selected.set(key);
+                }
+            }))
+            .on_activate(move |key| {
+                if key == "saves" {
+                    expanded.update(|keys| if keys.contains(&key) {
+                        keys.retain(|id| id != &key);
+                    } else { keys.push(key); });
+                }
+            })
+            .item(|item, _| {
+                let key = item.get_untracked().key;
+                let label = match key.as_str() {
+                    "save-1" => "slot-1.sav", "save-2" => "slot-2.sav",
+                    "readme" => "README.txt", "saves" => "saves", _ => "mods",
+                };
+                row((text(label).style(style().grow(1)), game::mono(if key == "save-2" { "M" } else { "" })))
+                    .style(style().grow(1))
+            }),
         game::mono(move || format!("OPEN {}", selected.get().unwrap_or_default())),
-    ))
-    .style(style().gap(12).width(300).margin(24))
+    )).style(style().gap(12).width(300).margin(24))
 }
 # fn main() {}
 ```
 
-The whole tree is one tab stop. Up and Down move over visible rows, Right and
-Left open and close a folder or move between a folder and its children. Only a
-leaf is written to the signal; a folder opens and closes with its chevron,
-Enter or a double click. `.collapsed()` starts a folder closed, `.marker("M")`
-adds a small mark at the end of a row. The entries are read when the tree is
-built and also follow a signal, so a renamed entry shows the new label.
-
 ## Show records in a table
 
 `data_table(rows, key, columns)` is the standard table; the Game theme draws it
-as a console table. `game::TableCell` gives a column's cells a console look
+as a console table. `game::GameCellVariant` gives a column's cells a console look
 through `.cell(..)`:
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::ui::Tone;
+use kivact::interaction::Tone;
 use kivact_ui_game as game;
 
 #[derive(Clone, PartialEq)]
@@ -207,14 +207,14 @@ fn units(rows: Signal<Vec<Unit>>) -> impl IntoView {
         vec![
             DataColumn::new("Unit", |unit: &Unit| unit.name.to_owned()).sortable(),
             DataColumn::new("Status", |unit: &Unit| unit.status.to_owned()).cell(|unit: &Unit| {
-                game::TableCell::Badge {
+                game::GameCellVariant::Badge {
                     label: unit.status.to_owned(),
                     tone: if unit.status == "ALIVE" { Tone::Success } else { Tone::Danger },
                 }
             }),
             DataColumn::new("HP", |unit: &Unit| format!("{:.0}", unit.hp))
                 .compare(|a, b| a.hp.total_cmp(&b.hp))
-                .cell(|unit: &Unit| game::TableCell::Progress { value: unit.hp, tone: Tone::Info })
+                .cell(|unit: &Unit| game::GameCellVariant::Progress { value: unit.hp, tone: Tone::Info })
                 .numeric(true),
         ],
     )
@@ -227,7 +227,7 @@ The table keeps nothing but what you pass: the rows, the selection, and (with
 `.sort(..)`, `.filter(..)`, `.page(..)`) the sort, the search text and the page.
 `.toolbar(|context| view)` replaces the area above the table, for example with
 bulk actions on the selected rows, and `.footer(|context| view)` the area
-below. Cells: `TableCell::Identifier`, `Detail { title, description }`,
+below. Cells: `GameCellVariant::Identifier`, `Detail { title, description }`,
 `User { name, initials, color }`, `Badge { label, tone }` and
 `Progress { value, tone }` (0 to 100).
 

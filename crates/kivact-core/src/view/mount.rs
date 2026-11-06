@@ -30,10 +30,11 @@ pub(crate) mod regions;
 mod resolve;
 mod semantics;
 mod style;
-use super::common::Common;
+use super::element_data::Common;
 use resolve::Resolved;
 
-use kivact_wire::{LayoutProps, NodeId, NodeType};
+use kivact_engine::contract::NodeType;
+use kivact_types::{LayoutProps, NodeId};
 
 use super::descriptor::Mcx;
 
@@ -71,7 +72,7 @@ pub(crate) fn mount_host_with(
     at: &'static Location<'static>,
     fix_layout: Option<fn(&mut LayoutProps)>,
 ) -> NodeId {
-    // `.at(..)` replaces the builder's call site.
+    // `.located_at_caller()` replaces the builder's call site.
     let at = c.at.unwrap_or(at);
     let id = cx.host(kind);
     let Resolved {

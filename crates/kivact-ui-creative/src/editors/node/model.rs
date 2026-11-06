@@ -1,7 +1,8 @@
 //! Role: Data models of the node editor: sockets, nodes, controls and links.
 
-use kivact::draw::{Pixels, Point, Size};
-use kivact::style::{Color, rgb};
+use kivact::draw::Pixels;
+use kivact::geometry::{Point, Size};
+use kivact::style::Color;
 
 /// A labeled typed socket. Its index in the node's list is its identity.
 #[derive(Clone, Debug, PartialEq)]
@@ -10,7 +11,7 @@ pub struct NodeSocket {
     pub type_name: String,
     pub color: Color,
     /// Optional vertical placement within the node, in logical pixels.
-    pub offset: Option<f32>,
+    pub offset: Option<f64>,
 }
 impl NodeSocket {
     pub fn new(label: impl Into<String>, type_name: impl Into<String>, color: Color) -> Self {
@@ -21,7 +22,7 @@ impl NodeSocket {
             offset: None,
         }
     }
-    pub fn at(mut self, offset: f32) -> Self {
+    pub fn at(mut self, offset: f64) -> Self {
         if offset.is_finite() && offset >= 30.0 {
             self.offset = Some(offset);
         }
@@ -42,8 +43,10 @@ pub struct NodeData {
     pub parameters: Vec<String>,
     /// Editable controls are stored in the application's node model.
     pub controls: Vec<NodeControl>,
+    // xtask-allow(state-fields): Independent optional application-owned image and mute flag.
     /// Application-provided image displayed within the node preview rectangle.
     pub preview: Option<Pixels>,
+    // xtask-allow(state-fields): Independent optional application-owned image and mute flag.
     pub muted: bool,
 }
 impl Default for NodeData {
@@ -53,7 +56,7 @@ impl Default for NodeData {
             label: String::new(),
             position: Point::new(0.0, 0.0),
             size: Size::new(180.0, 160.0),
-            color: rgb(0x8b7cff),
+            color: crate::color::default_item_color(),
             inputs: Vec::new(),
             outputs: Vec::new(),
             parameters: Vec::new(),
@@ -75,7 +78,7 @@ impl NodeData {
             label: label.into(),
             position: Point::new(0.0, 0.0),
             size: Size::new(180.0, 160.0),
-            color: rgb(0x8b7cff),
+            color: crate::color::default_item_color(),
             inputs,
             outputs,
             ..Self::default()
@@ -112,7 +115,7 @@ impl NodeData {
 #[derive(Clone, Debug, PartialEq)]
 pub struct NodeControl {
     pub label: String,
-    pub offset: f32,
+    pub offset: f64,
     pub value: NodeControlValue,
 }
 #[derive(Clone, Debug, PartialEq)]
@@ -132,7 +135,7 @@ pub enum NodeControlValue {
 impl NodeControl {
     pub fn number(
         label: impl Into<String>,
-        offset: f32,
+        offset: f64,
         value: f64,
         min: f64,
         max: f64,
@@ -151,7 +154,7 @@ impl NodeControl {
     }
     pub fn choice(
         label: impl Into<String>,
-        offset: f32,
+        offset: f64,
         options: impl IntoIterator<Item = impl Into<String>>,
         selected: usize,
     ) -> Self {
@@ -166,7 +169,7 @@ impl NodeControl {
     }
     /// A toggle control. A constant: `checked` is plain data inside the node's
     /// control list, so a changed state is a new list.
-    pub fn toggle(label: impl Into<String>, offset: f32, checked: bool) -> Self {
+    pub fn toggle(label: impl Into<String>, offset: f64, checked: bool) -> Self {
         Self {
             label: label.into(),
             offset,

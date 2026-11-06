@@ -1,6 +1,6 @@
 //! Role: Taffy style conversion from layout properties.
 //!
-//! Taffy style of the `wire` [`LayoutProps`]: the one conversion the layout
+//! Taffy style of the `shared` [`LayoutProps`]: the one conversion the layout
 //! pass on retained nodes lays out with.
 //!
 //! Invariants:

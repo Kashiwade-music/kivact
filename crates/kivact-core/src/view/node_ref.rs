@@ -7,10 +7,10 @@ use std::cell::Cell;
 use std::panic::Location;
 use std::rc::Rc;
 
-use kivact_wire::{FocusTarget, NodeId};
+use kivact_types::{FocusTarget, NodeId};
 
-use crate::view::state::{Bound, NodeRefState, ViewState};
-use kivact_reactive::{
+use crate::view::state::{Bound, LayoutObservation, NodeRefState, RefState, ViewState};
+use kivact_runtime::{
     AppId, ErrorKind, Owned, Owner, Runtime, Signal, UiError, Value, require_effectful,
     require_setup,
 };
@@ -22,7 +22,7 @@ use kivact_style::draw::Rect;
 #[derive(Clone, Copy, PartialEq)]
 pub struct NodeRef {
     pub(crate) app: AppId,
-    pub(crate) state: Owned<NodeRefState>,
+    pub(crate) state: Owned<Rc<NodeRefState>>,
 }
 
 pub(crate) enum RovingMove {
@@ -50,13 +50,13 @@ impl NodeRef {
     /// A reference stored under `owner`, disposed with it.
     pub(crate) fn owned_by(owner: Owner, at: &'static Location<'static>) -> Self {
         let app = owner.app();
-        let bound = owner.signal(None::<Bound>, at);
+        let bound = owner.signal(RefState::Unbound, at);
         let rect_value = resolved_rect(app, bound);
         let scroll_value = resolved_scroll(app, bound);
         let state = Rc::new(NodeRefState {
             owner,
             bound,
-            observes_layout: Cell::new(false),
+            observes_layout: Cell::new(LayoutObservation::NotRequested),
             rect_value,
             scroll_value,
         });
@@ -66,9 +66,18 @@ impl NodeRef {
 }
 
 impl NodeRef {
+    pub(crate) fn observed_status<T>(
+        &self,
+        read: impl FnOnce(crate::view::tree::NodeObservation) -> T,
+    ) -> Option<T> {
+        let (_, state) = self.state(Location::caller());
+        let bound = state.bound.try_get().and_then(RefState::bound)?;
+        observation(self.app, bound.target()).map(read)
+    }
+
     /// The runtime and state of this ref; located `WrongApp` and `Disposed`.
-    pub(crate) fn state(&self, at: &'static Location<'static>) -> (Rc<Runtime>, Rc<NodeRefState>) {
-        let s = self.state.get_at(at);
+    pub(crate) fn state(&self, _at: &'static Location<'static>) -> (Rc<Runtime>, Rc<NodeRefState>) {
+        let s = self.state.get();
         let rt = Runtime::get(self.app).expect("invariant: a resolved handle's App is registered");
         (rt, s)
     }
@@ -84,19 +93,9 @@ impl NodeRef {
         id: NodeId,
         region: crate::draw::RegionId,
         owner: Owner,
-        hovered: Value<bool>,
         at: &'static Location<'static>,
     ) {
-        self.bind_target(
-            rt,
-            Bound::Region {
-                node: id,
-                region,
-                hovered,
-            },
-            Some(owner),
-            at,
-        );
+        self.bind_target(rt, Bound::Region { node: id, region }, Some(owner), at);
     }
 
     fn bind_target(
@@ -133,7 +132,7 @@ impl NodeRef {
             );
             return;
         };
-        if let Some(old) = state.bound.try_get_untracked().flatten()
+        if let Some(old) = state.bound.try_get_untracked().and_then(RefState::bound)
             && ViewState::tree(rt).get(old.node()).is_some()
         {
             rt.report(
@@ -151,20 +150,25 @@ impl NodeRef {
         if ViewState::tree_mut(rt).observe_node(id, at).is_none() {
             return;
         }
-        if state.observes_layout.get() {
+        if matches!(state.observes_layout.get(), LayoutObservation::Requested) {
             ViewState::tree_mut(rt).set_observe(id, true);
         }
-        state.bound.set(Some(bound));
+        ViewState::tree_mut(rt)
+            .get_mut(id)
+            .expect("invariant: the observed node exists")
+            .references
+            .push(state.bound);
+        state.bound.set(RefState::Bound(bound));
         if let Some(owner) = adoption_owner.or(node_owner) {
             let handle = self.state;
             owner.on_cleanup(move || {
                 let Some(state) = handle.find() else {
                     return;
                 };
-                if state.bound.try_get_untracked().flatten() != Some(bound) {
+                if state.bound.try_get_untracked().and_then(RefState::bound) != Some(bound) {
                     return;
                 }
-                state.bound.set(None);
+                state.bound.set(RefState::Detached);
             });
         }
     }
@@ -172,7 +176,7 @@ impl NodeRef {
     /// The bound node if it is still mounted.
     pub(crate) fn node(&self) -> Option<NodeId> {
         let s = self.state.find()?;
-        let bound = s.bound.try_get_untracked().flatten()?;
+        let bound = s.bound.try_get_untracked().and_then(RefState::bound)?;
         let rt = Runtime::get(self.app)?;
         ViewState::tree(&rt).get(bound.node()).map(|_| bound.node())
     }
@@ -182,7 +186,11 @@ impl NodeRef {
         let state = self.state.find()?;
         live_target(
             self.app,
-            state.bound.try_get_untracked().flatten()?.target(),
+            state
+                .bound
+                .try_get_untracked()
+                .and_then(RefState::bound)?
+                .target(),
         )
     }
 
@@ -194,7 +202,7 @@ impl NodeRef {
     /// The exact live binding, tracking rebinding and region scene changes.
     pub(crate) fn target_value(&self, at: &'static Location<'static>) -> Option<FocusTarget> {
         let (rt, s) = self.state(at);
-        let bound = s.bound.get()?;
+        let bound = s.bound.get().bound()?;
         if matches!(bound, Bound::Region { .. })
             && let Some(observation) = ViewState::tree(&rt)
                 .get(bound.node())
@@ -206,9 +214,58 @@ impl NodeRef {
         self.target()
     }
 
+    /// Render this node and its descendants into straight-alpha RGBA pixels.
+    ///
+    /// Coordinates are logical pixels at scale 1, cropped to the node's layout
+    /// size. Rendering uses the CPU, including when the window uses a GPU.
+    /// Capture waits for pending draw and layout work to settle. Shared GPU
+    /// frames without CPU pixels return `ErrorKind::Unsupported`.
+    /// The binding is resolved when the future is polled; unbound or removed
+    /// nodes return a located error, and a rebound reference follows its node.
+    #[track_caller]
+    pub fn snapshot(
+        &self,
+    ) -> impl std::future::Future<Output = Result<kivact_types::Pixels, UiError>> + use<> {
+        let at = Location::caller();
+        let reference = *self;
+        async move {
+            let fail = |kind, message| UiError::new(kind, message, Some(at));
+            if Runtime::current().is_some_and(|rt| rt.id() != reference.app) {
+                return Err(fail(
+                    ErrorKind::WrongApp,
+                    "snapshot reference belongs to another App",
+                ));
+            }
+            let disposed = || {
+                fail(
+                    ErrorKind::Disposed {
+                        created_at: None,
+                        disposed_by: None,
+                    },
+                    "snapshot reference owner was disposed",
+                )
+            };
+            let state = reference.state.try_get().ok_or_else(disposed)?;
+            let rt = Runtime::get(reference.app).ok_or_else(disposed)?;
+            let id = state
+                .bound
+                .try_get_untracked()
+                .and_then(RefState::bound)
+                .map(Bound::node)
+                .filter(|id| ViewState::tree(&rt).get(*id).is_some())
+                .ok_or_else(|| {
+                    fail(
+                        ErrorKind::Message,
+                        "snapshot reference is not bound to a mounted node",
+                    )
+                })?;
+            super::snapshots::request(&rt, id, state.owner, at).await
+        }
+    }
+
     /// Whether the frontmost hit at a window point belongs to this node or its descendants.
     #[track_caller]
-    pub fn hit_test(&self, point: crate::draw::Point) -> bool {
+    pub fn hit_test(&self, point: crate::geometry::Point) -> bool {
         let (rt, _) = self.state(Location::caller());
         let Some(id) = self.node() else { return false };
         ViewState::tree(&rt).reader().hit_test(id, point)
@@ -224,25 +281,51 @@ impl NodeRef {
             rt.request_turn();
         }
     }
+    /// The bound node's display lifetime phase, or `Leaving` while unbound.
+    /// Setup only. References bound later follow their new node.
+    #[track_caller]
+    pub fn presence(&self) -> Value<kivact_types::Presence> {
+        let at = Location::caller();
+        let (_, state) = self.state(at);
+        require_setup("NodeRef::presence");
+        let binding = state.bound;
+        let app = self.app;
+        kivact_runtime::memo(move || {
+            let Some(bound) = binding.try_get().and_then(RefState::bound) else {
+                return kivact_types::Presence::Leaving;
+            };
+            let source = Runtime::get(app)
+                .and_then(|rt| ViewState::tree_mut(&rt).presence(bound.node(), at));
+            source
+                .and_then(|source| source.try_get())
+                .unwrap_or(kivact_types::Presence::Leaving)
+        })
+    }
+
     /// Reactive scroll offset of the bound node; zero while unbound.
     #[track_caller]
-    pub fn scroll_offset(&self) -> Value<crate::draw::Point> {
+    pub fn scroll_offset(&self) -> Value<crate::geometry::Point> {
         let (rt, state) = self.state(Location::caller());
         drop(rt);
         state.scroll_value
     }
     /// Move the bound scroll container to an absolute logical offset.
     #[track_caller]
-    pub fn scroll_to(&self, offset: crate::draw::Point, behavior: ScrollBehavior) {
+    pub fn scroll_to(&self, offset: crate::geometry::Point, behavior: ScrollBehavior) {
         self.scroll_request(offset, false, behavior);
     }
     /// Move the bound scroll container by a logical delta.
     #[track_caller]
-    pub fn scroll_by(&self, delta: crate::draw::Point, behavior: ScrollBehavior) {
+    pub fn scroll_by(&self, delta: crate::geometry::Point, behavior: ScrollBehavior) {
         self.scroll_request(delta, true, behavior);
     }
     #[track_caller]
-    fn scroll_request(&self, point: crate::draw::Point, relative: bool, behavior: ScrollBehavior) {
+    fn scroll_request(
+        &self,
+        point: crate::geometry::Point,
+        relative: bool,
+        behavior: ScrollBehavior,
+    ) {
         let (rt, _) = self.state(Location::caller());
         require_effectful("NodeRef scroll");
         if let Some(id) = self.node() {
@@ -250,7 +333,10 @@ impl NodeRef {
                 id,
                 point,
                 relative,
-                behavior == ScrollBehavior::Smooth,
+                match behavior {
+                    ScrollBehavior::Instant => None,
+                    ScrollBehavior::Smooth(easing) => Some(easing),
+                },
             );
             rt.request_turn();
         }
@@ -273,7 +359,7 @@ impl NodeRef {
         super::requests::request_focus(
             &rt,
             self.target(),
-            super::state::FocusWaiter::Report(owner, at),
+            super::state::FocusReply::Report(super::state::FocusCompletion { owner, at }),
             !ViewState::of(&rt).pointer_modality(),
         );
     }
@@ -447,10 +533,10 @@ impl NodeRef {
         let _ = self.rect();
         let app = self.app;
         let binding = self.state(Location::caller()).1.bound;
-        kivact_reactive::memo(move || {
+        kivact_runtime::memo(move || {
             binding
                 .try_get()
-                .flatten()
+                .and_then(RefState::bound)
                 .filter(|bound| bound.target().region.is_none())
                 .and_then(|bound| observation(app, bound.target()))
                 .and_then(|observation| observation.text_truncated.try_get())
@@ -465,8 +551,8 @@ impl NodeRef {
     pub fn rect(&self) -> Value<Option<Rect>> {
         let at = Location::caller();
         let (rt, s) = self.state(at);
-        s.observes_layout.set(true);
-        if let Some(bound) = s.bound.try_get_untracked().flatten() {
+        s.observes_layout.set(LayoutObservation::Requested);
+        if let Some(bound) = s.bound.try_get_untracked().and_then(RefState::bound) {
             ViewState::tree_mut(&rt).set_observe(bound.node(), true);
         }
         s.rect_value
@@ -499,8 +585,8 @@ impl NodeRef {
         let app = rt.id();
         let node = s.bound;
         drop(rt);
-        kivact_reactive::memo(move || {
-            let Some(bound) = node.get() else {
+        kivact_runtime::memo(move || {
+            let Some(bound) = node.get().bound() else {
                 return false;
             };
             let id = bound.target();
@@ -526,7 +612,7 @@ impl NodeRef {
         let (rt, _) = self.state(at);
         let focused = self.focused();
         let keys = ViewState::of(&rt).focus_keys();
-        kivact_reactive::memo(move || focused.get() && keys.visible.get())
+        kivact_runtime::memo(move || focused.get() && keys.visible.get())
     }
 
     /// Whether the keyboard focus is on the bound node or on a node inside
@@ -549,7 +635,7 @@ impl NodeRef {
         let app = rt.id();
         let node = s.bound;
         drop(rt);
-        kivact_reactive::memo(move || {
+        kivact_runtime::memo(move || {
             let Some(me) = bound_node(app, node) else {
                 return false;
             };
@@ -596,12 +682,15 @@ impl NodeRef {
         let node = s.bound;
         drop(rt);
         let owner_hover = within(app, node, hover);
-        kivact_reactive::memo(move || {
+        kivact_runtime::memo(move || {
             if !owner_hover.get() {
                 return false;
             }
-            match node.get() {
-                Some(Bound::Region { hovered, .. }) => hovered.get(),
+            match node.get().bound() {
+                Some(Bound::Region { .. }) => node
+                    .get()
+                    .bound()
+                    .is_some_and(|bound| hover.get() == Some(bound.target())),
                 Some(Bound::Node(_)) => true,
                 None => false,
             }
@@ -617,9 +706,9 @@ fn observation(app: AppId, target: FocusTarget) -> Option<crate::view::tree::Nod
 
 /// Resolve exact transformed region bounds without allocating during a read.
 #[track_caller]
-fn resolved_rect(app: AppId, binding: Signal<Option<Bound>>) -> Value<Option<Rect>> {
-    kivact_reactive::memo(move || {
-        let target = binding.try_get().flatten()?.target();
+fn resolved_rect(app: AppId, binding: Signal<RefState>) -> Value<Option<Rect>> {
+    kivact_runtime::memo(move || {
+        let target = binding.try_get().and_then(RefState::bound)?.target();
         let observation = observation(app, target)?;
         let owner_rect = observation.rect.try_get().flatten();
         let Some(region) = target.region else {
@@ -629,8 +718,8 @@ fn resolved_rect(app: AppId, binding: Signal<Option<Bound>>) -> Value<Option<Rec
         let rt = Runtime::get(app)?;
         let tree = ViewState::tree(&rt);
         let region = [
-            kivact_wire::SceneLayer::Draw,
-            kivact_wire::SceneLayer::DrawOver,
+            kivact_engine::contract::SceneLayer::Draw,
+            kivact_engine::contract::SceneLayer::DrawOver,
         ]
         .into_iter()
         .filter_map(|layer| tree.scene(target.node, layer))
@@ -641,11 +730,11 @@ fn resolved_rect(app: AppId, binding: Signal<Option<Bound>>) -> Value<Option<Rec
 }
 
 #[track_caller]
-fn resolved_scroll(app: AppId, binding: Signal<Option<Bound>>) -> Value<crate::draw::Point> {
-    kivact_reactive::memo(move || {
+fn resolved_scroll(app: AppId, binding: Signal<RefState>) -> Value<crate::geometry::Point> {
+    kivact_runtime::memo(move || {
         binding
             .try_get()
-            .flatten()
+            .and_then(RefState::bound)
             .and_then(|bound| observation(app, bound.target()))
             .and_then(|observation| observation.scroll.try_get())
             .unwrap_or_default()
@@ -654,8 +743,8 @@ fn resolved_scroll(app: AppId, binding: Signal<Option<Bound>>) -> Value<crate::d
 
 /// Whether the node `source` holds is the node a ref is bound to (through
 /// its node source `node`) or lies in its subtree, as a memo.
-fn within(app: AppId, node: Signal<Option<Bound>>, source: Signal<Option<NodeId>>) -> Value<bool> {
-    kivact_reactive::memo(move || {
+fn within(app: AppId, node: Signal<RefState>, source: Signal<Option<FocusTarget>>) -> Value<bool> {
+    kivact_runtime::memo(move || {
         let Some(me) = bound_node(app, node) else {
             return false;
         };
@@ -666,12 +755,12 @@ fn within(app: AppId, node: Signal<Option<Bound>>, source: Signal<Option<NodeId>
             return false;
         };
         let tree = ViewState::tree(&rt);
-        let mut cur = Some(inner);
+        let mut cur = Some(inner.node);
         while let Some(id) = cur {
             if id == me.node {
                 return true;
             }
-            cur = tree.get(id).and_then(|n| n.parent);
+            cur = tree.reader().parent(id);
         }
         false
     })
@@ -679,8 +768,8 @@ fn within(app: AppId, node: Signal<Option<Bound>>, source: Signal<Option<NodeId>
 
 /// The node a ref is bound to (tracked through its node source), if it is
 /// still mounted; `None` once the ref or the App is gone.
-fn bound_node(app: AppId, node: Signal<Option<Bound>>) -> Option<FocusTarget> {
-    live_target(app, node.try_get().flatten()?.target())
+fn bound_node(app: AppId, node: Signal<RefState>) -> Option<FocusTarget> {
+    live_target(app, node.try_get().and_then(RefState::bound)?.target())
 }
 
 /// Check exact identity against the currently retained scenes.
@@ -690,8 +779,8 @@ fn live_target(app: AppId, target: FocusTarget) -> Option<FocusTarget> {
     tree.get(target.node)?;
     if let Some(region) = target.region
         && ![
-            kivact_wire::SceneLayer::Draw,
-            kivact_wire::SceneLayer::DrawOver,
+            kivact_engine::contract::SceneLayer::Draw,
+            kivact_engine::contract::SceneLayer::DrawOver,
         ]
         .into_iter()
         .filter_map(|l| tree.scene(target.node, l))
@@ -709,11 +798,14 @@ pub(crate) fn node_value(r: &NodeRef, at: &'static Location<'static>) -> Option<
 }
 
 /// How a requested scroll reaches its target.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub enum ScrollBehavior {
     /// Apply immediately.
     #[default]
     Instant,
     /// Animate for 240 ms; user input cancels it.
-    Smooth,
+    Smooth(kivact_types::Easing),
 }
+
+// Node references are immutable identity props as well as reactive targets.
+kivact_runtime::constant_value!(NodeRef);

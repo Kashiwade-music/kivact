@@ -4,8 +4,8 @@ use super::gesture::{Snapshot, State};
 use crate::editors::arrangement::a11y::targets::Target;
 use crate::editors::arrangement::model::ArrangementRequest;
 use crate::editors::shared::region_parts::bounded_range;
-use kivact::Callback;
-use kivact::draw::Point;
+use kivact::geometry::Point;
+use kivact::state::Callback;
 use kivact::view::{A11yEvent, A11yRequest};
 
 /// Restores only bound scalar and view values; the application restores items.
@@ -15,23 +15,32 @@ pub(crate) fn restore(s: Restore, snapshot: Snapshot) {
         Snapshot::Playhead(v) => s.playhead.set(v),
         Snapshot::Loop(v) => s.loop_range.set(v),
         Snapshot::Cycle(v) => s.cycling.set(v),
-        Snapshot::View(z, p) => {
-            s.zoom.set(z);
-            s.pan.set(p);
-        }
+        Snapshot::View(pose) => s.transform.set(pose),
     }
 }
 
 #[derive(Clone, Copy)]
 pub(crate) struct Restore {
-    pub playhead: kivact::Binding<f64>,
-    pub loop_range: kivact::Binding<(f64, f64)>,
-    pub cycling: kivact::Binding<bool>,
-    pub zoom: kivact::Binding<f64>,
-    pub pan: kivact::Binding<Point>,
+    pub playhead: kivact::state::Binding<f64>,
+    pub loop_range: kivact::state::Binding<(f64, f64)>,
+    pub cycling: kivact::state::Binding<bool>,
+    pub transform: kivact::state::Binding<kivact::interaction::ViewTransform>,
 }
 
 impl State {
+    pub(crate) fn set_scale(self, scale: f64) {
+        self.transform.set(kivact::interaction::ViewTransform {
+            scale,
+            ..self.transform.get_untracked()
+        });
+    }
+    pub(crate) fn set_offset(self, offset: Point) {
+        self.transform.set(kivact::interaction::ViewTransform {
+            offset,
+            ..self.transform.get_untracked()
+        });
+    }
+
     pub(crate) fn request(self, request: crate::editors::arrangement::model::ArrangementRequest) {
         if let Some(callback) = self.on_edit {
             callback.call(crate::editors::shared::model::EditorEvent::Request(request));
@@ -49,7 +58,7 @@ impl State {
         )
     }
     pub(crate) fn view_snapshot(self) -> Snapshot {
-        Snapshot::View(self.pixels.get_untracked(), self.offset.get_untracked())
+        Snapshot::View(self.transform.get_untracked())
     }
     pub(crate) fn auto_snapshot(self, track: u64, id: u64) -> Option<Snapshot> {
         self.track_data.with_untracked(|tracks| {
@@ -81,10 +90,6 @@ pub(crate) fn a11y(state: State, add_track: Option<Callback<()>>, event: A11yEve
         selection,
         cycling,
         cycle,
-        playhead,
-        frame,
-        range,
-        loop_range,
         ..
     } = state;
     let select = move |id, gesture| state.select(id, gesture);
@@ -138,41 +143,52 @@ pub(crate) fn a11y(state: State, add_track: Option<Callback<()>>, event: A11yEve
             let Some(value) = text.parse::<f64>().ok().filter(|v| v.is_finite()) else {
                 return;
             };
-            match target {
-                Target::Playhead => {
-                    state.edit.once(Snapshot::Playhead(frame.get()), || {
-                        playhead.set(value.clamp(0.0, state.length.get()));
-                    });
-                }
-                Target::LoopStart | Target::LoopEnd => {
-                    let length = state.length.get();
-                    let (a, b) = bounded_range(range.get(), length, state.loop_min_duration);
-                    let a = a.min(length);
-                    let b = b.min(length);
-                    let unit = state.loop_min_duration.min(length);
-                    state.edit.once(Snapshot::Loop(range.get()), || {
-                        loop_range.set(if target == Target::LoopStart {
-                            (value.clamp(0.0, (b - unit).max(0.0)), b)
-                        } else {
-                            (a, value.clamp((a + unit).min(length), length))
-                        });
-                    });
-                }
-                Target::Automation(track, id) => {
-                    if let Some(snapshot) = state.auto_snapshot(track, id) {
-                        state.edit.once(snapshot.clone(), || {
-                            if let Snapshot::Automation(_, _, Some(point)) = snapshot.clone() {
-                                state.request(ArrangementRequest::MovePoint {
-                                    track,
-                                    id,
-                                    beat: point.beat,
-                                    value: value.clamp(0.0, 1.0),
-                                });
-                            }
+            set_target_value(state, target, value);
+        }
+        _ => {}
+    }
+}
+
+fn set_target_value(state: State, target: Target, value: f64) {
+    let State {
+        playhead,
+        frame,
+        range,
+        loop_range,
+        ..
+    } = state;
+    match target {
+        Target::Playhead => {
+            state.edit.once(Snapshot::Playhead(frame.get()), || {
+                playhead.set(value.clamp(0.0, state.length.get()));
+            });
+        }
+        Target::LoopStart | Target::LoopEnd => {
+            let length = state.length.get();
+            let (a, b) = bounded_range(range.get(), length, state.loop_min_duration.get());
+            let a = a.min(length);
+            let b = b.min(length);
+            let unit = state.loop_min_duration.get().min(length);
+            state.edit.once(Snapshot::Loop(range.get()), || {
+                loop_range.set(if target == Target::LoopStart {
+                    (value.clamp(0.0, (b - unit).max(0.0)), b)
+                } else {
+                    (a, value.clamp((a + unit).min(length), length))
+                });
+            });
+        }
+        Target::Automation(track, id) => {
+            if let Some(snapshot) = state.auto_snapshot(track, id) {
+                state.edit.once(snapshot.clone(), || {
+                    if let Snapshot::Automation(_, _, Some(point)) = snapshot.clone() {
+                        state.request(ArrangementRequest::MovePoint {
+                            track,
+                            id,
+                            beat: point.beat,
+                            value: value.clamp(0.0, 1.0),
                         });
                     }
-                }
-                _ => {}
+                });
             }
         }
         _ => {}

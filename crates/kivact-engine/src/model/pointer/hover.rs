@@ -2,7 +2,7 @@
 
 use super::state::CursorKind;
 use crate::model::Model;
-use kivact_wire::{NodeId, PointerId};
+use kivact_types::{NodeId, PointerId};
 
 impl Model {
     /// Whether `id` is under a primary pointer (in its hover chain).
@@ -11,7 +11,7 @@ impl Model {
             .state
             .tracks
             .values()
-            .any(|t| t.hover.contains(&id))
+            .any(|t| t.chain().contains(&id))
     }
 
     /// The nearest ancestor of `id` that is a group.
@@ -35,7 +35,7 @@ impl Model {
     pub(crate) fn group_dependents(
         &self,
         nodes: &[NodeId],
-        has: impl Fn(&kivact_wire::StateStyles) -> bool,
+        has: impl Fn(&kivact_types::StateStyles) -> bool,
     ) -> Vec<NodeId> {
         nodes
             .iter()
@@ -50,20 +50,23 @@ impl Model {
     pub(crate) fn group_members(
         &self,
         node: NodeId,
-        has: impl Fn(&kivact_wire::StateStyles) -> bool,
+        has: impl Fn(&kivact_types::StateStyles) -> bool,
     ) -> Vec<NodeId> {
         let mut out = Vec::new();
         let Some(n) = self.tree.get(node) else {
             return out;
         };
-        let mut stack: Vec<NodeId> = self.tree.children_ids(n).collect();
+        let mut stack: Vec<NodeId> = self
+            .tree
+            .flat_children(self.tree.nodes.id_at(n.index))
+            .collect();
         while let Some(x) = stack.pop() {
             let Some(c) = self.tree.get(x) else { continue };
             if c.states().is_some_and(&has) {
                 out.push(x);
             }
             if !self.is_group(x) {
-                stack.extend(self.tree.children_ids(c));
+                stack.extend(self.tree.flat_children(self.tree.nodes.id_at(c.index)));
             }
         }
         out
@@ -84,7 +87,7 @@ impl Model {
             .state
             .tracks
             .values()
-            .any(|t| t.pressed().contains(&id) && t.hover.contains(&id))
+            .any(|t| t.pressed().contains(&id) && t.chain().contains(&id))
     }
 
     /// The node under the pointer: the head of the first non-empty hover
@@ -94,7 +97,7 @@ impl Model {
             .state
             .tracks
             .values()
-            .find_map(|t| t.hover.first().copied())
+            .find_map(|t| t.chain().first().copied())
     }
 
     /// The cursor the mouse shows, decided by the first of the mouse's
@@ -107,19 +110,14 @@ impl Model {
         for id in mouse
             .capture()
             .into_iter()
-            .chain(mouse.hover.iter().copied())
+            .chain(mouse.chain().iter().copied())
         {
             if let Some(n) = self.tree.get(id) {
                 let specified = self.effective_paint(id).cursor;
                 if specified != CursorKind::Auto {
                     return specified;
                 }
-                if self.editors[n.index.0]
-                    .as_deref()
-                    .map(|editor| editor.editor.state())
-                    .is_some()
-                    && !n.disabled()
-                {
+                if self.editors[n.index.0].is_some() && !n.disabled() {
                     return CursorKind::Text;
                 }
                 if n.activatable() {

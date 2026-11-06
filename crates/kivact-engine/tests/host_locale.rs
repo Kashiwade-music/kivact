@@ -6,9 +6,10 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use kivact_engine::bridge::Client;
-use kivact_engine::testing::{ArvaneTestHost, TestHostOptions, WindowMode};
-use kivact_wire::{HostEvent, TurnOutput};
+use kivact_engine::api::Client;
+use kivact_engine::testing::{ArvaneTestHost, MirrorMode, TestHostOptions};
+
+use kivact_engine::contract::{HostEvent, TurnOutput};
 
 /// What the client was told about the locale.
 #[derive(Default)]
@@ -31,7 +32,10 @@ fn start(locale: Option<&str>) -> (ArvaneTestHost, Rc<RefCell<Told>>) {
                 let told = told.clone();
                 move |events, _, _| {
                     for event in events {
-                        if let HostEvent::EnvChanged(env) = event {
+                        if let HostEvent::EnvChanged {
+                            environment: env, ..
+                        } = event
+                        {
                             told.borrow_mut().changes.push(env.locale.clone());
                         }
                     }
@@ -40,7 +44,7 @@ fn start(locale: Option<&str>) -> (ArvaneTestHost, Rc<RefCell<Told>>) {
             },
         ),
         TestHostOptions {
-            window: WindowMode::Headless,
+            mirror: MirrorMode::Off,
             locale: locale.map(str::to_owned),
             ..TestHostOptions::default()
         },

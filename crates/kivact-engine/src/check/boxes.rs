@@ -4,7 +4,7 @@ use crate::model::Model;
 use crate::model::interact::visual;
 use crate::model::semantics::semantic_role;
 use crate::tree::node::HostNode;
-use kivact_wire::{Edges, Fill, FillImage, LayoutCheck, NodeId, Rect};
+use kivact_types::{Edges, Fill, FillImage, LayoutCheck, NodeId, Rect};
 
 /// The ancestors of `id`, nearest first, up to and including the first
 /// overlay or fixed box (none for such a box itself).
@@ -38,7 +38,7 @@ pub(super) fn visual_parent(
         host.node(*a).is_some_and(|n| {
             n.paint().is_some_and(|p| {
                 p.background.as_ref().is_some_and(paints)
-                    || kivact_lower::shape::border_widths(p.border.as_ref()) != Edges::all(0.0)
+                    || crate::lower::shape::border_widths(p.border.as_ref()) != Edges::all(0.0)
             }) || n.clips()
                 || semantic_role(n, host.editors[n.index.0].is_some())
                     .is_some_and(|r| check.single_line_roles.contains(&r))
@@ -63,6 +63,7 @@ fn paints(fill: &Fill) -> bool {
     }
 }
 
+// xtask-allow(state-fields): The two axes are independent geometric limit facts; every combination is valid.
 /// The axes a limit holds on.
 #[derive(Clone, Copy)]
 pub(super) struct Axes {
@@ -83,8 +84,8 @@ impl Axes {
 }
 
 /// How far `r` reaches outside `limit` across `axes` (at most 0 inside).
-pub(super) fn reach(r: Rect, limit: Rect, axes: Axes) -> f32 {
-    let mut most = 0.0f32;
+pub(super) fn reach(r: Rect, limit: Rect, axes: Axes) -> f64 {
+    let mut most = 0.0f64;
     if axes.x {
         most = most
             .max(limit.x - r.x)
@@ -117,12 +118,9 @@ pub(super) struct Clip {
 /// The clipping ancestors of the text `id` (`up`, nearest first), with the
 /// padding box each clips to.
 pub(super) fn clips(host: &Model, id: NodeId, up: &[NodeId]) -> Vec<Clip> {
-    let input = host.node(id).is_some_and(|n| {
-        host.editors[n.index.0]
-            .as_deref()
-            .map(|editor| editor.editor.state())
-            .is_some()
-    });
+    let input = host
+        .node(id)
+        .is_some_and(|n| host.editors[n.index.0].is_some());
     up.iter()
         .filter_map(|a| {
             let n = host.node(*a).filter(|n| n.clips())?;

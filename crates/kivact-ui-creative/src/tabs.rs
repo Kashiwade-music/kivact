@@ -1,18 +1,20 @@
 //! Role: The document tab slot: a close button and drag reordering on the standard tabs.
 
-use std::hash::Hash;
+use kivact::state::IntoBinding;
 
-use kivact::control::{NodeBuilder, row, text};
 use kivact::i18n::message;
 use kivact::interaction::{DragCoordinates, DragUpdate, TabState, use_drag};
-use kivact::primitive::NodeExt;
+use kivact::view::{NodeBuilder, row, text};
+
+use kivact::interaction::ListItem;
+use kivact::state::{Callback, Value, signal};
+use kivact::state::{IntoText, IntoValue, callback};
 use kivact::style::{Align, Cursor, style};
-use kivact::ui::{ListItem, Tabs, tabs};
-use kivact::view::{HandlerResult, IntoText, IntoValue, IntoView, View, callback};
-use kivact::{Binding, Callback, Value, signal};
+use kivact::ui::{Tabs, tabs};
+use kivact::view::{HandlerResult, IntoView, View};
 
 /// How far a tab is dragged past its neighbor's edge before they swap.
-const SWAP_DISTANCE: f32 = 60.0;
+const SWAP_DISTANCE: f64 = 60.0;
 
 /// Document tabs: [`kivact::ui::tabs`] named `label` (for assistive
 /// technology) of `options` choosing `selected`, in
@@ -26,10 +28,10 @@ const SWAP_DISTANCE: f32 = 60.0;
 /// which the tabs follow, and keeps the selection. Give the returned tabs
 /// `.content(..)` to show the selected document's panel.
 #[track_caller]
-pub fn document_tabs<K: Clone + Eq + Hash + 'static>(
+pub fn document_tabs<K: kivact::state::ItemKey>(
     label: impl IntoText,
     options: impl IntoValue<Vec<ListItem<K>>>,
-    selected: impl Into<Binding<K>>,
+    selected: impl IntoBinding<K>,
 ) -> DocumentTabs<K> {
     let options = options.into_value();
     DocumentTabs {
@@ -40,13 +42,13 @@ pub fn document_tabs<K: Clone + Eq + Hash + 'static>(
     }
 }
 /// Document tabs with optional application-owned close and reorder actions.
-pub struct DocumentTabs<K: Clone + Eq + Hash + 'static> {
+pub struct DocumentTabs<K: kivact::state::ItemKey> {
     tabs: Tabs<K>,
     options: Value<Vec<ListItem<K>>>,
     on_reorder: Callback<(K, K)>,
     on_close: Callback<K>,
 }
-impl<K: Clone + Eq + Hash + 'static> DocumentTabs<K> {
+impl<K: kivact::state::ItemKey> DocumentTabs<K> {
     /// Report drag reordering; no action by default.
     pub fn on_reorder<R: HandlerResult>(mut self, f: impl Fn((K, K)) -> R + 'static) -> Self {
         self.on_reorder = callback(f);
@@ -63,12 +65,13 @@ impl<K: Clone + Eq + Hash + 'static> DocumentTabs<K> {
         self
     }
 }
-impl<K: Clone + Eq + Hash + 'static> NodeBuilder for DocumentTabs<K> {
-    fn node_mut(&mut self) -> &mut kivact::control::Node {
+impl<K: kivact::state::ItemKey> NodeBuilder for DocumentTabs<K> {
+    #[doc(hidden)]
+    fn node_mut(&mut self) -> &mut kivact::view::Node {
         self.tabs.node_mut()
     }
 }
-impl<K: Clone + Eq + Hash + 'static> IntoView for DocumentTabs<K> {
+impl<K: kivact::state::ItemKey> IntoView for DocumentTabs<K> {
     fn into_view(self) -> View {
         let Self {
             mut tabs,
@@ -77,8 +80,8 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for DocumentTabs<K> {
             on_close,
         } = self;
         let disabled = tabs
+            .node_mut()
             .accessible_disabled()
-            .map(|read| (move || read()).into_value())
             .unwrap_or_else(|| false.into_value());
         tabs.item(move |item, _: Value<TabState>| {
             document_tab(options, item, on_reorder, on_close, disabled)
@@ -89,7 +92,7 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for DocumentTabs<K> {
 
 /// One tab's label and close button, which a horizontal drag swaps with a
 /// neighbor.
-fn document_tab<K: Clone + Eq + Hash + 'static>(
+fn document_tab<K: kivact::state::ItemKey>(
     options: Value<Vec<ListItem<K>>>,
     item: Value<ListItem<K>>,
     on_reorder: Callback<(K, K)>,
@@ -98,7 +101,7 @@ fn document_tab<K: Clone + Eq + Hash + 'static>(
 ) -> View {
     let key = item.with_untracked(|item| item.key().clone());
     // The travel the last swap used up, so each swap takes another 60 px.
-    let consumed = signal(0.0_f32);
+    let consumed = signal(0.0_f64);
     let reorder = use_drag::<K>(DragCoordinates::Window)
         .on_start(move |_| consumed.set(0.0))
         .on_update(move |update: DragUpdate<K>| -> kivact::Result<()> {
@@ -130,11 +133,11 @@ fn document_tab<K: Clone + Eq + Hash + 'static>(
     row((
         text(move || item.with(|item| item.label())),
         kivact::ui::button(message("creative.tabs.close", "Close tab"))
-            .disabled(disabled)
+            .with_node(move |node| node.disabled(disabled))
             .variant(kivact::ui::ButtonVariant::Secondary)
             .hide_label(true)
-            .icon(kivact::control::icon("x"))
-            .style(style().size(16, 16).padding(0))
+            .icon(kivact::view::icon("x"))
+            .with_node(move |node| node.style(style().size(16, 16).padding(0)))
             .on_press(move || on_close.try_call(close.clone())),
     ))
     .part(reorder.source(key))

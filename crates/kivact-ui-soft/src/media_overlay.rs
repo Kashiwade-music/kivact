@@ -1,40 +1,60 @@
 //! Role: Layer actions or labels within the bounds of their media.
 use crate::recipes_dialog::{focus as focus_ring, motion};
-use crate::theme_access::tokens;
-use kivact::Value;
-use kivact::control::NodeBuilder;
-use kivact::control::{Node, column};
-use kivact::style::{Align, Justify, Overflow, Position, pct, rgba, style};
-use kivact::view::IntoValue;
-use kivact::view::{IntoView, OverlayAlign, node_ref};
-use std::rc::Rc;
 
+use kivact::state::IntoValue;
+use kivact::state::Value;
+use kivact::style::Align;
+use kivact::style::Justify;
+use kivact::style::Overflow;
+use kivact::style::Position;
+use kivact::style::pct;
+use kivact::style::style;
+use kivact::view::IntoView;
+use kivact::view::Node;
+use kivact::view::OverlayAlign;
+use kivact::view::View;
+use kivact::view::column;
+use kivact::view::node_ref;
+
+/// Visibility trigger for media overlay content.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum ShowOn {
+    /// Keep the overlay visible, the default.
     #[default]
     Always,
+    /// Reveal while the base is hovered or contains keyboard focus.
     Hover,
+    /// Reveal while the base contains keyboard focus.
     Focus,
 }
 
+/// Background treatment behind overlay content.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum OverlayScrim {
+    /// Dark scrim, the default.
     #[default]
     Dark,
+    /// Light scrim.
     Light,
+    /// No scrim.
     None,
 }
 
+/// Placement of content inside the media bounds.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum OverlayPosition {
+    /// Fill the media bounds, the default.
     #[default]
     Fill,
+    /// Place content along the bottom edge.
     Bottom,
+    /// Place content along the top edge.
     Top,
 }
 
+/// Media-bound content with visibility and scrim presentation choices.
 pub struct MediaOverlay {
-    content: Rc<dyn Fn() -> kivact::view::View>,
+    content: View,
     show_on: ShowOn,
     open: Option<Value<bool>>,
     scrim: OverlayScrim,
@@ -42,9 +62,10 @@ pub struct MediaOverlay {
     align: OverlayAlign,
 }
 
-pub fn media_overlay<V: IntoView>(content: impl Fn() -> V + 'static) -> MediaOverlay {
+/// Mount overlay content once and attach it to the supplied media surface.
+pub fn media_overlay(content: impl IntoView) -> MediaOverlay {
     MediaOverlay {
-        content: Rc::new(move || content().into_view()),
+        content: content.into_view(),
         show_on: ShowOn::Always,
         open: None,
         scrim: OverlayScrim::Dark,
@@ -54,38 +75,44 @@ pub fn media_overlay<V: IntoView>(content: impl Fn() -> V + 'static) -> MediaOve
 }
 
 impl MediaOverlay {
+    /// Choose the automatic visibility trigger; always visible by default.
     pub fn show_on(mut self, value: ShowOn) -> Self {
         self.show_on = value;
         self
     }
 
+    /// Override automatic visibility with a read-only reactive input.
     pub fn open(mut self, value: impl IntoValue<bool>) -> Self {
         self.open = Some(value.into_value());
         self
     }
 
+    /// Choose the background treatment; dark by default.
     pub fn scrim(mut self, value: OverlayScrim) -> Self {
         self.scrim = value;
         self
     }
 
+    /// Choose the placement within the media; fill by default.
     pub fn position(mut self, value: OverlayPosition) -> Self {
         self.position = value;
         self
     }
 
+    /// Choose the content alignment; end by default.
     pub fn align(mut self, value: OverlayAlign) -> Self {
         self.align = value;
         self
     }
 
+    /// Mount the base and overlay content once inside a shared media frame.
     pub fn attach(self, base: impl IntoView) -> Node {
         let root = node_ref();
         let hover = root.hovered();
         let focus = root.focus_within();
         let mode = self.show_on;
         let open = self.open;
-        let visible = kivact::memo(move || {
+        let visible = kivact::state::memo(move || {
             open.map_or_else(
                 || match mode {
                     ShowOn::Always => true,
@@ -96,14 +123,14 @@ impl MediaOverlay {
             )
         });
         let reveal_from_keyboard = open.is_none() && mode != ShowOn::Always;
-        let content = column((self.content)())
+        let content = column(self.content)
             .hidden(move || !visible.get())
             .style(move || {
-                let p = tokens();
+                let p = kivact::style::use_tokens::<crate::Tokens>();
                 let background = match self.scrim {
                     OverlayScrim::Dark => p.colors.overlay_scrim,
-                    OverlayScrim::Light => rgba(0xffffff, 0.6),
-                    OverlayScrim::None => rgba(0, 0.0),
+                    OverlayScrim::Light => p.colors.overlay_light_scrim,
+                    OverlayScrim::None => kivact::style::Color::TRANSPARENT,
                 };
                 let (align, justify) = match self.align {
                     OverlayAlign::Start => (Align::Start, Justify::Start),
@@ -138,7 +165,7 @@ impl MediaOverlay {
             .style(|| {
                 style()
                     .overflow(Overflow::Hidden)
-                    .focus_visible(focus_ring(&tokens()))
+                    .focus_visible(focus_ring(&kivact::style::use_tokens::<crate::Tokens>()))
             })
     }
 }

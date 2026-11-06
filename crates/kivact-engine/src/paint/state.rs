@@ -7,27 +7,45 @@
 //! and its ink, indexed by structural slot beside the model's
 //! placement (`Place`); none copies the
 //! typed props into a general record of facts. While there is no surface
-//! no redraw is asked for (`Host::paint_due`); `needs_redraw` stays set
+//! no redraw is asked for (`Host::paint_due`); `Redraw::Needed` stays set
 //! and the restored surface draws the frame.
 
 use std::cell::{Cell, RefCell};
 use std::collections::{BTreeSet, HashMap};
 
-use kivact_types::protocol::ColorMatrix;
-use kivact_wire::{Edges, NodeId, Point, Rect, Size};
+use kivact_types::cell::Generation;
+use kivact_types::render::ColorMatrix;
+use kivact_types::{Edges, NodeId, Point, Rect, Size};
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum Redraw {
+    Clean,
+    Needed,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub(super) enum ListState {
+    #[default]
+    Stale,
+    Built {
+        size: Size,
+        scale: f64,
+    },
+}
+
+// xtask-allow(state-fields): Ink, look, scene and dropped-draw collections are independent derived caches and report deduplication (S-9); redraw has its own enum.
 /// The paint group of the model: derived caches and whether a
 /// frame must be redrawn. Only the paint modules read the caches.
 pub(crate) struct PaintState {
     pub(crate) ink: Vec<Cell<Option<Ink>>>,
     pub(crate) look: Vec<Option<Look>>,
-    pub(super) scale: f32,
-    pub(super) raster: Cell<f32>,
-    pub(crate) scene_cache: RefCell<kivact_lower::SceneCache>,
+    pub(super) scale: f64,
+    pub(super) raster: Cell<f64>,
+    pub(crate) scene_cache: RefCell<crate::lower::SceneCache>,
     pub(super) dropped_reported: RefCell<BTreeSet<(NodeId, u8)>>,
     pub(super) dropped_draws: RefCell<Vec<(NodeId, u32)>>,
     pub(super) list: PaintList,
-    pub(super) needs_redraw: bool,
+    pub(super) redraw: Redraw,
 }
 
 impl PaintState {
@@ -42,23 +60,23 @@ impl PaintState {
             dropped_reported: RefCell::default(),
             dropped_draws: RefCell::default(),
             list: PaintList::new(),
-            needs_redraw: true,
+            redraw: Redraw::Needed,
         }
     }
 
     /// The window's scale factor the next frame is drawn at.
-    pub(crate) fn set_scale(&mut self, scale: f32) {
+    pub(crate) fn set_scale(&mut self, scale: f64) {
         self.scale = scale;
     }
 
     /// Whether the next frame must be drawn.
     pub(crate) fn needs_redraw(&self) -> bool {
-        self.needs_redraw
+        self.redraw == Redraw::Needed
     }
 
     /// The frame was drawn.
     pub(crate) fn drawn(&mut self) {
-        self.needs_redraw = false;
+        self.redraw = Redraw::Clean;
     }
 
     /// Forget what was kept for the nodes `live` says are gone.
@@ -67,24 +85,25 @@ impl PaintState {
     }
 
     /// A node's paint reads around its box by `reach` (backdrop filters).
-    pub(crate) fn note_backdrop(&mut self, reach: f32) {
+    pub(crate) fn note_backdrop(&mut self, reach: f64) {
         self.list.note_backdrop(reach);
     }
 }
 
+// xtask-allow(state-fields): Normalized paint cache stores independent optional color and geometric drawing facts (S-9).
 /// What a node's paint says about where it draws, sanitized like
 /// `paint::sanitize_paint` (read in place: most nodes have no state
 /// styles, and their paint is not copied).
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct Look {
-    pub(super) opacity: f32,
+    pub(super) opacity: f64,
     /// How far its outer shadows and focus ring reach outside its box.
-    pub(super) overflow: f32,
+    pub(super) overflow: f64,
     /// The widths of its visible border sides (canvas scenes start inside
     /// them).
-    pub(super) border: Edges<f32>,
+    pub(super) border: Edges<f64>,
     /// How far its layer filters draw beyond what they filter.
-    pub(super) fx: f32,
+    pub(super) fx: f64,
     /// The layers its effects need (layer filters, clip path, mask,
     /// blend), whatever its opacity: 0 or at least 1.
     pub(super) layers: u8,
@@ -107,9 +126,10 @@ pub(crate) struct Ink {
     pub(super) rect: Option<Rect>,
     pub(super) size: Size,
     pub(super) content: Size,
-    pub(super) generation: u64,
+    pub(super) generation: Generation,
 }
 
+// xtask-allow(state-fields): Immutable paint-list record stores independent drawing and clipping facts, not a lifecycle.
 /// How one listed node is drawn.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) struct Step {
@@ -123,8 +143,9 @@ pub(crate) struct Step {
     pub(super) transform: Option<u32>,
     /// The alpha its colors are faded by (outside a group: its opacity
     /// times its ancestors').
-    pub(super) alpha: f32,
+    pub(super) alpha: f64,
     pub(super) clips: bool,
+    pub(super) presence_clip: Option<Rect>,
     /// Its corners are rounded (a clip is a layer clipped to its rounded
     /// padding box, not a rect clip).
     pub(super) rounded: bool,
@@ -163,20 +184,18 @@ pub(crate) struct PaintList {
     pub(super) matrices: Vec<ColorMatrix>,
     /// The transforms of the listed transformed nodes, each in the space
     /// of the transforms around it.
-    pub(super) transforms: Vec<kivact_types::protocol::Transform>,
+    pub(super) transforms: Vec<kivact_types::Transform>,
     /// How far the farthest-reaching backdrop filter seen reads around its
     /// box (the viewport grows by it).
-    pub(super) backdrop_reach: f32,
-    /// Rebuild before the next frame.
-    pub(super) stale: bool,
-    /// The window size and raster scale it was culled for.
-    pub(super) built_for: Option<(Size, f32)>,
+    pub(super) backdrop_reach: f64,
+    /// Whether the list is reusable for its window size and raster scale.
+    pub(super) state: ListState,
     /// The child indices of the containers with many children.
     pub(super) indices: HashMap<NodeId, ChildIndex>,
     /// Layout passes so far (the indices' geometry is from one of them).
-    pub(super) pass: u64,
+    pub(super) pass: Generation,
     /// The generation of the nodes' inks: an ink of another is forgotten.
-    pub(super) ink_gen: u64,
+    pub(super) ink_gen: Generation,
 }
 
 /// What one child can draw on, relative to its layout location.
@@ -220,12 +239,12 @@ pub(crate) struct ChildIndex {
     /// Along `axis`, per entry: where its reach starts (a hidden entry
     /// repeats the one before it), and the furthest end of the reaches up
     /// to it.
-    pub(super) starts: Vec<f32>,
-    pub(super) furthest: Vec<f32>,
+    pub(super) starts: Vec<f64>,
+    pub(super) furthest: Vec<f64>,
     /// The entries of the sticky children.
     pub(super) sticky: Vec<usize>,
     /// The layout pass the entries' geometry is from.
-    pub(super) pass: u64,
+    pub(super) pass: Generation,
     /// Children whose own drawing changed since.
     pub(super) touched: Vec<NodeId>,
 }

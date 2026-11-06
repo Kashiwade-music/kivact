@@ -18,7 +18,7 @@ pub(super) fn file_position(window: &winit::window::Window) -> Option<kivact_typ
     }
     let scale = window.scale_factor();
     Some(kivact_types::Point {
-        x: (f64::from(reply.win_x) / scale) as f32,
-        y: (f64::from(reply.win_y) / scale) as f32,
+        x: f64::from(reply.win_x) / scale,
+        y: f64::from(reply.win_y) / scale,
     })
 }

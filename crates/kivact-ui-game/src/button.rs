@@ -1,10 +1,11 @@
 //! Role: Toolbar actions, action groups and chevron compositions.
 use crate::Tokens;
-use kivact::control::{Node, NodeBuilder, row, text};
 use kivact::draw::Filter;
-use kivact::style::{Align, ColorToken, Justify, current_theme, pct, style};
+use kivact::state::IntoText;
+use kivact::style::{Align, ColorToken, Justify, pct, style, use_theme};
 use kivact::ui::{Button, ButtonVariant, button};
-use kivact::view::{IntoText, IntoView, Role};
+
+use kivact::view::{NodeBuilder, row, text};
 /// Square toolbar action, composed from the standard button.
 pub fn tool_button(label: impl IntoText) -> Button {
     button(label).variant(ButtonVariant::Ghost).style(
@@ -28,36 +29,15 @@ pub fn tool_button(label: impl IntoText) -> Button {
             ),
     )
 }
-/// Closely spaced group of action buttons.
-#[track_caller]
-pub fn button_group(children: impl IntoView) -> Node {
-    row(children)
-        .role(Role::Group)
-        .style(style().gap(2).align_items(Align::Center))
-}
-
-/// Dense bordered toolbar.
-#[track_caller]
-pub fn toolbar(children: impl IntoView) -> Node {
-    row(children).role(Role::Toolbar).style(
-        style()
-            .align_items(Align::Center)
-            .gap(2)
-            .padding(3)
-            .background(ColorToken::Surface)
-            .border(1, ColorToken::Border),
-    )
-}
-
 /// Large chevron action with a small machine caption.
 #[track_caller]
 pub fn chevron(label: impl IntoText, caption: impl IntoText) -> Button {
     let label = label.into_text_value();
     let content = row((
         text(label).style(move || {
-            let t = &current_theme();
+            let t = &use_theme().get();
             style()
-                .font_family(t.get::<Tokens>().display_family.as_str())
+                .font_family(t.ext::<Tokens>().display_family.as_str())
                 .font_size(20)
                 .letter_spacing(1.6)
                 .weight(800)
@@ -70,7 +50,7 @@ pub fn chevron(label: impl IntoText, caption: impl IntoText) -> Button {
         .variant(ButtonVariant::Primary)
         .hide_label(true)
         .style(move || {
-            let t = &current_theme();
+            let t = &use_theme().get();
             style()
                 .shadow(kivact::draw::Shadow::new(
                     0,
@@ -85,7 +65,7 @@ pub fn chevron(label: impl IntoText, caption: impl IntoText) -> Button {
                 .color(t.colors().accent_text)
                 .background(
                     kivact::draw::linear_gradient(100)
-                        .colors([t.colors().accent, t.get::<Tokens>().cyan]),
+                        .colors([t.colors().accent, t.ext::<Tokens>().cyan]),
                 )
                 .clip_path(
                     kivact::draw::Shape::polygon()

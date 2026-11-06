@@ -1,6 +1,6 @@
 //! Role: Tests for extension primitives and custom rendering.
 //!
-//! Extension primitives (`kivact::primitive`, experimental) on real
+//! Extension primitives (`kivact::custom`, experimental) on real
 //! windows: the layout sizes a primitive by its measure function and
 //! places its siblings by that size, new content changes that geometry,
 //! its draw layer runs again when its size changes,
@@ -8,15 +8,14 @@
 //! found by role and test id like any element, and unmounting it drops
 //! its measure function.
 
-use kivact::primitive::NodeExt;
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 use std::time::Duration;
 
 use crate::support::mount;
-use kivact::draw::{Point, Rect, Size};
+use kivact::custom::{Constraints, primitive};
+use kivact::geometry::{Point, Rect, Size};
 use kivact::prelude::*;
-use kivact::primitive::{Constraints, primitive};
 use kivact::style::Align;
 use kivact::test::Screen;
 use kivact::view::{A11yAction, Handled, KeyEvent, PointerEvent};
@@ -36,7 +35,7 @@ fn a_primitive_is_laid_out_at_its_measured_size_and_new_content_relayouts() {
         let view = row((
             primitive()
                 .measure(n, move |n: &u32, _: Constraints| {
-                    Size::new(*n as f32 * 10.0, 8.0)
+                    Size::new(*n as f64 * 10.0, 8.0)
                 })
                 .draw(move |d, size| {
                     let c = if tint.get() {
@@ -143,15 +142,15 @@ fn a_primitive_takes_focus_input_and_accessibility_like_any_element() {
             primitive()
                 .measure((), |_: &(), _: Constraints| Size::new(100.0, 20.0))
                 .draw(move |d, size| {
-                    let w = size.width * level.get() as f32 / 10.0;
+                    let w = size.width * level.get() as f64 / 10.0;
                     d.fill_rect(Rect::new(0.0, 0.0, w, size.height), ColorToken::Accent);
                 })
-                .role(Role::Slider)
+                .with_node(move |node| node.role(Role::Slider))
                 .name("level")
-                .value_text(move || level.get().to_string())
+                .with_node(move |node| node.value_text(move || level.get().to_string()))
                 .focusable(true)
                 .test_id("level")
-                .on_key(move |e: KeyEvent| match e.key {
+                .on_key(move |e: KeyEvent| match e.key() {
                     Key::ArrowRight => {
                         level.update(|l| *l += 1);
                         Handled::Yes
@@ -159,12 +158,14 @@ fn a_primitive_takes_focus_input_and_accessibility_like_any_element() {
                     _ => Handled::No,
                 })
                 .on_pointer(move |e: PointerEvent| {
-                    if matches!(e.phase, kivact::view::PointerPhase::Down(_)) {
-                        seen.set(Some(e.pos));
-                        level.set((e.pos.x / 10.0) as u32);
+                    if matches!(e.phase(), kivact::view::PointerPhase::Down(_)) {
+                        seen.set(Some(e.pos()));
+                        level.set((e.pos().x / 10.0) as u32);
                     }
                 })
-                .on_a11y(A11yAction::Increment, move || level.update(|l| *l += 1)),
+                .with_node(move |node| {
+                    node.a11y_action(A11yAction::Increment, move |_| level.update(|l| *l += 1))
+                }),
         ));
         (level, view)
     });

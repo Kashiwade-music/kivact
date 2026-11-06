@@ -31,16 +31,16 @@
 //!   alone only redraws.
 
 use super::Writer;
+use crate::contract::{EditingData, ImeSessionProps, LeafMeasure, NodeKind, NodeProperties};
 use crate::model::Model;
 use crate::mutation::Mutation as Mut;
-use kivact_wire::{
-    A11yAction, Asset, CheckedState, EditLineLayout, EditingData, FocusTarget, ImageData, ImageFit,
-    ImeSession, IntrinsicSize, Key, LayoutProps, LeafMeasure, NodeId, NodeKind, NodeProperties,
-    NodeSemantics, OverlayProps, PaintProps, Role, SemanticsProperties, StateStyles, TextData,
-    TextProps, TextSpan,
+use kivact_types::{
+    A11yAction, Asset, CheckedState, EditLineLayout, FocusTarget, ImageData, ImageFit,
+    IntrinsicSize, Key, LayoutProps, NodeId, OverlayProps, PaintProps, Role, Semantics,
+    StateStyles, TextData, TextSpan, TextStyle,
 };
 
-fn semantics(p: &mut NodeProperties) -> &mut NodeSemantics {
+fn semantics(p: &mut NodeProperties) -> &mut Semantics<FocusTarget> {
     p.semantics.get_or_insert_default()
 }
 fn text(p: &mut NodeProperties) -> Option<&mut TextData> {
@@ -169,7 +169,7 @@ props! {
         => boxed(Some(v), |p| Some(&mut p.paint)),
         mut = Mut::PAINT;
     /// Replace the node's text style when its value differs.
-    TextStyle: set_text_style(v: Option<TextProps>)
+    TextStyle: set_text_style(v: Option<TextStyle>)
         => boxed(v, |p| Some(&mut p.text)),
         mut = Mut::TEXT;
     /// Replace the node's states when its value differs.
@@ -197,7 +197,7 @@ props! {
         => field(Some(v), |p| Some(&mut p.input.focusable_when_disabled)),
         mut = Mut::NONE;
     /// Group native Tab stops at this node.
-    RovingFocus: set_roving_focus(v: kivact_wire::RovingFocus)
+    RovingFocus: set_roving_focus(v: crate::contract::RovingFocus)
         => field(Some(v), |p| Some(&mut p.input.roving_focus)),
         mut = Mut::NONE;
     /// Replace the node's listen pointer when its value differs.
@@ -230,7 +230,7 @@ props! {
         mut = Mut::NONE;
     /// Replace the node's value when its value differs.
     Value: set_value(v: String)
-        => field(Some(v), |p| Some(&mut semantics(p).value)),
+        => field(Some(v), |p| Some(&mut semantics(p).value_text)),
         mut = Mut::NONE;
     /// Replace the node's selected when its value differs.
     Selected: set_selected(v: bool)
@@ -249,8 +249,8 @@ props! {
         => field(Some(v), |p| Some(&mut semantics(p).invalid)),
         mut = Mut::NONE;
     /// Replace the node's accessibility when its value differs.
-    Accessibility: set_accessibility(v: SemanticsProperties)
-        => boxed(Some(v), |p| Some(&mut semantics(p).accessibility)),
+    Semantics: set_semantics(v: Semantics<FocusTarget>)
+        => boxed(Some(v), |p| Some(&mut p.semantics)),
         mut = Mut::NONE;
     /// Replace the node's actions when its value differs.
     Actions: set_actions(v: Vec<A11yAction>)
@@ -287,9 +287,13 @@ props! {
     LineColors: set_line_colors(v: kivact_editing::LineColors)
         => field(Some(v), |p| Some(&mut editing(p)?.colors)),
         mut = Mut::NONE;
+    /// Replace document-range decorations.
+    Decorations: set_decorations(v: Vec<kivact_editing::RangeDecoration>)
+        => field(Some(v), |p| Some(&mut editing(p)?.decorations)),
+        mut = Mut::NONE;
     /// Replace the node's password when its value differs.
-    Password: set_password(v: bool)
-        => field(Some(v), |p| Some(&mut editing(p)?.password)),
+    InputPurpose: set_input_purpose(v: kivact_types::InputPurpose)
+        => field(Some(v), |p| Some(&mut editing(p)?.purpose)),
         mut = Mut::MEASURE.and(Mut::RESTACK);
     /// Replace the node's read only when its value differs.
     ReadOnly: set_read_only(v: bool)
@@ -319,7 +323,7 @@ props! {
         mut = Mut::NONE;
     /// Replace the node's IME session (a focusable node that edits its own
     /// text, not a native editor) when its value differs.
-    ImeSession: set_ime_session(v: ImeSession)
+    ImeSession: set_ime_session(v: ImeSessionProps)
         => boxed(Some(v), |p| Some(&mut p.ime)),
         mut = Mut::NONE;
     /// Replace the node's multiline when its value differs.

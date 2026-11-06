@@ -35,7 +35,7 @@ kivact = { git = "https://github.com/Kashiwade-music/kivact", features = ["test"
 ```rust,no_run
 use kivact::prelude::*;
 use kivact::style::ThemeMode;
-use kivact_ui_game::{self as game, Density, ThemeOptions as _};
+use kivact_ui_game::{self as game, Density, ThemeOptions};
 
 fn loadout() -> impl IntoView {
     game::hud(
@@ -51,7 +51,7 @@ fn loadout() -> impl IntoView {
 
 fn main() -> kivact::Result<()> {
     App::new("Loadout")
-        .theme(game::theme(ThemeMode::Dark).density(Density::Comfortable))
+        .theme(game::theme_with(ThemeMode::Dark, ThemeOptions { density: Density::Comfortable }))
         .run(loadout)
 }
 ```
@@ -67,7 +67,7 @@ cargo run
 新しく出てきたものは 4 つです。
 
 - `game::theme(ThemeMode::Dark)` が Game テーマを作り、`App::theme(..)` がウィンドウ全体に適用します。結果は普通の Kivact の `Theme` です。`ThemeMode::Light` なら明るいコンソールの配色になります。
-- `.density(Density::Comfortable)` はキット唯一のオプションで、寸法を決めます。`Comfortable`（既定）は高さ 34 px のコントロールと 20 px のパネル余白、`Compact` は高さ 28 px のコントロールと 14 px の余白です。`Density::Compact` に変えて実行すると、ボタンとパネルが縮みます。このメソッドはトレイト `ThemeOptions` のもので、スコープに入れておく必要があります。`use` 行の `ThemeOptions as _` がそれです。
+- `ThemeOptions { density: Density::Comfortable, ..Default::default() }` で寸法を選び、`game::theme_with` に渡します。Comfortable は高さ 34 px、パネル余白 20 px、Compact は高さ 28 px、余白 14 px です。
 - `game::hud(..)` は Game のコンポーネントで、向かい合う 2 つの角にアクセント色のカギ括弧が付いた、枠線付きの面です。`game::mono(..)` は、ID やショートカット、機械的な値のための小さな等幅キャプションです。
 - `.variant(game::Slant)` は、キットが標準コンポーネントに見た目を足す方法です。ボタンはこれまでと同じ `button` のまま、描き方だけが変わります。
 

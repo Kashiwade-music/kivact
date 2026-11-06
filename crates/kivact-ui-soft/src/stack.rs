@@ -1,32 +1,56 @@
-//! Role: Provide Astryx spacing and flex layout primitives.
+//! Role: Provide Soft theme spacing and flex layout primitives.
+use kivact::state::IntoValue;
+use kivact::state::Value;
 
-use crate::tokens;
-use kivact::control::{Node, NodeBuilder, ScrollAxes, node, scroll};
-use kivact::primitive::NodeExt;
-use kivact::style::{Align, Direction, Justify, Length, Style, style};
-use kivact::view::{IntoView, ReadingDirection, View, current_direction};
+use kivact::view::Node;
+use kivact::view::NodeBuilder;
+use kivact::view::ScrollAxes;
+use kivact::view::node;
+use kivact::view::scroll;
 
-/// A public Neutral spacing step.
+use kivact::style::Align;
+use kivact::style::Direction;
+use kivact::style::Justify;
+use kivact::style::Length;
+use kivact::style::Style;
+use kivact::style::style;
+use kivact::view::IntoView;
+use kivact::view::ReadingDirection;
+use kivact::view::View;
+use kivact::view::use_direction;
+
+/// Theme spacing steps, resolved through the current Soft tokens.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum Space {
     #[default]
+    /// Resolve the theme’s `s0` spacing token.
     S0,
+    /// Resolve the theme’s `s0_5` spacing token.
     S0_5,
+    /// Resolve the theme’s `s1` spacing token.
     S1,
+    /// Resolve the theme’s `s1_5` spacing token.
     S1_5,
+    /// Resolve the theme’s `s2` spacing token.
     S2,
+    /// Resolve the theme’s `s3` spacing token.
     S3,
+    /// Resolve the theme’s `s4` spacing token.
     S4,
+    /// Resolve the theme’s `s5` spacing token.
     S5,
+    /// Resolve the theme’s `s6` spacing token.
     S6,
+    /// Resolve the theme’s `s8` spacing token.
     S8,
+    /// Resolve the theme’s `s10` spacing token.
     S10,
 }
 
 impl Space {
-    /// Resolve this spacing step against the current theme.
-    pub fn px(self) -> f32 {
-        let s = tokens().spacing;
+    /// Resolve this step in logical pixels from the current reactive theme scope.
+    pub fn px(self) -> f64 {
+        let s = kivact::style::use_tokens::<crate::Tokens>().spacing;
         match self {
             Self::S0 => s.s0,
             Self::S0_5 => s.s0_5,
@@ -44,31 +68,43 @@ impl Space {
 }
 
 pub(crate) fn rtl() -> bool {
-    current_direction() == ReadingDirection::Rtl
+    use_direction().get() == ReadingDirection::Rtl
 }
 
 #[derive(Clone, Copy, Debug, Default)]
+// Passive optional logical padding values resolved by precedence; these numerical style fields are independent configuration, not runtime flags.
 pub(crate) struct Padding {
+    // xtask-allow(state-fields): Passive optional all padding value resolved by geometric precedence, not a runtime phase.
     pub all: Option<Space>,
+    // xtask-allow(state-fields): Passive optional x padding value resolved by geometric precedence, not a runtime phase.
     pub x: Option<Space>,
+    // xtask-allow(state-fields): Passive optional y padding value resolved by geometric precedence, not a runtime phase.
     pub y: Option<Space>,
+    // xtask-allow(state-fields): Passive optional start padding value resolved by geometric precedence, not a runtime phase.
     pub start: Option<Space>,
+    // xtask-allow(state-fields): Passive optional end padding value resolved by geometric precedence, not a runtime phase.
     pub end: Option<Space>,
+    // xtask-allow(state-fields): Passive optional top padding value resolved by geometric precedence, not a runtime phase.
     pub top: Option<Space>,
+    // xtask-allow(state-fields): Passive optional bottom padding value resolved by geometric precedence, not a runtime phase.
     pub bottom: Option<Space>,
 }
 
 /// Logical insets announced by containers to their descendants.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct ContainerInset {
-    pub start: f32,
-    pub end: f32,
-    pub top: f32,
-    pub bottom: f32,
+    /// Leading inset in logical pixels, following reading direction.
+    pub start: f64,
+    /// Trailing inset in logical pixels, following reading direction.
+    pub end: f64,
+    /// Top inset in logical pixels.
+    pub top: f64,
+    /// Bottom inset in logical pixels.
+    pub bottom: f64,
 }
 
 impl ContainerInset {
-    pub(crate) fn uniform(px: f32) -> Self {
+    pub(crate) fn uniform(px: f64) -> Self {
         Self {
             start: px,
             end: px,
@@ -77,7 +113,7 @@ impl ContainerInset {
         }
     }
 
-    pub(crate) fn sides(self) -> (f32, f32) {
+    pub(crate) fn sides(self) -> (f64, f64) {
         if rtl() {
             (self.end, self.start)
         } else {
@@ -96,7 +132,7 @@ impl ContainerInset {
 }
 
 impl Padding {
-    pub(crate) fn resolve(self, default: f32) -> ContainerInset {
+    pub(crate) fn resolve(self, default: f64) -> ContainerInset {
         let side =
             |edge: Option<Space>, axis| edge.or(axis).or(self.all).map_or(default, Space::px);
         ContainerInset {
@@ -110,49 +146,62 @@ impl Padding {
 
 macro_rules! padding_options {
     () => {
+        /// Set all padding edges to a theme spacing step; more specific edges take precedence.
         pub fn padding(mut self, value: Space) -> Self {
             self.padding.all = Some(value);
             self
         }
+        /// Set both inline padding edges unless individually overridden.
         pub fn padding_x(mut self, value: Space) -> Self {
             self.padding.x = Some(value);
             self
         }
+        /// Set top and bottom padding unless individually overridden.
         pub fn padding_y(mut self, value: Space) -> Self {
             self.padding.y = Some(value);
             self
         }
+        /// Set logical leading padding, following reading direction.
         pub fn padding_start(mut self, value: Space) -> Self {
             self.padding.start = Some(value);
             self
         }
+        /// Set logical trailing padding, following reading direction.
         pub fn padding_end(mut self, value: Space) -> Self {
             self.padding.end = Some(value);
             self
         }
+        /// Set top padding to a theme spacing step.
         pub fn padding_top(mut self, value: Space) -> Self {
             self.padding.top = Some(value);
             self
         }
+        /// Set bottom padding to a theme spacing step.
         pub fn padding_bottom(mut self, value: Space) -> Self {
             self.padding.bottom = Some(value);
             self
         }
+        /// Set both logical inline padding edges.
         pub fn padding_inline(self, value: Space) -> Self {
             self.padding_x(value)
         }
+        /// Set both block padding edges: top and bottom.
         pub fn padding_block(self, value: Space) -> Self {
             self.padding_y(value)
         }
+        /// Set the logical leading padding edge.
         pub fn padding_inline_start(self, value: Space) -> Self {
             self.padding_start(value)
         }
+        /// Set the logical trailing padding edge.
         pub fn padding_inline_end(self, value: Space) -> Self {
             self.padding_end(value)
         }
+        /// Set the top padding edge.
         pub fn padding_block_start(self, value: Space) -> Self {
             self.padding_top(value)
         }
+        /// Set the bottom padding edge.
         pub fn padding_block_end(self, value: Space) -> Self {
             self.padding_bottom(value)
         }
@@ -161,13 +210,21 @@ macro_rules! padding_options {
 pub(crate) use padding_options;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+/// Alignment on a named stack axis; distribution modes stretch on the cross axis.
 pub enum StackAlign {
+    /// Pack children toward the axis start.
     Start,
+    /// Center children on the axis.
     Center,
+    /// Pack children toward the axis end.
     End,
+    /// Distribute free space between children on the main axis.
     Between,
+    /// Distribute main-axis space around children, with half-size end spaces.
     Around,
+    /// Distribute equal main-axis space between children and at both ends.
     Evenly,
+    /// Stretch alignment across the available axis.
     Stretch,
 }
 
@@ -195,9 +252,12 @@ impl StackAlign {
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+/// Whether children remain on one flex line or can wrap.
 pub enum StackWrap {
     #[default]
+    /// Keep children on one flex line; the default.
     NoWrap,
+    /// Allow children to flow onto additional flex lines.
     Wrap,
 }
 
@@ -208,127 +268,151 @@ impl From<bool> for StackWrap {
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+/// Axes centered by `FlexStack::axis`; interpreted against the stack’s main/cross axes.
 pub enum CenterAxis {
     #[default]
+    /// Center both main and cross axes; the default.
     Both,
+    /// Center the main axis and stretch the cross axis.
     Horizontal,
+    /// Center the cross axis and start-align the main axis.
     Vertical,
 }
 
 /// A direction-aware flex container.
-pub struct Stack {
+pub struct FlexStack {
     root: Node,
-    direction: Direction,
-    gap: Space,
+    direction: Value<Direction>,
+    gap: Value<Space>,
     padding: Padding,
-    align: Align,
-    justify: Justify,
+    align: Value<Align>,
+    justify: Value<Justify>,
     wrap: StackWrap,
-    scrollable: bool,
+    scrollable: Value<bool>,
     horizontal: Option<StackAlign>,
     vertical: Option<StackAlign>,
 }
 
-pub fn stack(children: impl IntoView) -> Stack {
+/// Create a vertical flex stack with zero gap and padding.
+pub fn flex_stack(children: impl IntoView) -> FlexStack {
     vstack(children)
 }
 
-pub fn hstack(children: impl IntoView) -> Stack {
+/// Create a reading-direction-aware horizontal stack with zero gap and padding.
+pub fn hstack(children: impl IntoView) -> FlexStack {
     vstack(children).direction(Direction::Row)
 }
 
-pub fn vstack(children: impl IntoView) -> Stack {
-    Stack {
+/// Create a vertical stack with stretched children and leading main-axis alignment.
+pub fn vstack(children: impl IntoView) -> FlexStack {
+    FlexStack {
         root: node().child(children),
-        direction: Direction::Column,
-        gap: Space::S0,
+        direction: (Direction::Column).into_value(),
+        gap: (Space::S0).into_value(),
         padding: Padding::default(),
-        align: Align::Stretch,
-        justify: Justify::Start,
+        align: (Align::Stretch).into_value(),
+        justify: (Justify::Start).into_value(),
         wrap: StackWrap::NoWrap,
-        scrollable: false,
+        scrollable: (false).into_value(),
         horizontal: None,
         vertical: None,
     }
 }
 
 /// A horizontal stack centered on both axes.
-pub fn center(children: impl IntoView) -> Stack {
+pub fn center(children: impl IntoView) -> FlexStack {
     hstack(children)
         .align(Align::Center)
         .justify(Justify::Center)
 }
 
-impl Stack {
+impl FlexStack {
     padding_options!();
-    pub fn direction(mut self, direction: Direction) -> Self {
-        self.direction = direction;
+    /// Set constant or reactive flex direction; horizontal directions follow reading direction.
+    pub fn direction(mut self, direction: impl IntoValue<Direction>) -> Self {
+        self.direction = direction.into_value();
         self
     }
-    pub fn gap(mut self, gap: Space) -> Self {
-        self.gap = gap;
+    /// Set constant or reactive theme spacing between children; defaults to zero.
+    pub fn gap(mut self, gap: impl IntoValue<Space>) -> Self {
+        self.gap = gap.into_value();
         self
     }
-    pub fn align(mut self, align: Align) -> Self {
-        self.align = align;
+    /// Set constant or reactive cross-axis alignment; defaults to stretch.
+    pub fn align(mut self, align: impl IntoValue<Align>) -> Self {
+        self.align = align.into_value();
         self
     }
-    pub fn justify(mut self, justify: Justify) -> Self {
-        self.justify = justify;
+    /// Set constant or reactive main-axis distribution; defaults to start.
+    pub fn justify(mut self, justify: impl IntoValue<Justify>) -> Self {
+        self.justify = justify.into_value();
         self
     }
+    /// Enable flex wrapping with a wrap mode or bool; disabled by default.
     pub fn wrap(mut self, wrap: impl Into<StackWrap>) -> Self {
         self.wrap = wrap.into();
         self
     }
-    pub fn scrollable(mut self, scrollable: bool) -> Self {
-        self.scrollable = scrollable;
+    /// Choose at view construction whether to scroll along the initial main axis.
+    pub fn scrollable(mut self, scrollable: impl IntoValue<bool>) -> Self {
+        self.scrollable = scrollable.into_value();
         self
     }
+    /// Override horizontal alignment, mapped to the initial main or cross axis.
     pub fn h_align(mut self, align: StackAlign) -> Self {
         self.horizontal = Some(align);
         self
     }
+    /// Override vertical alignment, mapped to the initial main or cross axis.
     pub fn v_align(mut self, align: StackAlign) -> Self {
         self.vertical = Some(align);
         self
     }
+    /// Center main, cross, or both axes; horizontal selects main and vertical selects cross.
     pub fn axis(mut self, axis: CenterAxis) -> Self {
-        self.justify = if axis == CenterAxis::Vertical {
+        self.justify = (if axis == CenterAxis::Vertical {
             Justify::Start
         } else {
             Justify::Center
-        };
-        self.align = if axis == CenterAxis::Horizontal {
+        })
+        .into_value();
+        self.align = (if axis == CenterAxis::Horizontal {
             Align::Stretch
         } else {
             Align::Center
-        };
+        })
+        .into_value();
         self
     }
+    /// When true, disable growth and align this stack to the parent’s cross-axis start.
     pub fn inline(mut self, inline: bool) -> Self {
         if inline {
             self.root = self.root.style(style().grow(0).align_self(Align::Start));
         }
         self
     }
-    pub fn width(mut self, width: impl Into<Length>) -> Self {
-        self.root = self.root.style(style().width(width));
+    /// Set a constant or reactive width using a logical length.
+    pub fn width(mut self, width: impl IntoValue<Length>) -> Self {
+        let width = width.into_value();
+        self.root = self.root.style(move || style().width(width.get()));
         self
     }
-    pub fn height(mut self, height: impl Into<Length>) -> Self {
-        self.root = self.root.style(style().height(height));
+    /// Set a constant or reactive height using a logical length.
+    pub fn height(mut self, height: impl IntoValue<Length>) -> Self {
+        let height = height.into_value();
+        self.root = self.root.style(move || style().height(height.get()));
         self
     }
 }
 
-impl NodeBuilder for Stack {
+impl NodeBuilder for FlexStack {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
 }
 
-impl IntoView for Stack {
+impl IntoView for FlexStack {
     fn into_view(self) -> View {
         let Self {
             root,
@@ -342,28 +426,30 @@ impl IntoView for Stack {
             horizontal,
             vertical,
         } = self;
-        let is_row = matches!(direction, Direction::Row | Direction::RowReverse);
+        let is_row = matches!(direction.get(), Direction::Row | Direction::RowReverse);
         let (main, cross) = if is_row {
             (horizontal, vertical)
         } else {
             (vertical, horizontal)
         };
-        let root = root.base_style(move || {
-            let direction = match (direction, rtl()) {
-                (Direction::Row, true) => Direction::RowReverse,
-                (Direction::RowReverse, true) => Direction::Row,
-                _ => direction,
-            };
-            padding.resolve(0.0).apply(
-                style()
-                    .direction(direction)
-                    .gap(gap.px())
-                    .align_items(cross.map_or(align, StackAlign::cross))
-                    .justify_content(main.map_or(justify, StackAlign::main))
-                    .wrap(wrap == StackWrap::Wrap),
-            )
+        let root = root.with_node(move |node| {
+            node.base_style(move || {
+                let direction = match (direction.get(), rtl()) {
+                    (Direction::Row, true) => Direction::RowReverse,
+                    (Direction::RowReverse, true) => Direction::Row,
+                    _ => direction.get(),
+                };
+                padding.resolve(0.0).apply(
+                    style()
+                        .direction(direction)
+                        .gap(gap.get().px())
+                        .align_items(cross.map_or(align.get(), StackAlign::cross))
+                        .justify_content(main.map_or(justify.get(), StackAlign::main))
+                        .wrap(wrap == StackWrap::Wrap),
+                )
+            })
         });
-        if scrollable {
+        if scrollable.get() {
             stack_scroll(
                 root,
                 if is_row {
@@ -387,38 +473,47 @@ fn stack_scroll(root: Node, axes: ScrollAxes) -> View {
 /// Flex sizing for a stack item.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum StackItemSize {
+    /// Allow shrinking without growing.
     Auto,
+    /// Grow into free space and allow shrinking.
     Fill,
     #[default]
+    /// Neither grow nor shrink; the default.
     Static,
 }
 
+/// Flex child wrapper with explicit sizing and optional vertical scrolling.
 pub struct StackItem {
     root: Node,
-    size: StackItemSize,
-    scrollable: bool,
+    size: Value<StackItemSize>,
+    scrollable: Value<bool>,
 }
 
+/// Create a non-growing, non-shrinking stack child without scrolling.
 pub fn stack_item(children: impl IntoView) -> StackItem {
     StackItem {
         root: node().child(children),
-        size: StackItemSize::Static,
-        scrollable: false,
+        size: (StackItemSize::Static).into_value(),
+        scrollable: (false).into_value(),
     }
 }
 
 impl StackItem {
-    pub fn size(mut self, size: StackItemSize) -> Self {
-        self.size = size;
+    /// Choose flex sizing at view construction; defaults to static.
+    pub fn size(mut self, size: impl IntoValue<StackItemSize>) -> Self {
+        self.size = size.into_value();
         self
     }
-    pub fn scrollable(mut self, scrollable: bool) -> Self {
-        self.scrollable = scrollable;
+    /// Choose at view construction whether this child has a vertical scroll viewport.
+    pub fn scrollable(mut self, scrollable: impl IntoValue<bool>) -> Self {
+        self.scrollable = scrollable.into_value();
         self
     }
+    /// Override this child’s alignment on its parent’s cross axis.
     pub fn cross_align_self(self, align: Align) -> Self {
         self.align_self(align)
     }
+    /// Override this child’s alignment on its parent’s cross axis.
     pub fn align_self(mut self, align: Align) -> Self {
         self.root = self.root.style(style().align_self(align));
         self
@@ -426,6 +521,7 @@ impl StackItem {
 }
 
 impl NodeBuilder for StackItem {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -433,16 +529,20 @@ impl NodeBuilder for StackItem {
 
 impl IntoView for StackItem {
     fn into_view(self) -> View {
-        let sizing = match self.size {
+        let sizing = match self.size.get() {
             StackItemSize::Auto => style().grow(0).shrink(1),
             StackItemSize::Fill => style().grow(1).shrink(1),
             StackItemSize::Static => style().grow(0).shrink(0),
         };
-        let root = self.root.base_style(sizing.min_width(0).min_height(0));
-        if self.scrollable {
+        let root = self
+            .root
+            .with_node(move |node| node.base_style(sizing.min_width(0).min_height(0)));
+        if self.scrollable.get() {
             stack_scroll(root, ScrollAxes::Vertical)
         } else {
             root.into_view()
         }
     }
 }
+
+kivact::state::constant_value!(Space, StackItemSize);

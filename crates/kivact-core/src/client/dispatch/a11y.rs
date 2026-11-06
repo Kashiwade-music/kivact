@@ -1,9 +1,10 @@
 //! Role: Assistive-technology requests and overlay dismissals, both run
 //! through the node's `a11y` handlers.
 
-use kivact_reactive::Runtime;
+use kivact_engine::contract::HostEvent;
+use kivact_runtime::Runtime;
 use kivact_style::draw::RegionId;
-use kivact_wire::{A11yRequest, HostEvent, NodeId};
+use kivact_types::{A11yRequest, NodeId};
 
 use super::common::{admitted, handler, is_disabled, node_owner, run_handler, stale};
 use super::pointer::activate;
@@ -24,7 +25,7 @@ pub(super) fn run_a11y(rt: &Runtime, node: NodeId, region: Option<RegionId>, req
         && !is_disabled(rt, node)
     {
         run_handler(rt, node_owner(rt, node), || {
-            h(A11yEvent { request, region })
+            h.call(A11yEvent { request, region })
         });
     }
 }

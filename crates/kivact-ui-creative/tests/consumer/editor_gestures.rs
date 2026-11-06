@@ -2,9 +2,8 @@
 use crate::arrangement_model::arrangement as app_arrangement;
 use crate::graph_support::app_graph;
 use crate::node_support::app_node_editor;
-use crate::support::clean;
 use crate::time_support::{app_dope_sheet, app_timeline};
-use kivact::draw::{Point, Size};
+use kivact::geometry::{Point, Size};
 use kivact::interaction::ViewTransform;
 use kivact::prelude::*;
 use kivact::test::Screen;
@@ -26,8 +25,6 @@ struct Model {
     curves: Signal<Vec<ui::Curve>>,
     nodes: Signal<Vec<ui::NodeData>>,
     selection: Signal<Vec<u64>>,
-    pan: Signal<Point>,
-    zoom: Signal<f64>,
     frame: Signal<f64>,
     transform: Signal<ViewTransform>,
     view: Signal<ui::GraphView>,
@@ -46,7 +43,7 @@ impl Model {
                 .iter()
                 .enumerate()
                 .map(|(i, c)| Item {
-                    position: Point::new(c.start as f32, 60.0 + i as f32 * 60.0),
+                    position: Point::new(c.start, 60.0 + i as f64 * 60.0),
                 })
                 .collect(),
             Kind::DopeSheet => self
@@ -55,7 +52,7 @@ impl Model {
                 .iter()
                 .enumerate()
                 .map(|(i, k)| Item {
-                    position: Point::new(k.time as f32, 60.0 + i as f32 * 60.0),
+                    position: Point::new(k.time, 60.0 + i as f64 * 60.0),
                 })
                 .collect(),
             Kind::Graph => self
@@ -64,7 +61,7 @@ impl Model {
                 .iter()
                 .flat_map(|c| {
                     c.keys.iter().map(|k| Item {
-                        position: Point::new(k.time as f32, -k.value as f32),
+                        position: Point::new(k.time, -k.value),
                     })
                 })
                 .collect(),
@@ -95,165 +92,8 @@ fn item(screen: &Screen, model: Model, index: usize) -> kivact::test::Element<'_
 }
 fn fixture(kind: Kind, snap: bool) -> (Screen, Model) {
     kivact::test::render_with_handle(crate::support::options(), move || {
-        let clips = signal(
-            (0..3)
-                .map(|i| {
-                    ui::Clip::new(
-                        i + 1,
-                        i,
-                        40.0 + i as f64 * 100.0,
-                        70.0,
-                        format!("Item {}", i + 1),
-                    )
-                })
-                .collect::<Vec<_>>(),
-        );
-        let keys = signal(
-            (0..3)
-                .map(|i| {
-                    ui::Keyframe::new(i + 1, i, 40.0 + i as f64 * 100.0, format!("Item {}", i + 1))
-                })
-                .collect::<Vec<_>>(),
-        );
-        let curves = signal(
-            (0..3)
-                .map(|i| {
-                    ui::Curve::new(
-                        i + 1,
-                        format!("Item {}", i + 1),
-                        vec![ui::CurveKey::new(
-                            i + 1,
-                            40.0 + i as f64 * 100.0,
-                            -60.0 - i as f64 * 60.0,
-                        )],
-                    )
-                })
-                .collect::<Vec<_>>(),
-        );
-        let nodes = signal(
-            (0..3)
-                .map(|i| {
-                    ui::NodeData::new(i + 1, format!("Item {}", i + 1), vec![], vec![])
-                        .position(Point::new(40.0 + i as f32 * 100.0, 60.0 + i as f32 * 60.0))
-                        .size(Size::new(80.0, 40.0))
-                })
-                .collect::<Vec<_>>(),
-        );
-        if kind == Kind::Arrangement {
-            clips.update(|items| {
-                for (i, clip) in items.iter_mut().enumerate() {
-                    clip.start = 2.0 + i as f64 * 6.0;
-                    clip.duration = 3.0;
-                }
-            });
-        }
-        let model = Model {
-            kind,
-            activated: signal(Vec::new()),
-            clips,
-            keys,
-            curves,
-            nodes,
-            selection: signal(Vec::new()),
-            pan: signal(Point::new(0.0, 0.0)),
-            zoom: signal(if kind == Kind::Arrangement { 20.0 } else { 1.0 }),
-            frame: signal(0.0),
-            transform: signal(ViewTransform::default()),
-            view: signal(ui::GraphView {
-                time: (0.0, 440.0),
-                value: (-258.0, 0.0),
-            }),
-        };
-        let lanes = vec![
-            ui::Lane::new(0, "First"),
-            ui::Lane::new(1, "Second"),
-            ui::Lane::new(2, "Third"),
-        ];
-        let view = match kind {
-            Kind::Arrangement => app_arrangement(
-                clips,
-                signal(
-                    (0..3)
-                        .map(|id| {
-                            ui::TimelineTrack::new(
-                                id,
-                                format!("Track {id}"),
-                                ui::TrackKind::Audio,
-                                kivact::style::Color::from_rgba_f32(0.4, 0.5, 0.8, 1.0),
-                            )
-                        })
-                        .collect::<Vec<_>>(),
-                ),
-                ui::ArrangementState {
-                    selection: model.selection.into(),
-                    pan: model.pan.into(),
-                    zoom: model.zoom.into(),
-                    ..ui::ArrangementState::new()
-                },
-            )
-            .snap(snap)
-            .name("Gesture editor")
-            .style(style().size(640, 280))
-            .into_view(),
-            Kind::Timeline => app_timeline(
-                clips,
-                ui::TimeState {
-                    selection: model.selection.into(),
-                    pan: model.pan.into(),
-                    zoom: model.zoom.into(),
-                    playhead: model.frame.into(),
-                },
-            )
-            .on_item_activate(move |id| model.activated.update(|ids| ids.push(id)))
-            .snap(snap)
-            .lanes(lanes)
-            .name("Gesture editor")
-            .style(style().size(640, 280))
-            .into_view(),
-            Kind::DopeSheet => app_dope_sheet(
-                keys,
-                ui::TimeState {
-                    selection: model.selection.into(),
-                    pan: model.pan.into(),
-                    zoom: model.zoom.into(),
-                    playhead: model.frame.into(),
-                },
-            )
-            .on_item_activate(move |id| model.activated.update(|ids| ids.push(id)))
-            .snap(snap)
-            .lanes(lanes)
-            .name("Gesture editor")
-            .style(style().size(640, 280))
-            .into_view(),
-            Kind::Graph => app_graph(
-                curves,
-                ui::GraphState {
-                    selection: model.selection.into(),
-                    view: model.view.into(),
-                    playhead: model.frame.into(),
-                },
-            )
-            .on_item_activate(move |id| model.activated.update(|ids| ids.push(id)))
-            .snap(snap)
-            .step(10.0, 0.01)
-            .time_format(|time| format!("{time}"))
-            .name("Gesture editor")
-            .style(style().size(640, 280))
-            .into_view(),
-            Kind::Nodes => app_node_editor(
-                nodes,
-                signal(Vec::new()),
-                ui::NodeState {
-                    selection: model.selection.into(),
-                    transform: model.transform.into(),
-                    ..ui::NodeState::new()
-                },
-            )
-            .snap(snap)
-            .name("Gesture editor")
-            .style(style().size(640, 280))
-            .into_view(),
-        };
+        let model = gesture_model(kind);
+        let view = gesture_view(model, snap);
         (model, view)
     })
 }
@@ -289,7 +129,7 @@ fn item_drag_writes_consumer_positions_with_and_without_snap() {
             };
             assert_eq!(after[0].position.y, before[0].position.y + dy, "{kind:?}");
             assert_eq!(&after[1..], &before[1..], "{kind:?}: other items stay put");
-            clean(&screen);
+            assert!(screen.errors().is_empty(), "{:?}", screen.errors());
         }
     }
 }
@@ -308,7 +148,7 @@ fn marquee_selects_intersecting_items_and_escape_clears_selection() {
         assert_eq!(model.selection.get_untracked(), [1, 2, 3], "{kind:?}");
         canvas.press_key(Key::Escape);
         assert!(model.selection.get_untracked().is_empty(), "{kind:?}");
-        clean(&screen);
+        assert!(screen.errors().is_empty(), "{:?}", screen.errors());
     }
 }
 
@@ -328,7 +168,7 @@ fn playhead_arrow_keys_edit_the_time_without_moving_selected_items() {
             "{kind:?}"
         );
         assert_eq!(model.snapshot(), before, "{kind:?}");
-        clean(&screen);
+        assert!(screen.errors().is_empty(), "{:?}", screen.errors());
     }
 }
 
@@ -343,7 +183,7 @@ fn timeline_trimming_updates_consumer_clip_bounds() {
             app_timeline(
                 data,
                 ui::TimeState {
-                    selection: (signal(vec![1])).into(),
+                    selection: (signal(vec![1])).into_binding(),
                     ..ui::TimeState::new()
                 },
             )
@@ -359,5 +199,194 @@ fn timeline_trimming_updates_consumer_clip_bounds() {
         .drag(Point::new(231.0, 40.0), Point::new(251.0, 40.0));
     assert_eq!(data.get_untracked()[0].start, 50.0);
     assert_eq!(data.get_untracked()[0].duration, 110.0);
-    clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+fn gesture_model(kind: Kind) -> Model {
+    let clips = gesture_clips();
+    let keys = gesture_keys();
+    let curves = gesture_curves();
+    let nodes = gesture_nodes();
+    if kind == Kind::Arrangement {
+        clips.update(|items| {
+            for (i, clip) in items.iter_mut().enumerate() {
+                clip.start = 2.0 + i as f64 * 6.0;
+                clip.duration = 3.0;
+            }
+        });
+    }
+    Model {
+        kind,
+        activated: signal(Vec::new()),
+        clips,
+        keys,
+        curves,
+        nodes,
+        selection: signal(Vec::new()),
+        frame: signal(0.0),
+        transform: signal(ViewTransform {
+            scale: if kind == Kind::Arrangement { 20.0 } else { 1.0 },
+            ..ViewTransform::default()
+        }),
+        view: signal(ui::GraphView {
+            time: (0.0, 440.0),
+            value: (-258.0, 0.0),
+        }),
+    }
+}
+fn gesture_view(model: Model, snap: bool) -> View {
+    let Model {
+        kind,
+        clips,
+        keys,
+        curves,
+        nodes,
+        ..
+    } = model;
+    let lanes = vec![
+        ui::Lane::new(0, "First"),
+        ui::Lane::new(1, "Second"),
+        ui::Lane::new(2, "Third"),
+    ];
+    match kind {
+        Kind::Arrangement => arrangement_view(model, snap),
+        Kind::Timeline => app_timeline(
+            clips,
+            ui::TimeState {
+                selection: model.selection.into_binding(),
+                transform: model.transform.into_binding(),
+                playhead: model.frame.into_binding(),
+            },
+        )
+        .on_item_activate(move |id| model.activated.update(|ids| ids.push(id)))
+        .snap(snap)
+        .lanes(lanes)
+        .name("Gesture editor")
+        .style(style().size(640, 280))
+        .into_view(),
+        Kind::DopeSheet => app_dope_sheet(
+            keys,
+            ui::TimeState {
+                selection: model.selection.into_binding(),
+                transform: model.transform.into_binding(),
+                playhead: model.frame.into_binding(),
+            },
+        )
+        .on_item_activate(move |id| model.activated.update(|ids| ids.push(id)))
+        .snap(snap)
+        .lanes(lanes)
+        .name("Gesture editor")
+        .style(style().size(640, 280))
+        .into_view(),
+        Kind::Graph => app_graph(
+            curves,
+            ui::GraphState {
+                selection: model.selection.into_binding(),
+                view: model.view.into_binding(),
+                playhead: model.frame.into_binding(),
+            },
+        )
+        .on_item_activate(move |id| model.activated.update(|ids| ids.push(id)))
+        .snap(snap)
+        .step(10.0, 0.01)
+        .time_format(|time| format!("{time}"))
+        .name("Gesture editor")
+        .style(style().size(640, 280))
+        .into_view(),
+        Kind::Nodes => app_node_editor(
+            nodes,
+            signal(Vec::new()),
+            ui::NodeState {
+                selection: model.selection.into_binding(),
+                transform: model.transform.into_binding(),
+                ..ui::NodeState::new()
+            },
+        )
+        .snap(snap)
+        .name("Gesture editor")
+        .style(style().size(640, 280))
+        .into_view(),
+    }
+}
+fn arrangement_view(model: Model, snap: bool) -> View {
+    let clips = model.clips;
+    app_arrangement(
+        clips,
+        signal(
+            (0..3)
+                .map(|id| {
+                    ui::TimelineTrack::new(
+                        id,
+                        format!("Track {id}"),
+                        ui::TrackKind::Audio,
+                        kivact::style::Color::from_rgba_f64(0.4, 0.5, 0.8, 1.0),
+                    )
+                })
+                .collect::<Vec<_>>(),
+        ),
+        ui::ArrangementState {
+            selection: model.selection.into_binding(),
+            transform: model.transform.into_binding(),
+            ..ui::ArrangementState::new()
+        },
+    )
+    .snap(snap)
+    .name("Gesture editor")
+    .style(style().size(640, 280))
+    .into_view()
+}
+fn gesture_clips() -> Signal<Vec<ui::Clip>> {
+    signal(
+        (0..3)
+            .map(|i| {
+                ui::Clip::new(
+                    i + 1,
+                    i,
+                    40.0 + i as f64 * 100.0,
+                    70.0,
+                    format!("Item {}", i + 1),
+                )
+            })
+            .collect::<Vec<_>>(),
+    )
+}
+
+fn gesture_keys() -> Signal<Vec<ui::Keyframe>> {
+    signal(
+        (0..3)
+            .map(|i| {
+                ui::Keyframe::new(i + 1, i, 40.0 + i as f64 * 100.0, format!("Item {}", i + 1))
+            })
+            .collect::<Vec<_>>(),
+    )
+}
+
+fn gesture_curves() -> Signal<Vec<ui::Curve>> {
+    signal(
+        (0..3)
+            .map(|i| {
+                ui::Curve::new(
+                    i + 1,
+                    format!("Item {}", i + 1),
+                    vec![ui::CurveKey::new(
+                        i + 1,
+                        40.0 + i as f64 * 100.0,
+                        -60.0 - i as f64 * 60.0,
+                    )],
+                )
+            })
+            .collect::<Vec<_>>(),
+    )
+}
+
+fn gesture_nodes() -> Signal<Vec<ui::NodeData>> {
+    signal(
+        (0..3)
+            .map(|i| {
+                ui::NodeData::new(i + 1, format!("Item {}", i + 1), vec![], vec![])
+                    .position(Point::new(40.0 + i as f64 * 100.0, 60.0 + i as f64 * 60.0))
+                    .size(Size::new(80.0, 40.0))
+            })
+            .collect::<Vec<_>>(),
+    )
 }

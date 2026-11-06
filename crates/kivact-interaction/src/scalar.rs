@@ -1,16 +1,16 @@
 //! Role: Binding-backed scalar operations and semantic control parts.
 //!
-//! A [`Scalar`] has no value of its own: the finite range, the min-anchored
+//! A [`ScalarApi`] has no value of its own: the finite range, the min-anchored
 //! step, the key step and assistive technology all write through the
-//! caller's binding. A slider attaches [`Scalar::thumb`] and
-//! [`Scalar::track`]; a number field attaches [`Scalar::input`] to its text
+//! caller's binding. A slider attaches [`ScalarApi::thumb`] and
+//! [`ScalarApi::track`]; a number field attaches [`ScalarApi::input`] to its text
 //! field; a canvas declares the thumb as a region and maps the pointer itself
-//! with [`Scalar::scrub`]. The slider's thumb and the spin button share this
+//! with [`ScalarApi::scrub`]. The slider's thumb and the spin button share this
 //! private implementation, except that the spin button leaves the value text
-//! to the native editor. [`RangeScalar`](crate::RangeScalar) builds two ends
+//! to the native editor. [`RangeScalarApi`](crate::RangeScalarApi) builds two ends
 //! on the same plumbing. The reading direction a horizontal track mirrors in
 //! comes from `kivact::view::ReadingDirection` (`provide_direction`,
-//! `current_direction`).
+//! `use_direction`).
 //!
 //! A spin button takes Up/Down, PageUp/PageDown (ten steps) and unmodified
 //! Home/End; Left/Right and modified Home/End stay the native editor's caret
@@ -40,22 +40,30 @@
 //!
 //! Invariants:
 //! - A range change writes the value back only when it falls outside the new
-//!   range, through one effect per scalar however many parts are attached.
+//!   range, through one transition per scalar however many parts are attached.
 //! - A key press, an assistive technology action and a track drag are each
 //!   one edit of the scalar's [`EditSession`]; Escape, an engine Cancel and
 //!   the focus leaving the thumb during a drag write the starting value back.
 
+mod data;
 mod edit_state;
+mod focus_machine;
 mod handle;
 mod ops;
 mod range;
+mod range_machine;
 mod touch;
+mod touch_data;
+mod touch_machine;
 mod track;
+mod track_data;
+mod track_machine;
 
+pub use data::ScalarState;
 pub(crate) use edit_state::{Edit, Shared};
-pub use handle::{Scalar, ScalarState, use_scalar};
+pub use handle::{ScalarApi, use_scalar};
 pub(crate) use ops::ScalarOps;
-pub use range::IntoScalarRange;
-pub(crate) use range::{follow_range, pulled_inside};
+
+pub(crate) use range::{follow_range, follow_ranges};
 pub use touch::TouchSliderGesture;
 pub(crate) use track::Grip;

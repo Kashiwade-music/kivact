@@ -5,7 +5,7 @@
 //! at 8 px padding. The standard components draw them with
 //! `kivact::ui::list` and `kivact::ui::data_table`.
 
-use crate::Color;
+use crate::ColorName;
 use crate::tokens::Tokens;
 use kivact::style::{Theme, style};
 use kivact::ui::{DataTableRecipes, ListRecipes};
@@ -17,15 +17,15 @@ pub(crate) fn list(r: ListRecipes) -> ListRecipes {
                 .padding_x(8)
                 .min_height(32)
                 .radius(6)
-                .hover(style().background(Color::Accent))
-                .selected(style().background(Color::Accent))
+                .hover(style().background(ColorName::Accent))
+                .selected(style().background(ColorName::Accent))
         }
     })
-    .description(|_| |_: &Theme, _: &_| style().font_size(12).color(Color::MutedForeground))
+    .description(|_| |_: &Theme, _: &_| style().font_size(12).color(ColorName::MutedForeground))
 }
 
 pub(crate) fn data_table(r: DataTableRecipes) -> DataTableRecipes {
-    r.frame(|prev| move |t: &Theme, s: &_| prev(t, s).border_color(Color::Border).radius(6))
+    r.frame(|prev| move |t: &Theme, s: &_| prev(t, s).border_color(ColorName::Border).radius(6))
         .toolbar(|prev| move |t: &Theme, s: &_| prev(t, s).padding_x(0).padding_y(16))
         .footer(|prev| move |t: &Theme, s: &_| prev(t, s).padding_x(0).padding_y(16))
         .header(|prev| {
@@ -34,17 +34,17 @@ pub(crate) fn data_table(r: DataTableRecipes) -> DataTableRecipes {
                     .min_height(40)
                     .padding_x(8)
                     .weight(500)
-                    .color(Color::Foreground)
-                    .border_color(Color::Border)
+                    .color(ColorName::Foreground)
+                    .border_color(ColorName::Border)
             }
         })
         .row(|prev| {
             move |t: &Theme, s: &_| {
                 prev(t, s)
-                    .border_color(Color::Border)
-                    .hover(style().background(t.get::<Tokens>().muted.with_alpha(0.5)))
-                    .selected(style().background(Color::Muted))
+                    .border_color(ColorName::Border)
+                    .hover(style().background(t.ext::<Tokens>().muted.with_alpha(0.5)))
+                    .selected(style().background(ColorName::Muted))
             }
         })
-        .cell(|prev| move |t: &Theme, s: &_| prev(t, s).padding(8).color(Color::Foreground))
+        .cell(|prev| move |t: &Theme, s: &_| prev(t, s).padding(8).color(ColorName::Foreground))
 }

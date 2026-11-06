@@ -20,7 +20,7 @@ use image::{DynamicImage, ImageDecoder, ImageFormat, ImageReader, Limits};
 
 use crate::format::Format;
 use crate::limits::MAX_IMAGE_EDGE;
-use crate::pixels::Bitmap;
+use kivact_types::Pixels;
 
 /// The most the decoder may allocate for one image (its working buffers
 /// and the decoded pixels; 512 MiB, the `image` crate's default).
@@ -41,7 +41,7 @@ pub(crate) enum RasterError {
 
 /// Decodes `bytes` of the raster `format`, whose RGBA8 pixels may take at
 /// most `max_bytes`, into RGBA pixels.
-pub(crate) fn decode(bytes: &[u8], format: Format, max_bytes: u64) -> Result<Bitmap, RasterError> {
+pub(crate) fn decode(bytes: &[u8], format: Format, max_bytes: u64) -> Result<Pixels, RasterError> {
     let format = match format {
         Format::Png => ImageFormat::Png,
         Format::Jpeg => ImageFormat::Jpeg,
@@ -82,7 +82,7 @@ pub(crate) fn decode(bytes: &[u8], format: Format, max_bytes: u64) -> Result<Bit
         return Err(RasterError::Decode("the image has no pixels".to_owned()));
     }
     let pixels = rgba.into_raw();
-    Ok(Bitmap {
+    Ok(Pixels {
         width,
         height,
         rgba: pixels.into(),

@@ -1,21 +1,22 @@
 //! Role: The `MenuApi` handle: open state, triggers, content, items and submenus.
 
 use super::level::Level;
-use super::state::{Edge, Session};
+use super::session::Session;
+use super::state::Edge;
 use super::state::{MenuEntry, MenuItemState, MenuOrigin, MenuRow};
 use crate::focus_return::PopupCloseReason;
 use crate::popup::PopupState;
-use kivact_core::diagnostics::ErrorKind;
-use kivact_core::primitive::raise;
-use kivact_core::primitive::{Part, part};
+use kivact_core::ErrorKind;
+use kivact_core::custom::raise;
+use kivact_core::custom::{Part, PartState, part};
+use kivact_core::platform::{ContextMenuTrigger, capabilities};
+use kivact_core::state::{Callback, Value, memo};
+use kivact_core::state::{IntoBinding, IntoValue, callback, signal};
 use kivact_core::view::HandlerResult;
 use kivact_core::view::{
-    A11yAction, Handled, IntoValue, IntoView, Key, KeyEvent, MouseButton, PointerEvent,
-    PointerPhase, View, callback, dynamic,
+    A11yAction, Handled, IntoView, Key, KeyEvent, MouseButton, PointerEvent, PointerPhase, View,
+    dynamic,
 };
-use kivact_core::{Value, memo};
-use std::hash::Hash;
-use std::panic::Location;
 
 /// An application menu over keyed [`MenuEntry`] rows, without a look of its own.
 ///
@@ -35,7 +36,7 @@ use std::panic::Location;
 /// own `entries`, `show`, `surface` and `item`; its overlay is anchored to
 /// its item's node, after it.
 ///
-/// Keys inside the menu: Up and Down move through the enabled items of a level
+/// Keys inside the menu: Up and Down move through the focusable items of a level
 /// and wrap, Home and End jump to its ends, a letter key moves to the next
 /// item whose label starts with it (letters typed within 500 ms of each other
 /// are matched together), Enter and Space choose, Right opens a submenu and
@@ -64,26 +65,33 @@ use std::panic::Location;
 /// ```no_run
 /// # mod kivact {
 /// #     //! Role: Supply facade paths for this documentation example.
-/// #     pub use kivact_core::{prelude, view};
+/// # pub use kivact_core::{view, state, style};
+/// # pub mod prelude {
+/// # //! Role: Supply the canonical imports used by this documentation example.
+/// # pub use kivact_core::state::{Binding, Callback, IntoBinding, IntoText, IntoValue, Signal, Value, binding, effect, memo, on_cleanup, on_mount, signal};
+/// # pub use kivact_core::view::{EditPhase, Component, IntoView, NodeBuilder, Orientation, Role, column, for_each, node, node_ref, row, show, text};
+/// # pub use kivact_core::style::{ColorToken, Cursor, Style, style};
+/// # }
 /// #     pub extern crate kivact_interaction as interaction;
 /// # }
 /// use kivact::interaction::{MenuEntry, MenuRow, use_menu};
-/// use kivact_core::primitive::NodeExt;
+/// use kivact_core::view::NodeBuilder;
 /// use kivact::prelude::*;
 /// use kivact::view::{Placement, overlay};
 ///
 /// fn actions(last: Signal<Option<&'static str>>) -> impl IntoView {
 ///     let entries = vec![
-///         MenuEntry::item("save", "Save").shortcut("Ctrl S"),
+///         MenuEntry::item("save", "Save").with_shortcut("Ctrl S"),
 ///         MenuEntry::item("open", "Open"),
 ///     ];
-///     let file = use_menu(entries, move |key| last.set(Some(key)));
+///     let file = use_menu(entries).on_activate(move |key| last.set(Some(key)));
 ///     let trigger = file.trigger();
-///     let anchor = trigger.node_ref();
+///     let anchor = node_ref();
 ///     (
-///         node().part(trigger).name("File").child(text("File")),
+///         node().node_ref(anchor).part(trigger).name("File").child(text("File")),
 ///         file.show(move || {
-///             let rows = for_each(file.entries(), |(row, _)| row.clone(), move |row, entry| {
+///             let rows = for_each(file.entries(), |(row, _)| row.clone(), move |entry| {
+///                 let row = entry.with(|(row, _)| row.clone());
 ///                 match row {
 ///                     MenuRow::Item { key, .. } => node()
 ///                         .part(file.item(key))
@@ -93,47 +101,115 @@ use std::panic::Location;
 ///                 }
 ///             });
 ///             overlay(anchor, Placement::Below, column(rows))
-///                 .part(file.content())
+///                 .with_node(|node| node.part(file.content()))
 ///                 .name("File")
 ///         }),
 ///     )
 /// }
 /// ```
-pub struct MenuApi<K: Clone + Eq + Hash + 'static> {
+pub struct MenuApi<K: kivact_core::state::ItemKey> {
     session: Session<K>,
     level: Level<K>,
 }
 
-impl<K: Clone + Eq + Hash + 'static> Clone for MenuApi<K> {
+impl<K: kivact_core::state::ItemKey> Clone for MenuApi<K> {
     fn clone(&self) -> Self {
         *self
     }
 }
 
-impl<K: Clone + Eq + Hash + 'static> Copy for MenuApi<K> {}
+impl<K: kivact_core::state::ItemKey> Copy for MenuApi<K> {}
 
 /// A menu over `entries` that calls `choose` with the key of a chosen item.
 /// Setup only.
 #[track_caller]
-pub fn use_menu<K: Clone + Eq + Hash + 'static, R: HandlerResult>(
+pub fn use_menu<K: kivact_core::state::ItemKey>(
     entries: impl IntoValue<Vec<MenuEntry<K>>>,
-    choose: impl Fn(K) -> R + 'static,
 ) -> MenuApi<K> {
-    let session = Session::new(entries.into_value(), callback(choose));
-    let level = Level::new(session, Vec::new(), session.shown());
+    use_menu_with_open(entries, signal(false))
+}
+/// A menu whose popup observes the caller's accepted open binding directly.
+/// External opening does not request item focus; keyboard triggers retain canonical focus behavior.
+#[track_caller]
+pub fn use_menu_with_open<K: kivact_core::state::ItemKey>(
+    entries: impl IntoValue<Vec<MenuEntry<K>>>,
+    open: impl IntoBinding<bool>,
+) -> MenuApi<K> {
+    let session = Session::new(
+        entries.into_value(),
+        callback(|_: K| ()),
+        open.into_binding(),
+    );
+    let level = Level::new(session, Vec::new(), session.is_open());
     MenuApi { session, level }
 }
 
-impl<K: Clone + Eq + Hash + 'static> MenuApi<K> {
+impl<K: kivact_core::state::ItemKey> MenuApi<K> {
+    pub(crate) fn menubar_navigation(self, navigate: Callback<bool>) {
+        self.session
+            .options
+            .update(|options| options.menubar = Some(navigate));
+    }
+
+    /// Drawing state of the mounted trigger.
+    pub fn trigger_state(self) -> Value<PopupState> {
+        self.session.popup.trigger_state()
+    }
+    /// Drawing state of the mounted menu level.
+    pub fn content_state(self) -> Value<PopupState> {
+        memo(move || {
+            self.level
+                .content_state
+                .get()
+                .map(|state| state.get())
+                .unwrap_or(PopupState {
+                    input: PartState::default(),
+                    open: self.is_open().get(),
+                })
+        })
+    }
+    /// Drawing state of the actual mounted menu item.
+    pub fn item_state(self, key: K) -> Value<MenuItemState> {
+        memo(move || {
+            self.level
+                .item_states
+                .with(|states| states.get(&key).copied())
+                .map(|state| state.get())
+                .unwrap_or(MenuItemState {
+                    input: PartState::default(),
+                    pressed_over: None,
+                    check: None,
+                    expanded: false,
+                    destructive: false,
+                })
+        })
+    }
+
+    /// Replace the actual trigger's press action during setup; this is not an observer.
+    /// ArrowUp/Down retain canonical opening and initial focus, and popup dismissal is unchanged.
+    pub fn trigger_action(self, action: impl Fn() + 'static) -> Self {
+        self.session
+            .options
+            .update(|options| options.trigger_action = Some(callback(move |()| action())));
+        self
+    }
+    /// Handle activation of a menu item.
+    pub fn on_activate<R: HandlerResult>(self, f: impl Fn(K) -> R + 'static) -> Self {
+        self.session
+            .options
+            .update(|options| options.choose = callback(f));
+        self
+    }
+
     /// A submenu handle has no `name`: only the menu from `use_menu` does.
-    fn top_level(self, name: &'static str, at: &'static Location<'static>) {
+    #[track_caller]
+    fn top_level(self, name: &'static str) {
         if self.level.depth > 0 {
             raise(
                 ErrorKind::Message,
                 format!(
                     "MenuApi::{name}: a submenu handle has no {name}; call it on the menu from use_menu"
                 ),
-                at,
             );
         }
     }
@@ -146,7 +222,7 @@ impl<K: Clone + Eq + Hash + 'static> MenuApi<K> {
 
     /// Whether this level is open: the menu for the top level, the submenu's
     /// item expanded for a submenu level.
-    pub fn shown(self) -> Value<bool> {
+    pub fn is_open(self) -> Value<bool> {
         self.level.shown
     }
 
@@ -157,18 +233,18 @@ impl<K: Clone + Eq + Hash + 'static> MenuApi<K> {
     }
 
     /// Open the menu as the trigger's ArrowDown does: it opens on its first
-    /// enabled item, and the focus later returns to the trigger. Does nothing
+    /// focusable item, and the focus later returns to the trigger. Does nothing
     /// while the menu is open. Meant for a component that opens one of several
     /// menus itself, such as a menu bar moving between its menus. Top level
     /// only.
     #[track_caller]
     pub fn open(self) {
-        self.top_level("open", Location::caller());
-        if self.session.shown().get_untracked() {
+        self.top_level("open");
+        if self.session.is_open().get_untracked() {
             return;
         }
-        self.session.request(0, Edge::First);
         self.session.open_from_button();
+        self.session.request(0, Edge::First);
     }
 
     /// Close every level of the menu without moving the focus, as
@@ -176,7 +252,7 @@ impl<K: Clone + Eq + Hash + 'static> MenuApi<K> {
     /// is closed. Top level only.
     #[track_caller]
     pub fn close(self) {
-        self.top_level("close", Location::caller());
+        self.top_level("close");
         self.session.close(PopupCloseReason::Programmatic);
     }
 
@@ -197,50 +273,70 @@ impl<K: Clone + Eq + Hash + 'static> MenuApi<K> {
     }
 
     /// The menu button: a `Role::Button` publishing `expanded` and `controls`.
+    /// A trigger belonging to a menubar has `Role::MenuItem` in either attachment order.
     ///
     /// Enter, Space, a click and an assistive technology's Activate open the
-    /// menu on its first enabled item (and close it again); ArrowDown does the
+    /// menu on its first focusable item (and close it again); ArrowDown does the
     /// same and ArrowUp opens on the last one. Expand opens it and Collapse
     /// closes it. Releasing Tab on the trigger closes it. These run after the
     /// caller's own handlers. The part binds the reference the top-level
     /// overlay is anchored to and the focus returns to. Top level only.
     #[track_caller]
     pub fn trigger(self) -> Part<PopupState> {
-        self.top_level("trigger", Location::caller());
+        self.top_level("trigger");
         let session = self.session;
-        let trigger = session.popup.trigger();
-        let trigger = if let Some(press) = session.press {
-            trigger.on_pointer(move |event| {
-                press.event(session, super::press_state::Source::Trigger, event)
-            })
-        } else {
+        let trigger = session.popup.base_trigger();
+        let base = trigger;
+        let part_state = base.state();
+        Part::new(part_state, move |host| {
+            let role = if session.options.get().menubar.is_some() {
+                kivact_core::view::Role::MenuItem
+            } else {
+                kivact_core::view::Role::Button
+            };
+            let trigger = host.part(base).role(role);
+            let trigger = if let Some(press) = session.press {
+                trigger.on_pointer(move |event| {
+                    press.event(session, super::press_machine::Source::Trigger, event)
+                })
+            } else {
+                trigger
+            };
             trigger
-        };
-        trigger
-            .on_key(move |event: KeyEvent| {
-                let m = event.modifiers;
-                if m.ctrl || m.alt || m.meta {
-                    return Handled::No;
-                }
-                match event.key {
-                    Key::ArrowDown => session.request(0, Edge::First),
-                    Key::ArrowUp => session.request(0, Edge::Last),
-                    _ => return Handled::No,
-                }
-                session.open_from_button();
-                Handled::Yes
-            })
-            .on_press(move || {
-                if session.shown().get() {
-                    session.close(PopupCloseReason::Programmatic);
-                } else {
-                    session.open_from_button();
-                }
-            })
-            .on_a11y(A11yAction::Expand, move || session.open_from_button())
-            .on_a11y(A11yAction::Collapse, move || {
-                session.close(PopupCloseReason::Accessibility)
-            })
+                .has_popup(Some(kivact_core::view::PopupKind::Menu))
+                .on_key(move |event: KeyEvent| {
+                    let m = event.modifiers();
+                    if m.ctrl || m.alt || m.meta {
+                        return Handled::No;
+                    }
+                    match event.key() {
+                        Key::ArrowDown => {
+                            session.open_from_button();
+                            session.request(0, Edge::First);
+                        }
+                        Key::ArrowUp => {
+                            session.open_from_button();
+                            session.request(0, Edge::Last);
+                        }
+                        _ => return Handled::No,
+                    }
+                    Handled::Yes
+                })
+                .on_press(move || {
+                    if let Some(action) = session.options.get().trigger_action {
+                        action.call(());
+                        session.accepted_trigger_press();
+                    } else if session.is_open().get() {
+                        session.close(PopupCloseReason::Programmatic);
+                    } else {
+                        session.open_from_button();
+                    }
+                })
+                .a11y_action(A11yAction::Expand, move |_| session.open_from_button())
+                .a11y_action(A11yAction::Collapse, move |_| {
+                    session.close(PopupCloseReason::Accessibility)
+                })
+        })
     }
 
     /// The area of a context menu.
@@ -278,77 +374,81 @@ impl<K: Clone + Eq + Hash + 'static> MenuApi<K> {
 
     #[track_caller]
     fn context_trigger_with_fallback(self, fallback: bool) -> Part<PopupState> {
-        self.top_level("context_trigger", Location::caller());
+        self.top_level("context_trigger");
         let session = self.session;
-        let open = session.shown();
+        let open = session.is_open();
         let pointer = move |event: PointerEvent| {
             // The overlay is anchored to the area, and the host does not
             // count a press on its anchor as outside it.
-            if matches!(event.phase, PointerPhase::Down(_)) {
+            if matches!(event.phase(), PointerPhase::Down(_)) {
                 session.close(PopupCloseReason::OutsidePress);
             }
-            // A context menu opens on the press on macOS and on the release
-            // elsewhere.
-            let opens = match event.phase {
+            // Open on the phase selected by the platform.
+            let opens = match event.phase() {
                 PointerPhase::Down(press) | PointerPhase::Up(press) => {
                     press.button == MouseButton::Secondary
-                        && matches!(event.phase, PointerPhase::Down(_)) == cfg!(target_os = "macos")
+                        && matches!(event.phase(), PointerPhase::Down(_))
+                            == (capabilities().get().context_menu_on == ContextMenuTrigger::Press)
                 }
                 _ => false,
             };
             if opens {
-                session.open_at(MenuOrigin::Pointer(event.window_pos));
+                session.open_at(MenuOrigin::Pointer(event.window_pos()));
                 Handled::Yes
             } else {
                 Handled::No
             }
         };
-        let trigger = part(move |input| PopupState {
+        let input = part(move |input| PopupState {
             input,
             open: open.get(),
-        })
-        .region_events();
-        let trigger = if fallback {
-            let trigger = trigger.on_secondary_context(pointer);
-            if let Some(press) = session.press {
-                trigger.on_pointer(move |event| {
-                    press.event(session, super::press_state::Source::Context, event)
-                })
-            } else {
-                trigger
-            }
-        } else {
-            trigger.on_pointer(move |event| {
+        });
+        let part_state = input.state();
+        Part::new(part_state, move |host| {
+            let trigger = host.part(input).region_events();
+            let trigger = if fallback {
+                let trigger = trigger.on_secondary_context(pointer);
                 if let Some(press) = session.press {
-                    let handled = press.event(session, super::press_state::Source::Context, event);
-                    if handled == Handled::Yes {
-                        return handled;
-                    }
-                }
-                pointer(event)
-            })
-        };
-        trigger
-            .on_key(move |event: KeyEvent| {
-                let m = event.modifiers;
-                if event.repeat || m.ctrl || m.alt || m.meta {
-                    return Handled::No;
-                }
-                let asked = match event.key {
-                    Key::ContextMenu => true,
-                    Key::F(10) => m.shift,
-                    _ => false,
-                };
-                if asked {
-                    session.open_at(MenuOrigin::Anchor);
-                    Handled::Yes
+                    trigger.on_pointer(move |event| {
+                        press.event(session, super::press_machine::Source::Context, event)
+                    })
                 } else {
-                    Handled::No
+                    trigger
                 }
-            })
-            .on_a11y(A11yAction::ShowMenu, move || {
-                session.open_at(MenuOrigin::Anchor)
-            })
+            } else {
+                trigger.on_pointer(move |event| {
+                    if let Some(press) = session.press {
+                        let handled =
+                            press.event(session, super::press_machine::Source::Context, event);
+                        if handled == Handled::Yes {
+                            return handled;
+                        }
+                    }
+                    pointer(event)
+                })
+            };
+            trigger
+                .on_key(move |event: KeyEvent| {
+                    let m = event.modifiers();
+                    if event.repeat() || m.ctrl || m.alt || m.meta {
+                        return Handled::No;
+                    }
+                    let asked = match event.key() {
+                        Key::ContextMenu => true,
+                        Key::F(10) => m.shift,
+                        _ => false,
+                    };
+                    if asked {
+                        session.open_at(MenuOrigin::Anchor);
+                        Handled::Yes
+                    } else {
+                        Handled::No
+                    }
+                })
+                .a11y_action(A11yAction::ShowMenu, move |_| {
+                    session.open_at(MenuOrigin::Anchor)
+                })
+        })
     }
 
     /// The floating surface of this level, for the caller's `overlay(..)`.
@@ -370,7 +470,9 @@ impl<K: Clone + Eq + Hash + 'static> MenuApi<K> {
                 open: open.get(),
             })
         };
-        level.content(base)
+        let part_state = base.state();
+        level.content_state.set(Some(part_state));
+        Part::new(part_state, move |host| level.content(host.part(base)))
     }
 
     /// The item `key` of this level: a `Role::MenuItem`, or
@@ -390,21 +492,21 @@ impl<K: Clone + Eq + Hash + 'static> MenuApi<K> {
     /// the factory can read `origin()` untracked to choose its overlay.
     ///
     /// Mount a menu's content with this method, not with
-    /// `show(menu.shown(), ..)` as a dialog's or a popup's: the rebuild on a
+    /// `show(menu.is_open(), ..)` as a dialog's or a popup's: the rebuild on a
     /// new origin kind is the menu's own. It is the one exception to
     /// mounting an overlay's content with the `show` function.
     #[track_caller]
-    pub fn show<V: IntoView>(self, factory: impl Fn() -> V + 'static) -> View {
+    pub fn show<V: IntoView>(self, factory: impl kivact_core::view::IntoViewFn<V>) -> View {
+        let factory = factory.into_view_fn();
         let shown = self.level.shown;
         if self.level.depth > 0 {
-            return kivact_core::view::show(shown, factory).into_view();
+            return kivact_core::view::show(shown, move || factory.call(())).into_view();
         }
         let origin = self.session.origin;
         let at_pointer = memo(move || matches!(origin.get(), Some(MenuOrigin::Pointer(_))));
-        let factory = std::rc::Rc::new(factory);
         kivact_core::view::show(shown, move || {
             let factory = factory.clone();
-            dynamic(at_pointer, move |_| factory().into_view())
+            dynamic(at_pointer, move |_| factory.call(()))
         })
         .into_view()
     }

@@ -1,11 +1,13 @@
-//! Role: The `Host` and its pump: shell events, turns, layout, effects and presenting.
+//! Role: Run host turns, effects, layout and frame presentation.
 
 use super::client::{Boundary, Client};
-use crate::model::Model;
+use crate::contract::HostEvent;
 use crate::model::edit::state::ImeUpdate;
+use crate::model::{DeferredRequest, Model};
 use crate::{FrameLog, FrameTimes};
 use arvane::{Presented, ShellControl, ShellError, Window};
-use kivact_wire::{FileDialogRequest, HostEvent, PlatformRequest, PlatformResult};
+use kivact_types::cell::{ReportOnce, Sent};
+use kivact_types::{PlatformRequest, PlatformResult};
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::time::Instant;
@@ -16,7 +18,7 @@ const TURN_LIMIT: u32 = 64;
 
 /// Where the host is in its life.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(super) enum Phase {
+pub(super) enum HostPhase {
     /// Inside the shell's start (`Host::begin`): the client starts and the first
     /// pump's turns run. Platform effects wait: an embedding host is still inside
     /// its editor's open call and its window takes no size request or dialog then.
@@ -29,11 +31,12 @@ pub(super) enum Phase {
     /// The client finished (`TurnOutput::exit`): no more turns; every return asks
     /// the shell to exit.
     Exiting,
+    Closed,
 }
 
 /// What became of the last frame presented.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(super) enum LastFrame {
+pub(super) enum LastPresent {
     /// Shown, dropped or lost: nothing is retried (a change or a surface loss
     /// redraws).
     Settled,
@@ -44,7 +47,7 @@ pub(super) enum LastFrame {
 
 pub(crate) struct Host {
     pub(super) client: Client,
-    pub(super) phase: Phase,
+    pub(super) phase: HostPhase,
     /// Shared with the client's reader (`write::Reader`): borrowed for one
     /// call at a time, never across a call into the client.
     pub(super) model: Rc<RefCell<Model>>,
@@ -52,140 +55,123 @@ pub(crate) struct Host {
     /// measures text for drawing: borrowed for one call at a time.
     pub(super) engine: Rc<RefCell<arvane::Engine>>,
     /// What became of the last frame presented (`Presented`).
-    pub(super) last_frame: LastFrame,
+    pub(super) last_present: LastPresent,
+    // xtask-allow(state-fields): independent client deadline, valid in every host phase.
     pub(super) next_wake: Option<u64>,
     /// Embedded handle destruction can occur inside a platform callback while
     /// this Host is borrowed. Stop new turns before deferred native cleanup;
     /// an already-running client turn still settles under the normal rules.
-    pub(super) embedded_closing: Option<std::sync::Arc<std::sync::atomic::AtomicBool>>,
+    pub(super) close: crate::contract::CloseSignal,
     /// The window's environment as last read: a change of the system's
     /// theme is found by comparing with it (the theme reported at start is
     /// the host's own, not the snapshot's).
-    pub(super) environment: kivact_types::protocol::Environment,
+    pub(super) environment: Sent<kivact_types::Environment>,
+    // xtask-allow(state-fields): optional user setting, independent of host lifecycle.
     pub(super) reduced_motion_override: Option<bool>,
     /// The platform suspended the application (in the background):
     /// nothing is drawn until it resumes. Independent of `phase`.
-    pub(super) suspended: bool,
+    pub(super) presence: AppPresence,
+    pub(super) surface: Surface,
     /// The software keyboard was asked for (an editable text input has
     /// the focus).
-    pub(super) soft_keyboard: bool,
+    pub(super) soft_keyboard: kivact_types::cell::Sent<SoftKeyboard>,
+    pub(super) ime_allowed: kivact_types::cell::Sent<ImeAllowed>,
     /// Per-frame timings for benchmarks (`KIVACT_FRAME_LOG`), shared with
     /// the window's renderer observer.
     pub(super) frame_log: Rc<RefCell<FrameLog>>,
     /// The frame log noted that assistive technology reads the tree.
-    pub(super) accessibility_noted: bool,
+    pub(super) accessibility_noted: ReportOnce,
     /// The window's adapter the client was told of last
     /// (`HostEvent::GpuAdapterChanged`).
-    #[cfg(feature = "gpu-interop")]
-    pub(super) adapter: Option<kivact_wire::GpuAdapter>,
+    pub(super) adapter: Sent<kivact_types::GpuAdapter>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum AppPresence {
+    Foreground,
+    Suspended,
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum Surface {
+    Drawable { generation: u64 },
+    Unavailable(Unavailable),
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum Unavailable {
+    NoSurface,
+    ZeroSize,
 }
 
 impl Host {
-    #[cfg(feature = "embed")]
-    pub(crate) fn with_embedded_closing(
-        mut self,
-        closing: std::sync::Arc<std::sync::atomic::AtomicBool>,
-    ) -> Self {
-        self.embedded_closing = Some(closing);
-        self
+    pub(super) fn observe_close(&mut self) -> bool {
+        if self.close.is_set() {
+            self.phase = HostPhase::Closed;
+        }
+        self.phase == HostPhase::Closed
     }
-    pub(super) fn closing(&self) -> bool {
-        self.embedded_closing
-            .as_ref()
-            .is_some_and(|closing| closing.load(std::sync::atomic::Ordering::Acquire))
+    pub(super) fn drawable(&self) -> bool {
+        self.phase != HostPhase::Closed
+            && self.presence == AppPresence::Foreground
+            && matches!(self.surface, Surface::Drawable { .. })
     }
     /// The first step of every entry after the shell's start (`handle`, the test
     /// driver's `inject`): the start is over, and the platform effects queued
     /// meanwhile are carried out.
-    pub(super) fn enter<W: Window>(&mut self, window: &mut W) {
-        if self.phase == Phase::Starting {
-            self.phase = Phase::Running;
+    pub(super) fn enter(&mut self, window: &mut Window<'_>) {
+        if self.phase == HostPhase::Starting {
+            self.phase = HostPhase::Running;
         }
         self.effects(window);
     }
     /// Queue `event` and pump (the test driver's injection).
     #[cfg(feature = "testing")]
-    pub(super) fn inject<W: Window>(
+    pub(super) fn inject(
         &mut self,
         event: HostEvent,
-        window: &mut W,
+        window: &mut Window<'_>,
     ) -> Result<ShellControl, ShellError> {
-        if self.closing() {
+        if self.observe_close() {
             return Ok(ShellControl::Wait);
         }
         self.enter(window);
-        if self.closing() {
+        if self.phase == HostPhase::Closed {
             return Ok(ShellControl::Wait);
         }
         self.model.borrow_mut().push(event);
         self.pump(window)
     }
-    pub(super) fn effects<W: Window>(&mut self, window: &mut W) {
-        if self.phase == Phase::Starting || self.closing() {
+    pub(super) fn effects(&mut self, window: &mut Window<'_>) {
+        if self.phase == HostPhase::Starting || self.phase == HostPhase::Closed {
             return;
         }
         let effects = std::mem::take(&mut self.model.borrow_mut().effects);
         for (request, effect) in effects {
-            if self.closing() {
-                return;
-            }
             let result = match effect {
-                PlatformRequest::RequestWindowSize(size) => {
-                    window.request_size(size).map(|_| PlatformResult::Done)
-                }
-                PlatformRequest::Fullscreen(fullscreen) => {
-                    window.set_fullscreen(fullscreen).map(|()| {
+                DeferredRequest::Platform(request) => {
+                    let fullscreen_request = matches!(request, PlatformRequest::Fullscreen(_));
+                    let result = window.perform(request);
+                    if fullscreen_request {
                         let fullscreen = window.fullscreen();
                         self.model
                             .borrow_mut()
-                            .update_env(|env| env.fullscreen = fullscreen);
-                        PlatformResult::Done
-                    })
+                            .update_env(|env, _| env.fullscreen = fullscreen);
+                    }
+                    result
                 }
-                PlatformRequest::ReducedMotion(override_value) => {
+                DeferredRequest::ReducedMotion(override_value) => {
                     self.reduced_motion_override = override_value;
-                    self.model.borrow_mut().update_env(|env| {
-                        env.reduced_motion =
-                            override_value.unwrap_or(self.environment.reduced_motion);
+                    self.model.borrow_mut().update_env(|env, _| {
+                        env.reduced_motion = override_value.unwrap_or(
+                            self.environment
+                                .get()
+                                .expect("invariant: environment is set at start")
+                                .reduced_motion,
+                        );
                     });
-                    Ok(PlatformResult::Done)
+                    PlatformResult::Done
                 }
-                PlatformRequest::CopyText(text) => {
-                    window.copy_text(&text).map(|()| PlatformResult::Done)
-                }
-                PlatformRequest::ReadText => window.read_text().map(PlatformResult::Text),
-                PlatformRequest::PickFile(p) => {
-                    window.pick_file(&dialog(p)).map(PlatformResult::Path)
-                }
-                PlatformRequest::PickFiles(p) => {
-                    window.pick_files(&dialog(p)).map(PlatformResult::Paths)
-                }
-                PlatformRequest::SaveFile(p) => {
-                    window.save_file(&dialog(p)).map(PlatformResult::Path)
-                }
-                PlatformRequest::PickFolder(p) => {
-                    window.pick_folder(&dialog(p)).map(PlatformResult::Path)
-                }
-                PlatformRequest::OpenPath(path) => {
-                    window.open_path(&path).map(|()| PlatformResult::Done)
-                }
-                PlatformRequest::RevealPath(path) => {
-                    window.reveal_path(&path).map(|()| PlatformResult::Done)
-                }
-                PlatformRequest::RegisterFont(_) => {
-                    unreachable!("font registrations are answered by the write")
-                }
-            }
-            .unwrap_or_else(|e| {
-                // A service the platform does not have is `Unsupported`
-                // (`ErrorKind::Unsupported` in the App), not a failure.
-                if e.is_unsupported() {
-                    PlatformResult::Unsupported
-                } else {
-                    PlatformResult::Failed(e.to_string())
-                }
-            });
-            if self.closing() {
+            };
+            if self.observe_close() {
                 return;
             }
             self.model
@@ -195,10 +181,9 @@ impl Host {
     }
     /// Hand the window the imports and drops of shared textures the turn
     /// wrote, in order; answer each import.
-    #[cfg(feature = "gpu-interop")]
-    pub(super) fn externals<W: Window>(&mut self, window: &mut W) {
+    pub(super) fn externals(&mut self, window: &mut Window<'_>) {
         use crate::model::ExternalWrite;
-        use kivact_wire::ExternalImport;
+        use kivact_types::ExternalImport;
         let writes = std::mem::take(&mut self.model.borrow_mut().external_writes);
         for write in writes {
             match write {
@@ -207,7 +192,7 @@ impl Host {
                         Ok(()) => ExternalImport::Ready {
                             generation: window.gpu_adapter().map_or(0, |a| a.generation),
                         },
-                        Err(e) if e.kind() == arvane::ErrorKind::Unavailable => {
+                        Err(e) if e.kind == kivact_types::FailureKind::Unavailable => {
                             ExternalImport::Unavailable(e.to_string())
                         }
                         Err(e) => ExternalImport::Failed(e.to_string()),
@@ -221,11 +206,17 @@ impl Host {
         }
     }
     /// Tell the client when the window's adapter changed.
-    #[cfg(feature = "gpu-interop")]
-    fn adapter_changed<W: Window>(&mut self, window: &W) {
+    fn adapter_changed(&mut self, window: &Window<'_>) {
         let adapter = window.gpu_adapter();
-        if adapter != self.adapter {
-            self.adapter = adapter.clone();
+        let changed = match &adapter {
+            Some(value) => self.adapter.update(value.clone()).is_some(),
+            None if self.adapter.get().is_some() => {
+                self.adapter = Sent::new();
+                true
+            }
+            None => false,
+        };
+        if changed {
             self.model
                 .borrow_mut()
                 .push(HostEvent::GpuAdapterChanged(adapter));
@@ -234,11 +225,11 @@ impl Host {
     /// Draw and show one frame. `started` is when the redraw began (its
     /// layout included); the frame log gets the scene, raster and present
     /// spans of a frame shown.
-    pub(super) fn present<W: Window>(
+    pub(super) fn present(
         &mut self,
-        window: &mut W,
+        window: &mut Window<'_>,
         started: Instant,
-    ) -> Result<Presented, arvane::Error> {
+    ) -> Result<Presented, kivact_types::Failure> {
         let mut model = self.model.borrow_mut();
         model.scroll_inputs(&mut self.engine.borrow_mut());
         let plan = window.frame_plan();
@@ -270,48 +261,48 @@ impl Host {
     /// then its platform effects are answered and the tree laid out before
     /// anything else runs, so the next turn sees the effect results and the
     /// new geometry.
-    pub(super) fn turn<W: Window>(
+    pub(super) fn turn(
         &mut self,
         events: &[HostEvent],
         boundaries: &[Boundary],
-        window: &mut W,
+        window: &mut Window<'_>,
     ) -> Result<(), ShellError> {
-        if self.closing() {
+        if self.phase == HostPhase::Closed {
             return Ok(());
         }
+        let drawable = self.drawable();
+        self.model.borrow_mut().set_surface(drawable);
         self.model.borrow_mut().frame.set_now(window.now_ns());
         let output = self.client.turn(events, boundaries, window.now_ns());
-        if self.closing() {
+        if self.observe_close() {
             return Ok(());
         }
         self.next_wake = output.next_wake_ns;
         if output.exit {
-            self.phase = Phase::Exiting;
+            self.phase = HostPhase::Exiting;
         }
         self.effects(window);
-        if self.closing() {
+        if self.phase == HostPhase::Closed {
             return Ok(());
         }
-        #[cfg(feature = "gpu-interop")]
         self.externals(window);
-        self.layout();
+        self.settle();
         Ok(())
     }
-    pub(super) fn layout(&mut self) {
+    pub(super) fn settle(&mut self) {
         self.model
             .borrow_mut()
-            .relayout(&mut self.engine.borrow_mut());
+            .settle(&mut self.engine.borrow_mut());
     }
-    pub(super) fn pump<W: Window>(&mut self, window: &mut W) -> Result<ShellControl, ShellError> {
-        if self.closing() {
+    pub(super) fn pump(&mut self, window: &mut Window<'_>) -> Result<ShellControl, ShellError> {
+        if self.phase == HostPhase::Closed {
             return Ok(ShellControl::Wait);
         }
-        #[cfg(feature = "gpu-interop")]
         self.adapter_changed(window);
         self.model.borrow_mut().tick(window.now_ns());
         let mut turns = 0;
         loop {
-            if self.closing() {
+            if self.phase == HostPhase::Closed {
                 // Native handle close owns shutdown; exit=true here could race
                 // that request and be diagnosed as an App-requested failure.
                 return Ok(ShellControl::Wait);
@@ -322,8 +313,11 @@ impl Host {
             let next = {
                 let mut model = self.model.borrow_mut();
                 model.poll_assets();
-                model.relayout(&mut self.engine.borrow_mut());
-                if self.phase == Phase::Exiting || !model.has_events() {
+                model.settle(&mut self.engine.borrow_mut());
+                if !model.has_events() {
+                    model.snapshot_requests(&mut self.engine.borrow_mut());
+                }
+                if self.phase == HostPhase::Exiting || !model.has_events() {
                     None
                 } else if turns == TURN_LIMIT {
                     // Every turn left more events: the client keeps answering
@@ -353,39 +347,7 @@ impl Host {
             window.set_title(&title);
             window.set_min_size(min_size);
         }
-        let active = window.accessibility_active();
-        if active && !self.accessibility_noted {
-            // Assistive technology (a UI Automation client) asked for the
-            // tree: from now on it is kept up to date; benchmarks need to
-            // know.
-            self.accessibility_noted = true;
-            self.frame_log.borrow_mut().note("accessibility=on");
-        }
-        let caret = {
-            let mut model = self.model.borrow_mut();
-            // A native editor's caret first; else the caret of a node with an
-            // IME session.
-            model
-                .caret(&mut self.engine.borrow_mut())
-                .or_else(|| model.session_area())
-        };
-        window.set_ime_allowed(caret.is_some());
-        // The software keyboard follows the focus of an editable text
-        // input (a no-op where the platform has none).
-        if caret.is_some() != self.soft_keyboard {
-            self.soft_keyboard = caret.is_some();
-            window.set_soft_keyboard(self.soft_keyboard);
-        }
-        if let Some(caret) = caret {
-            window.set_ime_cursor_area(caret);
-        }
-        let update = self
-            .model
-            .borrow_mut()
-            .ime_changed(&mut self.engine.borrow_mut());
-        if let ImeUpdate::Set(text) = update {
-            window.set_ime_text(text);
-        }
+        self.synchronize_ime(window);
         self.show_cursor(window);
         // Without a surface (minimized) a redraw draws nothing and leaves
         // the paint dirty, so asking for one would spin; the restore asks.
@@ -396,24 +358,64 @@ impl Host {
         // technology after it (the redraw pumps again): after a layout pass
         // the update is O(nodes) on both sides of AccessKit, and the frame
         // need not wait for it.
-        let after_frame = self.paint_due() && window.defers_accessibility();
+        let after_frame = self.paint_due();
         if !after_frame {
             self.model
                 .borrow_mut()
-                .accessibility(window, active, &mut self.engine.borrow_mut());
+                .accessibility(window, &mut self.engine.borrow_mut());
         }
         Ok(self.control(window))
+    }
+    fn synchronize_ime(&mut self, window: &mut Window<'_>) {
+        let caret = {
+            let mut model = self.model.borrow_mut();
+            // A native editor's caret first; else the caret of a node with an
+            // IME session.
+            model
+                .caret(&mut self.engine.borrow_mut())
+                .or_else(|| model.session_area())
+        };
+        let allowed = if caret.is_some() {
+            ImeAllowed::Yes
+        } else {
+            ImeAllowed::No
+        };
+        if let Some(allowed) = self.ime_allowed.update(allowed) {
+            window.set_ime_allowed(*allowed == ImeAllowed::Yes);
+        }
+        // The software keyboard follows the focus of an editable text
+        // input (a no-op where the platform has none).
+        let keyboard = if caret.is_some() {
+            SoftKeyboard::Shown
+        } else {
+            SoftKeyboard::Hidden
+        };
+        if let Some(keyboard) = self.soft_keyboard.update(keyboard) {
+            window.set_soft_keyboard(*keyboard == SoftKeyboard::Shown);
+        }
+        if let Some(caret) = caret {
+            window.set_ime_cursor_area(caret);
+        }
+        window.set_ime_purpose(self.model.borrow().ime_purpose());
+        let update = self
+            .model
+            .borrow_mut()
+            .ime_changed(&mut self.engine.borrow_mut());
+        if let ImeUpdate::Set(text) = update {
+            window.set_ime_text(text);
+        }
     }
     /// Input is applied to the host model at once, but the client turn waits
     /// until the native queue is drained: a due wake runs it for every input
     /// that arrived meanwhile, so bursts (typing, drags) cost one turn,
     /// layout and frame instead of one each.
-    pub(super) fn defer<W: Window>(&mut self, window: &mut W) -> ShellControl {
+    pub(super) fn defer(&mut self, window: &mut Window<'_>) -> ShellControl {
         if self.paint_due() {
             window.request_redraw();
         }
         // The IME may ask about the text right after the input that
         // edited it (a reconversion after a selection).
+        window.set_ime_purpose(self.model.borrow().ime_purpose());
         let update = self
             .model
             .borrow_mut()
@@ -426,7 +428,7 @@ impl Host {
     }
     /// Show the cursor the hover chain asks for (the model's rule),
     /// when it changed.
-    fn show_cursor<W: Window>(&mut self, window: &W) {
+    fn show_cursor(&mut self, window: &Window<'_>) {
         let mut model = self.model.borrow_mut();
         let cursor = model.cursor();
         if model.pointer.show(cursor) {
@@ -436,18 +438,21 @@ impl Host {
     /// A frame is due: the picture changed and there is a surface.
     fn paint_due(&self) -> bool {
         let model = self.model.borrow();
-        model.paint.needs_redraw() && model.frame.surface_active()
+        model.paint.needs_redraw() && self.drawable()
     }
     /// When the skipped frame is drawn again.
     fn retry_at(&self) -> Option<u64> {
-        match self.last_frame {
-            LastFrame::Settled => None,
-            LastFrame::Skipped { retry_at_ns } => Some(retry_at_ns),
+        match self.last_present {
+            LastPresent::Settled => None,
+            LastPresent::Skipped { retry_at_ns } => Some(retry_at_ns),
         }
     }
-    fn control<W: Window>(&self, window: &W) -> ShellControl {
+    fn control(&self, window: &Window<'_>) -> ShellControl {
+        if self.phase == HostPhase::Closed {
+            return ShellControl::Wait;
+        }
         let model = self.model.borrow();
-        let frame_deadline = if model.frame.surface_active() {
+        let frame_deadline = if self.drawable() {
             model.frame_deadline()
         } else {
             None
@@ -460,7 +465,7 @@ impl Host {
                 .flatten()
                 .min()
         };
-        if self.phase == Phase::Exiting {
+        if self.phase == HostPhase::Exiting {
             ShellControl::Exit
         } else {
             next.map_or(ShellControl::Wait, ShellControl::WakeAt)
@@ -468,11 +473,13 @@ impl Host {
     }
 }
 
-fn dialog(p: FileDialogRequest) -> arvane::ShellFileDialog {
-    arvane::ShellFileDialog {
-        title: p.title,
-        directory: p.directory,
-        file_name: p.file_name,
-        filters: p.filters,
-    }
+#[derive(PartialEq)]
+pub(super) enum SoftKeyboard {
+    Hidden,
+    Shown,
+}
+#[derive(PartialEq)]
+pub(super) enum ImeAllowed {
+    No,
+    Yes,
 }

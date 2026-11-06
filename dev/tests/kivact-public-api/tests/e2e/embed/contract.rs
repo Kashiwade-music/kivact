@@ -230,6 +230,153 @@ fn correction_inside_accepting_resize_callback_remains_authoritative() {
     drop(held.lock().expect("test state lock").take());
     wait(&parent, || parent.capture().is_err());
 
+    close_during_resize_callback(&parent);
+}
+
+fn clipboard_requests_complete_through_the_host_pump() {
+    let parent = TestParent::open(320, 240).expect("parent opens");
+    let result = Arc::new(Mutex::new(None));
+    let output = result.clone();
+    let app = App::new("Embedded clipboard")
+        .window_size(200, 120)
+        .embed(parent.parent().scale(1.0), move || {
+            spawn(async move {
+                let result = async {
+                    platform::copy_text("embedded 日本語 🦀").await?;
+                    platform::read_text().await
+                }
+                .await;
+                *output.lock().expect("test state lock") = Some(result);
+            });
+            text("Clipboard")
+        })
+        .expect("editor opens");
+    wait(&parent, || {
+        result.lock().expect("test state lock").is_some()
+    });
+    let result = result
+        .lock()
+        .expect("test state lock")
+        .take()
+        .expect("clipboard result");
+    assert_eq!(
+        result.expect("clipboard read succeeds"),
+        "embedded 日本語 🦀"
+    );
+    assert!(app.error().is_none());
+}
+
+#[test]
+fn opening_runs_root_once_and_delivers_click_key_and_text() {
+    if let Some(reason) = kivact::test::native_unavailable() {
+        eprintln!("SKIPPED: {reason}");
+        return;
+    }
+
+    let _serial = SERIAL
+        .lock()
+        .expect("embed tests run one at a time; an earlier one panicked holding SERIAL");
+    native_click_key_and_text_reach_the_editor();
+}
+
+#[test]
+fn resize_negotiation_handles_acceptance_refusal_missing_callback_and_host_correction() {
+    if let Some(reason) = kivact::test::native_unavailable() {
+        eprintln!("SKIPPED: {reason}");
+        return;
+    }
+
+    let _serial = SERIAL
+        .lock()
+        .expect("embed tests run one at a time; an earlier one panicked holding SERIAL");
+    accepted_startup_resize_rounds_and_changes_capture_then_host_size_wins();
+    refusal_and_missing_callback_complete_with_their_errors();
+    correction_inside_accepting_resize_callback_remains_authoritative();
+}
+
+#[test]
+fn parent_destruction_stops_the_app_without_an_error() {
+    if let Some(reason) = kivact::test::native_unavailable() {
+        eprintln!("SKIPPED: {reason}");
+        return;
+    }
+
+    let _serial = SERIAL
+        .lock()
+        .expect("embed tests run one at a time; an earlier one panicked holding SERIAL");
+    external_drop_joins_cleanup_after_parent_destruction();
+}
+
+#[test]
+fn clipboard_text_round_trips_through_the_host_pump() {
+    if let Some(reason) = kivact::test::native_unavailable() {
+        eprintln!("SKIPPED: {reason}");
+        return;
+    }
+
+    let _serial = SERIAL
+        .lock()
+        .expect("embed tests run one at a time; an earlier one panicked holding SERIAL");
+    clipboard_requests_complete_through_the_host_pump();
+}
+
+#[cfg(windows)]
+fn explode() {
+    panic!("editor exploded");
+}
+
+/// A panic in the editor stops it without running more App code; the wrapper's
+/// next call on `Embedded` resumes it on the calling thread.
+#[cfg(windows)]
+#[test]
+#[should_panic(expected = "editor exploded")]
+fn a_panic_in_the_editor_resumes_in_the_wrappers_next_call() {
+    if let Some(reason) = kivact::test::native_unavailable() {
+        eprintln!("SKIPPED: {reason}");
+        return;
+    }
+
+    let serial = SERIAL
+        .lock()
+        .expect("embed tests run one at a time; an earlier one panicked holding SERIAL");
+    let parent = TestParent::open(320, 240).expect("parent opens");
+    let app = App::new("Panicking editor")
+        .window_size(320, 240)
+        .embed(parent.parent().scale(1.0), || {
+            panel().focusable(true).on_press(explode)
+        })
+        .expect("editor opens");
+    painted(&parent);
+    parent.click(20.0, 20.0).expect("click delivered");
+    wait(&parent, || parent.capture().is_err());
+    // The panic must not poison the other embed tests.
+    drop(serial);
+    app.size();
+}
+
+fn external_drop_joins_cleanup_after_parent_destruction() {
+    let parent = TestParent::open(320, 240).expect("parent opens");
+    let cleaned = Arc::new(AtomicUsize::new(0));
+    let cleanup = cleaned.clone();
+    let app = App::new("Parent closes first")
+        .window_size(160, 100)
+        .embed(parent.parent().scale(1.0), move || {
+            on_cleanup(move || {
+                cleanup.fetch_add(1, Ordering::SeqCst);
+            });
+            node().style(style().size(160, 100))
+        })
+        .expect("editor opens");
+    wait(&parent, || parent.capture().is_ok());
+    parent.close();
+    wait(&parent, || cleaned.load(Ordering::SeqCst) == 1);
+    assert!(app.error().is_none());
+    drop(app);
+    assert_eq!(cleaned.load(Ordering::SeqCst), 1);
+    assert!(parent.capture().is_err());
+}
+
+fn close_during_resize_callback(parent: &TestParent) {
     // A resize callback may close its editor. Its platform result must not
     // start another reactive turn and resume the task that requested it.
     let slot = Arc::new(Mutex::new(None::<Embedded>));
@@ -273,13 +420,13 @@ fn correction_inside_accepting_resize_callback_remains_authoritative() {
         .expect("editor opens");
     // Start the request only after the public handle has been stored.
     *slot.lock().expect("test state lock") = Some(app);
-    wait(&parent, || {
+    wait(parent, || {
         parent
             .capture()
             .is_ok_and(|shot| shot.pixel(20, 20) == Some(0xffffff))
     });
     parent.click(20.0, 20.0).expect("click delivered");
-    wait(&parent, || {
+    wait(parent, || {
         returned.load(Ordering::SeqCst)
             && cleaned.load(Ordering::SeqCst)
             && parent.capture().is_err()
@@ -290,122 +437,4 @@ fn correction_inside_accepting_resize_callback_remains_authoritative() {
         "a new task turn ran after the resize callback closed its editor"
     );
     assert!(slot.lock().expect("test state lock").is_none());
-}
-
-fn clipboard_requests_complete_through_the_host_pump() {
-    let parent = TestParent::open(320, 240).expect("parent opens");
-    let result = Arc::new(Mutex::new(None));
-    let output = result.clone();
-    let app = App::new("Embedded clipboard")
-        .window_size(200, 120)
-        .embed(parent.parent().scale(1.0), move || {
-            spawn(async move {
-                let result = async {
-                    platform::copy_text("embedded 日本語 🦀").await?;
-                    platform::read_text().await
-                }
-                .await;
-                *output.lock().expect("test state lock") = Some(result);
-            });
-            text("Clipboard")
-        })
-        .expect("editor opens");
-    wait(&parent, || {
-        result.lock().expect("test state lock").is_some()
-    });
-    let result = result
-        .lock()
-        .expect("test state lock")
-        .take()
-        .expect("clipboard result");
-    assert_eq!(
-        result.expect("clipboard read succeeds"),
-        "embedded 日本語 🦀"
-    );
-    assert!(app.error().is_none());
-}
-
-#[test]
-fn opening_runs_root_once_and_delivers_click_key_and_text() {
-    let _serial = SERIAL
-        .lock()
-        .expect("embed tests run one at a time; an earlier one panicked holding SERIAL");
-    native_click_key_and_text_reach_the_editor();
-}
-
-#[test]
-fn resize_negotiation_handles_acceptance_refusal_missing_callback_and_host_correction() {
-    let _serial = SERIAL
-        .lock()
-        .expect("embed tests run one at a time; an earlier one panicked holding SERIAL");
-    accepted_startup_resize_rounds_and_changes_capture_then_host_size_wins();
-    refusal_and_missing_callback_complete_with_their_errors();
-    correction_inside_accepting_resize_callback_remains_authoritative();
-}
-
-#[test]
-fn parent_destruction_stops_the_app_without_an_error() {
-    let _serial = SERIAL
-        .lock()
-        .expect("embed tests run one at a time; an earlier one panicked holding SERIAL");
-    external_drop_joins_cleanup_after_parent_destruction();
-}
-
-#[test]
-fn clipboard_text_round_trips_through_the_host_pump() {
-    let _serial = SERIAL
-        .lock()
-        .expect("embed tests run one at a time; an earlier one panicked holding SERIAL");
-    clipboard_requests_complete_through_the_host_pump();
-}
-
-#[cfg(windows)]
-fn explode() {
-    panic!("editor exploded");
-}
-
-/// A panic in the editor stops it without running more App code; the wrapper's
-/// next call on `Embedded` resumes it on the calling thread.
-#[cfg(windows)]
-#[test]
-#[should_panic(expected = "editor exploded")]
-fn a_panic_in_the_editor_resumes_in_the_wrappers_next_call() {
-    let serial = SERIAL
-        .lock()
-        .expect("embed tests run one at a time; an earlier one panicked holding SERIAL");
-    let parent = TestParent::open(320, 240).expect("parent opens");
-    let app = App::new("Panicking editor")
-        .window_size(320, 240)
-        .embed(parent.parent().scale(1.0), || {
-            panel().focusable(true).on_press(explode)
-        })
-        .expect("editor opens");
-    painted(&parent);
-    parent.click(20.0, 20.0).expect("click delivered");
-    wait(&parent, || parent.capture().is_err());
-    // The panic must not poison the other embed tests.
-    drop(serial);
-    app.size();
-}
-
-fn external_drop_joins_cleanup_after_parent_destruction() {
-    let parent = TestParent::open(320, 240).expect("parent opens");
-    let cleaned = Arc::new(AtomicUsize::new(0));
-    let cleanup = cleaned.clone();
-    let app = App::new("Parent closes first")
-        .window_size(160, 100)
-        .embed(parent.parent().scale(1.0), move || {
-            on_cleanup(move || {
-                cleanup.fetch_add(1, Ordering::SeqCst);
-            });
-            node().style(style().size(160, 100))
-        })
-        .expect("editor opens");
-    wait(&parent, || parent.capture().is_ok());
-    parent.close();
-    wait(&parent, || cleaned.load(Ordering::SeqCst) == 1);
-    assert!(app.error().is_none());
-    drop(app);
-    assert_eq!(cleaned.load(Ordering::SeqCst), 1);
-    assert!(parent.capture().is_err());
 }

@@ -18,6 +18,11 @@ use windows_sys::Win32::UI::WindowsAndMessaging::{
 /// The system STATIC subclass must answer Win32 native hit testing.
 #[test]
 fn embedded_surface_receives_native_mouse_hit_tests() {
+    if let Some(reason) = kivact::test::native_unavailable() {
+        eprintln!("SKIPPED: {reason}");
+        return;
+    }
+
     let _serial = SERIAL.lock().unwrap();
     let parent = TestParent::open(200, 120).unwrap();
     let app = App::new("Native hit target")
@@ -45,6 +50,11 @@ fn embedded_surface_receives_native_mouse_hit_tests() {
 /// Capture and system-key fallthrough are Win32 message contracts.
 #[test]
 fn chord_keeps_drag_and_alt_f4_reaches_host() {
+    if let Some(reason) = kivact::test::native_unavailable() {
+        eprintln!("SKIPPED: {reason}");
+        return;
+    }
+
     let _serial = SERIAL.lock().expect("Windows screen regression lock");
     let parent = TestParent::open(320, 240).unwrap();
     let phases = Arc::new(Mutex::new(Vec::new()));
@@ -66,23 +76,20 @@ fn chord_keeps_drag_and_alt_f4_reaches_host() {
         .press_button(MouseButton::Secondary, 200.0, 20.0)
         .unwrap();
     parent.pump(Duration::from_millis(50));
-    assert_eq!(
-        *phases.lock().unwrap(),
-        [kivact::interaction::EditPhase::Begin]
-    );
+    assert_eq!(*phases.lock().unwrap(), [kivact::view::EditPhase::Begin]);
     parent
         .release_button(MouseButton::Secondary, 200.0, 20.0)
         .unwrap();
     parent.move_to(250.0, 20.0).unwrap();
     parent.release(250.0, 20.0).unwrap();
     wait(&parent, || {
-        phases.lock().unwrap().last() == Some(&kivact::interaction::EditPhase::Commit)
+        phases.lock().unwrap().last() == Some(&kivact::view::EditPhase::Commit)
     });
     assert!(
         !phases
             .lock()
             .unwrap()
-            .contains(&kivact::interaction::EditPhase::Cancel)
+            .contains(&kivact::view::EditPhase::Cancel)
     );
     let host = parent.win32_hwnd().unwrap() as HWND;
     // SAFETY: search only the direct children of this test-owned host.

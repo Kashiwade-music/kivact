@@ -1,13 +1,13 @@
 //! Role: Options of a test host: fonts, window, scale and clock.
 
-use arvane::test_display::WindowMode;
-use kivact_wire::ThemeHint;
+use arvane_virtual::{GpuMode, MirrorMode};
+use kivact_types::ThemeHint;
 use std::sync::Arc;
 
 /// The bundled default test font: Arvane's test font (Tuffy, public
 /// domain), which has no CJK glyphs.
 pub fn default_font() -> Arc<[u8]> {
-    arvane::test_display::test_font()
+    arvane::test_font()
 }
 
 /// The fonts text is shaped with.
@@ -25,16 +25,18 @@ pub enum TestFonts {
 /// Options of [`ArvaneTestHost::new`].
 #[derive(Clone, Debug)]
 pub struct TestHostOptions {
+    /// Read-only state restored at launch.
+    pub restored_state: std::collections::BTreeMap<String, Vec<u8>>,
     /// Logical content width.
-    pub width: f32,
+    pub width: f64,
     /// Logical content height.
-    pub height: f32,
+    pub height: f64,
     /// Physical pixels per logical pixel (the test's, not the monitor's).
-    pub scale: f32,
+    pub scale: f64,
     /// The fonts text is shaped with.
     pub fonts: TestFonts,
     /// Window mirroring.
-    pub window: WindowMode,
+    pub mirror: MirrorMode,
     /// Title of the real window.
     pub title: String,
     /// The display refresh period frame ticks are paced at (ns).
@@ -51,31 +53,31 @@ pub struct TestHostOptions {
     /// like a running App (results arrive in real time and wake the host).
     pub inline_assets: bool,
     /// Draw frames on the GPU: through a GPU surface of the real window
-    /// (read back for [`ArvaneTestHost::frame`]), or offscreen when
-    /// headless. Starting fails when the GPU renderer cannot start
+    /// (read back for [`ArvaneTestHost::frame`]). Requires a native mirror.
+    /// Starting fails when the GPU renderer cannot start
     /// ([`gpu_unavailable`]). Frames then differ slightly from the CPU's.
-    pub gpu: bool,
+    pub gpu: GpuMode,
     /// How the window's GPU device is made, as a native window's
-    /// (`HostOptions::gpu_preference`). Used with feature `gpu-interop`;
-    /// ignored without it.
-    pub gpu_preference: kivact_wire::GpuPreference,
+    /// (`HostOptions::gpu_preference`).
+    pub gpu_preference: kivact_types::GpuPreference,
 }
 
 impl Default for TestHostOptions {
     fn default() -> Self {
         Self {
+            restored_state: Default::default(),
             width: 400.0,
             height: 300.0,
             scale: 1.0,
             fonts: TestFonts::Bundled,
-            window: WindowMode::Auto,
+            mirror: MirrorMode::Auto,
             title: "kivact test".into(),
-            frame_period_ns: arvane::DEFAULT_FRAME_PERIOD_NS,
+            frame_period_ns: kivact_types::defaults::FRAME_PERIOD_NS,
             theme: ThemeHint::Light,
             reduced_motion: false,
             locale: None,
             inline_assets: true,
-            gpu: false,
+            gpu: GpuMode::Off,
             gpu_preference: Default::default(),
         }
     }

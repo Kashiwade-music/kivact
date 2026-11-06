@@ -2,14 +2,14 @@
 
 use crate::tree::child_order::ChildOrder;
 use crate::tree::node::{HostNode, NodeIndex};
-use kivact_wire::{IdMap, NodeId};
+use kivact_types::{IdMap, NodeId};
 
 /// The sole retained parent and children of a primary node slot.
 /// Child order changes immediately; linked editing order is packed before layout.
 #[derive(Clone, Debug, Default)]
 pub(crate) struct NodeLinks {
     pub(crate) parent: Option<NodeIndex>,
-    pub(crate) children: ChildOrder,
+    pub(super) children: ChildOrder,
 }
 
 /// The sole engine node store, with stable reusable positions.

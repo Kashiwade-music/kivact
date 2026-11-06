@@ -1,13 +1,23 @@
 //! Role: Style the native editors, field text, and composite input frames for Soft.
-use crate::tokens::{TextStyle, Tokens};
+use crate::tokens::{Tokens, TypeStyle};
+use kivact::custom::PartState;
 use kivact::motion::Transition;
-use kivact::primitive::PartState;
-use kivact::style::{Align, Color, Direction, Style, Theme, TransitionProp, pct, style};
-use kivact::ui::{
-    ControlSize, FieldRecipes, Look, NumberInputRecipes, TagInputRecipes, TextInputState,
-};
+use kivact::style::Align;
+use kivact::style::Color;
+use kivact::style::Direction;
+use kivact::style::Style;
+use kivact::style::Theme;
+use kivact::style::TransitionProp;
+use kivact::style::pct;
+use kivact::style::style;
+use kivact::ui::ControlSize;
+use kivact::ui::FieldRecipes;
+use kivact::ui::Look;
+use kivact::ui::NumberInputRecipes;
+use kivact::ui::TagInputRecipes;
+use kivact::ui::TextInputState;
 
-pub(super) fn height(tokens: &Tokens, size: ControlSize) -> f32 {
+pub(super) fn height(tokens: &Tokens, size: ControlSize) -> f64 {
     match size {
         ControlSize::ExtraSmall | ControlSize::Small => tokens.sizes.control_sm,
         ControlSize::Medium => tokens.sizes.control_md,
@@ -15,7 +25,7 @@ pub(super) fn height(tokens: &Tokens, size: ControlSize) -> f32 {
     }
 }
 
-pub(super) fn text(s: Style, role: TextStyle, color: Color) -> Style {
+pub(super) fn text(s: Style, role: TypeStyle, color: Color) -> Style {
     s.font_size(role.size_px)
         .line_height(role.line_height_px / role.size_px)
         .weight(role.weight)
@@ -67,7 +77,7 @@ fn editor(tokens: &Tokens, base: Style) -> Style {
 }
 
 pub(super) fn text_input(theme: &Theme, s: &Look<TextInputState>) -> Style {
-    let t = theme.get::<Tokens>();
+    let t = theme.ext::<Tokens>();
     editor(&t, frame(&t, &s.input, s.invalid))
         .height(height(&t, s.size))
         .padding_x(t.spacing.s2)
@@ -75,8 +85,8 @@ pub(super) fn text_input(theme: &Theme, s: &Look<TextInputState>) -> Style {
 }
 
 pub(super) fn text_area(theme: &Theme, s: &Look<TextInputState>) -> Style {
-    const DEFAULT_ROWS: f32 = 3.0;
-    let t = theme.get::<Tokens>();
+    const DEFAULT_ROWS: f64 = 3.0;
+    let t = theme.ext::<Tokens>();
     let block = if s.size == ControlSize::Large {
         t.spacing.s2
     } else {
@@ -94,7 +104,7 @@ pub(super) fn text_area(theme: &Theme, s: &Look<TextInputState>) -> Style {
 pub(super) fn field(r: FieldRecipes) -> FieldRecipes {
     r.root(|_| {
         |theme, _| {
-            let t = theme.get::<Tokens>();
+            let t = theme.ext::<Tokens>();
             style()
                 .direction(Direction::Column)
                 .min_width(0)
@@ -103,19 +113,19 @@ pub(super) fn field(r: FieldRecipes) -> FieldRecipes {
     })
     .label(|_| {
         |theme, _| {
-            let t = theme.get::<Tokens>();
+            let t = theme.ext::<Tokens>();
             text(style(), t.typography.label, t.colors.text_secondary)
         }
     })
     .hint(|_| {
         |theme, _| {
-            let t = theme.get::<Tokens>();
+            let t = theme.ext::<Tokens>();
             text(style(), t.typography.supporting, t.colors.text_secondary)
         }
     })
     .error(|_| {
         |theme, _| {
-            let t = theme.get::<Tokens>();
+            let t = theme.ext::<Tokens>();
             text(style(), t.typography.supporting, t.colors.text_error)
         }
     })
@@ -140,7 +150,7 @@ pub(super) fn number_input(r: NumberInputRecipes) -> NumberInputRecipes {
     // The standard spinbutton retains its two side buttons.
     r.root(|_| {
         |theme, state| {
-            let t = theme.get::<Tokens>();
+            let t = theme.ext::<Tokens>();
             frame(&t, state, false)
                 .direction(Direction::Row)
                 .align_items(Align::Center)
@@ -150,7 +160,7 @@ pub(super) fn number_input(r: NumberInputRecipes) -> NumberInputRecipes {
     })
     .input(|_| {
         |theme, _| {
-            let t = theme.get::<Tokens>();
+            let t = theme.ext::<Tokens>();
             flat(&t)
                 .height(t.sizes.control_md - 2.0 * t.sizes.border_width)
                 .padding_x(t.spacing.s2)
@@ -162,7 +172,7 @@ pub(super) fn number_input(r: NumberInputRecipes) -> NumberInputRecipes {
 pub(super) fn tag_input(r: TagInputRecipes) -> TagInputRecipes {
     r.root(|_| {
         |theme, state| {
-            let t = theme.get::<Tokens>();
+            let t = theme.ext::<Tokens>();
             let inset = t.radius.element - t.radius.inner - t.sizes.border_width;
             let base = frame(&t, state, false);
             let base = if state.focused {
@@ -180,8 +190,8 @@ pub(super) fn tag_input(r: TagInputRecipes) -> TagInputRecipes {
     })
     .tag(|_| {
         |theme, _| {
-            let t = theme.get::<Tokens>();
-            let role = TextStyle {
+            let t = theme.ext::<Tokens>();
+            let role = TypeStyle {
                 weight: t.typography.weight_medium,
                 ..t.typography.supporting
             };
@@ -199,7 +209,7 @@ pub(super) fn tag_input(r: TagInputRecipes) -> TagInputRecipes {
     })
     .remove(|_| {
         |theme, _| {
-            let t = theme.get::<Tokens>();
+            let t = theme.ext::<Tokens>();
             let clear = style().background(Color::TRANSPARENT).scale(1.0);
             style()
                 .size(t.sizes.icon_sm, t.sizes.icon_sm)
@@ -217,8 +227,8 @@ pub(super) fn tag_input(r: TagInputRecipes) -> TagInputRecipes {
     })
     .input(|_| {
         |theme, _| {
-            const EMPTY_INPUT_MIN_WIDTH: f32 = 60.0;
-            let t = theme.get::<Tokens>();
+            const EMPTY_INPUT_MIN_WIDTH: f64 = 60.0;
+            let t = theme.ext::<Tokens>();
             flat(&t)
                 .grow(1)
                 .min_width(EMPTY_INPUT_MIN_WIDTH)

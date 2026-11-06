@@ -9,7 +9,7 @@ Start from the project of [step 1](01-set-up-the-kit.md). Replace `src/main.rs`:
 ```rust,no_run
 use kivact::prelude::*;
 use kivact::style::{ThemeMode, rgb};
-use kivact::ui::EditPhase;
+use kivact::view::EditPhase;
 use kivact_ui_creative as ui;
 
 fn inspector() -> impl IntoView {
@@ -40,7 +40,7 @@ fn inspector() -> impl IntoView {
             ui::property_row(
                 "X",
                 ui::number("X", x)
-                    .range(-1000.0, 1000.0)
+                    .range(kivact::interaction::ScalarRange::new(-1000.0, 1000.0).expect("valid range"))
                     .step(1.0)
                     .precision(1)
                     .unit(" px")
@@ -51,7 +51,7 @@ fn inspector() -> impl IntoView {
             ui::property_row(
                 "Opacity",
                 ui::number("Opacity", opacity)
-                    .range(0.0, 1.0)
+                    .range(kivact::interaction::ScalarRange::new(0.0, 1.0).expect("valid range"))
                     .step(0.01)
                     .precision(2)
                     .label_visible(false),
@@ -59,7 +59,7 @@ fn inspector() -> impl IntoView {
             ui::property_row(
                 "Fade",
                 ui::value_slider("Fade", opacity)
-                    .range(0.0, 1.0)
+                    .range(kivact::interaction::ScalarRange::new(0.0, 1.0).expect("valid range"))
                     .step(0.01)
                     .precision(2)
                     .label_visible(false),
@@ -75,7 +75,7 @@ fn inspector() -> impl IntoView {
                 text(move || format!("{} undo step(s)", history.get().len())),
             ))
             .style(style().gap(8)),
-        ))
+        )).role(kivact::view::Role::List)
         .style(style().gap(6).padding(10)),
     )
     .style(style().width(300))

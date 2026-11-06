@@ -29,15 +29,12 @@ const PRIMITIVES: &[&str] = &[
 /// function names, macros, lifetimes and attributes each get their tone;
 /// a final line break adds no empty line.
 ///
-/// ```no_run
-/// use kivact::prelude::*;
-/// use kivact_ui_basic as basic;
-///
-/// fn listing() -> impl IntoView {
-///     basic::code_block(basic::rust_lines("/* A greeting. */\nfn hi<'a>() -> &'a str { \"hi\" }"))
-/// }
 /// ```
-pub fn rust_lines(source: &str) -> Vec<CodeLine> {
+/// use kivact_ui_basic::rust_source;
+/// let lines = rust_source("fn main() {}");
+/// assert_eq!(lines[0].text(), "fn main() {}");
+/// ```
+pub fn rust_source(source: &str) -> Vec<CodeLine> {
     let mut lines = vec![Vec::<CodeSpan>::new()];
     for (text, tone) in tokens(source) {
         for (index, part) in text.split('\n').enumerate() {

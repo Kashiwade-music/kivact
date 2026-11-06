@@ -62,7 +62,7 @@ fn with_label() -> impl IntoView {
         basic::label("Your message").target(field),
         text_area("Your message", signal(String::new()))
             .placeholder("Type your message here.")
-            .node_ref(field)
+            .with_node(|node| node.node_ref(field))
             .style(style().width(360)),
         basic::muted("Your message will be copied to the support team."),
     ))

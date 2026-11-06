@@ -21,7 +21,7 @@
 //!   and `Leave` still are admitted; the end of any other drag outside the
 //!   modal is not.
 //! - Pointer, wheel and key handler chains that start inside the topmost
-//!   shown modal stop at it (`Tree::modal_boundary`, [`KeyRoute::stop`]): no
+//!   shown modal stop at it (`ViewNodes::modal_boundary`, [`KeyRoute::stop`]): no
 //!   handler behind the modal runs for input inside it.
 //! - A key goes to the node the host names, else the focused node, else
 //!   the topmost open modal, else the App's view (the first host node the
@@ -46,19 +46,20 @@
 use std::panic::Location;
 use std::rc::Rc;
 
-use kivact_engine::bridge::PropValue;
-use kivact_reactive::EffectKind;
-use kivact_reactive::HandlerResult;
-use kivact_reactive::{ErrorKind, UiError};
-use kivact_reactive::{Owner, Runtime};
-use kivact_wire::{A11yRequest, NodeId, NodeType, OverlayProps};
+use kivact_engine::api::PropValue;
+use kivact_engine::contract::NodeType;
+use kivact_runtime::EffectKind;
+use kivact_runtime::HandlerResult;
+use kivact_runtime::{ErrorKind, UiError};
+use kivact_runtime::{Owner, Runtime};
+use kivact_types::{A11yRequest, NodeId, OverlayProps};
 
-use kivact_reactive::{IntoValue, Prop as InputProp};
+use kivact_runtime::{IntoValue, Prop as InputProp};
 
 use crate::view::descriptor::{IntoView, View, mount, view_fn};
+use crate::view::element_data::{Content, Node, NodeBuilder};
 use crate::view::input::{DismissReason, Key, KeyEvent, Modifiers};
 use crate::view::mount::mount_host;
-use crate::view::node::{Content, Node, NodeBuilder};
 use crate::view::node_ref::{self, NodeRef};
 use crate::view::state::ViewState;
 use crate::view::{A11yAction, focus, requests};
@@ -78,7 +79,7 @@ use kivact_style::draw::Point;
 ///
 /// `Center`: Centered on the anchor.
 #[doc(inline)]
-pub use kivact_wire::Placement;
+pub use kivact_types::Placement;
 
 /// Alignment of an overlay along its anchor's edge: where the overlay sits
 /// on the side [`Placement`] chose. It is not the flex `Align` of a
@@ -95,39 +96,16 @@ pub use kivact_wire::Placement;
 ///
 /// `End`: At the anchor's end edge.
 #[doc(inline)]
-pub use kivact_wire::OverlayAlign;
-
-/// Theme-wide viewport margin for overlays, in logical pixels.
-///
-/// Set with `Theme::with(OverlayViewport::new(16.0))`. Fitted overlays
-/// try mirrored placements, spans and slides before clamping to the inset.
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
-pub struct OverlayViewport {
-    margin: Option<f32>,
-}
-
-impl OverlayViewport {
-    pub fn new(margin: f32) -> Self {
-        Self {
-            margin: Some(margin),
-        }
-    }
-}
-
-impl kivact_style::ThemeExtension for OverlayViewport {
-    fn fallback(_: &kivact_style::Theme) -> Self {
-        Self::default()
-    }
-}
+pub use kivact_types::OverlayAlign;
 
 /// Where an overlay is placed, chosen by its constructor: the reactive source
-/// of [`kivact_wire::OverlayAt`] (the same two cases).
+/// of [`kivact_types::OverlayAt`] (the same two cases).
 enum Place {
     /// [`overlay`]: against the node `node` is bound to; `at_least_width`
     /// from [`Overlay::at_least_anchor_width`].
     Anchor { node: NodeRef, at_least_width: bool },
     /// [`overlay_at`]: at a window point, constant or reactive.
-    /// `width_misuse`: where `.at_least_anchor_width(true)` was called on it,
+    /// `width_misuse`: where `.at_least_anchor_width()` was called on it,
     /// reported once at mount and ignored (a point has no width).
     Point {
         point: InputProp<Point>,
@@ -139,10 +117,10 @@ enum Place {
 /// [`overlay_at`].
 pub struct Overlay {
     place: Place,
-    placement: Placement,
-    align: OverlayAlign,
-    offset: f32,
-    viewport_margin: Option<f32>,
+    placement: InputProp<Placement>,
+    align: InputProp<OverlayAlign>,
+    offset: InputProp<f64>,
+    viewport_margin: Option<InputProp<f64>>,
     keep_anchor_clear: bool,
     modal: bool,
     child: View,
@@ -156,12 +134,13 @@ pub struct Overlay {
 /// of the anchor when it does not fit and keeps it inside the window; with
 /// an unbound anchor it is centered in the window. `.align(..)` lines it up
 /// with the anchor's start, centre or end, `.offset(px)` leaves a gap,
-/// `.modal(true)` blocks input to the rest of the window while it is
+/// `.modal()` blocks input to the rest of the window while it is
 /// shown, and `.on_dismiss(f)` closes it on an outside press or Escape.
 ///
 /// ```
 /// # use kivact_core as kivact;
-/// use kivact::prelude::*;
+/// use kivact::state::{signal};
+/// use kivact::view::{IntoView, NodeBuilder, Role, node, node_ref, show, text};
 /// use kivact::view::{OverlayAlign, Placement, overlay};
 /// fn menu_button() -> impl IntoView {
 ///     let open = signal(false);
@@ -188,15 +167,19 @@ pub struct Overlay {
 /// window (a toast stack, an off-canvas sidebar and its scrim) is
 /// `style().position(Position::Fixed)` with insets instead.
 #[track_caller]
-pub fn overlay(anchor: NodeRef, placement: Placement, child: impl IntoView) -> Overlay {
+pub fn overlay(
+    anchor: NodeRef,
+    placement: impl IntoValue<Placement>,
+    child: impl IntoView,
+) -> Overlay {
     Overlay {
         place: Place::Anchor {
             node: anchor,
             at_least_width: false,
         },
-        placement,
-        align: OverlayAlign::Start,
-        offset: 0.0,
+        placement: placement.into_prop(),
+        align: InputProp::constant(OverlayAlign::Start),
+        offset: InputProp::constant(0.0),
         viewport_margin: None,
         keep_anchor_clear: false,
         modal: false,
@@ -214,18 +197,19 @@ pub fn overlay(anchor: NodeRef, placement: Placement, child: impl IntoView) -> O
 ///
 /// ```
 /// # use kivact_core as kivact;
-/// use kivact::prelude::*;
-/// use kivact::draw::{Point};
+/// use kivact::state::{signal};
+/// use kivact::view::{IntoView, MouseButton, Node, NodeBuilder, show_some};
+/// use kivact::geometry::{Point};
 /// use kivact::view::{Placement, PointerEvent};
 /// use kivact::view::{View, overlay_at};
 /// fn with_context_menu(area: Node, menu: impl Fn() -> View + 'static) -> impl IntoView {
 ///     let at = signal(None::<Point>);
 ///     (
 ///         area.on_pointer(move |e: PointerEvent| {
-///             if let kivact::view::PointerPhase::Down(press) = e.phase
+///             if let kivact::view::PointerPhase::Down(press) = e.phase()
 ///                 && press.button == kivact::view::MouseButton::Secondary
 ///             {
-///                 at.set(Some(e.window_pos));
+///                 at.set(Some(e.window_pos()));
 ///             }
 ///         }),
 ///         show_some(at, move |p| {
@@ -237,7 +221,7 @@ pub fn overlay(anchor: NodeRef, placement: Placement, child: impl IntoView) -> O
 #[track_caller]
 pub fn overlay_at(
     point: impl IntoValue<Point>,
-    placement: Placement,
+    placement: impl IntoValue<Placement>,
     child: impl IntoView,
 ) -> Overlay {
     Overlay {
@@ -245,9 +229,9 @@ pub fn overlay_at(
             point: point.into_prop(),
             width_misuse: None,
         },
-        placement,
-        align: OverlayAlign::Start,
-        offset: 0.0,
+        placement: placement.into_prop(),
+        align: InputProp::constant(OverlayAlign::Start),
+        offset: InputProp::constant(0.0),
         viewport_margin: None,
         keep_anchor_clear: false,
         modal: false,
@@ -264,35 +248,35 @@ impl Overlay {
     /// (CSS `right: 0`); a submenu `overlay(item, Placement::End, ..)` sits
     /// top-aligned with its item by default. A start or end that would
     /// overflow the window flips to the other one when that fits.
-    pub fn align(mut self, align: OverlayAlign) -> Self {
-        self.align = align;
+    pub fn align(mut self, align: impl IntoValue<OverlayAlign>) -> Self {
+        self.align = align.into_prop();
         self
     }
 
     /// The gap between the anchor and the overlay in logical px (CSS
     /// `top: calc(100% + 6px)` is `.offset(6)` below the anchor); it
     /// follows the overlay when it flips to the other side.
-    pub fn offset(mut self, px: impl Into<f64>) -> Self {
-        self.offset = px.into() as f32;
+    pub fn offset(mut self, px: impl IntoValue<f64>) -> Self {
+        self.offset = px.into_prop();
         self
     }
 
     /// Inset the available window area by this many logical pixels.
-    /// Overrides the theme's [`OverlayViewport`].
-    pub fn viewport_margin(mut self, px: f32) -> Self {
-        self.viewport_margin = Some(px);
+    /// Overrides the theme's [`kivact_style::Theme::overlay_margin`].
+    pub fn viewport_margin(mut self, px: impl IntoValue<f64>) -> Self {
+        self.viewport_margin = Some(px.into_prop());
         self
     }
 
     /// Prefer placements that leave the anchor clear when viewport fitting is active.
-    pub fn keep_anchor_clear(mut self, on: bool) -> Self {
-        self.keep_anchor_clear = on;
+    pub fn keep_anchor_clear(mut self) -> Self {
+        self.keep_anchor_clear = true;
         self
     }
 
     /// Block input to the rest of the window while the overlay is shown.
-    pub fn modal(mut self, on: bool) -> Self {
-        self.modal = on;
+    pub fn modal(mut self) -> Self {
+        self.modal = true;
         self
     }
 
@@ -306,10 +290,10 @@ impl Overlay {
     /// (`ErrorKind::Unsupported`) and ignored; with an unbound anchor it does
     /// nothing. A select's list under its trigger uses it.
     #[track_caller]
-    pub fn at_least_anchor_width(mut self, on: bool) -> Self {
+    pub fn at_least_anchor_width(mut self) -> Self {
         match &mut self.place {
-            Place::Anchor { at_least_width, .. } => *at_least_width = on,
-            Place::Point { width_misuse, .. } => *width_misuse = on.then(Location::caller),
+            Place::Anchor { at_least_width, .. } => *at_least_width = true,
+            Place::Point { width_misuse, .. } => *width_misuse = Some(Location::caller()),
         }
         self
     }
@@ -325,7 +309,7 @@ impl Overlay {
     /// overlay; ignore the reason with `|_|`). A transactional editor can
     /// commit on an outside press and restore its original value on Escape.
     /// Registering it again replaces the earlier handler, as for
-    /// `.on_a11y(A11yAction::Dismiss, ..)`.
+    /// `.a11y_action(A11yAction::Dismiss, ..)`.
     pub fn on_dismiss<F, R>(mut self, f: F) -> Self
     where
         F: Fn(DismissReason) -> R + 'static,
@@ -340,7 +324,7 @@ impl Overlay {
     /// Append a popup controller's dismissal behavior after an existing
     /// callback. An error prevents the appended behavior. Ordinary dismissal
     /// registration still replaces this single accessibility action.
-    pub fn on_dismiss_after<F, R>(mut self, f: F) -> Self
+    pub fn on_dismiss_default<F, R>(mut self, f: F) -> Self
     where
         F: Fn(DismissReason) -> R + 'static,
         R: HandlerResult,
@@ -351,14 +335,13 @@ impl Overlay {
             .iter()
             .find(|(a, _)| *a == action)
             .map(|(_, h)| h.clone());
-        let handler: Rc<dyn Fn(crate::view::A11yEvent) -> crate::Result<()>> =
-            Rc::new(move |event| {
-                let reason = dismiss_reason(&event);
-                if let Some(previous) = &previous {
-                    previous(event)?;
-                }
-                f(reason).into_result()
-            });
+        let handler = kivact_runtime::Handler::from_fn(move |event| {
+            let reason = dismiss_reason(&event);
+            if let Some(previous) = &previous {
+                previous.call(event)?;
+            }
+            f(reason).into_outcome().map(|_| ())
+        });
         match entries.iter_mut().find(|(a, _)| *a == action) {
             Some(entry) => entry.1 = handler,
             None => entries.push((action, handler)),
@@ -409,7 +392,7 @@ impl IntoView for Overlay {
                     Some(cx.owner),
                     UiError::new(
                         ErrorKind::Unsupported,
-                        "`.at_least_anchor_width(true)` on an overlay placed at a point (`overlay_at`): a point has no width; ignored",
+                        "`.at_least_anchor_width()` on an overlay placed at a point (`overlay_at`): a point has no width; ignored",
                         Some(loc),
                     ),
                 );
@@ -421,30 +404,28 @@ impl IntoView for Overlay {
                     Place::Anchor {
                         node,
                         at_least_width,
-                    } => kivact_wire::OverlayAt::Anchor {
+                    } => kivact_types::OverlayAt::Anchor {
                         node: node_ref::node_value(node, at),
                         at_least_width: *at_least_width,
                     },
                     Place::Point { point, .. } => {
-                        kivact_wire::OverlayAt::Point(kivact_reactive::Prop::get(point))
+                        kivact_types::OverlayAt::Point(kivact_runtime::Prop::get(point))
                     }
                 };
                 if let Some(rt) = weak.upgrade() {
                     let props = OverlayProps {
                         at: at_place,
-                        placement,
-                        align,
-                        offset,
+                        placement: placement.get(),
+                        align: align.get(),
+                        offset: offset.get(),
                         fit: viewport_margin
-                            .or_else(|| {
-                                kivact_style::current_theme()
-                                    .get::<OverlayViewport>()
-                                    .margin
-                            })
-                            .map(|margin| kivact_wire::OverlayFit {
+                            .as_ref()
+                            .map(InputProp::get)
+                            .or_else(|| Some(kivact_style::use_theme().get().overlay_margin()))
+                            .map(|margin| kivact_types::OverlayFit {
                                 margin,
                                 keep_anchor_clear,
-                                rtl: crate::view::current_direction()
+                                rtl: crate::view::use_direction().get()
                                     == crate::view::ReadingDirection::Rtl,
                             }),
                         modal,
@@ -478,25 +459,47 @@ fn restore_focus_on_unmount(rt: &Rc<Runtime>, owner: Owner, id: NodeId) {
         return;
     };
     let visible = ViewState::of(rt).focus_keys().visible.get_untracked();
-    let weak = Rc::downgrade(rt);
-    owner.on_cleanup(move || {
+    let scope = ModalScope {
+        rt: Rc::downgrade(rt),
+        opener,
+        id,
+        visible,
+    };
+    owner.store("ModalScope", Rc::new(scope), Location::caller());
+}
+struct ModalScope {
+    rt: std::rc::Weak<Runtime>,
+    opener: kivact_types::FocusTarget,
+    id: NodeId,
+    visible: bool,
+}
+impl Drop for ModalScope {
+    fn drop(&mut self) {
+        let Self {
+            rt: weak,
+            opener,
+            id,
+            visible,
+        } = self;
+        let (opener, id, visible) = (*opener, *id, *visible);
         let Some(rt) = weak.upgrade() else { return };
         let back = {
             let tree = ViewState::tree(&rt);
-            let inside = |target: kivact_wire::FocusTarget| {
+            let inside = |target: kivact_types::FocusTarget| {
                 let f = target.node;
                 // Already deleted with the overlay, or still under it.
                 !tree.contains(f)
-                    || std::iter::successors(Some(f), |n| tree.get(*n)?.parent).any(|n| n == id)
+                    || std::iter::successors(Some(f), |n| tree.reader().parent(*n)).any(|n| n == id)
             };
             tree.contains(opener.node) && focus::focused(&rt).is_none_or(inside)
         };
         if back {
             requests::request_restore_focus(&rt, opener, None, visible);
         }
-    });
+    }
 }
 
+// xtask-allow(state-fields): This per-dispatch route result contains the target, optional modal boundary and independent activation permission.
 /// Where a key goes and where its handler chain stops (see [`key_route`]).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct KeyRoute {
@@ -525,7 +528,9 @@ pub(crate) fn key_route(rt: &Runtime, named: Option<NodeId>) -> KeyRoute {
         .or(modal);
     KeyRoute {
         activates: target.is_some(),
-        target: target.or_else(|| tree.app_view()).unwrap_or(tree.root),
+        target: target
+            .or_else(|| tree.reader().children(tree.root).first().copied())
+            .unwrap_or(tree.root),
         stop: modal,
     }
 }
@@ -535,7 +540,7 @@ pub(crate) fn key_route(rt: &Runtime, named: Option<NodeId>) -> KeyRoute {
 /// overlay offering `Dismiss` (inside the modal when one is shown), as the
 /// engine decides.
 pub(crate) fn escape_dismisses(rt: &Runtime, e: &KeyEvent) -> Option<NodeId> {
-    if e.repeat || e.key != Key::Escape || e.modifiers != Modifiers::default() {
+    if e.repeat() || e.key() != Key::Escape || e.modifiers() != Modifiers::default() {
         return None;
     }
     ViewState::tree(rt).reader().dismiss_target()

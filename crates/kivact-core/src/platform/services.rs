@@ -26,44 +26,21 @@ use std::future::Future;
 use std::panic::Location;
 use std::path::PathBuf;
 
-use kivact_wire::{FileDialogRequest, PlatformRequest, PlatformResult};
+use kivact_engine::contract::HostRequest;
+use kivact_types::{PlatformRequest, PlatformResult};
 
 use crate::view::requests;
 use crate::view::requests::platform_result;
 use crate::view::state::EffectWaiter;
-use kivact_reactive::{Owner, UiError, require_effectful};
-use kivact_task::Completion;
+use kivact_runtime::Completion;
+use kivact_runtime::{Owner, UiError, require_effectful};
 
-/// Options of a file, save or folder dialog. A folder dialog
-/// ([`pick_folder`]) uses `title` and `directory` only:
-/// `file_name` and `filters` do not apply to a folder and are ignored.
-#[derive(Clone, Debug, Default, PartialEq)]
-pub struct FileDialog {
-    /// Dialog window title.
-    pub title: String,
-    /// Directory the dialog opens in.
-    pub directory: Option<PathBuf>,
-    /// Suggested file name.
-    pub file_name: Option<String>,
-    /// (label, extensions without the dot)
-    pub filters: Vec<(String, Vec<String>)>,
-}
-
-impl FileDialog {
-    fn to_wire(&self) -> FileDialogRequest {
-        FileDialogRequest {
-            title: self.title.clone(),
-            directory: self.directory.clone(),
-            file_name: self.file_name.clone(),
-            filters: self.filters.clone(),
-        }
-    }
-}
+pub use kivact_types::FileDialog;
 
 /// Every platform request: the scope must be alive and the caller must
 /// not be a memo or render effect.
 #[track_caller]
-fn request(owner: Owner, api: &'static str, req: PlatformRequest, waiter: EffectWaiter) {
+fn request(owner: Owner, api: &'static str, req: HostRequest, waiter: EffectWaiter) {
     let rt = owner.runtime();
     require_effectful(api);
     requests::request_effect(&rt, req, waiter);
@@ -73,7 +50,7 @@ fn request(owner: Owner, api: &'static str, req: PlatformRequest, waiter: Effect
 fn request_async(
     owner: Owner,
     api: &'static str,
-    req: PlatformRequest,
+    req: HostRequest,
 ) -> Completion<Result<PlatformResult, UiError>> {
     let slot = Completion::new();
     request(owner, api, req, EffectWaiter::Future(slot.clone()));
@@ -84,7 +61,7 @@ fn request_async(
 #[track_caller]
 fn ask(
     api: &'static str,
-    req: PlatformRequest,
+    req: HostRequest,
     at: &'static Location<'static>,
 ) -> Completion<Result<PlatformResult, UiError>> {
     request_async(Owner::ambient(api, at), api, req)
@@ -104,14 +81,9 @@ pub fn request_window_size(
     let owner = Owner::ambient("request_window_size", at);
     require_effectful("request_window_size");
     let (width, height) = (width.into(), height.into());
-    let valid = [width, height]
-        .into_iter()
-        .all(|v| v.is_finite() && v > 0.0 && (v as f32).is_finite() && (v as f32) > 0.0);
+    let valid = kivact_types::env::is_valid_window_size(kivact_types::Size { width, height });
     let result = if valid {
-        let mut size = kivact_wire::Size {
-            width: width as f32,
-            height: height as f32,
-        };
+        let mut size = kivact_types::Size { width, height };
         if let Some(min) = crate::view::state::ViewState::of(&owner.runtime()).min_window_size() {
             size.width = size.width.max(min.width);
             size.height = size.height.max(min.height);
@@ -119,12 +91,12 @@ pub fn request_window_size(
         Ok(request_async(
             owner,
             "request_window_size",
-            PlatformRequest::RequestWindowSize(size),
+            HostRequest::Platform(PlatformRequest::RequestWindowSize(size)),
         ))
     } else {
         Err(UiError::new(
-            kivact_reactive::ErrorKind::Message,
-            "request_window_size dimensions must be finite and positive in f32",
+            kivact_runtime::ErrorKind::Message,
+            "request_window_size dimensions must be finite, at least one logical pixel and fit the native window extent",
             Some(at),
         ))
     };
@@ -143,7 +115,7 @@ pub fn request_window_size(
 pub fn set_fullscreen(on: bool) -> impl Future<Output = Result<(), UiError>> + 'static {
     let slot = ask(
         "set_fullscreen",
-        PlatformRequest::Fullscreen(on),
+        HostRequest::Platform(PlatformRequest::Fullscreen(on)),
         Location::caller(),
     );
     async move { slot.await.and_then(platform_result).map(|_| ()) }
@@ -157,7 +129,7 @@ pub fn set_reduced_motion(
 ) -> impl Future<Output = Result<(), UiError>> + 'static {
     let slot = ask(
         "set_reduced_motion",
-        PlatformRequest::ReducedMotion(override_value),
+        HostRequest::ReducedMotion(override_value),
         Location::caller(),
     );
     async move { slot.await.and_then(platform_result).map(|_| ()) }
@@ -168,7 +140,7 @@ pub fn set_reduced_motion(
 pub fn copy_text(text: impl Into<String>) -> impl Future<Output = Result<(), UiError>> + 'static {
     let slot = ask(
         "copy_text",
-        PlatformRequest::CopyText(text.into()),
+        HostRequest::Platform(PlatformRequest::CopyText(text.into())),
         Location::caller(),
     );
     async move { slot.await.and_then(platform_result).map(|_| ()) }
@@ -177,7 +149,11 @@ pub fn copy_text(text: impl Into<String>) -> impl Future<Output = Result<(), UiE
 /// Reads text from the system clipboard; empty when it holds no text.
 #[track_caller]
 pub fn read_text() -> impl Future<Output = Result<String, UiError>> + 'static {
-    let slot = ask("read_text", PlatformRequest::ReadText, Location::caller());
+    let slot = ask(
+        "read_text",
+        HostRequest::Platform(PlatformRequest::ReadText),
+        Location::caller(),
+    );
     async move {
         match slot.await.and_then(platform_result)? {
             PlatformResult::Text(t) => Ok(t),
@@ -193,7 +169,7 @@ pub fn pick_file(
 ) -> impl Future<Output = Result<Option<PathBuf>, UiError>> + 'static {
     let slot = ask(
         "pick_file",
-        PlatformRequest::PickFile(opts.to_wire()),
+        HostRequest::Platform(PlatformRequest::PickFile(opts.clone())),
         Location::caller(),
     );
     async move {
@@ -212,7 +188,7 @@ pub fn pick_files(
 ) -> impl Future<Output = Result<Option<Vec<PathBuf>>, UiError>> + 'static {
     let slot = ask(
         "pick_files",
-        PlatformRequest::PickFiles(opts.to_wire()),
+        HostRequest::Platform(PlatformRequest::PickFiles(opts.clone())),
         Location::caller(),
     );
     async move {
@@ -234,7 +210,7 @@ pub fn pick_folder(
 ) -> impl Future<Output = Result<Option<PathBuf>, UiError>> + 'static {
     let slot = ask(
         "pick_folder",
-        PlatformRequest::PickFolder(opts.to_wire()),
+        HostRequest::Platform(PlatformRequest::PickFolder(opts.clone())),
         Location::caller(),
     );
     async move {
@@ -252,7 +228,7 @@ pub fn save_file(
 ) -> impl Future<Output = Result<Option<PathBuf>, UiError>> + 'static {
     let slot = ask(
         "save_file",
-        PlatformRequest::SaveFile(opts.to_wire()),
+        HostRequest::Platform(PlatformRequest::SaveFile(opts.clone())),
         Location::caller(),
     );
     async move {
@@ -277,7 +253,7 @@ pub fn save_file(
 pub fn open_path(path: impl Into<PathBuf>) -> impl Future<Output = Result<(), UiError>> + 'static {
     let slot = ask(
         "open_path",
-        PlatformRequest::OpenPath(path.into()),
+        HostRequest::Platform(PlatformRequest::OpenPath(path.into())),
         Location::caller(),
     );
     async move { slot.await.and_then(platform_result).map(|_| ()) }
@@ -294,8 +270,25 @@ pub fn reveal_path(
 ) -> impl Future<Output = Result<(), UiError>> + 'static {
     let slot = ask(
         "reveal_path",
-        PlatformRequest::RevealPath(path.into()),
+        HostRequest::Platform(PlatformRequest::RevealPath(path.into())),
         Location::caller(),
     );
     async move { slot.await.and_then(platform_result).map(|_| ()) }
+}
+
+/// Save bytes for the next launch. Platforms without state restoration ignore the request.
+#[track_caller]
+pub fn save_state(key: &'static str, bytes: Vec<u8>) {
+    let at = Location::caller();
+    let owner = Owner::ambient("save_state", at);
+    request(
+        owner,
+        "save_state",
+        HostRequest::Platform(PlatformRequest::SaveState { key, bytes }),
+        EffectWaiter::Report {
+            owner: Some(owner),
+            at,
+            failed: kivact_runtime::ErrorKind::Platform,
+        },
+    );
 }

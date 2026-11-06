@@ -1,6 +1,6 @@
 //! Role: `Path::stroke_outline`: a line's outline as a path to fill.
 use super::Path;
-use kivact_wire::{LineCap, LineJoin, Stroke};
+use kivact_types::{LineCap, LineJoin, Stroke};
 use kurbo::{Cap, Join, StrokeOpts};
 
 /// The largest distance, in px, between the outline and the true stroke.
@@ -23,7 +23,8 @@ impl Path {
     /// zero length has no outline.
     ///
     /// ```
-    /// use kivact::draw::{Path, Point};
+    /// use kivact::draw::{Path};
+    /// use kivact::geometry::Point;
     /// use kivact::draw::Stroke;
     /// let line = Path::new().move_to(Point::new(0.0, 5.0)).line_to(Point::new(20.0, 5.0));
     /// let band = line.stroke_outline(&Stroke::new(4));
@@ -31,14 +32,14 @@ impl Path {
     /// assert!((b.y - 3.0).abs() < 1e-3 && (b.height - 4.0).abs() < 1e-3);
     /// ```
     pub fn stroke_outline(&self, stroke: &Stroke) -> Path {
-        let width = f64::from(stroke.width);
+        let width = stroke.width;
         let valid = width.is_finite()
             && width > 0.0
             && stroke.miter_limit.is_finite()
             && stroke.miter_limit >= 1.0
             && stroke.dash_offset.is_finite()
             && stroke.dash.iter().all(|d| d.is_finite() && *d >= 0.0)
-            && (stroke.dash.is_empty() || stroke.dash.iter().sum::<f32>() > 0.0);
+            && (stroke.dash.is_empty() || stroke.dash.iter().sum::<f64>() > 0.0);
         let Some(bez) = self.bez().filter(|_| valid) else {
             return Path::new();
         };
@@ -55,9 +56,9 @@ impl Path {
         let mut style = kurbo::Stroke::new(width)
             .with_caps(cap)
             .with_join(join)
-            .with_miter_limit(f64::from(stroke.miter_limit));
+            .with_miter_limit(stroke.miter_limit);
         if !stroke.dash.is_empty() {
-            let mut dash: Vec<f64> = stroke.dash.iter().map(|d| f64::from(*d)).collect();
+            let mut dash: Vec<f64> = stroke.dash.to_vec();
             if dash.len() % 2 == 1 {
                 dash.extend_from_within(..);
             }
@@ -69,7 +70,7 @@ impl Path {
                     }
                 }
             }
-            style = style.with_dashes(f64::from(stroke.dash_offset), dash);
+            style = style.with_dashes(stroke.dash_offset, dash);
         }
         let outline = kurbo::stroke(
             bez.elements().iter().copied(),

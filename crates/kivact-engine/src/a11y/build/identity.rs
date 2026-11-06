@@ -1,61 +1,63 @@
 //! Role: Map engine nodes and canvas regions to native accessibility identities and back.
 
 use crate::model::Model;
-use kivact_wire as wire;
+use kivact_types as types;
 
 impl Model {
     /// Resolve existing focus identities into the platform accessibility tree.
     pub(super) fn semantic_target(
         &self,
-        target: wire::FocusTarget,
-    ) -> Option<kivact_types::NodeId> {
+        target: types::FocusTarget,
+    ) -> Option<kivact_types::SemanticsId> {
         self.node(target.node)?;
         match target.region {
-            None => Some(kivact_types::NodeId(target.node.0)),
+            None => Some(kivact_types::SemanticsId(target.node.0)),
             Some(region) => {
                 self.node(target.node)?.region(region)?;
                 self.a11y
                     .region_ids
                     .get(&(target.node, region))
                     .copied()
-                    .map(kivact_types::NodeId)
+                    .map(kivact_types::SemanticsId)
             }
         }
     }
 
     pub(super) fn semantic_identity(
         &self,
-        target: kivact_types::NodeId,
-    ) -> Option<wire::FocusTarget> {
+        target: kivact_types::SemanticsId,
+    ) -> Option<types::FocusTarget> {
         if let Some((node, region)) = self.a11y.native_regions.get(&target.0) {
             self.node(*node)?.region(*region)?;
-            Some(wire::FocusTarget {
+            Some(types::FocusTarget {
                 node: *node,
                 region: Some(*region),
             })
         } else {
-            self.node(wire::NodeId(target.0))?;
-            Some(wire::FocusTarget {
-                node: wire::NodeId(target.0),
+            self.node(types::NodeId(target.0))?;
+            Some(types::FocusTarget {
+                node: types::NodeId(target.0),
                 region: None,
             })
         }
     }
 
-    pub(super) fn semantic_owner(&self, target: kivact_types::NodeId) -> Option<wire::NodeId> {
+    pub(super) fn semantic_owner(
+        &self,
+        target: kivact_types::SemanticsId,
+    ) -> Option<types::NodeId> {
         if let Some((node, region)) = self.a11y.native_regions.get(&target.0) {
             self.node(*node)?.region(*region)?;
             Some(*node)
         } else {
-            self.node(wire::NodeId(target.0))
-                .map(|_| wire::NodeId(target.0))
+            self.node(types::NodeId(target.0))
+                .map(|_| types::NodeId(target.0))
         }
     }
 
     pub(super) fn prepare_region_ids(&mut self) {
         let targets: Vec<_> = self
-            .tree()
-            .preorder()
+            .semantic_order()
             .into_iter()
             .flat_map(|node| {
                 self.node(node).into_iter().flat_map(move |n| {
@@ -71,11 +73,13 @@ impl Model {
         }
     }
 
-    pub(super) fn region_identity(&mut self, owner: wire::NodeId, region: wire::RegionId) -> u64 {
-        if let Some(&id) = self.a11y.region_ids.get(&(owner, region))
-            && !self.tree().contains(wire::NodeId(id))
-        {
-            return id;
+    pub(super) fn region_identity(&mut self, owner: types::NodeId, region: types::RegionId) -> u64 {
+        if let Some(&id) = self.a11y.region_ids.get(&(owner, region)) {
+            if !self.tree().contains(types::NodeId(id)) {
+                return id;
+            }
+            // A node took the region's identity: it is the node's again.
+            self.a11y.native_regions.remove(&id);
         }
         let candidate = self.next_semantics_identity();
         self.a11y.native_regions.insert(candidate, (owner, region));
@@ -83,7 +87,7 @@ impl Model {
         candidate
     }
 
-    pub(super) fn next_semantics_identity(&mut self) -> u64 {
-        self.a11y.next_identity(&self.tree)
+    pub(in crate::a11y) fn next_semantics_identity(&mut self) -> u64 {
+        self.a11y.ids.fresh(&self.tree)
     }
 }

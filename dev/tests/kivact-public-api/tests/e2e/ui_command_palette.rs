@@ -4,19 +4,20 @@
 //! keeps, a command's icon and hint, the footer slot and the recipes it reads.
 
 use crate::support::mount;
+use kivact::interaction::Command;
 use kivact::prelude::*;
-use kivact::ui::{Command, command_palette};
+use kivact::ui::command_palette;
 
 fn commands() -> Vec<Command<&'static str>> {
     vec![
         Command::new("new", "New file")
-            .group("File")
-            .hint("Ctrl N")
-            .icon("check"),
+            .with_group("File")
+            .with_hint("Ctrl N")
+            .with_icon("check"),
         Command::new("open", "Open file")
-            .group("File")
-            .keywords(["load"]),
-        Command::new("theme", "Toggle theme").group("View"),
+            .with_group("File")
+            .with_keywords(["load"]),
+        Command::new("theme", "Toggle theme").with_group("View"),
         Command::new("quit", "Quit").disabled(true),
     ]
 }
@@ -30,9 +31,8 @@ fn a_palette_is_a_modal_with_a_search_field_over_named_options() {
             (open, ran),
             column((
                 button("Commands").on_press(move || open.set(true)),
-                command_palette(open, commands(), move |key| {
-                    ran.update(|keys| keys.push(key))
-                }),
+                command_palette(commands(), open)
+                    .on_activate(move |key| ran.update(|keys| keys.push(key))),
             )),
         )
     });
@@ -71,9 +71,8 @@ fn typing_filters_by_label_group_hint_and_keywords_and_enter_runs_and_closes() {
         let ran = signal(Vec::<&'static str>::new());
         (
             (open, ran),
-            command_palette(open, commands(), move |key| {
-                ran.update(|keys| keys.push(key))
-            }),
+            command_palette(commands(), open)
+                .on_activate(move |key| ran.update(|keys| keys.push(key))),
         )
     });
     let search = screen.get_by_role(Role::TextBox, "Search commands");

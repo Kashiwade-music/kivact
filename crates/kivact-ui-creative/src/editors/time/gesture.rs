@@ -2,9 +2,9 @@
 use crate::editors::shared::model::{EditorContext, Lane};
 use crate::editors::shared::targets;
 use crate::editors::time::model::TimeItem;
-use kivact::draw::Point;
-use kivact::interaction::{Drag as Gesture, EditSession, List};
-use kivact::{Binding, Callback, Signal, Value};
+use kivact::geometry::Point;
+use kivact::interaction::{DragApi as Gesture, EditSession, ListApi};
+use kivact::state::{Binding, Callback, Signal, Value};
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub(crate) enum Target {
     Item(u64),
@@ -21,14 +21,15 @@ pub(crate) enum Drag {
     Marquee(Point, Point),
 }
 /// Item snapshots are proposal sources; only bound values are restored by the kit.
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub(crate) enum Snapshot {
     Items(Vec<(u64, f64, f64, u64)>),
     Playhead(f64),
-    View(f64, Point),
+    View(kivact::interaction::ViewTransform),
 }
 pub(crate) struct State<T: TimeItem> {
     pub data: Value<Vec<T>>,
+    // xtask-allow(state-fields): Bindings, reactive options and keyboard targets are independent of the gesture lifecycle owned by DecisionMachine.
     pub on_edit: Option<
         Callback<
             crate::editors::shared::model::EditorEvent<crate::editors::time::model::TimeRequest>,
@@ -36,29 +37,33 @@ pub(crate) struct State<T: TimeItem> {
     >,
     pub selected: Binding<Vec<u64>>,
     pub selection: Value<Vec<u64>>,
-    pub zoom: Binding<f64>,
+    pub(crate) transform: Binding<kivact::interaction::ViewTransform>,
     pub scale: Value<f64>,
-    pub pan: Binding<Point>,
     pub offset: Value<Point>,
     pub playhead: Binding<f64>,
     pub visible: Value<Vec<Lane>>,
-    pub choose: List<u64>,
+    pub choose: ListApi<u64>,
     pub scene: Value<Result<std::rc::Rc<targets::Scene<Target>>, kivact::UiError>>,
-    pub press:
-        crate::editors::shared::gesture::CanvasGesture<Target, (Option<Drag>, Option<Snapshot>)>,
+    // xtask-allow(state-fields): Bindings, reactive options and keyboard targets are independent of the gesture lifecycle owned by DecisionMachine.
+    pub press: crate::editors::shared::gesture::CanvasGesture<Target, Option<Drag>, Snapshot>,
     /// The editor's drag, without the callbacks its sources carry
     /// (`input::drag`).
-    pub gesture: Gesture<()>,
+    pub gesture: Gesture<Snapshot>,
     pub edit: EditSession<Snapshot>,
+    // xtask-allow(state-fields): Bindings, reactive options and keyboard targets are independent of the gesture lifecycle owned by DecisionMachine.
     pub snap: Value<bool>,
     pub step: Value<f64>,
-    pub bounds: (f64, f64),
-    pub min_duration: f64,
-    pub lane_height: f32,
+    pub bounds: Value<kivact::interaction::ScalarRange>,
+    pub min_duration: Value<f64>,
+    pub lane_height: f64,
+    // xtask-allow(state-fields): Bindings, reactive options and keyboard targets are independent of the gesture lifecycle owned by DecisionMachine.
     pub active: Signal<Option<Target>>,
+    // xtask-allow(state-fields): Bindings, reactive options and keyboard targets are independent of the gesture lifecycle owned by DecisionMachine.
     pub child_focus: Value<bool>,
     pub context: Signal<EditorContext>,
+    // xtask-allow(state-fields): Bindings, reactive options and keyboard targets are independent of the gesture lifecycle owned by DecisionMachine.
     pub lane_activate: Option<Callback<u64>>,
+    // xtask-allow(state-fields): Bindings, reactive options and keyboard targets are independent of the gesture lifecycle owned by DecisionMachine.
     pub item_activate: Option<Callback<u64>>,
 }
 impl<T: TimeItem> Copy for State<T> {}
@@ -81,14 +86,21 @@ impl<T: TimeItem> State<T> {
 
 impl<T: TimeItem> State<T> {
     pub(crate) fn drag_state(self) -> Option<Drag> {
-        self.press.with_payload(|payload| payload.0).flatten()
+        self.press.with_payload(|payload| *payload).flatten()
     }
     pub(crate) fn set_drag(self, drag: Option<Drag>) {
-        self.press.update_payload(|payload| payload.0 = drag);
+        self.press.update_payload(|payload| *payload = drag);
+    }
+    pub(crate) fn source_snapshot(self) -> Snapshot {
+        match self.drag_state() {
+            Some(Drag::Items) => self.snapshot(&self.selection.get_untracked()),
+            Some(Drag::Trim(id, _)) => self.snapshot(&[id]),
+            Some(Drag::Playhead) => Snapshot::Playhead(self.playhead.get_untracked()),
+            Some(Drag::Pan) => self.view_snapshot(),
+            _ => self.snapshot(&[]),
+        }
     }
     pub(crate) fn initial(self) -> Option<Snapshot> {
-        self.press
-            .with_payload(|payload| payload.1.clone())
-            .flatten()
+        self.press.initial()
     }
 }

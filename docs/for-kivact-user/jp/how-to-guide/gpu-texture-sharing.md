@@ -26,7 +26,7 @@
 kivact = { git = "https://github.com/Kashiwade-music/kivact", features = ["gpu-interop"] }
 ```
 
-`gpu-interop` は `gpu` を含みます。エンジン側は `kivact-gpu-share` に依存します。このクレートは UI を知らないので、エンジンのスレッドが `kivact` に依存する必要はありません。
+`gpu-interop` は `gpu` を含みます。エンジン側は `kivact-gpu-share` に依存します。このクレートは UI を知らないので、エンジンの描画のコードは `kivact` に依存しません。ウィンドウとやり取りするスレッドのループだけが `kivact::gpu_interop` の `ShareLink` を使います。
 
 ```toml
 [dependencies]
@@ -50,9 +50,10 @@ kivact-gpu-share = { git = "https://github.com/Kashiwade-music/kivact", features
 
 `shared_image(width, height)` が UI 側の作業を引き受けます。setup で作り、その `link()` をエンジンのスレッドに渡し、`frame()` を canvas で描きます。`pixels()` は、インポートできないウィンドウ向けに同じ画像が持つ代替です。
 
-```rust,ignore
-use kivact::control::canvas;
-use kivact::draw::{ImageOptions, Rect};
+```rust,no_run
+use kivact::view::canvas;
+use kivact::draw::{ImageOptions};
+use kivact::geometry::{Rect};
 use kivact::gpu_interop;
 use kivact::prelude::*;
 
@@ -79,24 +80,29 @@ fn viewport() -> impl IntoView {
         text(move || format!("{:?}", status.status())),
     ))
 }
+# fn engine_thread(_link: kivact::gpu_interop::ShareLink) {}
 ```
 
 `SharedImage` は UI スレッド用のハンドルです (`Clone` ですが `Send` ではありません)。作成した owner に属し、そのコンポーネントが消えるとリンクが閉じ、エンジンの待機は即座に戻り、ウィンドウは最後のフレームを解放します。
 
-creative kit のビューポートコンポーネントも、同じ 2 つの供給元を受け取ります。
+中核の viewport も、同じ 2 つの供給元を受け取ります。
 
-```rust,ignore
+```rust,no_run
 use kivact::gpu_interop::shared_image;
-use kivact_ui_creative::viewport_surface;
+use kivact::view::viewport;
+use kivact::draw::Pixels;
+# use kivact::prelude::*;
+# fn view() -> impl IntoView {
 
 let image = shared_image(1280, 720);
 let (frame, pixels, sized) = (image.clone(), image.clone(), image);
-viewport_surface(move || pixels.pixels())
+viewport(move || pixels.pixels().unwrap_or_else(|| Pixels::new(1, 1, [0u8; 4])))
     .gpu_frame(move || frame.frame())
     .on_resize(move |size| sized.set_size(size.physical_width, size.physical_height))
+# }
 ```
 
-kit 自身の `gpu-interop` feature が必要です。このサーフェスはフレームをズームとパンし、ポインターを画像のピクセル座標に写します。
+`kivact` の `gpu-interop` feature を使います。`.transform(use_zoom_pan(binding))` でズームとパンを接続し、`ZoomPanApi::to_content` と `to_view` で座標を変換します。`NodeRef::snapshot` は GPU 表示中も viewport 自身の CPU の Pixels を使います。
 
 ### ビューのサイズに追従する
 
@@ -106,7 +112,7 @@ kit 自身の `gpu-interop` feature が必要です。このサーフェスは�
 
 エンジンのスレッドは、最新のリクエストを受け取り、それに応え、フレームを公開するループを持ちます。リクエストにはモード、サイズ、トークンが入っており、新しいリクエストは古いものを置き換えます。
 
-```rust,ignore
+```rust,no_run
 use std::time::Duration;
 
 use kivact_gpu_share::{FrameReady, PoolConfig, wgpu as share};
@@ -145,11 +151,26 @@ fn engine_thread(link: ShareLink) {
         }
     }
 }
+# impl Engine {
+#     fn serve(_: &ShareLink, _: ShareRequest) -> Result<Engine, String> { todo!() }
+#     fn draw_and_publish(&mut self, _: &ShareLink) -> Result<(), ShareError> { todo!() }
+# }
+# fn serve_pixels(_: &ShareLink, _: &ShareRequest) {}
 ```
 
 GPU のリクエストに応えるには、報告されたアダプターの上にデバイスを作り、リクエストのサイズのプールを作って、ウィンドウに渡します。
 
-```rust,ignore
+```rust,no_run
+# use std::time::Duration;
+# use kivact_gpu_share::{FrameReady, PoolConfig, wgpu as share};
+# use kivact::gpu_interop::{ShareError, ShareLink, ShareMode, ShareRequest};
+# struct Engine {
+#     request: ShareRequest,
+#     pool: share::Pool,
+#     device: wgpu::Device,
+#     queue: wgpu::Queue,
+# }
+# fn draw_scene(_: &mut wgpu::CommandEncoder, _: &wgpu::TextureView) {}
 impl Engine {
     fn serve(link: &ShareLink, request: ShareRequest) -> Result<Engine, String> {
         let ShareMode::Gpu(adapter) = &request.mode else {
@@ -206,14 +227,14 @@ impl Engine {
 
 ウィンドウがインポートできないときも、エンジンは何かを見せなければなりません。`Pixels` のリクエストには、CPU で描くか、自前のテクスチャを読み戻して応え、結果を公開します。
 
-```rust,ignore
-use std::sync::Arc;
-
+```rust,no_run
 use kivact::draw::Pixels;
+# use kivact::gpu_interop::{ShareLink, ShareRequest};
+# fn render_on_cpu(width: u32, height: u32) -> Vec<u8> { vec![0; (width * height * 4) as usize] }
 
 fn serve_pixels(link: &ShareLink, request: &ShareRequest) {
     let rgba: Vec<u8> = render_on_cpu(request.width, request.height); // ストレートアルファの RGBA8
-    link.publish_pixels(Pixels::new(request.width, request.height, Arc::from(rgba)));
+    link.publish_pixels(Pixels::new(request.width, request.height, rgba));
 }
 ```
 
@@ -251,9 +272,10 @@ GPU デバイスを先に作るのはウィンドウで、どのアダプター�
 
 エンジンが特定のものを必要とする場合など、ウィンドウにグラフィックス API、アダプターの種類、特定のアダプターを選ばせたいときは、希望を設定します。
 
-```rust,ignore
+```rust,no_run
 use kivact::gpu_interop::{GpuBackend, GpuPower, GpuPreference};
 use kivact::prelude::*;
+# fn app() -> impl IntoView { text("Viewport") }
 
 fn main() -> kivact::Result<()> {
     App::new("Viewport")

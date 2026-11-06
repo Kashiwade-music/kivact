@@ -1,7 +1,8 @@
 //! Role: Tests for registrations made while an owner is disposed (G-01).
-//! A cleanup that writes signals or registers a cleanup on the owner being
-//! disposed leaves nothing behind and reports nothing: the runtime runs a
-//! late cleanup at once. (Registering signals, effects and tasks on a
+//!
+//! G-01: nothing outlives a disposed component. A cleanup that writes
+//! signals or registers a cleanup on the owner being disposed leaves nothing
+//! behind and reports nothing: the runtime runs a late cleanup at once. (Registering signals, effects and tasks on a
 //! disposing owner needs the reactive owner and is tested in
 //! `kivact-core`'s `disposal_tests`.) A component whose handlers hold values
 //! whose `Drop` uses Kivact goes away with a branch switch.
@@ -11,9 +12,9 @@ use std::rc::Rc;
 
 use crate::support::mount;
 use crate::support::random::residue;
-use kivact::draw::Point;
+use kivact::custom::Owner;
+use kivact::geometry::Point;
 use kivact::prelude::*;
-use kivact::primitive::Owner;
 
 type Log = Rc<RefCell<Vec<String>>>;
 
@@ -33,7 +34,7 @@ fn a_cleanup_writes_signals_and_registers_a_cleanup_on_its_disposing_owner() {
         let open = signal(true);
         let closed = signal(0);
         let branch = show(open, move || {
-            let owner = Owner::current("disposal test");
+            let owner = Owner::current();
             let l3 = l2.clone();
             on_cleanup(move || {
                 // A write to a signal that outlives the branch.

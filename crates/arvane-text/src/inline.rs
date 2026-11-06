@@ -1,13 +1,11 @@
 //! Role: Shape one paragraph around caller-measured in-flow objects.
 use crate::text_engine::{TextEngine, crlf_as_one_break, crlf_spans};
 use crate::{TextError, build, metrics, output, transform};
-use kivact_types::protocol::{
-    InlineBox, InlineBoxPlacement, RichText, ShapedInlineText, ShapedText, TextStyle,
-};
+use kivact_types::ComputedTextStyle;
+use kivact_types::render::{InlineBox, InlineBoxPlacement, RichText, ShapedInlineText, ShapedText};
 use kivact_types::{Rect, TextAlign};
 use parley::{Alignment, AlignmentOptions, InlineBoxKind, PositionedLayoutItem};
 use std::collections::HashSet;
-use std::sync::Arc;
 
 impl TextEngine {
     /// Shape text and measured inline objects together, using the same font
@@ -21,8 +19,8 @@ impl TextEngine {
     pub fn shape_inline(
         &mut self,
         text: RichText<'_>,
-        style: &TextStyle,
-        max_width: Option<f32>,
+        style: &ComputedTextStyle,
+        max_width: Option<f64>,
         boxes: &[InlineBox],
     ) -> Result<ShapedInlineText, TextError> {
         if boxes.is_empty() {
@@ -39,35 +37,7 @@ impl TextEngine {
             return Err(TextError::UnsupportedInlineStyle);
         }
         let boundaries = transform::boundaries(text.text, style.transform);
-        let mut identities = HashSet::new();
-        let boxes = boxes
-            .iter()
-            .map(|item| {
-                if !text.text.is_char_boundary(item.offset)
-                    || !item.size.width.is_finite()
-                    || item.size.width < 0.0
-                    || !item.size.height.is_finite()
-                    || item.size.height < 0.0
-                    || !identities.insert(item.id)
-                {
-                    return Err(TextError::InvalidInlineBoxes);
-                }
-                let index = match &boundaries {
-                    Some(pairs) => pairs
-                        .binary_search_by_key(&item.offset, |&(_, original)| original)
-                        .map(|at| pairs[at].0)
-                        .map_err(|_| TextError::InvalidInlineBoxes)?,
-                    None => item.offset,
-                };
-                Ok(parley::InlineBox {
-                    id: item.id,
-                    kind: InlineBoxKind::InFlow,
-                    index,
-                    width: item.size.width,
-                    height: item.size.height,
-                })
-            })
-            .collect::<Result<Vec<_>, _>>()?;
+        let boxes = inline_boxes(text.text, boxes, boundaries.as_deref())?;
         let (converted, spans) = transform::apply(text.text, text.spans, style.transform);
         let spans = crlf_spans(&converted, spans);
         let converted = crlf_as_one_break(&converted);
@@ -80,7 +50,7 @@ impl TextEngine {
             height,
             &boxes,
         );
-        layout.break_all_lines(max_width);
+        layout.break_all_lines(max_width.map(|value| value as f32));
         layout.align(
             match style.align {
                 TextAlign::Start => Alignment::Start,
@@ -114,25 +84,9 @@ impl TextEngine {
                 range
             }
         });
-        let mut placements = Vec::with_capacity(boxes.len());
-        for (line, shaped) in layout.lines().enumerate() {
-            for item in shaped.items() {
-                if let PositionedLayoutItem::InlineBox(item) = item {
-                    placements.push(InlineBoxPlacement {
-                        id: item.id,
-                        line,
-                        rect: Rect {
-                            x: item.x,
-                            y: item.y,
-                            width: item.width,
-                            height: item.height,
-                        },
-                    });
-                }
-            }
-        }
+        let placements = placements(&layout, boxes.len());
         Ok(ShapedInlineText {
-            text: Arc::new(ShapedText {
+            text: kivact_types::ShapedTextSnapshot::new(ShapedText {
                 size: plan.size,
                 baseline: plan.baseline,
                 runs: drawn.runs,
@@ -144,4 +98,63 @@ impl TextEngine {
             boxes: placements,
         })
     }
+}
+
+/// Validate object identities and remap their original byte offsets.
+fn inline_boxes(
+    text: &str,
+    boxes: &[InlineBox],
+    boundaries: Option<&[(usize, usize)]>,
+) -> Result<Vec<parley::InlineBox>, TextError> {
+    let mut identities = HashSet::new();
+    boxes
+        .iter()
+        .map(|item| {
+            if !text.is_char_boundary(item.offset)
+                || !item.size.width.is_finite()
+                || item.size.width < 0.0
+                || !item.size.height.is_finite()
+                || item.size.height < 0.0
+                || !identities.insert(item.id)
+            {
+                return Err(TextError::InvalidInlineBoxes);
+            }
+            let index = match boundaries {
+                Some(pairs) => pairs
+                    .binary_search_by_key(&item.offset, |&(_, original)| original)
+                    .map(|at| pairs[at].0)
+                    .map_err(|_| TextError::InvalidInlineBoxes)?,
+                None => item.offset,
+            };
+            Ok(parley::InlineBox {
+                id: item.id,
+                kind: InlineBoxKind::InFlow,
+                index,
+                width: item.size.width as f32,
+                height: item.size.height as f32,
+            })
+        })
+        .collect::<Result<Vec<_>, _>>()
+}
+
+/// Collect visual inline-object rectangles after bidirectional layout.
+fn placements(layout: &parley::Layout<u32>, capacity: usize) -> Vec<InlineBoxPlacement> {
+    let mut placements = Vec::with_capacity(capacity);
+    for (line, shaped) in layout.lines().enumerate() {
+        for item in shaped.items() {
+            if let PositionedLayoutItem::InlineBox(item) = item {
+                placements.push(InlineBoxPlacement {
+                    id: item.id,
+                    line,
+                    rect: Rect {
+                        x: f64::from(item.x),
+                        y: f64::from(item.y),
+                        width: f64::from(item.width),
+                        height: f64::from(item.height),
+                    },
+                });
+            }
+        }
+    }
+    placements
 }

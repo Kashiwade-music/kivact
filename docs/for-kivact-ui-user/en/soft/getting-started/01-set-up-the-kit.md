@@ -14,10 +14,10 @@ fn main() -> kivact::Result<()> {
         .theme(soft::theme(ThemeMode::Light))
         .run(|| {
             column((
-                soft::heading(1, "Settings"),
-                soft::text("Manage your profile and appearance."),
+                kivact::ui::heading("Settings", 1),
+                soft::styled_text("Manage your profile and appearance."),
             ))
-            .style(|| style().gap(soft::tokens().spacing.s3))
+            .style(|| style().gap(kivact::style::use_tokens::<soft::Tokens>().spacing.s3))
         })
 }
 ```

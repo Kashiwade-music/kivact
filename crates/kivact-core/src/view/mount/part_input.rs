@@ -10,8 +10,8 @@ use std::rc::Rc;
 
 use kivact_style::draw::RegionId;
 
-use crate::view::common::{Constraints, Registry, Target, TargetId};
 use crate::view::descriptor::Mcx;
+use crate::view::element_data::{Constraints, Registry, Target, TargetId};
 use crate::view::handler_layers::{EventHandlers, Layer, Source, deliver, open};
 use crate::view::tree::{Handlers, PartActions};
 use crate::view::{A11yAction, Handled, KeyEvent, WheelEvent};
@@ -33,6 +33,7 @@ fn wheel_list(handlers: &Handlers) -> &EventHandlers<WheelEvent> {
     &handlers.wheel
 }
 
+// xtask-allow(state-fields): This per-event routing snapshot independently identifies observers, defaults and canvas origin; it owns no lifecycle.
 /// Where one event goes: the target whose observers see it and the target
 /// whose defaults run.
 struct Selected {
@@ -141,7 +142,7 @@ pub(super) fn root_target(
 
 /// Wrapping happens after every caller modifier, before refs bind at mount end.
 pub(super) fn route(
-    node: kivact_wire::NodeId,
+    node: kivact_types::NodeId,
     mut caller: Handlers,
     registry: Rc<Registry>,
 ) -> Handlers {
@@ -157,8 +158,8 @@ pub(super) fn route(
         };
         let registry = registry.clone();
         let router = EventHandlers::router(move |event: KeyEvent| {
-            let own_canvas = event.origin.is_some_and(|origin| origin.node == node);
-            let selected = select(&registry, own_canvas, event.region);
+            let own_canvas = event.origin().is_some_and(|origin| origin.node == node);
+            let selected = select(&registry, own_canvas, event.region());
             deliver_selected(list, &own, &registry.root, &selected, &event)
         });
         if up {
@@ -170,7 +171,7 @@ pub(super) fn route(
     caller.pointer = super::part_pointer::route(registry.clone(), own_pointer);
     let wheel_registry = registry.clone();
     caller.wheel = EventHandlers::router(move |event: WheelEvent| {
-        let selected = select(&wheel_registry, event.origin.node == node, event.region());
+        let selected = select(&wheel_registry, event.origin().node == node, event.region());
         deliver_selected(
             wheel_list,
             &own_wheel,
@@ -179,44 +180,57 @@ pub(super) fn route(
             &event,
         )
     });
+    route_actions(&mut caller, &registry);
+    route_accessibility(&mut caller, &registry);
+    caller
+}
+
+fn route_actions(caller: &mut Handlers, registry: &Rc<Registry>) {
     let custom = caller.text.take();
     let text_root = registry.root.clone();
     if custom.is_some() || text_root.actions.text.is_some() {
-        caller.text = Some(Rc::new(move |event| {
-            if let Some(custom) = &custom {
-                custom(event.clone())?;
-            }
-            if text_root.enabled()
-                && let Some(handler) = &text_root.actions.text
-            {
-                handler(event)?;
-            }
-            Ok(())
-        }));
+        caller.text = Some(kivact_runtime::Handler::from_fn(
+            move |event: crate::view::editing_data::TextEditEvent| {
+                if let Some(custom) = &custom {
+                    custom.call(event.clone())?;
+                }
+                if text_root.enabled()
+                    && let Some(handler) = &text_root.actions.text
+                {
+                    handler.call(event)?;
+                }
+                Ok(())
+            },
+        ));
     }
     let custom = caller.activate.take();
     let action_root = registry.root.clone();
     let action_registry = registry.clone();
     // Dynamic region actions may appear after mounting; each action dispatches
     // through the current registry, while root advertised actions stay separate.
-    caller.activate = Some(Rc::new(move |region| {
-        let target = region.and_then(|id| action_registry.lookup(id));
-        if let Some(target) = target {
-            if target.enabled()
-                && let Some(handler) = &target.actions.activate
-            {
-                handler(region)?;
+    caller.activate = Some(kivact_runtime::Handler::from_fn(
+        move |region: Option<kivact_types::RegionId>| {
+            let target = region.and_then(|id| action_registry.lookup(id));
+            if let Some(target) = target {
+                if target.enabled()
+                    && let Some(handler) = &target.actions.activate
+                {
+                    handler.call(region)?;
+                }
+            } else if region.is_none() && action_root.enabled() {
+                if let Some(custom) = &custom {
+                    custom.call(None)?;
+                }
+                if let Some(handler) = &action_root.actions.activate {
+                    handler.call(None)?;
+                }
             }
-        } else if region.is_none() && action_root.enabled() {
-            if let Some(custom) = &custom {
-                custom(None)?;
-            }
-            if let Some(handler) = &action_root.actions.activate {
-                handler(None)?;
-            }
-        }
-        Ok(())
-    }));
+            Ok(())
+        },
+    ));
+}
+
+fn route_accessibility(caller: &mut Handlers, registry: &Rc<Registry>) {
     let custom = Rc::new(std::mem::take(&mut caller.a11y));
     for action in [
         A11yAction::Focus,
@@ -236,7 +250,7 @@ pub(super) fn route(
         let registry = registry.clone();
         caller.a11y.push((
             action,
-            Rc::new(move |event| {
+            kivact_runtime::Handler::from_fn(move |event: crate::view::A11yEvent| {
                 if let Some(id) = event.region {
                     if let Some(target) = registry.lookup(id)
                         && target.enabled()
@@ -246,13 +260,13 @@ pub(super) fn route(
                             .iter()
                             .find(|(candidate, _)| *candidate == action)
                     {
-                        handler(event)?;
+                        handler.call(event)?;
                     }
                 } else if root.enabled() {
                     if let Some((_, handler)) =
                         custom.iter().find(|(candidate, _)| *candidate == action)
                     {
-                        handler(event.clone())?;
+                        handler.call(event.clone())?;
                     }
                     if let Some((_, handler)) = root
                         .actions
@@ -260,12 +274,11 @@ pub(super) fn route(
                         .iter()
                         .find(|(candidate, _)| *candidate == action)
                     {
-                        handler(event)?;
+                        handler.call(event)?;
                     }
                 }
                 Ok(())
             }),
         ));
     }
-    caller
 }

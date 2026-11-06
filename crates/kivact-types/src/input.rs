@@ -1,6 +1,8 @@
 //! Role: Portable keyboard, modifier, button, file drag and IME values.
+use crate::Point;
 
 use std::ops::Range;
+use std::path::PathBuf;
 
 /// Logical key independent of platform scan codes: what the key means in the
 /// current layout, like the Web's `KeyboardEvent.key`. The physical position
@@ -328,7 +330,7 @@ pub enum FilePhase {
 /// What the platform's input method (IME) does with a node that has an IME
 /// session (`NodeProperties::ime`). Offsets are UTF-8 byte offsets.
 #[derive(Clone, Debug, PartialEq)]
-pub enum ImeEvent {
+pub enum ImeInput {
     /// The composition (preedit) is now `text`; `selection` is the part of
     /// it the IME marks (its caret), if it says.
     Preedit {
@@ -337,9 +339,216 @@ pub enum ImeEvent {
     },
     /// The IME committed `text`; any composition ended with it.
     Commit(String),
-    /// The IME took this range of the session's text for reconversion: the
-    /// next composition replaces it.
+    /// The IME took this UTF-8 byte range in the last surrounding-text
+    /// snapshot for reconversion: the next composition replaces it.
+    /// An editor that supplied an excerpt adds that excerpt's byte origin
+    /// when applying the range to its complete document.
     Selection(Range<usize>),
     /// The IME session ended without a commit: the composition is gone.
     End,
+}
+
+/// A normalized pointer sample, shared from the window to the listener.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct PointerSample {
+    /// The pointer's identity for the lifetime of its contact.
+    pub id: PointerId,
+    /// The device that produced the sample.
+    pub kind: PointerKind,
+    /// The transition and its press data, when present.
+    pub phase: PointerPhase,
+    /// Logical window coordinates.
+    pub position: Point,
+    /// Buttons held after the transition.
+    pub buttons: PointerButtons,
+    /// The button changed by this sample, if any.
+    pub button: Option<MouseButton>,
+    /// Click count and button for a press or release, if any.
+    pub press: Option<ButtonPress>,
+    /// Pressure from zero to one, when reported by the device.
+    pub pressure: Option<f64>,
+    /// Pen tilt from vertical in degrees, when reported.
+    pub tilt: Option<(f64, f64)>,
+    /// The sample's monotonic timestamp in nanoseconds.
+    pub time_ns: u64,
+    /// Modifier keys held for this sample.
+    pub modifiers: Modifiers,
+    /// Whether this is the primary active pointer of its kind.
+    pub is_primary: bool,
+}
+
+/// A normalized key press or release, independent of its routing target.
+#[derive(Clone, Debug, PartialEq)]
+pub struct KeyInput {
+    /// Logical meaning in the current keyboard layout.
+    pub key: Key,
+    /// Physical keyboard position.
+    pub code: KeyCode,
+    /// Press or release, including repeat and produced text.
+    pub phase: KeyPhase,
+    /// Modifier keys held for this event.
+    pub modifiers: Modifiers,
+    /// The last mouse position in logical window coordinates, if inside.
+    pub pointer: Option<Point>,
+}
+
+/// A wheel movement before node-local routing.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct WheelInput {
+    /// Movement in logical pixels.
+    pub delta: Point,
+    /// Mouse position in logical window coordinates.
+    pub position: Point,
+    /// Modifier keys held for the movement.
+    pub modifiers: Modifiers,
+}
+
+/// An operating-system file drag before node-local routing.
+#[derive(Clone, Debug, PartialEq)]
+pub struct FileDrop {
+    /// Transition of the file drag.
+    pub phase: FilePhase,
+    /// Files offered or dropped, in platform order.
+    pub files: Vec<PathBuf>,
+    /// Position in logical window coordinates.
+    pub position: Point,
+}
+
+/// A key's press or release (`HostEvent::Key`).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum KeyPhase {
+    /// The key went down. `repeat`: the system repeats a held key. `text`:
+    /// the text the press produces (a character or a space), `None` for other
+    /// keys.
+    Down { repeat: bool, text: Option<String> },
+    /// The key was released.
+    Up,
+}
+
+/// Identifies one pointer: the mouse ([`PointerId::MOUSE`]), or one touch
+/// or pen contact for as long as it lasts (from its `Down` to its `Up` or
+/// `Cancel`). A new contact gets a new id; a window never reuses one.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct PointerId(pub u64);
+
+impl PointerId {
+    /// The mouse (and anything the platform reports as one, such as a
+    /// touchpad).
+    pub const MOUSE: PointerId = PointerId(1);
+}
+
+/// What kind of device a pointer is.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub enum PointerKind {
+    /// A mouse or touchpad: it hovers, has buttons and a wheel.
+    #[default]
+    Mouse,
+    /// A finger on a touch screen: it exists only while in contact.
+    Touch,
+    /// A pen (stylus) on a digitizer, while in contact.
+    Pen,
+}
+
+/// The button a `Down` pressed or an `Up` released, and which click of a
+/// multi-click the press is. A touch or pen contact presses
+/// [`MouseButton::Primary`].
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct ButtonPress {
+    /// The button.
+    pub button: MouseButton,
+    /// Which click of a multi-click the press is: 1 a single click, 2 a
+    /// double click, ..; never 0. An `Up` has the count of the press it
+    /// ends. The window counts it from the system's double-click time and
+    /// distance (per axis) from the last press of the same button; a
+    /// contact's taps count the same way from the last contact's `Down`.
+    pub clicks: u8,
+}
+
+/// The phase of a pointer event (Pointer Events' `pointerdown` ..
+/// `pointerleave`), shared by the window's input and the events a node's
+/// listener receives.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum PointerPhase {
+    /// A button was pressed, or a touch or pen contact began.
+    Down(ButtonPress),
+    /// The pointer moved, with or without buttons held.
+    Move,
+    /// A button was released, or a contact ended normally (lifted).
+    Up(ButtonPress),
+    /// The gesture ended without a release the application should act on
+    /// (the window lost focus with buttons held, the platform took a
+    /// contact over for a gesture or rejected a palm).
+    Cancel,
+    /// The pointer entered a listener. A window does not report it; the
+    /// host synthesizes it when the pointer moves onto a listener.
+    Enter,
+    /// The pointer left a listener, or the mouse left the window. Held
+    /// buttons keep their capture.
+    Leave,
+}
+
+impl PointerPhase {
+    /// The press of a `Down` or the release of an `Up`; `None` for the other
+    /// phases.
+    pub fn press(self) -> Option<ButtonPress> {
+        match self {
+            Self::Down(press) | Self::Up(press) => Some(press),
+            Self::Move | Self::Cancel | Self::Enter | Self::Leave => None,
+        }
+    }
+}
+
+/// The set of mouse buttons held (Pointer Events' `buttons`). A touch or
+/// pen contact holds [`MouseButton::Primary`]
+/// while in contact.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub struct PointerButtons(u8);
+
+impl PointerButtons {
+    /// No button is held.
+    pub const NONE: Self = Self(0);
+
+    /// Whether `button` is held.
+    pub const fn contains(self, button: MouseButton) -> bool {
+        self.0 & Self::bit(button) != 0
+    }
+
+    /// This set with `button` held (`held`) or released.
+    #[must_use]
+    pub const fn with(self, button: MouseButton, held: bool) -> Self {
+        if held {
+            Self(self.0 | Self::bit(button))
+        } else {
+            Self(self.0 & !Self::bit(button))
+        }
+    }
+
+    /// Whether no button is held.
+    pub const fn is_empty(self) -> bool {
+        self.0 == 0
+    }
+
+    const fn bit(button: MouseButton) -> u8 {
+        match button {
+            MouseButton::Primary => 1,
+            MouseButton::Secondary => 2,
+            MouseButton::Middle => 4,
+            MouseButton::Back => 8,
+            MouseButton::Forward => 16,
+        }
+    }
+}
+
+/// Intended content and software keyboard hint for a text editor.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub enum InputPurpose {
+    #[default]
+    Text,
+    Number,
+    Decimal,
+    Email,
+    Url,
+    Phone,
+    Password,
+    Search,
 }

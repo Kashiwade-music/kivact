@@ -2,12 +2,12 @@
 //!
 //! Arvane's contract tests: what a host sees through the `arvane` facade
 //! alone (no Kivact crate), on real test windows
-//! (`arvane::test_display`): one UI thread per process, windows reused from
+//! (`arvane_virtual`): one UI thread per process, windows reused from
 //! its pool, frames drawn on the CPU (bit for bit the same everywhere)
 //! unless a test asks for the GPU, text shaped with the bundled test font
 //! only.
 //!
-//! One test binary (`required-features = ["testing"]`; `cargo test -p
+//! One test binary (`cargo test -p
 //! arvane --all-features`), its modules split by the part of the upper
 //! face they hold: `present` and `presenter` (scenes to frame pixels and
 //! the frame policy), `text` and `text_style`, `input`, `accessibility`,
@@ -18,7 +18,7 @@
 //!
 //! Determinism: frames are drawn on the CPU (bit for bit the same), text
 //! with the bundled test font only (Tuffy,
-//! `arvane::test_display::test_font`), the clock is virtual. Image
+//! `arvane::test_font`), the clock is virtual. Image
 //! fixtures are in `crates/arvane/tests/fixtures/`. The tests of OpenType
 //! features and variable weights use Inter
 //! (`crates/arvane/tests/fonts/InterVariable.ttf`, SIL OFL, with a `wght`
@@ -27,13 +27,13 @@
 //! most 1, at most 0.5% of the pixels differ by more than 64 and at least
 //! 99% by 8 or less (`support.rs`). A GPU test is skipped, saying why,
 //! only when there is no hardware adapter or no feature `gpu`
-//! (`arvane::test_display::gpu_unavailable`).
+//! (`arvane::gpu_unavailable`).
 
 mod accessibility;
 mod assets;
 mod effects;
 mod environment;
-#[cfg(all(feature = "gpu-interop", any(windows, target_os = "linux")))]
+#[cfg(any(windows, target_os = "linux"))]
 mod external;
 mod images;
 mod input;
@@ -47,5 +47,4 @@ mod text;
 mod text_style;
 mod transform;
 
-#[cfg(feature = "embed")]
 mod embed;

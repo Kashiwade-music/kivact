@@ -2,16 +2,18 @@
 use super::layer::with_recipe_style;
 use super::values::{AxisState, ControlSize};
 use super::variants::{Variant, Variants};
-use kivact_core::control::{Node, NodeBuilder, node};
-use kivact_core::primitive::NodeExt;
+use kivact_core::state::IntoValue;
+use kivact_core::state::{Binding, Callback, Value};
+use kivact_core::state::{IntoText, callback};
 use kivact_core::style::{Direction, style};
+use kivact_core::view::EditPhase;
 use kivact_core::view::{
-    HandlerResult, IntoText, IntoView, Orientation, ReadingDirection, View, callback,
-    current_direction,
+    HandlerResult, IntoView, Orientation, ReadingDirection, Role, View, node_ref, use_direction,
 };
-use kivact_core::{Binding, Callback, Value};
-use kivact_interaction::{EditPhase, IntoScalarRange, ScalarRange, use_splitter};
+use kivact_core::view::{Node, NodeBuilder, node};
+use kivact_interaction::{ScalarRange, ScalarRangeError, use_splitter};
 
+// xtask-allow(state-fields): Setup-only NodeBuilder options; optional panes and observer are independent construction inputs.
 /// Two panes and a handle between them, created by [`splitter`].
 pub struct Splitter {
     root: Node,
@@ -23,6 +25,11 @@ pub struct Splitter {
     end: Option<View>,
     on_edit: Option<Callback<EditPhase>>,
     variants: Variants,
+    collapse: Option<f64>,
+    snaps: Option<Value<Vec<f64>>>,
+    pointer_scale: Value<f64>,
+    key_step: Option<f64>,
+    handle: Option<View>,
 }
 
 /// Two panes side by side with a themed handle between them, named `name`,
@@ -38,7 +45,7 @@ pub struct Splitter {
 /// leading pane is on the right and the keys and the drag follow it.
 ///
 /// ```no_run
-/// use kivact::ui::ScalarRange;
+/// use kivact::interaction::ScalarRange;
 /// use kivact::prelude::*;
 /// use kivact::ui::splitter;
 ///
@@ -53,19 +60,24 @@ pub struct Splitter {
 #[track_caller]
 pub fn splitter(
     name: impl IntoText,
-    size: impl Into<Binding<f64>>,
-    range: impl IntoScalarRange,
+    size: impl kivact_core::state::IntoBinding<f64>,
+    range: impl IntoValue<ScalarRange>,
 ) -> Splitter {
     Splitter {
         root: node(),
         name: name.into_text_value(),
-        size: size.into(),
-        range: range.into_range(),
+        size: size.into_binding(),
+        range: range.into_value(),
         orientation: Orientation::Horizontal,
         start: None,
         end: None,
         on_edit: None,
         variants: Variants::default(),
+        collapse: None,
+        snaps: None,
+        pointer_scale: 1.0.into_value(),
+        key_step: None,
+        handle: None,
     }
 }
 
@@ -87,6 +99,40 @@ impl Splitter {
 }
 
 impl Splitter {
+    /// Collapse on release below this fraction of the current range.
+    pub fn collapsible(mut self, threshold: impl Into<f64>) -> Self {
+        self.collapse = Some(threshold.into());
+        self
+    }
+
+    /// Snap on release to the nearest fraction of the current range.
+    pub fn snaps(mut self, stops: impl IntoValue<Vec<f64>>) -> Self {
+        self.snaps = Some(stops.into_value());
+        self
+    }
+
+    /// Scale pointer travel into the caller's size units.
+    pub fn pointer_scale(mut self, scale: impl IntoValue<f64>) -> Self {
+        self.pointer_scale = scale.into_value();
+        self
+    }
+
+    /// Set a positive finite keyboard step in the caller's size units.
+    pub fn key_step(mut self, step: impl Into<f64>) -> Result<Self, ScalarRangeError> {
+        let step = step.into();
+        if !step.is_finite() || step <= 0.0 {
+            return Err(ScalarRangeError::InvalidStep);
+        }
+        self.key_step = Some(step);
+        Ok(self)
+    }
+
+    /// Supply the handle's visual content; its canonical input part stays attached.
+    pub fn handle(mut self, content: impl IntoView) -> Self {
+        self.handle = Some(content.into_view());
+        self
+    }
+
     /// The direction the panes are laid out in (default
     /// [`Orientation::Horizontal`]: side by side, `size` is the leading pane's
     /// width). [`Orientation::Vertical`] stacks them top to bottom and `size`
@@ -136,32 +182,40 @@ impl IntoView for Splitter {
             end,
             on_edit,
             variants,
+            collapse,
+            snaps,
+            pointer_scale,
+            key_step,
+            handle,
         } = self;
         let vertical = orientation == Orientation::Vertical;
-        let axis = if vertical {
-            Orientation::Vertical
-        } else {
-            Orientation::Horizontal
-        };
-        let mut behavior = use_splitter(size, range, axis).on_edit(move |phase| {
+        let mut behavior = use_splitter(size, range, orientation).on_edit(move |phase| {
             if let Some(on_edit) = on_edit {
                 on_edit.call(phase);
             }
         });
+        behavior = behavior.pointer_scale(pointer_scale);
+        if let Some(threshold) = collapse {
+            behavior = behavior.collapsible(threshold);
+        }
+        if let Some(stops) = snaps {
+            behavior = behavior.snaps(stops);
+        }
+        if let Some(step) = key_step {
+            behavior = behavior
+                .key_step(step)
+                .expect("invariant: setup validated the keyboard step");
+        }
         // `.disabled(..)` on the splitter ignores input and assistive
         // technology and cancels a drag in progress.
         if let Some(disabled) = root.accessible_disabled() {
-            behavior = behavior.disabled(move || disabled());
+            behavior = behavior.disabled(move || disabled.get());
         }
         let part = behavior.handle();
         let input = part.state();
-        let orientation = if vertical {
-            Orientation::Vertical
-        } else {
-            Orientation::Horizontal
-        };
+        let primary = node_ref();
         let handle = with_recipe_style(
-            node().part(part).name(name),
+            node().part(part).name(name).controls(primary).child(handle),
             |r| r.splitter_recipes().handle_recipe(),
             &variants,
             move || AxisState {
@@ -170,15 +224,20 @@ impl IntoView for Splitter {
                 size: ControlSize::Medium,
             },
         );
-        let leading = node().child(start).style(move || {
-            let px = size.get() as f32;
-            let s = style().shrink(0).min_width(0).min_height(0);
-            if vertical { s.height(px) } else { s.width(px) }
-        });
+        let leading = node()
+            .role(Role::Group)
+            .node_ref(primary)
+            .name(name)
+            .child(start)
+            .style(move || {
+                let px = size.get();
+                let s = style().shrink(0).min_width(0).min_height(0);
+                if vertical { s.height(px) } else { s.width(px) }
+            });
         let trailing = node()
             .child(end)
             .style(style().grow(1).basis(0).min_width(0).min_height(0));
-        let direction = match (vertical, current_direction()) {
+        let direction = match (vertical, use_direction().get()) {
             (true, _) => Direction::Column,
             (false, ReadingDirection::Ltr) => Direction::Row,
             (false, ReadingDirection::Rtl) => Direction::RowReverse,

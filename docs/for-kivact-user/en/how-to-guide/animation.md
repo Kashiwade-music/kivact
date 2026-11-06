@@ -32,7 +32,7 @@ use kivact::motion::{Easing, Transition, animated};
 use kivact::prelude::*;
 
 fn progress() -> impl IntoView {
-    let target = signal(0.0_f32);
+    let target = signal(0.0_f64);
     let amount = animated(target, Transition::tween(250, Easing::EaseOut));
 
     column((
@@ -65,6 +65,10 @@ spring's iteration ends when it settles.
 `Transition::keyframes([(0.0, 0.0), (0.6, 1.2), (1.0, 1.0)], 400)` passes
 through values at offsets between 0 and 1 and ends at the target.
 
+With `.retarget(kivact::motion::Retarget::Proportional)`, an interrupted timed transition scales its new duration by the remaining component distance to preserve its intended speed. `Restart` is the default. Springs keep their physical timing.
+
+Use `style().layout_transition(Transition::tween(250, Easing::EaseOut))` to animate position and size changes caused by layout. Layout runs once; paint, pointer hit testing and accessibility share the interpolated visual transform. Decorative layout transitions also respect reduced motion.
+
 ### Use the value in a style
 
 Moving an element with `transform` and `opacity` is cheap, because it does not
@@ -77,7 +81,7 @@ use kivact::prelude::*;
 fn drawer() -> impl IntoView {
     let open = signal(false);
     let offset = animated(
-        move || if open.get() { 0.0_f32 } else { -240.0 },
+        move || if open.get() { 0.0_f64 } else { -240.0 },
         Transition::spring(Spring::DEFAULT),
     );
 
@@ -111,7 +115,7 @@ to run on every frame. Prefer a transform when you have the choice.
   does not run then either.
 - The value type can be `f32`, `f64`, a tuple of up to four of them,
   `Point`, `Size` or `Rect`. Implement `Animatable` to animate your own
-  type (it converts to and from a few `f32` components). A color is not
+  type (it converts to and from a few `f64` components). A color is not
   animatable here: animate a number from 0 to 1 and mix the colors yourself, or
   use a style transition, below.
 
@@ -199,17 +203,18 @@ time since the previous tick (`delta`), a frame counter and the estimated
 presentation time. Start it with a rate:
 
 ```rust,no_run
-use kivact::control::canvas;
-use kivact::draw::{Path, Point, Stroke};
+use kivact::view::canvas;
+use kivact::draw::{Path, Stroke};
+use kivact::geometry::{Point};
 use kivact::motion::{FrameInfo, FrameRate, frame_loop};
 use kivact::prelude::*;
 
 fn clock_hand() -> impl IntoView {
-    let angle = signal(0.0_f32);
+    let angle = signal(0.0_f64);
 
     let frames = frame_loop(move |frame: FrameInfo| {
         // One turn every 10 seconds, from the app clock, not by counting ticks.
-        angle.set((frame.now.as_secs_f32() / 10.0 * 360.0) % 360.0);
+        angle.set((frame.now.as_secs_f64() / 10.0 * 360.0) % 360.0);
     });
     on_mount(move || frames.start(FrameRate::Hz(30.0)));
 
@@ -256,19 +261,19 @@ acts on it for you in most cases:
 - Transitions are *decorative* by default. With reduced motion on, they finish
   at once: `animated` jumps to its target, and `enter`/`exit` apply immediately.
 - Mark motion that carries meaning, such as a spinner that says "working", with
-  `Transition::tween(…).decorative(false)`. It keeps moving.
+  `Transition::tween(…).essential()`. It keeps moving.
 - `frame_loop` is **not** stopped by reduced motion, because it may be a game or
-  a simulation. If your loop only decorates, read `kivact::platform::reduced_motion()`
+  a simulation. If your loop only decorates, read `kivact::platform::is_motion_reduced().get()`
   (a tracked read) and skip or slow it:
 
 ```rust,no_run
 # use kivact::motion::{FrameInfo, FrameRate, frame_loop};
 # use kivact::prelude::*;
 fn drifting_background() -> impl IntoView {
-    let shift = signal(0.0_f32);
-    let frames = frame_loop(move |frame: FrameInfo| shift.set(frame.now.as_secs_f32() * 12.0));
+    let shift = signal(0.0_f64);
+    let frames = frame_loop(move |frame: FrameInfo| shift.set(frame.now.as_secs_f64() * 12.0));
     effect(move || {
-        if kivact::platform::reduced_motion() {
+        if kivact::platform::is_motion_reduced().get() {
             frames.stop();
         } else {
             frames.start(FrameRate::Hz(30.0));
@@ -290,7 +295,7 @@ use kivact::motion::{Easing, Transition, animated};
 use kivact::prelude::*;
 
 fn progress() -> impl IntoView {
-    let target = signal(0.0_f32);
+    let target = signal(0.0_f64);
     let amount = animated(target, Transition::tween(250, Easing::Linear));
     column((
         button("Fill").on_press(move || target.set(100.0)),
@@ -320,10 +325,7 @@ mod tests {
 
     #[test]
     fn reduced_motion_arrives_at_once() {
-        let options = RenderOptions {
-            reduced_motion: true,
-            ..RenderOptions::default()
-        };
+        let options = RenderOptions::default().reduced_motion();
         let screen = render_with(options, progress);
         screen.get_by_role(Role::Button, "Fill").click();
         screen.get_by_text("100%");
@@ -337,3 +339,5 @@ mod tests {
 - [Run async work from a component](async-and-tasks.md): timers and background work.
 - [Test your app](testing.md): the virtual clock and `RenderOptions`.
 - API reference: `cargo doc -p kivact --open`, then `kivact::motion` and `kivact::style::Style`.
+
+Use `frame_loop(callback).while_present(node_ref)` to pause frame scheduling while the referenced node is entering, leaving or unbound. When it becomes present, the loop resumes at its requested rate. `start`, `stop` and `rate` retain their meaning while paused; a stopped loop stays stopped after remounting.

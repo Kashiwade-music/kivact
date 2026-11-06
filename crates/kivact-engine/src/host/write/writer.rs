@@ -1,11 +1,11 @@
 //! Role: `Writer`: the turn's write API onto the engine's tree.
 
 use super::reader::Reader;
-use crate::model::Model;
+use crate::contract::{HostEvent, HostRequest, NodeKind, SceneLayer};
+use crate::model::{DeferredRequest, Model};
 use crate::mutation::WriteStats;
-use kivact_wire::{
-    HostEvent, NodeId, NodeKind, PlatformRequest, PlatformResult, Point, PointerId, RegionId,
-    RequestId, Revision, Scene, SceneLayer, Size,
+use kivact_types::{
+    DrawList, NodeId, PlatformResult, Point, PointerId, RegionId, RequestId, Revision, Size,
 };
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -44,10 +44,28 @@ impl Writer {
         model.writes.create(id);
     }
 
+    /// Prepare one event immediately before dispatch, after earlier callbacks.
+    /// Pointer activation consumes the gesture adoption into its routed sample.
+    pub fn prepare_input(&self, event: &mut HostEvent) {
+        if let HostEvent::Activate {
+            node,
+            region,
+            pointer: Some(route),
+        } = event
+        {
+            route.activation = Some(crate::contract::Activation(
+                self.model
+                    .borrow()
+                    .admission
+                    .take_adoption(route.input.id, *node, *region),
+            ));
+        }
+    }
+
     /// Record that `pointer`'s current primary gesture was adopted at
     /// `region` of `node` (a canvas gesture took the press over): the
     /// activation its click produces, `HostEvent::Activate`, is then
-    /// skipped (`Reader::take_adopted_activation`). The adoption ends at
+    /// skipped through the release sample's routing metadata. The adoption ends at
     /// that pointer's next primary `Down` or its `Cancel` (as dispatched,
     /// see [`Reader::admit_input`]), and when its activation is answered.
     pub fn adopt_pointer(&self, node: NodeId, region: RegionId, pointer: PointerId) {
@@ -63,6 +81,13 @@ impl Writer {
     /// release or a `Cancel` of the engine's).
     pub fn forget_adopted_pointer(&self, pointer: PointerId) {
         self.model.borrow().admission.forget_adoption(pointer);
+    }
+
+    /// Set or release capture for an admitted, enabled pointer listener.
+    pub fn set_pointer_capture(&self, node: NodeId, pointer: PointerId, capture: bool) {
+        self.model
+            .borrow_mut()
+            .set_pointer_capture(node, pointer, capture);
     }
 
     /// Keep an active touch contact routed to its initial control.
@@ -87,23 +112,21 @@ impl Writer {
         self.model.borrow().writes.pending()
     }
 
-    /// Attach the detached node `id` under `parent`, before `before`
+    /// Attach or reparent node `id` under `parent`, before `before`
     /// (append if `None`).
     pub fn insert(&self, parent: NodeId, id: NodeId, before: Option<NodeId>) {
         let mut guard = self.model.borrow_mut();
         let m = &mut *guard;
         debug_assert!(m.tree.contains(parent) && m.tree.contains(id));
-        debug_assert!(
-            m.tree
-                .get(id)
-                .is_some_and(|node| m.tree.parent_id(node).is_none())
-        );
         debug_assert!(!m.tree.is_in_subtree(parent, id));
         debug_assert!(before.is_none_or(|before| {
             m.tree
                 .get(before)
                 .is_some_and(|node| m.tree.parent_id(node) == Some(parent))
         }));
+        if before == Some(id) {
+            return;
+        }
         m.insert(parent, id, before, true);
         m.writes.structural(id);
     }
@@ -121,16 +144,19 @@ impl Writer {
         self.remove_with_exit(id, false, false);
     }
 
-    /// Remove a subtree, optionally freeing its layout slot and reporting physical removal.
-    pub fn remove_with_exit(&self, id: NodeId, pop_layout: bool, notify: bool) {
+    /// Remove a subtree and return its logical IDs in pre-order, including exits.
+    /// Optionally free layout slots and report completion of physical removal.
+    pub fn remove_with_exit(&self, id: NodeId, pop_layout: bool, notify: bool) -> Vec<NodeId> {
         let mut guard = self.model.borrow_mut();
         let m = &mut *guard;
+        let removed = m.tree().subtree(id);
         m.remove(id, pop_layout, notify);
         m.writes.structural(id);
+        removed
     }
 
     /// Set the scene of one draw layer of the `Box` `id`.
-    pub fn set_scene(&self, id: NodeId, layer: SceneLayer, scene: Arc<Scene>) {
+    pub fn set_scene(&self, id: NodeId, layer: SceneLayer, scene: Arc<DrawList>) {
         let mut guard = self.model.borrow_mut();
         let m = &mut *guard;
 
@@ -146,7 +172,7 @@ impl Writer {
 
     /// Focus `id`; the result is reported with `request`
     /// (`HostEvent::FocusResult`).
-    pub fn focus(&self, id: kivact_wire::FocusTarget, request: RequestId, visible: bool) {
+    pub fn focus(&self, id: kivact_types::FocusTarget, request: RequestId, visible: bool) {
         let mut guard = self.model.borrow_mut();
         let m = &mut *guard;
         m.writes.command(Some(id.node));
@@ -162,7 +188,13 @@ impl Writer {
     }
 
     /// Scroll one container with optional smooth interpolation.
-    pub fn scroll(&self, id: NodeId, point: Point, relative: bool, smooth: bool) {
+    pub fn scroll(
+        &self,
+        id: NodeId,
+        point: Point,
+        relative: bool,
+        easing: Option<kivact_types::Easing>,
+    ) {
         let mut m = self.model.borrow_mut();
         m.writes.command(Some(id));
         let Some(n) = m.node(id) else { return };
@@ -200,7 +232,7 @@ impl Writer {
                 0.0
             },
         };
-        m.scroll_smoothly(id, start, target, smooth);
+        m.scroll_smoothly(id, start, target, easing);
     }
     /// Select every character of a text input.
     pub fn select_all(&self, id: NodeId) {
@@ -254,22 +286,30 @@ impl Writer {
     /// `request` (`HostEvent::EffectResult`). A font is registered at
     /// once (the next layout measures with it); the other effects are
     /// carried out by the window after the turn.
-    pub fn effect(&self, request: RequestId, effect: PlatformRequest) {
+    pub fn effect(&self, request: RequestId, effect: HostRequest) {
         let mut guard = self.model.borrow_mut();
         let m = &mut *guard;
         m.writes.command(None);
         match effect {
-            PlatformRequest::RegisterFont(font) => {
+            HostRequest::Snapshot(node) => m.snapshots.push((request, node)),
+            HostRequest::RegisterFont(font) => {
                 let result = m
                     .assets
                     .borrow_mut()
                     .register_font(&mut self.engine.borrow_mut(), &font);
                 if matches!(result, PlatformResult::Fonts(_)) {
                     m.fonts_added();
+                    let fonts = m.assets.borrow().fonts();
+                    m.update_env(|env, _| env.fonts = fonts);
                 }
                 m.push(HostEvent::EffectResult { request, result });
             }
-            effect => m.effects.push((request, effect)),
+            HostRequest::Platform(effect) => {
+                m.effects.push((request, DeferredRequest::Platform(effect)))
+            }
+            HostRequest::ReducedMotion(value) => m
+                .effects
+                .push((request, DeferredRequest::ReducedMotion(value))),
         }
     }
 
@@ -285,11 +325,10 @@ impl Writer {
     /// `image` of the window (`Window::import_external_image`), after the
     /// turn; the answer is `HostEvent::ExternalImported`. The client names
     /// each image once.
-    #[cfg(feature = "gpu-interop")]
     pub fn import_external(
         &self,
-        image: kivact_wire::ExternalImageId,
-        textures: kivact_wire::SharedTextures,
+        image: kivact_types::ExternalImageId,
+        textures: kivact_types::SharedTextures,
     ) {
         let mut guard = self.model.borrow_mut();
         let m = &mut *guard;
@@ -301,8 +340,7 @@ impl Writer {
     /// Drop the image `image` of the window
     /// (`Window::drop_external_image`), after the turn; nothing when it is
     /// not imported.
-    #[cfg(feature = "gpu-interop")]
-    pub fn drop_external(&self, image: kivact_wire::ExternalImageId) {
+    pub fn drop_external(&self, image: kivact_types::ExternalImageId) {
         let mut guard = self.model.borrow_mut();
         let m = &mut *guard;
         m.writes.command(None);

@@ -12,11 +12,11 @@
 //! - A hit outside the scope of a shown modal hits nothing (the backdrop).
 //! - Every pointer has a track of its own (`PointerState::tracks`): the
 //!   mouse always, a touch or pen contact from its `Down` to its `Up` or
-//!   `Cancel`. Its gesture (`Gesture::Route` with its capture, pressed
-//!   chain and press target, `Gesture::Scrollbar` or `Gesture::Pan`),
+//!   `Cancel`. Its gesture (`MouseGesture::Route` with its capture, pressed
+//!   chain and press target, `MouseGesture::Scrollbar` or `TouchGesture::Pan`),
 //!   `Enter`/`Leave` listener and hover chain are its own; its events carry
 //!   its id, kind, pressure and whether it is primary; no pointer waits for
-//!   another. The buttons it holds are the shell's (`PointerInput::buttons`),
+//!   another. The buttons it holds are the shell's (`PointerSample::buttons`),
 //!   kept once in its track's source.
 //! - The primary pointers (Pointer Events' `isPrimary`: the mouse; the
 //!   first touch and the first pen contact while no other of its kind is in

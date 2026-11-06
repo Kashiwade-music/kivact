@@ -10,11 +10,12 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use crate::support::mount_with;
-use kivact::interaction::{RangeThumb, Scalar, ScalarState, use_range_scalar, use_scalar};
+use kivact::interaction::ScalarRange;
+use kivact::interaction::{RangeThumb, ScalarApi, ScalarState, use_range_scalar, use_scalar};
 use kivact::prelude::*;
 use kivact::style::Position;
-use kivact::test::{RenderOptions, Screen, WindowMode};
-use kivact::ui::{EditPhase, ScalarRange};
+use kivact::test::{MirrorMode, RenderOptions, Screen};
+use kivact::view::EditPhase;
 use kivact::view::{MouseButton, PointerKind};
 
 use EditPhase::{Begin, Cancel, Commit};
@@ -24,14 +25,11 @@ type Log = Rc<RefCell<Vec<(EditPhase, f64)>>>;
 
 /// The track is 200 by 20 and the thumb 20 by 20, so the thumb's center
 /// spans 180 pixels from 10 to 190.
-const TRACK: f32 = 200.0;
-const THUMB: f32 = 20.0;
+const TRACK: f64 = 200.0;
+const THUMB: f64 = 20.0;
 
 fn real_window() -> RenderOptions {
-    RenderOptions {
-        window: WindowMode::Real,
-        ..RenderOptions::from_env()
-    }
+    RenderOptions::from_env().mirror(MirrorMode::Required)
 }
 
 fn range() -> ScalarRange {
@@ -47,13 +45,13 @@ fn observer(value: Signal<f64>, log: &Log) -> impl Fn(EditPhase) + 'static {
 /// (from the bottom); right to left, it runs from the right edge.
 fn thumb(
     name: &str,
-    part: kivact::primitive::Part<ScalarState>,
+    part: kivact::custom::Part<ScalarState>,
     axis: Orientation,
     rtl: bool,
 ) -> Node {
     let state = part.state();
     node().part(part).name(name.to_string()).style(move || {
-        let at = state.get().fraction as f32 * (TRACK - THUMB);
+        let at = state.get().fraction * (TRACK - THUMB);
         let s = style().size(THUMB, THUMB).position(Position::Absolute);
         match (axis, rtl) {
             (Orientation::Vertical, _) => s.left(0).top(TRACK - THUMB - at),
@@ -69,7 +67,7 @@ fn slider(
     log: &Log,
     axis: Orientation,
     rtl: bool,
-) -> (Scalar, Node) {
+) -> (ScalarApi, Node) {
     let scalar = use_scalar(value, range()).on_edit(observer(value, log));
     let (width, height) = match axis {
         Orientation::Vertical => (THUMB, TRACK),
@@ -83,7 +81,7 @@ fn slider(
     (scalar, track)
 }
 
-fn track_rect(screen: &Screen) -> kivact::draw::Rect {
+fn track_rect(screen: &Screen) -> kivact::geometry::Rect {
     screen.get_by_test_id("track").rect().expect("laid out")
 }
 

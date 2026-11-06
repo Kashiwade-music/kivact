@@ -7,35 +7,36 @@ use crate::button::{Look, trigger_style};
 use crate::list_popup::{option_row, surface_style};
 use crate::theme_access::{CHEVRON_DOWN, field_fill, stroke_glyph, wide_focus_ring, with_focus};
 use crate::tokens::Tokens;
-use kivact::draw::Point;
+use kivact::geometry::Edge;
+use kivact::geometry::Point;
 use kivact::interaction::{ListItemState, PopupState, TabListState, TabState};
 use kivact::style::{Align, Color, Direction, Justify, Position, Style, Theme, pct, style};
-use kivact::ui::{ControlSize, MenuRecipes, SelectRecipes, Side, TabsRecipes, TooltipArrowState};
+use kivact::ui::{ControlSize, MenuRecipes, SelectRecipes, TabsRecipes, TooltipArrowState};
 use kivact::view::Orientation;
 
 pub(crate) fn select(r: SelectRecipes) -> SelectRecipes {
     r.trigger(|_| select_trigger)
         .surface(|_| {
             |t: &Theme, _: &kivact::ui::Look<PopupState>| {
-                surface_style(&t.get::<Tokens>())
+                surface_style(&t.ext::<Tokens>())
                     .min_width(144)
                     .max_height(320)
             }
         })
         .option(|_| {
-            |t: &Theme, s: &kivact::ui::Look<ListItemState>| option_row(&t.get::<Tokens>(), s)
+            |t: &Theme, s: &kivact::ui::Look<ListItemState>| option_row(&t.ext::<Tokens>(), s)
         })
         .check(|_| |_: &Theme, _: &kivact::ui::Look<ListItemState>| check_box())
         .indicator(|_| select_indicator)
         .description(|_| {
             |_: &Theme, _: &kivact::ui::Look<ListItemState>| {
-                style().color(crate::Color::MutedForeground)
+                style().color(crate::ColorName::MutedForeground)
             }
         })
 }
 
 fn select_trigger(t: &Theme, s: &kivact::ui::Look<kivact::ui::SelectTriggerState>) -> Style {
-    let p = t.get::<Tokens>();
+    let p = t.ext::<Tokens>();
     let base = style()
         .direction(Direction::Row)
         .align_items(Align::Center)
@@ -74,7 +75,7 @@ fn select_indicator(t: &Theme, _: &kivact::ui::Look<PopupState>) -> Style {
     style()
         .size(16, 16)
         .shrink(0)
-        .color(t.get::<Tokens>().muted_foreground)
+        .color(t.ext::<Tokens>().muted_foreground)
 }
 
 pub(crate) fn menu(r: MenuRecipes) -> MenuRecipes {
@@ -83,7 +84,7 @@ pub(crate) fn menu(r: MenuRecipes) -> MenuRecipes {
 
 /// An outline button with a trailing `chevron-down`.
 fn menu_trigger(t: &Theme, s: &kivact::ui::Look<PopupState>) -> Style {
-    let p = t.get::<Tokens>();
+    let p = t.ext::<Tokens>();
     let color = p.muted_foreground;
     trigger_style(
         &p,
@@ -109,7 +110,7 @@ fn check_box() -> Style {
 }
 
 pub(crate) fn tooltip(t: &Theme, _: &kivact::ui::Look<PopupState>) -> Style {
-    let p = t.get::<Tokens>();
+    let p = t.ext::<Tokens>();
     style()
         .direction(Direction::Row)
         .align_items(Align::Center)
@@ -126,8 +127,8 @@ pub(crate) fn tooltip(t: &Theme, _: &kivact::ui::Look<PopupState>) -> Style {
 /// tooltip.tsx's arrow: a `size-2.5` square in `bg-foreground`, turned 45°,
 /// half out of the edge toward the trigger.
 pub(crate) fn tooltip_arrow(t: &Theme, s: &kivact::ui::Look<TooltipArrowState>) -> Style {
-    const SIDE: f32 = 10.0;
-    let p = t.get::<Tokens>();
+    const SIDE: f64 = 10.0;
+    let p = t.ext::<Tokens>();
     let base = style()
         .position(Position::Absolute)
         .size(SIDE, SIDE)
@@ -136,13 +137,13 @@ pub(crate) fn tooltip_arrow(t: &Theme, s: &kivact::ui::Look<TooltipArrowState>) 
     let along = s.offset - SIDE / 2.0;
     match s.side {
         // `-bottom-2.5 translate-y-[calc(-50%-2px)]`.
-        Side::Top => base.left(along).top(pct(100) - 7.0),
+        Edge::Top => base.left(along).top(pct(100) - 7.0),
         // `top-1 translate-y-[calc(-50%-2px)]`.
-        Side::Bottom => base.left(along).top(-3),
+        Edge::Bottom => base.left(along).top(-3),
         // `top-1/2! -right-1 -translate-y-1/2`.
-        Side::Left => base.top(pct(50) - SIDE / 2.0).left(pct(100) - 6.0),
+        Edge::Left => base.top(pct(50) - SIDE / 2.0).left(pct(100) - 6.0),
         // `top-1/2! -left-1 -translate-y-1/2`.
-        Side::Right => base.top(pct(50) - SIDE / 2.0).left(-4),
+        Edge::Right => base.top(pct(50) - SIDE / 2.0).left(-4),
     }
 }
 
@@ -182,7 +183,7 @@ pub(crate) fn tabs(r: TabsRecipes) -> TabsRecipes {
 /// `flex-1 text-xs/relaxed outline-none`: a panel draws no focus ring; the
 /// root's `gap-2` is the panel's leading padding.
 fn tab_panel(t: &Theme, s: &kivact::ui::Look<TabState>) -> Style {
-    let p = t.get::<Tokens>();
+    let p = t.ext::<Tokens>();
     let base = style()
         .grow(1)
         .font_size(12)
@@ -197,7 +198,7 @@ fn tab_panel(t: &Theme, s: &kivact::ui::Look<TabState>) -> Style {
 }
 
 fn tabs_list(t: &Theme, s: &kivact::ui::Look<TabListState>) -> Style {
-    let p = t.get::<Tokens>();
+    let p = t.ext::<Tokens>();
     let base = style()
         .align_items(Align::Center)
         .justify_content(Justify::Center)
@@ -215,7 +216,7 @@ fn tabs_list(t: &Theme, s: &kivact::ui::Look<TabListState>) -> Style {
 }
 
 fn tab(t: &Theme, s: &kivact::ui::Look<TabState>) -> Style {
-    let p = t.get::<Tokens>();
+    let p = t.ext::<Tokens>();
     let dark = p.is_dark();
     let rest = if dark {
         p.muted_foreground

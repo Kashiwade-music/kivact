@@ -31,8 +31,8 @@ The `dev-dependencies` line turns on the testing tools you use in step 3.
 A kit is a **theme**. Kivact's standard components (`text_input`, `button`,
 `radio_group`, `tabs` and so on) come from the `kivact` crate, and they look
 plain until a theme tells them how to draw themselves. `kivact-ui-pop`
-provides that theme, plus a few components of its own (a card `panel`, date
-inputs, badges, alerts). You keep writing the same `button(..)` and
+provides that theme for standard cards, date inputs, badges and alerts, plus
+its scheduling and business display components. You keep writing the same `button(..)` and
 `text_input(..)` as in the core tutorial; the kit changes how they look.
 
 ## Install the theme
@@ -46,7 +46,7 @@ use kivact_ui_pop as pop;
 
 fn sign_up() -> impl IntoView {
     let name = signal(String::new());
-    pop::panel((
+    kivact::ui::card((
         text("New account").style(style().font_size(20).weight(600)),
         text_input("Name", name),
         button("Create account"),
@@ -76,7 +76,7 @@ Three things are new:
 - `pop::theme(ThemeMode::Light)` builds the Pop theme, and
   `App::theme(..)` installs it for the whole window. The result is an
   ordinary Kivact `Theme`. Use `ThemeMode::Dark` for the dark palette.
-- `pop::panel(..)` is a Pop component: a bordered, rounded card that lays its
+- `kivact::ui::card(..)` is a standard component with the Pop appearance: a bordered, rounded card that lays its
   children out in a column.
 - `use kivact_ui_pop as pop;` is only a short name. Components of the kit are
   written `pop::name`; standard components stay unqualified.

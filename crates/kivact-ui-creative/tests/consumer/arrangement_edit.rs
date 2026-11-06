@@ -1,11 +1,10 @@
 //! Role: Arrangement edits transact exactly the model fields they own.
 use crate::arrangement_model;
 use crate::arrangement_model::arrangement as app_arrangement;
-use crate::support::clean;
-use kivact::draw::Point;
+use kivact::geometry::Point;
 use kivact::prelude::*;
 use kivact::test::Screen;
-use kivact::ui::EditPhase;
+use kivact::view::EditPhase;
 use kivact::view::{Modifiers, MouseButton};
 use kivact_ui_creative as ui;
 
@@ -17,8 +16,7 @@ struct Model {
     frame: Signal<f64>,
     range: Signal<(f64, f64)>,
     cycling: Signal<bool>,
-    zoom: Signal<f64>,
-    pan: Signal<Point>,
+    transform: Signal<kivact::interaction::ViewTransform>,
     tool: Signal<ui::TimelineTool>,
     phases: Signal<Vec<EditPhase>>,
     observed: Signal<Vec<(EditPhase, f64)>>,
@@ -45,8 +43,10 @@ fn fixture() -> (Screen, Model) {
             frame: signal(0.0),
             range: signal((0.0, 16.0)),
             cycling: signal(true),
-            zoom: signal(26.0),
-            pan: signal(Point::new(0.0, 0.0)),
+            transform: signal(kivact::interaction::ViewTransform {
+                scale: 26.0,
+                ..Default::default()
+            }),
             tool: signal(ui::TimelineTool::Select),
             phases: signal(Vec::new()),
             observed: signal(Vec::new()),
@@ -62,13 +62,12 @@ fn fixture() -> (Screen, Model) {
                         m.clips,
                         m.tracks,
                         ui::ArrangementState {
-                            selection: m.selected.into(),
-                            playhead: m.frame.into(),
-                            loop_range: m.range.into(),
-                            cycling: m.cycling.into(),
-                            zoom: m.zoom.into(),
-                            pan: m.pan.into(),
-                            tool: m.tool.into(),
+                            selection: m.selected.into_binding(),
+                            playhead: m.frame.into_binding(),
+                            loop_range: m.range.into_binding(),
+                            cycling: m.cycling.into_binding(),
+                            transform: m.transform.into_binding(),
+                            tool: m.tool.into_binding(),
                         },
                     )
                     .on_edit(arrangement_model::edits(m.clips, m.tracks, move |phase| {
@@ -123,7 +122,7 @@ fn clip_drag_uses_one_transaction_and_snap_from_the_original_position() {
         m.observed.get_untracked(),
         [(EditPhase::Begin, 2.0), (EditPhase::Commit, 4.0)]
     );
-    clean(&s);
+    assert!(s.errors().is_empty(), "{:?}", s.errors());
 }
 #[test]
 fn arrow_keys_move_selected_clips_by_the_step_and_shift_by_ten_steps() {
@@ -141,7 +140,7 @@ fn arrow_keys_move_selected_clips_by_the_step_and_shift_by_ten_steps() {
                     rgb(0x34d399),
                 )]),
                 ui::ArrangementState {
-                    selection: (signal(vec![1])).into(),
+                    selection: (signal(vec![1])).into_binding(),
                     ..ui::ArrangementState::new()
                 },
             )
@@ -170,5 +169,5 @@ fn arrow_keys_move_selected_clips_by_the_step_and_shift_by_ten_steps() {
     s.run_until_idle();
     root.press_key(Key::ArrowLeft);
     assert_eq!(start(), 4.5, "an invalid step falls back to one beat");
-    clean(&s);
+    assert!(s.errors().is_empty(), "{:?}", s.errors());
 }

@@ -1,10 +1,11 @@
 //! Role: Numeric controls and sample display for creative.
 use crate::creative::audio_values::TransportState;
+use kivact::state::IntoBinding;
 
 use super::common::{bind, col, note, spec, specs};
 use super::controls::{num, slide};
-use kivact::Binding;
 use kivact::prelude::{IntoView, NodeBuilder, Signal, column, rgb, row, signal};
+use kivact::state::Binding;
 use kivact::style::{pct, style};
 use kivact_ui_creative as ui;
 
@@ -18,7 +19,7 @@ pub(super) fn numeric(transport: Signal<TransportState>) -> impl IntoView {
             note("左右ドラッグ／Ctrl 微調整／Shift 粗調整／クリックで入力（数式可: 50*2）／ホバー中 Backspace で既定値／ホイール+Ctrl で増減。"),
         ))).style(style().min_height(258)),
         spec("Slider Field", "スライダー", col((
-            ui::value_slider("Opacity", signal(100.0)).range(0.0,100.0).precision(1).step(0.1).unit(" %").reset_to(100.0).style(style().width(pct(100))),
+            ui::value_slider("Opacity", signal(100.0)).range(0.0..=100.0).precision(1).step(0.1).unit(" %").reset_to(100.0).style(style().width(pct(100))),
             slide("Roughness", 0.5).step(0.001),
             slide("Strength", 0.82).step(0.001).reset_to(1.0),
             slide("Disabled", 0.3).precision(2).disabled(true),
@@ -34,7 +35,7 @@ pub(super) fn numeric(transport: Signal<TransportState>) -> impl IntoView {
                 axis_num("Rotation Y",0.0,"°",1,0x34d399).label_visible(false).style(style().width(0).grow(1)),
                 axis_num("Rotation Z",-35.0,"°",1,0x5aa9ff).label_visible(false).style(style().width(0).grow(1)),
             )).style(style().gap(1))),
-        )).style(style().gap(3))),
+        )).role(kivact::view::Role::List).style(style().gap(3))),
         spec("Animatable Property", "キーフレーム状態", col((
             animation_property("Scale",1.0,ui::PropertyState::Plain),
             animation_property("Keyed",0.75,ui::PropertyState::Keyed),
@@ -43,29 +44,29 @@ pub(super) fn numeric(transport: Signal<TransportState>) -> impl IntoView {
             note("◇ をクリックでキー挿入（黄）／再クリックで削除。未キーのフレームは緑、ドライバー駆動は紫。"),
         )).style(style().gap(3))),
         spec("Timecode Field", "タイムコード", col((
-            ui::property_row("Start", tc("Start timecode", signal(0.0).into())),
-            ui::property_row("End", tc("End timecode", signal(5760.0).into())),
-            ui::property_row("Duration", tc("Duration timecode", signal(86.0).into())),
+            ui::property_row("Start", tc("Start timecode", signal(0.0).into_binding())),
+            ui::property_row("End", tc("End timecode", signal(5760.0).into_binding())),
+            ui::property_row("Duration", tc("Duration timecode", signal(86.0).into_binding())),
             ui::property_row("Current", tc("Current timecode", bind(move || transport.get().frame, move |frame| transport.update(|state| state.frame = frame)))),
             note("ドラッグでフレーム単位スクラブ／クリックで HH:MM:SS:FF 入力。+12 のような相対入力も可。"),
-        )).style(style().gap(3))),
+        )).role(kivact::view::Role::List).style(style().gap(3))),
         spec("Inline Pairs", "横並び", col((
             ui::property_row("Resolution", column((
                 num("X",1920.0,4.0,65536.0,0," px").style(style().radius(3)),
                 num("Y",1080.0,4.0,65536.0,0," px").style(style().radius(3)),
-                ui::value_slider("%", signal(100.0)).range(1.0,100.0).precision(0).step(1.0).unit(" %").style(style().width(pct(100)).radius(3)),
+                ui::value_slider("%", signal(100.0)).range(1.0..=100.0).precision(0).step(1.0).unit(" %").style(style().width(pct(100)).radius(3)),
             )).style(style().gap(1))),
             ui::property_row("Frame Range", row((
                 num("Range start",1.0,0.0,65536.0,0,"").label_visible(false).style(style().width(0).grow(1)),
                 num("Range end",250.0,0.0,65536.0,0,"").label_visible(false).style(style().width(0).grow(1)),
             )).style(style().gap(1))),
             ui::property_row("Tempo", num("BPM",120.0,20.0,300.0,3,"")),
-        )).style(style().gap(3))).style(style().min_height(190)),
+        )).role(kivact::view::Role::List).style(style().gap(3))).style(style().min_height(190)),
     ))
 }
 fn tc(label: &str, state: Binding<f64>) -> ui::Numeric {
     ui::number(label.to_owned(), state)
-        .range(0.0, 1_000_000.0)
+        .range(0.0..=1_000_000.0)
         .timecode(24)
         .label_visible(false)
         .style(style().width(pct(100)))
@@ -91,9 +92,9 @@ fn animation_property(label: &str, initial: f64, tint: ui::PropertyState) -> ui:
         }
     };
     let field = if tint == ui::PropertyState::Animated {
-        ui::value_slider(name, value).range(0.0, 1.0)
+        ui::value_slider(name, value).range(0.0..=1.0)
     } else {
-        ui::number(name, value).range(-65536.0, 65536.0)
+        ui::number(name, value).range(-65536.0..=65536.0)
     };
     ui::property_row(
         label.to_owned(),
@@ -104,7 +105,7 @@ fn animation_property(label: &str, initial: f64, tint: ui::PropertyState) -> ui:
     )
     .leading({
         let label = label.to_owned();
-        move || {
+        {
             ui::property_state_button(label, state)
                 .on_press(move || keyed.update(|keyed| *keyed = !*keyed))
         }

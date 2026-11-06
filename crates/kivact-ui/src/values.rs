@@ -1,7 +1,7 @@
 //! Role: Passive state and appearance settings for standard component recipes.
 //!
 //! Each recipe gets the actual state of the part it styles. Checkbox, switch
-//! and radio items get [`CheckState`] (the real `CheckedState` plus size and
+//! and radio items get [`CheckableState`] (the real `CheckedState` plus size and
 //! invalid); a select's trigger gets [`SelectTriggerState`], its surface
 //! `PopupState` and its options `ListItemState`; a tooltip's optional arrow
 //! gets [`TooltipArrowState`], found from the anchor's and the surface's
@@ -24,10 +24,10 @@
 //! reads its text reactively, the handle is not part of the state's
 //! equality, and no message handle is created while drawing.
 use super::variants::Variant;
-use kivact_core::primitive::PartState;
+use kivact_core::custom::PartState;
 use kivact_core::view::CheckedState;
 use kivact_core::view::Orientation;
-use kivact_interaction::DialogKind;
+use kivact_interaction::DialogMode;
 
 /// What a button does, which its recipe draws (shadcn's `variant`).
 ///
@@ -58,6 +58,14 @@ pub enum ButtonVariant {
 
 impl Variant for ButtonVariant {}
 
+/// Standard presentation of a radio group.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum RadioGroupVariant {
+    /// Adjacent choices drawn as a segmented control.
+    Segmented,
+}
+impl Variant for RadioGroupVariant {}
+
 /// The metrics a control is drawn at; the recipe decides what each size
 /// means.
 ///
@@ -87,14 +95,15 @@ pub fn provide_control_size<V: kivact_core::view::IntoView>(
     size: ControlSize,
     content: impl FnOnce() -> V + 'static,
 ) -> kivact_core::view::View {
-    kivact_core::view::provide(InheritedControlSize(size), content)
+    kivact_core::state::provide(InheritedControlSize(size), content)
 }
 
 pub(super) fn default_control_size() -> ControlSize {
-    kivact_core::view::try_context::<InheritedControlSize>()
-        .map_or_else(ControlSize::default, |size| size.0)
+    kivact_core::state::try_use_context::<InheritedControlSize>()
+        .map_or_else(ControlSize::default, |size| size.get().0)
 }
 
+// xtask-allow(state-fields): Read-only recipe projection of independent caller values and actual interaction observations, never a mutable lifecycle authority.
 /// What a button's recipes know of it: its root, its content row, its
 /// icon boxes and its busy indicator get the same state.
 #[derive(Clone, Debug, PartialEq)]
@@ -106,7 +115,7 @@ pub struct ButtonState {
     /// decoration is not a state style property).
     pub input: PartState,
     pub size: ControlSize,
-    pub loading: bool,
+    pub busy: bool,
     /// Whether the button opens something and whether that is open: `None`
     /// for a plain button, `Some(open)` when the button publishes an
     /// expanded state (a popup, menu or disclosure attached its trigger to
@@ -117,7 +126,7 @@ pub struct ButtonState {
     /// Whether the button shows a leading icon ([`Button::icon`](super::Button::icon)).
     pub leading_icon: bool,
     /// Whether the button shows a trailing icon
-    /// ([`Button::trailing_icon`](super::Button::trailing_icon)).
+    /// ([`Button::trailing`](super::Button::trailing)).
     pub trailing_icon: bool,
     /// Whether the button shows only its leading icon: it has one and its
     /// label is hidden ([`Button::hide_label`](super::Button::hide_label)).
@@ -135,7 +144,7 @@ impl ButtonState {
         ButtonState {
             input,
             size,
-            loading: false,
+            busy: false,
             expanded: None,
             leading_icon: false,
             trailing_icon: false,
@@ -144,7 +153,8 @@ impl ButtonState {
     }
 }
 
-/// The state of a [`toggle`](super::toggle) for its recipe.
+// xtask-allow(state-fields): Read-only recipe projection of independent caller values and actual interaction observations, never a mutable lifecycle authority.
+/// The state of a [`toggle_button`](super::toggle) for its recipe.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ToggleButtonState {
     /// The actual input state of the toggle.
@@ -153,10 +163,10 @@ pub struct ToggleButtonState {
     pub pressed: bool,
     /// The size the caller chose with `.size(..)` (default `Medium`).
     pub size: ControlSize,
-    /// Whether the toggle shows a leading icon ([`Toggle::icon`](super::Toggle::icon)).
+    /// Whether the toggle shows a leading icon ([`ToggleButton::icon`](super::ToggleButton::icon)).
     pub leading_icon: bool,
     /// Whether the toggle shows only its leading icon: it has one and its
-    /// label is hidden ([`Toggle::hide_label`](super::Toggle::hide_label)).
+    /// label is hidden ([`ToggleButton::hide_label`](super::ToggleButton::hide_label)).
     /// A look draws it as a square of the toggle's height.
     pub icon_only: bool,
 }
@@ -176,14 +186,14 @@ pub struct ProgressState {
     /// paints the fill reads it in the paint, which follows it. The handle
     /// is made at setup and stays the same for the mounted bar; it is not
     /// part of the state's equality.
-    pub shown: kivact_core::Value<f64>,
+    pub shown: kivact_core::state::Value<f64>,
     /// A clock from 0 to 1 that repeats with the theme's
     /// [`ProgressMotion`](super::ProgressMotion) period while the bar is
     /// indeterminate or [`Progress::moving`](super::Progress::moving) is true.
     /// The clock rests at 0 under reduced motion by default. A recipe reads it
     /// in a paint that moves. The handle is made at setup and stays the same
     /// for the mounted bar; it is not part of the state's equality.
-    pub phase: kivact_core::Value<f32>,
+    pub phase: kivact_core::state::Value<f64>,
 }
 
 impl ProgressState {
@@ -192,12 +202,12 @@ impl ProgressState {
     /// leaves at the right (the start is below 0 or above 1 while it is partly
     /// or wholly outside). It follows [`phase`](Self::phase), so a paint that
     /// calls it moves; under reduced motion it rests at the track's start.
-    pub fn sweep(&self) -> (f32, f32) {
-        const LENGTH: f32 = 0.3;
-        if kivact_core::platform::reduced_motion() {
+    pub fn sweep(&self) -> (f64, f64) {
+        const LENGTH: f64 = 0.3;
+        if kivact_core::platform::is_motion_reduced().get() {
             return (0.0, LENGTH);
         }
-        let eased = (1.0 - (self.phase.get() * std::f32::consts::PI).cos()) / 2.0;
+        let eased = (1.0 - (self.phase.get() * std::f64::consts::PI).cos()) / 2.0;
         (LENGTH * (-1.1 + 4.7 * eased), LENGTH)
     }
 }
@@ -224,11 +234,12 @@ pub struct FieldState {
     pub invalid: bool,
 }
 
+// xtask-allow(state-fields): Read-only recipe projection of independent caller values and actual interaction observations, never a mutable lifecycle authority.
 /// The visual position of a switch thumb during an opt-in gesture.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct SwitchDragState {
     /// Physical translation along the writing direction, in logical pixels.
-    pub offset: Option<f32>,
+    pub offset: Option<f64>,
     /// The side the thumb is showing, before the binding commits.
     pub visually_on: bool,
     pub touch: bool,
@@ -237,9 +248,10 @@ pub struct SwitchDragState {
     pub released: bool,
 }
 
+// xtask-allow(state-fields): Read-only recipe projection of independent caller values and actual interaction observations, never a mutable lifecycle authority.
 /// The state of a check box, a switch or a radio item for its recipe.
 #[derive(Clone, Copy, Debug)]
-pub struct CheckState {
+pub struct CheckableState {
     /// The actual input state of the control.
     pub input: PartState,
     /// Whether it is on; only a check box is ever
@@ -254,12 +266,12 @@ pub struct CheckState {
     /// for a check box and a radio item. The handle is made at setup and
     /// stays the same for the mounted control; read it in the paint, which
     /// follows its text. It is not part of the state's equality.
-    pub text: Option<kivact_core::Value<String>>,
+    pub text: Option<kivact_core::state::Value<String>>,
     /// Live visual state for an opted-in Switch gesture.
     pub switch_drag: Option<SwitchDragState>,
 }
 
-impl PartialEq for CheckState {
+impl PartialEq for CheckableState {
     fn eq(&self, other: &Self) -> bool {
         self.input == other.input
             && self.checked == other.checked
@@ -269,11 +281,12 @@ impl PartialEq for CheckState {
     }
 }
 
+// xtask-allow(state-fields): Read-only recipe projection of independent caller values and actual interaction observations, never a mutable lifecycle authority.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct DialogState {
     pub input: PartState,
     pub open: bool,
-    pub kind: DialogKind,
+    pub kind: DialogMode,
     /// The dialog has a [`media`](super::Dialog::media) view in its header,
     /// which the header recipe lays out beside or above the title.
     pub media: bool,
@@ -286,13 +299,14 @@ pub struct TooltipArrowState {
     /// `data-side`): `Top` when it is above the trigger, so the arrow sits
     /// at the tooltip's bottom edge. It follows the host's flip once the
     /// tooltip is placed; before that, it is the requested placement.
-    pub side: kivact_interaction::Side,
+    pub side: kivact_core::geometry::Edge,
     /// Where the trigger's centre is along that edge, in logical pixels
     /// from the tooltip's left (`Top`, `Bottom`) or top (`Left`, `Right`)
     /// edge, within the tooltip.
-    pub offset: f32,
+    pub offset: f64,
 }
 
+// xtask-allow(state-fields): Read-only recipe projection of independent caller values and actual interaction observations, never a mutable lifecycle authority.
 /// The state of a select's trigger for its recipe.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct SelectTriggerState {
@@ -339,6 +353,7 @@ pub struct ToastGroupState {
     pub above: usize,
 }
 
+// xtask-allow(state-fields): Read-only recipe projection of independent caller values and actual interaction observations, never a mutable lifecycle authority.
 /// The state of a main row of a [`data_table`](super::data_table) for its
 /// recipe.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -352,7 +367,7 @@ pub struct DataTableRowState {
     pub color: Option<kivact_core::style::Color>,
     /// The height the caller gave the rows with
     /// [`DataTable::row_height`](super::DataTable::row_height), at least 18.
-    pub height: Option<f32>,
+    pub height: Option<f64>,
 }
 
 /// The state of a cell of a [`data_table`](super::data_table) for its
@@ -385,3 +400,18 @@ pub struct DataTablePageState {
     /// How many pages the filtered rows fill. Zero for a remote page with unknown total.
     pub pages: usize,
 }
+
+kivact_core::state::constant_value!(ControlSize);
+
+/// Standard progress appearances, read through the existing variant contract.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub enum ProgressVariant {
+    /// A horizontal bar (the default).
+    #[default]
+    Bar,
+    /// A circular track with visible percentage text.
+    Ring,
+    /// A segmented horizontal gauge.
+    Gauge,
+}
+impl Variant for ProgressVariant {}

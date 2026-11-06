@@ -1,56 +1,87 @@
 //! Role: Render themed icons with Neutral sizing and optional color.
-use crate::tokens;
-use kivact::control::{Node, NodeBuilder, icon as control_icon};
-use kivact::style::{Icon as IconSource, Style, style};
-use kivact::view::{IntoText, IntoValue, IntoView, View};
+
+use kivact::state::IntoText;
+use kivact::state::IntoValue;
+use kivact::style::Icon as IconSource;
+use kivact::style::Style;
+use kivact::style::style;
+use kivact::view::IntoView;
+use kivact::view::Node;
+use kivact::view::NodeBuilder;
+use kivact::view::View;
+use kivact::view::icon as control_icon;
 use std::cell::Cell;
 use std::rc::Rc;
 
 /// The icon size option.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub enum IconSize {
+    /// Use the extra-small icon dimensions from the theme.
     Xs,
+    /// Use the small icon dimensions from the theme.
     Sm,
     #[default]
+    /// Use the standard icon dimensions from the theme.
     Md,
+    /// Use the large icon dimensions from the theme.
     Lg,
 }
 
 /// The icon color option.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub enum IconColor {
+    /// Use primary icon ink.
     Primary,
+    /// Use secondary icon ink.
     Secondary,
+    /// Use the secondary ink for a tertiary treatment.
     Tertiary,
+    /// Use disabled icon ink.
     Disabled,
+    /// Use accent icon ink.
     Accent,
+    /// Use informational text ink.
     Info,
+    /// Use successful text ink.
     Success,
+    /// Use error text ink.
     Error,
+    /// Use warning text ink.
     Warning,
     #[default]
+    /// Inherit foreground ink from the surrounding content.
     Inherit,
+    /// Use the blue categorical icon ink.
     Blue,
+    /// Use the red categorical icon ink.
     Red,
+    /// Use the green categorical icon ink.
     Green,
+    /// Use the gray categorical icon ink.
     Gray,
+    /// Use the cyan categorical icon ink.
     Cyan,
+    /// Use the teal categorical icon ink.
     Teal,
+    /// Use the yellow categorical icon ink.
     Yellow,
+    /// Use the orange categorical icon ink.
     Orange,
+    /// Use the pink categorical icon ink.
     Pink,
+    /// Use the purple categorical icon ink.
     Purple,
 }
 
-/// A theme icon created with [`icon`].
-pub struct Icon {
+/// A theme icon created with [`icon_view`].
+pub struct IconView {
     root: Node,
     options: Rc<Cell<(IconSize, IconColor)>>,
 }
 
 /// Show an icon from the current theme.
 #[track_caller]
-pub fn icon(source: impl IntoValue<IconSource>) -> Icon {
+pub fn icon_view(source: impl IntoValue<IconSource>) -> IconView {
     let options = Rc::new(Cell::new((IconSize::default(), IconColor::default())));
     let look = options.clone();
     // Override the primitive's ordinary style layer before callers add theirs.
@@ -58,10 +89,10 @@ pub fn icon(source: impl IntoValue<IconSource>) -> Icon {
         let (size, color) = look.get();
         icon_style(size, color)
     });
-    Icon { root, options }
+    IconView { root, options }
 }
 
-impl Icon {
+impl IconView {
     /// Set the size.
     pub fn size(self, value: IconSize) -> Self {
         self.options.set((value, self.options.get().1));
@@ -80,13 +111,14 @@ impl Icon {
     }
 }
 
-impl NodeBuilder for Icon {
+impl NodeBuilder for IconView {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
 }
 
-impl IntoView for Icon {
+impl IntoView for IconView {
     fn into_view(self) -> View {
         self.root.into_view()
     }
@@ -94,7 +126,7 @@ impl IntoView for Icon {
 
 /// Resolve the Neutral icon size and color against the current theme.
 pub fn icon_style(size: IconSize, color: IconColor) -> Style {
-    let tokens = tokens();
+    let tokens = kivact::style::use_tokens::<crate::Tokens>();
     let s = &tokens.sizes;
     let size = match size {
         IconSize::Xs => s.icon_xsm,

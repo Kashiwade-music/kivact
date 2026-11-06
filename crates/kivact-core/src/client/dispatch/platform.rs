@@ -1,8 +1,8 @@
 //! Role: Answers and failures from the platform: effect results, asset
 //! failures, host failures, memory warnings.
 
-use kivact_reactive::{ErrorKind, Runtime, UiError};
-use kivact_wire::{NodeId, PlatformResult, RequestId, Revision};
+use kivact_runtime::{ErrorKind, Runtime, UiError};
+use kivact_types::{NodeId, PlatformResult, RequestId, Revision};
 
 use super::common::{handler, node_owner, run_handler};
 use crate::client::state::HostState;
@@ -15,7 +15,9 @@ pub(super) fn effect_result(rt: &Runtime, request: RequestId, result: &PlatformR
 
 pub(super) fn asset_failed(rt: &Runtime, node: NodeId, message: &str) {
     if let Some(handle) = handler(rt, node, |handlers| handlers.image_error.clone()) {
-        run_handler(rt, node_owner(rt, node), || handle(message));
+        let at = ViewState::tree(rt).get(node).and_then(|n| n.at);
+        let error = UiError::new(ErrorKind::Asset, message, at);
+        run_handler(rt, node_owner(rt, node), || handle.call(error));
         return;
     }
     let first = HostState::of(rt)

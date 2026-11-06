@@ -2,51 +2,15 @@
 
 use crate::support::mount_with;
 use kivact::interaction::{
-    ColumnDef, ListRangePolicy, ListSelection, SortOrder, TableFocus, use_table,
+    ColumnDef, ListRangeOptions, Selection, SortOrder, TableFocus, use_data_table,
 };
 use kivact::prelude::*;
-use kivact::test::{RenderOptions, WindowMode};
+use kivact::test::{MirrorMode, RenderOptions};
 use kivact::view::{Modifiers, for_each};
 
 #[test]
 fn cells_follow_pointer_navigation_policy_removal_and_scroll() {
-    let (screen, (rows, selected)) = mount_with(
-        RenderOptions {
-            window: WindowMode::Real,
-            ..Default::default()
-        },
-        || {
-            let rows = signal(vec![1u32, 2, 3, 4, 5, 6, 7, 8]);
-            let selected = signal(Vec::new());
-            let table = use_table(
-                rows,
-                |row| *row,
-                vec![ColumnDef::new(0, "Name"), ColumnDef::new(1, "Value")],
-                ListSelection::Multiple(selected.into()),
-                TableFocus::Cells(ListRangePolicy::default()),
-            )
-            .row_label(|key| format!("Row {key}"));
-            let body = for_each(
-                rows,
-                |row| *row,
-                move |key, _| {
-                    row((0..2)
-                        .map(|col| {
-                            node()
-                                .part(table.cell(key, col))
-                                .name(format!("{key}:{col}"))
-                                .style(style().size(100, 40))
-                        })
-                        .collect::<Vec<_>>())
-                    .part(table.row(key))
-                },
-            );
-            (
-                (rows, selected),
-                scroll(column(body).part(table.grid())).style(style().size(220, 100)),
-            )
-        },
-    );
+    let (screen, (rows, selected)) = table_navigation_fixture();
     screen.press_tab(false);
     assert!(screen.get_by_role(Role::GridCell, "1:0").is_focused());
     screen.press_key(Key::End);
@@ -133,22 +97,19 @@ fn cells_follow_pointer_navigation_policy_removal_and_scroll() {
 #[test]
 fn headers_sort_and_resize_through_caller_bindings() {
     let (screen, (sort, widths)) = mount_with(
-        RenderOptions {
-            window: WindowMode::Real,
-            ..Default::default()
-        },
+        RenderOptions::default().mirror(MirrorMode::Required),
         || {
             let sort = signal(None);
             let widths = signal(std::collections::HashMap::from([(0usize, 100.0)]));
-            let table = use_table(
+            let table = use_data_table(
                 vec![1],
                 |row| *row,
                 vec![ColumnDef::new(0, "Name").compare(|a: &i32, b: &i32| a.cmp(b))],
-                ListSelection::Multiple(signal(Vec::<i32>::new()).into()),
+                Selection::Multiple(signal(Vec::<i32>::new()).into_binding()),
                 TableFocus::default(),
             )
-            .sort(sort)
-            .widths(widths);
+            .with_sort(sort)
+            .with_widths(widths);
             (
                 (sort, widths),
                 row((
@@ -171,4 +132,44 @@ fn headers_sort_and_resize_through_caller_bindings() {
     screen.press_key(Key::ArrowRight);
     assert_eq!(widths.get_untracked().get(&0), Some(&110.0));
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+type RowSelectionSignals = (Signal<Vec<u32>>, Signal<Vec<u32>>);
+
+fn table_navigation_fixture() -> (kivact::test::Screen, RowSelectionSignals) {
+    mount_with(
+        RenderOptions::default().mirror(MirrorMode::Required),
+        || {
+            let rows = signal(vec![1u32, 2, 3, 4, 5, 6, 7, 8]);
+            let selected = signal(Vec::new());
+            let table = use_data_table(
+                rows,
+                |row| *row,
+                vec![ColumnDef::new(0, "Name"), ColumnDef::new(1, "Value")],
+                selected.into_selection(),
+                TableFocus::Cells(ListRangeOptions::default()),
+            )
+            .row_label(|key| format!("Row {key}"));
+            let body = for_each(
+                rows,
+                |row| *row,
+                move |row_value| {
+                    let key = row_value.with(|row| *row);
+                    row((0..2)
+                        .map(|col| {
+                            node()
+                                .part(table.cell(key, col))
+                                .name(format!("{key}:{col}"))
+                                .style(style().size(100, 40))
+                        })
+                        .collect::<Vec<_>>())
+                    .part(table.row(key))
+                },
+            );
+            (
+                (rows, selected),
+                scroll(column(body).part(table.grid())).style(style().size(220, 100)),
+            )
+        },
+    )
 }

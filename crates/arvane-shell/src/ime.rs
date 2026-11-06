@@ -2,6 +2,7 @@
 
 use kivact_types::Rect;
 
+// xtask-allow(state-fields): Immutable IME text snapshot; optional selection and composition describe independent text properties.
 /// What the focused text input shows the IME: the text around its caret,
 /// its selection and composition, and where its characters are, for the
 /// platform IME's queries (on Windows: reconversion, `IMR_DOCUMENTFEED`
@@ -9,9 +10,10 @@ use kivact_types::Rect;
 ///
 /// A platform IME needs the context of the caret, not the document: the
 /// host gives an excerpt (the lines around the caret, a few thousand
-/// characters at most) and every offset here, and in the
-/// [`ShellEvent::ImeSelection`](crate::ShellEvent::ImeSelection) the IME
-/// answers with, is in it.
+/// characters at most). Offsets in this snapshot use UTF-16 code units.
+/// Reconversion selections emitted as [`ShellEvent::Ime`](crate::ShellEvent::Ime)
+/// use UTF-8 byte ranges relative to `text`; the engine owns the excerpt's
+/// mapping back into the complete document.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct ShellImeText {
     /// Password input: no surrounding text is supplied to native reconversion.

@@ -6,10 +6,8 @@
 //! cancelled the pointer, and once the hit is hidden, removed or outside an
 //! open modal.
 
-use kivact::primitive::NodeExt;
-
 use crate::support::mount;
-use kivact::draw::Point;
+use kivact::geometry::Point;
 use kivact::prelude::*;
 use kivact::view::{Handled, Placement};
 use kivact::view::{MouseButton, overlay_at};
@@ -23,44 +21,7 @@ struct Handles {
 
 #[test]
 fn hovered_follows_the_hit_through_listeners_capture_and_tree_changes() {
-    let (screen, h) = mount(|| {
-        let (hidden, mounted, modal) = (signal(false), signal(true), signal(false));
-        let group = node_ref();
-        let over = group.hovered();
-        let view = column((
-            column((
-                node()
-                    .test_id("plain")
-                    .style(style().size(100, 30).shrink(0.0)),
-                show(mounted, || {
-                    node()
-                        .test_id("listener")
-                        .on_pointer(|_| Handled::Yes)
-                        .style(style().size(100, 30).shrink(0.0))
-                }),
-            ))
-            .node_ref(group)
-            .hidden(hidden)
-            .test_id("group"),
-            node()
-                .test_id("outside")
-                .style(style().size(100, 30).shrink(0.0)),
-            show(modal, || {
-                overlay_at(Point::new(400.0, 400.0), Placement::Center, text("notice"))
-                    .modal(true)
-                    .role(Role::Dialog)
-            }),
-        ));
-        (
-            Handles {
-                over,
-                hidden,
-                mounted,
-                modal,
-            },
-            view,
-        )
-    });
+    let (screen, h) = hover_fixture();
     let over = || h.over.get_untracked();
     assert!(!over(), "the pointer has not entered yet");
     screen.get_by_test_id("plain").hover();
@@ -201,4 +162,45 @@ fn hover_covers_the_children_and_group_hover_styles_a_child_by_its_groups_hover(
     );
     assert!(distance(at("name"), 0xffffff) <= 8);
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+fn hover_fixture() -> (kivact::test::Screen, Handles) {
+    mount(|| {
+        let (hidden, mounted, modal) = (signal(false), signal(true), signal(false));
+        let group = node_ref();
+        let over = group.hovered();
+        let view = column((
+            column((
+                node()
+                    .test_id("plain")
+                    .style(style().size(100, 30).shrink(0.0)),
+                show(mounted, || {
+                    node()
+                        .test_id("listener")
+                        .on_pointer(|_| Handled::Yes)
+                        .style(style().size(100, 30).shrink(0.0))
+                }),
+            ))
+            .node_ref(group)
+            .hidden(hidden)
+            .test_id("group"),
+            node()
+                .test_id("outside")
+                .style(style().size(100, 30).shrink(0.0)),
+            show(modal, || {
+                overlay_at(Point::new(400.0, 400.0), Placement::Center, text("notice"))
+                    .modal()
+                    .with_node(move |node| node.role(Role::Dialog))
+            }),
+        ));
+        (
+            Handles {
+                over,
+                hidden,
+                mounted,
+                modal,
+            },
+            view,
+        )
+    })
 }

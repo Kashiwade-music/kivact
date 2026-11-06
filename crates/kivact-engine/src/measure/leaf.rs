@@ -11,7 +11,7 @@
 //!
 //! `Measure` is one concrete type that calls each kind of leaf's measuring
 //! directly (text, text input, image, a measured box's closure). A borrowed
-//! `EngineMeasure` adapter implements layout's independent `LeafMeasure`.
+//! `EngineMeasure` adapter implements layout's independent `LeafMeasurer`.
 //! What it keeps between passes it keeps in the nodes (`HostNode::extents`
 //! for measured text only, in a box, and the image's natural size), which
 //! the model's semantics never read.
@@ -32,7 +32,7 @@
 //! - A leaf's first baseline (`LeafSize::baseline`, which the layout
 //!   places from the border box's top as taffy's first baseline): a text's
 //!   first line's; a single-line input's from its content box's centre
-//!   (the line box is centered there, `kivact_text::line_offset`); a
+//!   (the line box is centered there, `crate::text_input::line_offset`); a
 //!   multiline input's from its top; an input with no text a space's. An
 //!   image, and a measured leaf that gives none, have none (the bottom of
 //!   the box). A new baseline at the same size lays out again.
@@ -43,7 +43,7 @@
 //!   half a pixel of slack: the layout rounds boxes to
 //!   pixels, and a box narrower than the shaped line would make the paint
 //!   (which shapes at the box) wrap it.
-//! - Native fields measure from their editing rows (`kivact-text`).
+//! - Native fields measure from their editing rows (`text_input`).
 //!   Multiline fields can wrap to the available width and clamp the
 //!   preferred height to a range of visual rows. Unwrapped fields measure
 //!   the widths of lines starting in the first 16 KiB.
@@ -60,7 +60,7 @@
 //!   size; the node's layout record keeps
 //!   its sizes until a new `Measure` prop (new content) arrives, which is
 //!   measured again only under the recorded requests first
-//!   ([`Measure::measures_same`]). The closure (`wire::LeafMeasure`, equal
+//!   ([`Measure::measures_same`]). The closure (`crate::contract::LeafMeasure`, equal
 //!   when it is the same `Rc`) runs synchronously in the layout pass with
 //!   the model borrowed; the text measurer it is lent borrows the Arvane
 //!   engine of the pass, never the tree or a reader again, and its runs
@@ -78,15 +78,16 @@
 //!   (`HostNode::natural`), so `Model::poll_assets` measures again only
 //!   the images whose natural size changed.
 
+use crate::contract::NodeType;
 use crate::tree::NodeTree;
-use kivact_wire::{AvailableSpace, MeasureRequest};
-use kivact_wire::{Baseline, LeafSize, NodeId, NodeType, Size};
+use kivact_types::{AvailableSpace, MeasureRequest};
+use kivact_types::{Baseline, LeafSize, NodeId, Size};
 
+use crate::lower::assets::ArvaneAssets;
+use crate::lower::assets::text_style;
 use crate::measure::editor::EditorNode;
 use crate::measure::state::{MeasureColumns, TextExtents};
-use kivact_lower::assets::ArvaneAssets;
-use kivact_lower::assets::text_style;
-use kivact_text::{line_height, line_offset};
+use crate::text_input::{line_height, line_offset};
 
 /// Measures leaves with an Arvane engine and the host's assets.
 pub(crate) struct Measure<'a> {
@@ -102,7 +103,7 @@ pub(crate) struct EngineMeasure<'a, 'm> {
     pub(crate) measure: &'a mut Measure<'m>,
 }
 
-impl kivact_layout::LeafMeasure for EngineMeasure<'_, '_> {
+impl kivact_layout::LeafMeasurer for EngineMeasure<'_, '_> {
     fn measure(&mut self, id: NodeId, request: MeasureRequest) -> LeafSize {
         self.measure.measure(self.tree, id, request)
     }
@@ -130,13 +131,13 @@ impl<'a> Measure<'a> {
     fn node_text(
         &mut self,
         node: &crate::tree::node::HostNode,
-        text: kivact_types::protocol::RichText<'_>,
-        mut style: kivact_types::protocol::TextStyle,
-        max_width: Option<f32>,
+        text: kivact_types::render::RichText<'_>,
+        mut style: kivact_types::ComputedTextStyle,
+        max_width: Option<f64>,
     ) -> Option<LeafSize> {
         // Colors and decorations never change an extent.
-        style.color = kivact_types::protocol::TextStyle::default().color;
-        style.decoration = kivact_types::protocol::TextDecoration::default();
+        style.color = kivact_types::ComputedTextStyle::default().color;
+        style.decoration = kivact_types::TextDecoration::default();
         let mut extents = self.cache.extents[node.index.0].borrow_mut();
         if extents.as_ref().is_none_or(|e| e.style != style) {
             let single = self.engine.text_metrics(text, &style, None).ok();
@@ -168,8 +169,8 @@ impl<'a> Measure<'a> {
 
 /// Whether text in `style` whose one unwrapped line is `single` measures
 /// otherwise at `width`: it wraps, or is cut with an ellipsis.
-fn narrows(style: &kivact_types::protocol::TextStyle, width: f32, single: Size) -> bool {
-    (style.wrap == kivact_types::protocol::TextWrap::Wrap
+fn narrows(style: &kivact_types::ComputedTextStyle, width: f64, single: Size) -> bool {
+    (style.wrap == kivact_types::TextWrap::Wrap
         || style.overflow == kivact_types::TextOverflow::Ellipsis)
         && width < single.width
 }
@@ -214,75 +215,7 @@ impl Measure<'_> {
             return LeafSize::default();
         };
         match n.kind() {
-            _ if self.editors[n.index.0].is_some() => {
-                self.assets.check_family(
-                    self.engine,
-                    id,
-                    crate::measure::computed_text(tree, self.cache, id)
-                        .family
-                        .as_deref(),
-                );
-                let style = crate::measure::input_style(tree, self.cache, id, self.engine);
-                let line = line_height(self.engine, &style);
-                let wrap_width = request.known_width.or(match request.available_width {
-                    AvailableSpace::Definite(width) => Some(width),
-                    _ => None,
-                });
-                let (count, width, first) = match crate::measure::input::edit_lines(
-                    tree,
-                    self.cache,
-                    self.editors,
-                    id,
-                    crate::measure::input::LineViewport::Measure(wrap_width),
-                    self.engine,
-                ) {
-                    Some((mut lines, text)) => (
-                        lines.len(),
-                        lines.measured_width(text, self.engine),
-                        lines.baseline(text, 0, self.engine),
-                    ),
-                    None => (1, 0.0, 0.0),
-                };
-                let layout = n.edit_line_layout();
-                let rows = match layout.rows {
-                    Some((min, max)) => count.clamp(min.max(1), max.max(min.max(1))),
-                    None if n.multiline() => count.max(3),
-                    None => 1,
-                };
-                let min = Size {
-                    width: if layout.wrap {
-                        wrap_width.unwrap_or(120.0).min(120.0)
-                    } else {
-                        120.0
-                    },
-                    height: rows as f32 * line,
-                };
-                let size = slack(Size {
-                    width,
-                    height: count as f32 * line,
-                });
-                // A single-line input's line sits `line_offset` into its
-                // content box (as `text_geometry::line_box` places it), so
-                // its baseline is measured from the box's center: the
-                // offset in a box of no height is the line's top above it.
-                // A multiline input's starts at its top.
-                let baseline = if n.multiline() {
-                    Baseline::FromTop(first)
-                } else {
-                    Baseline::FromCenter(line_offset(0.0, line) + first)
-                };
-                LeafSize {
-                    size: Size {
-                        width: size.width.max(min.width),
-                        height: if layout.rows.is_some() {
-                            min.height
-                        } else {
-                            size.height.max(min.height)
-                        },
-                    },
-                    baseline: Some(baseline),
-                }
-            }
+            _ if self.editors[n.index.0].is_some() => self.measure_editor(tree, id, n, request),
             NodeType::Image => {
                 let (width, height) = kivact_layout::style_known(request, n.layout());
                 let natural = self.natural_size(tree, id);
@@ -303,7 +236,7 @@ impl Measure<'_> {
                         .check_family(self.engine, id, span.style.family.as_deref());
                 }
                 let spans = rich_spans(self.engine, n.spans(), &style);
-                let text = kivact_types::protocol::RichText {
+                let text = kivact_types::render::RichText {
                     text: n.content().unwrap_or(""),
                     spans: &spans,
                 };
@@ -316,13 +249,86 @@ impl Measure<'_> {
                 // (its family and line height are the leaf's inherited ones).
                 let text = LeafText {
                     engine: std::cell::RefCell::new(&mut *self.engine),
-                    inherited: std::cell::OnceCell::new(),
-                    tree,
-                    columns: self.cache,
-                    id,
+                    inherited: crate::measure::computed_text(tree, self.cache, id),
                 };
-                leaf_size(n, request, kivact_wire::LeafTextMeasurer::new(&text))
+                leaf_size(n, request, crate::contract::LeafTextMeasurer::new(&text))
             }
+        }
+    }
+
+    fn measure_editor(
+        &mut self,
+        tree: &NodeTree,
+        id: NodeId,
+        n: &crate::tree::node::HostNode,
+        request: MeasureRequest,
+    ) -> LeafSize {
+        self.assets.check_family(
+            self.engine,
+            id,
+            crate::measure::computed_text(tree, self.cache, id)
+                .family
+                .as_deref(),
+        );
+        let style = crate::measure::input_style(tree, self.cache, id, self.engine);
+        let line = line_height(self.engine, &style);
+        let wrap_width = request.known_width.or(match request.available_width {
+            AvailableSpace::Definite(width) => Some(width),
+            _ => None,
+        });
+        let (count, width, first) = match crate::measure::input::edit_lines(
+            tree,
+            self.cache,
+            self.editors,
+            id,
+            crate::measure::input::LineViewport::Measure(wrap_width),
+            self.engine,
+        ) {
+            Some((mut lines, text)) => (
+                lines.len(),
+                lines.measured_width(text, self.engine),
+                lines.baseline(text, 0, self.engine),
+            ),
+            None => (1, 0.0, 0.0),
+        };
+        let layout = n.edit_line_layout();
+        let rows = match layout.rows {
+            Some((min, max)) => count.clamp(min.max(1), max.max(min.max(1))),
+            None if n.multiline() => count.max(3),
+            None => 1,
+        };
+        let min = Size {
+            width: if layout.wrap {
+                wrap_width.unwrap_or(120.0).min(120.0)
+            } else {
+                120.0
+            },
+            height: rows as f64 * line,
+        };
+        let size = slack(Size {
+            width,
+            height: count as f64 * line,
+        });
+        // A single-line input's line sits `line_offset` into its
+        // content box (as `text_geometry::line_box` places it), so
+        // its baseline is measured from the box's center: the
+        // offset in a box of no height is the line's top above it.
+        // A multiline input's starts at its top.
+        let baseline = if n.multiline() {
+            Baseline::FromTop(first)
+        } else {
+            Baseline::FromCenter(line_offset(0.0, line) + first)
+        };
+        LeafSize {
+            size: Size {
+                width: size.width.max(min.width),
+                height: if layout.rows.is_some() {
+                    min.height
+                } else {
+                    size.height.max(min.height)
+                },
+            },
+            baseline: Some(baseline),
         }
     }
 
@@ -333,7 +339,7 @@ impl Measure<'_> {
     pub(crate) fn measures_same(
         &mut self,
         tree: &NodeTree,
-        columns: &kivact_layout::NodeLayoutColumns,
+        columns: &kivact_layout::Layout,
         id: NodeId,
     ) -> bool {
         let Some(n) = tree.get(id) else {
@@ -366,14 +372,14 @@ impl Measure<'_> {
 /// allocation), their families resolved; colors are not measured.
 pub(crate) fn rich_spans(
     engine: &mut arvane::Engine,
-    spans: &[kivact_wire::TextSpan],
-    style: &kivact_types::protocol::TextStyle,
-) -> Vec<kivact_types::protocol::TextSpan> {
+    spans: &[kivact_types::TextSpan],
+    style: &kivact_types::ComputedTextStyle,
+) -> Vec<kivact_types::render::TextSpan> {
     if spans.is_empty() {
         return Vec::new();
     }
-    kivact_lower::conversion::spans(spans, style.font_size, kivact_lower::sanitize::color, |f| {
-        kivact_lower::assets::family(engine, Some(f))
+    crate::lower::conversion::spans(spans, style.font_size, kivact_types::Rgba::sanitize, |f| {
+        crate::lower::assets::family(engine, Some(f))
     })
 }
 
@@ -384,7 +390,7 @@ pub(crate) fn rich_spans(
 fn leaf_size(
     n: &crate::tree::node::HostNode,
     request: MeasureRequest,
-    text: kivact_wire::LeafTextMeasurer<'_>,
+    text: crate::contract::LeafTextMeasurer<'_>,
 ) -> LeafSize {
     if let Some(measure) = n.measure() {
         return measure.measure(request, text);
@@ -398,48 +404,41 @@ fn leaf_size(
 
 /// The text service lent to a measured leaf: shapes a run the way a scene
 /// draws it in the leaf (its family and line height are the leaf's
-/// inherited ones, computed when a run needs them).
+/// inherited ones, resolved when the service is constructed).
 struct LeafText<'a> {
     engine: std::cell::RefCell<&'a mut arvane::Engine>,
-    inherited: std::cell::OnceCell<std::rc::Rc<kivact_wire::ComputedText>>,
-    tree: &'a NodeTree,
-    columns: &'a MeasureColumns,
-    id: NodeId,
+    inherited: std::rc::Rc<kivact_types::ComputedTextStyle>,
 }
 
 impl LeafText<'_> {
-    fn inherited(&self, run: &kivact_wire::TextRun) -> Option<&kivact_wire::ComputedText> {
-        kivact_lower::glyphs::inherits(run).then(|| {
-            &**self
-                .inherited
-                .get_or_init(|| crate::measure::computed_text(self.tree, self.columns, self.id))
-        })
+    fn inherited(&self, run: &kivact_types::TextRun) -> Option<&kivact_types::ComputedTextStyle> {
+        crate::lower::glyphs::inherits(run).then_some(&*self.inherited)
     }
 }
 
-impl kivact_wire::TextShaper for LeafText<'_> {
-    fn measure(&self, run: &kivact_wire::TextRun) -> kivact_wire::TextMetrics {
+impl kivact_types::TextShaper for LeafText<'_> {
+    fn measure(&self, run: &kivact_types::TextRun) -> kivact_types::TextMetrics {
         let inherited = self.inherited(run);
-        kivact_lower::glyphs::measure_run(&mut self.engine.borrow_mut(), run, inherited)
+        crate::lower::glyphs::measure_run(&mut self.engine.borrow_mut(), run, inherited)
     }
 
     fn shape(
         &self,
-        run: &kivact_wire::TextRun,
-        max_width: Option<f32>,
-    ) -> Option<std::sync::Arc<kivact_types::protocol::ShapedText>> {
+        run: &kivact_types::TextRun,
+        max_width: Option<f64>,
+    ) -> Option<kivact_types::ShapedTextSnapshot> {
         let inherited = self.inherited(run);
-        kivact_lower::glyphs::shape_run(&mut self.engine.borrow_mut(), run, inherited, max_width)
+        crate::lower::glyphs::shape_run(&mut self.engine.borrow_mut(), run, inherited, max_width)
     }
 
     fn shape_inline(
         &self,
-        run: &kivact_wire::TextRun,
-        max_width: Option<f32>,
-        boxes: &[kivact_wire::InlineBox],
-    ) -> Option<kivact_wire::ShapedInlineText> {
+        run: &kivact_types::TextRun,
+        max_width: Option<f64>,
+        boxes: &[kivact_types::InlineBox],
+    ) -> Option<kivact_types::ShapedInlineText> {
         let inherited = self.inherited(run);
-        kivact_lower::glyphs::shape_inline_run(
+        crate::lower::glyphs::shape_inline_run(
             &mut self.engine.borrow_mut(),
             run,
             inherited,

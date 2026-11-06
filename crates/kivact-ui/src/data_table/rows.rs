@@ -1,5 +1,5 @@
 //! Role: Render keyed header and body cells with the table's actual part states.
-use super::sticky_paint::{DataTableStickyPaint, surface};
+use super::sticky_paint::surface;
 use super::types::{
     CellSlot, Key, RowColor, RowContextMenu, RowName, RowSelectable, RowSlot, RowStatusOf, Sort,
     StickyEdges,
@@ -7,30 +7,72 @@ use super::types::{
 use crate::layer::with_recipe_style;
 use crate::variants::Variants;
 use crate::{DataColumn, DataTableCellState, DataTableCheckState, DataTableRowState, checkbox};
-use kivact_core::control::{Node, NodeBuilder, column, icon, node, row, text};
-use kivact_core::draw::{Rect, linear_gradient};
+use kivact_core::custom::{NodeRefExt, Part};
+use kivact_core::draw::linear_gradient;
+use kivact_core::view::IntoView;
+use kivact_core::view::NodeBuilder;
+
+use kivact_core::geometry::Rect;
 use kivact_core::i18n::message_with;
-use kivact_core::primitive::Part;
+use kivact_core::state::{Binding, Callback, Value, binding, memo, signal};
 use kivact_core::style::{
-    Color, Cursor, Direction, Justify, Position, Style, TransitionProp, current_theme, pct, style,
+    Color, Cursor, Direction, Justify, Position, Style, TransitionProp, pct, style, use_theme,
 };
 use kivact_core::view::{
-    ButtonPress, CheckedState, Handled, IntoView, MouseButton, NodeRef, PointerEvent, PointerPhase,
-    ReadingDirection, Role, View, current_direction, dynamic, node_ref,
+    ButtonPress, CheckedState, Handled, Key as KeyboardKey, MouseButton, NodeRef, PointerEvent,
+    PointerPhase, ReadingDirection, Role, View, dynamic, node_ref, use_direction,
 };
-use kivact_core::{Binding, Callback, Value, binding, memo, signal};
+use kivact_core::view::{Node, column, icon, node, row, text};
 use kivact_interaction::{
-    DragCoordinates, DragState, DragUpdate, ListGesture, Table, TableCellState, TableFocus,
+    DataTableApi, DragCoordinates, DragState, DragUpdate, ListGesture, TableCellState, TableFocus,
     TableRowState, use_disclosure, use_drag,
 };
 use std::collections::HashMap;
-use std::hash::Hash;
 use std::rc::Rc;
 
+use super::column_keys::{ACTIONS, CHECK, DETAILS, INDEX, STATUS};
+
+/// Native grouping keeps every cell's controls out of the page Tab sequence.
+/// Enter/F2 enters its controls; Escape restores cell navigation.
+pub(super) fn content_navigation(root: Node, content: View, enabled: bool) -> Node {
+    navigation_content(root, content, enabled, true)
+}
+fn navigation_content(root: Node, content: View, enabled: bool, enter: bool) -> Node {
+    if !enabled {
+        return root.child(content);
+    }
+    let cell = node_ref();
+    let inside = node_ref();
+    root.node_ref(cell)
+        .child(
+            node()
+                .node_ref(inside)
+                .roving_focus(kivact_core::view::Orientation::Horizontal)
+                .child(content),
+        )
+        .on_key(move |event| {
+            if (event.key() == KeyboardKey::F(2) || enter && event.key() == KeyboardKey::Enter)
+                && cell.holds_focus()
+            {
+                inside.focus_first_inside();
+                Handled::Yes
+            } else if event.key() == KeyboardKey::Escape && cell.holds_focus_within() {
+                cell.restore_focus();
+                Handled::Yes
+            } else {
+                Handled::No
+            }
+        })
+}
+
+// xtask-allow(state-fields): Immutable mounted composition inputs; each optional binding or slot enables an independent table feature.
 /// What the header and the rows of one table share.
-pub(super) struct Grid<R: 'static, K: Clone + Eq + Hash + 'static> {
+pub(super) struct Grid<R: 'static, K: kivact_core::state::ItemKey> {
     pub(super) tree: Option<super::tree::Plan<K>>,
-    pub(super) behavior: Table<K, usize>,
+    pub(super) behavior: DataTableApi<K, usize>,
+    pub(super) navigation: super::navigation::NavigationCache<K>,
+    pub(super) row_metadata: Value<super::metadata::Rows<K>>,
+    pub(super) column_metadata: Value<(Option<u32>, HashMap<usize, u32>)>,
     pub(super) filters: Option<super::filters::Filters>,
     /// The keys of the rows of the page.
     pub(super) keys: Value<Vec<K>>,
@@ -41,30 +83,31 @@ pub(super) struct Grid<R: 'static, K: Clone + Eq + Hash + 'static> {
     pub(super) selection: Option<Binding<Vec<K>>>,
     pub(super) row_selectable: Option<RowSelectable<R>>,
     pub(super) sticky: Option<Rc<StickyColumns>>,
-    pub(super) widths: Option<Binding<Vec<f32>>>,
-    pub(super) actions: Option<(f32, RowSlot<R>)>,
+    pub(super) widths: Option<Binding<Vec<f64>>>,
+    pub(super) actions: Option<(f64, RowSlot<R>)>,
     pub(super) row_context_menu: Option<RowContextMenu<R>>,
     pub(super) row_label: RowName<R>,
     pub(super) cells: Option<CellSlot<R>>,
     pub(super) details: Option<RowSlot<R>>,
     pub(super) expanded_rows: Option<Binding<Vec<K>>>,
-    pub(super) reorder: Option<Callback<(K, usize)>>,
+    pub(super) reorder: Option<Callback<kivact_interaction::Reorder<K>>>,
     pub(super) source: Value<Vec<R>>,
     pub(super) key: Key<R, K>,
     pub(super) sort: Sort,
     pub(super) focus: TableFocus,
-    pub(super) row_height: Option<Value<f32>>,
+    pub(super) row_height: Option<Value<f64>>,
     pub(super) row_status: Option<RowStatusOf<R>>,
     pub(super) row_color: Option<RowColor<R>>,
     pub(super) variants: Variants,
 }
 
+// xtask-allow(state-fields): Geometry cache and immutable direction; overflow is a derived pair of independent edge facts.
 /// Shared header measurements let in-flow pins follow flex and resize.
 pub(super) struct StickyColumns {
     edges: StickyEdges,
     rtl: bool,
     headers: Vec<NodeRef>,
-    widths: Vec<Value<f32>>,
+    widths: Vec<Value<f64>>,
     pub(super) viewport: NodeRef,
     pub(super) content: NodeRef,
     overflow: Value<(bool, bool)>,
@@ -92,7 +135,7 @@ impl StickyColumns {
         });
         Self {
             edges,
-            rtl: current_direction() == ReadingDirection::Rtl,
+            rtl: use_direction().get() == ReadingDirection::Rtl,
             headers,
             widths,
             viewport,
@@ -112,11 +155,14 @@ impl StickyColumns {
     }
 }
 
-impl<R: 'static, K: Clone + Eq + Hash + 'static> Clone for Grid<R, K> {
+impl<R: 'static, K: kivact_core::state::ItemKey> Clone for Grid<R, K> {
     fn clone(&self) -> Self {
         Self {
             tree: self.tree,
             behavior: self.behavior,
+            navigation: self.navigation.clone(),
+            row_metadata: self.row_metadata,
+            column_metadata: self.column_metadata,
             filters: self.filters,
             keys: self.keys,
             indexed: self.indexed,
@@ -145,7 +191,30 @@ impl<R: 'static, K: Clone + Eq + Hash + 'static> Clone for Grid<R, K> {
     }
 }
 
-impl<R: 'static, K: Clone + Eq + Hash + 'static> Grid<R, K> {
+impl<R: 'static, K: kivact_core::state::ItemKey> Grid<R, K> {
+    fn navigation_cell(&self, root: Node, key: K, column: usize) -> Node {
+        if !matches!(self.focus, TableFocus::Cells(_)) {
+            return root;
+        }
+        let root = self
+            .navigation
+            .bind(root, super::navigation::Target::Cell(key.clone(), column));
+        let navigation = self.navigation.clone();
+        let rows = self.row_metadata;
+        root.on_key(move |event| navigation.navigate_from_cell(&key, &event, rows))
+    }
+    fn navigation_header(&self, root: Node, column: usize) -> Node {
+        if matches!(self.focus, TableFocus::Cells(_)) {
+            self.navigation
+                .bind(root, super::navigation::Target::Header(column))
+        } else {
+            root
+        }
+    }
+    fn column_index(&self, key: usize) -> Value<u32> {
+        let metadata = self.column_metadata;
+        memo(move || metadata.with(|metadata| metadata.1.get(&key).copied().unwrap_or(0)))
+    }
     /// Whether rows have check boxes: the table has a selection and cells
     /// hold the focus (with rows, a press selects the row).
     fn checks(&self) -> Option<Binding<Vec<K>>> {
@@ -155,7 +224,7 @@ impl<R: 'static, K: Clone + Eq + Hash + 'static> Grid<R, K> {
 
     fn direction(&self) -> Style {
         if self.sticky.as_ref().is_some_and(|sticky| sticky.rtl)
-            || (self.row_status.is_some() && current_direction() == ReadingDirection::Rtl)
+            || (self.row_status.is_some() && use_direction().get() == ReadingDirection::Rtl)
         {
             style().direction(Direction::RowReverse)
         } else {
@@ -179,7 +248,7 @@ impl<R: 'static, K: Clone + Eq + Hash + 'static> Grid<R, K> {
             let Some(start) = sticky.edge(index) else {
                 return style();
             };
-            let offset: f32 = visible.with(|visible| {
+            let offset: f64 = visible.with(|visible| {
                 visible
                     .iter()
                     .copied()
@@ -209,7 +278,12 @@ impl<R: 'static, K: Clone + Eq + Hash + 'static> Grid<R, K> {
         let visible = self.visible;
         let on_left = start != sticky.rtl;
         Some(node().hit_testable(false).style(move || {
-            let paint = current_theme().get::<DataTableStickyPaint>();
+            let paint = use_theme()
+                .get()
+                .ext::<crate::UiTokens>()
+                .data_table
+                .sticky
+                .clone();
             let width = paint.shadow_width;
             let boundary = visible.with(|columns| {
                 let mut pinned = columns
@@ -293,15 +367,27 @@ impl<R: 'static, K: Clone + Eq + Hash + 'static> Grid<R, K> {
 
 /// The header row: the check column, the shown columns' headers and the
 /// actions column's.
-pub(super) fn header<R: Clone + PartialEq + 'static, K: Clone + Eq + Hash + 'static>(
+pub(super) fn header<R: kivact_core::state::PropValue, K: kivact_core::state::ItemKey>(
     grid: &Grid<R, K>,
 ) -> View {
-    let check = grid
-        .checks()
-        .map(|selection| super::chrome::select_page(selection, grid.keys, &grid.variants));
+    let check = grid.checks().map(|selection| {
+        let (root, content) = super::chrome::select_page(selection, grid.keys, &grid.variants);
+        let root = grid.navigation_header(root.column_index(grid.column_index(CHECK)), CHECK);
+        let root = if matches!(grid.focus, TableFocus::Cells(_)) {
+            root.part(grid.behavior.header(CHECK))
+        } else {
+            root
+        };
+        content_navigation(root, content, matches!(grid.focus, TableFocus::Cells(_)))
+    });
     let actions = grid.actions.as_ref().map(|(width, _)| {
-        node()
-            .role(Role::ColumnHeader)
+        let root = grid.navigation_header(node().column_index(grid.column_index(ACTIONS)), ACTIONS);
+        let root = if matches!(grid.focus, TableFocus::Cells(_)) {
+            root.part(grid.behavior.header(ACTIONS))
+        } else {
+            root
+        };
+        root.role(Role::ColumnHeader)
             .name(kivact_core::i18n::message("data_table.actions", "Actions"))
             .style(style().width(*width).shrink(0))
     });
@@ -313,26 +399,52 @@ pub(super) fn header<R: Clone + PartialEq + 'static, K: Clone + Eq + Hash + 'sta
             .collect::<Vec<_>>()
     });
     let disclosure = (grid.details.is_some() && grid.expanded_rows.is_some()).then(|| {
-        expansion_cell()
-            .role(Role::ColumnHeader)
+        let root = grid.navigation_header(
+            expansion_cell().column_index(grid.column_index(DETAILS)),
+            DETAILS,
+        );
+        let root = if matches!(grid.focus, TableFocus::Cells(_)) {
+            root.part(grid.behavior.header(DETAILS))
+        } else {
+            root
+        };
+        root.role(Role::ColumnHeader)
             .name(kivact_core::i18n::message("data_table.details", "Details"))
     });
-    let index = grid
-        .indexed
-        .map(|_| index_cell(Role::ColumnHeader, text("#")).name("#"));
-    let status = grid
-        .row_status
-        .as_ref()
-        .map(|_| super::row_status::header());
+    let index = grid.indexed.map(|_| {
+        let root = grid.navigation_header(
+            index_cell(Role::ColumnHeader, text("#"))
+                .name("#")
+                .column_index(grid.column_index(INDEX)),
+            INDEX,
+        );
+        if matches!(grid.focus, TableFocus::Cells(_)) {
+            root.part(grid.behavior.header(INDEX))
+        } else {
+            root
+        }
+    });
+    let status = grid.row_status.as_ref().map(|_| {
+        let root = grid.navigation_header(
+            super::row_status::header().column_index(grid.column_index(STATUS)),
+            STATUS,
+        );
+        if matches!(grid.focus, TableFocus::Cells(_)) {
+            root.part(grid.behavior.header(STATUS))
+        } else {
+            root
+        }
+    });
     row((status, index, check, disclosure, columns, actions))
         .style(grid.direction())
         .role(Role::Row)
+        .row_index(1)
         .into_view()
 }
 
 /// The header of column `index`: its title, the sort mark and, when the
 /// table is resizable, the resize handle.
-fn head_cell<R: Clone + PartialEq + 'static, K: Clone + Eq + Hash + 'static>(
+fn head_cell<R: kivact_core::state::PropValue, K: kivact_core::state::ItemKey>(
     grid: &Grid<R, K>,
     index: usize,
 ) -> View {
@@ -346,24 +458,7 @@ fn head_cell<R: Clone + PartialEq + 'static, K: Clone + Eq + Hash + 'static>(
         &grid.variants,
         move || state.get(),
     );
-    let handle = (grid.widths.is_some() && column.is_resizable()).then(|| {
-        node()
-            .part(grid.behavior.resize(index))
-            .name(message_with(
-                "data_table.resize",
-                "Resize {title}",
-                move || [("title", title.get())],
-            ))
-            .style(
-                style()
-                    .position(Position::Absolute)
-                    .right(0)
-                    .top(0)
-                    .width(6)
-                    .height(pct(100))
-                    .cursor(Cursor::EwResize),
-            )
-    });
+    let handle = resize_handle(grid, index, column, title);
     let field = grid.filters.and_then(|_| column.filter_editor());
     let inline = grid
         .filters
@@ -372,7 +467,16 @@ fn head_cell<R: Clone + PartialEq + 'static, K: Clone + Eq + Hash + 'static>(
     let filter = grid
         .filters
         .map(|filters| filters.control(index, field, title, filter_anchor));
-    let mut header = node().part(part).name(title);
+    let header = node()
+        .part(part)
+        .name(title)
+        .column_index(grid.column_index(index));
+    let mut header = if matches!(grid.focus, TableFocus::Cells(_)) {
+        grid.navigation
+            .bind(header, super::navigation::Target::Header(index))
+    } else {
+        header
+    };
     if let Some(anchor) = filter_anchor {
         header = header.node_ref(anchor);
     }
@@ -388,16 +492,16 @@ fn head_cell<R: Clone + PartialEq + 'static, K: Clone + Eq + Hash + 'static>(
     .style(style().position(Position::Relative))
     .style(grid.width(index, column.is_numeric()))
     .style(grid.sticky_style(index, true, None, None))
-    .child(grid.sticky_shadow(index))
-    .child(
+    .child(grid.sticky_shadow(index));
+    let content = node().child(
         grid.tree
             .filter(|tree| tree.column == index && tree.show_all)
             .map(|tree| tree.header()),
     );
     let title = text(title).style(crate::helpers::single_line_text());
-    let header = if inline {
+    let content = if inline {
         use kivact_core::style::{Align, Direction};
-        header
+        content
             .style(
                 style()
                     .direction(Direction::Column)
@@ -407,16 +511,21 @@ fn head_cell<R: Clone + PartialEq + 'static, K: Clone + Eq + Hash + 'static>(
             .child(row((title, mark)).style(style().gap(4)))
             .child(filter)
     } else {
-        header.child(title).child(mark).child(filter)
+        content.child(title).child(mark).child(filter)
     };
-    column.render_header(header.child(handle))
+    column.render_header(navigation_content(
+        header,
+        content.child(handle).into_view(),
+        matches!(grid.focus, TableFocus::Cells(_)),
+        false,
+    ))
 }
 
 /// A primary press on a data cell must not replace the row selection when
 /// rows are chosen with their check box.
 fn keep_selection(event: PointerEvent) -> Handled {
     if matches!(
-        event.phase,
+        event.phase(),
         PointerPhase::Down(ButtonPress {
             button: MouseButton::Primary,
             ..
@@ -431,8 +540,8 @@ fn keep_selection(event: PointerEvent) -> Handled {
 /// The check box of the row `id`, in its box: it selects or clears the row.
 fn row_check<R, K>(grid: &Grid<R, K>, selection: Binding<Vec<K>>, id: K, item: Value<R>) -> View
 where
-    R: Clone + PartialEq + 'static,
-    K: Clone + Eq + Hash + 'static,
+    R: kivact_core::state::PropValue,
+    K: kivact_core::state::ItemKey,
 {
     let behavior = grid.behavior;
     let key = id.clone();
@@ -448,16 +557,30 @@ where
     let name = message_with("data_table.select_named", "Select {row}", move || {
         [("row", item.with(|row| label(row)))]
     });
-    let toggle = kivact_core::view::callback(move |_: bool| {
-        behavior.select(id.clone(), ListGesture::Toggle);
+    let toggle_key = id.clone();
+    let toggle = kivact_core::state::callback(move |_: bool| {
+        behavior.select(toggle_key.clone(), ListGesture::Toggle);
     });
-    with_recipe_style(
-        node().role(Role::Cell),
+    let role = if matches!(grid.focus, TableFocus::None) {
+        Role::Cell
+    } else {
+        Role::GridCell
+    };
+    let root = node().role(role).column_index(grid.column_index(CHECK));
+    let root = if matches!(grid.focus, TableFocus::Cells(_)) {
+        root.part(grid.behavior.cell(id.clone(), CHECK))
+            .on_pointer(keep_selection)
+    } else {
+        root
+    };
+    let root = grid.navigation_cell(root, id.clone(), CHECK);
+    let root = with_recipe_style(
+        root,
         |r| r.data_table_recipes().check_recipe(),
         &grid.variants,
         state,
-    )
-    .child({
+    );
+    let content = {
         let selectable = grid.row_selectable.clone();
         checkbox(name, binding(chosen, move |on| toggle.try_call(on)))
             .hide_label(true)
@@ -466,16 +589,17 @@ where
                     .as_ref()
                     .is_some_and(|test| !item.with(|row| test(row)))
             })
-    })
-    .into_view()
+            .into_view()
+    };
+    content_navigation(root, content, matches!(grid.focus, TableFocus::Cells(_))).into_view()
 }
 
 /// The row for `id`: its check box, the shown cells and the row actions,
 /// with the details under it.
 pub(super) fn body<R, K>(grid: &Grid<R, K>, id: K, item: Value<R>) -> View
 where
-    R: Clone + PartialEq + 'static,
-    K: Clone + Eq + Hash + 'static,
+    R: kivact_core::state::PropValue,
+    K: kivact_core::state::ItemKey,
 {
     if let Some(tree) = grid.tree {
         let grid = grid.clone();
@@ -489,14 +613,18 @@ where
 
 fn body_row<R, K>(grid: &Grid<R, K>, id: K, item: Value<R>, branch: bool) -> View
 where
-    R: Clone + PartialEq + 'static,
-    K: Clone + Eq + Hash + 'static,
+    R: kivact_core::state::PropValue,
+    K: kivact_core::state::ItemKey,
 {
     let mut part = grid.behavior.row(id.clone());
     if let Some(tree) = grid.tree {
-        part = part.level(tree.level(id.clone()));
+        let level = tree.level(id.clone());
+        let state = part.state();
+        part = Part::new(state, move |host| host.part(part).level(level));
         if branch {
-            part = part.expanded(tree.open(id.clone()));
+            let expanded = tree.open(id.clone());
+            let state = part.state();
+            part = Part::new(state, move |host| host.part(part).expanded(expanded));
         }
     }
     let state = part.state();
@@ -514,50 +642,34 @@ where
                 .collect::<Vec<_>>()
         })
     };
-    let actions = grid.actions.as_ref().map(|(width, render)| {
-        node()
-            .role(Role::Cell)
-            .style(
-                style()
-                    .width(*width)
-                    .shrink(0)
-                    .direction(kivact_core::style::Direction::Row)
-                    .align_items(kivact_core::style::Align::Center),
-            )
-            .child(render(item))
-    });
+    let actions = row_actions(grid, &id, item);
     let (trigger, details) = match (&grid.details, grid.expanded_rows) {
         (Some(render), Some(expanded)) => {
             let (trigger, region) = row_disclosure(grid, id.clone(), item, expanded, render);
             (Some(trigger), Some(region.into_view()))
         }
-        (Some(render), None) => (None, Some(render(item))),
+        (Some(render), None) => (None, Some(render.call(item))),
         (None, _) => (None, None),
     };
-    let index = grid.indexed.map(|positions| {
-        let id = id.clone();
-        let role = if grid.focus == TableFocus::None {
-            Role::Cell
-        } else {
-            Role::GridCell
-        };
-        index_cell(
-            role,
-            text(move || {
-                positions
-                    .with(|positions| positions.get(&id).map(usize::to_string).unwrap_or_default())
-            }),
-        )
-    });
+    let index = row_number(grid, &id);
     let (color, height) = (grid.row_color.clone(), grid.row_height);
-    let status = grid.row_status.as_ref().map(|status| {
-        let status = status.clone();
-        super::row_status::cell(memo(move || item.with(|row| status(row))))
+    let status = row_status_cell(grid, &id, item);
+    let metadata = grid.row_metadata;
+    let coordinate_key = id.clone();
+    let row_index = memo(move || {
+        metadata.with(|metadata| {
+            metadata
+                .positions
+                .get(&coordinate_key)
+                .copied()
+                .unwrap_or(0)
+        })
     });
     let line = with_recipe_style(
         row((status, index, check, trigger, cells, actions))
             .style(style().group())
-            .part(part),
+            .part(part)
+            .row_index(row_index),
         |r| r.data_table_recipes().row_recipe(),
         &grid.variants,
         move || DataTableRowState {
@@ -572,7 +684,7 @@ where
         None => line,
     };
     let line = match &grid.row_context_menu {
-        Some(menu) => menu(item, line),
+        Some(menu) => menu.call((item, line)),
         None => line.into_view(),
     };
     match details {
@@ -610,13 +722,14 @@ fn expansion_cell() -> Node {
     )
 }
 
-fn row_disclosure<R: 'static, K: Clone + Eq + Hash + 'static>(
+fn row_disclosure<R: 'static, K: kivact_core::state::ItemKey>(
     grid: &Grid<R, K>,
     key: K,
     item: Value<R>,
     expanded: Binding<Vec<K>>,
     render: &RowSlot<R>,
 ) -> (Node, Node) {
+    let cell_key = key.clone();
     let current_key = key.clone();
     let open = binding(
         move || expanded.with(|keys| keys.contains(&current_key)),
@@ -634,7 +747,7 @@ fn row_disclosure<R: 'static, K: Clone + Eq + Hash + 'static>(
         },
     );
     let disclosure = use_disclosure(open);
-    let shown = disclosure.shown();
+    let shown = disclosure.is_open();
     let row_label = grid.row_label.clone();
     let name = message_with("data_table.row_details", "{row} details", move || {
         [("row", item.with(|row| row_label(row)))]
@@ -656,11 +769,27 @@ fn row_disclosure<R: 'static, K: Clone + Eq + Hash + 'static>(
                 "chevron-right"
             })
         }));
-    let region = column(render(item))
+    let region = column(render.call(item))
         .role(Role::Group)
         .name(name)
         .part(disclosure.content());
-    (expansion_cell().role(role).child(trigger), region)
+    let root = expansion_cell()
+        .role(role)
+        .column_index(grid.column_index(DETAILS));
+    let root = if matches!(grid.focus, TableFocus::Cells(_)) {
+        root.part(grid.behavior.cell(cell_key.clone(), DETAILS))
+    } else {
+        root
+    };
+    let root = grid.navigation_cell(root, cell_key.clone(), DETAILS);
+    (
+        content_navigation(
+            root,
+            trigger.into_view(),
+            matches!(grid.focus, TableFocus::Cells(_)),
+        ),
+        region,
+    )
 }
 
 /// One body cell: the cell controls, the column's cell view or its text.
@@ -673,12 +802,12 @@ fn cell<R, K>(
     row: Value<TableRowState>,
 ) -> View
 where
-    R: Clone + PartialEq + 'static,
-    K: Clone + Eq + Hash + 'static,
+    R: kivact_core::state::PropValue,
+    K: kivact_core::state::ItemKey,
 {
     let def = grid.columns[index].clone();
     let content = match &grid.cells {
-        Some(render) => render(item, index),
+        Some(render) => render.call((item, index)),
         None if def.has_cell() => {
             let def = def.clone();
             dynamic(item, move |row: R| def.cell_of(&row)).into_view()
@@ -728,10 +857,12 @@ where
         },
     )
     .name(move || item.with(|row| named.text_of(row)))
+    .column_index(grid.column_index(index))
     .style(grid.width(index, numeric))
     .style(grid.sticky_style(index, false, Some(state), tint))
-    .child(grid.sticky_shadow(index))
-    .child(content);
+    .child(grid.sticky_shadow(index));
+    let cell = grid.navigation_cell(cell, id.clone(), index);
+    let cell = content_navigation(cell, content, matches!(grid.focus, TableFocus::Cells(_)));
     if checked {
         cell.on_pointer(keep_selection).into_view()
     } else {
@@ -741,12 +872,16 @@ where
 
 /// The drag part of a row that reports moves of one row in the caller's
 /// order and clears the sort.
-fn drag_source<R, K>(grid: &Grid<R, K>, id: K, reorder: Callback<(K, usize)>) -> Part<DragState>
+fn drag_source<R, K>(
+    grid: &Grid<R, K>,
+    id: K,
+    reorder: Callback<kivact_interaction::Reorder<K>>,
+) -> Part<DragState>
 where
-    R: Clone + PartialEq + 'static,
-    K: Clone + Eq + Hash + 'static,
+    R: kivact_core::state::PropValue,
+    K: kivact_core::state::ItemKey,
 {
-    let consumed = signal(0.0_f32);
+    let consumed = signal(0.0_f64);
     let (source, key, sort) = (grid.source, grid.key.clone(), grid.sort);
     let drag = use_drag::<()>(DragCoordinates::Window)
         .on_start(move |_| consumed.set(0.0))
@@ -764,10 +899,132 @@ where
                 })
             });
             if let Some(destination) = destination {
-                reorder.call((id.clone(), destination));
+                reorder.call(kivact_interaction::Reorder {
+                    key: id.clone(),
+                    to: destination,
+                });
                 sort.set(None);
                 consumed.set(update.delta.y);
             }
         });
     drag.source(())
+}
+
+/// Attach the resize part only for resizable columns with caller-owned widths.
+fn resize_handle<R: 'static, K: kivact_core::state::ItemKey>(
+    grid: &Grid<R, K>,
+    index: usize,
+    column: &DataColumn<R>,
+    title: Value<String>,
+) -> Option<Node> {
+    (grid.widths.is_some() && column.is_resizable()).then(|| {
+        node()
+            .part(grid.behavior.resize(index))
+            .name(message_with(
+                "data_table.resize",
+                "Resize {title}",
+                move || [("title", title.get())],
+            ))
+            .style(
+                style()
+                    .position(Position::Absolute)
+                    .right(0)
+                    .top(0)
+                    .width(6)
+                    .height(pct(100))
+                    .cursor(Cursor::EwResize),
+            )
+    })
+}
+
+/// Render the row's caller-provided action controls.
+fn row_actions<R: kivact_core::state::PropValue, K: kivact_core::state::ItemKey>(
+    grid: &Grid<R, K>,
+    id: &K,
+    item: Value<R>,
+) -> Option<Node> {
+    grid.actions.as_ref().map(|(width, render)| {
+        let root = node().column_index(grid.column_index(ACTIONS)).role(
+            if grid.focus == TableFocus::None {
+                Role::Cell
+            } else {
+                Role::GridCell
+            },
+        );
+        let root = if matches!(grid.focus, TableFocus::Cells(_)) {
+            root.part(grid.behavior.cell(id.clone(), ACTIONS))
+                .on_pointer(keep_selection)
+        } else {
+            root
+        };
+        let root = grid.navigation_cell(root, id.clone(), ACTIONS);
+        content_navigation(
+            root.style(
+                style()
+                    .width(*width)
+                    .shrink(0)
+                    .direction(kivact_core::style::Direction::Row)
+                    .align_items(kivact_core::style::Align::Center),
+            ),
+            render.call(item),
+            matches!(grid.focus, TableFocus::Cells(_)),
+        )
+    })
+}
+
+/// Render the row's page-aware numeric coordinate.
+fn row_number<R: kivact_core::state::PropValue, K: kivact_core::state::ItemKey>(
+    grid: &Grid<R, K>,
+    id: &K,
+) -> Option<Node> {
+    grid.indexed.map(|positions| {
+        let id = id.clone();
+        let role = if grid.focus == TableFocus::None {
+            Role::Cell
+        } else {
+            Role::GridCell
+        };
+        let cell_key = id.clone();
+        let root = index_cell(
+            role,
+            text(move || {
+                positions
+                    .with(|positions| positions.get(&id).map(usize::to_string).unwrap_or_default())
+            }),
+        );
+        let root = grid.navigation_cell(root, cell_key.clone(), INDEX);
+        if matches!(grid.focus, TableFocus::Cells(_)) {
+            root.column_index(grid.column_index(INDEX))
+                .part(grid.behavior.cell(cell_key, INDEX))
+        } else {
+            root.column_index(grid.column_index(INDEX))
+        }
+    })
+}
+
+/// Render the row's theme-owned status marker.
+fn row_status_cell<R: kivact_core::state::PropValue, K: kivact_core::state::ItemKey>(
+    grid: &Grid<R, K>,
+    id: &K,
+    item: Value<R>,
+) -> Option<Node> {
+    let role = if grid.focus == TableFocus::None {
+        Role::Cell
+    } else {
+        Role::GridCell
+    };
+    grid.row_status.as_ref().map(|status| {
+        let status = status.clone();
+        let (root, content) =
+            super::row_status::cell(memo(move || item.with(|row| status(row))), role);
+        let root = root.column_index(grid.column_index(STATUS));
+        let root = if matches!(grid.focus, TableFocus::Cells(_)) {
+            root.part(grid.behavior.cell(id.clone(), STATUS))
+                .on_pointer(keep_selection)
+        } else {
+            root
+        };
+        let root = grid.navigation_cell(root, id.clone(), STATUS);
+        content_navigation(root, content, matches!(grid.focus, TableFocus::Cells(_)))
+    })
 }

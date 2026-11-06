@@ -5,7 +5,8 @@
 //! and a transform that flattens everything draws nothing.
 
 use kivact_types::Point;
-use kivact_types::protocol::{DrawCommand, Transform};
+use kivact_types::Transform;
+use kivact_types::render::RenderCmd;
 
 use crate::support::{BLUE, RED, WHITE, fill, open, pixel, pt, show};
 
@@ -22,12 +23,12 @@ fn a_transform_rotates_and_skews_what_it_encloses_until_it_is_popped() {
     show(
         &mut window,
         vec![
-            DrawCommand::PushTransform(rotate),
+            RenderCmd::PushTransform(rotate),
             fill(20.0, 20.0, 40.0, 40.0, RED),
-            DrawCommand::PopTransform,
-            DrawCommand::PushTransform(skew),
+            RenderCmd::PopTransform,
+            RenderCmd::PushTransform(skew),
             fill(90.0, 20.0, 40.0, 40.0, BLUE),
-            DrawCommand::PopTransform,
+            RenderCmd::PopTransform,
             // After the pops, nothing is transformed.
             fill(150.0, 0.0, 10.0, 10.0, RED),
         ],

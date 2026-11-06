@@ -1,4 +1,4 @@
-//! Role: Layout pass, rects, hit testing, scrolling and layout reports for the tree.
+//! Role: Resolve pointer hits, canvas regions and current hover geometry.
 //!
 //! Geometry of the node tree: the layout pass (with the host's text
 //! measurement), window rects, overlay origins, hit testing, scroll
@@ -40,11 +40,11 @@
 //! - Reports go out in id order: every changed scroll container's
 //!   `ScrollChanged`, then every changed observed node's `LayoutChanged`.
 
-use kivact_wire::{HostEvent, NodeId, NodeType, OverlayAt, Point, Rect};
+use crate::contract::{HostEvent, NodeType};
+use kivact_types::{NodeId, OverlayAt, Point, Rect};
 
 use crate::measure::leaf::Measure;
 use crate::model::Model;
-use crate::tree::node::Presence;
 
 impl Model {
     /// Lay the tree out if anything changed since the last pass, scroll
@@ -56,29 +56,22 @@ impl Model {
         let Some(remeasure) = self.changes.begin_layout() else {
             return false;
         };
+        let previous = self.capture_layout_motion();
         let mut measure = Measure::new(engine, self.assets.get_mut(), &self.measure, &self.editors);
         for id in remeasure {
-            if measure.measures_same(&self.tree, &self.layout_columns, id) {
+            if measure.measures_same(&self.tree, &self.layout, id) {
                 continue;
             }
-            self.layout_columns
-                .invalidate_chain(&self.tree, &mut self.layout_state, id);
+            self.layout.invalidate_chain(&self.tree, id);
         }
         // Scrolls alone keep the main layout, but may change a tooltip's available room.
-        let computed = self.layout_state.take_changed() && self.tree.root.is_some();
-        if computed {
-            self.tree.pack_child_orders();
+        let computed = {
             let mut leaves = crate::measure::leaf::EngineMeasure {
                 tree: &self.tree,
                 measure: &mut measure,
             };
-            self.layout_columns.compute(
-                &self.tree,
-                &mut self.layout_state,
-                self.viewport,
-                &mut leaves,
-            );
-        }
+            self.layout.compute(&self.tree, self.viewport, &mut leaves)
+        };
         let reveal = self.focus.take_reveal();
         if !reveal.is_empty() {
             self.stick();
@@ -88,21 +81,22 @@ impl Model {
         }
         let fitted = self.refit_tooltips(engine, !computed);
         if computed || fitted {
-            let geometry: Vec<_> = self.layout_columns.drain_geometry_changes().collect();
-            self.changes
-                .a11y_subtrees
-                .extend(geometry.iter().map(|change| change.id));
+            let geometry: Vec<_> = self.layout.drain_geometry_changes().collect();
+            for change in &geometry {
+                self.a11y.subtree(change.id);
+            }
             let tree = &self.tree;
             let repaint = geometry.into_iter().filter_map(|change| match change.kind {
                 kivact_layout::GeometryChangeKind::Local => Some(change.id),
                 kivact_layout::GeometryChangeKind::PositionOnly => {
                     let node = tree.get(change.id)?;
-                    (!node.is_layer()).then(|| tree.parent_id(node)).flatten()
+                    (!node.is_layer()).then(|| tree.flat_parent(node)).flatten()
                 }
             });
             // Set pass flags even when no local ink dependency changed.
             self.changes.laid_out(repaint);
         }
+        self.retarget_layout_motion(previous);
         self.report_geometry(engine);
         true
     }
@@ -146,26 +140,23 @@ impl Model {
         &mut self,
         engine: &mut arvane::Engine,
         id: NodeId,
-        limit: Option<kivact_wire::Size>,
+        limit: Option<kivact_types::Size>,
     ) {
         let mut measure = Measure::new(engine, self.assets.get_mut(), &self.measure, &self.editors);
         let mut leaves = crate::measure::leaf::EngineMeasure {
             tree: &self.tree,
             measure: &mut measure,
         };
-        self.layout_columns.compute_overlay(
-            &self.tree,
-            &self.layout_state,
-            id,
-            self.viewport,
-            limit,
-            &mut leaves,
-        );
+        self.layout
+            .compute_overlay(&self.tree, id, self.viewport, limit, &mut leaves);
     }
 
     /// Window-space border box of `id` (after the last layout pass), a
     /// sticky box (or one below it) where it is stuck.
     pub(crate) fn rect(&self, id: NodeId) -> Option<Rect> {
+        if self.tree.get(id)?.is_transparent() {
+            return None;
+        }
         let size = self.computed_layout(id)?.size;
         let (mut x, mut y) = (0.0, 0.0);
         let mut cur = id;
@@ -184,7 +175,7 @@ impl Model {
                 // At its window position.
                 break;
             }
-            match self.tree.parent_id(node) {
+            match self.tree.flat_parent(node) {
                 Some(p) => {
                     let s = self.tree.get(p)?.scroll;
                     x -= s.x;
@@ -366,7 +357,7 @@ impl Model {
     /// own space.
     fn hit_node(&self, id: NodeId, origin: Point, p: Point) -> Option<NodeId> {
         let n = self.tree.get(id)?;
-        if n.hidden() || !n.hit_testable() || n.presence == Presence::Leaving {
+        if !self.tree.shown(id) || !n.hit_testable() {
             return None;
         }
         let size = self.computed_layout(id)?.size;
@@ -377,7 +368,7 @@ impl Model {
             height: size.height,
         };
         // Into its own space (a flattening transform hits nothing).
-        let p = match n.place.transformed {
+        let p = match n.place.transformed || self.layout_motion_transform(id).is_some() {
             true => match self.transform_at(id, r) {
                 Some(t) => t.invert()?.apply(p),
                 None => p,
@@ -386,11 +377,11 @@ impl Model {
         };
         let paint = n.paint();
         // A clip path clips the node and its subtree.
-        if paint.is_some_and(|paint| !kivact_lower::shape::in_clip_path(paint, r, p)) {
+        if paint.is_some_and(|paint| !crate::lower::shape::in_clip_path(paint, r, p)) {
             return None;
         }
-        let inside = kivact_lower::shape::hits(paint, r, p);
-        if n.clips() && !kivact_lower::shape::in_child_clip(paint, r, p) {
+        let inside = crate::lower::shape::hits(paint, r, p);
+        if n.clips() && !crate::lower::shape::in_child_clip(paint, r, p) {
             return inside.then_some(id);
         }
         if self
@@ -438,6 +429,7 @@ impl Model {
             n.scroll = o;
         }
         self.changes.scrolled(id);
+        self.a11y.subtree(id);
         true
     }
 
@@ -503,7 +495,7 @@ impl Model {
     /// reveals the target where the inner scrolls left it.
     pub(crate) fn scroll_into_view(&mut self, id: NodeId) {
         // The scroll delta that brings [t, t + tl) into [v, v + vl).
-        let reveal = |t: f32, tl: f32, v: f32, vl: f32| {
+        let reveal = |t: f64, tl: f64, v: f64, vl: f64| {
             if t < v {
                 t - v
             } else {
@@ -514,10 +506,10 @@ impl Model {
             .tree
             .get(id)
             .filter(|n| !n.place.fixed)
-            .and_then(|n| self.tree.parent_id(n));
+            .and_then(|n| self.tree.flat_parent(n));
         while let Some(p) = cur {
             let Some(n) = self.tree.get(p) else { break };
-            let parent = self.tree.parent_id(n).filter(|_| !n.place.fixed);
+            let parent = self.tree.flat_parent(n).filter(|_| !n.place.fixed);
             let axes = n.scroll_axes();
             if axes != (false, false)
                 && let Some(view) = self.rect(p)
@@ -547,7 +539,12 @@ impl Model {
     }
 
     fn report_geometry(&mut self, engine: &mut arvane::Engine) {
-        let scrollers: Vec<NodeId> = self.tree.scrollers.iter().copied().collect();
+        let scrollers: Vec<NodeId> = self
+            .tree
+            .scrollers
+            .union(&self.tree.observed)
+            .copied()
+            .collect();
         for id in scrollers {
             let Some(l) = self.computed_layout(id) else {
                 continue;
@@ -557,9 +554,9 @@ impl Model {
             let Some(n) = self.tree.get_mut(id) else {
                 continue;
             };
-            let state = (n.scroll, l.size, l.content_size);
-            if n.sent_scroll != Some(state) {
-                n.sent_scroll = Some(state);
+            let state =
+                crate::tree::node::ScrollReport(n.scroll, l.size, l.content_size, n.scroll_axes());
+            if n.sent_scroll.update(state).is_some() {
                 self.push(HostEvent::ScrollChanged {
                     node: id,
                     offset: state.0,
@@ -580,9 +577,18 @@ impl Model {
             let size = l.size;
             let text_truncated = super::text_geometry::text_truncated(self, engine, id);
             if let Some(n) = self.tree.get_mut(id)
-                && n.sent_layout != Some((rect, size, text_truncated))
+                && n.sent_layout
+                    .update(crate::tree::node::LayoutReport(
+                        rect,
+                        size,
+                        if text_truncated {
+                            crate::tree::node::Clipping::Yes
+                        } else {
+                            crate::tree::node::Clipping::No
+                        },
+                    ))
+                    .is_some()
             {
-                n.sent_layout = Some((rect, size, text_truncated));
                 self.push(HostEvent::LayoutChanged {
                     node: id,
                     rect,

@@ -8,6 +8,11 @@ use std::sync::{Arc, Mutex};
 // This does not force either case: it runs with whatever XMODIFIERS the environment has.
 #[test]
 fn x11_keyboard_input_works_whether_or_not_an_xim_server_runs() {
+    if let Some(reason) = kivact::test::native_unavailable() {
+        eprintln!("SKIPPED: {reason}");
+        return;
+    }
+
     let _serial = SERIAL
         .lock()
         .expect("embed tests run one at a time; an earlier one panicked holding SERIAL");
@@ -17,8 +22,8 @@ fn x11_keyboard_input_works_whether_or_not_an_xim_server_runs() {
     let app = App::new("X11 optional XIM")
         .window_size(240, 160)
         .embed(parent.parent().scale(1.0), move || {
-            assert!(platform::capabilities().native_accessibility);
-            assert!(!platform::capabilities().ime_reconversion);
+            assert!(platform::capabilities().get().native_accessibility);
+            assert!(!platform::capabilities().get().ime_reconversion);
             node()
                 .focusable(true)
                 .style(style().size(200, 120))

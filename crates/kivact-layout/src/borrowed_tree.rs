@@ -1,6 +1,6 @@
 //! Role: The borrowed tree and leaf measurer a caller lends to a layout pass.
 
-use kivact_wire::{LeafSize, MeasureRequest};
+use kivact_types::{LeafSize, MeasureRequest};
 
 /// The structural role of a node in layout traversal; absolute style is independent.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -24,15 +24,15 @@ pub enum Flow {
 /// finish their ordinary packing barrier before creating this borrowed view.
 pub trait LayoutTree {
     /// The main layout root, when attached.
-    fn root(&self) -> Option<kivact_wire::NodeId>;
+    fn root(&self) -> Option<kivact_types::NodeId>;
     /// Attached overlay roots in attachment order.
-    fn overlays(&self) -> &[kivact_wire::NodeId];
+    fn overlays(&self) -> &[kivact_types::NodeId];
     /// Fixed candidates in identity order; detached candidates remain present.
-    fn fixed(&self) -> &std::collections::BTreeSet<kivact_wire::NodeId>;
+    fn fixed(&self) -> &std::collections::BTreeSet<kivact_types::NodeId>;
     /// Resolve a live logical identity to its structural slot.
-    fn index_of(&self, id: kivact_wire::NodeId) -> Option<usize>;
+    fn index_of(&self, id: kivact_types::NodeId) -> Option<usize>;
     /// The identity at a slot, or None for a vacant slot.
-    fn id_at(&self, slot: usize) -> Option<kivact_wire::NodeId>;
+    fn id_at(&self, slot: usize) -> Option<kivact_types::NodeId>;
     /// The authoritative parent of a live slot.
     fn parent(&self, slot: usize) -> Option<usize>;
     /// The number of unfiltered authoritative children of a live slot.
@@ -44,18 +44,18 @@ pub trait LayoutTree {
     /// Whether a live slot belongs in its parent's flow or another root.
     fn flow(&self, slot: usize) -> Flow;
     /// Raw layout properties and the raw hidden flag of a live slot.
-    fn layout_props(&self, slot: usize) -> (Option<&kivact_wire::LayoutProps>, bool);
+    fn layout_props(&self, slot: usize) -> (Option<&kivact_types::LayoutProps>, bool);
     /// The anchor whose current layout width floors this overlay, if requested.
-    fn overlay_width_anchor(&self, slot: usize) -> Option<kivact_wire::NodeId>;
+    fn overlay_width_anchor(&self, slot: usize) -> Option<kivact_types::NodeId>;
     /// The opted-in viewport fitting policy for this overlay.
-    fn overlay_fit(&self, slot: usize) -> Option<kivact_wire::OverlayFit>;
+    fn overlay_fit(&self, slot: usize) -> Option<kivact_types::OverlayFit>;
 }
 
 /// Measures content and resources without owning layout caches or retaining the callback.
 /// The columns are lent mutably for the whole computation, so a measurer cannot
 /// reach them. Record revalidation requires retained measurement records to
 /// stay unchanged until it returns.
-pub trait LeafMeasure {
+pub trait LeafMeasurer {
     /// Measure the logical node under logical-pixel constraints, including baseline.
-    fn measure(&mut self, id: kivact_wire::NodeId, request: MeasureRequest) -> LeafSize;
+    fn measure(&mut self, id: kivact_types::NodeId, request: MeasureRequest) -> LeafSize;
 }

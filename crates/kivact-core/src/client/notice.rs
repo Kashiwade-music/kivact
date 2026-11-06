@@ -1,11 +1,11 @@
 //! Role: The core's own diagnostics of the client: `tracing` messages that
 //! are not errors of the App.
 
-use kivact_reactive::Runtime;
+use kivact_runtime::Runtime;
 
 /// A `tracing` message (target `kivact`, info level) that is not part of
 /// the turn trace.
-pub(super) fn inform(msg: &str) {
+pub(crate) fn inform(msg: &str) {
     tracing::info!(target: "kivact", "{}", msg);
 }
 

@@ -1,5 +1,7 @@
 //! Role: What a window's surface did with the frames that reached it.
 
+use crate::presentation::Renderer;
+
 use std::num::{NonZeroU8, NonZeroU32};
 
 /// Surface failures in a row after which presenting is an error.
@@ -18,8 +20,15 @@ pub(super) enum FrameHealth {
     Healthy,
     /// The last `frames` frames had no buffer (hidden or occluded window).
     Skipping { frames: NonZeroU32 },
-    /// The last `losses` frames lost the surface, which was made again.
-    Losing { losses: NonZeroU8 },
+    /// The last `losses` frames lost the surface, which was made again; the
+    /// last `gpu` of them were drawn on the GPU.
+    Losing { losses: NonZeroU8, gpu: u8 },
+}
+
+pub(super) enum LossAction {
+    Recover,
+    FallbackToCpu,
+    Fail,
 }
 
 impl FrameHealth {
@@ -40,14 +49,27 @@ impl FrameHealth {
         period_ns << (frames.get() - 1).min(MAX_BACKOFF)
     }
 
-    /// A frame lost the surface: whether it is the third loss in a row
-    /// (presenting fails then).
-    pub(super) fn lost(&mut self) -> bool {
-        let losses = match *self {
-            Self::Losing { losses } => losses.saturating_add(1),
-            Self::Healthy | Self::Skipping { .. } => NonZeroU8::MIN,
+    /// Count a consecutive surface loss and choose recovery, CPU fallback,
+    /// or failure according to the renderer that lost it: losses on any
+    /// renderer count toward failure, only consecutive GPU losses toward the
+    /// CPU fallback.
+    pub(super) fn lost(&mut self, renderer: Renderer) -> LossAction {
+        let (losses, gpu) = match *self {
+            Self::Losing { losses, gpu } => (losses.saturating_add(1), gpu),
+            Self::Healthy | Self::Skipping { .. } => (NonZeroU8::MIN, 0),
         };
-        *self = Self::Losing { losses };
-        losses.get() >= LOSSES
+        let gpu = if renderer == Renderer::Gpu {
+            gpu.saturating_add(1)
+        } else {
+            0
+        };
+        *self = Self::Losing { losses, gpu };
+        if losses.get() >= LOSSES {
+            LossAction::Fail
+        } else if gpu == 2 {
+            LossAction::FallbackToCpu
+        } else {
+            LossAction::Recover
+        }
     }
 }

@@ -9,15 +9,19 @@ use std::panic::Location;
 use std::rc::Rc;
 
 use crate::view::state::{EnvState, ViewState};
+use kivact_runtime::Value;
 use kivact_style::draw::Size;
-use kivact_wire::HostEnv;
 #[doc(inline)]
-pub use kivact_wire::{Capabilities, Insets};
+pub use kivact_types::{
+    Capabilities, CommandKey, ContextMenuTrigger, PointerClass, PointerSettings, ThemeHint,
+};
+use kivact_types::{Environment, Insets};
 
 /// The App's environment as seen from the nearest owner at the call (`api`
 /// names the caller in misuse diagnostics).
 fn state(api: &'static str, at: &'static Location<'static>) -> Rc<EnvState> {
-    let rt = kivact_reactive::Owner::ambient(api, at).runtime();
+    let rt = kivact_runtime::Runtime::current()
+        .unwrap_or_else(|| panic!("`{api}` needs a running App at {at}"));
     ViewState::of(&rt).env()
 }
 
@@ -25,59 +29,64 @@ fn state(api: &'static str, at: &'static Location<'static>) -> Rc<EnvState> {
 /// notified only when that field changes. The accessor named `api` shares
 /// one memo of its field.
 #[track_caller]
-fn env_field<T: Clone + PartialEq + 'static>(api: &'static str, f: fn(&HostEnv) -> T) -> T {
-    state(api, Location::caller()).field(api, f).get()
+fn env_field<T: kivact_runtime::PropValue>(
+    api: &'static str,
+    f: fn(&Environment) -> T,
+) -> Value<T> {
+    state(api, Location::caller()).field(api, f)
 }
 
 /// Whether the App is still building its first host revision.
 ///
 /// Read this during mount setup to distinguish content present on the first
-/// screen from content mounted later. This is an untracked snapshot.
+/// screen from content mounted later. The value changes after the first host revision.
 #[track_caller]
-pub fn is_initial_render() -> bool {
-    let rt = kivact_reactive::Owner::ambient("platform::is_initial_render", Location::caller())
-        .runtime();
-    let revision = ViewState::tree(&rt).engine().stats().revision;
-    revision == 0
+pub fn is_initial_render() -> Value<bool> {
+    let rt = kivact_runtime::Runtime::current()
+        .expect("invariant: is_initial_render requires a running App");
+    ViewState::of(&rt).initial_render.into()
 }
 
 /// The window's available font families, sorted by name without duplicates.
 ///
 /// Names retain their original case and include fonts registered with
-/// [`crate::App::font`]. This is an untracked snapshot of the font database.
+/// [`crate::App::font`]. This value follows changes to the font database.
 /// Like other environment reads, call it from setup, a handler, task or effect;
 /// a call outside every owner reports a located `SetupOnly` misuse.
 #[track_caller]
-pub fn font_families() -> Vec<String> {
-    let rt = kivact_reactive::Owner::ambient("font_families", Location::caller()).runtime();
-    ViewState::tree(&rt).reader().font_families()
+pub fn font_families() -> Value<Vec<String>> {
+    let rt = kivact_runtime::Runtime::current()
+        .expect("invariant: font_families requires a running App");
+    ViewState::of(&rt).fonts_value.into()
 }
 
 /// Whether the window is borderless fullscreen, tracked. Like every read
 /// of this module it resolves the nearest owner (setup, handler, task or
 /// effect) at the call; a located `SetupOnly` misuse outside every owner.
 #[track_caller]
-pub fn fullscreen() -> bool {
-    env_field("fullscreen", |e| e.fullscreen)
+pub fn is_fullscreen() -> Value<bool> {
+    env_field("is_fullscreen", |e| e.fullscreen)
 }
 
 /// Whether reduced motion is active, tracked. Uses the system preference
 /// unless the app sets an override with [`super::set_reduced_motion`].
 #[track_caller]
-pub fn reduced_motion() -> bool {
-    env_field("reduced_motion", |e| e.reduced_motion)
+pub fn is_motion_reduced() -> Value<bool> {
+    env_field("is_motion_reduced", |e| e.reduced_motion)
 }
 
 /// The display scale factor, tracked.
 #[track_caller]
-pub fn scale_factor() -> f32 {
-    env_field("scale_factor", |e| e.scale)
+pub fn scale_factor() -> Value<f64> {
+    env_field("scale_factor", |e| e.scale_factor)
 }
 
 /// Whether the window surface is visible and active, tracked.
 #[track_caller]
-pub fn surface_active() -> bool {
-    env_field("surface_active", |e| e.surface_active)
+pub fn is_surface_active() -> Value<bool> {
+    state("surface_active", Location::caller())
+        .surface_active
+        .into()
 }
 
 /// The part of each window edge that system UI may cover (a notch, a
@@ -89,14 +98,15 @@ pub fn surface_active() -> bool {
 /// ```ignore
 /// // Keep the toolbar below a phone's status bar or notch.
 /// toolbar().style(move || {
-///     let inset = platform::safe_area();
+///     let inset = platform::safe_area().get();
 ///     style().margin_x(inset.left).top(inset.top)
 /// })
 /// ```
 #[track_caller]
-pub fn safe_area() -> Insets {
+pub fn safe_area() -> Value<Insets> {
     let at = Location::caller();
-    let rt = kivact_reactive::Owner::ambient("safe_area", at).runtime();
+    let rt =
+        kivact_runtime::Runtime::current().expect("invariant: safe_area requires a running App");
     let state = ViewState::of(&rt);
     // Relying on a safe area the platform does not report is noted
     // (once per App) instead of silently reading zero.
@@ -107,7 +117,7 @@ pub fn safe_area() -> Insets {
     }
     let env = state.env();
     drop(rt);
-    env.field("safe_area", |e| e.safe_area).get()
+    env.field("safe_area", |e| e.safe_area)
 }
 
 /// The window's size in logical pixels (its content area: what the
@@ -118,10 +128,12 @@ pub fn safe_area() -> Insets {
 ///
 /// ```
 /// # use kivact_core as kivact;
-/// use kivact::prelude::*;
+/// use kivact::state::{memo};
+/// use kivact::style::{Direction, style};
+/// use kivact::view::{IntoView, NodeBuilder, column, row};
 /// fn shell(sidebar: impl IntoView, main: impl IntoView) -> impl IntoView {
 ///     // @media (max-width: 860px) { .shell { flex-direction: column } }
-///     let narrow = memo(move || kivact::platform::window_size().width < 860.0);
+///     let narrow = memo(move || kivact::platform::window_size().get().width < 860.0);
 ///     row((sidebar, main)).style(move || {
 ///         let s = style().gap(16);
 ///         if narrow.get() { s.direction(kivact::style::Direction::Column) } else { s }
@@ -129,8 +141,8 @@ pub fn safe_area() -> Insets {
 /// }
 /// ```
 #[track_caller]
-pub fn window_size() -> Size {
-    env_field("window_size", |e| e.window)
+pub fn window_size() -> Value<Size> {
+    env_field("window_size", |e| e.window_size)
 }
 
 /// What the platform the App runs on can do (fixed for the App's
@@ -142,14 +154,15 @@ pub fn window_size() -> Size {
 /// the turn trace.
 ///
 /// ```ignore
-/// if !platform::capabilities().touch {
+/// if !platform::capabilities().get().touch {
 ///     // Hover hints only make sense where a pointer hovers.
 /// }
 /// ```
 #[track_caller]
-pub fn capabilities() -> Capabilities {
-    let rt = kivact_reactive::Owner::ambient("capabilities", Location::caller()).runtime();
-    ViewState::of(&rt).capabilities()
+pub fn capabilities() -> Value<Capabilities> {
+    let rt =
+        kivact_runtime::Runtime::current().expect("invariant: capabilities requires a running App");
+    ViewState::of(&rt).capabilities_value
 }
 
 /// The names of the capabilities `c` lacks, for diagnostics.
@@ -168,4 +181,30 @@ pub(crate) fn missing_capabilities(c: &Capabilities) -> Vec<&'static str> {
     .filter(|(has, _)| !has)
     .map(|(_, name)| name)
     .collect()
+}
+
+/// The system pointer preferences.
+#[track_caller]
+pub fn pointer_settings() -> Value<kivact_types::PointerSettings> {
+    env_field("pointer_settings", |e| e.pointer)
+}
+/// Insets occupied by the software keyboard.
+#[track_caller]
+pub fn keyboard_inset() -> Value<Insets> {
+    env_field("keyboard_inset", |e| e.keyboard_inset)
+}
+
+/// The host's preferred light or dark appearance.
+#[track_caller]
+pub fn theme_hint() -> Value<ThemeHint> {
+    env_field("theme_hint", |e| e.theme_hint)
+}
+
+/// Bytes restored by the platform at launch, or `None` on a fresh launch.
+#[track_caller]
+pub fn restored_state(key: &'static str) -> Option<Vec<u8>> {
+    env_field("restored_state", |env| env.restored_state.clone())
+        .get_untracked()
+        .get(key)
+        .cloned()
 }

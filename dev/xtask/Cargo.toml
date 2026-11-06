@@ -7,8 +7,9 @@ publish = false
 description = "Repository checks and architecture diagrams for kivact and Arvane (cargo xtask check), built on xtask-core"
 
 [dependencies]
-proc-macro2 = "1"
-syn = { version = "2", features = ["full"] }
+proc-macro2 = { version = "1", features = ["span-locations"] }
+quote = "1"
+syn = { version = "2", features = ["full", "visit"] }
 toml = "0.8"
 xtask-core = { path = "../../vendor/xtask-core/crates/xtask-core" }
 

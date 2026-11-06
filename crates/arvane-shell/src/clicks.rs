@@ -9,18 +9,13 @@
 //! the double-click time after it and within the double-click distance of
 //! it on each axis; otherwise it is 1. The settings are read at each press,
 //! in logical pixels; where they cannot be read they are Windows' defaults,
-//! 500 ms and 4 px ([`DEFAULT_DOUBLE_CLICK`], which test windows count
+//! 500 ms and 4 px ([`kivact_types::defaults::DOUBLE_CLICK`], which test windows count
 //! with too). Each held button keeps the count it was pressed with for its
 //! release, so the buttons of a chord release with their own counts. A
 //! contact's `Up` carries the count of its `Down`.
 
 use crate::events::ShellEvent;
 use kivact_types::{MouseButton, Point, PointerId, PointerKind, PointerPhase};
-
-/// Windows' default double-click time (ns, `GetDoubleClickTime`) and
-/// distance (pixels per axis, `SM_CXDOUBLECLK` / `SM_CYDOUBLECLK`): what a
-/// window that cannot read the system's settings counts with.
-pub const DEFAULT_DOUBLE_CLICK: (u64, (f32, f32)) = (500_000_000, (4.0, 4.0));
 
 /// The last mouse press.
 #[derive(Clone, Copy, Debug)]
@@ -34,12 +29,12 @@ struct Press {
 /// The last touch or pen contact's `Down`.
 #[derive(Clone, Copy, Debug)]
 struct Tap {
-    id: PointerId,
     at: Point,
     time_ns: u64,
     count: u8,
 }
 
+// xtask-allow(state-fields): Named click-history counter: mouse button history and contact tap history are independent inputs, with counts retained for release events.
 /// Counts the presses of the pointer events a window delivers.
 #[derive(Clone, Debug, Default)]
 pub struct ClickCounter {
@@ -50,6 +45,8 @@ pub struct ClickCounter {
     pressed: [Option<u8>; 5],
     /// The last contact's `Down`.
     tap: Option<Tap>,
+    /// The count each live contact went down with, for its `Up`.
+    contacts: Vec<(PointerId, u8)>,
 }
 
 /// The index of `button` in [`ClickCounter::pressed`].
@@ -70,7 +67,7 @@ fn follows(
     now: u64,
     then_at: Point,
     then: u64,
-    double_click: (u64, (f32, f32)),
+    double_click: (u64, (f64, f64)),
 ) -> bool {
     let (time, (dx, dy)) = double_click;
     now.saturating_sub(then) < time
@@ -86,49 +83,51 @@ impl ClickCounter {
     /// logical pixels, read at the press), else it is a single click; a
     /// release carries the count its button was pressed with. A contact's
     /// `Down` counts up the same way from the last contact's `Down`.
-    /// `now_ns` is read at a press or a `Down`.
+    /// `now_ns` timestamps every pointer sample; settings are read at a press.
     pub fn count(
         &mut self,
         event: &mut ShellEvent,
         now_ns: impl FnOnce() -> u64,
-        double_click: impl FnOnce() -> (u64, (f32, f32)),
+        double_click: impl FnOnce() -> (u64, (f64, f64)),
     ) {
         let ShellEvent::Pointer(input) = event else {
             return;
         };
+        let now = now_ns();
+        input.time_ns = now;
         if input.kind != PointerKind::Mouse {
             match &mut input.phase {
                 PointerPhase::Down(press) => {
-                    let (now, settings) = (now_ns(), double_click());
+                    let (now, settings) = (now, double_click());
                     let count = self
                         .tap
                         .filter(|tap| follows(input.position, now, tap.at, tap.time_ns, settings))
                         .map_or(1, |tap| tap.count.saturating_add(1));
                     self.tap = Some(Tap {
-                        id: input.id,
                         at: input.position,
                         time_ns: now,
                         count,
                     });
+                    self.contacts.retain(|(id, _)| *id != input.id);
+                    self.contacts.push((input.id, count));
                     press.clicks = count;
                 }
                 PointerPhase::Up(press) => {
-                    press.clicks = self
-                        .tap
-                        .filter(|tap| tap.id == input.id)
-                        .map_or(1, |tap| tap.count);
+                    press.clicks = self.end_contact(input.id).unwrap_or(1);
                 }
-                PointerPhase::Move
-                | PointerPhase::Cancel
-                | PointerPhase::Enter
-                | PointerPhase::Leave => {}
+                PointerPhase::Cancel => {
+                    let _ = self.end_contact(input.id);
+                }
+                PointerPhase::Move | PointerPhase::Enter | PointerPhase::Leave => {}
             }
+            input.press = input.phase.press();
+            input.button = input.press.map(|press| press.button);
             return;
         }
         match &mut input.phase {
             PointerPhase::Down(press) => {
                 let button = press.button;
-                let (now, settings) = (now_ns(), double_click());
+                let (now, settings) = (now, double_click());
                 let count = self
                     .last
                     .filter(|last| {
@@ -151,5 +150,13 @@ impl ClickCounter {
             PointerPhase::Cancel => self.pressed = [None; 5],
             PointerPhase::Move | PointerPhase::Enter | PointerPhase::Leave => {}
         }
+        input.press = input.phase.press();
+        input.button = input.press.map(|press| press.button);
+    }
+
+    /// Forget the contact `id`, returning the count it went down with.
+    fn end_contact(&mut self, id: PointerId) -> Option<u8> {
+        let index = self.contacts.iter().position(|(live, _)| *live == id)?;
+        Some(self.contacts.swap_remove(index).1)
     }
 }

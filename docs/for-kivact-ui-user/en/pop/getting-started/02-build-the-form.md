@@ -21,7 +21,7 @@ fn sign_up() -> impl IntoView {
     let plan = signal(Some("team"));
     let terms = signal(false);
 
-    pop::panel((
+    kivact::ui::card((
         text("New account").style(style().font_size(20).weight(600)),
         field(
             "Name",
@@ -44,7 +44,7 @@ fn sign_up() -> impl IntoView {
                 plan,
             )
             .orientation(Orientation::Horizontal)
-            .variant(pop::Segmented),
+            .variant(kivact::ui::RadioGroupVariant::Segmented),
         )
         .hint("You can change the plan later."),
         checkbox("I accept the terms", terms),
@@ -82,7 +82,7 @@ group can have nothing chosen; the signal holds an `Option` of the option's
 key. The key can be any type that is `Clone + Eq + Hash`, such as a string
 slice here or your own `enum` later.
 
-**`radio_group(..).variant(pop::Segmented)`** draws a radio group as a
+**`radio_group(..).variant(kivact::ui::RadioGroupVariant::Segmented)`** draws a radio group as a
 segmented control. A segmented control picks exactly one option, so it is a
 radio group, not tabs. `.orientation(Orientation::Horizontal)` lays the
 options out in a row. `.variant(..)` is how a kit adds a look to a standard
@@ -90,7 +90,7 @@ component: the component stays the same, only its drawing changes.
 
 **`button(..).variant(pop::ButtonTone::Accent)`** picks one of the kit's
 button tones. Pop has `Accent` (yellow), `Pink`, `Soft`, `Glass` and `Dark`.
-Without a tone, `ButtonVariant::Primary`, `Secondary`, `Outline`, `Ghost` and
+Without a tone, `kivact::ui::ButtonVariant::Primary`, `Secondary`, `Outline`, `Ghost` and
 `Link` from the core tutorial still work and are drawn in Pop colors. A button
 can take a tone and a shape: add `.variant(pop::Slant)` to draw it as a
 parallelogram. Try `button("Create account").variant(pop::ButtonTone::Pink)

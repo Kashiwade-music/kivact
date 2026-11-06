@@ -14,7 +14,7 @@ use kivact::platform;
 use kivact::prelude::*;
 use kivact::task::spawn;
 
-fn button(name: &'static str, press: impl Fn() + 'static) -> impl IntoView {
+fn button(name: &'static str, press: impl Into<Callback<()>>) -> impl Component {
     node()
         .role(Role::Button)
         .name(name)

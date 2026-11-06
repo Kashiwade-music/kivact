@@ -125,12 +125,12 @@ fn app() -> impl IntoView {
     });
     let draft = signal(saved.get_untracked());
 
-    let name = draft.field(|p| &p.name, |p| &mut p.name);
-    let bio = draft.field(|p| &p.bio, |p| &mut p.bio);
-    let plan = draft.field(|p| &p.plan, |p| &mut p.plan).optional();
-    let volume = draft.field(|p| &p.volume, |p| &mut p.volume);
-    let public = draft.field(|p| &p.public, |p| &mut p.public);
-    let terms = draft.field(|p| &p.terms, |p| &mut p.terms);
+    let name = draft.project(|p| &p.name, |p| &mut p.name);
+    let bio = draft.project(|p| &p.bio, |p| &mut p.bio);
+    let plan = draft.project(|p| &p.plan, |p| &mut p.plan).optional();
+    let volume = draft.project(|p| &p.volume, |p| &mut p.volume);
+    let public = draft.project(|p| &p.public, |p| &mut p.public);
+    let terms = draft.project(|p| &p.terms, |p| &mut p.terms);
 
     let name_error = memo(move || {
         draft.with(|p| p.name.trim().is_empty()).then(|| "Enter a name".to_owned())
@@ -205,7 +205,7 @@ mod tests {
 
 What each piece does:
 
-- `draft.field(get, get_mut)` returns a `Binding<U>` for one field. The first
+- `draft.project(get, get_mut)` returns a `Binding<U>` for one field. The first
   closure borrows the field for reading, the second borrows it for writing; you
   do not clone anything. Reading is a memo, so a control re-renders only when its
   own field changes.
@@ -289,12 +289,12 @@ Other rules:
 - `.max_length(n)` limits the input by characters (Unicode scalar values), and a
   composition in progress is never cut.
 - `.read_only(true)` allows selecting and copying; `.disabled(..)` blocks input;
-  `.password(true)` hides the text and blocks copy and cut.
+  `.purpose(kivact::view::InputPurpose::Password)` hides the text and blocks copy and cut.
 
 ## Commit a single field with Enter or blur
 
 For an inline rename you may want the edit to apply only when the user confirms
-it. `text_input(..).draft(on_commit)` turns the field into a draft: Enter or
+it. `text_input(..).on_draft_commit(on_commit)` turns the field into a draft: Enter or
 leaving the field calls `on_commit` with the text, Escape restores the text from
 before the edit.
 
@@ -305,7 +305,7 @@ that: `open(id)` starts a rename, `is_open(&id)` tells whether it runs, and
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::ui::use_inline_edit;
+use kivact::interaction::use_inline_edit;
 
 fn names() -> impl IntoView {
     let items = signal(vec![(1u32, "Intro".to_owned()), (2, "Outro".to_owned())]);
@@ -313,7 +313,8 @@ fn names() -> impl IntoView {
     column(for_each(
         items,
         |(id, _)| *id,
-        move |id, item| {
+        move |item| {
+            let id = item.get_untracked().0;
             row((
                 text(move || item.get().1),
                 show(
@@ -323,13 +324,14 @@ fn names() -> impl IntoView {
                 show(
                     move || rename.is_open(&id),
                     move || {
-                        rename.field(id, "Name", signal(item.get_untracked().1), move |name| {
+                        let api = rename.field(id, "Name", signal(item.get_untracked().1)).on_draft_commit(move |name| {
                             items.update(|all| {
                                 if let Some(row) = all.iter_mut().find(|row| row.0 == id) {
                                     row.1 = name;
                                 }
                             });
-                        })
+                        });
+                        node().part(api.control())
                     },
                 ),
             ))
@@ -347,7 +349,7 @@ leaving it changed calls the commit function with the text, Escape drops the
 edit, and either one closes the field. The field also closes when its row is
 removed, so a rename never outlives its item. An input marked `invalid` does
 not commit. For a field that stays on screen, use
-`text_input(..).draft(on_commit)` alone: `draft` replaces `on_submit`, because
+`text_input(..).on_draft_commit(on_commit)` alone: `draft` replaces `on_submit`, because
 Enter belongs to the draft, and `.on_edit(..)` reports `Begin`, `Commit` and
 `Cancel`.
 
@@ -359,3 +361,121 @@ Enter belongs to the draft, and `.on_edit(..)` reports `Begin`, `Commit` and
 - [Internationalization](i18n.md): translate labels, hints and error messages.
 - [Test your app](testing.md): drive a form like the tests above.
 - Reference: `cargo doc -p kivact-ui --open` for every input's options.
+
+### Mobile input and restoration
+
+Set `.purpose(kivact::view::InputPurpose::Email)` to describe the expected input.
+The other purposes are Text, Number, Decimal, Url, Phone, Password and Search.
+Password also masks the value and prevents clipboard and accessibility disclosure.
+Desktop winit maps Password to its password hint and all other purposes to Normal.
+`platform::keyboard_inset()` observes software keyboard occlusion in logical pixels.
+
+Handle `platform::LifecycleEvent::SaveState` with `platform::on_lifecycle` and call
+`platform::save_state("draft", bytes)`. Read the previous launch's bytes with
+`platform::restored_state("draft")`; missing keys return `None`. Saving never changes
+the launch snapshot. Check `platform::capabilities().get().state_restoration`; desktop
+backends report false and ignore saves. Virtual tests can request a save with
+`screen.script().save_state()` and pass `screen.script().saved_state()` into the next
+launch's `RenderOptions::restored_state`.
+
+
+## Calendar and date/time fields
+
+```rust,no_run
+use kivact::prelude::*;
+use kivact::i18n::{CalendarDate, DateRange, DateStyle, TimeOfDay, DateTime, TimeStyle};
+use kivact::ui::{self, DatePresentation};
+fn dates() -> impl IntoView {
+    let day = signal(None::<CalendarDate>);
+    let range = signal(None::<DateRange>);
+    let time = signal(None::<TimeOfDay>);
+    let appointment = signal(None::<DateTime>);
+    column((
+        ui::calendar(day),
+        ui::date_input("Date", day).format(DateStyle::Short),
+        ui::date_range_input("Period", range),
+        ui::time_input("Time", time).format(TimeStyle { seconds: false }),
+        ui::date_time_input("Appointment", appointment)
+            .time_format(TimeStyle { seconds: true })
+            .presentation(DatePresentation::Adaptive),
+    ))
+}
+```
+
+`calendar` accepts single-date and ordered-range signals/bindings. `month` is the
+paging binding; `today`, `min`, `max` and `week_start` accept reactive values.
+`disabled_dates` rejects dates; `marks` decorates them. `range_span` limits the
+inclusive day count. Use `caption(CalendarCaption::Dropdown)` for month/year menus.
+
+Fields parse ISO and locale text through `Locale::parse_date`. Enter commits;
+Arrow Down opens the date calendar. Calendar arrows, Home/End and Page Up/Down
+navigate; Enter/Space selects. Month/weekday names follow the locale.
+`DatePresentation::Adaptive` selects a bottom sheet using `Capabilities.touch`;
+`Desktop` and `BottomSheet` select explicitly. Sheet wheels support spinbutton
+keys and assistive value actions.
+
+Style them through `UiTokens.calendar`, `UiTokens.date_input`, `UiTokens.time_input`
+and the `calendar`, `date_input`, `date_range_input`, `time_input`, `date_time_input`
+recipe tables of `UiRecipes`.
+## Group actions and toggles
+
+Use `toolbar` for three or more related controls. Its start, center and end
+regions share one Tab stop. Arrow keys move focus along its orientation;
+Home and End reach the first and last available controls. Give the toolbar
+an accessible name even when no visible heading is needed.
+
+```rust,no_run
+use kivact::prelude::*;
+use kivact::ui::{button_group, toggle_group, toolbar};
+
+fn editor_actions() -> impl IntoView {
+    let formatting = signal(Vec::<&'static str>::new());
+    column((
+        toolbar("Document actions")
+            .start((button("Undo"), button("Redo")))
+            .end((button("Save"),)),
+        toggle_group("Formatting", vec![
+            ListItem::new("bold", "Bold").with_icon("bold"),
+            ListItem::new("italic", "Italic").with_icon("italic"),
+        ], formatting),
+        button_group("Clipboard", (button("Copy"), button("Paste"))),
+    ))
+}
+```
+
+A toggle group edits `Signal<Option<K>>` for at most one pressed choice, or
+`Signal<Vec<K>>` for independent choices; bindings and canonical `Selection`
+work too. Arrows move focus without changing the selection. Space, Enter,
+click and accessibility activation toggle an item. `ListItem::with_pressed_icon`
+replaces its icon while pressed. `icon_only(true)` retains accessible labels.
+For exclusive choices that always choose when navigating, use
+`radio_group(..).variant(kivact::ui::RadioGroupVariant::Segmented)`.
+
+`button_group` accepts arbitrary controls, separators and text cells through
+`IntoChildren`. `button_group_separator()` and `button_group_text(..)` are
+non-focusable cells. `.orientation(Orientation::Vertical)` changes both the
+layout and arrow navigation of any of these groups. `.disabled(source)` is
+the standard `NodeBuilder` modifier. Themes customize the corresponding
+`UiTokens` groups and `UiRecipes` tables; caller styles still override recipes.
+
+`radio_group(...).item_node(|target, item, state| target.with_node(...))` exposes the complete canonical target for advanced attachments, such as a kit keyboard hint. Return that target with modifiers; do not create another native focus or selection owner. `.item(...)` continues to replace only inner content, and the two slots compose.
+
+### Picker interaction and touch sheets
+
+Date and time fields keep a text editor and a separate picker button. Use
+`picker_label(..)` to name that button independently. Arrow Down or Alt+Arrow
+Down opens the picker and moves focus into it. Selection or dismissal returns
+focus to the actual invoker; clicking outside keeps the new outside focus.
+
+A calendar range stages its first endpoint without publishing a partial range.
+The second endpoint publishes the ordered range; Escape discards the stage.
+In a bottom sheet, day choices and time-wheel steps publish immediately while
+Save closes the sheet. A date-and-time sheet uses Save date to advance to Time,
+then Save to close. The month heading opens Month/Year wheels; Done returns to
+the calendar. Spinbutton Up/Increment increases, Down/Decrement decreases, and
+Page Up/Down uses a larger step. A month swipe never chooses its contact date.
+
+Custom interaction code can use `CalendarOptions::activation_guard` to refuse
+an activation before either range-picking or single-selection transitions,
+without marking the date disabled. `DialogApi::return_focus` accepts a constant
+or reactive node reference and snapshots the return target for each opening.

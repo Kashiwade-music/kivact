@@ -1,5 +1,5 @@
 //! Role: Application node graph constraints and edit reduction.
-use kivact::{Callback, Signal, signal};
+use kivact::state::{Callback, Signal, signal};
 
 use kivact_ui_creative as ui;
 
@@ -80,14 +80,14 @@ pub(super) fn apply(
 pub(super) fn edits(
     nodes: Signal<Vec<ui::NodeData>>,
     links: Signal<Vec<ui::NodeLink>>,
-    observer: Option<Callback<kivact::ui::EditPhase>>,
+    observer: Option<Callback<kivact::view::EditPhase>>,
 ) -> impl Fn(ui::EditorEvent<ui::NodeRequest>) + 'static {
     let snapshot = signal(None);
     move |event| {
         let phase = match event {
             ui::EditorEvent::Begin => {
                 snapshot.set(Some((nodes.get_untracked(), links.get_untracked())));
-                Some(kivact::ui::EditPhase::Begin)
+                Some(kivact::view::EditPhase::Begin)
             }
             ui::EditorEvent::Request(request) => {
                 apply(nodes, links, request);
@@ -95,7 +95,7 @@ pub(super) fn edits(
             }
             ui::EditorEvent::Commit => {
                 snapshot.set(None);
-                Some(kivact::ui::EditPhase::Commit)
+                Some(kivact::view::EditPhase::Commit)
             }
             ui::EditorEvent::Cancel => {
                 if let Some((old_nodes, old_links)) = snapshot.get_untracked() {
@@ -103,7 +103,7 @@ pub(super) fn edits(
                     links.set(old_links);
                 }
                 snapshot.set(None);
-                Some(kivact::ui::EditPhase::Cancel)
+                Some(kivact::view::EditPhase::Cancel)
             }
         };
         if let Some(phase) = phase
@@ -129,14 +129,15 @@ pub(super) fn app_node_editor(
     }
 }
 impl AppNodeEditor {
-    pub(super) fn snap(mut self, value: impl kivact::view::IntoValue<bool>) -> Self {
+    pub(super) fn snap(mut self, value: impl kivact::state::IntoValue<bool>) -> Self {
         self.editor = self.editor.snap(value);
         self
     }
 }
-impl kivact::control::NodeBuilder for AppNodeEditor {
-    fn node_mut(&mut self) -> &mut kivact::control::Node {
-        kivact::control::NodeBuilder::node_mut(&mut self.editor)
+impl kivact::view::NodeBuilder for AppNodeEditor {
+    #[doc(hidden)]
+    fn node_mut(&mut self) -> &mut kivact::view::Node {
+        kivact::view::NodeBuilder::node_mut(&mut self.editor)
     }
 }
 impl kivact::view::IntoView for AppNodeEditor {

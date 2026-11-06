@@ -8,53 +8,50 @@
 use super::layer::{with_base_recipe_style, with_recipe_style};
 use super::values::{ControlSize, ProgressState};
 use super::variants::{Variant, Variants};
-use kivact_core::control::{Node, NodeBuilder, node};
-use kivact_core::motion::{Animated, Easing, FrameRate, Transition, animated, frame_loop};
-use kivact_core::platform::{reduced_motion, surface_active};
-use kivact_core::primitive::NodeExt;
-use kivact_core::style::{Theme, ThemeExtension, current_theme};
-use kivact_core::view::{IntoValue, IntoView, Role, View};
-use kivact_core::{Value, effect, memo, signal};
+use kivact_core::motion::{Animated, FrameRate, Transition, animated, frame_loop};
+use kivact_core::platform::{is_motion_reduced, is_surface_active};
+use kivact_core::state::IntoValue;
+use kivact_core::state::{Machine, Step, Value, machine, memo, signal};
+use kivact_core::style::use_theme;
+use kivact_core::view::{IntoView, Role, View};
+use kivact_core::view::{Node, NodeBuilder, node, text};
 
-/// Timing of standard progress bars. Install it with [`Theme::with`].
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct ProgressMotion {
-    /// Whether the first determinate fill animates from zero.
-    pub animate_initial: bool,
-    /// Milliseconds for changes to the determinate fill.
-    pub determinate_ms: u64,
-    /// Easing of determinate fill changes.
-    pub determinate_easing: Easing,
-    /// Milliseconds per full cycle of the moving-fill clock.
-    pub period_ms: u64,
-    /// Optional full clock period in reduced motion. None leaves it still.
-    pub reduced_period_ms: Option<u64>,
+use crate::values::ProgressVariant;
+#[derive(Clone, Copy, PartialEq)]
+enum ProgressMotionPhase {
+    Stopped,
+    Running,
 }
-
-impl Default for ProgressMotion {
-    fn default() -> Self {
-        Self {
-            animate_initial: true,
-            determinate_ms: 400,
-            determinate_easing: Easing::EaseOut,
-            period_ms: 1300,
-            reduced_period_ms: None,
+struct ProgressMotionInput;
+impl Machine for ProgressMotionInput {
+    type State = ProgressMotionPhase;
+    type Event = bool;
+    type Effect = ProgressMotionPhase;
+    fn transition(
+        &self,
+        state: &Self::State,
+        running: bool,
+    ) -> Step<Self::State, bool, Self::Effect> {
+        let next = if running {
+            ProgressMotionPhase::Running
+        } else {
+            ProgressMotionPhase::Stopped
+        };
+        if *state == next {
+            Step::stay()
+        } else {
+            Step::to(next).with(next)
         }
     }
 }
 
-impl ThemeExtension for ProgressMotion {
-    fn fallback(_: &Theme) -> Self {
-        Self::default()
-    }
-}
-
+// xtask-allow(state-fields): NodeBuilder options describe the requested progress appearance; motion is owned by ProgressMotionPhase.
 /// A bar of the share done, created by [`progress`].
 pub struct Progress {
     root: Node,
     value: Value<Option<f64>>,
     fixed_indeterminate: bool,
-    size: ControlSize,
+    size: Value<ControlSize>,
     moving: Value<bool>,
     variants: Variants,
 }
@@ -91,7 +88,7 @@ pub fn progress(value: impl IntoValue<Option<f64>>) -> Progress {
         root: node().role(Role::ProgressBar),
         value,
         fixed_indeterminate,
-        size: super::values::default_control_size(),
+        size: super::values::default_control_size().into_value(),
         moving: false.into_value(),
         variants: Variants::default(),
     }
@@ -100,8 +97,8 @@ pub fn progress(value: impl IntoValue<Option<f64>>) -> Progress {
 impl Progress {
     /// The size (default [`ControlSize::Medium`]), given to the recipes in
     /// their state; the recipes size the bar by it.
-    pub fn size(mut self, size: ControlSize) -> Self {
-        self.size = size;
+    pub fn size(mut self, size: impl IntoValue<ControlSize>) -> Self {
+        self.size = size.into_value();
         self
     }
 
@@ -158,7 +155,9 @@ impl IntoView for Progress {
             variants,
         } = self;
         let target = memo(move || fraction(value.get()));
-        let motion = current_theme().get::<ProgressMotion>();
+        let motion_override = variants.look(()).variant::<ProgressMotion>().copied();
+        let motion = motion_override
+            .unwrap_or_else(|| use_theme().get().ext::<crate::UiTokens>().progress.motion);
         let transition = Transition::tween(motion.determinate_ms as f64, motion.determinate_easing);
         let fill = move || target.get().unwrap_or(0.0);
         let shown = if motion.animate_initial {
@@ -167,37 +166,10 @@ impl IntoView for Progress {
             animated(fill, transition)
         }
         .into_value();
-        let phase = signal(0.0f32);
-        let period = memo(|| {
-            let motion = current_theme().get::<ProgressMotion>();
-            if reduced_motion() {
-                motion.reduced_period_ms
-            } else {
-                Some(motion.period_ms)
-            }
-        });
-        let clock = frame_loop(move |frame| {
-            if let Some(period) = period.get() {
-                let period = period.max(1) as f64;
-                let elapsed = frame.now.as_secs_f64() * 1000.0;
-                phase.set((elapsed.rem_euclid(period) / period) as f32);
-            }
-        });
-        effect(move || {
-            if (target.get().is_none() || moving.get())
-                && period.get().is_some()
-                && surface_active()
-            {
-                clock.start(FrameRate::Hz(30.0));
-            } else {
-                clock.stop();
-                phase.set(0.0);
-            }
-        });
-        let phase = phase.into_value();
+        let phase = motion_clock(target.into_value(), moving, motion_override);
         let state = memo(move || ProgressState {
             value: target.get(),
-            size,
+            size: size.get(),
             shown,
             phase,
         });
@@ -217,13 +189,73 @@ impl IntoView for Progress {
             &variants,
             move || state.get(),
         );
+        let label = (variants.look(()).variant::<ProgressVariant>()
+            == Some(&ProgressVariant::Ring))
+        .then(|| {
+            with_recipe_style(
+                text(move || {
+                    target
+                        .get()
+                        .map_or_else(String::new, |v| format!("{:.0}%", v * 100.0))
+                }),
+                |r| r.progress_recipes().label_recipe(),
+                &variants,
+                move || state.get(),
+            )
+        });
         with_base_recipe_style(
             root,
             |recipes| recipes.progress_recipes().track_recipe(),
             &variants,
             move || state.get(),
         )
-        .child(fill)
+        .child((fill, label))
         .into_view()
     }
+}
+
+pub use crate::progress_tokens::{ProgressMotion, ProgressTokens};
+
+/// Drive indeterminate motion only while a visible surface needs it.
+fn motion_clock(
+    target: Value<Option<f64>>,
+    moving: Value<bool>,
+    motion_override: Option<ProgressMotion>,
+) -> Value<f64> {
+    let phase = signal(0.0f64);
+    let period = memo(move || {
+        let motion = motion_override
+            .unwrap_or_else(|| use_theme().get().ext::<crate::UiTokens>().progress.motion);
+        if is_motion_reduced().get() {
+            motion.reduced_period_ms
+        } else {
+            Some(motion.period_ms)
+        }
+    });
+    let clock = frame_loop(move |frame| {
+        if let Some(period) = period.get() {
+            let period = period.max(1) as f64;
+            let elapsed = frame.now.as_secs_f64() * 1000.0;
+            phase.set(elapsed.rem_euclid(period) / period);
+        }
+    });
+    let motion_machine = machine(
+        ProgressMotionPhase::Stopped,
+        || ProgressMotionInput,
+        move |_, phase_state| match phase_state {
+            ProgressMotionPhase::Running => clock.start(FrameRate::Hz(30.0)),
+            ProgressMotionPhase::Stopped => {
+                clock.stop();
+                phase.set(0.0);
+            }
+        },
+    );
+    let running = memo(move || {
+        (target.get().is_none() || moving.get())
+            && period.get().is_some()
+            && is_surface_active().get()
+    });
+    motion_machine.send(running.get_untracked());
+    motion_machine.feed(running, |running| running);
+    phase.into_value()
 }

@@ -1,20 +1,24 @@
 //! Role: Tests for component interactions.
 
+use kivact::interaction::ListItem;
 use kivact::prelude::*;
-use kivact::ui::ListItem;
 use kivact_ui_pop as ui;
 use std::time::Duration;
 
 #[test]
 fn theme_change_preserves_the_shared_tab_and_range_semantic_tree() {
-    let (screen, (theme, selected, amount)) =
-        kivact::test::render_with_handle(crate::support::options(), || {
+    let (screen, (theme, selected, amount)) = kivact::test::render_with_handle(
+        kivact::test::RenderOptions::with_theme(kivact_ui_pop::theme(
+            kivact::style::ThemeMode::Light,
+        ))
+        .reduced_motion(),
+        || {
             let theme = signal(ui::theme(kivact::style::ThemeMode::Light));
             let selected = signal("first");
             let amount = signal(25.0);
             (
                 (theme, selected, amount),
-                kivact::view::provide_theme(theme, move || {
+                kivact::style::provide_theme(theme, move || {
                     column((
                         kivact::ui::tabs(
                             "Tabs",
@@ -28,7 +32,8 @@ fn theme_change_preserves_the_shared_tab_and_range_semantic_tree() {
                     ))
                 }),
             )
-        });
+        },
+    );
     screen
         .get_by_role(Role::Tab, "First")
         .press_key(Key::ArrowRight);
@@ -53,35 +58,41 @@ fn theme_change_preserves_the_shared_tab_and_range_semantic_tree() {
 fn tooltip_shows_on_focus_below_the_trigger_and_wraps_a_long_label() {
     let long = "Exports every page of the document with its comments and revision history \
                 as a single archive that other people can open without this application.";
-    let (screen, ()) = kivact::test::render_with_handle(crate::support::options(), move || {
-        (
-            (),
-            column((
-                kivact::ui::tooltip(long)
-                    .placement(kivact::view::Placement::Below)
-                    .align(kivact::view::OverlayAlign::Center)
-                    .offset(6.0)
-                    .attach(
-                        kivact::ui::button("Export")
-                            .variant(kivact::ui::ButtonVariant::Ghost)
-                            .hide_label(true)
-                            .icon(kivact::control::icon("download")),
-                    ),
-                kivact::ui::tooltip("Add")
-                    .placement(kivact::view::Placement::Below)
-                    .align(kivact::view::OverlayAlign::Center)
-                    .offset(6.0)
-                    .attach(
-                        kivact::ui::button("Add")
-                            .variant(kivact::ui::ButtonVariant::Ghost)
-                            .hide_label(true)
-                            .icon(kivact::control::icon("plus")),
-                    ),
-                kivact::ui::button("Elsewhere"),
-            ))
-            .style(style().padding(30).gap(24)),
-        )
-    });
+    let (screen, ()) = kivact::test::render_with_handle(
+        kivact::test::RenderOptions::with_theme(kivact_ui_pop::theme(
+            kivact::style::ThemeMode::Light,
+        ))
+        .reduced_motion(),
+        move || {
+            (
+                (),
+                column((
+                    kivact::ui::tooltip(long)
+                        .placement(kivact::view::Placement::Below)
+                        .align(kivact::view::OverlayAlign::Center)
+                        .offset(6.0)
+                        .attach(
+                            kivact::ui::button("Export")
+                                .variant(kivact::ui::ButtonVariant::Ghost)
+                                .hide_label(true)
+                                .icon(kivact::view::icon("download")),
+                        ),
+                    kivact::ui::tooltip("Add")
+                        .placement(kivact::view::Placement::Below)
+                        .align(kivact::view::OverlayAlign::Center)
+                        .offset(6.0)
+                        .attach(
+                            kivact::ui::button("Add")
+                                .variant(kivact::ui::ButtonVariant::Ghost)
+                                .hide_label(true)
+                                .icon(kivact::view::icon("plus")),
+                        ),
+                    kivact::ui::button("Elsewhere"),
+                ))
+                .style(style().padding(30).gap(24)),
+            )
+        },
+    );
     let export = screen.get_by_role(Role::Button, "Export");
     assert_eq!(export.description(), long);
     export.focus();
@@ -105,13 +116,17 @@ fn tooltip_shows_on_focus_below_the_trigger_and_wraps_a_long_label() {
 
 #[test]
 fn theme_switch_changes_existing_nodes_and_pixels_without_remounting_state() {
-    let (screen, (dark, checked)) =
-        kivact::test::render_with_handle(crate::support::options(), || {
+    let (screen, (dark, checked)) = kivact::test::render_with_handle(
+        kivact::test::RenderOptions::with_theme(kivact_ui_pop::theme(
+            kivact::style::ThemeMode::Light,
+        ))
+        .reduced_motion(),
+        || {
             let dark = signal(false);
             let checked = signal(true);
             (
                 (dark, checked),
-                kivact::view::provide_theme(
+                kivact::style::provide_theme(
                     move || {
                         ui::theme(if dark.get() {
                             kivact::style::ThemeMode::Dark
@@ -119,10 +134,11 @@ fn theme_switch_changes_existing_nodes_and_pixels_without_remounting_state() {
                             kivact::style::ThemeMode::Light
                         })
                     },
-                    move || ui::panel(kivact::ui::checkbox("Sync", checked)),
+                    move || kivact::ui::card(kivact::ui::checkbox("Sync", checked)),
                 ),
             )
-        });
+        },
+    );
     let before = screen.screenshot().hash();
     dark.set(true);
     screen.run_until_idle();

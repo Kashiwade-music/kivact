@@ -30,6 +30,12 @@ fn main() -> kivact::Result<()> {
 }
 ```
 
+The root setup runs once when the App mounts it. Use
+`component(move || view)` for a child that needs its own once-mounted setup
+and cleanup owner. Dynamic properties read signals inside closures.
+Runtime image and font inputs accept owned `Vec<u8>` or `AssetBytes`; keep
+an asset and clone it when reused so its cache identity stays stable.
+
 ## Features
 
 - **Plain functions and signals.** `signal`, `memo`, `effect` and keyed
@@ -38,8 +44,9 @@ fn main() -> kivact::Result<()> {
   tables, toasts and more in `kivact::ui`, styled by the active theme.
 - **Accessibility by default.** Every component exposes role, name and state
   to the platform's assistive technologies and works with the keyboard.
-- **Real-window testing.** `kivact::test` opens real windows from
-  `cargo test` and drives them by role and name, like Testing Library.
+- **App-wide testing.** `kivact::test` drives the complete App by role and
+  name on `arvane-virtual`, using the production rendering driver and a
+  virtual clock. Local runs can mirror the result in a native window.
 - **Text and input.** CJK, combining characters, bidirectional text and IME
   composition.
 - **Drawing.** A Canvas with an HTML Canvas–like vocabulary, frames from the
@@ -79,33 +86,89 @@ cargo run -p kivact-ui-basic-catalog
 |---|---|---|
 | Application developers | [Kivact guide](docs/for-kivact-user/en/README.md) | [Kivact ガイド](docs/for-kivact-user/jp/README.md) |
 | UI kit users | [UI kit guide](docs/for-kivact-ui-user/en/README.md) | [UI キット ガイド](docs/for-kivact-ui-user/jp/README.md) |
-| Kivact developers | — | [製品戦略](docs/for-kivact-developer/strategy.md) |
+| Kivact developers | — | [Architecture](docs/for-kivact-developer/architecture.md), [decisions](docs/for-kivact-developer/decisions.md), [strategy](docs/for-kivact-developer/strategy.md) |
 
 The API reference is the rustdoc: `cargo doc -p kivact --open`.
 
-## Crates
+## Workspace crates
 
-| Crate | Purpose |
-|---|---|
-| `kivact` | The framework. Applications and component libraries depend on this crate only. |
-| `kivact-ui-basic` | Neutral general-purpose kit (after the shadcn/ui "Lyra" preset). |
-| `kivact-ui-pop` | Calm business-application kit. |
-| `kivact-ui-game` | Game-style control panels and HUDs. |
-| `kivact-ui-creative` | Creative editing tools: timelines, node graphs, docks, inspectors. |
-| `kivact-ui-soft` | Astryx Neutral in light and dark appearances. |
-| `kivact-gpu-share` | Engine-side half of GPU texture sharing (experimental). |
+The workspace contains 40 packages. Application code uses `kivact` and,
+optionally, a UI kit; the remaining library boundaries separate the runtime,
+engine, backend and test harness. This diagram shows the main dependency paths;
+see the [architecture guide](docs/for-kivact-developer/architecture.md) and
+[generated graphs](architecture/) for the full graph.
 
-The other crates under [`crates/`](crates) are implementation details of
-`kivact` (reactive core, engine, layout, text and the native host Arvane)
-and are not meant to be used directly. [`architecture/`](architecture)
-contains the generated dependency graphs.
+```mermaid
+flowchart TD
+    Apps[Applications and kits] --> Facade[kivact]
+    Facade --> UI[kivact-ui]
+    UI --> Interaction[kivact-interaction]
+    Interaction --> Core[kivact-core]
+    Facade --> Core
+    Core --> Runtime[kivact-runtime / kivact-style / kivact-i18n]
+    Core --> Engine[kivact-engine]
+    Engine --> Geometry[kivact-layout / kivact-editing]
+    Engine --> Host[arvane]
+    Host --> Adapters[arvane-shell / arvane-text / arvane-render / arvane-asset]
+    Engine --> Native[arvane-native]
+    Engine --> Virtual[arvane-virtual]
+    Facade -. test feature .-> Test[kivact-test]
+    Test --> Core
+    Test --> Virtual
+    Runtime --> Types[kivact-types]
+    Engine --> Types
+```
+
+| Crate | Path | Purpose |
+|---|---|---|
+| `kivact` | `crates/kivact` | Application and component-author facade. |
+| `kivact-core` | `crates/kivact-core` | View descriptions, mounting, input and application launch. |
+| `kivact-test` | `crates/kivact-test` | App-wide E2E harness exposed as kivact::test. |
+| `kivact-public-api-tests` | `dev/tests/kivact-public-api` | Public consumer E2E and offscreen contracts. |
+| `kivact-runtime` | `crates/kivact-runtime` | Reactive owners, signals, Machines, tasks and motion. |
+| `kivact-i18n` | `crates/kivact-i18n` | Locales, messages and date/number formatting. |
+| `kivact-style` | `crates/kivact-style` | Styles, themes, tokens and drawing vocabulary. |
+| `kivact-interaction` | `crates/kivact-interaction` | Headless behavior, semantics and input controllers. |
+| `kivact-ui` | `crates/kivact-ui` | Canonical standard components and recipe contracts. |
+| `kivact-ui-basic` | `crates/kivact-ui-basic` | Neutral general-purpose kit inspired by shadcn/ui Lyra. |
+| `kivact-ui-pop` | `crates/kivact-ui-pop` | Calm, compact work-application kit. |
+| `kivact-ui-game` | `crates/kivact-ui-game` | Game-style control panels and HUDs. |
+| `kivact-ui-creative` | `crates/kivact-ui-creative` | Creative editing tools, docks and inspectors. |
+| `kivact-ui-soft` | `crates/kivact-ui-soft` | Astryx Neutral in light and dark appearances. |
+| `kivact-engine` | `crates/kivact-engine` | Retained UI tree, scene generation and backend driving. |
+| `kivact-editing` | `crates/kivact-editing` | Document, edit-session and native text-input contracts. |
+| `kivact-layout` | `crates/kivact-layout` | Borrowed-tree layout and derived geometry. |
+| `kivact-docs` | `dev/tests/docs` | Compile and run Markdown Rust examples as doctests. |
+| `kivact-template-basic` | `templates/basic` | Minimal standalone application template with a test. |
+| `kivact-example-counter` | `examples/kivact/counter` | Signal-driven counter example. |
+| `kivact-example-form` | `examples/kivact/form` | Form validation example. |
+| `kivact-example-list` | `examples/kivact/list` | Keyed list example. |
+| `kivact-example-async` | `examples/kivact/async` | Resource loading example. |
+| `kivact-example-component` | `examples/kivact/component` | Reusable component composition example. |
+| `kivact-ui-basic-catalog` | `examples/kivact-ui-basic` | Basic kit interactive catalog. |
+| `kivact-ui-pop-catalog` | `examples/kivact-ui-pop` | Pop kit interactive catalog. |
+| `kivact-ui-game-catalog` | `examples/kivact-ui-game` | Game kit interactive catalog. |
+| `kivact-ui-creative-catalog` | `examples/kivact-ui-creative` | Creative kit interactive catalog. |
+| `kivact-ui-soft-catalog` | `examples/kivact-ui-soft` | Soft kit interactive catalog. |
+| `arvane` | `crates/arvane` | Portable window, text, rendering and asset facade. |
+| `kivact-types` | `crates/kivact-types` | Neutral geometry, events, assets and immutable snapshots. |
+| `arvane-native` | `crates/arvane-native` | Native windows, input, presentation and accessibility. |
+| `arvane-shell` | `crates/arvane-shell` | Backend SPI and portable window/input vocabulary. |
+| `arvane-virtual` | `crates/arvane-virtual` | Scripted backend using the same rendering driver, with optional mirrors. |
+| `arvane-text` | `crates/arvane-text` | Font discovery and text shaping adapter. |
+| `arvane-render` | `crates/arvane-render` | CPU/GPU renderer adapters. |
+| `arvane-asset` | `crates/arvane-asset` | Image/font loading, decoding and asset caches. |
+| `kivact-gpu-share` | `crates/kivact-gpu-share` | GPU texture-sharing contracts and native helpers (experimental). |
+| `gpu-interop-producer` | `dev/tests/gpu-interop-producer` | Independent renderer used by GPU-sharing tests. |
+| `xtask` | `dev/xtask` | Workspace checks and generated architecture graphs. |
 
 ## Cargo features of `kivact`
 
 | Feature | Default | Description |
 |---|---|---|
 | `gpu` | yes | GPU rendering with automatic CPU fallback. Without it the build is CPU-only. `ARVANE_RENDERER=cpu` forces the CPU renderer at run time. |
-| `test` | no | The real-window testing library `kivact::test`. |
+| `test` | no | App-wide virtual E2E through `kivact::test`, with optional native mirrors. |
+| `tokio` | no | Tokio integration for asynchronous tasks. |
 | `embed` | no | Experimental. Open an app inside a host window, e.g. an audio plugin editor. |
 | `gpu-interop` | no | Experimental. Show GPU textures from the application's own renderer without read-back. |
 
@@ -125,7 +188,7 @@ contains the generated dependency graphs.
 | `crates/` | The framework, the native host and the UI kits |
 | `examples/` | Small applications and the kit catalogs |
 | `templates/basic/` | The smallest application with a test |
-| `docs/` | User guides and the developer strategy |
+| `docs/` | User guides, permanent architecture, decisions and strategy |
 | `dev/` | Workspace checks and the public-API test suite |
 | `architecture/` | Generated crate and module dependency graphs |
 

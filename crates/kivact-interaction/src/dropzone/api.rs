@@ -1,0 +1,116 @@
+//! Role: Validate file payloads and publish accepted selections through one controller.
+use super::machine::{DropzoneState, Effect, Event, Machine, Validity};
+use crate::options_cell::OptionsCell;
+use kivact_core::UiError;
+use kivact_core::state::{MachineHandle, Value, machine};
+use kivact_core::view::HandlerResult;
+use kivact_types::platform::FileInfo;
+use std::rc::Rc;
+type Validator = Rc<dyn Fn(&FileInfo) -> Option<String>>;
+type FilesCallback = Rc<dyn Fn(Vec<FileInfo>) -> Result<(), UiError>>;
+/// Headless drop target with caller-owned validation and delivery.
+#[derive(Clone, Copy)]
+pub struct DropzoneApi {
+    state: MachineHandle<Machine>,
+    validate: OptionsCell<Validator>,
+    on_files: OptionsCell<FilesCallback>,
+    multiple: OptionsCell<bool>,
+    /// The message refusing more than one file.
+    one_file: Value<String>,
+}
+/// Create a drop controller. Configure callbacks before attaching it to a view.
+///
+/// Message (a localized text replaces it): `dropzone.one_file` ("Choose one
+/// file.", the error for more than one file without
+/// [`multiple`](DropzoneApi::multiple)). Setup only.
+#[track_caller]
+pub fn use_dropzone() -> DropzoneApi {
+    let on_files = OptionsCell::new(Rc::new(|_| Ok(())) as FilesCallback);
+    DropzoneApi {
+        state: machine(
+            DropzoneState::Idle,
+            || Machine,
+            move |cx, effect| match effect {
+                Effect::Files(files) => {
+                    if let Err(error) = (on_files.get())(files) {
+                        cx.send(Event::Complete(Err(error)));
+                    }
+                }
+            },
+        ),
+        validate: OptionsCell::new(Rc::new(|_: &FileInfo| None) as Validator),
+        on_files,
+        multiple: OptionsCell::new(false),
+        one_file: kivact_core::i18n::message("dropzone.one_file", "Choose one file."),
+    }
+}
+impl DropzoneApi {
+    /// Accept more than one file per operation. Setup only.
+    #[track_caller]
+    pub fn multiple(self) -> Self {
+        self.multiple.update(|multiple| *multiple = true);
+        self
+    }
+    /// Supply a pure validator; its first message is shown to the user. Setup only.
+    pub fn validate(self, validate: impl Fn(&FileInfo) -> Option<String> + 'static) -> Self {
+        self.validate.update(|slot| *slot = Rc::new(validate));
+        self
+    }
+    /// Receive accepted files; a failure becomes the visible failed state. Setup only.
+    pub fn on_files<R: HandlerResult>(
+        self,
+        callback: impl Fn(Vec<FileInfo>) -> R + 'static,
+    ) -> Self {
+        self.on_files.update(|slot| {
+            *slot = Rc::new(move |files| callback(files).into_outcome().map(|_| ()))
+        });
+        self
+    }
+    /// Observe drag, picker and error state.
+    pub fn state(self) -> Value<DropzoneState> {
+        self.state.state()
+    }
+    fn validity(self, files: &[FileInfo]) -> Validity {
+        if !self.multiple.get() && files.len() > 1 {
+            return Validity::Invalid(self.one_file.get_untracked());
+        }
+        files
+            .iter()
+            .find_map(|file| (self.validate.get())(file))
+            .map_or(Validity::Valid, Validity::Invalid)
+    }
+    /// Validate the current OS drag payload.
+    pub fn hover(self, paths: Vec<std::path::PathBuf>) {
+        let files: Vec<_> = paths.into_iter().map(FileInfo::from).collect();
+        self.state.send(Event::Hover(self.validity(&files)));
+    }
+    /// End drag feedback.
+    pub fn leave(self) {
+        self.state.send(Event::Leave);
+    }
+    /// Begin a native picker, returning false if one is already open.
+    pub fn begin_pick(self) -> bool {
+        if matches!(self.state.get(), DropzoneState::Picking) {
+            return false;
+        }
+        self.state.send(Event::Pick);
+        true
+    }
+    /// End a canceled picker.
+    pub fn cancel_pick(self) {
+        self.state.send(Event::Complete(Ok(())));
+    }
+    /// Display a native picker failure.
+    pub fn fail(self, error: UiError) {
+        self.state.send(Event::Complete(Err(error)));
+    }
+    /// Validate and deliver native paths, converting transport data once at this boundary.
+    pub fn accept(self, paths: Vec<std::path::PathBuf>) {
+        let files: Vec<_> = paths.into_iter().map(FileInfo::from).collect();
+        match self.validity(&files) {
+            Validity::Invalid(message) => self.fail(UiError::msg(message)),
+            Validity::Valid if files.is_empty() => self.cancel_pick(),
+            Validity::Valid => self.state.send(Event::Accept(files)),
+        }
+    }
+}

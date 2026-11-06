@@ -1,7 +1,6 @@
 //! Role: Stable gradient stop editing, transforms and exact cancellation.
-use crate::support::clean;
 use kivact::prelude::*;
-use kivact::ui::EditPhase::{Begin, Commit};
+use kivact::view::EditPhase::{Begin, Commit};
 use kivact::view::{A11yAction, Modifiers};
 use kivact_ui_creative as ui;
 use std::cell::RefCell;
@@ -76,5 +75,5 @@ fn gradient_keys_actions_selection_and_position_reorder_keep_storage_order() {
             .iter()
             .all(|p| *p == [Begin, Commit])
     );
-    clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }

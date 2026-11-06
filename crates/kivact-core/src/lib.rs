@@ -17,7 +17,9 @@
 //!
 //! ```no_run
 //! # use kivact_core as kivact;
-//! use kivact::prelude::*;
+//! use kivact::App;
+//! use kivact::state::{signal, Signal};
+//! use kivact::view::{IntoView, Role, column, node, text};
 //!
 //! fn counter(initial: i32) -> impl IntoView {
 //!     let count = signal(initial);
@@ -43,36 +45,40 @@
 
 #[cfg(feature = "embed")]
 pub mod embed;
+#[cfg(not(feature = "embed"))]
+#[allow(
+    dead_code,
+    unused_imports,
+    unreachable_pub,
+    reason = "the feature hides the public entry while keeping implementation paths compiled"
+)]
+mod embed;
 
 mod app;
 mod client;
-pub mod control;
+pub mod custom;
 pub mod diagnostics;
 pub mod draw;
+pub mod geometry;
 #[cfg(feature = "gpu-interop")]
 pub mod gpu_interop;
+#[cfg(not(feature = "gpu-interop"))]
+#[allow(
+    dead_code,
+    unused_imports,
+    unreachable_pub,
+    reason = "the feature hides the public entry while keeping implementation paths compiled"
+)]
+mod gpu_interop;
 pub mod i18n;
+pub mod launch;
 pub mod motion;
 pub mod platform;
-pub mod prelude;
-pub mod primitive;
-mod sealed;
+pub mod state;
 pub mod style;
 pub mod task;
-#[cfg(feature = "test")]
-pub mod test;
 pub mod view;
 
 pub use app::App;
 #[doc(inline)]
-pub use kivact_reactive::Selector;
-#[doc(inline)]
-pub use kivact_reactive::untrack;
-#[doc(inline)]
-pub use kivact_reactive::{Binding, Callback, Signal, Value, Var};
-#[doc(inline)]
-pub use kivact_reactive::{Result, UiError};
-#[doc(inline)]
-pub use kivact_reactive::{binding, effect, effect_on, memo, on_cleanup, on_mount, signal, var};
-#[doc(inline)]
-pub use kivact_style::asset::Asset;
+pub use kivact_runtime::{ErrorKind, Result, UiError};

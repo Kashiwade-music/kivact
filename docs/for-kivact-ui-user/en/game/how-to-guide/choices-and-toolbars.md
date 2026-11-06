@@ -37,7 +37,7 @@ fn difficulty() -> impl IntoView {
             level,
         )
         .orientation(Orientation::Horizontal)
-        .variant(game::Segmented),
+        .variant(kivact::ui::RadioGroupVariant::Segmented),
         game::mono(move || format!("{:?}", level.get())),
     ))
     .style(style().gap(12).margin(24))
@@ -71,8 +71,8 @@ fn plans() -> impl IntoView {
     radio_group(
         "Plan",
         vec![
-            ListItem::new("solo", "SOLO").description("1 seat"),
-            ListItem::new("team", "TEAM").description("50 seats"),
+            ListItem::new("solo", "SOLO").with_description("1 seat"),
+            ListItem::new("team", "TEAM").with_description("50 seats"),
         ],
         plan,
     )
@@ -98,7 +98,7 @@ open section; `.content(..)` shows the section.
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::ui::Tone;
+use kivact::interaction::Tone;
 use kivact_ui_game as game;
 
 fn menu() -> impl IntoView {
@@ -106,8 +106,8 @@ fn menu() -> impl IntoView {
     tabs(
         "Sections",
         vec![
-            ListItem::new("inbox", "INBOX").icon("bell"),
-            ListItem::new("squad", "SQUAD").icon("users"),
+            ListItem::new("inbox", "INBOX").with_icon("bell"),
+            ListItem::new("squad", "SQUAD").with_icon("users"),
         ],
         section,
     )
@@ -115,7 +115,7 @@ fn menu() -> impl IntoView {
     .variant(game::Navigation)
     .item(|item, state| {
         let count = match item.with(|item| *item.key()) {
-            "inbox" => Some(game::badge("3", Tone::Info)),
+            "inbox" => Some(kivact::ui::badge("3").tone(Tone::Info)),
             _ => None,
         };
         (game::navigation_label(item, state), count)
@@ -129,12 +129,12 @@ fn menu() -> impl IntoView {
 slot puts a badge or a count after it. For horizontal tabs, the default look is
 underlined and `.variant(game::Boxed)` puts the tabs in a box, as in the
 [tutorial](../getting-started/03-tabs-and-items.md). To keep what is typed in
-a panel when the player switches tabs, add `.keep_mounted(true)`: every panel is
+a panel when the player switches tabs, add `.keep_mounted()`: every panel is
 built once and hidden while its tab is not selected.
 
 ## Add quick actions to a toolbar
 
-`game::toolbar(children)` is a dense bordered row, `game::button_group(children)`
+`kivact::ui::toolbar(label).start(children)` is a dense bordered row, `kivact::ui::button_group(label, children)`
 packs related buttons together, and `game::tool_button(label)` is a square
 ghost button for an icon. Give a tool button its icon and hide its label; the
 label stays as the accessible name.
@@ -144,8 +144,8 @@ use kivact::prelude::*;
 use kivact_ui_game as game;
 
 fn tools(zoom: Signal<f64>) -> impl IntoView {
-    game::toolbar((
-        game::button_group((
+    kivact::ui::toolbar("View tools").start((
+        kivact::ui::button_group("Zoom", (
             game::tool_button("Zoom out")
                 .icon(icon("chevron-down"))
                 .hide_label(true)
@@ -171,8 +171,8 @@ fn tools(zoom: Signal<f64>) -> impl IntoView {
 ```
 
 `game::chevron(label, caption)` is a large call-to-action button with a
-monospaced caption; `game::stepper(labels, current)`, `game::breadcrumb(items)`
-and `game::pagination(page, count)` are navigation helpers that take the
+monospaced caption; `kivact::ui::stepper(items, current)`, `kivact::ui::breadcrumb(items)`
+and `kivact::ui::pagination(count, page)` are navigation helpers that take the
 current position from your signals.
 
 ## See also
@@ -180,3 +180,7 @@ current position from your signals.
 - [Show items in lists and trees](item-lists-and-selection.md)
 - [Show meters and status](meters-and-status.md)
 - All looks and components: `cargo doc -p kivact-ui-game --open`
+
+## File drop targets
+
+Use `kivact::ui::dropzone(label)` under the Game theme. The recipe retains the console's dashed border, diagonal stripes and drag highlight. Add `.icon(kivact::view::icon("cloud-upload"))` for the upload glyph. Use `.multiple().pick_on_press()` to accept several files and enable the native picker. Callbacks receive `FileInfo`; use `file.path` for the native path. `.hint(..)`, `.filters(..)` and `.validate(..)` provide guidance, picker filters and application validation. Callback errors appear as alerts until the next successful drop or pick.

@@ -1,6 +1,6 @@
 //! Role: Colors: sRGB, theme tokens or theme-resolved values, resolved at paint.
 
-use kivact_wire::Rgba;
+use kivact_types::Rgba;
 
 /// Semantic color slots of a [`Theme`](super::theme::value::Theme).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -32,12 +32,12 @@ pub enum ColorToken {
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(super) enum Repr {
-    Rgba(f32, f32, f32, f32),
-    Token(ColorToken, f32),
+    Rgba(f64, f64, f64, f64),
+    Token(ColorToken, f64),
     /// A `ThemeColor` value (see `theme::value`), by its index in the table
     /// of the values stored so far, with the alpha applied to what it
     /// resolves to.
-    Themed(u32, f32),
+    Themed(u32, f64),
 }
 
 /// A concrete color, a theme token or a theme-resolved value.
@@ -50,16 +50,16 @@ pub fn rgb(hex: u32) -> Color {
 }
 
 /// Color from `0xRRGGBB` and alpha `0.0..=1.0`.
-pub fn rgba(hex: u32, alpha: f32) -> Color {
+pub fn rgba(hex: u32, alpha: f64) -> Color {
     let c = Rgba::from_hex(hex, alpha);
     Color(Repr::Rgba(c.r, c.g, c.b, c.a))
 }
 
 /// HSL color: hue in degrees, saturation and lightness in `0.0..=1.0`.
 pub fn hsl(hue: impl Into<f64>, saturation: impl Into<f64>, lightness: impl Into<f64>) -> Color {
-    let h = (hue.into() as f32).rem_euclid(360.0) / 60.0;
-    let s = (saturation.into() as f32).clamp(0.0, 1.0);
-    let l = (lightness.into() as f32).clamp(0.0, 1.0);
+    let h = (hue.into()).rem_euclid(360.0) / 60.0;
+    let s = (saturation.into()).clamp(0.0, 1.0);
+    let l = (lightness.into()).clamp(0.0, 1.0);
     let c = (1.0 - (2.0 * l - 1.0).abs()) * s;
     let x = c * (1.0 - (h.rem_euclid(2.0) - 1.0).abs());
     let (r, g, b) = match h as u32 {
@@ -71,7 +71,7 @@ pub fn hsl(hue: impl Into<f64>, saturation: impl Into<f64>, lightness: impl Into
         _ => (c, 0.0, x),
     };
     let m = l - c / 2.0;
-    Color::from_rgba_f32(r + m, g + m, b + m, 1.0)
+    Color::from_rgba_f64(r + m, g + m, b + m, 1.0)
 }
 
 impl Color {
@@ -84,12 +84,13 @@ impl Color {
     }
 
     /// Components in `0.0..=1.0`.
-    pub fn from_rgba_f32(r: f32, g: f32, b: f32, a: f32) -> Color {
+    pub fn from_rgba_f64(r: f64, g: f64, b: f64, a: f64) -> Color {
         Color(Repr::Rgba(r, g, b, a.clamp(0.0, 1.0)))
     }
 
     /// Multiply alpha.
-    pub fn with_alpha(self, alpha: f32) -> Color {
+    pub fn with_alpha(self, alpha: impl Into<f64>) -> Color {
+        let alpha = alpha.into();
         match self.0 {
             Repr::Rgba(r, g, b, a) => Color(Repr::Rgba(r, g, b, (a * alpha).clamp(0.0, 1.0))),
             Repr::Token(t, a) => Color(Repr::Token(t, (a * alpha).clamp(0.0, 1.0))),
@@ -104,4 +105,4 @@ impl From<ColorToken> for Color {
     }
 }
 
-kivact_reactive::constant_value!(Color);
+kivact_runtime::constant_value!(Color);

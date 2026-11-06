@@ -1,11 +1,11 @@
 //! Role: A headless row model: filter, sort and page the caller's rows by column.
 
 use super::data::{Header, SortOrder};
-use kivact_core::view::{IntoText, IntoValue, Reactive};
-use kivact_core::{Binding, Signal, Value, Var, memo, signal, var};
+use kivact_core::custom::Reactive;
+use kivact_core::state::{Binding, Signal, Value, Var, memo, signal, var};
+use kivact_core::state::{IntoText, IntoValue};
 use std::cmp::Ordering;
 use std::collections::HashMap;
-use std::hash::Hash;
 use std::rc::Rc;
 
 type Compare<R> = Rc<dyn Fn(&R, &R) -> Ordering>;
@@ -50,12 +50,13 @@ impl FilterValue {
     }
 }
 
+// xtask-allow(state-fields): Immutable column configuration; independent optional render, filter, comparison, and sizing capabilities.
 /// One column of a table: its key, label and starting width, how its rows
-/// compare and match a filter (TanStack Table's column definition), and
+/// compare and match a filter (TanStack DataTableApi's column definition), and
 /// whether it is shown.
 ///
-/// This is the only column type: a [`TableModel`] sorts, filters and hides
-/// by it, and [`use_table`](crate::use_table) reads the keys, labels, widths
+/// This is the only column type: a [`DataTableModelApi`] sorts, filters and hides
+/// by it, and [`use_data_table`](crate::use_data_table) reads the keys, labels, widths
 /// and whether a header sorts from it. A column is sortable exactly when it
 /// has a [`compare`](Self::compare); a column without
 /// [`filter`](Self::filter) does not take part in filtering.
@@ -122,14 +123,14 @@ impl<R, C> ColumnDef<R, C> {
     }
 
     /// Show the column while true (a constant or a reactive value). A hidden
-    /// column is left out of [`TableModel::columns`] and of filtering.
+    /// column is left out of [`DataTableModelApi::columns`] and of filtering.
     pub fn visible(mut self, visible: impl IntoValue<bool>) -> Self {
         self.visible = Reactive::new(visible);
         self
     }
 
     /// The starting width in the caller's unit; `None` leaves it to layout.
-    pub fn width(mut self, width: impl Into<Option<f64>>) -> Self {
+    pub fn with_width(mut self, width: impl Into<Option<f64>>) -> Self {
         self.width = width.into();
         self
     }
@@ -166,15 +167,9 @@ impl<R, C> ColumnDef<R, C> {
         &self.key
     }
 
-    /// The label's current text; tracked when read inside a computation.
+    /// The reactive label text of the current owner.
     #[track_caller]
-    pub fn label(&self) -> String {
-        self.label.get()
-    }
-
-    /// The label as a [`Value`] of the current owner. Setup only.
-    #[track_caller]
-    pub fn label_value(&self) -> Value<String> {
+    pub fn label(&self) -> Value<String> {
         self.label.clone().into_value()
     }
 
@@ -190,7 +185,7 @@ impl<R, C> ColumnDef<R, C> {
     }
 
     /// The starting width ([`width`](Self::width)).
-    pub fn width_value(&self) -> Option<f64> {
+    pub fn width(&self) -> Option<f64> {
         self.width
     }
 }
@@ -239,23 +234,29 @@ struct Paging {
 }
 
 /// A Copy handle over the caller's rows that filters, sorts and pages them,
-/// the headless row model of TanStack Table.
+/// the headless row model of TanStack DataTableApi.
 ///
 /// The model keeps no rows of its own: it reads the caller's rows, the sort
 /// column and direction, the filter text and the page, and derives the rows
 /// to show. It draws nothing and has no keys or focus; give its
 /// [`rows`](Self::rows) and [`columns`](Self::columns) to
-/// [`use_table`](crate::use_table) for the grid's keyboard and selection, and
+/// [`use_data_table`](crate::use_data_table) for the grid's keyboard and selection, and
 /// give both the same sort binding, so that activating a header sorts the
 /// model:
 ///
 /// ```no_run
 /// # mod kivact {
 /// #     //! Role: Supply facade paths for this documentation example.
-/// #     pub use kivact_core::{control, prelude, view};
+/// # pub use kivact_core::{view, state, style};
+/// # pub mod prelude {
+/// # //! Role: Supply the canonical imports used by this documentation example.
+/// # pub use kivact_core::state::{Binding, Callback, IntoBinding, IntoText, IntoValue, Signal, Value, binding, effect, memo, on_cleanup, on_mount, signal};
+/// # pub use kivact_core::view::{EditPhase, Component, IntoView, NodeBuilder, Orientation, Role, column, for_each, node, node_ref, row, show, text};
+/// # pub use kivact_core::style::{ColorToken, Cursor, Style, style};
+/// # }
 /// #     pub extern crate kivact_interaction as interaction;
 /// # }
-/// use kivact::interaction::{ColumnDef, ListSelection, TableFocus, use_table, use_table_model};
+/// use kivact::interaction::{ColumnDef, TableFocus, use_data_table, use_data_table_model};
 /// use kivact::prelude::*;
 /// use kivact::interaction::SortOrder;
 /// #[derive(Clone, PartialEq)]
@@ -264,7 +265,7 @@ struct Paging {
 /// let sort = signal(Some(("name", SortOrder::Ascending)));
 /// let query = signal(String::new());
 /// let page = signal(0_usize);
-/// let model = use_table_model(people, |p: &Person| p.id, vec![
+/// let model = use_data_table_model(people, |p: &Person| p.id, vec![
 ///     ColumnDef::new("name", "Name")
 ///         .compare(|a: &Person, b: &Person| a.name.cmp(&b.name))
 ///         .filter(|p: &Person, q: &str| p.name.to_lowercase().contains(&q.to_lowercase())),
@@ -274,14 +275,14 @@ struct Paging {
 /// .filter(query)
 /// .page(page, 20_usize);
 /// let selected = signal(Vec::<u32>::new());
-/// let table = use_table(model.rows(), |p: &Person| p.id, model.columns(),
-///     ListSelection::Multiple(selected.into()), TableFocus::default())
-///     .sort(sort);
+/// let table = use_data_table(model.rows(), |p: &Person| p.id, model.columns(),
+///     selected, TableFocus::default())
+///     .with_sort(sort);
 /// let status = text(move || format!("{} people, page {} of {}",
 ///     model.row_count().get(), page.get() + 1, model.page_count().get()));
 /// # let _ = (table, status);
 /// ```
-pub struct TableModel<R: 'static, K: 'static, C: 'static> {
+pub struct DataTableModelApi<R: 'static, K: 'static, C: 'static> {
     /// The caller's rows, every one.
     source: Value<Vec<R>>,
     /// The indices into `source` of the rows that pass the filter, sorted.
@@ -300,28 +301,28 @@ pub struct TableModel<R: 'static, K: 'static, C: 'static> {
     paging: Signal<Option<Paging>>,
 }
 
-impl<R: 'static, K: 'static, C: 'static> Clone for TableModel<R, K, C> {
+impl<R: 'static, K: 'static, C: 'static> Clone for DataTableModelApi<R, K, C> {
     fn clone(&self) -> Self {
         *self
     }
 }
 
-impl<R: 'static, K: 'static, C: 'static> Copy for TableModel<R, K, C> {}
+impl<R: 'static, K: 'static, C: 'static> Copy for DataTableModelApi<R, K, C> {}
 
 /// Create a row model over `rows`, identified by `key`, with `columns` in
-/// display order. Without [`sort`](TableModel::sort),
-/// [`filter`](TableModel::filter) and [`page`](TableModel::page) it shows
+/// display order. Without [`sort`](DataTableModelApi::sort),
+/// [`filter`](DataTableModelApi::filter) and [`page`](DataTableModelApi::page) it shows
 /// every row in the caller's order. Setup only.
 #[track_caller]
-pub fn use_table_model<R, K, C>(
+pub fn use_data_table_model<R, K, C>(
     rows: impl IntoValue<Vec<R>>,
     key: impl Fn(&R) -> K + 'static,
     columns: Vec<ColumnDef<R, C>>,
-) -> TableModel<R, K, C>
+) -> DataTableModelApi<R, K, C>
 where
-    R: Clone + PartialEq + 'static,
-    K: Clone + PartialEq + 'static,
-    C: Clone + Eq + Hash + 'static,
+    R: kivact_core::state::PropValue,
+    K: kivact_core::state::ItemKey,
+    C: kivact_core::state::ItemKey,
 {
     let rows = rows.into_value();
     let key: KeyOf<R, K> = Rc::new(key);
@@ -344,93 +345,15 @@ where
         }
     };
     // The indices of the rows that pass the filter, in sorted order.
-    let ordered = {
-        let (columns, shown) = (columns.clone(), shown.clone());
-        memo(move || {
-            let query = query
-                .get()
-                .map(|query| query.get().trim().to_string())
-                .unwrap_or_default();
-            let sort = sort.get().map(|sort| sort.get()).unwrap_or_default();
-            let column_queries = column_queries
-                .get()
-                .map(|queries| queries.get())
-                .unwrap_or_default();
-            let typed = typed_queries
-                .get()
-                .map(|queries| queries.get())
-                .unwrap_or_default();
-            let shown = if query.is_empty() && column_queries.is_empty() && typed.is_empty() {
-                Vec::new()
-            } else {
-                shown()
-            };
-            let global_matchers: Vec<_> = shown
-                .iter()
-                .filter_map(|column| column.matches.as_ref())
-                .collect();
-            let column_matchers: Vec<_> = column_queries
-                .iter()
-                .filter_map(|(key, text)| {
-                    let text = text.trim();
-                    if text.is_empty() {
-                        return None;
-                    }
-                    let column = shown.iter().find(|column| &column.key == key)?;
-                    Some((column.matches.as_ref()?, text))
-                })
-                .collect();
-            let typed_matchers: Vec<_> = shown
-                .iter()
-                .filter_map(|column| {
-                    let value = typed.get(&column.key).filter(|value| !value.is_empty())?;
-                    Some((column.matches_value.as_ref()?, value))
-                })
-                .collect();
-            rows.with(|rows| {
-                let mut kept: Vec<usize> = (0..rows.len())
-                    .filter(|&i| {
-                        let row = &rows[i];
-                        (query.is_empty()
-                            || global_matchers.iter().any(|matches| matches(row, &query)))
-                            && column_matchers
-                                .iter()
-                                .all(|(matches, text)| matches(row, text))
-                            && typed_matchers
-                                .iter()
-                                .all(|(matches, value)| matches(row, value))
-                    })
-                    .collect();
-                let comparisons: Vec<_> = sort
-                    .into_iter()
-                    .filter_map(|(key, direction)| {
-                        let compare = columns.iter().find(|c| c.key == key)?.compare.clone()?;
-                        Some((compare, direction))
-                    })
-                    .collect();
-                if !comparisons.is_empty() {
-                    kept.sort_by(|&a, &b| {
-                        comparisons
-                            .iter()
-                            .find_map(|(compare, direction)| {
-                                let order = compare(&rows[a], &rows[b]);
-                                let order = if *direction == SortOrder::Descending {
-                                    order.reverse()
-                                } else {
-                                    order
-                                };
-                                (order != Ordering::Equal).then_some(order)
-                            })
-                            .unwrap_or(Ordering::Equal)
-                    });
-                }
-                match arrangement.get() {
-                    Some(arrange) => arrange(rows, kept),
-                    None => kept,
-                }
-            })
-        })
-    };
+    let ordered = ordered_rows(
+        rows,
+        columns.clone(),
+        sort,
+        query,
+        column_queries,
+        arrangement,
+        typed_queries,
+    );
     let count = memo(move || ordered.with(Vec::len));
     let pages = memo(move || {
         let count = count.get();
@@ -466,7 +389,7 @@ where
     let keys =
         memo(move || shown_rows.with(|rows: &Vec<R>| rows.iter().map(|row| key_of(row)).collect()));
     let columns = memo(move || shown().into_iter().collect::<Vec<_>>());
-    TableModel {
+    DataTableModelApi {
         source: rows,
         ordered,
         key: var(key),
@@ -484,15 +407,18 @@ where
     }
 }
 
-impl<R: Clone + PartialEq + 'static, K: Clone + PartialEq + 'static, C: Clone + Eq + Hash + 'static>
-    TableModel<R, K, C>
+impl<
+    R: kivact_core::state::PropValue,
+    K: kivact_core::state::ItemKey,
+    C: kivact_core::state::ItemKey,
+> DataTableModelApi<R, K, C>
 {
     /// Sort by the column and direction this binding holds; `None` or a
     /// column without a compare function keeps the caller's order. Give the same binding to
-    /// [`Table::sort`](crate::Table::sort). Setup only.
+    /// [`DataTableApi::sort`](crate::DataTableApi::sort). Setup only.
     #[track_caller]
-    pub fn sort(self, sort: impl Into<Binding<Option<(C, SortOrder)>>>) -> Self {
-        let sort = sort.into();
+    pub fn sort(self, sort: impl kivact_core::state::IntoBinding<Option<(C, SortOrder)>>) -> Self {
+        let sort = sort.into_binding();
         self.multi_sort(move || sort.get().into_iter().collect())
     }
 
@@ -544,9 +470,13 @@ impl<R: Clone + PartialEq + 'static, K: Clone + PartialEq + 'static, C: Clone + 
     /// the binding as it is, so the page number comes back when the rows do.
     /// Setup only.
     #[track_caller]
-    pub fn page(self, index: impl Into<Binding<usize>>, size: impl IntoValue<usize>) -> Self {
+    pub fn page(
+        self,
+        index: impl kivact_core::state::IntoBinding<usize>,
+        size: impl IntoValue<usize>,
+    ) -> Self {
         let paging = Paging {
-            index: index.into(),
+            index: index.into_binding(),
             size: size.into_value(),
         };
         self.paging.update(|current| *current = Some(paging));
@@ -564,7 +494,7 @@ impl<R: Clone + PartialEq + 'static, K: Clone + PartialEq + 'static, C: Clone + 
     }
 
     /// The keys of every row that passes the filter, sorted, on every page
-    /// (TanStack Table's filtered row model): what a summary such as
+    /// (TanStack DataTableApi's filtered row model): what a summary such as
     /// "2 of 40 row(s) selected." counts. Setup only.
     #[track_caller]
     pub fn filtered_keys(self) -> Value<Vec<K>> {
@@ -581,7 +511,7 @@ impl<R: Clone + PartialEq + 'static, K: Clone + PartialEq + 'static, C: Clone + 
         })
     }
 
-    /// The shown column definitions, for [`use_table`](crate::use_table).
+    /// The shown column definitions, for [`use_data_table`](crate::use_data_table).
     pub fn columns(self) -> Value<Vec<ColumnDef<R, C>>> {
         self.columns
     }
@@ -595,4 +525,112 @@ impl<R: Clone + PartialEq + 'static, K: Clone + PartialEq + 'static, C: Clone + 
     pub fn page_count(self) -> Value<usize> {
         self.pages
     }
+}
+
+fn ordered_rows<R: kivact_core::state::PropValue, C: kivact_core::state::ItemKey>(
+    rows: Value<Vec<R>>,
+    columns: Rc<[ColumnDef<R, C>]>,
+    sort: Signal<Option<Sort<C>>>,
+    query: Signal<Option<Value<String>>>,
+    column_queries: Signal<Option<ColumnQueries<C>>>,
+    arrangement: Signal<Option<RowArrangement<R>>>,
+    typed_queries: Signal<Option<TypedQueries<C>>>,
+) -> Value<Vec<usize>> {
+    memo(move || {
+        let query = query
+            .get()
+            .map(|query| query.get().trim().to_string())
+            .unwrap_or_default();
+        let sort = sort.get().map(|sort| sort.get()).unwrap_or_default();
+        let column_queries = column_queries
+            .get()
+            .map(|queries| queries.get())
+            .unwrap_or_default();
+        let typed = typed_queries
+            .get()
+            .map(|queries| queries.get())
+            .unwrap_or_default();
+        let shown = if query.is_empty() && column_queries.is_empty() && typed.is_empty() {
+            Vec::new()
+        } else {
+            columns
+                .iter()
+                .filter(|column| column.visible.get())
+                .cloned()
+                .collect::<Vec<_>>()
+        };
+        rows.with(|rows| {
+            let mut kept = matching_rows(rows, &shown, &query, &column_queries, &typed);
+            let comparisons: Vec<_> = sort
+                .into_iter()
+                .filter_map(|(key, direction)| {
+                    let compare = columns.iter().find(|c| c.key == key)?.compare.clone()?;
+                    Some((compare, direction))
+                })
+                .collect();
+            if !comparisons.is_empty() {
+                kept.sort_by(|&a, &b| {
+                    comparisons
+                        .iter()
+                        .find_map(|(compare, direction)| {
+                            let order = compare(&rows[a], &rows[b]);
+                            let order = if *direction == SortOrder::Descending {
+                                order.reverse()
+                            } else {
+                                order
+                            };
+                            (order != Ordering::Equal).then_some(order)
+                        })
+                        .unwrap_or(Ordering::Equal)
+                });
+            }
+            match arrangement.get() {
+                Some(arrange) => arrange(rows, kept),
+                None => kept,
+            }
+        })
+    })
+}
+
+fn matching_rows<R, C: PartialEq + Eq + std::hash::Hash>(
+    rows: &[R],
+    shown: &[ColumnDef<R, C>],
+    query: &str,
+    column_queries: &[(C, String)],
+    typed: &HashMap<C, FilterValue>,
+) -> Vec<usize> {
+    let global_matchers: Vec<_> = shown
+        .iter()
+        .filter_map(|column| column.matches.as_ref())
+        .collect();
+    let column_matchers: Vec<_> = column_queries
+        .iter()
+        .filter_map(|(key, text)| {
+            let text = text.trim();
+            if text.is_empty() {
+                return None;
+            }
+            let column = shown.iter().find(|column| &column.key == key)?;
+            Some((column.matches.as_ref()?, text))
+        })
+        .collect();
+    let typed_matchers: Vec<_> = shown
+        .iter()
+        .filter_map(|column| {
+            let value = typed.get(&column.key).filter(|value| !value.is_empty())?;
+            Some((column.matches_value.as_ref()?, value))
+        })
+        .collect();
+    (0..rows.len())
+        .filter(|&i| {
+            let row = &rows[i];
+            (query.is_empty() || global_matchers.iter().any(|matches| matches(row, query)))
+                && column_matchers
+                    .iter()
+                    .all(|(matches, text)| matches(row, text))
+                && typed_matchers
+                    .iter()
+                    .all(|(matches, value)| matches(row, value))
+        })
+        .collect()
 }

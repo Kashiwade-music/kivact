@@ -1,9 +1,9 @@
 //! Role: Geometry values: points, sizes, rectangles and corner radii.
 
 use super::length::Length;
-use kivact_wire::CornerRadius as WireCorner;
+use kivact_types::CornerRadius as WireCorner;
 
-pub use kivact_wire::{IntrinsicSize, Point, Rect, Size};
+pub use kivact_types::{IntrinsicSize, Point, Rect, Size};
 
 /// A corner's radius: circular (`8`, `pct(50)`) or elliptical (`(20, 10)`:
 /// horizontal, vertical). Percentages are against the box's width

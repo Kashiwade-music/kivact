@@ -27,13 +27,13 @@ vello_hybrid = { workspace = true, optional = true }
 wgpu = { workspace = true, optional = true }
 pollster = { workspace = true, optional = true }
 # The window a GPU surface presents to (the version winit's rwh_06 uses).
-raw-window-handle = { workspace = true, optional = true }
+raw-window-handle = { workspace = true }
 # GPU texture sharing (feature `gpu-interop`): Arvane's unsafe GPU code
 # lives in this crate, not here.
 kivact-gpu-share = { path = "../kivact-gpu-share", version = "0.1.0", optional = true, features = ["import"] }
 
 [features]
-gpu = ["dep:vello_hybrid", "dep:wgpu", "dep:pollster", "dep:raw-window-handle"]
+gpu = ["dep:vello_hybrid", "dep:wgpu", "dep:pollster"]
 # Drawing textures an application's render engine shares
 # (`DrawCommand::External`): Direct3D 12 and Vulkan on Windows, Vulkan on
 # Linux; elsewhere nothing is imported.

@@ -7,3 +7,7 @@
 **/assets/fonts/**/OFL.txt whitespace=-blank-at-eol
 
 architecture/** linguist-documentation
+
+# Canonical catalog fonts retain upstream notice and checksum bytes.
+examples/shared-assets/fonts/**/OFL.txt text eol=lf whitespace=-blank-at-eol
+examples/shared-assets/fonts/SHA256SUMS.txt text eol=lf

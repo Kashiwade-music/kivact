@@ -1,17 +1,34 @@
-//! Role: The focus group's state: the focus target with its modality and pending reveal.
+//! Role: Keyboard focus, held-key targets, modality and pending focus reveal.
 
 use crate::tree::NodeTree;
-use kivact_wire::{FocusTarget, NodeId};
+use kivact_types::{FocusTarget, KeyCode, NodeId};
 use std::collections::HashMap;
+
+/// Targets that received a physical key down, until its release.
+#[derive(Default)]
+pub(crate) struct KeyDownTargets(pub(crate) HashMap<KeyCode, FocusTarget>);
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum FocusVisibility {
+    Hidden,
+    Visible,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(super) enum Reveal {
+    #[default]
+    No,
+    AtCommit,
+}
 
 /// The keyboard focus.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct Focused {
     pub(crate) target: FocusTarget,
     /// Its indicator shows (`:focus-visible`).
-    pub(crate) visible: bool,
+    pub(crate) visibility: FocusVisibility,
     /// The host moved it on its own: it is scrolled into view at the commit.
-    pub(super) reveal_at_commit: bool,
+    pub(super) reveal: Reveal,
 }
 
 /// The focus group: the keyboard focus, and the nodes to scroll into view
@@ -36,7 +53,8 @@ impl Focus {
 
     /// Whether the focus is shown (`:focus-visible`).
     pub(crate) fn visible(&self) -> bool {
-        self.focused.is_some_and(|f| f.visible)
+        self.focused
+            .is_some_and(|f| f.visibility == FocusVisibility::Visible)
     }
 
     /// Drop removed and leaving nodes.

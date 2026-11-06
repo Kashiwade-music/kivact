@@ -35,6 +35,7 @@
 
 mod dirty;
 pub(super) use dirty::Built;
+mod geometry;
 mod identity;
 mod local_text;
 mod node;

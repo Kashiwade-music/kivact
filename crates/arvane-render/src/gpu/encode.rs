@@ -51,14 +51,15 @@
 //!   texel (vello_hybrid clamps first), where an image samples the last
 //!   texel alone. Drawn at its own size, a frame's pixels are exact.
 
-use super::external::External;
+use super::external::Frame;
 use super::state::{AtlasImage, GpuContext, GpuImage, Images};
 use crate::draw;
 use crate::error::RenderError;
 use crate::paint::PatternFill;
 use crate::validate;
 use crate::validate::SceneInfo;
-use kivact_types::protocol::{ImageData, Scene};
+use kivact_types::render::RenderScene;
+use kivact_types::scene::Pixels;
 use kivact_types::{ExternalFrame, Size};
 use std::sync::Arc;
 use vello_common::filter_effects::Filter;
@@ -94,11 +95,12 @@ impl GpuContext {
     /// `opaque` (as CPU frames are shown).
     pub(crate) fn encode(
         &mut self,
-        source: &Scene,
-        scale: f32,
+        source: &RenderScene,
+        scale: f64,
         size: (u32, u32),
         info: &SceneInfo,
         opaque: bool,
+        external: &Frame,
     ) {
         let Self {
             scene,
@@ -108,7 +110,6 @@ impl GpuContext {
             queue,
             images,
             caches,
-            external,
             ..
         } = self;
         record(
@@ -136,11 +137,11 @@ impl GpuContext {
     /// returned.
     pub(crate) fn encode_alongside<R: Send>(
         &mut self,
-        source: &Scene,
-        scale: f32,
+        source: &RenderScene,
+        scale: f64,
         size: (u32, u32),
         info: &SceneInfo,
-        opaque: bool,
+        external: &Frame,
         alongside: impl FnOnce(&wgpu::Device, &wgpu::Adapter) -> R + Send,
     ) -> R {
         let Self {
@@ -152,7 +153,6 @@ impl GpuContext {
             images,
             caches,
             adapter,
-            external,
             ..
         } = self;
         let (device, adapter) = (&*device, &*adapter);
@@ -173,7 +173,7 @@ impl GpuContext {
                 scale,
                 size,
                 info,
-                opaque,
+                true,
             );
             side.join()
                 .unwrap_or_else(|panic| std::panic::resume_unwind(panic))
@@ -190,14 +190,14 @@ struct Recorder<'a> {
     queue: &'a wgpu::Queue,
     images: &'a mut Images,
     caches: &'a mut draw::Caches,
-    external: &'a External,
+    external: &'a Frame,
 }
 
 /// Record `source` into the scene (see [`GpuContext::encode`]).
 fn record(
     parts: Recorder<'_>,
-    source: &Scene,
-    scale: f32,
+    source: &RenderScene,
+    scale: f64,
     (width, height): (u32, u32),
     info: &SceneInfo,
     opaque: bool,
@@ -240,8 +240,8 @@ fn record(
     let frame = draw::Frame {
         scale,
         size: Size {
-            width: f32::from(width) / scale,
-            height: f32::from(height) / scale,
+            width: f64::from(width) / scale,
+            height: f64::from(height) / scale,
         },
         backdrops: info.backdrops,
     };
@@ -263,7 +263,7 @@ struct HybridCanvas<'a> {
     queue: &'a wgpu::Queue,
     images: &'a mut Images,
     /// The external frames ready for this frame.
-    external: &'a External,
+    external: &'a Frame,
     /// Atlas uploads and clears of this recording, submitted before the
     /// frame is drawn.
     uploads: Option<wgpu::CommandEncoder>,
@@ -280,7 +280,7 @@ impl HybridCanvas<'_> {
     }
 
     /// `image`'s texture, bound for this frame.
-    fn texture(&mut self, image: &ImageData) -> GpuImage {
+    fn texture(&mut self, image: &Pixels) -> GpuImage {
         let (device, queue, next) = (self.device, self.queue, &mut self.images.next);
         let texture = self.images.cache.get(image, || {
             *next += 1;
@@ -294,9 +294,9 @@ impl HybridCanvas<'_> {
 
     /// `image`'s atlas slot (averaged down to [`PATTERN_ATLAS`] pixels a
     /// side when larger): id and pixel size.
-    fn atlas(&mut self, image: &ImageData) -> (ImageId, u16, u16) {
+    fn atlas(&mut self, image: &Pixels) -> (ImageId, u16, u16) {
         let key = (
-            Arc::as_ptr(&image.rgba).cast::<u8>() as usize,
+            Arc::as_ptr(image.rgba.as_shared()).cast::<u8>() as usize,
             image.width,
             image.height,
         );
@@ -319,7 +319,7 @@ impl HybridCanvas<'_> {
         self.images.atlas.insert(
             key,
             AtlasImage {
-                _pixels: Arc::clone(&image.rgba),
+                _pixels: Arc::clone(image.rgba.as_shared()),
                 id,
                 width,
                 height,
@@ -392,9 +392,9 @@ impl draw::Canvas for HybridCanvas<'_> {
         self.scene.stroke_path(path);
     }
 
-    fn fill_blurred_rounded_rect(&mut self, rect: &Rect, radius: f32, std_dev: f32) {
+    fn fill_blurred_rounded_rect(&mut self, rect: &Rect, radius: f64, std_dev: f64) {
         self.scene
-            .fill_blurred_rounded_rect(rect, radius, std_dev, false);
+            .fill_blurred_rounded_rect(rect, radius as f32, std_dev as f32, false);
     }
 
     fn push_clip_layer(&mut self, path: &BezPath) {
@@ -409,19 +409,20 @@ impl draw::Canvas for HybridCanvas<'_> {
         self.scene.pop_clip_path();
     }
 
-    fn push_opacity_layer(&mut self, clip: &BezPath, opacity: f32) {
+    fn push_opacity_layer(&mut self, clip: &BezPath, opacity: f64) {
         self.scene
-            .push_layer(Some(clip), None, Some(opacity), None, None);
+            .push_layer(Some(clip), None, Some(opacity as f32), None, None);
     }
 
     fn push_layer(
         &mut self,
         clip: Option<&BezPath>,
         blend: Option<BlendMode>,
-        opacity: Option<f32>,
+        opacity: Option<f64>,
         filter: Option<Filter>,
     ) {
-        self.scene.push_layer(clip, blend, opacity, None, filter);
+        self.scene
+            .push_layer(clip, blend, opacity.map(|value| value as f32), None, filter);
     }
 
     fn pop_layer(&mut self) {
@@ -438,7 +439,7 @@ impl draw::Canvas for HybridCanvas<'_> {
             .fill_glyphs(glyphs);
     }
 
-    fn draw_image(&mut self, image: &ImageData, rect: Rect, pixelated: bool) {
+    fn draw_image(&mut self, image: &Pixels, rect: Rect, pixelated: bool) {
         let texture = self.texture(image);
         // The texture's extra column and row (see `upload`) are sampled
         // but not drawn.
@@ -496,9 +497,9 @@ impl draw::Canvas for HybridCanvas<'_> {
     }
 
     fn fill_pattern(&mut self, path: &BezPath, pattern: &PatternFill, visible: Rect) {
-        let small = f32::from(PATTERN_ATLAS);
+        let small = f64::from(PATTERN_ATLAS);
         let key = (
-            Arc::as_ptr(&pattern.image.rgba).cast::<u8>() as usize,
+            Arc::as_ptr(pattern.image.rgba.as_shared()).cast::<u8>() as usize,
             pattern.image.width,
             pattern.image.height,
         );
@@ -535,12 +536,7 @@ impl draw::Canvas for HybridCanvas<'_> {
             return;
         }
         let tile = pattern.tile;
-        let (tx, ty, tw, th) = (
-            f64::from(tile.x),
-            f64::from(tile.y),
-            f64::from(tile.width),
-            f64::from(tile.height),
-        );
+        let (tx, ty, tw, th) = (tile.x, tile.y, tile.width, tile.height);
         let span = |repeat: bool, from: f64, to: f64, origin: f64, size: f64| {
             if repeat {
                 (
@@ -581,12 +577,7 @@ impl draw::Canvas for HybridCanvas<'_> {
 /// before it. With the repeated column (row) inside the sampled region,
 /// the clamp no longer applies there and the last texel is sampled as the
 /// CPU samples it.
-fn upload(
-    device: &wgpu::Device,
-    queue: &wgpu::Queue,
-    id: TextureId,
-    image: &ImageData,
-) -> GpuImage {
+fn upload(device: &wgpu::Device, queue: &wgpu::Queue, id: TextureId, image: &Pixels) -> GpuImage {
     let limit = device
         .limits()
         .max_texture_dimension_2d
@@ -634,9 +625,9 @@ fn upload(
 }
 
 /// `image`'s pixels, premultiplied.
-fn premultiplied(image: &ImageData) -> Arc<Pixmap> {
+fn premultiplied(image: &Pixels) -> Arc<Pixmap> {
     let source = ImageSource::from_peniko_image_data(&vello_cpu::peniko::ImageData {
-        data: Blob::new(Arc::new(Arc::clone(&image.rgba))),
+        data: Blob::new(Arc::new(Arc::clone(image.rgba.as_shared()))),
         format: ImageFormat::Rgba8,
         alpha_type: ImageAlphaType::Alpha,
         width: image.width,
@@ -685,9 +676,9 @@ impl GpuContext {
     /// what drawing the scene needs to know.
     pub(crate) fn dimensions(
         &mut self,
-        scene: &Scene,
+        scene: &RenderScene,
         size: Size,
-        scale: f32,
+        scale: f64,
     ) -> Result<((u32, u32), validate::SceneInfo), RenderError> {
         let (width, height) = validate::dimensions(size, scale)?;
         let info = validate::scene(scene, &mut self.caches.validation)?;

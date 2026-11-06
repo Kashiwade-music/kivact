@@ -1,10 +1,10 @@
 //! Role: Check standard semantics, layout, recipes and focus paint in all kit themes.
 use crate::paint::distance;
+use kivact::interaction::ListItem;
 use kivact::prelude::*;
 use kivact::style::{Align, ColorToken, Style, ThemeMode};
 use kivact::test::{RenderOptions, Screen, Screenshot, TestFonts, render_with_handle};
-use kivact::ui::{self, ListItem, Look, Recipe, UiRecipes};
-use std::sync::Arc;
+use kivact::ui::{self, Look, Recipe, UiRecipes};
 
 static INTER: &[u8] = include_bytes!("../../../../../crates/arvane/tests/fonts/InterVariable.ttf");
 
@@ -34,7 +34,7 @@ fn focus_pixels(screen: &Screen, theme: &Theme) {
     let painted = after.pixel(x, y).expect("ring pixel");
     let focus = theme.colors().focus.resolve(theme);
     let channel = |shift: u32| {
-        let base = ((background >> shift) & 255u32) as f32;
+        let base = ((background >> shift) & 255u32) as f64;
         let color = match shift {
             16 => focus.r,
             8 => focus.g,
@@ -76,14 +76,11 @@ type Handles = (
 );
 
 fn options(theme: Theme) -> RenderOptions {
-    RenderOptions {
-        theme,
-        fonts: TestFonts::Only(vec![Arc::from(INTER)]),
-        reduced_motion: true,
-        width: 720.0,
-        height: 960.0,
-        ..RenderOptions::from_env()
-    }
+    RenderOptions::from_env()
+        .window_size(720.0, 960.0)
+        .theme(theme)
+        .fonts(TestFonts::Only(vec![kivact::view::Asset::from(INTER)]))
+        .reduced_motion()
 }
 
 /// One standard component of every kind the kits restyle.
@@ -123,8 +120,10 @@ fn contract_view() -> (Handles, impl IntoView) {
             ui::progress(Some(0.5))
                 .name("Progress")
                 .style(style().width(280)),
-            ui::disclosure("Details", open, || text("Disclosed content")),
-            ui::list("Items", choices(), signal(Some("a"))).style(style().width(280)),
+            ui::disclosure("Details", open).content(|| text("Disclosed content")),
+            ui::list("Items", choices())
+                .selection(signal(Some("a")))
+                .style(style().width(280)),
         ))
         .style(
             style()
@@ -202,7 +201,7 @@ const KIT_RECIPES: [(&str, &[&str]); 5] = [
 ];
 
 /// Whether any pixel of `rect` differs visibly between the two frames.
-fn painted_differently(kit: &Screenshot, plain: &Screenshot, rect: kivact::draw::Rect) -> bool {
+fn painted_differently(kit: &Screenshot, plain: &Screenshot, rect: kivact::geometry::Rect) -> bool {
     let (x, y) = (rect.x.floor() as u32, rect.y.floor() as u32);
     let (width, height) = (rect.width.ceil() as u32 + 1, rect.height.ceil() as u32 + 1);
     let kit = kit.crop(x, y, width, height);
@@ -256,7 +255,7 @@ fn kit_recipes_paint(kit: &str, mode: ThemeMode, theme: &Theme, screen: &Screen)
         .expect("every kit has a recipe table")
         .1;
     let kit_shot = screen.screenshot();
-    let kit_recipes = theme.get::<UiRecipes>();
+    let kit_recipes = theme.ext::<UiRecipes>();
     for (role, name) in components() {
         if !names.contains(&name) {
             continue;
@@ -299,24 +298,7 @@ fn all_kit_themes_preserve_standard_component_contracts() {
             focus_pixels(&screen, &theme);
             screen.press_key(Key::Enter);
             assert_eq!(count.get_untracked(), 1, "{kit} {mode:?}");
-            let check = screen.get_by_role(Role::CheckBox, "Check");
-            assert_eq!(check.checked(), Some(CheckedState::Checked));
-            check.click();
-            assert!(!checked.get_untracked());
-            assert_eq!(
-                screen.get_by_role(Role::Switch, "Switch").checked(),
-                Some(CheckedState::Unchecked)
-            );
-            assert!(screen.get_by_role(Role::Switch, "Locked").is_disabled());
-            assert_eq!(
-                screen.get_by_role(Role::Switch, "Locked").checked(),
-                Some(CheckedState::Checked)
-            );
-            assert_eq!(
-                screen.get_by_role(Role::RadioButton, "Alpha").checked(),
-                Some(CheckedState::Checked)
-            );
-            assert!(screen.get_by_role(Role::RadioButton, "Beta").is_disabled());
+            check_theme_toggles(&screen, checked);
             let combo = screen.get_by_role(Role::ComboBox, "Choice");
             combo.click();
             screen
@@ -329,48 +311,7 @@ fn all_kit_themes_preserve_standard_component_contracts() {
             screen.press_key(Key::Escape);
             assert_eq!(combo.is_expanded(), Some(false));
             assert!(combo.is_focused());
-            let first = screen.get_by_role(Role::Tab, "First");
-            let panel = screen.get_by_role(Role::TabPanel, "First");
-            assert_eq!(
-                first
-                    .controls()
-                    .iter()
-                    .map(|e| e.name())
-                    .collect::<Vec<_>>(),
-                ["First"]
-            );
-            assert_eq!(
-                panel
-                    .labelled_by()
-                    .iter()
-                    .map(|e| e.name())
-                    .collect::<Vec<_>>(),
-                ["First"]
-            );
-            panel.get_by_text("Content a");
-            first.press_key(Key::ArrowRight);
-            assert_eq!(tab.get_untracked(), "c");
-            let second = screen.get_by_role(Role::Tab, "Second");
-            assert!(second.is_selected());
-            assert_eq!(
-                second
-                    .controls()
-                    .iter()
-                    .map(|e| e.name())
-                    .collect::<Vec<_>>(),
-                ["Second"]
-            );
-            let panel = screen.get_by_role(Role::TabPanel, "Second");
-            assert_eq!(
-                panel
-                    .labelled_by()
-                    .iter()
-                    .map(|e| e.name())
-                    .collect::<Vec<_>>(),
-                ["Second"]
-            );
-            panel.get_by_text("Content c");
-            assert!(screen.query_by_text("Content a").is_none());
+            check_theme_tabs(&screen, tab);
             assert_eq!(
                 screen
                     .get_by_role(Role::TextBox, "Editor")
@@ -405,22 +346,385 @@ fn all_kit_themes_preserve_standard_component_contracts() {
             screen.get_by_text("Disclosed content");
             let list = screen.get_by_role(Role::ListBox, "Items");
             assert!(list.get_by_role(Role::Option, "Alpha").is_selected());
-            for (role, name) in components() {
-                let rect = screen
-                    .get_by_role(role, name)
-                    .rect()
-                    .expect("visible recipe geometry");
-                assert!(
-                    rect.width > 0.0 && rect.height > 0.0,
-                    "{kit} {mode:?} {name}"
-                );
-            }
-            screen.assert_layout();
-            assert!(
-                screen.errors().is_empty(),
-                "{kit} {mode:?}: {:?}",
-                screen.errors()
+            check_theme_layout(&screen, kit, mode);
+        }
+    }
+}
+
+/// README coverage follows the public recipe getters, including unchanged defaults.
+fn filled_recipe_keys(kit: &UiRecipes) -> Vec<&'static str> {
+    let defaults = UiRecipes::default();
+    macro_rules! changed {
+        ($getter:ident) => {
+            !std::ptr::eq(&**kit.$getter(), &**defaults.$getter())
+        };
+    }
+    let mut keys: Vec<_> = [
+        ("button", changed!(button_recipe)),
+        ("button_content", changed!(button_content_recipe)),
+        ("button_busy", changed!(button_busy_recipe)),
+        ("button_icon", changed!(button_icon_recipe)),
+        ("checkbox", changed!(checkbox_recipe)),
+        ("checkbox_indicator", changed!(checkbox_indicator_recipe)),
+        ("checkbox_check", changed!(checkbox_check_recipe)),
+        ("checkbox_mixed", changed!(checkbox_mixed_recipe)),
+        ("switch", changed!(switch_recipe)),
+        ("switch_track", changed!(switch_track_recipe)),
+        ("switch_thumb", changed!(switch_thumb_recipe)),
+        ("toggle", changed!(toggle_recipe)),
+        ("text_input", changed!(text_input_recipe)),
+        ("text_area", changed!(text_area_recipe)),
+        ("select", kit.select_recipes() != defaults.select_recipes()),
+        ("menu", kit.menu_recipes() != defaults.menu_recipes()),
+        ("dialog", kit.dialog_recipes() != defaults.dialog_recipes()),
+        (
+            "tooltip",
+            kit.tooltip_recipes() != defaults.tooltip_recipes(),
+        ),
+        ("tabs", kit.tabs_recipes() != defaults.tabs_recipes()),
+        (
+            "radio_group",
+            kit.radio_group_recipes() != defaults.radio_group_recipes(),
+        ),
+        ("slider", kit.slider_recipes() != defaults.slider_recipes()),
+        ("toast", kit.toast_recipes() != defaults.toast_recipes()),
+        ("field", kit.field_recipes() != defaults.field_recipes()),
+        (
+            "splitter",
+            kit.splitter_recipes() != defaults.splitter_recipes(),
+        ),
+        ("list", kit.list_recipes() != defaults.list_recipes()),
+        ("tree", kit.tree_recipes() != defaults.tree_recipes()),
+        (
+            "data_table",
+            kit.data_table_recipes() != defaults.data_table_recipes(),
+        ),
+        ("split", kit.split_recipes() != defaults.split_recipes()),
+        (
+            "progress",
+            kit.progress_recipes() != defaults.progress_recipes(),
+        ),
+        (
+            "disclosure",
+            kit.disclosure_recipes() != defaults.disclosure_recipes(),
+        ),
+        (
+            "command_palette",
+            kit.command_palette_recipes() != defaults.command_palette_recipes(),
+        ),
+        (
+            "tag_input",
+            kit.tag_input_recipes() != defaults.tag_input_recipes(),
+        ),
+        (
+            "number_input",
+            kit.number_input_recipes() != defaults.number_input_recipes(),
+        ),
+    ]
+    .into_iter()
+    .filter_map(|(key, filled)| filled.then_some(key))
+    .collect();
+    keys.extend(filled_extended_recipe_keys(kit, &defaults));
+    keys.extend(filled_feedback_recipe_keys(kit, &defaults));
+    keys.extend(filled_content_recipe_keys(kit, &defaults));
+    keys.sort_unstable();
+    keys
+}
+
+/// Tables added by the standard component migration use the same identity contract.
+fn filled_extended_recipe_keys(kit: &UiRecipes, defaults: &UiRecipes) -> Vec<&'static str> {
+    [
+        (
+            "calendar",
+            kit.calendar_recipes() != defaults.calendar_recipes(),
+        ),
+        (
+            "date_input",
+            kit.date_input_recipes() != defaults.date_input_recipes(),
+        ),
+        (
+            "date_range_input",
+            kit.date_range_input_recipes() != defaults.date_range_input_recipes(),
+        ),
+        (
+            "time_input",
+            kit.time_input_recipes() != defaults.time_input_recipes(),
+        ),
+        (
+            "date_time_input",
+            kit.date_time_input_recipes() != defaults.date_time_input_recipes(),
+        ),
+        (
+            "carousel",
+            kit.carousel_recipes() != defaults.carousel_recipes(),
+        ),
+        (
+            "dropzone",
+            kit.dropzone_recipes() != defaults.dropzone_recipes(),
+        ),
+        (
+            "hover_card",
+            kit.hover_card_recipes() != defaults.hover_card_recipes(),
+        ),
+        (
+            "combobox",
+            kit.combobox_recipes() != defaults.combobox_recipes(),
+        ),
+        (
+            "toolbar",
+            kit.toolbar_recipes() != defaults.toolbar_recipes(),
+        ),
+        (
+            "toggle_group",
+            kit.toggle_group_recipes() != defaults.toggle_group_recipes(),
+        ),
+        (
+            "button_group",
+            kit.button_group_recipes() != defaults.button_group_recipes(),
+        ),
+    ]
+    .into_iter()
+    .filter_map(|(key, filled)| filled.then_some(key))
+    .collect()
+}
+
+/// Theme tables for passive content, feedback and navigation.
+fn filled_feedback_recipe_keys(kit: &UiRecipes, defaults: &UiRecipes) -> Vec<&'static str> {
+    [
+        (
+            "empty_state",
+            kit.empty_state_recipes() != defaults.empty_state_recipes(),
+        ),
+        ("alert", kit.alert_recipes() != defaults.alert_recipes()),
+        ("card", kit.card_recipes() != defaults.card_recipes()),
+        (
+            "input_group",
+            kit.input_group_recipes() != defaults.input_group_recipes(),
+        ),
+        ("table", kit.table_recipes() != defaults.table_recipes()),
+        (
+            "item_list",
+            kit.item_list_recipes() != defaults.item_list_recipes(),
+        ),
+        (
+            "pagination",
+            kit.pagination_recipes() != defaults.pagination_recipes(),
+        ),
+        (
+            "breadcrumb",
+            kit.breadcrumb_recipes() != defaults.breadcrumb_recipes(),
+        ),
+        (
+            "stepper",
+            kit.stepper_recipes() != defaults.stepper_recipes(),
+        ),
+        (
+            "navigation_menu",
+            kit.navigation_menu_recipes() != defaults.navigation_menu_recipes(),
+        ),
+    ]
+    .into_iter()
+    .filter_map(|(key, filled)| filled.then_some(key))
+    .collect()
+}
+
+/// Scalar indicator entries and the message and content tables share default identity.
+fn filled_content_recipe_keys(kit: &UiRecipes, defaults: &UiRecipes) -> Vec<&'static str> {
+    macro_rules! changed {
+        ($getter:ident) => {
+            !std::ptr::eq(&**kit.$getter(), &**defaults.$getter())
+        };
+    }
+    [
+        ("badge", changed!(badge_recipe)),
+        ("badge_label", changed!(badge_label_recipe)),
+        ("avatar", changed!(avatar_recipe)),
+        ("avatar_image", changed!(avatar_image_recipe)),
+        ("avatar_status", changed!(avatar_status_recipe)),
+        (
+            "avatar_status_content",
+            changed!(avatar_status_content_recipe),
+        ),
+        ("avatar_group", changed!(avatar_group_recipe)),
+        ("avatar_group_member", changed!(avatar_group_member_recipe)),
+        (
+            "avatar_group_overflow",
+            changed!(avatar_group_overflow_recipe),
+        ),
+        ("skeleton", changed!(skeleton_recipe)),
+        ("spinner", changed!(spinner_recipe)),
+        ("kbd", changed!(kbd_recipe)),
+        ("kbd_key", changed!(kbd_key_recipe)),
+        ("heading", changed!(heading_recipe)),
+        ("stat", kit.stat_recipes() != defaults.stat_recipes()),
+        (
+            "description_list",
+            kit.description_list_recipes() != defaults.description_list_recipes(),
+        ),
+        (
+            "chat_message",
+            kit.chat_message_recipes() != defaults.chat_message_recipes(),
+        ),
+        (
+            "chat_thread",
+            kit.chat_thread_recipes() != defaults.chat_thread_recipes(),
+        ),
+        (
+            "chat_composer",
+            kit.chat_composer_recipes() != defaults.chat_composer_recipes(),
+        ),
+        (
+            "typing_indicator",
+            kit.typing_indicator_recipes() != defaults.typing_indicator_recipes(),
+        ),
+        (
+            "code_block",
+            kit.code_block_recipes() != defaults.code_block_recipes(),
+        ),
+    ]
+    .into_iter()
+    .filter_map(|(key, filled)| filled.then_some(key))
+    .collect()
+}
+
+#[test]
+fn kit_readme_lists_the_filled_recipes() {
+    let kits = [
+        (
+            "basic",
+            kivact_ui_basic::theme as fn(ThemeMode) -> Theme,
+            include_str!("../../../../../crates/kivact-ui-basic/README.md"),
+        ),
+        (
+            "game",
+            kivact_ui_game::theme,
+            include_str!("../../../../../crates/kivact-ui-game/README.md"),
+        ),
+        (
+            "pop",
+            kivact_ui_pop::theme,
+            include_str!("../../../../../crates/kivact-ui-pop/README.md"),
+        ),
+        (
+            "creative",
+            kivact_ui_creative::theme,
+            include_str!("../../../../../crates/kivact-ui-creative/README.md"),
+        ),
+        (
+            "soft",
+            kivact_ui_soft::theme,
+            include_str!("../../../../../crates/kivact-ui-soft/README.md"),
+        ),
+    ];
+    for (name, theme, readme) in kits {
+        let section = readme
+            .split_once("<!-- kivact-recipes -->")
+            .expect("kit README starts its recipe list")
+            .1
+            .split_once("<!-- /kivact-recipes -->")
+            .expect("kit README ends its recipe list")
+            .0;
+        let mut listed: Vec<_> = section
+            .lines()
+            .filter(|line| !line.trim().is_empty())
+            .map(|line| {
+                line.strip_prefix("- `")
+                    .and_then(|key| key.strip_suffix('`'))
+                    .expect("recipe entries use a bullet and a backticked key")
+            })
+            .collect();
+        listed.sort_unstable();
+        for mode in [ThemeMode::Light, ThemeMode::Dark] {
+            assert_eq!(
+                listed,
+                filled_recipe_keys(&theme(mode).ext::<UiRecipes>()),
+                "{name} {mode:?} README recipe coverage"
             );
         }
     }
+}
+
+fn check_theme_tabs(screen: &Screen, tab: Signal<&'static str>) {
+    let first = screen.get_by_role(Role::Tab, "First");
+    let panel = screen.get_by_role(Role::TabPanel, "First");
+    assert_eq!(
+        first
+            .controls()
+            .iter()
+            .map(|e| e.name())
+            .collect::<Vec<_>>(),
+        ["First"]
+    );
+    assert_eq!(
+        panel
+            .labelled_by()
+            .iter()
+            .map(|e| e.name())
+            .collect::<Vec<_>>(),
+        ["First"]
+    );
+    panel.get_by_text("Content a");
+    first.press_key(Key::ArrowRight);
+    assert_eq!(tab.get_untracked(), "c");
+    let second = screen.get_by_role(Role::Tab, "Second");
+    assert!(second.is_selected());
+    assert_eq!(
+        second
+            .controls()
+            .iter()
+            .map(|e| e.name())
+            .collect::<Vec<_>>(),
+        ["Second"]
+    );
+    let panel = screen.get_by_role(Role::TabPanel, "Second");
+    assert_eq!(
+        panel
+            .labelled_by()
+            .iter()
+            .map(|e| e.name())
+            .collect::<Vec<_>>(),
+        ["Second"]
+    );
+    panel.get_by_text("Content c");
+    assert!(screen.query_by_text("Content a").is_none());
+}
+
+fn check_theme_toggles(screen: &Screen, checked: Signal<bool>) {
+    let check = screen.get_by_role(Role::CheckBox, "Check");
+    assert_eq!(check.checked(), Some(CheckedState::Checked));
+    check.click();
+    assert!(!checked.get_untracked());
+    assert_eq!(
+        screen.get_by_role(Role::Switch, "Switch").checked(),
+        Some(CheckedState::Unchecked)
+    );
+    assert!(screen.get_by_role(Role::Switch, "Locked").is_disabled());
+    assert_eq!(
+        screen.get_by_role(Role::Switch, "Locked").checked(),
+        Some(CheckedState::Checked)
+    );
+    assert_eq!(
+        screen.get_by_role(Role::RadioButton, "Alpha").checked(),
+        Some(CheckedState::Checked)
+    );
+    assert!(screen.get_by_role(Role::RadioButton, "Beta").is_disabled());
+}
+
+fn check_theme_layout(screen: &Screen, kit: &str, mode: ThemeMode) {
+    for (role, name) in components() {
+        let rect = screen
+            .get_by_role(role, name)
+            .rect()
+            .expect("visible recipe geometry");
+        assert!(
+            rect.width > 0.0 && rect.height > 0.0,
+            "{kit} {mode:?} {name}"
+        );
+    }
+    screen.assert_layout();
+    assert!(
+        screen.errors().is_empty(),
+        "{kit} {mode:?}: {:?}",
+        screen.errors()
+    );
 }

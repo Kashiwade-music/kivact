@@ -1,6 +1,6 @@
 //! Role: A frame's raster plan, and what presenting it did.
 
-use crate::error::{Error, ErrorKind};
+use crate::error::{Failure, FailureKind};
 use crate::presentation::Renderer;
 use kivact_types::Size;
 use std::time::Duration;
@@ -14,12 +14,12 @@ pub struct FramePlan {
     /// Logical extent; it never rasterizes beyond the window.
     pub size: Size,
     /// Physical pixels per logical pixel the frame is drawn at.
-    pub scale: f32,
+    pub scale: f64,
 }
 
 impl FramePlan {
     /// The plan for a window of `physical` pixels at display `scale`.
-    pub fn new((width, height): (u32, u32), scale: f32) -> Self {
+    pub fn new((width, height): (u32, u32), scale: f64) -> Self {
         let (size, scale) = arvane_render::raster_plan(width, height, scale);
         Self { size, scale }
     }
@@ -58,18 +58,18 @@ pub enum Presented {
     /// window keeps its picture until the next change. So it is, on every
     /// renderer, for a window of no pixels (minimized): its resize asks
     /// for the next frame.
-    Dropped(Error),
+    Dropped(Failure),
     /// The window's surface failed and was made again: nothing new was
     /// shown. Request another frame immediately; Arvane has already
     /// performed the recovery. A shown or skipped frame resets the failure count.
-    SurfaceLost(Error),
+    SurfaceLost(Failure),
 }
 
 /// What presenting to a window without a surface does: nothing is drawn
 /// (the host draws again when the window has a surface again).
 pub(crate) fn no_surface() -> Presented {
-    Presented::Dropped(Error::with(
-        ErrorKind::Unavailable,
+    Presented::Dropped(Failure::new(
+        FailureKind::Unavailable,
         "the window has no surface (the platform destroyed it)",
     ))
 }
@@ -80,8 +80,8 @@ pub(crate) fn no_surface() -> Presented {
 /// a window with pixels.
 pub(crate) fn no_pixels((width, height): (u32, u32)) -> Option<Presented> {
     (width == 0 || height == 0).then(|| {
-        Presented::Dropped(Error::with(
-            ErrorKind::Content,
+        Presented::Dropped(Failure::new(
+            FailureKind::Content,
             format!("the window has no pixels to draw ({width} x {height})"),
         ))
     })

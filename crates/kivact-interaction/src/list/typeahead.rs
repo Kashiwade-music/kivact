@@ -9,10 +9,14 @@
 const TYPEAHEAD_WINDOW_NS: u64 = 500_000_000;
 
 /// The characters typed so far and when the last one arrived.
-#[derive(Clone, Debug, Default)]
-pub(crate) struct Typeahead {
-    text: String,
-    at_ns: u64,
+#[derive(Clone, Debug, Default, PartialEq)]
+pub(crate) enum Typeahead {
+    #[default]
+    Idle,
+    Typing {
+        text: String,
+        expires_ns: u64,
+    },
 }
 
 /// What to search for after a typed character.
@@ -34,14 +38,18 @@ impl Typeahead {
     /// character repeated ("aa") searches for that character alone, so it
     /// cycles through the items that start with it.
     pub(crate) fn push(&mut self, c: char, now_ns: u64) -> TypeaheadQuery {
-        if self.text.is_empty() || now_ns.saturating_sub(self.at_ns) > TYPEAHEAD_WINDOW_NS {
-            self.text.clear();
-        }
-        self.text.extend(c.to_lowercase());
-        self.at_ns = now_ns;
-        let mut chars = self.text.chars();
+        let mut text = match std::mem::take(self) {
+            Self::Typing { text, expires_ns } if now_ns <= expires_ns => text,
+            _ => String::new(),
+        };
+        text.extend(c.to_lowercase());
+        *self = Self::Typing {
+            text: text.clone(),
+            expires_ns: now_ns.saturating_add(TYPEAHEAD_WINDOW_NS),
+        };
+        let mut chars = text.chars();
         let first = chars.next();
-        let count = self.text.chars().count();
+        let count = text.chars().count();
         let repeated = count > 1 && first.is_some_and(|f| chars.all(|ch| ch == f));
         match (repeated, first) {
             (true, Some(first)) => TypeaheadQuery {
@@ -49,7 +57,7 @@ impl Typeahead {
                 from_next: true,
             },
             _ => TypeaheadQuery {
-                needle: self.text.clone(),
+                needle: text.clone(),
                 from_next: count == 1,
             },
         }

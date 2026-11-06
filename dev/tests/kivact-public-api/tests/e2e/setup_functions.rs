@@ -4,15 +4,15 @@
 //! `on_cleanup`, `on_mount`, `context`, `context`) and the associated
 //! constructors of the reactive handles, called with no setup-context argument.
 
-use kivact::view::{callback, selector};
+use kivact::state::{callback, selector};
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
 use crate::support::mount;
-use kivact::effect_on;
 use kivact::prelude::*;
+use kivact::state::effect_on;
+use kivact::state::use_context;
 use kivact::test::render;
-use kivact::view::context;
 
 type Log = Rc<RefCell<Vec<String>>>;
 
@@ -25,7 +25,7 @@ fn take(l: &Log) -> Vec<String> {
 }
 
 /// A plain-function component: state from the free setup functions.
-fn counter(initial: i32, log: Log) -> impl IntoView {
+fn counter(initial: i32, log: Log) -> impl Component {
     let count = signal(initial);
     let doubled = memo(move || count.get() * 2);
     effect(move || log.borrow_mut().push(format!("doubled {}", doubled.get())));
@@ -116,12 +116,12 @@ fn context_is_found_in_setup_and_in_handlers() {
     let s2 = seen.clone();
     let screen = render(move || {
         provide(Theme2(7), move || {
-            let in_setup = context::<Theme2>().0;
+            let in_setup = use_context::<Theme2>().get().0;
             assert_eq!(
-                kivact::view::try_context::<Theme2>().map(|t| t.0),
+                kivact::state::try_use_context::<Theme2>().map(|t| t.get().0),
                 Some(in_setup)
             );
-            let missing = kivact::view::try_context::<u8>();
+            let missing = kivact::state::try_use_context::<u8>();
             assert!(missing.is_none());
             {
                 let label = (format!("ctx {in_setup}")).into_value();
@@ -131,7 +131,7 @@ fn context_is_found_in_setup_and_in_handlers() {
                     .name(label)
                     .child(text(label))
             }
-            .on_press(move || s2.set(context::<Theme2>().0))
+            .on_press(move || s2.set(use_context::<Theme2>().get().0))
         })
     });
     screen.get_by_role(Role::Button, "ctx 7").click();
@@ -170,4 +170,33 @@ fn handle_constructors_create_under_the_setup_owner() {
     assert_eq!(var.get(), 3);
     cb.call(9);
     assert_eq!(take(&l), vec!["cb 9"]);
+}
+
+#[test]
+fn bind_macro_edits_a_nested_field() {
+    #[derive(Clone, PartialEq)]
+    struct Address {
+        street: String,
+    }
+    #[derive(Clone, PartialEq)]
+    struct Model {
+        address: Address,
+        untouched: u32,
+    }
+    let (screen, model) = mount(|| {
+        let model = signal(Model {
+            address: Address {
+                street: "Old".into(),
+            },
+            untouched: 7,
+        });
+        let street = kivact::state::bind!(model.address.street);
+        (
+            model,
+            button("Rename").on_press(move || street.set("New".into())),
+        )
+    });
+    screen.get_by_role(Role::Button, "Rename").click();
+    assert_eq!(model.get().address.street, "New");
+    assert_eq!(model.get().untouched, 7);
 }

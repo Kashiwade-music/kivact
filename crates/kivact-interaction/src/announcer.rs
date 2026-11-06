@@ -1,13 +1,16 @@
 //! Role: Expose reusable live regions for imperative announcements.
-use kivact_core::control::{Node, NodeBuilder, node, text};
-use kivact_core::primitive::NodeExt;
+use kivact_core::custom::Generation;
+use kivact_core::state::{Signal, signal};
 use kivact_core::style::{Position, style};
 use kivact_core::view::{IntoView, LiveRegion, Role, View, dynamic};
-use kivact_core::{Signal, signal};
+use kivact_core::view::{Node, node, text};
+
+#[derive(Clone, Default, PartialEq, Eq)]
+struct NoticeId(Generation);
 
 #[derive(Clone, Default, PartialEq, Eq)]
 struct Notice {
-    revision: u64,
+    id: NoticeId,
     message: String,
 }
 
@@ -36,7 +39,7 @@ impl Announcer {
             LiveRegion::Off => return,
         };
         notice.update(move |notice| {
-            notice.revision = notice.revision.wrapping_add(1);
+            notice.id.0.next();
             notice.message = message.into();
         });
     }

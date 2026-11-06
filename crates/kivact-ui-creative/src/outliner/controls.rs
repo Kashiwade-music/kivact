@@ -2,15 +2,15 @@
 
 use crate::editors::shared::model::EditorEvent;
 use crate::outliner_data::{Restriction, RestrictionFlag, TreeItem};
-use kivact::control::{Node, NodeBuilder};
-use kivact::draw::Rect;
+use kivact::geometry::Rect;
 use kivact::i18n::message;
 use kivact::interaction::EditSession;
-use kivact::primitive::NodeExt;
+use kivact::view::NodeBuilder;
+
+use kivact::state::{Binding, Callback, Signal, Value};
 use kivact::style::style;
 use kivact::view::MouseButton;
 use kivact::view::{A11yAction, ButtonPress, Handled, NodeRef, PointerPhase};
-use kivact::{Binding, Callback, Signal, Value};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -51,7 +51,7 @@ pub(super) struct Painter {
 impl Painter {
     pub(super) fn new(session: EditSession<()>) -> Self {
         Painter {
-            paint: kivact::signal(None),
+            paint: kivact::state::signal(None),
             session,
         }
     }
@@ -157,7 +157,11 @@ pub(super) fn toggle(context: &Context, id: u64, flag: RestrictionFlag) {
             .once(|| propose(context, column, &ids, !self::flag(&item, column)));
     }
 }
-pub(super) fn restriction(item: Value<TreeItem>, context: Context, column: usize) -> Node {
+pub(super) fn restriction(
+    item: Value<TreeItem>,
+    context: Context,
+    column: usize,
+) -> impl kivact::view::Component {
     let id = item.get_untracked().id;
     let mut button = kivact::ui::button(
         [
@@ -174,58 +178,62 @@ pub(super) fn restriction(item: Value<TreeItem>, context: Context, column: usize
     )
     .variant(kivact::ui::ButtonVariant::Secondary)
     .hide_label(true)
-    .icon(kivact::control::icon(["eye", "pointer", "camera"][column]));
+    .icon(kivact::view::icon(["eye", "pointer", "camera"][column]));
     let action_context = context.clone();
     button = button
-        .focusable(false)
-        .disabled(context.on_restriction.is_none())
-        .checked(move || flag(&item.get(), column))
-        .selected(move || flag(&item.get(), column))
-        .on_a11y(A11yAction::Toggle, move || {
-            toggle(&action_context, id, restriction_flag(column));
+        .with_node(move |node| node.focusable(false))
+        .with_node(move |node| node.disabled(context.on_restriction.is_none()))
+        .with_node(move |node| node.checked(move || flag(&item.get(), column)))
+        .with_node(move |node| node.selected(move || flag(&item.get(), column)))
+        .with_node(move |node| {
+            node.a11y_action(A11yAction::Toggle, move |_| {
+                toggle(&action_context, id, restriction_flag(column));
+            })
         })
-        .on_pointer_default(move |event| {
-            match event.phase {
-                PointerPhase::Down(ButtonPress {
-                    button: MouseButton::Primary,
-                    ..
-                }) => {
-                    let value = !flag(&item.get(), column);
-                    let touched = ids(&context, id);
-                    let paint = Paint {
-                        column,
-                        value,
-                        touched,
-                    };
-                    if !context.painter.start(&context, paint) {
-                        return Handled::Yes;
+        .with_node(move |node| {
+            node.on_pointer_default(move |event| {
+                match event.phase() {
+                    PointerPhase::Down(ButtonPress {
+                        button: MouseButton::Primary,
+                        ..
+                    }) => {
+                        let value = !flag(&item.get(), column);
+                        let touched = ids(&context, id);
+                        let paint = Paint {
+                            column,
+                            value,
+                            touched,
+                        };
+                        if !context.painter.start(&context, paint) {
+                            return Handled::Yes;
+                        }
                     }
-                }
-                PointerPhase::Move => {
-                    let target = context.rows.borrow().iter().find_map(|(&id, mounted)| {
-                        let rect = mounted.rect.get()?;
-                        (event.window_pos.x >= rect.x
-                            && event.window_pos.x <= rect.x + rect.width
-                            && event.window_pos.y >= rect.y
-                            && event.window_pos.y < rect.y + rect.height)
-                            .then_some(id)
-                    });
-                    if let Some(id) = target {
-                        context.painter.extend(&context, id);
+                    PointerPhase::Move => {
+                        let target = context.rows.borrow().iter().find_map(|(&id, mounted)| {
+                            let rect = mounted.rect.get()?;
+                            (event.window_pos().x >= rect.x
+                                && event.window_pos().x <= rect.x + rect.width
+                                && event.window_pos().y >= rect.y
+                                && event.window_pos().y < rect.y + rect.height)
+                                .then_some(id)
+                        });
+                        if let Some(id) = target {
+                            context.painter.extend(&context, id);
+                        }
                     }
+                    PointerPhase::Up(_) => context.painter.finish(),
+                    PointerPhase::Cancel => {
+                        context.painter.cancel();
+                    }
+                    _ => return Handled::No,
                 }
-                PointerPhase::Up(_) => context.painter.finish(),
-                PointerPhase::Cancel => {
-                    context.painter.cancel();
-                }
-                _ => return Handled::No,
-            }
-            Handled::Yes
+                Handled::Yes
+            })
         })
-        .style(style().size(20, 20).padding(0));
-    button.into_node()
+        .with_node(move |node| node.style(style().size(20, 20).padding(0)));
+    button
 }
-pub(super) fn expansion(item: Value<TreeItem>, context: Context) -> Node {
+pub(super) fn expansion(item: Value<TreeItem>, context: Context) -> impl kivact::view::Component {
     let id = item.get_untracked().id;
     let expand = move |subtree: bool| {
         let next = context.data.get_untracked();
@@ -254,38 +262,42 @@ pub(super) fn expansion(item: Value<TreeItem>, context: Context) -> Node {
     let mut button = kivact::ui::button(message("creative.outliner.expand", "Expand tree item"))
         .variant(kivact::ui::ButtonVariant::Secondary)
         .hide_label(true)
-        .icon(kivact::control::icon("chevron-down"));
+        .icon(kivact::view::icon("chevron-down"));
     button = button
-        .focusable(false)
-        .expanded(move || context.expanded.get().contains(&id))
-        .style(style().size(18, 18).padding(0))
-        .style(move || {
-            style().rotate(if context.expanded.get().contains(&id) {
-                0
-            } else {
-                -90
+        .with_node(move |node| node.focusable(false))
+        .with_node(move |node| node.expanded(move || context.expanded.get().contains(&id)))
+        .with_node(move |node| node.style(style().size(18, 18).padding(0)))
+        .with_node(move |node| {
+            node.style(move || {
+                style().rotate(if context.expanded.get().contains(&id) {
+                    0
+                } else {
+                    -90
+                })
             })
         })
-        .on_a11y(A11yAction::Toggle, move || expand(false))
-        .on_pointer_default(move |event| {
-            if matches!(
-                event.phase,
-                PointerPhase::Down(ButtonPress {
-                    button: MouseButton::Primary,
-                    ..
-                })
-            ) {
-                expand(event.modifiers.shift);
-                return Handled::Yes;
-            }
-            if matches!(
-                event.phase,
-                PointerPhase::Up(_) | PointerPhase::Move | PointerPhase::Cancel
-            ) {
-                Handled::Yes
-            } else {
-                Handled::No
-            }
+        .with_node(move |node| node.a11y_action(A11yAction::Toggle, move |_| expand(false)))
+        .with_node(move |node| {
+            node.on_pointer_default(move |event| {
+                if matches!(
+                    event.phase(),
+                    PointerPhase::Down(ButtonPress {
+                        button: MouseButton::Primary,
+                        ..
+                    })
+                ) {
+                    expand(event.modifiers().shift);
+                    return Handled::Yes;
+                }
+                if matches!(
+                    event.phase(),
+                    PointerPhase::Up(_) | PointerPhase::Move | PointerPhase::Cancel
+                ) {
+                    Handled::Yes
+                } else {
+                    Handled::No
+                }
+            })
         });
-    button.into_node()
+    button
 }

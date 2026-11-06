@@ -16,7 +16,7 @@ use kivact_ui_pop as pop;
 fn app() -> impl IntoView {
     column((
         text("Settings"),
-        button("Save").variant(ButtonVariant::Primary),
+        button("Save").variant(kivact::ui::ButtonVariant::Primary),
     ))
     .style(style().gap(12).padding(24))
 }
@@ -37,7 +37,7 @@ fn main() -> kivact::Result<()> {
 ```rust,no_run
 use kivact::prelude::*;
 use kivact::style::ThemeMode;
-use kivact::view::provide_theme;
+use kivact::style::provide_theme;
 use kivact_ui_pop as pop;
 
 fn app() -> impl IntoView {
@@ -59,8 +59,8 @@ fn app() -> impl IntoView {
                 .gap(12)
                 .padding(24)
                 .height(pct(100))
-                .background(pop::Color::Background)
-                .color(pop::Color::Text),
+                .background(pop::ColorName::Background)
+                .color(pop::ColorName::Text),
         )
     })
 }
@@ -70,7 +70,7 @@ fn main() -> kivact::Result<()> {
 }
 ```
 
-`provide_theme` はノードを作らず、何も塗りません。そのため、サブツリーの最上位ノードが自分でページの色を指定します。`pop::Color` はキットの色の名前（`Background`、`Surface`、`Line`、`Text`、`TextMuted` など）です。スタイルにそのまま渡すと、ノードが描かれるテーマから値が引かれるので、クロージャを書かなくても切り替えに追従します。
+`provide_theme` はノードを作らず、何も塗りません。そのため、サブツリーの最上位ノードが自分でページの色を指定します。`pop::ColorName` はキットの色の名前（`Background`、`Surface`、`Line`、`Text`、`TextMuted` など）です。スタイルにそのまま渡すと、ノードが描かれるテーマから値が引かれるので、クロージャを書かなくても切り替えに追従します。
 
 ## 色を変える
 
@@ -83,7 +83,7 @@ use kivact_ui_pop as pop;
 
 fn brand_theme() -> Theme {
     let theme = pop::theme(ThemeMode::Light);
-    let mut tokens = (*theme.get::<pop::Tokens>()).clone();
+    let mut tokens = (*theme.ext::<pop::Tokens>()).clone();
     tokens.blue = rgb(0x0f766e);
     let mut colors = theme.colors().clone();
     colors.accent = tokens.blue;
@@ -93,7 +93,7 @@ fn brand_theme() -> Theme {
 fn main() -> kivact::Result<()> {
     App::new("Teal")
         .theme(brand_theme())
-        .run(|| button("Teal").variant(ButtonVariant::Primary))
+        .run(|| button("Teal").variant(kivact::ui::ButtonVariant::Primary))
 }
 ```
 
@@ -103,17 +103,17 @@ fn main() -> kivact::Result<()> {
 
 ## 自分のコンポーネントでトークンを読む
 
-スタイルには上のように `pop::Color::..` を渡すのが基本です。`Tokens` 構造体そのものを読むのは、色相の 2 色のように値から何かを計算したいときです。スタイルのクロージャの中で読むと、結果がテーマの切り替えに追従します。
+スタイルには上のように `pop::ColorName::..` を渡すのが基本です。`Tokens` 構造体そのものを読むのは、色相の 2 色のように値から何かを計算したいときです。スタイルのクロージャの中で読むと、結果がテーマの切り替えに追従します。
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::style::current_theme;
+use kivact::style::use_theme;
 use kivact_ui_pop as pop;
 
 fn highlight(content: impl IntoView) -> Node {
     column(content).style(move || {
-        let theme = current_theme();
-        let tokens = theme.get::<pop::Tokens>();
+        let theme = use_theme().get();
+        let tokens = theme.ext::<pop::Tokens>();
         let (background, foreground) = tokens.hue(pop::Hue::Yellow);
         style()
             .padding(12)
@@ -129,7 +129,7 @@ fn highlight(content: impl IntoView) -> Node {
 
 ## フォントと文字組み
 
-フォントはアプリが持ちます。同梱するファイルを `App::font` で登録し、テーマの文字設定でファミリー名を指定します。キットのカタログは、本文に Inter、日本語に Noto Sans JP を使っています。Pop の 3 つのコンポーネント（`BadgeVariant::Slant` のバッジ、アバター、番号付きの `section_heading`）は `Barlow` というファミリーを指定し、登録がなければ `sans-serif` にフォールバックします。
+フォントはアプリが持ちます。同梱するファイルを `App::font` で登録し、テーマの文字設定でファミリー名を指定します。キットのカタログは、本文に Inter、日本語に Noto Sans JP を使っています。Pop の 3 つのコンポーネント（`BadgeVariant::Slant` のバッジ、アバター、番号付きの `SectionNumber`）は `Barlow` というファミリーを指定し、登録がなければ `sans-serif` にフォールバックします。
 
 ```rust,no_run
 use kivact::prelude::*;
@@ -158,10 +158,31 @@ fn application(inter: &'static [u8], noto: &'static [u8]) -> App {
 
 ## キットの文言を差し替える
 
-コンポーネントが自分で描く文言（カレンダーの月ボタン、日付の形式エラー、ドロップゾーンの選択ボタンなど）は英語です。`App::messages` で差し替えます。キーは `pop.` で始まり、たとえば `pop.date.open` や `pop.date.error.format` です。例は [日付と期間を選ばせる](dates-and-calendars.md) にあります。
+コンポーネントが自分で描く文言（カレンダーの月ボタン、日付の形式エラー、ドロップゾーンの選択ボタンなど）は英語です。`App::messages` で差し替えます。標準コンポーネントは中核のキーを使い、たとえば `date.open` や `date.error.format` です。例は [日付と期間を選ばせる](dates-and-calendars.md) にあります。
 
 ## 関連
 
 - [日付と期間を選ばせる](dates-and-calendars.md)
 - [テーブルで行を表示する](tables.md)
 - すべてのトークンとコンポーネント: `cargo doc -p kivact-ui-pop --open`
+
+Pop テーマでは標準のドロップ先を使います。ファイル選択と複数ファイルを明示的に有効にし、装飾アイコンを一度だけ構築するスロットに渡します。
+
+```rust,no_run
+use kivact::prelude::*;
+
+fn upload() -> impl IntoView {
+    kivact::ui::dropzone("Upload")
+        .multiple()
+        .pick_on_press()
+        .icon(icon("cloud-upload").style(style().size(24, 24)))
+        .hint("PNG, PDF")
+        .on_files(|files| {
+            for file in files {
+                println!("{}", file.path.display());
+            }
+        })
+}
+```
+
+Pop のレシピは Core の行レイアウトによる RTL の自動反転を使います。アプリの方向は Core で設定し、Pop 専用の方向プロバイダーは不要です。

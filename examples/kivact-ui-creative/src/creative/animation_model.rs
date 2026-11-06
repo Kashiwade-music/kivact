@@ -1,7 +1,7 @@
 //! Role: Domain projection for graph and dope edits of the same animation.
 use super::common::bind;
-use kivact::Binding;
 use kivact::prelude::{Signal, rgb};
+use kivact::state::Binding;
 use kivact_ui_creative as ui;
 use std::collections::{HashMap, HashSet};
 const ROWS: [&str; 8] = [
@@ -168,7 +168,7 @@ pub(super) fn apply_graph(curves: &mut Vec<ui::Curve>, request: &ui::GraphReques
 pub(super) fn graph_edits(
     curves: Signal<Vec<ui::Curve>>,
 ) -> impl Fn(ui::EditorEvent<ui::GraphRequest>) + 'static {
-    let initial = kivact::signal(None);
+    let initial = kivact::state::signal(None);
     move |event| match event {
         ui::EditorEvent::Begin => initial.set(Some(curves.get_untracked())),
         ui::EditorEvent::Request(request) => curves.update(|curves| apply_graph(curves, &request)),

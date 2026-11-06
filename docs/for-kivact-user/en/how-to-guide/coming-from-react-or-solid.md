@@ -5,7 +5,7 @@
 If you know React or SolidJS, most Kivact concepts have a direct counterpart.
 This guide maps them one to one, explains the single big difference (components
 run once, like Solid's, not on every state change like React's), and covers the
-five Rust details that trip up developers who have not written Rust before.
+seven Rust details that trip up developers who have not written Rust before.
 
 It assumes you have done the [tutorial](../getting-started/README.md).
 
@@ -71,7 +71,8 @@ This is the model of SolidJS. Two consequences:
 | Component | function returning JSX | function returning JSX | function returning `impl IntoView` |
 | Props | props object | props object | function arguments; `impl IntoText` for text, `impl IntoValue<T>` for values that may change |
 | Children | `children` | `props.children` | an argument of type `V: IntoView` |
-| Callback prop | `onSave` prop | `onSave` prop | an `impl Fn() + 'static` (or `Fn(T)`) argument; `callback(..)` makes a `Copy` one |
+| Callback prop | `onSave` prop | `onSave` prop | `impl Into<Callback<()>>` for an action without input; convert once to share it |
+| State machine | `useReducer` plus effects | reducer plus effects | `Machine`: explicit states, events, effects and timers |
 | State | `useState` | `createSignal` | `signal(value)`; `get`, `with`, `set`, `update` on one `Signal<T>` |
 | Derived value | compute in render, `useMemo` | `createMemo` | a closure for one use, `memo(..)` to share or cache |
 | Effect | `useEffect` | `createEffect` | `effect(..)`; `effect_on(source, f)` to skip the first run |
@@ -79,19 +80,26 @@ This is the model of SolidJS. Two consequences:
 | Run once after mount | `useEffect(.., [])` | `onMount` | `on_mount(..)` |
 | Mutable value, no re-render | `useRef` | a plain variable | `var(value)` |
 | Element ref | `useRef` on a DOM node | `ref` | `node_ref()` and `.node_ref(r)`; `r.focus()` |
-| Context | `createContext`, `useContext` | `createContext`, `useContext` | `provide(value, \|\| child)` and `context::<T>()` |
+| Context | `createContext`, `useContext` | `createContext`, `useContext` | `provide(value, \|\| child)` and `use_context::<T>()` |
 | Conditional | `cond && <A/>` | `<Show when>` | `show(cond, \|\| a)`, `show_some(option, \|v\| a)` |
 | Several branches | ternary or `switch` | `<Switch>` | `dynamic(source, \|v\| match v { .. })` |
-| List | `items.map(..)` with `key` | `<For>` | `for_each(items, \|i\| key, \|key, item\| row)` |
+| List | `items.map(..)` with `key` | `<For>` | `for_each(items, \|i\| key, \|item\| row)` |
 | List by position | `key={index}` | `<Index>` | `for_index(items, \|i, item\| row)` |
 | Key | `key` prop | the `For` identity | the key function you give `for_each` |
 | Controlled input | `value` + `onChange` | `value` + `onInput` | a `Signal<String>` (or a `Binding<T>`) passed to the input |
 | Error boundary | `ErrorBoundary` | `ErrorBoundary` | `error_boundary(..)` |
 | Data loading | libraries or `useEffect` | `createResource` | `resource(source, fetch)`; `action(..)` for user actions |
 
-Most names above come from `use kivact::prelude::*;`. `callback`,
-`error_boundary` and `try_context` are imported from `kivact::view`, and
-`effect_on` from `kivact`.
+All the ordinary UI names in the table are available through
+`use kivact::prelude::*;`, including `callback`, `error_boundary`
+and `effect_on`. For a state machine, also import `Machine`, `Step` and
+`machine` from `kivact::state`.
+
+
+`Machine` is `useReducer` with effects and timers. Define explicit states and
+events, return a `Step` from `transition`, and execute effects in the runner.
+See [custom controls](custom-controls.md#write-behavior-with-a-state-machine).
+
 
 ## Props, children and callbacks
 
@@ -111,8 +119,9 @@ fn panel<V: IntoView>(title: &str, child: V) -> impl IntoView {
 }
 
 // A callback prop: a closure the caller gives you.
-fn buttons(on_add: impl Fn() + Copy + 'static) -> impl IntoView {
-    row((button("Add"), button("Add again").on_press(on_add)))
+fn buttons(on_add: impl Into<Callback<()>>) -> impl IntoView {
+    let on_add = on_add.into();
+    row((button("Add").on_press(on_add), button("Add again").on_press(on_add)))
 }
 
 fn app() -> impl IntoView {
@@ -151,12 +160,12 @@ mod tests {
 - A prop that may change takes `impl IntoValue<T>`: the caller passes a
   constant, a signal, a memo or a closure, and you call `.into_value()` once to
   get a `Value<T>` handle to read.
-- A callback is an ordinary closure. Accept it as `impl Fn() + 'static`
-  (`Fn(T) + 'static` with an argument). If you pass it on to more than one place,
-  add `Copy`, as `buttons` does. When your app shares one handler between several
-  controls, `callback(|x| ..)` gives a `Copy` handle (`callback(|_| ..)` for none).
-- A closure returning `Result<(), UiError>` is accepted wherever one returning
-  `()` is, so a handler can use `?`; errors go to the nearest error handler.
+- A callback prop without an input takes `impl Into<Callback<()>>`. Convert it
+  once with `.into()`; the resulting handle is `Copy`, so both buttons can use
+  the same action. The caller can pass a `move || ...` closure directly.
+- Wherever a closure returning `()` is accepted, a closure returning
+  `Result<(), UiError>` is accepted too, so you can use `?` inside a handler.
+  The error reaches the nearest error handler.
 
 ## Effects, cleanup and mount
 
@@ -164,16 +173,18 @@ mod tests {
 use kivact::prelude::*;
 
 fn tracker(query: Signal<String>) -> impl IntoView {
-    // Runs once the screen is built, then again whenever `query` changes.
-    effect(move || {
-        println!("searching for {}", query.get());
-    });
-    // Runs once, after the nodes of this component exist.
-    on_mount(|| println!("mounted"));
-    // Runs when this component is removed (a branch closes, a row disappears).
-    on_cleanup(|| println!("gone"));
+    component(move || {
+        // Runs once the screen is built, then again whenever `query` changes.
+        effect(move || {
+            println!("searching for {}", query.get());
+        });
+        // Runs once, after the nodes of this component exist.
+        on_mount(|| println!("mounted"));
+        // Runs when this component is removed (a branch closes, a row disappears).
+        on_cleanup(|| println!("gone"));
 
-    text(move || format!("query: {}", query.get()))
+        text(move || format!("query: {}", query.get()))
+    })
 }
 
 fn main() -> kivact::Result<()> {
@@ -207,7 +218,7 @@ fn app() -> impl IntoView {
         // Option: the factory gets a `Value<String>` for the current value.
         show_some(user, |name| text(move || format!("Hello, {}", name.get()))),
         // `<For>`: rows keep their state by key.
-        column(for_each(names, |name| name.clone(), |_, name| text(move || name.get()))),
+        column(for_each(names, |name| name.clone(), |name| text(move || name.get()))),
         // `<Index>`: rows keep their state by position.
         column(for_index(names, |i, name| text(move || format!("{i}: {}", name.get())))),
         button("Toggle").on_press(move || logged_in.update(|v| *v = !*v)),
@@ -293,7 +304,7 @@ so do not use it just to update a piece of text: use a closure.
 ## Context
 
 `provide(value, || child)` makes `value` available to the child and everything
-below it; `context::<T>()` reads the nearest one. `T` must be `Clone`, so provide
+below it; `use_context::<T>()` reads the nearest one. `T` must be `Clone`, so provide
 a struct of `Copy` handles, or an `Rc` for anything heavy.
 
 ```rust,test_harness
@@ -305,8 +316,8 @@ struct Session {
 }
 
 fn greeting() -> impl IntoView {
-    let session = context::<Session>(); // panics, naming the type, if nothing provided it
-    text(move || format!("Signed in as {}", session.user.get()))
+    let session = use_context::<Session>(); // panics, naming the type, if nothing provided it
+    text(move || format!("Signed in as {}", session.get().user.get()))
 }
 
 fn app() -> impl IntoView {
@@ -315,8 +326,8 @@ fn app() -> impl IntoView {
 }
 
 fn settings() -> impl IntoView {
-    let session = context::<Session>();
-    button("Rename").on_press(move || session.user.set("ann2".to_owned()))
+    let session = use_context::<Session>();
+    button("Rename").on_press(move || session.get().user.set("ann2".to_owned()))
 }
 
 fn main() -> kivact::Result<()> {
@@ -337,9 +348,9 @@ mod tests {
 }
 ```
 
-- There are no default values. `context::<T>()` panics with the type name when
+- There are no default values. `use_context::<T>()` panics with the type name when
   nothing was provided. When the value is optional, use
-  `kivact::view::try_context::<T>()`, which returns an `Option<T>`.
+  `kivact::state::try_use_context::<T>()`, which returns an `Option<Value<T>>`.
 - `provide` only affects its child. Siblings built after it do not see the value.
 - Themes, locale, messages and reading direction have their own `provide_*`
   functions in `kivact::view` ([Theming](theming.md), [Internationalization](i18n.md)).
@@ -375,7 +386,7 @@ fn main() -> kivact::Result<()> {
 }
 ```
 
-## The five Rust points
+## The seven Rust points
 
 ### 1. Closures need `move`
 
@@ -464,6 +475,48 @@ Rust infers closure argument types from the function that receives them. For
 the argument type is chosen by the closure itself, annotate it when you call a
 method on it: `callback(move |word: String| len.set(word.len()))`. The compiler
 says `type annotations needed` when you must.
+
+### 6. A numeric closure must return the expected type
+
+A constant integer can be accepted by a floating-point property, but a stored
+closure must return that property's exact type. If `count` is a `Signal<i32>`,
+`move || count.get()` cannot provide an `IntoValue<f64>`. Cast inside the
+closure. When the error names a trait, check the closure's return type first:
+
+```rust,no_run
+use kivact::prelude::*;
+
+fn count_slider(count: Signal<i32>) -> impl IntoView {
+    let value = binding(
+        move || count.get() as f64,
+        move |next: f64| count.set(next.round() as i32),
+    );
+    slider("Count", value).range(0.0..=100.0)
+}
+```
+
+For a plain numeric property, write `move || count.get() as f64`. Casting the
+handle itself does not convert the values read later.
+
+### 7. A local name can hide a prelude function
+
+Rust uses the nearest binding for a name. After `let text = signal(String::new())`,
+`text("Hello")` tries to call that signal and reports E0618, “expected function”.
+Use names that describe the data: `label`, `rows`, `choices`, `name_field` or
+`save_action`, leaving `text`, `row`, `list`, `field` and `message` available as
+prelude functions. Name a row callback's argument after its data too, such as
+`item` or `todo`, rather than `row`. The same rule applies to an imported type
+such as `Action`; avoid reusing it for another item. If a name must stay,
+qualify it, such as `kivact::view::text("Hello")`,
+`kivact::ui::field("Name", input)` or `kivact::task::Action`.
+
+```rust,no_run
+use kivact::prelude::*;
+
+fn heading_row(label: String) -> impl Component {
+    row((text(label), button("Open")))
+}
+```
 
 ## See also
 

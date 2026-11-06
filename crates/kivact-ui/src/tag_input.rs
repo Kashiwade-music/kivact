@@ -3,17 +3,17 @@ use super::layer::with_recipe_style;
 use super::text_input::text_input;
 use super::variants::{Variant, Variants};
 use super::{ButtonVariant, button};
-use kivact_core::control::{Node, NodeBuilder, grid, icon, row, text};
+use kivact_core::custom::PartState;
 use kivact_core::i18n::message_with;
-use kivact_core::primitive::{NodeExt, PartState};
-use kivact_core::signal;
-use kivact_core::style::{Align, Track, auto, current_theme, style};
+use kivact_core::state::signal;
+use kivact_core::state::{Callback, Value};
+use kivact_core::state::{IntoText, IntoValue, callback};
+use kivact_core::style::{Align, Track, auto, style, use_theme};
 use kivact_core::view::NodeRef;
 use kivact_core::view::{
-    Handled, HandlerResult, IntoText, IntoValue, IntoView, Key, PointerPhase, View, callback,
-    for_index, node_ref,
+    Handled, HandlerResult, IntoView, Key, PointerPhase, View, for_index, node_ref,
 };
-use kivact_core::{Callback, Value};
+use kivact_core::view::{Node, NodeBuilder, grid, icon, row, text};
 
 /// A row of removable tags and a text input to add one, created by
 /// [`tag_input`].
@@ -21,6 +21,7 @@ pub struct TagInput {
     root: Node,
     label: Value<String>,
     tags: Value<Vec<String>>,
+    on_edit: Option<Callback<kivact_core::view::EditPhase>>,
     on_add: Callback<String>,
     on_remove: Callback<usize>,
     placeholder: Option<Value<String>>,
@@ -47,23 +48,15 @@ pub struct TagInput {
 ///
 /// fn labels() -> impl IntoView {
 ///     let tags = signal(vec!["rust".to_string()]);
-///     tag_input(
-///         "Labels",
-///         tags,
-///         move |tag| tags.update(|tags| tags.push(tag)),
-///         move |index| tags.update(|tags| {
+///     tag_input("Labels", tags)
+///         .on_add(move |tag| tags.update(|tags| tags.push(tag)))
+///         .on_remove(move |index| tags.update(|tags| {
 ///             tags.remove(index);
-///         }),
-///     )
+///         }))
 /// }
 /// ```
 #[track_caller]
-pub fn tag_input<R: HandlerResult, S: HandlerResult>(
-    label: impl IntoText,
-    tags: impl IntoValue<Vec<String>>,
-    on_add: impl Fn(String) -> R + 'static,
-    on_remove: impl Fn(usize) -> S + 'static,
-) -> TagInput {
+pub fn tag_input(label: impl IntoText, tags: impl IntoValue<Vec<String>>) -> TagInput {
     let variants = Variants::default();
     let input_ref = node_ref();
     // The box rings while the focus is in its input.
@@ -82,8 +75,9 @@ pub fn tag_input<R: HandlerResult, S: HandlerResult>(
         root,
         label: label.into_text_value(),
         tags: tags.into_value(),
-        on_add: callback(on_add),
-        on_remove: callback(on_remove),
+        on_edit: None,
+        on_add: callback(|_: String| {}),
+        on_remove: callback(|_: usize| {}),
         placeholder: None,
         input_ref,
         variants,
@@ -91,6 +85,25 @@ pub fn tag_input<R: HandlerResult, S: HandlerResult>(
 }
 
 impl TagInput {
+    /// Observe each addition or removal as one complete edit.
+    pub fn on_edit<R: HandlerResult>(
+        mut self,
+        f: impl Fn(kivact_core::view::EditPhase) -> R + 'static,
+    ) -> Self {
+        self.on_edit = Some(callback(f));
+        self
+    }
+
+    /// Handle a new tag.
+    pub fn on_add<R: HandlerResult>(mut self, f: impl Fn(String) -> R + 'static) -> Self {
+        self.on_add = callback(f);
+        self
+    }
+    /// Handle removal of a tag by index.
+    pub fn on_remove<R: HandlerResult>(mut self, f: impl Fn(usize) -> R + 'static) -> Self {
+        self.on_remove = callback(f);
+        self
+    }
     /// Give the component a [`Variant`]: a look beyond the meanings its
     /// state carries, which every recipe of the component reads with
     /// [`Look::variant`](crate::Look::variant). A later value of the same
@@ -124,6 +137,7 @@ impl IntoView for TagInput {
             mut root,
             label,
             tags,
+            on_edit,
             on_add,
             on_remove,
             placeholder,
@@ -132,43 +146,19 @@ impl IntoView for TagInput {
         } = self;
         let disabled = root
             .accessible_disabled()
-            .map(|read| (move || read()).into_value())
             .unwrap_or_else(|| false.into_value());
-        let label = root
-            .accessible_name()
-            .map(|read| (move || read()).into_value())
-            .unwrap_or(label);
+        let label = root.accessible_name().unwrap_or(label);
         let invalid = root
             .accessible_invalid()
-            .map(|read| (move || read()).into_value())
             .unwrap_or_else(|| false.into_value());
         let labelled_by = root.accessible_labelled_by();
         let described_by = root.accessible_described_by();
+        let edit = kivact_interaction::EditSession::new(|(): ()| {});
+        if let Some(observer) = on_edit {
+            edit.on_edit(move |phase| observer.call(phase));
+        }
         let pending = signal(String::new());
-        let chips = for_index(tags, {
-            let variants = variants.clone();
-            move |index, tag: Value<String>| {
-                let remove_name =
-                    message_with("tags.remove", "Remove {tag}", move || [("tag", tag.get())]);
-                let remove = with_recipe_style(
-                    button(remove_name)
-                        .disabled(disabled)
-                        .variant(ButtonVariant::Ghost)
-                        .hide_label(true)
-                        .icon(icon("x"))
-                        .on_press(move || on_remove.call(index)),
-                    |r| r.tag_input_recipes().remove_recipe(),
-                    &variants,
-                    PartState::default,
-                );
-                with_recipe_style(
-                    row((text(tag), remove)),
-                    |r| r.tag_input_recipes().tag_recipe(),
-                    &variants,
-                    PartState::default,
-                )
-            }
-        });
+        let chips = tag_chips(tags, disabled, on_remove, edit, &variants);
         let placeholder = placeholder.unwrap_or_else(|| {
             kivact_core::i18n::message("tags.placeholder", "Add a tag...").into_value()
         });
@@ -176,51 +166,95 @@ impl IntoView for TagInput {
             text_input(label, pending)
                 .disabled(disabled)
                 .invalid(invalid)
-                .base_style(style().grid_row(1).grid_column(2))
+                .with_node(|node| node.base_style(style().grid_row(1).grid_column(2)))
                 .node_ref(input_ref)
                 .placeholder(placeholder)
                 .on_submit(move || {
                     let tag = pending.get_untracked().trim().to_owned();
                     if !tag.is_empty() {
-                        on_add.call(tag);
+                        edit.once((), || on_add.call(tag));
                         pending.set(String::new());
                     }
                 })
-                .on_key_default(move |event| {
-                    if event.key == Key::Backspace && pending.with_untracked(String::is_empty) {
-                        if let Some(last) = tags.with_untracked(|tags| tags.len().checked_sub(1)) {
-                            on_remove.call(last);
+                .with_node(|node| {
+                    node.on_key_default(move |event| {
+                        if event.key() == Key::Backspace && pending.with_untracked(String::is_empty)
+                        {
+                            if let Some(last) =
+                                tags.with_untracked(|tags| tags.len().checked_sub(1))
+                            {
+                                edit.once((), || on_remove.call(last));
+                            }
+                            return Handled::Yes;
                         }
-                        return Handled::Yes;
-                    }
-                    Handled::No
+                        Handled::No
+                    })
                 }),
             |r| r.tag_input_recipes().input_recipe(),
             &variants,
             PartState::default,
         );
         for reference in labelled_by {
-            field = field.labelled_by(reference);
+            field = field.with_node(|node| node.labelled_by(reference));
         }
         for reference in described_by {
-            field = field.described_by(reference);
+            field = field.with_node(|node| node.described_by(reference));
         }
-        let chips = row(chips).style(move || {
-            style()
-                .grid_row(1)
-                .grid_column(1)
-                .wrap(true)
-                .min_width(0)
-                .gap(current_theme().space().sm)
-                .align_items(Align::Center)
-        });
+        let chips = chip_row(chips);
         root.child((field, chips))
             .on_pointer_default(move |event| {
-                if matches!(event.phase, PointerPhase::Down(_)) && !disabled.get() {
+                if matches!(event.phase(), PointerPhase::Down(_)) && !disabled.get() {
                     input_ref.focus();
                 }
                 Handled::No
             })
             .into_view()
     }
+}
+
+/// Render application-owned tags and report each removal as one edit.
+fn tag_chips(
+    tags: Value<Vec<String>>,
+    disabled: Value<bool>,
+    on_remove: Callback<usize>,
+    edit: kivact_interaction::EditSession<()>,
+    variants: &Variants,
+) -> impl IntoView {
+    for_index(tags, {
+        let variants = variants.clone();
+        move |index, tag: Value<String>| {
+            let remove_name =
+                message_with("tags.remove", "Remove {tag}", move || [("tag", tag.get())]);
+            let remove = with_recipe_style(
+                button(remove_name)
+                    .disabled(disabled)
+                    .variant(ButtonVariant::Ghost)
+                    .hide_label(true)
+                    .icon(icon("x"))
+                    .on_press(move || edit.once((), || on_remove.call(index))),
+                |r| r.tag_input_recipes().remove_recipe(),
+                &variants,
+                PartState::default,
+            );
+            with_recipe_style(
+                row((text(tag), remove)),
+                |r| r.tag_input_recipes().tag_recipe(),
+                &variants,
+                PartState::default,
+            )
+        }
+    })
+}
+
+/// Lay out wrapping chips before the editor in the input grid.
+fn chip_row(chips: impl IntoView) -> impl IntoView {
+    row(chips).style(move || {
+        style()
+            .grid_row(1)
+            .grid_column(1)
+            .wrap(true)
+            .min_width(0)
+            .gap(use_theme().get().space().sm)
+            .align_items(Align::Center)
+    })
 }

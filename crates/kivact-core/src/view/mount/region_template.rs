@@ -1,6 +1,6 @@
 //! Role: Region templates retain one part while adoption lifetimes change.
 
-use crate::view::common::Common;
+use crate::view::element_data::Common;
 use crate::view::handler_layers::Layer;
 use crate::view::tree::{Handlers, PartActions};
 
@@ -24,19 +24,7 @@ fn handlers(source: &Handlers) -> Handlers {
 pub(super) fn instantiate(source: &Common) -> Common {
     Common {
         node_ref: source.node_ref.clone(),
-        role: source.role,
-        name: source.name.clone(),
-        description: source.description.clone(),
-        value: source.value.clone(),
-        selected: source.selected.clone(),
-        disabled: source.disabled.clone(),
-        hidden: source.hidden.clone(),
-        invalid: source.invalid.clone(),
         semantics: source.semantics.clone(),
-        checked: source.checked.clone(),
-        indeterminate: source.indeterminate.clone(),
-        expanded: source.expanded.clone(),
-        focusable: source.focusable.clone(),
         focus_on_press: source.focus_on_press,
         handlers: handlers(&source.handlers),
         part_constraints: source.part_constraints.clone(),

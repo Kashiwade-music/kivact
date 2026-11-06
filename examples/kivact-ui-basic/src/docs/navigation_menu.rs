@@ -16,13 +16,13 @@ pub(crate) fn page() -> Page {
             Example::new(
                 "basic",
                 "Basic",
-                "NavItem::menu に、開くたびにパネルの中身を作る関数を渡します。パネルの中は navigation_menu_link を並べます。リンクを押すとパネルが閉じます。",
+                "navigation_menu(...).link に、開くたびにパネルの中身を作る関数を渡します。パネルの中は navigation_menu_link を並べます。リンクを押すとパネルが閉じます。",
                 basic,
             ),
             Example::new(
                 "links",
                 "Links",
-                "NavItem::link は、パネルを持たずに押された時の関数を呼ぶだけの項目です。パネルの項目と並べられます。",
+                "navigation_menu(...).action は、パネルを持たずに押された時の関数を呼ぶだけの項目です。パネルの項目と並べられます。",
                 links,
             ),
             Example::new(
@@ -39,19 +39,19 @@ pub(crate) fn page() -> Page {
 fn basic() -> impl IntoView {
     let started = || {
         column((
-            basic::navigation_menu_link("Introduction")
+            kivact::ui::navigation_menu_link("Introduction")
                 .description("Re-usable components built using Radix UI and Tailwind CSS."),
-            basic::navigation_menu_link("Installation")
+            kivact::ui::navigation_menu_link("Installation")
                 .description("How to install dependencies and structure your app."),
-            basic::navigation_menu_link("Typography")
+            kivact::ui::navigation_menu_link("Typography")
                 .description("Styles for headings, paragraphs, lists...etc"),
         ))
         .style(style().width(320))
     };
-    basic::navigation_menu(vec![
-        basic::NavItem::menu("Getting started", started),
-        basic::NavItem::link("Docs", || {}),
-    ])
+    kivact::ui::navigation_menu("Navigation")
+        .link("getting-started", "Getting started", started)
+        .action("docs", "Docs", || {})
+        .close_delay(std::time::Duration::ZERO)
 }
 // end example
 
@@ -59,11 +59,11 @@ fn basic() -> impl IntoView {
 fn links() -> impl IntoView {
     let clicks = signal(0usize);
     column((
-        basic::navigation_menu(vec![
-            basic::NavItem::link("Home", move || clicks.update(|n| *n += 1)),
-            basic::NavItem::link("Docs", move || clicks.update(|n| *n += 1)),
-            basic::NavItem::link("Blog", move || clicks.update(|n| *n += 1)),
-        ]),
+        kivact::ui::navigation_menu("Navigation")
+            .action("home", "Home", move || clicks.update(|n| *n += 1))
+            .action("docs", "Docs", move || clicks.update(|n| *n += 1))
+            .action("blog", "Blog", move || clicks.update(|n| *n += 1))
+            .close_delay(std::time::Duration::ZERO),
         basic::muted(move || format!("Links pressed: {}", clicks.get())),
     ))
     .style(style().gap(12))
@@ -74,19 +74,19 @@ fn links() -> impl IntoView {
 fn icons() -> impl IntoView {
     let components = || {
         column((
-            basic::navigation_menu_link("Alert Dialog")
+            kivact::ui::navigation_menu_link("Alert Dialog")
                 .icon(icon("triangle-alert"))
                 .description("A modal dialog that interrupts the user."),
-            basic::navigation_menu_link("Hover Card")
+            kivact::ui::navigation_menu_link("Hover Card")
                 .icon(icon("eye"))
                 .description("Preview content behind a link."),
-            basic::navigation_menu_link("Progress").icon(icon("activity")),
+            kivact::ui::navigation_menu_link("Progress").icon(icon("activity")),
         ))
         .style(style().width(300))
     };
-    basic::navigation_menu(vec![
-        basic::NavItem::menu("Components", components),
-        basic::NavItem::link("List", || {}),
-    ])
+    kivact::ui::navigation_menu("Navigation")
+        .link("components", "Components", components)
+        .action("list", "List", || {})
+        .close_delay(std::time::Duration::ZERO)
 }
 // end example

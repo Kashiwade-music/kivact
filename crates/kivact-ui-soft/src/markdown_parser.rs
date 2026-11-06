@@ -13,7 +13,9 @@ pub(crate) enum Block<'a> {
 
 #[derive(Debug)]
 pub(crate) struct ListEntry<'a> {
+    // xtask-allow(state-fields): Optional ordinal is parsed list syntax, not an execution counter.
     pub(crate) number: Option<u32>,
+    // xtask-allow(state-fields): Optional task mark describes source syntax independently of list numbering.
     pub(crate) checked: Option<bool>,
     pub(crate) blocks: Vec<Block<'a>>,
 }
@@ -36,20 +38,7 @@ pub(crate) fn parse<'a>(lines: &[&'a str], soft_breaks: bool, depth: usize) -> V
         if line.trim().is_empty() || reference(line).is_some() {
             index += 1;
         } else if let Some((character, length, info)) = fence(line) {
-            let start = index + 1;
-            index = start;
-            while index < lines.len()
-                && !fence(lines[index]).is_some_and(|(ch, len, rest)| {
-                    ch == character && len >= length && rest.is_empty()
-                })
-            {
-                index += 1;
-            }
-            result.push(Block::Code(
-                info.split_whitespace().next().unwrap_or(""),
-                lines[start..index].join("\n"),
-            ));
-            index = (index + 1).min(lines.len());
+            result.push(fenced_block(lines, &mut index, character, length, info));
         } else if let Some((level, title)) = heading(line) {
             result.push(Block::Heading(level, title));
             index += 1;
@@ -57,55 +46,16 @@ pub(crate) fn parse<'a>(lines: &[&'a str], soft_breaks: bool, depth: usize) -> V
             result.push(Block::Rule);
             index += 1;
         } else if quote(line).is_some() {
-            let mut quoted = Vec::new();
-            while index < lines.len() {
-                let line = lines[index];
-                if let Some(line) = quote(line) {
-                    quoted.push(line);
-                } else if line.trim().is_empty() || begins_block(line) {
-                    break;
-                } else {
-                    quoted.push(line);
-                }
-                index += 1;
-            }
-            result.push(Block::Quote(parse(&quoted, soft_breaks, depth + 1)));
+            result.push(quoted_block(lines, &mut index, soft_breaks, depth));
         } else if let Some((indent, number, _)) = list_marker(line) {
-            let mut items = Vec::new();
-            let mut ordinal = number;
-            while let Some((_, _, content)) = lines
-                .get(index)
-                .and_then(|line| list_marker(line))
-                .filter(|(next_indent, number, _)| {
-                    *next_indent == indent && number.is_some() == ordinal.is_some()
-                })
-            {
-                let (checked, content) = task(content);
-                let mut body = vec![content];
-                index += 1;
-                while let Some(line) = lines.get(index) {
-                    let leading = line.len() - line.trim_start_matches(' ').len();
-                    if leading > indent {
-                        body.push(&line[(indent + 2).min(leading)..]);
-                    } else if line.trim().is_empty()
-                        && lines.get(index + 1).is_some_and(|next| {
-                            next.len() - next.trim_start_matches(' ').len() > indent
-                        })
-                    {
-                        body.push("");
-                    } else {
-                        break;
-                    }
-                    index += 1;
-                }
-                items.push(ListEntry {
-                    number: ordinal,
-                    checked,
-                    blocks: parse(&body, soft_breaks, depth + 1),
-                });
-                ordinal = ordinal.map(|number| number.saturating_add(1));
-            }
-            result.push(Block::List(items));
+            result.push(list_block(
+                lines,
+                &mut index,
+                soft_breaks,
+                depth,
+                indent,
+                number,
+            ));
         } else if line.contains('|')
             && let Some(align) = lines.get(index + 1).and_then(|line| table_separator(line))
         {
@@ -128,29 +78,7 @@ pub(crate) fn parse<'a>(lines: &[&'a str], soft_breaks: bool, depth: usize) -> V
             }
             result.push(Block::Table(rows, align));
         } else {
-            let mut paragraph = String::new();
-            loop {
-                let line = lines[index];
-                let hard = line.ends_with("  ") || line.ends_with('\\');
-                paragraph.push_str(if let Some(line) = line.strip_suffix('\\') {
-                    line.trim_start()
-                } else {
-                    line.trim()
-                });
-                index += 1;
-                if index == lines.len()
-                    || lines[index].trim().is_empty()
-                    || begins_block(lines[index])
-                    || (lines[index].contains('|')
-                        && lines
-                            .get(index + 1)
-                            .is_some_and(|line| table_separator(line).is_some()))
-                {
-                    break;
-                }
-                paragraph.push(if hard || soft_breaks { '\n' } else { ' ' });
-            }
-            result.push(Block::Paragraph(paragraph));
+            result.push(paragraph_block(lines, &mut index, soft_breaks));
         }
     }
     result
@@ -276,4 +204,120 @@ pub(crate) fn reference(line: &str) -> Option<(&str, &str)> {
     let (label, url) = line.split_once("]:")?;
     let url = url.split_whitespace().next()?.trim_matches(['<', '>']);
     (!label.is_empty() && !url.is_empty()).then_some((label, url))
+}
+
+fn fenced_block<'a>(
+    lines: &[&'a str],
+    index: &mut usize,
+    character: char,
+    length: usize,
+    info: &'a str,
+) -> Block<'a> {
+    let start = *index + 1;
+    *index = start;
+    while *index < lines.len()
+        && !fence(lines[*index])
+            .is_some_and(|(ch, len, rest)| ch == character && len >= length && rest.is_empty())
+    {
+        *index += 1;
+    }
+    let block = Block::Code(
+        info.split_whitespace().next().unwrap_or(""),
+        lines[start..*index].join("\n"),
+    );
+    *index = (*index + 1).min(lines.len());
+    block
+}
+
+fn quoted_block<'a>(
+    lines: &[&'a str],
+    index: &mut usize,
+    soft_breaks: bool,
+    depth: usize,
+) -> Block<'a> {
+    let mut quoted = Vec::new();
+    while *index < lines.len() {
+        let line = lines[*index];
+        if let Some(line) = quote(line) {
+            quoted.push(line);
+        } else if line.trim().is_empty() || begins_block(line) {
+            break;
+        } else {
+            quoted.push(line);
+        }
+        *index += 1;
+    }
+    Block::Quote(parse(&quoted, soft_breaks, depth + 1))
+}
+
+fn list_block<'a>(
+    lines: &[&'a str],
+    index: &mut usize,
+    soft_breaks: bool,
+    depth: usize,
+    indent: usize,
+    number: Option<u32>,
+) -> Block<'a> {
+    let mut items = Vec::new();
+    let mut ordinal = number;
+    while let Some((_, _, content)) =
+        lines
+            .get(*index)
+            .and_then(|line| list_marker(line))
+            .filter(|(next_indent, number, _)| {
+                *next_indent == indent && number.is_some() == ordinal.is_some()
+            })
+    {
+        let (checked, content) = task(content);
+        let mut body = vec![content];
+        *index += 1;
+        while let Some(line) = lines.get(*index) {
+            let leading = line.len() - line.trim_start_matches(' ').len();
+            if leading > indent {
+                body.push(&line[(indent + 2).min(leading)..]);
+            } else if line.trim().is_empty()
+                && lines
+                    .get(*index + 1)
+                    .is_some_and(|next| next.len() - next.trim_start_matches(' ').len() > indent)
+            {
+                body.push("");
+            } else {
+                break;
+            }
+            *index += 1;
+        }
+        items.push(ListEntry {
+            number: ordinal,
+            checked,
+            blocks: parse(&body, soft_breaks, depth + 1),
+        });
+        ordinal = ordinal.map(|number| number.saturating_add(1));
+    }
+    Block::List(items)
+}
+
+fn paragraph_block<'a>(lines: &[&'a str], index: &mut usize, soft_breaks: bool) -> Block<'a> {
+    let mut paragraph = String::new();
+    loop {
+        let line = lines[*index];
+        let hard = line.ends_with("  ") || line.ends_with('\\');
+        paragraph.push_str(if let Some(line) = line.strip_suffix('\\') {
+            line.trim_start()
+        } else {
+            line.trim()
+        });
+        *index += 1;
+        if *index == lines.len()
+            || lines[*index].trim().is_empty()
+            || begins_block(lines[*index])
+            || (lines[*index].contains('|')
+                && lines
+                    .get(*index + 1)
+                    .is_some_and(|line| table_separator(line).is_some()))
+        {
+            break;
+        }
+        paragraph.push(if hard || soft_breaks { '\n' } else { ' ' });
+    }
+    Block::Paragraph(paragraph)
 }

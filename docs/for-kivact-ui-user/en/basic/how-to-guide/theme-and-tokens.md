@@ -20,9 +20,9 @@ fn main() -> kivact::Result<()> {
 }
 ```
 
-The theme carries the Neutral palette, 12 px text, square corners, 32 px controls and the drawing rules (recipes) for every standard component in `kivact::ui`: `button`, `toggle`, `checkbox`, `switch`, `text_input`, `text_area`, `select`, `menu`, `dialog`, `tooltip`, `tabs`, `radio_group`, `slider`, `range_slider`, `toast_region`, `splitter`, `split`, `progress`, `disclosure`, `data_table` and more. The kit has no copies of these components. That is why a `kivact::ui::button` and a `basic::card` sit together without any glue, and why changing the theme restyles both.
+The theme carries the Neutral palette, 12 px text, square corners, 32 px controls and the drawing rules (recipes) for every standard component in `kivact::ui`: `button`, `toggle`, `checkbox`, `switch`, `text_input`, `text_area`, `select`, `menu`, `dialog`, `tooltip`, `tabs`, `radio_group`, `slider`, `range_slider`, `toast_region`, `splitter`, `split`, `progress`, `disclosure`, `data_table` and more. The kit has no copies of these components. That is why a `kivact::ui::button` and a `kivact::ui::card` sit together without any glue, and why changing the theme restyles both.
 
-To limit the look to one part of the window, wrap that part in `kivact::view::provide_theme(theme, || ..)`. Siblings outside it keep the theme from above.
+To limit the look to one part of the window, wrap that part in `kivact::style::provide_theme(theme, || ..)`. Siblings outside it keep the theme from above.
 
 ## Switch light and dark while the app runs
 
@@ -35,7 +35,7 @@ use kivact_ui_basic as basic;
 
 fn root() -> impl IntoView {
     let dark = signal(false);
-    kivact::view::provide_theme(
+    kivact::style::provide_theme(
         move || {
             basic::theme(if dark.get() { ThemeMode::Dark } else { ThemeMode::Light })
         },
@@ -50,8 +50,8 @@ fn root() -> impl IntoView {
                     .size(pct(100), pct(100))
                     .padding(24)
                     .gap(12)
-                    .background(basic::Color::Background)
-                    .color(basic::Color::Foreground),
+                    .background(basic::ColorName::Background)
+                    .color(basic::ColorName::Foreground),
             )
         },
     )
@@ -112,13 +112,13 @@ fn main() -> kivact::Result<()> {
     App::new("Basic")
         .theme(basic::theme(kivact::style::ThemeMode::Light))
         .messages(messages)
-        .run(|| basic::pagination(signal(0usize), 5usize))
+        .run(|| kivact::ui::pagination(5usize, signal(0usize)))
 }
 ```
 
 ## Use the kit's colors in your own styles
 
-`basic::Color` names a color of the palette (`Background`, `Foreground`, `Card`, `Primary`, `Secondary`, `Muted`, `MutedForeground`, `Accent`, `Destructive`, `Border`, `Input`, `Ring`, `Chart1` to `Chart5`, the `Sidebar` colors and the `Code` syntax colors). Every style method that takes a color accepts it, and it is resolved from the theme in effect when the node is drawn, so it follows a theme switch:
+`basic::ColorName` names a color of the palette (`Background`, `Foreground`, `Card`, `Primary`, `Secondary`, `Muted`, `MutedForeground`, `Accent`, `Destructive`, `Border`, `Input`, `Ring`, `Chart1` to `Chart5`, the `Sidebar` colors and the `Code` syntax colors). Every style method that takes a color accepts it, and it is resolved from the theme in effect when the node is drawn, so it follows a theme switch:
 
 ```rust,no_run
 use kivact::prelude::*;
@@ -128,9 +128,9 @@ fn banner() -> impl IntoView {
     text("Heads up").style(
         style()
             .padding(12)
-            .background(basic::Color::Muted)
-            .color(basic::Color::MutedForeground)
-            .border(1, basic::Color::Border),
+            .background(basic::ColorName::Muted)
+            .color(basic::ColorName::MutedForeground)
+            .border(1, basic::ColorName::Border),
     )
 }
 ```
@@ -139,12 +139,12 @@ To compute a new color from a token (a translucent primary, say), read `basic::T
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::style::current_theme;
+use kivact::style::use_theme;
 use kivact_ui_basic as basic;
 
 fn tinted() -> impl IntoView {
     text("Tinted").style(|| {
-        let tokens = current_theme().get::<basic::Tokens>();
+        let tokens = use_theme().get().ext::<basic::Tokens>();
         style().padding(12).background(tokens.primary.with_alpha(0.1))
     })
 }
@@ -192,7 +192,7 @@ use kivact_ui_basic as basic;
 
 fn rounded_buttons(mode: ThemeMode) -> Theme {
     let theme = basic::theme(mode);
-    let recipes = (*theme.get::<UiRecipes>()).clone().button(|current| {
+    let recipes = (*theme.ext::<UiRecipes>()).clone().button(|current| {
         move |theme: &Theme, look: &Look<ButtonState>| current(theme, look).radius(8)
     });
     theme.with(recipes)
@@ -214,15 +214,15 @@ fn toolbar() -> impl IntoView {
     row((
         button("Download").icon(icon("download")),
         button("Settings").icon(icon("settings")).hide_label(true),
-        basic::badge("New").icon(icon("sparkles")),
+        kivact::ui::badge("New").icon(icon("sparkles")),
     ))
     .style(style().gap(8))
 }
 ```
 
 - An icon is 16 px and drawn in the current text color. In a smaller box, such as the icon slot of a small button, it shrinks to fit. To resize one by hand, set a size on it: `icon("info").style(style().size(24, 24))`.
-- Where a component has one slot for one view (`alert(..).icon(..)`, `badge(..).icon(..)`, `button(..).icon(..)`), pass `icon(name)`. Where an item is a record (`ListItem`, `MenuEntry`), pass the name as a string: `MenuEntry::item("save", "Save").icon("save")`.
-- An icon is decoration. An icon-only button gets its accessible name from its label, so write `button("Settings").icon(..).hide_label(true)` and keep the label.
+- Where a component has one slot for one view (`alert(..).with_icon(..)`, `badge(..).with_icon(..)`, `button(..).with_icon(..)`), pass `icon(name)`. Where an item is a record (`ListItem`, `MenuEntry`), pass the name as a string: `MenuEntry::item("save", "Save").with_icon("save")`.
+- An icon is decoration. An icon-only button gets its accessible name from its label, so write `button("Settings").with_icon(..).hide_label(true)` and keep the label.
 - A name that is not in the set draws nothing. In a debug build the missing name is reported at the call site, so a typo does not go unnoticed.
 - Add your own icon to the theme with `with_icon`, from SVG bytes (a stroke or fill color in the file is replaced by the text color):
 

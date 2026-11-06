@@ -1,9 +1,8 @@
 //! Role: `Numeric`'s edit phases, text parser, mixed value and reactive property state.
 
-use crate::support::clean;
 use kivact::prelude::*;
 use kivact::test::Screen;
-use kivact::ui::EditPhase::{self, Begin, Commit};
+use kivact::view::EditPhase::{Begin, Commit};
 use kivact::view::MouseButton;
 use kivact_ui_creative as ui;
 use std::cell::RefCell;
@@ -17,7 +16,7 @@ fn observer(value: Signal<f64>, log: &Log) -> impl Fn(EditPhase) + 'static {
     move |phase| log.borrow_mut().push((phase, value.get_untracked()))
 }
 
-fn center(screen: &Screen, role: Role, name: &str) -> (f32, f32) {
+fn center(screen: &Screen, role: Role, name: &str) -> (f64, f64) {
     let rect = screen.get_by_role(role, name).rect().expect("laid out");
     (rect.x + rect.width / 2.0, rect.y + rect.height / 2.0)
 }
@@ -29,7 +28,10 @@ fn gain(log: &Log) -> (Screen, Signal<f64>) {
         (
             value,
             ui::number("Gain", value)
-                .range(0.0, 100.0)
+                .range(
+                    kivact::interaction::ScalarRange::new(0.0, 100.0)
+                        .expect("invariant: finite ordered control range"),
+                )
                 .step(1.0)
                 .precision(1)
                 .on_edit(observer(value, &seen)),
@@ -55,7 +57,7 @@ fn a_scrub_is_one_edit_from_press_to_release() {
         screen.query_by_role(Role::TextBox, "Gain").is_none(),
         "a scrub does not open the text field"
     );
-    clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 
 #[test]
@@ -65,7 +67,12 @@ fn numeric_arithmetic_submit_cancel_and_blur_commit() {
         (
             value,
             column((
-                ui::number("Gain", value).range(-10.0, 10.0).precision(3),
+                ui::number("Gain", value)
+                    .range(
+                        kivact::interaction::ScalarRange::new(-10.0, 10.0)
+                            .expect("invariant: finite ordered control range"),
+                    )
+                    .precision(3),
                 kivact::ui::button("Outside").variant(kivact::ui::ButtonVariant::Secondary),
             )),
         )
@@ -97,5 +104,5 @@ fn numeric_arithmetic_submit_cancel_and_blur_commit() {
     screen.get_by_role(Role::TextBox, "Gain").type_text("3 * 2");
     screen.get_by_role(Role::Button, "Outside").click();
     assert_eq!(value.get_untracked(), 6.0);
-    clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }

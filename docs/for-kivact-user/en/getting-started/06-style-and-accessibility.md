@@ -8,7 +8,6 @@ In this step you give the app a look: a larger title, muted secondary text, a ca
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::view::provide_theme;
 
 const LOGO: &[u8] = br##"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#336699"/><path d="M6 12.5l4 4 8-9" stroke="white" stroke-width="2.5" fill="none"/></svg>"##;
 
@@ -19,11 +18,11 @@ struct Task {
     done: bool,
 }
 
-fn header(dark: Signal<bool>) -> impl IntoView {
+fn header(dark: Signal<bool>) -> impl Component {
     row((
         image(LOGO).name("Tasks logo").style(style().size(32, 32)),
         column((
-            text("Tasks").role(Role::Heading).style(style().font_size(28).weight(700)),
+            text("Tasks").role(Role::Heading).level(1).style(style().font_size(28).weight(700)),
             text("Things to do today").style(style().color(ColorToken::TextMuted)),
         ))
         .style(style().gap(2).grow(1)),
@@ -32,24 +31,25 @@ fn header(dark: Signal<bool>) -> impl IntoView {
     .style(style().gap(12).align_items(Align::Center))
 }
 
-fn task_row(tasks: Signal<Vec<Task>>, id: u32, task: Value<Task>) -> impl IntoView {
-    let done = tasks.item(|task| task.id, id).field(|task| &task.done, |task| &mut task.done);
+fn task_row(tasks: Signal<Vec<Task>>, task: Binding<Task>) -> impl Component {
+    let id = task.get_untracked().id;
+    let done = bind!(task.done);
     row((
         checkbox(move || task.get().title, done),
         button("Remove")
             .name(move || format!("Remove {}", task.get().title))
-            .variant(ButtonVariant::Ghost)
+            .variant(kivact::ui::ButtonVariant::Ghost)
             .on_press(move || tasks.update(|list| list.retain(|task| task.id != id))),
     ))
     .role(Role::ListItem)
     .style(style().gap(8).align_items(Align::Center).justify_content(Justify::SpaceBetween))
 }
 
-fn task_list(tasks: Signal<Vec<Task>>) -> impl IntoView {
+fn task_list(tasks: Signal<Vec<Task>>) -> impl Component {
     column(for_each(
         tasks,
         |task| task.id,
-        move |id, task| task_row(tasks, id, task),
+        move |task| task_row(tasks, task),
     ))
     .role(Role::List)
     .name("Task list")
@@ -63,7 +63,7 @@ fn task_list(tasks: Signal<Vec<Task>>) -> impl IntoView {
     )
 }
 
-fn tasks_screen(dark: Signal<bool>) -> impl IntoView {
+fn tasks_screen(dark: Signal<bool>) -> impl Component {
     let tasks = signal(vec![
         Task { id: 1, title: "Buy milk".to_owned(), done: false },
         Task { id: 2, title: "Write the tutorial".to_owned(), done: false },
@@ -131,7 +131,17 @@ fn main() -> kivact::Result<()> {
 
 **Theme colors.** `ColorToken::Surface`, `Text`, `TextMuted`, `SurfaceAlt`, `Border`, `Accent` and the rest are *names* for colors, and the active theme decides what each looks like. Use tokens for most colors, and the same code works in the light and dark theme. When you need one fixed color, use `rgb(0x336699)`.
 
-**Button variants.** A button is the main action by default (`Primary`, filled with the accent color). `.variant(ButtonVariant::Ghost)` gives Remove a quiet look with no fill until you hover it. The other variants are `Secondary`, `Outline`, `Danger` and `Link`.
+**Image and font bytes.** `image(LOGO)` uses the SVG bytes embedded in this
+program. `include_bytes!("logo.svg").as_slice()` supplies a file embedded at
+build time. For bytes produced at runtime, `kivact::view::AssetBytes::new(bytes)`
+retains an owned `Vec<u8>`. Generated RGBA pixels use
+`kivact::draw::Pixels::new(width, height, rgba)`, where `rgba` can also be an
+owned vector containing four bytes per pixel. Clone an existing `AssetBytes`
+when reusing unchanged bytes. Register fonts with `App::fonts(iter)` before
+`.run(app)`; the iterator supplies font assets, such as embedded font byte
+slices. These APIs manage retained storage for you.
+
+**Button variants.** A button is the main action by default (`Primary`, filled with the accent color). `.variant(kivact::ui::ButtonVariant::Ghost)` gives Remove a quiet look with no fill until you hover it. The other variants are `Secondary`, `Outline`, `Danger` and `Link`.
 
 **Accessible names.** A screen reader announces a control by its role and name, and keyboard and test tools find controls the same way. So every control needs a name:
 
@@ -143,6 +153,8 @@ fn main() -> kivact::Result<()> {
 **Dark mode.** The app's theme is a value, and `provide_theme(theme, || ..)` applies one to everything inside it. Pass a signal, memo or closure and the theme can change while the app runs; Kivact restyles the existing views and rebuilds nothing. Here the "Dark mode" switch edits the `dark` signal, and a `memo` turns it into `Theme::dark()` or `Theme::light()`. `provide_theme` draws nothing by itself, so the top view gets `background(ColorToken::Surface)` and `color(ColorToken::Text)`, the way a web page sets them on `body`.
 
 If you do not need a switch, a fixed theme is one line: `App::new("Tasks").theme(Theme::dark())`.
+
+**Text decorations and visibility.** Add `text_decoration(TextDecorationLine::UNDERLINE)` and `text_decoration_style(TextDecorationStyle::Wavy)` to draw a wavy underline. The default pattern is `Solid`; `Dashed` and `Dotted` are also available. The pattern accepts a constant, signal or closure. `visibility(Visibility::Hidden)` preserves the subtree's layout space while excluding it from painting, assistive technology, focus and pointer hits. `Visibility::Visible` restores it. These enums live in `kivact::style`. Text color changes interpolate with `TransitionProp::Paint`. When constructing `TextDecoration` directly, set its `style` field or use `..TextDecoration::default()`.
 
 ## Run it
 

@@ -12,9 +12,9 @@
 //! `run_native` opens an `arvane::Shell`
 //! window at `HostOptions::window_size` (960×720 logical pixels without
 //! one), which it does not validate again (kivact's `App::run` did, once),
-//! and passes no renderer choice: whether and when Arvane starts the GPU,
-//! falls back to the CPU or switches is Arvane's (its default prefers the
-//! GPU). The title and minimum size arrive with the first revision's
+//! and passes only the GPU device wish (`HostOptions::gpu_preference`):
+//! whether and when Arvane starts the GPU, falls back to the CPU or
+//! switches is Arvane's (its default prefers the GPU). The title and minimum size arrive with the first revision's
 //! `Writer::set_window` and are applied after the turn
 //! (`Window::set_min_size`). The engine does not wrap `arvane::Window`
 //! again (size, scale, clock, environment, capabilities, surface
@@ -43,7 +43,7 @@
 //!   its turn deferred (`Host::defer`), the IME text and the cursor updated.
 //! - Platform requests (`Writer::effect`) are carried out after the turn;
 //!   those written during the shell's start (the client's start and the
-//!   first pump's turns, `Phase::Starting`) wait for the first entry after
+//!   first pump's turns, `HostPhase::Starting`) wait for the first entry after
 //!   it, which the host asks for at once (an embedding host is still inside
 //!   its editor's open call and takes no size request or dialog then);
 //!   the window's `Err` is reported as `PlatformResult::Failed(reason)`,
@@ -58,16 +58,15 @@
 //!   once when the window regains the focus), `Dropped` (the scene cannot
 //!   be drawn: the picture stays until the next change), `SurfaceLost`
 //!   (Arvane recovers its GPU resources and surface; layout and text
-//!   measurement are kept; an `EnvChanged` that is not drawable, then
-//!   `HostFailure`, then an `EnvChanged` that is drawable again are sent
-//!   and the frame drawn again). `Err` means the
+//!   measurement are kept; `HostFailure` is sent once and the frame is
+//!   drawn again). `Err` means the
 //!   window can present no more (three surface losses in a row) and ends
 //!   the host with a failure.
 //! - The engine has no platform branch, renderer limit or GPU state: OS,
 //!   GPU and CPU differences (renderer and GPU fallback, frame budget,
 //!   refresh period, click counts, occluded windows, environment variables)
 //!   are Arvane's.
-//! - GPU texture sharing (feature `gpu-interop`): the imports and drops a
+//! - GPU texture sharing: the imports and drops a
 //!   turn wrote (`Writer::import_external`, `Writer::drop_external`) are
 //!   handed to the window after the turn, in order, as the platform
 //!   effects are (the window exists from the client's start on), and each
@@ -87,6 +86,5 @@ pub mod testing;
 pub(crate) mod write;
 
 pub use client::{Boundary, Client, HostWaker};
-#[cfg(any(feature = "embed", feature = "testing"))]
 pub(crate) use launch::new;
 pub use launch::run_native;

@@ -3,16 +3,29 @@
 //! `kivact::test`. One binary links kivact, Arvane and wgpu once instead of
 //! once per file; the windows share its one event loop.
 
+mod apg_breadcrumb;
 #[cfg(feature = "embed")]
 mod embed;
 mod support;
 mod theme_conformance;
+mod ui_navigation;
 
+mod apg_combobox;
+mod apg_grid;
+mod apg_listbox;
+mod apg_radio_group;
+mod apg_slider;
+mod apg_spinbutton;
+mod apg_tabs;
+mod apg_tooltip;
+mod apg_tree_view;
+mod apg_window_splitter;
 mod assets;
 mod async_tests;
 mod canvas;
 mod canvas_worker;
 mod components;
+mod custom_text_field;
 mod diagnostics;
 mod disposal;
 mod environment;
@@ -24,6 +37,7 @@ mod grid;
 mod hover;
 mod i18n;
 mod image_semantics;
+mod indicators;
 mod input_platform;
 mod interaction_calendar;
 mod interaction_combobox;
@@ -44,12 +58,16 @@ mod interaction_toggle;
 mod interaction_tooltip;
 mod interaction_tree;
 mod interaction_zoom_pan;
+mod keyboard;
 mod landmark_roles;
+mod layout;
 mod layout_check;
 mod layout_scroll;
 mod layout_units;
 mod lifecycle;
+mod metrics_and_description;
 mod motion;
+mod node_ref;
 mod offscreen;
 mod overlay;
 mod paint;
@@ -57,6 +75,7 @@ mod parts;
 mod path_algebra;
 mod platform_paths;
 mod pointer;
+mod presence;
 mod primitive;
 mod relations;
 mod runtime;
@@ -68,6 +87,7 @@ mod text_primitives;
 mod text_style;
 mod touch_scroll;
 mod transform;
+mod ui_combobox;
 mod ui_command_palette;
 mod ui_components;
 mod ui_controls;
@@ -76,3 +96,36 @@ mod ui_field;
 mod ui_standard;
 mod ui_theming;
 mod view;
+
+mod launch_fonts;
+mod launch_platform;
+mod launch_support;
+
+mod launch_real_window;
+mod launch_window;
+
+mod machine;
+mod reactive_props;
+
+mod apg_accordion;
+mod apg_menu;
+mod apg_menu_button;
+mod apg_menubar;
+
+mod apg_carousel;
+mod apg_toolbar;
+mod ui_calendar;
+mod ui_carousel;
+mod ui_collections;
+mod ui_disclosure_surfaces;
+mod ui_dropzone;
+mod ui_toolbar;
+mod viewport;
+#[cfg(all(feature = "gpu-interop", any(windows, target_os = "linux")))]
+mod viewport_gpu_interop;
+
+mod apg_alert;
+mod apg_date_picker;
+mod feedback;
+
+mod ui_chat_code;

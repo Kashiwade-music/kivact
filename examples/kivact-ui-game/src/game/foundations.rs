@@ -2,13 +2,13 @@
 
 use super::common::{cards, line, list};
 use super::specimens::{ShapeKind, shape_tile, specimen, swatch};
-use kivact::control::{Node, NodeBuilder, row, text};
+use kivact::interaction::{Toast, Tone, toaster};
 use kivact::platform;
 use kivact::prelude::{Signal, rgb};
 use kivact::style::{Align, ColorToken, style};
 use kivact::task::spawn;
-use kivact::ui::{Toast, Tone, toaster};
 use kivact::view::IntoView;
+use kivact::view::{Node, NodeBuilder, row, text};
 use kivact_ui_game as g;
 use std::time::Duration;
 

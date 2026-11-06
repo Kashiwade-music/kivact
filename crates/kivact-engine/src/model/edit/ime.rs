@@ -1,9 +1,9 @@
 //! Role: IME composition, commit and selection applied to the focused text input.
 
-use super::state::{ImeGiven, ImeUpdate, InputSource};
+use super::state::{ImeGiven, ImeUpdate, InputSource, InputStart};
 use crate::model::Model;
 use kivact_editing::EditState;
-use kivact_wire::ImeEvent;
+use kivact_types::ImeInput;
 
 impl Model {
     /// The IME's composition (`selection` in bytes of `text`); an empty one
@@ -34,7 +34,7 @@ impl Model {
 
     /// Text the IME committed.
     pub(crate) fn commit(&mut self, text: &str) {
-        if self.session_event(ImeEvent::Commit(text.to_string())) {
+        if self.session_event(ImeInput::Commit(text.to_string())) {
             return;
         }
         self.insert_text(text);
@@ -43,14 +43,14 @@ impl Model {
 
     /// The IME ended its session: the composition is gone.
     pub(crate) fn ime_disabled(&mut self) {
-        if !self.session_event(ImeEvent::End) {
+        if !self.session_event(ImeInput::End) {
             self.preedit("", None);
         }
     }
 
-    /// The IME took `start..end` (UTF-16 code units of the text it was
-    /// last given, which starts at byte `start` of `ImeGiven::Input` in the
-    /// focused input's value) for reconversion: it becomes the selection, which the
+    /// The IME took `start..end` (UTF-8 byte offsets, floored to char
+    /// boundaries, of the text it was last given, which starts at byte
+    /// `start` of `ImeGiven::Input` in the focused input's value) for reconversion: it becomes the selection, which the
     /// reconversion's composition replaces. Ignored while composing.
     pub(crate) fn ime_select(&mut self, start: usize, end: usize) {
         if self.session_select(start, end) {
@@ -64,7 +64,7 @@ impl Model {
         }
         let ImeGiven::Input {
             source,
-            start: Some(base),
+            start: input_start,
         } = &self.edits.given
         else {
             return;
@@ -72,7 +72,10 @@ impl Model {
         if source.node != id {
             return;
         }
-        let base = *base;
+        let base = match input_start {
+            InputStart::At(base) => *base,
+            InputStart::NoText => return,
+        };
         let Some((start, end)) = self
             .node(id)
             .and_then(|n| {
@@ -83,9 +86,7 @@ impl Model {
             .filter(|e| !e.is_composing())
             .and_then(|e| e.value().get(base..))
             .map(|text| {
-                let at = |units| {
-                    base + crate::model::interact::text_geometry::byte_of_utf16(text, units)
-                };
+                let at = |byte| base + kivact_types::text_utf::floor_char_boundary(text, byte);
                 (at(start), at(end))
             })
         else {
@@ -96,8 +97,19 @@ impl Model {
         self.sync();
     }
 
-    /// The IME text to give the window, when it changed since the last one
-    /// given.
+    /// Input purpose of the focused editor or custom IME session.
+    pub(crate) fn ime_purpose(&self) -> kivact_types::InputPurpose {
+        if let Some(id) = self.focused_session() {
+            return self
+                .node(id)
+                .and_then(|n| n.properties.ime.as_deref())
+                .map_or(kivact_types::InputPurpose::Text, |s| s.purpose);
+        }
+        self.focused_input()
+            .and_then(|id| self.node(id))
+            .map_or(kivact_types::InputPurpose::Text, |n| n.purpose())
+    }
+    /// The IME text to give the window when it changes.
     pub(crate) fn ime_changed(&mut self, engine: &mut arvane::Engine) -> ImeUpdate {
         if let Some(id) = self.focused_session() {
             return match self.session_ime_changed(id) {
@@ -134,7 +146,9 @@ impl Model {
             None => ImeGiven::Nothing,
             Some(source) => ImeGiven::Input {
                 source,
-                start: text.as_ref().map(|(_, start)| *start),
+                start: text
+                    .as_ref()
+                    .map_or(InputStart::NoText, |(_, start)| InputStart::At(*start)),
             },
         };
         ImeUpdate::Set(text.map(|(text, _)| text))

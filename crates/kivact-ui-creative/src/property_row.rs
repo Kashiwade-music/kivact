@@ -1,33 +1,37 @@
 //! Role: Inspector property rows pairing a label with its value control.
-use crate::Color;
-use crate::slot::{Slot, slot};
+use crate::ColorName;
+
 use kivact::ui::{Button, ButtonVariant, button, tooltip};
 
-use kivact::control::{Node, NodeBuilder, node, row, text};
-use kivact::draw::{LineCap, LineJoin, Path, Point, Stroke};
+use kivact::draw::{LineCap, LineJoin, Path, Stroke};
+use kivact::geometry::Point;
 use kivact::i18n::message;
+use kivact::state::{IntoText, IntoValue};
+use kivact::state::{Value, memo};
 use kivact::style::{Align, TextAlign, style};
-use kivact::view::{HandlerResult, IntoText, IntoValue, IntoView, Role, View};
-use kivact::{Value, memo};
+use kivact::view::{IntoView, Role, View};
+use kivact::view::{Node, NodeBuilder, node, row, text};
 
 use crate::PropertyState;
 
+// xtask-allow(state-fields): Optional leading and trailing views are independent construction slots; the description composition owns no interaction lifecycle.
 /// A property of an inspector: its label, its value control and the slots
 /// around them. See [`property_row`].
 pub struct PropertyRow {
     root: Node,
     label: Value<String>,
     value: View,
-    leading: Option<Slot>,
-    trailing: Option<Slot>,
-    label_width: f32,
-    row_height: f32,
+    leading: Option<View>,
+    trailing: Option<View>,
+    label_width: Value<f64>,
+    row_height: Value<f64>,
 }
 
 /// A label with the control that edits its value, in one inspector row.
 ///
-/// The row is a `Role::Group` named like the label. The label is right
-/// aligned in a column of [`label_width`](PropertyRow::label_width) pixels
+/// The row is a canonical description `Role::ListItem` named like the label.
+/// Place related rows inside `kivact::ui::description_list` or a `Role::List`
+/// container. The label is right aligned in a column of [`label_width`](PropertyRow::label_width) pixels
 /// (90 by default) on one line, and shows the full label on hover and focus
 /// in a tooltip (also when the label is not clipped). The value takes the rest
 /// of the row. Two slots hold other controls:
@@ -43,7 +47,7 @@ pub struct PropertyRow {
 /// fn opacity() -> impl IntoView {
 ///     let opacity = signal(1.0);
 ///     ui::property_row("Opacity", ui::value_slider("Opacity", opacity).label_visible(false))
-///         .leading(|| ui::property_state_button("Opacity", ui::PropertyState::Plain))
+///         .leading(ui::property_state_button("Opacity", ui::PropertyState::Plain))
 /// }
 /// ```
 #[track_caller]
@@ -54,45 +58,52 @@ pub fn property_row(label: impl IntoText, value: impl IntoView) -> PropertyRow {
         value: value.into_view(),
         leading: None,
         trailing: None,
-        label_width: 90.0,
-        row_height: 24.0,
+        label_width: 90.0.into_value(),
+        row_height: 24.0.into_value(),
     }
 }
 
 impl PropertyRow {
     /// A control between the label and the value, such as the state button
     /// of a keyframe.
-    pub fn leading<V: IntoView>(mut self, view: impl FnOnce() -> V + 'static) -> Self {
-        self.leading = Some(slot(view));
+    pub fn leading(mut self, view: impl IntoView) -> Self {
+        self.leading = Some(view.into_view());
         self
     }
 
     /// A control after the value, such as a connection or an action button.
-    pub fn trailing<V: IntoView>(mut self, view: impl FnOnce() -> V + 'static) -> Self {
-        self.trailing = Some(slot(view));
+    pub fn trailing(mut self, view: impl IntoView) -> Self {
+        self.trailing = Some(view.into_view());
         self
     }
 
     /// The width of the label column in logical pixels. The default is 90.
     /// A negative or non-finite width keeps the earlier one.
-    pub fn label_width(mut self, px: f32) -> Self {
-        if px.is_finite() && px >= 0.0 {
-            self.label_width = px;
-        }
+    pub fn label_width(mut self, px: impl IntoValue<f64>) -> Self {
+        let px = px.into_value();
+        self.label_width = memo(move || {
+            let px = px.get();
+            if px.is_finite() && px >= 0.0 {
+                px
+            } else {
+                90.0
+            }
+        });
         self
     }
-
-    /// The least height of the row in logical pixels. The default is 24 and
-    /// anything under 20 is 20, so a number field always fits.
-    pub fn row_height(mut self, px: f32) -> Self {
-        if px.is_finite() {
-            self.row_height = px.max(20.0);
-        }
+    /// The least height of the row in logical pixels.
+    pub fn row_height(mut self, px: impl IntoValue<f64>) -> Self {
+        let px = px.into_value();
+        self.row_height = memo(move || {
+            let px = px.get();
+            if px.is_finite() { px.max(20.0) } else { 24.0 }
+        });
         self
     }
 }
 
 impl NodeBuilder for PropertyRow {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -101,13 +112,15 @@ impl NodeBuilder for PropertyRow {
 impl IntoView for PropertyRow {
     fn into_view(self) -> View {
         let label = self.label;
+        let label_width = self.label_width;
+        let row_height = self.row_height;
         let name = tooltip(label)
             .placement(kivact::view::Placement::Below)
             .align(kivact::view::OverlayAlign::Center)
             .offset(6.0)
             .attach(
                 node()
-                    .style(style().width(self.label_width).shrink(0).min_width(0))
+                    .style(move || style().width(label_width.get()).shrink(0).min_width(0))
                     .child(
                         text(label)
                             .style(
@@ -116,23 +129,32 @@ impl IntoView for PropertyRow {
                                     .text_align(TextAlign::End)
                                     .single_line(),
                             )
-                            .style(style().color(Color::Muted)),
+                            .style(style().color(ColorName::Muted)),
                     ),
             );
-        self.root
-            .role(Role::Group)
-            .name(label)
-            .style(
-                style()
-                    .min_width(0)
-                    .min_height(self.row_height)
-                    .gap(4)
-                    .align_items(Align::Center),
-            )
-            .child(name)
-            .child(self.leading.map(|slot| slot()))
-            .child(node().style(style().grow(1).min_width(0)).child(self.value))
-            .child(self.trailing.map(|slot| slot()))
+        let detail = row((
+            self.leading,
+            node().style(style().grow(1).min_width(0)).child(self.value),
+            self.trailing,
+        ))
+        .style(
+            style()
+                .width(kivact::style::pct(100))
+                .min_width(0)
+                .gap(4)
+                .align_items(Align::Center),
+        );
+        kivact::ui::description(label, detail)
+            .term_content(name)
+            .with_node(move |_| {
+                self.root.role(Role::ListItem).style(move || {
+                    style()
+                        .min_width(0)
+                        .min_height(row_height.get())
+                        .gap(4)
+                        .align_items(Align::Center)
+                })
+            })
             .into_view()
     }
 }
@@ -191,11 +213,11 @@ pub fn property_state_button(
     });
     let name = memo(move || format!("{}: {}", label.get(), state_name.get()));
     let button = button("")
-        .name(name)
+        .with_node(move |node| node.name(name))
         .variant(ButtonVariant::Ghost)
-        .style(style().size(20, 20).padding(0).radius(3))
+        .with_node(move |node| node.style(style().size(20, 20).padding(0).radius(3)))
         .draw(move |d, size| {
-            let p = d.theme().get::<crate::tokens::Tokens>();
+            let p = d.theme().ext::<crate::tokens::Tokens>();
             let state = state.get();
             let color = match state {
                 PropertyState::Plain => p.muted,
@@ -236,13 +258,14 @@ pub fn property_state_button(
 impl PropertyStateButton {
     /// Called by a click, Enter, Space or an assistive technology's Activate.
     #[track_caller]
-    pub fn on_press<R: HandlerResult>(mut self, f: impl Fn() -> R + 'static) -> Self {
+    pub fn on_press(mut self, f: impl Into<kivact::state::Callback<()>>) -> Self {
         self.button = self.button.on_press(f);
         self
     }
 }
 
 impl NodeBuilder for PropertyStateButton {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         self.button.node_mut()
     }

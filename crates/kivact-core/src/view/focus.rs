@@ -10,30 +10,14 @@
 //!   that needs the focus (key dispatch, `NodeRef::{focused,
 //!   focus_within}`, the modal focus restore) reads it.
 //! - Both nodes are created once, under the root owner, when the host starts
-//!   the App ([`keys`]). They exist before any App code runs.
+//!   the App ([`FocusKeys`](super::state::FocusKeys)). They exist before any App code runs.
 //! - Node ids are never reused, so a stale id in the source never matches a
 //!   node mounted later.
 
-use kivact_reactive::Signal;
-use kivact_reactive::selector;
-use kivact_reactive::{Owner, Runtime};
-use kivact_wire::FocusTarget;
-use std::panic::Location;
+use kivact_runtime::Runtime;
+use kivact_types::FocusTarget;
 
-use crate::view::state::{FocusKeys, ViewState};
-
-/// Create the focus source and its selector under the root `owner`.
-pub(crate) fn keys(owner: Owner, at: &'static Location<'static>) -> FocusKeys {
-    let node: Signal<Option<FocusTarget>> = owner.signal(None::<FocusTarget>, at);
-    // `selector` registers under the setup owner.
-    let selector = owner.with_setup(|| selector(node));
-    let visible = owner.signal(false, at);
-    FocusKeys {
-        node,
-        selector,
-        visible,
-    }
-}
+use crate::view::state::ViewState;
 
 /// The focused node (untracked).
 pub(crate) fn focused(rt: &Runtime) -> Option<FocusTarget> {

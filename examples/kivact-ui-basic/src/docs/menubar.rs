@@ -39,27 +39,25 @@ pub(crate) fn page() -> Page {
 fn basic() -> impl IntoView {
     let last = signal("Nothing chosen yet.".to_string());
     column((
-        basic::menubar(
-            vec![
-                (
-                    "File".to_string(),
-                    vec![
-                        MenuEntry::item("tab", "New Tab").shortcut("Ctrl+T"),
-                        MenuEntry::item("window", "New Window").shortcut("Ctrl+N"),
-                        MenuEntry::separator(),
-                        MenuEntry::item("print", "Print...").shortcut("Ctrl+P"),
-                    ],
-                ),
-                (
-                    "Edit".to_string(),
-                    vec![
-                        MenuEntry::item("undo", "Undo").shortcut("Ctrl+Z"),
-                        MenuEntry::item("redo", "Redo").shortcut("Ctrl+Y"),
-                    ],
-                ),
-            ],
-            move |key: &'static str| last.set(format!("Chosen: {key}")),
-        )
+        basic::menubar(vec![
+            (
+                "File".to_string(),
+                vec![
+                    MenuEntry::item("tab", "New Tab").with_shortcut("Ctrl+T"),
+                    MenuEntry::item("window", "New Window").with_shortcut("Ctrl+N"),
+                    MenuEntry::separator(),
+                    MenuEntry::item("print", "Print...").with_shortcut("Ctrl+P"),
+                ],
+            ),
+            (
+                "Edit".to_string(),
+                vec![
+                    MenuEntry::item("undo", "Undo").with_shortcut("Ctrl+Z"),
+                    MenuEntry::item("redo", "Redo").with_shortcut("Ctrl+Y"),
+                ],
+            ),
+        ])
+        .on_activate(move |key: &'static str| last.set(format!("Chosen: {key}")))
         .style(style().width(240)),
         basic::muted(last),
     ))
@@ -84,37 +82,36 @@ fn checkboxes() -> impl IntoView {
             ],
         )]
     };
-    basic::menubar(menus, move |key: &'static str| match key {
-        "bookmarks" => bookmarks.update(|on| *on = !*on),
-        other => profile.set(other),
-    })
-    .style(style().width(240))
+    basic::menubar(menus)
+        .on_activate(move |key: &'static str| match key {
+            "bookmarks" => bookmarks.update(|on| *on = !*on),
+            other => profile.set(other),
+        })
+        .style(style().width(240))
 }
 // end example
 
 // example: submenu
 fn submenu() -> impl IntoView {
-    basic::menubar(
-        vec![
-            (
-                "File".to_string(),
-                vec![
-                    MenuEntry::submenu(
-                        "share",
-                        "Share",
-                        vec![
-                            MenuEntry::item("email", "Email link"),
-                            MenuEntry::item("messages", "Messages"),
-                        ],
-                    ),
-                    MenuEntry::separator(),
-                    MenuEntry::item("print", "Print..."),
-                ],
-            ),
-            ("Help".to_string(), vec![MenuEntry::item("about", "About")]),
-        ],
-        |_key: &'static str| {},
-    )
+    basic::menubar(vec![
+        (
+            "File".to_string(),
+            vec![
+                MenuEntry::submenu(
+                    "share",
+                    "Share",
+                    vec![
+                        MenuEntry::item("email", "Email link"),
+                        MenuEntry::item("messages", "Messages"),
+                    ],
+                ),
+                MenuEntry::separator(),
+                MenuEntry::item("print", "Print..."),
+            ],
+        ),
+        ("Help".to_string(), vec![MenuEntry::item("about", "About")]),
+    ])
+    .on_activate(|_key: &'static str| {})
     .style(style().width(240))
 }
 // end example

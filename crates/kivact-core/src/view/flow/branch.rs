@@ -18,18 +18,18 @@ use std::cell::RefCell;
 use std::panic::Location;
 use std::rc::Rc;
 
-use kivact_wire::NodeId;
+use kivact_types::NodeId;
 
 use crate::view::boundary::mount_in;
 use crate::view::descriptor::{IntoView, View, view_fn};
 use crate::view::state::ViewState;
-use kivact_reactive::EffectKind;
-use kivact_reactive::{IntoReactive, IntoValue, Prop as InputProp};
-use kivact_reactive::{Owner, Runtime};
-use kivact_reactive::{Signal, Value};
+use kivact_runtime::EffectKind;
+use kivact_runtime::{IntoReactive, IntoValue, Prop as InputProp};
+use kivact_runtime::{Owner, Runtime};
+use kivact_runtime::{Signal, Value};
 
 /// A branch builder: runs in the setup frame of the branch's owner.
-pub(crate) type Build = Rc<dyn Fn() -> View>;
+pub(crate) type Build = crate::view::ViewFn<()>;
 
 pub(crate) struct Branch {
     pub(crate) owner: Owner,
@@ -45,7 +45,7 @@ pub(crate) fn mount_branch(
     build: impl FnOnce() -> View,
 ) -> Branch {
     let node = mount_in(rt, owner, build);
-    ViewState::tree_mut(rt).insert(frag, node, None);
+    ViewState::tree(rt).engine().insert(frag, node, None);
     Branch { owner, node }
 }
 
@@ -53,18 +53,19 @@ pub(crate) fn unmount_branch(rt: &Runtime, b: Branch) {
     // The records (their handlers) drop after the tree borrow, while the
     // owner still lives: a `Drop` there may use the tree and the owner.
     let removed = ViewState::tree_mut(rt).remove(b.node);
-    drop(removed);
+    removed.commit(rt);
     b.owner.dispose();
 }
 
 /// A boxed branch builder from a closure returning any view.
-pub(crate) fn build<V: IntoView>(f: impl Fn() -> V + 'static) -> Build {
-    Rc::new(move || f().into_view())
+pub(crate) fn build<V: IntoView>(f: impl crate::view::IntoViewFn<V>) -> Build {
+    f.into_view_fn()
 }
 
 // ---------------------------------------------------------------------------
 // show
 
+// xtask-allow(state-fields): The condition source and optional fallback are independent view construction inputs.
 /// Conditional view. Built by [`show`].
 pub struct Show {
     pub(crate) when: InputProp<bool>,
@@ -82,7 +83,10 @@ pub struct Show {
 /// show(logged_in, dashboard).fallback(|| text("Please sign in"))
 /// ```
 #[track_caller]
-pub fn show<V: IntoView>(when: impl IntoReactive<bool>, child: impl Fn() -> V + 'static) -> Show {
+pub fn show<V: IntoView>(
+    when: impl IntoReactive<bool>,
+    child: impl crate::view::IntoViewFn<V>,
+) -> Show {
     Show {
         when: when.into_prop(),
         child: build(child),
@@ -93,7 +97,7 @@ pub fn show<V: IntoView>(when: impl IntoReactive<bool>, child: impl Fn() -> V + 
 
 impl Show {
     /// Render `f()` while `when` is false.
-    pub fn fallback<V: IntoView>(mut self, f: impl Fn() -> V + 'static) -> Self {
+    pub fn fallback<V: IntoView>(mut self, f: impl crate::view::IntoViewFn<V>) -> Self {
         self.fallback = Some(build(f));
         self
     }
@@ -134,7 +138,7 @@ impl IntoView for Show {
             cx.effect(EffectKind::Internal, at, move || {
                 let Some(rt) = rt.upgrade() else { return };
                 // The condition only computes a value: pure.
-                let when = kivact_reactive::pure(|| when.get());
+                let when = kivact_runtime::pure(|| when.get());
                 if matches!(
                     (when, &*state.borrow()),
                     (true, ShowArm::Child(_)) | (false, ShowArm::Fallback(_))
@@ -146,12 +150,12 @@ impl IntoView for Show {
                     unmount_branch(&rt, b);
                 }
                 let next = if when {
-                    ShowArm::Child(mount_branch(&rt, parent.child(at), frag, || child()))
+                    ShowArm::Child(mount_branch(&rt, parent.child(at), frag, || child.call(())))
                 } else {
                     ShowArm::Fallback(
                         fallback
                             .as_ref()
-                            .map(|f| mount_branch(&rt, parent.child(at), frag, || f())),
+                            .map(|f| mount_branch(&rt, parent.child(at), frag, || f.call(()))),
                     )
                 };
                 *state.borrow_mut() = next;
@@ -164,10 +168,11 @@ impl IntoView for Show {
 // ---------------------------------------------------------------------------
 // show_some
 
+// xtask-allow(state-fields): The optional-value source and optional fallback are independent view construction inputs.
 /// View for `Some` values. Built by [`show_some`].
 pub struct ShowSome<T: 'static> {
     pub(crate) value: InputProp<Option<T>>,
-    pub(crate) child: Rc<dyn Fn(Value<T>) -> View>,
+    pub(crate) child: crate::view::ViewFn<Value<T>>,
     pub(crate) fallback: Option<Build>,
     pub(crate) at: &'static Location<'static>,
 }
@@ -187,7 +192,7 @@ pub fn show_some<T: Clone + 'static, V: IntoView>(
 ) -> ShowSome<T> {
     ShowSome {
         value: value.into_prop(),
-        child: Rc::new(move |v| child(v).into_view()),
+        child: crate::view::ViewFn::from(child),
         fallback: None,
         at: Location::caller(),
     }
@@ -195,7 +200,7 @@ pub fn show_some<T: Clone + 'static, V: IntoView>(
 
 impl<T: 'static> ShowSome<T> {
     /// Render `f()` while the source is `None`.
-    pub fn fallback<V: IntoView>(mut self, f: impl Fn() -> V + 'static) -> Self {
+    pub fn fallback<V: IntoView>(mut self, f: impl crate::view::IntoViewFn<V>) -> Self {
         self.fallback = Some(build(f));
         self
     }
@@ -235,7 +240,7 @@ impl<T: Clone + 'static> IntoView for ShowSome<T> {
             let state: RefCell<SomeArm<T>> = RefCell::new(SomeArm::Pending);
             cx.effect(EffectKind::Internal, at, move || {
                 let Some(rt) = rt.upgrade() else { return };
-                let v = kivact_reactive::pure(|| value.get());
+                let v = kivact_runtime::pure(|| value.get());
                 let child_value = match &*state.borrow() {
                     SomeArm::Child { value, .. } => Some(*value),
                     _ => None,
@@ -252,21 +257,21 @@ impl<T: Clone + 'static> IntoView for ShowSome<T> {
                         if let Some(b) = old.into_branch() {
                             unmount_branch(&rt, b);
                         }
-                        let next = match v {
-                            Some(v) => {
-                                let owner = parent.child(at);
-                                let value = owner.signal(v, at);
-                                let child = child.clone();
-                                let branch =
-                                    mount_branch(&rt, owner, frag, || child(value.into_value()));
-                                SomeArm::Child { branch, value }
-                            }
-                            None => SomeArm::Fallback(
-                                fallback
-                                    .as_ref()
-                                    .map(|f| mount_branch(&rt, parent.child(at), frag, || f())),
-                            ),
-                        };
+                        let next =
+                            match v {
+                                Some(v) => {
+                                    let owner = parent.child(at);
+                                    let value = owner.signal(v, at);
+                                    let child = child.clone();
+                                    let branch = mount_branch(&rt, owner, frag, || {
+                                        child.call(value.into_value())
+                                    });
+                                    SomeArm::Child { branch, value }
+                                }
+                                None => SomeArm::Fallback(fallback.as_ref().map(|f| {
+                                    mount_branch(&rt, parent.child(at), frag, || f.call(()))
+                                })),
+                            };
                         *state.borrow_mut() = next;
                     }
                 }
@@ -294,31 +299,37 @@ impl<T: Clone + 'static> IntoView for ShowSome<T> {
 /// })
 /// ```
 #[track_caller]
-pub fn dynamic<T: Clone + PartialEq + 'static, V: IntoView>(
+pub fn dynamic<T: kivact_runtime::PropValue, V: IntoView>(
     source: impl IntoReactive<T>,
     child: impl Fn(T) -> V + 'static,
 ) -> View {
     let at = Location::caller();
     let source = source.into_prop();
+    let child = crate::view::ViewFn::from(child);
     view_fn(move |cx| {
         let frag = cx.fragment();
         let rt = cx.weak();
         let parent = cx.owner;
         // (value the current branch was built from, the branch)
-        let current: RefCell<Option<(T, Branch)>> = RefCell::new(None);
+        let current = RefCell::new(DynamicArm::Pending);
         cx.effect(EffectKind::Internal, at, move || {
             let Some(rt) = rt.upgrade() else { return };
-            let value = kivact_reactive::pure(|| source.get());
-            if current.borrow().as_ref().is_some_and(|(v, _)| *v == value) {
+            let value = kivact_runtime::pure(|| source.get());
+            if matches!(&*current.borrow(), DynamicArm::Mounted { value: previous, .. } if *previous == value) {
                 return;
             }
-            if let Some((_, b)) = current.borrow_mut().take() {
+            if let DynamicArm::Mounted { branch: b, .. } = current.replace(DynamicArm::Pending) {
                 unmount_branch(&rt, b);
             }
             let built_from = value.clone();
-            let b = mount_branch(&rt, parent.child(at), frag, || child(value).into_view());
-            *current.borrow_mut() = Some((built_from, b));
+            let b = mount_branch(&rt, parent.child(at), frag, || child.call(value));
+            *current.borrow_mut() = DynamicArm::Mounted { value: built_from, branch: b };
         });
         frag
     })
+}
+
+enum DynamicArm<T> {
+    Pending,
+    Mounted { value: T, branch: Branch },
 }

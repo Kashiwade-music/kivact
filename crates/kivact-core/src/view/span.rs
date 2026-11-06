@@ -2,13 +2,13 @@
 //!
 //! Rich text: one paragraph of [`Span`]s, each with its own text style
 //! and an optional background band (`<b>`, `<small>`, `<mark>`), built
-//! with [`span`] and shown by [`rich_text`](crate::control::rich_text).
+//! with [`span`] and shown by [`rich_text`](crate::view::rich_text).
 //!
 //! Invariant: a span sets only what it names; the rest is the
 //! paragraph's (the text node's inherited text style). A span's
 //! decoration lines and features replace the paragraph's.
 
-use kivact_wire as p;
+use kivact_types as p;
 
 use crate::draw::Paint;
 use kivact_style::text::{FontFeature, FontKerning, SpanStyle, TextDecorationLine, TextLength};
@@ -19,8 +19,8 @@ use kivact_style::{Color, Theme, ThemeColor};
 ///
 /// ```
 /// # use kivact_core as kivact;
-/// use kivact::control::{rich_text, span};
-/// use kivact::prelude::*;
+/// use kivact::view::{rich_text, span};
+/// use kivact::view::{NodeBuilder};
 /// use kivact::style::{rgba};
 /// // <p>Open <mark>fi</mark>le</p>, the match bold and highlighted
 /// let line = rich_text(vec![
@@ -32,15 +32,15 @@ use kivact_style::{Color, Theme, ThemeColor};
 /// ```
 #[derive(Clone, Debug, PartialEq)]
 pub struct Span {
-    pub(crate) text: String,
+    pub(crate) text: kivact_runtime::Reactive<String>,
     style: SpanStyle,
 }
 
 /// A span of rich text showing `text`, in the paragraph's style until its
 /// methods say otherwise.
-pub fn span(text: impl Into<String>) -> Span {
+pub fn span(text: impl kivact_runtime::IntoText) -> Span {
     Span {
-        text: text.into(),
+        text: kivact_runtime::Reactive::new(text.into_text()),
         style: SpanStyle::default(),
     }
 }
@@ -60,7 +60,7 @@ impl From<String> for Span {
 impl Span {
     /// CSS `font-size`.
     pub fn font_size(mut self, v: impl Into<f64>) -> Self {
-        self.style.font_size = Some(v.into() as f32);
+        self.style.font_size = Some(v.into());
         self
     }
 
@@ -83,8 +83,8 @@ impl Span {
     }
 
     /// Italic (`<em>`, `<i>`), or upright with `false`.
-    pub fn italic(mut self, v: bool) -> Self {
-        self.style.italic = Some(v);
+    pub fn italic(mut self) -> Self {
+        self.style.italic = Some(true);
         self
     }
 
@@ -159,13 +159,13 @@ impl Span {
 /// (colors and paints resolved against `theme`), and how many values were
 /// dropped (feature tags that are not four ASCII characters).
 pub(crate) fn resolve(spans: &[Span], theme: &Theme) -> (String, Vec<p::TextSpan>, u32) {
-    let mut text = String::with_capacity(spans.iter().map(|s| s.text.len()).sum());
+    let mut text = String::with_capacity(spans.iter().map(|s| s.text.get().len()).sum());
     let mut out = Vec::with_capacity(spans.len());
     let mut dropped = 0;
     for span in spans {
         let start = text.len();
-        text.push_str(&span.text);
-        let compiled = span.style.compile(theme);
+        text.push_str(&span.text.get());
+        let compiled = kivact_style::internal::compile_span_style(&span.style, theme);
         dropped += compiled.unsupported;
         let style = compiled.props;
         if style == p::SpanProps::default() {

@@ -8,7 +8,7 @@
 //! the recipe, and local painting without additional semantic nodes.
 
 use crate::paint::{distance, pixel};
-use crate::support::mount;
+use crate::support::{mount, mount_with};
 use kivact::prelude::*;
 use kivact::style::{Align, Justify, Style};
 use kivact::style::{Color, Direction, rgb};
@@ -29,22 +29,18 @@ fn theme_with(recipes: UiRecipes) -> Theme {
 }
 
 fn options(theme: Theme) -> RenderOptions {
-    RenderOptions {
-        theme,
-        reduced_motion: true,
-        ..RenderOptions::from_env()
-    }
+    RenderOptions::from_env().theme(theme).reduced_motion()
 }
 
 /// The pixel `dx` right of and `dy` below the top left of `id`.
-fn pixel_in(screen: &Screen, id: &str, dx: f32, dy: f32) -> u32 {
+fn pixel_in(screen: &Screen, id: &str, dx: f64, dy: f64) -> u32 {
     let r = screen.get_by_test_id(id).rect().expect("laid out");
     let shot = screen.screenshot();
     pixel(&shot, (r.x + dx) as u32, (r.y + dy) as u32)
 }
 
 /// The pixel at the vertical middle of `id`, `dx` right of its left edge.
-fn pixel_mid(screen: &Screen, id: &str, dx: f32) -> u32 {
+fn pixel_mid(screen: &Screen, id: &str, dx: f64) -> u32 {
     let h = screen.get_by_test_id(id).rect().expect("laid out").height;
     pixel_in(screen, id, dx, (h / 2.0).floor())
 }
@@ -332,7 +328,82 @@ fn a_kits_theme_gives_the_standard_components_the_kits_look() {
     );
     // The kit's recipes are the same table a caller can read back.
     let theme = kivact_ui_pop::theme(kivact::style::ThemeMode::Light);
-    let recipes = theme.get::<UiRecipes>();
+    let recipes = theme.ext::<UiRecipes>();
     assert_ne!(*recipes, UiRecipes::default());
     assert!(kit.errors().is_empty(), "{:?}", kit.errors());
+}
+
+/// Whether hovering the avatar named `name` for longer than the tooltip delay
+/// shows a tooltip saying `name`.
+fn avatar_tooltip_shows(opts: RenderOptions, name: &'static str, show: Option<bool>) -> bool {
+    let (screen, ()) = mount_with(opts, move || {
+        let avatar = kivact::ui::avatar(name);
+        let avatar = match show {
+            Some(show) => avatar.name_tooltip(show),
+            None => avatar,
+        };
+        ((), row((avatar,)).style(style().padding(40)))
+    });
+    screen.get_by_role(Role::Image, name).hover();
+    screen.advance(std::time::Duration::from_millis(1000));
+    let shown = screen.query_by_role(Role::Tooltip, name).is_some();
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+    shown
+}
+
+#[test]
+fn avatar_shows_its_name_tooltip_by_default_under_a_theme_that_asks_for_it() {
+    let soft = || RenderOptions::from_env().theme(kivact_ui_soft::theme(ThemeMode::Light));
+    assert!(
+        avatar_tooltip_shows(soft(), "Ada Lovelace", None),
+        "the Soft theme asks for the name tooltip"
+    );
+    assert!(
+        !avatar_tooltip_shows(soft(), "Ada Lovelace", Some(false)),
+        "the caller's choice wins over the theme"
+    );
+    assert!(
+        avatar_tooltip_shows(RenderOptions::from_env(), "Ada Lovelace", Some(true)),
+        "the caller can ask for it under any theme"
+    );
+    assert!(
+        !avatar_tooltip_shows(RenderOptions::from_env(), "Ada Lovelace", None),
+        "the default theme does not ask for a tooltip"
+    );
+}
+
+#[test]
+fn table_row_selected_is_exposed_and_styled() {
+    let opts = RenderOptions::from_env()
+        .theme(kivact_ui_basic::theme(ThemeMode::Light))
+        .reduced_motion();
+    let (screen, chosen) = mount_with(opts, || {
+        let chosen = signal(0usize);
+        let data_row = |index: usize, label: &'static str| {
+            kivact::ui::table_row((kivact::ui::table_cell(label).style(style().height(32)),))
+                .selected(move || chosen.get() == index)
+                .test_id(label)
+        };
+        (
+            chosen,
+            kivact::ui::table((kivact::ui::table_body((
+                data_row(0, "first"),
+                data_row(1, "second"),
+            )),)),
+        )
+    });
+    let row_named = |label: &str| screen.get_by_test_id(label);
+    // Inside the row, left of its cell's text.
+    let fill = |label: &str| pixel_in(&screen, label, 1.0, 1.0);
+    assert!(row_named("first").is_selected());
+    assert!(!row_named("second").is_selected());
+    let (selected_fill, plain_fill) = (fill("first"), fill("second"));
+    assert_ne!(selected_fill, plain_fill, "the selected row is drawn apart");
+    chosen.set(1);
+    screen.run_until_idle();
+    assert!(!row_named("first").is_selected());
+    assert!(row_named("second").is_selected());
+    assert_eq!(fill("second"), selected_fill);
+    assert_eq!(fill("first"), plain_fill);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }

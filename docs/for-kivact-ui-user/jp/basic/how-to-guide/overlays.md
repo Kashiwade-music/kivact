@@ -4,7 +4,7 @@
 
 このガイドでは、ページの上に何かを重ねる方法を説明します。ダイアログ、確認、横からのシート、下からのドロワー、ポップオーバー、ホバーカード、メニュー、トーストです。[チュートリアル](../getting-started/README.md)を終えていて、アプリが `basic::theme` を使っていることを前提にしています。
 
-これらの多くは、キット独自のコンポーネントではありません。ダイアログ、アラートダイアログ、シート、ポップオーバーは、標準の `dialog(title, open)` の `.kind(..)` を変えたもの、メニューは標準の `menu(..)`、トーストは標準の `toast_region` と `toaster` です。テーマがそれらを Lyra の見た目で描きます。キットが足すのは `basic::drawer` と `basic::hover_card` です。
+これらの多くは、キット独自のコンポーネントではありません。ダイアログ、アラートダイアログ、シート、ポップオーバーは、標準の `dialog(title, open)` の `.kind(..)` を変えたもの、メニューは標準の `menu(..)`、トーストは標準の `toast_region` と `toaster` です。テーマがそれらを Lyra の見た目で描きます。スワイプドロワーも標準の `kivact::ui::dialog` を使います。ホバープレビューは標準の `kivact::ui::hover_card` を Basic の surface recipe で描きます。
 
 すべてに共通する決まりが 2 つあります。
 
@@ -21,7 +21,7 @@ fn edit_profile() -> impl IntoView {
     let name = signal(String::from("Ada"));
     column((
         button("Edit profile")
-            .variant(ButtonVariant::Outline)
+            .variant(kivact::ui::ButtonVariant::Outline)
             .on_press(move || open.set(true)),
         dialog("Edit profile", open)
             .description("Make changes to your profile here.")
@@ -39,7 +39,7 @@ fn edit_profile() -> impl IntoView {
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::ui::DialogKind;
+use kivact::interaction::DialogMode;
 use kivact_ui_basic as basic;
 
 fn delete_chat() -> impl IntoView {
@@ -47,20 +47,20 @@ fn delete_chat() -> impl IntoView {
     let deleted = signal(false);
     column((
         button("Delete chat")
-            .variant(ButtonVariant::Danger)
+            .variant(kivact::ui::ButtonVariant::Danger)
             .on_press(move || open.set(true)),
         basic::muted(move || if deleted.get() { "Chat deleted." } else { "Chat kept." }),
         dialog("Delete chat?", open)
-            .kind(DialogKind::AlertModal)
+            .mode(DialogMode::AlertModal)
             .closable(false)
             .description("This will permanently delete this conversation.")
             .footer(move || {
                 (
                     button("Cancel")
-                        .variant(ButtonVariant::Outline)
+                        .variant(kivact::ui::ButtonVariant::Outline)
                         .on_press(move || open.set(false)),
                     button("Delete")
-                        .variant(ButtonVariant::Danger)
+                        .variant(kivact::ui::ButtonVariant::Danger)
                         .on_press(move || {
                             deleted.set(true);
                             open.set(false);
@@ -83,17 +83,18 @@ fn delete_chat() -> impl IntoView {
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::ui::{DialogKind, Side};
+use kivact::interaction::{DialogMode};
+use kivact::geometry::{Edge};
 use kivact_ui_basic as basic;
 
 fn notifications() -> impl IntoView {
     let open = signal(false);
     column((
         button("Notifications")
-            .variant(ButtonVariant::Outline)
+            .variant(kivact::ui::ButtonVariant::Outline)
             .on_press(move || open.set(true)),
         dialog("Notifications", open)
-            .kind(DialogKind::Drawer(Side::Right))
+            .mode(DialogMode::Drawer(Edge::Right))
             .description("Choose what you want to hear about.")
             .content(|| basic::muted("No new notifications."))
             .footer(move || button("Close").on_press(move || open.set(false))),
@@ -101,7 +102,7 @@ fn notifications() -> impl IntoView {
 }
 ```
 
-`Side` は `Left`、`Right`、`Top`、`Bottom` です。スワイプで閉じられる下からのパネルが欲しいときは、キットの `basic::drawer(open, title)` を使います。`.description(..)`、`.content(..)`、`.footer(..)` と、`.side(Side::..)`（既定は下）を同じように取ります。
+`Side` は `Left`、`Right`、`Top`、`Bottom` です。スワイプで閉じられる下からのパネルが欲しいときは、キットの `kivact::ui::dialog(title, open).mode(DialogMode::Drawer(Edge::Bottom))` を使います。`.description(..)`、`.content(..)`、`.footer(..)` と、`.mode(DialogMode::Drawer(Edge::..))`（既定は下）を同じように取ります。
 
 ```rust,no_run
 use kivact::prelude::*;
@@ -112,16 +113,19 @@ fn move_goal() -> impl IntoView {
     let goal = signal(350);
     column((
         button("Open drawer")
-            .variant(ButtonVariant::Outline)
+            .variant(kivact::ui::ButtonVariant::Outline)
             .on_press(move || open.set(true)),
-        basic::drawer(open, "Move goal")
+        kivact::ui::dialog("Move goal", open)
+            .mode(kivact::interaction::DialogMode::Drawer(kivact::geometry::Edge::Bottom))
+            .variant(basic::DrawerVariant::Drawer)
+            .closable(false)
             .description("Set your daily activity goal.")
             .content(move || text(move || format!("{} calories/day", goal.get())))
             .footer(move || {
                 (
                     button("Submit").on_press(move || open.set(false)),
                     button("Cancel")
-                        .variant(ButtonVariant::Outline)
+                        .variant(kivact::ui::ButtonVariant::Outline)
                         .on_press(move || open.set(false)),
                 )
             }),
@@ -129,7 +133,7 @@ fn move_goal() -> impl IntoView {
 }
 ```
 
-`basic::drawer` と `basic::hover_card` は `NodeBuilder` ではありません。置いた場所には何も描かないので、`.style(..)` や `.test_id(..)` は使えません。
+`kivact::ui::dialog` と `kivact::ui::hover_card` は `NodeBuilder` ではありません。置いた場所には何も描かないので、`.style(..)` や `.test_id(..)` は使えません。
 
 ## ボタンにポップオーバーを付ける
 
@@ -137,19 +141,19 @@ fn move_goal() -> impl IntoView {
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::ui::DialogKind;
+use kivact::interaction::DialogMode;
 use kivact::view::{OverlayAlign, Placement};
 
 fn dimensions() -> impl IntoView {
     let open = signal(false);
     let width = signal(String::from("100%"));
     dialog("Dimensions", open)
-        .kind(DialogKind::Popover)
+        .mode(DialogMode::Popover)
         .description("Set the dimensions for the layer.")
         .placement(Placement::Below)
         .align(OverlayAlign::Start)
         .content(move || text_input("Width", width))
-        .attach(button("Open popover").variant(ButtonVariant::Outline))
+        .attach(button("Open popover").variant(kivact::ui::ButtonVariant::Outline))
 }
 ```
 
@@ -160,21 +164,21 @@ fn dimensions() -> impl IntoView {
 
 ## ホバーしたときにプレビューを出す
 
-`basic::hover_card` は、ポインターがトリガーの上で止まると開きます。600 ms 後に開き、ポインターが離れて 300 ms 後に閉じます。`.open_delay(..)` と `.close_delay(..)` で変えられます。
+`kivact::ui::hover_card` は、ポインターがトリガーの上で止まると開きます。600 ms 後に開き、ポインターが離れて 300 ms 後に閉じます。`.open_delay(..)` と `.close_delay(..)` で変えられます。
 
 ```rust,no_run
 use kivact::prelude::*;
 use kivact_ui_basic as basic;
 
 fn mention() -> impl IntoView {
-    basic::hover_card(|| {
+    kivact::ui::hover_card(|| {
         column((
             text("@kivact").style(style().weight(600)),
             basic::muted("A native GUI framework for Rust."),
         ))
         .style(style().gap(8))
     })
-    .attach(button("@kivact").variant(ButtonVariant::Link))
+    .attach(button("@kivact").variant(kivact::ui::ButtonVariant::Link))
 }
 ```
 
@@ -182,7 +186,7 @@ fn mention() -> impl IntoView {
 
 ## ボタンや右クリックからメニューを開く
 
-メニューは標準の `menu(label, entries, choose)` です。`entries` は `MenuEntry` の一覧で、`choose` はユーザーが選んだ項目の key を受け取ります。`.attach(trigger)` はボタンから、`.attach_context(target)` は `target` の上の右クリックで開きます。
+メニューは標準の `menu(label, entries).on_activate(choose)` です。`entries` は `MenuEntry` の一覧で、`choose` はユーザーが選んだ項目の key を受け取ります。`.attach(trigger)` はボタンから、`.attach_context(target)` は `target` の上の右クリックで開きます。
 
 ```rust,no_run
 use kivact::prelude::*;
@@ -192,17 +196,17 @@ fn account_menu() -> impl IntoView {
     let picked = signal(String::from("Nothing chosen yet."));
     let entries = vec![
         MenuEntry::heading("My account"),
-        MenuEntry::item("profile", "Profile").icon("user").shortcut("Ctrl+P"),
-        MenuEntry::item("settings", "Settings").icon("settings").disabled(true),
+        MenuEntry::item("profile", "Profile").with_icon("user").with_shortcut("Ctrl+P"),
+        MenuEntry::item("settings", "Settings").with_icon("settings").disabled(true),
         MenuEntry::separator(),
-        MenuEntry::item("logout", "Log out").icon("log-out").destructive(true),
+        MenuEntry::item("logout", "Log out").with_icon("log-out").destructive(true),
     ];
     column((
-        menu("Account", entries, move |key: &'static str| {
+        menu("Account", entries).on_activate(move |key: &'static str| {
             picked.set(format!("Chosen: {key}"))
         })
-        .at_least_trigger_width(true)
-        .attach(button("Account").variant(ButtonVariant::Outline)),
+        .at_least_anchor_width()
+        .attach(button("Account").variant(kivact::ui::ButtonVariant::Outline)),
         basic::muted(picked),
     ))
     .style(style().gap(12))
@@ -213,13 +217,9 @@ fn context_menu() -> impl IntoView {
         .role(Role::Group)
         .name("Notes")
         .focusable(true)
-        .style(style().width(240).height(96).border(1, basic::Color::Border))
+        .style(style().width(240).height(96).border(1, basic::ColorName::Border))
         .child(text("Right click here"));
-    menu(
-        "Notes menu",
-        vec![MenuEntry::item("copy", "Copy"), MenuEntry::item("paste", "Paste")],
-        |_key: &'static str| {},
-    )
+    menu("Notes menu", vec![MenuEntry::item("copy", "Copy"), MenuEntry::item("paste", "Paste")]).on_activate(|_key: &'static str| {})
     .attach_context(area)
 }
 ```
@@ -242,15 +242,15 @@ fn view_menu() -> impl IntoView {
             MenuEntry::radio("bottom", "Bottom", position.get() == "bottom").keep_open(true),
         ]
     };
-    menu("View", entries, move |key: &'static str| match key {
+    menu("View", entries).on_activate(move |key: &'static str| match key {
         "status" => status.update(|on| *on = !*on),
         other => position.set(other),
     })
-    .attach(button("View").variant(ButtonVariant::Outline))
+    .attach(button("View").variant(kivact::ui::ButtonVariant::Outline))
 }
 ```
 
-- ウィンドウの上端のメニューバーは `basic::menubar(menus, choose)` です。[ナビゲーション](navigation.md)を参照してください。
+- ウィンドウの上端のメニューバーは `basic::menubar(menus).on_activate(choose)` です。[ナビゲーション](navigation.md)を参照してください。
 
 ## トーストを出す
 
@@ -258,12 +258,13 @@ fn view_menu() -> impl IntoView {
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::ui::{Toast, Tone, toast_region, toaster};
+use kivact::interaction::{Toast, Tone, toaster};
+use kivact::ui::{toast_region};
 
 fn root() -> impl IntoView {
     column((
         button("Create event")
-            .variant(ButtonVariant::Outline)
+            .variant(kivact::ui::ButtonVariant::Outline)
             .on_press(|| {
                 toaster().push(
                     Toast::new("Event has been created")
@@ -279,7 +280,7 @@ fn root() -> impl IntoView {
 - `.tone(..)` は `Neutral`（アイコンなし）、`Success`、`Info`、`Warning`、`Danger` です。テーマがトーンのアイコンを描きます。`Warning` と `Danger` は、スクリーンリーダーにより緊急のものとして通知されます。
 - トーストは 5 秒で閉じます。`.duration(Some(Duration::from_secs(2)))` で変え、`.duration(None)` にすると、閉じられるまで残ります。`push` は id を返し、`toaster().dismiss(id)` でそのトーストを消せます。
 - `.action("Undo", move || ..)` はボタンを足します。押すとクロージャが実行され、トーストが閉じます。クロージャはトーストが所有するので、押下のハンドラの中で作って積めます。
-- 処理中を示すトーストには、`.icon(|| basic::spinner())` と `.duration(None)` を使い、処理が終わったら閉じます。
+- 処理中を示すトーストには、`.icon(|| kivact::ui::spinner())` と `.duration(None)` を使い、処理が終わったら閉じます。
 - 複数のトーストは、最新のものの後ろに最大 3 つまで重なります。ポインターが乗るか、フォーカスが入ると一覧に開きます。`hold_all_on_hover(true)` を付けると、開いている間はすべてのトーストの時間が止まります。
 
 ## 関連項目

@@ -2,46 +2,71 @@
 use crate::markdown_parser::{Alignment, Block, ListEntry, parse, reference};
 use crate::{
     CitationSource, CitationVariant, CodeLanguage, CodeLanguageInput, blockquote, citation,
-    code_block, heading, tokens,
-};
-use kivact::control::{
-    Node, NodeBuilder, ScrollAxes, Span, column, node, rich_text, row, scroll, span, text,
 };
 use kivact::i18n::{message, message_with};
-use kivact::primitive::{NodeExt, part};
-use kivact::style::{Align, Direction, Justify, TextAlign, TextDecorationLine, pct, style};
+use kivact::state::IntoValue;
+use kivact::state::Value;
+use kivact::state::memo;
+use kivact::style::Align;
+use kivact::style::Direction;
+use kivact::style::Justify;
+use kivact::style::TextAlign;
+use kivact::style::TextDecorationLine;
+use kivact::style::pct;
+use kivact::style::style;
 use kivact::task::spawn;
-use kivact::ui::{ButtonVariant, ControlSize, button};
-use kivact::view::{IntoValue, IntoView, Role, View, dynamic};
-use kivact::{Value, memo};
+use kivact::ui::ButtonVariant;
+use kivact::ui::ControlSize;
+use kivact::ui::button;
+use kivact::view::HandlerResult;
+use kivact::view::IntoView;
+use kivact::view::Node;
+use kivact::view::NodeBuilder;
+use kivact::view::Role;
+use kivact::view::ScrollAxes;
+use kivact::view::Span;
+use kivact::view::View;
+use kivact::view::column;
+use kivact::view::dynamic;
+use kivact::view::node;
+use kivact::view::rich_text;
+use kivact::view::row;
+use kivact::view::scroll;
+use kivact::view::span;
+use kivact::view::text;
 use std::collections::HashMap;
-use std::rc::Rc;
 
 /// Vertical spacing between Markdown blocks.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum MarkdownDensity {
     #[default]
+    /// Use standard spacing between Markdown blocks.
     Default,
+    /// Reduce spacing between Markdown blocks.
     Compact,
 }
 /// How the bounded content aligns within its available width.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum ContentAlign {
     #[default]
+    /// Keep width-constrained content at the logical start.
     Start,
+    /// Center width-constrained content in its container.
     Center,
 }
 /// Enable copying permalinks from headings.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct HeadingLinks {
+    /// Prefix added to generated heading fragment identifiers.
     pub id_prefix: String,
+    /// URL prefix prepended to generated heading fragment links.
     pub base_url: String,
 }
 
-type LinkAction = Rc<dyn Fn(&str)>;
-type RenderCode = Rc<dyn Fn(&str, Option<&str>) -> View>;
-type RenderImage = Rc<dyn Fn(&str, &str) -> View>;
-type RenderHeading = Rc<dyn Fn(u32, &str) -> View>;
+type LinkAction = kivact::state::Callback<String>;
+type RenderCode = kivact::view::ViewFn<(String, Option<String>)>;
+type RenderImage = kivact::view::ViewFn<(String, String)>;
+type RenderHeading = kivact::view::ViewFn<(u32, String)>;
 
 /// A reactive Markdown document or inline fragment.
 pub struct Markdown {
@@ -53,16 +78,16 @@ pub struct Markdown {
 }
 
 struct Options {
-    inline: bool,
-    density: MarkdownDensity,
-    level: u32,
+    inline: Value<bool>,
+    density: Value<MarkdownDensity>,
+    level: Value<u32>,
     on_link: Option<LinkAction>,
-    citation_style: CitationVariant,
-    width: Option<f32>,
-    align: ContentAlign,
+    citation_style: Value<CitationVariant>,
+    width: Value<Option<f64>>,
+    align: Value<ContentAlign>,
     heading_links: Option<HeadingLinks>,
-    soft_breaks: bool,
-    autolink: bool,
+    soft_breaks: Value<bool>,
+    autolink: Value<bool>,
     code_languages: Vec<CodeLanguage>,
     render_code: Option<RenderCode>,
     render_image: Option<RenderImage>,
@@ -77,16 +102,16 @@ pub fn markdown(source: impl IntoValue<String>) -> Markdown {
         sources: Vec::new().into_value(),
         streaming: false.into_value(),
         options: Options {
-            inline: false,
-            density: MarkdownDensity::Default,
-            level: 1,
+            inline: false.into_value(),
+            density: MarkdownDensity::Default.into_value(),
+            level: 1.into_value(),
             on_link: None,
-            citation_style: CitationVariant::Label,
-            width: Some(680.0),
-            align: ContentAlign::Start,
+            citation_style: CitationVariant::Label.into_value(),
+            width: Some(680.0).into_value(),
+            align: ContentAlign::Start.into_value(),
             heading_links: None,
-            soft_breaks: false,
-            autolink: false,
+            soft_breaks: false.into_value(),
+            autolink: false.into_value(),
             code_languages: Vec::new(),
             render_code: None,
             render_image: None,
@@ -97,18 +122,19 @@ pub fn markdown(source: impl IntoValue<String>) -> Markdown {
 
 impl Markdown {
     /// Render inline markup only.
-    pub fn inline(mut self, value: bool) -> Self {
-        self.options.inline = value;
+    pub fn inline(mut self, value: impl IntoValue<bool>) -> Self {
+        self.options.inline = value.into_value();
         self
     }
     /// Set the vertical density.
-    pub fn density(mut self, value: MarkdownDensity) -> Self {
-        self.options.density = value;
+    pub fn density(mut self, value: impl IntoValue<MarkdownDensity>) -> Self {
+        self.options.density = value.into_value();
         self
     }
     /// Remap the first heading level.
-    pub fn heading_level_start(mut self, value: u32) -> Self {
-        self.options.level = value.clamp(1, 6);
+    pub fn heading_level_start(mut self, value: impl IntoValue<u32>) -> Self {
+        let value = value.into_value();
+        self.options.level = (move || value.get().clamp(1, 6)).into_value();
         self
     }
     /// Treat the source as an incomplete stream.
@@ -117,8 +143,8 @@ impl Markdown {
         self
     }
     /// Notify the application when a safe link is activated.
-    pub fn on_link(mut self, value: impl Fn(&str) + 'static) -> Self {
-        self.options.on_link = Some(Rc::new(value));
+    pub fn on_link<R: HandlerResult>(mut self, value: impl Fn(&str) -> R + 'static) -> Self {
+        self.options.on_link = Some(kivact::state::callback(move |text: String| value(&text)));
         self
     }
     /// Supply source metadata for inline citation IDs.
@@ -127,18 +153,18 @@ impl Markdown {
         self
     }
     /// Select how source references appear.
-    pub fn citation_style(mut self, value: CitationVariant) -> Self {
-        self.options.citation_style = value;
+    pub fn citation_style(mut self, value: impl IntoValue<CitationVariant>) -> Self {
+        self.options.citation_style = value.into_value();
         self
     }
     /// Set the prose width limit.
-    pub fn content_width(mut self, value: Option<f32>) -> Self {
-        self.options.width = value;
+    pub fn content_width(mut self, value: impl IntoValue<Option<f64>>) -> Self {
+        self.options.width = value.into_value();
         self
     }
     /// Align the bounded prose.
-    pub fn content_align(mut self, value: ContentAlign) -> Self {
-        self.options.align = value;
+    pub fn content_align(mut self, value: impl IntoValue<ContentAlign>) -> Self {
+        self.options.align = value.into_value();
         self
     }
     /// Add permalink controls to headings.
@@ -147,13 +173,13 @@ impl Markdown {
         self
     }
     /// Preserve source soft breaks as newlines.
-    pub fn soft_breaks(mut self, value: bool) -> Self {
-        self.options.soft_breaks = value;
+    pub fn soft_breaks(mut self, value: impl IntoValue<bool>) -> Self {
+        self.options.soft_breaks = value.into_value();
         self
     }
     /// Recognize bare web and email links.
-    pub fn autolink(mut self, value: bool) -> Self {
-        self.options.autolink = value;
+    pub fn autolink(mut self, value: impl IntoValue<bool>) -> Self {
+        self.options.autolink = value.into_value();
         self
     }
     /// Supply custom fenced-code languages.
@@ -166,26 +192,30 @@ impl Markdown {
         mut self,
         value: impl Fn(&str, Option<&str>) -> V + 'static,
     ) -> Self {
-        self.options.render_code = Some(Rc::new(move |source, language| {
-            value(source, language).into_view()
-        }));
+        self.options.render_code = Some(
+            (move |(source, language): (String, Option<String>)| {
+                value(&source, language.as_deref())
+            })
+            .into(),
+        );
         self
     }
     /// Replace the image renderer.
     pub fn render_image<V: IntoView>(mut self, value: impl Fn(&str, &str) -> V + 'static) -> Self {
         self.options.render_image =
-            Some(Rc::new(move |source, alt| value(source, alt).into_view()));
+            Some((move |(source, alt): (String, String)| value(&source, &alt)).into());
         self
     }
     /// Replace the heading renderer.
     pub fn render_heading<V: IntoView>(mut self, value: impl Fn(u32, &str) -> V + 'static) -> Self {
         self.options.render_heading =
-            Some(Rc::new(move |level, title| value(level, title).into_view()));
+            Some((move |(level, title): (u32, String)| value(level, &title)).into());
         self
     }
 }
 
 impl NodeBuilder for Markdown {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -201,21 +231,45 @@ impl IntoView for Markdown {
             options,
         } = self;
         let inline = options.inline;
-        let input = memo(move || (source.get(), sources.get(), streaming.get(), tokens()));
-        root.base_style(move || {
-            let look = style().direction(Direction::Column).min_width(0);
-            if inline {
-                return look;
-            }
-            let p = tokens();
-            let body = p.typography.body;
-            look.width(pct(100))
-                .font_family(body.family)
-                .font_size(body.size_px)
-                .line_height(body.line_height_px / body.size_px)
-                .color(p.colors.text_primary)
+        let render_props = (
+            options.density,
+            options.level,
+            options.citation_style,
+            options.soft_breaks,
+            options.autolink,
+        );
+        let input = memo(move || {
+            (
+                source.get(),
+                sources.get(),
+                streaming.get(),
+                kivact::style::use_tokens::<crate::Tokens>().to_owned(),
+                (
+                    inline.get(),
+                    render_props.0.get(),
+                    render_props.1.get(),
+                    render_props.2.get(),
+                    render_props.3.get(),
+                    render_props.4.get(),
+                ),
+            )
+        });
+        root.with_node(move |node| {
+            node.base_style(move || {
+                let look = style().direction(Direction::Column).min_width(0);
+                if inline.get() {
+                    return look;
+                }
+                let p = kivact::style::use_tokens::<crate::Tokens>();
+                let body = p.typography.body;
+                look.width(pct(100))
+                    .font_family(body.family)
+                    .font_size(body.size_px)
+                    .line_height(body.line_height_px / body.size_px)
+                    .color(p.colors.text_primary)
+            })
         })
-        .child(dynamic(input, move |(source, sources, streaming, _)| {
+        .child(dynamic(input, move |(source, sources, streaming, _, _)| {
             let source = if streaming {
                 settled_tail(&source)
             } else {
@@ -234,11 +288,11 @@ impl IntoView for Markdown {
                 numbers: HashMap::new(),
                 slugs: HashMap::new(),
             };
-            if options.inline {
+            if options.inline.get() {
                 renderer.inline(source, false, true)
             } else {
                 renderer
-                    .blocks(&parse(&lines, options.soft_breaks, 0), 0)
+                    .blocks(&parse(&lines, options.soft_breaks.get(), 0), 0)
                     .into_view()
             }
         }))
@@ -256,7 +310,7 @@ struct Renderer<'a> {
 
 impl Renderer<'_> {
     fn blocks(&mut self, blocks: &[Block<'_>], depth: usize) -> Node {
-        let mut previous = 0.0f32;
+        let mut previous = 0.0f64;
         let children = blocks
             .iter()
             .enumerate()
@@ -265,29 +319,36 @@ impl Renderer<'_> {
                 let gap = if index == 0 { 0.0 } else { previous.max(top) };
                 previous = bottom;
                 let view = self.block(block, depth);
-                let mut look = style().margin_top(gap).min_width(0);
-                if depth == 0 && !matches!(block, Block::Table(..) | Block::Code(..) | Block::Rule)
-                {
-                    if let Some(width) = self.options.width {
-                        look = look.max_width(width).width(pct(100));
-                    }
-                    look = look.align_self(match self.options.align {
-                        ContentAlign::Start => Align::Start,
-                        ContentAlign::Center => Align::Center,
-                    });
-                }
-                node().style(look).child(view)
+                let bounded = depth == 0
+                    && !matches!(block, Block::Table(..) | Block::Code(..) | Block::Rule);
+                let width = self.options.width;
+                let align = self.options.align;
+                node()
+                    .style(move || {
+                        let mut look = style().margin_top(gap).min_width(0);
+                        if bounded {
+                            if let Some(width) = width.get() {
+                                look = look.max_width(width).width(pct(100));
+                            }
+                            look = look.align_self(match align.get() {
+                                ContentAlign::Start => Align::Start,
+                                ContentAlign::Center => Align::Center,
+                            });
+                        }
+                        look
+                    })
+                    .child(view)
             })
             .collect::<Vec<_>>();
         column(children)
     }
 
-    fn spacing(&self, block: &Block<'_>) -> (f32, f32) {
-        let p = tokens();
+    fn spacing(&self, block: &Block<'_>) -> (f64, f64) {
+        let p = kivact::style::use_tokens::<crate::Tokens>();
         let s = p.spacing;
-        let compact = self.options.density == MarkdownDensity::Compact;
+        let compact = self.options.density.get() == MarkdownDensity::Compact;
         match block {
-            Block::Heading(level, _) if level + self.options.level - 1 <= 3 => {
+            Block::Heading(level, _) if level + self.options.level.get() - 1 <= 3 => {
                 if compact {
                     (s.s4, s.s2)
                 } else {
@@ -319,12 +380,12 @@ impl Renderer<'_> {
     fn block(&mut self, block: &Block<'_>, depth: usize) -> View {
         match block {
             Block::Heading(level, title) => {
-                self.heading((*level + self.options.level - 1).min(6), title)
+                self.heading((*level + self.options.level.get() - 1).min(6), title)
             }
             Block::Paragraph(source) => self.inline(source, false, true),
             Block::Quote(blocks) => {
                 let content = self.blocks(blocks, depth + 1).into_view();
-                blockquote(move || content).into_view()
+                blockquote(content).into_view()
             }
             Block::Code(language, source) => {
                 let (language, diff) = if *language == "diff" {
@@ -335,7 +396,10 @@ impl Renderer<'_> {
                     (*language, false)
                 };
                 if let Some(render) = &self.options.render_code {
-                    return render(source, (!language.is_empty()).then_some(language));
+                    return render.call((
+                        source.to_owned(),
+                        (!language.is_empty()).then(|| language.to_owned()),
+                    ));
                 }
                 let syntax = self
                     .options
@@ -356,8 +420,15 @@ impl Renderer<'_> {
                         },
                         |item| item.clone().into(),
                     );
-                code_block(source.to_owned())
-                    .language(syntax)
+                let label = syntax.label().to_owned();
+                kivact::ui::code_block(source.to_owned())
+                    .language(label)
+                    .highlight(
+                        || kivact::style::use_tokens::<crate::Tokens>().colors.syntax,
+                        move |palette, line, _: &()| {
+                            (crate::code_highlight(&syntax, line, palette), ())
+                        },
+                    )
                     .diff(diff)
                     .collapsible(true)
                     .wrap(true)
@@ -365,7 +436,7 @@ impl Renderer<'_> {
             }
             Block::Rule => node()
                 .style(|| {
-                    let p = tokens();
+                    let p = kivact::style::use_tokens::<crate::Tokens>();
                     style().border_top(p.sizes.border_width, p.colors.border)
                 })
                 .into_view(),
@@ -376,9 +447,9 @@ impl Renderer<'_> {
 
     fn heading(&mut self, level: u32, title: &str) -> View {
         let view = if let Some(render) = &self.options.render_heading {
-            render(level, title)
+            render.call((level, title.to_owned()))
         } else {
-            heading(level, title).into_view()
+            kivact::ui::heading(title, level.clamp(1, 6) as u8).into_view()
         };
         let Some(links) = &self.options.heading_links else {
             return view;
@@ -394,7 +465,7 @@ impl Renderer<'_> {
         let url = format!("{}#{}{}{}", links.base_url, links.id_prefix, slug, suffix);
         let title = title.to_owned();
         let label = message_with(
-            "soft.markdown_heading_links.copy",
+            "soft.markdown.copy_heading_link",
             "Copy link to {heading}",
             move || [("heading", title.clone())],
         );
@@ -418,7 +489,7 @@ impl Renderer<'_> {
                 style()
                     .group()
                     .align_items(Align::Center)
-                    .gap(tokens().spacing.s1_5)
+                    .gap(kivact::style::use_tokens::<crate::Tokens>().spacing.s1_5)
             })
             .into_view()
     }
@@ -430,7 +501,7 @@ impl Renderer<'_> {
             .map(|item| {
                 let marker = match (item.checked, item.number) {
                     (Some(checked), _) => text(if checked { "☑" } else { "☐" })
-                        .role(Role::CheckBox)
+                        .with_node(move |node| node.role(Role::CheckBox))
                         .checked(checked),
                     (None, Some(number)) => {
                         text(format!("{number}.")).style(style().tabular_nums())
@@ -443,7 +514,7 @@ impl Renderer<'_> {
                 }
                 .style(|| {
                     style()
-                        .min_width(tokens().spacing.s4)
+                        .min_width(kivact::style::use_tokens::<crate::Tokens>().spacing.s4)
                         .text_align(TextAlign::End)
                 });
                 row((
@@ -451,18 +522,18 @@ impl Renderer<'_> {
                     self.blocks(&item.blocks, depth + 1)
                         .style(style().grow(1).min_width(0)),
                 ))
-                .role(Role::ListItem)
+                .with_node(move |node| node.role(Role::ListItem))
                 .style(|| {
                     style()
                         .align_items(Align::Start)
-                        .gap(tokens().spacing.s2)
-                        .padding_y(tokens().spacing.s1)
+                        .gap(kivact::style::use_tokens::<crate::Tokens>().spacing.s2)
+                        .padding_y(kivact::style::use_tokens::<crate::Tokens>().spacing.s1)
                 })
             })
             .collect::<Vec<_>>();
         let list = column(items)
-            .role(Role::List)
-            .style(|| style().gap(tokens().spacing.s0_5));
+            .with_node(move |node| node.role(Role::List))
+            .style(|| style().gap(kivact::style::use_tokens::<crate::Tokens>().spacing.s0_5));
         if all_tasks {
             list.name(message("soft.markdown.task_list", "Task list"))
         } else {
@@ -492,7 +563,7 @@ impl Renderer<'_> {
                     .enumerate()
                     .map(|(column, cell)| {
                         let content = self.inline(cell, index == 0, false);
-                        let width = widths[column] as f32;
+                        let width = widths[column] as f64;
                         let justify = match align[column] {
                             Alignment::Start => Justify::Start,
                             Alignment::Center => Justify::Center,
@@ -500,7 +571,7 @@ impl Renderer<'_> {
                         };
                         node()
                             .style(move || {
-                                let p = tokens();
+                                let p = kivact::style::use_tokens::<crate::Tokens>();
                                 style()
                                     .width(width * p.typography.body.size_px * 0.64 + p.spacing.s4)
                                     .direction(Direction::Row)
@@ -516,7 +587,7 @@ impl Renderer<'_> {
             })
             .collect::<Vec<_>>();
         scroll(column(rows).style(|| {
-            let p = tokens();
+            let p = kivact::style::use_tokens::<crate::Tokens>();
             style()
                 .border_left(p.sizes.border_width, p.colors.border)
                 .border_top(p.sizes.border_width, p.colors.border)
@@ -565,7 +636,7 @@ impl Renderer<'_> {
                     .is_ok_and(|text| text.contains(['*', '_', '~', '`', '\\', '&']))
             })
         {
-            let p = tokens();
+            let p = kivact::style::use_tokens::<crate::Tokens>();
             let mut text = String::new();
             let mut objects = Vec::new();
             for part in parts {
@@ -574,12 +645,12 @@ impl Renderer<'_> {
                     Err(view) => objects.push((text.len(), view)),
                 }
             }
-            let typography = kivact::draw::TextStyle {
+            let typography = kivact::draw::TextFormat {
                 family: Some(p.typography.family_body.into()),
                 size: p.typography.body.size_px,
                 ..Default::default()
             };
-            return kivact::primitive::inline_view(text, typography, objects).into_view();
+            return kivact::custom::inline_view(text, typography, objects).into_view();
         }
         let nodes: Vec<_> = parts
             .into_iter()
@@ -629,7 +700,9 @@ impl Renderer<'_> {
                     self.options
                         .render_image
                         .as_ref()
-                        .map_or_else(fallback, |render| render(&url, title))
+                        .map_or_else(fallback, |render| {
+                            render.call((url.clone(), title.to_owned()))
+                        })
                 } else {
                     fallback()
                 };
@@ -643,7 +716,7 @@ impl Renderer<'_> {
                 .citation(id)
                 .map(|view| (rest.len() - after.len(), view));
         }
-        if self.options.autolink {
+        if self.options.autolink.get() {
             let (candidate, used) = if let Some(candidate) = rest.strip_prefix('<') {
                 let (candidate, after) = candidate.split_once('>')?;
                 (candidate, rest.len() - after.len())
@@ -676,11 +749,11 @@ impl Renderer<'_> {
         let (_, source) = self.sources.iter().find(|(source, _)| source == id)?;
         let next = self.numbers.len() as u32 + 1;
         let number = *self.numbers.entry(id.to_owned()).or_insert(next);
-        let cite = citation(number, source.clone()).variant(self.options.citation_style);
-        Some(if let Some(action) = self.options.on_link.clone() {
+        let cite = citation(number, source.clone()).variant(self.options.citation_style.get());
+        Some(if let Some(action) = self.options.on_link {
             cite.on_open(move |url| {
                 if safe_url(url) {
-                    action(url);
+                    action.call(url.to_owned());
                 }
             })
             .into_view()
@@ -695,23 +768,25 @@ impl Renderer<'_> {
         }
         let mut link = inline_spans(label, false).style(|| {
             style()
-                .color(tokens().colors.text_accent)
+                .color(
+                    kivact::style::use_tokens::<crate::Tokens>()
+                        .colors
+                        .text_accent,
+                )
                 .text_decoration(TextDecorationLine::UNDERLINE)
         });
-        if let Some(action) = self.options.on_link.clone() {
-            link = link.part(
-                part(|input| input)
-                    .role(Role::Link)
-                    .focusable(true)
-                    .on_press(move || action(&url)),
-            );
+        if let Some(action) = self.options.on_link {
+            link = link
+                .with_node(move |node| node.role(Role::Link))
+                .focusable(true)
+                .on_press(move || action.call(url.clone()));
         }
         link.into_view()
     }
 }
 
 fn inline_spans(source: &str, strong: bool) -> Node {
-    let p = tokens();
+    let p = kivact::style::use_tokens::<crate::Tokens>();
     let mut spans = Vec::new();
     marked(
         source,
@@ -727,10 +802,15 @@ fn inline_spans(source: &str, strong: bool) -> Node {
 }
 
 #[derive(Clone, Copy, Default)]
+// Passive inline syntax paint flags combined recursively while parsing one source string; not reactive UI state or a lifecycle.
 struct Marks {
+    // xtask-allow(state-fields): Passive bold syntax mark combined during one parse.
     strong: bool,
+    // xtask-allow(state-fields): Passive italic syntax mark independent of bold and deletion.
     italic: bool,
+    // xtask-allow(state-fields): Passive deletion syntax mark; no runtime UI lifecycle.
     deleted: bool,
+    // xtask-allow(state-fields): Passive code syntax mark used only to compute inline paint.
     code: bool,
 }
 
@@ -807,7 +887,7 @@ fn styled_span(source: &str, marks: Marks, p: &crate::Tokens) -> Span {
         span = span.weight(p.typography.weight_semibold);
     }
     if marks.italic {
-        span = span.italic(true);
+        span = span.italic();
     }
     if marks.deleted {
         span = span
@@ -891,3 +971,5 @@ fn settled_tail(source: &str) -> &str {
     }
     source.trim_end_matches(['*', '~'])
 }
+
+kivact::state::constant_value!(MarkdownDensity, ContentAlign);

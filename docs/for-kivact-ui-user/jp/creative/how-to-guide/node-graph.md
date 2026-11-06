@@ -9,7 +9,7 @@
 ## 動くグラフエディタ
 
 ```rust,no_run
-use kivact::draw::{Point, Size};
+use kivact::geometry::{Point, Size};
 use kivact::prelude::*;
 use kivact::style::{ThemeMode, rgb};
 use kivact_ui_creative as ui;
@@ -181,8 +181,8 @@ use kivact_ui_creative as ui;
 let transform = signal(ViewTransform::default());
 let selection = signal(Vec::<u64>::new());
 let state = ui::NodeState {
-    transform: transform.into(),
-    selection: selection.into(),
+    transform: transform.into_binding(),
+    selection: selection.into_binding(),
     ..ui::NodeState::new()
 };
 # let _ = state;

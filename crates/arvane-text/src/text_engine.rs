@@ -4,7 +4,8 @@ use crate::cache::{Cache, TextKey};
 use crate::error::TextError;
 use crate::metrics::line_height;
 use crate::{build, layouts, output, transform};
-use kivact_types::protocol::{RichText, ShapedText, TextDecoration, TextStyle, TextWrap};
+use kivact_types::render::{RichText, ShapedText};
+use kivact_types::{ComputedTextStyle, TextDecoration, TextWrap};
 use kivact_types::{Rect, TextAlign, TextCaret, TextMetrics, TextOverflow, TextTransform};
 use parley::{
     Alignment, AlignmentOptions, FontContext, GenericFamily, LayoutContext, PositionedLayoutItem,
@@ -152,8 +153,8 @@ impl TextEngine {
     pub fn measure(
         &mut self,
         text: RichText<'_>,
-        style: &TextStyle,
-        max_width: Option<f32>,
+        style: &ComputedTextStyle,
+        max_width: Option<f64>,
     ) -> Result<TextMetrics, TextError> {
         let key = TextKey::new(text, style, max_width, false);
         self.cache.measured.get(key).unwrap_or_else(|key| {
@@ -171,8 +172,8 @@ impl TextEngine {
     fn measure_uncached(
         &mut self,
         text: RichText<'_>,
-        style: &TextStyle,
-        max_width: Option<f32>,
+        style: &ComputedTextStyle,
+        max_width: Option<f64>,
     ) -> Result<TextMetrics, TextError> {
         let height = line_height(style, max_width)?;
         if text.text.is_empty() {
@@ -221,9 +222,9 @@ impl TextEngine {
     pub fn shape(
         &mut self,
         text: RichText<'_>,
-        style: &TextStyle,
-        max_width: Option<f32>,
-    ) -> Result<Arc<ShapedText>, TextError> {
+        style: &ComputedTextStyle,
+        max_width: Option<f64>,
+    ) -> Result<kivact_types::ShapedTextSnapshot, TextError> {
         self.shape_cached(text, style, max_width, true)
     }
 
@@ -232,24 +233,24 @@ impl TextEngine {
     pub fn shape_glyphs(
         &mut self,
         text: RichText<'_>,
-        style: &TextStyle,
-        max_width: Option<f32>,
-    ) -> Result<Arc<ShapedText>, TextError> {
+        style: &ComputedTextStyle,
+        max_width: Option<f64>,
+    ) -> Result<kivact_types::ShapedTextSnapshot, TextError> {
         self.shape_cached(text, style, max_width, false)
     }
 
     fn shape_cached(
         &mut self,
         text: RichText<'_>,
-        style: &TextStyle,
-        max_width: Option<f32>,
+        style: &ComputedTextStyle,
+        max_width: Option<f64>,
         carets: bool,
-    ) -> Result<Arc<ShapedText>, TextError> {
+    ) -> Result<kivact_types::ShapedTextSnapshot, TextError> {
         let key = TextKey::new(text, style, max_width, true).with_carets(carets);
         self.cache.shaped.get(key).unwrap_or_else(|key| {
             let result = self
                 .shape_with(text, style, max_width, carets)
-                .map(Arc::new);
+                .map(kivact_types::ShapedTextSnapshot::new);
             self.cache.shaped.insert(key, result.clone());
             result
         })
@@ -260,9 +261,9 @@ impl TextEngine {
     fn ellipsis_for(
         &mut self,
         text: RichText<'_>,
-        style: &TextStyle,
-        max_width: Option<f32>,
-        height: f32,
+        style: &ComputedTextStyle,
+        max_width: Option<f64>,
+        height: f64,
     ) -> Option<output::Ellipsis> {
         if !style.ellipsizes() {
             return None;
@@ -279,7 +280,7 @@ impl TextEngine {
         if !output::needs_cut(layout, style, max_width) {
             return None;
         }
-        let own = TextStyle {
+        let own = ComputedTextStyle {
             wrap: TextWrap::NoWrap,
             align: TextAlign::Start,
             overflow: TextOverflow::Clip,
@@ -312,31 +313,13 @@ impl TextEngine {
     fn shape_with(
         &mut self,
         text: RichText<'_>,
-        style: &TextStyle,
-        max_width: Option<f32>,
+        style: &ComputedTextStyle,
+        max_width: Option<f64>,
         with_carets: bool,
     ) -> Result<ShapedText, TextError> {
         let height = line_height(style, max_width)?;
         if text.text.is_empty() {
-            let x = match style.align {
-                TextAlign::Start | TextAlign::Justify => 0.0,
-                TextAlign::Center => max_width.unwrap_or(0.0) / 2.0,
-                TextAlign::End => max_width.unwrap_or(0.0),
-            };
-            let caret = TextCaret {
-                offset: 0,
-                rect: Rect {
-                    x,
-                    y: 0.0,
-                    width: 1.0,
-                    height,
-                },
-            };
-            return Ok(ShapedText {
-                carets: if with_carets { vec![caret] } else { Vec::new() },
-                cluster_boundaries: vec![0],
-                ..ShapedText::default()
-            });
+            return Ok(empty_text(style, max_width, height, with_carets));
         }
         if !build::valid_spans(text.text, text.spans) {
             return Err(TextError::InvalidSpans);
@@ -385,27 +368,7 @@ impl TextEngine {
                 None => range,
             }
         });
-        let (converted, _) = transform::apply(text.text, &[], style.transform);
-        let converted = crlf_as_one_break(&converted);
-        let scalar_bytes: Vec<usize> = converted
-            .char_indices()
-            .map(|(byte, _)| byte)
-            .chain(std::iter::once(converted.len()))
-            .collect();
-        let mut cluster_boundaries = vec![0, (scalar_bytes.len() - 1) as u32];
-        for line in layout.lines() {
-            for run in line.runs() {
-                for cluster in run.visual_clusters() {
-                    if !cluster.is_ligature_continuation() {
-                        let byte = cluster.text_range().start;
-                        cluster_boundaries
-                            .push(scalar_bytes.partition_point(|&at| at < byte) as u32);
-                    }
-                }
-            }
-        }
-        cluster_boundaries.sort_unstable();
-        cluster_boundaries.dedup();
+        let cluster_boundaries = cluster_boundaries(layout, text.text, style);
         let carets = if with_carets {
             // Offsets in the converted text (its case conversion).
             let (converted, _) = transform::apply(text.text, &[], style.transform);
@@ -430,11 +393,11 @@ impl TextEngine {
     }
 }
 
-fn trim_capsize(shaped: &mut ShapedText, top: f32, bottom: f32) {
+fn trim_capsize(shaped: &mut ShapedText, top: f64, bottom: f64) {
     shaped.size.height = bottom - top;
     shaped.baseline -= top;
     for run in &mut shaped.runs {
-        for glyph in &mut Arc::make_mut(run).glyphs {
+        for glyph in &mut run.make_mut().glyphs {
             glyph.y -= top;
         }
     }
@@ -469,10 +432,10 @@ fn carets(layout: &parley::Layout<u32>, text: &str) -> Vec<TextCaret> {
             TextCaret {
                 offset: offset as u32,
                 rect: Rect {
-                    x: bounds.x0 as f32,
-                    y: bounds.y0 as f32,
-                    width: (bounds.x1 - bounds.x0) as f32,
-                    height: (bounds.y1 - bounds.y0) as f32,
+                    x: bounds.x0,
+                    y: bounds.y0,
+                    width: bounds.x1 - bounds.x0,
+                    height: bounds.y1 - bounds.y0,
                 },
             }
         })
@@ -494,9 +457,9 @@ fn layout_at<'a>(
     fonts: &mut FontContext,
     contexts: &mut LayoutContext<u32>,
     text: RichText<'_>,
-    style: &TextStyle,
-    max_width: Option<f32>,
-    height: f32,
+    style: &ComputedTextStyle,
+    max_width: Option<f64>,
+    height: f64,
 ) -> &'a mut parley::Layout<u32> {
     let key = layouts::Key::new(text.text, text.spans, style, height);
     let layout = shaped.get_or_insert(key, || {
@@ -506,7 +469,11 @@ fn layout_at<'a>(
         build::shape_layout(fonts, contexts, &converted, &spans, style, height)
     });
     let blank = text.text.chars().all(char::is_whitespace);
-    layout.break_all_lines(if blank { None } else { max_width });
+    layout.break_all_lines(if blank {
+        None
+    } else {
+        max_width.map(|value| value as f32)
+    });
     layout
 }
 
@@ -534,8 +501,8 @@ pub(super) fn crlf_as_one_break(text: &str) -> std::borrow::Cow<'_, str> {
 /// are in `text`, the layout is built on the normalized text.
 pub(super) fn crlf_spans<'a>(
     text: &str,
-    spans: std::borrow::Cow<'a, [kivact_types::protocol::TextSpan]>,
-) -> std::borrow::Cow<'a, [kivact_types::protocol::TextSpan]> {
+    spans: std::borrow::Cow<'a, [kivact_types::render::TextSpan]>,
+) -> std::borrow::Cow<'a, [kivact_types::render::TextSpan]> {
     if spans.is_empty() || !text.contains("\r\n") {
         return spans;
     }
@@ -556,4 +523,61 @@ pub(super) fn crlf_spans<'a>(
             })
             .collect(),
     )
+}
+
+/// Scalar boundaries at the starts of shaped visual clusters.
+fn cluster_boundaries(
+    layout: &parley::Layout<u32>,
+    text: &str,
+    style: &ComputedTextStyle,
+) -> Vec<u32> {
+    let (converted, _) = transform::apply(text, &[], style.transform);
+    let converted = crlf_as_one_break(&converted);
+    let scalar_bytes: Vec<usize> = converted
+        .char_indices()
+        .map(|(byte, _)| byte)
+        .chain(std::iter::once(converted.len()))
+        .collect();
+    let mut cluster_boundaries = vec![0, (scalar_bytes.len() - 1) as u32];
+    for line in layout.lines() {
+        for run in line.runs() {
+            for cluster in run.visual_clusters() {
+                if !cluster.is_ligature_continuation() {
+                    let byte = cluster.text_range().start;
+                    cluster_boundaries.push(scalar_bytes.partition_point(|&at| at < byte) as u32);
+                }
+            }
+        }
+    }
+    cluster_boundaries.sort_unstable();
+    cluster_boundaries.dedup();
+    cluster_boundaries
+}
+
+/// Preserve an empty paragraph's alignment and optional editing caret.
+fn empty_text(
+    style: &ComputedTextStyle,
+    max_width: Option<f64>,
+    height: f64,
+    with_carets: bool,
+) -> ShapedText {
+    let x = match style.align {
+        TextAlign::Start | TextAlign::Justify => 0.0,
+        TextAlign::Center => max_width.unwrap_or(0.0) / 2.0,
+        TextAlign::End => max_width.unwrap_or(0.0),
+    };
+    let caret = TextCaret {
+        offset: 0,
+        rect: Rect {
+            x,
+            y: 0.0,
+            width: 1.0,
+            height,
+        },
+    };
+    ShapedText {
+        carets: if with_carets { vec![caret] } else { Vec::new() },
+        cluster_boundaries: vec![0],
+        ..ShapedText::default()
+    }
 }

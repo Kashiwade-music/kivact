@@ -1,19 +1,19 @@
 //! Role: Input, scroll and portable platform contracts on real windows.
-use kivact::primitive::NodeExt;
 
 use crate::support::mount;
 use kivact::platform;
 use kivact::prelude::*;
+use kivact::state::callback;
 use kivact::style::{Align, Color};
 use kivact::task::spawn;
-use kivact::view::{KeyCode, LiveRegion, Modifiers, Orientation, SortDirection, callback};
+use kivact::view::{KeyCode, LiveRegion, Modifiers, Orientation, SortDirection};
 
 #[test]
 fn a_press_handler_reads_the_modifiers_held_at_the_press() {
     let (screen, seen) = mount(|| {
         let seen = signal(None::<bool>);
         let view =
-            button("Open").on_press(move || seen.set(Some(kivact::view::current_modifiers().ctrl)));
+            button("Open").on_press(move || seen.set(Some(kivact::view::modifiers().get().ctrl)));
         (seen, view)
     });
     let ctrl = Modifiers {
@@ -39,40 +39,7 @@ fn a_press_handler_reads_the_modifiers_held_at_the_press() {
 
 #[test]
 fn input_alignment_keeps_pixels_pointer_selection_and_ime_in_the_same_place() {
-    let (screen, value) = mount(|| {
-        let value = signal("AB".to_owned());
-        let field = |id, alignment| {
-            kivact::control::node()
-                .name(id)
-                .part(kivact::interaction::use_text_edit(value).control())
-                .test_id(id)
-                .style(
-                    style()
-                        .width(240)
-                        .height(42)
-                        .padding_x(8)
-                        .font_size(20)
-                        .text_align(alignment)
-                        .color(Color::BLACK)
-                        .background(Color::WHITE),
-                )
-        };
-        (
-            value,
-            column((
-                field("start", kivact::style::TextAlign::Start),
-                field("center", kivact::style::TextAlign::Center),
-                field("end", kivact::style::TextAlign::End),
-            ))
-            .style(
-                style()
-                    .padding(20)
-                    .gap(20)
-                    .align_items(Align::Start)
-                    .background(Color::WHITE),
-            ),
-        )
-    });
+    let (screen, value) = aligned_inputs_fixture();
     let frame = screen.screenshot();
     let first_ink = |id| {
         let r = screen.get_by_test_id(id).rect().unwrap();
@@ -85,7 +52,7 @@ fn input_alignment_keeps_pixels_pointer_selection_and_ime_in_the_same_place() {
                     })
                 })
             })
-            .expect("painted input text") as f32
+            .expect("painted input text") as f64
     };
     assert!(first_ink("center") > first_ink("start") + 80.0);
     assert!(first_ink("end") > first_ink("center") + 80.0);
@@ -140,9 +107,15 @@ fn password_updates_and_ime_keep_published_text_protected() {
         let password = signal(true);
         (
             (value, password),
-            kivact::control::node().name("Protected fixture").part(
+            kivact::view::node().name("Protected fixture").part(
                 kivact::interaction::use_text_edit(value)
-                    .password(password)
+                    .purpose(move || {
+                        if password.get() {
+                            kivact::view::InputPurpose::Password
+                        } else {
+                            kivact::view::InputPurpose::Text
+                        }
+                    })
                     .control(),
             ),
         )
@@ -150,7 +123,7 @@ fn password_updates_and_ime_keep_published_text_protected() {
     let input = screen.get_by_role(Role::TextBox, "Protected fixture");
     input.focus();
     let assert_protected = || {
-        assert!(input.password());
+        assert!(input.is_password());
         assert_eq!(input.value(), None);
         let ime = screen.ime_text().expect("focused protected input");
         assert_eq!(ime.text, "");
@@ -192,7 +165,7 @@ fn advanced_roles_properties_active_descendant_and_fullscreen_are_published() {
         let set_fullscreen = callback(move |on| {
             spawn(platform::set_fullscreen(on));
         });
-        let fullscreen = memo(move || platform::fullscreen());
+        let fullscreen = memo(move || platform::is_fullscreen().get());
         (
             (value, fullscreen, set_fullscreen),
             column((
@@ -294,4 +267,231 @@ fn a_reactive_active_descendant_moves_in_the_accessibility_tree() {
     screen.run_until_idle();
     assert!(list.has_active_descendant(&first));
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
+fn raw_key_mapping_reaches_handlers() {
+    use kivact::custom::primitive;
+    use kivact::test::raw::{PlatformKey, RawInput, RawKey};
+    use kivact::view::{Handled, KeyEvent};
+    let (screen, seen) = mount(|| {
+        let seen = signal(Vec::<Key>::new());
+        let view = primitive()
+            .with_node(move |node| node.role(Role::Button))
+            .focusable(true)
+            .test_id("raw-keys")
+            .on_key(move |event: KeyEvent| {
+                seen.update(|keys| keys.push(event.key()));
+                Handled::Yes
+            });
+        (seen, view)
+    });
+    screen.get_by_test_id("raw-keys").focus();
+    for key in [
+        PlatformKey::Vk {
+            vk: 0x41,
+            chr: Some('a'),
+            code: KeyCode::KeyA,
+        },
+        PlatformKey::Keysym {
+            keysym: 0xff0d,
+            chr: None,
+            keycode: 36,
+        },
+    ] {
+        screen.raw_input(RawInput::Key(RawKey {
+            key,
+            pressed: true,
+            repeat: None,
+            text: None,
+        }));
+    }
+    assert_eq!(seen.get_untracked(), vec![Key::Char('a'), Key::Enter]);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
+fn raw_ime_composition_commits() {
+    use kivact::test::raw::{RawIme, RawInput};
+    let (screen, value) = mount(|| {
+        let value = signal(String::new());
+        (
+            value,
+            kivact::view::node()
+                .name("Raw IME")
+                .part(kivact::interaction::use_text_edit(value).control()),
+        )
+    });
+    screen.get_by_role(Role::TextBox, "Raw IME").focus();
+    screen.raw_input(RawInput::Ime(RawIme::Preedit {
+        text: "にほん".to_owned(),
+        caret: Some((9, 9)),
+    }));
+    assert_eq!(value.get_untracked(), "");
+    screen.raw_input(RawInput::Ime(RawIme::Commit("日本".to_owned())));
+    assert_eq!(value.get_untracked(), "日本");
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
+fn raw_file_drop_reaches_dropzone() {
+    use kivact::custom::primitive;
+    use kivact::geometry::Point;
+    use kivact::test::raw::{RawDrop, RawInput};
+    use kivact::view::{FileEvent, FilePhase};
+    use std::path::PathBuf;
+    let (screen, seen) = mount(|| {
+        let seen = signal(Vec::<Vec<PathBuf>>::new());
+        let view = primitive()
+            .test_id("raw-dropzone")
+            .style(style().width(240.0).height(120.0))
+            .on_file(move |event: FileEvent| {
+                if event.phase == FilePhase::Drop {
+                    seen.update(|drops| drops.push(event.files));
+                }
+            });
+        (seen, view)
+    });
+    let rect = screen
+        .get_by_test_id("raw-dropzone")
+        .rect()
+        .expect("invariant: mounted dropzone has geometry");
+    let files = vec![
+        PathBuf::from("raw-file.txt"),
+        PathBuf::from("raw-second.txt"),
+    ];
+    screen.raw_input(RawInput::Drop(RawDrop::Hover {
+        files: files.clone(),
+        at: Some(Point {
+            x: rect.x + 10.0,
+            y: rect.y + 10.0,
+        }),
+    }));
+    assert!(seen.get_untracked().is_empty());
+    screen.raw_input(RawInput::Drop(RawDrop::Drop));
+    screen.raw_input(RawInput::Drop(RawDrop::Drop));
+    assert_eq!(seen.get_untracked(), vec![files]);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
+fn text_input_purpose_reaches_the_platform() {
+    use kivact::view::InputPurpose;
+    let (screen, purpose) = mount(|| {
+        let purpose = signal(InputPurpose::Text);
+        (
+            purpose,
+            text_input("Purpose", signal(String::new())).purpose(purpose),
+        )
+    });
+    screen.get_by_role(Role::TextBox, "Purpose").focus();
+    for expected in [
+        InputPurpose::Text,
+        InputPurpose::Number,
+        InputPurpose::Decimal,
+        InputPurpose::Email,
+        InputPurpose::Url,
+        InputPurpose::Phone,
+        InputPurpose::Password,
+        InputPurpose::Search,
+    ] {
+        purpose.set(expected);
+        screen.run_until_idle();
+        assert_eq!(screen.ime_purpose(), expected);
+    }
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
+fn keyboard_inset_is_observable() {
+    let (screen, inset) = mount(|| {
+        let inset = platform::keyboard_inset();
+        (
+            inset,
+            text(move || format!("Keyboard: {}", inset.get().bottom)),
+        )
+    });
+    let expected = kivact::geometry::Insets {
+        bottom: 240.0,
+        ..Default::default()
+    };
+    screen.script().set_keyboard_inset(expected);
+    screen.run_until_idle();
+    assert_eq!(inset.get_untracked(), expected);
+    screen.get_by_text("Keyboard: 240");
+    screen.script().set_keyboard_inset(Default::default());
+    screen.run_until_idle();
+    screen.get_by_text("Keyboard: 0");
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
+fn saved_state_is_restored_on_the_next_launch() {
+    let screen = kivact::test::render(|| {
+        assert!(platform::capabilities().get().state_restoration);
+        assert_eq!(platform::restored_state("draft"), None);
+        platform::on_lifecycle(|event| {
+            if event == platform::LifecycleEvent::SaveState {
+                platform::save_state("draft", vec![0, 1, 255]);
+                platform::save_state("other", vec![42]);
+            }
+        });
+        text("First launch")
+    });
+    let script = screen.script();
+    script.save_state();
+    screen.run_until_idle();
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+    let saved = script.saved_state();
+    assert_eq!(saved.get("draft"), Some(&vec![0, 1, 255]));
+    drop(screen);
+    let screen = kivact::test::render_with(
+        kivact::test::RenderOptions::default().restored_state(saved),
+        || {
+            assert_eq!(platform::restored_state("draft"), Some(vec![0, 1, 255]));
+            assert_eq!(platform::restored_state("other"), Some(vec![42]));
+            assert_eq!(platform::restored_state("missing"), None);
+            platform::save_state("draft", vec![9]);
+            assert_eq!(platform::restored_state("draft"), Some(vec![0, 1, 255]));
+            text("Restored launch")
+        },
+    );
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+fn aligned_inputs_fixture() -> (kivact::test::Screen, Signal<String>) {
+    mount(|| {
+        let value = signal("AB".to_owned());
+        let field = |id, alignment| {
+            kivact::view::node()
+                .name(id)
+                .part(kivact::interaction::use_text_edit(value).control())
+                .test_id(id)
+                .style(
+                    style()
+                        .width(240)
+                        .height(42)
+                        .padding_x(8)
+                        .font_size(20)
+                        .text_align(alignment)
+                        .color(Color::BLACK)
+                        .background(Color::WHITE),
+                )
+        };
+        (
+            value,
+            column((
+                field("start", kivact::style::TextAlign::Start),
+                field("center", kivact::style::TextAlign::Center),
+                field("end", kivact::style::TextAlign::End),
+            ))
+            .style(
+                style()
+                    .padding(20)
+                    .gap(20)
+                    .align_items(Align::Start)
+                    .background(Color::WHITE),
+            ),
+        )
+    })
 }

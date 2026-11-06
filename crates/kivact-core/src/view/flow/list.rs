@@ -3,8 +3,9 @@
 //! owner while their key (or index) stays; changed items only update the
 //! row's `Value<T>`; order changes use the fewest moves (LIS).
 //!
-//! The row builders receive only the key (or index) and the row's
-//! `Value<T>`.
+//! A `for_each` or `virtual_list` row builder receives one row handle
+//! (`ListSource::Row`): a `Value<T>`, or a `Binding<T>` for a writable
+//! source. A `for_index` row builder receives the index and the row's `Value<T>`.
 //!
 //! Invariants:
 //! - Items and keys are read in a pure section; rows are mounted, moved
@@ -17,25 +18,51 @@
 //!   order; when the structure changes it matches keys with a `HashMap`,
 //!   keeps the rows of a longest increasing subsequence in place and
 //!   `Move`s the others right to left. New rows are made in the engine and
-//!   inserted right to left directly. Editing one item scans the keys in
-//!   O(N).
+//!   inserted right to left directly. Editing one item through a writable
+//!   row scans the keys in O(N).
 
 use std::cell::RefCell;
-use std::hash::Hash;
 use std::panic::Location;
 use std::rc::Rc;
 
-use kivact_wire::NodeId;
+use kivact_types::NodeId;
 
 use crate::view::boundary::mount_in;
-use crate::view::descriptor::{IntoView, View, view_fn};
+use crate::view::descriptor::{IntoView, Mcx, View, view_fn};
 use crate::view::flow::branch::{Branch, mount_branch, unmount_branch};
 use crate::view::state::ViewState;
-use kivact_reactive::keyed::{self, Diff, Plan, Rows};
-use kivact_reactive::{EffectKind, ErrorKind, IntoValue, Owner, Runtime, Signal, UiError, Value};
+use kivact_runtime::keyed::{self, Diff, Plan, Rows};
+use kivact_runtime::{
+    Binding, EffectKind, ErrorKind, IntoBinding, IntoValue, ItemKey, Owner, Prop, PropValue,
+    Runtime, Signal, UiError, Value,
+};
 
-/// A row builder of a keyed list.
-pub(crate) type RowFn<K, T> = Rc<dyn Fn(K, Value<T>) -> View>;
+/// A row builder of a keyed list: the key and the row's item signal.
+pub(crate) type RowFn<K, T> = crate::view::ViewFn<(K, Signal<T>)>;
+
+/// The per-row conversion of a normalized list source.
+type MakeRow<T, R> = Rc<dyn Fn(Signal<T>, Rc<dyn Fn(&T, &T) -> bool>) -> R>;
+
+/// Wraps a user row function: converts the row's item signal into the
+/// source's row handle (`ListSource::Row`) with the key comparison the
+/// handle needs to find its slot, then calls `row` with it. Shared by
+/// `for_each` and `virtual_list`, so both keyed lists give rows one shape.
+pub(crate) fn source_row<T, K, V, R>(
+    key: Rc<impl Fn(&T) -> K + 'static + ?Sized>,
+    make_row: MakeRow<T, R>,
+    row: impl Fn(R) -> V + 'static,
+) -> RowFn<K, T>
+where
+    T: 'static,
+    K: PartialEq + 'static,
+    V: IntoView,
+    R: 'static,
+{
+    let same_key: Rc<dyn Fn(&T, &T) -> bool> = Rc::new(move |a, b| key(a) == key(b));
+    crate::view::ViewFn::from(move |(_k, value): (K, Signal<T>)| {
+        row(make_row(value, same_key.clone()))
+    })
+}
 
 /// A mounted row: the keyed row (owner and item) and its node.
 struct Row<K, T: 'static> {
@@ -49,7 +76,7 @@ impl<K, T: 'static> AsRef<keyed::Row<K, T>> for Row<K, T> {
     }
 }
 
-pub(crate) use kivact_reactive::keyed::key_hash;
+pub(crate) use kivact_runtime::keyed::key_hash;
 
 /// Indices (into `seq`) of one longest strictly increasing subsequence.
 pub(crate) fn lis(seq: &[usize]) -> Vec<usize> {
@@ -76,29 +103,36 @@ pub(crate) fn lis(seq: &[usize]) -> Vec<usize> {
     out
 }
 
-/// Keyed list: `row(key, item)` for each item. Rows keep their owner (and
-/// the state their components create) while their key stays; changed items
-/// update the row's `Value<T>`; order changes use the fewest moves (LIS).
-/// An update scans the keys once (O(N)) and clones only changed or new items.
+/// Keyed list: `row(item)` for each item, where `item` is the source's row
+/// handle: a `Value<T>`, or a `Binding<T>` that writes back into a
+/// `Signal`/`Binding` source. Rows keep their owner (and the state their
+/// components create) while their key stays; changed items update the
+/// row's handle; order changes use the fewest moves (LIS). An update scans
+/// the keys once (O(N)) and clones only changed or new items.
 ///
 /// ```ignore
-/// fn task_row(id: u64, task: Value<Task>) -> impl IntoView { .. }
+/// fn task_row(task: Binding<Task>) -> impl IntoView { .. }
 /// for_each(tasks, |t| t.id, task_row)
 /// ```
 #[track_caller]
-pub fn for_each<T, K, V>(
-    items: impl IntoValue<Vec<T>>,
+pub fn for_each<T, K, V, S>(
+    items: S,
     key: impl Fn(&T) -> K + 'static,
-    row: impl Fn(K, Value<T>) -> V + 'static,
+    row: impl Fn(S::Row) -> V + 'static,
 ) -> View
 where
-    T: Clone + PartialEq + 'static,
-    K: Eq + Hash + Clone + 'static,
+    T: PropValue,
+    K: ItemKey,
     V: IntoView,
+    S: ListSource<T>,
 {
     let at = Location::caller();
-    let items = items.into_prop();
-    let row: RowFn<K, T> = Rc::new(move |k, v| row(k, v).into_view());
+    let ListInput {
+        items,
+        row: make_row,
+    } = items.into_list_source();
+    let key = Rc::new(key);
+    let row = source_row(key.clone(), make_row, row);
     view_fn(move |cx| {
         let frag = cx.fragment();
         let weak = cx.weak();
@@ -107,8 +141,8 @@ where
         cx.effect(EffectKind::Internal, at, move || {
             let Some(rt) = weak.upgrade() else { return };
             // Items and keys only compute values: pure.
-            let diff = kivact_reactive::pure(|| {
-                items.with(|list| keyed::diff(&state.borrow(), list, &key))
+            let diff = kivact_runtime::pure(|| {
+                items.with(|list| keyed::diff(&state.borrow(), list, &*key))
             });
             match diff {
                 Diff::Values(changed) => {
@@ -134,7 +168,7 @@ where
                             ),
                         );
                     }
-                    apply_list(&rt, parent, frag, &state, keys, plans, &*row, at);
+                    apply_list(&rt, parent, frag, &state, keys, plans, &row, at);
                 }
             }
         });
@@ -146,14 +180,14 @@ where
     clippy::too_many_arguments,
     reason = "internal mount helper; the arguments are the flow's parts"
 )]
-fn apply_list<T: Clone + 'static, K: Eq + Hash + Clone + 'static>(
+fn apply_list<T: Clone + 'static, K: kivact_runtime::ItemKey>(
     rt: &Rc<Runtime>,
     parent: Owner,
     frag: NodeId,
     state: &RefCell<Rows<K, Row<K, T>>>,
     keys: Vec<K>,
     plans: Vec<Plan<T>>,
-    row: &dyn Fn(K, Value<T>) -> View,
+    row: &RowFn<K, T>,
     at: &'static Location<'static>,
 ) {
     let mut old: Vec<Option<Row<K, T>>> = state.borrow_mut().take().into_iter().map(Some).collect();
@@ -177,8 +211,8 @@ fn apply_list<T: Clone + 'static, K: Eq + Hash + Clone + 'static>(
         if !keep_mark[i]
             && let Some(r) = slot.take()
         {
-            let removed = ViewState::tree_mut(rt).remove_unlinked(r.node);
-            drop(removed);
+            let removed = ViewState::tree_mut(rt).remove(r.node);
+            removed.commit(rt);
             r.row.owner().dispose();
         }
     }
@@ -213,32 +247,31 @@ fn apply_list<T: Clone + 'static, K: Eq + Hash + Clone + 'static>(
                     continue;
                 };
                 let item = keyed.item();
-                let node = mount_in(rt, keyed.owner(), || row(k, item.into_value()));
-                if let Some(nd) = ViewState::tree_mut(rt).get_mut(node) {
-                    nd.parent = Some(frag);
-                }
+                let cx = Mcx {
+                    rt,
+                    owner: keyed.owner(),
+                };
+                let node = cx.fragment();
+                let child = mount_in(rt, keyed.owner(), || row.call((k, item)));
+                cx.append(node, child);
                 new_rows.push(Row { row: keyed, node });
                 fresh.push(true);
                 moved.push(false);
             }
         }
     }
-    let children: Vec<NodeId> = new_rows.iter().map(|r| r.node).collect();
-    ViewState::tree_mut(rt).set_children(frag, children);
     if live && (fresh.iter().any(|f| *f) || moved.iter().any(|m| *m)) {
-        let mut tree = ViewState::tree_mut(rt);
+        let tree = ViewState::tree(rt);
         // Place the already-created rows from right to left.
-        let mut next = tree.next_host_after(frag);
+        let mut next = None;
         for i in (0..new_rows.len()).rev() {
             let r = &new_rows[i];
             if fresh[i] {
-                tree.attach_writes_before(r.node, next);
+                tree.engine().insert(frag, r.node, next);
             } else if moved[i] {
-                tree.move_writes_before(r.node, next);
+                tree.engine().move_before(r.node, next);
             }
-            if let Some(h) = tree.first_host_of(r.node) {
-                next = Some(h);
-            }
+            next = Some(r.node);
         }
     }
     state.borrow_mut().replace(new_rows);
@@ -253,7 +286,7 @@ pub fn for_index<T, V>(
     row: impl Fn(usize, Value<T>) -> V + 'static,
 ) -> View
 where
-    T: Clone + PartialEq + 'static,
+    T: kivact_runtime::PropValue,
     V: IntoView,
 {
     let at = Location::caller();
@@ -265,7 +298,7 @@ where
         let rows: RefCell<Vec<(Branch, Signal<T>)>> = RefCell::new(Vec::new());
         cx.effect(EffectKind::Internal, at, move || {
             let Some(rt) = weak.upgrade() else { return };
-            let (updates, appended, len) = kivact_reactive::pure(|| {
+            let (updates, appended, len) = kivact_runtime::pure(|| {
                 items.with(|list| {
                     let rows = rows.borrow();
                     let mut updates = Vec::new();
@@ -296,10 +329,94 @@ where
                 let i = rows.borrow().len();
                 let owner = parent.child(at);
                 let sig = owner.signal(item, at);
-                let b = mount_branch(&rt, owner, frag, || row(i, sig.into_value()).into_view());
+                let b = mount_branch(&rt, owner, frag, || {
+                    let child = row(i, sig.into_value()).into_view();
+                    view_fn(move |cx| {
+                        let fragment = cx.fragment();
+                        let child = cx.mount_child(child);
+                        cx.append(fragment, child);
+                        fragment
+                    })
+                });
                 rows.borrow_mut().push((b, sig));
             }
         });
         frag
     })
+}
+
+/// A list source preserves writability: pass a Signal/Binding for editable rows.
+#[diagnostic::on_unimplemented(
+    message = "a list source needs a Vec, Signal, Binding, Value, or closure returning Vec",
+    note = "pass a Signal or Binding to receive writable Binding rows"
+)]
+pub trait ListSource<T: PropValue>: Sized + 'static {
+    type Row: 'static;
+    #[doc(hidden)]
+    fn into_list_source(self) -> ListInput<T, Self::Row>;
+}
+/// Normalized list storage and its per-row conversion.
+#[doc(hidden)]
+pub struct ListInput<T: 'static, R> {
+    pub(crate) items: Prop<Vec<T>>,
+    pub(crate) row: MakeRow<T, R>,
+}
+fn writable_list<T: PropValue>(source: Binding<Vec<T>>) -> ListInput<T, Binding<T>> {
+    ListInput {
+        items: source.into_prop(),
+        row: Rc::new(move |item, same_key| {
+            let initial = item.get_untracked();
+            // A row reads its own item, which the list keeps current; a
+            // write through the row also sets it, so the row reads it back
+            // at once.
+            kivact_runtime::binding(item, move |replacement: T| {
+                let mut list = source.get_untracked();
+                if let Some(slot) = list
+                    .iter_mut()
+                    .find(|candidate| same_key(candidate, &initial))
+                    && *slot != replacement
+                {
+                    *slot = replacement.clone();
+                    source.set(list);
+                    item.set(replacement);
+                }
+            })
+        }),
+    }
+}
+impl<T: PropValue> ListSource<T> for Signal<Vec<T>> {
+    type Row = Binding<T>;
+    fn into_list_source(self) -> ListInput<T, Self::Row> {
+        writable_list(self.into_binding())
+    }
+}
+impl<T: PropValue> ListSource<T> for Binding<Vec<T>> {
+    type Row = Binding<T>;
+    fn into_list_source(self) -> ListInput<T, Self::Row> {
+        writable_list(self)
+    }
+}
+fn readonly_list<T: PropValue>(items: Prop<Vec<T>>) -> ListInput<T, Value<T>> {
+    ListInput {
+        items,
+        row: Rc::new(|item, _| item.into_value()),
+    }
+}
+impl<T: PropValue> ListSource<T> for Value<Vec<T>> {
+    type Row = Value<T>;
+    fn into_list_source(self) -> ListInput<T, Self::Row> {
+        readonly_list(self.into_prop())
+    }
+}
+impl<T: PropValue> ListSource<T> for Vec<T> {
+    type Row = Value<T>;
+    fn into_list_source(self) -> ListInput<T, Self::Row> {
+        readonly_list(self.into_prop())
+    }
+}
+impl<T: PropValue, F: Fn() -> Vec<T> + 'static> ListSource<T> for F {
+    type Row = Value<T>;
+    fn into_list_source(self) -> ListInput<T, Self::Row> {
+        readonly_list(self.into_prop())
+    }
 }

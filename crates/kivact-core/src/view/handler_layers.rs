@@ -50,7 +50,7 @@ impl Layer {
     pub(crate) const NODE: [Layer; 2] = [Layer::Caller, Layer::NodeDefault];
 }
 
-type Handler<E> = Rc<dyn Fn(E) -> Result<Handled>>;
+use kivact_runtime::Handler;
 
 /// The handlers of one event kind, ordered by layer. Within a layer the
 /// order is the delivery order. Cloning shares the list.
@@ -83,11 +83,27 @@ impl<E: 'static> EventHandlers<E> {
         Rc::make_mut(&mut self.entries).insert(at, (layer, handler));
     }
 
+    /// Merge a later caller segment without reclassifying handler layers.
+    pub(crate) fn merge_caller(&mut self, later: Self) {
+        for (layer, handler) in later.entries.iter().rev() {
+            if *layer == Layer::Caller {
+                let at = self
+                    .entries
+                    .partition_point(|(current, _)| *current < *layer);
+                Rc::make_mut(&mut self.entries).insert(at, (*layer, handler.clone()));
+            }
+        }
+        for (layer, handler) in later.entries.iter() {
+            if *layer != Layer::Caller {
+                self.register(*layer, handler.clone());
+            }
+        }
+    }
     /// A state observation, after the observations already registered.
     pub(crate) fn observer(&mut self, f: impl Fn(E) + 'static) {
         self.register(
             Layer::Observer,
-            Rc::new(move |event| {
+            Handler::from_fn(move |event| {
                 f(event);
                 Ok(Handled::No)
             }),
@@ -99,7 +115,7 @@ impl<E: 'static> EventHandlers<E> {
         let at = self
             .entries
             .partition_point(|(current, _)| *current < Layer::Caller);
-        Rc::make_mut(&mut self.entries).insert(at, (Layer::Caller, Rc::new(f)));
+        Rc::make_mut(&mut self.entries).insert(at, (Layer::Caller, Handler::from_fn(f)));
     }
 
     /// A kind with one caller handler (`on_file`): a later one replaces it.
@@ -110,13 +126,13 @@ impl<E: 'static> EventHandlers<E> {
 
     /// `on_*_default`: after the node's earlier defaults.
     pub(crate) fn node_default(&mut self, f: impl Fn(E) -> Result<Handled> + 'static) {
-        self.register(Layer::NodeDefault, Rc::new(f));
+        self.register(Layer::NodeDefault, Handler::from_fn(f));
     }
 
     /// A list whose only entry is the router a mounted node installs.
     pub(crate) fn router(f: impl Fn(E) -> Result<Handled> + 'static) -> Self {
         Self {
-            entries: Rc::new(vec![(Layer::Caller, Rc::new(f))]),
+            entries: Rc::new(vec![(Layer::Caller, Handler::from_fn(f))]),
         }
     }
 
@@ -208,7 +224,7 @@ impl<'a, E> Source<'a, E> {
 
 /// Deliver `event` to the `sources` layer by layer, in delivery order; within
 /// a layer, source by source in the order given.
-pub(crate) fn deliver<E: Clone>(sources: &[Source<'_, E>], event: &E) -> Result<Handled> {
+pub(crate) fn deliver<E: Clone + 'static>(sources: &[Source<'_, E>], event: &E) -> Result<Handled> {
     let mut result = Handled::No;
     for layer in Layer::ALL {
         for source in sources {
@@ -219,7 +235,7 @@ pub(crate) fn deliver<E: Clone>(sources: &[Source<'_, E>], event: &E) -> Result<
                 if *current != layer {
                     continue;
                 }
-                result = result.and(handler(event.clone())?);
+                result = result.and(handler.call(event.clone())?);
                 if result == Handled::Yes {
                     return Ok(Handled::Yes);
                 }

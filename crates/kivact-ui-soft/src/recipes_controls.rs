@@ -1,12 +1,27 @@
 //! Role: Style the standard Soft action controls and register their recipes.
 use super::recipe_style::{fast, overlay, ring};
 use crate::Tokens;
-use kivact::draw::{LineCap, Path, Point, Stroke};
-use kivact::style::{
-    Align, Color, Cursor, Direction, Justify, Position, Style, TextDecorationLine, Theme, pct,
-    style,
-};
-use kivact::ui::{ButtonState, ButtonVariant, ControlSize, Look, ToggleButtonState, UiRecipes};
+use kivact::draw::LineCap;
+use kivact::draw::Path;
+use kivact::draw::Stroke;
+use kivact::geometry::Point;
+use kivact::style::Align;
+use kivact::style::Color;
+use kivact::style::Cursor;
+use kivact::style::Direction;
+use kivact::style::Justify;
+use kivact::style::Position;
+use kivact::style::Style;
+use kivact::style::TextDecorationLine;
+use kivact::style::Theme;
+use kivact::style::pct;
+use kivact::style::style;
+use kivact::ui::ButtonState;
+use kivact::ui::ButtonVariant;
+use kivact::ui::ControlSize;
+use kivact::ui::Look;
+use kivact::ui::ToggleButtonState;
+use kivact::ui::UiRecipes;
 
 use super::{recipes_controls_choice as choice, recipes_controls_value as value};
 
@@ -101,7 +116,7 @@ fn colors(t: &Tokens, variant: ButtonVariant) -> (Color, Color, Color) {
 }
 
 fn button(theme: &Theme, s: &Look<ButtonState>) -> Style {
-    let t = theme.get::<Tokens>();
+    let t = theme.ext::<Tokens>();
     let variant = s.variant::<ButtonVariant>().copied().unwrap_or_default();
     let (bg, fg, focus) = colors(&t, variant);
     let base = action(&t, s.size, s.icon_only)
@@ -111,7 +126,7 @@ fn button(theme: &Theme, s: &Look<ButtonState>) -> Style {
         ButtonVariant::Outline => base.border(t.sizes.border_width, t.colors.border_emphasized),
         ButtonVariant::Link => {
             let base = base.height(t.typography.label.line_height_px).padding_x(0);
-            if s.input.hovered && !s.loading {
+            if s.input.hovered && !s.busy {
                 base.text_decoration(TextDecorationLine::UNDERLINE)
             } else {
                 base
@@ -125,7 +140,7 @@ fn button(theme: &Theme, s: &Look<ButtonState>) -> Style {
         bg
     };
     let base = fast(&t, base.background(bg));
-    if s.loading {
+    if s.busy {
         // Busy also sets the behavior's disabled state, so preserve its full opacity.
         base.disabled(style().opacity(1.0).cursor(Cursor::Default))
     } else if variant == ButtonVariant::Link {
@@ -145,17 +160,17 @@ fn press(theme: &Theme, t: &Tokens, base: Style, bg: Color) -> Style {
 }
 
 fn button_content(theme: &Theme, s: &Look<ButtonState>) -> Style {
-    let t = theme.get::<Tokens>();
+    let t = theme.ext::<Tokens>();
     style()
         .direction(Direction::Row)
         .align_items(Align::Center)
         .justify_content(Justify::Center)
         .gap(t.spacing.s2)
-        .opacity(if s.loading { 0.0 } else { 1.0 })
+        .opacity(if s.busy { 0.0 } else { 1.0 })
 }
 
 fn button_icon(theme: &Theme, s: &Look<ButtonState>) -> Style {
-    let t = theme.get::<Tokens>();
+    let t = theme.ext::<Tokens>();
     let side = match s.size {
         ControlSize::ExtraSmall => t.sizes.icon_xsm,
         ControlSize::Small | ControlSize::Medium => t.sizes.icon_sm,
@@ -169,7 +184,7 @@ fn button_icon(theme: &Theme, s: &Look<ButtonState>) -> Style {
 }
 
 fn button_busy(theme: &Theme, s: &Look<ButtonState>) -> Style {
-    let t = theme.get::<Tokens>();
+    let t = theme.ext::<Tokens>();
     let (_, ink, _) = colors(
         &t,
         s.variant::<ButtonVariant>().copied().unwrap_or_default(),
@@ -192,8 +207,8 @@ fn button_busy(theme: &Theme, s: &Look<ButtonState>) -> Style {
         })
 }
 
-fn toggle(theme: &Theme, s: &Look<ToggleButtonState>) -> Style {
-    let t = theme.get::<Tokens>();
+pub(crate) fn toggle(theme: &Theme, s: &Look<ToggleButtonState>) -> Style {
+    let t = theme.ext::<Tokens>();
     let bg = if s.pressed {
         t.colors.overlay_pressed
     } else {

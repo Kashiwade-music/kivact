@@ -1,7 +1,7 @@
 //! Role: Passive native editing settings and edit notifications.
 
 use kivact_editing::{EditContext, EditOutcome, EditRequest, EditState};
-use kivact_reactive::Prop as InputProp;
+use kivact_runtime::Prop as InputProp;
 use std::ops::Range;
 use std::panic::Location;
 use std::rc::Rc;
@@ -35,7 +35,7 @@ impl TextEditEvent {
     /// the changes from that one on are not made. Sync the copy again from
     /// the editor ([`NodeRefExt::edit_state`]).
     ///
-    /// [`NodeRefExt::edit_state`]: crate::primitive::NodeRefExt::edit_state
+    /// [`NodeRefExt::edit_state`]: crate::custom::NodeRefExt::edit_state
     pub fn apply(&self, text: &mut String) -> bool {
         self.changes.iter().all(|change| change.apply(text))
     }
@@ -47,14 +47,20 @@ impl TextEditEvent {
     }
 }
 
-/// One colored byte range of a line of a native editor
-/// ([`TextEditing::highlight`]).
+/// A painted UTF-8 byte range in the entire editing document.
 #[derive(Clone, Debug, PartialEq)]
-pub struct TextHighlight {
-    /// The UTF-8 byte range in the line, which excludes its line feed.
+pub struct Decoration {
     pub range: Range<usize>,
-    /// The glyphs' color.
+    pub kind: DecorationKind,
     pub color: kivact_style::Color,
+}
+
+/// How an editing document range is painted.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DecorationKind {
+    Underline(kivact_style::TextDecorationStyle),
+    Outline,
+    Background,
 }
 
 /// What a behavior attached with [`TextEditing::behavior`] runs.
@@ -63,43 +69,47 @@ pub(crate) type Behavior = dyn Fn(&mut EditState, EditRequest<'_>, &EditContext<
 /// Where the line colors of a mounted editor are bound: its runtime,
 /// owner and theme, the node and the author's call site.
 pub(crate) struct HighlightAt {
-    pub(crate) rt: Rc<kivact_reactive::Runtime>,
-    pub(crate) owner: kivact_reactive::Owner,
-    pub(crate) theme: Option<kivact_reactive::Value<kivact_style::Theme>>,
-    pub(crate) id: kivact_wire::NodeId,
+    pub(crate) rt: Rc<kivact_runtime::Runtime>,
+    pub(crate) owner: kivact_runtime::Owner,
+    pub(crate) theme: Option<kivact_runtime::Value<kivact_style::Theme>>,
+    pub(crate) id: kivact_types::NodeId,
     pub(crate) at: &'static Location<'static>,
 }
 
 /// Binds the line colors of a mounted editor (the content's type erased).
 pub(crate) type BindHighlight = Box<dyn FnOnce(HighlightAt)>;
 
+// xtask-allow(state-fields): Independent optional editing observers are construction configuration.
 /// Native editing attached to an ordinary node through a [`Part`](crate::view::Part).
 ///
 /// This supplies state, shaping, caret, selection and the platform IME session.
 /// The author supplies role, accessible name and focus policy on the Part.
-/// The resulting editor is a native leaf: children and custom drawing are
-/// unsupported. Canvas regions cannot carry an editing attachment.
+/// Inline children and draw layers can accompany its native text.
+/// Canvas regions cannot carry an editing attachment.
 pub struct TextEditing {
     pub(crate) props: EditorProps,
-    pub(crate) on_edit: Option<Rc<dyn Fn(TextEditEvent) -> kivact_reactive::Result<()>>>,
+    pub(crate) on_edit: Option<kivact_runtime::Handler<TextEditEvent>>,
     pub(crate) on_selection: Option<SessionHandler>,
+    pub(crate) on_phase: Option<kivact_runtime::Handler<crate::view::EditPhase>>,
 }
 
+// xtask-allow(state-fields): Independent authored editing options and sources are resolved once at mount.
 /// The editor settings a mounted editing node binds (`mount::editing::bind`).
 pub(crate) struct EditorProps {
     pub(crate) behavior: Option<Rc<Behavior>>,
     pub(crate) highlight: Option<BindHighlight>,
-    pub(crate) forward_keys: Option<InputProp<Vec<kivact_wire::Key>>>,
+    pub(crate) decorations: Option<BindHighlight>,
+    pub(crate) forward_keys: Option<InputProp<Vec<kivact_types::Key>>>,
     pub(crate) value: InputProp<Rc<str>>,
     pub(crate) multiline: bool,
-    pub(crate) line_layout: Option<InputProp<kivact_wire::EditLineLayout>>,
+    pub(crate) line_layout: Option<InputProp<kivact_types::EditLineLayout>>,
     pub(crate) report_text: bool,
-    pub(crate) password: Option<InputProp<bool>>,
+    pub(crate) purpose: Option<InputProp<kivact_types::InputPurpose>>,
     pub(crate) read_only: Option<InputProp<bool>>,
     /// The longest text, in Unicode scalars; no source, or a source reading `None`: no limit.
     pub(crate) max_length: Option<InputProp<Option<usize>>>,
     pub(crate) placeholder: Option<InputProp<String>>,
 }
 
-/// What [`TextEditing::on_selection`] runs.
-pub(crate) type SessionHandler = Rc<dyn Fn(TextSession) -> kivact_reactive::Result<()>>;
+/// What [`TextEditing::on_selection_change`] runs.
+pub(crate) type SessionHandler = kivact_runtime::Handler<TextSession>;

@@ -2,14 +2,15 @@
 
 use super::model::{ChartConfig, ChartKind, ChartRow};
 use super::model::{Frame, Hit};
-use kivact::Value;
-use kivact::draw::{Draw, Point, Size};
+use kivact::draw::Draw;
+use kivact::geometry::{Point, Size};
+use kivact::state::Value;
 
 /// The options a chart paints and hit-tests with.
 #[derive(Clone, Copy)]
 pub(super) struct Options {
-    pub(super) kind: ChartKind,
-    pub(super) horizontal: bool,
+    pub(super) kind: Value<ChartKind>,
+    pub(super) horizontal: Value<bool>,
     pub(super) grid: Value<bool>,
     pub(super) axis: Value<bool>,
 }
@@ -25,8 +26,8 @@ impl Options {
         Frame {
             config,
             rows,
-            kind: self.kind,
-            horizontal: self.horizontal,
+            kind: self.kind.get(),
+            horizontal: self.horizontal.get(),
             grid: self.grid.get(),
             axis: self.axis.get(),
             total_label,

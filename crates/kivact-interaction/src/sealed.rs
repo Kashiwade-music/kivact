@@ -1,4 +1,4 @@
-//! Role: Public-in-bounds traits that only this crate can name or implement.
+//! Role: Public-in-bounds traits that only this crate can implement.
 
-/// Seal of `IntoScalarRange`: the range forms this crate accepts.
-pub trait IntoScalarRangeSeal {}
+/// Supported single and multiple selection bindings.
+pub trait IntoSelectionSeal<K> {}

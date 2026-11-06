@@ -1,6 +1,6 @@
-//! Role: Build the themed toggle button from its actual interaction part state.
+//! Role: Build the themed toggle_button button from its actual interaction part state.
 //!
-//! A toggle takes its value as the constructor's one `Binding<bool>`, like a
+//! A toggle_button takes its value as the constructor's one `Binding<bool>`, like a
 //! checkbox. Its recipe gets the real pressed state in a [`ToggleButtonState`];
 //! the `.icon` view is a child of the root, and the recipe lays the row out.
 //! The recipe is the root's base style, so the caller's `.style(..)` wins
@@ -8,43 +8,34 @@
 use super::layer::with_base_recipe_style;
 use super::values::{ControlSize, ToggleButtonState};
 use super::variants::{Variant, Variants};
-use kivact_core::Binding;
-use kivact_core::Value;
-use kivact_core::control::{Node, NodeBuilder, column, node, text};
-use kivact_core::draw::{Size, TextStyle};
-use kivact_core::primitive::{Constraints, NodeExt, primitive};
-use kivact_core::style::{Align, TextAlign, Theme, ThemeExtension, current_theme, style};
-use kivact_core::view::{IntoText, IntoValue, IntoView, View, dynamic, show};
+use kivact_core::custom::{Constraints, primitive};
+use kivact_core::draw::TextFormat;
+use kivact_core::geometry::Size;
+use kivact_core::state::Binding;
+use kivact_core::state::Value;
+use kivact_core::state::{IntoText, IntoValue};
+use kivact_core::style::{Align, TextAlign, style, use_theme};
+use kivact_core::view::{IntoView, View, dynamic, show};
+use kivact_core::view::{Node, NodeBuilder, column, node, text};
 use kivact_interaction::{ToggleState, use_toggle_button};
 
-/// Opt-in text measurement for a toggle whose label changes weight when pressed.
-/// Install it with [`Theme::with`] and use the same size as the toggle recipe.
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
-pub enum ToggleLabelReservation {
-    /// Let the visible label determine its own width.
-    #[default]
-    Natural,
-    /// Reserve space for the same label shaped at another weight.
-    Reserve {
-        /// The weight used in the pressed appearance.
-        weight: u16,
-        /// The recipe's font size in logical pixels.
-        size: f32,
-        /// The recipe's font size at [`ControlSize::ExtraSmall`].
-        extra_small_size: f32,
-    },
-}
-
-impl ThemeExtension for ToggleLabelReservation {
-    fn fallback(_: &Theme) -> Self {
-        Self::Natural
-    }
-}
-
-fn toggle_label(label: Value<String>, hidden: Option<Value<bool>>, size: ControlSize) -> View {
+fn toggle_label(
+    label: Value<String>,
+    hidden: Option<Value<bool>>,
+    size: Value<ControlSize>,
+) -> View {
     dynamic(
-        || *current_theme().get::<ToggleLabelReservation>(),
-        move |reservation| {
+        move || {
+            (
+                use_theme()
+                    .get()
+                    .ext::<crate::UiTokens>()
+                    .toggle_button
+                    .label_reservation,
+                size.get(),
+            )
+        },
+        move |(reservation, size)| {
             let ToggleLabelReservation::Reserve {
                 weight,
                 size: font_size,
@@ -63,10 +54,10 @@ fn toggle_label(label: Value<String>, hidden: Option<Value<bool>>, size: Control
                     .measure(
                         label,
                         move |label: &String, constraints: Constraints<'_>| {
-                            let text = TextStyle {
+                            let text = TextFormat {
                                 weight,
                                 size: font_size,
-                                ..TextStyle::default()
+                                ..TextFormat::default()
                             };
                             let width = constraints.measure_text(label, &text).size.width;
                             Size::new(width, 0.0)
@@ -88,56 +79,71 @@ fn toggle_label(label: Value<String>, hidden: Option<Value<bool>>, size: Control
     )
 }
 
-/// A button that stays pressed, created by [`toggle`]. Its behavior and
+// xtask-allow(state-fields): Independent builder labels, enabled/busy inputs and optional edit callback; checked value belongs to the caller binding.
+/// A button that stays pressed, created by [`toggle_button`]. Its behavior and
 /// semantics are those of [`use_toggle_button`].
-pub struct Toggle {
+pub struct ToggleButton {
     root: Node,
     label: Value<String>,
     pressed: Binding<bool>,
+    on_edit: Option<kivact_core::state::Callback<kivact_core::view::EditPhase>>,
     icon: Option<View>,
     hide_label: Option<Value<bool>>,
-    size: ControlSize,
+    size: Value<ControlSize>,
     variants: Variants,
 }
 
-/// A toggle button named and labelled `label` that edits `pressed`.
+/// A toggle_button button named and labelled `label` that edits `pressed`.
 ///
 /// It has `Role::Button` with a checked state (ARIA's `aria-pressed`); Space,
 /// Enter and click flip it, and so do the accessibility `Activate` and
-/// `Toggle` actions. The look is the theme's
-/// [`UiRecipes::toggle`](super::UiRecipes), given a
-/// [`ToggleButtonState`](super::ToggleButtonState). A toggle with an
-/// [`icon`](Toggle::icon) and a hidden label is an icon toggle, a square.
+/// `ToggleButton` actions. The look is the theme's
+/// [`UiRecipes::toggle_button`](super::UiRecipes), given a
+/// [`ToggleButtonState`](super::ToggleButtonState). A toggle_button with an
+/// [`icon`](ToggleButton::icon) and a hidden label is an icon toggle_button, a square.
 ///
 /// ```no_run
-/// use kivact::control::icon;
+/// use kivact::view::icon;
 /// use kivact::prelude::*;
-/// use kivact::ui::toggle;
+/// use kivact::ui::toggle_button;
 ///
 /// fn bold() -> impl IntoView {
 ///     let on = signal(false);
-///     toggle("Bold", on).icon(icon("bold")).hide_label(true)
+///     toggle_button("Bold", on).icon(icon("bold")).hide_label(true)
 /// }
 /// ```
 #[track_caller]
-pub fn toggle(label: impl IntoText, pressed: impl Into<Binding<bool>>) -> Toggle {
+pub fn toggle_button(
+    label: impl IntoText,
+    pressed: impl kivact_core::state::IntoBinding<bool>,
+) -> ToggleButton {
     let label = label.into_text_value();
-    Toggle {
+    ToggleButton {
         root: node().name(label),
         label,
-        pressed: pressed.into(),
+        pressed: pressed.into_binding(),
         icon: None,
+        on_edit: None,
         hide_label: None,
-        size: super::values::default_control_size(),
+        size: super::values::default_control_size().into_value(),
         variants: Variants::default(),
     }
 }
 
-impl Toggle {
+impl ToggleButton {
+    /// Observe the beginning and commit of each value edit.
+    pub fn on_edit<R: kivact_core::view::HandlerResult>(
+        mut self,
+        f: impl Fn(kivact_core::view::EditPhase) -> R + 'static,
+    ) -> Self {
+        self.on_edit = Some(kivact_core::state::callback(f));
+        self
+    }
+
     /// The size (default [`ControlSize::Medium`]), given to the recipe in
-    /// its state; the recipe sizes the toggle by it.
-    pub fn size(mut self, size: ControlSize) -> Self {
-        self.size = size;
+    /// its state; the recipe sizes the toggle_button by it.
+    pub fn size(mut self, size: impl IntoValue<ControlSize>) -> Self {
+        self.size = size.into_value();
         self
     }
 
@@ -149,8 +155,8 @@ impl Toggle {
     }
 
     /// Keep the accessible name while omitting the visible label (while
-    /// true; constant or reactive). With an [`icon`](Self::icon) the toggle
-    /// is an icon toggle: the recipe knows it from
+    /// true; constant or reactive). With an [`icon`](Self::icon) the toggle_button
+    /// is an icon toggle_button: the recipe knows it from
     /// [`ToggleButtonState::icon_only`].
     #[track_caller]
     pub fn hide_label(mut self, hide: impl IntoValue<bool>) -> Self {
@@ -174,19 +180,22 @@ impl Toggle {
     }
 }
 
-impl NodeBuilder for Toggle {
+impl NodeBuilder for ToggleButton {
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
 }
 
 #[diagnostic::do_not_recommend]
-impl IntoView for Toggle {
+impl IntoView for ToggleButton {
     fn into_view(mut self) -> View {
         let mut behavior = use_toggle_button(self.pressed);
+        if let Some(observer) = self.on_edit {
+            behavior = behavior.on_edit(move |phase| observer.call(phase));
+        }
         // `.disabled(..)` ignores input while true.
         if let Some(disabled) = self.root.accessible_disabled() {
-            behavior = behavior.disabled(move || disabled());
+            behavior = behavior.disabled(move || disabled.get());
         }
         let (size, hide) = (self.size, self.hide_label);
         let leading_icon = self.icon.is_some();
@@ -195,7 +204,7 @@ impl IntoView for Toggle {
             .map_state(move |state: ToggleState| ToggleButtonState {
                 input: state.input,
                 pressed: state.checked.is_checked(),
-                size,
+                size: size.get(),
                 leading_icon,
                 icon_only: leading_icon && hide.is_some_and(|hide| hide.get()),
             });
@@ -213,3 +222,5 @@ impl IntoView for Toggle {
         .into_view()
     }
 }
+
+pub use crate::toggle_button_tokens::{ToggleButtonTokens, ToggleLabelReservation};

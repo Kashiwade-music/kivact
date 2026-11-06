@@ -4,13 +4,14 @@
 //! their fill rule, what is drawn agreeing with `Shape::contains`, and
 //! stroke caps, joins, dashes and dots.
 
-use kivact_types::protocol::{DrawCommand, PathCmd, Shape};
+use kivact_types::render::RenderCmd;
+use kivact_types::scene::{PathCmd, Shape};
 use kivact_types::{FillRule, LineCap, LineJoin, Stroke};
 
 use crate::support::{gray, open, pixel, pt, show, solid};
 
-fn stroke_shape(shape: Shape, stroke: Stroke) -> DrawCommand {
-    DrawCommand::StrokeShape {
+fn stroke_shape(shape: Shape, stroke: Stroke) -> RenderCmd {
+    RenderCmd::StrokeShape {
         shape,
         stroke,
         paint: solid(0x000000),
@@ -27,93 +28,7 @@ fn path(cmds: Vec<PathCmd>) -> Shape {
 #[test]
 fn strokes_have_caps_joins_dashes_and_dots() {
     let mut window = open(200.0, 140.0);
-    let line = |y: f32| {
-        path(vec![
-            PathCmd::MoveTo(pt(20.0, y)),
-            PathCmd::LineTo(pt(40.0, y)),
-        ])
-    };
-    let open_corner = |x: f32| {
-        path(vec![
-            PathCmd::MoveTo(pt(x, 70.0)),
-            PathCmd::LineTo(pt(x + 30.0, 70.0)),
-            PathCmd::LineTo(pt(x + 30.0, 100.0)),
-        ])
-    };
-    let style = |width: f32, cap: LineCap, join: LineJoin| Stroke {
-        cap,
-        join,
-        ..Stroke::new(width)
-    };
-    show(
-        &mut window,
-        vec![
-            stroke_shape(line(10.0), style(6.0, LineCap::Butt, LineJoin::Miter)),
-            stroke_shape(line(25.0), style(6.0, LineCap::Square, LineJoin::Miter)),
-            stroke_shape(line(40.0), style(6.0, LineCap::Round, LineJoin::Miter)),
-            stroke_shape(
-                open_corner(10.0),
-                style(10.0, LineCap::Butt, LineJoin::Miter),
-            ),
-            stroke_shape(
-                open_corner(60.0),
-                style(10.0, LineCap::Butt, LineJoin::Bevel),
-            ),
-            stroke_shape(
-                open_corner(110.0),
-                style(10.0, LineCap::Butt, LineJoin::Round),
-            ),
-            // Dashes of 10 with gaps of 10, starting 5 into the pattern.
-            stroke_shape(
-                path(vec![
-                    PathCmd::MoveTo(pt(60.0, 20.0)),
-                    PathCmd::LineTo(pt(190.0, 20.0)),
-                ]),
-                Stroke {
-                    dash: vec![10.0, 10.0],
-                    dash_offset: 5.0,
-                    ..Stroke::new(4.0)
-                },
-            ),
-            // Tabler's `h.01` dot and a zero-length one, round and square.
-            stroke_shape(
-                path(vec![
-                    PathCmd::MoveTo(pt(20.0, 120.0)),
-                    PathCmd::LineTo(pt(20.01, 120.0)),
-                ]),
-                style(6.0, LineCap::Round, LineJoin::Miter),
-            ),
-            stroke_shape(
-                path(vec![
-                    PathCmd::MoveTo(pt(40.0, 120.0)),
-                    PathCmd::LineTo(pt(40.0, 120.0)),
-                ]),
-                style(6.0, LineCap::Round, LineJoin::Miter),
-            ),
-            stroke_shape(
-                path(vec![PathCmd::MoveTo(pt(60.0, 120.0)), PathCmd::Close]),
-                style(6.0, LineCap::Square, LineJoin::Miter),
-            ),
-            stroke_shape(
-                path(vec![
-                    PathCmd::MoveTo(pt(80.0, 120.0)),
-                    PathCmd::LineTo(pt(80.0, 120.0)),
-                ]),
-                style(6.0, LineCap::Butt, LineJoin::Miter),
-            ),
-            // A dotted line: zero-length dashes with round caps.
-            stroke_shape(
-                path(vec![
-                    PathCmd::MoveTo(pt(100.0, 120.0)),
-                    PathCmd::LineTo(pt(190.0, 120.0)),
-                ]),
-                Stroke {
-                    dash: vec![0.0, 10.0],
-                    ..style(4.0, LineCap::Round, LineJoin::Miter)
-                },
-            ),
-        ],
-    );
+    show(&mut window, shapes_scene());
     let dark = |x: u32, y: u32| gray(pixel(&window, x, y)) < 64;
     let light = |x: u32, y: u32| gray(pixel(&window, x, y)) > 192;
     // Caps: butt ends at the end point, square and round go 3 beyond.
@@ -150,5 +65,104 @@ fn strokes_have_caps_joins_dashes_and_dots() {
     for x in (100..=180).step_by(10) {
         assert!(dark(x, 120), "a dot at {x}");
         assert!(light(x + 5, 120), "a gap at {}", x + 5);
+    }
+}
+
+fn shapes_scene() -> Vec<RenderCmd> {
+    vec![
+        stroke_shape(
+            stroke_line(10.0),
+            stroke_style(6.0, LineCap::Butt, LineJoin::Miter),
+        ),
+        stroke_shape(
+            stroke_line(25.0),
+            stroke_style(6.0, LineCap::Square, LineJoin::Miter),
+        ),
+        stroke_shape(
+            stroke_line(40.0),
+            stroke_style(6.0, LineCap::Round, LineJoin::Miter),
+        ),
+        stroke_shape(
+            stroke_corner(10.0),
+            stroke_style(10.0, LineCap::Butt, LineJoin::Miter),
+        ),
+        stroke_shape(
+            stroke_corner(60.0),
+            stroke_style(10.0, LineCap::Butt, LineJoin::Bevel),
+        ),
+        stroke_shape(
+            stroke_corner(110.0),
+            stroke_style(10.0, LineCap::Butt, LineJoin::Round),
+        ),
+        // Dashes of 10 with gaps of 10, starting 5 into the pattern.
+        stroke_shape(
+            path(vec![
+                PathCmd::MoveTo(pt(60.0, 20.0)),
+                PathCmd::LineTo(pt(190.0, 20.0)),
+            ]),
+            Stroke {
+                dash: vec![10.0, 10.0],
+                dash_offset: 5.0,
+                ..Stroke::new(4.0)
+            },
+        ),
+        // Tabler's `h.01` dot and a zero-length one, round and square.
+        stroke_shape(
+            path(vec![
+                PathCmd::MoveTo(pt(20.0, 120.0)),
+                PathCmd::LineTo(pt(20.01, 120.0)),
+            ]),
+            stroke_style(6.0, LineCap::Round, LineJoin::Miter),
+        ),
+        stroke_shape(
+            path(vec![
+                PathCmd::MoveTo(pt(40.0, 120.0)),
+                PathCmd::LineTo(pt(40.0, 120.0)),
+            ]),
+            stroke_style(6.0, LineCap::Round, LineJoin::Miter),
+        ),
+        stroke_shape(
+            path(vec![PathCmd::MoveTo(pt(60.0, 120.0)), PathCmd::Close]),
+            stroke_style(6.0, LineCap::Square, LineJoin::Miter),
+        ),
+        stroke_shape(
+            path(vec![
+                PathCmd::MoveTo(pt(80.0, 120.0)),
+                PathCmd::LineTo(pt(80.0, 120.0)),
+            ]),
+            stroke_style(6.0, LineCap::Butt, LineJoin::Miter),
+        ),
+        // A dotted line: zero-length dashes with round caps.
+        stroke_shape(
+            path(vec![
+                PathCmd::MoveTo(pt(100.0, 120.0)),
+                PathCmd::LineTo(pt(190.0, 120.0)),
+            ]),
+            Stroke {
+                dash: vec![0.0, 10.0],
+                ..stroke_style(4.0, LineCap::Round, LineJoin::Miter)
+            },
+        ),
+    ]
+}
+
+fn stroke_line(y: f64) -> Shape {
+    path(vec![
+        PathCmd::MoveTo(pt(20.0, y)),
+        PathCmd::LineTo(pt(40.0, y)),
+    ])
+}
+fn stroke_corner(x: f64) -> Shape {
+    path(vec![
+        PathCmd::MoveTo(pt(x, 70.0)),
+        PathCmd::LineTo(pt(x + 30.0, 70.0)),
+        PathCmd::LineTo(pt(x + 30.0, 100.0)),
+    ])
+}
+fn stroke_style(width: f64, cap: LineCap, join: LineJoin) -> Stroke {
+    Stroke {
+        cap,
+        join,
+        ..Stroke::new(width)
     }
 }

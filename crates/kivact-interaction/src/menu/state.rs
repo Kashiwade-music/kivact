@@ -1,15 +1,13 @@
 //! Role: Store menu entries and shared session state.
 
-use std::panic::Location;
+use kivact_core::custom::Reactive;
 
-use crate::Popup;
-use crate::list::typeahead::Typeahead;
-use kivact_core::diagnostics::ErrorKind;
-use kivact_core::draw::Point;
-use kivact_core::primitive::{PartState, raise};
+use kivact_core::ErrorKind;
+use kivact_core::custom::{PartState, raise};
+use kivact_core::geometry::Point;
+use kivact_core::state::Callback;
+use kivact_core::state::IntoText;
 use kivact_core::style::Icon;
-use kivact_core::view::{IntoText, NodeRef, Reactive};
-use kivact_core::{Callback, Signal, Value, Var};
 
 /// Where an open menu was asked to appear.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -53,14 +51,18 @@ pub enum MenuItemKind {
 /// The state of a menu item for the caller's drawing.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct MenuItemState {
+    // xtask-allow(state-fields): Derived drawing projection of the independent press machine.
     /// Which row is under the held pointer during menu press tracking.
     /// None leaves highlighting to the ordinary focus and hover states.
     pub pressed_over: Option<bool>,
     pub input: PartState,
+    // xtask-allow(state-fields): Immutable entry check configuration projected for drawing.
     /// The checked state of a check or radio item; `None` for other items.
     pub check: Option<MenuCheck>,
+    // xtask-allow(state-fields): Derived submenu state for drawing, never written as behavior state.
     /// A submenu item whose submenu is open.
     pub expanded: bool,
+    // xtask-allow(state-fields): Independent author appearance option, not a transition phase.
     /// The entry is marked destructive ([`MenuEntry::destructive`]), for a
     /// warning color.
     pub destructive: bool,
@@ -102,7 +104,7 @@ pub struct MenuItemState {
 /// # }
 /// use kivact::interaction::MenuEntry;
 /// let entries = vec![
-///     MenuEntry::item("new", "New").shortcut("Ctrl N").icon("file-plus"),
+///     MenuEntry::item("new", "New").with_shortcut("Ctrl N").with_icon("file-plus"),
 ///     MenuEntry::checkbox("grid", "Show grid", true),
 ///     MenuEntry::separator(),
 ///     MenuEntry::group("Align", vec![
@@ -111,7 +113,7 @@ pub struct MenuItemState {
 ///     ]),
 ///     MenuEntry::heading("Share"),
 ///     MenuEntry::submenu("export", "Export", vec![
-///         MenuEntry::item("png", "PNG").description("Raster image"),
+///         MenuEntry::item("png", "PNG").with_description("Raster image"),
 ///         MenuEntry::item("svg", "SVG").disabled(true),
 ///     ]),
 /// ];
@@ -144,15 +146,21 @@ struct ItemEntry<K> {
     role: ItemRole<K>,
     /// The shortcut text, published as the item's accessible description.
     shortcut: String,
+    // xtask-allow(state-fields): Independent immutable author option; entry modifiers run before publication.
     /// A disabled item cannot be chosen.
     disabled: bool,
+    // xtask-allow(state-fields): Independent immutable author tooltip option.
     disabled_reason: Option<Reactive<String>>,
+    // xtask-allow(state-fields): Independent immutable author appearance option.
     /// An icon shown before the label: a name the theme resolves or an image.
     icon: Option<Icon>,
+    // xtask-allow(state-fields): Independent immutable author description option.
     /// A secondary line under the label.
     description: Option<Reactive<String>>,
+    // xtask-allow(state-fields): Independent immutable author appearance option.
     /// A destructive item (delete, remove): only the drawing reads it.
     destructive: bool,
+    // xtask-allow(state-fields): Independent immutable author activation option.
     /// Choosing the item leaves the menu open (a check item toggled in a
     /// row of several).
     keep_open: bool,
@@ -254,36 +262,31 @@ impl<K> MenuEntry<K> {
     }
 
     /// The item data for a modifier that only items have; any other kind is a
-    /// usage error at `at`.
-    fn item_for(
-        &mut self,
-        name: &'static str,
-        at: &'static Location<'static>,
-    ) -> &mut ItemEntry<K> {
+    /// usage error at the caller.
+    #[track_caller]
+    fn item_for(&mut self, name: &'static str) -> &mut ItemEntry<K> {
         let what = self.what();
         match &mut self.kind {
             EntryKind::Item(item) => item,
             _ => raise(
                 ErrorKind::Message,
                 format!("MenuEntry::{name}: a {what} has no {name}"),
-                at,
             ),
         }
     }
 
     /// Show `icon` before the label: a name the theme resolves (`"check"`)
-    /// or an image [`Asset`](kivact_core::Asset). Items only.
+    /// or an image [`Asset`](kivact_core::view::Asset). Items only.
     #[track_caller]
-    pub fn icon(mut self, icon: impl Into<Icon>) -> Self {
-        self.item_for("icon", Location::caller()).icon = Some(icon.into());
+    pub fn with_icon(mut self, icon: impl Into<Icon>) -> Self {
+        self.item_for("icon").icon = Some(icon.into());
         self
     }
 
     /// A secondary line of text under the label. Items only.
     #[track_caller]
-    pub fn description(mut self, text: impl IntoText) -> Self {
-        self.item_for("description", Location::caller()).description =
-            Some(Reactive::new(text.into_text()));
+    pub fn with_description(mut self, text: impl IntoText) -> Self {
+        self.item_for("description").description = Some(Reactive::new(text.into_text()));
         self
     }
 
@@ -291,25 +294,24 @@ impl<K> MenuEntry<K> {
     /// published as the item's accessible description. It only displays: the
     /// menu binds no key. Items only.
     #[track_caller]
-    pub fn shortcut(mut self, text: impl Into<String>) -> Self {
-        self.item_for("shortcut", Location::caller()).shortcut = text.into();
+    pub fn with_shortcut(mut self, text: impl Into<String>) -> Self {
+        self.item_for("shortcut").shortcut = text.into();
         self
     }
 
     /// A disabled item cannot be chosen, and a disabled submenu cannot open.
-    /// By default the arrow keys and typeahead skip disabled items. Items only.
+    /// By default disabled items remain in keyboard focus order. Items only.
     #[track_caller]
     pub fn disabled(mut self, disabled: bool) -> Self {
-        self.item_for("disabled", Location::caller()).disabled = disabled;
+        self.item_for("disabled").disabled = disabled;
         self
     }
 
     /// Explain why the item is unavailable. Themes retaining disabled menu
     /// focus can show this reason as a tooltip. This does not disable the item.
     #[track_caller]
-    pub fn disabled_reason(mut self, reason: impl IntoText) -> Self {
-        self.item_for("disabled_reason", Location::caller())
-            .disabled_reason = Some(Reactive::new(reason.into_text()));
+    pub fn with_disabled_reason(mut self, reason: impl IntoText) -> Self {
+        self.item_for("disabled_reason").disabled_reason = Some(Reactive::new(reason.into_text()));
         self
     }
 
@@ -318,7 +320,7 @@ impl<K> MenuEntry<K> {
     /// behavior and semantics do not change. Items only.
     #[track_caller]
     pub fn destructive(mut self, destructive: bool) -> Self {
-        self.item_for("destructive", Location::caller()).destructive = destructive;
+        self.item_for("destructive").destructive = destructive;
         self
     }
 
@@ -332,7 +334,6 @@ impl<K> MenuEntry<K> {
             raise(
                 ErrorKind::Message,
                 "MenuEntry::inset: a separator has no inset",
-                Location::caller(),
             );
         }
         self.inset = inset;
@@ -344,13 +345,11 @@ impl<K> MenuEntry<K> {
     /// visibility menu. Items and check items only; a submenu has none.
     #[track_caller]
     pub fn keep_open(mut self, keep_open: bool) -> Self {
-        let at = Location::caller();
-        let item = self.item_for("keep_open", at);
+        let item = self.item_for("keep_open");
         if matches!(item.role, ItemRole::Submenu(_)) {
             raise(
                 ErrorKind::Message,
                 "MenuEntry::keep_open: a submenu has no keep_open",
-                at,
             );
         }
         item.keep_open = keep_open;
@@ -378,7 +377,7 @@ impl<K> MenuEntry<K> {
     }
 
     /// The shortcut text ([`shortcut`](Self::shortcut)); empty without one.
-    pub fn shortcut_value(&self) -> &str {
+    pub fn shortcut(&self) -> &str {
         self.item_data().map_or("", |item| item.shortcut.as_str())
     }
 
@@ -389,7 +388,7 @@ impl<K> MenuEntry<K> {
 
     /// The explanation supplied by [`disabled_reason`](Self::disabled_reason).
     #[track_caller]
-    pub fn disabled_reason_value(&self) -> Option<String> {
+    pub fn disabled_reason(&self) -> Option<String> {
         self.item_data()?
             .disabled_reason
             .as_ref()
@@ -458,14 +457,14 @@ impl<K> MenuEntry<K> {
     }
 
     /// The icon given to [`icon`](Self::icon).
-    pub fn icon_value(&self) -> Option<&Icon> {
+    pub fn icon(&self) -> Option<&Icon> {
         self.item_data()?.icon.as_ref()
     }
 
     /// The description's current text; tracked when read inside a
     /// computation.
     #[track_caller]
-    pub fn description_value(&self) -> Option<String> {
+    pub fn description(&self) -> Option<String> {
         self.item_data()?.description.as_ref().map(Reactive::get)
     }
 
@@ -612,35 +611,14 @@ impl<K> Want<K> {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(super) enum Opened {
     Button,
+    External,
     Context(MenuOrigin),
 }
 
-/// State shared by every level of one menu. All handles are `Copy`.
-pub(super) struct Session<K: 'static> {
-    pub(super) entries: Value<Vec<MenuEntry<K>>>,
+/// Setup callbacks shared by every level of a menu.
+#[derive(Clone)]
+pub(super) struct MenuOptions<K: 'static> {
     pub(super) choose: Callback<K>,
-    /// The top level's popup; its anchor is the trigger.
-    pub(super) popup: Popup,
-    pub(super) anchor: NodeRef,
-    /// How the open menu was opened; `None` while it is closed.
-    pub(super) opened: Signal<Option<Opened>>,
-    /// Where the open menu was asked to appear, derived from `opened`.
-    pub(super) origin: Value<Option<MenuOrigin>>,
-    /// Keys of the submenu items that are open, outermost first.
-    pub(super) path: Signal<Vec<K>>,
-    /// The item that has the focus: its depth and key.
-    pub(super) focus_key: Signal<Option<(usize, K)>>,
-    /// How many levels the current entries keep (see `super::order::kept_levels`).
-    pub(super) kept: Value<usize>,
-    pub(super) want: Signal<Option<Want<K>>>,
-    pub(super) typed: Var<Typeahead>,
-    pub(super) press: Option<super::press_state::Press>,
-    pub(super) surface_rects: Signal<Vec<(Vec<K>, kivact_core::draw::Rect)>>,
+    pub(super) menubar: Option<Callback<bool>>,
+    pub(super) trigger_action: Option<Callback<()>>,
 }
-
-impl<K: 'static> Clone for Session<K> {
-    fn clone(&self) -> Self {
-        *self
-    }
-}
-impl<K: 'static> Copy for Session<K> {}

@@ -6,24 +6,27 @@ use super::geometry::{Divider, MIN_EXTENT, STRIP};
 use super::items::Item;
 use super::items::{ItemKey, build_items};
 use super::model::{DockAxis, DockLayout, DockPlacement, DockTabs};
-use crate::Color;
-use kivact::control::{Node, NodeBuilder, node, text};
+use crate::ColorName;
 use kivact::i18n::{message, message_with};
 use kivact::interaction::use_splitter;
-use kivact::primitive::NodeExt;
-use kivact::style::current_theme;
+use kivact::state::IntoBinding;
+use kivact::state::IntoValue;
+use kivact::view::{Node, NodeBuilder, node, text};
+
+use kivact::interaction::{MenuEntry, ScalarRange};
+use kivact::state::callback;
+use kivact::state::{Binding, Callback, Value, binding, memo, signal, var};
+use kivact::style::use_theme;
 use kivact::style::{Cursor, Direction, Overflow, Position, pct, style};
-use kivact::ui::{EditPhase, MenuEntry, ScalarRange};
+use kivact::view::EditPhase;
 use kivact::view::HandlerResult;
-use kivact::view::{
-    Handled, IntoValue, IntoView, Key, Orientation, Role, View, callback, for_each, node_ref,
-};
-use kivact::{Binding, Callback, Value, binding, memo, signal, var};
+use kivact::view::{Handled, IntoView, Key, Orientation, Role, View, for_each, node_ref};
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
-use std::hash::Hash;
+
 use std::rc::Rc;
 
+// xtask-allow(state-fields): Independent builder slots and application binding; the dock layout, drag and inline edit handles own interaction transitions.
 /// A docking workspace bound to an application-owned [`DockLayout`].
 ///
 /// Every edit (activation, drag-and-drop, container menu commands, rename,
@@ -38,10 +41,10 @@ use std::rc::Rc;
 ///
 /// The texts the dock shows itself read through `kivact::i18n::message` with
 /// the keys `dock.*`.
-pub struct Dock<K: Clone + Eq + Hash + 'static> {
+pub struct Dock<K: kivact::state::ItemKey> {
     root: Node,
     layout: Binding<DockLayout<K>>,
-    panel: Rc<dyn Fn(K) -> View>,
+    panel: kivact::view::ViewFn<K>,
     menu: MenuBuilder<K>,
     on_close: Option<Callback<K>>,
     on_edit: Option<Callback<EditPhase>>,
@@ -53,11 +56,11 @@ pub struct Dock<K: Clone + Eq + Hash + 'static> {
 /// `.style(style().height(600))`.
 #[track_caller]
 pub fn dock<K, V>(
-    layout: impl Into<Binding<DockLayout<K>>>,
+    layout: impl IntoBinding<DockLayout<K>>,
     panel: impl Fn(K) -> V + 'static,
 ) -> Dock<K>
 where
-    K: Clone + Eq + Hash + 'static,
+    K: kivact::state::ItemKey,
     V: IntoView,
 {
     Dock {
@@ -70,15 +73,17 @@ where
                     .min_height(0)
                     .overflow(Overflow::Hidden),
             ),
-        layout: layout.into(),
-        panel: Rc::new(move |key| panel(key).into_view()),
-        menu: Rc::new(|input| super::chrome::container_menu::<K, ()>(input, None)),
+        layout: layout.into_binding(),
+        panel: kivact::view::ViewFn::from(panel),
+        menu: kivact::view::ViewFn::from(|input| {
+            super::chrome::container_menu::<K, ()>(input, None)
+        }),
         on_close: None,
         on_edit: None,
     }
 }
 
-impl<K: Clone + Eq + Hash + 'static> Dock<K> {
+impl<K: kivact::state::ItemKey> Dock<K> {
     /// Observe splitter edits using the core splitter's Begin/Commit/Cancel
     /// contract. Tab activation, tab drags and other dock commands do not
     /// report these phases. Escape and disposal restore an active splitter edit.
@@ -95,7 +100,7 @@ impl<K: Clone + Eq + Hash + 'static> Dock<K> {
     ///
     /// `entries` receives the container; `choose` receives its active tab and
     /// the key of the chosen entry.
-    pub fn menu<C: Clone + Eq + Hash + 'static, R: HandlerResult>(
+    pub fn menu<C: kivact::state::ItemKey, R: HandlerResult>(
         mut self,
         entries: impl Fn(&DockTabs<K>) -> Vec<MenuEntry<C>> + 'static,
         choose: impl Fn((K, C)) -> R + 'static,
@@ -104,7 +109,9 @@ impl<K: Clone + Eq + Hash + 'static> Dock<K> {
             entries: Rc::new(entries),
             choose: callback(choose),
         };
-        self.menu = Rc::new(move |input| super::chrome::container_menu(input, Some(app.clone())));
+        self.menu = kivact::view::ViewFn::from(move |input| {
+            super::chrome::container_menu(input, Some(app.clone()))
+        });
         self
     }
     /// Observe each tab removed by a close command, after the layout write.
@@ -114,13 +121,14 @@ impl<K: Clone + Eq + Hash + 'static> Dock<K> {
     }
 }
 
-impl<K: Clone + Eq + Hash + 'static> NodeBuilder for Dock<K> {
+impl<K: kivact::state::ItemKey> NodeBuilder for Dock<K> {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
 }
 
-impl<K: Clone + Eq + Hash + 'static> IntoView for Dock<K> {
+impl<K: kivact::state::ItemKey> IntoView for Dock<K> {
     fn into_view(self) -> View {
         let Self {
             root,
@@ -142,7 +150,7 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for Dock<K> {
             on_edit,
             current,
             drag: signal(None),
-            rename: kivact::ui::use_inline_edit(signal(None)),
+            rename: kivact::interaction::use_inline_edit(signal(None)),
             root: reference.rect(),
             shared: var(Rc::new(Shared {
                 rects: RefCell::new(HashMap::new()),
@@ -156,7 +164,8 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for Dock<K> {
         let rows = for_each(
             items,
             |(key, _)| key.clone(),
-            move |key, entry| {
+            move |entry| {
+                let key = entry.get_untracked().0;
                 let item = memo(move || entry.with(|(_, item)| item.clone()));
                 match key {
                     ItemKey::Chrome(_) => super::chrome::container(cx, item),
@@ -172,45 +181,13 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for Dock<K> {
                     .position(Position::Absolute)
                     .left(pct(50) - 30)
                     .top(pct(50) - 8)
-                    .color(Color::Dim),
+                    .color(ColorName::Dim),
             );
-        let preview = memo(move || {
-            cx.drag.with(|drag| {
-                drag.as_ref()
-                    .and_then(|drag| drag.target.as_ref())
-                    .map(|target| {
-                        let edge = matches!(target.placement, DockPlacement::Edge(_));
-                        (target.preview, target.bar, edge)
-                    })
-            })
-        });
-        let overlay = node()
-            .hidden(move || preview.get().is_none())
-            .style(move || {
-                let t = &current_theme();
-                let p = t.get::<crate::tokens::Tokens>();
-                let Some((rect, bar, edge)) = preview.get() else {
-                    return style();
-                };
-                let tint = if edge { p.success } else { p.accent };
-                let base = style()
-                    .position(Position::Absolute)
-                    .left(rect.x)
-                    .top(rect.y)
-                    .width(rect.width)
-                    .height(rect.height)
-                    .z_index(10)
-                    .radius(4);
-                if bar {
-                    base.background(tint)
-                } else {
-                    base.background(tint.with_alpha(0.2)).border(2, tint)
-                }
-            });
+        let overlay = drop_preview(cx);
         root.node_ref(reference)
             .on_key_default(move |event| {
                 let maximized = current.with(|layout| layout.maximized.is_some());
-                if event.key == Key::Escape && maximized {
+                if event.key() == Key::Escape && maximized {
                     cx.edit(DockLayout::restore);
                     Handled::Yes
                 } else {
@@ -222,11 +199,11 @@ impl<K: Clone + Eq + Hash + 'static> IntoView for Dock<K> {
     }
 }
 
-fn content<K: Clone + Eq + Hash + 'static>(
+fn content<K: kivact::state::ItemKey>(
     cx: DockCx<K>,
     id: K,
     item: Value<Item<K>>,
-    panel: Rc<dyn Fn(K) -> View>,
+    panel: kivact::view::ViewFn<K>,
 ) -> View {
     let title = memo(move || match item.with(Clone::clone) {
         Item::Content { title, .. } => title,
@@ -254,7 +231,7 @@ fn content<K: Clone + Eq + Hash + 'static>(
                         .min_height(0)
                         .direction(Direction::Column),
                 )
-                .child(panel(id)),
+                .child(panel.call(id)),
         )
         .into_view()
 }
@@ -263,7 +240,7 @@ fn content<K: Clone + Eq + Hash + 'static>(
 ///
 /// Its value is the leading neighbor's share of the two neighbors' weights, in
 /// percent.
-fn divider<K: Clone + Eq + Hash + 'static>(
+fn divider<K: kivact::state::ItemKey>(
     cx: DockCx<K>,
     path: Vec<usize>,
     index: usize,
@@ -292,7 +269,7 @@ fn divider<K: Clone + Eq + Hash + 'static>(
     let pair_extent = move || {
         let extent = state.with(|divider| {
             let divider = divider.as_ref()?;
-            Some(f64::from(divider.extent(cx.root.get()?)))
+            Some(divider.extent(cx.root.get()?))
         });
         let (first, second) = pair().unwrap_or((1.0, 0.0));
         ((first + second) * extent.unwrap_or(800.0)).max(1.0)
@@ -302,24 +279,10 @@ fn divider<K: Clone + Eq + Hash + 'static>(
             first / (first + second).max(f64::EPSILON) * 100.0
         })
     });
-    let set_percent = {
-        let path = path.clone();
-        move |value: f64| {
-            let (Some((first, second)), Some(mut weights)) = (
-                pair(),
-                state.with_untracked(|divider| divider.as_ref().map(|d| d.weights.clone())),
-            ) else {
-                return;
-            };
-            let total = first + second;
-            weights[index] = value / 100.0 * total;
-            weights[index + 1] = total - weights[index];
-            cx.edit(|layout| layout.set_weights(&path, &weights));
-        }
-    };
+    let set_percent = weight_writer(cx, path.clone(), state, index, pair);
     // Each neighbor keeps MIN_EXTENT pixels, as a percentage of the pair.
     let range = move || {
-        let low = (f64::from(MIN_EXTENT) / pair_extent() * 100.0).min(50.0);
+        let low = (MIN_EXTENT / pair_extent() * 100.0).min(50.0);
         ScalarRange::new(low, 100.0 - low).expect("invariant: finite dock splitter bounds")
     };
     let cursor = match axis {
@@ -356,6 +319,65 @@ fn divider<K: Clone + Eq + Hash + 'static>(
         .hidden(move || !item.with(Item::shown))
         .style(move || state.with(|divider| divider.as_ref().map_or_else(style, Divider::style)))
         .style(style().cursor(cursor))
-        .style(move || crate::dock_style::splitter_look(&current_theme()))
+        .style(move || crate::dock_style::splitter_look(&use_theme().get()))
         .into_view()
+}
+
+/// Project the dock's current drop target into a noninteractive preview overlay.
+fn drop_preview<K: kivact::state::ItemKey>(cx: DockCx<K>) -> Node {
+    let preview = memo(move || {
+        cx.drag.with(|drag| {
+            drag.as_ref()
+                .and_then(|drag| drag.target.as_ref())
+                .map(|target| {
+                    let edge = matches!(target.placement, DockPlacement::Edge(_));
+                    (target.preview, target.bar, edge)
+                })
+        })
+    });
+    node()
+        .hidden(move || preview.get().is_none())
+        .style(move || {
+            let t = &use_theme().get();
+            let p = t.ext::<crate::tokens::Tokens>();
+            let Some((rect, bar, edge)) = preview.get() else {
+                return style();
+            };
+            let tint = if edge { p.success } else { p.accent };
+            let base = style()
+                .position(Position::Absolute)
+                .left(rect.x)
+                .top(rect.y)
+                .width(rect.width)
+                .height(rect.height)
+                .z_index(10)
+                .radius(4);
+            if bar {
+                base.background(tint)
+            } else {
+                base.background(tint.with_alpha(0.2)).border(2, tint)
+            }
+        })
+}
+
+/// Preserve the pair's total weight while writing one resized boundary.
+fn weight_writer<K: kivact::state::ItemKey>(
+    cx: DockCx<K>,
+    path: Rc<Vec<usize>>,
+    state: Value<Option<Divider>>,
+    index: usize,
+    pair: impl Fn() -> Option<(f64, f64)> + Copy + 'static,
+) -> impl Fn(f64) {
+    move |value: f64| {
+        let (Some((first, second)), Some(mut weights)) = (
+            pair(),
+            state.with_untracked(|divider| divider.as_ref().map(|d| d.weights.clone())),
+        ) else {
+            return;
+        };
+        let total = first + second;
+        weights[index] = value / 100.0 * total;
+        weights[index + 1] = total - weights[index];
+        cx.edit(|layout| layout.set_weights(&path, &weights));
+    }
 }

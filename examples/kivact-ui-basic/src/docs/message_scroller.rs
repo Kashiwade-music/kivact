@@ -1,4 +1,5 @@
 //! Role: Catalog page of Message Scroller: a long log and a conversation that grows.
+use kivact::ui::ButtonVariant;
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;
@@ -8,21 +9,21 @@ pub(crate) fn page() -> Page {
     Page {
         slug: "message-scroller",
         name: "Message Scroller",
-        description: "メッセージが増えても最後の位置を表示し続ける、スクロールする領域です。上へスクロールすると追従をやめ、末尾が見えない間は「Scroll to end」のボタンが出ます。追従の状態は束縛で読み書きできます。",
-        usage: "use kivact::prelude::*;\nuse kivact::style::current_theme;\nuse kivact_ui_basic as basic;",
+        description: "メッセージが増えても最後の位置を表示し続ける、スクロールする領域です。上へスクロールすると追従をやめ、末尾が見えない間は「Jump to latest」のボタンが出ます。追従の状態は束縛で読み書きできます。",
+        usage: "use kivact::prelude::*;\nuse kivact::ui::ButtonVariant;\nuse kivact::style::use_theme;\nuse kivact_ui_basic as basic;",
         source: include_str!("message_scroller.rs"),
         align: PreviewAlign::Center,
         examples: vec![
             Example::new(
                 "default",
                 "Default",
-                "message_scroller に内容を渡します。親に高さを持たせてください。最初から末尾が表示され、上へスクロールするとボタンが出ます。",
+                "chat_thread に内容を渡します。親に高さを持たせてください。最初から末尾が表示され、上へスクロールするとボタンが出ます。",
                 default,
             ),
             Example::new(
                 "follow",
                 "Conversation",
-                "末尾への追従はスクローラー自身の状態です。「Send」でメッセージを足すと、追従中は末尾が見え続け、上へ離れていると動かず、「Scroll to end」で末尾へ戻ると再び追従します。",
+                "末尾への追従はスクローラー自身の状態です。「Send」でメッセージを足すと、追従中は末尾が見え続け、上へ離れていると動かず、「Jump to latest」で末尾へ戻ると再び追従します。",
                 follow,
             ),
         ],
@@ -39,14 +40,14 @@ fn default() -> impl IntoView {
                     .width(360)
                     .height(200)
                     .padding(12)
-                    .border(1, basic::Color::Border),
+                    .border(1, basic::ColorName::Border),
             )
             .child(content)
     }
     let lines: Vec<Node> = (1..=30)
         .map(|n| text(format!("Message number {n}")))
         .collect();
-    frame(basic::message_scroller(column(lines)).style(style().height(pct(100))))
+    frame(kivact::ui::chat_thread(column(lines)).style(style().height(pct(100))))
 }
 // end example
 
@@ -60,23 +61,24 @@ fn follow() -> impl IntoView {
                     .width(360)
                     .height(200)
                     .padding(12)
-                    .border(1, basic::Color::Border),
+                    .border(1, basic::ColorName::Border),
             )
             .child(content)
     }
     /// One received message.
     fn reply(line: String) -> impl IntoView {
-        let bubble = basic::bubble(line).variant(basic::BubbleVariant::Secondary);
-        basic::message(bubble)
+        kivact::ui::chat_message("")
+            .content(line)
+            .variant(basic::BubbleVariant::Secondary)
     }
     let log = signal(vec!["Hello!".to_string(), "How can I help?".to_string()]);
     let send = move || log.update(|log| log.push(format!("Reply number {}", log.len() + 1)));
     column((
         frame(
-            basic::message_scroller(column(for_each(
+            kivact::ui::chat_thread(column(for_each(
                 log,
                 |line| line.clone(),
-                |_, line| reply(line.get()),
+                |line| reply(line.get()),
             )))
             .style(style().height(pct(100))),
         ),

@@ -8,19 +8,16 @@
 
 ## ページにアラートを出す
 
-`pop::alert(title)` は、タイトル、任意の説明、任意の操作を持つインラインの枠です。色は標準の `kivact::ui::Tone` で決まります。
+`kivact::ui::alert(title)` は、タイトル、任意の説明、任意の操作を持つインラインの枠です。色は標準の `kivact::interaction::Tone` で決まります。
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::ui::Tone;
+use kivact::interaction::Tone;
 use kivact_ui_pop as pop;
 
 fn payment_status(failed: Signal<bool>) -> impl IntoView {
     show(failed, || {
-        pop::alert("Payment failed")
-            .tone(Tone::Danger)
-            .description("Your card was declined. Update it and try again.")
-            .actions(|| button("Update card").variant(ButtonVariant::Outline))
+        {let tone=kivact::state::IntoValue::into_value(Tone::Danger); kivact::ui::alert("Payment failed").tone(tone).icon(kivact::view::icon(move || kivact::style::Icon::named(match tone.get() { kivact::interaction::Tone::Danger=>"alert-circle", kivact::interaction::Tone::Warning=>"alert-triangle",kivact::interaction::Tone::Success=>"circle-check",_=>"info-circle"}))).description("Your card was declined. Update it and try again.").actions(button("Update card").variant(kivact::ui::ButtonVariant::Outline))}
     })
 }
 # fn main() {}
@@ -35,7 +32,8 @@ fn payment_status(failed: Signal<bool>) -> impl IntoView {
 ```rust,no_run
 use kivact::prelude::*;
 use kivact::style::ThemeMode;
-use kivact::ui::{Toast, Tone, toast_region, toaster};
+use kivact::interaction::{Toast, Tone, toaster};
+use kivact::ui::{toast_region};
 use kivact_ui_pop as pop;
 use std::time::Duration;
 
@@ -67,11 +65,11 @@ fn main() -> kivact::Result<()> {
 - `.action(label, handler)` はトーストにボタン（たとえば「元に戻す」）を足します。押すとハンドラーが実行され、トーストが閉じます。
 - `.icon(|| view)` は色調のアイコンを置き換えます。たとえば `.icon(|| icon("gift"))` です。
 - `max_visible(n)` は同時に表示する数を制限します。toaster を作った場所で呼びます。
-- リージョンは画面ごとではなく、アプリの一部です。ルートに 1 つ置き、そこで `toaster()` を一度だけ呼び、push する側のコードには `Toaster`（`Copy`）を渡します。
+- リージョンは画面ごとではなく、アプリの一部です。ルートに 1 つ置き、そこで `toaster()` を一度だけ呼び、push する側のコードには `ToasterApi`（`Copy`）を渡します。
 
 ## 通知の履歴を持たせる
 
-`pop::notification_menu(trigger, items, mark_read)` は、トリガー（通常はベルのボタン）から通知の一覧をポップアップで出します。未読の項目があるあいだ、トリガーに点が出ます。
+`pop::notification_menu(trigger, items).on_mark_read(mark_read)` は、トリガー（通常はベルのボタン）から通知の一覧をポップアップで出します。未読の項目があるあいだ、トリガーに点が出ます。
 
 ```rust,no_run
 use kivact::prelude::*;
@@ -90,10 +88,9 @@ fn bell() -> impl IntoView {
         button("Notifications")
             .icon(icon("bell"))
             .hide_label(true)
-            .variant(ButtonVariant::Ghost),
+            .variant(kivact::ui::ButtonVariant::Ghost),
         items,
-        move || items.update(|list| list.iter_mut().for_each(|item| item.unread = false)),
-    )
+    ).on_mark_read(move || items.update(|list| list.iter_mut().for_each(|item| item.unread = false)))
 }
 # fn main() {}
 ```
@@ -110,13 +107,13 @@ use kivact_ui_pop as pop;
 
 fn orders(loading: Signal<bool>, count: Signal<usize>) -> impl IntoView {
     column((
-        show(loading, || pop::skeleton().rows(3)),
+        show(loading, || kivact::ui::skeleton().lines(3)),
         show(move || !loading.get() && count.get() == 0, || {
-            pop::empty_state("No orders yet")
+            kivact::ui::empty_state("No orders yet").icon(pop::empty_illustration())
                 .description("Orders appear here as soon as customers check out.")
-                .content(|| button("Create an order").variant(ButtonVariant::Primary))
+                .actions(button("Create an order").variant(kivact::ui::ButtonVariant::Primary))
         }),
-        show(loading, || row((pop::spinner(), text("Loading orders")))
+        show(loading, || row((kivact::ui::spinner(), text("Loading orders")))
             .style(style().gap(8))),
     ))
     .style(style().gap(16).padding(24))
@@ -124,9 +121,9 @@ fn orders(loading: Signal<bool>, count: Signal<usize>) -> impl IntoView {
 # fn main() {}
 ```
 
-- `pop::skeleton().rows(n)` は、文字が入る場所に仮のバーを描きます。
-- `pop::spinner()` と `pop::dots_loader()` は小さなアニメーション付きのローダーで、スクリーンリーダー向けに "Loading" という名前が付きます（メッセージ `pop.loader.label`）。
-- `pop::empty_state(title)` は、イラスト、説明、任意の操作を描きます。
+- `kivact::ui::skeleton().lines(n)` は、文字が入る場所に仮のバーを描きます。
+- `kivact::ui::spinner()` と `kivact::ui::spinner().variant(pop::SpinnerLook::Dots)` は小さなアニメーション付きのローダーで、スクリーンリーダー向けに "Loading" という名前が付きます（メッセージ `spinner.loading`）。
+- `kivact::ui::empty_state(title).icon(pop::empty_illustration())` は、イラスト、説明、任意の操作を描きます。
 
 読み込みの開始と完了（データが届いたら `loading` を更新するタスク）はコアの話題で、非同期処理のコアのガイドで扱います。
 
@@ -144,4 +141,27 @@ fn orders(loading: Signal<bool>, count: Signal<usize>) -> impl IntoView {
 
 - [業務画面で数値・状態・レコードを見せる](status-and-figures.md)
 - [日付と期間を選ばせる](dates-and-calendars.md): カレンダーの文言のキーについて。
-- トーストの API は `cargo doc -p kivact --open` の `kivact::ui::Toast`、`Toaster`、`toast_region`、Pop 全体のコンポーネントは `cargo doc -p kivact-ui-pop --open` で確認できます。
+- トーストの API は `cargo doc -p kivact --open` の `kivact::interaction::Toast`、`kivact::interaction::ToasterApi`、`kivact::ui::toast_region`、Pop 全体のコンポーネントは `cargo doc -p kivact-ui-pop --open` で確認できます。
+
+メッセージのログには標準の `chat_thread`、`chat_message(author)`、`chat_composer`、`typing_indicator` を使います。`PopBubble` はコンパクトな吹き出しです。`.sender(..)` は著者名とは独立した参加者の役割、`.content(..)` は任意のビュー、`.time(..)` はアプリが整形した時刻です。段落のグループは `ChatBubbleGroup::First`、`Middle`、`Last` を持つメッセージを並べ、最初にアバター、最後に時刻を置きます。共有のログが末尾への追従を持ち、履歴、ストリーミング、revision はアプリが持ちます。`pop::thread` は選択、未読数、プレビューを持つ会話の一覧行として残ります。標準の `code_block` は行番号、ハイライト、折り返し、コピーのフィードバックを提供します。
+
+```rust,no_run
+use kivact::prelude::*;
+use kivact_ui_pop as pop;
+fn conversation() -> impl IntoView {
+    let draft=signal(String::new());
+    let sent=signal(Vec::<String>::new());
+    kivact::ui::chat_thread((
+        kivact::ui::chat_message("Haruka").content(text("The report is ready."))
+            .time("09:12").variant(pop::PopBubble),
+        for_index(sent,|_,message|kivact::ui::chat_message("You")
+            .sender(kivact::ui::ChatSender::User)
+            .content(text(message)).variant(pop::PopBubble)),
+    )).composer(kivact::ui::chat_composer(draft)
+        .on_submit(move|message|sent.update(|sent|sent.push(message))))
+}
+fn source() -> impl IntoView {
+    kivact::ui::code_block("let answer = 42;".to_owned())
+        .title("Example").language("Rust").line_numbers(true).wrap(true)
+}
+```

@@ -17,8 +17,8 @@
 //! engine's `GridProps`, and only a grid container or a grid item carries
 //! `LayoutProps::grid` (an `Option<Box<..>>`), so other nodes pay nothing.
 
-use kivact_wire as w;
-use kivact_wire::Align;
+use kivact_types as w;
+use kivact_types::Align;
 
 use super::length::Length;
 
@@ -26,7 +26,7 @@ use super::length::Length;
 #[derive(Clone, Copy, Debug, PartialEq)]
 enum Breadth {
     Length(Length),
-    Fr(f32),
+    Fr(f64),
 }
 
 /// One entry of a grid's track list (CSS `grid-template-columns`): a
@@ -76,7 +76,7 @@ impl Track {
     /// `Track::minmax(0, Track::fr(1))` for tracks that share the space
     /// exactly).
     pub fn fr(n: impl Into<f64>) -> Track {
-        let f = Breadth::Fr(n.into() as f32);
+        let f = Breadth::Fr(n.into());
         Track(TrackKind::Size { min: f, max: f })
     }
 
@@ -257,6 +257,7 @@ pub enum GridAutoFlow {
     ColumnDense,
 }
 
+// xtask-allow(state-fields): Independent authored grid properties use None for unspecified cascading values.
 /// The grid props a style sets (boxed in `Style`: most styles set none).
 #[derive(Clone, Debug, PartialEq, Default)]
 pub(crate) struct GridStyle {
@@ -327,9 +328,9 @@ fn template(tracks: &Tracks) -> Vec<w::GridTrack> {
             }),
             TrackKind::Repeat(count, inner) => w::GridTrack::Repeat(
                 match count {
-                    Repeat::Times(n) => w::Repeat::Count(*n),
-                    Repeat::AutoFill => w::Repeat::AutoFill,
-                    Repeat::AutoFit => w::Repeat::AutoFit,
+                    Repeat::Times(n) => w::GridRepeat::Count(*n),
+                    Repeat::AutoFill => w::GridRepeat::AutoFill,
+                    Repeat::AutoFit => w::GridRepeat::AutoFit,
                 },
                 sizes(inner),
             ),

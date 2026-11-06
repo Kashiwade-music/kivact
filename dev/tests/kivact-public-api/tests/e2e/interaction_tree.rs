@@ -1,29 +1,26 @@
 //! Role: Tests for tree view interactions and navigation.
 //!
-//! The unstyled `Tree`: the flattened rows with their level and position,
+//! The unstyled `TreeApi`: the flattened rows with their level and position,
 //! the keys of the ARIA tree view, activation, the accessibility actions,
 //! the active row when a parent closes, the filter, single and multiple
 //! selection, odd data, typeahead and the roving tab stop.
 
 use crate::support::mount_with;
-use kivact::interaction::{Tree, TreeBranch};
+use kivact::interaction::TreeNode;
+use kivact::interaction::{TreeApi, TreeBranch};
 use kivact::prelude::*;
-use kivact::test::{Element, RenderOptions, Screen, WindowMode};
-use kivact::ui::TreeNode;
+use kivact::test::{Element, MirrorMode, RenderOptions, Screen};
 
 type FileNode = TreeNode<&'static str>;
 
 struct Handles {
     expanded: Signal<Vec<&'static str>>,
     selected: Signal<Vec<&'static str>>,
-    tree: Tree<&'static str>,
+    tree: TreeApi<&'static str>,
 }
 
 fn real_window() -> RenderOptions {
-    RenderOptions {
-        window: WindowMode::Real,
-        ..RenderOptions::from_env()
-    }
+    RenderOptions::from_env().mirror(MirrorMode::Required)
 }
 
 /// src (lib.rs, util (mod.rs, fmt.rs), main.rs), docs (guide.md), README.md
@@ -43,7 +40,7 @@ fn files(readme: Signal<String>) -> Vec<FileNode> {
 
 fn mount_tree(
     expanded: Vec<&'static str>,
-    configure: impl FnOnce(Tree<&'static str>) -> Tree<&'static str> + 'static,
+    configure: impl FnOnce(TreeApi<&'static str>) -> TreeApi<&'static str> + 'static,
 ) -> (Screen, Handles) {
     mount_nodes(None, expanded, configure)
 }
@@ -51,7 +48,7 @@ fn mount_tree(
 fn mount_nodes(
     custom: Option<Vec<FileNode>>,
     expanded: Vec<&'static str>,
-    configure: impl FnOnce(Tree<&'static str>) -> Tree<&'static str> + 'static,
+    configure: impl FnOnce(TreeApi<&'static str>) -> TreeApi<&'static str> + 'static,
 ) -> (Screen, Handles) {
     mount_nodes_kind(custom, expanded, false, configure)
 }
@@ -60,7 +57,7 @@ fn mount_nodes_kind(
     custom: Option<Vec<FileNode>>,
     expanded: Vec<&'static str>,
     single: bool,
-    configure: impl FnOnce(Tree<&'static str>) -> Tree<&'static str> + 'static,
+    configure: impl FnOnce(TreeApi<&'static str>) -> TreeApi<&'static str> + 'static,
 ) -> (Screen, Handles) {
     mount_with(real_window(), move || {
         let readme = signal("README.md".to_string());
@@ -68,12 +65,12 @@ fn mount_nodes_kind(
         let expanded = signal(expanded);
         let selected = signal(Vec::<&'static str>::new());
         let selection = if single {
-            kivact::interaction::ListSelection::Single(kivact::binding(
+            kivact::interaction::Selection::Single(kivact::state::binding(
                 memo(move || selected.with(|keys| keys.first().copied())),
                 move |key: Option<&'static str>| selected.set(key.into_iter().collect()),
             ))
         } else {
-            kivact::interaction::ListSelection::Multiple(selected.into())
+            selected.into_selection()
         };
 
         let activated = signal(Vec::<&'static str>::new());
@@ -88,7 +85,7 @@ fn mount_nodes_kind(
         let rows = for_each(
             tree.rows(),
             |row| (row.key, row.branch.has_children()),
-            move |_, row| {
+            move |row| {
                 let row = row.get_untracked();
                 let label = move || {
                     nodes.with(|nodes| {

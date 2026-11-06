@@ -2,17 +2,18 @@
 
 use super::state::{SidebarCollapsible, SidebarCx, SidebarSide, SidebarVariant, WIDTH, WIDTH_ICON};
 use crate::parts::pressable;
-use crate::slot::{Slot, slot};
-use crate::theme_access::tokens;
-use kivact::control::{Node, NodeBuilder, column, node, row, scroll};
-use kivact::draw::Rect;
-use kivact::draw::Shadow;
-use kivact::i18n::message;
-use kivact::primitive::NodeExt;
-use kivact::style::{Align, Color, Cursor, Direction, Position, pct, style};
-use kivact::view::{Handled, IntoValue, IntoView, Key, Role, callback, show};
-use kivact::{Binding, Value};
 
+use kivact::draw::Shadow;
+use kivact::geometry::Rect;
+use kivact::i18n::message;
+use kivact::view::{Node, NodeBuilder, column, node, row, scroll};
+
+use kivact::state::Value;
+use kivact::state::{IntoValue, callback};
+use kivact::style::{Align, Color, Cursor, Direction, Position, pct, style};
+use kivact::view::{Handled, IntoView, Key, Role, show};
+
+// xtask-allow(state-fields): Independent construction-time placement, framing, collapse behavior, view slots and rail visibility; the provider binding owns opening.
 /// The panel of a sidebar (sidebar.tsx). Created by [`sidebar`].
 ///
 /// The root is the box that takes the sidebar's width in the layout, so
@@ -22,9 +23,9 @@ pub struct Sidebar {
     pub(super) side: SidebarSide,
     pub(super) variant: SidebarVariant,
     pub(super) collapsible: SidebarCollapsible,
-    header: Option<Slot>,
-    content: Option<Slot>,
-    footer: Option<Slot>,
+    header: Option<kivact::view::View>,
+    content: Option<kivact::view::View>,
+    footer: Option<kivact::view::View>,
     rail: Value<bool>,
 }
 
@@ -65,20 +66,20 @@ impl Sidebar {
     }
 
     /// The top section: a column with 8 px of padding and gap.
-    pub fn header<V: IntoView>(mut self, header: impl FnOnce() -> V + 'static) -> Self {
-        self.header = Some(slot(header));
+    pub fn header(mut self, header: impl IntoView) -> Self {
+        self.header = Some(header.into_view());
         self
     }
 
     /// The scrolling middle section: groups, menus and separators.
-    pub fn content<V: IntoView>(mut self, content: impl FnOnce() -> V + 'static) -> Self {
-        self.content = Some(slot(content));
+    pub fn content(mut self, content: impl IntoView) -> Self {
+        self.content = Some(content.into_view());
         self
     }
 
     /// The bottom section, like the header.
-    pub fn footer<V: IntoView>(mut self, footer: impl FnOnce() -> V + 'static) -> Self {
-        self.footer = Some(slot(footer));
+    pub fn footer(mut self, footer: impl IntoView) -> Self {
+        self.footer = Some(footer.into_view());
         self
     }
 
@@ -92,15 +93,16 @@ impl Sidebar {
 }
 
 impl NodeBuilder for Sidebar {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
 }
 
 /// The room a sidebar takes in the layout for the actual state.
-fn width_of(cx: SidebarCx) -> f32 {
+fn width_of(cx: SidebarCx) -> f64 {
     let framed = matches!(cx.variant, SidebarVariant::Floating | SidebarVariant::Inset);
-    if cx.collapsible == SidebarCollapsible::None || cx.shown.get() {
+    if cx.collapsible == SidebarCollapsible::None || cx.open.get() {
         return WIDTH;
     }
     match cx.collapsible {
@@ -123,8 +125,8 @@ impl Sidebar {
             rail,
         } = self;
         let offcanvas_closed =
-            move || collapsible == SidebarCollapsible::Offcanvas && !cx.shown.get();
-        let section = |view: Option<Slot>| {
+            move || collapsible == SidebarCollapsible::Offcanvas && !cx.open.get();
+        let section = |view: Option<kivact::view::View>| {
             view.map(|view| column(view).style(style().shrink(0).gap(8).padding(8)))
         };
         let middle = content.map(|view| {
@@ -140,7 +142,7 @@ impl Sidebar {
         let inner = node()
             .hidden(offcanvas_closed)
             .style(move || {
-                let p = tokens();
+                let p = kivact::style::use_tokens::<crate::Tokens>();
                 let s = style()
                     .direction(Direction::Column)
                     .width(pct(100))
@@ -179,7 +181,7 @@ impl Sidebar {
                 .z_index(10)
                 .height(pct(100))
                 .min_height(0)
-                .color(tokens().sidebar_foreground)
+                .color(kivact::style::use_tokens::<crate::Tokens>().sidebar_foreground)
                 .width(width_of(cx));
             if framed { s.padding(8) } else { s }
         });
@@ -194,8 +196,8 @@ fn build_rail(cx: SidebarCx) -> Node {
     rail.name(message("basic.sidebar.toggle", "Toggle Sidebar"))
         .focusable(false)
         .style(move || {
-            let p = tokens();
-            let closed = !cx.shown.get();
+            let p = kivact::style::use_tokens::<crate::Tokens>();
+            let closed = !cx.open.get();
             // The 2 px line is local paint, which a state style cannot
             // draw, so it follows the rail's hover.
             let line = if state.get().hovered {
@@ -233,7 +235,7 @@ fn build_rail(cx: SidebarCx) -> Node {
 fn inset(cx: SidebarCx, page: kivact::view::View) -> Node {
     node()
         .style(move || {
-            let p = tokens();
+            let p = kivact::style::use_tokens::<crate::Tokens>();
             let s = style()
                 .position(Position::Relative)
                 .direction(Direction::Column)
@@ -247,7 +249,7 @@ fn inset(cx: SidebarCx, page: kivact::view::View) -> Node {
             if cx.variant == SidebarVariant::Inset {
                 // `m-2` without the margin on the sidebar's side, which returns
                 // while the sidebar is closed.
-                let apart = if cx.shown.get() { 0.0 } else { 8.0 };
+                let apart = if cx.open.get() { 0.0 } else { 8.0 };
                 let s = s.radius(0).margin_y(8).shadow(Shadow::new(
                     0,
                     1,
@@ -278,7 +280,7 @@ fn inset(cx: SidebarCx, page: kivact::view::View) -> Node {
 /// desktop layout.
 ///
 /// ```no_run
-/// use kivact::control::icon;
+/// use kivact::view::{icon};
 /// use kivact::prelude::*;
 /// use kivact_ui_basic as basic;
 ///
@@ -288,9 +290,9 @@ fn inset(cx: SidebarCx, page: kivact::view::View) -> Node {
 ///         open,
 ///         basic::sidebar()
 ///             .collapsible(basic::SidebarCollapsible::Icon)
-///             .header(|| text("Acme"))
-///             .content(|| {
-///                 basic::sidebar_group("Application").content(|| {
+///             .header(text("Acme"))
+///             .content({
+///                 basic::sidebar_group("Application").content({
 ///                     basic::sidebar_menu((
 ///                         basic::sidebar_menu_button("Home").icon(icon("house")).active(true),
 ///                         basic::sidebar_menu_button("Inbox").icon(icon("inbox")).badge("12"),
@@ -304,20 +306,19 @@ fn inset(cx: SidebarCx, page: kivact::view::View) -> Node {
 /// ```
 #[track_caller]
 pub fn sidebar_provider(
-    open: impl Into<Binding<bool>>,
+    open: impl kivact::state::IntoBinding<bool>,
     sidebar: Sidebar,
     page: impl IntoView,
-) -> Node {
-    let open = open.into();
+) -> impl kivact::view::Component {
+    let open = open.into_binding();
     let cx = SidebarCx {
         open,
-        shown: open.into_value(),
         side: sidebar.side,
         variant: sidebar.variant,
         collapsible: sidebar.collapsible,
     };
     let page = page.into_view();
-    let body = kivact::view::provide(cx, move || {
+    let body = kivact::state::provide(cx, move || {
         let panel = sidebar.build(cx);
         let page = inset(cx, page);
         match cx.side {
@@ -334,14 +335,14 @@ pub fn sidebar_provider(
                 .min_height(0)
                 .align_items(Align::Stretch);
             if cx.variant == SidebarVariant::Inset {
-                s.background(tokens().sidebar)
+                s.background(kivact::style::use_tokens::<crate::Tokens>().sidebar)
             } else {
                 s
             }
         })
         .on_key(move |event| {
-            let m = event.modifiers;
-            if (m.ctrl || m.meta) && !m.alt && !m.shift && event.key == Key::Char('b') {
+            let m = event.modifiers();
+            if (m.ctrl || m.meta) && !m.alt && !m.shift && event.key() == Key::Char('b') {
                 cx.toggle();
                 Handled::Yes
             } else {

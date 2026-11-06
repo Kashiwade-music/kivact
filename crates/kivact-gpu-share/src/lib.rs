@@ -1,4 +1,5 @@
 //! Role: Contracts and native import and export helpers for GPU texture sharing.
+
 //!
 //! Without features, this crate exposes shared identities and errors.
 //! Feature `export` enables native pools; `wgpu` includes `export` and

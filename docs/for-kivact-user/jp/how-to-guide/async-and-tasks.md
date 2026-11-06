@@ -13,11 +13,11 @@
 | 表示する結果のない future を動かす（タイマー、チャンネルの読み出し） | `spawn` |
 | ブロックする処理や CPU を使う重い処理を実行する | `blocking` |
 
-`resource`・`spawn`・`blocking` は `kivact::prelude` からも使えます。
+`resource`・`action`・`spawn`・`blocking`・`async_view` は `use kivact::prelude::*;` で使えます。
 
 ## データを読み込み、読み込み中・エラー・完了を表示する
 
-`resource(source, fetch)` は、開始時に一度 `fetch` を呼び、`source` が変わるたびにもう一度呼びます。`fetch` の結果は `AsyncState`（`Idle`・`Pending`・`Ready(値)`・`Failed(エラー)`）として扱われます。`dynamic` の中でこれを `match` し、状態ごとの表示を選びます。
+`resource(source, fetch)` は、開始時に一度 `fetch` を呼び、`source` が変わるたびにもう一度呼びます。`fetch` の結果は `AsyncState`（`Idle`・`Pending`・`Ready(値)`・`Failed(エラー)`）として扱われます。通常は `async_view(resource, render_ready)` に成功時の表示だけを渡せば、読み込み中と再試行できるエラー表示も付きます。状態ごとの画面を全面的に変えたいときは、`dynamic` の中で `AsyncState` を `match` します。
 
 ```rust,no_run
 use std::time::Duration;
@@ -42,14 +42,7 @@ fn app() -> impl IntoView {
             button("次へ").on_press(move || id.update(|n| *n += 1)),
         ))
         .style(style().gap(8)),
-        dynamic(
-            move || user.state(),
-            |state| match state {
-                AsyncState::Idle | AsyncState::Pending => text("読み込み中…"),
-                AsyncState::Failed(error) => text(format!("エラー: {error}")),
-                AsyncState::Ready(name) => text(name),
-            },
-        ),
+        async_view(user, |name: String| text(name)),
     ))
     .style(style().padding(24).gap(12))
 }
@@ -64,7 +57,7 @@ fn main() -> kivact::Result<()> {
 - **source にはプロパティが受け取れるものを渡せます。** `Signal`、`move || (query.get(), page.get())` のようなクロージャ、定数のどれでも構いません。`resource` が追跡するのは source だけです。`fetch` や future の中で読んだシグナルは依存関係に*なりません*。
 - **fetch 関数は `Result<T, UiError>` を返します。** `Err(UiError::msg("…"))` は文字列からエラーを作り、`?` は `std::error::Error` を実装する任意のエラー（`io::Error` やパースエラーなど）を `UiError` に変換します。リクエストごとにコピーが渡されるため、`T` も source の値も `Clone` でなければなりません。
 - **採用されるのは最新のリクエストだけです。** 処理中に source が変わると、古い future は破棄され、その結果は表示されません。遅れて届いた古い応答が新しい結果を上書きしないよう、自分で守る必要はありません。
-- **失敗は panic ではなくデータです。** fetch の失敗は `AsyncState::Failed` に入り、`error_boundary` には届きません。上の例のように自分で表示してください。
+- **失敗は panic ではなくデータです。** fetch の失敗は `AsyncState::Failed` に入り、`error_boundary` には届きません。`async_view` のエラー表示を使うか、`AsyncState` を読んで自分で表示します。
 
 Rust のメモ: `async move` は、キャプチャした値を future に move します。future はクロージャの呼び出しより長く生きるためです。シグナルは `Copy` なハンドルなので、move してもコストはかかりません。ほかの場所でも使い続ける `String` は、先に clone する必要があります。
 
@@ -114,7 +107,7 @@ use kivact::prelude::*;
 
 fn save_form() -> impl IntoView {
     let name = signal(String::new());
-    let save = action(ActionPolicy::Latest, |name: String| async move {
+    let save = action(ActionMode::Latest, |name: String| async move {
         kivact::task::sleep(Duration::from_millis(300)).await;
         if name.is_empty() {
             Err(UiError::msg("名前が空です"))
@@ -160,29 +153,32 @@ mod tests {
 }
 ```
 
-`action` の最初の引数は、前の処理が終わらないうちに新しい `run` が来たときの扱いです（後述）。`ActionPolicy::Latest` は古い処理を取り消します。クロージャは、入力を 1 つ取る形（`|name: String|`）か、入力を取らない形（`|| async { … }`、`save.run(())` で実行）です。Rust は引数の使われ方を見る前にその型を決められないので、入力のメソッドを呼ぶときは型を書いてください。
+`action` の最初の引数は、前の処理が終わらないうちに新しい `run` が来たときの扱いです（後述）。`ActionMode::Latest` は古い処理を取り消します。クロージャは、入力を 1 つ取る形（`|name: String|`）か、入力を取らない形（`|| async { … }`、`save.run(())` で実行）です。Rust は引数の使われ方を見る前にその型を決められないので、入力のメソッドを呼ぶときは型を書いてください。
 
 `resource` と `action` は、イベントハンドラの中ではなく、コンポーネントの組み立て中に作ります。ハンドラの中では、すでにあるハンドルに対して `run`・`refetch`・`cancel` を呼びます。
 
 ### 利用者が続けて 2 回クリックしたら
 
-`action` に渡す `ActionPolicy` は、前の処理が終わらないうちに新しい `run` が来たときの扱いを決めます。
+`action` に渡す `ActionMode` は、前の処理が終わらないうちに新しい `run` が来たときの扱いを決めます。
 
 | ポリシー | 動き |
 |---|---|
-| `ActionPolicy::Latest` | 新しい処理をすぐに始め、古い処理を取り消します。 |
-| `ActionPolicy::Queue` | 処理を 1 つずつ、`run` の順に実行します。 |
-| `ActionPolicy::QueueLatest` | `Queue` と同じですが、新しい `run` は待機中の処理を置き換えます。実行中の処理は中断されません。 |
+| `ActionMode::Latest` | 新しい処理をすぐに始め、古い処理を取り消します。 |
+| `ActionMode::Queue` | 処理を 1 つずつ、`run` の順に実行します。 |
+| `ActionMode::QueueLatest` | `Queue` と同じですが、新しい `run` は待機中の処理を置き換えます。実行中の処理は中断されません。 |
 
 ```rust,no_run
 # use kivact::prelude::*;
 fn drafts() -> impl IntoView {
     let draft = signal(String::new());
-    let save = action(ActionPolicy::QueueLatest, |text: String| async move {
+    let save = action(ActionMode::QueueLatest, |text: String| async move {
         kivact::task::sleep(std::time::Duration::from_millis(500)).await;
         Ok(text.len())
     });
-    save.on_done(|result| println!("saved: {result:?}"));
+    let save = save.on_complete(|outcome| match outcome {
+        kivact::task::ActionOutcome::Succeeded(count) => println!("saved: {count}"),
+        kivact::task::ActionOutcome::Failed(error) => eprintln!("save failed: {error}"),
+    });
     column((
         text_input("下書き", draft),
         // 10 回すばやく押すと、最初の保存と最後の保存が実行されます。
@@ -194,7 +190,7 @@ fn drafts() -> impl IntoView {
 
 ファイルへの書き込みなど、利用者が別の操作に移っても最後まで終えたい処理には、`Queue` か `QueueLatest` を使います。キューに積んだ action は、コンポーネントがなくなった後も最大 3 秒間は処理を続け、ウィンドウを閉じるときも同じ時間だけ完了を待ちます。
 
-`Action` のそのほかのメソッド: `retry()` は直近の実行の入力でやり直し、`cancel()` は実行中の処理を止め、`input()` は現在の状態が表す実行の入力を返し、`on_done(|result| …)` は実行が終わったとき（取り消されたときは除く）に呼ばれるハンドラを登録します。複数登録できます。
+`Action` のそのほかのメソッド: `retry()` は直近の実行の入力でやり直し、`cancel()` は実行中の処理を止め、`input()` は現在の状態が表す実行の入力を返し、`on_complete(|outcome| …)` は実行が終わったとき（取り消されたときは除く）に呼ばれるハンドラを登録します。複数登録できます。
 
 ## 表示する結果のない future を動かす
 

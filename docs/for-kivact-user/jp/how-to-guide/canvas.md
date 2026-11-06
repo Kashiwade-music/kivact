@@ -9,8 +9,8 @@
 `canvas` は `Draw` と、そのノードの現在の `Size` を受け取るクロージャを取ります。座標は論理ピクセルで、キャンバス自身の左上を原点にします。
 
 ```rust,no_run
-use kivact::control::canvas;
-use kivact::draw::{Point, Rect};
+use kivact::view::canvas;
+use kivact::geometry::{Point, Rect};
 use kivact::prelude::*;
 
 fn badge() -> impl IntoView {
@@ -44,8 +44,9 @@ fn main() -> kivact::Result<()> {
 `Path` は、移動と線分をつないだものです。`fill_path` は塗りつぶし、`stroke_path` は輪郭線を描きます。
 
 ```rust,no_run
-use kivact::control::canvas;
-use kivact::draw::{LineCap, LineJoin, Path, Point, Stroke};
+use kivact::view::canvas;
+use kivact::draw::{LineCap, LineJoin, Path, Stroke};
+use kivact::geometry::{Point};
 use kivact::prelude::*;
 
 fn wave() -> impl IntoView {
@@ -75,15 +76,18 @@ fn wave() -> impl IntoView {
 # fn main() -> kivact::Result<()> { App::new("Paths").run(wave) }
 ```
 
-`Path` には `quad_to`・`arc`・`ellipse`・`arc_to`（SVG の `A`）・`rect`・`rounded_rect` もあります。角度は度で、0 は右向きです。パスは既定では非ゼロ規則で塗られます。穴を空けたいときは `path.with_fill_rule(FillRule::EvenOdd)` を使います。単純な図形なら、パスを組むより `draw.circle` や `draw.fill_shape(rect, &Shape, paint)` のほうが簡潔です。
+`Path` には `quad_to`・`arc`・`ellipse`・`svg_arc_to`（SVG の `A`）・`rect`・`rounded_rect` もあります。角度は度で、0 は右向きです。パスは既定では非ゼロ規則で塗られます。穴を空けたいときは `path.with_fill_rule(FillRule::EvenOdd)` を使います。単純な図形なら、パスを組むより `draw.circle` や `draw.fill_shape(rect, &Shape, paint)` のほうが簡潔です。
+
+`arc_to(p1, p2, radius)` は canvas の角を丸め、`Path::parse_svg(data)?` は SVG のパスデータを読み込みます。`contains(point, rule)` は塗り、`stroke_contains(point, &stroke)` は線の内部を判定します。
 
 ## グラデーションで塗る
 
 グラデーションには 2 種類あり、色の置き方が違います。
 
 ```rust,no_run
-use kivact::control::canvas;
-use kivact::draw::{CanvasGradient, Point, Rect, linear_gradient};
+use kivact::view::canvas;
+use kivact::draw::{CanvasGradient, linear_gradient};
+use kivact::geometry::{Point, Rect};
 use kivact::prelude::*;
 
 fn gradients() -> impl IntoView {
@@ -110,21 +114,22 @@ fn gradients() -> impl IntoView {
 
 ## テキストを描き、測る
 
-`draw.text(text, position, style)` は 1 行を描きます。`TextStyle` の `align` と `baseline` で基準点を変えない限り、位置はテキストの左上です。ラベルの周りの大きさを決めるには、描画と同じ組版で先に測ります。
+`draw.text(text, position, style)` は 1 行を描きます。`TextFormat` の `align` と `baseline` で基準点を変えない限り、位置はテキストの左上です。ラベルの周りの大きさを決めるには、描画と同じ組版で先に測ります。
 
 ```rust,no_run
-use kivact::control::canvas;
-use kivact::draw::{Draw, Point, Rect, TextBaseline, TextStyle};
+use kivact::view::canvas;
+use kivact::draw::{Draw, TextBaseline, TextFormat};
+use kivact::geometry::{Point, Rect};
 use kivact::prelude::*;
 use kivact::style::TextAlign;
 
 /// ラベルの幅に左右 12 px の余白を足した幅のピル。
 fn pill(draw: &mut Draw, label: &str, at: Point) {
-    let style = TextStyle {
+    let style = TextFormat {
         size: 12.0,
         weight: 600,
         color: rgb(0xffffff),
-        ..TextStyle::default()
+        ..TextFormat::default()
     };
     let metrics = draw.measure_text(label, &style);
     let rect = Rect::new(at.x, at.y, metrics.size.width + 12.0, metrics.size.height + 8.0);
@@ -138,10 +143,10 @@ fn labels() -> impl IntoView {
         pill(draw, "進行中", Point::new(12.0, 44.0));
 
         // 点を中心に置くときは、測らずに基準点を使います。
-        let centered = TextStyle {
+        let centered = TextFormat {
             align: TextAlign::Center,
             baseline: TextBaseline::Middle,
-            ..TextStyle::default()
+            ..TextFormat::default()
         };
         draw.text("中央", Point::new(size.width / 2.0, 100.0), centered);
     })
@@ -151,15 +156,18 @@ fn labels() -> impl IntoView {
 # fn main() -> kivact::Result<()> { App::new("Labels").run(labels) }
 ```
 
-`TextMetrics` は `size`（`size.width`・`size.height`）と、`baseline` のオフセットを論理ピクセルで返します。折り返すテキストは `draw.layout_paragraph(text, &style, Some(max_width))` で組み、`draw.paragraph(&paragraph, origin, color)` で描きます。`TextStyle` の項目は要素のテキストと同じ語彙（`family`・`weight`・`italic`・`letter_spacing`・`decoration` など）です。
+`TextMetrics` は `size`（`size.width`・`size.height`）と、`baseline` のオフセットを論理ピクセルで返します。折り返すテキストは `draw.layout_paragraph(text, &style, Some(max_width))` で組み、`draw.paragraph(&paragraph, origin, color)` で描きます。`TextFormat` の項目は要素のテキストと同じ語彙（`family`・`weight`・`italic`・`letter_spacing`・`decoration` など）です。
+
+整形済みの文字を描く場合、`ShapedTextSnapshot` と `GlyphRunSnapshot` は読み取り用の描画データです。独自のテキスト編集部品で支援技術へ文字の run を渡す `SemanticsTextRuns` は、所有する `SemanticsTextRun` の `Vec` または iterator から作れます。内部の共有ポインターを組み立てる必要はありません。`iter()`、`get()`、添字は run の参照を返すため、読み取るだけなら run 全体の clone も不要です。
 
 ## グループを変形・クリップ・半透明にする
 
 `draw.layer(Layer, |draw| { … })` は、クロージャの中で描いたもの全体に、変形・クリップ・不透明度・合成モード・フィルター・マスク・影を適用します。グループはクロージャが戻ると終わります。レイヤーの変形は、テキスト・画像・クリップにも効きます。
 
 ```rust,no_run
-# use kivact::control::canvas;
-# use kivact::draw::{Layer, Point, Rect, Transform};
+# use kivact::view::canvas;
+# use kivact::draw::{Layer, Transform};
+use kivact::geometry::{Point, Rect};
 # use kivact::prelude::*;
 fn spinner() -> impl IntoView {
     canvas(|draw, size| {
@@ -181,16 +189,17 @@ fn spinner() -> impl IntoView {
 クロージャの中でシグナルから読んだものは、すべて依存関係になります。シグナルが変わると、このキャンバスだけが再描画されます。「汚れた」フラグを立てたり、再描画の関数を呼んだりする必要はありません。
 
 ```rust,no_run
-use kivact::control::canvas;
-use kivact::draw::{LineJoin, Path, Point, Stroke};
+use kivact::view::canvas;
+use kivact::draw::{LineJoin, Path, Stroke};
+use kivact::geometry::{Point};
 use kivact::prelude::*;
 
-fn sparkline(values: Signal<Vec<f32>>) -> impl IntoView {
+fn sparkline(values: Signal<Vec<f64>>) -> impl IntoView {
     canvas(move |draw, size| {
         let values = values.get(); // 読むことでこのキャンバスが購読します
-        let step = size.width / values.len().saturating_sub(1).max(1) as f32;
+        let step = size.width / values.len().saturating_sub(1).max(1) as f64;
         let path = values.iter().enumerate().fold(Path::new(), |path, (i, v)| {
-            let point = Point::new(i as f32 * step, size.height * (1.0 - v.clamp(0.0, 1.0)));
+            let point = Point::new(i as f64 * step, size.height * (1.0 - v.clamp(0.0, 1.0)));
             if i == 0 { path.move_to(point) } else { path.line_to(point) }
         });
         draw.stroke_path(&path, &Stroke::new(2).join(LineJoin::Round), ColorToken::Accent);
@@ -200,11 +209,11 @@ fn sparkline(values: Signal<Vec<f32>>) -> impl IntoView {
 }
 
 fn app() -> impl IntoView {
-    let values = signal(vec![0.5_f32]);
+    let values = signal(vec![0.5_f64]);
     column((
         sparkline(values),
         button("点を追加").on_press(move || {
-            values.update(|v| v.push(((v.len() as f32) * 1.7).sin() * 0.5 + 0.5));
+            values.update(|v| v.push(((v.len() as f64) * 1.7).sin() * 0.5 + 0.5));
         }),
     ))
     .style(style().gap(8).padding(12))
@@ -223,14 +232,15 @@ fn main() -> kivact::Result<()> {
 
 キャンバスは 1 つのノードです。描いたピクセルには、*リージョン*として宣言するまで、ポインター・キーボード・スクリーンリーダーにとっての意味がありません。リージョンは、形（当たり判定）、アクセシブルなロールと名前、ハンドラを持ちます。手順は 2 つです。
 
-1. セットアップで、キャンバスに `.region(id, part)` を付けて振る舞いを宣言します。part は `kivact::primitive::part` で作り、通常の要素に part を付けるのと同じように、ロール・名前・状態・ハンドラを持たせます。
+1. セットアップで、キャンバスに `.region(id, part)` を付けて振る舞いを宣言します。part は `kivact::custom::Part::new(state, apply)` で作ります。通常の要素と同じように、変換のクロージャーで対象ノードのロール・名前・ハンドラを設定します。
 2. 描画のクロージャで、同じ `RegionId` に `draw.region(id, rect)` で形を与えます。
 
 ```rust,test_harness
-use kivact::control::canvas;
-use kivact::draw::{Rect, RegionId};
+use kivact::view::canvas;
+use kivact::draw::{RegionId};
+use kivact::geometry::{Rect};
 use kivact::prelude::*;
-use kivact::primitive::part;
+use kivact::custom::Part;
 
 const SWATCHES: [(&str, u32); 3] = [("赤", 0xe5484d), ("緑", 0x30a46c), ("青", 0x3e63dd)];
 
@@ -239,7 +249,7 @@ fn swatches() -> impl IntoView {
 
     let mut board = canvas(move |draw, size| {
         for (i, (_, color)) in SWATCHES.iter().enumerate() {
-            let rect = Rect::new(i as f32 * 56.0, 0.0, 48.0, size.height);
+            let rect = Rect::new(i as f64 * 56.0, 0.0, 48.0, size.height);
             draw.fill_rect(rect, rgb(*color));
             if chosen.get() == i {
                 draw.stroke_rect(rect, 3, rgb(0xffffff));
@@ -250,11 +260,11 @@ fn swatches() -> impl IntoView {
     for (i, (name, _)) in SWATCHES.iter().enumerate() {
         board = board.region(
             RegionId(i as u64),
-            part(|state| state)
+            Part::new(().into_value(), move |host| host
                 .role(Role::Button)
                 .name(*name)
                 .selected(move || chosen.get() == i)
-                .on_press(move || chosen.set(i)),
+                .on_press(move || chosen.set(i))),
         );
     }
 
@@ -297,13 +307,13 @@ mod tests {
 
 ## 自前のレンダラーのフレームを表示する
 
-アプリが自分で絵を作る場合（エミュレーター、3D ビューポート、動画デコーダーなど）は、ワーカースレッドで描画し、各フレームを `Pixels`（RGBA8、ストレートアルファ）として送り、キャンバスで最新のものを描きます。フレームはチャンネルが UI スレッドへ運ぶので、ポーリングは要りません。
+アプリが自分で絵を作る場合（エミュレーター、3D ビューポート、動画デコーダーなど）は、ワーカースレッドで描画し、各フレームを `Pixels`（RGBA8、ストレートアルファ）として送り、キャンバスで最新のものを描きます。フレームはチャンネルが UI スレッドへ運ぶので、ポーリングは要りません。`Pixels::new(width, height, rgba)` には所有する `Vec<u8>` をそのまま渡せます。バッファ長は `width × height × 4` バイトです。
 
 ```rust,no_run
-use std::sync::Arc;
 use std::time::Duration;
-use kivact::control::canvas;
-use kivact::draw::{ImageOptions, Pixels, Rect};
+use kivact::view::canvas;
+use kivact::draw::{ImageOptions, Pixels};
+use kivact::geometry::{Rect};
 use kivact::prelude::*;
 
 fn renderer_preview() -> impl IntoView {
@@ -311,16 +321,15 @@ fn renderer_preview() -> impl IntoView {
     let (tx, rx) = async_channel::bounded(2);
 
     // フレームの大きさは物理ピクセル: 論理サイズに表示倍率を掛けます。
-    let scale = kivact::platform::scale_factor();
+    let scale = kivact::platform::scale_factor().get();
     let width = (320.0 * scale).ceil().max(1.0) as u32;
     let height = (180.0 * scale).ceil().max(1.0) as u32;
 
     std::thread::spawn(move || {
         for red in (0..=255u8).cycle() {
             // この単色を、自前のレンダラーの出力に置き換えます。
-            let rgba: Arc<[u8]> = [red, 64, 128, 255]
-                .repeat(width as usize * height as usize)
-                .into();
+            let rgba = [red, 64, 128, 255]
+                .repeat(width as usize * height as usize);
             if tx.send_blocking(Pixels::new(width, height, rgba)).is_err() {
                 break; // ウィンドウが閉じられました
             }
@@ -359,7 +368,7 @@ fn main() -> kivact::Result<()> {
 - ウィンドウやコンポーネントがなくなると、受信タスクが破棄されてチャンネルが閉じ、`send_blocking` が `Err` を返します。ワーカーのループはそこで終わらせてください。
 - 遅い UI でフレームがたまらないよう、チャンネルは小さくし、上のように古いフレームを捨てます。
 - ウィンドウの大きさや表示倍率が変わりうる場合は、新しい大きさをワーカーに伝えて描き直させます。`ImageOptions` では、切り抜き（`source`）、不透明度（`opacity`）、ドット絵向けの最近傍補間（`pixelated`）を指定できます。
-- 内容が変わらないフレームは、バッファをコピーし直さず同じ `Arc` を使い回します。
+- 内容が変わらないフレームは、バッファをコピーし直さず同じ `Pixels` を clone して使い回します。内部の `AssetBytes` は不変バッファの同一性を保ち、clone で画素全体を複製しません。
 - GPU からの読み戻しが遅すぎる場合は、[キャンバスで GPU テクスチャを共有する](gpu-texture-sharing.md) を参照してください。
 
 ## ウィンドウなしで画像を書き出す
@@ -367,7 +376,8 @@ fn main() -> kivact::Result<()> {
 `Offscreen` は、同じ `Draw` の語彙で、指定した大きさの RGBA 画像に描画します。`App` もウィンドウも要らないので、作品の書き出し、サムネイル、連番フレーム、コマンドラインツールで使えます。絵を 1 つの関数として書けば、画面表示と書き出しの両方で使えます。
 
 ```rust
-use kivact::draw::{Draw, Offscreen, Point, Rect, Size};
+use kivact::draw::{Draw, Offscreen};
+use kivact::geometry::{Point, Rect, Size};
 use kivact::prelude::*;
 
 fn artwork(draw: &mut Draw, size: Size) {
@@ -397,7 +407,8 @@ fn main() -> kivact::Result<()> {
 - `Offscreen` は、作ったスレッドから出られません。バックグラウンドで書き出すには、`blocking` の中で作ります。
 
 ```rust,no_run
-use kivact::draw::{Draw, Offscreen, Rect, Size};
+use kivact::draw::{Draw, Offscreen};
+use kivact::geometry::{Rect, Size};
 use kivact::prelude::*;
 
 fn artwork(draw: &mut Draw, size: Size) {
@@ -405,7 +416,7 @@ fn artwork(draw: &mut Draw, size: Size) {
 }
 
 fn exporter() -> impl IntoView {
-    let export = action(ActionPolicy::Latest, |(width, height): (u32, u32)| async move {
+    let export = action(ActionMode::Latest, |(width, height): (u32, u32)| async move {
         let image = blocking(move || Offscreen::new().render(width, height, artwork)).await?;
         // ここで `image` をディスクに書き出します（UI スレッドの外のままです）。
         Ok(image.rgba.len())
@@ -423,10 +434,23 @@ fn exporter() -> impl IntoView {
 # fn main() -> kivact::Result<()> { App::new("Export").run(exporter) }
 ```
 
+## マウント済みの node を画像にする
+
+`NodeRef` を `.node_ref(target)` で結び付け、非同期の action や task から
+`target.snapshot()` を await します。背景と子孫を含む現在の scene を、node の
+layout の大きさに切り取った、所有された straight-alpha RGBA8 の `Pixels` が返ります。
+論理画素一つが出力画素一つになり、小数の大きさは切り上げます。ウィンドウが GPU を
+使っていても CPU の rasterizer で描画します。通常の `Pixels` は含まれます。
+GPU 共有の frame には CPU の画素の表現がないため、呼び出し位置を持つ
+`ErrorKind::Unsupported` のエラーになります。未接続または取り外された target も
+エラーです。future は poll された時点の接続先を使い、owner が破棄されていれば失敗します。
+
 ## 関連項目
 
 - [値と要素をアニメーションさせる](animation.md): フレームループでキャンバスを動かします。
 - [コンポーネントから非同期処理を実行する](async-and-tasks.md): チャンネル、`spawn`、`blocking`。
 - [キャンバスで GPU テクスチャを共有する](gpu-texture-sharing.md): 読み戻しなしで GPU レンダラーのフレームを表示します。
 - [アプリをテストする](testing.md): ロールでリージョンを探し、スクリーンショットを比べます。
-- API リファレンス: `cargo doc -p kivact --open` を実行し、`kivact::draw` と `kivact::control::canvas` を開いてください。
+- API リファレンス: `cargo doc -p kivact --open` を実行し、`kivact::draw` と `kivact::view::canvas` を開いてください。
+
+pointer の handler 内で `event.capture()` を呼ぶと、その pointer が node の外へ動いても後続のイベントを受け取れます。`event.release_capture()` は後続のイベントを通常の当たり判定に戻します。明示の capture はボタンを押さない hover 中にも開始でき、最後のボタンの解放、キャンセル、node の削除で終了します。押している間の暗黙の capture は既定のままです。

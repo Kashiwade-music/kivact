@@ -1,9 +1,8 @@
 //! Role: Color wheel model inputs, accessible targets and edit cancellation.
-use crate::support::clean;
-use kivact::draw::Point;
+use kivact::geometry::Point;
 use kivact::prelude::*;
 use kivact::style::Color;
-use kivact::ui::EditPhase::{Begin, Commit};
+use kivact::view::EditPhase::{Begin, Commit};
 use kivact::view::{A11yAction, Modifiers};
 use kivact_ui_creative as ui;
 use std::cell::RefCell;
@@ -14,7 +13,7 @@ fn color_wheel_regions_keys_actions_and_gray_hue_preservation() {
     let log = Rc::new(RefCell::new(Vec::new()));
     let seen = log.clone();
     let (screen, color) = kivact::test::render_with_handle(crate::support::options(), move || {
-        let color = signal(Color::from_rgba_f32(0.5, 0.5, 0.5, 0.4));
+        let color = signal(Color::from_rgba_f64(0.5, 0.5, 0.5, 0.4));
         (
             color,
             ui::color_wheel(color, signal(ui::ColorModel::Rgb))
@@ -64,7 +63,7 @@ fn color_wheel_regions_keys_actions_and_gray_hue_preservation() {
     sv.a11y_set_value("NaN,0.5");
     hue.a11y_set_value("inf");
     assert!(log.borrow().is_empty());
-    clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 
 #[test]
@@ -75,8 +74,8 @@ fn hsv_picker_value_and_alpha_are_independent() {
             color,
             ui::color_wheel(color, signal(ui::ColorModel::Rgb))
                 .wheel_size(200.0)
-                .style(style().width(248))
-                .test_id("picker"),
+                .with_node(move |node| node.style(style().width(248)))
+                .with_node(move |node| node.test_id("picker")),
         )
     });
     let area = screen.get_by_role(Role::Slider, "Saturation and value");
@@ -88,5 +87,5 @@ fn hsv_picker_value_and_alpha_are_independent() {
     let r = alpha.rect().expect("alpha strip");
     alpha.drag(r.center(), Point::new(r.x + r.width * 0.25, r.center().y));
     assert!((color.get_untracked().components()[3] - 0.25).abs() < 0.01);
-    clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }

@@ -5,43 +5,43 @@
 //! `.attach(trigger)` takes the caller's trigger and `.attach_context(target)`
 //! the right-click target, both `impl NodeBuilder + IntoView`. A trigger that
 //! has its own role (a menu bar's `MenuItem`, read with
-//! `NodeExt::accessible_role`) keeps it after attaching; one without becomes a
+//! `Node::accessible_role`) keeps it after attaching; one without becomes a
 //! `Button`. The root surface's side and alignment are `.placement` and
-//! `.align`, `.at_least_trigger_width` makes it as wide as the trigger, and
+//! `.align`, `.at_least_anchor_width` makes it as wide as the trigger, and
 //! submenus are drawn with the `sub_surface` recipe. An
 //! [`inset`](kivact_interaction::MenuEntry::inset) item or heading puts the
 //! `inset` recipe's box before its content so it lines up with the check and
 //! radio items. The leading check box and the trailing submenu box are
 //! separate slots of the recipe table, and both get the item's actual
 //! `MenuItemState`; the meaning of a mark is never switched by faking the
-//! state. `Menu::behavior` returns the headless menu, which a menu bar uses
-//! to move the open menu to the next trigger.
+//! state. A menu bar uses the headless menu parts to coordinate its triggers.
 use super::layer::with_recipe_style;
 use super::variants::{Variant, Variants};
-use kivact_core::Value;
-use kivact_core::control::{Node, NodeBuilder, column, node, scroll, text};
-use kivact_core::primitive::NodeExt;
+use kivact_core::state::Value;
+use kivact_core::state::{IntoText, IntoValue};
 use kivact_core::view::HandlerResult;
 use kivact_core::view::{
-    IntoText, IntoValue, IntoView, NodeRef, OverlayAlign, Placement, PopupKind, View, for_each,
-    overlay, overlay_at,
+    IntoView, NodeRef, OverlayAlign, Placement, View, for_each, overlay, overlay_at,
 };
+use kivact_core::view::{Node, NodeBuilder, column, node, scroll, text};
 use kivact_interaction::{
     MenuApi as Behavior, MenuCheck, MenuEntry, MenuItemKind, MenuItemState, MenuOrigin, MenuRow,
 };
-use std::hash::Hash;
-use std::rc::Rc;
 
 /// What an item row shows, from its entry and its state.
-type ItemContent<K> = Rc<dyn Fn(Value<MenuEntry<K>>, Value<MenuItemState>) -> View>;
+type ItemContent<K> = kivact_core::view::ViewFn<(Value<MenuEntry<K>>, Value<MenuItemState>)>;
 
-pub struct Menu<K: Clone + Eq + Hash + 'static> {
+pub struct Menu<K: kivact_core::state::ItemKey> {
     label: Value<String>,
     behavior: Behavior<K>,
-    offset: Option<f32>,
+    // xtask-allow(state-fields): Independent builder placement option, consumed when rendering.
+    offset: Option<f64>,
     placement: Placement,
+    // xtask-allow(state-fields): Independent builder alignment option, consumed when rendering.
     align: Option<OverlayAlign>,
-    at_least_trigger_width: bool,
+    // xtask-allow(state-fields): Independent immutable layout option.
+    at_least_anchor_width: bool,
+    // xtask-allow(state-fields): Optional immutable caller renderer, not interaction state.
     item: Option<ItemContent<K>>,
     variants: Variants,
 }
@@ -58,23 +58,27 @@ pub struct Menu<K: Clone + Eq + Hash + 'static> {
 /// inset box before its content. [`item`](Menu::item) replaces what an item
 /// row shows.
 #[track_caller]
-pub fn menu<K: Clone + Eq + Hash + 'static, R: HandlerResult>(
+pub fn menu<K: kivact_core::state::ItemKey>(
     label: impl IntoText,
     entries: impl IntoValue<Vec<MenuEntry<K>>>,
-    choose: impl Fn(K) -> R + 'static,
 ) -> Menu<K> {
     Menu {
         label: label.into_text_value(),
-        behavior: kivact_interaction::use_menu(entries, choose),
+        behavior: kivact_interaction::use_menu(entries),
         offset: None,
         placement: Placement::Below,
         align: None,
-        at_least_trigger_width: false,
+        at_least_anchor_width: false,
         item: None,
         variants: Variants::default(),
     }
 }
-impl<K: Clone + Eq + Hash + 'static> Menu<K> {
+impl<K: kivact_core::state::ItemKey> Menu<K> {
+    /// Run a handler when an item is activated.
+    pub fn on_activate<R: HandlerResult>(mut self, choose: impl Fn(K) -> R + 'static) -> Self {
+        self.behavior = self.behavior.on_activate(choose);
+        self
+    }
     /// Give the component a [`Variant`]: a look beyond the meanings its
     /// state carries, which every recipe of the component reads with
     /// [`Look::variant`](crate::Look::variant). A later value of the same
@@ -90,11 +94,12 @@ impl<K: Clone + Eq + Hash + 'static> Menu<K> {
         self
     }
 }
-impl<K: Clone + Eq + Hash + 'static> Menu<K> {
+impl<K: kivact_core::state::ItemKey> Menu<K> {
     /// Set the root surface's distance from its trigger (default 4 logical
     /// pixels; a context menu opens right at the pointer or its target, 0);
     /// submenus stay adjacent.
-    pub fn offset(mut self, offset: f32) -> Self {
+    pub fn offset(mut self, offset: impl Into<f64>) -> Self {
+        let offset = offset.into();
         self.offset = Some(offset);
         self
     }
@@ -114,15 +119,9 @@ impl<K: Clone + Eq + Hash + 'static> Menu<K> {
     /// Make the root surface at least as wide as its trigger (the overlay's
     /// [`at_least_anchor_width`](kivact_core::view::Overlay::at_least_anchor_width));
     /// a context menu ignores it. A constant: it is the shape of the layout.
-    pub fn at_least_trigger_width(mut self, on: bool) -> Self {
-        self.at_least_trigger_width = on;
+    pub fn at_least_anchor_width(mut self) -> Self {
+        self.at_least_anchor_width = true;
         self
-    }
-    /// The headless menu this themed menu draws, to open, close or read it
-    /// from code: a menu bar moves the open menu between its triggers with
-    /// it.
-    pub fn behavior(&self) -> Behavior<K> {
-        self.behavior
     }
     /// What each item row shows, in every level, built once per row from
     /// its entry and its state (both reactive). The row itself, its keys,
@@ -134,7 +133,7 @@ impl<K: Clone + Eq + Hash + 'static> Menu<K> {
     ///
     /// fn actions() -> impl IntoView {
     ///     let entries = vec![MenuEntry::item("new", "New"), MenuEntry::item("open", "Open")];
-    ///     menu("File", entries, |_key| {}).item(|entry, state| {
+    ///     menu("File", entries).on_activate(|_key| {}).item(|entry, state| {
     ///         text(move || {
     ///             let mark = if state.get().input.focused { "> " } else { "" };
     ///             format!("{mark}{}", entry.get().label())
@@ -146,8 +145,8 @@ impl<K: Clone + Eq + Hash + 'static> Menu<K> {
         mut self,
         content: impl Fn(Value<MenuEntry<K>>, Value<MenuItemState>) -> V + 'static,
     ) -> Self {
-        self.item = Some(Rc::new(move |entry, state| {
-            content(entry, state).into_view()
+        self.item = Some(kivact_core::view::ViewFn::from(move |(entry, state)| {
+            content(entry, state)
         }));
         self
     }
@@ -180,17 +179,17 @@ impl<K: Clone + Eq + Hash + 'static> Menu<K> {
         } else if context {
             self.behavior.context_trigger()
         } else {
-            self.behavior.trigger().has_popup(Some(PopupKind::Menu))
+            self.behavior.trigger()
         };
-        let anchor = part.node_ref();
+        let anchor = kivact_core::view::node_ref();
         let (name, trigger) = match trigger {
             Some(mut trigger) => {
-                let trigger = if trigger.accessible_name().is_none() {
+                let trigger = if trigger.node_mut().accessible_name().is_none() {
                     trigger.name(self.label)
                 } else {
                     trigger
                 };
-                named(trigger, part)
+                named(trigger.node_ref(anchor), part)
             }
             None => {
                 let state = part.state();
@@ -201,13 +200,13 @@ impl<K: Clone + Eq + Hash + 'static> Menu<K> {
                     move || state.get(),
                 )
                 .child(text(self.label));
-                named(trigger, part)
+                named(trigger.node_ref(anchor), part)
             }
         };
         let fallback = self.label;
-        let label = kivact_core::memo(move || {
+        let label = kivact_core::state::memo(move || {
             name.as_ref()
-                .map(|read| read())
+                .map(|read| read.get())
                 .unwrap_or_else(|| fallback.get())
         });
         (
@@ -218,7 +217,7 @@ impl<K: Clone + Eq + Hash + 'static> Menu<K> {
                     anchor,
                     placement: self.placement,
                     align: self.align,
-                    at_least_anchor_width: self.at_least_trigger_width && !context,
+                    at_least_anchor_width: self.at_least_anchor_width && !context,
                     context,
                     sub: false,
                     label,
@@ -233,37 +232,41 @@ impl<K: Clone + Eq + Hash + 'static> Menu<K> {
 }
 /// The trigger's accessible name and the trigger with `part` attached; a
 /// role the trigger has (a menu bar's `MenuItem`) stays the trigger's.
-fn named<T: NodeBuilder + IntoView, S: Clone + PartialEq + 'static>(
+fn named<T: NodeBuilder + IntoView, S: kivact_core::state::PropValue>(
     mut trigger: T,
-    part: kivact_core::primitive::Part<S>,
-) -> (Option<std::rc::Rc<dyn Fn() -> String>>, View) {
-    let name = trigger.accessible_name();
-    let role = trigger.accessible_role();
-    let trigger = trigger.part(part);
+    part: kivact_core::custom::Part<S>,
+) -> (Option<Value<String>>, View) {
+    let name = trigger.node_mut().accessible_name();
+    let role = trigger.node_mut().accessible_role();
+    let trigger = trigger.with_node(|node| node.part(part));
     let trigger = match role {
-        Some(role) => trigger.role(role),
+        Some(role) => trigger.with_node(|node| node.role(role)),
         None => trigger,
     };
     (name, trigger.into_view())
 }
-impl<K: Clone + Eq + Hash + 'static> IntoView for Menu<K> {
+impl<K: kivact_core::state::ItemKey> IntoView for Menu<K> {
     fn into_view(self) -> View {
         self.render(None::<Node>, false, false)
     }
 }
 
 /// One level of the open menu: where and how its surface shows.
-struct Level<K: Clone + Eq + Hash + 'static> {
+struct Level<K: kivact_core::state::ItemKey> {
     behavior: Behavior<K>,
     anchor: NodeRef,
     placement: Placement,
+    // xtask-allow(state-fields): Independent builder alignment option, consumed when rendering.
     align: Option<OverlayAlign>,
+    // xtask-allow(state-fields): Independent immutable layout option.
     at_least_anchor_width: bool,
+    // xtask-allow(state-fields): Immutable renderer choice for context positioning; session owns the origin.
     context: bool,
+    // xtask-allow(state-fields): Immutable renderer choice for a submenu recipe.
     /// A submenu's level, drawn with the submenu surface recipe.
     sub: bool,
     label: Value<String>,
-    offset: f32,
+    offset: f64,
     variants: Variants,
 }
 
@@ -274,7 +277,7 @@ fn inset_box<K: 'static>(entry: Value<MenuEntry<K>>, variants: &Variants) -> Vie
     kivact_core::view::show(
         move || entry.with(|entry| entry.is_inset()),
         move || {
-            let part = kivact_core::primitive::part(|state| state);
+            let part = kivact_core::custom::part(|state| state);
             let state = part.state();
             with_recipe_style(
                 node().part(part),
@@ -309,7 +312,7 @@ fn item_content<K: Clone + 'static>(
             move || state.get(),
         )
         .child(kivact_core::view::dynamic(shown, |name| {
-            name.map(|name| kivact_core::control::icon(name))
+            name.map(|name| kivact_core::view::icon(name))
         }))
     });
     let chevron = submenu.then(|| {
@@ -319,12 +322,12 @@ fn item_content<K: Clone + 'static>(
             variants,
             move || state.get(),
         )
-        .child(kivact_core::control::icon("chevron-right"))
+        .child(kivact_core::view::icon("chevron-right"))
     });
     let shortcuts = variants.clone();
     let lines = variants.clone();
     let shortcut = kivact_core::view::dynamic(
-        move || entry.get().shortcut_value().to_owned(),
+        move || entry.get().shortcut().to_owned(),
         move |text_value| {
             (!text_value.is_empty()).then(|| {
                 with_recipe_style(
@@ -339,10 +342,10 @@ fn item_content<K: Clone + 'static>(
     );
     (
         mark,
-        super::helpers::item_icon(move || entry.get().icon_value().cloned()),
+        super::helpers::item_icon(move || entry.get().icon().cloned()),
         super::helpers::label_and_description(
             move || entry.get().label(),
-            move || entry.get().description_value(),
+            move || entry.get().description(),
             move |line| {
                 with_recipe_style(
                     line,
@@ -358,7 +361,7 @@ fn item_content<K: Clone + 'static>(
         .into_view()
 }
 
-fn surface<K: Clone + Eq + Hash + 'static>(level: Level<K>, slot: Option<ItemContent<K>>) -> View {
+fn surface<K: kivact_core::state::ItemKey>(level: Level<K>, slot: Option<ItemContent<K>>) -> View {
     let Level {
         behavior,
         anchor,
@@ -374,103 +377,7 @@ fn surface<K: Clone + Eq + Hash + 'static>(level: Level<K>, slot: Option<ItemCon
     behavior.show(move || {
         let part = behavior.content();
         let state = part.state();
-        let slot = slot.clone();
-        let looks = variants.clone();
-        let retain_disabled_focus = *kivact_core::style::current_theme()
-            .get::<kivact_interaction::DisabledMenuFocus>()
-            == kivact_interaction::DisabledMenuFocus::Retain;
-        let rows = for_each(
-            behavior.entries(),
-            |(key, _)| key.clone(),
-            move |row, entry| match row {
-                MenuRow::Item { key, kind } => {
-                    let submenu = kind == MenuItemKind::Submenu;
-                    let part = behavior.item(key.clone());
-                    let item_state = part.state();
-                    let anchor = part.node_ref();
-                    let data = kivact_core::memo(move || entry.get().1);
-                    let content = match &slot {
-                        Some(slot) => slot(data, item_state),
-                        None => item_content(data, item_state, &looks),
-                    };
-                    let row = with_recipe_style(
-                        node()
-                            .part(part)
-                            .child(inset_box(data, &looks))
-                            .child(content),
-                        |r| r.menu_recipes().item_recipe(),
-                        &looks,
-                        move || item_state.get(),
-                    );
-                    let row = if retain_disabled_focus {
-                        let reason = kivact_core::memo(move || {
-                            data.with(|entry| {
-                                if entry.is_disabled() {
-                                    entry.disabled_reason_value()
-                                } else {
-                                    None
-                                }
-                            })
-                        });
-                        crate::tooltip(move || reason.get().unwrap_or_default())
-                            .enabled(move || {
-                                reason.with(|reason| {
-                                    reason.as_ref().is_some_and(|reason| !reason.is_empty())
-                                })
-                            })
-                            .placement(Placement::End)
-                            .attach(row)
-                    } else {
-                        row.into_view()
-                    };
-                    let child = submenu.then(|| {
-                        surface(
-                            Level {
-                                behavior: behavior.submenu(key),
-                                anchor,
-                                placement: Placement::End,
-                                align: None,
-                                at_least_anchor_width: false,
-                                context: false,
-                                sub: true,
-                                label: kivact_core::memo(move || entry.get().1.label()),
-                                offset: 0.0,
-                                variants: looks.clone(),
-                            },
-                            slot.clone(),
-                        )
-                    });
-                    (row, child).into_view()
-                }
-                MenuRow::Label(_) => {
-                    let part = kivact_core::primitive::part(|state| state);
-                    let state = part.state();
-                    let data = kivact_core::memo(move || entry.get().1);
-                    with_recipe_style(
-                        kivact_core::control::row((
-                            inset_box(data, &looks),
-                            text(move || entry.get().1.label()),
-                        ))
-                        .part(part),
-                        |r| r.menu_recipes().label_recipe(),
-                        &looks,
-                        move || state.get(),
-                    )
-                    .into_view()
-                }
-                MenuRow::Separator(_) => {
-                    let part = kivact_core::primitive::part(|state| state);
-                    let state = part.state();
-                    with_recipe_style(
-                        node().part(part).role(kivact_core::view::Role::Separator),
-                        |r| r.menu_recipes().separator_recipe(),
-                        &looks,
-                        move || state.get(),
-                    )
-                    .into_view()
-                }
-            },
-        );
+        let rows = menu_rows(behavior, slot.clone(), variants.clone());
         let content = with_recipe_style(
             scroll(column(rows)),
             if sub {
@@ -488,18 +395,156 @@ fn surface<K: Clone + Eq + Hash + 'static>(level: Level<K>, slot: Option<ItemCon
             overlay_at(
                 move || match origin.get() {
                     Some(MenuOrigin::Pointer(point)) => point,
-                    _ => kivact_core::draw::Point::new(0.0, 0.0),
+                    _ => kivact_core::geometry::Point::new(0.0, 0.0),
                 },
                 placement,
                 content,
             )
         } else {
-            overlay(anchor, placement, content).at_least_anchor_width(at_least_anchor_width)
+            {
+                let layer = overlay(anchor, placement, content);
+                if at_least_anchor_width {
+                    layer.at_least_anchor_width()
+                } else {
+                    layer
+                }
+            }
         };
         let layer = match align {
             Some(align) => layer.align(align),
             None => layer,
         };
-        layer.part(part).name(label).offset(offset)
+        layer
+            .with_node(|node| node.part(part))
+            .name(label)
+            .offset(offset)
     })
+}
+
+/// Render the keyed rows belonging to one actual menu level.
+fn menu_rows<K: kivact_core::state::ItemKey>(
+    behavior: Behavior<K>,
+    slot: Option<ItemContent<K>>,
+    variants: Variants,
+) -> View {
+    let looks = variants;
+    let retain_disabled_focus = kivact_core::style::use_theme()
+        .get()
+        .ext::<kivact_interaction::InteractionPolicy>()
+        .menu
+        .disabled_focus
+        == kivact_interaction::DisabledMenuFocus::Retain;
+    for_each(
+        behavior.entries(),
+        |(key, _)| key.clone(),
+        move |entry| {
+            let row = entry.with_untracked(|entry| entry.0.clone());
+            match row {
+                MenuRow::Item { key, kind } => menu_item(
+                    behavior,
+                    key,
+                    kind == MenuItemKind::Submenu,
+                    entry,
+                    slot.clone(),
+                    &looks,
+                    retain_disabled_focus,
+                ),
+                MenuRow::Label(_) => {
+                    let part = kivact_core::custom::part(|state| state);
+                    let state = part.state();
+                    let data = kivact_core::state::memo(move || entry.get().1);
+                    with_recipe_style(
+                        kivact_core::view::row((
+                            inset_box(data, &looks),
+                            text(move || entry.get().1.label()),
+                        ))
+                        .part(part),
+                        |r| r.menu_recipes().label_recipe(),
+                        &looks,
+                        move || state.get(),
+                    )
+                    .into_view()
+                }
+                MenuRow::Separator(_) => {
+                    let part = kivact_core::custom::part(|state| state);
+                    let state = part.state();
+                    with_recipe_style(
+                        node().part(part).role(kivact_core::view::Role::Separator),
+                        |r| r.menu_recipes().separator_recipe(),
+                        &looks,
+                        move || state.get(),
+                    )
+                    .into_view()
+                }
+            }
+        },
+    )
+    .into_view()
+}
+
+/// Render one enabled or disabled item and its optional recursive submenu.
+fn menu_item<K: kivact_core::state::ItemKey>(
+    behavior: Behavior<K>,
+    key: K,
+    submenu: bool,
+    entry: Value<(MenuRow<K>, MenuEntry<K>)>,
+    slot: Option<ItemContent<K>>,
+    looks: &Variants,
+    retain_disabled_focus: bool,
+) -> View {
+    let part = behavior.item(key.clone());
+    let item_state = part.state();
+    let anchor = kivact_core::view::node_ref();
+    let data = kivact_core::state::memo(move || entry.get().1);
+    let content = match &slot {
+        Some(slot) => slot.call((data, item_state)),
+        None => item_content(data, item_state, looks),
+    };
+    let row = with_recipe_style(
+        node()
+            .node_ref(anchor)
+            .part(part)
+            .child(inset_box(data, looks))
+            .child(content),
+        |r| r.menu_recipes().item_recipe(),
+        looks,
+        move || item_state.get(),
+    );
+    let row = if retain_disabled_focus {
+        let reason = kivact_core::state::memo(move || {
+            data.with(|entry| {
+                if entry.is_disabled() {
+                    entry.disabled_reason()
+                } else {
+                    None
+                }
+            })
+        });
+        crate::tooltip(move || reason.get().unwrap_or_default())
+            .enabled(move || {
+                reason.with(|reason| reason.as_ref().is_some_and(|reason| !reason.is_empty()))
+            })
+            .placement(Placement::End)
+            .attach(row)
+    } else {
+        row.into_view()
+    };
+    let child = submenu.then(|| {
+        surface(
+            Level {
+                behavior: behavior.submenu(key),
+                anchor,
+                placement: Placement::End,
+                align: None,
+                at_least_anchor_width: false,
+                context: false,
+                sub: true,
+                label: kivact_core::state::memo(move || entry.get().1.label()),
+                offset: 0.0,
+                variants: looks.clone(),
+            },
+            slot.clone(),
+        )
+    });
+    (row, child).into_view()
 }

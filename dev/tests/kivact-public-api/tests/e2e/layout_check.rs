@@ -8,24 +8,18 @@
 //! width; `Element::check_layout` looks at a subtree; and
 //! `assert_layout` fails listing every violation.
 
-use std::sync::Arc;
-
 use kivact::prelude::*;
 use kivact::style::{Align, Justify};
 use kivact::style::{Overflow, TextOverflow};
-use kivact::test::{LayoutRule, RenderOptions, TestFonts, render, render_with};
+use kivact::test::{LayoutLimit, LayoutRule, RenderOptions, TestFonts, render, render_with};
 
-static NOTO: &[u8] = include_bytes!(
-    "../../../../../examples/kivact-ui-pop/assets/fonts/notosansjp/NotoSansJP[wght].ttf"
-);
+static NOTO: &[u8] =
+    include_bytes!("../../../../../examples/shared-assets/fonts/notosansjp/NotoSansJP[wght].ttf");
 
 const GRAY: u32 = 0xdddddd;
 
 fn japanese() -> RenderOptions {
-    RenderOptions {
-        fonts: TestFonts::Only(vec![Arc::from(NOTO)]),
-        ..RenderOptions::from_env()
-    }
+    RenderOptions::from_env().fonts(TestFonts::Only(vec![kivact::view::Asset::from(NOTO)]))
 }
 
 /// A fixed-width button whose label does not fit (its label is located at
@@ -46,7 +40,12 @@ fn narrow_button(label: &'static str) -> Node {
 }
 
 fn overflows_parent(rule: &LayoutRule) -> bool {
-    matches!(rule, LayoutRule::OverflowVisualParent)
+    matches!(
+        rule,
+        LayoutRule::Overflow {
+            into: LayoutLimit::VisualParent
+        }
+    )
 }
 
 #[test]
@@ -76,10 +75,10 @@ fn a_nowrap_text_wider_than_its_row_overflows_it() {
     assert_eq!(found.len(), 1, "{found:#?}");
     let v = &found[0];
     assert_eq!(v.test_id.as_deref(), Some("long"));
-    assert!(overflows_parent(&v.rule), "{v}");
+    assert!(overflows_parent(&v.rule()), "{v}");
     // The row is 80 wide, the text more than twice that.
-    assert!(v.amount > 60.0, "{v}");
-    assert_eq!(v.limit.width, 80.0);
+    assert!(v.amount() > 60.0, "{v}");
+    assert_eq!(v.limit().width, 80.0);
 }
 
 #[test]
@@ -178,7 +177,7 @@ fn a_healthy_screen_passes() {
                     .justify_content(Justify::Center)
                     .background(rgb(GRAY)),
             ),
-            row((kivact::control::node().name("Name").part(kivact::interaction::use_text_edit(kivact::signal(String::new())).control()),)).style(style().align_items(Align::Center).background(rgb(GRAY))),
+            row((kivact::view::node().name("Name").part(kivact::interaction::use_text_edit(kivact::state::signal(String::new())).control()),)).style(style().align_items(Align::Center).background(rgb(GRAY))),
             text("A paragraph of text that wraps over several lines because it is far wider than its column.")
                 .style(style().width(160)),
         ))

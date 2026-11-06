@@ -1,6 +1,5 @@
 //! Role: The search picker: filtering, keys, pick and cancel, the preview, focus.
 
-use crate::support::clean;
 use kivact::prelude::*;
 use kivact::test::Screen;
 use kivact::view::A11yAction;
@@ -118,5 +117,5 @@ fn enter_and_a_click_pick_and_close_and_a_disabled_row_cannot_be_picked() {
     row(&screen, "Solid").a11y(A11yAction::Activate);
     assert!(closed(&screen), "Activate picks");
     assert!(log.take().contains(&"pick solid".to_owned()));
-    clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }

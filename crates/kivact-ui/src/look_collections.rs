@@ -1,15 +1,16 @@
 //! Role: Default recipes for the list and the data table.
-use super::DataTableGroupState;
 use super::values::{
     DataTableCellState, DataTableCheckState, DataTablePageState, DataTableRowState,
 };
-use kivact_core::draw::{LineCap, LineJoin, Point, Stroke};
-use kivact_core::primitive::PartState;
+use crate::table_values::DataTableGroupState;
+use kivact_core::custom::PartState;
+use kivact_core::draw::{LineCap, LineJoin, Stroke};
+use kivact_core::geometry::Point;
 use kivact_core::style::{
     Align, ColorToken, Direction, Justify, Overflow, Style, Theme, pct, style,
 };
-use kivact_core::view::{ReadingDirection, current_direction};
-use kivact_interaction::{ListItemState, TableHeaderState, TreeItemState};
+use kivact_core::view::{ReadingDirection, use_direction};
+use kivact_interaction::{ListItemState, TableHeaderState};
 
 pub(super) fn group_header(_: &Theme, _: &DataTableGroupState) -> Style {
     style()
@@ -23,21 +24,26 @@ pub(super) fn list(t: &Theme, _: &PartState) -> Style {
     style().direction(Direction::Column).gap(t.space().xs)
 }
 
-pub(super) fn tree_item(t: &Theme, row: &TreeItemState) -> Style {
-    let rtl = current_direction() == ReadingDirection::Rtl;
-    let indent = t.space().md + row.level.saturating_sub(1) as f32 * 16.0;
+pub(super) fn tree_item(t: &Theme, row: &crate::tree_values::TreeRowRecipeState) -> Style {
+    let rtl = use_direction().get() == ReadingDirection::Rtl;
+    let tokens = t.ext::<crate::UiTokens>();
+    let tree = &tokens.tree;
+    let padding = tree.padding.unwrap_or(t.space().md);
+    let indent = padding + row.level.saturating_sub(1) as f64 * tree.indent.unwrap_or(16.0);
     style()
+        .enter_size(kivact_core::view::Orientation::Vertical)
+        .exit_size(kivact_core::view::Orientation::Vertical)
         .direction(if rtl {
             Direction::RowReverse
         } else {
             Direction::Row
         })
         .align_items(Align::Center)
-        .min_height(t.control_height())
-        .padding_left(if rtl { t.space().md } else { indent })
-        .padding_right(if rtl { indent } else { t.space().md })
-        .gap(t.space().xs)
-        .radius(t.radius().sm)
+        .min_height(tree.row_height.unwrap_or(t.control_height()))
+        .padding_left(if rtl { padding } else { indent })
+        .padding_right(if rtl { indent } else { padding })
+        .gap(tree.gap.unwrap_or(t.space().xs))
+        .radius(tree.radius.unwrap_or(t.radius().sm))
         .hover(style().background(ColorToken::Hover))
         .selected(style().background(ColorToken::Selection))
 }
@@ -178,7 +184,7 @@ pub(super) fn sort(_: &Theme, state: &TableHeaderState) -> Style {
     s.paint(move |d, size| {
         use kivact_interaction::SortOrder;
         let (w, h) = (size.width, size.height);
-        let at = |x: f32, y: f32| Point::new(w * x, h * y);
+        let at = |x: f64, y: f64| Point::new(w * x, h * y);
         let stroke = Stroke::new(1.5).cap(LineCap::Round).join(LineJoin::Round);
         let up = [at(0.2, 0.62), at(0.5, 0.3), at(0.8, 0.62)];
         let down = [at(0.2, 0.38), at(0.5, 0.7), at(0.8, 0.38)];
@@ -208,4 +214,10 @@ pub(super) fn page(t: &Theme, _: &DataTablePageState) -> Style {
         .direction(Direction::Row)
         .align_items(Align::Center)
         .gap(t.space().sm)
+}
+
+pub(super) fn tree_marker(t: &Theme, _: &crate::tree_values::TreeRowRecipeState) -> Style {
+    style()
+        .width(t.ext::<crate::UiTokens>().tree.marker_width.unwrap_or(16.0))
+        .shrink(0)
 }

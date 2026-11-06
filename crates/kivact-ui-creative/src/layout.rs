@@ -1,17 +1,18 @@
 //! Role: Panels, media tiles and tree rows of the Creative kit.
-use crate::Color;
-use kivact::primitive::NodeExt;
-use kivact::ui::Button;
+use crate::ColorName;
 
-use kivact::control::{Node, NodeBuilder, column, icon, node, row, text};
-use kivact::style::current_theme;
+use kivact::state::IntoText;
+use kivact::style::use_theme;
 use kivact::style::{Align, ColorToken, Cursor, Direction, Justify, Overflow, Style, Theme, style};
-use kivact::view::{IntoText, IntoView, Role, View};
-
-use crate::slot::{Slot, slot};
+use kivact::view::{IntoView, Role, View};
+use kivact::view::{Node, NodeBuilder, column, icon, node, row, text};
 
 /// A reusable media thumbnail with consumer supplied preview content and metadata.
-pub fn media_tile(label: impl IntoText, metadata: impl IntoText, preview: impl IntoView) -> Node {
+pub fn media_tile(
+    label: impl IntoText,
+    metadata: impl IntoText,
+    preview: impl IntoView,
+) -> impl kivact::view::Component {
     let label = label.into_text_value();
     column((
         preview,
@@ -19,7 +20,7 @@ pub fn media_tile(label: impl IntoText, metadata: impl IntoText, preview: impl I
             .style(style().font_size(11.5).weight(500).single_line())
             .into_view(),
         text(metadata)
-            .style(style().font_size(9.5).color(Color::Dim))
+            .style(style().font_size(9.5).color(ColorName::Dim))
             .into_view(),
     ))
     .role(Role::ListItem)
@@ -32,14 +33,14 @@ pub fn media_tile(label: impl IntoText, metadata: impl IntoText, preview: impl I
             .radius(10)
             .min_width(0)
             .hover(style().background(ColorToken::Hover))
-            .selected(style().background(Color::Selection)),
+            .selected(style().background(ColorName::Selection)),
     )
 }
 
 /// An island panel. Its root accepts arbitrary layout and drawing modifiers.
 pub struct Panel {
     root: Node,
-    header: Slot,
+    header: View,
     body: Node,
     footer: Vec<View>,
 }
@@ -54,15 +55,15 @@ pub fn panel(title: impl IntoText, content: impl IntoView) -> Panel {
     Panel {
         root: column(()).role(Role::Group).name(title).style(
             style()
-                .background(Color::Island)
-                .color(Color::Text)
+                .background(ColorName::Island)
+                .color(ColorName::Text)
                 .radius(12)
-                .border(1, Color::Hair)
+                .border(1, ColorName::Hair)
                 .min_width(0)
                 .min_height(0)
                 .overflow(Overflow::Hidden),
         ),
-        header: slot(move || {
+        header: {
             row((
                 text(title).style(style().weight(600).grow(1)),
                 icon("chevron-down"),
@@ -74,10 +75,10 @@ pub fn panel(title: impl IntoText, content: impl IntoView) -> Panel {
                     .padding_x(12)
                     .gap(6)
                     .align_items(Align::Center)
-                    .border_bottom(1, Color::Hair),
+                    .border_bottom(1, ColorName::Hair),
             )
             .into_view()
-        }),
+        },
         body: node()
             .style(style().grow(1).min_width(0).min_height(0))
             .child(content),
@@ -91,8 +92,11 @@ impl Panel {
     ///
     /// The header keeps its own height (it does not shrink) and the content
     /// takes the rest of the panel.
-    pub fn header<V: IntoView>(mut self, header: impl FnOnce() -> V + 'static) -> Self {
-        self.header = slot(move || node().style(style().shrink(0).min_width(0)).child(header()));
+    pub fn header(mut self, header: impl IntoView) -> Self {
+        self.header = node()
+            .style(style().shrink(0).min_width(0))
+            .child(header)
+            .into_view();
         self
     }
 
@@ -103,6 +107,7 @@ impl Panel {
     }
 }
 impl NodeBuilder for Panel {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -110,7 +115,7 @@ impl NodeBuilder for Panel {
 impl IntoView for Panel {
     fn into_view(self) -> View {
         self.root
-            .child((self.header)())
+            .child(self.header)
             .child(self.body)
             .child(self.footer)
             .into_view()
@@ -119,8 +124,12 @@ impl IntoView for Panel {
 
 /// A source-style hierarchical row. Selection, expansion and events use NodeBuilder.
 #[track_caller]
-pub fn tree_row(label: impl IntoText, depth: usize) -> Button {
+pub fn tree_row(
+    label: impl IntoText,
+    depth: impl kivact::state::IntoValue<usize>,
+) -> impl kivact::view::Component {
     let label = label.into_text_value();
+    let depth = kivact::state::IntoValue::into_value(depth);
     kivact::ui::button(label)
         .variant(kivact::ui::ButtonVariant::Secondary)
         .hide_label(true)
@@ -129,27 +138,29 @@ pub fn tree_row(label: impl IntoText, depth: usize) -> Button {
             icon("box"),
             text(label).style(style().grow(1)),
         )))
-        .role(Role::TreeItem)
-        .name(label)
-        .focusable(true)
-        .style(move || {
-            let t = &current_theme();
-            let p = t.get::<crate::tokens::Tokens>();
-            style()
-                .height(p.row)
-                .gap(6)
-                .padding_left(8.0 + depth.min(32) as f32 * 16.0)
-                .padding_right(8)
-                .radius(5)
-                .align_items(Align::Center)
-                .color(p.muted)
-                .hover(style().background(ColorToken::Hover).color(p.text_high))
-                .selected(style().background(p.selection).color(p.accent_high))
+        .with_node(move |node| node.role(Role::TreeItem))
+        .with_node(move |node| node.name(label))
+        .with_node(move |node| node.focusable(true))
+        .with_node(move |node| {
+            node.style(move || {
+                let t = &use_theme().get();
+                let p = t.ext::<crate::tokens::Tokens>();
+                style()
+                    .height(p.row)
+                    .gap(6)
+                    .padding_left(8.0 + depth.get().min(32) as f64 * 16.0)
+                    .padding_right(8)
+                    .radius(5)
+                    .align_items(Align::Center)
+                    .color(p.muted)
+                    .hover(style().background(ColorToken::Hover).color(p.text_high))
+                    .selected(style().background(p.selection).color(p.accent_high))
+            })
         })
 }
 
 pub(crate) fn tab_track_style(t: &Theme) -> Style {
-    let p = t.get::<crate::tokens::Tokens>();
+    let p = t.ext::<crate::tokens::Tokens>();
     style()
         .direction(Direction::Row)
         .gap(2)
@@ -161,7 +172,7 @@ pub(crate) fn tab_track_style(t: &Theme) -> Style {
 }
 
 pub(crate) fn tab_option_style(t: &Theme, reorderable: bool) -> Style {
-    let p = t.get::<crate::tokens::Tokens>();
+    let p = t.ext::<crate::tokens::Tokens>();
     style()
         .direction(Direction::Row)
         .height(p.row + 2.0)

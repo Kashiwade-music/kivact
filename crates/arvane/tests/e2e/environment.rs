@@ -4,33 +4,37 @@
 //! of the window (software keyboard, IME area, cursor, title, minimum size,
 //! clipboard, file and folder dialogs, opening and revealing paths).
 
-use arvane::Window as _;
-use arvane::test_display::{VirtualWindow, VirtualWindowOptions};
-use kivact_types::protocol::{Environment, MouseSettings};
+use crate::support::Harness;
+use arvane_virtual::VirtualOptions;
 use kivact_types::{Cursor, Insets, Size};
+use kivact_types::{Environment, PointerSettings};
 
 use crate::support::{PERIOD, open, options, rect};
 
 #[test]
 fn the_environment_is_one_snapshot_that_follows_its_changes() {
-    let mut window = VirtualWindow::open(VirtualWindowOptions {
+    let mut window = Harness::open(VirtualOptions {
         dark: true,
         reduced_motion: true,
         frame_period_ns: PERIOD / 2,
         locale: Some("ja-JP".into()),
         ..options(100.0, 80.0)
-    })
-    .expect("a test window opens");
+    });
     assert_eq!(
-        window.environment(),
+        window.probe().environment(),
         Environment {
-            scale: 1.0,
+            scale_factor: 1.0,
             frame_period_ns: PERIOD / 2,
             reduced_motion: true,
-            dark: true,
+            theme_hint: kivact_types::ThemeHint::Dark,
             safe_area: Insets::default(),
-            mouse: MouseSettings::default(),
+            pointer: PointerSettings::default(),
             locale: Some("ja-JP".into()),
+            window_size: Size {
+                width: 100.0,
+                height: 80.0
+            },
+            ..Default::default()
         }
     );
     // What a host is told about with `EnvironmentChanged` (the scale with
@@ -41,74 +45,86 @@ fn the_environment_is_one_snapshot_that_follows_its_changes() {
         bottom: 16.0,
         left: 0.0,
     };
-    window.set_dark(false);
-    window.set_reduced_motion(false);
-    window.set_frame_period(PERIOD);
-    window.set_safe_area(insets);
-    window.set_locale(None);
-    window.set_scale(1.5);
-    let environment = window.environment();
+    window.script().set_dark(false);
+    window.script().set_reduced_motion(false);
+    window.script().set_frame_period(PERIOD);
+    window.script().set_safe_area(insets);
+    window.script().set_locale(None);
+    window.script().set_scale(1.5);
+    window.step(arvane::spi::Step::Input);
+    let environment = window.probe().environment();
     assert_eq!(
         environment,
         Environment {
-            scale: 1.5,
+            scale_factor: 1.5,
             frame_period_ns: PERIOD,
             reduced_motion: false,
-            dark: false,
+            theme_hint: kivact_types::ThemeHint::Light,
             safe_area: insets,
-            mouse: MouseSettings::default(),
+            pointer: PointerSettings::default(),
             locale: None,
+            window_size: Size {
+                width: 100.0,
+                height: 80.0
+            },
+            ..Default::default()
         }
     );
-    assert_eq!(window.scale(), 1.5);
-    window.set_locale(Some("fr-CA"));
-    assert_eq!(window.environment().locale.as_deref(), Some("fr-CA"));
+    assert_eq!(window.probe().scale(), 1.5);
+    window.script().set_locale(Some("fr-CA"));
+    window.step(arvane::spi::Step::Input);
+    assert_eq!(
+        window.probe().environment().locale.as_deref(),
+        Some("fr-CA")
+    );
     // A resize and a scale change move the frame's plan.
-    window.resize(Size {
+    window.script().resize(Size {
         width: 60.0,
         height: 40.0,
     });
+    window.step(arvane::spi::Step::Input);
     assert_eq!(
-        window.size(),
+        window.probe().size(),
         Size {
             width: 60.0,
             height: 40.0
         }
     );
-    let plan = window.frame_plan();
-    assert_eq!((plan.size, plan.scale), (window.size(), 1.5));
+    let plan = window.with(move |w| w.frame_plan());
+    assert_eq!((plan.size, plan.scale), (window.probe().size(), 1.5));
 }
 
 #[test]
 fn the_software_keyboard_and_the_ime_follow_the_host() {
-    let window = open(100.0, 80.0);
-    assert_eq!(window.soft_keyboard(), (false, 0));
-    window.set_soft_keyboard(true);
-    window.set_soft_keyboard(true);
-    assert_eq!(window.soft_keyboard(), (true, 1), "shown once");
-    window.set_soft_keyboard(false);
-    assert_eq!(window.soft_keyboard(), (false, 2));
+    let mut window = open(100.0, 80.0);
+    assert_eq!(window.probe().soft_keyboard(), (false, 0));
+    window.with(move |w| w.set_soft_keyboard(true));
+    window.with(move |w| w.set_soft_keyboard(true));
+    assert_eq!(window.probe().soft_keyboard(), (true, 1), "shown once");
+    window.with(move |w| w.set_soft_keyboard(false));
+    assert_eq!(window.probe().soft_keyboard(), (false, 2));
     let area = rect(10.0, 20.0, 2.0, 16.0);
-    window.set_ime_allowed(true);
-    window.set_ime_cursor_area(area);
-    assert_eq!(window.ime_area(), Some(area));
-    window.set_ime_allowed(false);
-    assert_eq!(window.ime_area(), None);
-    window.set_cursor(Cursor::Text);
-    assert_eq!(window.cursor(), Cursor::Text);
-    window.set_title("Arvane");
-    assert_eq!(window.title(), "Arvane");
-    assert_eq!(window.min_size(), None);
+    window.with(move |w| w.set_ime_allowed(true));
+    window.with(move |w| w.set_ime_cursor_area(area));
+    assert_eq!(window.probe().ime_area(), Some(area));
+    window.with(move |w| w.set_ime_allowed(false));
+    assert_eq!(window.probe().ime_area(), None);
+    window.with(move |w| w.set_cursor(Cursor::Text));
+    assert_eq!(window.probe().cursor(), Cursor::Text);
+    window.with(move |w| w.set_title("Arvane"));
+    assert_eq!(window.probe().title(), "Arvane");
+    assert_eq!(window.probe().min_size(), None);
     let min = Size {
         width: 60.0,
         height: 40.0,
     };
-    window.set_min_size(Some(min));
-    assert_eq!(window.min_size(), Some(min));
-    window.set_min_size(None);
-    assert_eq!(window.min_size(), None);
-    assert!(!window.redraw_requested());
-    window.request_redraw();
-    assert!(window.take_redraw());
-    assert!(!window.take_redraw());
+    window.with(move |w| w.set_min_size(Some(min)));
+    assert_eq!(window.probe().min_size(), Some(min));
+    window.with(move |w| w.set_min_size(None));
+    assert_eq!(window.probe().min_size(), None);
+    assert!(!window.probe().redraw_requested());
+    window.with(move |w| w.request_redraw());
+    assert!(window.probe().redraw_requested());
+    window.step(arvane::spi::Step::Redraw);
+    assert!(!window.probe().redraw_requested());
 }

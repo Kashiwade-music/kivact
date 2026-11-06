@@ -1,6 +1,6 @@
 //! Role: Tabs attach keyed semantics and navigation to caller-owned elements.
 //!
-//! [`use_tabs`] is a Copy handle over one [`List`] with the tabs policy;
+//! [`use_tabs`] is a Copy handle over one [`ListApi`] with the tabs policy;
 //! [`TabsApi::list`], [`TabsApi::item`] and [`TabsApi::panel`] return parts. The
 //! list publishes the `TabList` orientation, a tab its name, `selected`,
 //! disabled state and the panel it `controls`, and a panel is
@@ -15,21 +15,23 @@
 //! close, reorder, icons or counters moves and selects through these parts
 //! too.
 
+use crate::Selection;
+use crate::options_cell::OptionsCell;
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::hash::Hash;
 use std::rc::Rc;
 
-use kivact_core::primitive::{Owned, Owner, Part, PartState, part};
-use kivact_core::view::{IntoValue, NodeRef, Orientation, Role};
-use kivact_core::{Binding, Signal, Value, memo, signal, var};
+use kivact_core::custom::{Owned, Owner, Part, PartState, part};
+use kivact_core::state::IntoValue;
+use kivact_core::state::{Binding, Value, memo, var};
+use kivact_core::view::{NodeRef, Orientation, Role};
 
 use super::axis::Axis;
-use super::{List, ListActivation, ListItem, ListPolicy, ListSelection, use_list};
+use super::{ListActivation, ListApi, ListItem, ListOptions, use_list};
 
 /// What the setters of [`TabsApi`] store; read where the parts use it.
 #[derive(Clone, Copy)]
-struct TabsSettings {
+struct TabsOptions {
     activation: ListActivation,
     axis: Axis,
 }
@@ -64,60 +66,68 @@ pub struct TabListState {
 /// for it.
 ///
 /// ```no_run
-/// use kivact_core::{signal, control::{NodeBuilder, column, node, text}, view::for_each};
+/// use kivact_core::{state::signal, view::{NodeBuilder, column, node, text, for_each}};
 /// use kivact_interaction::{use_tabs, ListItem};
 /// let options = signal(vec![ListItem::new("general", "General"),
 ///     ListItem::new("keys", "Keys")]);
 /// let selected = signal("general");
 /// let tabs = use_tabs(options, selected);
-/// let list = node().part(tabs.list()).child(for_each(options, |row| *row.key(),
-///     move |key, row| node().part(tabs.item(key))
-///         .child(text(move || row.with(|row| row.label())))));
+/// let list = node().part(tabs.list()).child(for_each(options, |row| *row.key(), move |row| {
+///     let key = row.with(|row| *row.key());
+///     node().part(tabs.item(key)).child(text(move || row.with(|row| row.label())))
+/// }));
 /// // Keeping every panel mounted is a caller rendering decision.
-/// let panels = for_each(options, |row| *row.key(), move |key, _| {
+/// let panels = for_each(options, |row| *row.key(), move |item| {
+///     let key = item.with(|item| *item.key());
 ///     node().part(tabs.panel(key)).child(text(format!("Settings: {key}")))
 /// });
 /// let view = column((list, panels));
 /// ```
-pub struct TabsApi<K: Eq + Hash + Clone + 'static> {
-    group: List<K>,
+pub struct TabsApi<K: kivact_core::state::ItemKey> {
+    group: ListApi<K>,
     options: Value<Vec<ListItem<K>>>,
     selected: Binding<K>,
+    edit: crate::EditSession<K>,
     owner: Owner,
-    refs: Owned<Refs<K>>,
-    settings: Signal<TabsSettings>,
+    refs: Owned<Rc<Refs<K>>>,
+    settings: OptionsCell<TabsOptions>,
     /// The layout direction, derived from the settings.
     orientation: Value<Orientation>,
 }
 
-impl<K: Eq + Hash + Clone + 'static> Clone for TabsApi<K> {
+impl<K: kivact_core::state::ItemKey> Clone for TabsApi<K> {
     fn clone(&self) -> Self {
         *self
     }
 }
-impl<K: Eq + Hash + Clone + 'static> Copy for TabsApi<K> {}
+impl<K: kivact_core::state::ItemKey> Copy for TabsApi<K> {}
 
 /// Create keyed tabs whose selected key is `selected`. Setup only.
 #[track_caller]
-pub fn use_tabs<K: Clone + Eq + Hash + 'static>(
+pub fn use_tabs<K: kivact_core::state::ItemKey>(
     options: impl IntoValue<Vec<ListItem<K>>>,
-    selected: impl Into<Binding<K>>,
+    selected: impl kivact_core::state::IntoBinding<K>,
 ) -> TabsApi<K> {
-    let owner = Owner::current("tabs");
+    let owner = Owner::current();
     let options = options.into_value();
-    let selected: Binding<K> = selected.into();
+    let original: Binding<K> = selected.into_binding();
+    let edit = crate::EditSession::new(move |value| original.set(value));
+    let selected = kivact_core::state::binding(original.into_value(), move |value: K| {
+        edit.once(original.get_untracked(), || original.set(value))
+    });
     // The list's single selection is optional; the tabs always hold a key,
     // so clearing it is ignored.
     let group = use_list(
         options,
-        ListSelection::Single(selected.optional()),
-        ListPolicy::tabs(),
+        Selection::Single(selected.optional()),
+        ListOptions::tabs(),
     );
-    let settings = signal(TabsSettings {
+    let settings = OptionsCell::new(TabsOptions {
         activation: ListActivation::Automatic,
         axis: Axis::Horizontal,
     });
-    let orientation = memo(move || settings.with(|settings| settings.axis.orientation()));
+    let settings_value = settings.value();
+    let orientation = memo(move || settings_value.with(|settings| settings.axis.orientation()));
     let refs = owner.store(
         "Tabs",
         Rc::new(Refs::<K> {
@@ -125,6 +135,7 @@ pub fn use_tabs<K: Clone + Eq + Hash + 'static>(
         }),
     );
     TabsApi {
+        edit,
         group,
         options,
         selected,
@@ -135,7 +146,38 @@ pub fn use_tabs<K: Clone + Eq + Hash + 'static>(
     }
 }
 
-impl<K: Clone + Eq + Hash + 'static> TabsApi<K> {
+impl<K: kivact_core::state::ItemKey> TabsApi<K> {
+    /// Observe a discrete selection edit.
+    pub fn on_edit<R: kivact_core::view::HandlerResult>(
+        self,
+        f: impl Fn(kivact_core::view::EditPhase) -> R + 'static,
+    ) -> Self {
+        self.edit.on_edit(f);
+        self
+    }
+    /// Drawing state of the mounted tab list.
+    pub fn list_state(self) -> Value<TabListState> {
+        let input = self.group.list_state();
+        let orientation = self.orientation;
+        memo(move || TabListState {
+            input: input.get(),
+            orientation: orientation.get(),
+        })
+    }
+    /// Drawing state of an individual tab.
+    pub fn item_state(self, key: K) -> Value<TabState> {
+        let input = self.group.item_state(key);
+        let orientation = self.orientation;
+        memo(move || {
+            let input = input.get();
+            TabState {
+                input: input.input,
+                selected: input.selected,
+                orientation: orientation.get(),
+            }
+        })
+    }
+
     /// Whether moving to a tab with the arrow keys also selects it.
     /// [`Automatic`](ListActivation::Automatic) is the default;
     /// [`Manual`](ListActivation::Manual) only moves focus and Enter or
@@ -161,7 +203,7 @@ impl<K: Clone + Eq + Hash + 'static> TabsApi<K> {
     /// Give the list the settings' activation and axis.
     #[track_caller]
     fn tune(self) -> Self {
-        let TabsSettings { activation, axis } = self.settings.get_untracked();
+        let TabsOptions { activation, axis } = self.settings.get();
         self.group.retune(|policy| {
             policy.activation = activation;
             policy.axis = Some(axis.orientation());
@@ -189,14 +231,15 @@ impl<K: Clone + Eq + Hash + 'static> TabsApi<K> {
     #[track_caller]
     pub fn list(self) -> Part<TabListState> {
         let orientation = self.orientation;
-        self.group
-            .list()
-            .role(Role::TabList)
-            .orientation(orientation)
-            .map_state(move |input| TabListState {
-                input,
-                orientation: orientation.get(),
-            })
+        let base = self.group.list();
+        let part_state = base.state();
+        Part::new(part_state, move |host| {
+            host.part(base).role(Role::TabList).orientation(orientation)
+        })
+        .map_state(move |input| TabListState {
+            input,
+            orientation: orientation.get(),
+        })
     }
 
     /// A tab with reactive label, selection, constraints and roving navigation.
@@ -217,16 +260,19 @@ impl<K: Clone + Eq + Hash + 'static> TabsApi<K> {
             })
         });
         let orientation = self.orientation;
-        member
-            .map_state(move |state| TabState {
-                input: state.input,
-                selected: state.selected,
-                orientation: orientation.get(),
-            })
-            .role(Role::Tab)
-            .name(label)
-            .controls(panel_ref)
-            .reference(tab_ref)
+        let base = member.map_state(move |state| TabState {
+            input: state.input,
+            selected: state.selected,
+            orientation: orientation.get(),
+        });
+        let part_state = base.state();
+        Part::new(part_state, move |host| {
+            host.part(base)
+                .role(Role::Tab)
+                .name(label)
+                .controls(panel_ref)
+                .node_ref(tab_ref)
+        })
     }
 
     /// A panel hidden unless its key is selected and still exists in options.
@@ -243,15 +289,19 @@ impl<K: Clone + Eq + Hash + 'static> TabsApi<K> {
                     && options.with(|rows| rows.iter().any(|row| &row.key == key))
             })
         });
-        part(move |input| TabState {
+        let input = part(move |input| TabState {
             input,
             selected: shown.get(),
             orientation: orientation.get(),
+        });
+        let part_state = input.state();
+        Part::new(part_state, move |host| {
+            host.part(input)
+                .role(Role::TabPanel)
+                .hidden(move || !shown.get())
+                .focusable(shown)
+                .labelled_by(tab_ref)
+                .node_ref(panel_ref)
         })
-        .role(Role::TabPanel)
-        .hidden(move || !shown.get())
-        .focusable(shown)
-        .labelled_by(tab_ref)
-        .reference(panel_ref)
     }
 }

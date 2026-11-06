@@ -1,9 +1,9 @@
 //! Role: Standard compound components apply recipes to shared interaction parts.
 
 use crate::support::mount;
-use kivact::interaction::ListSelection;
+use kivact::interaction::{ListItem, MenuEntry, TreeNode};
 use kivact::prelude::*;
-use kivact::ui::{self, ListItem, MenuEntry, TreeNode};
+use kivact::ui;
 use kivact::view::{Orientation, Placement};
 use std::time::Duration;
 
@@ -53,12 +53,9 @@ fn standard_tree_expands_and_moves_focus_into_the_branch() {
         ];
         (
             expanded,
-            ui::tree(
-                "Files",
-                nodes,
-                expanded,
-                ListSelection::Single(selected.into()),
-            ),
+            ui::tree("Files", nodes)
+                .expanded(expanded)
+                .selection(selected.into_selection()),
         )
     });
     screen.get_by_role(Role::Tree, "Files");
@@ -111,13 +108,12 @@ fn menu_renders_nested_levels_and_custom_trigger_keeps_its_style() {
                     MenuEntry::separator(),
                     MenuEntry::checkbox(3, "Grid", true),
                 ],
-                move |key| chosen.set(Some(key)),
             )
+            .on_activate(move |key| chosen.set(Some(key)))
             .attach(
                 ui::button("Custom")
                     .style(style().size(140, 30))
-                    .test_id("trigger")
-                    .into_node(),
+                    .test_id("trigger"),
             ),
         )
     });
@@ -273,17 +269,16 @@ fn context_menu_reuses_renderer_for_keyboard_and_pointer_origins() {
             chosen,
             column((
                 ui::button("Outside"),
-                ui::menu("Context", vec![MenuEntry::item(1, "Inspect")], move |key| {
-                    chosen.set(key)
-                })
-                .attach_context(
-                    node()
-                        .name("Target")
-                        .role(Role::Button)
-                        .focusable(true)
-                        .style(style().size(180, 70))
-                        .child(text("Target")),
-                ),
+                ui::menu("Context", vec![MenuEntry::item(1, "Inspect")])
+                    .on_activate(move |key| chosen.set(key))
+                    .attach_context(
+                        node()
+                            .name("Target")
+                            .role(Role::Button)
+                            .focusable(true)
+                            .style(style().size(180, 70))
+                            .child(text("Target")),
+                    ),
             )),
         )
     });

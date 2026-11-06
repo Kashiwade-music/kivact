@@ -23,3 +23,11 @@ fn delete_confirmation(delete_file: impl Fn() + 'static) -> impl IntoView {
 ```
 
 ダイアログは呼び出し側が渡した開閉用シグナルを読み取ります。確認コールバックでは操作の後にダイアログを閉じます。非同期操作の場合は成功後にシグナルを更新し、エラーは利用者が対処できる場所に表示します。
+
+Soft の lightbox は dialog と zoom/pan の振る舞いを共有します。`use_lightbox(media)` が
+選択画像と全体表示・拡大表示の状態を持ち、`.view().zoom(true)` で拡大操作を有効にします。
+画像の失敗は画像 node の状態から読み取り、翻訳された代替表示を出します。bottom sheet は
+高さ、scrim、purpose、focus、padding、snap point の option を維持し、離したときの速度と
+snap の選択に共通の drag の振る舞いを使います。
+
+プレビューには `kivact::ui::hover_card(factory).attach(trigger)` を使います。Soft は表面の recipe、ポインターで開く 300 ms と閉じる 200 ms の遅延、画面端の余白を設定します。配置、整列、フォーカスによる開閉、制御された表示状態、変更コールバックは標準 builder で指定します。`soft::hover_card_text(label)` はキーボードで到達できる装飾済みトリガーです。

@@ -1,8 +1,8 @@
 //! Role: Application node graph constraints and edit reduction.
 use super::editor_images as images;
-use kivact::draw::{Point, Size};
+use kivact::geometry::{Point, Size};
+use kivact::state::{Signal, signal};
 use kivact::style::rgb;
-use kivact::{Signal, signal};
 use kivact_ui_creative as ui;
 const IMAGE_TYPE: &str = "Image";
 const SCALAR_TYPE: &str = "Scalar";
@@ -111,116 +111,31 @@ pub(super) fn edits(
     }
 }
 
-pub(super) fn editor_node(id: u64, label: &str, x: f32, y: f32, color: u32) -> ui::NodeData {
-    let socket = ui::NodeSocket::new;
+pub(super) fn editor_node(id: u64, label: &str, x: f64, y: f64, color: u32) -> ui::NodeData {
     let model = match label {
-        "Render Layers" => ui::NodeData::new(
-            id,
-            label,
-            vec![],
-            vec![
-                socket("Image", IMAGE_TYPE, rgb(IMAGE_COLOR)),
-                socket("Alpha", SCALAR_TYPE, rgb(SCALAR_COLOR)),
-                socket("Depth", SCALAR_TYPE, rgb(SCALAR_COLOR)),
-                socket("Normal", VECTOR_TYPE, rgb(VECTOR_COLOR)),
-            ],
-        )
-        .parameters(["ViewLayer"]),
-        "Blur" => ui::NodeData::new(
-            id,
-            label,
-            vec![
-                socket("Image", IMAGE_TYPE, rgb(IMAGE_COLOR)).at(98.0),
-                socket("Size", SCALAR_TYPE, rgb(SCALAR_COLOR)).at(122.0),
-            ],
-            vec![socket("Image", IMAGE_TYPE, rgb(IMAGE_COLOR))],
-        )
-        .controls(vec![
-            ui::NodeControl::choice(
-                "Filter",
-                60.0,
-                ["Gaussian", "Fast Gaussian", "Box", "Tent"],
-                0,
-            ),
-            ui::NodeControl::number("X", 144.0, 10.0, 0.0, 1000.0, 1.0),
-        ]),
-        "Image" => ui::NodeData::new(
-            id,
-            label,
-            vec![],
-            vec![
-                socket("Image", IMAGE_TYPE, rgb(IMAGE_COLOR)),
-                socket("Alpha", SCALAR_TYPE, rgb(SCALAR_COLOR)),
-            ],
-        )
-        .parameters(["Hero_Plate.exr"])
-        .preview(images::gradient(80, 40, 0, false)),
-        "Color Balance" => ui::NodeData::new(
-            id,
-            label,
-            vec![
-                socket("Fac", SCALAR_TYPE, rgb(SCALAR_COLOR)).at(82.0),
-                socket("Image", IMAGE_TYPE, rgb(IMAGE_COLOR)).at(108.0),
-            ],
-            vec![socket("Image", IMAGE_TYPE, rgb(IMAGE_COLOR))],
-        )
-        .controls(vec![
-            ui::NodeControl::choice(
-                "Method",
-                58.0,
-                ["Lift / Gamma / Gain", "Offset / Power / Slope"],
-                0,
-            ),
-            ui::NodeControl::number("Factor", 132.0, 1.0, 0.0, 1.0, 0.01),
-        ]),
-        "Keying" => ui::NodeData::new(
-            id,
-            label,
-            vec![socket("Image", IMAGE_TYPE, rgb(IMAGE_COLOR)).at(96.0)],
-            vec![
-                socket("Image", IMAGE_TYPE, rgb(IMAGE_COLOR)),
-                socket("Matte", SCALAR_TYPE, rgb(SCALAR_COLOR)),
-            ],
-        )
-        .parameters(["Screen Color"]),
-        "Mix" => ui::NodeData::new(
-            id,
-            label,
-            vec![
-                socket("Fac", SCALAR_TYPE, rgb(SCALAR_COLOR)).at(114.0),
-                socket("Image A", IMAGE_TYPE, rgb(IMAGE_COLOR)).at(140.0),
-                socket("Image B", IMAGE_TYPE, rgb(IMAGE_COLOR)).at(164.0),
-            ],
-            vec![socket("Image", IMAGE_TYPE, rgb(IMAGE_COLOR))],
-        )
-        .controls(vec![
-            ui::NodeControl::choice("Mode", 58.0, ["Screen", "Mix", "Add", "Multiply"], 0),
-            ui::NodeControl::toggle("Use Alpha", 83.0, true),
-            ui::NodeControl::number("Factor", 108.0, 0.5, 0.0, 1.0, 0.01),
-        ]),
-        "Viewer" => ui::NodeData::new(
-            id,
-            label,
-            vec![
-                socket("Image", IMAGE_TYPE, rgb(IMAGE_COLOR)).at(142.0),
-                socket("Alpha", SCALAR_TYPE, rgb(SCALAR_COLOR)).at(166.0),
-            ],
-            vec![],
-        )
-        .preview(images::gradient(80, 40, 0, false)),
-        _ => ui::NodeData::new(
-            id,
-            label,
-            vec![
-                socket("Image", IMAGE_TYPE, rgb(IMAGE_COLOR)),
-                socket("Alpha", SCALAR_TYPE, rgb(SCALAR_COLOR)),
-                socket("Z", SCALAR_TYPE, rgb(SCALAR_COLOR)),
-            ],
-            vec![],
-        )
-        .controls(vec![ui::NodeControl::number(
-            "Z", 126.0, 0.0, 0.0, 1000.0, 0.1,
-        )]),
+        "Render Layers" => render_layers(id, label),
+        "Blur" => blur(id, label),
+        "Image" => image(id, label),
+        "Color Balance" => color_balance(id, label),
+        "Keying" => keying(id, label),
+        "Mix" => mix(id, label),
+        "Viewer" => viewer(id, label),
+        _ => {
+            let socket = ui::NodeSocket::new;
+            ui::NodeData::new(
+                id,
+                label,
+                vec![
+                    socket("Image", IMAGE_TYPE, rgb(IMAGE_COLOR)),
+                    socket("Alpha", SCALAR_TYPE, rgb(SCALAR_COLOR)),
+                    socket("Z", SCALAR_TYPE, rgb(SCALAR_COLOR)),
+                ],
+                vec![],
+            )
+            .controls(vec![ui::NodeControl::number(
+                "Z", 126.0, 0.0, 0.0, 1000.0, 0.1,
+            )])
+        }
     };
     model
         .position(Point::new(x, y))
@@ -237,4 +152,126 @@ pub(super) fn editor_node(id: u64, label: &str, x: f32, y: f32, color: u32) -> u
             },
         ))
         .color(rgb(color))
+}
+
+fn render_layers(id: u64, label: &str) -> ui::NodeData {
+    let socket = ui::NodeSocket::new;
+    ui::NodeData::new(
+        id,
+        label,
+        vec![],
+        vec![
+            socket("Image", IMAGE_TYPE, rgb(IMAGE_COLOR)),
+            socket("Alpha", SCALAR_TYPE, rgb(SCALAR_COLOR)),
+            socket("Depth", SCALAR_TYPE, rgb(SCALAR_COLOR)),
+            socket("Normal", VECTOR_TYPE, rgb(VECTOR_COLOR)),
+        ],
+    )
+    .parameters(["ViewLayer"])
+}
+
+fn blur(id: u64, label: &str) -> ui::NodeData {
+    let socket = ui::NodeSocket::new;
+    ui::NodeData::new(
+        id,
+        label,
+        vec![
+            socket("Image", IMAGE_TYPE, rgb(IMAGE_COLOR)).at(98.0),
+            socket("Size", SCALAR_TYPE, rgb(SCALAR_COLOR)).at(122.0),
+        ],
+        vec![socket("Image", IMAGE_TYPE, rgb(IMAGE_COLOR))],
+    )
+    .controls(vec![
+        ui::NodeControl::choice(
+            "Filter",
+            60.0,
+            ["Gaussian", "Fast Gaussian", "Box", "Tent"],
+            0,
+        ),
+        ui::NodeControl::number("X", 144.0, 10.0, 0.0, 1000.0, 1.0),
+    ])
+}
+
+fn image(id: u64, label: &str) -> ui::NodeData {
+    let socket = ui::NodeSocket::new;
+    ui::NodeData::new(
+        id,
+        label,
+        vec![],
+        vec![
+            socket("Image", IMAGE_TYPE, rgb(IMAGE_COLOR)),
+            socket("Alpha", SCALAR_TYPE, rgb(SCALAR_COLOR)),
+        ],
+    )
+    .parameters(["Hero_Plate.exr"])
+    .preview(images::gradient(80, 40, 0, false))
+}
+
+fn color_balance(id: u64, label: &str) -> ui::NodeData {
+    let socket = ui::NodeSocket::new;
+    ui::NodeData::new(
+        id,
+        label,
+        vec![
+            socket("Fac", SCALAR_TYPE, rgb(SCALAR_COLOR)).at(82.0),
+            socket("Image", IMAGE_TYPE, rgb(IMAGE_COLOR)).at(108.0),
+        ],
+        vec![socket("Image", IMAGE_TYPE, rgb(IMAGE_COLOR))],
+    )
+    .controls(vec![
+        ui::NodeControl::choice(
+            "Method",
+            58.0,
+            ["Lift / Gamma / Gain", "Offset / Power / Slope"],
+            0,
+        ),
+        ui::NodeControl::number("Factor", 132.0, 1.0, 0.0, 1.0, 0.01),
+    ])
+}
+
+fn keying(id: u64, label: &str) -> ui::NodeData {
+    let socket = ui::NodeSocket::new;
+    ui::NodeData::new(
+        id,
+        label,
+        vec![socket("Image", IMAGE_TYPE, rgb(IMAGE_COLOR)).at(96.0)],
+        vec![
+            socket("Image", IMAGE_TYPE, rgb(IMAGE_COLOR)),
+            socket("Matte", SCALAR_TYPE, rgb(SCALAR_COLOR)),
+        ],
+    )
+    .parameters(["Screen Color"])
+}
+
+fn mix(id: u64, label: &str) -> ui::NodeData {
+    let socket = ui::NodeSocket::new;
+    ui::NodeData::new(
+        id,
+        label,
+        vec![
+            socket("Fac", SCALAR_TYPE, rgb(SCALAR_COLOR)).at(114.0),
+            socket("Image A", IMAGE_TYPE, rgb(IMAGE_COLOR)).at(140.0),
+            socket("Image B", IMAGE_TYPE, rgb(IMAGE_COLOR)).at(164.0),
+        ],
+        vec![socket("Image", IMAGE_TYPE, rgb(IMAGE_COLOR))],
+    )
+    .controls(vec![
+        ui::NodeControl::choice("Mode", 58.0, ["Screen", "Mix", "Add", "Multiply"], 0),
+        ui::NodeControl::toggle("Use Alpha", 83.0, true),
+        ui::NodeControl::number("Factor", 108.0, 0.5, 0.0, 1.0, 0.01),
+    ])
+}
+
+fn viewer(id: u64, label: &str) -> ui::NodeData {
+    let socket = ui::NodeSocket::new;
+    ui::NodeData::new(
+        id,
+        label,
+        vec![
+            socket("Image", IMAGE_TYPE, rgb(IMAGE_COLOR)).at(142.0),
+            socket("Alpha", SCALAR_TYPE, rgb(SCALAR_COLOR)).at(166.0),
+        ],
+        vec![],
+    )
+    .preview(images::gradient(80, 40, 0, false))
 }

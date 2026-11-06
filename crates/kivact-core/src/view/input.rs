@@ -3,12 +3,12 @@
 //! Public input values and handler events: keyboard, pointer, wheel and
 //! accessibility device actions, delivered to handlers with their regions.
 //! Shared input values come from
-//! the protocol; pointer and wheel events add access to drawing regions.
+//! the shared input vocabulary; handler events retain their routing facts.
 
-use kivact_wire as p;
-pub use kivact_wire::{
-    ButtonPress, FilePhase, Key, KeyCode, Modifiers, MouseButton, PointerButtons, PointerId,
-    PointerPhase,
+use kivact_types as p;
+pub use kivact_types::{
+    ButtonPress, FilePhase, InputPurpose, Key, KeyCode, Modifiers, MouseButton, PointerButtons,
+    PointerId, PointerPhase,
 };
 
 /// What kind of device a pointer is ([`PointerEvent::kind`]).
@@ -19,15 +19,14 @@ pub use kivact_wire::{
 /// `Cancel`. The mouse's own `Leave` comes before the contact's
 /// `Enter`, and a mouse resting in the window enters again after the
 /// contact's `Leave`.
-pub use kivact_wire::PointerKind;
+pub use kivact_types::PointerKind;
 
-use kivact_reactive::Result;
 use kivact_style::draw::{Point, RegionId};
 
 /// The input that requested dismissal. Unmounting an overlay does not
 /// produce a dismissal event; applications close it explicitly themselves.
 #[doc(inline)]
-pub use kivact_wire::DismissReason;
+pub use kivact_types::DismissReason;
 
 /// An assistive-technology request delivered to a node or one of its drawn
 /// regions (and the dismissals delivered to an overlay's Dismiss handler).
@@ -41,223 +40,145 @@ pub struct A11yEvent {
     pub region: Option<RegionId>,
 }
 
-/// What a key/pointer/wheel callback did with its event.
-///
-/// Like a React (DOM) handler: `Yes` is `stopPropagation()` together with
-/// `preventDefault()`, `No` does neither, and `PreventDefault` is
-/// `preventDefault()` alone. The default actions are the framework's, run
-/// once after the whole chain when no callback prevented them:
-///
-/// - key press: Enter/Space activates the focused control or region, and
-///   an Escape dismisses the topmost overlay offering `Dismiss`. Tab focus
-///   moves and native editing happen in the host before the callbacks and
-///   are not affected. Key releases have no default action.
-/// - wheel: the scroll container around the listener scrolls on.
-/// - pointer and file: none. The host has already moved the focus and
-///   taken the capture when the callbacks run, and a click's activation is
-///   a separate Activate, so `PreventDefault` behaves as `No` there.
-///
-/// Use `PreventDefault` when a component reacts to a key but an ancestor's
-/// shortcut must still see it, for example a pan surface that tracks a
-/// held Space without activating the focused control.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Handled {
-    /// Consumed: later callbacks and ancestors do not see the event, and
-    /// no default action runs.
-    Yes,
-    /// Not handled: the event continues to later callbacks and ancestors,
-    /// then to its default action.
-    No,
-    /// The event continues to later callbacks and ancestors exactly as with
-    /// `No`, but its default action does not run. A later `Yes` still stops
-    /// it; a later `No` does not undo the prevention.
-    PreventDefault,
+pub use kivact_runtime::Handled;
+
+/// A keyboard event with its original host route.
+#[derive(Clone, Debug, PartialEq)]
+pub struct KeyEvent {
+    pub(crate) routed: kivact_engine::contract::Routed<p::KeyInput>,
+    pub(crate) target_role: Option<p::Role>,
+}
+impl KeyEvent {
+    pub fn key(&self) -> Key {
+        self.routed.input.key
+    }
+    pub fn code(&self) -> KeyCode {
+        self.routed.input.code
+    }
+    pub fn modifiers(&self) -> Modifiers {
+        self.routed.input.modifiers
+    }
+    pub fn repeat(&self) -> bool {
+        matches!(
+            self.routed.input.phase,
+            p::KeyPhase::Down { repeat: true, .. }
+        )
+    }
+    pub fn text(&self) -> Option<&str> {
+        match &self.routed.input.phase {
+            p::KeyPhase::Down { text, .. } => text.as_deref(),
+            p::KeyPhase::Up => None,
+        }
+    }
+    pub fn target_role(&self) -> Option<p::Role> {
+        self.target_role
+    }
+    pub fn pointer(&self) -> Option<Point> {
+        self.routed.input.pointer
+    }
+    pub fn region(&self) -> Option<RegionId> {
+        self.routed.region
+    }
+    pub(crate) fn origin(&self) -> Option<p::FocusTarget> {
+        self.routed.target.map(|node| p::FocusTarget {
+            node,
+            region: self.routed.region,
+        })
+    }
 }
 
-impl Handled {
-    /// The answer of a chain where `self` and then `next` saw the event:
-    /// `Yes` wins, and a prevented default stays prevented.
-    pub(crate) fn and(self, next: Handled) -> Handled {
-        match (self, next) {
-            (Handled::Yes, _) | (_, Handled::Yes) => Handled::Yes,
-            (Handled::PreventDefault, _) | (_, Handled::PreventDefault) => Handled::PreventDefault,
-            (Handled::No, Handled::No) => Handled::No,
+/// Pointer sample and node-local route delivered to a handler.
+#[derive(Clone, Copy, Debug)]
+pub struct PointerEvent {
+    pub(crate) routed: kivact_engine::contract::Routed<p::PointerSample>,
+    pub(crate) capture_action: fn(&PointerEvent, bool),
+}
+impl PartialEq for PointerEvent {
+    fn eq(&self, other: &Self) -> bool {
+        self.routed == other.routed
+    }
+}
+impl PointerEvent {
+    /// Route this pointer's subsequent events to this node. Call from its handler.
+    /// Capture ends on the final button release, cancellation, or removal of the node.
+    /// Capturing a hovering pointer also works without a button held.
+    pub fn capture(&self) {
+        (self.capture_action)(self, true);
+    }
+
+    /// Release explicit or implicit capture so subsequent events follow hit testing.
+    /// Call from the capturing node's pointer handler.
+    pub fn release_capture(&self) {
+        (self.capture_action)(self, false);
+    }
+
+    pub fn id(&self) -> PointerId {
+        self.routed.input.id
+    }
+    pub fn phase(&self) -> PointerPhase {
+        self.routed.input.phase
+    }
+    pub fn pos(&self) -> Point {
+        self.routed.local
+    }
+    pub fn window_pos(&self) -> Point {
+        self.routed.input.position
+    }
+    pub fn buttons(&self) -> PointerButtons {
+        self.routed.input.buttons
+    }
+    pub fn modifiers(&self) -> Modifiers {
+        self.routed.input.modifiers
+    }
+    pub fn kind(&self) -> PointerKind {
+        self.routed.input.kind
+    }
+    pub fn pressure(&self) -> Option<f64> {
+        self.routed.input.pressure
+    }
+    pub fn tilt(&self) -> Option<(f64, f64)> {
+        self.routed.input.tilt
+    }
+    pub fn is_primary(&self) -> bool {
+        self.routed.input.is_primary
+    }
+    pub fn region(&self) -> Option<RegionId> {
+        self.routed.region
+    }
+    pub(crate) fn origin(&self) -> p::FocusTarget {
+        p::FocusTarget {
+            node: self.routed.target.expect("pointer handler has a target"),
+            region: self.routed.region,
         }
     }
 }
 
-impl crate::sealed::KeyHandlerResultSeal for () {}
-impl crate::sealed::KeyHandlerResultSeal for Handled {}
-impl crate::sealed::KeyHandlerResultSeal for Result<Handled> {}
-
-/// Return type of `on_key`/`on_pointer`/`on_wheel` handlers: `()` (not
-/// handled), [`Handled`] or `Result<Handled, UiError>`.
-#[diagnostic::on_unimplemented(
-    message = "a key handler must return `()`, `Handled` or `Result<Handled, UiError>`"
-)]
-pub trait KeyHandlerResult: crate::sealed::KeyHandlerResultSeal {
-    #[doc(hidden)]
-    fn into_handled(self) -> Result<Handled>;
-}
-
-impl KeyHandlerResult for () {
-    fn into_handled(self) -> Result<Handled> {
-        Ok(Handled::No)
-    }
-}
-
-impl KeyHandlerResult for Handled {
-    fn into_handled(self) -> Result<Handled> {
-        Ok(self)
-    }
-}
-
-impl KeyHandlerResult for Result<Handled> {
-    fn into_handled(self) -> Result<Handled> {
-        self
-    }
-}
-
-/// A keyboard event delivered to a key press or release handler.
-#[derive(Clone, Debug, PartialEq)]
-pub struct KeyEvent {
-    /// Original host identity, retained independently of focus changes during bubbling.
-    pub(crate) origin: Option<kivact_wire::FocusTarget>,
-    /// The original keyboard target region, preserved while bubbling.
-    pub region: Option<RegionId>,
-    pub key: Key,
-    /// Physical keyboard position.
-    pub code: KeyCode,
-    pub modifiers: Modifiers,
-    pub repeat: bool,
-    /// Text produced by the key, if any.
-    pub text: Option<String>,
-    /// The semantic role of the original keyboard target, after modal
-    /// retargeting. This remains the target's role as the event bubbles;
-    /// it is not the role of each handler's node. `None` means no explicit role.
-    /// Global shortcuts can use it to leave form controls to their own handlers.
-    pub target_role: Option<kivact_wire::Role>,
-    /// Where the mouse was in the window, in logical pixels, when the key
-    /// arrived: the point a shortcut opens a menu or picker at
-    /// (`overlay_at`), whichever node has the keyboard focus.
-    ///
-    /// It is the last position the window reported, also while a button
-    /// is held or another node captures the pointer, and whatever pointer
-    /// listener is under it. It is `None` while the mouse is outside the
-    /// window (also after it left with a button held) and before it first
-    /// entered; a shortcut then picks its own origin, such as the centre of
-    /// the focused node's `NodeRef::rect`. A touch or pen contact does not
-    /// move it.
-    pub pointer: Option<Point>,
-}
-
-/// Pointer event in node-local logical pixels.
-///
-/// The mouse is `PointerId(1)`; each touch or pen contact has an id of its
-/// own while it lasts, holds [`MouseButton::Primary`] in
-/// [`buttons`](Self::buttons) while in contact and names it in a `Down`'s
-/// and `Up`'s [`ButtonPress`]. Several pointers can be down at once: each one's
-/// events go to the node that got its `Down`, so a handler that follows a
-/// gesture keeps the [`id`](Self::id) its `Down` had.
-///
-/// ```ignore
-/// node().on_pointer(|e: PointerEvent| {
-///     if e.kind == PointerKind::Pen && e.phase == PointerPhase::Move {
-///         stroke_to(e.pos, e.pressure.unwrap_or(1.0));
-///     }
-/// })
-/// ```
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct PointerEvent {
-    pub id: PointerId,
-    /// What happened; a `Down` or `Up` carries the [`ButtonPress`]: the
-    /// button it pressed or released and which click of a multi-click it is.
-    pub phase: PointerPhase,
-    /// Where the pointer is, relative to the node's untransformed box
-    /// (its own coordinates).
-    pub pos: Point,
-    /// Where the pointer is in the window, in logical pixels: the point
-    /// to anchor a context menu at (`overlay_at`) or to hit test other
-    /// nodes with during a drag.
-    pub window_pos: Point,
-    /// The buttons held after this event (Pointer Events' `buttons`): a
-    /// `Move` with a button held is a drag, one with none a hover. `Cancel`
-    /// and the `Leave` that follows it hold none.
-    pub buttons: PointerButtons,
-    pub modifiers: Modifiers,
-    /// Mouse, touch or pen.
-    pub kind: PointerKind,
-    /// Pressure from 0 to 1 of a touch or pen, when the device reports
-    /// it.
-    pub pressure: Option<f32>,
-    /// The pen's tilt from the vertical (degrees, along x and y), when the
-    /// device reports it.
-    pub tilt: Option<(f32, f32)>,
-    /// Whether this is the primary pointer of its kind (Pointer Events'
-    /// `isPrimary`): the mouse always; a touch or pen contact when no other
-    /// contact of its kind was down at its `Down`, until it ends. Only the
-    /// primary pointers hover, focus, and click (`on_press`); another
-    /// contact only reaches `on_pointer`.
-    pub is_primary: bool,
-    pub(crate) origin: p::FocusTarget,
-}
-
-impl PointerEvent {
-    /// The `Draw::region` hit by this event, if any.
-    pub fn region(&self) -> Option<RegionId> {
-        self.origin.region
-    }
-}
-
-/// The handler's [`PointerEvent`] for a protocol event hitting `region`.
-pub(crate) fn pointer_event_from_wire(
-    e: p::PointerEvent,
-    node: p::NodeId,
-    region: Option<p::RegionId>,
-) -> PointerEvent {
-    PointerEvent {
-        id: e.id,
-        phase: e.phase,
-        pos: e.pos,
-        window_pos: e.window_pos,
-        buttons: e.buttons,
-        modifiers: e.modifiers,
-        kind: e.kind,
-        pressure: e.pressure,
-        tilt: e.tilt,
-        is_primary: e.is_primary,
-        origin: p::FocusTarget { node, region },
-    }
-}
-
-/// Wheel/trackpad scroll in logical pixels.
+/// Wheel movement and node-local route delivered to a handler.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct WheelEvent {
-    pub delta: Point,
-    pub pos: Point,
-    pub modifiers: Modifiers,
-    pub(crate) origin: p::FocusTarget,
+    pub(crate) routed: kivact_engine::contract::Routed<p::WheelInput>,
 }
-
 impl WheelEvent {
-    pub fn region(&self) -> Option<RegionId> {
-        self.origin.region
+    pub fn delta(&self) -> Point {
+        self.routed.input.delta
     }
-}
-
-/// A wheel event (the region field is private to the public type).
-pub(crate) fn wheel_event(
-    delta: Point,
-    pos: Point,
-    modifiers: Modifiers,
-    node: p::NodeId,
-    region: Option<RegionId>,
-) -> WheelEvent {
-    WheelEvent {
-        delta,
-        pos,
-        modifiers,
-        origin: p::FocusTarget { node, region },
+    pub fn pos(&self) -> Point {
+        self.routed.local
+    }
+    pub fn window_pos(&self) -> Point {
+        self.routed.input.position
+    }
+    pub fn modifiers(&self) -> Modifiers {
+        self.routed.input.modifiers
+    }
+    pub fn region(&self) -> Option<RegionId> {
+        self.routed.region
+    }
+    pub(crate) fn origin(&self) -> p::FocusTarget {
+        p::FocusTarget {
+            node: self.routed.target.expect("wheel handler has a target"),
+            region: self.routed.region,
+        }
     }
 }
 
@@ -272,4 +193,14 @@ pub struct FileEvent {
     pub pos: Point,
     /// Window logical position.
     pub window_pos: Point,
+}
+
+/// Whether a text editor has an active IME composition.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Composition {
+    /// No composition is active.
+    #[default]
+    Idle,
+    /// The IME is composing text.
+    Composing,
 }

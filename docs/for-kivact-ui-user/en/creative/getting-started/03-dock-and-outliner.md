@@ -9,7 +9,7 @@ The finished app keeps all layers in one signal. The outliner and the inspector 
 Replace `src/main.rs` with the whole program below. It reuses the fields from step 2, now bound to a *layer* instead of to loose signals.
 
 ```rust,test_harness
-use kivact::Binding;
+use kivact::state::Binding;
 use kivact::prelude::*;
 use kivact::style::{Color, ThemeMode, rgb};
 use kivact_ui_creative as ui;
@@ -84,7 +84,7 @@ fn layer_form(layers: Signal<Vec<Layer>>, current: Value<Option<u64>>) -> impl I
         ui::property_row(
             "X",
             ui::number("X", x)
-                .range(-1000.0, 1000.0)
+                .range(kivact::interaction::ScalarRange::new(-1000.0, 1000.0).expect("valid range"))
                 .step(1.0)
                 .precision(1)
                 .unit(" px")
@@ -93,14 +93,14 @@ fn layer_form(layers: Signal<Vec<Layer>>, current: Value<Option<u64>>) -> impl I
         ui::property_row(
             "Opacity",
             ui::number("Opacity", opacity)
-                .range(0.0, 1.0)
+                .range(kivact::interaction::ScalarRange::new(0.0, 1.0).expect("valid range"))
                 .step(0.01)
                 .precision(2)
                 .label_visible(false),
         ),
         ui::property_row("Fill", ui::color_popup("Fill", fill)),
         ui::bezier_curve(easing),
-    ))
+    )).role(kivact::view::Role::List)
     .style(style().gap(6).padding(10))
 }
 
@@ -170,10 +170,7 @@ mod tests {
 
     #[test]
     fn the_inspector_edits_the_selected_layer() {
-        let options = RenderOptions {
-            theme: ui::theme(ThemeMode::Dark),
-            ..RenderOptions::from_env()
-        };
+        let options = RenderOptions::from_env().theme(ui::theme(ThemeMode::Dark));
         let (screen, layers) = render_with_handle(options, || {
             let layers = signal(sample_layers());
             (layers, editor(layers))
@@ -211,7 +208,7 @@ Run it with `cargo run`. You should see a window split in two: a **Layers** pane
 - **`show_some(current, ..).fallback(..)`** shows the form while a layer is selected and a hint otherwise. Moving from one selected layer to another keeps the same form; only the bindings' results change.
 - **The dock layout is data.** `ui::DockLayout<K>` is a tree of splits (`DockNode::split`) with tabbed containers (`DockNode::tabs`) at its leaves. `K` is any key you choose that is `Clone + Eq + Hash`; here a `&'static str` names each panel. You hand the layout to `ui::dock(layout, factory)` as a signal, and every change the user makes (dragging a tab, splitting, resizing) is written back to it, so you can save it, restore it or undo it like any other state.
 - **The panel factory runs once per key.** Switching tabs hides a panel without destroying it, so a panel keeps its own state. `closable(false)` removes the tab's close button.
-- **The test** uses `kivact::test::render_with_handle`. It builds the app inside a test window, lets your setup closure return values you want to inspect (here the `layers` signal), and returns a `Screen`. You find elements by their accessibility role and name (`Role::SpinButton` named `X`), the way a screen reader sees them, and drive them with `focus()`, `click()` and `press_key(..)`. `RenderOptions::from_env()` opens a real window, so run these tests on a desktop session; set `KIVACT_TEST_HEADLESS=1` on a machine without a display.
+- **The test** uses `kivact::test::render_with_handle`. It builds the app inside a test window, lets your setup closure return values you want to inspect (here the `layers` signal), and returns a `Screen`. You find elements by their accessibility role and name (`Role::SpinButton` named `X`), the way a screen reader sees them, and drive them with `focus()`, `click()` and `press_key(..)`. `RenderOptions::from_env()` reads `KIVACT_TEST_MIRROR` (`off`, `auto`, or `required`; default `auto`) and `KIVACT_TEST_GPU=1`. Set `KIVACT_TEST_MIRROR=off` to run without a display.
 
 ## Where you are
 

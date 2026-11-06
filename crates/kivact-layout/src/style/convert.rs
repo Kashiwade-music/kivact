@@ -1,4 +1,7 @@
 //! Role: Convert layout properties into taffy styles, allocating calc lengths.
+//!
+//! Shared dimensions stay f64 until this adapter constructs Taffy's f32 style.
+//! Percentages use the shared 0..100 units; Taffy receives fractions in 0..1.
 
 use taffy::prelude::{
     Dimension as TDim, FlexDirection as TDir, JustifyContent, LengthPercentage,
@@ -12,12 +15,12 @@ use taffy::{
 
 use crate::calcs::CalcAlloc;
 use crate::style::node::{NodeStyle, TStyle};
-use kivact_wire::{
-    Align, Breadth, Dimension, FlexDirection, GridContainer, GridFlow, GridTrack, Justify,
-    LayoutProps, Overflow, Position, Repeat, TrackSize,
+use kivact_types::{
+    Align, Breadth, Dimension, FlexDirection, GridContainer, GridFlow, GridRepeat, GridTrack,
+    Justify, LayoutProps, Overflow, Position, TrackSize,
 };
 
-/// Converts `wire` lengths, making calc handles.
+/// Converts `shared` lengths, making calc handles.
 struct Lengths<'a, 'b> {
     alloc: &'a mut CalcAlloc<'b>,
 }
@@ -26,8 +29,8 @@ impl Lengths<'_, '_> {
     fn dim(&mut self, d: Dimension) -> TDim {
         match d {
             Dimension::Auto => TDim::auto(),
-            Dimension::Px(v) => TDim::length(v),
-            Dimension::Percent(v) => TDim::percent(v / 100.0),
+            Dimension::Px(v) => TDim::length(v as f32),
+            Dimension::Percent(v) => TDim::percent((v / 100.0) as f32),
             Dimension::Calc { percent, px } => TDim::calc(self.alloc.calc(percent, px)),
             Dimension::MinContent => TDim::min_content(),
             Dimension::MaxContent => TDim::max_content(),
@@ -37,8 +40,8 @@ impl Lengths<'_, '_> {
 
     fn lp(&mut self, d: Dimension) -> LengthPercentage {
         match d {
-            Dimension::Percent(v) => LengthPercentage::percent(v / 100.0),
-            Dimension::Px(v) => LengthPercentage::length(v),
+            Dimension::Percent(v) => LengthPercentage::percent((v / 100.0) as f32),
+            Dimension::Px(v) => LengthPercentage::length(v as f32),
             Dimension::Auto
             | Dimension::MinContent
             | Dimension::MaxContent
@@ -53,8 +56,8 @@ impl Lengths<'_, '_> {
             | Dimension::MinContent
             | Dimension::MaxContent
             | Dimension::FitContent => LengthPercentageAuto::auto(),
-            Dimension::Px(v) => LengthPercentageAuto::length(v),
-            Dimension::Percent(v) => LengthPercentageAuto::percent(v / 100.0),
+            Dimension::Px(v) => LengthPercentageAuto::length(v as f32),
+            Dimension::Percent(v) => LengthPercentageAuto::percent((v / 100.0) as f32),
             Dimension::Calc { percent, px } => {
                 LengthPercentageAuto::calc(self.alloc.calc(percent, px))
             }
@@ -63,12 +66,14 @@ impl Lengths<'_, '_> {
 }
 
 /// A border width as taffy takes it (not finite or below zero: 0).
-fn border(width: f32) -> LengthPercentage {
-    LengthPercentage::length(if width.is_finite() {
-        width.max(0.0)
-    } else {
-        0.0
-    })
+fn border(width: f64) -> LengthPercentage {
+    LengthPercentage::length(
+        (if width.is_finite() {
+            width.max(0.0)
+        } else {
+            0.0
+        }) as f32,
+    )
 }
 
 fn align(a: Align) -> AlignItems {
@@ -109,19 +114,8 @@ pub(crate) fn taffy_style(l: &LayoutProps, hidden: bool, alloc: &mut CalcAlloc<'
     let item = l.grid.as_deref();
     let container = item.and_then(|g| g.container.as_ref());
     let mut style = NodeStyle {
-        display: if l.hidden || hidden {
-            Display::None
-        } else if container.is_some() {
-            Display::Grid
-        } else {
-            Display::Flex
-        },
-        flex_direction: match l.direction {
-            FlexDirection::Row => TDir::Row,
-            FlexDirection::Column => TDir::Column,
-            FlexDirection::RowReverse => TDir::RowReverse,
-            FlexDirection::ColumnReverse => TDir::ColumnReverse,
-        },
+        display: display(l, hidden),
+        flex_direction: direction(l.direction),
         flex_wrap: if l.wrap {
             FlexWrap::Wrap
         } else {
@@ -162,10 +156,13 @@ pub(crate) fn taffy_style(l: &LayoutProps, hidden: bool, alloc: &mut CalcAlloc<'
             width: x.lpa(l.max_width),
             height: x.lpa(l.max_height),
         },
-        flex_grow: l.grow,
-        flex_shrink: l.shrink,
+        flex_grow: l.grow as f32,
+        flex_shrink: l.shrink as f32,
         flex_basis: x.dim(l.basis),
-        aspect_ratio: l.aspect_ratio.filter(|r| r.is_finite() && *r > 0.0),
+        aspect_ratio: l
+            .aspect_ratio
+            .map(|r| r as f32)
+            .filter(|r| r.is_finite() && *r > 0.0),
         // A sticky box is laid out in flow (its insets move it after
         // layout, by the integration); a fixed one is an absolute child of the
         // window's synthetic viewport.
@@ -173,16 +170,7 @@ pub(crate) fn taffy_style(l: &LayoutProps, hidden: bool, alloc: &mut CalcAlloc<'
             Position::Relative | Position::Sticky => TPos::Relative,
             Position::Absolute | Position::Fixed => TPos::Absolute,
         },
-        inset: if l.position == Position::Sticky {
-            taffy::Rect::auto()
-        } else {
-            taffy::Rect {
-                left: x.lpa(l.inset.left),
-                right: x.lpa(l.inset.right),
-                top: x.lpa(l.inset.top),
-                bottom: x.lpa(l.inset.bottom),
-            }
-        },
+        inset: x.inset(l),
         overflow: taffy::Point {
             x: overflow(l.overflow_x),
             y: overflow(l.overflow_y),
@@ -205,6 +193,18 @@ pub(crate) fn taffy_style(l: &LayoutProps, hidden: bool, alloc: &mut CalcAlloc<'
 }
 
 impl Lengths<'_, '_> {
+    fn inset(&mut self, l: &LayoutProps) -> taffy::Rect<LengthPercentageAuto> {
+        if l.position == Position::Sticky {
+            taffy::Rect::auto()
+        } else {
+            taffy::Rect {
+                left: self.lpa(l.inset.left),
+                right: self.lpa(l.inset.right),
+                top: self.lpa(l.inset.top),
+                bottom: self.lpa(l.inset.bottom),
+            }
+        }
+    }
     /// The full style of the grid container `c` whose box properties are
     /// `node`'s.
     fn grid(&mut self, node: &NodeStyle, c: &GridContainer) -> TStyle {
@@ -247,9 +247,9 @@ impl Lengths<'_, '_> {
             GridTrack::Repeat(count, tracks) => {
                 GridTemplateComponent::Repeat(GridTemplateRepetition {
                     count: match count {
-                        Repeat::Count(n) => RepetitionCount::Count((*n).max(1)),
-                        Repeat::AutoFill => RepetitionCount::AutoFill,
-                        Repeat::AutoFit => RepetitionCount::AutoFit,
+                        GridRepeat::Count(n) => RepetitionCount::Count((*n).max(1)),
+                        GridRepeat::AutoFill => RepetitionCount::AutoFill,
+                        GridRepeat::AutoFit => RepetitionCount::AutoFit,
                     },
                     tracks: tracks.iter().map(|s| self.track(*s)).collect(),
                     line_names: Vec::new(),
@@ -268,8 +268,8 @@ impl Lengths<'_, '_> {
     fn min_track(&mut self, b: Breadth) -> MinTrackSizingFunction {
         type M = MinTrackSizingFunction;
         match b {
-            Breadth::Size(Dimension::Px(v)) => M::length(v),
-            Breadth::Size(Dimension::Percent(v)) => M::percent(v / 100.0),
+            Breadth::Size(Dimension::Px(v)) => M::length(v as f32),
+            Breadth::Size(Dimension::Percent(v)) => M::percent((v / 100.0) as f32),
             Breadth::Size(Dimension::Calc { percent, px }) => M::calc(self.alloc.calc(percent, px)),
             Breadth::Size(Dimension::MinContent) => M::min_content(),
             Breadth::Size(Dimension::MaxContent) => M::max_content(),
@@ -282,17 +282,38 @@ impl Lengths<'_, '_> {
     fn max_track(&mut self, b: Breadth) -> MaxTrackSizingFunction {
         type M = MaxTrackSizingFunction;
         match b {
-            Breadth::Size(Dimension::Px(v)) => M::length(v),
-            Breadth::Size(Dimension::Percent(v)) => M::percent(v / 100.0),
+            Breadth::Size(Dimension::Px(v)) => M::length(v as f32),
+            Breadth::Size(Dimension::Percent(v)) => M::percent((v / 100.0) as f32),
             Breadth::Size(Dimension::Calc { percent, px }) => M::calc(self.alloc.calc(percent, px)),
             Breadth::Size(Dimension::Auto) => M::auto(),
             Breadth::Size(Dimension::MinContent) => M::min_content(),
             Breadth::Size(Dimension::MaxContent) => M::max_content(),
             Breadth::Size(Dimension::FitContent) => M::fit_content_percent(1.0),
-            Breadth::Fr(f) => M::fr(f.max(0.0)),
-            Breadth::FitContent(Dimension::Px(v)) => M::fit_content_px(v),
-            Breadth::FitContent(Dimension::Percent(v)) => M::fit_content_percent(v / 100.0),
+            Breadth::Fr(f) => M::fr(f.max(0.0) as f32),
+            Breadth::FitContent(Dimension::Px(v)) => M::fit_content_px(v as f32),
+            Breadth::FitContent(Dimension::Percent(v)) => {
+                M::fit_content_percent((v / 100.0) as f32)
+            }
             Breadth::FitContent(_) => M::fit_content_percent(1.0),
         }
+    }
+}
+
+fn display(l: &LayoutProps, hidden: bool) -> Display {
+    if l.hidden || hidden {
+        Display::None
+    } else if l.display == kivact_types::Display::Grid {
+        Display::Grid
+    } else {
+        Display::Flex
+    }
+}
+
+fn direction(direction: FlexDirection) -> TDir {
+    match direction {
+        FlexDirection::Row => TDir::Row,
+        FlexDirection::Column => TDir::Column,
+        FlexDirection::RowReverse => TDir::RowReverse,
+        FlexDirection::ColumnReverse => TDir::ColumnReverse,
     }
 }

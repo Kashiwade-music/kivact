@@ -2,7 +2,7 @@
 
 use crate::paint::PatternFill;
 use kivact_types::ExternalFrame;
-use kivact_types::protocol::ImageData;
+use kivact_types::scene::Pixels;
 use vello_common::filter_effects::Filter;
 use vello_cpu::kurbo::{Affine, BezPath, Rect, Stroke};
 use vello_cpu::peniko::{self, BlendMode, FontData};
@@ -22,25 +22,25 @@ pub(crate) trait Canvas {
     fn fill_rect(&mut self, rect: &Rect);
     fn fill_path(&mut self, path: &BezPath);
     fn stroke_path(&mut self, path: &BezPath);
-    fn fill_blurred_rounded_rect(&mut self, rect: &Rect, radius: f32, std_dev: f32);
+    fn fill_blurred_rounded_rect(&mut self, rect: &Rect, radius: f64, std_dev: f64);
     fn push_clip_layer(&mut self, path: &BezPath);
     /// Clip what follows without a layer (destination-out drawing inside
     /// still reaches the enclosing layer's pixels).
     fn push_clip_path(&mut self, path: &BezPath);
     fn pop_clip_path(&mut self);
-    fn push_opacity_layer(&mut self, clip: &BezPath, opacity: f32);
+    fn push_opacity_layer(&mut self, clip: &BezPath, opacity: f64);
     fn push_layer(
         &mut self,
         clip: Option<&BezPath>,
         blend: Option<BlendMode>,
-        opacity: Option<f32>,
+        opacity: Option<f64>,
         filter: Option<Filter>,
     );
     fn pop_layer(&mut self);
     /// Fill `glyphs` of `run`'s font, hinted and emboldened as `run` says.
     fn fill_glyphs(&mut self, run: GlyphRun<'_>, glyphs: impl Iterator<Item = Glyph> + Clone);
     /// Draw `image`'s pixels stretched over `rect` (bilinear sampling).
-    fn draw_image(&mut self, image: &ImageData, rect: Rect, pixelated: bool);
+    fn draw_image(&mut self, image: &Pixels, rect: Rect, pixelated: bool);
     /// The pixel size of the external frame `frame` when this frame can
     /// draw it (imported here and ready), else `None` (nothing is drawn).
     fn external_size(&self, frame: &ExternalFrame) -> Option<(u32, u32)>;
@@ -54,10 +54,11 @@ pub(crate) trait Canvas {
     fn fill_pattern(&mut self, path: &BezPath, pattern: &PatternFill, visible: Rect);
 }
 
+// xtask-allow(state-fields): Drawing options for one borrowed glyph run; hinting and atlas eligibility are independent rendering facts.
 /// How a run of glyphs is drawn.
 pub(crate) struct GlyphRun<'a> {
     pub(crate) font: &'a FontData,
-    pub(crate) font_size: f32,
+    pub(crate) font_size: f64,
     pub(crate) coords: &'a [i16],
     pub(crate) embolden: glifo::FontEmbolden,
     /// Hint vertically (only under a translation and a uniform scale).
@@ -82,7 +83,7 @@ impl GlyphRun<'_> {
         Self: 'a,
     {
         builder
-            .font_size(self.font_size)
+            .font_size(self.font_size as f32)
             .normalized_coords(self.coords)
             .hint(self.hint)
             .font_embolden(self.embolden)

@@ -6,7 +6,7 @@
 //! [`Recipe`] is the only shape of a recipe; it is `Send + Sync` so that a
 //! theme can be passed from a worker to the UI. A recipe never returns a
 //! view: what an item shows belongs to the component's slot (`Tabs::item`,
-//! `RadioGroup::item`, `Menu::item`, `Select::option`, each given the item
+//! `RadioGroup::item`, `Menu::item`, `Select::item`, each given the item
 //! and its state as `Value`s), and without a slot the component draws the
 //! item's icon, label, description, check and radio marks and headings.
 //!
@@ -44,22 +44,28 @@
 //! `chevron-right` for a submenu, `chevron-down` and the selected option's
 //! `check` for a select, and `x` for the close of a dialog and a toast. A
 //! look without a mark makes the recipe's box zero-sized.
-use super::DataTableGroupState;
+use super::look_feedback;
 use super::values::{
-    AxisState, ButtonState, CheckState, DataTableCellState, DataTableCheckState,
+    AxisState, ButtonState, CheckableState, DataTableCellState, DataTableCheckState,
     DataTablePageState, DataTableRowState, DialogState, FieldState, ProgressState,
     SelectTriggerState, TextInputState, ToastGroupState, ToggleButtonState, TooltipArrowState,
 };
 use super::variants::Look;
 use super::{look, look_collections, look_controls, look_extra, look_input, look_palette};
-use kivact_core::primitive::PartState;
+use crate::component_values::{
+    AlertState, CardState, EmptyStateState, HeadingState, InputGroupMemberState, InputGroupState,
+    StatState,
+};
+use crate::table_values::DataTableGroupState;
+use crate::{look_files, look_metrics, look_static_collections};
+use kivact_core::custom::PartState;
 use kivact_core::style::{Style, Theme, ThemeExtension};
 use kivact_core::view::Orientation;
+use kivact_interaction::DropzoneState;
 use kivact_interaction::{
-    DisclosureState, ListItemState, MenuItemState, PopupState, TabListState, TabState,
-    TableHeaderState, ToastState, TreeItemState,
+    ListItemState, MenuItemState, PopupState, TabListState, TabState, TableHeaderState, ToastState,
 };
-use std::sync::{Arc, OnceLock};
+use std::sync::Arc;
 
 /// A style derived from the theme and the actual state of a component's
 /// part with the component's kit-defined variants ([`Look`]): what a
@@ -68,10 +74,37 @@ use std::sync::{Arc, OnceLock};
 /// A recipe returns only style (layout, paint, local `Style::paint`
 /// drawing, and the hover, press, focus and disabled looks as state
 /// styles); what a part shows is the component's, or a slot the caller
-/// fills (`Tabs::item`, `Menu::item`, `Select::option`). Tables compare
+/// fills (`Tabs::item`, `Menu::item`, `Select::item`). Tables compare
 /// their recipes by identity, so installing an unchanged table never
 /// restyles.
-pub type Recipe<S> = Arc<dyn Fn(&Theme, &Look<S>) -> Style + Send + Sync>;
+pub struct Recipe<S>(Arc<RecipeFn<S>>);
+
+type RecipeFn<S> = dyn Fn(&Theme, &Look<S>) -> Style + Send + Sync;
+
+impl<S> Clone for Recipe<S> {
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
+    }
+}
+impl<S, F> From<F> for Recipe<S>
+where
+    F: Fn(&Theme, &Look<S>) -> Style + Send + Sync + 'static,
+{
+    fn from(value: F) -> Self {
+        Self(Arc::new(value))
+    }
+}
+impl<S> std::ops::Deref for Recipe<S> {
+    type Target = dyn Fn(&Theme, &Look<S>) -> Style + Send + Sync;
+    fn deref(&self) -> &Self::Target {
+        &*self.0
+    }
+}
+impl<S> Recipe<S> {
+    fn same(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.0, &other.0)
+    }
+}
 
 /// A recipe table: one recipe per part and the tables of the parts'
 /// components. A component reads a recipe with the part's `_recipe` method
@@ -96,9 +129,10 @@ macro_rules! recipe_table {
 
         impl $name {
             fn default_table() -> &'static Self {
-                static DEFAULT: OnceLock<$name> = OnceLock::new();
+                #[expect(clippy::disallowed_types, reason = "Immutable global recipe defaults are initialized once and share stable recipe identities.")]
+                static DEFAULT: std::sync::OnceLock<$name> = std::sync::OnceLock::new();
                 DEFAULT.get_or_init(|| Self {
-                    $( $field: Arc::new(|theme: &Theme, look: &Look<$state>| $default(theme, look)), )*
+                    $( $field: Recipe::from(|theme: &Theme, look: &Look<$state>| $default(theme, look)), )*
                     $( $( $table: Default::default(), )* )?
                 })
             }
@@ -120,7 +154,7 @@ macro_rules! recipe_table {
                 where
                     F: Fn(&Theme, &Look<$state>) -> Style + Send + Sync + 'static,
                 {
-                    self.$field = Arc::new(f(self.$field));
+                    self.$field = Recipe::from(f(self.$field));
                     self
                 }
             )*
@@ -153,7 +187,7 @@ macro_rules! recipe_table {
         impl PartialEq for $name {
             fn eq(&self, other: &Self) -> bool {
                 true
-                    $( && Arc::ptr_eq(&self.$field, &other.$field) )*
+                    $( && self.$field.same(&other.$field) )*
                     $( $( && self.$table == other.$table )* )?
             }
         }
@@ -161,12 +195,59 @@ macro_rules! recipe_table {
         impl std::fmt::Debug for $name {
             fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
                 f.debug_struct(stringify!($name))
-                    $( .field(stringify!($field), &Arc::as_ptr(&self.$field).cast::<()>()) )*
+                    $( .field(stringify!($field), &Arc::as_ptr(&self.$field.0).cast::<()>()) )*
                     $( $( .field(stringify!($table), &self.$table) )* )?
                     .finish()
             }
         }
     };
+}
+
+recipe_table! {
+    /// Calendar panels and date cells.
+    CalendarRecipes {
+        root(root_recipe): PartState = super::look_calendar::root,
+        month(month_recipe): PartState = super::look_calendar::month,
+        caption(caption_recipe): PartState = super::look_calendar::month,
+        events(events_recipe): PartState = super::look_calendar::events,
+        event(event_recipe): crate::calendar_tokens::CalendarEventVisual = super::look_calendar::event,
+        day(day_recipe): crate::calendar_values::CalendarDayVisual = super::look_calendar::day,
+        range(range_recipe): kivact_interaction::CalendarDayState = super::look_calendar::range,
+    }
+}
+recipe_table! {
+    /// Date and time field layouts and touch wheel surfaces.
+    DateInputRecipes {
+        root(root_recipe): PartState = super::look_calendar::input,
+        wheel(wheel_recipe): PartState = super::look_calendar::wheel,
+    }
+}
+recipe_table! {
+    /// The parts of a date-range field.
+    DateRangeInputRecipes { root(root_recipe): PartState = super::look_calendar::input, }
+}
+recipe_table! {
+    /// The parts of a wall-clock field.
+    TimeInputRecipes {
+        root(root_recipe): PartState = super::look_calendar::input,
+        wheel(wheel_recipe): PartState = super::look_calendar::wheel,
+    }
+}
+recipe_table! {
+    /// The parts of a date-and-time field.
+    DateTimeInputRecipes { root(root_recipe): PartState = super::look_calendar::input, }
+}
+recipe_table! {
+    /// Recipes of the standard combobox family.
+    ComboboxRecipes {
+        frame(frame_recipe): PartState = super::combobox::look::frame,
+        input(input_recipe): PartState = super::combobox::look::input,
+        surface(surface_recipe): PartState = super::combobox::look::surface,
+        option(option_recipe): ListItemState = super::combobox::look::option,
+        chip(chip_recipe): PartState = super::combobox::look::chip,
+        remove(remove_recipe): PartState = super::combobox::look::remove,
+        empty(empty_recipe): PartState = super::combobox::look::empty,
+    }
 }
 
 recipe_table! {
@@ -182,7 +263,7 @@ recipe_table! {
         option(option_recipe): ListItemState = look_extra::option,
         /// The trailing box of an option, holding the theme's `check` icon
         /// while the option is selected. Every option has the box, so the
-        /// labels line up; a custom [`Select::option`](super::Select::option)
+        /// labels line up; a custom [`Select::item`](super::Select::item)
         /// row shows no check.
         check(check_recipe): ListItemState = look_extra::option_check,
         /// The box of the trigger's `chevron-down` icon.
@@ -244,6 +325,14 @@ recipe_table! {
         scrim(scrim_recipe): DialogState = look_extra::dialog_scrim,
         /// The header's close button, holding the theme's `x` icon.
         close(close_recipe): DialogState = look_extra::dialog_close,
+        drag_handle(drag_handle_recipe): DialogState = look_extra::drawer_handle,
+    }
+}
+
+recipe_table! {
+    /// Theme surface of a hover preview.
+    HoverCardRecipes {
+        surface(surface_recipe): crate::hover_card_values::HoverCardSurfaceState = look_extra::hover_card,
     }
 }
 
@@ -276,16 +365,16 @@ recipe_table! {
     /// The recipes of a [`radio_group`](super::radio_group).
     RadioGroupRecipes {
         /// The group, laid out in its orientation.
-        group(group_recipe): Orientation = look_controls::radio_group,
+        group(group_recipe): Orientation = super::look_radio::group,
         /// A radio item: its indicator and its label.
-        item(item_recipe): CheckState = look_controls::radio_item,
+        item(item_recipe): CheckableState = super::look_radio::item,
         /// The item's indicator, holding the theme's `dot` icon while
         /// it is checked.
-        indicator(indicator_recipe): CheckState = look_controls::radio_indicator,
+        indicator(indicator_recipe): CheckableState = super::look_radio::indicator,
         /// The dot icon, mounted through selection changes so its paint can transition.
-        mark(mark_recipe): CheckState = look_controls::radio_mark,
+        mark(mark_recipe): CheckableState = look_controls::radio_mark,
         /// The secondary line of an option with a description.
-        description(description_recipe): CheckState = look_controls::radio_description,
+        description(description_recipe): CheckableState = look_controls::radio_description,
     }
 }
 
@@ -311,6 +400,8 @@ recipe_table! {
         region(region_recipe): PartState = look_controls::toast_region,
         /// The column of one live region's toasts (polite, then assertive).
         group(group_recipe): ToastGroupState = look_controls::toast_group,
+        /// The size-presence shell around one card, including its spacing.
+        row(row_recipe): PartState = look_controls::toast_row,
         /// One toast: its title, its body, its action and its close button.
         toast(toast_recipe): ToastState = look_controls::toast,
         title(title_recipe): ToastState = look_controls::toast_title,
@@ -366,7 +457,9 @@ recipe_table! {
         /// The column containing the visible rows.
         root(root_recipe): PartState = look_collections::list,
         /// A row with the expansion indicator and its content.
-        item(item_recipe): TreeItemState = look_collections::tree_item,
+        item(item_recipe): crate::tree_values::TreeRowRecipeState = look_collections::tree_item,
+        /// The branch indicator or matching leaf spacer.
+        marker(marker_recipe): crate::tree_values::TreeRowRecipeState = look_collections::tree_marker,
     }
 }
 
@@ -419,26 +512,28 @@ recipe_table! {
     /// The recipes of a [`progress`](super::progress) bar.
     ProgressRecipes {
         /// The bar itself: the track the fill moves in, which clips it.
-        track(track_recipe): ProgressState = look_extra::progress_track,
+        track(track_recipe): ProgressState = look_metrics::progress_track,
         /// The fill, the track's one child: the whole track, painted or
         /// sized to the value.
-        fill(fill_recipe): ProgressState = look_extra::progress_fill,
+        fill(fill_recipe): ProgressState = look_metrics::progress_fill,
+        /// Percentage text in a ring.
+        label(label_recipe): ProgressState = look_metrics::progress_label,
     }
 }
 
 recipe_table! {
     /// The recipes of a [`disclosure`](super::disclosure); all of them get
-    /// the trigger's or the content's [`DisclosureState`].
+    /// the trigger's or the content's [`crate::disclosure_values::DisclosureRecipeState`].
     DisclosureRecipes {
         /// The column of the trigger over the content.
-        root(root_recipe): DisclosureState = look_extra::disclosure_root,
+        root(root_recipe): crate::disclosure_values::DisclosureRecipeState = look_extra::disclosure_root,
         /// The trigger: the title and the indicator in a row.
-        trigger(trigger_recipe): DisclosureState = look_extra::disclosure_trigger,
+        trigger(trigger_recipe): crate::disclosure_values::DisclosureRecipeState = look_extra::disclosure_trigger,
         /// The box of the trigger's `chevron-down` icon, which a look turns
         /// while the content is open.
-        indicator(indicator_recipe): DisclosureState = look_extra::disclosure_indicator,
+        indicator(indicator_recipe): crate::disclosure_values::DisclosureRecipeState = look_extra::disclosure_indicator,
         /// The content under the trigger.
-        content(content_recipe): DisclosureState = look_extra::disclosure_content,
+        content(content_recipe): crate::disclosure_values::DisclosureRecipeState = look_extra::disclosure_content,
     }
 }
 
@@ -514,45 +609,86 @@ recipe_table! {
     /// use kivact::style::Theme;
     /// use kivact::ui::UiRecipes;
     /// let theme = Theme::light();
-    /// let recipes = theme.get::<UiRecipes>();
-    /// let square = UiRecipes::clone(&recipes)
+    /// let recipes = theme.ext::<UiRecipes>();
+    /// let square = recipes.to_owned()
     ///     .button(|prev| move |theme, state| prev(theme, state).radius(0))
     ///     .menu(|menu| menu.item(|prev| move |theme, state| prev(theme, state).padding_x(16)));
     /// let theme = theme.with(square);
     /// # let _ = theme;
     /// ```
     UiRecipes {
+        /// Typography for a semantic heading.
+        heading(heading_recipe): HeadingState = look_metrics::heading,
+        avatar_status_content(avatar_status_content_recipe): crate::indicator_values::AvatarState = super::look_indicators::avatar_status_content,
+        avatar_status(avatar_status_recipe): crate::indicator_values::AvatarState = super::look_indicators::avatar_status,
+        avatar_group(avatar_group_recipe): () = super::look_indicators::avatar_group,
+        avatar_group_member(avatar_group_member_recipe): usize = super::look_indicators::avatar_group_member,
+        /// Presentation of the hidden avatar count, including its actual count.
+        avatar_group_overflow(avatar_group_overflow_recipe): usize = super::look_indicators::avatar_group_overflow,
+        avatar(avatar_recipe): crate::indicator_values::AvatarState = super::look_indicators::avatar,
+        avatar_image(avatar_image_recipe): crate::indicator_values::AvatarState = super::look_indicators::avatar_image,
+        kbd(kbd_recipe): () = super::look_indicators::kbd,
+        kbd_key(kbd_key_recipe): crate::kbd_values::KbdKeyState = super::look_indicators::kbd_key,
+        badge(badge_recipe): crate::indicator_values::BadgeState = super::look_indicators::badge,
+        badge_label(badge_label_recipe): crate::indicator_values::BadgeState = super::look_indicators::badge_label,
+        spinner(spinner_recipe): crate::indicator_values::SpinnerState = super::look_indicators::spinner,
+        skeleton(skeleton_recipe): crate::indicator_values::SkeletonState = super::look_indicators::skeleton,
         button(button_recipe): ButtonState = look::button,
         /// The row of a button's icons, label and children.
         button_content(button_content_recipe): ButtonState = look::button_content,
-        /// The busy indicator while `loading`; the button turns it about
+        /// The busy indicator while `busy`; the button turns it about
         /// its centre.
         button_busy(button_busy_recipe): ButtonState = look::button_busy,
         /// The box around a button's leading and trailing icon: where a kit
         /// sizes the icon for the button's size.
         button_icon(button_icon_recipe): ButtonState = look::button_icon,
-        checkbox(checkbox_recipe): CheckState = look::checkbox,
+        checkbox(checkbox_recipe): CheckableState = look::checkbox,
         /// The checkbox indicator box. Default recipes draw the indicator in the root.
-        checkbox_indicator(checkbox_indicator_recipe): CheckState = look_controls::empty_toggle_part,
+        checkbox_indicator(checkbox_indicator_recipe): CheckableState = look_controls::empty_toggle_part,
         /// A persistent part inside the checkbox indicator for the checked mark.
-        checkbox_check(checkbox_check_recipe): CheckState = look_controls::empty_toggle_part,
+        checkbox_check(checkbox_check_recipe): CheckableState = look_controls::empty_toggle_part,
         /// A persistent part inside the checkbox indicator for the indeterminate mark.
-        checkbox_mixed(checkbox_mixed_recipe): CheckState = look_controls::empty_toggle_part,
-        switch(switch_recipe): CheckState = look::switch,
+        checkbox_mixed(checkbox_mixed_recipe): CheckableState = look_controls::empty_toggle_part,
+        switch(switch_recipe): CheckableState = look::switch,
         /// The switch track. Default recipes draw the track and thumb in the root.
-        switch_track(switch_track_recipe): CheckState = look_controls::empty_toggle_part,
+        switch_track(switch_track_recipe): CheckableState = look_controls::empty_toggle_part,
         /// A persistent part inside the track for the moving thumb.
-        switch_thumb(switch_thumb_recipe): CheckState = look_controls::empty_toggle_part,
-        /// A [`toggle`](super::toggle) button: the icon and the label in a row.
+        switch_thumb(switch_thumb_recipe): CheckableState = look_controls::empty_toggle_part,
+        /// A [`toggle_button`](super::toggle) button: the icon and the label in a row.
         toggle(toggle_recipe): ToggleButtonState = look::toggle_button,
         text_input(text_input_recipe): TextInputState = look::text_input,
         text_area(text_area_recipe): TextInputState = look::text_area,
     }
     tables {
+        stat(stat_recipes): StatRecipes,
+        description_list(description_list_recipes): DescriptionListRecipes,
+        chat_message(chat_message_recipes): ChatMessageRecipes,
+        chat_thread(chat_thread_recipes): ChatThreadRecipes,
+        chat_composer(chat_composer_recipes): ChatComposerRecipes,
+        typing_indicator(typing_indicator_recipes): TypingIndicatorRecipes,
+        code_block(code_block_recipes): CodeBlockRecipes,
+        empty_state(empty_state_recipes): EmptyStateRecipes,
+        alert(alert_recipes): AlertRecipes,
+        card(card_recipes): CardRecipes,
+        input_group(input_group_recipes): InputGroupRecipes,
+        calendar(calendar_recipes): CalendarRecipes,
+        date_input(date_input_recipes): DateInputRecipes,
+        date_range_input(date_range_input_recipes): DateRangeInputRecipes,
+        time_input(time_input_recipes): TimeInputRecipes,
+        date_time_input(date_time_input_recipes): DateTimeInputRecipes,
+        combobox(combobox_recipes): ComboboxRecipes,
+        toolbar(toolbar_recipes): ToolbarRecipes,
+        pagination(pagination_recipes): PaginationRecipes,
+        breadcrumb(breadcrumb_recipes): BreadcrumbRecipes,
+        stepper(stepper_recipes): StepperRecipes,
+        navigation_menu(navigation_menu_recipes): NavigationMenuRecipes,
+        toggle_group(toggle_group_recipes): ToggleGroupRecipes,
+        button_group(button_group_recipes): ButtonGroupRecipes,
         select(select_recipes): SelectRecipes,
         menu(menu_recipes): MenuRecipes,
         dialog(dialog_recipes): DialogRecipes,
         tooltip(tooltip_recipes): TooltipRecipes,
+        hover_card(hover_card_recipes): HoverCardRecipes,
         tabs(tabs_recipes): TabsRecipes,
         radio_group(radio_group_recipes): RadioGroupRecipes,
         slider(slider_recipes): SliderRecipes,
@@ -561,10 +697,14 @@ recipe_table! {
         splitter(splitter_recipes): SplitterRecipes,
         list(list_recipes): ListRecipes,
         tree(tree_recipes): TreeRecipes,
+        table(table_recipes): TableRecipes,
+        item_list(item_list_recipes): ItemListRecipes,
         data_table(data_table_recipes): DataTableRecipes,
         split(split_recipes): SplitRecipes,
         progress(progress_recipes): ProgressRecipes,
         disclosure(disclosure_recipes): DisclosureRecipes,
+        carousel(carousel_recipes): CarouselRecipes,
+        dropzone(dropzone_recipes): DropzoneRecipes,
         command_palette(command_palette_recipes): CommandPaletteRecipes,
         tag_input(tag_input_recipes): TagInputRecipes,
         number_input(number_input_recipes): NumberInputRecipes,
@@ -580,26 +720,300 @@ impl ThemeExtension for UiRecipes {
 impl UiRecipes {
     pub(super) fn has_checkbox_parts(&self) -> bool {
         let default = Self::default_table();
-        !Arc::ptr_eq(&self.checkbox_indicator, &default.checkbox_indicator)
-            || !Arc::ptr_eq(&self.checkbox_check, &default.checkbox_check)
-            || !Arc::ptr_eq(&self.checkbox_mixed, &default.checkbox_mixed)
+        !self.checkbox_indicator.same(&default.checkbox_indicator)
+            || !self.checkbox_check.same(&default.checkbox_check)
+            || !self.checkbox_mixed.same(&default.checkbox_mixed)
     }
 
     pub(super) fn has_switch_parts(&self) -> bool {
         let default = Self::default_table();
-        !Arc::ptr_eq(&self.switch_track, &default.switch_track)
-            || !Arc::ptr_eq(&self.switch_thumb, &default.switch_thumb)
+        !self.switch_track.same(&default.switch_track)
+            || !self.switch_thumb.same(&default.switch_thumb)
     }
 }
 
 impl RadioGroupRecipes {
     pub(super) fn has_custom_mark(&self) -> bool {
-        !Arc::ptr_eq(&self.mark, &Self::default_table().mark)
+        !self.mark.same(&Self::default_table().mark)
     }
 }
 
 impl TabsRecipes {
     pub(super) fn has_custom_indicator(&self) -> bool {
-        !Arc::ptr_eq(&self.indicator, &Self::default_table().indicator)
+        !self.indicator.same(&Self::default_table().indicator)
+    }
+}
+
+recipe_table! {
+    /// Styles for a carousel's persistent parts.
+    CarouselRecipes {
+        root(root_recipe): crate::carousel_values::CarouselSurfaceState = look_files::carousel_root,
+        viewport(viewport_recipe): crate::carousel_values::CarouselSurfaceState = look_files::carousel_viewport,
+        track(track_recipe): crate::carousel_values::CarouselSurfaceState = look_files::carousel_track,
+        slide(slide_recipe): crate::carousel_values::CarouselSurfaceState = look_files::carousel_slide,
+        previous(previous_recipe): crate::carousel_values::CarouselSurfaceState = look_files::carousel_control,
+        next(next_recipe): crate::carousel_values::CarouselSurfaceState = look_files::carousel_control,
+    }
+}
+recipe_table! {
+    /// Styles for a file drop target and its feedback.
+    DropzoneRecipes {
+        root(root_recipe): DropzoneState = look_files::dropzone_root,
+        icon(icon_recipe): DropzoneState = look_files::dropzone_icon,
+        label(label_recipe): DropzoneState = look_files::dropzone_label,
+        hint(hint_recipe): DropzoneState = look_files::dropzone_hint,
+        status(status_recipe): DropzoneState = look_files::dropzone_status,
+    }
+}
+recipe_table! {
+    /// Toolbar surface recipes.
+    ToolbarRecipes {
+        root(root_recipe): crate::collection_values::ToolbarState = crate::toolbar_look::root_style,
+    }
+}
+recipe_table! {
+    /// Toggle group surface and item recipes.
+    ToggleGroupRecipes {
+        root(root_recipe): crate::group_types::ToggleGroupState = crate::group_look::toggle_root,
+        item(item_recipe): crate::group_types::ToggleGroupItemState = crate::group_look::toggle_item,
+    }
+}
+recipe_table! {
+    /// Joined action group surface and auxiliary cell recipes.
+    ButtonGroupRecipes {
+        root(root_recipe): crate::group_types::ButtonGroupState = crate::group_look::button_root,
+        member(member_recipe): crate::group_types::ButtonGroupMemberState = crate::group_look::button_member,
+        separator(separator_recipe): crate::group_types::ButtonGroupState = crate::group_look::button_separator,
+        text(text_recipe): crate::group_types::ButtonGroupState = crate::group_look::button_text,
+    }
+}
+
+recipe_table! {
+    /// Recipes for an empty region's message and actions.
+    EmptyStateRecipes {
+        root(root_recipe): EmptyStateState = look_feedback::empty_root,
+        title(title_recipe): EmptyStateState = look_feedback::empty_title,
+        description(description_recipe): EmptyStateState = look_feedback::empty_description,
+        icon(icon_recipe): EmptyStateState = look_feedback::empty_icon,
+        actions(actions_recipe): EmptyStateState = look_feedback::empty_actions,
+    }
+}
+recipe_table! {
+    /// Recipes for a persistent alert and optional details.
+    AlertRecipes {
+        root(root_recipe): AlertState = look_feedback::alert_root,
+        header(header_recipe): AlertState = look_feedback::alert_wrapper,
+        message(message_recipe): AlertState = look_feedback::alert_wrapper,
+        controls(controls_recipe): AlertState = look_feedback::alert_wrapper,
+        title(title_recipe): AlertState = look_feedback::alert_title,
+        description(description_recipe): AlertState = look_feedback::alert_description,
+        icon(icon_recipe): AlertState = look_feedback::alert_icon,
+        actions(actions_recipe): AlertState = look_feedback::alert_actions,
+        content(content_recipe): AlertState = look_feedback::alert_content,
+        dismiss(dismiss_recipe): AlertState = look_feedback::alert_control,
+        toggle(toggle_recipe): AlertState = look_feedback::alert_control,
+    }
+}
+recipe_table! {
+    /// Recipes for each region of a card.
+    CardRecipes {
+        root(root_recipe): CardState = look_feedback::card_root,
+        header(header_recipe): CardState = look_feedback::card_region,
+        media(media_recipe): CardState = look_feedback::card_media,
+        content(content_recipe): CardState = look_feedback::card_region,
+        footer(footer_recipe): CardState = look_feedback::card_region,
+        overlay(overlay_recipe): CardState = look_feedback::card_overlay,
+    }
+}
+recipe_table! {
+    /// Recipes for a labelled group of controls and its text adornments.
+    InputGroupRecipes {
+        root(root_recipe): InputGroupState = look_feedback::group_root,
+        label(label_recipe): InputGroupState = look_feedback::group_label,
+        members(members_recipe): InputGroupState = look_feedback::group_members,
+        member(member_recipe): InputGroupMemberState = look_feedback::group_member,
+        addon(addon_recipe): InputGroupState = look_feedback::group_addon,
+        block_start(block_start_recipe): InputGroupState = look_feedback::group_block,
+        block_end(block_end_recipe): InputGroupState = look_feedback::group_block,
+    }
+}
+recipe_table! {
+    /// Static table part recipes.
+    TableRecipes {
+        root(root_recipe): PartState = look_static_collections::table,
+        header(header_recipe): PartState = look_static_collections::group,
+        body(body_recipe): PartState = look_static_collections::group,
+        footer(footer_recipe): PartState = look_static_collections::footer,
+        row(row_recipe): PartState = look_static_collections::row,
+        head(head_recipe): PartState = look_static_collections::head,
+        cell(cell_recipe): PartState = look_static_collections::cell,
+    }
+}
+recipe_table! {
+    /// Static list and item-row part recipes.
+    ItemListRecipes {
+        list_header(list_header_recipe): PartState = look_static_collections::list_header,
+        marker(marker_recipe): crate::collection_values::ItemRowState = look_static_collections::marker,
+        root(root_recipe): PartState = look_static_collections::list,
+        item(item_recipe): crate::collection_values::ItemRowState = look_static_collections::item,
+        body(body_recipe): crate::collection_values::ItemRowState = look_static_collections::item_body,
+        content(content_recipe): crate::collection_values::ItemRowState = look_static_collections::content,
+        title(title_recipe): crate::collection_values::ItemRowState = look_static_collections::title,
+        description(description_recipe): crate::collection_values::ItemRowState = look_static_collections::description,
+        media(media_recipe): crate::collection_values::ItemRowState = look_static_collections::media,
+        actions(actions_recipe): crate::collection_values::ItemRowState = look_static_collections::actions,
+        header(header_recipe): crate::collection_values::ItemRowState = look_static_collections::band,
+        footer(footer_recipe): crate::collection_values::ItemRowState = look_static_collections::band,
+    }
+}
+recipe_table! {
+    /// Page control and gap recipes.
+    PaginationRecipes {
+        root(root_recipe): () = crate::look_navigation::root,
+        item(item_recipe): crate::navigation_values::PaginationItemState = crate::look_navigation::pagination_item,
+        ellipsis(ellipsis_recipe): () = crate::look_navigation::part,
+        dots(dots_recipe): () = crate::look_navigation::part,
+        controls(controls_recipe): crate::navigation_values::PaginationSummary = crate::look_navigation::pagination_wrapper,
+        sizes(sizes_recipe): crate::navigation_values::PaginationSummary = crate::look_navigation::pagination_wrapper,
+        input(input_recipe): crate::navigation_values::PaginationSummary = crate::look_navigation::pagination_wrapper,
+        summary(summary_recipe): crate::navigation_values::PaginationSummary = crate::look_navigation::part,
+    }
+}
+recipe_table! {
+    /// Breadcrumb landmark, item and decorative separator recipes.
+    BreadcrumbRecipes {
+        root(root_recipe): () = crate::look_navigation::breadcrumb_root,
+        list(list_recipe): () = crate::look_navigation::breadcrumb_list,
+        item(item_recipe): crate::BreadcrumbItemState = crate::look_navigation::breadcrumb_item,
+        separator(separator_recipe): () = crate::look_navigation::part,
+    }
+}
+recipe_table! {
+    /// Progress list and individual step recipes.
+    StepperRecipes {
+        root(root_recipe): crate::navigation_values::StepperState = crate::look_navigation::stepper_root,
+        previous(previous_recipe): crate::navigation_values::StepperState = crate::look_navigation::part,
+        next(next_recipe): crate::navigation_values::StepperState = crate::look_navigation::part,
+        item(item_recipe): crate::navigation_values::StepperItemState = crate::look_navigation::stepper_item,
+        layout(layout_recipe): crate::navigation_values::StepperItemState = crate::look_navigation::stepper_layout,
+        track(track_recipe): crate::navigation_values::StepperItemState = crate::look_navigation::stepper_layout,
+        leading(leading_recipe): crate::navigation_values::StepperItemState = crate::look_navigation::stepper_decoration,
+        trailing(trailing_recipe): crate::navigation_values::StepperItemState = crate::look_navigation::stepper_decoration,
+        progress(progress_recipe): crate::navigation_values::StepperItemState = crate::look_navigation::stepper_decoration,
+        body(body_recipe): crate::navigation_values::StepperItemState = crate::look_navigation::stepper_body,
+        indicator(indicator_recipe): crate::navigation_values::StepperItemState = crate::look_navigation::part,
+        label(label_recipe): crate::navigation_values::StepperItemState = crate::look_navigation::part,
+        description(description_recipe): crate::navigation_values::StepperItemState = crate::look_navigation::part,
+        content(content_recipe): crate::navigation_values::StepperItemState = crate::look_navigation::part,
+        end_content(end_content_recipe): crate::navigation_values::StepperItemState = crate::look_navigation::part,
+    }
+}
+recipe_table! {
+    /// Navigation landmark, panel trigger and panel surface recipes.
+    NavigationMenuRecipes {
+        root(root_recipe): kivact_interaction::NavOpen = crate::look_navigation::navigation_root,
+        trigger(trigger_recipe): crate::navigation_values::NavigationTriggerState = crate::look_navigation::part,
+        action(action_recipe): kivact_interaction::NavOpen = crate::look_navigation::action,
+        panel(panel_recipe): kivact_interaction::NavOpen = crate::look_navigation::panel,
+        link(link_recipe): crate::navigation_values::NavigationLinkState = crate::look_navigation::link,
+        link_title(link_title_recipe): crate::navigation_values::NavigationLinkState = crate::look_navigation::link_title,
+        link_description(link_description_recipe): crate::navigation_values::NavigationLinkState = crate::look_navigation::link_description,
+        link_icon(link_icon_recipe): crate::navigation_values::NavigationLinkState = crate::look_navigation::link_icon,
+    }
+}
+
+recipe_table! {
+    /// Parts of a statistic and its optional application-owned chart.
+    StatRecipes {
+        root(root_recipe): StatState = look_metrics::stat_root,
+        label(label_recipe): StatState = look_metrics::stat_label,
+        value(value_recipe): StatState = look_metrics::stat_value,
+        delta(delta_recipe): StatState = look_metrics::stat_delta,
+        icon(icon_recipe): StatState = look_metrics::stat_slot,
+        chart(chart_recipe): StatState = look_metrics::stat_slot,
+    }
+}
+recipe_table! {
+    /// The list, pair, visible term and labelled detail of a description list.
+    DescriptionListRecipes {
+        root(root_recipe): () = look_metrics::description_root,
+        item(item_recipe): () = look_metrics::description_item,
+        term(term_recipe): () = look_metrics::description_term,
+        detail(detail_recipe): () = look_metrics::description_detail,
+    }
+}
+recipe_table! {
+    /// Styles for the persistent parts of ChatMessage.
+    ChatMessageRecipes {
+        root(root_recipe): crate::ChatMessageState = crate::look_chat::message_root,
+        body(body_recipe): crate::ChatMessageState = crate::look_chat::message_body,
+        author(author_recipe): crate::ChatMessageState = crate::look_chat::author,
+        time(time_recipe): crate::ChatMessageState = crate::look_chat::muted,
+        status(status_recipe): crate::ChatMessageState = crate::look_chat::muted,
+        content(content_recipe): crate::ChatMessageState = crate::look_chat::slot,
+        avatar(avatar_recipe): crate::ChatMessageState = crate::look_chat::slot,
+        header(header_recipe): crate::ChatMessageState = crate::look_chat::slot,
+        footer(footer_recipe): crate::ChatMessageState = crate::look_chat::slot,
+        metadata(metadata_recipe): crate::ChatMessageState = crate::look_chat::slot,
+        media(media_recipe): crate::ChatMessageState = crate::look_chat::slot,
+        icon(icon_recipe): crate::ChatMessageState = crate::look_chat::slot,
+        actions(actions_recipe): crate::ChatMessageState = crate::look_chat::slot,
+        reactions(reactions_recipe): crate::ChatMessageState = crate::look_chat::reactions,
+    }
+}
+
+recipe_table! {
+    /// Styles for the persistent parts of ChatThread.
+    ChatThreadRecipes {
+        root(root_recipe): crate::ChatThreadState = crate::look_chat::thread_root,
+        viewport(viewport_recipe): crate::ChatThreadState = crate::look_chat::viewport,
+        content(content_recipe): crate::ChatThreadState = crate::look_chat::column,
+        scroll_button(scroll_button_recipe): crate::ChatThreadState = crate::look_chat::jump,
+        composer(composer_recipe): crate::ChatThreadState = crate::look_chat::slot,
+    }
+}
+
+recipe_table! {
+    /// Styles for the persistent parts of ChatComposer.
+    ChatComposerRecipes {
+        root(root_recipe): crate::ChatComposerState = crate::look_chat::column,
+        surface(surface_recipe): crate::ChatComposerState = crate::look_chat::composer_surface,
+        input(input_recipe): crate::ChatComposerState = crate::look_chat::input,
+        send(send_recipe): crate::ChatComposerState = crate::look_chat::slot,
+        header(header_recipe): crate::ChatComposerState = crate::look_chat::row,
+        footer(footer_recipe): crate::ChatComposerState = crate::look_chat::row,
+        status(status_recipe): crate::ChatComposerState = crate::look_chat::composer_status,
+        drawer(drawer_recipe): crate::ChatComposerState = crate::look_chat::slot,
+        header_actions(header_actions_recipe): crate::ChatComposerState = crate::look_chat::slot,
+        header_context(header_context_recipe): crate::ChatComposerState = crate::look_chat::slot,
+        footer_actions(footer_actions_recipe): crate::ChatComposerState = crate::look_chat::slot,
+        send_actions(send_actions_recipe): crate::ChatComposerState = crate::look_chat::slot,
+    }
+}
+
+recipe_table! {
+    /// Styles for the persistent parts of TypingIndicator.
+    TypingIndicatorRecipes {
+        root(root_recipe): crate::TypingIndicatorState = crate::look_chat::row,
+        avatar(avatar_recipe): crate::TypingIndicatorState = crate::look_chat::slot,
+        dots(dots_recipe): crate::TypingIndicatorState = crate::look_chat::typing_dots,
+    }
+}
+
+recipe_table! {
+    /// Styles for the persistent parts of CodeBlock.
+    CodeBlockRecipes {
+        root(root_recipe): crate::code_values::CodeBlockState = crate::look_chat::code_root,
+        header(header_recipe): crate::code_values::CodeBlockState = crate::look_chat::code_header,
+        title(title_recipe): crate::code_values::CodeBlockState = crate::look_chat::slot,
+        collapse(collapse_recipe): crate::code_values::CodeBlockState = crate::look_chat::slot,
+        language(language_recipe): crate::code_values::CodeBlockState = crate::look_chat::muted,
+        copy(copy_recipe): crate::code_values::CodeBlockState = crate::look_chat::slot,
+        end_content(end_content_recipe): crate::code_values::CodeBlockState = crate::look_chat::slot,
+        body(body_recipe): crate::code_values::CodeBlockState = crate::look_chat::code_body,
+        viewport(viewport_recipe): crate::code_values::CodeBlockState = crate::look_chat::code_viewport,
+        code(code_recipe): crate::code_values::CodeBlockState = crate::look_chat::code_text,
+        gutter(gutter_recipe): crate::code_values::CodeBlockState = crate::look_chat::code_gutter,
+        footer(footer_recipe): crate::code_values::CodeBlockState = crate::look_chat::row,
     }
 }

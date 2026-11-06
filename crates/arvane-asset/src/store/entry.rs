@@ -27,7 +27,7 @@ use kivact_types::Size;
 use kivact_types::Asset;
 
 use crate::error::{AssetError, AssetErrorKind};
-use crate::pixels::{Crop, PixelSize, Pixels, Tint};
+use crate::pixels::{AssetImage, Crop, PixelSize, Tint};
 use crate::read::FileVersion;
 use crate::svg::Svg;
 
@@ -75,7 +75,7 @@ pub(crate) enum State {
 /// Where a raster source's pixels are.
 pub(crate) enum Residency {
     /// In the cache; `drawn` is their last use.
-    Resident { pixels: Pixels, drawn: Stamp },
+    Resident { pixels: AssetImage, drawn: Stamp },
     /// Evicted; the next draw loads them again.
     Evicted,
     /// A load brings them back. It always lands: the worker answers every
@@ -111,6 +111,7 @@ impl Recheck {
     }
 }
 
+// xtask-allow(state-fields): Immutable image variant cache key; size and rendering options are independent request properties.
 /// A derived raster: an SVG at a device size (or the part `crop` of it),
 /// and/or a tinted copy.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -138,7 +139,7 @@ pub(crate) enum Variant {
         requested: Stamp,
     },
     Ready {
-        pixels: Pixels,
+        pixels: AssetImage,
         used: Stamp,
     },
     /// Larger than the whole budget; not asked for again.

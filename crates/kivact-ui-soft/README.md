@@ -40,64 +40,64 @@ The standard APIs in this table come from `kivact::ui`.
 | --- | --- |
 | App Shell | `app_shell`, `use_app_shell_mobile` |
 | Aspect Ratio | `aspect_ratio` |
-| Avatar | `avatar`, `avatar_group`, `avatar_group_overflow`, `avatar_status_dot` |
-| Badge / Banner / Blockquote | `badge`, `banner`, `blockquote` |
+| Avatar | Standard `avatar`, `avatar_group(...).total(...).overflow_content(...)`; Soft `AvatarAppearance`, `AvatarGroupAppearance`, `avatar_status_dot`, `avatar_silhouette` |
+| Badge / Banner / Blockquote | Standard `badge` with semantic `tone` or Soft categorical `BadgeVariant`; standard `alert` with Soft `banner_icon`, `BannerAppearance`, and `BannerContainer`; `blockquote` |
 | Bottom Sheet / Bottom Sheet Switcher | `bottom_sheet`, `bottom_sheet_flow` |
-| Breadcrumbs | `breadcrumbs`, `breadcrumb_item` |
-| Button / Icon Button | Standard `button` and `toggle`, `button_group`, `toggle_button_group`. Use `.icon(icon).hide_label(true)` for Icon Button. |
-| Calendar | `calendar`, `calendar_range` |
-| Card | `card`, `clickable_card`, `selectable_card` |
-| Carousel | `carousel`, `use_carousel` |
-| Chat | `chat_layout`, `chat_message_list`, `chat_message`, `chat_bubble`, `chat_metadata`, `chat_system_message`, `chat_scroll_button`, `chat_composer`, `chat_composer_drawer`, `chat_composer_input`, `chat_dictation_button`, `chat_send_button`, `chat_token`, `chat_tokenized_text`, `chat_tool_calls` |
+| Breadcrumbs | Standard `breadcrumb` and `ListItem`; Soft `BreadcrumbsVariant` typography |
+| Button / Icon Button | Standard `button` and `toggle`, `button_group`, `toggle_group`. Use `.icon(icon).hide_label(true)` for Icon Button. |
+| Calendar | Standard `calendar` over single-date or ordered-range bindings |
+| Card | standard `card`, `.on_press(...)`, `.selected(...)` |
+| Carousel | Standard `carousel(index, slides)` and headless `interaction::use_carousel(index, count)` |
+| Chat domains | `chat_dictation_button`, `chat_token`, `chat_tokenized_text`, `chat_tool_calls`; standard `ui::chat_thread`, `ui::chat_message`, `ui::chat_composer`, `ui::typing_indicator` |
 | Checkbox | Standard `checkbox`, `checkbox_list`, `checkbox_list_item` |
-| Citation / Code / Code Block | `citation`, `code`, `code_block` |
-| Collapsible | `collapsible`, `collapsible_group`. Disclosure state belongs to the binding. |
+| Citation / Code | `citation`, `code`, `code_highlight`; standard `ui::code_block` |
+| Collapsible | Standard `disclosure(title, open)` and `disclosure_group(selection)`. Use Soft `DisclosureVariant` for chevron position, density, and separators. |
 | Command Palette | Standard `command_palette` provides the input and list. Set `.placeholder(..)`, `.empty_text(..)`, and `.footer(..)`. Create entries with `Command::new(..)` and `Command::group(..)`. |
 | Context Menu | Standard `menu(..).attach_context(..)` and `MenuEntry::item(..)` |
-| Date Input | `date_input`, `date_range_input`, `date_time_input` |
+| Date Input | Standard `date_input`, `date_range_input`, `date_time_input` |
 | Dialog | Standard `dialog`, `dialog_header`, `alert_dialog`. Signals own imperative open state. |
 | Divider | `divider` |
 | Drawer | Standard `dialog(...).kind(DialogKind::Drawer(...))`, `drawer_header` |
 | Dropdown Menu | Standard `menu`. Use `MenuEntry::item`, `checkbox`, `separator`, `group`, `radio`, and `submenu`. A radio group is a group of radio entries. |
-| Empty State | `empty_state` |
-| Field / Field Label | Pass the label to standard `field(label, control)`. Use `field_status`, `input_group`, `input_group_text`, and `file_input` for the surrounding controls. |
-| Heading | `heading` |
-| Hover Card | `hover_card`. The builder owns delayed visibility. |
-| Icon | `icon`, `ICON_NAMES` |
+| Empty State | Standard `empty_state`; `.announce_changes()` retains change announcements and `EmptyStateVariant::compact(value)` controls density |
+| Field / Field Label | Pass the label to standard `field(label, control)`. Use `field_status`, standard `input_group`, `input_addon`, and standard `dropzone` for the surrounding controls. |
+| Heading | Standard `kivact::ui::heading(value, level)`; `HeadingDisplay` is a visual variant. |
+| Hover Card | Standard `hover_card`; shared hover behavior owns delayed visibility and focus. |
+| Icon | Standard `kivact::view::icon`; Soft `icon_view`, `icon_style`, `IconSize`, `IconColor`, `ICON_NAMES` |
 | Indicator | `checkbox_indicator`, `check_indicator`, `radio_indicator` |
-| Item / Kbd | `item`, `kbd` |
-| Layout | `center`, `form_layout`, `grid`, `grid_span`, `hstack`, `layout`, `layout_content`, `layout_footer`, `layout_header`, `layout_panel`, `section`, `stack`, `stack_item`, `vstack` |
+| Item / Kbd | Standard `item_row`, parsed `kbd`, and typed `kbd_combo` |
+| Layout | `center`, `flex_stack`, `form_layout`, `form_row`, `grid_span`, `hstack`, `layout`, `layout_content`, `layout_footer`, `layout_grid`, `layout_header`, `layout_panel`, `section`, `stack_item`, `vstack` |
 | Lightbox / Link | `lightbox`, `use_lightbox`, `link` |
-| List | `list`, `list_items`, `list_item` |
+| List | `ui::item_list`, `ui::item_row`; `ListLook`, `ItemLook`, `ItemDensity`, `ItemAlign`, `ItemLayout`, `ListEdge` |
 | Markdown | `markdown` |
-| Metadata List | `metadata_list`, `metadata_item` |
+| Metadata List | Standard `description_list` / `description`; share `MetadataLook` across list and pairs. |
 | More Menu | `more_menu` |
 | Navigation | `mobile_nav`, `mobile_nav_toggle`, `nav_heading_menu`, `nav_icon`, `side_nav`, `side_nav_collapse_button`, `side_nav_heading`, `side_nav_item`, `side_nav_section`, `top_nav`, `top_nav_heading`, `top_nav_item`, `top_nav_menu`, `top_nav_mega_menu`, `top_nav_mega_menu_item`, `top_nav_featured_card` |
 | Number Input / Outline / Overflow List / Overlay / Pagination | Standard `number_input`, `outline`, `pagination`, `overflow_list`, `media_overlay` |
 | Popover | Standard `dialog(...).kind(DialogKind::Popover)` and `kivact::view::overlay` |
 | Power Search / Progress Bar | `power_search`, standard `progress` |
 | Radio | `radio_list`, standard `ListItem` |
-| Resizable | `use_resizable`, `resize_handle`, standard `split` |
-| Rich Text Editor / Scrollable Area | `rich_text_editor`, `rich_text_toolbar`, `rich_text_view`, `scrollable_area` |
-| Segmented Control | `segmented_control`, standard `ListItem` |
-| Selector | `selector`, `complex_selector`, `multi_selector`. The Kivact interaction layer supplies combobox state. |
-| Skeleton / Slider / Spinner / Status Dot | `skeleton`, `spinner`, `status_dot`, standard `slider` and `range_slider` |
-| Stepper | `stepper`, `step` |
+| Resizable | standard `splitter(...).collapsible(..).snaps(..)` |
+| Rich Text Editor / Scrollable Area | `rich_text_editor`, `rich_text_toolbar`, `rich_text_view`, `scrollable_area`; `use_scroll_state`, `use_scroll_overflow`, and `use_overflow` observe scroll edges and fitting items |
+| Segmented Control | Standard `radio_group(...).variant(RadioGroupVariant::Segmented)` and `ListItem`; Soft `SegmentedLook` (with `SegmentedLayout` and `icon_only`) |
+| Selector | Standard `select(...).open_on_arrow(true)`, `selection_field(...).content(...)`, and `combobox(...).chips()`. |
+| Skeleton / Slider / Spinner / Status Dot | Standard `skeleton`, standard `spinner`, `status_dot`, standard `slider` and `range_slider` |
+| Stepper | Standard `stepper`, `StepperItem`, `StepIndicator`, `StepStatus`; Soft `StepperAppearance` |
 | Switch | Standard `switch` |
-| Table | `table`, `table_header`, `table_head`, `table_body`, `table_cell`, `table_footer`, `table_row`, `table_selection_toolbar`, `table_pagination`, `table_row_index`, `table_row_status`. Use standard `data_table` and `DataColumn` for built-in sorting and selection. |
+| Table | Standard `table`, header/body/footer/row/cell builders, `data_table`, `DataColumn`, and `pagination`; Soft `TableRowAppearance`, `TableCellAppearance`, `table_selection_toolbar`, `table_row_index`, and `table_row_status`. |
 | Tabs | `tab_list`, `tab`, `tab_menu`, standard `tabs` |
-| Text through Timestamp | `text`, `thumbnail`, `timer`, `timestamp`, `time_input`, standard `text_input` and `text_area` |
+| Text through Timestamp | `styled_text`, `thumbnail`, `timer`, `timestamp`, standard `time_input`, `text_input` and `text_area` |
 | Toast | Standard `toaster`, `Toast`, `toast_region` |
-| Token / Tokenizer / Toolbar | `token`, `tokenizer`, `toolbar`, `toolbar_item` |
+| Token / Tokenizer / Toolbar | `token`, standard `combobox(...).chips().exclude_selected()`, standard `toolbar`, Soft `with_key_hints` and `keyboard_hint` |
 | Tooltip | Standard `tooltip`. The builder owns visibility and placement. |
-| Tree List | `tree_list` and themed `kivact::ui::tree` over the shared tree rows |
-| Typeahead | `typeahead`, `base_typeahead`, standard `ListItem`. The Kivact interaction layer supplies combobox state. |
+| Tree List | `kivact::ui::tree` with `TreeLook` density and ancestor guides |
+| Typeahead | Standard `combobox` and `ListItem`; configure `.search(..)`, `.debounce(..)`, `.placeholder(..)`, and `.empty_text(..)`. |
 | VisuallyHidden | `visually_hidden` |
-| Utilities | `theme`, `tokens`, `media_theme`, `syntax_theme`, `kivact::platform::window_size`, and `kivact::platform::copy_text`. Internationalization Provider maps to `App::locale` and `App::messages`, Layer Provider to `kivact::view::overlay`, and Link Provider to `link_with` with an application callback. Kivact handles node references and diagnostics. |
+| Utilities | `theme`, `Tokens` (read with `kivact::style::use_tokens::<Tokens>()`), `media_theme`, `syntax_theme`, `kivact::platform::window_size`, and `kivact::platform::copy_text`. Internationalization Provider maps to `App::locale` and `App::messages`, Layer Provider to `kivact::view::overlay`, and Link Provider to `link_with` with an application callback. Kivact handles node references and diagnostics. |
 
 ## Theme, tokens, fonts, and icons
 
-Pass `ThemeMode::Light` or `ThemeMode::Dark` to `theme`. Read `tokens()`
+Pass `ThemeMode::Light` or `ThemeMode::Dark` to `theme`. Read `kivact::style::use_tokens::<Tokens>()`
 inside a style closure to access the active Neutral colors, spacing, radius,
 typography, shadows, and motion. Register Figtree with the app when supplying
 the font. The catalog includes the font and license. `ICON_NAMES` lists the
@@ -113,45 +113,6 @@ Controls also use the standard Kivact messages where applicable.
 | `soft.alert_dialog.cancel` | Cancel |
 | `soft.app_shell.main` | Main content |
 | `soft.app_shell.skip_to_content` | Skip to content |
-| `soft.avatar.name_with_status` | {name}, {status} |
-| `soft.avatar_group.keyboard_hint` | Use arrow keys to move between avatars |
-| `soft.avatar_group.label` | Avatars |
-| `soft.avatar_group.overflow` | {count} more |
-| `soft.banner.collapse` | Collapse |
-| `soft.banner.dismiss` | Dismiss |
-| `soft.banner.dismiss_titled` | {dismiss} {title} |
-| `soft.banner.expand` | Expand |
-| `soft.breadcrumbs.label` | Breadcrumb |
-| `soft.calendar.caption` | {month} {year} |
-| `soft.calendar.chosen` | Date selected |
-| `soft.calendar.fri` | Fr |
-| `soft.calendar.mon` | Mo |
-| `soft.calendar.month_1` | January |
-| `soft.calendar.month_10` | October |
-| `soft.calendar.month_11` | November |
-| `soft.calendar.month_12` | December |
-| `soft.calendar.month_2` | February |
-| `soft.calendar.month_3` | March |
-| `soft.calendar.month_4` | April |
-| `soft.calendar.month_5` | May |
-| `soft.calendar.month_6` | June |
-| `soft.calendar.month_7` | July |
-| `soft.calendar.month_8` | August |
-| `soft.calendar.month_9` | September |
-| `soft.calendar.next` | Next month |
-| `soft.calendar.previous` | Previous month |
-| `soft.calendar.range_cancelled` | Range selection cancelled |
-| `soft.calendar.range_chosen` | Date range selected |
-| `soft.calendar.range_started` | Start date selected |
-| `soft.calendar.sat` | Sa |
-| `soft.calendar.sun` | Su |
-| `soft.calendar.thu` | Th |
-| `soft.calendar.today` | Today |
-| `soft.calendar.tue` | Tu |
-| `soft.calendar.wed` | We |
-| `soft.carousel.scroll_left` | Scroll left |
-| `soft.carousel.scroll_right` | Scroll right |
-| `soft.carousel.slide` | Slide {current} of {total} |
 | `soft.chat.tool_calls.complete` | Complete |
 | `soft.chat.tool_calls.detail` | Details for {name} |
 | `soft.chat.tool_calls.details` | Details |
@@ -160,43 +121,29 @@ Controls also use the standard Kivact messages where applicable.
 | `soft.chat.tool_calls.group_label` | {count} tool calls |
 | `soft.chat.tool_calls.pending` | Pending |
 | `soft.chat.tool_calls.running` | Running |
-| `soft.chat_composer.input` | Message input |
-| `soft.chat_composer.placeholder` | Type a message… |
-| `soft.chat_composer_drawer.items` | Items |
 | `soft.chat_dictation_button.label` | Dictation |
-| `soft.chat_layout_scroll_button.scroll_to_bottom` | Scroll to bottom |
-| `soft.chat_send_button.send` | Send |
-| `soft.chat_send_button.stop` | Stop |
 | `soft.citation.source` | Source {number} |
-| `soft.code_block.code` | Code |
-| `soft.code_block.copied` | Copied |
-| `soft.code_block.copy_code` | Copy code |
 | `soft.date.open` | Choose date |
 | `soft.date_range.placeholder` | Select date range |
-| `soft.date_range_input.presets` | Preset date ranges |
 | `soft.date_time.date` | Date |
 | `soft.date_time.time` | Time |
 | `soft.dialog.close` | Close |
-| `soft.file_input.choose_one` | Choose one file. |
-| `soft.file_input.clear` | Clear files |
-| `soft.file_input.invalid_file` | One or more files are not allowed. |
-| `soft.file_input.too_large` | One or more files exceed the size limit or could not be read. |
-| `soft.kbd.key.alt` | Alt |
-| `soft.kbd.key.backspace` | Backspace |
-| `soft.kbd.key.command` | Command |
-| `soft.kbd.key.control` | Control |
-| `soft.kbd.key.control_short` | Ctrl |
-| `soft.kbd.key.down` | Down arrow |
-| `soft.kbd.key.enter` | Enter |
-| `soft.kbd.key.escape` | Escape |
-| `soft.kbd.key.escape_short` | Esc |
-| `soft.kbd.key.left` | Left arrow |
-| `soft.kbd.key.plus` | Plus |
-| `soft.kbd.key.right` | Right arrow |
-| `soft.kbd.key.shift` | Shift |
-| `soft.kbd.key.tab` | Tab |
-| `soft.kbd.key.up` | Up arrow |
-| `soft.kbd.shortcut` | {shortcut} + {key} |
+| `kbd.key.alt` | Alt |
+| `kbd.key.backspace` | Backspace |
+| `kbd.key.command` | Command |
+| `kbd.key.control` | Control |
+| `kbd.key.control_short` | Ctrl |
+| `kbd.key.down` | Down arrow |
+| `kbd.key.enter` | Enter |
+| `kbd.key.escape` | Escape |
+| `kbd.key.escape_short` | Esc |
+| `kbd.key.left` | Left arrow |
+| `kbd.key.plus` | Plus |
+| `kbd.key.right` | Right arrow |
+| `kbd.key.shift` | Shift |
+| `kbd.key.tab` | Tab |
+| `kbd.key.up` | Up arrow |
+| `kbd.separator` | + |
 | `soft.keyboard_hint.to_navigate` | to navigate |
 | `soft.lightbox.image_unavailable` | Image unavailable |
 | `soft.lightbox.media_viewer` | Media viewer |
@@ -204,29 +151,11 @@ Controls also use the standard Kivact messages where applicable.
 | `soft.link.new_tab` | (opens in new tab) |
 | `soft.markdown.task_list` | Task list |
 | `soft.markdown_heading_links.copy` | Copy link to {heading} |
-| `soft.metadata_list.show_less` | Show less |
-| `soft.metadata_list.show_more` | Show more |
 | `soft.mobile_nav.close` | Close navigation |
 | `soft.mobile_nav.navigation` | Navigation |
 | `soft.mobile_nav.open` | Open navigation |
 | `soft.more_menu.label` | More options |
 | `soft.outline.label` | Table of contents |
-| `soft.pagination.count` | {from}–{to} of {total} |
-| `soft.pagination.first` | Go to first page |
-| `soft.pagination.go_to_page` | Go to page {page} |
-| `soft.pagination.go_to_page_input` | Go to page |
-| `soft.pagination.items_per_page` | Items per page |
-| `soft.pagination.label` | Pagination |
-| `soft.pagination.last` | Go to last page |
-| `soft.pagination.next` | Go to next page |
-| `soft.pagination.next_by` | Go forward {step} pages |
-| `soft.pagination.of_total_pages` | / {total} |
-| `soft.pagination.page_announce` | Page {current} |
-| `soft.pagination.page_indicators` | Page indicators |
-| `soft.pagination.page_label` | Page |
-| `soft.pagination.page_of_total` | Page {current} of {total} |
-| `soft.pagination.previous` | Go to previous page |
-| `soft.pagination.previous_by` | Go back {step} pages |
 | `soft.power_search.add` | Add filter |
 | `soft.power_search.apply` | Apply |
 | `soft.power_search.contains` | Contains |
@@ -237,7 +166,6 @@ Controls also use the standard Kivact messages where applicable.
 | `soft.power_search.value` | Value |
 | `soft.relative_time.now` | now |
 | `soft.relative_time.yesterday` | yesterday |
-| `soft.resize_handle.label` | Resize handle |
 | `soft.rich_text.bold` | Bold |
 | `soft.rich_text.inline_code` | Inline code |
 | `soft.rich_text.italic` | Italic |
@@ -256,24 +184,21 @@ Controls also use the standard Kivact messages where applicable.
 | `soft.side_nav.resize` | Resize sidebar |
 | `soft.spinner.loading` | Loading |
 | `soft.stepper.label` | Progress |
-| `soft.stepper.next` | Next step |
-| `soft.stepper.optional` | • Optional |
-| `soft.stepper.previous` | Previous step |
 | `soft.table.label` | Table |
 | `soft.thumbnail.fallback_name` | Thumbnail |
 | `soft.thumbnail.open` | Open {name} |
 | `soft.thumbnail.remove` | Remove {name} |
 | `soft.time.icon` | Time |
-| `soft.tokenizer.all_removed` | All items removed |
-| `soft.tokenizer.token_added` | Added {label} |
-| `soft.tokenizer.token_removed` | Removed {label} |
+| `combobox.all_removed` | All items removed |
+| `combobox.token_added` | Added {label} |
+| `combobox.token_removed` | Removed {label} |
 | `soft.token.remove` | Remove {label} |
 | `soft.top_nav.label` | Top navigation |
-| `soft.tree_list.toggle_children` | Toggle children |
-| `soft.typeahead.empty` | No results found. |
-| `soft.typeahead.failed` | Could not load suggestions. |
-| `soft.typeahead.loading` | Loading… |
-| `soft.typeahead.placeholder` | Search |
+| `tree.toggle_children` | Toggle children |
+| `combobox.empty` | No results found. |
+| `combobox.failed` | Could not load suggestions. |
+| `combobox.loading` | Loading… |
+| `combobox.placeholder` | Search |
 
 ## Catalog and tests
 
@@ -304,13 +229,12 @@ native text and view composition. The application chooses the appearance. Overfl
 mounted items and use provisional widths until measurements arrive.
 
 Toolbar slots use one Tab stop. Arrow keys move among eligible controls and
-respect the caret inside a text field. `toolbar_item(..)` registers a control
-for the keyboard hint.
+respect the caret inside a text field. `with_key_hints(axis, || view)` owns one timed hint; `keyboard_hint(target)` observes each actual target.
 
 Date and time wheels currently use numeric labels. Truncation hints show
 the full label on hover when native layout cuts the text. Citation and
 timestamp underlines are solid.
-Carousel scrolls to slides in response to its controls. Enable `.snap(true)`
+`carousel(index, slides).mode(CarouselMode::Scroll)` scrolls to slides in response to its controls. Enable `.snap(Snap::Mandatory)`
 to settle to a slide after scrolling. `text(..).capsize(true)` trims to the
 first visible line's measured cap height and the last visible baseline.
 
@@ -318,7 +242,7 @@ Chat Layout follows new messages while the viewport is near the end. Pass
 `.history_revision(..)` and update it in the same batch as a history prepend
 to preserve the reader's position.
 
-Toast uses the standard queue. Pass `ToastOptions` to `Toaster::push_with(..)`
+Toast uses the standard queue. Pass `ToastOptions` to `ToasterApi::push_with(..)`
 to deduplicate by key or register a callback when a visible toast is dismissed.
 Hovering or focusing one toast pauses its timer. Dismissing a focused toast
 restores the last available focus outside it.
@@ -339,19 +263,171 @@ adds collapsible group headings with counts for the current page. Use
 `.page_sizes(..)` for a page-size control and `.remote_page(..)` when the
 application supplies one page at a time. `.multi_sort(..)` enables
 multi-column sorting. Shift activation changes one column while preserving the
-other sort keys. Use `.tree(..)` for hierarchical rows and `.tree_expand_all(true)`
+other sort keys. Use `.tree(..)` for hierarchical rows and `.expand_all_control()`
 for the header control. `DataColumn::filter_field(..)` and
-`.typed_column_filters(..)` provide draft popovers or inline filters (C-29).
+`.typed_column_filters(..)` provide draft popovers or inline filters.
 Number, date, and time filter fields validate values entered as text.
 
-| Work-order item | Current behavior |
+| Area | Current behavior |
 | --- | --- |
-| C-06, C-07, C-12 | Collapsible, Side Nav, Code Block, and Chat Tool Calls use the shared content-height reveal. `TreeList::animated(true)` clips closing branches as following rows move, approximates the spring with a 734.77 ms curve, and mounts fresh branch content on reopen. Native views can release their layout slot during an exit and receive a completion callback. Soft toast rows animate their height and spacing while the dismissed card leaves the focus and accessibility trees immediately. Toast dismissal callbacks run when dismissal starts. |
-| C-08, C-10 | Layout changes reflow directly. Interrupted paint transitions use Kivact's native retargeting. |
-| C-09, C-37 | Bottom Sheet uses shared drag velocity, axis, slop, release projection, snap, and overshoot calculations. It supplies its own detents and dismissal rules. Carousel snaps after native scrolling settles. Slider uses relative touch tracking and release coast. Native scrolling can take over a same-axis Slider drag inside a scroll view. Toast pauses its timer during touch or pen swipes. Switch uses touch lift and drag with one paint transition per phase. |
-| C-11, C-17, C-18, C-39 | Disabled Soft buttons and menu rows can receive keyboard focus. Use `MenuEntry::disabled_reason(..)` to supply a tooltip for a disabled menu row. Menus support press and drag selection. Edge autoscroll remains pending. Submenus and navigation flyouts use timed hover and preserve diagonal mouse travel. |
-| C-15 | Kivact can lay out and mount interactive views in a shaped plain-text paragraph. Soft Markdown still composes marked text and views separately. The rich text editor supports source, block, and preview modes. Inline marks remain visible as Markdown delimiters while editing. Native selections are local to a block, and complex blocks use source and preview modes. |
-| C-20, C-21, C-24, C-35, C-36 | The application supplies the appearance. Date and time offer a desktop path and a touch sheet. Soft Selector opens from a bare arrow and retains trigger focus while highlighting an option in the popup. The compact touch sheet moves focus into its modal and returns it on close. MultiSelector and ComplexSelector use the popup path. |
-| C-22, C-25, C-38 | Text shows a hint when native shaping reports truncation. Citation and timestamp use solid underlines. Text supports measured cap-height trimming. `form_row(..)` places labels and fields in the shared tracks of a horizontal-label form. |
-| C-26 | Soft respects Kivact's reduced-motion preference and the application's override. System detection depends on the platform. |
-| C-33, C-34 | The kit supplies its own static list. Overflow List measures mounted items and uses provisional widths before layout. |
+| Reveal motion | Collapsible, Side Nav, Code Block, and Chat Tool Calls use the shared content-height reveal. `kivact::ui::tree(..).reveal(2.0, transition)` clips closing branches as following rows move, approximates the spring with a 734.77 ms curve, and mounts fresh branch content on reopen. Native views can release their layout slot during an exit and receive a completion callback. Soft toast rows animate their height and spacing while the dismissed card leaves the focus and accessibility trees immediately. Toast dismissal callbacks run when dismissal starts. |
+| Layout transitions | Layout changes reflow directly. Interrupted paint transitions use Kivact's native retargeting. |
+| Touch gestures | Bottom Sheet uses shared drag velocity, axis, slop, release projection, snap, and overshoot calculations. It supplies its own detents and dismissal rules. Carousel snaps after native scrolling settles. Slider uses relative touch tracking and release coast. Native scrolling can take over a same-axis Slider drag inside a scroll view. Toast pauses its timer during touch or pen swipes. Switch uses touch lift and drag with one paint transition per phase. |
+| Focus and menus | Disabled Soft buttons and menu rows can receive keyboard focus. Use `MenuEntry::disabled_reason(..)` to supply a tooltip for a disabled menu row. Menus support press and drag selection. Edge autoscroll remains pending. Submenus and navigation flyouts use timed hover and preserve diagonal mouse travel. |
+| Rich text | Kivact can lay out and mount interactive views in a shaped plain-text paragraph. Soft Markdown still composes marked text and views separately. The rich text editor supports source, block, and preview modes. Inline marks remain visible as Markdown delimiters while editing. Native selections are local to a block, and complex blocks use source and preview modes. |
+| Pickers and selectors | The application supplies the appearance. Date and time offer a desktop path and a touch sheet. Soft Selector opens from a bare arrow and retains trigger focus while highlighting an option in the popup. The compact touch sheet moves focus into its modal and returns it on close. MultiSelector and ComplexSelector use the popup path. |
+| Text and forms | Text shows a hint when native shaping reports truncation. Citation and timestamp use solid underlines. Text supports measured cap-height trimming. `form_row(..)` places labels and fields in the shared tracks of a horizontal-label form. |
+| Reduced motion | Soft respects Kivact's reduced-motion preference and the application's override. System detection depends on the platform. |
+| Lists and overflow | The kit supplies its own static list. Overflow List measures mounted items and uses provisional widths before layout. |
+
+## Migrating from the previous release
+
+The kit now builds on the standard `kivact::ui` components: most kit
+builders became standard components that the kit's `theme` draws in
+its look, and the kit's looks are `.variant(..)` values. Previous
+names and their replacements:
+
+| Previous | Now |
+| --- | --- |
+| `Avatar`, `avatar`, `AvatarShape` | `kivact::ui::avatar(name)` (`ui::Avatar`); `.shape(ui::AvatarShape::..)`, `.src(..)`, `.status(Tone)`; size via `.variant(soft::AvatarSize::..)` or `.variant(soft::AvatarAppearance::new(size))`; anonymous: `.fallback_content(soft::avatar_silhouette)` |
+| `AvatarGroup`, `avatar_group`, `AvatarGroupOverflow`, `avatar_group_overflow` | `ui::avatar_group(children).name(..).total(n).overflow_content(\|count\| ..)` (`ui::AvatarGroup`); `.variant(soft::AvatarGroupAppearance::new(size, shape))` |
+| `AvatarTooltip` | `ui::avatar(name).name_tooltip(..)`: the Soft theme shows the name by default (Name); `.name_tooltip(false)` for Off; other text: `.name_tooltip(false)` with `ui::tooltip(text).attach(..)` |
+| `Badge`, `badge` | `ui::badge(label).tone(Tone::..)` (`ui::Badge`); categorical colors `.variant(soft::BadgeVariant::..)` |
+| `Banner`, `banner`, `BannerStatus` | `ui::alert(title).tone(Tone::Info\|Success\|Warning\|Danger).icon(soft::banner_icon(tone))` (Error -> `Tone::Danger`); `.actions(..)`, `.content(..).collapsible(true)`; `.variant(soft::BannerAppearance::new(container, elevation))` |
+| `BreadcrumbItem`, `breadcrumb_item`, `Breadcrumbs`, `breadcrumbs` | `ui::breadcrumb(Vec<ListItem<K>>)` (`ui::Breadcrumb`); `.current(..)`, `.on_activate(..)`, `.item(..)`, `.separator(..)`; `.variant(soft::BreadcrumbsVariant::..)` |
+| `ButtonGroup`, `button_group`, `GroupMember`, `GroupMembers` | `ui::button_group(label, children)` (`ui::ButtonGroup`); member overrides `ui::ButtonGroupMember::from(button).solid(..).keep_size(..)`; `.variant(soft::ButtonGroupVariant(soft::Elevation::..))` |
+| `Calendar`, `calendar`, `calendar_range` | `ui::calendar(selection)` (`ui::Calendar`) bound to `Option<CalendarDate>` or `Option<DateRange>` (`kivact::i18n`) |
+| `Card`, `card`, `clickable_card`, `selectable_card` | `ui::card(content)` (`ui::Card`); clickable `.name(..).on_press(..)`; selectable `.name(..).selected(binding)`; `.variant(soft::CardVariant::..)` or `soft::CardAppearance::new(..)`, `soft::with_card_insets` |
+| `Carousel`, `carousel`, `CarouselHandle`, `use_carousel` | `ui::carousel(index, slides).name(label)` (`ui::Carousel`), `.mode(ui::CarouselMode::Scroll)`, `.snap(ui::Snap::..)`; headless `kivact::interaction::use_carousel(index, count)` -> `CarouselApi` |
+| `ChatBubble`, `chat_bubble`, `BubbleGroup`, `ChatMetadata`, `chat_metadata`, `MessageStatus` | `ui::chat_message(author).content(..)`; `.group(ui::ChatBubbleGroup::..)`, `.metadata(..)`, `.time(..)`, `.status(ui::ChatMessageStatus::..)`; `.variant(soft::BubbleVariant::..)` |
+| `ChatComposer`, `chat_composer`, `ComposerStatus`, `ComposerStatusPosition` | `ui::chat_composer(value)` (`ui::ChatComposer`); `.status(ui::ComposerStatus::..)`, `.status_position(ui::ComposerStatusPosition::..)`; `.variant(soft::ComposerElevation::..)` or `soft::ChatAppearance` |
+| `ChatComposerDrawer`, `chat_composer_drawer` | `ui::chat_composer(..).drawer(ui::disclosure(title, open).content(..))` |
+| `chat_composer_input` | `ui::text_area(label, value)` |
+| `ChatLayout`, `chat_layout`, `ChatListAlign`, `ChatMessageList`, `chat_message_list`, `chat_scroll_button` | `ui::chat_thread(for_each(..))` (`ui::ChatThread`); `.composer(..)`, `.align(ui::ChatAlign::Start\|End)`, `.scroll_button(true)`, `.history_revision(..)`, `.empty(..)`, `.loading_top(..)` |
+| `ChatMessage`, `chat_message`, `ChatSender` | `ui::chat_message(author).sender(ui::ChatSender::..).content(..)` (`ui::ChatMessage`) |
+| `ChatSendButton`, `chat_send_button` | Built into `ui::chat_composer` (`.on_submit(..)`, `.send_icon(..)`, `.send_actions(..)`); standalone: `button(..)` |
+| `ChatSystemMessage`, `chat_system_message` | `ui::chat_message(..).sender(ui::ChatSender::System)`; `.variant(soft::SystemMessageVariant::..)` |
+| `CodeBlock`, `code_block`, `SyntaxTheme` | `ui::code_block(code)` (`ui::CodeBlock`) with `.highlight(palette, \|line, palette\| soft::code_highlight(&language, line, palette))`; `.variant(soft::CodeBlockSize\|CodeBlockWidth\|CodeBlockContainer\|CodeAppearance)`; `SyntaxTheme` -> `soft::SyntaxColors` |
+| `Collapsible`, `collapsible`, `collapsible_default` | `ui::disclosure(title, open).content(..).animated(true)` (`ui::Disclosure`); default-open: pass `signal(true)`; `.variant(soft::DisclosureVariant { chevron, density, dividers })` |
+| `CollapsibleConfig`, `CollapsibleState`, `use_collapsible` | `kivact::interaction::use_disclosure(open)` -> `DisclosureApi`; custom trigger: `ui::disclosure(..).content(..).attach(trigger)` |
+| `CollapsibleGroup`, `collapsible_group`, `GroupMode` | `ui::disclosure_group(selection).panel(key, title, factory)`; `Option<K>` binding = single, `Vec<K>` = multiple |
+| `DateInput`, `date_input`, `DatePresentation`, `DateRangeInput`, `date_range_input`, `DateRangePreset`, `DateTimeInput`, `date_time_input`, `TimeInput`, `time_input` | Same names in `kivact::ui` (builders also in prelude); `.presentation(ui::DatePresentation::..)`, `.presets(Vec<ui::DateRangePreset>)` |
+| `DateTime`, `TimeOfDay` | `kivact::i18n::DateTime`, `kivact::i18n::TimeOfDay` |
+| `EmptyState`, `empty_state` | `ui::empty_state(title).description(..).icon(..).actions(..)` (`ui::EmptyState`); `.announce_changes()`; `.variant(soft::EmptyStateVariant::compact(..))` |
+| `FileInput`, `file_input` | `ui::dropzone(label).pick_on_press().on_files(..)`; `.multiple()`, `.filters(..)`, `.accept_drop(false)` for picker-only; `.variant(soft::DropzoneVariant::Field)` |
+| `Grid`, `grid` | `soft::LayoutGrid`, `soft::layout_grid(children)` |
+| `GridSpan` (struct), `Span` | `soft::GridSpanItem` (returned by `soft::grid_span`); the span enum is now `soft::GridSpan::{Cols, Full}` |
+| `Heading`, `heading` | `ui::heading(value, level)` (`ui::Heading`; argument order swapped); display size `.variant(soft::HeadingDisplay::D1\|D2\|D3)` |
+| `HoverCard`, `hover_card`, `FocusTrigger` | `ui::hover_card(factory).attach(trigger)` (`ui::HoverCard`); `.focus_trigger(ui::FocusTrigger::..)` |
+| `Icon`, `icon` | `soft::IconView`, `soft::icon_view(source).size(..).color(..)`; unstyled: `kivact::view::icon` |
+| `InputGroup`, `input_group`, `input_group_with`, `InputGroupItems`, `input_group_text` | `ui::input_group(label, children)`, `ui::input_group_with(label, factory)` (`ui::InputGroup`); `input_group_text` -> `ui::input_addon(label)` |
+| `Instant` | `soft::TimestampValue` (`unix_seconds`, `unix_millis`, `parse_iso`) |
+| `Item`, `item`, `list_item` | `ui::item_row(title)` (`ui::ItemRow`); `.description(..)`, `.media(..)`, `.actions(..)`, `.delegate_to(..)`; `.variant(soft::ItemLook\|ItemDensity\|ItemAlign\|ItemLayout)` |
+| `kbd` | `ui::kbd("mod+shift+p")` or typed `ui::kbd_combo(keys)` |
+| `List`, `list`, `list_items`, `IntoListItems`, `ListDensity`, `ListMarker` | `ui::item_list(children)` (`ui::ItemList`; keyed: `for_each` + `item_row(..).position(index, count)`); `.marker(ui::ItemListMarker::..)`, `.start(n)`; `.variant(soft::ListLook)`; `ListDensity` -> `soft::ItemDensity` |
+| `MetadataItem`, `metadata_item`, `MetadataList`, `metadata_list`, `IntoMetadataItems` | `ui::description_list(children)`, `ui::description(term, detail)`; same `.variant(soft::MetadataLook)` on list and pairs |
+| `Motion`, `Radius`, `Spacing`, `TextStyle`, `Typography` | `soft::MotionTokens`, `soft::RadiusTokens`, `soft::SpaceTokens`, `soft::TypeStyle`, `soft::TypeTokens` |
+| `MultiSelector`, `multi_selector` | `ui::combobox(label, options, Vec<K> binding).chips()` |
+| `Pagination`, `pagination`, `PaginationVariant`, `table_pagination` | `ui::pagination(count, page)` (zero-based `usize`; `ui::Pagination`); `.mode(ui::PaginationMode::..)`, `.window(ui::PaginationWindow::Buffered)`, `.summary(soft::pagination_status)`; `.variant(soft::PaginationAppearance::new(size))` |
+| `PillPlacement`, `ResizableConfig`, `ResizableState`, `ResizeHandle`, `resize_handle`, `ResizeSize`, `use_resizable` | `ui::splitter(name, size, ScalarRange)` (`ui::Splitter`) with `.collapsible(..)`, `.snaps(..)`, `.handle(..)`; headless `kivact::interaction::use_splitter(value, range, axis)` |
+| `Segmented`, `SegmentedControl`, `segmented_control`, `SegmentedIconOnly` | `radio_group(label, options, value).variant(ui::RadioGroupVariant::Segmented)` + `.variant(soft::SegmentedLook { layout, icon_only })` |
+| `Selector`, `selector` | `ui::select(label, options, selected).open_on_arrow(true)` |
+| `SelectorPresentation`, `complex_selector`, `complex_selector_with_presentation` | `ui::selection_field(label, value_label).content(factory).presentation(ui::SelectPresentation::..)` |
+| `Skeleton`, `skeleton` | `ui::skeleton()` (`ui::Skeleton`); `.shape(ui::SkeletonShape::..)`, `.lines(n)`, `.index(n)`; `.variant(soft::SkeletonRadius::..)` |
+| `Spinner`, `spinner`, `SpinnerSize` | `ui::spinner().size(ControlSize::ExtraSmall\|Small\|Medium\|Large)` (= Sm/Md/Lg/Xl) (`ui::Spinner`); `.variant(soft::SpinnerVariant { shade, ink })`, `.label_content(..)` |
+| `Stack`, `stack` | `soft::FlexStack`, `soft::flex_stack(children)` |
+| `Step`, `step`, `StepIndicator`, `StepStatus`, `Stepper`, `stepper` | `ui::stepper(vec![ui::StepperItem::new(label)], current)` (`ui::Stepper`; argument order swapped); `.status(ui::StepStatus::..)`, `.indicator(ui::StepIndicator::custom(..))`; `.variant(soft::StepperAppearance)` |
+| `table`, `table_body`, `table_cell`, `table_footer`, `table_head`, `table_header`, `table_row`, `TableCell`, `TableRow` | Same builders in `kivact::ui` (`ui::Table`, `ui::TableRow`, `ui::TableCell`); `.variant(soft::TableRowAppearance::new(dividers, hover, striped))`; selected row `.selected(..)` (`ui::TableRow`) |
+| `TableAlign`, `TableDensity` | `ui::TableCell::align(kivact::style::TextAlign::..)`; density `soft::ItemDensity` via `.variant(soft::TableCellAppearance::new(density, vertical_align, divider))` |
+| `Text`, `text` | `soft::StyledText`, `soft::styled_text(value)` (prelude `text` is the unstyled primitive) |
+| `kivact::interaction::Toaster` | `kivact::interaction::ToasterApi`, the handle `toaster()` returns |
+| `ToggleButtonGroup`, `toggle_button_group`, `ToggleSelection` | `ui::toggle_group(label, options, selection)` (`ui::ToggleGroup`); `Option<K>` binding = single, `Vec<K>` = multiple; `ListItem::with_pressed_icon(..)`, `.icon_only(..)` |
+| `tokens` | `kivact::style::use_tokens::<soft::Tokens>()` |
+| `Tokenizer`, `tokenizer` | `ui::combobox(label, options, Vec<K> binding).chips().exclude_selected()` |
+| `Toolbar`, `toolbar`, `Edge` | `ui::toolbar(label).start(..).center(..).end(..)` (`ui::Toolbar`); `.dividers(&[ui::ToolbarEdge::..])`; `.variant(soft::ToolbarVariant(soft::SectionVariant::..))` |
+| `toolbar_item` | `soft::keyboard_hint(target)` inside `soft::with_key_hints(axis, \|\| ..)` |
+| `TopNavHeading`, `TopNavMenuItem` | `soft::SideNavHeading`, `soft::NavHeadingMenuItem` (still returned by `top_nav_heading`, `top_nav_menu_item`) |
+| `TreeDensity`, `TreeList`, `tree_list`, `TreeVariant` | `ui::tree(label, nodes).expanded(expanded)` (`ui::Tree`); `.variant(soft::TreeLook::default().density(soft::ItemDensity::..).guides(bool))` |
+| `Typeahead`, `typeahead`, `base_typeahead` | `ui::combobox(label, options, selected)` (`ui::Combobox`); `.search(..)`, `.debounce(..)`, `.placeholder(..)`, `.empty_text(..)` |
+| `use_overflow`, `OverflowOptions` (f32 widths and gap) | Same functions with f64 widths, available width, indicator width and `OverflowOptions::gap` |
+
+## Filled standard recipes
+
+<!-- kivact-recipes -->
+- `stat`
+- `description_list`
+- `heading`
+- `button`
+- `button_content`
+- `button_icon`
+- `button_busy`
+- `toggle`
+- `toolbar`
+- `button_group`
+- `toggle_group`
+- `checkbox`
+- `checkbox_indicator`
+- `checkbox_check`
+- `checkbox_mixed`
+- `switch`
+- `switch_track`
+- `switch_thumb`
+- `radio_group`
+- `slider`
+- `progress`
+- `skeleton`
+- `badge`
+- `spinner`
+- `kbd`
+- `kbd_key`
+- `dropzone`
+- `carousel`
+- `calendar`
+- `date_input`
+- `date_range_input`
+- `date_time_input`
+- `time_input`
+- `text_input`
+- `text_area`
+- `field`
+- `number_input`
+- `tag_input`
+- `select`
+- `combobox`
+- `menu`
+- `dialog`
+- `hover_card`
+- `tooltip`
+- `toast`
+- `command_palette`
+- `tabs`
+- `disclosure`
+- `splitter`
+- `split`
+- `list`
+- `tree`
+- `data_table`
+- `table`
+- `chat_thread`
+- `chat_message`
+- `chat_composer`
+- `code_block`
+- `breadcrumb`
+- `empty_state`
+- `input_group`
+- `card`
+- `avatar`
+- `avatar_image`
+- `avatar_status`
+- `avatar_status_content`
+- `avatar_group`
+- `avatar_group_member`
+- `avatar_group_overflow`
+- `stepper`
+- `alert`
+- `pagination`
+- `item_list`
+- `navigation_menu`
+<!-- /kivact-recipes -->
+
+Pagination presentation helpers: `PaginationAppearance`, `pagination_count`, `pagination_page_summary`, and `pagination_status` use actual canonical summary facts.

@@ -18,23 +18,26 @@
 
 use std::collections::HashMap;
 
-use kivact_types::protocol::{FontFeature, SpanStyle, TextSpan, TextStyle, TextWrap};
+use kivact_types::render::SpanStyle;
+use kivact_types::render::TextSpan;
+use kivact_types::{ComputedTextStyle, FontFeature, TextWrap};
 use kivact_types::{FontKerning, TextTransform};
 
 /// Layouts per generation.
 const ENTRIES: usize = 256;
 
+// xtask-allow(state-fields): Immutable paragraph cache key; optional span overrides are independent style properties.
 /// What a span sets that shaping reads; floats compare by bit pattern.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 struct SpanKey {
     start: usize,
     end: usize,
-    font_size: Option<u32>,
+    font_size: Option<u64>,
     weight: Option<u16>,
     family: Option<String>,
     italic: Option<bool>,
-    letter_spacing: Option<u32>,
-    word_spacing: Option<u32>,
+    letter_spacing: Option<u64>,
+    word_spacing: Option<u64>,
     kerning: Option<FontKerning>,
     features: Option<Vec<FontFeature>>,
 }
@@ -55,12 +58,12 @@ impl SpanKey {
         Self {
             start: span.range.start,
             end: span.range.end,
-            font_size: font_size.map(f32::to_bits),
+            font_size: font_size.map(f64::to_bits),
             weight: *weight,
             family: family.clone(),
             italic: *italic,
-            letter_spacing: letter_spacing.map(f32::to_bits),
-            word_spacing: word_spacing.map(f32::to_bits),
+            letter_spacing: letter_spacing.map(f64::to_bits),
+            word_spacing: word_spacing.map(f64::to_bits),
             kerning: *kerning,
             features: features.clone(),
         }
@@ -72,23 +75,24 @@ impl SpanKey {
 /// before).
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 struct RichKey {
-    letter_spacing: u32,
-    word_spacing: u32,
+    letter_spacing: u64,
+    word_spacing: u64,
     kerning: FontKerning,
     features: Vec<FontFeature>,
     transform: TextTransform,
     spans: Vec<SpanKey>,
 }
 
+// xtask-allow(state-fields): Immutable paragraph cache key; style and wrapping options are independent inputs.
 /// What a shaped layout depends on: the text, the paragraph style that
 /// shaping reads (see the module invariant) and its spans' ranges and
 /// shaping styles; floats compare by bit pattern.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub(crate) struct Key {
     text: String,
-    font_size: u32,
+    font_size: u64,
     weight: u16,
-    line_height: u32,
+    line_height: u64,
     wrap: bool,
     family: Option<String>,
     italic: bool,
@@ -98,12 +102,17 @@ pub(crate) struct Key {
 impl Key {
     /// The key of `text` with `spans` in `style` with lines `line_height`
     /// apart (the text before its case conversion).
-    pub(crate) fn new(text: &str, spans: &[TextSpan], style: &TextStyle, line_height: f32) -> Self {
+    pub(crate) fn new(
+        text: &str,
+        spans: &[TextSpan],
+        style: &ComputedTextStyle,
+        line_height: f64,
+    ) -> Self {
         let plain = spans.is_empty()
-            && style.letter_spacing == 0.0
-            && style.word_spacing == 0.0
+            && style.resolve(style.letter_spacing) == 0.0
+            && style.resolve(style.word_spacing) == 0.0
             && style.kerning == FontKerning::Auto
-            && style.features.is_empty()
+            && style.shaping_features().is_empty()
             && style.transform == TextTransform::None;
         Self {
             text: text.to_owned(),
@@ -115,10 +124,10 @@ impl Key {
             italic: style.italic,
             rich: (!plain).then(|| {
                 Box::new(RichKey {
-                    letter_spacing: style.letter_spacing.to_bits(),
-                    word_spacing: style.word_spacing.to_bits(),
+                    letter_spacing: style.resolve(style.letter_spacing).to_bits(),
+                    word_spacing: style.resolve(style.word_spacing).to_bits(),
                     kerning: style.kerning,
-                    features: style.features.clone(),
+                    features: style.shaping_features(),
                     transform: style.transform,
                     spans: spans.iter().map(SpanKey::new).collect(),
                 })

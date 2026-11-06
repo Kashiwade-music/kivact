@@ -7,11 +7,11 @@ use kivact::style::{Theme, ThemeColor};
 ///
 /// Every color input of a style, a gradient or a draw call takes it, so
 /// the color follows a theme switch without a closure that reads the tokens:
-/// `style().background(Color::Canvas)`. A theme without the kit's tokens
+/// `style().background(ColorName::Canvas)`. A theme without the kit's tokens
 /// reads the values the tokens fall back to. Take a [`Tokens`] field by hand only to
 /// compute a new color from it (`with_alpha`, `mix_in`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum Color {
+pub enum ColorName {
     /// [`Tokens::canvas`].
     Canvas,
     /// [`Tokens::island`].
@@ -56,31 +56,81 @@ pub enum Color {
     Warning,
 }
 
-impl ThemeColor for Color {
+impl ThemeColor for ColorName {
     fn resolve(self, theme: &Theme) -> kivact::style::Color {
-        let p = theme.get::<Tokens>();
+        let p = theme.ext::<Tokens>();
         match self {
-            Color::Canvas => p.canvas,
-            Color::Island => p.island,
-            Color::Header => p.header,
-            Color::Strong => p.strong,
-            Color::Field => p.field,
-            Color::Hair => p.hair,
-            Color::HairStrong => p.hair_strong,
-            Color::Text => p.text,
-            Color::TextHigh => p.text_high,
-            Color::Muted => p.muted,
-            Color::Dim => p.dim,
-            Color::Accent => p.accent,
-            Color::AccentHigh => p.accent_high,
-            Color::AccentInk => p.accent_ink,
-            Color::Selection => p.selection,
-            Color::Key => p.key,
-            Color::X => p.x,
-            Color::Y => p.y,
-            Color::Z => p.z,
-            Color::Success => p.success,
-            Color::Warning => p.warning,
+            ColorName::Canvas => p.canvas,
+            ColorName::Island => p.island,
+            ColorName::Header => p.header,
+            ColorName::Strong => p.strong,
+            ColorName::Field => p.field,
+            ColorName::Hair => p.hair,
+            ColorName::HairStrong => p.hair_strong,
+            ColorName::Text => p.text,
+            ColorName::TextHigh => p.text_high,
+            ColorName::Muted => p.muted,
+            ColorName::Dim => p.dim,
+            ColorName::Accent => p.accent,
+            ColorName::AccentHigh => p.accent_high,
+            ColorName::AccentInk => p.accent_ink,
+            ColorName::Selection => p.selection,
+            ColorName::Key => p.key,
+            ColorName::X => p.x,
+            ColorName::Y => p.y,
+            ColorName::Z => p.z,
+            ColorName::Success => p.success,
+            ColorName::Warning => p.warning,
         }
     }
+}
+
+// Fixed paint colors shared by Creative surfaces and initial domain values.
+pub(crate) fn transparent_ink() -> kivact::style::Color {
+    kivact::style::rgba(0, 0.0)
+}
+pub(crate) fn button_surface() -> kivact::style::Color {
+    kivact::style::rgba(0xffffff, 0.065)
+}
+pub(crate) fn control_border() -> kivact::style::Color {
+    kivact::style::rgba(0xffffff, 0.04)
+}
+pub(crate) fn overlay_border() -> kivact::style::Color {
+    kivact::style::rgba(0xffffff, 0.1)
+}
+pub(crate) fn button_pressed() -> kivact::style::Color {
+    kivact::style::rgba(0xffffff, 0.05)
+}
+pub(crate) fn menu_hover() -> kivact::style::Color {
+    kivact::style::rgba(0xffffff, 0.07)
+}
+pub(crate) fn control_shadow() -> kivact::style::Color {
+    kivact::style::rgba(0x000000, 0.28)
+}
+pub(crate) fn overlay_surface() -> kivact::style::Color {
+    kivact::style::rgba(0x1e1f26, 0.94)
+}
+pub(crate) fn window_shadow() -> kivact::style::Color {
+    kivact::style::rgba(0x000000, 0.65)
+}
+pub(crate) fn transparent_backdrop() -> kivact::style::Color {
+    kivact::style::rgba(0x050608, 0.0)
+}
+pub(crate) fn modal_backdrop() -> kivact::style::Color {
+    kivact::style::rgba(0x050608, 0.35)
+}
+pub(crate) fn dialog_shadow() -> kivact::style::Color {
+    kivact::style::rgba(0, 0.5)
+}
+pub(crate) fn menu_shadow() -> kivact::style::Color {
+    kivact::style::rgba(0, 0.6)
+}
+pub(crate) fn default_item_color() -> kivact::style::Color {
+    kivact::style::rgb(0x8b7cff)
+}
+pub(crate) fn driven_property_color() -> kivact::style::Color {
+    kivact::style::rgb(0xc084fc)
+}
+pub(crate) fn checker_color(light: bool) -> kivact::style::Color {
+    kivact::style::rgb(if light { 0x57585d } else { 0x272830 })
 }

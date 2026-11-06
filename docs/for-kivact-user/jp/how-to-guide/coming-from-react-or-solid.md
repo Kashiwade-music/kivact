@@ -2,13 +2,13 @@
 
 [English](../../en/how-to-guide/coming-from-react-or-solid.md)
 
-React や SolidJS を知っているなら、Kivact の概念のほとんどに対応するものがあります。このガイドでは、それらを 1 対 1 で対応づけ、大きな違いがただ 1 つであること(コンポーネントは、状態が変わるたびに実行される React のものではなく、Solid のように一度だけ実行されます)を説明し、Rust を書いたことがない開発者がつまずきやすい 5 つの細部を扱います。
+React や SolidJS を知っているなら、Kivact の概念のほとんどに対応するものがあります。このガイドでは、それらを 1 対 1 で対応づけ、大きな違いがただ 1 つであること(コンポーネントは、状態が変わるたびに実行される React のものではなく、Solid のように一度だけ実行されます)を説明し、Rust を書いたことがない開発者がつまずきやすい 7 つの細部を扱います。
 
 [チュートリアル](../getting-started/README.md)を終えていることを前提にしています。
 
 ## 唯一の考え方: セットアップは一度だけ実行される
 
-Kivact のコンポーネントはただの関数です。親が画面を組み立てるときに**一度だけ**実行されます。状態を作り、部品をつなぎ、view を返します。その後は関数が再び実行されることはありません。シグナルが変わると、それを読んでいる画面の部分だけが更新されます。
+Kivact のコンポーネントはただの関数です。親が画面を組み立てるときに**一度だけ**実行されます。状態を作り、部品をつなぎ、view を返します。同じ mount の間、シグナルが変わっても関数全体は再実行されません。`show` の分岐などを取り外して作り直すと、その新しい mount では setup も実行されます。シグナルが変わると、それを読んでいる画面の部分だけが更新されます。
 
 ```tsx
 // React: クリックのたびに関数全体が再実行される。
@@ -57,10 +57,10 @@ mod tests {
 
 | 概念 | React | SolidJS | Kivact |
 | --- | --- | --- | --- |
-| コンポーネント | JSX を返す関数 | JSX を返す関数 | `impl IntoView` を返す関数 |
+| コンポーネント | JSX を返す関数 | JSX を返す関数 | 一つのルートは `impl Component`、複数のルートは `impl IntoView` を返す関数 |
 | props | props オブジェクト | props オブジェクト | 関数の引数。文字には `impl IntoText`、変化しうる値には `impl IntoValue<T>` |
 | 子 | `children` | `props.children` | `V: IntoView` 型の引数 |
-| コールバックの prop | `onSave` prop | `onSave` prop | `impl Fn() + 'static`(引数があれば `Fn(T)`)の引数。`callback(..)` で `Copy` なものを作る |
+| コールバックの prop | `onSave` prop | `onSave` prop | 引数なしは `impl Into<Callback<()>>`。payload 付きは `Fn(T) -> R` と `HandlerResult`。`callback(..)` は共有できる `Copy` ハンドルを返す |
 | 状態 | `useState` | `createSignal` | `signal(value)`。1 つの `Signal<T>` が `get`、`with`、`set`、`update` を持つ |
 | 派生値 | render 内の計算、`useMemo` | `createMemo` | 1 か所の利用ならクロージャ、共有やキャッシュなら `memo(..)` |
 | effect | `useEffect` | `createEffect` | `effect(..)`。最初の実行を飛ばすなら `effect_on(source, f)` |
@@ -68,17 +68,24 @@ mod tests {
 | マウント後に一度だけ実行 | `useEffect(.., [])` | `onMount` | `on_mount(..)` |
 | 再描画を起こさない可変の値 | `useRef` | 通常の変数 | `var(value)` |
 | 要素の参照 | DOM ノードへの `useRef` | `ref` | `node_ref()` と `.node_ref(r)`。`r.focus()` |
-| context | `createContext`、`useContext` | `createContext`、`useContext` | `provide(value, \|\| child)` と `context::<T>()` |
+| context | `createContext`、`useContext` | `createContext`、`useContext` | `provide(value, \|\| child)` と `use_context::<T>()` |
 | 条件 | `cond && <A/>` | `<Show when>` | `show(cond, \|\| a)`、`show_some(option, \|v\| a)` |
 | 複数の分岐 | 三項演算子や `switch` | `<Switch>` | `dynamic(source, \|v\| match v { .. })` |
-| 一覧 | `key` 付きの `items.map(..)` | `<For>` | `for_each(items, \|i\| key, \|key, item\| row)` |
+| 一覧 | `key` 付きの `items.map(..)` | `<For>` | `for_each(items, \|item\| item.id, \|key, item\| view)` |
 | 位置による一覧 | `key={index}` | `<Index>` | `for_index(items, \|i, item\| row)` |
 | key | `key` prop | `For` の同一性 | `for_each` に渡す key の関数 |
 | 制御された入力 | `value` と `onChange` | `value` と `onInput` | 入力に渡す `Signal<String>`(または `Binding<T>`) |
 | エラー境界 | `ErrorBoundary` | `ErrorBoundary` | `error_boundary(..)` |
 | データの取得 | ライブラリーや `useEffect` | `createResource` | `resource(source, fetch)`、ユーザー操作には `action(..)` |
+| 状態機械 | `useReducer` と effect、timer | reducer と effect、timer | `Machine` の `transition` が `Step` を返し、runner が副作用を実行する |
 
-上の名前の多くは `use kivact::prelude::*;` で使えます。`callback`、`error_boundary`、`try_context` は `kivact::view` から、`effect_on` は `kivact` から import します。
+上の表の名前は `use kivact::prelude::*;` で使えます。`callback` と `effect_on` は状態の操作、`error_boundary` と `component` は view の組み立てに使いますが、利用のたびに個別の import を足す必要はありません。任意の context を調べる `try_use_context` は `kivact::state` から、builder の option に使う enum はそれぞれの module から import します。
+
+
+`Machine` は `useReducer` に effect と timer を足したものです。状態とイベントを明示し、
+`transition` で `Step` を返し、runner で副作用を実行します。
+[独自のコントロール](custom-controls.md#状態機械で振る舞いを書く)を参照してください。
+
 
 ## props、子、コールバック
 
@@ -98,8 +105,9 @@ fn panel<V: IntoView>(title: &str, child: V) -> impl IntoView {
 }
 
 // コールバックの prop: 呼び出し側が渡すクロージャ。
-fn buttons(on_add: impl Fn() + Copy + 'static) -> impl IntoView {
-    row((button("追加"), button("もう一度追加").on_press(on_add)))
+fn buttons(on_add: impl Into<Callback<()>>) -> impl IntoView {
+    let on_add = on_add.into();
+    row((button("追加").on_press(on_add), button("もう一度追加").on_press(on_add)))
 }
 
 fn app() -> impl IntoView {
@@ -136,7 +144,7 @@ mod tests {
 ```
 
 - 変わりうる prop は `impl IntoValue<T>` を受け取ります。呼び出し側は定数、シグナル、memo、クロージャのどれでも渡せ、あなたは `.into_value()` を一度呼んで、読み取り用の `Value<T>` ハンドルを得ます。
-- コールバックは普通のクロージャです。`impl Fn() + 'static`(引数があれば `Fn(T) + 'static`)として受け取ります。`buttons` のように複数の場所へ渡すなら `Copy` を付けます。アプリで 1 つのハンドラーを複数のコントロールで共有するときは、`callback(|x| ..)` が `Copy` なハンドルを返します(引数がなければ `callback(|_| ..)`)。
+- 入力のないコールバックの prop は `impl Into<Callback<()>>` として受け取ります。`.into()` で一度だけ変換すると、得られるハンドルは `Copy` なので、両方のボタンで同じ操作を使えます。呼び出し側は `move || ...` のクロージャをそのまま渡せます。
 - `()` を返すクロージャを受け取る場所は、`Result<(), UiError>` を返すクロージャも受け取るので、ハンドラーの中で `?` が使えます。エラーは最も近いエラーハンドラーに届きます。
 
 ## effect、クリーンアップ、マウント
@@ -145,16 +153,18 @@ mod tests {
 use kivact::prelude::*;
 
 fn tracker(query: Signal<String>) -> impl IntoView {
-    // 画面が組み上がってから実行され、`query` が変わるたびに再実行される。
-    effect(move || {
-        println!("検索語: {}", query.get());
-    });
-    // このコンポーネントの node ができた後に一度だけ実行される。
-    on_mount(|| println!("マウントしました"));
-    // このコンポーネントが取り除かれたとき(分岐が閉じる、行が消える)に実行される。
-    on_cleanup(|| println!("なくなりました"));
+    component(move || {
+        // mount 後に実行され、`query` が変わるたびに再実行される。
+        effect(move || {
+            println!("検索語: {}", query.get());
+        });
+        // このコンポーネントの node ができた後に一度だけ実行される。
+        on_mount(|| println!("マウントしました"));
+        // このコンポーネントが取り除かれたとき(分岐が閉じる、行が消える)に実行される。
+        on_cleanup(|| println!("なくなりました"));
 
-    text(move || format!("検索語: {}", query.get()))
+        text(move || format!("検索語: {}", query.get()))
+    })
 }
 
 fn main() -> kivact::Result<()> {
@@ -164,7 +174,7 @@ fn main() -> kivact::Result<()> {
 
 - `effect` は、ログ、保存、UI の外にあるものとのやり取りといった副作用に使います。派生値を表示するために、あるシグナルを別のシグナルへ写すのには使わず、元の値をクロージャか `memo` の中で読みます。
 - effect の中で呼んだ `on_cleanup` は、effect が再実行される前と、取り除かれるときに実行されます。React の effect が返す関数と同じです。
-- 状態は、最も近い*構造的な境界*に属します。ルート、`show` の分岐、`for_each` の行、`provide`、`error_boundary` です。中で作ったシグナルは、その境界がなくなると解放されます。普通の関数呼び出しは境界を作りません。
+- 状態は、最も近い*構造的な境界*に属します。ルート、`show` の分岐、`for_each` の行、`provide`、`error_boundary`、`component` です。中で作ったシグナルは、その境界がなくなると解放されます。普通の関数呼び出しは境界を作りません。
 
 ## 条件、分岐、一覧
 
@@ -182,7 +192,7 @@ fn app() -> impl IntoView {
         // Option: ファクトリーは現在の値の `Value<String>` を受け取る。
         show_some(user, |name| text(move || format!("こんにちは、{}", name.get()))),
         // `<For>`: 行は key で状態を保つ。
-        column(for_each(names, |name| name.clone(), |_, name| text(move || name.get()))),
+        column(for_each(names, |name| name.clone(), |name| text(move || name.get()))),
         // `<Index>`: 行は位置で状態を保つ。
         column(for_index(names, |i, name| text(move || format!("{i}: {}", name.get())))),
         button("切り替え").on_press(move || logged_in.update(|v| *v = !*v)),
@@ -253,7 +263,7 @@ mod tests {
 
 ## context
 
-`provide(value, || child)` は、子とその下のすべてで `value` を使えるようにし、`context::<T>()` は最も近いものを読みます。`T` は `Clone` が必要なので、`Copy` なハンドルの構造体か、重いものなら `Rc` を提供します。
+`provide(value, || child)` は、子とその下のすべてで `value` を使えるようにし、`use_context::<T>()` は最も近いものを読みます。`T` は `Clone` が必要なので、`Copy` なハンドルの構造体か、重いものなら `Rc` を提供します。
 
 ```rust,test_harness
 use kivact::prelude::*;
@@ -264,8 +274,8 @@ struct Session {
 }
 
 fn greeting() -> impl IntoView {
-    let session = context::<Session>(); // 提供されていなければ、型名つきで panic する
-    text(move || format!("{} としてサインイン中", session.user.get()))
+    let session = use_context::<Session>(); // 提供されていなければ、型名つきで panic する
+    text(move || format!("{} としてサインイン中", session.get().user.get()))
 }
 
 fn app() -> impl IntoView {
@@ -274,8 +284,8 @@ fn app() -> impl IntoView {
 }
 
 fn settings() -> impl IntoView {
-    let session = context::<Session>();
-    button("名前を変更").on_press(move || session.user.set("ann2".to_owned()))
+    let session = use_context::<Session>();
+    button("名前を変更").on_press(move || session.get().user.set("ann2".to_owned()))
 }
 
 fn main() -> kivact::Result<()> {
@@ -296,7 +306,7 @@ mod tests {
 }
 ```
 
-- 既定値はありません。何も提供されていないと、`context::<T>()` は型名つきで panic します。値が省略可能なら `kivact::view::try_context::<T>()` を使い、`Option<T>` を受け取ります。
+- 既定値はありません。何も提供されていないと、`use_context::<T>()` は型名つきで panic します。値が省略可能なら `kivact::view::try_use_context::<T>()` を使い、`Option<T>` を受け取ります。
 - `provide` が影響するのは、その子だけです。後ろに作られた兄弟は値を見られません。
 - テーマ、ロケール、文言、読み取りの向きには、それぞれ `kivact::view` に専用の `provide_*` 関数があります([テーマ](theming.md)、[翻訳とロケール](i18n.md))。
 
@@ -327,7 +337,7 @@ fn main() -> kivact::Result<()> {
 }
 ```
 
-## Rust の 5 つのポイント
+## Rust の 7 つのポイント
 
 ### 1. クロージャには `move` が必要
 
@@ -393,6 +403,36 @@ fn main() -> kivact::Result<()> {
 ### クロージャの引数に型が必要なとき
 
 Rust は、クロージャの引数の型を、それを受け取る関数から推論します。`on_key(move |event| ..)` ではそれがうまくいきます。引数の型をクロージャ自身が決める `callback(..)` や `action(..)` では、その引数のメソッドを呼ぶときに型を書きます。`callback(move |word: String| len.set(word.len()))` のようにします。必要なのに書かないと、コンパイラが `type annotations needed` と言います。
+
+### 6. 数値を返すクロージャーは戻り値の型を合わせる
+
+整数の定数は小数のプロパティにも渡せますが、保持されるクロージャーはそのプロパティの型をそのまま返す必要があります。Rust は、クロージャーが返す整数を自動で小数へ変換しません。`count` が `Signal<i32>` なら、`move || count.get()` は `IntoValue<f64>` になりません。クロージャーの中で型を変換します。エラーの trait 名だけを見るより、まずクロージャーの戻り値を確認すると原因を絞れます。
+
+```rust,no_run
+use kivact::prelude::*;
+
+fn count_slider(count: Signal<i32>) -> impl IntoView {
+    let value = binding(
+        move || count.get() as f64,
+        move |next: f64| count.set(next.round() as i32),
+    );
+    slider("Count", value).range(0.0..=100.0)
+}
+```
+
+通常の数値のプロパティには `move || count.get() as f64` と書きます。ハンドル自体を変換しても、後で読む値は変換されません。
+
+### 7. prelude の名前を変数で隠さない
+
+Rust は名前に最も近い束縛を使います。`let text = signal(String::new())` の後では、`text("Hello")` はそのシグナルを呼び出そうとし、E0618（expected function）になります。変数には `label`、`rows`、`choices`、`name_field`、`save_action` のようにデータを表す名前を付け、`text`、`row`、`list`、`field`、`message` は prelude の関数として使えるように残します。行の callback の引数も `row` ではなく `item`、`todo` など、データの意味で名付けます。import した `Action` のような型も同じで、別の item に同じ名前を使わないようにします。名前を残す必要があるときは、`kivact::view::text("Hello")`、`kivact::ui::field("Name", input)`、`kivact::task::Action` のように path を付けて書きます。
+
+```rust,no_run
+use kivact::prelude::*;
+
+fn heading_row(label: String) -> impl Component {
+    row((text(label), button("Open")))
+}
+```
 
 ## 関連項目
 

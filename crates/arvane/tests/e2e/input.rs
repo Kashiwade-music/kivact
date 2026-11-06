@@ -5,9 +5,9 @@
 //! touch and pen contacts with pointer ids and kinds of their own, keys and
 //! the IME passed on as they come.
 
-use arvane::test_display::VirtualWindow;
-use arvane::{ShellEvent, Window as _};
-use kivact_types::protocol::PointerInput;
+use crate::support::Harness;
+use arvane::ShellEvent;
+use kivact_types::PointerSample;
 use kivact_types::{
     ButtonPress, Key, MouseButton, Point, PointerButtons, PointerId, PointerKind, PointerPhase,
 };
@@ -17,18 +17,16 @@ use crate::support::open;
 const MS: u64 = 1_000_000;
 
 /// The mouse event of `phase` as the window makes and delivers it.
-fn mouse_event(
-    window: &mut VirtualWindow,
-    phase: PointerPhase,
-    position: Option<Point>,
-) -> ShellEvent {
-    let event = window
-        .mouse(phase, position)
-        .expect("the test placed the mouse first");
-    window.input(event)
+fn mouse_event(window: &mut Harness, phase: PointerPhase, position: Option<Point>) -> ShellEvent {
+    window.script().mouse(phase, position);
+    window
+        .events()
+        .into_iter()
+        .next()
+        .expect("the test placed the mouse first")
 }
 
-fn press(window: &mut VirtualWindow, button: MouseButton) -> ShellEvent {
+fn press(window: &mut Harness, button: MouseButton) -> ShellEvent {
     mouse_event(
         window,
         PointerPhase::Down(ButtonPress { button, clicks: 1 }),
@@ -36,7 +34,7 @@ fn press(window: &mut VirtualWindow, button: MouseButton) -> ShellEvent {
     )
 }
 
-fn release(window: &mut VirtualWindow, button: MouseButton) -> ShellEvent {
+fn release(window: &mut Harness, button: MouseButton) -> ShellEvent {
     mouse_event(
         window,
         PointerPhase::Up(ButtonPress { button, clicks: 1 }),
@@ -60,17 +58,13 @@ fn clicks(event: &ShellEvent) -> u8 {
 #[test]
 fn presses_count_into_double_and_triple_clicks_within_time_and_distance() {
     let mut window = open(200.0, 200.0);
-    let mouse = window.environment().mouse;
+    let mouse = window.probe().environment().pointer;
     assert_eq!(mouse.double_click_ns, 500 * MS);
     assert_eq!(mouse.double_click_distance, (4.0, 4.0));
     let mut at = 0;
-    let mut click = |window: &mut arvane::test_display::VirtualWindow,
-                     after_ms: u64,
-                     x: f32,
-                     y: f32,
-                     button: MouseButton| {
+    let mut click = |window: &mut Harness, after_ms: u64, x: f64, y: f64, button: MouseButton| {
         at += after_ms * MS;
-        window.set_now(at);
+        window.script().set_now(at);
         mouse_event(window, PointerPhase::Move, Some(Point { x, y }));
         let down = clicks(&press(window, button));
         let up = clicks(&release(window, button));
@@ -92,12 +86,17 @@ fn presses_count_into_double_and_triple_clicks_within_time_and_distance() {
         1
     );
     // Other pointer events pass unchanged.
-    let wheel = ShellEvent::Wheel { x: 0.0, y: -40.0 };
-    assert_eq!(window.input(wheel.clone()), wheel);
+    let wheel = ShellEvent::Wheel(kivact_types::WheelInput {
+        delta: kivact_types::Point { x: 0.0, y: -40.0 },
+        position: kivact_types::Point::default(),
+        modifiers: kivact_types::Modifiers::default(),
+    });
+    window.script().input(wheel.clone());
+    assert_eq!(window.events(), [wheel]);
 }
 
-fn contact(id: u64, kind: PointerKind, phase: PointerPhase, x: f32) -> PointerInput {
-    PointerInput {
+fn contact(id: u64, kind: PointerKind, phase: PointerPhase, x: f64) -> PointerSample {
+    PointerSample {
         id: PointerId(id),
         kind,
         phase,
@@ -108,6 +107,11 @@ fn contact(id: u64, kind: PointerKind, phase: PointerPhase, x: f32) -> PointerIn
         ),
         pressure: Some(0.5),
         tilt: None,
+        button: None,
+        press: None,
+        time_ns: 0,
+        modifiers: kivact_types::Modifiers::default(),
+        is_primary: true,
     }
 }
 
@@ -119,7 +123,7 @@ const SINGLE: ButtonPress = ButtonPress {
 const DOWN: PointerPhase = PointerPhase::Down(SINGLE);
 const UP: PointerPhase = PointerPhase::Up(SINGLE);
 
-fn pointer(events: Vec<ShellEvent>) -> PointerInput {
+fn pointer(events: Vec<ShellEvent>) -> PointerSample {
     match events.as_slice() {
         [ShellEvent::Pointer(input)] => *input,
         other => panic!("not one pointer event: {other:?}"),
@@ -131,10 +135,10 @@ fn contacts_get_pointer_ids_and_kinds_of_their_own() {
     use PointerKind::{Mouse, Pen, Touch};
     use PointerPhase::{Cancel, Move};
     let mut window = open(100.0, 100.0);
-    assert!(window.capabilities().touch && window.capabilities().pen);
+    assert!(window.probe().capabilities().touch && window.probe().capabilities().pen);
     // A finger: the platform's id 7 becomes pointer 2 (1 is the mouse),
     // kept until it lifts.
-    let down = pointer(window.contact(contact(7, Touch, DOWN, 1.0)));
+    let down = pointer(contact_events(&mut window, contact(7, Touch, DOWN, 1.0)));
     assert_eq!(
         (down.id, down.kind, down.phase),
         (PointerId(2), Touch, DOWN)
@@ -143,63 +147,79 @@ fn contacts_get_pointer_ids_and_kinds_of_their_own() {
         (down.position.x, down.position.y, down.pressure),
         (1.0, 10.0, Some(0.5))
     );
-    let moved = pointer(window.contact(contact(7, Pen, Move, 2.0)));
+    let moved = pointer(contact_events(&mut window, contact(7, Pen, Move, 2.0)));
     assert_eq!(
         (moved.id, moved.kind, moved.phase, moved.position.x),
         (PointerId(2), Touch, Move, 2.0),
         "the kind is the one of the contact's Down"
     );
     // A pen meanwhile is another pointer.
-    let pen = pointer(window.contact(contact(8, Pen, DOWN, 3.0)));
+    let pen = pointer(contact_events(&mut window, contact(8, Pen, DOWN, 3.0)));
     assert_eq!((pen.id, pen.kind), (PointerId(3), Pen));
-    let up = pointer(window.contact(contact(7, Touch, UP, 2.0)));
+    let up = pointer(contact_events(&mut window, contact(7, Touch, UP, 2.0)));
     assert_eq!((up.id, up.phase), (PointerId(2), UP));
-    let canceled = pointer(window.contact(contact(8, Pen, Cancel, 3.0)));
+    let canceled = pointer(contact_events(&mut window, contact(8, Pen, Cancel, 3.0)));
     assert_eq!(
         (canceled.id, canceled.kind, canceled.phase),
         (PointerId(3), Pen, Cancel)
     );
     // The platform reuses id 7: a new contact, a new pointer.
-    let again = pointer(window.contact(contact(7, Touch, DOWN, 4.0)));
+    let again = pointer(contact_events(&mut window, contact(7, Touch, DOWN, 4.0)));
     assert_eq!(again.id, PointerId(4));
     // A contact is never the mouse.
-    let mouse = pointer(window.contact(contact(9, Mouse, DOWN, 5.0)));
+    let mouse = pointer(contact_events(&mut window, contact(9, Mouse, DOWN, 5.0)));
     assert_eq!((mouse.id, mouse.kind), (PointerId(5), Touch));
     // Nothing is reported for a contact that never began (a hovering pen).
-    assert_eq!(window.contact(contact(40, Pen, Move, 1.0)), []);
-    assert_eq!(window.contact(contact(41, Touch, UP, 1.0)), []);
+    window.script().contact(contact(40, Pen, Move, 1.0));
+    assert_eq!(window.events(), []);
+    window.script().contact(contact(41, Touch, UP, 1.0));
+    assert_eq!(window.events(), []);
 }
 
 #[test]
 fn keys_and_the_ime_pass_through_in_order() {
     let mut window = open(100.0, 100.0);
     let events = [
-        ShellEvent::Key {
+        ShellEvent::Key(kivact_types::KeyInput {
             key: Key::Char('ф'),
-            physical: Some('a'),
             code: Default::default(),
-            repeat: false,
-            text: Some("ф".into()),
-        },
-        ShellEvent::Key {
+            phase: kivact_types::KeyPhase::Down {
+                repeat: false,
+                text: Some("ф".into()),
+            },
+            modifiers: kivact_types::Modifiers::default(),
+            pointer: None,
+        }),
+        ShellEvent::Key(kivact_types::KeyInput {
             key: Key::Enter,
-            physical: None,
             code: Default::default(),
-            repeat: true,
-            text: None,
-        },
-        ShellEvent::Preedit {
+            phase: kivact_types::KeyPhase::Down {
+                repeat: true,
+                text: None,
+            },
+            modifiers: kivact_types::Modifiers::default(),
+            pointer: None,
+        }),
+        ShellEvent::Ime(kivact_types::ImeInput::Preedit {
             text: "にほ".into(),
-            selection: Some((6, 6)),
-        },
-        ShellEvent::Preedit {
+            selection: (Some((6, 6))).map(|(start, end)| start..end),
+        }),
+        ShellEvent::Ime(kivact_types::ImeInput::Preedit {
             text: "日本".into(),
-            selection: None,
-        },
-        ShellEvent::Commit("日本".into()),
-        ShellEvent::ImeSelection { start: 0, end: 2 },
-        ShellEvent::ImeDisabled,
+            selection: (None).map(|(start, end)| start..end),
+        }),
+        ShellEvent::Ime(kivact_types::ImeInput::Commit("日本".into())),
+        ShellEvent::Ime(kivact_types::ImeInput::Selection(0..2)),
+        ShellEvent::Ime(kivact_types::ImeInput::End),
     ];
-    let delivered: Vec<ShellEvent> = events.iter().cloned().map(|e| window.input(e)).collect();
+    for event in events.iter().cloned() {
+        window.script().input(event);
+    }
+    let delivered = window.events();
     assert_eq!(delivered, events);
+}
+
+fn contact_events(window: &mut Harness, contact: PointerSample) -> Vec<ShellEvent> {
+    window.script().contact(contact);
+    window.events()
 }

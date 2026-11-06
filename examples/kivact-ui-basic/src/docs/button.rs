@@ -1,4 +1,5 @@
 //! Role: Catalog page of Button: variants, sizes, icons, loading and disabled.
+use kivact::ui::ButtonVariant;
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;
@@ -11,7 +12,7 @@ pub(crate) fn page() -> Page {
         slug: "button",
         name: "Button",
         description: "操作を実行するためのボタンです。標準の kivact::ui::button に Lyra の見た目を当てたもので、種類、大きさ、アイコン、読み込み中の状態を持ちます。",
-        usage: "use kivact::prelude::*;\nuse kivact::ui::ControlSize;",
+        usage: "use kivact::prelude::*;\nuse kivact::ui::ButtonVariant;\nuse kivact::ui::ControlSize;",
         source: include_str!("button.rs"),
         align: PreviewAlign::Center,
         examples: vec![
@@ -112,7 +113,7 @@ fn with_icon() -> impl IntoView {
         button("Send")
             .variant(ButtonVariant::Outline)
             .icon(icon("mail")),
-        button("Continue").trailing_icon(icon("arrow-right")),
+        button("Continue").trailing(icon("arrow-right")),
         button("Delete")
             .hide_label(true)
             .icon(icon("trash-2"))
@@ -132,8 +133,8 @@ fn loading() -> impl IntoView {
     row((
         button("Please wait")
             .variant(ButtonVariant::Outline)
-            .loading(true),
-        button("Save changes").loading(busy).on_press(move || {
+            .busy(true),
+        button("Save changes").busy(busy).on_press(move || {
             busy.set(true);
             spawn::<()>(async move {
                 sleep(Duration::from_secs(2)).await;

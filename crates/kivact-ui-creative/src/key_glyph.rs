@@ -1,5 +1,6 @@
 //! Role: Key marker shapes for keyframes and similar points on an editor.
-use kivact::draw::{Draw, Path, Point, Rect};
+use kivact::draw::{Draw, Path};
+use kivact::geometry::{Point, Rect};
 use kivact::style::Color;
 
 /// The shape a keyframe or marker is drawn with.
@@ -23,8 +24,8 @@ pub enum KeyGlyph {
 impl KeyGlyph {
     /// Paint the glyph centered at `center` in `color`. `radius` is the
     /// diamond's half diagonal; the square and the circle use 0.8 of it.
-    pub fn paint(self, d: &mut Draw, center: Point, radius: f32, color: Color) {
-        let half = |side: f32| {
+    pub fn paint(self, d: &mut Draw, center: Point, radius: f64, color: Color) {
+        let half = |side: f64| {
             Path::new()
                 .move_to(Point::new(center.x, center.y - radius))
                 .line_to(Point::new(center.x + side * radius, center.y))

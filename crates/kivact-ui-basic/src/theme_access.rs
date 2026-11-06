@@ -1,13 +1,9 @@
 //! Role: Shared Lyra style fragments and Lucide strokes for recipes and parts.
 
 use crate::tokens::Tokens;
-use kivact::draw::{Draw, LineCap, LineJoin, Path, Point, Shadow, Stroke};
-use kivact::style::{Align, Color, ColorToken, Direction, Style, current_theme, style};
-
-/// The tokens of the theme in effect; call it inside a style closure.
-pub(crate) fn tokens() -> std::sync::Arc<Tokens> {
-    current_theme().get::<Tokens>()
-}
+use kivact::draw::{Draw, LineCap, LineJoin, Path, Shadow, Stroke};
+use kivact::geometry::Point;
+use kivact::style::{Align, Color, ColorToken, Direction, Style, style, use_theme};
 
 /// The theme's focus ring (`Theme::focus_ring`, 1 px, in `ColorToken::Focus`,
 /// `--ring` at half opacity): what every focus stop draws by default while
@@ -15,7 +11,7 @@ pub(crate) fn tokens() -> std::sync::Arc<Tokens> {
 /// default off, so it adds this to its `focus_visible` look. Call it inside
 /// a style closure or a recipe.
 pub(crate) fn theme_ring() -> Style {
-    style().ring(current_theme().focus_ring(), ColorToken::Focus)
+    style().ring(use_theme().get().focus_ring(), ColorToken::Focus)
 }
 
 /// `focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring/50`:
@@ -43,7 +39,7 @@ pub(crate) fn with_focus(s: Style, p: &Tokens) -> Style {
 /// theme by default. Input is suppressed by the
 /// disabled state itself. Call it inside a style closure or a recipe.
 pub(crate) fn disabled() -> Style {
-    style().opacity(current_theme().disabled_opacity())
+    style().opacity(use_theme().get().disabled_opacity())
 }
 
 /// `bg-accent text-accent-foreground`: a popup row pointed at, focused or
@@ -63,14 +59,14 @@ pub(crate) fn field_fill(p: &Tokens) -> Color {
 
 /// Tailwind `shadow-md`.
 pub(crate) fn shadow_md(s: Style) -> Style {
-    let c = Color::BLACK.with_alpha(0.1);
+    let c = kivact::style::use_theme().get().colors().shadow;
     s.shadow(Shadow::new(0, 4, 6, c).spread(-1))
         .shadow(Shadow::new(0, 2, 4, c).spread(-2))
 }
 
 /// Tailwind `shadow-lg`.
 pub(crate) fn shadow_lg(s: Style) -> Style {
-    let c = Color::BLACK.with_alpha(0.1);
+    let c = kivact::style::use_theme().get().colors().shadow;
     s.shadow(Shadow::new(0, 10, 15, c).spread(-3))
         .shadow(Shadow::new(0, 4, 6, c).spread(-4))
 }
@@ -121,7 +117,7 @@ pub(crate) fn menu_shortcut(p: &Tokens, lit: bool) -> Style {
 }
 
 /// A Lucide glyph as polylines in its 24-unit view box.
-pub(crate) type Glyph = &'static [&'static [(f32, f32)]];
+pub(crate) type Glyph = &'static [&'static [(f64, f64)]];
 
 /// Lucide `check`.
 pub(crate) const CHECK: Glyph = &[&[(20.0, 6.0), (9.0, 17.0), (4.0, 12.0)]];
@@ -132,7 +128,7 @@ pub(crate) const CHEVRON_DOWN: Glyph = &[&[(6.0, 9.0), (12.0, 15.0), (18.0, 9.0)
 
 /// Stroke `glyph` into the square at `origin` with side `side`, as Lucide
 /// draws it (2 units wide, round caps and joins).
-pub(crate) fn stroke_glyph(d: &mut Draw, origin: Point, side: f32, glyph: Glyph, color: Color) {
+pub(crate) fn stroke_glyph(d: &mut Draw, origin: Point, side: f64, glyph: Glyph, color: Color) {
     let k = side / 24.0;
     let stroke = Stroke::new(2.0 * k)
         .cap(LineCap::Round)
@@ -152,7 +148,7 @@ pub(crate) fn stroke_glyph(d: &mut Draw, origin: Point, side: f32, glyph: Glyph,
 }
 
 /// Lucide `loader-circle` turned by `phase` (0 to 1) in the square at `origin`.
-pub(crate) fn stroke_loader(d: &mut Draw, origin: Point, side: f32, phase: f32, color: Color) {
+pub(crate) fn stroke_loader(d: &mut Draw, origin: Point, side: f64, phase: f64, color: Color) {
     let k = side / 24.0;
     let start = phase * 360.0;
     let path = Path::new().arc(

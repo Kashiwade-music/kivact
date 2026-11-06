@@ -7,16 +7,16 @@
 use std::cell::RefCell;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
-use std::sync::Arc;
 
 use crate::support::mount;
-use kivact::Asset;
-use kivact::control::ImageFit;
-use kivact::diagnostics::ErrorKind;
-use kivact::draw::{IntrinsicSize, Size};
+use kivact::ErrorKind;
+use kivact::draw::IntrinsicSize;
+use kivact::geometry::Size;
 use kivact::prelude::*;
 use kivact::style::Align;
 use kivact::test::{Screen, render};
+use kivact::view::Asset;
+use kivact::view::ImageFit;
 use kivact::view::error_boundary;
 
 static SVG_4X2: &[u8] = include_bytes!("../fixtures/shapes.svg");
@@ -28,7 +28,7 @@ fn fixture(path: &str) -> PathBuf {
         .join(path)
 }
 
-fn size(screen: &Screen, id: &str) -> (f32, f32) {
+fn size(screen: &Screen, id: &str) -> (f64, f64) {
     let r = screen.get_by_test_id(id).rect().expect("laid out");
     (r.width, r.height)
 }
@@ -72,7 +72,7 @@ fn image_accepts_every_asset_source() {
             image(include_bytes!("../fixtures/rgba.png")).test_id("include_bytes"),
             image(SVG_4X2).test_id("static slice"),
             image(PNG_2X2.to_vec()).test_id("vec"),
-            image(Arc::<[u8]>::from(SVG_4X2)).test_id("arc"),
+            image(kivact::view::AssetBytes::copy_from_slice(SVG_4X2)).test_id("shared bytes"),
             image(svg.clone()).test_id("pathbuf"),
             image(svg.as_path()).test_id("path"),
             image(svg.display().to_string()).test_id("string"),
@@ -85,7 +85,7 @@ fn image_accepts_every_asset_source() {
         ("include_bytes", (2.0, 2.0)),
         ("static slice", (4.0, 2.0)),
         ("vec", (2.0, 2.0)),
-        ("arc", (4.0, 2.0)),
+        ("shared bytes", (4.0, 2.0)),
         ("pathbuf", (4.0, 2.0)),
         ("path", (4.0, 2.0)),
         ("string", (4.0, 2.0)),

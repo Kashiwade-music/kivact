@@ -6,22 +6,22 @@ use crate::editors::arrangement::model::{
     AutomationPoint, TimelineMarker, TimelineTool, TimelineTrack,
 };
 use crate::editors::shared::metrics::ARRANGEMENT_SIDEBAR;
-use kivact::draw::{Point, Size};
+use kivact::geometry::{Point, Size};
 use kivact::interaction::EditSession;
-use kivact::interaction::{List, ListGesture};
-use kivact::{Binding, Callback, Signal, Value};
-#[derive(Clone)]
+use kivact::interaction::{ListApi, ListGesture};
+use kivact::state::{Binding, Callback, Signal, Value};
+#[derive(Clone, PartialEq)]
 pub(crate) enum Snapshot {
     Clips(Vec<(u64, f64, f64)>),
     Automation(u64, u64, Option<AutomationPoint>),
     Playhead(f64),
     Loop((f64, f64)),
     Cycle(bool),
-    View(f64, Point),
+    View(kivact::interaction::ViewTransform),
 }
 #[derive(Clone, Copy, PartialEq)]
 pub(crate) enum Drag {
-    Loop(LoopPart, (f64, f64)),
+    Loop(LoopPart),
     Playhead,
     Clips,
     Trim(u64, bool),
@@ -42,9 +42,10 @@ pub(crate) struct State {
     pub(crate) size: Value<Size>,
     pub(crate) data: Value<Vec<Clip>>,
     pub(crate) length: Value<f64>,
-    pub(crate) bounds: (f64, f64),
-    pub(crate) min_duration: f64,
-    pub(crate) loop_min_duration: f64,
+    pub(crate) bounds: Value<kivact::interaction::ScalarRange>,
+    pub(crate) min_duration: Value<f64>,
+    pub(crate) loop_min_duration: Value<f64>,
+    // xtask-allow(state-fields): Bindings, reactive options and active keyboard target are independent of the gesture lifecycle owned by DecisionMachine.
     pub(crate) on_edit: Option<
         Callback<
             crate::editors::shared::model::EditorEvent<
@@ -59,39 +60,43 @@ pub(crate) struct State {
     pub(crate) frame: Value<f64>,
     pub(crate) loop_range: Binding<(f64, f64)>,
     pub(crate) range: Value<(f64, f64)>,
+    // xtask-allow(state-fields): Bindings, reactive options and active keyboard target are independent of the gesture lifecycle owned by DecisionMachine.
     pub(crate) cycle: Value<bool>,
+    // xtask-allow(state-fields): Bindings, reactive options and active keyboard target are independent of the gesture lifecycle owned by DecisionMachine.
     pub(crate) cycling: Binding<bool>,
-    pub(crate) zoom: Binding<f64>,
+    pub(crate) transform: Binding<kivact::interaction::ViewTransform>,
     pub(crate) pixels: Value<f64>,
-    pub(crate) pan: Binding<Point>,
     pub(crate) offset: Value<Point>,
     pub(crate) tool_binding: Binding<TimelineTool>,
     pub(crate) tool: Value<TimelineTool>,
     pub(crate) markers: Value<Vec<TimelineMarker>>,
+    // xtask-allow(state-fields): Bindings, reactive options and active keyboard target are independent of the gesture lifecycle owned by DecisionMachine.
     pub(crate) snap: Value<bool>,
     pub(crate) step: Value<f64>,
+    // xtask-allow(state-fields): Bindings, reactive options and active keyboard target are independent of the gesture lifecycle owned by DecisionMachine.
     pub(crate) active_auto: Signal<Option<(u64, u64)>>,
     pub(crate) press: crate::editors::shared::gesture::CanvasGesture<
         crate::editors::arrangement::a11y::targets::Target,
-        (Option<Drag>, Option<Snapshot>),
+        Option<Drag>,
+        Snapshot,
     >,
     /// The arrangement's drag, without the callbacks its sources carry
     /// (`input::drag`).
-    pub(crate) gesture: kivact::interaction::Drag<()>,
+    pub(crate) gesture: kivact::interaction::DragApi<Snapshot>,
     pub(crate) edit: EditSession<Snapshot>,
     pub(crate) regions: Value<Regions>,
     pub(crate) texts: ArrangementTexts,
-    pub(crate) choose: List<u64>,
+    pub(crate) choose: ListApi<u64>,
 }
 impl State {
     /// Logical pixels per beat within the zoom bounds.
     pub(crate) fn scale(self) -> f64 {
         self.pixels
             .get_untracked()
-            .clamp(self.bounds.0, self.bounds.1)
+            .clamp(self.bounds.get().min(), self.bounds.get().max())
     }
-    pub(crate) fn beat(self, x: f32) -> f64 {
-        f64::from((x - ARRANGEMENT_SIDEBAR - self.offset.get().x) / self.scale() as f32)
+    pub(crate) fn beat(self, x: f64) -> f64 {
+        ((x - ARRANGEMENT_SIDEBAR - self.offset.get().x) / self.scale())
             .clamp(0.0, self.length.get())
     }
     /// The step in beats; an invalid one falls back to 1.
@@ -118,18 +123,18 @@ impl State {
 
 impl State {
     pub(crate) fn drag_state(self) -> Option<Drag> {
-        self.press.with_payload(|payload| payload.0).flatten()
+        self.press.with_payload(|payload| *payload).flatten()
     }
     pub(crate) fn initial(self) -> Option<Snapshot> {
-        self.press
-            .with_payload(|payload| payload.1.clone())
-            .flatten()
+        self.press.initial()
     }
 }
 
 impl State {
     pub(crate) fn marquee(self) -> Option<(Point, Point)> {
-        matches!(self.drag_state(), Some(Drag::Marquee(..)))
-            .then(|| (self.press.origin(), self.press.current()))
+        match self.drag_state() {
+            Some(Drag::Marquee(from)) => Some((from, self.press.current())),
+            _ => None,
+        }
     }
 }

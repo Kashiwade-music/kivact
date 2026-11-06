@@ -19,7 +19,7 @@ use kivact_ui_pop as pop;
 fn app() -> impl IntoView {
     column((
         text("Settings"),
-        button("Save").variant(ButtonVariant::Primary),
+        button("Save").variant(kivact::ui::ButtonVariant::Primary),
     ))
     .style(style().gap(12).padding(24))
 }
@@ -47,7 +47,7 @@ are.
 ```rust,no_run
 use kivact::prelude::*;
 use kivact::style::ThemeMode;
-use kivact::view::provide_theme;
+use kivact::style::provide_theme;
 use kivact_ui_pop as pop;
 
 fn app() -> impl IntoView {
@@ -69,8 +69,8 @@ fn app() -> impl IntoView {
                 .gap(12)
                 .padding(24)
                 .height(pct(100))
-                .background(pop::Color::Background)
-                .color(pop::Color::Text),
+                .background(pop::ColorName::Background)
+                .color(pop::ColorName::Text),
         )
     })
 }
@@ -81,7 +81,7 @@ fn main() -> kivact::Result<()> {
 ```
 
 `provide_theme` creates no node and paints nothing, so the top node of the
-subtree gives itself the page colors. `pop::Color` names the kit's colors
+subtree gives itself the page colors. `pop::ColorName` names the kit's colors
 (`Background`, `Surface`, `Line`, `Text`, `TextMuted` and more). A style takes
 one directly, and it is looked up in the theme the node is painted in, so it
 follows the switch without a closure.
@@ -100,7 +100,7 @@ use kivact_ui_pop as pop;
 
 fn brand_theme() -> Theme {
     let theme = pop::theme(ThemeMode::Light);
-    let mut tokens = (*theme.get::<pop::Tokens>()).clone();
+    let mut tokens = (*theme.ext::<pop::Tokens>()).clone();
     tokens.blue = rgb(0x0f766e);
     let mut colors = theme.colors().clone();
     colors.accent = tokens.blue;
@@ -110,7 +110,7 @@ fn brand_theme() -> Theme {
 fn main() -> kivact::Result<()> {
     App::new("Teal")
         .theme(brand_theme())
-        .run(|| button("Teal").variant(ButtonVariant::Primary))
+        .run(|| button("Teal").variant(kivact::ui::ButtonVariant::Primary))
 }
 ```
 
@@ -127,19 +127,19 @@ colors badges, avatars and stat cards use.
 
 ## Read the tokens in your own components
 
-Prefer `pop::Color::..` in a style, as above. Read the `Tokens` struct itself
+Prefer `pop::ColorName::..` in a style, as above. Read the `Tokens` struct itself
 when you need to compute something from it, such as the two colors of a hue.
 Do it in a style closure, so the result follows theme switches:
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::style::current_theme;
+use kivact::style::use_theme;
 use kivact_ui_pop as pop;
 
 fn highlight(content: impl IntoView) -> Node {
     column(content).style(move || {
-        let theme = current_theme();
-        let tokens = theme.get::<pop::Tokens>();
+        let theme = use_theme().get();
+        let tokens = theme.ext::<pop::Tokens>();
         let (background, foreground) = tokens.hue(pop::Hue::Yellow);
         style()
             .padding(12)
@@ -161,7 +161,7 @@ in other kits.
 Fonts belong to the application. Register the files you ship with `App::font`
 and name the family in the theme's typography. The kit's catalog uses Inter
 for text and Noto Sans JP for Japanese; three Pop components (the
-`BadgeVariant::Slant` badge, avatars and the numbered `section_heading`) ask for the family
+`BadgeVariant::Slant` badge, avatars and the numbered `SectionNumber`) ask for the family
 `Barlow` and fall back to `sans-serif` when it is not registered.
 
 ```rust,no_run
@@ -193,8 +193,8 @@ The family is the name written inside the font file, not the file name.
 
 Texts that components draw themselves (the calendar's month buttons, the date
 format error, a dropzone's picker button) are English. Replace them with
-`App::messages`; the keys start with `pop.`, for example `pop.date.open` and
-`pop.date.error.format`. [Pick dates and ranges](dates-and-calendars.md) shows
+`App::messages`; standard components use canonical keys, for example `date.open` and
+`date.error.format`. [Pick dates and ranges](dates-and-calendars.md) shows
 an example.
 
 ## See also
@@ -202,3 +202,24 @@ an example.
 - [Pick dates and ranges](dates-and-calendars.md)
 - [Show rows in a table](tables.md)
 - Full list of tokens and components: `cargo doc -p kivact-ui-pop --open`
+
+Use the standard drop target with the Pop theme. Enable picking and multiple files explicitly; the decorative icon is a mounted slot.
+
+```rust,no_run
+use kivact::prelude::*;
+
+fn upload() -> impl IntoView {
+    kivact::ui::dropzone("Upload")
+        .multiple()
+        .pick_on_press()
+        .icon(icon("cloud-upload").style(style().size(24, 24)))
+        .hint("PNG, PDF")
+        .on_files(|files| {
+            for file in files {
+                println!("{}", file.path.display());
+            }
+        })
+}
+```
+
+Pop recipes use Core row layout for automatic RTL reversal. Set the application direction through Core; no Pop-specific direction provider is required.

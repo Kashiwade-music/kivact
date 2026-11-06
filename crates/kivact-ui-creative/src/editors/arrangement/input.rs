@@ -9,13 +9,13 @@ use crate::editors::shared::model::ItemTime;
 use crate::editors::shared::model::drawable;
 use crate::editors::shared::region_parts::bounded_range;
 use crate::editors::shared::selection;
-use kivact::draw::Point;
-use kivact::interaction::Drag as Gesture;
+use kivact::geometry::Point;
+use kivact::interaction::DragApi as Gesture;
 use kivact::view::{Handled, Key, KeyEvent, MouseButton, PointerEvent, PointerPhase, WheelEvent};
 /// The press decides what the arrangement's drag does; the drag's sources
 /// (the canvas and its regions) then follow the pointer until it ends.
 pub(crate) fn pointer(state: State, e: PointerEvent) -> Handled {
-    let PointerPhase::Down(press) = e.phase else {
+    let PointerPhase::Down(press) = e.phase() else {
         return Handled::No;
     };
     if state.gesture.is_active() {
@@ -47,34 +47,15 @@ pub(crate) fn pointer(state: State, e: PointerEvent) -> Handled {
                     }
                     _ => return Handled::No,
                 };
-                match state.tool.get() {
-                    TimelineTool::Erase => {
-                        state.edit.once(state.snapshot(&[id]), || {
-                            state.request(ArrangementRequest::Erase(id))
-                        });
-                        return Handled::Yes;
-                    }
-                    TimelineTool::Mute => {
-                        state.edit.once(state.snapshot(&[id]), || {
-                            state.request(ArrangementRequest::ToggleClipMute(id))
-                        });
-                        return Handled::Yes;
-                    }
-                    TimelineTool::Split => {
-                        let at = state.snapping(state.beat(e.pos.x));
-                        state.edit.once(state.snapshot(&[id]), || {
-                            state.request(ArrangementRequest::Split { clip: id, at })
-                        });
-                        return Handled::Yes;
-                    }
-                    TimelineTool::Select => {}
+                if tool_press(state, id, e.pos()) {
+                    return Handled::Yes;
                 }
                 let mut pending = None;
                 match selection::press(
                     &state.selection.get(),
                     id,
-                    e.modifiers,
-                    &kivact::interaction::ListPolicy::default(),
+                    e.modifiers(),
+                    &kivact::interaction::ListOptions::default(),
                 ) {
                     selection::Press::Pending(id) => pending = Some(id),
                     selection::Press::Select(gesture) => state.select(id, gesture),
@@ -94,9 +75,9 @@ pub(crate) fn pointer(state: State, e: PointerEvent) -> Handled {
                 let ts = state.track_data.get();
                 for row in track_layout(&ts, offset_y(state)) {
                     if let Some((top, height)) = row.automation
-                        && e.pos.y >= top
-                        && e.pos.y < top + height
-                        && e.pos.x >= LEFT
+                        && e.pos().y >= top
+                        && e.pos().y < top + height
+                        && e.pos().x >= LEFT
                     {
                         // The press adds the point: see `drag`.
                         start(state, Drag::AddPoint(row.id), &e, None);
@@ -104,7 +85,7 @@ pub(crate) fn pointer(state: State, e: PointerEvent) -> Handled {
                         return Handled::No;
                     }
                 }
-                start(state, Drag::Marquee(e.pos), &e, None);
+                start(state, Drag::Marquee(e.pos()), &e, None);
             }
         }
         _ => return Handled::No,
@@ -115,8 +96,10 @@ pub(crate) fn pointer(state: State, e: PointerEvent) -> Handled {
 /// The arrangement's drag: a middle-button pan or the primary gesture the
 /// press chose, one edit from its first change. The returned drag has the
 /// callbacks its sources need; `state.gesture` is the same session.
-pub(crate) fn drag(state: State) -> Gesture<()> {
-    let drag = state.gesture.on_start(move |_| press_write(state));
+pub(crate) fn drag(state: State) -> Gesture<Snapshot> {
+    let drag = state
+        .gesture
+        .on_start(move |update| press_write(state, update.start_pos));
     state.press.install(
         drag,
         move || matches!(state.drag_state(), Some(Drag::Marquee(..))),
@@ -126,7 +109,7 @@ pub(crate) fn drag(state: State) -> Gesture<()> {
             move |id| state.select(id, kivact::interaction::ListGesture::Replace),
         ),
         (
-            move |pos| motion(state, pos),
+            move |pos, origin, snapshot| motion(state, pos, origin, snapshot),
             move |rect| {
                 // Clips use beats horizontally and lane pixels vertically.
                 let left = state.beat(rect.x);
@@ -159,8 +142,7 @@ pub(crate) fn drag(state: State) -> Gesture<()> {
 }
 
 /// The write of a press that changes a value by itself.
-fn press_write(state: State) {
-    let origin = state.press.origin();
+fn press_write(state: State, origin: Point) {
     match state.drag_state() {
         Some(Drag::Playhead) => seek(state, origin.x),
         Some(Drag::AddPoint(track)) => {
@@ -183,44 +165,20 @@ fn press_write(state: State) {
     }
 }
 
-fn motion(state: State, pos: Point) {
-    let scale = state.scale() as f32;
+fn motion(state: State, pos: Point, origin: Point, snapshot: &Snapshot) {
+    let scale = state.scale();
     let Some(action) = state.drag_state() else {
         return;
     };
     match action {
-        Drag::Loop(mode, (lo, hi)) => {
-            let start = state.press.origin();
-            let b = state.snapping(state.beat(pos.x));
-            let delta = state.snapping(state.beat(pos.x) - state.beat(start.x));
-            let unit = state
-                .step()
-                .clamp(state.min_duration.min(4.0), 4.0)
-                .min(state.length.get());
-            let range = match mode {
-                LoopPart::Start => (b.min(hi - unit).max(0.0), hi),
-                LoopPart::End => (lo, b.max(lo + unit).min(state.length.get())),
-                LoopPart::Body => {
-                    let a = (lo + delta).clamp(0.0, (state.length.get() - (hi - lo)).max(0.0));
-                    (a, a + hi - lo)
-                }
-                LoopPart::Create => {
-                    let a = state.snapping(state.beat(start.x));
-                    (
-                        a.min(b).min((state.length.get() - unit).max(0.0)),
-                        a.max(b).max(a.min(b) + unit).min(state.length.get()),
-                    )
-                }
-            };
-            if range != state.range.get() {
-                state.gesture.change(|| state.loop_range.set(range));
-            }
+        Drag::Loop(mode) => {
+            move_loop(state, mode, pos, origin, snapshot);
         }
         Drag::Playhead => seek(state, pos.x),
         Drag::Clips => {
-            let start = state.press.origin();
-            if let Some(Snapshot::Clips(initial)) = state.initial() {
-                let dx = f64::from((pos.x - start.x) / scale);
+            let start = origin;
+            if let Some(Snapshot::Clips(initial)) = Some(snapshot.clone()) {
+                let dx = (pos.x - start.x) / scale;
                 // The pressed clip snaps and the others keep their spacing to it.
                 let primary = match state.press.pressed() {
                     Some(Target::Item(id)) => initial.iter().find(|v| v.0 == id),
@@ -248,16 +206,16 @@ fn motion(state: State, pos: Point) {
             }
         }
         Drag::Trim(id, right) => {
-            if let Some(Snapshot::Clips(initial)) = state.initial()
+            if let Some(Snapshot::Clips(initial)) = Some(snapshot.clone())
                 && let Some(v) = initial.iter().find(|v| v.0 == id)
             {
-                let dx = f64::from((pos.x - state.press.origin().x) / scale);
+                let dx = (pos.x - origin.x) / scale;
                 let available = if right {
                     (state.length.get() - v.1).max(0.0)
                 } else {
                     (v.1 + v.2).max(0.0).min(state.length.get())
                 };
-                let minimum = state.min_duration.min(available);
+                let minimum = state.min_duration.get().min(available);
                 let (time, duration) = if right {
                     (
                         v.1,
@@ -278,31 +236,25 @@ fn motion(state: State, pos: Point) {
                 }
             }
         }
-        Drag::Auto(track, id) => move_automation(state, track, Some(id), pos),
-        Drag::AddPoint(track) => move_automation(state, track, None, pos),
+        Drag::Auto(track, id) => move_automation(state, track, Some(id), pos, origin, snapshot),
+        Drag::AddPoint(track) => move_automation(state, track, None, pos, origin, snapshot),
         Drag::Marquee(_) => {}
         Drag::Pan => {
-            if let Some(Snapshot::View(_, p)) = state.initial() {
-                let from = state.press.origin();
-                let next = Point::new(p.x + pos.x - from.x, pan_y(state, p.y + pos.y - from.y));
-                if next != state.offset.get() {
-                    state.gesture.change(|| state.pan.set(next));
-                }
-            }
+            move_pan(state, pos, origin, snapshot);
         }
     }
 }
 
 pub(crate) fn key(state: State, e: KeyEvent) -> Handled {
     // The drag's sources take Escape during a drag.
-    if e.key == Key::Escape {
+    if e.key() == Key::Escape {
         state.choose.clear();
         return Handled::Yes;
     }
     if state.drag_state().is_some() {
         return Handled::Yes;
     }
-    match e.key {
+    match e.key() {
         Key::Char('1') => state.tool_binding.set(TimelineTool::Select),
         Key::Char('3') => state.tool_binding.set(TimelineTool::Split),
         Key::Char('5') => state.tool_binding.set(TimelineTool::Erase),
@@ -324,8 +276,12 @@ pub(crate) fn key(state: State, e: KeyEvent) -> Handled {
         }
         _ if selection::select_all(&e) => state.choose.select_all(),
         Key::ArrowLeft | Key::ArrowRight if !state.selection.get_untracked().is_empty() => {
-            let step = state.step() * if e.modifiers.shift { 10.0 } else { 1.0 };
-            let dx = if e.key == Key::ArrowLeft { -step } else { step };
+            let step = state.step() * if e.modifiers().shift { 10.0 } else { 1.0 };
+            let dx = if e.key() == Key::ArrowLeft {
+                -step
+            } else {
+                step
+            };
             let snapshot = state.snapshot(&state.selection.get_untracked());
             let Snapshot::Clips(initial) = &snapshot else {
                 return Handled::No;
@@ -344,7 +300,7 @@ pub(crate) fn key(state: State, e: KeyEvent) -> Handled {
         }
         Key::Home => {
             state.edit.once(state.view_snapshot(), || {
-                state.pan.set(Point::new(0.0, 0.0));
+                state.set_offset(Point::new(0.0, 0.0));
             });
         }
         _ => return Handled::No,
@@ -356,74 +312,85 @@ pub(crate) fn wheel(state: State, e: WheelEvent) -> Handled {
     if state.drag_state().is_some() {
         return Handled::Yes;
     }
-    if !e.delta.x.is_finite() || !e.delta.y.is_finite() {
+    if !e.delta().x.is_finite() || !e.delta().y.is_finite() {
         return Handled::No;
     }
     let scale = state.scale();
     let offset = Point::new(state.offset.get().x, offset_y(state));
-    let zooms = e.modifiers.ctrl || e.modifiers.meta;
+    let zooms = e.modifiers().ctrl || e.modifiers().meta;
     let (next_scale, next_offset) = if zooms {
-        crate::editors::shared::geometry::wheel_zoom(scale, offset, e, state.bounds, LEFT)
-    } else if e.modifiers.shift {
-        (scale, Point::new(offset.x - e.delta.y, offset.y))
+        crate::editors::shared::geometry::wheel_zoom(
+            scale,
+            offset,
+            e,
+            (state.bounds.get().min(), state.bounds.get().max()),
+            LEFT,
+        )
+    } else if e.modifiers().shift {
+        (scale, Point::new(offset.x - e.delta().y, offset.y))
     } else {
         (
             scale,
-            Point::new(offset.x, pan_y(state, offset.y - e.delta.y)),
+            Point::new(offset.x, pan_y(state, offset.y - e.delta().y)),
         )
     };
     if (next_scale, next_offset) != (scale, offset) {
         state.edit.once(state.view_snapshot(), || {
             if zooms {
-                state.zoom.set(next_scale);
+                state.set_scale(next_scale);
             }
-            state.pan.set(next_offset);
+            state.set_offset(next_offset);
         });
     }
     Handled::Yes
 }
 
 fn loop_drag(state: State, part: LoopPart, e: &PointerEvent) -> Handled {
-    let range = bounded_range(
-        state.range.get(),
-        state.length.get(),
-        state.loop_min_duration,
-    );
-    start(state, Drag::Loop(part, range), e, None);
+    start(state, Drag::Loop(part), e, None);
     Handled::No
 }
+pub(crate) fn source_snapshot(s: State) -> Snapshot {
+    match s.drag_state() {
+        Some(Drag::Clips) => s.snapshot(&s.selection.get_untracked()),
+        Some(Drag::Trim(id, _)) => s.snapshot(&[id]),
+        Some(Drag::Loop(_)) => Snapshot::Loop(bounded_range(
+            s.range.get_untracked(),
+            s.length.get_untracked(),
+            s.loop_min_duration.get_untracked(),
+        )),
+        Some(Drag::Playhead) => Snapshot::Playhead(s.frame.get_untracked()),
+        Some(Drag::Auto(track, id)) => s
+            .auto_snapshot(track, id)
+            .unwrap_or_else(|| s.snapshot(&[])),
+        Some(Drag::AddPoint(track)) => Snapshot::Automation(track, 0, None),
+        Some(Drag::Pan) => s.view_snapshot(),
+        _ => s.snapshot(&[]),
+    }
+}
 fn start(s: State, drag: Drag, e: &PointerEvent, pending: Option<u64>) {
-    let snapshot = match drag {
-        Drag::Clips => s.snapshot(&s.selection.get()),
-        Drag::Trim(id, _) => s.snapshot(&[id]),
-        Drag::Loop(..) => Snapshot::Loop(s.range.get()),
-        Drag::Playhead => Snapshot::Playhead(s.frame.get()),
-        Drag::Auto(i, id) => {
-            let Some(v) = s.auto_snapshot(i, id) else {
-                return;
-            };
-            v
-        }
-        Drag::AddPoint(track) => Snapshot::Automation(track, 0, None),
-        Drag::Pan => s.view_snapshot(),
-        Drag::Marquee(_) => s.snapshot(&[]),
-    };
     s.press.begin(
         e,
         e.region()
             .and_then(|id| s.regions.with(|regions| regions.target(id.0))),
-        (Some(drag), Some(snapshot)),
+        Some(drag),
         pending,
     );
 }
-fn seek(s: State, x: f32) {
+fn seek(s: State, x: f64) {
     let value = s.beat(x);
     if value != s.frame.get() {
         s.gesture.change(|| s.playhead.set(value));
     }
 }
 
-fn move_automation(s: State, track: u64, id: Option<u64>, pos: Point) {
+fn move_automation(
+    s: State,
+    track: u64,
+    id: Option<u64>,
+    pos: Point,
+    origin: Point,
+    snapshot: &Snapshot,
+) {
     let tracks = s.track_data.get();
     let rows = track_layout(&tracks, offset_y(s));
     let Some((top, _)) = rows
@@ -433,15 +400,14 @@ fn move_automation(s: State, track: u64, id: Option<u64>, pos: Point) {
     else {
         return;
     };
-    let (beat, value) = if let Some(Snapshot::Automation(_, _, Some(initial))) = s.initial() {
-        let origin = s.press.origin();
+    let (beat, value) = if let Some(Snapshot::Automation(_, _, Some(initial))) =
+        Some(snapshot.clone())
+    {
         (
-            s.snapping(initial.beat + f64::from(pos.x - origin.x) / s.scale())
+            s.snapping(initial.beat + (pos.x - origin.x) / s.scale())
                 .clamp(0.0, s.length.get()),
-            (initial.value
-                - f64::from(pos.y - origin.y)
-                    / f64::from(crate::editors::shared::metrics::AUTOMATION_SPAN))
-            .clamp(0.0, 1.0),
+            (initial.value - (pos.y - origin.y) / crate::editors::shared::metrics::AUTOMATION_SPAN)
+                .clamp(0.0, 1.0),
         )
     } else {
         (
@@ -449,7 +415,7 @@ fn move_automation(s: State, track: u64, id: Option<u64>, pos: Point) {
             automation_value(pos.y, top),
         )
     };
-    if let Some(Snapshot::Automation(_, _, Some(initial))) = s.initial()
+    if let Some(Snapshot::Automation(_, _, Some(initial))) = Some(snapshot.clone())
         && initial.beat == beat
         && initial.value == value
         && !s.edit.is_active()
@@ -468,4 +434,73 @@ fn move_automation(s: State, track: u64, id: Option<u64>, pos: Point) {
             ArrangementRequest::AddPoint { track, beat, value }
         })
     });
+}
+
+fn tool_press(state: State, id: u64, position: Point) -> bool {
+    match state.tool.get() {
+        TimelineTool::Erase => {
+            state.edit.once(state.snapshot(&[id]), || {
+                state.request(ArrangementRequest::Erase(id))
+            });
+            return true;
+        }
+        TimelineTool::Mute => {
+            state.edit.once(state.snapshot(&[id]), || {
+                state.request(ArrangementRequest::ToggleClipMute(id))
+            });
+            return true;
+        }
+        TimelineTool::Split => {
+            let at = state.snapping(state.beat(position.x));
+            state.edit.once(state.snapshot(&[id]), || {
+                state.request(ArrangementRequest::Split { clip: id, at })
+            });
+            return true;
+        }
+        TimelineTool::Select => {}
+    }
+    false
+}
+
+fn move_loop(state: State, mode: LoopPart, pos: Point, origin: Point, snapshot: &Snapshot) {
+    let Some(Snapshot::Loop((lo, hi))) = Some(snapshot.clone()) else {
+        return;
+    };
+    let start = origin;
+    let b = state.snapping(state.beat(pos.x));
+    let delta = state.snapping(state.beat(pos.x) - state.beat(start.x));
+    let unit = state
+        .step()
+        .clamp(state.min_duration.get().min(4.0), 4.0)
+        .min(state.length.get());
+    let range = match mode {
+        LoopPart::Start => (b.min(hi - unit).max(0.0), hi),
+        LoopPart::End => (lo, b.max(lo + unit).min(state.length.get())),
+        LoopPart::Body => {
+            let a = (lo + delta).clamp(0.0, (state.length.get() - (hi - lo)).max(0.0));
+            (a, a + hi - lo)
+        }
+        LoopPart::Create => {
+            let a = state.snapping(state.beat(start.x));
+            (
+                a.min(b).min((state.length.get() - unit).max(0.0)),
+                a.max(b).max(a.min(b) + unit).min(state.length.get()),
+            )
+        }
+    };
+    if range != state.range.get() {
+        state.gesture.change(|| state.loop_range.set(range));
+    }
+}
+
+fn move_pan(state: State, pos: Point, origin: Point, snapshot: &Snapshot) {
+    if let Some(Snapshot::View(kivact::interaction::ViewTransform { offset: p, .. })) =
+        Some(snapshot.clone())
+    {
+        let from = origin;
+        let next = Point::new(p.x + pos.x - from.x, pan_y(state, p.y + pos.y - from.y));
+        if next != state.offset.get() {
+            state.gesture.change(|| state.set_offset(next));
+        }
+    }
 }

@@ -1,14 +1,14 @@
-//! Role: The `List` handle: setup options, reads, selection commands and parts.
+//! Role: The `ListApi` handle: setup options, reads, selection commands and parts.
 
-use super::data::{ListGesture, ListItem, ListItemState, ListPolicy, ListSelection};
+use super::data::{ListGesture, ListItem, ListItemState, ListOptions};
 use super::state::State;
 use super::{input, parts, state, typeahead};
+use crate::Selection;
 use crate::axis::check_list_axis;
-use kivact_core::primitive::{Owned, Part, PartState, require_effectful, require_setup};
-use kivact_core::view::{Handled, HandlerResult, IntoValue, KeyEvent, callback};
-use kivact_core::{Binding, Value, Var};
-use std::hash::Hash;
-use std::panic::Location;
+use kivact_core::custom::{Owned, Part, PartState, require_effectful, require_setup};
+use kivact_core::state::{Binding, Value};
+use kivact_core::state::{IntoValue, callback};
+use kivact_core::view::{Handled, HandlerResult, Key, KeyEvent};
 use std::rc::Rc;
 
 /// A Copy list handle over caller-owned item order and authoritative selection.
@@ -19,13 +19,13 @@ use std::rc::Rc;
 /// applies to explicit navigation; active removal always clamps from its old
 /// position. Reactive inputs and caller binding writes continue to update
 /// existing Parts.
-pub struct List<K: Clone + Eq + Hash + 'static> {
-    state: Owned<State<K>>,
+pub struct ListApi<K: kivact_core::state::ItemKey> {
+    state: Owned<Rc<State<K>>>,
 }
 
-impl<K: Clone + Eq + Hash + 'static> Copy for List<K> {}
+impl<K: kivact_core::state::ItemKey> Copy for ListApi<K> {}
 
-impl<K: Clone + Eq + Hash + 'static> Clone for List<K> {
+impl<K: kivact_core::state::ItemKey> Clone for ListApi<K> {
     fn clone(&self) -> Self {
         *self
     }
@@ -34,21 +34,45 @@ impl<K: Clone + Eq + Hash + 'static> Clone for List<K> {
 /// Create a setup-owned list without rendering any elements.
 ///
 /// The `policy` holds the navigation and the [`ListMode`](super::ListMode) of
-/// the list; `ListPolicy::axis` of `Some(Orientation::Unspecified)` is a usage
+/// the list; `ListOptions::axis` of `Some(Orientation::Unspecified)` is a usage
 /// error (use `None` for all four arrow keys). Setup only.
 #[track_caller]
-pub fn use_list<K: Clone + Eq + Hash + 'static>(
+pub fn use_list<K: kivact_core::state::ItemKey>(
     items: impl IntoValue<Vec<ListItem<K>>>,
-    selection: ListSelection<K>,
-    policy: ListPolicy,
-) -> List<K> {
+    selection: impl crate::IntoSelection<K>,
+    policy: ListOptions,
+) -> ListApi<K> {
+    let selection = selection.into_selection();
     check_list_axis(policy.axis, "use_list");
-    List {
-        state: state::create(items.into_value(), selection, policy, Location::caller()),
+    ListApi {
+        state: state::create(items.into_value(), selection, policy),
     }
 }
 
-impl<K: Clone + Eq + Hash + 'static> List<K> {
+impl<K: kivact_core::state::ItemKey> ListApi<K> {
+    /// Drawing state of the mounted list container.
+    pub fn list_state(self) -> Value<PartState> {
+        let observed = self.state().container_state;
+        kivact_core::state::memo(move || {
+            observed.get().map(|state| state.get()).unwrap_or_default()
+        })
+    }
+    /// Drawing state of the actual mounted item, or its logical selection before mounting.
+    pub fn item_state(self, key: K) -> Value<ListItemState> {
+        let state = self.state();
+        kivact_core::state::memo(move || {
+            state
+                .item_states
+                .with(|states| states.get(&key).copied())
+                .map(|part| part.get())
+                .unwrap_or_else(|| ListItemState {
+                    input: PartState::default(),
+                    selected: state.selected.with(|keys| keys.contains(&key)),
+                    active: state.active.with(|active| active.as_ref() == Some(&key)),
+                })
+        })
+    }
+
     #[track_caller]
     fn state(self) -> Rc<State<K>> {
         self.state.get()
@@ -56,34 +80,38 @@ impl<K: Clone + Eq + Hash + 'static> List<K> {
     /// Change the policy of a list whose mode stays the same (tabs and
     /// trees adjust the axis and the activation after `use_list`). Setup only.
     #[track_caller]
-    pub(crate) fn retune(self, change: impl FnOnce(&mut ListPolicy)) {
+    pub(crate) fn retune(self, change: impl FnOnce(&mut ListOptions)) {
         let state = self.state();
-        require_setup("List::retune");
+        require_setup("ListApi::retune");
         let mut policy = state.policy();
         change(&mut policy);
-        check_list_axis(policy.axis, "List::retune");
+        check_list_axis(policy.axis, "ListApi::retune");
         assert!(
             policy.mode == state.mode,
             "invariant: a list's mode is fixed by use_list"
         );
-        state.policy.set(policy);
+        state.policy.update(|value| *value = policy);
     }
     /// Set the Select-policy Page Up/Down distance; values below one count as one.
     /// Setup only.
     #[track_caller]
     pub fn page_size(self, rows: impl IntoValue<usize>) -> Self {
         let state = self.state();
-        require_setup("List::page_size");
-        state.page.set(rows.into_value());
+        require_setup("ListApi::page_size");
+        state
+            .options
+            .update(|options| options.page = rows.into_value());
         self
     }
     /// Prefer another enabled key when the current logical item disappears.
     /// Setup only.
     #[track_caller]
-    pub fn on_leave(self, f: impl Fn(&K) -> Option<K> + 'static) -> Self {
+    pub fn leave_to(self, f: impl Fn(&K) -> Option<K> + 'static) -> Self {
         let state = self.state();
-        require_setup("List::on_leave");
-        *state.leave.borrow_mut() = Some(Rc::new(f));
+        require_setup("ListApi::leave_to");
+        state
+            .options
+            .update(|options| options.leave = Some(Rc::new(f)));
         self
     }
     /// Scroll through the caller and permit pending focus on unmounted keys.
@@ -91,18 +119,20 @@ impl<K: Clone + Eq + Hash + 'static> List<K> {
     #[track_caller]
     pub fn scroll_with<R: HandlerResult>(self, f: impl Fn(K) -> R + 'static) -> Self {
         let state = self.state();
-        require_setup("List::scroll_with");
-        *state.scroll.borrow_mut() = Some(callback(f));
+        require_setup("ListApi::scroll_with");
+        state
+            .options
+            .update(|options| options.scroll = Some(callback(f)));
         self
     }
     /// Share an authoritative range anchor with other list instances.
     /// Setup only; later binding writes remain reactive.
     #[track_caller]
-    pub fn anchor(self, anchor: impl Into<Binding<Option<K>>>) -> Self {
+    pub fn with_anchor(self, anchor: impl kivact_core::state::IntoBinding<Option<K>>) -> Self {
         let state = self.state();
-        require_setup("List::anchor");
-        let anchor = anchor.into();
-        state.anchor.update(|current| *current = anchor);
+        require_setup("ListApi::anchor");
+        let anchor = anchor.into_binding();
+        state.options.update(|options| options.anchor = anchor);
         self
     }
     /// Read the authoritative selection as zero, one or several keys.
@@ -110,87 +140,114 @@ impl<K: Clone + Eq + Hash + 'static> List<K> {
     pub fn selected(self) -> Value<Vec<K>> {
         self.state().selected
     }
-    /// Read the enabled mounted key that currently owns the roving tab stop.
+    /// Read the enabled key that owns the roving tab stop, including a virtual
+    /// destination awaiting the caller scroll callback to mount its row.
     #[track_caller]
     pub fn active(self) -> Value<Option<K>> {
         self.state().active
     }
     /// Read the caller's authoritative range anchor.
     #[track_caller]
-    pub fn anchor_value(self) -> Value<Option<K>> {
+    pub fn anchor(self) -> Value<Option<K>> {
         self.state().anchor_value
     }
     /// Offer selection and focus of an eligible mounted key.
     #[track_caller]
     pub fn choose(self, key: K) -> bool {
         let state = self.state();
-        require_effectful("List::choose");
+        require_effectful("ListApi::choose");
         state.choose(key)
     }
     /// Request focus without selecting, retaining a virtual pending request if configured.
     #[track_caller]
     pub fn focus(self, key: K) -> bool {
         let state = self.state();
-        require_effectful("List::focus");
+        require_effectful("ListApi::focus");
         state.focus(key)
     }
     /// Offer a gesture for an enabled logical key without moving focus.
     #[track_caller]
     pub fn select(self, key: K, gesture: ListGesture) -> bool {
         let state = self.state();
-        require_effectful("List::select");
+        require_effectful("ListApi::select");
         state.select(key, gesture)
     }
     /// Offer an empty selection and clear the range anchor.
     #[track_caller]
     pub fn clear(self) {
         let state = self.state();
-        require_effectful("List::clear");
+        require_effectful("ListApi::clear");
         match state.selection {
-            ListSelection::Single(binding) => binding.set(None),
-            ListSelection::Multiple(binding) => binding.set(Vec::new()),
+            Selection::Single(binding) => binding.set(None),
+            Selection::Multiple(binding) => binding.set(Vec::new()),
         }
-        state.anchor.get_untracked().set(None);
+        state.options.get().anchor.set(None);
     }
     /// Select enabled logical keys in order for Multiple, leaving its anchor unchanged.
     #[track_caller]
     pub fn select_all(self) {
         let state = self.state();
-        require_effectful("List::select_all");
+        require_effectful("ListApi::select_all");
         input::select_all(&state);
     }
     /// The list's default ListBox semantics, without appearance or children.
     #[track_caller]
     pub fn list(self) -> Part<PartState> {
         let state = self.state();
-        require_setup("List::container");
+        require_setup("ListApi::container");
         parts::container(state)
     }
     /// Limit selection gestures and select-all while preserving focus and navigation.
     /// Setup only.
     pub fn selectable(self, test: impl Fn(&K) -> bool + 'static) -> Self {
-        require_setup("List::selectable");
+        require_setup("ListApi::selectable");
         self.state()
-            .selectable
-            .update(|current| *current = Some(std::rc::Rc::new(test)));
+            .options
+            .update(|options| options.selectable = Some(Rc::new(test)));
         self
     }
 
     /// An item's label, selection, exact input state and mounted roving navigation.
     #[track_caller]
     pub fn item(self, key: K) -> Part<ListItemState> {
-        self.item_with_disabled_focus(key, false)
-    }
-
-    #[track_caller]
-    pub(crate) fn item_with_disabled_focus(self, key: K, retain: bool) -> Part<ListItemState> {
         let state = self.state();
-        require_setup("List::item");
-        parts::item(state, key, Location::caller(), retain)
+        require_setup("ListApi::item");
+        let (base, bound) = parts::item(state.clone(), key.clone(), false);
+        Part::new(base.state(), move |host| {
+            let mode = state.mode;
+            let invoke = move || {
+                if bound.get_untracked() != parts::ItemMount::Admitted {
+                    return;
+                }
+                if mode == super::ListMode::Activate {
+                    state.choose(key.clone());
+                } else if state.target(&key).is_some() {
+                    state.select(key.clone(), ListGesture::Replace);
+                }
+            };
+            let host = host.part(base);
+            match mode {
+                super::ListMode::Activate => host.on_press(invoke),
+                super::ListMode::Select => {
+                    host.a11y_action(kivact_core::view::A11yAction::Select, move |_| invoke())
+                }
+            }
+        })
     }
 
-    pub(crate) fn retain_focus(self, enabled: bool) {
-        self.state().retained_focus.set(enabled);
+    /// Item anatomy and roving navigation for composites that own activation.
+    #[track_caller]
+    pub(crate) fn base_item(self, key: K, retain_disabled_focus: bool) -> Part<ListItemState> {
+        let state = self.state();
+        require_setup("ListApi::item");
+        parts::item(state, key, retain_disabled_focus).0
+    }
+
+    pub(crate) fn retain_focus(self, enabled: impl IntoValue<bool>) {
+        let enabled = enabled.into_value();
+        self.state()
+            .options
+            .update(|options| options.retained_focus = enabled);
     }
 
     pub(crate) fn active_ref(self) -> Option<kivact_core::view::NodeRef> {
@@ -214,13 +271,18 @@ impl<K: Clone + Eq + Hash + 'static> List<K> {
         state.typed.get().set(typeahead::Typeahead::default());
     }
 
-    pub(crate) fn route_focused_key(self, key: &K, event: KeyEvent) -> Handled {
-        input::key(&self.state(), key, event)
+    pub(crate) fn route_focused_key(
+        self,
+        key: &K,
+        event: KeyEvent,
+        command: Option<Key>,
+    ) -> Handled {
+        input::key(&self.state(), key, event, command)
     }
     #[track_caller]
     pub(crate) fn select_mounted(self, key: K) -> bool {
         let state = self.state();
-        require_effectful("List::select_mounted");
+        require_effectful("ListApi::select_mounted");
         if state.target(&key).is_none() {
             return false;
         }
@@ -229,7 +291,7 @@ impl<K: Clone + Eq + Hash + 'static> List<K> {
     #[track_caller]
     pub(crate) fn key_selection(self, event: &KeyEvent) -> Handled {
         let state = self.state();
-        require_effectful("List::key_selection");
+        require_effectful("ListApi::key_selection");
         input::key_selection(&state, event)
     }
     /// The selection gesture a pointer press or Space with these modifiers asks for.
@@ -240,9 +302,19 @@ impl<K: Clone + Eq + Hash + 'static> List<K> {
         self.state().holds_focus(key)
     }
     #[track_caller]
-    pub(crate) fn shared_typeahead(self, typed: Var<typeahead::Typeahead>) -> Self {
+    pub(crate) fn shared_highlight(self, highlight: Binding<Option<K>>) -> Self {
         let state = self.state();
-        require_setup("List::shared_typeahead");
+        state.roving.requested.bind(highlight);
+        // Composite owners decide when their shared highlight resets.
+        state
+            .options
+            .update(|options| options.reset_on_exit = false);
+        self
+    }
+    #[track_caller]
+    pub(crate) fn shared_typeahead(self, typed: Binding<typeahead::Typeahead>) -> Self {
+        let state = self.state();
+        require_setup("ListApi::shared_typeahead");
         state.typed.set(typed);
         self
     }

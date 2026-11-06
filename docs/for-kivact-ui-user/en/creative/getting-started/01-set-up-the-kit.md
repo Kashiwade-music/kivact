@@ -35,12 +35,12 @@ fn inspector() -> impl IntoView {
         column((ui::property_row(
             "X",
             ui::number("X", x)
-                .range(-1000.0, 1000.0)
+                .range(kivact::interaction::ScalarRange::new(-1000.0, 1000.0).expect("valid range"))
                 .step(1.0)
                 .precision(1)
                 .unit(" px")
                 .label_visible(false),
-        ),))
+        ),)).role(kivact::view::Role::List)
         .style(style().gap(6).padding(10)),
     )
     .style(style().width(280))

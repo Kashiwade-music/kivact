@@ -1,11 +1,12 @@
 //! Role: Pointer, wheel, hover, file-drop and activation events.
 
-use kivact_reactive::Runtime;
+use kivact_engine::contract::HostEvent;
+use kivact_runtime::Runtime;
 use kivact_style::draw::RegionId;
-use kivact_wire::{FilePhase, HostEvent, NodeId, Point};
+use kivact_types::{FilePhase, NodeId, Point};
 
 use super::common::{admitted, handler, is_disabled, node_owner, run_handler, stale};
-use crate::view::input::{Handled, Modifiers, pointer_event_from_wire, wheel_event};
+use crate::view::input::{Handled, PointerEvent, WheelEvent};
 use crate::view::requests;
 use crate::view::state::ViewState;
 
@@ -16,7 +17,7 @@ pub(super) fn activate(rt: &Runtime, id: NodeId, region: Option<RegionId>) -> bo
     let Some(h) = handler(rt, id, |h| h.activate.clone()) else {
         return false;
     };
-    run_handler(rt, node_owner(rt, id), || h(region));
+    run_handler(rt, node_owner(rt, id), || h.call(region));
     true
 }
 
@@ -41,17 +42,19 @@ pub(crate) fn run_requested_activations(rt: &Runtime) -> bool {
 pub(super) fn pointer(
     rt: &Runtime,
     host_event: &HostEvent,
-    node: NodeId,
-    region: Option<RegionId>,
-    event: kivact_wire::PointerEvent,
+    routed: kivact_engine::contract::Routed<kivact_types::PointerSample>,
 ) {
+    let Some(node) = routed.target else {
+        return;
+    };
     if ViewState::tree(rt).get(node).is_none() {
         return stale(rt, "pointer", node);
     }
     if !admitted(rt, host_event, "pointer", node) {
         return;
     }
-    let e = pointer_event_from_wire(event, node, region);
+    let event = routed.input;
+    let e = PointerEvent::from_routed(routed);
     let found = {
         let tree = ViewState::tree(rt);
         let stop = tree.modal_boundary(node);
@@ -63,18 +66,19 @@ pub(super) fn pointer(
         && (!is_disabled(rt, id)
             || matches!(
                 event.phase,
-                kivact_wire::PointerPhase::Enter
-                    | kivact_wire::PointerPhase::Leave
-                    | kivact_wire::PointerPhase::Cancel
+                kivact_types::PointerPhase::Enter
+                    | kivact_types::PointerPhase::Leave
+                    | kivact_types::PointerPhase::Cancel
             ))
     {
         let handled = run_handler(rt, node_owner(rt, id), || h.deliver(e));
+        requests::clear_pointer_releases(rt);
         if handled != Some(Handled::No) {
             return;
         }
     }
     if matches!(
-        e.phase,
+        e.phase(),
         crate::view::PointerPhase::Down(press) | crate::view::PointerPhase::Up(press)
             if press.button == crate::view::MouseButton::Secondary
     ) {
@@ -90,7 +94,7 @@ pub(super) fn pointer(
         if let Some((id, handler)) = fallback
             && !is_disabled(rt, id)
         {
-            run_handler(rt, node_owner(rt, id), || handler(e));
+            run_handler(rt, node_owner(rt, id), || handler.call(e));
         }
     }
 }
@@ -98,19 +102,19 @@ pub(super) fn pointer(
 pub(super) fn wheel(
     rt: &Runtime,
     host_event: &HostEvent,
-    node: NodeId,
-    region: Option<RegionId>,
-    delta: Point,
-    pos: Point,
-    modifiers: Modifiers,
+    routed: kivact_engine::contract::Routed<kivact_types::WheelInput>,
 ) {
+    let Some(node) = routed.target else {
+        return;
+    };
+    let delta = routed.input.delta;
     if ViewState::tree(rt).get(node).is_none() {
         return stale(rt, "wheel", node);
     }
     if !admitted(rt, host_event, "wheel", node) {
         return;
     }
-    let e = wheel_event(delta, pos, modifiers, node, region);
+    let e = WheelEvent { routed };
     let stop = ViewState::tree(rt).modal_boundary(node);
     let mut cur = Some(node);
     let mut handled = Handled::No;
@@ -128,7 +132,7 @@ pub(super) fn wheel(
         if Some(id) == stop {
             break; // wheels do not leave an open modal
         }
-        cur = ViewState::tree(rt).get(id).and_then(|n| n.parent);
+        cur = ViewState::tree(rt).reader().parent(id);
     }
     if handled == Handled::No && ViewState::tree(rt).get(node).is_some() {
         // Default action: the host continues its native scroll
@@ -172,14 +176,11 @@ pub(super) fn activate_event(
     host_event: &HostEvent,
     node: NodeId,
     region: Option<RegionId>,
-    pointer: Option<crate::view::PointerId>,
+    pointer: Option<kivact_engine::contract::Routed<kivact_types::PointerSample>>,
 ) {
-    // A click whose gesture a canvas adopted (`part_pointer`) activates
-    // nothing; the engine remembers which, and answers once.
-    if let Some(pointer) = pointer
-        && ViewState::tree(rt)
-            .reader()
-            .take_adopted_activation(node, region, pointer)
+    if pointer
+        .and_then(|route| route.activation)
+        .is_some_and(|activation| activation.0)
     {
         return;
     }
@@ -192,6 +193,6 @@ pub(super) fn activate_event(
     activate(rt, node, region);
 }
 
-pub(super) fn hover_changed(rt: &Runtime, node: Option<NodeId>) {
+pub(super) fn hover_changed(rt: &Runtime, node: Option<kivact_types::FocusTarget>) {
     crate::view::hover::set_hovered(rt, node);
 }

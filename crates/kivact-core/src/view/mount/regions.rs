@@ -1,22 +1,32 @@
 //! Role: Region registries retain keyed attachments across geometry updates.
 
-use kivact_reactive::IntoValue;
 use std::cell::{Cell, RefCell};
 use std::collections::HashSet;
 use std::panic::Location;
 use std::rc::Rc;
 
 use super::{parts, region_template};
-use crate::view::common::{
-    Adopted, Common, Declaration, Entry, Gestures, Registry, RegistryPhase, State, Target, TargetId,
-};
 use crate::view::descriptor::Mcx;
-use kivact_reactive::{EffectKind, ErrorKind, Owner, Runtime, UiError};
+use crate::view::element_data::{
+    Adopted, Common, Declaration, Entry, Gestures, RegionBinding, RegionEntry, RegionKey, Registry,
+    RegistryPhase, State, Target, TargetId,
+};
+use kivact_runtime::{EffectKind, ErrorKind, Owner, Runtime, UiError};
 use kivact_style::draw::{RegionId, RegionSemantics};
-use kivact_wire::NodeId;
+use kivact_types::NodeId;
 
 impl Registry {
-    pub(super) fn entry(&self, id: RegionId, mut template: Common, item_owner: Owner) -> Rc<Entry> {
+    pub(super) fn entry(&self, id: RegionId, template: Common, item_owner: Owner) -> Rc<Entry> {
+        let mut node =
+            crate::view::element_data::Node::new(crate::view::element_data::Content::Box, None);
+        node.common = template;
+        while !node.common.deferred_parts.is_empty() {
+            let deferred = std::mem::take(&mut node.common.deferred_parts);
+            for apply in deferred {
+                node = node.apply_part(apply);
+            }
+        }
+        let mut template = node.common;
         if template.text_editing.take().is_some()
             && let Some(rt) = self.root.runtime.upgrade()
         {
@@ -30,13 +40,13 @@ impl Registry {
             );
         }
         let mut state = self.state.borrow_mut();
-        state.next += 1;
+        let generation = state.next.next();
         Rc::new(Entry {
             id,
-            generation: state.next,
+            generation,
             item_owner,
             template,
-            adopted: RefCell::new(None),
+            state: RefCell::new(RegionEntry::Pending),
         })
     }
 
@@ -50,7 +60,7 @@ impl Registry {
     }
 
     pub(super) fn duplicate_key(&self, hash: u64) {
-        if self.state.borrow_mut().duplicate_keys.insert(hash)
+        if self.state.borrow().duplicate_keys.note(hash)
             && let Some(rt) = self.root.runtime.upgrade()
         {
             rt.report(
@@ -70,7 +80,7 @@ impl Registry {
             state.groups[index] = entries;
             state.retired.extend(retired);
         }
-        self.changed.update(|value| *value = value.wrapping_add(1));
+        self.changed.notify();
     }
 
     /// Adoption changes dispose old attachment owners before new refs bind.
@@ -78,40 +88,40 @@ impl Registry {
         let Some(rt) = self.root.runtime.upgrade() else {
             return;
         };
-        kivact_reactive::untrack(|| {
+        kivact_runtime::untrack(|| {
             let (wanted, old, duplicates) = {
                 let state = self.state.borrow();
-                let mut seen = HashSet::new();
+                let mut seen = std::collections::HashMap::new();
                 let mut duplicates = Vec::new();
                 let wanted = state
                     .groups
                     .iter()
                     .flatten()
                     .filter_map(|entry| {
-                        if seen.insert(entry.id) {
-                            Some(entry.clone())
-                        } else {
+                        if let Some(by) = seen.get(&entry.id).copied() {
+                            if !matches!(*entry.state.borrow(), RegionEntry::Adopted(_)) {
+                                *entry.state.borrow_mut() = RegionEntry::Shadowed { by };
+                            }
                             duplicates.push(entry.id);
                             None
+                        } else {
+                            seen.insert(entry.id, RegionKey(entry.generation));
+                            Some(entry.clone())
                         }
                     })
                     .collect::<Vec<_>>();
                 (wanted, state.active.clone(), duplicates)
             };
             for id in duplicates {
-                if self.state.borrow_mut().duplicates.insert(id) {
+                if self.state.borrow().duplicates.note(id) {
                     rt.report(Some(self.root.owner), UiError::new(ErrorKind::Message,
                     format!("canvas region {} has duplicate setup declarations; later attachment dropped", id.0), Some(self.at)));
                 }
             }
-            let retained: HashSet<u64> = wanted.iter().map(|entry| entry.generation).collect();
+            let retained: HashSet<_> = wanted.iter().map(|entry| entry.generation).collect();
             for entry in old {
                 if !retained.contains(&entry.generation) {
-                    let adopted = entry.adopted.borrow_mut().take();
-                    if let Some(adopted) = adopted {
-                        self.cancel(adopted.target.id);
-                        adopted.owner.dispose();
-                    }
+                    self.retire_entry(&entry);
                 }
             }
             // Removed item state must outlive cancellation and adopted ref cleanup.
@@ -120,19 +130,19 @@ impl Registry {
                 owner.dispose();
             }
             for entry in &wanted {
-                if entry.adopted.borrow().is_none() {
+                if !matches!(*entry.state.borrow(), RegionEntry::Adopted(_)) {
+                    if let RegionEntry::Shadowed { by } = &*entry.state.borrow() {
+                        debug_assert!(by.0 != entry.generation, "an entry cannot shadow itself");
+                    }
                     let adopted = self.adopt(&rt, entry);
-                    *entry.adopted.borrow_mut() = Some(adopted);
+                    *entry.state.borrow_mut() = RegionEntry::Adopted(adopted);
                 }
             }
             let by_id = wanted
                 .iter()
-                .filter_map(|entry| {
-                    entry
-                        .adopted
-                        .borrow()
-                        .as_ref()
-                        .map(|adopted| (entry.id, adopted.target.clone()))
+                .filter_map(|entry| match &*entry.state.borrow() {
+                    RegionEntry::Adopted(adopted) => Some((entry.id, adopted.target.clone())),
+                    RegionEntry::Pending | RegionEntry::Shadowed { .. } => None,
                 })
                 .collect();
             {
@@ -140,8 +150,27 @@ impl Registry {
                 state.active = wanted;
                 state.by_id = by_id;
             }
-            self.revision.update(|value| *value = value.wrapping_add(1));
+            self.revision.notify();
         })
+    }
+
+    fn retire_entry(&self, entry: &Entry) {
+        let next = self
+            .state
+            .borrow()
+            .groups
+            .iter()
+            .flatten()
+            .find(|candidate| candidate.id == entry.id && candidate.generation != entry.generation)
+            .map(|candidate| RegionEntry::Shadowed {
+                by: RegionKey(candidate.generation),
+            })
+            .unwrap_or(RegionEntry::Pending);
+        let previous = std::mem::replace(&mut *entry.state.borrow_mut(), next);
+        if let RegionEntry::Adopted(adopted) = previous {
+            self.cancel(adopted.target.id);
+            adopted.owner.dispose();
+        }
     }
 
     fn adopt(self: &Rc<Self>, rt: &Rc<Runtime>, entry: &Entry) -> Rc<Adopted> {
@@ -152,10 +181,21 @@ impl Registry {
             if std::mem::take(&mut common.part_modal) {
                 parts::report_modal_unsupported(&cx, self.at);
             }
+            for patch in common.semantics.iter().filter(|p| p.part) {
+                use crate::view::semantics_data::SemanticInput;
+                match &patch.input {
+                    SemanticInput::Disabled(v) => common.part_constraints.disabled.push(v.clone()),
+                    SemanticInput::Hidden(v) => common.part_constraints.hidden.push(v.clone()),
+                    SemanticInput::Focusable(v) => {
+                        common.part_constraints.focusable.push(v.clone())
+                    }
+                    _ => {}
+                }
+            }
             let sources = parts::ConstraintSources {
-                disabled: common.disabled.take(),
-                hidden: common.hidden.take(),
-                focusable: common.focusable.take(),
+                disabled: common.disabled_source(),
+                hidden: common.hidden_source(),
+                focusable: common.focusable_source(),
                 required: std::mem::take(&mut common.part_constraints),
             };
             let constraints =
@@ -166,8 +206,7 @@ impl Registry {
             let bindings = std::mem::take(&mut common.part_bindings);
             let generation = {
                 let mut state = self.state.borrow_mut();
-                state.next += 1;
-                state.next
+                state.next.next()
             };
             let id = TargetId::Region {
                 region: entry.id,
@@ -198,7 +237,8 @@ impl Registry {
                 owner,
                 common,
                 target,
-                bound: Cell::new(false),
+                generation,
+                binding: Cell::new(RegionBinding::Unbound),
             });
             if self.phase.get() == RegistryPhase::Mounted {
                 self.bind_adopted(rt, &adopted);
@@ -208,25 +248,22 @@ impl Registry {
     }
 
     fn bind_adopted(&self, rt: &Rc<Runtime>, adopted: &Adopted) {
+        debug_assert!(
+            matches!(adopted.target.id, TargetId::Region { generation, .. } if generation == adopted.generation)
+        );
         let Some(region) = adopted.target.region() else {
             return;
         };
-        if adopted.bound.replace(true) {
+        if adopted.binding.replace(RegionBinding::Bound) == RegionBinding::Bound {
             return;
         }
         adopted.owner.with_setup(|| {
-            let hovered = adopted
-                .target
-                .bindings
-                .first()
-                .map(|binding| binding.hovered)
-                .unwrap_or_else(|| false.into_value());
             for (index, reference) in adopted.common.node_ref.iter().enumerate() {
                 if !adopted.common.node_ref[..index]
                     .iter()
                     .any(|previous| previous == reference)
                 {
-                    reference.bind_region(rt, self.node, region, adopted.owner, hovered, self.at);
+                    reference.bind_region(rt, self.node, region, adopted.owner, self.at);
                 }
             }
             parts::bind_hooks(
@@ -245,58 +282,36 @@ impl Registry {
         };
         let entries = self.state.borrow().active.clone();
         for entry in entries {
-            if let Some(adopted) = entry.adopted.borrow().as_ref() {
+            if let RegionEntry::Adopted(adopted) = &*entry.state.borrow() {
                 self.bind_adopted(&rt, adopted);
             }
         }
     }
 
     pub(super) fn resolve(&self) -> Vec<(RegionId, RegionSemantics)> {
-        self.revision.get();
+        self.revision.track();
         let entries = self.state.borrow().active.clone();
         entries
             .iter()
             .enumerate()
             .filter_map(|(order, entry)| {
-                let adopted = entry.adopted.borrow().clone()?;
+                let adopted = match &*entry.state.borrow() {
+                    RegionEntry::Adopted(adopted) => adopted.clone(),
+                    RegionEntry::Pending | RegionEntry::Shadowed { .. } => return None,
+                };
                 let common = &adopted.common;
-                let properties = common
-                    .semantics
-                    .as_ref()
-                    .map(|sources| super::semantics::resolve(sources, self.at))
-                    .unwrap_or_default();
+                let properties = super::semantics::resolve(&common.semantics);
                 Some((
                     entry.id,
                     RegionSemantics {
-                        role: common.role.unwrap_or(crate::view::Role::Generic),
-                        name: common
-                            .name
-                            .as_ref()
-                            .map(kivact_reactive::Prop::get)
-                            .unwrap_or_default(),
-                        description: common.description.as_ref().map(kivact_reactive::Prop::get),
-                        value: common.value.as_ref().map(kivact_reactive::Prop::get),
-                        actions: adopted.target.actions.actions(),
-                        checked: super::semantics::checked_state(
-                            common.checked.as_ref().map(kivact_reactive::Prop::get),
-                            common
-                                .indeterminate
-                                .as_ref()
-                                .map(kivact_reactive::Prop::get),
-                        ),
-                        selected: common
-                            .selected
-                            .as_ref()
-                            .is_some_and(kivact_reactive::Prop::get),
-                        expanded: common.expanded.as_ref().map(kivact_reactive::Prop::get),
-                        invalid: common
-                            .invalid
-                            .as_ref()
-                            .is_some_and(kivact_reactive::Prop::get),
-                        properties: Some(Box::new(properties)),
-                        disabled: adopted.target.constraints.disabled.get(),
-                        hidden: adopted.target.constraints.hidden.get(),
-                        focusable: adopted.target.constraints.focusable.get(),
+                        semantics: kivact_types::Semantics {
+                            role: properties.role.or(Some(crate::view::Role::Generic)),
+                            actions: Some(adopted.target.actions.actions()),
+                            disabled: adopted.target.constraints.disabled.get(),
+                            hidden: adopted.target.constraints.hidden.get(),
+                            focusable: adopted.target.constraints.focusable.get(),
+                            ..properties
+                        },
                         focus_order: order.min(u32::MAX as usize) as u32,
                         focus_on_press: common.focus_on_press.and_then(|r| r.target_value(self.at)),
                     },
@@ -318,8 +333,8 @@ pub(super) fn prepare(
         root,
         at,
         state: RefCell::new(State::default()),
-        revision: cx.owner.signal(0u64, at),
-        changed: cx.owner.signal(0u64, at),
+        revision: cx.owner.notifier(at),
+        changed: cx.owner.notifier(at),
         phase: Cell::new(RegistryPhase::Mounting),
         gestures: RefCell::new(Gestures::default()),
     });
@@ -342,7 +357,7 @@ pub(super) fn prepare(
     let weak = Rc::downgrade(&registry);
     cx.effect(EffectKind::Internal, at, move || {
         if let Some(registry) = weak.upgrade() {
-            registry.changed.get();
+            registry.changed.track();
             registry.reconcile();
         }
     });

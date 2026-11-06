@@ -1,7 +1,7 @@
 //! Role: Where one event's pointer is relative to nodes, regions and text.
 
 use crate::model::Model;
-use kivact_wire::{NodeId, Point, RegionId};
+use kivact_types::{NodeId, Point, RegionId};
 use std::cell::RefCell;
 
 /// Where the pointer of one input event is, relative to the nodes: a

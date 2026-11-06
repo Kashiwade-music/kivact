@@ -4,8 +4,8 @@ use super::recorder::{Draw, RegionSemantics};
 use crate::effect::{Shape, basic};
 use crate::geometry::{Point, Rect};
 use crate::path::Path;
-use kivact_wire as p;
-use kivact_wire::RegionId;
+use kivact_types as p;
+use kivact_types::RegionId;
 
 impl Draw {
     /// Supply the node's declared regions before the drawing callbacks run;
@@ -67,13 +67,13 @@ impl Draw {
                 .push(format!("canvas region {} has an invalid transform", id.0));
             return false;
         }
-        let x0 = pts.iter().map(|p| p.x).fold(f32::INFINITY, f32::min);
-        let y0 = pts.iter().map(|p| p.y).fold(f32::INFINITY, f32::min);
-        let x1 = pts.iter().map(|p| p.x).fold(f32::NEG_INFINITY, f32::max);
-        let y1 = pts.iter().map(|p| p.y).fold(f32::NEG_INFINITY, f32::max);
+        let x0 = pts.iter().map(|p| p.x).fold(f64::INFINITY, f64::min);
+        let y0 = pts.iter().map(|p| p.y).fold(f64::INFINITY, f64::min);
+        let x1 = pts.iter().map(|p| p.x).fold(f64::NEG_INFINITY, f64::max);
+        let y1 = pts.iter().map(|p| p.y).fold(f64::NEG_INFINITY, f64::max);
         self.regions.push(p::Region {
             shape: None,
-            transform: self.transform.m,
+            transform: self.transform,
             local_rect: rect,
             id,
             rect: p::Rect {
@@ -82,21 +82,9 @@ impl Draw {
                 width: x1 - x0,
                 height: y1 - y0,
             },
-            checked: semantics.checked,
-            selected: semantics.selected,
-            expanded: semantics.expanded,
-            invalid: semantics.invalid,
-            properties: semantics.properties,
-            description: semantics.description,
-            disabled: semantics.disabled,
-            hidden: semantics.hidden,
-            focusable: semantics.focusable,
+            semantics: semantics.semantics,
             focus_order: semantics.focus_order,
             focus_on_press: semantics.focus_on_press,
-            role: semantics.role,
-            name: semantics.name,
-            value: semantics.value,
-            actions: semantics.actions,
         });
         true
     }

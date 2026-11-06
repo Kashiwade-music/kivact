@@ -21,7 +21,6 @@ This is the program from step 7 with a `tests` module added at the end. Everythi
 use std::time::Duration;
 
 use kivact::prelude::*;
-use kivact::view::provide_theme;
 
 const LOGO: &[u8] = br##"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#336699"/><path d="M6 12.5l4 4 8-9" stroke="white" stroke-width="2.5" fill="none"/></svg>"##;
 
@@ -32,11 +31,11 @@ struct Task {
     done: bool,
 }
 
-fn header(dark: Signal<bool>) -> impl IntoView {
+fn header(dark: Signal<bool>) -> impl Component {
     row((
         image(LOGO).name("Tasks logo").style(style().size(32, 32)),
         column((
-            text("Tasks").role(Role::Heading).style(style().font_size(28).weight(700)),
+            text("Tasks").role(Role::Heading).level(1).style(style().font_size(28).weight(700)),
             text("Things to do today").style(style().color(ColorToken::TextMuted)),
         ))
         .style(style().gap(2).grow(1)),
@@ -45,24 +44,25 @@ fn header(dark: Signal<bool>) -> impl IntoView {
     .style(style().gap(12).align_items(Align::Center))
 }
 
-fn task_row(tasks: Signal<Vec<Task>>, id: u32, task: Value<Task>) -> impl IntoView {
-    let done = tasks.item(|task| task.id, id).field(|task| &task.done, |task| &mut task.done);
+fn task_row(tasks: Signal<Vec<Task>>, task: Binding<Task>) -> impl Component {
+    let id = task.get_untracked().id;
+    let done = bind!(task.done);
     row((
         checkbox(move || task.get().title, done),
         button("Remove")
             .name(move || format!("Remove {}", task.get().title))
-            .variant(ButtonVariant::Ghost)
+            .variant(kivact::ui::ButtonVariant::Ghost)
             .on_press(move || tasks.update(|list| list.retain(|task| task.id != id))),
     ))
     .role(Role::ListItem)
     .style(style().gap(8).align_items(Align::Center).justify_content(Justify::SpaceBetween))
 }
 
-fn task_list(tasks: Signal<Vec<Task>>) -> impl IntoView {
+fn task_list(tasks: Signal<Vec<Task>>) -> impl Component {
     column(for_each(
         tasks,
         |task| task.id,
-        move |id, task| task_row(tasks, id, task),
+        move |task| task_row(tasks, task),
     ))
     .role(Role::List)
     .name("Task list")
@@ -76,7 +76,7 @@ fn task_list(tasks: Signal<Vec<Task>>) -> impl IntoView {
     )
 }
 
-fn tasks_screen(dark: Signal<bool>, saved: Vec<Task>) -> impl IntoView {
+fn tasks_screen(dark: Signal<bool>, saved: Vec<Task>) -> impl Component {
     let next_id = var(saved.iter().map(|task| task.id).max().unwrap_or(0) + 1);
     let tasks = signal(saved);
     let draft = signal(String::new());
@@ -244,7 +244,16 @@ mod tests {
 
 **`#[cfg(test)] mod tests`** is compiled only by `cargo test`. Each `#[test]` function is one test.
 
-**`kivact::test::render(app)`** builds the app in a real window and returns a `Screen`. The window opens without taking focus from what you are doing, and it closes when the test ends. The screen runs on a **virtual clock**: a test never waits in real time, which is why `screen.advance(LOAD)` moves the clock forward by 600 milliseconds, long enough for the simulated load to finish.
+**`kivact::test::render(app)`** mounts the complete app on the virtual backend
+and returns a `Screen`. It uses production layout, text shaping, drawing and
+accessibility, rather than mocked controls. By default a native window mirrors
+the result when one is available; set `KIVACT_TEST_MIRROR=off` to run without
+that mirror. The mirror does not own the test’s state or input.
+
+The screen uses a **virtual clock**. `screen.advance(LOAD)` advances app time
+by 600 milliseconds and settles the resulting work, so this example’s timer
+does not require a real-time sleep. Background work may still take real time;
+advance app timers instead of sleeping in your tests.
 
 **Queries find elements the way a user or a screen reader would.**
 
@@ -252,7 +261,7 @@ mod tests {
 - `get_by_text("3 left")` finds text on screen.
 - `get_by_*` fails the test with a readable message if there is no match, or more than one. `query_by_*` returns an `Option` instead, which is what you use to assert that something is *not* there, as in `query_by_role(..).is_none()`. `all_by_*` returns a `Vec`.
 
-**Actions** are real input. `.click()` presses the element, `.type_text("..")` types into a text field and `.press_key(Key::Enter)` presses a key. They check that a user could really do it: clicking a disabled or covered element fails the test.
+**Actions** enter through the app’s input path. `.click()` presses the element, `.type_text("..")` types into a text field and `.press_key(Key::Enter)` presses a key. They check that a user could really do it: clicking a disabled or covered element fails the test.
 
 **Assertions** read the state of an element: `.is_disabled()`, `.checked()` (an `Option<CheckedState>`) and `.value()` (the text in a field). Use plain `assert!` and `assert_eq!` for these.
 
@@ -264,7 +273,7 @@ mod tests {
 cargo test
 ```
 
-Windows flash up briefly while the tests run, then you see:
+With mirroring enabled, windows may appear briefly. The terminal reports:
 
 ```text
 running 5 tests
@@ -277,12 +286,16 @@ test tests::the_first_load_fails_and_trying_again_shows_the_tasks ... ok
 test result: ok. 5 passed; 0 failed
 ```
 
-Change `"3 left"` in the first test to `"4 left"` and run again. The test fails, and the message lists what was on screen. Kivact also saves a screenshot of the failing window and the accessibility tree of it in `target/kivact-test-failures/`; the failure message gives the exact path. Change it back afterwards.
+Change `"3 left"` in the first test to `"4 left"` and run again. The test fails, and the message lists what was on screen. Kivact also saves the failing rendered frame and its accessibility tree in `target/kivact-test-failures/`; the failure message gives the exact path. Change it back afterwards.
 
 Two points to know:
 
-- A test binary that calls `kivact::test::render` must not call `App::run` in a test, because all test windows share one event loop. Calling `main` from a test is therefore not possible; test the component (`app`) instead.
-- Only one process should open test windows at a time on your machine, so do not run several `cargo test` commands at once.
+- Test the view builder with `render(app)`; do not call `App::run` or `main`
+  from a test binary that renders screens. The test driver owns that binary’s
+  app event loop.
+- Run one test process at a time. Inside the Kivact checkout, use
+  `dev/tools/window-lock.sh -- cargo test` to share its window lock with other
+  worktrees, including when `KIVACT_TEST_MIRROR=off`.
 
 ## Where to go next
 

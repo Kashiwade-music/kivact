@@ -20,7 +20,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use kivact_types::protocol::ImageData;
+use kivact_types::scene::Pixels;
 
 /// The converted pixels kept at most (256 MiB, as the facade's decoded
 /// image cache).
@@ -69,9 +69,9 @@ impl<V: Clone> ImageCache<V> {
 
     /// The converted `image`: the one kept from an earlier frame, else
     /// `convert`'s (kept while it fits).
-    pub(crate) fn get(&mut self, image: &ImageData, convert: impl FnOnce() -> V) -> V {
+    pub(crate) fn get(&mut self, image: &Pixels, convert: impl FnOnce() -> V) -> V {
         let key = (
-            Arc::as_ptr(&image.rgba).cast::<u8>() as usize,
+            Arc::as_ptr(image.rgba.as_shared()).cast::<u8>() as usize,
             image.width,
             image.height,
         );
@@ -86,7 +86,7 @@ impl<V: Clone> ImageCache<V> {
             self.entries.insert(
                 key,
                 Entry {
-                    _pixels: Arc::clone(&image.rgba),
+                    _pixels: Arc::clone(image.rgba.as_shared()),
                     value: value.clone(),
                     bytes,
                     frame: self.frame,

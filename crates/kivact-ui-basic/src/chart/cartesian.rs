@@ -3,21 +3,20 @@
 use super::model::{ChartKind, Frame, Hit, HitRow, series_color};
 use super::scale::{Domain, text_width};
 use crate::tokens::Tokens;
-use kivact::draw::{
-    Draw, LineCap, LineJoin, Path, Point, Rect, Size, Stroke, TextBaseline, TextStyle,
-};
+use kivact::draw::{Draw, LineCap, LineJoin, Path, Stroke, TextBaseline, TextFormat};
+use kivact::geometry::{Point, Rect, Size};
 use kivact::style::TextAlign;
 
 /// The empty edge around the plot.
-const MARGIN: f32 = 8.0;
+const MARGIN: f64 = 8.0;
 /// The height of the category labels under the plot, with their gap.
-const AXIS_HEIGHT: f32 = 24.0;
+const AXIS_HEIGHT: f64 = 24.0;
 /// The gap between the value labels and the plot.
-const LABEL_GAP: f32 = 8.0;
+const LABEL_GAP: f64 = 8.0;
 /// The gap between the bars of one category.
-const BAR_GAP: f32 = 4.0;
+const BAR_GAP: f64 = 4.0;
 /// The share of a category band the bars of one category use.
-const BAR_SHARE: f32 = 0.8;
+const BAR_SHARE: f64 = 0.8;
 
 /// Where the plot lies and how values and categories map onto it.
 struct Layout {
@@ -59,14 +58,14 @@ impl Layout {
                 .rows
                 .iter()
                 .map(|row| text_width(&row.label, 12.0))
-                .fold(0.0, f32::max);
+                .fold(0.0, f64::max);
             widest.min(size.width * 0.4) + LABEL_GAP
         } else {
             let widest = domain
                 .ticks()
                 .iter()
                 .map(|tick| text_width(&f.format(*tick), 12.0))
-                .fold(0.0, f32::max);
+                .fold(0.0, f64::max);
             widest + LABEL_GAP
         };
         let left = MARGIN + gutter;
@@ -90,27 +89,27 @@ impl Layout {
     }
 
     /// The size of one category along its axis.
-    fn band(&self) -> f32 {
+    fn band(&self) -> f64 {
         let length = if self.horizontal {
             self.plot.height
         } else {
             self.plot.width
         };
-        length / self.bands as f32
+        length / self.bands as f64
     }
 
     /// The middle of category `index` along its axis.
-    fn center(&self, index: usize) -> f32 {
+    fn center(&self, index: usize) -> f64 {
         let origin = if self.horizontal {
             self.plot.y
         } else {
             self.plot.x
         };
-        origin + (index as f32 + 0.5) * self.band()
+        origin + (index as f64 + 0.5) * self.band()
     }
 
     /// Where `value` lies along the value axis.
-    fn position(&self, value: f64) -> f32 {
+    fn position(&self, value: f64) -> f64 {
         let fraction = self.domain.fraction(value);
         if self.horizontal {
             self.plot.x + fraction * self.plot.width
@@ -129,7 +128,7 @@ impl Layout {
     }
 
     /// A bar `across` thick centered on `center` and spanning `from` to `to` in value.
-    fn bar(&self, center: f32, across: f32, from: f64, to: f64) -> Rect {
+    fn bar(&self, center: f64, across: f64, from: f64, to: f64) -> Rect {
         let (a, b) = (self.position(from), self.position(to));
         let (near, length) = (a.min(b), (a - b).abs());
         if self.horizontal {
@@ -141,23 +140,23 @@ impl Layout {
 }
 
 /// `v` moved to the middle of a device pixel so a 1 px line stays crisp.
-fn crisp(v: f32) -> f32 {
+fn crisp(v: f64) -> f64 {
     v.floor() + 0.5
 }
 
-fn label_style(tokens: &Tokens, align: TextAlign, baseline: TextBaseline) -> TextStyle {
-    TextStyle {
+fn label_style(tokens: &Tokens, align: TextAlign, baseline: TextBaseline) -> TextFormat {
+    TextFormat {
         size: 12.0,
         color: tokens.muted_foreground,
         align,
         baseline,
-        ..TextStyle::default()
+        ..TextFormat::default()
     }
 }
 
 /// Paint the chart; `hit` is the row under the pointer.
 pub(super) fn paint(d: &mut Draw, size: Size, f: &Frame, hit: Option<&Hit>) {
-    let tokens = d.theme().get::<Tokens>();
+    let tokens = d.theme().ext::<Tokens>();
     let layout = Layout::new(size, f);
     paint_grid(d, &layout, f, &tokens);
     if f.axis {
@@ -215,7 +214,7 @@ fn paint_labels(d: &mut Draw, l: &Layout, f: &Frame, tokens: &Tokens) {
         .rows
         .iter()
         .map(|row| text_width(&row.label, 12.0))
-        .fold(0.0, f32::max);
+        .fold(0.0, f64::max);
     let needed = if l.horizontal { 20.0 } else { widest + 12.0 };
     let stride = (needed / l.band()).ceil().max(1.0) as usize;
     for (i, row) in f.rows.iter().enumerate().step_by(stride) {
@@ -263,7 +262,7 @@ fn paint_bars(d: &mut Draw, l: &Layout, f: &Frame, tokens: &Tokens) {
     if series == 0 {
         return;
     }
-    let count = series as f32;
+    let count = series as f64;
     let group = l.band() * BAR_SHARE;
     let across = ((group - BAR_GAP * (count - 1.0)) / count).max(1.0);
     let width = across * count + BAR_GAP * (count - 1.0);
@@ -274,7 +273,7 @@ fn paint_bars(d: &mut Draw, l: &Layout, f: &Frame, tokens: &Tokens) {
             if value == 0.0 {
                 continue;
             }
-            let center = first + s as f32 * (across + BAR_GAP);
+            let center = first + s as f64 * (across + BAR_GAP);
             let bar = l.bar(center, across, 0.0, value);
             d.fill_rect(bar, series_color(f.config, s, tokens));
         }

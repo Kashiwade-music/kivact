@@ -1,11 +1,12 @@
 //! Role: Closure-scoped canvas groups and the `Draw::layer` command that records them.
-use super::recorder::{Affine, Draw};
+use super::recorder::Draw;
 use crate::effect::{BlendMode, Filter, Shadow, Shape, basic, filter_ops};
 use crate::geometry::Rect;
 use crate::paint::{Paint, fill_layer};
 use crate::transform::Transform;
-use kivact_wire as p;
+use kivact_types as p;
 
+// xtask-allow(state-fields): This authored drawing options bundle independently selects clip, opacity, transform and paint effects.
 /// What [`Draw::layer`](super::Draw::layer) applies to the commands its closure draws: a
 /// transform, a clip, group opacity, blending, a filter, a mask and a
 /// shadow. Effects use the element style types.
@@ -19,7 +20,8 @@ use kivact_wire as p;
 /// ```
 /// use kivact::draw::{Layer, Shape, Transform};
 /// use kivact::prelude::*;
-/// use kivact::draw::{Draw, Size};
+/// use kivact::draw::{Draw};
+/// use kivact::geometry::{Size};
 /// use kivact::style::{pct};
 /// fn badge(d: &mut Draw, size: Size) {
 ///     let tilted = Layer::new()
@@ -36,7 +38,7 @@ pub struct Layer {
     pub(super) transform: Option<Transform>,
     pub(super) clip_rect: Option<Rect>,
     pub(super) clip: Option<Shape>,
-    pub(super) opacity: f32,
+    pub(super) opacity: f64,
     pub(super) blend: BlendMode,
     pub(super) filter: Filter,
     pub(super) mask: Option<Paint>,
@@ -89,7 +91,7 @@ impl Layer {
     }
     /// Group opacity: what is drawn inside is composited once.
     pub fn opacity(mut self, opacity: impl Into<f64>) -> Self {
-        self.opacity = opacity.into() as f32;
+        self.opacity = opacity.into();
         self
     }
     pub fn blend(mut self, blend: BlendMode) -> Self {
@@ -131,14 +133,13 @@ impl Draw {
     pub fn layer(&mut self, layer: Layer, f: impl FnOnce(&mut Draw)) {
         let saved = self.transform;
         if let Some(t) = layer.transform {
-            let m = Affine {
-                m: t.matrix_for(self.size),
-            };
+            let [a, b, c, d, e, f] = t.matrix_for(self.size);
+            let m = p::Transform { a, b, c, d, e, f };
             self.transform = m.then(self.transform);
-            self.cmds.push(p::SceneCmd::PushTransform(m.m));
+            self.cmds.push(p::DrawCmd::PushTransform(m));
         }
         if let Some(rect) = layer.clip_rect {
-            self.cmds.push(p::SceneCmd::PushClip(rect));
+            self.cmds.push(p::DrawCmd::PushClip(rect));
         }
         let group = layer.groups();
         if group {
@@ -146,14 +147,14 @@ impl Draw {
         }
         f(self);
         if group {
-            self.cmds.push(p::SceneCmd::PopLayer);
+            self.cmds.push(p::DrawCmd::PopLayer);
         }
         if layer.clip_rect.is_some() {
-            self.cmds.push(p::SceneCmd::PopClip);
+            self.cmds.push(p::DrawCmd::PopClip);
         }
         if layer.transform.is_some() {
             self.transform = saved;
-            self.cmds.push(p::SceneCmd::PopTransform);
+            self.cmds.push(p::DrawCmd::PopTransform);
         }
     }
 
@@ -168,7 +169,7 @@ impl Draw {
                 filter.drop_shadow(shadow.offset.x, shadow.offset.y, shadow.blur, shadow.color);
         }
         self.cmds
-            .push(p::SceneCmd::PushLayer(Box::new(p::DrawingLayer {
+            .push(p::DrawCmd::PushLayer(Box::new(p::DrawingLayer {
                 area,
                 clip: layer.clip.as_ref().map(|shape| basic(area, shape)),
                 opacity: layer.opacity,

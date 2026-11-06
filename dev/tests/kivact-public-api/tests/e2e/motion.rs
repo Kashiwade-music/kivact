@@ -26,7 +26,7 @@ fn popped_exit_releases_layout_and_finishes_after_the_last_descendant() {
         let count = completions.clone();
         let (screen, shown) = mount(move || {
             let shown = signal(true);
-            let finished = kivact::view::callback(move |()| count.set(count.get() + 1));
+            let finished = kivact::state::callback(move |()| count.set(count.get() + 1));
             let exit = |duration| {
                 style().exit(style().opacity(0.0)).transition(
                     TransitionProp::Paint,
@@ -103,12 +103,12 @@ fn exit_completion_fires_for_instant_removal_and_skips_a_disposed_callback() {
     let count = completions.clone();
     let (screen, shown) = mount(move || {
         let shown = signal(true);
-        let finished = kivact::view::callback(move |()| count.set(count.get() + 1));
+        let finished = kivact::state::callback(move |()| count.set(count.get() + 1));
         (
             shown,
             show(shown, move || {
                 let disposed =
-                    kivact::view::callback::<(), ()>(|()| panic!("removed callback owner ran"));
+                    kivact::state::callback::<(), ()>(|()| panic!("removed callback owner ran"));
                 (
                     node().on_exit_complete(finished).style(
                         style().exit(style().opacity(0.0)).transition(
@@ -136,10 +136,7 @@ fn counter_app() -> (Screen, (FrameLoop, Rc<Cell<u64>>)) {
 /// at their own rate (a 60 Hz display caps them at 60 Hz, as the host
 /// paces ticks at most once per refresh).
 fn fast_display() -> RenderOptions {
-    RenderOptions {
-        frame_period_ns: 1_000_000,
-        ..RenderOptions::from_env()
-    }
+    RenderOptions::from_env().frame_period_ns(1_000_000)
 }
 
 fn counter_app_with(opts: RenderOptions) -> (Screen, (FrameLoop, Rc<Cell<u64>>)) {
@@ -163,9 +160,9 @@ fn fixed_rates_tick_the_theoretical_number_of_times() {
     }
 }
 
-fn animated_app(tr: Transition) -> (Screen, (Signal<f32>, Animated<f32>)) {
+fn animated_app(tr: Transition) -> (Screen, (Signal<f64>, Animated<f64>)) {
     mount(move || {
-        let target = signal(0.0f32);
+        let target = signal(0.0f64);
         let shown = animated(target, tr);
         ((target, shown), text(move || format!("{:.1}", shown.get())))
     })
@@ -204,7 +201,7 @@ fn reduced_motion_completes_decorative_transitions_only() {
     screen.run_until_idle();
     assert_eq!(decorative.get_untracked(), 10.0, "decorative: instant");
     let (screen2, (target2, info)) =
-        animated_app(Transition::tween(100, Easing::Linear).decorative(false));
+        animated_app(Transition::tween(100, Easing::Linear).essential());
     screen2.set_reduced_motion(true);
     target2.set(10.0);
     screen2.run_until_idle();
@@ -224,7 +221,7 @@ fn reduced_motion_completes_decorative_transitions_only() {
 
 #[test]
 fn keyframes_delay_and_repeat() {
-    let tr = Transition::keyframes([(0.0, 0.0f32), (0.5, 100.0), (1.0, 50.0)], 100).delay(20);
+    let tr = Transition::keyframes([(0.0, 0.0f64), (0.5, 100.0), (1.0, 50.0)], 100).delay(20);
     let (screen, (target, shown)) = animated_app(tr);
     target.set(50.0);
     screen.run_until_idle();
@@ -255,7 +252,7 @@ fn on_complete_runs_only_when_a_run_reaches_its_target() {
     let completions = Rc::new(Cell::new(0u32));
     let c2 = completions.clone();
     let (screen, (target, shown)) = mount(move || {
-        let target = signal(0.0f32);
+        let target = signal(0.0f64);
         let c3 = c2.clone();
         let shown = animated(target, Transition::tween(100, Easing::Linear))
             .on_complete(move || c3.set(c3.get() + 1));
@@ -373,5 +370,142 @@ fn reactive_text_color_transitions_on_inheriting_children() {
     screen.advance(ms(160));
     let settled = inherited.screenshot().pixels[at];
     assert!(settled & 255 > 220 && (settled >> 16) & 255 < 40);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
+fn layout_transition_moves_from_the_previous_position() {
+    let (screen, (expanded, presses)) = mount(move || {
+        let expanded = signal(false);
+        let presses = signal(0);
+        let content = row((
+            node().style(move || style().size(if expanded.get() { 240 } else { 40 }, 40)),
+            button("Moving")
+                .test_id("moving")
+                .on_press(move || presses.update(|count| *count += 1))
+                .style(move || {
+                    style()
+                        .size(if expanded.get() { 160 } else { 80 }, 40)
+                        .background(rgb(0xff0000))
+                        .layout_transition(Transition::tween(400, Easing::Linear))
+                }),
+        ));
+        ((expanded, presses), content)
+    });
+    let moving = screen.get_by_test_id("moving");
+    let before = moving.rect().unwrap();
+    expanded.set(true);
+    screen.run_until_idle();
+    let start = moving.rect().unwrap();
+    screen.advance(ms(160));
+    let midway = moving.rect().unwrap();
+    assert!(midway.x > start.x && midway.x < before.x + 200.0);
+    assert!(midway.width > start.width && midway.width < 160.0);
+    let painted = screen
+        .screenshot()
+        .pixel((midway.x + 8.0) as u32, (midway.y + 20.0) as u32)
+        .unwrap();
+    assert!(
+        (painted >> 16) & 255 > 200 && painted & 255 < 80,
+        "paint follows the displayed rectangle"
+    );
+    screen.click_at(
+        midway.x + midway.width / 2.0,
+        midway.y + midway.height / 2.0,
+    );
+    assert_eq!(
+        presses.get_untracked(),
+        1,
+        "hit testing follows the displayed rectangle"
+    );
+    screen.advance(ms(500));
+    let end = moving.rect().unwrap();
+    assert!(start.x < midway.x && midway.x < end.x);
+    assert!(end.x > before.x + 150.0);
+    assert!(end.width > midway.width);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
+fn proportional_retarget_shortens_the_remaining_time() {
+    use kivact::motion::Retarget;
+
+    let (screen, (target, proportional, restart)) = mount(move || {
+        let target = signal(0.0f64);
+        let timing = Transition::tween(800, Easing::Linear);
+        let proportional = animated(target, timing.clone().retarget(Retarget::Proportional));
+        let restart = animated(target, timing.clone());
+        let proportional_timing = timing.clone().retarget(Retarget::Proportional);
+        let paint_proportional = proportional_timing.clone();
+        let paint_restart = timing.clone();
+        let content = column((
+            node().test_id("proportional-layout").style(move || {
+                style()
+                    .size(target.get() + 20.0, 20)
+                    .layout_transition(proportional_timing.clone())
+            }),
+            node().test_id("restart-layout").style(move || {
+                style()
+                    .size(target.get() + 20.0, 20)
+                    .layout_transition(timing.clone())
+            }),
+            node().test_id("proportional-paint").style(move || {
+                style()
+                    .size(20, 20)
+                    .translate_x(target.get())
+                    .transition(TransitionProp::Paint, paint_proportional.clone())
+            }),
+            node().test_id("restart-paint").style(move || {
+                style()
+                    .size(20, 20)
+                    .translate_x(target.get())
+                    .transition(TransitionProp::Paint, paint_restart.clone())
+            }),
+        ));
+        ((target, proportional, restart), content)
+    });
+    screen.advance(ms(1000));
+    target.set(100.0);
+    screen.run_until_idle();
+    screen.advance(ms(320));
+    let current = proportional.get_untracked();
+    assert!(current > 0.0 && current < 100.0);
+    target.set(current + 10.0);
+    screen.run_until_idle();
+    screen.advance(ms(220));
+    let proportional_width = screen
+        .get_by_test_id("proportional-layout")
+        .rect()
+        .unwrap()
+        .width;
+    let restart_width = screen
+        .get_by_test_id("restart-layout")
+        .rect()
+        .unwrap()
+        .width;
+    assert!(
+        proportional_width > restart_width + 1.0,
+        "layout retarget shares the timing policy"
+    );
+    let proportional_x = screen
+        .get_by_test_id("proportional-paint")
+        .rect()
+        .unwrap()
+        .x;
+    let restart_x = screen.get_by_test_id("restart-paint").rect().unwrap().x;
+    assert!(
+        proportional_x > restart_x + 1.0,
+        "paint retarget shares the timing policy"
+    );
+    assert!(
+        !proportional.is_running(),
+        "the short remaining distance finishes sooner"
+    );
+    assert!(
+        restart.is_running(),
+        "restart keeps the configured duration"
+    );
+    screen.advance(ms(900));
+    assert!(!restart.is_running());
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }

@@ -5,8 +5,8 @@
 //! they are read once in setup and used while drawing; the drawing runs
 //! again when the App switches its messages.
 
-use kivact::Value;
 use kivact::i18n::{interpolate, message};
+use kivact::state::Value;
 
 /// The editors' texts (`editor.*`, `viewport.*`, `arrangement.*`).
 #[derive(Clone, Copy)]

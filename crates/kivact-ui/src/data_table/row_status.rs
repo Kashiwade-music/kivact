@@ -1,71 +1,13 @@
 //! Role: Named status markers in the table's leading accessory lane.
-use crate::{Tone, tooltip};
-use kivact_core::Value;
-use kivact_core::control::{Node, NodeBuilder, icon, node};
+use crate::tooltip;
 use kivact_core::i18n::message;
-use kivact_core::style::{
-    Align, Color, ColorToken, Icon, Justify, Theme, ThemeExtension, current_theme, style,
-};
-use kivact_core::view::{Role, View, dynamic};
+use kivact_core::state::Value;
+use kivact_core::style::{Align, Icon, Justify, style, use_theme};
+use kivact_core::view::{IntoView, Role, View, dynamic};
+use kivact_core::view::{Node, icon, node};
+use kivact_interaction::Tone;
 
-/// A status announced by name and shown in the table's leading lane.
-#[derive(Clone, Debug, PartialEq)]
-pub struct RowStatus {
-    label: String,
-    tone: Tone,
-    icon: Option<Icon>,
-    color: Option<Color>,
-}
-
-impl RowStatus {
-    /// Create a marker in the theme's color for this tone.
-    pub fn new(label: impl Into<String>, tone: Tone) -> Self {
-        Self {
-            label: label.into(),
-            tone,
-            icon: None,
-            color: None,
-        }
-    }
-
-    /// Use an explicit color instead of the theme's tone.
-    pub fn color(mut self, color: impl Into<Color>) -> Self {
-        self.color = Some(color.into());
-        self
-    }
-
-    /// Display a named or custom icon instead of the default mark.
-    pub fn icon(mut self, icon: impl Into<Icon>) -> Self {
-        self.icon = Some(icon.into());
-        self
-    }
-}
-
-/// The theme's row-status colors, in the same order as the named tones.
-#[derive(Clone, Debug, PartialEq)]
-pub struct DataTableRowStatusPaint {
-    pub neutral: Color,
-    pub info: Color,
-    pub success: Color,
-    pub warning: Color,
-    pub danger: Color,
-    pub accent: Color,
-    pub header_key: &'static str,
-}
-
-impl ThemeExtension for DataTableRowStatusPaint {
-    fn fallback(_: &Theme) -> Self {
-        Self {
-            neutral: ColorToken::TextMuted.into(),
-            info: ColorToken::Accent.into(),
-            success: ColorToken::Success.into(),
-            warning: ColorToken::Warning.into(),
-            danger: ColorToken::Danger.into(),
-            accent: ColorToken::Accent.into(),
-            header_key: "data_table.row_status.column_header",
-        }
-    }
-}
+use crate::table_values::RowStatus;
 
 fn lane() -> Node {
     node().style(
@@ -79,16 +21,22 @@ fn lane() -> Node {
 }
 
 pub(super) fn header() -> Node {
-    let paint = current_theme().get::<DataTableRowStatusPaint>();
+    let paint = use_theme()
+        .get()
+        .ext::<crate::UiTokens>()
+        .data_table
+        .row_status
+        .clone();
     lane()
         .role(Role::ColumnHeader)
         .name(message(paint.header_key, "Row status"))
 }
 
-pub(super) fn cell(status: Value<Option<RowStatus>>) -> Node {
-    lane()
-        .role(Role::GridCell)
-        .child(dynamic(status, |status| status.map(marker)))
+pub(super) fn cell(status: Value<Option<RowStatus>>, role: Role) -> (Node, View) {
+    (
+        lane().role(role),
+        dynamic(status, |status| status.map(marker)).into_view(),
+    )
 }
 
 fn marker(status: RowStatus) -> View {
@@ -116,7 +64,12 @@ fn marker(status: RowStatus) -> View {
         .focusable(true)
         .child(glyph.map(icon))
         .style(move || {
-            let paint = current_theme().get::<DataTableRowStatusPaint>();
+            let paint = use_theme()
+                .get()
+                .ext::<crate::UiTokens>()
+                .data_table
+                .row_status
+                .clone();
             let color = color.unwrap_or(match tone {
                 Tone::Neutral => paint.neutral,
                 Tone::Info => paint.info,

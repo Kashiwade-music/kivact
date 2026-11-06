@@ -6,6 +6,14 @@ Goal: install the kit's theme, pick an accent color and density, switch light an
 
 The kit's look is a plain Kivact `Theme`. Everything, including the standard components from `kivact::ui` (buttons, text fields, menus, dialogs), takes its appearance from it. This guide assumes you finished the [tutorial](../getting-started/README.md). The theme system itself is explained in [Change the theme and the look of components](../../../../for-kivact-user/en/how-to-guide/theming.md).
 
+Use `kivact::ui::toolbar(label).start(children).center(children).end(children)`
+for a named toolbar, `button_group(label, children)` for joined actions, and
+`toggle_group(label, options, selection)` for a single or multiple selection.
+The Creative theme supplies their dense spacing, field surfaces and pressed colors.
+For exclusive segments, use
+`kivact::ui::radio_group(label, options, selection).variant(kivact::ui::RadioGroupVariant::Segmented)`.
+These standard controls own keyboard navigation and selection; the theme supplies appearance.
+
 ## Install the theme
 
 ```rust,no_run
@@ -28,20 +36,21 @@ fn main() -> kivact::Result<()> {
 
 ## Choose an accent and a density
 
-Import the `ThemeOptions` trait (as `_`, because you only need its methods) and chain:
+Pass a `ThemeOptions` struct to `theme_with`, using `..Default::default()` for omitted fields:
 
 ```rust,no_run
 use kivact::style::{Theme, ThemeMode};
-use kivact_ui_creative::{self as ui, ThemeOptions as _};
+use kivact_ui_creative as ui;
 
 fn compact_lime() -> Theme {
-    ui::theme(ThemeMode::Dark)
-        .accent(ui::Accent::Lime)
-        .density(ui::Density::Compact)
+    ui::theme_with(ThemeMode::Dark, ui::ThemeOptions {
+        accent: ui::Accent::Lime,
+        density: ui::Density::Compact,
+    })
 }
 ```
 
-`Accent` has `Iris`, `Lime`, `Aqua`, `Coral` and `Amber`. The accent colors the selection, the focus ring and active controls. `Density::Compact` reduces the control height from 24 to 20 pixels and tightens gaps. Each call keeps everything else the theme already had.
+`Accent` has `Iris`, `Lime`, `Aqua`, `Coral` and `Amber`. The accent colors the selection, the focus ring and active controls. `Density::Compact` reduces the control height from 24 to 20 pixels and tightens gaps. Apply other theme settings to the resulting theme.
 
 ## Switch theme while the app runs
 
@@ -50,8 +59,8 @@ fn compact_lime() -> Theme {
 ```rust,no_run
 use kivact::prelude::*;
 use kivact::style::ThemeMode;
-use kivact::view::provide_theme;
-use kivact_ui_creative::{self as ui, ThemeOptions as _};
+use kivact::style::provide_theme;
+use kivact_ui_creative as ui;
 
 fn themed() -> impl IntoView {
     let dark = signal(true);
@@ -60,7 +69,7 @@ fn themed() -> impl IntoView {
     provide_theme(
         move || {
             let mode = if dark.get() { ThemeMode::Dark } else { ThemeMode::Light };
-            ui::theme(mode).accent(accent.get())
+            ui::theme_with(mode, ui::ThemeOptions { accent: accent.get(), ..Default::default() })
         },
         move || {
             column((
@@ -77,15 +86,15 @@ fn themed() -> impl IntoView {
                 style()
                     .gap(10)
                     .padding(16)
-                    .background(ui::Color::Canvas)
-                    .color(ui::Color::Text),
+                    .background(ui::ColorName::Canvas)
+                    .color(ui::ColorName::Text),
             )
         },
     )
 }
 ```
 
-`ui::Color` is the kit's own palette as a style value (`Canvas`, `Island`, `Header`, `Field`, `Hair`, `Text`, `Muted`, `Accent` and more). Anywhere a style takes a color it follows theme switches by itself, with no closure that reads the theme.
+`ui::ColorName` is the kit's own palette as a style value (`Canvas`, `Island`, `Header`, `Field`, `Hair`, `Text`, `Muted`, `Accent` and more). Anywhere a style takes a color it follows theme switches by itself, with no closure that reads the theme.
 
 ## Use your own fonts
 
@@ -103,7 +112,7 @@ fn app_with_font(font: &'static [u8]) -> App {
     let theme = ui::theme(ThemeMode::Dark);
 
     // The kit's tokens: change the families and put them back.
-    let mut tokens = (*theme.get::<ui::Tokens>()).clone();
+    let mut tokens = (*theme.ext::<ui::Tokens>()).clone();
     tokens.body_font = "Geist".into();
     tokens.mono_font = "Geist Mono".into();
 
@@ -125,8 +134,8 @@ fn app_with_font(font: &'static [u8]) -> App {
 An icon is a name in the theme's icon set. The kit's theme includes 16-pixel Tabler outline icons such as `play`, `pause`, `eye`, `eye-off`, `lock`, `folder`, `stack`, `layout-columns`, `adjustments`, `keyframes`, `palette`, `color-picker`, `chevron-down`, `plus`, `trash`, `search` and `x`. Draw one with `icon(name)`; it takes the surrounding text color.
 
 ```rust,no_run
-use kivact::Asset;
-use kivact::control::icon;
+use kivact::view::Asset;
+use kivact::view::icon;
 use kivact::prelude::*;
 use kivact::style::ThemeMode;
 use kivact_ui_creative as ui;
@@ -176,3 +185,13 @@ All keys start with `creative.`. Each component's rustdoc lists the keys it read
 - The kit's README lists every built-in icon name: `crates/kivact-ui-creative/README.md` in the repository.
 - Full API: `cargo doc -p kivact-ui-creative --open`
 - All the controls in the kit's look: `cargo run -p kivact-ui-creative-catalog`
+
+Standard `kivact::ui::badge`, `avatar`, `avatar_group`, `skeleton`, `spinner`, `kbd` and `kbd_combo` use Creative recipes. Semantic tones use the kit palette, key caps use the monospace font, and skeleton and spinner motion remain owned by Core. Creative `KeyGlyph` continues to mean a keyframe marker. See [Indicators and keyboard shortcuts](../../../../for-kivact-user/en/how-to-guide/indicators.md) for all image, fallback, status, size and motion options.
+
+Use canonical `kivact::ui::alert(title).description(body).tone(tone).variant(ui::NoticeVariant)` for an inline notice. Add `.icon(icon("warning"))`, `.dismissible(true)` and `.dismiss_content(icon("x"))` for the original icon and square close button. Core owns dismissal and focus restoration. Standard empty states, cards and input groups also use Creative recipes; all [feedback options](../../../../for-kivact-user/en/how-to-guide/feedback.md) remain available.
+
+Use `kivact::ui::progress(value).variant(ProgressVariant::Ring)` or `Gauge`, `stat(label, value)`, `heading(text, level)` and `description_list((description(term, detail), ...))` for read-only overview displays. Creative keeps the 8-pixel bar appearance and supplies dense metric typography. Core retains indeterminate motion, percentage semantics and all custom content slots. Editable `ui::property_row` remains a domain control. See [Metrics and descriptions](../../../../for-kivact-user/en/how-to-guide/metrics-and-description.md).
+
+Editable `ui::property_row` composes the canonical description display. Its row exposes `Role::ListItem`; group related rows with `kivact::ui::description_list` or a `Role::List` layout container. The label width, row height, leading/trailing controls and edit bindings are unchanged.
+
+Static `kivact::ui::table` parts and `item_list` / `item_row` use the dense Creative collection recipes. Use [Lists and tables](../../../../for-kivact-user/en/how-to-guide/lists-and-tables.md) for their content and accessibility contracts. The domain outliner remains one `use_tree` model rendered through canonical `tree_rows`, retaining filtering, fixed-width cells, visibility, restrictions and drag proposals.

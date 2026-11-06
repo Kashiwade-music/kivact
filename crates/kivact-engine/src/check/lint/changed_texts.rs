@@ -2,8 +2,9 @@
 
 use super::state::BoxKey;
 use crate::check::{text_findings, visual_parent_of};
+use crate::contract::{HostEvent, NodeType};
 use crate::model::Model;
-use kivact_wire::{HostEvent, LayoutCheck, NodeId, NodeType, Point};
+use kivact_types::{LayoutCheck, NodeId, Point};
 
 /// The box key of the text `id`.
 fn key(host: &Model, id: NodeId, check: &LayoutCheck) -> Option<BoxKey> {
@@ -45,13 +46,8 @@ impl Model {
         let host = &*self;
         lint.keys.retain(|id, _| host.tree().contains(*id));
         let is_text = |id: &NodeId| {
-            host.node(*id).is_some_and(|n| {
-                n.kind() == NodeType::Text
-                    || host.editors[n.index.0]
-                        .as_deref()
-                        .map(|editor| editor.editor.state())
-                        .is_some()
-            })
+            host.node(*id)
+                .is_some_and(|n| n.kind() == NodeType::Text || host.editors[n.index.0].is_some())
         };
         let mut ids: Vec<NodeId> = if laid_out {
             host.tree()

@@ -2,8 +2,9 @@
 //! modal), then the default actions `Handled::No` leaves (Enter/Space
 //! activation, Escape dismissal).
 
-use kivact_reactive::Runtime;
-use kivact_wire::{A11yRequest, DismissReason, HostEvent, KeyPhase};
+use kivact_engine::contract::HostEvent;
+use kivact_runtime::Runtime;
+use kivact_types::{A11yRequest, DismissReason, KeyPhase};
 
 use super::a11y::run_a11y;
 use super::common::{handler, is_disabled, node_owner, run_handler, stale};
@@ -13,46 +14,30 @@ use crate::view::overlays;
 use crate::view::state::ViewState;
 
 pub(super) fn key(rt: &Runtime, host_event: &HostEvent) {
-    let HostEvent::Key {
-        node,
-        region,
-        key,
-        code,
-        phase,
-        modifiers,
-        pointer,
-    } = host_event
-    else {
-        unreachable!("`dispatch` routes only `HostEvent::Key` here");
+    let HostEvent::Key(routed) = host_event else {
+        unreachable!("dispatch routes key input here");
     };
+    let node = routed.target;
+    let region = routed.region;
+    let phase = &routed.input.phase;
     let released = matches!(phase, KeyPhase::Up);
-    let (repeat, text) = match phase {
-        KeyPhase::Down { repeat, text } => (*repeat, text.clone()),
-        KeyPhase::Up => (false, None),
-    };
-    let route = overlays::key_route(rt, *node);
+    let route = overlays::key_route(rt, node);
     let target = route.target;
     if ViewState::tree(rt).get(target).is_none() {
         return stale(rt, "key", target);
     }
+    let mut handler_route = routed.clone();
+    if Some(target) != node {
+        handler_route.region = None;
+    }
     let e = KeyEvent {
-        origin: node.map(|node| kivact_wire::FocusTarget {
-            node,
-            region: *region,
-        }),
-        region: if Some(target) == *node { *region } else { None },
-        key: *key,
-        code: *code,
-        modifiers: *modifiers,
-        repeat,
-        text,
-        pointer: *pointer,
+        routed: handler_route,
         target_role: region
             .and_then(|region| {
                 let tree = ViewState::tree(rt);
                 [
-                    kivact_wire::SceneLayer::Draw,
-                    kivact_wire::SceneLayer::DrawOver,
+                    kivact_engine::contract::SceneLayer::Draw,
+                    kivact_engine::contract::SceneLayer::DrawOver,
                 ]
                 .into_iter()
                 .filter_map(|layer| tree.scene(target, layer))
@@ -61,7 +46,7 @@ pub(super) fn key(rt: &Runtime, host_event: &HostEvent) {
                         .regions
                         .iter()
                         .find(|r| r.id == region)
-                        .map(|r| r.role)
+                        .and_then(|r| r.semantics.role)
                 })
             })
             .or_else(|| ViewState::tree(rt).role(target)),
@@ -88,7 +73,7 @@ pub(super) fn key(rt: &Runtime, host_event: &HostEvent) {
         if Some(id) == route.stop {
             break; // keys do not leave an open modal
         }
-        cur = ViewState::tree(rt).get(id).and_then(|n| n.parent);
+        cur = ViewState::tree(rt).reader().parent(id);
     }
     // Every default action below is skipped by `Yes` and by
     // `PreventDefault`.
@@ -96,12 +81,12 @@ pub(super) fn key(rt: &Runtime, host_event: &HostEvent) {
     if default
         && route.activates
         && matches!(phase, KeyPhase::Down { repeat: false, .. })
-        && matches!(e.key, UKey::Enter | UKey::Space)
-        && e.modifiers == Modifiers::default()
+        && matches!(e.key(), UKey::Enter | UKey::Space)
+        && e.modifiers() == Modifiers::default()
     {
         // Default action of the focused control (Enter/Space → Activate).
         let region = e
-            .origin
+            .origin()
             .filter(|origin| origin.node == target)
             .and_then(|origin| origin.region);
         activate(rt, target, region);

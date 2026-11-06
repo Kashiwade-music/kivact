@@ -1,8 +1,9 @@
 //! Role: Focus processing: tab stops, Tab order, focus requests and automatic moves.
 
-use super::state::Focused;
+use super::state::{FocusVisibility, Focused, Reveal};
+use crate::contract::{HostEvent, RovingFocus};
 use crate::model::Model;
-use kivact_wire::{FocusTarget, HostEvent, NodeId, RovingFocus};
+use kivact_types::{FocusTarget, NodeId};
 use std::collections::HashSet;
 
 impl Model {
@@ -10,7 +11,9 @@ impl Model {
     /// (after the next layout pass).
     pub(crate) fn reveal(&mut self, id: NodeId) {
         self.focus.reveal.push(id);
-        self.changes.needs_layout = true;
+        self.changes
+            .layout
+            .insert(crate::model::changes::LayoutReasons::PASS);
     }
 
     /// At a commit: a focus the host moved on its own is revealed, like a
@@ -19,7 +22,7 @@ impl Model {
         let Some(f) = &mut self.focus.focused else {
             return;
         };
-        if std::mem::take(&mut f.reveal_at_commit) {
+        if std::mem::take(&mut f.reveal) == Reveal::AtCommit {
             let node = f.target.node;
             self.reveal(node);
         }
@@ -46,13 +49,16 @@ impl Model {
         let Some(node) = self.tree.get(target.node) else {
             return false;
         };
+        if node.is_transparent() {
+            return false;
+        }
         match target.region {
             None => node.focusable(self.editors[node.index.0].is_some()),
             Some(id) => {
                 !node.disabled()
-                    && node
-                        .region(id)
-                        .is_some_and(|r| r.focusable && !r.disabled && !r.hidden)
+                    && node.region(id).is_some_and(|r| {
+                        r.semantics.focusable && !r.semantics.disabled && !r.semantics.hidden
+                    })
             }
         }
     }
@@ -60,7 +66,7 @@ impl Model {
     /// All declared targets in node, region, then descendant order.
     pub(in crate::model) fn focus_order(&self) -> Vec<FocusTarget> {
         let mut targets = Vec::new();
-        for id in self.tree.preorder() {
+        for id in self.tree.flat_preorder() {
             targets.push(FocusTarget {
                 node: id,
                 region: None,
@@ -175,7 +181,9 @@ impl Model {
         };
         self.set_focus_visible(Some(stops[next]), true);
         self.focus.reveal.push(stops[next].node);
-        self.changes.needs_layout = true;
+        self.changes
+            .layout
+            .insert(crate::model::changes::LayoutReasons::PASS);
         true
     }
 
@@ -193,7 +201,9 @@ impl Model {
         }
         self.set_focus_visible(Some(target), visible);
         self.focus.reveal.push(target.node);
-        self.changes.needs_layout = true;
+        self.changes
+            .layout
+            .insert(crate::model::changes::LayoutReasons::PASS);
         Ok(())
     }
 
@@ -232,13 +242,21 @@ impl Model {
     ) {
         let new = target.map(|target| Focused {
             target,
-            visible,
-            reveal_at_commit: host_move,
+            visibility: if visible {
+                FocusVisibility::Visible
+            } else {
+                FocusVisibility::Hidden
+            },
+            reveal: if host_move {
+                Reveal::AtCommit
+            } else {
+                Reveal::No
+            },
         });
         let old = self.focus.focused;
-        if old.map(|f| (f.target, f.visible)) == new.map(|f| (f.target, f.visible)) {
+        if old.map(|f| (f.target, f.visibility)) == new.map(|f| (f.target, f.visibility)) {
             if host_move && let Some(f) = &mut self.focus.focused {
-                f.reveal_at_commit = true;
+                f.reveal = Reveal::AtCommit;
             }
             return;
         }
@@ -254,7 +272,9 @@ impl Model {
             if self.tree.get(n).and_then(|x| x.states()).is_some_and(|s| {
                 (s.focus.is_some() || s.focus_visible.is_some()) && crate::tree::states_place(s)
             }) {
-                self.changes.needs_layout = true;
+                self.changes
+                    .layout
+                    .insert(crate::model::changes::LayoutReasons::PASS);
                 self.changes.moved();
             }
         }
@@ -283,12 +303,15 @@ impl Model {
                 self.restyled(id);
             }
         }
-        self.changes.a11y_focus |= old_target != target;
+        if old_target != target {
+            self.a11y.request_publication(std::iter::empty());
+        }
         self.focus.focused = new;
+        self.update_ime_target();
         self.push(HostEvent::FocusChanged {
             node: target.map(|t| t.node),
             region: target.and_then(|t| t.region),
-            visible: new.is_some_and(|f| f.visible),
+            visible: new.is_some_and(|f| f.visibility == FocusVisibility::Visible),
         });
     }
 
@@ -358,6 +381,7 @@ impl Model {
 
     /// Revalidate an exact target after props or scenes change.
     pub(crate) fn revalidate_focus(&mut self) {
+        self.update_ime_target();
         let Some(focus) = self.focus.target() else {
             return;
         };

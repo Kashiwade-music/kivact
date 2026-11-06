@@ -1,15 +1,14 @@
 //! Role: Dynamic, caller-owned choice identities in the existing Pop catalogue.
 
 use super::common::{card, cards_grid, half, section, wrap};
-use kivact::Binding;
+use kivact::interaction::ListItem;
 use kivact::prelude::{
     ColorToken, IntoText, IntoValue, Node, NodeBuilder, column, row, signal, text,
 };
 use kivact::style::{Align, style};
-use kivact::ui::{ListItem, RadioGroup};
+use kivact::ui::RadioGroup;
 use kivact::view::Orientation;
 use kivact_ui_pop as ui;
-use std::hash::Hash;
 
 fn option(key: &str, label: &str) -> ListItem<String> {
     ListItem::new(key.to_owned(), label)
@@ -17,21 +16,21 @@ fn option(key: &str, label: &str) -> ListItem<String> {
 
 /// A segmented control: a standard radio group in the kit's pill look, its
 /// segments showing the icon, the label and the count badge.
-fn segmented<K: Clone + Eq + Hash + 'static>(
+fn segmented<K: kivact::state::ItemKey>(
     label: impl IntoText,
     options: impl IntoValue<Vec<ListItem<K>>>,
-    value: impl Into<Binding<Option<K>>>,
+    value: impl kivact::state::IntoBinding<Option<K>>,
 ) -> RadioGroup<K> {
     kivact::ui::radio_group(label, options, value)
         .orientation(Orientation::Horizontal)
-        .variant(ui::Segmented)
+        .variant(kivact::ui::RadioGroupVariant::Segmented)
 }
 
 pub(super) fn selection() -> Node {
     let tab = signal("overview".to_owned());
     let tabs = signal(vec![
         option("overview", "概要"),
-        option("skills", "スキル").description("4"),
+        option("skills", "スキル").with_description("4"),
         option("equipment", "装備"),
         option("profile", "プロフィール"),
     ]);
@@ -43,9 +42,9 @@ pub(super) fn selection() -> Node {
     ]);
     let period = signal(Some("day".to_owned()));
     let layouts = signal(vec![
-        option("cards", "カード").icon("layout-grid"),
-        option("list", "リスト").icon("list"),
-        option("chart", "チャート").icon("chart-bar"),
+        option("cards", "カード").with_icon("layout-grid"),
+        option("list", "リスト").with_icon("list"),
+        option("chart", "チャート").with_icon("chart-bar"),
     ]);
     let layout = signal(Some("cards".to_owned()));
     let segments = column((
@@ -54,11 +53,11 @@ pub(super) fn selection() -> Node {
         kivact::ui::button("表示方法を並べ替え")
             .on_press(move || layouts.update(|options| options.reverse())),
         wrap((
-            kivact::ui::toggle("ストライカー", signal(true)),
-            kivact::ui::toggle("スペシャル", kivact::signal(false)),
-            kivact::ui::toggle("タンク", signal(true)),
-            kivact::ui::toggle("ヒーラー", kivact::signal(false)),
-            kivact::ui::toggle("サポート", kivact::signal(false)),
+            kivact::ui::toggle_button("ストライカー", signal(true)),
+            kivact::ui::toggle_button("スペシャル", kivact::state::signal(false)),
+            kivact::ui::toggle_button("タンク", signal(true)),
+            kivact::ui::toggle_button("ヒーラー", kivact::state::signal(false)),
+            kivact::ui::toggle_button("サポート", kivact::state::signal(false)),
         )),
     ))
     .style(style().gap(16).align_items(Align::Start));
@@ -78,7 +77,7 @@ pub(super) fn selection() -> Node {
                     } else {
                         options.insert(
                             1.min(options.len()),
-                            option("skills", "スキル").description("4"),
+                            option("skills", "スキル").with_description("4"),
                         );
                     }
                 })

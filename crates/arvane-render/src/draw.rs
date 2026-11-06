@@ -1,7 +1,7 @@
 //! Role: Drawing of a scene's commands, shared by the CPU and the GPU renderers.
 //!
 //! Drawing a scene's commands, the same on the CPU and the GPU: the one
-//! place that gives every `DrawCommand` its meaning.
+//! place that gives every `RenderCmd` its meaning.
 //!
 //! vello_cpu's render context and vello_hybrid's scene are two backends of
 //! the same sparse-strip pipeline (vello_common flattens paths and makes
@@ -13,7 +13,7 @@
 //! are sampled (from a pixmap on the CPU, from a texture on the GPU) and
 //! in how patterns repeat (`Canvas::fill_pattern`).
 //!
-//! External frames (`DrawCommand::External`, textures an application's
+//! External frames (`RenderCmd::External`, textures an application's
 //! render engine shares) are placed, clipped and faded as images are; only
 //! the GPU canvas has them, and only frames ready for the frame being
 //! drawn (`Canvas::external_size`): elsewhere nothing is drawn. A

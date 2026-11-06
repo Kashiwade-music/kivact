@@ -1,4 +1,4 @@
-//! Role: Scene presentation and frame policy.
+//! Role: RenderScene presentation and frame policy.
 //!
 //! Presenting scenes to a window: the renderers, their life cycle and the
 //! frame policy behind [`crate::Window::present`]. Each window has one
@@ -6,8 +6,8 @@
 //! ([`Presented`]).
 //!
 //! Frames go through the window's GPU surface when the GPU renderer is
-//! ready (feature `gpu`), else they are rasterized on the CPU straight into
-//! the window's CPU surface. A native window's presenter starts the GPU on
+//! ready (`arvane-render` built with its feature `gpu`), else they are
+//! rasterized on the CPU straight into the window's CPU surface. A native window's presenter starts the GPU on
 //! a worker thread with the window (the first frames are drawn on the CPU)
 //! and moves the start along on the shell's wakes (`gpu.rs`).
 //!
@@ -39,21 +39,16 @@
 //!   ([`RendererChange`]: one line starting with `renderer=`), and so is an
 //!   external frame the GPU did not draw (not ready within 100 ms, or
 //!   already given back to its engine), once per frame value.
-//! - Images an external render engine shares (feature `gpu-interop`) are
-//!   imported into the window's own device and go with it: a device
-//!   failure, a new device or the presenter's drop releases every frame
-//!   of them (`arvane-render`'s `gpu/external.rs`).
+//! - Images an external render engine shares (`arvane-render`'s feature
+//!   `gpu-interop`) are imported into the window's own device and go with
+//!   it: a device failure, a new device or the presenter's drop releases
+//!   every frame of them (`arvane-render`'s `gpu/external.rs`).
 
 mod frame;
 mod frame_policy;
-#[cfg(feature = "gpu")]
 mod gpu;
 mod health;
-#[cfg(feature = "testing")]
-mod test_frames;
 
 pub use frame::{FramePlan, Presented};
 pub(crate) use frame::{no_pixels, no_surface};
 pub(crate) use frame_policy::Presenter;
-#[cfg(feature = "testing")]
-pub(crate) use test_frames::surface_pixels;

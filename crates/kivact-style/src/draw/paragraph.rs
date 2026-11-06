@@ -30,10 +30,10 @@ use std::ops::Range;
 use std::rc::Rc;
 use std::sync::Arc;
 
-use kivact_wire::{self as p, SceneCmd, ShapedText, TextLine};
+use kivact_types::{self as p, DrawCmd, TextLine};
 
+use super::TextFormat;
 use super::recorder::Draw;
-use super::text_run::{TextRun, TextStyle};
 use crate::geometry::{Point, Rect, Size};
 
 /// A shaped paragraph with positions for measured in-flow objects.
@@ -49,7 +49,9 @@ pub struct InlineParagraph {
 
 impl InlineParagraph {
     /// Convert a host shaping snapshot into a drawable paragraph and object positions.
-    pub fn from_shaped(text: &str, shaped: p::ShapedInlineText, max_width: Option<f32>) -> Self {
+    // xtask-allow(internal-contract): Core text shapers adapt engine output; applications use shape_paragraph or Draw layout.
+    #[doc(hidden)]
+    pub fn from_shaped(text: &str, shaped: p::ShapedInlineText, max_width: Option<f64>) -> Self {
         Self {
             text: TextParagraph::from_shaped(text, shaped.text, max_width),
             boxes: shaped.boxes,
@@ -77,11 +79,12 @@ impl InlineParagraph {
 ///
 /// ```no_run
 /// use kivact::prelude::*;
-/// use kivact::draw::{Draw, Point, Rect, Size, TextStyle};
+/// use kivact::draw::{Draw, TextFormat};
+/// use kivact::geometry::{Point, Rect, Size};
 ///
 /// // A line of text with the selected bytes highlighted.
 /// fn selected(d: &mut Draw, text: &str, range: std::ops::Range<usize>) {
-///     let paragraph = d.layout_paragraph(text, &TextStyle::default(), None);
+///     let paragraph = d.layout_paragraph(text, &TextFormat::default(), None);
 ///     for band in paragraph.rects(range) {
 ///         d.fill_rect(band, ColorToken::Selection);
 ///     }
@@ -94,8 +97,8 @@ pub struct TextParagraph(Rc<Shaped>);
 
 struct Shaped {
     text: Rc<str>,
-    shaped: Arc<ShapedText>,
-    max_width: Option<f32>,
+    shaped: kivact_types::ShapedTextSnapshot,
+    max_width: Option<f64>,
 }
 
 impl PartialEq for TextParagraph {
@@ -124,10 +127,12 @@ impl TextParagraph {
     ///
     /// An empty `cluster_boundaries` list in `shaped` means every grapheme
     /// boundary is a stop for hits and movement.
+    // xtask-allow(internal-contract): Core text shapers adapt engine output; applications use shape_paragraph or Draw layout.
+    #[doc(hidden)]
     pub fn from_shaped(
         text: impl Into<Rc<str>>,
-        shaped: Arc<ShapedText>,
-        max_width: Option<f32>,
+        shaped: kivact_types::ShapedTextSnapshot,
+        max_width: Option<f64>,
     ) -> Self {
         TextParagraph(Rc::new(Shaped {
             text: text.into(),
@@ -142,7 +147,7 @@ impl TextParagraph {
     }
 
     /// The width it was wrapped at (`None`: not wrapped).
-    pub fn max_width(&self) -> Option<f32> {
+    pub fn max_width(&self) -> Option<f64> {
         self.0.max_width
     }
 
@@ -152,7 +157,7 @@ impl TextParagraph {
     }
 
     /// The first line's baseline, from the top.
-    pub fn baseline(&self) -> f32 {
+    pub fn baseline(&self) -> f64 {
         self.0.shaped.baseline
     }
 
@@ -198,7 +203,7 @@ impl TextParagraph {
     /// The text for assistive technology, one run per line, placed at
     /// `origin` in the node (the point `Draw::paragraph` drew it at), with
     /// the selection from byte `anchor` to byte `caret`. Give it to
-    /// `NodeExt::semantics_text`.
+    /// `Node::semantics_text`.
     pub fn semantics_text(&self, origin: Point, anchor: usize, caret: usize) -> p::SemanticsText {
         let text = self.text();
         let at = |r: Rect| Rect {
@@ -251,7 +256,7 @@ impl TextParagraph {
             from = end;
         }
         p::SemanticsText {
-            runs: runs.into(),
+            runs: p::SemanticsTextRuns::from_shared(runs.into()),
             start: 0,
             selection: (
                 self.scalar(self.floor(anchor)) as u32,
@@ -262,8 +267,8 @@ impl TextParagraph {
     }
 
     /// The shaping this paragraph draws (a scene command's).
-    pub(super) fn shaped(&self) -> Arc<ShapedText> {
-        Arc::clone(&self.0.shaped)
+    pub(super) fn shaped(&self) -> kivact_types::ShapedTextSnapshot {
+        self.0.shaped.clone()
     }
 
     /// `offset` cut to the text and to the char boundary at or before it.
@@ -290,15 +295,15 @@ impl Draw {
     pub fn layout_paragraph(
         &self,
         text: &str,
-        style: &TextStyle,
-        max_width: Option<f32>,
+        style: &TextFormat,
+        max_width: Option<f64>,
     ) -> TextParagraph {
         let origin = p::Point { x: 0.0, y: 0.0 };
-        let run = TextRun::from_style(text, origin, style, 1.0, p::Rgba::TRANSPARENT, None);
+        let run = super::text_run(text, origin, style, 1.0, p::Rgba::TRANSPARENT, None);
         let shaped = self
             .measurer
             .as_ref()
-            .and_then(|shaper| shaper.shape(run.as_wire(), max_width))
+            .and_then(|shaper| shaper.shape(&run, max_width))
             .unwrap_or_default();
         TextParagraph::from_shaped(text, shaped, max_width)
     }
@@ -308,11 +313,11 @@ impl Draw {
     pub fn layout_inline_paragraph(
         &self,
         text: &str,
-        style: &TextStyle,
-        max_width: Option<f32>,
+        style: &TextFormat,
+        max_width: Option<f64>,
         boxes: &[p::InlineBox],
     ) -> Option<InlineParagraph> {
-        let run = TextRun::from_style(
+        let run = super::text_run(
             text,
             p::Point::default(),
             style,
@@ -323,7 +328,7 @@ impl Draw {
         let shaped = self
             .measurer
             .as_ref()?
-            .shape_inline(run.as_wire(), max_width, boxes)?;
+            .shape_inline(&run, max_width, boxes)?;
         Some(InlineParagraph::from_shaped(text, shaped, max_width))
     }
 
@@ -336,7 +341,7 @@ impl Draw {
         color: impl crate::theme::value::ThemeColor,
     ) {
         let color = self.color(color.resolve(&self.theme));
-        self.cmds.push(SceneCmd::Paragraph {
+        self.cmds.push(DrawCmd::Paragraph {
             shaped: paragraph.shaped(),
             origin,
             color,

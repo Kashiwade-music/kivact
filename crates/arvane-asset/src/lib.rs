@@ -1,4 +1,5 @@
 //! Role: Arvane assets: images, SVG and font files.
+
 //!
 //! Loading, format detection, decoding, SVG rasterization, monochrome
 //! tinting, fit geometry, the decoded-image cache and its worker thread,
@@ -13,7 +14,7 @@
 //!   thread ([`AssetStore::new`]) or synchronously ([`AssetStore::inline`],
 //!   the test driver's mode). [`AssetStore::image`] answers an
 //!   [`ImageState`] (pending, ready with the natural size, failed);
-//!   [`AssetStore::pixels`] gives the [`Pixels`] to draw for a device size
+//!   [`AssetStore::pixels`] gives the [`AssetImage`] to draw for a device size
 //!   and an optional tint ([`AssetStore::pixels_in`] for the visible part
 //!   [`Region`] of a clipped image); [`AssetStore::peek`] reads the cache
 //!   without starting work; [`AssetStore::begin_frame`] marks a frame of
@@ -38,7 +39,7 @@
 //!   PNG, JPEG (with its EXIF orientation applied), GIF and WebP (first
 //!   frame), SVG and SVGZ. Anything else fails with the detected format
 //!   named.
-//! - Pixels are straight-alpha RGBA8, `width * height * 4` bytes. A raster
+//! - AssetImage are straight-alpha RGBA8, `width * height * 4` bytes. A raster
 //!   image's natural size is its pixel size (one pixel per logical px); an
 //!   SVG's is its `width`/`height`, else its `viewBox`.
 //! - Limits: encoded input up to 64 MiB (SVGZ also once decompressed), SVG
@@ -53,7 +54,6 @@
 //! - The store lives on its host's UI thread; only its worker thread runs
 //!   loads, decodes and rasterizations.
 
-mod detached;
 mod error;
 mod fit;
 mod font;
@@ -66,7 +66,6 @@ mod source;
 mod store;
 mod svg;
 
-pub use detached::detached_threads;
 pub use error::{AssetError, AssetErrorKind};
 pub use fit::{FitRect, ImageFit, Region, fit_image};
 pub use font::{
@@ -75,6 +74,6 @@ pub use font::{
 };
 pub use kivact_types::Asset;
 pub use limits::{MAX_ENCODED_BYTES, MAX_IMAGE_EDGE, MAX_SVG_RASTER_EDGE};
-pub use pixels::{PixelSize, Pixels};
+pub use pixels::{AssetImage, PixelSize};
 pub use store::image_state::ImageState;
 pub use store::{AssetStore, DEFAULT_BUDGET};

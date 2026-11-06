@@ -1,0 +1,20 @@
+[package]
+name = "arvane-virtual"
+authors.workspace = true
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Scripted virtual Arvane backend"
+
+[dependencies]
+arvane-shell = { path = "../arvane-shell", version = "0.1.0" }
+kivact-types = { path = "../kivact-types", version = "0.1.0" }
+arvane-native = { path = "../arvane-native", version = "0.1.0", optional = true }
+
+[features]
+default = []
+mirror = ["dep:arvane-native", "arvane-native/test"]
+
+[lints]
+workspace = true

@@ -1,9 +1,16 @@
 //! Role: What every module uses: test windows, scenes and pixels.
 
-use arvane::test_display::{VirtualWindow, VirtualWindowOptions, test_font};
-use arvane::{Engine, Presented, Window as _};
-use kivact_types::protocol::{DrawCommand, Paint, Scene};
+use arvane::spi::{Step, StepOutcome};
+use arvane::{Engine, Presented};
+use arvane::{
+    Handler, Shell, ShellControl, ShellError, ShellEvent, ShellSetup, ShellWaker, SteppedShell,
+    Window, test_font,
+};
+use arvane_virtual::{GpuMode, Probe, Script, VirtualBackend, VirtualOptions};
+use kivact_types::render::{Paint, RenderCmd, RenderScene};
 use kivact_types::{Rect, Rgba, Size};
+use std::cell::RefCell;
+use std::rc::Rc;
 
 /// 60 Hz.
 pub(crate) const PERIOD: u64 = 16_666_667;
@@ -15,8 +22,8 @@ pub(crate) const BLUE: u32 = 0x0000_00ff;
 /// The options of a CPU test window of `width` × `height` logical pixels at
 /// scale 1, a real window where one can open (else headless), titled
 /// after the test.
-pub(crate) fn options(width: f32, height: f32) -> VirtualWindowOptions {
-    VirtualWindowOptions {
+pub(crate) fn options(width: f64, height: f64) -> VirtualOptions {
+    VirtualOptions {
         title: std::thread::current()
             .name()
             .unwrap_or("arvane e2e")
@@ -29,8 +36,8 @@ pub(crate) fn options(width: f32, height: f32) -> VirtualWindowOptions {
 
 /// A CPU test window of `width` × `height` logical pixels (see
 /// [`options`]).
-pub(crate) fn open(width: f32, height: f32) -> VirtualWindow {
-    VirtualWindow::open(options(width, height)).expect("a test window opens")
+pub(crate) fn open(width: f64, height: f64) -> Harness {
+    Harness::open(options(width, height))
 }
 
 /// Text that sees the bundled test font only.
@@ -38,7 +45,7 @@ pub(crate) fn engine() -> Engine {
     Engine::with_fonts_only(&[test_font()]).expect("the test font is usable")
 }
 
-pub(crate) fn rect(x: f32, y: f32, width: f32, height: f32) -> Rect {
+pub(crate) fn rect(x: f64, y: f64, width: f64, height: f64) -> Rect {
     Rect {
         x,
         y,
@@ -53,8 +60,8 @@ pub(crate) fn color(rgb: u32) -> Rgba {
 }
 
 /// A straight-alpha color from 0x00RRGGBB and an alpha.
-pub(crate) fn color_alpha(rgb: u32, a: f32) -> Rgba {
-    let channel = |shift: u32| ((rgb >> shift) & 0xff) as f32 / 255.0;
+pub(crate) fn color_alpha(rgb: u32, a: f64) -> Rgba {
+    let channel = |shift: u32| ((rgb >> shift) & 0xff) as f64 / 255.0;
     Rgba {
         r: channel(16),
         g: channel(8),
@@ -63,28 +70,30 @@ pub(crate) fn color_alpha(rgb: u32, a: f32) -> Rgba {
     }
 }
 
-pub(crate) fn fill(x: f32, y: f32, width: f32, height: f32, rgb: u32) -> DrawCommand {
-    DrawCommand::Rect {
+pub(crate) fn fill(x: f64, y: f64, width: f64, height: f64, rgb: u32) -> RenderCmd {
+    RenderCmd::Rect {
         rect: rect(x, y, width, height),
         fill: Paint::Solid(color(rgb)),
     }
 }
 
-pub(crate) fn scene(commands: Vec<DrawCommand>) -> Scene {
-    Scene { commands }
+pub(crate) fn scene(commands: Vec<RenderCmd>) -> RenderScene {
+    RenderScene { commands }
 }
 
 /// Present `commands` as the window plans its frame.
-pub(crate) fn present(window: &mut VirtualWindow, commands: Vec<DrawCommand>) -> Presented {
-    let plan = window.frame_plan();
-    window
-        .present(&scene(commands), plan)
-        .expect("the window can present")
+pub(crate) fn present(window: &mut Harness, commands: Vec<RenderCmd>) -> Presented {
+    let result = window.with(move |w| {
+        let plan = w.frame_plan();
+        w.present(&scene(commands), plan)
+    });
+    window.record(&result);
+    result.expect("the window can present")
 }
 
 /// Present `commands` and require the frame to be shown.
 #[track_caller]
-pub(crate) fn show(window: &mut VirtualWindow, commands: Vec<DrawCommand>) {
+pub(crate) fn show(window: &mut Harness, commands: Vec<RenderCmd>) {
     let presented = present(window, commands);
     assert!(
         matches!(presented, Presented::Shown { .. }),
@@ -94,8 +103,8 @@ pub(crate) fn show(window: &mut VirtualWindow, commands: Vec<DrawCommand>) {
 
 /// The last frame's 0x00RRGGBB pixel at physical `(x, y)`.
 #[track_caller]
-pub(crate) fn pixel(window: &VirtualWindow, x: u32, y: u32) -> u32 {
-    let (width, height, pixels) = window.frame().expect("a frame was presented");
+pub(crate) fn pixel(window: &Harness, x: u32, y: u32) -> u32 {
+    let (width, height, pixels) = window.probe().frame().expect("a frame was presented");
     assert!(x < width && y < height, "({x}, {y}) is in the frame");
     pixels[(y * width + x) as usize]
 }
@@ -124,7 +133,7 @@ pub(crate) fn solid(rgb: u32) -> Paint {
     Paint::Solid(color(rgb))
 }
 
-pub(crate) fn pt(x: f32, y: f32) -> kivact_types::Point {
+pub(crate) fn pt(x: f64, y: f64) -> kivact_types::Point {
     kivact_types::Point { x, y }
 }
 
@@ -156,22 +165,21 @@ impl FrameDiff {
 
 /// The frames of `frames` (one scene per frame, in order) on a CPU and a
 /// GPU test window of `width` × `height`, compared frame by frame. The
-/// caller skips when `arvane::test_display::gpu_unavailable` says so.
+/// caller skips when `arvane::gpu_unavailable` says so.
 pub(crate) fn gpu_against_cpu(
-    (width, height): (f32, f32),
-    frames: &[Vec<DrawCommand>],
+    (width, height): (f64, f64),
+    frames: &[Vec<RenderCmd>],
 ) -> Vec<FrameDiff> {
     let run = |gpu: bool| {
-        let mut window = VirtualWindow::open(VirtualWindowOptions {
-            gpu,
+        let mut window = Harness::open(VirtualOptions {
+            gpu: if gpu { GpuMode::Required } else { GpuMode::Off },
             ..options(width, height)
-        })
-        .expect("a test window opens");
+        });
         let shots: Vec<Vec<u32>> = frames
             .iter()
             .map(|commands| {
                 show(&mut window, commands.clone());
-                window.frame().expect("a frame").2.to_vec()
+                window.probe().frame().expect("a frame").2.to_vec()
             })
             .collect();
         let renderer = window.renderer();
@@ -204,8 +212,8 @@ pub(crate) fn gray(pixel: u32) -> u8 {
 
 /// The ink of text: the bounding box of the pixels darker than white,
 /// and how many there are.
-pub(crate) fn ink(window: &VirtualWindow) -> Option<((u32, u32, u32, u32), usize)> {
-    let (width, height, pixels) = window.frame().expect("a frame");
+pub(crate) fn ink(window: &Harness) -> Option<((u32, u32, u32, u32), usize)> {
+    let (width, height, pixels) = window.probe().frame().expect("a frame");
     let mut bounds: Option<(u32, u32, u32, u32)> = None;
     let mut count = 0;
     for y in 0..height {
@@ -224,19 +232,153 @@ pub(crate) fn ink(window: &VirtualWindow) -> Option<((u32, u32, u32, u32), usize
 
 /// `text` shaped at `size` with the test font, its layout's origin at
 /// `origin`, as glyph runs.
-pub(crate) fn text_runs(text: &str, size: f32, origin: kivact_types::Point) -> Vec<DrawCommand> {
-    let style = kivact_types::protocol::TextStyle {
+pub(crate) fn text_runs(text: &str, size: f64, origin: kivact_types::Point) -> Vec<RenderCmd> {
+    let style = kivact_types::ComputedTextStyle {
         font_size: size,
-        ..kivact_types::protocol::TextStyle::default()
+        ..kivact_types::ComputedTextStyle::default()
     };
     let shaped = engine().shape(text, &style, None).expect("text shapes");
     shaped
         .runs
         .iter()
-        .map(|run| DrawCommand::Glyphs {
-            run: std::sync::Arc::clone(run),
+        .map(|run| RenderCmd::Glyphs {
+            run: run.clone(),
             origin,
             color: None,
         })
         .collect()
+}
+
+type Action = Box<dyn FnOnce(&mut Window<'_>)>;
+#[derive(Default)]
+struct Shared {
+    action: Option<Action>,
+    events: Vec<ShellEvent>,
+    changes: Vec<arvane::RendererChange>,
+    renderer: Option<arvane::Renderer>,
+}
+struct Host(Rc<RefCell<Shared>>);
+impl Handler for Host {
+    fn start(&mut self, _: &mut Window<'_>, _: ShellWaker) -> Result<ShellControl, ShellError> {
+        Ok(ShellControl::Wait)
+    }
+    fn event(
+        &mut self,
+        event: ShellEvent,
+        window: &mut Window<'_>,
+    ) -> Result<ShellControl, ShellError> {
+        if matches!(event, ShellEvent::Wake(_)) {
+            let action = self.0.borrow_mut().action.take();
+            if let Some(action) = action {
+                action(window);
+            }
+        } else {
+            self.0.borrow_mut().events.push(event);
+        }
+        Ok(ShellControl::Wait)
+    }
+}
+/// Contract tests exercise application operations inside the ordinary driver.
+pub(crate) struct Harness {
+    shell: SteppedShell,
+    script: Script,
+    probe: Probe,
+    shared: Rc<RefCell<Shared>>,
+}
+impl Harness {
+    pub(crate) fn open(options: VirtualOptions) -> Self {
+        Self::configured(options, kivact_types::GpuPreference::default())
+            .expect("a test window opens")
+    }
+    pub(crate) fn configured(
+        options: VirtualOptions,
+        preference: kivact_types::GpuPreference,
+    ) -> Result<Self, ShellError> {
+        let gpu = options.gpu == GpuMode::Required;
+        let backend = VirtualBackend::new(options);
+        let script = backend.script();
+        let probe = backend.probe();
+        let shared = Rc::new(RefCell::new(Shared::default()));
+        let observed = Rc::clone(&shared);
+        let shell = Shell::start_stepped(
+            Box::new(backend),
+            ShellSetup {
+                prefer_gpu: gpu,
+                gpu_preference: preference,
+                observer: Some(Box::new(move |change| {
+                    observed.borrow_mut().changes.push(change.clone())
+                })),
+            },
+            Host(Rc::clone(&shared)),
+        )?;
+        let mut harness = Self {
+            shell,
+            script,
+            probe,
+            shared,
+        };
+        assert_eq!(
+            harness.events(),
+            [ShellEvent::AccessibilityActivated],
+            "the virtual host activates accessibility at startup"
+        );
+        if gpu {
+            let start = std::time::Instant::now();
+            while !harness.shared.borrow().changes.iter().any(|change| {
+                matches!(
+                    change,
+                    arvane::RendererChange::Gpu { .. } | arvane::RendererChange::Cpu { .. }
+                )
+            }) {
+                assert!(
+                    start.elapsed() < std::time::Duration::from_secs(5),
+                    "GPU initialization completes"
+                );
+                harness.step(Step::Wake);
+                std::thread::park_timeout(std::time::Duration::from_millis(5));
+            }
+        }
+        Ok(harness)
+    }
+    pub(crate) fn script(&self) -> Script {
+        self.script.clone()
+    }
+    pub(crate) fn probe(&self) -> Probe {
+        self.probe.clone()
+    }
+    pub(crate) fn step(&mut self, step: Step) {
+        match self.shell.step(step) {
+            StepOutcome::Idle { .. } => {}
+            outcome => panic!("the test shell remains live: {outcome:?}"),
+        }
+    }
+    pub(crate) fn with<R: 'static>(&mut self, f: impl FnOnce(&mut Window<'_>) -> R + 'static) -> R {
+        self.step(Step::Input);
+        let result = Rc::new(RefCell::new(None));
+        let output = Rc::clone(&result);
+        self.shared.borrow_mut().action = Some(Box::new(move |w| {
+            *output.borrow_mut() = Some(f(w));
+        }));
+        self.step(Step::Wake);
+        Rc::try_unwrap(result)
+            .ok()
+            .expect("the callback released its result")
+            .into_inner()
+            .expect("the wake ran its callback")
+    }
+    pub(crate) fn events(&mut self) -> Vec<ShellEvent> {
+        self.step(Step::Input);
+        std::mem::take(&mut self.shared.borrow_mut().events)
+    }
+    pub(crate) fn renderer(&self) -> Option<arvane::Renderer> {
+        self.shared.borrow().renderer
+    }
+    pub(crate) fn record(&self, result: &Result<Presented, arvane::Failure>) {
+        if let Ok(Presented::Shown { renderer, .. }) = result {
+            self.shared.borrow_mut().renderer = Some(*renderer);
+        }
+    }
+    pub(crate) fn take_renderer_changes(&self) -> Vec<arvane::RendererChange> {
+        std::mem::take(&mut self.shared.borrow_mut().changes)
+    }
 }

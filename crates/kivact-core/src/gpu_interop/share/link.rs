@@ -18,8 +18,9 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 
-use kivact_reactive::UiError;
-use kivact_wire::{GpuAdapter, SharedTextures};
+use kivact_runtime::UiError;
+use kivact_types::cell::Mailbox;
+use kivact_types::{GpuAdapter, SharedTextures};
 
 use crate::gpu_interop::import::FramePublisher;
 use crate::gpu_interop::import::inbox::Inbox;
@@ -123,7 +124,7 @@ pub(crate) struct Open {
     phase: Phase,
     /// The newest picture published on the CPU, for the UI to take
     /// (whatever the request).
-    pixels: Option<Pixels>,
+    pixels: Mailbox<Pixels>,
 }
 
 /// Where the newest request stands. `Pixels` exactly for a request of
@@ -157,7 +158,7 @@ impl LinkState {
         LinkState::Open(Box::new(Open {
             request,
             phase,
-            pixels: None,
+            pixels: Mailbox::new(),
         }))
     }
 
@@ -296,7 +297,11 @@ impl LinkState {
     fn put_pixels(&mut self, pixels: Pixels) -> Option<Pixels> {
         match self {
             LinkState::Closed => Some(pixels),
-            LinkState::Open(open) => open.pixels.replace(pixels),
+            LinkState::Open(open) => {
+                let previous = open.pixels.take();
+                open.pixels.put(pixels);
+                previous
+            }
         }
     }
 }

@@ -4,7 +4,7 @@
 //! component needs to keep resources for the lifetime of the part it
 //! builds: store an object, register a cleanup, provide and read contexts,
 //! report through the error boundary, and find the App's root and focus.
-//! [`app_state`] keeps a component library's App-wide state at the root.
+//! [`use_app_state`] keeps a component library's App-wide state at the root.
 //! Creating signals or effects under an owner, or running setup in one, is
 //! the core's job (the setup functions and the flows) and is not offered
 //! here.
@@ -23,34 +23,32 @@ use std::rc::Rc;
 
 use super::NodeRef;
 use super::state::ViewState;
-use kivact_reactive::{ErrorKind, Owned, Runtime, UiError, raise, require_effectful};
+use kivact_runtime::{ErrorKind, Owned, Runtime, UiError, raise, require_effectful};
 
 /// The identity of a component resource owner, without retaining its App.
 /// Equality compares identities: every owner of an App has the same
 /// [`Owner::root`], and roots of different Apps differ.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
-pub struct Owner(pub(crate) kivact_reactive::Owner);
+pub struct Owner(pub(crate) kivact_runtime::Owner);
 
 impl Owner {
     /// Capture the current setup owner. A located `SetupOnly` naming `api`
     /// outside component setup.
     #[track_caller]
-    pub fn current(api: &'static str) -> Self {
-        Self(kivact_reactive::Owner::current(api, Location::caller()))
+    pub fn current() -> Self {
+        Self(kivact_runtime::Owner::current(
+            "Owner::current",
+            Location::caller(),
+        ))
     }
 
     /// Capture the live root of the running App. A located `WrongApp`
     /// outside every App or once its root is gone.
     #[track_caller]
-    pub fn root(api: &'static str) -> Self {
+    pub fn root() -> Self {
         let at = Location::caller();
-        let rt = Runtime::current().unwrap_or_else(|| {
-            raise(
-                ErrorKind::WrongApp,
-                format!("`{api}` needs a running App"),
-                at,
-            )
-        });
+        let rt = Runtime::current()
+            .unwrap_or_else(|| raise(ErrorKind::WrongApp, "`Owner::root` needs a running App", at));
         let owner = Self(ViewState::tree(&rt).root_owner());
         owner.runtime();
         owner
@@ -72,7 +70,7 @@ impl Owner {
     /// Store the supplied shared object until this owner is disposed.
     /// `name` identifies the component handle in disposed-use diagnostics.
     #[track_caller]
-    pub fn store<T: 'static>(self, name: &'static str, value: Rc<T>) -> Owned<T> {
+    pub fn store<T: 'static>(self, name: &'static str, value: T) -> Owned<T> {
         self.registration("Owner::store");
         self.0.store(name, value, Location::caller())
     }
@@ -84,7 +82,7 @@ impl Owner {
     pub fn store_with<T: 'static>(
         self,
         name: &'static str,
-        value: Rc<T>,
+        value: T,
         on_dispose: impl FnOnce() + 'static,
     ) -> Owned<T> {
         self.registration("Owner::store_with");
@@ -117,19 +115,16 @@ impl Owner {
 
     /// Deliver a diagnostic through this owner's error boundary.
     #[track_caller]
-    pub fn report(
-        self,
-        kind: ErrorKind,
-        message: impl Into<String>,
-        at: &'static Location<'static>,
-    ) {
+    pub fn report(self, kind: ErrorKind, message: impl Into<String>) {
         self.runtime();
-        self.0.report(UiError::new(kind, message, Some(at)));
+        self.0
+            .report(UiError::new(kind, message, Some(Location::caller())));
     }
 
     /// Register cleanup under this owner. While the owner is being
     /// disposed, `f` runs at once.
     #[track_caller]
+    // xtask-allow(api-shape): Lifecycle cleanup is a one-shot registration, not a repeatable event handler.
     pub fn on_cleanup(self, f: impl FnOnce() + 'static) {
         self.registration("Owner::on_cleanup");
         self.0.on_cleanup(f);
@@ -144,8 +139,8 @@ impl Owner {
 /// Later calls return a clone of that value. It works in setup, handlers,
 /// tasks and effects. Outside a running App it raises a located `WrongApp`.
 #[track_caller]
-pub fn app_state<T: Clone + 'static>(api: &'static str, init: impl FnOnce() -> T) -> T {
-    let root = Owner::root(api);
+pub fn use_app_state<T: Clone + 'static>(init: impl FnOnce() -> T) -> T {
+    let root = Owner::root();
     if let Some(value) = root.context::<T>() {
         return value;
     }

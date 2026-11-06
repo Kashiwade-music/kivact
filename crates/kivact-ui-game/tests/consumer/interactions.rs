@@ -6,40 +6,43 @@ use kivact_ui_game as g;
 
 #[test]
 fn tree_is_one_tab_stop_with_arrow_keys_and_selects_only_leaves() {
-    let (screen, selected) =
-        kivact::test::render_with_handle(crate::support::options(true), || {
+    let (screen, selected) = kivact::test::render_with_handle(
+        kivact::test::RenderOptions::with_theme(kivact_ui_game::theme(
+            kivact::style::ThemeMode::Light,
+        ))
+        .reduced_motion(),
+        || {
             let selected = signal(Some("b.md".to_owned()));
+            let expanded = signal(vec!["docs".to_owned()]);
             (
                 selected,
-                g::tree(
-                    vec![
-                        g::TreeEntry::folder(
-                            "docs",
-                            "docs",
-                            vec![
-                                g::TreeEntry::file("a.md", "a.md"),
-                                g::TreeEntry::file("b.md", "b.md").marker("M"),
-                            ],
-                        ),
-                        g::TreeEntry::folder(
-                            "src",
-                            "src",
-                            vec![g::TreeEntry::file("lib.rs", "lib.rs")],
-                        )
-                        .collapsed(),
-                    ],
-                    selected,
-                )
-                .name("Files"),
+                kivact::ui::tree("Files", file_tree_nodes())
+                    .expanded(expanded)
+                    .selection(binding(selected, move |key: Option<String>| {
+                        if key
+                            .as_deref()
+                            .is_none_or(|id| !["docs", "src"].contains(&id))
+                        {
+                            selected.set(key);
+                        }
+                    }))
+                    .on_activate(move |key| {
+                        if ["docs", "src"].contains(&key.as_str()) {
+                            expanded.update(|keys| {
+                                if keys.contains(&key) {
+                                    keys.retain(|k| k != &key);
+                                } else {
+                                    keys.push(key);
+                                }
+                            });
+                        }
+                    })
+                    .item(|item, _| file_tree_label(item.get_untracked().key)),
             )
-        });
+        },
+    );
     let item = |name: &str| screen.get_by_role(Role::TreeItem, name);
-    assert!(screen.get_by_role(Role::Tree, "Files").exists());
-    assert!(!screen.get_by_role(Role::Tree, "Files").is_multiselectable());
-    assert!(item("b.md").is_selected());
-    assert_eq!(item("a.md").level(), Some(2));
-    assert_eq!(item("src").is_expanded(), Some(false));
-    assert!(screen.query_by_role(Role::TreeItem, "lib.rs").is_none());
+    assert_tree_initial_state(&screen);
 
     screen.press_tab(false);
     assert!(
@@ -89,25 +92,35 @@ fn tree_is_one_tab_stop_with_arrow_keys_and_selects_only_leaves() {
 
 #[test]
 fn dropzone_failure_clears_on_the_next_drop() {
-    let (screen, ()) = kivact::test::render_with_handle(crate::support::options(true), || {
-        (
-            (),
-            g::dropzone("Upload files")
-                .on_files(|paths| {
-                    if paths.iter().any(|path| path.ends_with("bad.csv")) {
-                        Err(kivact::UiError::msg("bad.csv is refused"))
-                    } else {
-                        Ok(())
-                    }
-                })
-                .style(style().width(350)),
-        )
-    });
+    let (screen, ()) = kivact::test::render_with_handle(
+        kivact::test::RenderOptions::with_theme(kivact_ui_game::theme(
+            kivact::style::ThemeMode::Light,
+        ))
+        .reduced_motion(),
+        || {
+            (
+                (),
+                kivact::ui::dropzone("Upload files")
+                    .multiple()
+                    .pick_on_press()
+                    .icon(kivact::view::icon("cloud-upload"))
+                    .on_files(|paths| {
+                        if paths.iter().any(|path| path.path.ends_with("bad.csv")) {
+                            Err(kivact::UiError::msg("bad.csv is refused"))
+                        } else {
+                            Ok(())
+                        }
+                    })
+                    .style(style().width(350)),
+            )
+        },
+    );
     let rect = screen
         .get_by_role(Role::Button, "Upload files")
         .rect()
         .expect("laid out");
-    let center = kivact::draw::Point::new(rect.x + rect.width / 2.0, rect.y + rect.height / 2.0);
+    let center =
+        kivact::geometry::Point::new(rect.x + rect.width / 2.0, rect.y + rect.height / 2.0);
     for (file, refused) in [("bad.csv", true), ("good.csv", false)] {
         screen.file_drag(kivact::view::FilePhase::Enter, vec![file.into()], center);
         screen.file_drag(kivact::view::FilePhase::Drop, vec![file.into()], center);
@@ -123,23 +136,29 @@ fn dropzone_failure_clears_on_the_next_drop() {
 
 #[test]
 fn pagination_moves_focus_only_when_the_page_changes() {
-    let (screen, page) = kivact::test::render_with_handle(crate::support::options(true), || {
-        let page = signal(0usize);
-        (
-            page,
-            column((
-                g::pagination(
-                    binding(page, move |next: usize| {
-                        if next != 2 {
-                            page.set(next);
-                        }
-                    }),
-                    12,
-                ),
-                kivact::ui::button("Elsewhere"),
-            )),
-        )
-    });
+    let (screen, page) = kivact::test::render_with_handle(
+        kivact::test::RenderOptions::with_theme(kivact_ui_game::theme(
+            kivact::style::ThemeMode::Light,
+        ))
+        .reduced_motion(),
+        || {
+            let page = signal(0usize);
+            (
+                page,
+                column((
+                    kivact::ui::pagination(
+                        12,
+                        binding(page, move |next: usize| {
+                            if next != 2 {
+                                page.set(next);
+                            }
+                        }),
+                    ),
+                    kivact::ui::button("Elsewhere"),
+                )),
+            )
+        },
+    );
     screen.get_by_role(Role::Button, "2").click();
     assert_eq!(page.get_untracked(), 1);
     assert!(
@@ -161,38 +180,18 @@ fn pagination_moves_focus_only_when_the_page_changes() {
 
 #[test]
 fn consumer_editing_tags_numbers_native_picker_and_clipboard() {
-    let (screen, (tags, number, files)) =
-        kivact::test::render_with_handle(crate::support::options(true), || {
+    let (screen, (tags, number, files)) = kivact::test::render_with_handle(
+        kivact::test::RenderOptions::with_theme(kivact_ui_game::theme(
+            kivact::style::ThemeMode::Light,
+        ))
+        .reduced_motion(),
+        || {
             let tags = signal(vec!["infra".to_owned()]);
             let number = signal(4.0_f64);
             let files = signal(Vec::new());
-            (
-                (tags, number, files),
-                column((
-                    kivact::ui::tag_input(
-                        "Tags",
-                        tags,
-                        move |tag| tags.update(|items| items.push(tag)),
-                        move |index| {
-                            tags.update(|items| {
-                                items.remove(index);
-                            })
-                        },
-                    ),
-                    kivact::ui::number_input(
-                        "Workers",
-                        number,
-                        kivact::ui::ScalarRange::new(1.0, 8.0)
-                            .and_then(|range| range.with_step(1.0))
-                            .expect("invariant: the bounds and the step are finite"),
-                    ),
-                    g::dropzone(kivact::i18n::message("game.dropzone.label", "Upload files"))
-                        .on_files(move |paths| files.set(paths))
-                        .style(style().width(350)),
-                ))
-                .style(style().padding(20).gap(20)),
-            )
-        });
+            ((tags, number, files), editing_controls(tags, number, files))
+        },
+    );
     let edit = screen.get_by_role(Role::TextBox, "Tags");
     edit.type_text("ops");
     edit.press_key(Key::Enter);
@@ -249,6 +248,78 @@ fn consumer_editing_tags_numbers_native_picker_and_clipboard() {
     }
     field.a11y(A11yAction::Increment);
     assert_eq!(number.get_untracked(), 5.0);
+    assert_native_file_selection(&screen, files);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+fn file_tree_nodes() -> Vec<kivact::interaction::TreeNode<String>> {
+    vec![
+        kivact::interaction::TreeNode::new("docs".to_owned(), None, "docs"),
+        kivact::interaction::TreeNode::new("a.md".to_owned(), Some("docs".to_owned()), "a.md"),
+        kivact::interaction::TreeNode::new("b.md".to_owned(), Some("docs".to_owned()), "b.md"),
+        kivact::interaction::TreeNode::new("src".to_owned(), None, "src"),
+        kivact::interaction::TreeNode::new("lib.rs".to_owned(), Some("src".to_owned()), "lib.rs"),
+    ]
+}
+fn file_tree_label(key: String) -> Node {
+    let folder = ["docs", "src"].contains(&key.as_str());
+    row((
+        icon(if folder { "folder" } else { "file-text" }).style(style().size(14, 14).color(
+            if folder {
+                ColorToken::Warning
+            } else {
+                ColorToken::TextMuted
+            },
+        )),
+        text(key.clone()).style(style().grow(1).font_size(12.5)),
+        g::mono(if key == "b.md" { "M" } else { "" }),
+    ))
+    .style(style().grow(1).gap(6).align_items(Align::Center))
+}
+fn editing_controls(
+    tags: Signal<Vec<String>>,
+    number: Signal<f64>,
+    files: Signal<Vec<std::path::PathBuf>>,
+) -> impl IntoView {
+    column((
+        kivact::ui::tag_input("Tags", tags)
+            .on_add(move |tag| tags.update(|items| items.push(tag)))
+            .on_remove(move |index| {
+                tags.update(|items| {
+                    items.remove(index);
+                })
+            }),
+        kivact::ui::number_input(
+            "Workers",
+            number,
+            kivact::interaction::ScalarRange::new(1.0, 8.0)
+                .and_then(|range| range.with_step(1.0))
+                .expect("invariant: the bounds and the step are finite"),
+        ),
+        kivact::ui::dropzone(kivact::i18n::message("game.dropzone.label", "Upload files"))
+            .multiple()
+            .pick_on_press()
+            .icon(kivact::view::icon("cloud-upload"))
+            .on_files(move |paths| files.set(paths.into_iter().map(|file| file.path).collect()))
+            .style(style().width(350)),
+    ))
+    .style(style().padding(20).gap(20))
+}
+
+fn assert_tree_initial_state(screen: &kivact::test::Screen) {
+    let item = |name: &str| screen.get_by_role(Role::TreeItem, name);
+    assert!(screen.get_by_role(Role::Tree, "Files").exists());
+    assert!(!screen.get_by_role(Role::Tree, "Files").is_multiselectable());
+    assert!(item("b.md").is_selected());
+    assert_eq!(item("a.md").level(), Some(2));
+    assert_eq!(item("src").is_expanded(), Some(false));
+    assert!(screen.query_by_role(Role::TreeItem, "lib.rs").is_none());
+}
+
+fn assert_native_file_selection(
+    screen: &kivact::test::Screen,
+    files: Signal<Vec<std::path::PathBuf>>,
+) {
     screen.respond_files_dialog(Some(vec![
         std::path::PathBuf::from("inventory.csv"),
         std::path::PathBuf::from("records.json"),
@@ -262,5 +333,4 @@ fn consumer_editing_tags_numbers_native_picker_and_clipboard() {
             std::path::PathBuf::from("records.json")
         ]
     );
-    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }

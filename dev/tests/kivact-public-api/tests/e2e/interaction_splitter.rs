@@ -7,19 +7,16 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use crate::support::mount_with;
+use kivact::interaction::ScalarRange;
 use kivact::interaction::use_splitter;
 use kivact::prelude::*;
 use kivact::style::Cursor;
-use kivact::test::{RenderOptions, WindowMode};
-use kivact::ui::ScalarRange;
+use kivact::test::RenderOptions;
 use kivact::view::{Handled, KeyEvent};
 use kivact::view::{MouseButton, Orientation};
 
 fn real_window() -> RenderOptions {
-    RenderOptions {
-        window: WindowMode::Real,
-        ..RenderOptions::from_env()
-    }
+    RenderOptions::from_env()
 }
 
 fn range() -> ScalarRange {
@@ -30,7 +27,7 @@ fn range() -> ScalarRange {
 fn recorded(divider: Node, keys: Rc<RefCell<Vec<Key>>>) -> Node {
     node()
         .on_key(move |event: KeyEvent| {
-            keys.borrow_mut().push(event.key);
+            keys.borrow_mut().push(event.key());
             Handled::No
         })
         .child(divider)
@@ -46,7 +43,7 @@ fn side_by_side_panes_use_left_and_right_and_leave_the_vertical_arrows_alone() {
     let seen = keys.clone();
     let (screen, value) = mount_with(real_window(), move || {
         let value = signal(40.0);
-        let divider = handle("Side").part(
+        let divider = handle("Edge").part(
             use_splitter(value, range(), Orientation::Horizontal)
                 .key_step(5.0)
                 .unwrap()
@@ -54,7 +51,7 @@ fn side_by_side_panes_use_left_and_right_and_leave_the_vertical_arrows_alone() {
         );
         (value, recorded(divider, seen))
     });
-    let split = screen.get_by_role(Role::Splitter, "Side");
+    let split = screen.get_by_role(Role::Splitter, "Edge");
     split.focus();
     screen.press_key(Key::ArrowRight);
     assert_eq!(value.get_untracked(), 45.0);
@@ -148,6 +145,59 @@ fn a_drag_moves_by_the_pointer_travel_times_the_scale_and_escape_restores_the_st
         value.get_untracked(),
         50.0,
         "a new drag starts from the current value"
+    );
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
+fn splitter_collapses_below_the_threshold() {
+    let (screen, value) = mount_with(RenderOptions::from_env(), || {
+        let value = signal(60.0);
+        let divider = handle("Collapse").part(
+            use_splitter(value, range(), Orientation::Horizontal)
+                .collapsible(0.2)
+                .handle(),
+        );
+        (value, divider)
+    });
+    let split = screen.get_by_role(Role::Splitter, "Collapse");
+    let rect = split.rect().unwrap();
+    let (x, y) = (rect.x + rect.width / 2.0, rect.y + rect.height / 2.0);
+    screen.mouse_move(x, y);
+    screen.mouse_down(MouseButton::Primary);
+    screen.mouse_move(x - 45.0, y);
+    assert_eq!(value.get_untracked(), 15.0, "threshold applies at release");
+    screen.mouse_up(MouseButton::Primary);
+    assert_eq!(value.get_untracked(), 0.0);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
+fn splitter_snaps_to_the_nearest_stop() {
+    let (screen, (value, stops)) = mount_with(RenderOptions::from_env(), || {
+        let value = signal(40.0);
+        let stops = signal(vec![0.0, 0.5, 1.0]);
+        let divider = handle("Snap").part(
+            use_splitter(value, range(), Orientation::Horizontal)
+                .snaps(stops)
+                .handle(),
+        );
+        ((value, stops), divider)
+    });
+    let split = screen.get_by_role(Role::Splitter, "Snap");
+    let rect = split.rect().unwrap();
+    let (x, y) = (rect.x + rect.width / 2.0, rect.y + rect.height / 2.0);
+    screen.mouse_move(x, y);
+    screen.mouse_down(MouseButton::Primary);
+    screen.mouse_move(x + 24.0, y);
+    assert_eq!(value.get_untracked(), 64.0, "free movement until release");
+    stops.set(vec![0.0, 0.75, 1.0]);
+    screen.run_until_idle();
+    screen.mouse_up(MouseButton::Primary);
+    assert_eq!(
+        value.get_untracked(),
+        75.0,
+        "release reads the current stops"
     );
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }

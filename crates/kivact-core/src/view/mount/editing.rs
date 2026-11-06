@@ -1,15 +1,15 @@
 //! Role: Mounting wires a node's text editing callbacks and binds its editing data.
 
-use kivact_engine::bridge::PropValue;
+use kivact_engine::api::PropValue;
 
 use crate::view::descriptor::Mcx;
 use crate::view::editing_data::EditorProps;
-use kivact_wire::NodeId;
+use kivact_types::NodeId;
 use std::panic::Location;
 
 /// Write the editing payload of a text-editing node and bind its values.
 ///
-/// `report_session`: the node has a session handler (`TextEditing::on_selection`), so the engine
+/// `report_session`: the node has a session handler (`TextEditing::on_selection_change`), so the engine
 /// reports the selection sessions.
 pub(super) fn bind(
     cx: &Mcx<'_>,
@@ -19,7 +19,7 @@ pub(super) fn bind(
     at: &'static Location<'static>,
 ) {
     use kivact_editing::{EditBehavior, EditOutcome};
-    use kivact_wire::EditingData;
+    use kivact_engine::contract::EditingData;
     // The owner keeps the author's function; the engine, which may drop
     // its copy while its tree is borrowed, calls it through a `SyncHook`
     // (a panic propagates through the engine and ends the App).
@@ -39,7 +39,10 @@ pub(super) fn bind(
             ..EditingData::default()
         })),
     );
-    if let Some(bind) = editing.highlight {
+    for bind in [editing.highlight, editing.decorations]
+        .into_iter()
+        .flatten()
+    {
         bind(crate::view::editing_data::HighlightAt {
             rt: cx.rt.clone(),
             owner: cx.owner,
@@ -59,8 +62,8 @@ pub(super) fn bind(
     if let Some(keys) = editing.forward_keys {
         cx.bind(id, keys, PropValue::ForwardKeys, at);
     }
-    if let Some(value) = editing.password {
-        cx.bind(id, value, PropValue::Password, at);
+    if let Some(value) = editing.purpose {
+        cx.bind(id, value, PropValue::InputPurpose, at);
     }
     if let Some(value) = editing.read_only {
         cx.bind(id, value, PropValue::ReadOnly, at);
@@ -82,14 +85,14 @@ pub(super) fn bind_session(
     session: crate::view::ime_session::ImeSession,
     at: &'static Location<'static>,
 ) {
-    use kivact_wire::ImeSession;
+    use kivact_engine::contract::ImeSessionProps;
     let weak = cx.weak();
-    cx.effect(kivact_reactive::EffectKind::Render, at, move || {
-        let value = ImeSession {
+    cx.effect(kivact_runtime::EffectKind::Render, at, move || {
+        let value = ImeSessionProps {
             text: session.text.get(),
             selection: session.selection.get(),
             caret: session.caret.get(),
-            password: session.password,
+            purpose: session.purpose.get(),
         };
         if let Some(rt) = weak.upgrade() {
             crate::view::state::ViewState::tree_mut(&rt).update(

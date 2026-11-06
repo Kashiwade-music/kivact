@@ -24,7 +24,7 @@ use kivact::motion::{Easing, Transition, animated};
 use kivact::prelude::*;
 
 fn progress() -> impl IntoView {
-    let target = signal(0.0_f32);
+    let target = signal(0.0_f64);
     let amount = animated(target, Transition::tween(250, Easing::EaseOut));
 
     column((
@@ -44,6 +44,10 @@ fn main() -> kivact::Result<()> {
 
 `Transition::tween(ミリ秒, easing)` は、決まった時間で動きます。イージングは `Linear`・`EaseIn`・`EaseOut`・`EaseInOut`・`CubicBezier(x1, y1, x2, y2)`（CSS と同じ数値）、または `Easing::steps_end(n)` / `steps_start(n)` です。`Transition::spring(Spring::DEFAULT)` は、物理的なバネのように動きます。時間は決まっておらず、収まったときに終わります。途中で止められたバネは速度を引き継ぎます。`Spring::GENTLE`・`WOBBLY`・`STIFF` はプリセットで、`stiffness`・`damping`・`mass` を自分で指定することもできます。どのトランジションにも `.delay(ms)`、`.repeat(Repeat::Times(3))`（`Repeat::Forever` なら目標が変わるまで繰り返し）、`.alternate()`（1 回おきに逆再生）を付けられます。バネの 1 回分は、収まったところで終わります。`Transition::keyframes([(0.0, 0.0), (0.6, 1.2), (1.0, 1.0)], 400)` は、0 から 1 までのオフセットで指定した値を通り、目標で終わります。
 
+`.retarget(kivact::motion::Retarget::Proportional)` を指定すると、時間指定の transition の途中で目標が変わったとき、残りの成分距離に比例して新しい所要時間を短縮・延長し、意図した速度を保ちます。既定は `Restart` です。spring は物理モデルの時間で動きます。
+
+`style().layout_transition(Transition::tween(250, Easing::EaseOut))` は、レイアウトによる位置・大きさの変化を補間します。レイアウト計算は一度だけ行い、描画・ポインターの当たり判定・支援技術が同じ視覚変換を使います。装飾用のレイアウト transition は動きを減らす設定に従います。
+
 ### 値をスタイルで使う
 
 `transform` と `opacity` で要素を動かすのは軽い処理です。レイアウトが変わらないからです。スタイルのクロージャの中で、アニメーションする値を読みます。
@@ -55,7 +59,7 @@ use kivact::prelude::*;
 fn drawer() -> impl IntoView {
     let open = signal(false);
     let offset = animated(
-        move || if open.get() { 0.0_f32 } else { -240.0 },
+        move || if open.get() { 0.0_f64 } else { -240.0 },
         Transition::spring(Spring::DEFAULT),
     );
 
@@ -82,7 +86,7 @@ fn drawer() -> impl IntoView {
 - `pause()` と `resume()` は、停止と再開です。止まっていた時間は数えません。
 - `is_running()` は、動いているかどうかを返す追跡付きの読み取りです。
 - セットアップで登録する `.on_complete(|| …)` は、1 回の実行が自然に終わったときに一度だけ呼ばれます。目標が置き換えられたとき、`jump_to` したとき、無限に繰り返しているときは呼ばれません。現在の値と同じ目標では実行が始まらないので、そのときも呼ばれません。
-- 値の型には、`f32`、`f64`、それらの最大 4 要素のタプル、`Point`・`Size`・`Rect` が使えます。独自の型は `Animatable` を実装するとアニメーションできます（いくつかの `f32` の成分との相互変換を書きます）。色はここではアニメーションできません。0 から 1 の数値をアニメーションさせて自分で色を混ぜるか、次のスタイルのトランジションを使ってください。
+- 値の型には、`f32`、`f64`、それらの最大 4 要素のタプル、`Point`・`Size`・`Rect` が使えます。独自の型は `Animatable` を実装するとアニメーションできます（いくつかの `f64` の成分との相互変換を書きます）。色はここではアニメーションできません。0 から 1 の数値をアニメーションさせて自分で色を混ぜるか、次のスタイルのトランジションを使ってください。
 
 ## 要素の見た目をアニメーションさせる
 
@@ -155,17 +159,18 @@ fn app() -> impl IntoView {
 自分の計算（シミュレーション、時計、ゲームループ）が必要なときは `frame_loop` を使います。コールバックは、ティックの時刻、前のティックからの経過時間（`delta`）、フレーム番号、表示時刻の推定値を持つ `FrameInfo` を受け取ります。レートを指定して開始します。
 
 ```rust,no_run
-use kivact::control::canvas;
-use kivact::draw::{Path, Point, Stroke};
+use kivact::view::canvas;
+use kivact::draw::{Path, Stroke};
+use kivact::geometry::{Point};
 use kivact::motion::{FrameInfo, FrameRate, frame_loop};
 use kivact::prelude::*;
 
 fn clock_hand() -> impl IntoView {
-    let angle = signal(0.0_f32);
+    let angle = signal(0.0_f64);
 
     let frames = frame_loop(move |frame: FrameInfo| {
         // 10 秒で 1 周。ティックを数えず、アプリの時計から求めます。
-        angle.set((frame.now.as_secs_f32() / 10.0 * 360.0) % 360.0);
+        angle.set((frame.now.as_secs_f64() / 10.0 * 360.0) % 360.0);
     });
     on_mount(move || frames.start(FrameRate::Hz(30.0)));
 
@@ -197,17 +202,17 @@ fn clock_hand() -> impl IntoView {
 システムに「動きを減らす」設定をしている人は多くいます。Kivact はその設定を報告し、ほとんどの場合は自動で従います。
 
 - トランジションは、既定で*装飾的*です。動きを減らす設定がオンのときは、すぐに終わります。`animated` は目標へ即座に移り、`enter`/`exit` も即座に適用されます。
-- 「処理中」を伝えるスピナーなど、意味を持つ動きには `Transition::tween(…).decorative(false)` を付けます。このトランジションは動き続けます。
-- `frame_loop` は、動きを減らす設定では**止まりません**。ゲームやシミュレーションかもしれないからです。装飾だけのループなら、`kivact::platform::reduced_motion()`（追跡付きの読み取り）を読んで、止めるか遅くしてください。
+- 「処理中」を伝えるスピナーなど、意味を持つ動きには `Transition::tween(…).essential()` を付けます。このトランジションは動き続けます。
+- `frame_loop` は、動きを減らす設定では**止まりません**。ゲームやシミュレーションかもしれないからです。装飾だけのループなら、`kivact::platform::is_motion_reduced().get()`（追跡付きの読み取り）を読んで、止めるか遅くしてください。
 
 ```rust,no_run
 # use kivact::motion::{FrameInfo, FrameRate, frame_loop};
 # use kivact::prelude::*;
 fn drifting_background() -> impl IntoView {
-    let shift = signal(0.0_f32);
-    let frames = frame_loop(move |frame: FrameInfo| shift.set(frame.now.as_secs_f32() * 12.0));
+    let shift = signal(0.0_f64);
+    let frames = frame_loop(move |frame: FrameInfo| shift.set(frame.now.as_secs_f64() * 12.0));
     effect(move || {
-        if kivact::platform::reduced_motion() {
+        if kivact::platform::is_motion_reduced().get() {
             frames.stop();
         } else {
             frames.start(FrameRate::Hz(30.0));
@@ -227,7 +232,7 @@ use kivact::motion::{Easing, Transition, animated};
 use kivact::prelude::*;
 
 fn progress() -> impl IntoView {
-    let target = signal(0.0_f32);
+    let target = signal(0.0_f64);
     let amount = animated(target, Transition::tween(250, Easing::Linear));
     column((
         button("満たす").on_press(move || target.set(100.0)),
@@ -257,10 +262,7 @@ mod tests {
 
     #[test]
     fn reduced_motion_arrives_at_once() {
-        let options = RenderOptions {
-            reduced_motion: true,
-            ..RenderOptions::default()
-        };
+        let options = RenderOptions::default().reduced_motion();
         let screen = render_with(options, progress);
         screen.get_by_role(Role::Button, "満たす").click();
         screen.get_by_text("100%");
@@ -274,3 +276,5 @@ mod tests {
 - [コンポーネントから非同期処理を実行する](async-and-tasks.md): タイマーとバックグラウンド処理。
 - [アプリをテストする](testing.md): 仮想時計と `RenderOptions`。
 - API リファレンス: `cargo doc -p kivact --open` を実行し、`kivact::motion` と `kivact::style::Style` を開いてください。
+
+`frame_loop(callback).while_present(node_ref)` は参照先が entering・leaving・未束縛の間、フレームの要求を止めます。present に戻ると要求した rate で再開します。停止中も `start`・`stop`・`rate` の意味は変わらず、`stop` した loop は再マウントされても停止したままです。

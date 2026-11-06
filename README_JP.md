@@ -25,12 +25,18 @@ fn main() -> kivact::Result<()> {
 }
 ```
 
+App の root setup は mount 時に一度だけ実行されます。子の setup と cleanup を
+独立した owner に置くには `component(move || view)` を使います。変化する property は
+closure の中で signal を読みます。実行時の画像・font の入力には所有する `Vec<u8>` や
+`AssetBytes` を渡せます。同じ asset を再利用するときは保持した値を clone し、cache の
+identity を維持します。
+
 ## 特徴
 
 - **普通の関数とシグナル。** `signal`・`memo`・`effect` と key 付きの一覧。仮想 DOM はなく、コンポーネント全体を再実行しません。
 - **標準コンポーネント。** button・入力欄・select・dialog・menu・tabs・表・toast などを `kivact::ui` に持ち、見た目は有効なテーマが決めます。
 - **既定でアクセシブル。** どのコンポーネントも役割・名前・状態を OS の支援技術へ出し、キーボードで操作できます。
-- **実ウィンドウのテスト。** `kivact::test` は `cargo test` から実際のウィンドウを開き、Testing Library のように役割と名前で要素を操作します。
+- **App 全体のテスト。** `kivact::test` は `arvane-virtual` の上で実アプリと同じ描画 driver と仮想時計を使い、役割と名前で App 全体を操作します。手元では実 window に mirror できます。
 - **文字と入力。** CJK・結合文字・双方向テキスト・IME の変換を扱います。
 - **描画。** HTML Canvas に近い語彙の Canvas、アプリ自身の renderer が描いた frame の表示、ウィンドウなしの画像の書き出しを持ちます。
 - **UI キット。** 5 つの公式キットが標準コンポーネントの見た目を差し替え、分野別のコンポーネントを足します。キットは公開 API だけで作られています。
@@ -66,30 +72,88 @@ cargo run -p kivact-ui-basic-catalog
 |---|---|---|
 | アプリの開発者 | [Kivact ガイド](docs/for-kivact-user/jp/README.md) | [Kivact guide](docs/for-kivact-user/en/README.md) |
 | UI キットの利用者 | [UI キット ガイド](docs/for-kivact-ui-user/jp/README.md) | [UI kit guide](docs/for-kivact-ui-user/en/README.md) |
-| Kivact の開発者 | [製品戦略](docs/for-kivact-developer/strategy.md) | — |
+| Kivact の開発者 | [アーキテクチャ](docs/for-kivact-developer/architecture.md)、[設計の決定](docs/for-kivact-developer/decisions.md)、[製品戦略](docs/for-kivact-developer/strategy.md) | — |
 
 API リファレンスは rustdoc です: `cargo doc -p kivact --open`
 
-## Crate
+## Workspace の crate
 
-| Crate | 用途 |
-|---|---|
-| `kivact` | フレームワーク本体。アプリとコンポーネントのライブラリはこの crate だけに依存します。 |
-| `kivact-ui-basic` | 中立的な汎用キット（shadcn/ui の「Lyra」preset 風）。 |
-| `kivact-ui-pop` | 落ち着いた配色の業務アプリ向けキット。 |
-| `kivact-ui-game` | ゲーム風の操作パネルと HUD。 |
-| `kivact-ui-creative` | 制作ツール向け: タイムライン、ノードグラフ、ドック、インスペクター。 |
-| `kivact-ui-soft` | Astryx Neutral のライトテーマとダークテーマ。 |
-| `kivact-gpu-share` | GPU texture 共有のエンジン側（実験的）。 |
+workspace は 40 package で構成します。アプリは `kivact` と必要な UI キットを使います。
+内部の library は runtime、engine、backend、test harness の責務で分かれています。
+図は主な依存経路です。全体は [アーキテクチャ](docs/for-kivact-developer/architecture.md) と
+[生成した依存図](architecture/) を参照してください。
 
-[`crates/`](crates) にあるその他の crate は `kivact` の内部実装（反応の核、engine、レイアウト、テキスト、ネイティブホストの Arvane）で、直接使うものではありません。[`architecture/`](architecture) には生成した依存関係の図があります。
+```mermaid
+flowchart TD
+    Apps[Applications and kits] --> Facade[kivact]
+    Facade --> UI[kivact-ui]
+    UI --> Interaction[kivact-interaction]
+    Interaction --> Core[kivact-core]
+    Facade --> Core
+    Core --> Runtime[kivact-runtime / kivact-style / kivact-i18n]
+    Core --> Engine[kivact-engine]
+    Engine --> Geometry[kivact-layout / kivact-editing]
+    Engine --> Host[arvane]
+    Host --> Adapters[arvane-shell / arvane-text / arvane-render / arvane-asset]
+    Engine --> Native[arvane-native]
+    Engine --> Virtual[arvane-virtual]
+    Facade -. test feature .-> Test[kivact-test]
+    Test --> Core
+    Test --> Virtual
+    Runtime --> Types[kivact-types]
+    Engine --> Types
+```
+
+| Crate | パス | 用途 |
+|---|---|---|
+| `kivact` | `crates/kivact` | アプリ・部品作者向けの公開入口。 |
+| `kivact-core` | `crates/kivact-core` | view の記述、mount、入力、アプリ起動。 |
+| `kivact-test` | `crates/kivact-test` | kivact::test の App 全体 E2E ハーネス。 |
+| `kivact-public-api-tests` | `dev/tests/kivact-public-api` | 公開 API 利用者の E2E と offscreen の契約。 |
+| `kivact-runtime` | `crates/kivact-runtime` | reactive owner、signal、Machine、task、motion。 |
+| `kivact-i18n` | `crates/kivact-i18n` | locale、message、日付・数値の書式。 |
+| `kivact-style` | `crates/kivact-style` | style、theme、token、描画の語彙。 |
+| `kivact-interaction` | `crates/kivact-interaction` | 表示を持たない振る舞い、semantics、入力 controller。 |
+| `kivact-ui` | `crates/kivact-ui` | 標準部品と recipe の契約。 |
+| `kivact-ui-basic` | `crates/kivact-ui-basic` | shadcn/ui Lyra 風の中立的な汎用キット。 |
+| `kivact-ui-pop` | `crates/kivact-ui-pop` | 落ち着いた配色のコンパクトな業務アプリ用キット。 |
+| `kivact-ui-game` | `crates/kivact-ui-game` | ゲーム風の操作パネルと HUD。 |
+| `kivact-ui-creative` | `crates/kivact-ui-creative` | 制作向けの編集ツール、dock、inspector。 |
+| `kivact-ui-soft` | `crates/kivact-ui-soft` | Astryx Neutral のライト・ダークテーマ。 |
+| `kivact-engine` | `crates/kivact-engine` | 保持する UI tree、scene の生成、backend の駆動。 |
+| `kivact-editing` | `crates/kivact-editing` | document、edit session、native 文字入力の契約。 |
+| `kivact-layout` | `crates/kivact-layout` | 借用した tree の layout と派生 geometry。 |
+| `kivact-docs` | `dev/tests/docs` | Markdown の Rust 例を doctest で検査。 |
+| `kivact-template-basic` | `templates/basic` | 試験付きの最小 standalone アプリ雛形。 |
+| `kivact-example-counter` | `examples/kivact/counter` | signal を使う counter の例。 |
+| `kivact-example-form` | `examples/kivact/form` | form の検証の例。 |
+| `kivact-example-list` | `examples/kivact/list` | key 付き list の例。 |
+| `kivact-example-async` | `examples/kivact/async` | resource の読込の例。 |
+| `kivact-example-component` | `examples/kivact/component` | 再利用する部品の合成の例。 |
+| `kivact-ui-basic-catalog` | `examples/kivact-ui-basic` | basic キットの対話的カタログ。 |
+| `kivact-ui-pop-catalog` | `examples/kivact-ui-pop` | pop キットの対話的カタログ。 |
+| `kivact-ui-game-catalog` | `examples/kivact-ui-game` | game キットの対話的カタログ。 |
+| `kivact-ui-creative-catalog` | `examples/kivact-ui-creative` | creative キットの対話的カタログ。 |
+| `kivact-ui-soft-catalog` | `examples/kivact-ui-soft` | soft キットの対話的カタログ。 |
+| `arvane` | `crates/arvane` | 移植可能な window、text、render、asset の入口。 |
+| `kivact-types` | `crates/kivact-types` | 中立な geometry、event、asset、不変 snapshot。 |
+| `arvane-native` | `crates/arvane-native` | 実 window、入力、表示、accessibility。 |
+| `arvane-shell` | `crates/arvane-shell` | backend SPI と移植可能な window・入力の語彙。 |
+| `arvane-virtual` | `crates/arvane-virtual` | 共通描画 driver を使う台本 backend と任意の実窓 mirror。 |
+| `arvane-text` | `crates/arvane-text` | font の探索と text shaping adapter。 |
+| `arvane-render` | `crates/arvane-render` | CPU・GPU renderer adapter。 |
+| `arvane-asset` | `crates/arvane-asset` | 画像・font の読込、decode、asset cache。 |
+| `kivact-gpu-share` | `crates/kivact-gpu-share` | GPU texture 共有の契約と native helper（実験的）。 |
+| `gpu-interop-producer` | `dev/tests/gpu-interop-producer` | GPU 共有の試験で使う独立 renderer。 |
+| `xtask` | `dev/xtask` | workspace 検査と architecture 図の生成。 |
 
 ## `kivact` の Cargo feature
 
 | Feature | 既定 | 説明 |
 |---|---|---|
 | `gpu` | 有効 | GPU で描画し、使えなければ CPU に切り替えます。無効にすると CPU だけで build します。`ARVANE_RENDERER=cpu` で実行時に CPU へ固定できます。 |
-| `test` | 無効 | 実ウィンドウのテストライブラリ `kivact::test`。 |
+| `test` | 無効 | `kivact::test` の App 全体の仮想 E2E と任意の実窓 mirror。 |
+| `tokio` | 無効 | 非同期 task の Tokio 連携。 |
 | `embed` | 無効 | 実験的。ホストのウィンドウの中にアプリを開きます（オーディオプラグインの editor など）。 |
 | `gpu-interop` | 無効 | 実験的。アプリ自身の renderer の GPU texture を、読み戻さずに表示します。 |
 
@@ -109,7 +173,7 @@ API リファレンスは rustdoc です: `cargo doc -p kivact --open`
 | `crates/` | フレームワーク、ネイティブホスト、UI キット |
 | `examples/` | 小さなアプリとキットのカタログ |
 | `templates/basic/` | テスト付きの最小のアプリ |
-| `docs/` | 利用者ガイドと開発者向けの製品戦略 |
+| `docs/` | 利用者ガイド、恒久的な architecture・decisions・製品戦略 |
 | `dev/` | ワークスペースの検査と公開 API のテスト |
 | `architecture/` | 生成した crate と module の依存関係の図 |
 

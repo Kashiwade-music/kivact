@@ -12,20 +12,17 @@ when to show one, stores a history or marks it read.
 
 ## Show an alert on the page
 
-`pop::alert(title)` is an inline box with a title, an optional description and
-optional actions. Its color comes from the standard `kivact::ui::Tone`.
+`kivact::ui::alert(title)` is an inline box with a title, an optional description and
+optional actions. Its color comes from the standard `kivact::interaction::Tone`.
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::ui::Tone;
+use kivact::interaction::Tone;
 use kivact_ui_pop as pop;
 
 fn payment_status(failed: Signal<bool>) -> impl IntoView {
     show(failed, || {
-        pop::alert("Payment failed")
-            .tone(Tone::Danger)
-            .description("Your card was declined. Update it and try again.")
-            .actions(|| button("Update card").variant(ButtonVariant::Outline))
+        {let tone=kivact::state::IntoValue::into_value(Tone::Danger); kivact::ui::alert("Payment failed").tone(tone).icon(kivact::view::icon(move || kivact::style::Icon::named(match tone.get() { kivact::interaction::Tone::Danger=>"alert-circle", kivact::interaction::Tone::Warning=>"alert-triangle",kivact::interaction::Tone::Success=>"circle-check",_=>"info-circle"}))).description("Your card was declined. Update it and try again.").actions(button("Update card").variant(kivact::ui::ButtonVariant::Outline))}
     })
 }
 # fn main() {}
@@ -47,7 +44,8 @@ root, and push messages from anywhere.
 ```rust,no_run
 use kivact::prelude::*;
 use kivact::style::ThemeMode;
-use kivact::ui::{Toast, Tone, toast_region, toaster};
+use kivact::interaction::{Toast, Tone, toaster};
+use kivact::ui::{toast_region};
 use kivact_ui_pop as pop;
 use std::time::Duration;
 
@@ -86,12 +84,12 @@ fn main() -> kivact::Result<()> {
 - `max_visible(n)` limits how many show at once; call it where you create
   the toaster.
 - The region is part of the app, not of one screen. Put it once at the root, and
-  call `toaster()` once there and pass the `Toaster` (it is `Copy`) to the
+  call `toaster()` once there and pass the `ToasterApi` (it is `Copy`) to the
   code that pushes.
 
 ## Keep a history of notifications
 
-`pop::notification_menu(trigger, items, mark_read)` shows a popup list of
+`pop::notification_menu(trigger, items).on_mark_read(mark_read)` shows a popup list of
 notifications from a trigger, usually a bell button. A dot on the trigger
 shows while any item is unread.
 
@@ -112,10 +110,9 @@ fn bell() -> impl IntoView {
         button("Notifications")
             .icon(icon("bell"))
             .hide_label(true)
-            .variant(ButtonVariant::Ghost),
+            .variant(kivact::ui::ButtonVariant::Ghost),
         items,
-        move || items.update(|list| list.iter_mut().for_each(|item| item.unread = false)),
-    )
+    ).on_mark_read(move || items.update(|list| list.iter_mut().for_each(|item| item.unread = false)))
 }
 # fn main() {}
 ```
@@ -139,13 +136,13 @@ use kivact_ui_pop as pop;
 
 fn orders(loading: Signal<bool>, count: Signal<usize>) -> impl IntoView {
     column((
-        show(loading, || pop::skeleton().rows(3)),
+        show(loading, || kivact::ui::skeleton().lines(3)),
         show(move || !loading.get() && count.get() == 0, || {
-            pop::empty_state("No orders yet")
+            kivact::ui::empty_state("No orders yet").icon(pop::empty_illustration())
                 .description("Orders appear here as soon as customers check out.")
-                .content(|| button("Create an order").variant(ButtonVariant::Primary))
+                .actions(button("Create an order").variant(kivact::ui::ButtonVariant::Primary))
         }),
-        show(loading, || row((pop::spinner(), text("Loading orders")))
+        show(loading, || row((kivact::ui::spinner(), text("Loading orders")))
             .style(style().gap(8))),
     ))
     .style(style().gap(16).padding(24))
@@ -153,10 +150,10 @@ fn orders(loading: Signal<bool>, count: Signal<usize>) -> impl IntoView {
 # fn main() {}
 ```
 
-- `pop::skeleton().rows(n)` draws placeholder bars where text will appear.
-- `pop::spinner()` and `pop::dots_loader()` are small animated loaders; they
-  are named "Loading" for screen readers (message `pop.loader.label`).
-- `pop::empty_state(title)` draws an illustration, a description and an
+- `kivact::ui::skeleton().lines(n)` draws placeholder bars where text will appear.
+- `kivact::ui::spinner()` and `kivact::ui::spinner().variant(pop::SpinnerLook::Dots)` are small animated loaders; they
+  are named "Loading" for screen readers (message `spinner.loading`).
+- `kivact::ui::empty_state(title).icon(pop::empty_illustration())` draws an illustration, a description and an
   optional action.
 
 How to start and finish loading (a task that sets `loading` when data arrives)
@@ -177,6 +174,29 @@ is a core topic, covered in the core guide on asynchronous work.
 - [Show figures, status and records on a business screen](status-and-figures.md)
 - [Pick dates and ranges](dates-and-calendars.md) for the text keys of the
   calendar
-- Toast and toaster API: `kivact::ui::Toast`, `Toaster` and `toast_region` in
+- Toast and toaster API: `kivact::interaction::Toast`, `kivact::interaction::ToasterApi` and `kivact::ui::toast_region` in
   `cargo doc -p kivact --open`; all Pop components: `cargo doc -p kivact-ui-pop
   --open`
+
+Use standard `chat_thread`, `chat_message(author)`, `chat_composer` and `typing_indicator` for message logs. `PopBubble` selects compact conversation bubbles; `.sender(..)` is independent of the author, `.content(..)` accepts views and `.time(..)` preserves application-formatted timestamps. For grouped paragraphs, render individual messages with `ChatBubbleGroup::First`, `Middle` and `Last`, an avatar on the first and time on the last. The shared log owns scroll following; the application owns message history, streaming and revisions. `pop::thread` remains a conversation-preview row, with selection, unread count and a preview. Standard `code_block` provides line numbering, highlighting, wrapping and copy feedback.
+
+```rust,no_run
+use kivact::prelude::*;
+use kivact_ui_pop as pop;
+fn conversation() -> impl IntoView {
+    let draft=signal(String::new());
+    let sent=signal(Vec::<String>::new());
+    kivact::ui::chat_thread((
+        kivact::ui::chat_message("Haruka").content(text("The report is ready."))
+            .time("09:12").variant(pop::PopBubble),
+        for_index(sent,|_,message|kivact::ui::chat_message("You")
+            .sender(kivact::ui::ChatSender::User)
+            .content(text(message)).variant(pop::PopBubble)),
+    )).composer(kivact::ui::chat_composer(draft)
+        .on_submit(move|message|sent.update(|sent|sent.push(message))))
+}
+fn source() -> impl IntoView {
+    kivact::ui::code_block("let answer = 42;".to_owned())
+        .title("Example").language("Rust").line_numbers(true).wrap(true)
+}
+```

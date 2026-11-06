@@ -1,5 +1,5 @@
 //! Role: Passive models shared by creative editor domains.
-use kivact::style::{Color, rgb};
+use kivact::style::Color;
 /// A visible time-editor row, identified independently of its display order.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Lane {
@@ -18,7 +18,9 @@ impl Lane {
 /// A snapshot of the domain location that requested an editor context menu.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct EditorContext {
+    // xtask-allow(state-fields): Independent optional identities in an immutable context-menu location snapshot.
     pub item: Option<u64>,
+    // xtask-allow(state-fields): Independent optional identities in an immutable context-menu location snapshot.
     pub lane: Option<u64>,
     pub time: f64,
 }
@@ -42,7 +44,7 @@ impl Clip {
             start,
             duration,
             label: label.into(),
-            color: rgb(0x8b7cff),
+            color: crate::color::default_item_color(),
             muted: false,
         }
     }
@@ -67,9 +69,9 @@ pub struct ItemTime {
     pub duration: f64,
 }
 
-use kivact::Callback;
 use kivact::interaction::EditSession;
-use kivact::ui::EditPhase;
+use kivact::state::Callback;
+use kivact::view::EditPhase;
 
 /// `session` reporting its phases to the kit's stored observer, if any.
 pub(crate) fn observed<T: Clone + 'static>(
@@ -93,4 +95,36 @@ pub enum EditorEvent<R> {
     Commit,
     /// Bound values are restored; the application restores its items from `Begin`.
     Cancel,
+}
+
+pub(crate) fn phase_observer<R: 'static>(
+    observer: Option<Callback<EditorEvent<R>>>,
+) -> Option<Callback<EditPhase>> {
+    observer.map(|observer| {
+        kivact::state::callback(move |phase| {
+            observer.call(match phase {
+                EditPhase::Begin => EditorEvent::Begin,
+                EditPhase::Commit => EditorEvent::Commit,
+                EditPhase::Cancel => EditorEvent::Cancel,
+            })
+        })
+    })
+}
+
+pub(crate) fn canvas_size(
+    rect: kivact::state::Value<Option<kivact::geometry::Rect>>,
+) -> kivact::state::Value<kivact::geometry::Size> {
+    kivact::state::IntoValue::into_value(kivact::state::memo(move || {
+        let r = rect.get().unwrap_or_default();
+        kivact::geometry::Size::new(r.width, r.height)
+    }))
+}
+impl EditorContext {
+    pub(crate) fn at_time(time: f64) -> Self {
+        Self {
+            item: None,
+            lane: None,
+            time,
+        }
+    }
 }

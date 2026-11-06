@@ -1,11 +1,12 @@
 //! Role: Arvane render: rasterises `kivact-types` draw commands.
+
 //!
 //! Responsibility: scene rasterization with private vello_cpu and
 //! vello_hybrid backends, which share every stage but the last (`draw.rs`).
 //! The CPU path is deterministic and backs the tests' frames; the GPU path
 //! (feature `gpu`) presents to window surfaces.
 //! Images arrive decoded, as straight-alpha RGBA8
-//! `ImageData`; this crate reads no encoded image. The
+//! `Pixels`; this crate reads no encoded image. The
 //! CPU renderer keeps an image's premultiplied copy while consecutive
 //! frames draw it (`images`), so a photo left on screen is not converted
 //! again every frame; pixels made from a scene's values (images through a
@@ -15,7 +16,7 @@
 //! both rasterizers have (`draw/effects.rs`), and a scene with backdrops
 //! is indexed by where its commands draw (`backdrop`). With the feature
 //! `gpu-interop`, the GPU path also draws the textures an application's
-//! render engine shares (`DrawCommand::External`, `gpu/external.rs`),
+//! render engine shares (`RenderCmd::External`, `gpu/external.rs`),
 //! imported through `kivact-gpu-share`, which holds the `unsafe` below
 //! wgpu that needs; the CPU path never draws them.
 //!
@@ -38,6 +39,7 @@
 #![forbid(unsafe_code)]
 
 mod backdrop;
+mod capabilities;
 mod error;
 mod gradient;
 pub use error::RenderError;
@@ -47,6 +49,8 @@ mod derived;
 mod draw;
 #[cfg(feature = "gpu")]
 pub(crate) mod gpu;
+#[cfg(not(feature = "gpu"))]
+mod gpu_unbuilt;
 mod images;
 mod ink;
 mod limits;
@@ -57,6 +61,11 @@ mod validate;
 pub use cpu::CpuRenderer;
 #[cfg(feature = "gpu")]
 pub use gpu::state::{GpuContext, GpuEnv, GpuSurface, Presentation};
+#[cfg(not(feature = "gpu"))]
+pub use gpu_unbuilt::{GpuContext, GpuEnv, GpuSurface, Presentation};
+
+pub use capabilities::GPU_BUILT;
+
 pub use ink::glyph_ink_bounds;
 pub use validate::{dimensions, raster_plan};
 

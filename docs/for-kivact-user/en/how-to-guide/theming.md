@@ -41,8 +41,8 @@ signal and wrap your screen in `provide_theme`:
 
 ```rust,test_harness
 use kivact::prelude::*;
-use kivact::style::{ThemeMode, current_theme};
-use kivact::view::provide_theme;
+use kivact::style::{ThemeMode, use_theme};
+use kivact::style::provide_theme;
 
 fn app() -> impl IntoView {
     let theme = signal(Theme::light());
@@ -57,7 +57,7 @@ fn app() -> impl IntoView {
                     }
                 })
             }),
-            text(move || format!("mode: {:?}", current_theme().mode())),
+            text(move || format!("mode: {:?}", use_theme().get().mode())),
         ))
         // `provide_theme` draws nothing, so give its top node the theme's colors.
         .style(
@@ -101,7 +101,7 @@ they follow a switch for free:
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::style::current_theme;
+use kivact::style::use_theme;
 
 fn card(body: impl IntoView) -> impl IntoView {
     column(body).style(
@@ -116,7 +116,7 @@ fn card(body: impl IntoView) -> impl IntoView {
 fn spaced(body: impl IntoView) -> impl IntoView {
     // Read the theme inside the closure: the style is computed again when it changes.
     column(body).style(move || {
-        let theme = current_theme();
+        let theme = use_theme().get();
         style().padding(theme.space().lg).gap(theme.space().sm)
     })
 }
@@ -133,8 +133,8 @@ fn main() -> kivact::Result<()> {
 - Other tokens are read with accessors: `theme.space().md`, `theme.radius().lg`,
   `theme.text().size`, `theme.focus_ring()`, `theme.focus_ring_offset()`,
   `theme.disabled_opacity()` and `theme.control_height()`.
-- Read `current_theme()` **inside** a style closure, not once in setup. A copy
-  taken in setup is a fixed snapshot and misses theme switches.
+- `use_theme()` returns a reactive `Value<Theme>` that you may keep during
+  setup. Read its `.get()` inside a style closure to follow theme switches.
 
 ## Change tokens
 
@@ -165,8 +165,8 @@ Every standard component picks the new accent up. The same works for
 family), `with_control_height` and `with_icons`. Starting from a kit's theme
 instead of `Theme::light()` keeps the kit's recipes and tokens.
 
-Install `kivact::view::OverlayViewport::new(16.0)` with `Theme::with`
-to fit overlays inside a 16 px viewport margin. Anchored overlays try
+Use `theme.with_overlay_margin(16.0)`
+to fit overlays inside a 16 px viewport margin. The default is zero inset with viewport fitting enabled. Anchored overlays try
 flips, spans and slides before clamping. Use `Overlay::viewport_margin`
 to set the margin on an individual layer.
 
@@ -183,7 +183,7 @@ use kivact::ui::UiRecipes;
 fn square_buttons() -> Theme {
     let theme = Theme::light();
     // Read the recipes the theme has now (a kit's, if it is a kit's theme) ...
-    let recipes = UiRecipes::clone(&theme.get::<UiRecipes>());
+    let recipes = UiRecipes::clone(&theme.ext::<UiRecipes>());
     // ... and wrap the button recipe: call the old one, then override one thing.
     let recipes = recipes.button(|previous| move |theme, state| previous(theme, state).radius(0));
     theme.with(recipes)
@@ -224,11 +224,11 @@ use kivact::prelude::*;
 fn buttons() -> impl IntoView {
     row((
         button("Primary"),
-        button("Secondary").variant(ButtonVariant::Secondary),
-        button("Outline").variant(ButtonVariant::Outline),
-        button("Ghost").variant(ButtonVariant::Ghost),
-        button("Danger").variant(ButtonVariant::Danger),
-        button("Link").variant(ButtonVariant::Link),
+        button("Secondary").variant(kivact::ui::ButtonVariant::Secondary),
+        button("Outline").variant(kivact::ui::ButtonVariant::Outline),
+        button("Ghost").variant(kivact::ui::ButtonVariant::Ghost),
+        button("Danger").variant(kivact::ui::ButtonVariant::Danger),
+        button("Link").variant(kivact::ui::ButtonVariant::Link),
     ))
     .style(style().gap(8).padding(16))
 }
@@ -328,10 +328,7 @@ mod tests {
 
     #[test]
     fn a_theme_icon_draws_without_errors() {
-        let options = kivact::test::RenderOptions {
-            theme: Theme::light().with_icon("star", STAR),
-            ..kivact::test::RenderOptions::from_env()
-        };
+        let options = kivact::test::RenderOptions::from_env().theme(Theme::light().with_icon("star", STAR));
         let screen = kivact::test::render_with(options, app);
         screen.get_by_role(Role::Image, "Favorite");
         assert!(screen.errors().is_empty(), "{:?}", screen.errors());
@@ -355,12 +352,12 @@ implements `ThemeExtension`:
 
 ```rust,test_harness
 use kivact::prelude::*;
-use kivact::style::{Color, ThemeExtension, current_theme, rgb};
+use kivact::style::{Color, ThemeExtension, use_theme, rgb};
 
 #[derive(Debug, PartialEq)]
 struct Brand {
     highlight: Color,
-    gutter: f32,
+    gutter: f64,
 }
 
 impl ThemeExtension for Brand {
@@ -373,7 +370,7 @@ impl ThemeExtension for Brand {
 
 fn banner() -> impl IntoView {
     text("New").style(move || {
-        let brand = current_theme().get::<Brand>();
+        let brand = use_theme().get().ext::<Brand>();
         style().color(brand.highlight).padding(brand.gutter)
     })
 }
@@ -390,8 +387,8 @@ mod tests {
     #[test]
     fn an_installed_value_wins_and_a_missing_one_falls_back() {
         let themed = Theme::light().with(Brand { highlight: rgb(0x0088ff), gutter: 16.0 });
-        assert_eq!(themed.get::<Brand>().gutter, 16.0);
-        assert_eq!(Theme::dark().get::<Brand>().gutter, 12.0);
+        assert_eq!(themed.ext::<Brand>().gutter, 16.0);
+        assert_eq!(Theme::dark().ext::<Brand>().gutter, 12.0);
     }
 }
 ```
@@ -399,7 +396,7 @@ mod tests {
 - The type needs `Debug + PartialEq + Send + Sync + 'static`. Two themes are equal
   when their installed values are equal, which keeps unchanged themes from
   restyling.
-- `Theme::get::<Brand>()` returns an `Arc<Brand>` that shares the installed value;
+- `Theme::ext::<Brand>()` returns a `ThemeRef<Brand>` that shares the installed value;
   nothing is copied.
 - Read tokens inside a style closure (as above) so a theme switch restyles the
   component without remounting.

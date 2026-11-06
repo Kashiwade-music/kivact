@@ -20,9 +20,9 @@ fn main() -> kivact::Result<()> {
 }
 ```
 
-テーマには、Neutral の配色、12 px の文字、角の丸みなし、32 px のコントロール、そして `kivact::ui` の標準コンポーネントすべて（`button`、`toggle`、`checkbox`、`switch`、`text_input`、`text_area`、`select`、`menu`、`dialog`、`tooltip`、`tabs`、`radio_group`、`slider`、`range_slider`、`toast_region`、`splitter`、`split`、`progress`、`disclosure`、`data_table` など）の描き方（recipe）が入っています。キットはこれらのコピーを持ちません。`kivact::ui::button` と `basic::card` が何の仲立ちもなく並べられるのも、テーマを変えると両方の見た目が変わるのも、そのためです。
+テーマには、Neutral の配色、12 px の文字、角の丸みなし、32 px のコントロール、そして `kivact::ui` の標準コンポーネントすべて（`button`、`toggle`、`checkbox`、`switch`、`text_input`、`text_area`、`select`、`menu`、`dialog`、`tooltip`、`tabs`、`radio_group`、`slider`、`range_slider`、`toast_region`、`splitter`、`split`、`progress`、`disclosure`、`data_table` など）の描き方（recipe）が入っています。キットはこれらのコピーを持ちません。`kivact::ui::button` と `kivact::ui::card` が何の仲立ちもなく並べられるのも、テーマを変えると両方の見た目が変わるのも、そのためです。
 
-見た目をウィンドウの一部に限りたいときは、その部分を `kivact::view::provide_theme(theme, || ..)` で包みます。外側の兄弟は、上から来たテーマのままです。
+見た目をウィンドウの一部に限りたいときは、その部分を `kivact::style::provide_theme(theme, || ..)` で包みます。外側の兄弟は、上から来たテーマのままです。
 
 ## 実行中にライトとダークを切り替える
 
@@ -35,7 +35,7 @@ use kivact_ui_basic as basic;
 
 fn root() -> impl IntoView {
     let dark = signal(false);
-    kivact::view::provide_theme(
+    kivact::style::provide_theme(
         move || {
             basic::theme(if dark.get() { ThemeMode::Dark } else { ThemeMode::Light })
         },
@@ -50,8 +50,8 @@ fn root() -> impl IntoView {
                     .size(pct(100), pct(100))
                     .padding(24)
                     .gap(12)
-                    .background(basic::Color::Background)
-                    .color(basic::Color::Foreground),
+                    .background(basic::ColorName::Background)
+                    .color(basic::ColorName::Foreground),
             )
         },
     )
@@ -112,13 +112,13 @@ fn main() -> kivact::Result<()> {
     App::new("Basic")
         .theme(basic::theme(kivact::style::ThemeMode::Light))
         .messages(messages)
-        .run(|| basic::pagination(signal(0usize), 5usize))
+        .run(|| kivact::ui::pagination(5usize, signal(0usize)))
 }
 ```
 
 ## 自分のスタイルでキットの色を使う
 
-`basic::Color` はパレットの色の名前です（`Background`、`Foreground`、`Card`、`Primary`、`Secondary`、`Muted`、`MutedForeground`、`Accent`、`Destructive`、`Border`、`Input`、`Ring`、`Chart1` から `Chart5`、`Sidebar` 系の色、`Code` の構文色）。色を受け取るスタイルのメソッドにはすべてそのまま渡せます。ノードを描くときに有効なテーマから解決されるので、テーマの切り替えに追従します。
+`basic::ColorName` はパレットの色の名前です（`Background`、`Foreground`、`Card`、`Primary`、`Secondary`、`Muted`、`MutedForeground`、`Accent`、`Destructive`、`Border`、`Input`、`Ring`、`Chart1` から `Chart5`、`Sidebar` 系の色、`Code` の構文色）。色を受け取るスタイルのメソッドにはすべてそのまま渡せます。ノードを描くときに有効なテーマから解決されるので、テーマの切り替えに追従します。
 
 ```rust,no_run
 use kivact::prelude::*;
@@ -128,9 +128,9 @@ fn banner() -> impl IntoView {
     text("Heads up").style(
         style()
             .padding(12)
-            .background(basic::Color::Muted)
-            .color(basic::Color::MutedForeground)
-            .border(1, basic::Color::Border),
+            .background(basic::ColorName::Muted)
+            .color(basic::ColorName::MutedForeground)
+            .border(1, basic::ColorName::Border),
     )
 }
 ```
@@ -139,12 +139,12 @@ fn banner() -> impl IntoView {
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::style::current_theme;
+use kivact::style::use_theme;
 use kivact_ui_basic as basic;
 
 fn tinted() -> impl IntoView {
     text("Tinted").style(|| {
-        let tokens = current_theme().get::<basic::Tokens>();
+        let tokens = use_theme().get().ext::<basic::Tokens>();
         style().padding(12).background(tokens.primary.with_alpha(0.1))
     })
 }
@@ -192,7 +192,7 @@ use kivact_ui_basic as basic;
 
 fn rounded_buttons(mode: ThemeMode) -> Theme {
     let theme = basic::theme(mode);
-    let recipes = (*theme.get::<UiRecipes>()).clone().button(|current| {
+    let recipes = (*theme.ext::<UiRecipes>()).clone().button(|current| {
         move |theme: &Theme, look: &Look<ButtonState>| current(theme, look).radius(8)
     });
     theme.with(recipes)
@@ -214,15 +214,15 @@ fn toolbar() -> impl IntoView {
     row((
         button("Download").icon(icon("download")),
         button("Settings").icon(icon("settings")).hide_label(true),
-        basic::badge("New").icon(icon("sparkles")),
+        kivact::ui::badge("New").icon(icon("sparkles")),
     ))
     .style(style().gap(8))
 }
 ```
 
 - アイコンは 16 px で、現在の文字色で描かれます。小さなボタンのアイコンの枠のように、それより小さい箱の中では、収まるように縮みます。手で大きさを変えるときは、アイコンにサイズを指定します（`icon("info").style(style().size(24, 24))`）。
-- コンポーネントが 1 つの view を受けるスロットを持つ場合（`alert(..).icon(..)`、`badge(..).icon(..)`、`button(..).icon(..)`）は `icon(name)` を渡します。項目がレコードの場合（`ListItem`、`MenuEntry`）は、名前を文字列で渡します（`MenuEntry::item("save", "Save").icon("save")`）。
-- アイコンは飾りです。アイコンだけのボタンの accessible name はラベルから付くので、`button("Settings").icon(..).hide_label(true)` のようにラベルは残してください。
+- コンポーネントが 1 つの view を受けるスロットを持つ場合（`alert(..).with_icon(..)`、`badge(..).with_icon(..)`、`button(..).with_icon(..)`）は `icon(name)` を渡します。項目がレコードの場合（`ListItem`、`MenuEntry`）は、名前を文字列で渡します（`MenuEntry::item("save", "Save").with_icon("save")`）。
+- アイコンは飾りです。アイコンだけのボタンの accessible name はラベルから付くので、`button("Settings").with_icon(..).hide_label(true)` のようにラベルは残してください。
 - セットにない名前は何も描きません。デバッグビルドでは、足りない名前が呼び出した場所つきで報告されるので、綴りの間違いに気づけます。
 - 自分のアイコンは、SVG のバイト列から `with_icon` でテーマに足せます（ファイル内の線や塗りの色は、文字色に置き換えられます）。
 

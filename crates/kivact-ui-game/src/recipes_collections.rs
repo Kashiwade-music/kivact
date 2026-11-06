@@ -4,15 +4,13 @@
 //! 160 px columns that share the width beyond that, a cyan-tinted row on
 //! hover and an accent edge on a selected row. Drawn by `kivact::ui::list`
 //! and `kivact::ui::data_table`.
-
 use crate::tokens::Tokens;
 use kivact::style::{ColorToken, Theme, style};
 use kivact::ui::{DataTableRecipes, ListRecipes};
-
 pub(crate) fn list(r: ListRecipes) -> ListRecipes {
     r.item(|prev| {
         move |t: &Theme, s: &_| {
-            let p = t.get::<Tokens>();
+            let p = t.ext::<Tokens>();
             prev(t, s)
                 .min_height(p.row_height)
                 .padding_x(12)
@@ -26,12 +24,11 @@ pub(crate) fn list(r: ListRecipes) -> ListRecipes {
         }
     })
 }
-
 pub(crate) fn data_table(r: DataTableRecipes) -> DataTableRecipes {
     r.frame(|prev| move |t: &Theme, s: &_| prev(t, s).radius(0).background(ColorToken::Surface))
         .header(|prev| {
             move |t: &Theme, s: &_| {
-                let p = t.get::<Tokens>();
+                let p = t.ext::<Tokens>();
                 prev(t, s)
                     .width(160)
                     .min_width(160)
@@ -44,7 +41,7 @@ pub(crate) fn data_table(r: DataTableRecipes) -> DataTableRecipes {
         })
         .row(|prev| {
             move |t: &Theme, s: &_| {
-                let p = t.get::<Tokens>();
+                let p = t.ext::<Tokens>();
                 prev(t, s)
                     .group()
                     .min_height(s.height.unwrap_or(p.row_height))
@@ -58,7 +55,7 @@ pub(crate) fn data_table(r: DataTableRecipes) -> DataTableRecipes {
         })
         .cell(|prev| {
             move |t: &Theme, s: &_| {
-                let p = t.get::<Tokens>();
+                let p = t.ext::<Tokens>();
                 prev(t, s)
                     .width(160)
                     .min_width(160)

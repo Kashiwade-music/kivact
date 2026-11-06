@@ -5,13 +5,15 @@ use crate::editors::graph::model::Curve;
 use crate::editors::shared::lane::{GRAPH_LANE_WIDTH, LaneExtensions, graph_lane_y};
 use crate::editors::shared::model::{EditorContext, Lane};
 use crate::editors::shared::ruler::{Ruler, RulerTicks};
-use kivact::control::{Node, NodeBuilder, node};
-use kivact::interaction::{DragCoordinates, EditSession, use_drag, use_space_pan};
-use kivact::primitive::{NodeExt, NodeRefExt, part};
+use kivact::custom::NodeRefExt;
+use kivact::custom::part;
+use kivact::interaction::ListItem;
+use kivact::interaction::{EditSession, use_space_pan};
+use kivact::state::{Callback, Value, signal};
+use kivact::state::{IntoValue, callback};
 use kivact::style::{ColorToken, Overflow, style};
-use kivact::ui::{EditPhase, ListItem};
-use kivact::view::{A11yAction, IntoValue, IntoView, MouseButton, Role, View, callback, node_ref};
-use kivact::{Callback, Value, signal};
+use kivact::view::{A11yAction, IntoView, Role, View, node_ref};
+use kivact::view::{Node, NodeBuilder, node};
 use std::rc::Rc;
 
 /// An editable graph whose curves and view intervals use application domain units.
@@ -59,7 +61,7 @@ pub fn graph_editor(curves: impl IntoValue<Vec<Curve>>, state: crate::GraphState
             },
             value_format: Rc::new(|v| v.to_string()),
             step: (1.0.into_value(), 0.01.into_value()),
-            cells_width: 0.0,
+            cells_width: 0.0.into_value(),
         },
         on_edit: None,
         extensions: LaneExtensions::default(),
@@ -114,6 +116,7 @@ impl GraphEditor {
 }
 
 impl NodeBuilder for GraphEditor {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -121,143 +124,20 @@ impl NodeBuilder for GraphEditor {
 
 impl IntoView for GraphEditor {
     fn into_view(self) -> View {
-        let Self {
+        let Prepared {
             root,
-            curves,
             state,
+            reference,
+            settings,
             lanes,
-            snap,
-            mut settings,
-            on_edit,
+            cells,
             extensions,
-        } = self;
-        settings.cells_width = extensions
-            .cells
-            .iter()
-            .map(|(width, _)| *width)
-            .sum::<f32>()
-            .min(GRAPH_LANE_WIDTH);
-        settings.ruler.report();
-        let settings = Rc::new(settings);
-        let crate::GraphState {
-            view,
-            selection: selected,
-            playhead,
-        } = state;
-        let lanes = lanes.unwrap_or_else(|| {
-            kivact::memo(move || {
-                curves
-                    .get()
-                    .iter()
-                    .map(|c| Lane::new(c.id, c.label.clone()))
-                    .collect()
-            })
-        });
-        let visible = crate::editors::graph::a11y::visible(curves, lanes, settings.clone());
-        let order = kivact::memo(move || {
-            visible
-                .get()
-                .into_iter()
-                .map(|k| ListItem::new(k.key.id, k.name))
-                .collect::<Vec<_>>()
-        });
-        let choose = crate::editors::shared::selection::controller(order, selected);
-        let scene = crate::editors::graph::a11y::scene(curves, visible, selected, lanes);
-        let (cells, child_focus) = crate::editors::shared::lane::lane_cells(
-            lanes,
-            &extensions,
-            |index| {
-                kivact::draw::Rect::new(
-                    0.0,
-                    graph_lane_y(index),
-                    GRAPH_LANE_WIDTH,
-                    crate::editors::shared::metrics::KEY_LANE,
-                )
-            },
-            false,
-        );
-        let reference = node_ref();
-        let rect = reference.rect();
-        let edit = crate::editors::shared::model::observed(
-            EditSession::new(move |snapshot| {
-                crate::editors::graph::edit::restore(view, playhead, snapshot)
-            }),
-            on_edit.map(|observer| {
-                callback(move |phase| {
-                    observer.call(match phase {
-                        EditPhase::Begin => crate::editors::shared::model::EditorEvent::Begin,
-                        EditPhase::Commit => crate::editors::shared::model::EditorEvent::Commit,
-                        EditPhase::Cancel => crate::editors::shared::model::EditorEvent::Cancel,
-                    })
-                })
-            }),
-        );
-        let press = crate::editors::shared::gesture::CanvasGesture::<
-            crate::editors::graph::gesture::Target,
-            (
-                Option<crate::editors::graph::gesture::Gesture>,
-                Option<crate::editors::graph::gesture::Snapshot>,
-            ),
-        >::new();
-        // A gesture begins its edit at its first change, from the press's
-        // snapshot; an empty one would restore nothing.
-        let gesture = use_drag::<()>(DragCoordinates::Local)
-            .buttons([MouseButton::Middle])
-            .edit_on_change(edit, move || {
-                press
-                    .with_payload(|payload| payload.1.clone())
-                    .flatten()
-                    .unwrap_or_else(|| crate::editors::graph::gesture::Snapshot::Keys(Vec::new()))
-            });
-        let state = State {
-            curves,
-            on_edit,
-            view,
-            selected,
-            playhead,
-            visible,
-            scene,
-            choose,
-            size: kivact::memo(move || {
-                let r = rect.get().unwrap_or_default();
-                kivact::draw::Size::new(r.width, r.height)
-            }),
-            snap,
-            step: settings.step,
-            edit,
-            press,
-            gesture,
-            active: signal(None),
-            space: use_space_pan(),
-            lane_activate: extensions.lane_activate,
-            item_activate: extensions.item_activate,
-            child_focus,
-            context: signal(EditorContext {
-                item: None,
-                lane: None,
-                time: playhead.get_untracked(),
-            }),
-        };
+        } = self.prepare();
+        let curves = state.curves;
+        let selected = state.selected;
         let gesture = state.drag();
-        let focus = reference.focus_within();
-        kivact::effect(move || {
-            let focused = focus.get();
-            let visible = reference.is_visible();
-            let keys = state.visible.get();
-            let gesture = state.drag_state();
-            if let Some(gesture) = gesture {
-                let missing = match gesture.kind {
-                    DragKind::Keys(ids) => {
-                        ids.iter().any(|id| !keys.iter().any(|k| k.key.id == *id))
-                    }
-                    DragKind::Tangent(id, _) => !keys.iter().any(|k| k.key.id == id),
-                    _ => false,
-                };
-                if !focused || !visible || missing {
-                    state.cancel();
-                }
-            }
-        });
+        let availability = kivact::custom::part(|input| input);
+        observe_inputs(state, reference, availability.state());
         let root = crate::editors::graph::a11y::attach(
             root.value_text(move || {
                 format!(
@@ -280,25 +160,175 @@ impl IntoView for GraphEditor {
             .on_pointer(move |event| state.context_pointer(event))
             .on_key(move |event| state.context_key(&event))
             .on_pointer_default(move |event| state.pointer(event))
-            .part(gesture.source(()))
+            .part(availability)
+            .part(gesture.source_with(move || state.source_snapshot()))
             // After the drag's sources, which take Escape during a drag.
-            .part(
-                part(|input| input)
-                    .region_events()
-                    .on_key(move |event| state.key(event)),
-            )
+            .part({
+                let input_part = part(|input| input);
+                kivact::custom::Part::new(input_part.state(), move |node| {
+                    node.part(input_part)
+                        .region_events()
+                        .on_key(move |event| state.key(event))
+                })
+            })
             // Space arms the pan; it reaches ancestors like on any pan surface.
             .part(state.space.control())
             .on_wheel(move |event| state.wheel(event));
         match extensions.menu {
-            Some(menu) => menu(
-                root.on_a11y_event(A11yAction::ShowMenu, move |event| {
+            Some(menu) => menu.call((
+                root.a11y_action(A11yAction::ShowMenu, move |event| {
                     state.cancel();
                     state.context_request(event.region);
                 }),
                 state.context.into_value(),
-            ),
+            )),
             None => root.into_view(),
         }
     }
+}
+
+struct Prepared {
+    root: Node,
+    state: State,
+    reference: kivact::view::NodeRef,
+    settings: Rc<Settings>,
+    lanes: Value<Vec<Lane>>,
+    cells: View,
+    extensions: LaneExtensions,
+}
+impl GraphEditor {
+    fn prepare(self) -> Prepared {
+        let Self {
+            root,
+            curves,
+            state,
+            lanes,
+            snap,
+            mut settings,
+            on_edit,
+            extensions,
+        } = self;
+        settings.cells_width = extensions.width(GRAPH_LANE_WIDTH);
+        settings.ruler.report();
+        let settings = Rc::new(settings);
+        let crate::GraphState {
+            view,
+            selection: selected,
+            playhead,
+        } = state;
+        let lanes = graph_lanes(lanes, curves);
+        let visible = crate::editors::graph::a11y::visible(curves, lanes, settings.clone());
+        let choose = graph_selection(visible, selected);
+        let scene = crate::editors::graph::a11y::scene(curves, visible, selected, lanes);
+        let (cells, child_focus) = crate::editors::shared::lane::lane_cells(
+            lanes,
+            &extensions,
+            |index| {
+                kivact::geometry::Rect::new(
+                    0.0,
+                    graph_lane_y(index),
+                    GRAPH_LANE_WIDTH,
+                    crate::editors::shared::metrics::KEY_LANE,
+                )
+            },
+            false,
+        );
+        let reference = node_ref();
+        let rect = reference.rect();
+        let edit = crate::editors::shared::model::observed(
+            EditSession::new(move |snapshot| {
+                crate::editors::graph::edit::restore(view, playhead, snapshot)
+            }),
+            crate::editors::shared::model::phase_observer(on_edit),
+        );
+        let (press, gesture) = crate::editors::shared::gesture::CanvasGesture::editor(edit, || {
+            crate::editors::graph::gesture::Snapshot::Keys(Vec::new())
+        });
+        let state = State {
+            curves,
+            on_edit,
+            view,
+            selected,
+            playhead,
+            visible,
+            scene,
+            choose,
+            size: crate::editors::shared::model::canvas_size(rect),
+            snap,
+            step: settings.step,
+            edit,
+            press,
+            gesture,
+            active: signal(None),
+            space: use_space_pan(),
+            lane_activate: extensions.lane_activate,
+            item_activate: extensions.item_activate,
+            child_focus,
+            context: signal(EditorContext::at_time(playhead.get_untracked())),
+        };
+        Prepared {
+            root,
+            state,
+            reference,
+            settings,
+            lanes,
+            cells,
+            extensions,
+        }
+    }
+}
+
+fn observe_inputs(
+    state: State,
+    reference: kivact::view::NodeRef,
+    availability_state: Value<kivact::custom::PartState>,
+) {
+    let focus = reference.focus_within();
+    kivact::state::effect(move || {
+        let focused = focus.get();
+        let visible = reference.is_visible();
+        let keys = state.visible.get();
+        let gesture = state.drag_state();
+        if let Some(gesture) = gesture {
+            let missing = match gesture.kind {
+                DragKind::Keys(ids) => ids.iter().any(|id| !keys.iter().any(|k| k.key.id == *id)),
+                DragKind::Tangent(id, _) => !keys.iter().any(|k| k.key.id == id),
+                _ => false,
+            };
+            let input = availability_state.get();
+            state.press.inputs_changed(
+                focused,
+                visible && !input.hidden,
+                !input.disabled,
+                !missing,
+                move || state.cancel(),
+            );
+        }
+    });
+}
+
+fn graph_lanes(lanes: Option<Value<Vec<Lane>>>, curves: Value<Vec<Curve>>) -> Value<Vec<Lane>> {
+    lanes.unwrap_or_else(|| {
+        kivact::state::memo(move || {
+            curves
+                .get()
+                .iter()
+                .map(|c| Lane::new(c.id, c.label.clone()))
+                .collect()
+        })
+    })
+}
+
+fn graph_selection(
+    visible: Value<Vec<crate::editors::graph::gesture::VisibleKey>>,
+    selected: kivact::state::Binding<Vec<u64>>,
+) -> kivact::interaction::ListApi<u64> {
+    let order = kivact::state::memo(move || {
+        visible
+            .get()
+            .into_iter()
+            .map(|k| ListItem::new(k.key.id, k.name))
+            .collect::<Vec<_>>()
+    });
+    crate::editors::shared::selection::controller(order, selected)
 }

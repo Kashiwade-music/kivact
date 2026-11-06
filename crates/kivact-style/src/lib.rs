@@ -5,11 +5,10 @@
 //! paints, shapes, strokes, filters, blending and transforms that styles
 //! share with it (they live in `effect`, `paint`, `draw` and `transform`).
 //! Each value converts itself into the engine's form next to its definition (a
-//! color in the theme it resolves against). The host side is [`Style::compile`]
-//! (a whole `Style` into node props), [`draw::Draw::record`] (a drawing into a
-//! scene), [`draw::TextRun::from_style`], [`SpanStyle::compile`] and
-//! [`Theme::install`] / [`Theme::of`]. This crate owns no node tree, engine,
-//! window or renderer; the `kivact-core` facade re-exports the names users call.
+//! color in the theme it resolves against). The core host uses the hidden
+//! `internal` bridge to compile styles, provide themes and record drawing.
+//! This crate owns no node tree, engine, window or renderer; core exports
+//! the names users call.
 
 #![forbid(unsafe_code)]
 
@@ -17,9 +16,12 @@ pub mod asset;
 mod color;
 pub mod draw;
 pub mod effect;
+pub mod facade;
 pub mod geometry;
 mod grid;
 mod icon;
+#[doc(hidden)]
+pub mod internal;
 mod length;
 pub mod paint;
 pub(crate) mod path;
@@ -34,8 +36,8 @@ pub use effect::BorderStyle;
 pub use grid::{GridAutoFlow, GridPlacement, Track};
 pub use icon::{Icon, IconSet};
 #[doc(inline)]
-pub use kivact_wire::Align;
-pub use kivact_wire::{Cursor, TextAlign};
+pub use kivact_types::{Align, Display};
+pub use kivact_types::{Cursor, TextAlign};
 pub use length::{Length, auto, pct};
 pub use paint::Background;
 pub use resolve::{CompiledStyle, Interactive};
@@ -43,9 +45,16 @@ pub use sheet::{
     Direction, Justify, Overflow, Position, ScrollbarWidth, Style, TransitionProp, style,
 };
 pub use text::{
-    FontFeature, FontKerning, LineHeight, SpanStyle, TextDecorationLine, TextLength, TextOverflow,
-    TextTransform, em,
+    FontFeature, FontKerning, LineHeight, SpanStyle, StyledRange, TextDecoration,
+    TextDecorationLine, TextDecorationStyle, TextLength, TextOverflow, TextTransform, em,
 };
-pub use theme::value::{Theme, ThemeColor, ThemeExtension, ThemeMode, current_theme};
+pub use theme::value::{
+    Theme, ThemeColor, ThemeExtension, ThemeMode, ThemeRef, use_theme, use_tokens,
+};
 
 pub(crate) use sheet::paint_transition;
+
+/// Visibility of a layout box and its subtree.
+pub use kivact_types::Visibility;
+
+pub use kivact_types::ScrollSnap;

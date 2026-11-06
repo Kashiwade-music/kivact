@@ -3,7 +3,8 @@
 use crate::error::RenderError;
 use crate::{draw, images, paint, validate};
 use kivact_types::Size;
-use kivact_types::protocol::{CpuFrame, ImageData, Scene};
+use kivact_types::render::{CpuFrame, RenderScene};
+use kivact_types::scene::Pixels;
 use std::sync::Arc;
 use vello_common::filter_effects::Filter;
 use vello_cpu::kurbo::{Affine, BezPath, Rect, Stroke};
@@ -70,9 +71,9 @@ impl CpuRenderer {
     /// budget) is enlarged by nearest neighbor.
     pub fn render_0rgb(
         &mut self,
-        scene: &Scene,
+        scene: &RenderScene,
         size: Size,
-        scale: f32,
+        scale: f64,
         (width, height): (u32, u32),
         out: &mut [u32],
     ) -> Result<(), RenderError> {
@@ -111,9 +112,9 @@ impl CpuRenderer {
     /// so an error leaves the renderer usable for the next frame.
     pub fn render(
         &mut self,
-        scene: &Scene,
+        scene: &RenderScene,
         size: Size,
-        scale: f32,
+        scale: f64,
     ) -> Result<CpuFrame, RenderError> {
         let (width, height) = self.draw(scene, size, scale)?;
         self.pixmap.resize(width, height);
@@ -127,7 +128,12 @@ impl CpuRenderer {
 
     /// Validate `scene` and record it in the render context for a frame of
     /// `size` × `scale`, returning the frame's pixel dimensions.
-    fn draw(&mut self, scene: &Scene, size: Size, scale: f32) -> Result<(u16, u16), RenderError> {
+    fn draw(
+        &mut self,
+        scene: &RenderScene,
+        size: Size,
+        scale: f64,
+    ) -> Result<(u16, u16), RenderError> {
         let (width, height) = validate::dimensions(size, scale)?;
         let info = validate::scene(scene, &mut self.caches.validation)?;
         self.context.reset_and_resize(width, height);
@@ -158,12 +164,12 @@ struct CpuCanvas<'a> {
 
 impl CpuCanvas<'_> {
     /// `image` premultiplied, kept while frames draw it.
-    fn source(&mut self, image: &ImageData) -> ImageSource {
+    fn source(&mut self, image: &Pixels) -> ImageSource {
         // vello_cpu premultiplies into a new pixmap for each paint; the
         // cache keeps it while frames draw it.
         self.images.get(image, || {
             ImageSource::from_peniko_image_data(&vello_cpu::peniko::ImageData {
-                data: Blob::new(Arc::new(Arc::clone(&image.rgba))),
+                data: Blob::new(Arc::new(Arc::clone(image.rgba.as_shared()))),
                 format: ImageFormat::Rgba8,
                 alpha_type: ImageAlphaType::Alpha,
                 width: image.width,
@@ -214,9 +220,9 @@ impl draw::Canvas for CpuCanvas<'_> {
         self.context.stroke_path(path);
     }
 
-    fn fill_blurred_rounded_rect(&mut self, rect: &Rect, radius: f32, std_dev: f32) {
+    fn fill_blurred_rounded_rect(&mut self, rect: &Rect, radius: f64, std_dev: f64) {
         self.context
-            .fill_blurred_rounded_rect(rect, radius, std_dev, false);
+            .fill_blurred_rounded_rect(rect, radius as f32, std_dev as f32, false);
     }
 
     fn push_clip_layer(&mut self, path: &BezPath) {
@@ -231,19 +237,20 @@ impl draw::Canvas for CpuCanvas<'_> {
         self.context.pop_clip_path();
     }
 
-    fn push_opacity_layer(&mut self, clip: &BezPath, opacity: f32) {
+    fn push_opacity_layer(&mut self, clip: &BezPath, opacity: f64) {
         self.context
-            .push_layer(Some(clip), None, Some(opacity), None, None);
+            .push_layer(Some(clip), None, Some(opacity as f32), None, None);
     }
 
     fn push_layer(
         &mut self,
         clip: Option<&BezPath>,
         blend: Option<BlendMode>,
-        opacity: Option<f32>,
+        opacity: Option<f64>,
         filter: Option<Filter>,
     ) {
-        self.context.push_layer(clip, blend, opacity, None, filter);
+        self.context
+            .push_layer(clip, blend, opacity.map(|value| value as f32), None, filter);
     }
 
     fn pop_layer(&mut self) {
@@ -259,7 +266,7 @@ impl draw::Canvas for CpuCanvas<'_> {
             .fill_glyphs(glyphs);
     }
 
-    fn draw_image(&mut self, image: &ImageData, rect: Rect, pixelated: bool) {
+    fn draw_image(&mut self, image: &Pixels, rect: Rect, pixelated: bool) {
         let source = self.source(image);
         self.context.set_paint(PaintType::Image(Image {
             image: source,

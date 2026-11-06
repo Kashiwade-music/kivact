@@ -3,9 +3,9 @@
 //! The focus ring and the disabled opacity are the theme's defaults
 //! (`focus_ring`, `disabled_opacity`), which every part of an interaction
 //! takes, a roving segment included.
-use kivact::style::{Align, ColorToken, Direction, Style, TextOverflow, Theme, rgba, style};
+use kivact::style::{Align, ColorToken, Direction, Style, TextOverflow, Theme, style};
 pub(crate) fn check_style(t: &Theme) -> Style {
-    let p = t.get::<crate::tokens::Tokens>();
+    let p = t.ext::<crate::tokens::Tokens>();
     style()
         .direction(Direction::Row)
         .align_items(Align::Center)
@@ -16,7 +16,7 @@ pub(crate) fn check_style(t: &Theme) -> Style {
 }
 
 pub(crate) fn field_style(t: &Theme) -> Style {
-    let p = t.get::<crate::tokens::Tokens>();
+    let p = t.ext::<crate::tokens::Tokens>();
     style()
         .direction(Direction::Row)
         .align_items(Align::Center)
@@ -26,7 +26,7 @@ pub(crate) fn field_style(t: &Theme) -> Style {
         .radius(7)
         .background(p.field)
         .color(p.text)
-        .border(1, rgba(0xffffff, 0.04))
+        .border(1, crate::color::control_border())
         .hover(style().background(ColorToken::Hover))
 }
 
@@ -36,12 +36,12 @@ pub(crate) fn segmented_style(t: &Theme) -> Style {
         .gap(2)
         .padding(2)
         .radius(9)
-        .background(rgba(0x000000, 0.28))
-        .border(1, t.get::<crate::tokens::Tokens>().hair)
+        .background(crate::color::control_shadow())
+        .border(1, t.ext::<crate::tokens::Tokens>().hair)
 }
 
 pub(crate) fn segmented_option_style(t: &Theme) -> Style {
-    let p = t.get::<crate::tokens::Tokens>();
+    let p = t.ext::<crate::tokens::Tokens>();
     style()
         .direction(Direction::Row)
         .min_width(0)

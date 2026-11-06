@@ -5,7 +5,7 @@
 //! removes the last one with Backspace, through the public API only.
 
 use crate::support::mount;
-use kivact::interaction::{ListItem, ListSelection, use_combobox, use_text_edit};
+use kivact::interaction::{ListItem, Selection, use_combobox, use_text_edit};
 use kivact::prelude::*;
 use kivact::view::for_each;
 
@@ -23,11 +23,11 @@ fn picker(
     open: Signal<bool>,
     value: Signal<Option<&'static str>>,
     values: Option<Signal<Vec<&'static str>>>,
-) -> impl IntoView {
+) -> impl Component {
     let labels = options();
     let selection = match values {
-        Some(values) => ListSelection::Multiple(values.into()),
-        None => ListSelection::Single(value.into()),
+        Some(values) => Selection::Multiple(values.into_binding()),
+        None => Selection::Single(value.into_binding()),
     };
     let combo = use_combobox(labels.clone(), selection).popup(open);
     column((
@@ -35,12 +35,13 @@ fn picker(
             .name("Color")
             .part(use_text_edit(combo.query()).control())
             .part(combo.input()),
-        show(combo.shown(), move || {
+        show(combo.is_open(), move || {
             let labels = labels.clone();
             column(for_each(
                 combo.visible(),
                 |key| *key,
-                move |key, _| {
+                move |row_value| {
+                    let key = row_value.with(|key| *key);
                     let label = labels
                         .iter()
                         .find(|option| *option.key() == key)
@@ -63,7 +64,7 @@ fn the_arrows_open_a_closed_list_and_move_the_active_option_once_it_is_open() {
         let value = signal(None::<&'static str>);
         ((open, value), picker(open, value, None))
     });
-    let field = screen.get_by_role(Role::TextBox, "Color");
+    let field = screen.get_by_role(Role::ComboBox, "Color");
     assert!(screen.query_by_role(Role::ListBox, "Colors").is_none());
     field.focus();
     field.press_key(Key::ArrowDown);
@@ -93,7 +94,7 @@ fn enter_chooses_only_in_an_open_list_and_a_choice_closes_it() {
         let value = signal(None::<&'static str>);
         ((open, value), picker(open, value, None))
     });
-    let field = screen.get_by_role(Role::TextBox, "Color");
+    let field = screen.get_by_role(Role::ComboBox, "Color");
     field.focus();
     field.press_key(Key::Enter);
     assert_eq!(value.get_untracked(), None, "a closed list has no choice");

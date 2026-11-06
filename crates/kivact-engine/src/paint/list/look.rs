@@ -1,12 +1,12 @@
 //! Role: A node's look as the paint list compares it: paint props and stacking.
 
 use super::ink::EVERYWHERE;
+use crate::lower::effects;
+use crate::lower::sanitize::{extent, offset, unit};
 use crate::model::Model;
 use crate::paint::state::Look;
 use crate::tree::node::HostNode;
-use kivact_lower::effects;
-use kivact_lower::sanitize::{extent, offset, unit};
-use kivact_wire::{Edges, FilterOp, NodeId, PaintProps, Rect};
+use kivact_types::{Edges, FilterOp, NodeId, PaintProps, Rect};
 
 impl Look {
     pub(crate) fn of(p: &PaintProps) -> Self {
@@ -16,16 +16,16 @@ impl Look {
             .filter(|s| !s.inset)
             .map(|s| {
                 // The blur's gaussian (standard deviation blur / 2) is
-                // drawn at most kivact_types::protocol::SHADOW_REACH deviations out.
-                let blur = extent(s.blur) / 2.0 * kivact_types::protocol::SHADOW_REACH;
+                // drawn at most kivact_types::render::SHADOW_REACH deviations out.
+                let blur = extent(s.blur) / 2.0 * kivact_types::render::SHADOW_REACH;
                 offset(s.offset.x).abs().max(offset(s.offset.y).abs())
                     + offset(s.spread).max(0.0)
                     + blur
             })
-            .fold(0.0, f32::max);
+            .fold(0.0, f64::max);
         let ring = p.ring.map_or(0.0, |r| extent(r.width));
         let filter: &[FilterOp] = p.effects.as_ref().map_or(&[], |e| &e.filter);
-        let border = kivact_lower::shape::border_widths(p.border.as_ref());
+        let border = crate::lower::shape::border_widths(p.border.as_ref());
         let items = [
             p.background.is_some(),
             border != Edges::all(0.0),

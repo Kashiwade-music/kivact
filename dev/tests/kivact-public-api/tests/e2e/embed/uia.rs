@@ -42,6 +42,11 @@ fn query(hwnd: isize) -> windows::core::Result<bool> {
 /// A real Windows COM client must find the embedded native provider.
 #[test]
 fn native_uia_client_reads_the_embedded_button() {
+    if let Some(reason) = kivact::test::native_unavailable() {
+        eprintln!("SKIPPED: {reason}");
+        return;
+    }
+
     let _serial = SERIAL.lock().unwrap();
     let parent = TestParent::open(320, 240).unwrap();
     let app = App::new("Embedded accessibility")

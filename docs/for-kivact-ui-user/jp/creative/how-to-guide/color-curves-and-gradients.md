@@ -28,7 +28,7 @@ fn fill_picker() -> impl IntoView {
 ```rust,no_run
 use kivact::prelude::*;
 use kivact::style::rgb;
-use kivact::ui::EditPhase;
+use kivact::view::EditPhase;
 use kivact_ui_creative as ui;
 
 fn grading_wheel() -> impl IntoView {
@@ -77,7 +77,7 @@ fn grading_wheel() -> impl IntoView {
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::ui::EditPhase;
+use kivact::view::EditPhase;
 
 /// `value` の `(編集前, 編集後)` の組を記録する。
 fn history<T: Clone + PartialEq + 'static>(

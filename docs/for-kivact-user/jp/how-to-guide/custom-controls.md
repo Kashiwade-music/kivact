@@ -17,11 +17,11 @@
 | 候補つきの検索ボックス | `use_combobox` | `input()`、`content()`、`item(key)` |
 | コマンドパレット | `use_command_palette` | `content()`、`input()`、`list()`、`item(key)` |
 | 開閉する本体、ポップオーバー、ツールチップ | `use_disclosure`、`use_popup`、`use_tooltip` | `trigger()`、`content()` |
-| ホバーカード、遅れて出るヒント、一時的な確認表示 | `use_delayed` | `shown()`、`dismiss()`、`pulse()` |
+| ホバーカード、遅れて出るヒント、一時的な確認表示 | `use_delayed` | `is_open()`、`dismiss()`、`pulse()` |
 | ダイアログ | `use_dialog` | `trigger()`、`content()`、`title()`、`description()`、`close_trigger()` |
 | タブ | `use_tabs` | `list()`、`item(key)`、`panel(key)` |
 | ツリー | `use_tree` | `list()`、`item(key)` |
-| テーブル | `use_table` | `grid()`、`header(column)`、`row(key)`、`cell(key, column)` |
+| テーブル | `use_data_table` | `grid()`、`header(column)`、`row(key)`、`cell(key, column)` |
 | スライダー、数値入力 | `use_scalar`、`use_range_scalar` | `thumb()`、`track(axis)`、`input()` |
 | サイズ変更できる仕切り | `use_splitter` | `handle()` |
 | ドラッグ、ズームとパン | `use_drag`、`use_zoom_pan`、`use_space_pan` | `source(..)`、`viewport()`、`control()` |
@@ -34,16 +34,16 @@
 最短のカスタムコントロールはスイッチです。動作はすべてコントローラーが持ち、コードは見た目だけを決めます。
 
 ```rust,test_harness
-use kivact::Binding;
+use kivact::state::Binding;
 use kivact::interaction::use_switch;
 use kivact::prelude::*;
 use kivact::style::Direction;
 
 /// オンのとき右へつまみが動く、ピル型のスイッチ。
-pub fn pill_switch(label: impl IntoText, on: impl Into<Binding<bool>>) -> Node {
-    let control = use_switch(on).control();
-    // Part がノードへ move される前に、状態を読んでおきます。
-    let state = control.state();
+pub fn pill_switch(label: impl IntoText, on: impl IntoBinding<bool>) -> impl Component {
+    let api = use_switch(on);
+    let state = api.control_state();
+    let control = api.control();
     node()
         .part(control)
         .name(label)
@@ -108,14 +108,47 @@ mod tests {
 
 - **ロールと状態。** `use_switch(..).control()` が `Role::Switch`、チェック状態、フォーカスの停止位置を設定します。読み上げソフトは「Notifications、スイッチ、オフ」と読み上げます。
 - **入力。** クリック、Space、読み上げソフトの操作は、すべて同じ `Binding` を反転させます。スイッチは Enter を無視します。コントロールは渡された binding に値を書き込むので、状態は呼び出し側に残ります。
-- **無効化。** `pill_switch(..).disabled(true)` は動作します。無効なノードは入力を無視し、状態には `disabled` が反映されます。ルートを自分で持つビルダーは、標準の `checkbox` と同様に `root.accessible_disabled()` を読んでコントローラーの `.disabled(..)` に渡します。そうすれば 1 つの modifier で両方が無効になります。
-- **描画のための状態。** `control.state()` は実際の対象に追従する `Value` で、押下、ホバー、フォーカス、フォーカス可視、無効、`checked` を持ちます。これから描いてください。状態を真似る別のシグナルを持たないでください。
+- **無効化。** `pill_switch(..).disabled(true)` は動作します。無効なノードは入力を無視し、状態には `disabled` が反映されます。Part は mount 時に対象の最終的な disabled を読むため、1 つの modifier で入力と見た目の両方を無効にします。
+- **描画のための状態。** `api.control_state()` は実際の対象に追従する `Value` で、押下、ホバー、フォーカス、フォーカス可視、無効、`checked` を持ちます。これから描いてください。状態を真似る別のシグナルを持たないでください。
 
 どのコントローラーにも共通の規則が 3 つあります。
 
 1. **コントローラーは setup で作り、コントロールごとに 1 回呼ぶ。** `Copy` のハンドルです。
-2. **Part をアタッチする前に `state()` を読む。** Part は move 専用です。`.part(p)` が消費します。その前に取った状態と `node_ref()` は、ノードに追従し続けます。
+2. **描画の状態はコントローラーから読む。** `api.control_state()` は実際の対象に追従します。参照が必要なら `node_ref()` と `.node_ref(anchor)` で明示的に付けます。Part は振る舞いを付けます。
 3. **コントローラーがやることを繰り返さない。** 自前の `on_key` で Space を処理すると、コントロールが二重に反転します。自分の `on_press`、`on_key`、`on_pointer` は Part の既定動作より**先に**動きます。自分の処理だけ実行して既定動作を止めたいときは `Handled::PreventDefault`、すべてを止めたいときは `Handled::Yes` を返します。
+
+## Part を合成しても状態の持ち主を増やさない
+
+既存の状態の投影と、その振る舞いを取り付けるノードの変換を 1 つにまとめたい場合は、`kivact::custom::Part::new(state, apply)` を使います。`state` は描画用の読み取り専用の情報です。`apply` はホストの `Node` を受け取り、振る舞いを取り付けたそのノードを返します。mount 時に実行されます。
+
+```rust,no_run
+use kivact::prelude::*;
+use kivact::custom::Part;
+use kivact::interaction::use_switch;
+
+fn custom_switch() -> impl IntoView {
+    component(|| {
+        let enabled = signal(false);
+        let api = use_switch(enabled);
+        let state = api.control_state();
+        let control = api.control();
+        let part = Part::new(state, move |host| host.part(control));
+        node().part(part).name("Notifications")
+            .style(move || style().padding(8).background(
+                if state.get().checked.is_checked() {
+                    ColorToken::Accent
+                } else {
+                    ColorToken::Surface
+                }
+            ))
+            .child("Notifications")
+    })
+}
+```
+
+キーボード、ポインター、アクセシビリティの振る舞いは引き続きスイッチのコントローラーが持ちます。合成した Part は同じ事実を読むだけで、チェックや押下の状態を表す別のシグナルを持ちません。`role` や `checked` のような意味の設定には `Node` 固有のメソッドを使います。ビルダーからは `.with_node(|host| ...)` でそれらのメソッドに届きます。`style`、`disabled`、`name` などの共通の modifier は `NodeBuilder` が提供します。
+
+この例のように、部品専用の owner が必要ならコントローラーの作成を `component(move || ...)` の中に置きます。その setup は mount 時に一度だけ実行され、破棄時にはコントローラーの cleanup や timer も同じ寿命で終わります。[コンポーネントの寿命](custom-components.md#setup-に独立した寿命を持たせる)を参照してください。
 
 ## キーボード操作つきでリストから選ぶ
 
@@ -124,31 +157,32 @@ mod tests {
 ```rust,test_harness
 use std::hash::Hash;
 
-use kivact::Binding;
-use kivact::interaction::{ListItem, ListPolicy, ListSelection, use_list};
+use kivact::state::Binding;
+use kivact::interaction::{ListItem, ListOptions, Selection, use_list};
 use kivact::prelude::*;
 
 /// 選択肢の行。矢印キーで移動と選択を行い、Tab で行の外へ出ます。
-pub fn segmented<K: Clone + Eq + Hash + 'static>(
+pub fn segmented<K: ItemKey>(
     label: impl IntoText,
     options: Vec<ListItem<K>>,
-    selected: impl Into<Binding<Option<K>>>,
-) -> Node {
+    selected: impl IntoBinding<Option<K>>,
+) -> impl Component {
     let options = options.into_value();
     let list = use_list(
         options,
-        ListSelection::Single(selected.into()),
-        ListPolicy {
+        selected.into_binding(),
+        ListOptions {
             axis: Some(Orientation::Horizontal),
-            ..ListPolicy::default()
+            ..ListOptions::default()
         },
     );
     let rows = for_each(
         options,
         |option| option.key().clone(),
-        move |key, option| {
+        move |option| {
+            let key = option.with_untracked(|option| option.key().clone());
+            let state = list.item_state(key.clone());
             let part = list.item(key);
-            let state = part.state();
             node()
                 .part(part)
                 .style(move || {
@@ -211,37 +245,37 @@ mod tests {
 
 リストが提供するものです。
 
-- **ロール。** コンテナーは `ListBox` です (`ListSelection::Multiple` では複数選択可)。各項目は、ラベルを名前とする `Option` で、選択に含まれているときは `selected` になります。
-- **選択は呼び出し側のもの。** リストはコピーを持ちません。ユーザーの選択は、渡した binding に書き込みます (`Binding<Option<K>>` に対する `ListSelection::Single`、または Shift と Ctrl の範囲選択を伴う `Binding<Vec<K>>` に対する `ListSelection::Multiple`)。フィルターで隠れた選択済みキーは消えません。
-- **ナビゲーション。** `ListPolicy` で、軸、端での折り返し、移動で選択するか、先頭文字による検索、確定を起動操作で行うかを決めます。プリセットの `ListPolicy::tabs()`、`radio()`、`menu()`、`listbox()` が一般的な部品をカバーします。ポリシーは `use_list` の 3 番目の引数で渡します。
+- **ロール。** コンテナーは `ListBox` です (`Selection::Multiple` では複数選択可)。各項目は、ラベルを名前とする `Option` で、選択に含まれているときは `selected` になります。
+- **選択は呼び出し側のもの。** リストはコピーを持ちません。ユーザーの選択は、渡した binding に書き込みます (`Binding<Option<K>>` に対する `Selection::Single`、または Shift と Ctrl の範囲選択を伴う `Binding<Vec<K>>` に対する `Selection::Multiple`)。フィルターで隠れた選択済みキーは消えません。
+- **ナビゲーション。** `ListOptions` で、軸、端での折り返し、移動で選択するか、先頭文字による検索、確定を起動操作で行うかを決めます。プリセットの `ListOptions::tabs()`、`radio()`、`menu()`、`listbox()` が一般的な部品をカバーします。ポリシーは `use_list` の 3 番目の引数で渡します。
 - **タブストップは 1 つ。** 行全体が Tab の停止位置 1 つで、中は矢印キーで移動します。無効な項目 (`ListItem::disabled(true)`) は飛ばされます。
 
 ## リストを開閉する
 
-ドロップダウンは、リストの上に開閉、フォーカスの復帰、閉じる操作を足したものです。`use_select` は 3 つの Part を渡します。**trigger** (コンボボックス)、**content** (浮かぶ面)、選択肢ごとの **item** です。`shown()` が true のあいだ、`show` と `overlay` で content を mount します。
+ドロップダウンは、リストの上に開閉、フォーカスの復帰、閉じる操作を足したものです。`use_select` は 3 つの Part を渡します。**trigger** (コンボボックス)、**content** (浮かぶ面)、選択肢ごとの **item** です。`is_open()` が true のあいだ、`show` と `overlay` で content を mount します。
 
 ```rust,test_harness
 use std::hash::Hash;
 
-use kivact::Binding;
+use kivact::state::Binding;
 use kivact::interaction::{ListItem, use_select};
 use kivact::prelude::*;
-use kivact::primitive::NodeExt;
 use kivact::view::{Placement, overlay};
 
-pub fn dropdown<K: Clone + Eq + Hash + 'static>(
+pub fn dropdown<K: ItemKey>(
     label: impl IntoText,
     options: Vec<ListItem<K>>,
-    value: impl Into<Binding<Option<K>>>,
+    value: impl IntoBinding<Option<K>>,
 ) -> impl IntoView {
     let label = label.into_text_value();
     let options = options.into_value();
     let select = use_select(options, value);
     let trigger = select.trigger();
-    let anchor = trigger.node_ref();
+    let anchor = node_ref();
     (
         node()
             .part(trigger)
+            .node_ref(anchor)
             .name(label)
             .style(
                 style()
@@ -251,13 +285,14 @@ pub fn dropdown<K: Clone + Eq + Hash + 'static>(
                     .min_width(120),
             )
             .child(text(select.label())),
-        show(select.shown(), move || {
+        show(select.is_open(), move || {
             let rows = for_each(
                 options,
                 |option| option.key().clone(),
-                move |key, option| {
+                move |option| {
+            let key = option.with_untracked(|option| option.key().clone());
+                    let state = select.item_state(key.clone());
                     let part = select.item(key);
-                    let state = part.state();
                     node()
                         .part(part)
                         .style(move || {
@@ -270,7 +305,7 @@ pub fn dropdown<K: Clone + Eq + Hash + 'static>(
                 },
             );
             overlay(anchor, Placement::Below, column(rows).style(style().min_width(120)))
-                .part(select.content())
+                .with_node(|host| host.part(select.content()))
                 .name(label)
         }),
     )
@@ -321,27 +356,33 @@ mod tests {
 
 `use_drag` はポインターの動きを、開始、更新、終了のあるジェスチャーに変えます。`EditSession` はそのジェスチャーを 1 つの編集にします。`Begin`、書き込み、`Commit` の順に進み、ユーザーが Escape を押したときは `Cancel` になって値は開始時に戻ります。
 
+ドラッグは既定で押した瞬間に始まります。`.slop(10)` を足すと移動が 10 logical pixel を越えるまで待ち、`.axis_lock()` を足すと閾値を越えた最初の移動の軸に delta を固定します。`.track_velocity()` を足すと `DragUpdate.velocity` から直近 100 ms の速度を logical pixel/ms で読めます。指定しない場合、速度は 0 です。閾値を越える前に離した場合、開始・更新・終了・編集の callback は呼びません。既存の drag handle の setup 時に指定します。
+
+押した時点のアプリの値を payload に記録する場合は `.source_with(move || value.get_untracked())` を使います。受け付けた press ごとに factory を一度だけ呼びます。slop の判定待ちに入る場合も、その press の時点で記録し、同じ gesture の全 update で保持します。次に受け付けた press では取り直します。`.source(payload)` は setup 時に与えた固定の値を使います。次の例も `source_with` で押下時点の値を記録し、更新ごとにその値へ delta を足します。別のシグナルでドラッグ開始値を保持しません。
+
+`drag.active_payload()` は、待機中・ドラッグ中の同じ press 時点の snapshot を、読み取り専用の `Value<Option<T>>` で返します。離した後は `None` です。このメソッドだけが `T: PartialEq` を必要とし、factory を呼び直したり payload の別の保存先を作ったりしません。部品の作成者は `kivact::custom::Generation` で識別子を割り当て、数値の id を求める API には `.next().as_u64()` を渡せます。
+
 ```rust,test_harness
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use kivact::draw::Point;
-use kivact::interaction::{DragCoordinates, DragUpdate, EditPhase, EditSession, use_drag};
+use kivact::geometry::Point;
+use kivact::interaction::{DragCoordinates, DragUpdate, EditSession, use_drag};
+use kivact::view::{EditPhase};
 use kivact::prelude::*;
 
 /// 横にドラッグして変える数値。
-pub fn scrub(label: impl IntoText, value: Signal<f64>, history: Rc<RefCell<Vec<EditPhase>>>) -> Node {
+pub fn scrub(label: impl IntoText, value: Signal<f64>, history: Rc<RefCell<Vec<EditPhase>>>) -> impl Component {
     let edit = EditSession::new(move |initial| value.set(initial))
         .on_edit(move |phase| history.borrow_mut().push(phase));
-    let origin = signal(0.0);
-    let source = use_drag::<()>(DragCoordinates::Window)
+    let drag = use_drag::<f64>(DragCoordinates::Window)
         .edit(edit, move || value.get_untracked())
-        .on_start(move |_| origin.set(value.get_untracked()))
-        .on_update(move |update: DragUpdate<()>| {
-            value.set(origin.get_untracked() + f64::from(update.delta.x));
+        .on_update(move |update: DragUpdate<f64>| {
+            value.set(update.payload + update.delta.x);
         })
-        .source(());
-    let state = source.state();
+;
+    let state = drag.source_state();
+    let source = drag.source_with(move || value.get_untracked());
     node()
         .part(source)
         .name(label)
@@ -390,7 +431,7 @@ mod tests {
 
 ## コントロールが何であるかを伝える
 
-コントローラーはロールと状態を設定してくれます。素のノードから作るコントロールは、次の modifier で自分で伝えます。`role`、`checked`、`expanded`、`selected`、`value_text` は `Node` のメソッドで、ビルダーには `NodeExt` が提供します。
+コントローラーはロールと状態を設定してくれます。素のノードから作るコントロールは、次の modifier で自分で伝えます。`role`、`checked`、`expanded`、`selected`、`value_text` は `Node` のメソッドで、ビルダーには `Node` が提供します。
 
 | modifier | 意味 |
 |---|---|
@@ -399,36 +440,44 @@ mod tests {
 | `.focusable(true)` | キーボードを受ける (Tab の停止位置になる)。 |
 | `.value_text(..)`、`.value_min(..)`、`.value_max(..)`、`.value_now(..)` | スライダーやプログレスバーの値を、言葉と数値で。 |
 | `.checked(..)`、`.selected(..)`、`.expanded(..)` | チェック、選択、開閉の状態。 |
-| `.on_a11y(A11yAction::Increment, ..)` | 読み上げソフトから呼べる操作。コントロールにできることだけを提供します。 |
+| `.a11y_action(A11yAction::Increment, ..)` | 読み上げソフトから呼べる操作。コントロールにできることだけを提供します。 |
 
 ロールもフォーカスもないノードの `.on_press(..)` はポインターでしか届かず、デバッグビルドで報告されます。まずコントローラー (`use_button`) を使ってください。
+
+データの一部だけを描く table・grid では、`Node::row_count` と
+`Node::column_count` に総数の `Option` を渡します。既知の総数には見出し行や
+非表示の列も含め、リモートの総数が不明なら `None` を渡します。
+`Node::row_index` と `Node::column_index` は見出しや非表示の行・列を含めた
+論理上の位置で、1 から数えます。0 は公開しません。ネイティブへの公開時には
+AccessKit の 0 始まりの添字に変換します。標準の `data_table` はフィルター・
+並べ替え・ページ分割後のモデルからこれらのプロパティを求めます。
 
 ## 自前の形を測って描く
 
 レイアウトの規則では表せないサイズのコントロールには、**プリミティブ**を使います。プリミティブは、サイズを関数で計算するリーフ要素です。そのうえで、描画レイヤー、入力ハンドラー、フォーカス、アクセシビリティ、テスト ID と、ノードの持つものはすべて備えています。この API は実験的です。
 
 ```rust,test_harness
-use kivact::Binding;
-use kivact::draw::{Point, Size};
+use kivact::state::Binding;
+use kivact::geometry::{Point, Size};
 use kivact::prelude::*;
-use kivact::primitive::{Constraints, NodeExt, primitive};
+use kivact::custom::{Constraints, primitive};
 use kivact::view::{A11yAction, Handled, KeyEvent, PointerEvent, PointerPhase};
 
-const CELL: f32 = 20.0;
+const CELL: f64 = 20.0;
 
 /// `max` 個の点の列。点灯している点の数が評価です。
-pub fn rating(max: u32, value: impl Into<Binding<u32>>) -> impl IntoView {
-    let value = value.into();
+pub fn rating(max: u32, value: impl IntoBinding<u32>) -> impl Component {
+    let value = value.into_binding();
     primitive()
         // サイズは `max` だけで決まります。変わるとレイアウトが測り直します。
-        .measure(max, |max: &u32, _: Constraints| Size::new(*max as f32 * CELL, CELL))
+        .measure(max, |max: &u32, _: Constraints| Size::new(*max as f64 * CELL, CELL))
         .draw(move |d, size| {
             for i in 0..max {
                 let color = if i < value.get() { ColorToken::Accent } else { ColorToken::Border };
-                d.circle(Point::new(i as f32 * CELL + CELL / 2.0, size.height / 2.0), 7.0, color);
+                d.circle(Point::new(i as f64 * CELL + CELL / 2.0, size.height / 2.0), 7.0, color);
             }
         })
-        .role(Role::Slider)
+        .with_node(move |host| host.role(Role::Slider)
         .name("Rating")
         .value_min(0.0)
         .value_max(f64::from(max))
@@ -436,11 +485,11 @@ pub fn rating(max: u32, value: impl Into<Binding<u32>>) -> impl IntoView {
         .value_text(move || format!("{} of {max}", value.get()))
         .focusable(true)
         .on_pointer(move |event: PointerEvent| {
-            if matches!(event.phase, PointerPhase::Down(_)) {
-                value.set(((event.pos.x / CELL) as u32 + 1).min(max));
+            if matches!(event.phase(), PointerPhase::Down(_)) {
+                value.set(((event.pos().x / CELL) as u32 + 1).min(max));
             }
         })
-        .on_key(move |event: KeyEvent| match event.key {
+        .on_key(move |event: KeyEvent| match event.key() {
             Key::ArrowRight => {
                 value.set((value.get() + 1).min(max));
                 Handled::Yes
@@ -451,9 +500,9 @@ pub fn rating(max: u32, value: impl Into<Binding<u32>>) -> impl IntoView {
             }
             _ => Handled::No,
         })
-        .on_a11y(A11yAction::Increment, move || value.set((value.get() + 1).min(max)))
-        .on_a11y(A11yAction::Decrement, move || value.set(value.get().saturating_sub(1)))
-        .test_id("rating")
+        .a11y_action(A11yAction::Increment, move |_| value.set((value.get() + 1).min(max)))
+        .a11y_action(A11yAction::Decrement, move |_| value.set(value.get().saturating_sub(1)))
+        .test_id("rating"))
 }
 
 fn app() -> impl IntoView {
@@ -495,23 +544,24 @@ mod tests {
 
 ### 描画レイヤー
 
-`.draw(..)` は子の背面に、`.draw_over(..)` (`NodeExt`) は子の前面に描きます。どちらも `Draw` とレイアウト済みの `Size` を受け取り、サイズか読んでいるシグナルが変わったときにだけ再実行されます。スタイルの `paint` はテーマ向けです。呼び出し側が置き換えられる既定の見た目を描くのに使い、`.draw(..)` はコントロール自身のものに取っておいてください。
+`.draw(..)` は子の背面に、`.draw_over(..)` (`Node`) は子の前面に描きます。どちらも `Draw` とレイアウト済みの `Size` を受け取り、サイズか読んでいるシグナルが変わったときにだけ再実行されます。スタイルの `paint` はテーマ向けです。呼び出し側が置き換えられる既定の見た目を描くのに使い、`.draw(..)` はコントロール自身のものに取っておいてください。
 
 ## 自前の枠でテキストを編集する
 
 `use_text_edit` はノードにネイティブのテキスト編集 (キャレット、選択、IME の変換、クリップボード、取り消し、標準のキー操作) を与えます。何も描画しないので、枠、余白、カウンターは自分で用意します。標準の `text_input` は、このコントローラーにテーマの枠を付けたものです。
 
 ```rust,test_harness
-use kivact::Binding;
+use kivact::state::Binding;
 use kivact::interaction::use_text_edit;
 use kivact::prelude::*;
 use kivact::style::Align;
 
 /// 文字数カウンターつきの入力欄。`max` はエディターが強制します。
-pub fn limited_input(label: impl IntoText, value: impl Into<Binding<String>>, max: usize) -> Node {
-    let value = value.into();
-    let control = use_text_edit(value).max_length(max).placeholder("Type here").control();
-    let state = control.state();
+pub fn limited_input(label: impl IntoText, value: impl IntoBinding<String>, max: usize) -> impl Component {
+    let value = value.into_binding();
+    let api = use_text_edit(value).max_length(max).placeholder("Type here");
+    let state = api.control_state();
+    let control = api.control();
     let editor = node().part(control).name(label).style(move || {
         style()
             .grow(1)
@@ -547,9 +597,79 @@ mod tests {
 }
 ```
 
-binding は確定した値を受け取ります。IME の変換中は、エディターが未確定文字列を自分で保持し、binding には最終的なテキストが渡ります。変更のたびにコードを動かしたいときは、シグナルの代わりに `binding(read, write)` を渡します。ほかにも設定があります。複数行は `use_text_area(value)` で作ります。`.password(..)`、`.read_only(..)`、1 行入力で Enter を受ける `.on_submit(..)`、矢印、Tab、Escape のキーを自前のハンドラー (たとえば候補リスト) に渡す `.forward_keys([...])` です。
+binding は確定した値を受け取ります。IME の変換中は、エディターが未確定文字列を自分で保持し、binding には最終的なテキストが渡ります。変更のたびにコードを動かしたいときは、シグナルの代わりに `binding(read, write)` を渡します。ほかにも設定があります。複数行は `use_text_area(value)` で作ります。`.purpose(..)`、`.read_only(..)`、1 行入力で Enter を受ける `.on_submit(..)`、矢印、Tab、Escape のキーを自前のハンドラー (たとえば候補リスト) に渡す `.forward_keys([...])` です。
 
-コードエディターのように、キー入力のたびに全体をコピーできないほど大きな文書には、より低い層の `kivact::primitive::TextEditing` を使います。範囲編集を通知し、キーのポリシーを受け取り、行に色を付けられます。実験的な API です。rustdoc を見てください。
+独自のエディターでアクセシビリティ用の文字を公開するときは、run の一覧に `SemanticsTextRuns::new(Vec<SemanticsTextRun>)` を使います。文字が変わっていないときは、描画のたびに一覧を作り直さず、その値を保持して clone します。標準のテキストコントロールはこの snapshot を自動で公開します。自分で作る必要があるのは、native のテキストモデルを自分で持つエディターだけです。
+
+コードエディターのように、キー入力のたびに全体をコピーできないほど大きな文書には、より低い層の `kivact::custom::TextEditing` を使います。範囲編集を通知し、キーのポリシーを受け取り、行に色を付けられます。実験的な API です。rustdoc を見てください。
+
+### native の編集する文字に描き足す
+
+`TextEditing::line_styles(content, f)` は文字の形や編集の動作を変えずに、行の見た目を設定します。
+関数は content、改行を除いた行、前の行が残した状態を受け取り、`(Vec<StyledRange>, 次の状態)`
+を返します。`kivact::style::StyledRange` の範囲は行内の UTF-8 byte です。
+`color`、`background`、`decoration` で文字色、背景、下線などを設定します。
+`TextDecoration` は theme の色、文字の長さ、`TextDecorationStyle` を受け取ります。
+
+文書全体の byte 範囲には `TextEditing::decorations(content, f)` を使い、
+`kivact::custom::Decoration` を返します。種類は `Background`、`Outline`、
+`Underline(TextDecorationStyle)` です。content と theme の変更に追従します。
+password の値と placeholder にはこれらを描きません。
+
+編集する node には子（`custom::inline_view` を含む）、`draw`、`draw_over` を付けられます。
+描画 layer は native の文字、選択、caret の上に重なります。
+`Node::draw_with_layout` は canvas 座標の `custom::TextLayout` も受け取ります。
+行の箱、caret、選択の矩形、`hit_test` を使い、文字、選択、配置の変更に追従できます。
+`NodeRefExt::text_layout` の単独の問い合わせは window 座標で、指定した行だけを整形します。
+caret と `hit_test` の offset は Unicode scalar 数、見た目の範囲は UTF-8 byte 数です。
+
+## 状態機械で振る舞いを書く
+
+`Machine` は React の `useReducer` に effect と timer を合わせたような仕組みです。複数の bool と timer callback を同期させる代わりに、状態とイベントを明示します。純粋な `transition` は、次の状態、実行する effect、
+遅延イベントを `Step` にまとめて返します。reactive な入力は `machine` の factory で読み、
+副作用は effect runner で実行します。ハンドルの `get()` で状態を読み、`send()` でイベントを送ります。
+タイマーは owner に属し、破棄時にキャンセルされます。
+
+```rust,no_run
+use kivact::prelude::*;
+use kivact::state::{Machine, Step, machine};
+use std::time::Duration;
+
+#[derive(Clone, PartialEq)]
+enum CopyState { Idle, Copied }
+#[derive(Clone, PartialEq)]
+enum CopyEvent { Pressed, Expired }
+enum CopyEffect { Write(String) }
+
+struct CopyButton { text: String }               // Self が遷移の読む入力
+impl Machine for CopyButton {
+    type State = CopyState;
+    type Event = CopyEvent;
+    type Effect = CopyEffect;
+    fn transition(&self, state: &CopyState, event: CopyEvent) -> Step<CopyState, CopyEvent, CopyEffect> {
+        match (state, event) {
+            (_, CopyEvent::Pressed) => Step::to(CopyState::Copied)
+                .with(CopyEffect::Write(self.text.clone()))
+                .after(Duration::from_secs(2), CopyEvent::Expired),
+            (CopyState::Copied, CopyEvent::Expired) => Step::to(CopyState::Idle),
+            (CopyState::Idle, CopyEvent::Expired) => Step::stay(),
+        }
+    }
+}
+
+fn copy_button(text: impl IntoValue<String>) -> impl IntoView {
+    let text = text.into_value();
+    component(move || {
+        let m = machine(CopyState::Idle, move || CopyButton { text: text.get() }, |_, effect| match effect {
+            CopyEffect::Write(s) => { spawn(kivact::platform::copy_text(s)); }
+        });
+        button(move || if m.get() == CopyState::Copied { "Copied" } else { "Copy" })
+            .on_press(move || m.send(CopyEvent::Pressed))
+    })
+}
+```
+
+この例は書き方を示すものです。既存のコピー用コントローラーが合う場合はそちらを使ってください。
 
 ## 関連項目
 
@@ -557,4 +677,4 @@ binding は確定した値を受け取ります。IME の変換中は、エデ�
 - [ダイアログ、メニュー、ツールチップ、トーストを表示する](overlays.md): 同じコントローラーから作られた標準のオーバーレイ。
 - [キャンバスで描く](canvas.md): region と、描画レイヤーで使う描画の語彙。
 - [アプリをテストする](testing.md): 上のテストのように、ロール、キー、フォーカスを確かめる方法。
-- `cargo doc -p kivact-interaction --open` ですべてのコントローラーと Part、`cargo doc -p kivact --open` で `kivact::primitive`。
+- `cargo doc -p kivact-interaction --open` ですべてのコントローラーと Part、`cargo doc -p kivact --open` で `kivact::custom`。

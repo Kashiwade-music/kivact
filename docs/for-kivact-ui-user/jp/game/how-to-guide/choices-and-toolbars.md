@@ -33,7 +33,7 @@ fn difficulty() -> impl IntoView {
             level,
         )
         .orientation(Orientation::Horizontal)
-        .variant(game::Segmented),
+        .variant(kivact::ui::RadioGroupVariant::Segmented),
         game::mono(move || format!("{:?}", level.get())),
     ))
     .style(style().gap(12).margin(24))
@@ -61,8 +61,8 @@ fn plans() -> impl IntoView {
     radio_group(
         "Plan",
         vec![
-            ListItem::new("solo", "SOLO").description("1 seat"),
-            ListItem::new("team", "TEAM").description("50 seats"),
+            ListItem::new("solo", "SOLO").with_description("1 seat"),
+            ListItem::new("team", "TEAM").with_description("50 seats"),
         ],
         plan,
     )
@@ -86,7 +86,7 @@ fn plans() -> impl IntoView {
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::ui::Tone;
+use kivact::interaction::Tone;
 use kivact_ui_game as game;
 
 fn menu() -> impl IntoView {
@@ -94,8 +94,8 @@ fn menu() -> impl IntoView {
     tabs(
         "Sections",
         vec![
-            ListItem::new("inbox", "INBOX").icon("bell"),
-            ListItem::new("squad", "SQUAD").icon("users"),
+            ListItem::new("inbox", "INBOX").with_icon("bell"),
+            ListItem::new("squad", "SQUAD").with_icon("users"),
         ],
         section,
     )
@@ -103,7 +103,7 @@ fn menu() -> impl IntoView {
     .variant(game::Navigation)
     .item(|item, state| {
         let count = match item.with(|item| *item.key()) {
-            "inbox" => Some(game::badge("3", Tone::Info)),
+            "inbox" => Some(kivact::ui::badge("3").tone(Tone::Info)),
             _ => None,
         };
         (game::navigation_label(item, state), count)
@@ -113,19 +113,19 @@ fn menu() -> impl IntoView {
 # fn main() {}
 ```
 
-`game::navigation_label` はアイコン、ラベル、説明を描き、スロットはその後ろにバッジや件数を置きます。横のタブは、既定では下線の見た目で、`.variant(game::Boxed)` を付けるとタブが箱の中に収まります（[チュートリアル](../getting-started/03-tabs-and-items.md) と同じ）。タブを切り替えても、パネルに入力した内容を保ちたいときは `.keep_mounted(true)` を足します。すべてのパネルが一度だけ作られ、選択されていないタブのパネルは隠されます。
+`game::navigation_label` はアイコン、ラベル、説明を描き、スロットはその後ろにバッジや件数を置きます。横のタブは、既定では下線の見た目で、`.variant(game::Boxed)` を付けるとタブが箱の中に収まります（[チュートリアル](../getting-started/03-tabs-and-items.md) と同じ）。タブを切り替えても、パネルに入力した内容を保ちたいときは `.keep_mounted()` を足します。すべてのパネルが一度だけ作られ、選択されていないタブのパネルは隠されます。
 
 ## ツールバーにクイック操作を置く
 
-`game::toolbar(children)` は枠線付きの密な行、`game::button_group(children)` は関連するボタンを寄せ集め、`game::tool_button(label)` はアイコン用の正方形のゴーストボタンです。ツールボタンにはアイコンを付けてラベルを隠します。ラベルはアクセシブルな名前として残ります。
+`kivact::ui::toolbar(label).start(children)` は枠線付きの密な行、`kivact::ui::button_group(label, children)` は関連するボタンを寄せ集め、`game::tool_button(label)` はアイコン用の正方形のゴーストボタンです。ツールボタンにはアイコンを付けてラベルを隠します。ラベルはアクセシブルな名前として残ります。
 
 ```rust,no_run
 use kivact::prelude::*;
 use kivact_ui_game as game;
 
 fn tools(zoom: Signal<f64>) -> impl IntoView {
-    game::toolbar((
-        game::button_group((
+    kivact::ui::toolbar("View tools").start((
+        kivact::ui::button_group("Zoom", (
             game::tool_button("Zoom out")
                 .icon(icon("chevron-down"))
                 .hide_label(true)
@@ -150,10 +150,14 @@ fn tools(zoom: Signal<f64>) -> impl IntoView {
 # fn main() {}
 ```
 
-`game::chevron(label, caption)` は等幅のキャプションの付いた大きな呼びかけ用のボタンです。`game::stepper(labels, current)`、`game::breadcrumb(items)`、`game::pagination(page, count)` は、現在位置をシグナルから受け取るナビゲーションの補助です。
+`game::chevron(label, caption)` は等幅のキャプションの付いた大きな呼びかけ用のボタンです。`kivact::ui::stepper(items, current)`、`kivact::ui::breadcrumb(items)`、`kivact::ui::pagination(count, page)` は、現在位置をシグナルから受け取るナビゲーションの補助です。
 
 ## 関連
 
 - [一覧とツリーでアイテムを見せる](item-lists-and-selection.md)
 - [メーターと状態を見せる](meters-and-status.md)
 - すべての見た目とコンポーネント: `cargo doc -p kivact-ui-game --open`
+
+## ファイルのドロップ先
+
+Game テーマで `kivact::ui::dropzone(label)` を使います。破線の枠、斜線、ドラッグ時の強調は recipe が描画します。アップロードアイコンには `.icon(kivact::view::icon("cloud-upload"))` を指定します。複数ファイルとネイティブ選択ダイアログを有効にするには `.multiple().pick_on_press()` を指定します。コールバックは `FileInfo` を受け取り、ネイティブパスは `file.path` から取得します。`.hint(..)`、`.filters(..)`、`.validate(..)` で案内、フィルター、アプリケーションの検証を設定します。コールバックのエラーは次の成功したドロップまたは選択までアラートとして表示されます。

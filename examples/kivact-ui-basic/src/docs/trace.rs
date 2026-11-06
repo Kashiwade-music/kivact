@@ -8,7 +8,7 @@ pub(crate) fn page() -> Page {
     Page {
         slug: "trace",
         name: "Trace",
-        description: "処理の手順や思考の経過を折りたたんで表示する部品です。開閉は kivact::interaction::use_disclosure で、Enter、Space、クリックで切り替わります。",
+        description: "処理の手順や思考の経過を折りたたんで表示する部品です。開閉は標準の kivact::ui::disclosure で、Enter、Space、クリックで切り替わります。",
         usage: "use kivact::prelude::*;\nuse kivact_ui_basic as basic;",
         source: include_str!("trace.rs"),
         align: PreviewAlign::Center,
@@ -22,7 +22,7 @@ pub(crate) fn page() -> Page {
             Example::new(
                 "collapsible",
                 "Collapsible",
-                "trace_collapsible に開閉の束縛、行、内容を渡します。",
+                "trace_collapsible に開閉の束縛、行、開くたびに内容を作る関数を渡します。",
                 collapsible,
             ),
             Example::new(
@@ -53,7 +53,7 @@ fn collapsible() -> impl IntoView {
     basic::trace_collapsible(
         open,
         basic::trace_line("Thought for 4s").icon(icon("sparkles")),
-        "First I compared the two layouts, then picked the simpler one.",
+        || text("First I compared the two layouts, then picked the simpler one."),
     )
     .style(style().width(420))
 }
@@ -67,12 +67,12 @@ fn steps() -> impl IntoView {
         basic::trace_collapsible(
             first,
             basic::trace_line("Ran the tests").icon(icon("terminal")),
-            "42 passed, 0 failed.",
+            || text("42 passed, 0 failed."),
         ),
         basic::trace_collapsible(
             second,
             basic::trace_line("Edited 2 files").icon(icon("pencil")),
-            "src/lib.rs and src/main.rs",
+            || text("src/lib.rs and src/main.rs"),
         ),
     ))
     .style(style().width(420))

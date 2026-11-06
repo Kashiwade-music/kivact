@@ -31,7 +31,7 @@
 //! that does not scroll (`overflow: hidden`) is none. The transforms
 //! between a box and its scrollport are not looked at.
 
-use kivact_wire::{Dimension, NodeId, Point, Rect};
+use kivact_types::{Dimension, NodeId, Point, Rect};
 
 use crate::model::Model;
 
@@ -55,6 +55,7 @@ impl Model {
             {
                 n.shift = shift;
                 self.changes.stuck(id);
+                self.a11y.subtree(id);
             }
         }
     }
@@ -67,7 +68,7 @@ impl Model {
             return None;
         }
         let inset = n.layout()?.inset;
-        let parent = self.tree.parent_id(n)?;
+        let parent = self.tree.flat_parent(n)?;
         let r = self.rect(id)?;
         // Where layout put it, with the scrolls and outer shifts of now.
         let at = Rect {
@@ -77,7 +78,7 @@ impl Model {
         };
         let (scroller, port) = self.scrollport(parent);
         let block = self.containing_block(parent, scroller == Some(parent))?;
-        let len = |d: Dimension, of: f32| match d {
+        let len = |d: Dimension, of: f64| match d {
             Dimension::Px(v) => Some(v),
             Dimension::Percent(p) => Some(of * p / 100.0),
             Dimension::Calc { percent, px } => Some(of * percent / 100.0 + px),
@@ -150,12 +151,12 @@ impl Model {
 /// block `block` and a scrollport `port`, with the start and end insets
 /// `lo` and `hi` (see the module invariants).
 fn shift(
-    (start, len): (f32, f32),
-    block: (f32, f32),
-    port: (f32, f32),
-    lo: Option<f32>,
-    hi: Option<f32>,
-) -> f32 {
+    (start, len): (f64, f64),
+    block: (f64, f64),
+    port: (f64, f64),
+    lo: Option<f64>,
+    hi: Option<f64>,
+) -> f64 {
     let mut d = 0.0;
     if let Some(hi) = hi {
         // Its end stays `hi` before the port's end, its start in the block.

@@ -27,6 +27,7 @@ pub enum EditOutcome {
     Paste,
 }
 
+// xtask-allow(state-fields): These independent native editing constraints and optional geometry are a borrowed request snapshot.
 /// What an editing behavior is given beside the state and the request:
 /// the editor's native constraints and its laid-out lines.
 ///
@@ -87,7 +88,7 @@ impl<'a> EditContext<'a> {
 
     /// Where the caret at byte offset `at` of `state`'s text is drawn: its
     /// `x`.
-    pub fn x_of(&self, state: &EditState, at: usize) -> Option<f32> {
+    pub fn x_of(&self, state: &EditState, at: usize) -> Option<f64> {
         let l = self.layout(state)?;
         Some(l.lines.caret(state.value(), at, l.width).x)
     }
@@ -95,7 +96,7 @@ impl<'a> EditContext<'a> {
     /// The grapheme boundary of `line` whose caret is nearest `x` (the
     /// line's end past its last character), as a byte offset of
     /// `state`'s text.
-    pub fn offset_at(&self, state: &EditState, line: usize, x: f32) -> Option<usize> {
+    pub fn offset_at(&self, state: &EditState, line: usize, x: f64) -> Option<usize> {
         let l = self.layout(state)?;
         (line < l.lines.len()).then(|| l.lines.nearest(state.value(), line, x, l.width))
     }
@@ -119,9 +120,9 @@ pub trait Lines {
     /// Line `i`'s text, without its break.
     fn content(&self, i: usize) -> Option<Range<usize>>;
     /// The caret at byte offset `at` of `text`, in a box `width` wide.
-    fn caret(&self, text: &str, at: usize, width: f32) -> Rect;
+    fn caret(&self, text: &str, at: usize, width: f64) -> Rect;
     /// The grapheme boundary of line `i` whose caret is nearest `x`.
-    fn nearest(&self, text: &str, i: usize, x: f32, width: f32) -> usize;
+    fn nearest(&self, text: &str, i: usize, x: f64, width: f64) -> usize;
 }
 
 /// The lines an [`EditContext`] reads, the revision of the text they are
@@ -133,7 +134,7 @@ pub struct EditLayout<'a> {
     /// Document revision for which the geometry was computed.
     pub revision: u64,
     /// Logical alignment width before horizontal text scrolling.
-    pub width: f32,
+    pub width: f64,
 }
 
 /// A routed key or clipboard text for the attached editing behavior.

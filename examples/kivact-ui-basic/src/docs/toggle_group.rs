@@ -45,11 +45,11 @@ pub(crate) fn page() -> Page {
 // example: multiple
 fn multiple() -> impl IntoView {
     let items = vec![
-        ListItem::new("bold", "Bold").icon("bold"),
-        ListItem::new("italic", "Italic").icon("italic"),
-        ListItem::new("underline", "Underline").icon("underline"),
+        ListItem::new("bold", "Bold").with_icon("bold"),
+        ListItem::new("italic", "Italic").with_icon("italic"),
+        ListItem::new("underline", "Underline").with_icon("underline"),
     ];
-    basic::toggle_group(items, signal(vec!["bold"]))
+    kivact::ui::toggle_group("Options", items, signal(vec!["bold"]))
         .icon_only(true)
         .name("Text style")
 }
@@ -62,7 +62,7 @@ fn single() -> impl IntoView {
         ListItem::new("center", "Center"),
         ListItem::new("right", "Right"),
     ];
-    basic::toggle_group(items, signal(Some("left")))
+    kivact::ui::toggle_group("Options", items, signal(Some("left")))
         .variant(basic::ToggleVariant::Outline)
         .spacing(0.0)
         .name("Alignment")
@@ -76,7 +76,7 @@ fn spacing() -> impl IntoView {
         ListItem::new("italic", "Italic"),
         ListItem::new("underline", "Underline"),
     ];
-    basic::toggle_group(items, signal(vec!["italic"]))
+    kivact::ui::toggle_group("Options", items, signal(vec!["italic"]))
         .size(ControlSize::Small)
         .spacing(1.0)
         .name("Text style")
@@ -90,7 +90,7 @@ fn vertical() -> impl IntoView {
         ListItem::new("italic", "Italic"),
         ListItem::new("underline", "Underline"),
     ];
-    basic::toggle_group(items, signal(None))
+    kivact::ui::toggle_group("Options", items, signal(None))
         .variant(basic::ToggleVariant::Outline)
         .orientation(Orientation::Vertical)
         .spacing(0.0)

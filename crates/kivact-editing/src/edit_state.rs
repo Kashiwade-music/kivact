@@ -2,7 +2,6 @@
 
 use crate::change::{Damage, TextChange};
 use crate::session::TextSession;
-use std::cell::Cell;
 use std::ops::Range;
 use std::sync::atomic::{AtomicU64, Ordering};
 use unicode_segmentation::UnicodeSegmentation as _;
@@ -48,12 +47,13 @@ pub struct EditState {
     text: String,
     revision: u64,
     session: TextSession,
-    pub(crate) max_length: Option<usize>,
+    max_length: Option<usize>,
     /// The revision the log starts from.
     base: u64,
     log: Vec<Logged>,
+    // xtask-allow(state-fields): Damage is an independently consumed line cache payload.
     /// What changed since the editor's lines last took the damage.
-    damage: Cell<Option<Damage>>,
+    damage: Option<Damage>,
 }
 
 impl PartialEq for EditState {
@@ -66,13 +66,7 @@ impl PartialEq for EditState {
 }
 
 /// The largest char boundary of `s` not after `x`.
-pub(crate) fn floor_boundary(s: &str, x: usize) -> usize {
-    let mut x = x.min(s.len());
-    while !s.is_char_boundary(x) {
-        x -= 1;
-    }
-    x
-}
+pub(crate) use kivact_types::text_utf::floor_char_boundary as floor_boundary;
 
 impl EditState {
     /// A state holding `value` with the caret at its end.
@@ -85,8 +79,13 @@ impl EditState {
             max_length: None,
             base: revision,
             log: Vec::new(),
-            damage: Cell::new(None),
+            damage: None,
         }
+    }
+
+    /// Set the scalar limit used by subsequent edits.
+    pub(crate) fn set_max_length(&mut self, max_length: Option<usize>) {
+        self.max_length = max_length;
     }
 
     /// The value.
@@ -156,21 +155,12 @@ impl EditState {
 
     /// UTF-16 offset of a byte offset (platform IMEs count UTF-16 units).
     pub fn utf16_of_byte(&self, byte: usize) -> usize {
-        self.text[..floor_boundary(&self.text, byte)]
-            .encode_utf16()
-            .count()
+        kivact_types::text_utf::utf16_offset(&self.text, byte)
     }
 
     /// Byte offset of a UTF-16 offset (clamped to the value).
     pub fn byte_of_utf16(&self, units: usize) -> usize {
-        let mut seen = 0;
-        for (i, c) in self.text.char_indices() {
-            if seen >= units {
-                return i;
-            }
-            seen += c.len_utf16();
-        }
-        self.text.len()
+        kivact_types::text_utf::byte_offset_from_utf16(&self.text, units)
     }
 
     /// The grapheme boundary before `at` (0 at the start).
@@ -341,9 +331,10 @@ impl EditState {
                 .unwrap_or_else(|| self.session.selection()),
         );
         let start = r.start;
-        let limit = self.max_length.take();
+        let limit = self.max_length;
+        self.set_max_length(None);
         self.replace(r, text);
-        self.max_length = limit;
+        self.set_max_length(limit);
         self.session.marked = (!text.is_empty()).then(|| start..start + text.len());
         let rel = selected.unwrap_or(text.len()..text.len());
         let rel = floor_boundary(text, rel.start)..floor_boundary(text, rel.end);
@@ -448,8 +439,8 @@ impl EditState {
     /// `range` of the text at revision `before` (the current one when
     /// damage is already pending) was replaced by `len` bytes: join it to
     /// the damage.
-    fn damaged(&self, before: u64, range: Range<usize>, len: usize) {
-        let damage = match self.damage.get() {
+    fn damaged(&mut self, before: u64, range: Range<usize>, len: usize) {
+        let damage = match self.damage {
             Some(damage) => damage.then(range, len),
             None => Damage {
                 base: before,
@@ -458,12 +449,12 @@ impl EditState {
                 new_end: range.start + len,
             },
         };
-        self.damage.set(Some(damage));
+        self.damage = Some(damage);
     }
 
     /// What changed since the editor's lines last took it (`None`: nothing
     /// recorded since this state was made).
-    pub(crate) fn take_damage(&self) -> Option<Damage> {
+    pub(crate) fn take_damage(&mut self) -> Option<Damage> {
         self.damage.take()
     }
 }

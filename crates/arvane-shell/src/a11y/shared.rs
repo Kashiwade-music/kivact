@@ -2,9 +2,16 @@
 
 use super::error::AccessibilityError;
 use super::{state, validation};
-use kivact_types::protocol::{SemanticsTree, SemanticsUpdate};
-use kivact_types::{NodeId, SemanticsTextRun};
+use kivact_types::render::{SemanticsTree, SemanticsUpdate};
+use kivact_types::{SemanticsId, SemanticsTextRun};
 use std::sync::{Arc, Mutex, MutexGuard};
+
+/// Whether pending nodes span multiple updates.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Merge {
+    Separate,
+    Merged,
+}
 
 /// What the platform has not been handed yet.
 #[derive(Default)]
@@ -15,11 +22,11 @@ pub(crate) enum Unsent {
     /// The focus and these nodes (in the order they changed; a node
     /// changed by several updates repeats), with the text runs they added.
     Changed {
-        nodes: Vec<NodeId>,
+        nodes: Vec<SemanticsId>,
         runs: Vec<Arc<SemanticsTextRun>>,
         /// More than one update's nodes: they may repeat, and a later
         /// update may have dropped a run an earlier one added.
-        merged: bool,
+        merged: Merge,
     },
     /// The whole tree.
     Tree,
@@ -64,9 +71,8 @@ impl Shared {
         Ok(())
     }
 
-    /// Validates the nodes that may have changed and applies them; whether
-    /// anything changed. Without an accepted tree, or with a new root, the
-    /// update must hold the complete tree.
+    /// Validates and applies the supplied change set; whether anything changed. Without an accepted
+    /// tree, or with a new root, the update must hold the complete tree.
     pub(crate) fn update(&mut self, update: &SemanticsUpdate) -> Result<bool, AccessibilityError> {
         let Some(tree) = self.tree.as_mut().filter(|t| t.root() == update.root) else {
             self.replace(&SemanticsTree {
@@ -87,7 +93,7 @@ impl Shared {
             Unsent::Nothing => Unsent::Changed {
                 nodes: changed.nodes,
                 runs: changed.runs,
-                merged: false,
+                merged: Merge::Separate,
             },
             Unsent::Changed {
                 mut nodes,
@@ -99,7 +105,7 @@ impl Shared {
                 Unsent::Changed {
                     nodes,
                     runs,
-                    merged: true,
+                    merged: Merge::Merged,
                 }
             }
             Unsent::Tree => Unsent::Tree,
@@ -139,6 +145,7 @@ pub struct PlatformTree {
     shared: Arc<Mutex<Shared>>,
 }
 
+// xtask-allow(state-fields): Borrowed conversion snapshot; optional focus and inclusion of all text runs are independent update facts.
 /// The current semantics selected for one platform update, borrowed under lock.
 ///
 /// Node references come from the current accepted tree, never an earlier update.
@@ -146,20 +153,26 @@ pub struct PlatformTree {
 /// update separately carries only the text runs that changed.
 pub struct PlatformUpdate<'a> {
     tree: &'a state::AcceptedTree,
-    nodes: Vec<&'a kivact_types::protocol::SemanticsNode>,
+    focus: Option<SemanticsId>,
+    nodes: Vec<&'a kivact_types::render::SemanticsNode>,
     runs: &'a [Arc<SemanticsTextRun>],
     all_runs: bool,
     scale: f64,
 }
 
 impl PlatformUpdate<'_> {
-    /// The current accepted hierarchy, including root and focus identities.
+    /// The current accepted hierarchy and root identity.
     pub fn tree(&self) -> &state::AcceptedTree {
         self.tree
     }
 
+    /// The focus supplied by the latest accepted update.
+    pub fn focus(&self) -> Option<SemanticsId> {
+        self.focus
+    }
+
     /// The current nodes the platform needs, in delivery order.
-    pub fn nodes(&self) -> impl Iterator<Item = &kivact_types::protocol::SemanticsNode> {
+    pub fn nodes(&self) -> impl Iterator<Item = &kivact_types::render::SemanticsNode> {
         self.nodes.iter().copied()
     }
 
@@ -195,7 +208,7 @@ impl PlatformTree {
         lock(&self.shared).replace(tree)
     }
 
-    /// Validate and apply a partial update; return whether anything changed.
+    /// Validate and apply a partial update; return whether it was accepted.
     /// A new root requires a complete hierarchy. Rejection leaves the accepted
     /// tree unchanged. Publish or notify the window after this method returns.
     pub fn update(&self, update: &SemanticsUpdate) -> Result<bool, AccessibilityError> {
@@ -204,10 +217,8 @@ impl PlatformTree {
 
     /// A complete copy of the accepted tree in parent-before-child order.
     pub fn tree(&self) -> Option<SemanticsTree> {
-        lock(&self.shared)
-            .tree
-            .as_ref()
-            .map(state::AcceptedTree::tree)
+        let shared = lock(&self.shared);
+        shared.tree.as_ref().map(|tree| tree.tree())
     }
 
     /// Whether a platform reader has activated the tree and not deactivated it.
@@ -217,7 +228,13 @@ impl PlatformTree {
 
     /// Stop publication and discard pending changes; the accepted tree remains.
     pub fn deactivate(&self) {
-        lock(&self.shared).reader = Reader::Inactive;
+        let mut shared = lock(&self.shared);
+        if matches!(shared.reader, Reader::Active { .. }) {
+            shared
+                .actions
+                .push(crate::events::ShellEvent::AccessibilityDeactivated);
+        }
+        shared.reader = Reader::Inactive;
     }
 
     /// Activate a reader and convert its complete current tree under lock.
@@ -225,6 +242,11 @@ impl PlatformTree {
     /// return so it can refresh semantics. A conversion panic propagates.
     pub fn activate_with<R>(&self, convert: impl FnOnce(PlatformUpdate<'_>) -> R) -> Option<R> {
         let mut shared = lock(&self.shared);
+        if matches!(shared.reader, Reader::Inactive) {
+            shared
+                .actions
+                .push(crate::events::ShellEvent::AccessibilityActivated);
+        }
         if shared.tree.is_none() {
             shared.reader = Reader::Active {
                 unsent: Unsent::Tree,
@@ -234,6 +256,7 @@ impl PlatformTree {
         let tree = shared.tree.as_ref()?;
         let result = convert(PlatformUpdate {
             tree,
+            focus: tree.focus(),
             nodes: tree.nodes(),
             runs: &[],
             all_runs: true,
@@ -289,10 +312,18 @@ impl PlatformTree {
                 let mut seen = std::collections::HashSet::new();
                 let current = nodes
                     .iter()
-                    .filter(|id| !*merged || seen.insert(**id))
+                    .filter(|id| *merged == Merge::Separate || seen.insert(**id))
                     .filter_map(|id| tree.node(*id))
                     .collect();
-                (current, if *merged { &[][..] } else { &runs[..] }, *merged)
+                (
+                    current,
+                    if *merged == Merge::Merged {
+                        &[][..]
+                    } else {
+                        &runs[..]
+                    },
+                    *merged == Merge::Merged,
+                )
             }
         };
         if include_root && !nodes.iter().any(|node| node.id == root) {
@@ -300,6 +331,7 @@ impl PlatformTree {
         }
         let result = convert(PlatformUpdate {
             tree,
+            focus: tree.focus(),
             nodes,
             runs,
             all_runs,
@@ -325,7 +357,7 @@ impl PlatformTree {
                     *unsent = Unsent::Changed {
                         nodes: vec![root],
                         runs: Vec::new(),
-                        merged: false,
+                        merged: Merge::Separate,
                     }
                 }
                 Unsent::Changed { nodes, .. } if !nodes.contains(&root) => nodes.push(root),
@@ -346,7 +378,8 @@ impl PlatformTree {
     }
 
     /// Check a request against the current hierarchy, without queueing it.
-    /// Hidden or disabled targets/ancestors and undeclared actions are rejected.
+    /// Hidden targets/ancestors, disabled ancestors and undeclared actions are rejected.
+    /// A disabled target accepts only `Focus`, and only while explicitly focusable.
     /// `Activate`, `Toggle` and `Select` share the default action and are delivered
     /// as `Activate`; a focusable node declares `Focus` even without an explicit
     /// entry in its action list. Other actions require an exact declaration.

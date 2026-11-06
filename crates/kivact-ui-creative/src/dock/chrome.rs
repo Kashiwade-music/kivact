@@ -1,24 +1,27 @@
 //! Role: Container chrome of a dock: the tab strip, inline rename and the container menu.
-use crate::Color;
-use kivact::ui::{ButtonVariant, ListItem, MenuEntry};
+use crate::ColorName;
+use kivact::interaction::{ListItem, MenuEntry};
+use kivact::ui::ButtonVariant;
+use kivact::view::IntoView;
+use kivact::view::NodeBuilder;
 
-use kivact::primitive::NodeExt;
-use kivact::style::current_theme;
+use kivact::style::use_theme;
 use std::hash::Hash;
 use std::rc::Rc;
 
-use kivact::control::{NodeBuilder, column, icon, node, row, text};
 use kivact::i18n::message_with;
 use kivact::interaction::{
-    DragCoordinates, DragPhase, DragUpdate, List, ListPolicy, ListSelection, use_drag,
+    DragCoordinates, DragPhase, DragUpdate, ListApi, ListOptions, Selection, use_drag,
     use_list as make_list,
 };
+use kivact::state::callback;
+use kivact::state::{Callback, Value, binding, memo, signal, var};
 use kivact::style::{Align, Cursor, Direction, Overflow, style};
 use kivact::view::{
-    ButtonPress, Handled, IntoView, Key, MouseButton, PointerPhase, Role, View, callback, dynamic,
-    for_each, node_ref, show,
+    ButtonPress, Handled, Key, MouseButton, PointerPhase, Role, View, dynamic, for_each, node_ref,
+    show,
 };
-use kivact::{Callback, Value, binding, memo, signal, var};
+use kivact::view::{column, icon, node, row, text};
 
 use super::data::{DockCx, MenuInput, TabDrag, Texts};
 use super::geometry::{STRIP, drop_target};
@@ -26,18 +29,18 @@ use super::items::Item;
 use super::model::{DockLayout, DockPlacement, DockSide, DockTab, DockTabs};
 
 /// Pixels a pressed tab must travel before it becomes a drag.
-const DRAG_THRESHOLD: f32 = 5.0;
+const DRAG_THRESHOLD: f64 = 5.0;
 
 /// Application entries for the menu of a container.
 type AppEntries<K, C> = Rc<dyn Fn(&DockTabs<K>) -> Vec<MenuEntry<C>>>;
 
 /// The application's entries for a container menu and its callback.
-pub(super) struct AppMenu<K: 'static, C: 'static> {
+pub(super) struct AppMenu<K: kivact::state::ItemKey, C: 'static> {
     pub(super) entries: AppEntries<K, C>,
     pub(super) choose: Callback<(K, C)>,
 }
 
-impl<K: 'static, C: 'static> Clone for AppMenu<K, C> {
+impl<K: kivact::state::ItemKey, C: 'static> Clone for AppMenu<K, C> {
     fn clone(&self) -> Self {
         Self {
             entries: self.entries.clone(),
@@ -46,10 +49,7 @@ impl<K: 'static, C: 'static> Clone for AppMenu<K, C> {
     }
 }
 
-pub(super) fn container<K: Clone + Eq + Hash + 'static>(
-    cx: DockCx<K>,
-    item: Value<Item<K>>,
-) -> View {
+pub(super) fn container<K: kivact::state::ItemKey>(cx: DockCx<K>, item: Value<Item<K>>) -> View {
     let tabs = memo(move || match item.with(Clone::clone) {
         Item::Chrome { tabs, .. } => tabs,
         _ => DockTabs {
@@ -69,28 +69,14 @@ pub(super) fn container<K: Clone + Eq + Hash + 'static>(
     });
     let list = memo(move || tabs.with(|tabs| tabs.tabs.clone()));
     let active = memo(move || tabs.with(|tabs| tabs.active.clone()));
-    let selected = binding(active, move |key: Option<K>| {
-        if let Some(key) = key {
-            cx.edit(|layout| layout.activate(&key));
-        }
-    });
-    let group = make_list(
-        move || {
-            list.with(|tabs| {
-                tabs.iter()
-                    .map(|tab| ListItem::new(tab.id.clone(), tab.title.clone()))
-                    .collect::<Vec<_>>()
-            })
-        },
-        ListSelection::Single(selected),
-        ListPolicy::tabs(),
-    );
+    let group = tab_group(cx, list, active);
     let strip = node()
-        .part(group.list().role(Role::TabList))
+        .part(group.list())
+        .role(Role::TabList)
         .child(for_each(
             list,
             |tab| tab.id.clone(),
-            move |id, tab| tab_view(cx, group, id, tab),
+            move |tab| tab_view(cx, group, tab.get_untracked().id, tab),
         ))
         .name(message_with(
             "creative.dock.tabs",
@@ -106,7 +92,7 @@ pub(super) fn container<K: Clone + Eq + Hash + 'static>(
                 .align_items(Align::End)
                 .overflow(Overflow::Hidden),
         );
-    let menu = (cx.shared().menu)(MenuInput {
+    let menu = cx.shared().menu.call(MenuInput {
         cx,
         tabs,
         maximized,
@@ -120,8 +106,8 @@ pub(super) fn container<K: Clone + Eq + Hash + 'static>(
                 .padding_x(4)
                 .gap(4)
                 .align_items(Align::Center)
-                .background(Color::Header)
-                .border_bottom(1, Color::Hair),
+                .background(ColorName::Header)
+                .border_bottom(1, ColorName::Hair),
         ),
         node().style(style().grow(1)),
     ))
@@ -137,21 +123,13 @@ pub(super) fn container<K: Clone + Eq + Hash + 'static>(
         Some(id) => cx.maximize_key(&id, &event),
         None => Handled::No,
     })
-    .style(move || {
-        let t = &current_theme();
-        let p = t.get::<crate::tokens::Tokens>();
-        style()
-            .background(p.island)
-            .border(1, if maximized.get() { p.accent } else { p.hair })
-            .radius(5)
-            .overflow(Overflow::Hidden)
-    })
+    .style(move || container_style(maximized))
     .into_view()
 }
 
-fn tab_view<K: Clone + Eq + Hash + 'static>(
+fn tab_view<K: kivact::state::ItemKey>(
     cx: DockCx<K>,
-    group: List<K>,
+    group: ListApi<K>,
     id: K,
     tab: Value<DockTab<K>>,
 ) -> View {
@@ -159,41 +137,15 @@ fn tab_view<K: Clone + Eq + Hash + 'static>(
     let key = var(id.clone());
     let title = memo(move || tab.with(|tab| tab.title.clone()));
     let member = group.item(id.clone());
-    let member_ref = member.node_ref();
+    let member_ref = kivact::view::node_ref();
+    let member = kivact::custom::Part::new(member.state(), move |node| {
+        node.part(member).node_ref(member_ref)
+    });
     let member_state = member.state();
     cx.register_rect(id, member_ref.rect());
     let renaming = move || cx.rename.is_open(&key.get());
     // A renamed tab does not drag; the press still reaches the tab's selection.
-    let tab_drag = use_drag::<()>(DragCoordinates::Window)
-        .disabled(renaming)
-        .on_update(move |update: DragUpdate<()>| {
-            let id = key.get();
-            let started = cx.drag.with(Option::is_some);
-            if !started && update.delta.x.hypot(update.delta.y) < DRAG_THRESHOLD {
-                return;
-            }
-            let target = cx.root.get().and_then(|root| {
-                cx.current.with(|layout| {
-                    drop_target(layout, root, update.pos, &id, |tab| cx.tab_rect(tab))
-                })
-            });
-            cx.drag.set(Some(TabDrag { source: id, target }));
-        })
-        .on_end(move |update: DragUpdate<()>| {
-            if update.phase == DragPhase::Cancel {
-                cx.drag.set(None);
-                return;
-            }
-            let target = cx.drag.with(|d| {
-                d.as_ref()
-                    .and_then(|d| d.target.as_ref())
-                    .map(|t| t.placement.clone())
-            });
-            cx.drag.set(None);
-            if let Some(placement) = target {
-                cx.edit(|layout| layout.move_tab(&key.get(), placement));
-            }
-        });
+    let tab_drag = tab_drag(cx, key, renaming);
     let start_rename = move || cx.rename.open(key.get());
     let dragged = move || {
         cx.drag
@@ -212,58 +164,27 @@ fn tab_view<K: Clone + Eq + Hash + 'static>(
         move || !renaming(),
         move || text(title).style(style().shrink(1).min_width(0)),
     );
-    let editor = show(renaming, move || {
-        cx.rename
-            .field(
-                key.get(),
-                texts.rename,
-                signal(title.get_untracked()),
-                move |name| {
-                    cx.edit(|layout| layout.rename(&key.get(), name));
-                },
-            )
-            .style(style().width(120).height(22))
-            .return_focus(member_ref)
-    });
-    let close = kivact::ui::button(message_with(
-        "creative.dock.close_tab",
-        "Close {title}",
-        move || [("title", title.get())],
-    ))
-    .hide_label(true)
-    .icon(icon("x"))
-    .variant(ButtonVariant::Ghost)
-    .hidden(move || !tab.with(|tab| tab.closable))
-    .style(style().size(16, 16).padding(0).radius(4))
-    // Presses on the close button never start a tab drag or rename.
-    .on_pointer_default(|event| {
-        if matches!(event.phase, PointerPhase::Down(_)) {
-            Handled::Yes
-        } else {
-            Handled::No
-        }
-    })
-    .on_press(move || {
-        let id = key.get();
-        cx.close(|layout| layout.close(&id).into_iter().collect());
-    });
+    let editor = rename_editor(cx, key, title, member_ref, texts, renaming);
+    let close = close_tab(cx, key, title, tab);
     let selected = memo(move || member_state.get().selected);
-    let member = member
-        .role(Role::Tab)
-        .name(title)
-        .selected(selected)
-        // A rename double-click keeps focus in the inline field.
-        .on_press(move || {
-            if !renaming() {
-                group.choose(key.get());
-            }
-        });
+    let member = kivact::custom::Part::new(member.state(), move |node| {
+        node.part(member)
+            .role(Role::Tab)
+            .name(title)
+            .selected(selected)
+            // A rename double-click keeps focus in the inline field.
+            .on_press(move || {
+                if !renaming() {
+                    group.choose(key.get());
+                }
+            })
+    });
     node()
         .part(member)
         .child((glyph, label, editor, close))
         .on_pointer_default(move |event| {
             if matches!(
-                event.phase,
+                event.phase(),
                 PointerPhase::Down(ButtonPress {
                     button: MouseButton::Primary,
                     clicks: 2..
@@ -274,7 +195,7 @@ fn tab_view<K: Clone + Eq + Hash + 'static>(
                 // The panel's icon maximizes, its title renames.
                 if glyph_rect
                     .get()
-                    .is_some_and(|rect| rect.contains(event.window_pos))
+                    .is_some_and(|rect| rect.contains(event.window_pos()))
                 {
                     cx.toggle_maximize(&key.get());
                 } else {
@@ -288,7 +209,7 @@ fn tab_view<K: Clone + Eq + Hash + 'static>(
         .part(tab_drag.source(()))
         // Before the tab's own activation keys, so Ctrl+Space is not a press.
         // Escape during a drag reaches the drag's source, which ends it.
-        .on_key(move |event| match event.key {
+        .on_key(move |event| match event.key() {
             Key::F(2) if !renaming() => {
                 start_rename();
                 Handled::Yes
@@ -296,23 +217,7 @@ fn tab_view<K: Clone + Eq + Hash + 'static>(
             _ if renaming() => Handled::No,
             _ => cx.maximize_key(&key.get(), &event),
         })
-        .style(move || {
-            let t = &current_theme();
-            let p = t.get::<crate::tokens::Tokens>();
-            style()
-                .direction(Direction::Row)
-                .height(STRIP - 6.0)
-                .padding_x(8)
-                .gap(6)
-                .shrink(0)
-                .align_items(Align::Center)
-                .radius(5)
-                .color(p.muted)
-                .cursor(Cursor::Grab)
-                .opacity(if dragged() { 0.55 } else { 1.0 })
-                .selected(style().background(p.strong).color(p.text_high))
-                .hover(style().color(p.text_high))
-        })
+        .style(move || tab_style(dragged()))
         .into_view()
 }
 
@@ -375,8 +280,8 @@ fn others<'a, K: Clone + Eq + Hash>(
 
 pub(super) fn container_menu<K, C>(input: MenuInput<K>, app: Option<AppMenu<K, C>>) -> View
 where
-    K: Clone + Eq + Hash + 'static,
-    C: Clone + Eq + Hash + 'static,
+    K: kivact::state::ItemKey,
+    C: kivact::state::ItemKey,
 {
     let MenuInput {
         cx,
@@ -428,10 +333,11 @@ where
     .hide_label(true)
     .icon(icon("menu"))
     .variant(ButtonVariant::Ghost)
-    .style(style().width(24).height(22).padding(0).shrink(0));
-    kivact::ui::menu("", entries, move |value| choose.try_call(value))
+    .with_node(move |node| node.style(style().width(24).height(22).padding(0).shrink(0)));
+    kivact::ui::menu("", entries)
+        .on_activate(move |value| choose.try_call(value))
         .offset(0.0)
-        .attach(trigger.into_node())
+        .attach(trigger)
         .into_view()
 }
 
@@ -473,7 +379,7 @@ fn builtin_entries<K: Clone + Eq + Hash, C>(
                 texts.maximize
             },
         )
-        .shortcut(texts.maximize_shortcut.get()),
+        .with_shortcut(texts.maximize_shortcut.get()),
     );
     entries
         .push(item(Builtin::Shift(-1), texts.move_left).disabled(!position.is_some_and(|p| p > 0)));
@@ -519,7 +425,7 @@ fn builtin_entries<K: Clone + Eq + Hash, C>(
     );
 }
 
-fn run<K: Clone + Eq + Hash + 'static>(cx: DockCx<K>, id: K, tabs: &DockTabs<K>, command: Builtin) {
+fn run<K: kivact::state::ItemKey>(cx: DockCx<K>, id: K, tabs: &DockTabs<K>, command: Builtin) {
     match command {
         Builtin::Close => cx.close(|layout| layout.close(&id).into_iter().collect()),
         Builtin::CloseOthers => cx.close(|layout| layout.close_others(&id)),
@@ -579,4 +485,154 @@ fn run<K: Clone + Eq + Hash + 'static>(cx: DockCx<K>, id: K, tabs: &DockTabs<K>,
         }
         Builtin::MoveToMenu | Builtin::MoveToContainer(_) | Builtin::MoveToEdgeMenu => {}
     }
+}
+
+/// Bind native tab-list selection to the application-owned dock layout.
+fn tab_group<K: kivact::state::ItemKey>(
+    cx: DockCx<K>,
+    list: Value<Vec<DockTab<K>>>,
+    active: Value<Option<K>>,
+) -> ListApi<K> {
+    let selected = binding(active, move |key: Option<K>| {
+        if let Some(key) = key {
+            cx.edit(|layout| layout.activate(&key));
+        }
+    });
+    make_list(
+        move || {
+            list.with(|tabs| {
+                tabs.iter()
+                    .map(|tab| ListItem::new(tab.id.clone(), tab.title.clone()))
+                    .collect::<Vec<_>>()
+            })
+        },
+        Selection::Single(selected),
+        ListOptions::tabs(),
+    )
+}
+
+/// Route tab dragging and its final layout write through the existing dock context.
+fn tab_drag<K: kivact::state::ItemKey>(
+    cx: DockCx<K>,
+    key: kivact::state::Var<K>,
+    renaming: impl Fn() -> bool + Copy + 'static,
+) -> kivact::interaction::DragApi<()> {
+    use_drag::<()>(DragCoordinates::Window)
+        .disabled(renaming)
+        .on_update(move |update: DragUpdate<()>| {
+            let id = key.get();
+            let started = cx.drag.with(Option::is_some);
+            if !started && update.delta.x.hypot(update.delta.y) < DRAG_THRESHOLD {
+                return;
+            }
+            let target = cx.root.get().and_then(|root| {
+                cx.current.with(|layout| {
+                    drop_target(layout, root, update.pos, &id, |tab| cx.tab_rect(tab))
+                })
+            });
+            cx.drag.set(Some(TabDrag { source: id, target }));
+        })
+        .on_end(move |update: DragUpdate<()>| {
+            if update.phase == DragPhase::Cancel {
+                cx.drag.set(None);
+                return;
+            }
+            let target = cx.drag.with(|d| {
+                d.as_ref()
+                    .and_then(|d| d.target.as_ref())
+                    .map(|t| t.placement.clone())
+            });
+            cx.drag.set(None);
+            if let Some(placement) = target {
+                cx.edit(|layout| layout.move_tab(&key.get(), placement));
+            }
+        })
+}
+
+/// Mount the actual inline rename field and restore the tab's focus after editing.
+fn rename_editor<K: kivact::state::ItemKey>(
+    cx: DockCx<K>,
+    key: kivact::state::Var<K>,
+    title: Value<String>,
+    member_ref: kivact::view::NodeRef,
+    texts: Texts,
+    renaming: impl Fn() -> bool + Copy + 'static,
+) -> View {
+    show(renaming, move || {
+        node()
+            .part(
+                cx.rename
+                    .field(key.get(), texts.rename, signal(title.get_untracked()))
+                    .on_draft_commit(move |name| {
+                        cx.edit(|layout| layout.rename(&key.get(), name));
+                    })
+                    .return_focus(member_ref)
+                    .control(),
+            )
+            .style(style().width(120).height(22))
+    })
+    .into_view()
+}
+
+/// Keep tab-close activation isolated from drag and rename input.
+fn close_tab<K: kivact::state::ItemKey>(
+    cx: DockCx<K>,
+    key: kivact::state::Var<K>,
+    title: Value<String>,
+    tab: Value<DockTab<K>>,
+) -> kivact::ui::Button {
+    kivact::ui::button(message_with(
+        "creative.dock.close_tab",
+        "Close {title}",
+        move || [("title", title.get())],
+    ))
+    .hide_label(true)
+    .icon(icon("x"))
+    .variant(ButtonVariant::Ghost)
+    .with_node(move |node| node.hidden(move || !tab.with(|tab| tab.closable)))
+    .with_node(move |node| node.style(style().size(16, 16).padding(0).radius(4)))
+    // Presses on the close button never start a tab drag or rename.
+    .with_node(move |node| {
+        node.on_pointer_default(|event| {
+            if matches!(event.phase(), PointerPhase::Down(_)) {
+                Handled::Yes
+            } else {
+                Handled::No
+            }
+        })
+    })
+    .on_press(move || {
+        let id = key.get();
+        cx.close(|layout| layout.close(&id).into_iter().collect());
+    })
+}
+
+/// Derive tab chrome from the current theme and actual drag observation.
+fn tab_style(dragged: bool) -> kivact::style::Style {
+    let t = &use_theme().get();
+    let p = t.ext::<crate::tokens::Tokens>();
+    style()
+        .direction(Direction::Row)
+        .height(STRIP - 6.0)
+        .padding_x(8)
+        .gap(6)
+        .shrink(0)
+        .align_items(Align::Center)
+        .radius(5)
+        .color(p.muted)
+        .cursor(Cursor::Grab)
+        .opacity(if dragged { 0.55 } else { 1.0 })
+        .selected(style().background(p.strong).color(p.text_high))
+        .hover(style().color(p.text_high))
+}
+
+/// Draw the theme surface and actual maximized container border.
+fn container_style(maximized: Value<bool>) -> kivact::style::Style {
+    let t = &use_theme().get();
+    let p = t.ext::<crate::tokens::Tokens>();
+    style()
+        .background(p.island)
+        .border(1, if maximized.get() { p.accent } else { p.hair })
+        .radius(5)
+        .overflow(Overflow::Hidden)
 }

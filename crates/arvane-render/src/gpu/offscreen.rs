@@ -1,10 +1,11 @@
 //! Role: Renders scenes into offscreen textures and reads frames back.
 
-use super::state::GpuContext;
+use super::external::ExternalPass;
+use super::state::{GpuContext, Offscreen};
 use super::texture::target_texture;
 use crate::error::RenderError;
 use kivact_types::Size;
-use kivact_types::protocol::{CpuFrame, Scene};
+use kivact_types::render::{CpuFrame, RenderScene};
 use std::sync::mpsc;
 use std::time::Duration;
 
@@ -14,44 +15,55 @@ impl GpuContext {
     /// [`GpuContext::present`]).
     pub fn render(
         &mut self,
-        scene: &Scene,
+        scene: &RenderScene,
         size: Size,
-        scale: f32,
+        scale: f64,
     ) -> Result<CpuFrame, RenderError> {
-        self.with_external(scene, |context| context.render_frame(scene, size, scale))
+        let mut external = std::mem::take(&mut self.external);
+        let drawn = (|| {
+            let pass = ExternalPass::begin(&mut external, scene)?;
+            self.render_frame(scene, size, scale, pass)
+        })();
+        self.external = external;
+        drawn
     }
 
     /// [`GpuContext::render`] between the external frames' hand-offs.
     fn render_frame(
         &mut self,
-        scene: &Scene,
+        scene: &RenderScene,
         size: Size,
-        scale: f32,
+        scale: f64,
+        pass: ExternalPass<'_>,
     ) -> Result<CpuFrame, RenderError> {
         let ((width, height), info) = self.dimensions(scene, size, scale)?;
-        let reuse = self
-            .offscreen
-            .as_ref()
-            .is_some_and(|texture| (texture.width(), texture.height()) == (width, height));
-        if !reuse {
-            self.offscreen = Some(target_texture(&self.device, width, height));
+        if !matches!(&self.offscreen, Offscreen::Allocated { size, .. } if *size == (width, height))
+        {
+            self.offscreen = Offscreen::Allocated {
+                texture: target_texture(&self.device, width, height),
+                size: (width, height),
+            };
         }
-        let texture = self
-            .offscreen
-            .clone()
-            .expect("invariant: the offscreen texture was just made");
+        let texture = match &self.offscreen {
+            Offscreen::Allocated { texture, .. } => texture.clone(),
+            Offscreen::None => unreachable!("invariant: the offscreen texture was just made"),
+        };
         let mut encoder = self
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
                 label: Some("Arvane offscreen"),
             });
-        self.encode(scene, scale, (width, height), &info, false);
+        self.encode(scene, scale, (width, height), &info, false, pass.frame());
         let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
         let drawn = self.draw(&mut encoder, (width, height), &view);
         self.queue.submit([encoder.finish()]);
-        self.external.submitted();
+        let submitted = pass.submit();
         drawn?;
-        self.read_texture(&texture)
+        let drawn = self.read_texture(&texture);
+        let ended = submitted.finish();
+        let frame = drawn?;
+        ended?;
+        Ok(frame)
     }
 
     /// Copy `texture` (in [`FORMAT`]) into an RGBA frame, waiting a

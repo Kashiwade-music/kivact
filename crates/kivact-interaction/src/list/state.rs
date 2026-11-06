@@ -1,205 +1,151 @@
-//! Role: List state shares one registry, selection writer and focus authority.
+//! Role: ListApi state shares one registry, selection writer and focus authority.
 
-use super::data::{ListGesture, ListItem, ListMode, ListPolicy, ListSelection};
+use super::data::{ListGesture, ListItem, ListMode, ListOptions};
+use super::machine;
 use super::order::Order;
 use super::selection::selection_transition;
 use super::typeahead::Typeahead;
+use crate::Selection;
+use crate::options_cell::OptionsCell;
 use crate::roving::{Observation, Roving};
-use kivact_core::diagnostics::ErrorKind;
-use kivact_core::primitive::{NodeRefExt, NodeToken, Owned, Owner};
-use kivact_core::view::{IntoValue, NodeRef};
-use kivact_core::{Binding, Callback, Signal, Value, Var, effect, memo, signal, var};
+use kivact_core::ErrorKind;
+use kivact_core::custom::{NodeRefExt, Owned, Owner};
+use kivact_core::state::{Binding, Callback, Signal, Value, effect, memo, signal};
+use kivact_core::state::{IntoBinding, IntoValue};
+use kivact_core::state::{MachineHandle, machine};
+use kivact_core::view::NodeRef;
 use std::cell::{Cell, RefCell};
-use std::hash::Hash;
-use std::panic::Location;
 use std::rc::Rc;
 
 type Leave<K> = Rc<dyn Fn(&K) -> Option<K>>;
 type Scroll<K> = Callback<K>;
 
-#[derive(Clone)]
-struct Pending<K> {
-    key: K,
-    origin: Option<NodeToken>,
-    origin_ref: Option<NodeRef>,
-}
-
-/// Losing the source through virtualization is distinct from a bound-source blur.
-fn pending_kept<K>(pending: &Pending<K>, current: Option<NodeToken>) -> bool {
-    if current == pending.origin {
-        return true;
-    }
-    current.is_none()
-        && pending.origin.is_some()
-        && pending
-            .origin_ref
-            .is_some_and(|node| node.mounted_node().is_none())
-}
-
 type Selectable<K> = Rc<dyn Fn(&K) -> bool>;
 
-pub(super) struct State<K: Clone + Eq + Hash + 'static> {
+#[derive(Clone)]
+pub(super) struct ListSetupOptions<K: kivact_core::state::ItemKey> {
+    pub(super) retained_focus: Value<bool>,
+    pub(super) reset_on_exit: bool,
+    pub(super) page: Value<usize>,
+    pub(super) leave: Option<Leave<K>>,
+    pub(super) scroll: Option<Scroll<K>>,
+    pub(super) selectable: Option<Selectable<K>>,
+    pub(super) anchor: Binding<Option<K>>,
+}
+
+pub(super) struct State<K: kivact_core::state::ItemKey> {
+    pub(super) item_states: Signal<std::collections::HashMap<K, Value<super::data::ListItemState>>>,
+    // xtask-allow(state-fields): Mounted container registry metadata, independent of focus transitions.
+    pub(super) container_state: Signal<Option<Value<kivact_core::custom::PartState>>>,
     pub(super) owner: Owner,
     /// The App's root when the list was created: an item of another App has
     /// another root.
     pub(super) root: Owner,
     pub(super) items: Value<Vec<ListItem<K>>>,
     pub(super) order: Value<Order<K>>,
-    pub(super) selection: ListSelection<K>,
-    pub(super) selectable: Signal<Option<Selectable<K>>>,
+    pub(super) selection: Selection<K>,
     pub(super) selected: Value<Vec<K>>,
+    // xtask-allow(state-fields): Read-only projection of the caller-owned range anchor.
     pub(super) anchor_value: Value<Option<K>>,
-    pub(super) anchor: Signal<Binding<Option<K>>>,
     /// The mounted items, the requested key and the focus bookkeeping.
     pub(super) roving: Roving<K>,
+    // xtask-allow(state-fields): Pure derived tab stop, never independently written.
     pub(super) active: Value<Option<K>>,
     /// What choosing an item does; fixed by `use_list`.
     pub(super) mode: ListMode,
-    pub(super) retained_focus: Cell<bool>,
-    pub(super) policy: Signal<ListPolicy>,
-    pub(super) page: Cell<Value<usize>>,
-    pub(super) leave: Rc<RefCell<Option<Leave<K>>>>,
-    pub(super) scroll: RefCell<Option<Scroll<K>>>,
-    pub(super) typed: Cell<Var<Typeahead>>,
-    pending: RefCell<Option<Pending<K>>>,
-    pub(super) at: &'static Location<'static>,
+    pub(super) policy: OptionsCell<ListOptions>,
+    pub(super) options: OptionsCell<ListSetupOptions<K>>,
+    pub(super) typed: Cell<Binding<Typeahead>>,
+    pub(super) pending: MachineHandle<machine::Machine<K>>,
 }
 
-pub(super) fn selected<K: Clone + PartialEq + 'static>(selection: ListSelection<K>) -> Vec<K> {
+pub(super) fn selected<K: kivact_core::state::PropValue>(selection: Selection<K>) -> Vec<K> {
     match selection {
-        ListSelection::Single(binding) => binding.get().into_iter().collect(),
-        ListSelection::Multiple(binding) => binding.get(),
+        Selection::Single(binding) => binding.get().into_iter().collect(),
+        Selection::Multiple(binding) => binding.get(),
     }
 }
 
-pub(super) fn create<K: Clone + Eq + Hash + 'static>(
+pub(super) fn create<K: kivact_core::state::ItemKey>(
     items: Value<Vec<ListItem<K>>>,
-    selection: ListSelection<K>,
-    policy: ListPolicy,
-    at: &'static Location<'static>,
-) -> Owned<State<K>> {
-    let owner = Owner::current("list");
-    let root = Owner::root("list");
-    let alive = owner.store("List", Rc::new(()));
+    selection: Selection<K>,
+    policy: ListOptions,
+) -> Owned<Rc<State<K>>> {
+    let owner = Owner::current();
+    let root = Owner::root();
     let order = memo(move || Order::new(items.get()));
     let selected_value = memo(move || selected(selection));
     let roving = Roving::<K>::new();
     let requested = roving.requested;
-    let anchor = signal(Binding::from(signal(None::<K>)));
-    let anchor_value = memo(move || anchor.get().get());
-    let mode = policy.mode;
-    let policy = signal(policy);
-    let targets = roving.clone();
-    let leave = Rc::new(RefCell::new(None::<Leave<K>>));
-    let leave_active = leave.clone();
-    let position = Cell::new(0usize);
-    let active = memo(move || {
-        alive.try_get()?;
-        targets.track();
-        let requested = requested.get();
-        let selected = selected_value.get();
-        order.with(|order| {
-            let available = |key: &K| {
-                targets
-                    .with_members(|targets| targets.get(key).is_some_and(|entry| entry.available()))
-            };
-            if let Some(key) = requested.as_ref() {
-                if order.enabled(key) && available(key) {
-                    if let Some(at) = order.position(key) {
-                        position.set(at);
-                    }
-                    return Some(key.clone());
-                }
-                if mode == ListMode::Select {
-                    let moved = leave_active.borrow().as_ref().and_then(|leave| leave(key));
-                    if let Some(moved) = moved.filter(|key| order.enabled(key) && available(key)) {
-                        return Some(moved);
-                    }
-                    let keys = order.keys();
-                    return keys
-                        .iter()
-                        .skip(position.get())
-                        .find(|key| order.enabled(key) && available(key))
-                        .cloned()
-                        .or_else(|| {
-                            keys.iter()
-                                .rev()
-                                .find(|key| order.enabled(key) && available(key))
-                                .cloned()
-                        });
-                }
-            }
-            let preference = if mode == ListMode::Select {
-                selected
-                    .iter()
-                    .rev()
-                    .find(|key| order.enabled(key) && available(key))
-            } else {
-                selected
-                    .iter()
-                    .find(|key| order.enabled(key) && available(key))
-            };
-            preference.cloned().or_else(|| {
-                order
-                    .keys()
-                    .into_iter()
-                    .find(|key| order.enabled(key) && available(key))
-            })
-        })
+    let options = OptionsCell::new(ListSetupOptions {
+        retained_focus: false.into_value(),
+        reset_on_exit: true,
+        page: 10.into_value(),
+        leave: None,
+        scroll: None,
+        selectable: None,
+        anchor: signal(None::<K>).into_binding(),
     });
+    let option_values = options.value();
+    let anchor_value = memo(move || option_values.get().anchor.get());
+    let mode = policy.mode;
+    let policy = OptionsCell::new(policy);
+    let targets = roving.clone();
+    let pending = machine(
+        machine::State {
+            pending: machine::Pending::Nothing,
+            position: 0,
+            focus: machine::Focus::Physical,
+        },
+        || machine::Machine::new(),
+        |_, ()| {},
+    );
+    let position = memo(move || {
+        requested
+            .get()
+            .and_then(|key| order.with(|order| order.position(&key)))
+            .unwrap_or_else(|| pending.state().get().position)
+    });
+    let active = active_value(
+        order,
+        targets,
+        selected_value,
+        option_values,
+        pending,
+        mode,
+        position,
+    );
     let state = Rc::new(State {
+        item_states: signal(std::collections::HashMap::new()),
+        container_state: signal(None),
         owner,
         root,
         items,
         order,
         selection,
-        selectable: signal(None),
         selected: selected_value,
-        anchor,
         anchor_value,
         roving,
         active,
         mode,
-        retained_focus: Cell::new(false),
         policy,
-        page: Cell::new((10).into_value()),
-        leave,
-        scroll: RefCell::new(None),
-        typed: Cell::new(var(Typeahead::default())),
-        pending: RefCell::new(None),
-        at,
+        options,
+        typed: Cell::new(signal(Typeahead::default()).into_binding()),
+        pending,
     });
-    let stored = owner.store("List", state.clone());
-    let duplicates = RefCell::new(Vec::<K>::new());
-    effect(move || {
-        if alive.try_get().is_none() {
-            return;
-        }
-        let next = state.order.with(|order| order.duplicates().to_vec());
-        if *duplicates.borrow() != next {
-            if !next.is_empty() {
-                owner.report(
-                    ErrorKind::Message,
-                    format!(
-                        "List: {} duplicate logical key(s); first occurrence wins",
-                        next.len()
-                    ),
-                    at,
-                );
-            }
-            *duplicates.borrow_mut() = next;
-        }
-        if !state.retained_focus.get() {
-            reconcile(&state);
-        }
-    });
+    let stored = owner.store("ListApi", state.clone());
+    observe_list(state, stored);
     stored
 }
 
-impl<K: Clone + Eq + Hash + 'static> State<K> {
+impl<K: kivact_core::state::ItemKey> State<K> {
+    pub(super) fn retains_focus(&self) -> bool {
+        self.pending.state().get_untracked().focus == machine::Focus::Retained
+    }
+
     /// The policy as set now (untracked).
-    pub(super) fn policy(&self) -> ListPolicy {
-        self.policy.get_untracked()
+    pub(super) fn policy(&self) -> ListOptions {
+        self.policy.get()
     }
     /// Whether the order lets `key` take the focus or a selection.
     fn enabled(&self, key: &K) -> bool {
@@ -209,21 +155,24 @@ impl<K: Clone + Eq + Hash + 'static> State<K> {
         self.roving.target(key, |key| self.enabled(key))
     }
     pub(super) fn can_select(&self, key: &K) -> bool {
-        self.selectable
-            .with_untracked(|test| test.as_ref().is_none_or(|test| test(key)))
+        self.options
+            .get()
+            .selectable
+            .as_ref()
+            .is_none_or(|test| test(key))
     }
 
     pub(super) fn select(&self, key: K, gesture: ListGesture) -> bool {
         if !self.order.with_untracked(|order| order.enabled(&key)) || !self.can_select(&key) {
             return false;
         }
-        let anchor = self.anchor.get_untracked();
+        let anchor = self.options.get().anchor;
         match self.selection {
-            ListSelection::Single(binding) => {
+            Selection::Single(binding) => {
                 binding.set(Some(key.clone()));
                 anchor.set(Some(key));
             }
-            ListSelection::Multiple(binding) => {
+            Selection::Multiple(binding) => {
                 let visible = self.order.with_untracked(|order| {
                     order
                         .keys()
@@ -231,7 +180,7 @@ impl<K: Clone + Eq + Hash + 'static> State<K> {
                         .filter(|key| order.enabled(key) && self.can_select(key))
                         .collect::<Vec<_>>()
                 });
-                let next = kivact_core::untrack(|| {
+                let next = kivact_core::state::untrack(|| {
                     selection_transition(
                         &selected(self.selection),
                         anchor.get_untracked().as_ref(),
@@ -249,24 +198,24 @@ impl<K: Clone + Eq + Hash + 'static> State<K> {
     }
     pub(super) fn focus_available(&self, key: &K) -> bool {
         self.target(key).is_some()
-            || (!self.retained_focus.get()
-                && self.scroll.borrow().is_some()
+            || (!self.retains_focus()
+                && self.options.get().scroll.is_some()
                 && !self.roving.contains(key))
     }
     pub(super) fn focus(&self, key: K) -> bool {
         if !self.order.with_untracked(|order| order.enabled(&key)) {
             return false;
         }
-        let scroll = *self.scroll.borrow();
+        let scroll = self.options.get().scroll;
         let target = self.target(&key);
         if !self.focus_available(&key) {
             return false;
         }
         self.roving.requested.set(Some(key.clone()));
-        *self.pending.borrow_mut() = None;
+        self.pending.send(machine::Event::Cancel);
         match target {
             Some(node) => {
-                if !self.retained_focus.get() {
+                if !self.retains_focus() {
                     node.focus();
                 }
                 match scroll {
@@ -282,10 +231,12 @@ impl<K: Clone + Eq + Hash + 'static> State<K> {
                         .find(|entry| origin.is_some() && entry.node.mounted_node() == origin)
                         .map(|entry| entry.node)
                 });
-                *self.pending.borrow_mut() = Some(Pending {
+                self.pending.send(machine::Event::Activate {
                     key: key.clone(),
-                    origin,
-                    origin_ref,
+                    origin: machine::Origin {
+                        token: origin,
+                        node: origin_ref,
+                    },
                 });
                 if let Some(scroll) = scroll {
                     scroll.call(key);
@@ -309,20 +260,24 @@ impl<K: Clone + Eq + Hash + 'static> State<K> {
         })
     }
     pub(super) fn pending_mounted(&self, key: &K) {
-        let pending = self.pending.borrow().clone();
-        let Some(pending) = pending else {
+        let pending = self.pending.state().get_untracked().pending;
+        let machine::Pending::Activating {
+            key: pending_key,
+            origin,
+        } = pending
+        else {
             return;
         };
-        if &pending.key != key {
+        if &pending_key != key {
             return;
         }
         let current = self.owner.focused_node();
-        if !pending_kept(&pending, current) {
-            self.pending.borrow_mut().take();
+        if !origin.kept(current) {
+            self.pending.send(machine::Event::Cancel);
             return;
         }
         if let Some(node) = self.target(key) {
-            self.pending.borrow_mut().take();
+            self.pending.send(machine::Event::Cancel);
             self.roving.requested.set(Some(key.clone()));
             node.focus();
             node.scroll_into_view();
@@ -330,29 +285,141 @@ impl<K: Clone + Eq + Hash + 'static> State<K> {
     }
 }
 
-fn reconcile<K: Clone + Eq + Hash + 'static>(state: &State<K>) {
+fn reconcile<K: kivact_core::state::ItemKey>(state: &State<K>) {
     let active = state.active.get();
     let current = state.owner.focused_node();
-    if state
-        .pending
-        .borrow()
-        .as_ref()
-        .is_some_and(|pending| !pending_kept(pending, current))
+    state.pending.send(machine::Event::Observe(current));
+    let pending = state.pending.state().get_untracked().pending;
+    // Once focus leaves, the next Tab entry starts at the selected item.
+    // Pending virtualization and retained trigger focus keep their own authority.
+    if state.options.get().reset_on_exit
+        && matches!(pending, machine::Pending::Nothing)
+        && state.roving.left_members(current)
     {
-        state.pending.borrow_mut().take();
-    }
-    if state.pending.borrow().is_none() && state.roving.requested.get_untracked() != active {
-        state.roving.requested.set(active.clone());
+        state.roving.requested.set(None);
     }
     // A pending request of the list's own keeps the tab stop where it asked.
     // A focus on an item the list refuses goes back to the tab stop.
     let observation = Observation {
         current,
         active: active.as_ref(),
-        adopt: state.pending.borrow().is_none(),
+        adopt: matches!(pending, machine::Pending::Nothing),
         reject_refused: true,
     };
     state
         .roving
         .reconcile(observation, |key| state.enabled(key));
+}
+
+fn active_value<K: kivact_core::state::ItemKey>(
+    order: Value<Order<K>>,
+    targets: Roving<K>,
+    selected_value: Value<Vec<K>>,
+    option_values: Value<ListSetupOptions<K>>,
+    pending: MachineHandle<machine::Machine<K>>,
+    mode: ListMode,
+    position: Value<usize>,
+) -> Value<Option<K>> {
+    let requested = targets.requested;
+    memo(move || {
+        order.try_get()?;
+        targets.track();
+        let requested = requested.get();
+        let selected = selected_value.get();
+        order.with(|order| {
+            let available = |key: &K| {
+                targets
+                    .with_members(|targets| targets.get(key).is_some_and(|entry| entry.available()))
+            };
+            if let Some(key) = requested.as_ref() {
+                // A caller scroll callback can materialize a requested logical row.
+                // Keep that destination authoritative until its node mounts.
+                let virtual_request = option_values.get().scroll.is_some()
+                    && pending.state().get().focus == machine::Focus::Physical
+                    && !targets.contains(key);
+                if order.enabled(key) && (available(key) || virtual_request) {
+                    return Some(key.clone());
+                }
+                if mode == ListMode::Select {
+                    let moved = option_values
+                        .get()
+                        .leave
+                        .as_ref()
+                        .and_then(|leave| leave(key));
+                    if let Some(moved) = moved.filter(|key| order.enabled(key) && available(key)) {
+                        return Some(moved);
+                    }
+                    let keys = order.keys();
+                    return keys
+                        .iter()
+                        .skip(position.get())
+                        .find(|key| order.enabled(key) && available(key))
+                        .cloned()
+                        .or_else(|| {
+                            keys.iter()
+                                .rev()
+                                .find(|key| order.enabled(key) && available(key))
+                                .cloned()
+                        });
+                }
+            }
+            let keys = order.keys();
+            let preference = keys
+                .iter()
+                .find(|key| selected.contains(key) && order.enabled(key) && available(key));
+            preference.cloned().or_else(|| {
+                // Keep the last tab stop's ordinal when a selected item disappears.
+                // An empty selection still starts a fresh entry at the first item.
+                let start = if mode == ListMode::Select && !selected.is_empty() {
+                    position.get()
+                } else {
+                    0
+                };
+                keys.iter()
+                    .skip(start)
+                    .find(|key| order.enabled(key) && available(key))
+                    .or_else(|| {
+                        keys.iter()
+                            .rev()
+                            .find(|key| order.enabled(key) && available(key))
+                    })
+                    .cloned()
+            })
+        })
+    })
+}
+
+fn observe_list<K: kivact_core::state::ItemKey>(state: Rc<State<K>>, stored: Owned<Rc<State<K>>>) {
+    let owner = state.owner;
+    let pending = state.pending;
+    let duplicates = RefCell::new(Vec::<K>::new());
+    effect(move || {
+        if stored.try_get().is_none() {
+            return;
+        }
+        // History follows the derived tab stop even before an explicit focus request.
+        if let Some(at) = state
+            .active
+            .get()
+            .and_then(|key| state.order.with(|order| order.position(&key)))
+        {
+            pending.send(machine::Event::Position(at));
+        }
+        let next = state.order.with(|order| order.duplicates().to_vec());
+        if *duplicates.borrow() != next {
+            if !next.is_empty() {
+                owner.report(
+                    ErrorKind::Message,
+                    format!(
+                        "ListApi: {} duplicate logical key(s); first occurrence wins",
+                        next.len()
+                    ),
+                );
+            }
+            *duplicates.borrow_mut() = next;
+        }
+        if state.pending.state().get().focus == machine::Focus::Physical {
+            reconcile(&state);
+        }
+    });
 }

@@ -4,19 +4,20 @@
 //! reflected gradients with hard stops, and patterns tiling an image or a
 //! gradient tile in a constant number of commands.
 
-use kivact_types::protocol::{DrawCommand, Gradient, GradientShape, Paint, Shape};
+use kivact_types::render::{Gradient, GradientShape, Paint, RenderCmd};
+use kivact_types::scene::Shape;
 use kivact_types::{Extend, Rgba};
 
 use crate::support::{BLUE, RED, assert_near, color, open, pixel, pt, rect, show};
 
-fn fill_rect(x: f32, y: f32, width: f32, height: f32, paint: Paint) -> DrawCommand {
-    DrawCommand::FillShape {
+fn fill_rect(x: f64, y: f64, width: f64, height: f64, paint: Paint) -> RenderCmd {
+    RenderCmd::FillShape {
         shape: Shape::Rect(rect(x, y, width, height)),
         paint,
     }
 }
 
-fn gradient(shape: GradientShape, stops: Vec<(f32, Rgba)>, extend: Extend) -> Paint {
+fn gradient(shape: GradientShape, stops: Vec<(f64, Rgba)>, extend: Extend) -> Paint {
     Paint::Gradient(Gradient {
         shape,
         stops,
@@ -27,57 +28,7 @@ fn gradient(shape: GradientShape, stops: Vec<(f32, Rgba)>, extend: Extend) -> Pa
 #[test]
 fn radial_and_conic_gradients_spread_from_their_center() {
     let mut window = open(300.0, 100.0);
-    let red_to_blue = vec![(0.0, color(RED)), (1.0, color(BLUE))];
-    show(
-        &mut window,
-        vec![
-            fill_rect(
-                0.0,
-                0.0,
-                100.0,
-                100.0,
-                gradient(
-                    GradientShape::Radial {
-                        center: pt(50.0, 50.0),
-                        radius_x: 40.0,
-                        radius_y: 40.0,
-                    },
-                    red_to_blue.clone(),
-                    Extend::Pad,
-                ),
-            ),
-            fill_rect(
-                100.0,
-                0.0,
-                100.0,
-                100.0,
-                gradient(
-                    GradientShape::Radial {
-                        center: pt(150.0, 50.0),
-                        radius_x: 40.0,
-                        radius_y: 10.0,
-                    },
-                    red_to_blue.clone(),
-                    Extend::Pad,
-                ),
-            ),
-            fill_rect(
-                200.0,
-                0.0,
-                100.0,
-                100.0,
-                gradient(
-                    GradientShape::Conic {
-                        center: pt(250.0, 50.0),
-                        start_deg: 0.0,
-                        end_deg: 360.0,
-                    },
-                    red_to_blue,
-                    Extend::Pad,
-                ),
-            ),
-        ],
-    );
+    show(&mut window, paints_scene());
     assert_near(pixel(&window, 50, 50), RED, 8, "the circle's center");
     assert_near(pixel(&window, 70, 50), 0x800080, 10, "half way out");
     assert_near(pixel(&window, 50, 30), 0x800080, 10, "half way up");
@@ -116,4 +67,55 @@ fn radial_and_conic_gradients_spread_from_their_center() {
         14,
         "three quarters, above",
     );
+}
+
+fn paints_scene() -> Vec<RenderCmd> {
+    let red_to_blue = vec![(0.0, color(RED)), (1.0, color(BLUE))];
+    vec![
+        fill_rect(
+            0.0,
+            0.0,
+            100.0,
+            100.0,
+            gradient(
+                GradientShape::Radial {
+                    center: pt(50.0, 50.0),
+                    radius_x: 40.0,
+                    radius_y: 40.0,
+                },
+                red_to_blue.clone(),
+                Extend::Pad,
+            ),
+        ),
+        fill_rect(
+            100.0,
+            0.0,
+            100.0,
+            100.0,
+            gradient(
+                GradientShape::Radial {
+                    center: pt(150.0, 50.0),
+                    radius_x: 40.0,
+                    radius_y: 10.0,
+                },
+                red_to_blue.clone(),
+                Extend::Pad,
+            ),
+        ),
+        fill_rect(
+            200.0,
+            0.0,
+            100.0,
+            100.0,
+            gradient(
+                GradientShape::Conic {
+                    center: pt(250.0, 50.0),
+                    start_deg: 0.0,
+                    end_deg: 360.0,
+                },
+                red_to_blue,
+                Extend::Pad,
+            ),
+        ),
+    ]
 }

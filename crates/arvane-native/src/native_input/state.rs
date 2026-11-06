@@ -3,61 +3,44 @@
 use std::cell::{Cell, RefCell};
 
 use arvane_shell::ShellImeText;
+#[cfg(windows)]
+use arvane_shell::{ShellWaker, WakeReasons};
+use kivact_types::cell::LocalMailbox;
 
-/// The system's mouse settings: how close in time (ms) and space
-/// (physical pixels per axis) a second press counts as a double click, and
-/// how many lines (characters with Shift) one notch of the wheel scrolls.
-/// Windows reads them from the system and again when they change; the
-/// defaults are Windows' own.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub(crate) struct MouseSettings {
-    pub(crate) double_click_ms: u32,
-    pub(crate) double_click_px: (u32, u32),
-    pub(crate) wheel_lines: u32,
-    pub(crate) wheel_chars: u32,
-}
-
-impl Default for MouseSettings {
-    fn default() -> Self {
-        MouseSettings {
-            double_click_ms: 500,
-            double_click_px: (4, 4),
-            wheel_lines: 3,
-            wheel_chars: 3,
-        }
-    }
-}
+use kivact_types::{Environment, PointerSettings};
 
 /// What the window's subclass shares with the window and the runner.
-#[derive(Debug, Default)]
 pub(crate) struct NativeInput {
+    pub(crate) ime: RefCell<arvane_shell::pipeline::ImeDriver>,
     /// The focused text input's state, as the application last set it.
     pub(crate) text: RefCell<Option<ShellImeText>>,
     /// Physical pixels per logical pixel of the window.
     pub(crate) scale: Cell<f64>,
-    /// A range of `text` the IME took for reconversion (UTF-16), not
+    /// A range of `text` the IME took for reconversion (snapshot-relative UTF-8 bytes), not
     /// delivered yet.
-    pub(crate) reconvert: Cell<Option<(usize, usize)>>,
+    pub(crate) reconvert: LocalMailbox<(usize, usize)>,
     /// The client position (physical pixels) of the last button or wheel
     /// message, not taken yet.
-    pub(crate) pointer: Cell<Option<(f64, f64)>>,
-    pub(crate) file_pointer: Cell<Option<kivact_types::Point>>,
+    pub(crate) pointer: LocalMailbox<(f64, f64)>,
+    pub(crate) file_pointer: LocalMailbox<kivact_types::Point>,
     /// The subclass has not been removed yet (by `WM_NCDESTROY` or the guard's drop); only the
     /// subclass reads it.
     #[cfg(windows)]
-    pub(crate) subclass_installed: Cell<bool>,
+    pub(crate) subclass_installed: Cell<Subclass>,
     /// The system's reduce-motion preference as last read.
     pub(crate) reduced_motion: Cell<bool>,
     /// The system's mouse settings as last read.
-    pub(crate) mouse: Cell<MouseSettings>,
+    pub(crate) mouse: Cell<PointerSettings>,
     /// The system's locale as last read (`system_locale`).
     pub(crate) locale: RefCell<Option<String>>,
     /// The reduce-motion preference, the mouse settings or the locale
     /// changed; the change is not announced yet.
-    pub(crate) env_changed: Cell<bool>,
+    pub(crate) env_changed: LocalMailbox<()>,
     /// Wakes the event loop when the subclass noted something to deliver
-    /// outside a window event (a settings change).
-    pub(crate) waker: RefCell<Option<arvane_shell::ShellWaker>>,
+    /// outside a window event (a settings change); `None` for a window that
+    /// installs no subclass (an embedded child).
+    #[cfg(windows)]
+    waker: Option<ShellWaker>,
     /// The touch and pen pointers of the frame of the last pointer message
     /// (Windows' `WM_POINTER*`: winit reports every pointer of the frame
     /// from it), read while winit reports them: winit reports a pen as a
@@ -65,6 +48,7 @@ pub(crate) struct NativeInput {
     pub(crate) contacts: RefCell<Vec<ContactNote>>,
 }
 
+// xtask-allow(state-fields): Immutable platform contact snapshot; cancellation and optional pen tilt are independent reported facts.
 /// What the platform says about a touch or pen pointer that winit does
 /// not report.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -76,5 +60,43 @@ pub(crate) struct ContactNote {
     /// The contact ended without a release (the system took it over).
     pub(crate) canceled: bool,
     /// The pen's tilt (degrees along x and y), when reported.
-    pub(crate) tilt: Option<(f32, f32)>,
+    pub(crate) tilt: Option<(f64, f64)>,
+}
+
+#[cfg(windows)]
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Subclass {
+    NotInstalled,
+    Installed,
+}
+impl NativeInput {
+    pub(crate) fn new(environment: Environment, #[cfg(windows)] waker: Option<ShellWaker>) -> Self {
+        Self {
+            ime: RefCell::default(),
+            text: RefCell::new(None),
+            scale: Cell::new(environment.scale_factor),
+            reconvert: LocalMailbox::new(),
+            pointer: LocalMailbox::new(),
+            file_pointer: LocalMailbox::new(),
+            #[cfg(windows)]
+            subclass_installed: Cell::new(Subclass::NotInstalled),
+            reduced_motion: Cell::new(environment.reduced_motion),
+            mouse: Cell::new(environment.pointer),
+            locale: RefCell::new(environment.locale),
+            env_changed: LocalMailbox::new(),
+            #[cfg(windows)]
+            waker,
+            contacts: RefCell::new(Vec::new()),
+        }
+    }
+}
+
+#[cfg(windows)]
+impl NativeInput {
+    /// Wake the event loop, when the window has one to wake.
+    pub(crate) fn wake(&self, reasons: WakeReasons) {
+        if let Some(waker) = &self.waker {
+            waker.wake(reasons);
+        }
+    }
 }

@@ -6,7 +6,7 @@
 
 use std::hash::Hash;
 
-use kivact::draw::{Point, Rect};
+use kivact::geometry::{Point, Rect};
 use kivact::style::{Length, Position, Style, pct, style};
 
 use super::model::{DockAxis, DockLayout, DockNode, DockPlacement, DockSide, DockTabs};
@@ -14,11 +14,11 @@ use super::model::{DockAxis, DockLayout, DockNode, DockPlacement, DockSide, Dock
 /// Splitter thickness in logical pixels.
 use crate::dock_style::SPLITTER_THICKNESS as GAP;
 /// Tab strip height in logical pixels.
-pub(super) const STRIP: f32 = 30.0;
+pub(super) const STRIP: f64 = 30.0;
 /// Width of the dock-edge drop band.
-const EDGE: f32 = 16.0;
+const EDGE: f64 = 16.0;
 /// Smallest pixel extent a splitter drag leaves to either neighbor.
-pub(super) const MIN_EXTENT: f32 = 48.0;
+pub(super) const MIN_EXTENT: f64 = 48.0;
 const EPSILON: f64 = 1e-6;
 
 /// A normalized rectangle of the dock root, `0..=1` on both axes.
@@ -39,7 +39,7 @@ impl Frame {
     };
 
     /// Pixel inset of each edge: half a splitter on interior edges.
-    fn gaps(self) -> [f32; 4] {
+    fn gaps(self) -> [f64; 4] {
         let half = GAP / 2.0;
         [
             if self.x0 > EPSILON { half } else { 0.0 },
@@ -51,9 +51,9 @@ impl Frame {
 
     /// Absolute insets for this region, moved down by `top` pixels and
     /// inset by `inset` pixels on every side.
-    pub(super) fn absolute(self, top: f32, inset: f32) -> Style {
+    pub(super) fn absolute(self, top: f64, inset: f64) -> Style {
         let [left, upper, right, lower] = self.gaps();
-        let edge = |fraction: f64, gap: f32| -> Length { pct(fraction * 100.0) + (gap + inset) };
+        let edge = |fraction: f64, gap: f64| -> Length { pct(fraction * 100.0) + (gap + inset) };
         style()
             .position(Position::Absolute)
             .left(edge(self.x0, left))
@@ -65,10 +65,10 @@ impl Frame {
     /// The window rectangle of this region inside `root`.
     pub(super) fn rect(self, root: Rect) -> Rect {
         let [left, upper, right, lower] = self.gaps();
-        let x = root.x + self.x0 as f32 * root.width + left;
-        let y = root.y + self.y0 as f32 * root.height + upper;
-        let x1 = root.x + self.x1 as f32 * root.width - right;
-        let y1 = root.y + self.y1 as f32 * root.height - lower;
+        let x = root.x + self.x0 * root.width + left;
+        let y = root.y + self.y0 * root.height + upper;
+        let x1 = root.x + self.x1 * root.width - right;
+        let y1 = root.y + self.y1 * root.height - lower;
         Rect::new(x, y, (x1 - x).max(0.0), (y1 - y).max(0.0))
     }
 }
@@ -112,7 +112,7 @@ impl Divider {
         }
     }
     /// Pixel extent of the whole split along its axis.
-    pub(super) fn extent(&self, root: Rect) -> f32 {
+    pub(super) fn extent(&self, root: Rect) -> f64 {
         let fraction = match self.axis {
             DockAxis::Horizontal => self.span.x1 - self.span.x0,
             DockAxis::Vertical => self.span.y1 - self.span.y0,
@@ -121,7 +121,7 @@ impl Divider {
             DockAxis::Horizontal => root.width,
             DockAxis::Vertical => root.height,
         };
-        (fraction as f32 * size).max(1.0)
+        (fraction * size).max(1.0)
     }
 }
 

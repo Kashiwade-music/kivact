@@ -9,7 +9,7 @@
 //! CPU rasterizer alone, at a raster scale of 1, from a transparent start;
 //! the rasterizer's premultiplied pixels are turned back into straight
 //! alpha. The size limit is the rasterizer's frame budget, the one windows
-//! are held to ([`Offscreen::accepts_size`]); the caller checks it before it
+//! are held to ([`OffscreenRenderer::accepts_size`]); the caller checks it before it
 //! draws anything. Encoding, the timing of frames and cancelling between
 //! them are the caller's.
 //!
@@ -21,27 +21,27 @@
 //!   first failure of a command that was actually drawn. Commands the
 //!   painting dropped (values that cannot be drawn) come first, as
 //!   [`OffscreenError::Dropped`] with their count. A font that cannot be registered gives its message
-//!   ([`Offscreen::font`]).
+//!   ([`OffscreenRenderer::font`]).
 //! - Resources complete inside the call (the asset store is inline), and an
 //!   error leaves the output usable for the next frame.
 //! - The output is straight-alpha RGBA8 in its own allocation; the output
 //!   owns the assets and the text engine, which its thread keeps. An
-//!   [`Offscreen`] is not `Send`; dropping it releases its caches.
+//!   [`OffscreenRenderer`] is not `Send`; dropping it releases its caches.
 
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
+use crate::lower::assets::ArvaneAssets;
+use crate::lower::context::Context;
+use crate::lower::effects::Tint;
 use crate::text_measure::TextMeasurer;
-use kivact_lower::assets::ArvaneAssets;
-use kivact_lower::context::Context;
-use kivact_lower::effects::Tint;
-use kivact_wire::{Asset, ComputedText, PlatformResult, Rect, Scene};
+use kivact_types::{Asset, ComputedTextStyle, DrawList, PlatformResult, Rect};
 
 /// Resources and rasterizer of window-independent drawing, confined to the
 /// thread that made them.
-pub struct Offscreen {
+pub struct OffscreenRenderer {
     assets: RefCell<ArvaneAssets>,
-    scene_cache: RefCell<kivact_lower::SceneCache>,
+    scene_cache: RefCell<crate::lower::SceneCache>,
     engine: Rc<RefCell<arvane::Engine>>,
     rasterizer: arvane::Rasterizer,
 }
@@ -53,7 +53,7 @@ pub enum OffscreenError {
     /// of commands the painting dropped).
     Dropped(u32),
     /// A resource, the shaping of a text or the rasterization failed.
-    Failed(String),
+    Failed(kivact_types::Failure),
 }
 
 /// A rendered image: tightly packed straight-alpha RGBA8, top row first, in
@@ -64,7 +64,7 @@ pub struct OffscreenImage {
     pub rgba: Vec<u8>,
 }
 
-impl Default for Offscreen {
+impl Default for OffscreenRenderer {
     fn default() -> Self {
         Self {
             assets: RefCell::new(ArvaneAssets::new(arvane::asset::AssetStore::inline())),
@@ -75,7 +75,7 @@ impl Default for Offscreen {
     }
 }
 
-impl Offscreen {
+impl OffscreenRenderer {
     /// Release rebuildable scene, text, unused asset and validation caches.
     /// Embedders call this explicitly: independent outputs do not subscribe
     /// to window memory events. Registered fonts and returned images remain valid.
@@ -99,17 +99,20 @@ impl Offscreen {
     /// Text measurement for a drawing callback whose runs inherit
     /// `inherited`'s family and line height; fonts registered later are
     /// seen through the shared text engine.
-    pub fn text_measurer(&self, inherited: ComputedText) -> TextMeasurer {
+    pub fn text_measurer(&self, inherited: ComputedTextStyle) -> TextMeasurer {
         TextMeasurer::new(Rc::clone(&self.engine), inherited)
     }
 
     /// Register a font file now, returning its families, or why it failed.
-    pub fn font(&mut self, asset: &Asset) -> Result<Vec<String>, String> {
+    pub fn font(&mut self, asset: &Asset) -> Result<Vec<String>, kivact_types::Failure> {
         let mut engine = self.engine.borrow_mut();
         match self.assets.get_mut().register_font(&mut engine, asset) {
             PlatformResult::Fonts(families) => Ok(families),
             PlatformResult::Failed(message) => Err(message),
-            _ => Err("the font was not registered".to_owned()),
+            _ => Err(kivact_types::Failure::new(
+                kivact_types::FailureKind::Resource,
+                "the font was not registered",
+            )),
         }
     }
 
@@ -118,23 +121,23 @@ impl Offscreen {
     /// `inherited`'s. The first failure of a drawn command is the error.
     pub fn render(
         &mut self,
-        scene: &std::sync::Arc<Scene>,
+        scene: &std::sync::Arc<DrawList>,
         size: (u32, u32),
-        inherited: &ComputedText,
+        inherited: &ComputedTextStyle,
     ) -> Result<OffscreenImage, OffscreenError> {
         self.assets.get_mut().begin_frame();
         self.assets.get_mut().discard_failures();
         let raster = Cell::new(1.0);
         let context = Context::new(&self.assets, &raster, &self.scene_cache);
-        let mut lowered = kivact_lower::SceneOut::default();
+        let mut lowered = crate::lower::SceneOut::default();
         context.paint_scene(
             scene,
             Some(inherited),
             Rect {
                 x: 0.0,
                 y: 0.0,
-                width: size.0 as f32,
-                height: size.1 as f32,
+                width: size.0 as f64,
+                height: size.1 as f64,
             },
             &Tint {
                 alpha: 1.0,
@@ -144,30 +147,42 @@ impl Offscreen {
             &mut lowered,
         );
         // Invalid values are the drawing's fault, so they come first.
-        let dropped = context.dropped();
-        let failure = context.finish();
+        let report = context.finish();
+        let dropped = report.dropped;
+        let failure = report.failures;
         if dropped > 0 {
             return Err(OffscreenError::Dropped(dropped));
         }
-        failure.map_err(OffscreenError::Failed)?;
+        if let Some(failure) = failure.into_iter().next() {
+            return Err(OffscreenError::Failed(failure));
+        }
         // The failures the store kept are the ones the context reported.
         self.assets.get_mut().discard_failures();
         let lowered = lowered.into_scene();
+        self.render_scene(&lowered, size)
+    }
+
+    /// Rasterize already lowered window content with the same CPU renderer.
+    pub(crate) fn render_scene(
+        &mut self,
+        scene: &kivact_types::render::RenderScene,
+        size: (u32, u32),
+    ) -> Result<OffscreenImage, OffscreenError> {
+        // External frames have no CPU representation. Never silently omit them.
+        if scene
+            .commands
+            .iter()
+            .any(|command| matches!(command, kivact_types::render::RenderCmd::External { .. }))
+        {
+            return Err(OffscreenError::Dropped(1));
+        }
         let mut frame = self
             .rasterizer
-            .render(&lowered, size.0, size.1)
-            .map_err(|e| OffscreenError::Failed(e.to_string()))?;
+            .render(scene, size.0, size.1)
+            .map_err(OffscreenError::Failed)?;
         // PNG and Draw::pixels are straight alpha; Arvane's frame is
         // premultiplied.
-        for pixel in frame.rgba.as_chunks_mut::<4>().0 {
-            let alpha = u32::from(pixel[3]);
-            for channel in &mut pixel[..3] {
-                *channel = (u32::from(*channel) * 255 + alpha / 2)
-                    .checked_div(alpha)
-                    .unwrap_or(0)
-                    .min(255) as u8;
-            }
-        }
+        kivact_types::color::unpremultiply(&mut frame.rgba);
         Ok(OffscreenImage {
             width: frame.width,
             height: frame.height,

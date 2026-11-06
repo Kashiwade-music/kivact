@@ -1,14 +1,16 @@
 //! Role: Ink bounds: how far a node, its text and its scene paint beyond its box.
 
+use crate::contract::NodeType;
 use crate::model::Model;
 use crate::model::transform::map_rect;
 use crate::paint::state::{Ink, Look};
 use crate::tree::node::HostNode;
 use kivact_layout::NodeLayout;
-use kivact_wire::{NodeId, NodeType, Point, Rect, Scene, SceneCmd};
+use kivact_types::cell::Generation;
+use kivact_types::{DrawCmd, DrawList, NodeId, Point, Rect};
 
 /// The extent of what reaches everywhere (finite, so unions keep it).
-pub(super) const EVERYWHERE: f32 = f32::MAX / 4.0;
+pub(super) const EVERYWHERE: f64 = f64::MAX / 4.0;
 
 /// Everything one node itself can draw on (see the module invariants),
 /// untransformed, relative to its layout box's top-left corner.
@@ -31,12 +33,7 @@ pub(super) fn reach(
         ..bounds
     };
     let glyphs = match n.kind() {
-        _ if n.kind() == NodeType::Text
-            || host.editors[n.index.0]
-                .as_deref()
-                .map(|editor| editor.editor.state())
-                .is_some() =>
-        {
+        _ if n.kind() == NodeType::Text || host.editors[n.index.0].is_some() => {
             text_reach(host, id)
         }
         _ => 0.0,
@@ -60,7 +57,7 @@ pub(super) fn reach(
 
 /// `r` (relative to a box's top-left corner) mapped by the box's transform
 /// `t`, placed at the box's origin `at` in its parent's space.
-pub(super) fn placed(t: Option<&kivact_types::protocol::Transform>, r: Rect, at: Point) -> Rect {
+pub(super) fn placed(t: Option<&kivact_types::Transform>, r: Rect, at: Point) -> Rect {
     let r = map_rect(t, r);
     Rect {
         x: r.x + at.x,
@@ -78,7 +75,7 @@ pub(super) fn ink(
     id: NodeId,
     n: &HostNode,
     layout: &NodeLayout,
-    generation: u64,
+    generation: Generation,
 ) -> Option<Rect> {
     if let Some(kept) = host.paint.ink[n.index.0].get()
         && kept.generation == generation
@@ -87,12 +84,12 @@ pub(super) fn ink(
     {
         return kept.rect;
     }
-    let rect = (!n.hidden()).then(|| {
+    let rect = host.tree().drawn(id).then(|| {
         let look = Look::now(host, id, n);
         let mut rect = reach(host, id, n, layout, &look);
         if !n.clips() {
             let scroll = n.scroll();
-            for child in host.tree().children_ids(n) {
+            for child in host.tree().flat_children(host.tree().nodes.id_at(n.index)) {
                 let Some(c) = host.node(child).filter(|c| !c.is_layer()) else {
                     continue;
                 };
@@ -127,7 +124,7 @@ pub(super) fn ink(
 /// shadows it inherits, each from the nearest ancestor-or-self `Text`
 /// prop that sets it, like `NodeTree::text_props`, without copying the
 /// props).
-fn text_reach(host: &Model, id: NodeId) -> f32 {
+fn text_reach(host: &Model, id: NodeId) -> f64 {
     host.text_reach(id)
 }
 
@@ -162,31 +159,31 @@ fn sticky_reach(parent: &HostNode, layout: &NodeLayout, child: &NodeLayout, at: 
 }
 
 /// Everything a canvas scene at `canvas` can draw on (`None`: nothing).
-fn scene_reach(scene: &Scene, canvas: Rect) -> Option<Rect> {
+fn scene_reach(scene: &DrawList, canvas: Rect) -> Option<Rect> {
     if !scene
         .cmds
         .iter()
-        .any(|cmd| matches!(cmd, SceneCmd::PushTransform(_) | SceneCmd::PushLayer(_)))
+        .any(|cmd| matches!(cmd, DrawCmd::PushTransform(_) | DrawCmd::PushLayer(_)))
     {
         return plain_scene_reach(&scene.cmds, canvas);
     }
-    let mut transform = kivact_types::protocol::Transform::IDENTITY;
+    let mut transform = kivact_types::Transform::IDENTITY;
     let mut transforms = Vec::new();
     let mut reach = 0.0;
     let mut layers = Vec::new();
     let mut out = None;
     for cmd in &scene.cmds {
         match cmd {
-            SceneCmd::PushTransform(m) => {
+            DrawCmd::PushTransform(m) => {
                 transforms.push(transform);
-                transform = kivact_lower::path::transform(*m).then(transform);
+                transform = m.then(transform);
             }
-            SceneCmd::PopTransform => transform = transforms.pop().unwrap_or_default(),
-            SceneCmd::PushLayer(layer) => {
+            DrawCmd::PopTransform => transform = transforms.pop().unwrap_or_default(),
+            DrawCmd::PushLayer(layer) => {
                 layers.push(reach);
-                reach += kivact_lower::effects::filter_reach(&layer.filter);
+                reach += crate::lower::effects::filter_reach(&layer.filter);
             }
-            SceneCmd::PopLayer => reach = layers.pop().unwrap_or(0.0),
+            DrawCmd::PopLayer => reach = layers.pop().unwrap_or(0.0),
             _ => {
                 if let Some(r) = plain_scene_reach(std::slice::from_ref(cmd), Rect::default()) {
                     let r = transform.bounds(grow(r, reach));
@@ -204,10 +201,10 @@ fn scene_reach(scene: &Scene, canvas: Rect) -> Option<Rect> {
     out
 }
 
-fn plain_scene_reach(cmds: &[SceneCmd], canvas: Rect) -> Option<Rect> {
+fn plain_scene_reach(cmds: &[DrawCmd], canvas: Rect) -> Option<Rect> {
     let mut out: Option<Rect> = None;
     let mut add = |r: Rect| out = Some(out.map_or(r, |o| o.union(r)));
-    let point = |p: Point, extent: f32| Rect {
+    let point = |p: Point, extent: f64| Rect {
         x: canvas.x + p.x - extent,
         y: canvas.y + p.y - extent,
         width: 2.0 * extent,
@@ -220,26 +217,26 @@ fn plain_scene_reach(cmds: &[SceneCmd], canvas: Rect) -> Option<Rect> {
     };
     for cmd in cmds {
         match cmd {
-            SceneCmd::Rect { rect, .. }
-            | SceneCmd::Pixels { rect, .. }
-            | SceneCmd::ImagePart { rect, .. }
-            | SceneCmd::RoundedRect { rect, .. }
-            | SceneCmd::Image { rect, .. }
-            | SceneCmd::External { rect, .. } => add(at(*rect)),
-            SceneCmd::StrokeRect { rect, width, .. } => add(grow(at(*rect), width.abs())),
-            SceneCmd::Line {
+            DrawCmd::Rect { rect, .. }
+            | DrawCmd::Pixels { rect, .. }
+            | DrawCmd::ImagePart { rect, .. }
+            | DrawCmd::RoundedRect { rect, .. }
+            | DrawCmd::Image { rect, .. }
+            | DrawCmd::External { rect, .. } => add(at(*rect)),
+            DrawCmd::StrokeRect { rect, width, .. } => add(grow(at(*rect), width.abs())),
+            DrawCmd::Line {
                 from, to, width, ..
             } => {
                 add(point(*from, width.abs()));
                 add(point(*to, width.abs()));
             }
-            SceneCmd::Text(run) => {
+            DrawCmd::Text(run) => {
                 let size = run.font_size.abs();
-                let chars = run.text.chars().count() as f32 + 1.0;
+                let chars = run.text.chars().count() as f64 + 1.0;
                 // Letter spacing follows every character.
                 let spacing = run.letter_spacing.max(0.0);
                 // Word spacing follows every space.
-                let spaces = run.text.chars().filter(|c| *c == ' ').count() as f32;
+                let spaces = run.text.chars().filter(|c| *c == ' ').count() as f64;
                 let word_spacing = run.word_spacing.max(0.0) * spaces;
                 add(Rect {
                     x: canvas.x + run.origin.x - size,
@@ -248,7 +245,7 @@ fn plain_scene_reach(cmds: &[SceneCmd], canvas: Rect) -> Option<Rect> {
                     height: 4.0 * size,
                 });
             }
-            SceneCmd::Paragraph { shaped, origin, .. } => {
+            DrawCmd::Paragraph { shaped, origin, .. } => {
                 // Glyphs overhang their lines by about a line.
                 let pad = shaped.size.height;
                 add(Rect {
@@ -258,23 +255,23 @@ fn plain_scene_reach(cmds: &[SceneCmd], canvas: Rect) -> Option<Rect> {
                     height: shaped.size.height + 2.0 * pad,
                 });
             }
-            SceneCmd::Shape(p) => add(grow(
-                at(kivact_lower::scene_shape::shape(&p.shape).bounds()),
+            DrawCmd::Shape(p) => add(grow(
+                at(crate::lower::scene_shape::shape(&p.shape).bounds()),
                 p.stroke
                     .as_ref()
                     .map_or(0.0, |s| s.width.abs() * s.miter_limit.max(1.0)),
             )),
-            SceneCmd::PushLayer(_) | SceneCmd::PopLayer => {}
-            SceneCmd::PushClip(_)
-            | SceneCmd::PopClip
-            | SceneCmd::PushTransform(_)
-            | SceneCmd::PopTransform => {}
+            DrawCmd::PushLayer(_) | DrawCmd::PopLayer => {}
+            DrawCmd::PushClip(_)
+            | DrawCmd::PopClip
+            | DrawCmd::PushTransform(_)
+            | DrawCmd::PopTransform => {}
         }
     }
     out
 }
 
-pub(super) fn grow(r: Rect, by: f32) -> Rect {
+pub(super) fn grow(r: Rect, by: f64) -> Rect {
     Rect {
         x: r.x - by,
         y: r.y - by,
@@ -301,8 +298,8 @@ pub(super) fn local_transform(
     id: NodeId,
     n: &HostNode,
     layout: &NodeLayout,
-) -> Option<kivact_types::protocol::Transform> {
-    if n.place.transformed {
+) -> Option<kivact_types::Transform> {
+    if n.place.transformed || host.layout_motion_transform(id).is_some() {
         host.local_transform(id, layout.size)
     } else {
         None

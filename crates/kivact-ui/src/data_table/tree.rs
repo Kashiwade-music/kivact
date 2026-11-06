@@ -1,19 +1,19 @@
 //! Role: Arrange hierarchical table rows and render their disclosure controls.
 use super::types::{DataTableTreeIndent, Key, TreeConfig};
 use crate::{Button, ButtonVariant, button};
-use kivact_core::control::{NodeBuilder, icon, node, row};
 use kivact_core::i18n::message;
 use kivact_core::motion::{Easing, Transition};
-use kivact_core::primitive::NodeExt;
+use kivact_core::state::{Binding, Value, memo};
 use kivact_core::style::{Align, ColorToken, Direction, TransitionProp, style};
-use kivact_core::view::{IntoView, ReadingDirection, View, current_direction, dynamic};
-use kivact_core::{Binding, Value, memo};
+use kivact_core::view::IntoView;
+use kivact_core::view::NodeBuilder;
+use kivact_core::view::{ReadingDirection, View, dynamic, use_direction};
+use kivact_core::view::{icon, node, row};
 use kivact_interaction::{TreeNode, TreeRow, flatten_tree_rows};
 use std::collections::{HashMap, HashSet};
-use std::hash::Hash;
 
 impl DataTableTreeIndent {
-    fn pixels(self) -> f32 {
+    fn pixels(self) -> f64 {
         match self {
             Self::Small => 12.0,
             Self::Medium => 16.0,
@@ -39,7 +39,7 @@ impl<K> Clone for Plan<K> {
 
 impl<K> Copy for Plan<K> {}
 
-pub(super) fn arrange<R, K: Clone + Eq + Hash + 'static>(
+pub(super) fn arrange<R, K: kivact_core::state::ItemKey>(
     rows: &[R],
     order: Vec<usize>,
     key: &Key<R, K>,
@@ -63,7 +63,7 @@ pub(super) fn arrange<R, K: Clone + Eq + Hash + 'static>(
         .collect()
 }
 
-impl<K: Clone + Eq + Hash + 'static> Plan<K> {
+impl<K: kivact_core::state::ItemKey> Plan<K> {
     pub(super) fn new<R: 'static>(
         source: Value<Vec<R>>,
         key: Key<R, K>,
@@ -149,10 +149,10 @@ impl<K: Clone + Eq + Hash + 'static> Plan<K> {
                 })
                 .into_view()
         });
-        let rtl = current_direction() == ReadingDirection::Rtl;
+        let rtl = use_direction().get() == ReadingDirection::Rtl;
         row((trigger, content))
             .style(move || {
-                let inset = level.get().saturating_sub(1) as f32 * self.indent.pixels();
+                let inset = level.get().saturating_sub(1) as f64 * self.indent.pixels();
                 let style = style().gap(4).align_items(Align::Center).min_width(0);
                 if rtl {
                     style.direction(Direction::RowReverse).padding_right(inset)
@@ -184,7 +184,7 @@ impl<K: Clone + Eq + Hash + 'static> Plan<K> {
                 }
                 let open = memo(move || aggregate.get().1);
                 control(open, true)
-                    .indeterminate(move || aggregate.get().2)
+                    .with_node(|node| node.indeterminate(move || aggregate.get().2))
                     .on_press(move || {
                         self.expanded.set(if open.get_untracked() {
                             Vec::new()
@@ -201,16 +201,16 @@ impl<K: Clone + Eq + Hash + 'static> Plan<K> {
 fn control(open: Value<bool>, all: bool) -> Button {
     let (expand, collapse) = if all {
         (
-            message("soft.table.tree.expand_all", "Expand all rows"),
-            message("soft.table.tree.collapse_all", "Collapse all rows"),
+            message("data_table.expand_all", "Expand all rows"),
+            message("data_table.collapse_all", "Collapse all rows"),
         )
     } else {
         (
-            message("soft.table.tree.expand", "Expand row"),
-            message("soft.table.tree.collapse", "Collapse row"),
+            message("data_table.expand_row", "Expand row"),
+            message("data_table.collapse_row", "Collapse row"),
         )
     };
-    let rtl = current_direction() == ReadingDirection::Rtl;
+    let rtl = use_direction().get() == ReadingDirection::Rtl;
     button(move || {
         if open.get() {
             collapse.get()
@@ -220,7 +220,7 @@ fn control(open: Value<bool>, all: bool) -> Button {
     })
     .variant(ButtonVariant::Ghost)
     .hide_label(true)
-    .expanded(open)
+    .with_node(|node| node.expanded(open))
     .style(
         style()
             .size(24, 24)

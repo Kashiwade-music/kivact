@@ -16,7 +16,7 @@ struct Task {
     done: bool,
 }
 
-fn header() -> impl IntoView {
+fn header() -> impl Component {
     column((
         text("Tasks"),
         text("Things to do today"),
@@ -24,8 +24,9 @@ fn header() -> impl IntoView {
     .style(style().gap(4))
 }
 
-fn task_row(tasks: Signal<Vec<Task>>, id: u32, task: Value<Task>) -> impl IntoView {
-    let done = tasks.item(|task| task.id, id).field(|task| &task.done, |task| &mut task.done);
+fn task_row(tasks: Signal<Vec<Task>>, task: Binding<Task>) -> impl Component {
+    let id = task.get_untracked().id;
+    let done = bind!(task.done);
     row((
         checkbox(move || task.get().title, done),
         button("Remove").on_press(move || tasks.update(|list| list.retain(|task| task.id != id))),
@@ -33,11 +34,11 @@ fn task_row(tasks: Signal<Vec<Task>>, id: u32, task: Value<Task>) -> impl IntoVi
     .style(style().gap(8))
 }
 
-fn task_list(tasks: Signal<Vec<Task>>) -> impl IntoView {
+fn task_list(tasks: Signal<Vec<Task>>) -> impl Component {
     column(for_each(
         tasks,
         |task| task.id,
-        move |id, task| task_row(tasks, id, task),
+        move |task| task_row(tasks, task),
     ))
     .style(style().gap(8))
 }
@@ -94,17 +95,25 @@ The stand-in counter and button from step 3 are gone. The remaining count now co
 
 **`var`** is a plain mutable variable that the screen does not watch. `next_id` hands out unique ids. Changing it does not update anything, which is exactly what you want for a counter that only the `add` closure uses. Use `signal` for anything the screen shows.
 
-**`for_each(items, key, row)`** builds one row per item.
+**`for_each(items, key, build_row)`** builds one row per item.
 
 - `items` is the signal that holds the list.
 - `key` returns a value that identifies an item, here `task.id`. Rows are matched by key, so when you remove the second task, Kivact removes only that row and keeps the others, together with any state they hold.
-- `row` is called once for each new key. It receives the key and a `Value<Task>`, a read-only handle that always holds the current item. Read it with `task.get()`.
+- `build_row` is called once for each new key. It receives one `Binding<Task>`, a reactive handle that reads and writes the current item. Read it with `task.get()`.
 
-`column(for_each(..))` places the rows in a column.
+`column(for_each(..))` places the rows in a column. The row factory runs in a setup
+owner for that key. Passing a readonly `Value<Vec<Task>>` instead gives each
+factory a readonly `Value<Task>`; using the writable list signal here is what
+allows the checkbox to edit the original item.
+
+A read such as `task.get()` inside a closure follows later item changes.
+`get_untracked()` does not subscribe; here it reads only the stable id for the
+Remove handler. Do not use an item’s current array index as its key, because
+removing or reordering items changes that index.
 
 **Binding a checkbox to one field.** `checkbox(name, binding)` shows a checkbox that edits a `bool`. The row's `done` flag lives inside the list, so
-`tasks.item(|task| task.id, id).field(|task| &task.done, |task| &mut task.done)`
-builds a two-way binding to just that field of the task with this id. Clicking the checkbox writes into the list, and the `left` memo recounts. The first closure after `field` reads the field and the second gives write access to it.
+`bind!(task.done)` (or `task.project(|task| &task.done, |task| &mut task.done)`)
+builds a two-way binding to just that field of the task with this id. Clicking the checkbox writes into the list, and the `left` memo recounts. The first closure after `project` reads the field and the second gives write access to it.
 
 `checkbox` takes a closure as its name, so the label follows the title. Its name is also what a screen reader announces.
 

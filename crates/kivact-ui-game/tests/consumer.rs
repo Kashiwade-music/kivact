@@ -6,7 +6,5 @@ mod controls;
 mod interactions;
 #[path = "consumer/overlays.rs"]
 mod overlays;
-#[path = "consumer/support.rs"]
-mod support;
 #[path = "consumer/theme.rs"]
 mod theme;

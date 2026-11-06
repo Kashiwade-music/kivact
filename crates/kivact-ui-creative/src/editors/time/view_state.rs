@@ -1,6 +1,7 @@
 //! Role: Application-owned bindings for this component view state.
-use kivact::draw::Point;
-use kivact::{Binding, signal};
+use kivact::interaction::ViewTransform;
+use kivact::state::IntoBinding;
+use kivact::state::{Binding, signal};
 /// The view state of a [`timeline`](crate::timeline) or a
 /// [`dope_sheet`](crate::dope_sheet).
 #[derive(Clone, Copy)]
@@ -9,10 +10,9 @@ pub struct TimeState {
     pub selection: Binding<Vec<u64>>,
     /// The playhead, in frames.
     pub playhead: Binding<f64>,
-    /// The horizontal scale, inside the editor's zoom range.
-    pub zoom: Binding<f64>,
-    /// The scroll offset in logical pixels.
-    pub pan: Binding<Point>,
+    /// The shared view pose. Scale is horizontal pixels per logical time unit;
+    /// offset is scrolling in logical pixels. Lane heights remain unscaled.
+    pub transform: Binding<ViewTransform>,
 }
 
 impl TimeState {
@@ -21,10 +21,13 @@ impl TimeState {
     #[track_caller]
     pub fn new() -> Self {
         Self {
-            selection: signal(Vec::new()).into(),
-            playhead: signal(0.0).into(),
-            zoom: signal(1.0).into(),
-            pan: signal(Point::new(0.0, 0.0)).into(),
+            selection: signal(Vec::new()).into_binding(),
+            playhead: signal(0.0).into_binding(),
+            transform: signal(ViewTransform {
+                scale: 1.0,
+                ..ViewTransform::default()
+            })
+            .into_binding(),
         }
     }
 }

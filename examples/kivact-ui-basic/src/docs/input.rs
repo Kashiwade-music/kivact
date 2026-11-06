@@ -1,4 +1,5 @@
 //! Role: Catalog page of Input: basic, label, disabled, invalid and with a button.
+use kivact::ui::ButtonVariant;
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;
@@ -9,7 +10,7 @@ pub(crate) fn page() -> Page {
         slug: "input",
         name: "Input",
         description: "一行のテキストを入力する欄です。標準の kivact::ui::text_input に Lyra の見た目を当てたもので、値は呼び出し側の signal が持ちます。",
-        usage: "use kivact::prelude::*;\nuse kivact_ui_basic as basic;",
+        usage: "use kivact::prelude::*;\nuse kivact::ui::ButtonVariant;\nuse kivact_ui_basic as basic;",
         source: include_str!("input.rs"),
         align: PreviewAlign::Center,
         examples: vec![
@@ -74,7 +75,7 @@ fn with_label() -> impl IntoView {
         basic::label("Display name").target(field),
         text_input("Display name", name)
             .placeholder("Ada Lovelace")
-            .node_ref(field)
+            .with_node(|node| node.node_ref(field))
             .style(style().width(320)),
     ))
     .style(style().gap(8))
@@ -99,8 +100,9 @@ fn invalid() -> impl IntoView {
             .style(style().width(320)),
         text("Usernames cannot contain spaces.").style(move || {
             style().font_size(12).color(
-                kivact::style::current_theme()
-                    .get::<basic::Tokens>()
+                kivact::style::use_theme()
+                    .get()
+                    .ext::<basic::Tokens>()
                     .destructive,
             )
         }),

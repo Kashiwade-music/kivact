@@ -8,7 +8,8 @@
 //! advance.
 
 use kivact_types::FontKerning;
-use kivact_types::protocol::{FontFeature, TextSpan, TextStyle, TextWrap};
+use kivact_types::render::TextSpan;
+use kivact_types::{ComputedTextStyle, FontFeature, TextWrap};
 use parley::{
     FontContext, FontFamily, FontFamilyName, FontStyle, FontWeight, GenericFamily, LayoutContext,
     LineHeight, StyleProperty,
@@ -23,8 +24,8 @@ pub(crate) fn shape_layout(
     contexts: &mut LayoutContext<u32>,
     text: &str,
     spans: &[TextSpan],
-    style: &TextStyle,
-    height: f32,
+    style: &ComputedTextStyle,
+    height: f64,
 ) -> parley::Layout<u32> {
     shape_inline_layout(fonts, contexts, text, spans, style, height, &[])
 }
@@ -34,12 +35,12 @@ pub(crate) fn shape_inline_layout(
     contexts: &mut LayoutContext<u32>,
     text: &str,
     spans: &[TextSpan],
-    style: &TextStyle,
-    height: f32,
+    style: &ComputedTextStyle,
+    height: f64,
     boxes: &[parley::InlineBox],
 ) -> parley::Layout<u32> {
     let mut builder = contexts.ranged_builder(fonts, text, 1.0, true);
-    builder.push_default(StyleProperty::FontSize(style.font_size));
+    builder.push_default(StyleProperty::FontSize(style.font_size as f32));
     builder.push_default(StyleProperty::FontWeight(FontWeight::new(f32::from(
         style.weight,
     ))));
@@ -49,13 +50,17 @@ pub(crate) fn shape_inline_layout(
     if style.wrap == TextWrap::NoWrap {
         builder.push_default(StyleProperty::TextWrapMode(parley::TextWrapMode::NoWrap));
     }
-    if style.letter_spacing != 0.0 {
-        builder.push_default(StyleProperty::LetterSpacing(style.letter_spacing));
+    if style.resolve(style.letter_spacing) != 0.0 {
+        builder.push_default(StyleProperty::LetterSpacing(
+            style.resolve(style.letter_spacing) as f32,
+        ));
     }
-    if style.word_spacing != 0.0 {
-        builder.push_default(StyleProperty::WordSpacing(style.word_spacing));
+    if style.resolve(style.word_spacing) != 0.0 {
+        builder.push_default(StyleProperty::WordSpacing(
+            style.resolve(style.word_spacing) as f32,
+        ));
     }
-    let features = settings(style.kerning, &style.features);
+    let features = settings(style.kerning, &style.shaping_features());
     if !features.is_empty() {
         builder.push_default(StyleProperty::FontFeatures(features.as_slice().into()));
     }
@@ -64,19 +69,36 @@ pub(crate) fn shape_inline_layout(
         style.family.as_deref(),
         emoji,
     )));
-    builder.push_default(StyleProperty::LineHeight(LineHeight::Absolute(height)));
+    builder.push_default(StyleProperty::LineHeight(LineHeight::Absolute(
+        height as f32,
+    )));
+    apply_spans(&mut builder, spans, style, height, emoji);
+    for item in boxes {
+        builder.push_inline_box(item.clone());
+    }
+    builder.build(text)
+}
+
+/// Apply each span's shaping overrides to the paragraph builder.
+fn apply_spans(
+    builder: &mut parley::RangedBuilder<'_, u32>,
+    spans: &[TextSpan],
+    style: &ComputedTextStyle,
+    height: f64,
+    emoji: bool,
+) {
     for (i, span) in spans.iter().enumerate() {
         let range = span.range.clone();
         let s = &span.style;
         builder.push(StyleProperty::Brush(i as u32 + 1), range.clone());
         if let Some(size) = s.font_size {
-            builder.push(StyleProperty::FontSize(size), range.clone());
-            let own = TextStyle {
+            builder.push(StyleProperty::FontSize(size as f32), range.clone());
+            let own = ComputedTextStyle {
                 font_size: size,
-                ..TextStyle::default()
+                ..style.clone()
             };
             let lines = crate::metrics::line_height(
-                &TextStyle {
+                &ComputedTextStyle {
                     line_height: style.line_height,
                     ..own
                 },
@@ -84,7 +106,7 @@ pub(crate) fn shape_inline_layout(
             )
             .unwrap_or(height);
             builder.push(
-                StyleProperty::LineHeight(LineHeight::Absolute(lines)),
+                StyleProperty::LineHeight(LineHeight::Absolute(lines as f32)),
                 range.clone(),
             );
         }
@@ -103,18 +125,19 @@ pub(crate) fn shape_inline_layout(
             builder.push(StyleProperty::FontStyle(face), range.clone());
         }
         if let Some(spacing) = s.letter_spacing {
-            builder.push(StyleProperty::LetterSpacing(spacing), range.clone());
+            builder.push(StyleProperty::LetterSpacing(spacing as f32), range.clone());
         }
         if let Some(spacing) = s.word_spacing {
-            builder.push(StyleProperty::WordSpacing(spacing), range.clone());
+            builder.push(StyleProperty::WordSpacing(spacing as f32), range.clone());
         }
         if s.features.is_some() || s.kerning.is_some() {
             // The span's features replace the paragraph's, kerning with
             // them: whichever it leaves unset is the paragraph's.
-            let features = settings(
-                s.kerning.unwrap_or(style.kerning),
-                s.features.as_deref().unwrap_or(&style.features),
-            );
+            let mut declared = s.features.clone().unwrap_or_else(|| style.features.clone());
+            if style.tabular_nums {
+                declared.push(FontFeature::new(*b"tnum", 1));
+            }
+            let features = settings(s.kerning.unwrap_or(style.kerning), &declared);
             builder.push(
                 StyleProperty::FontFeatures(features.as_slice().into()),
                 range.clone(),
@@ -127,10 +150,6 @@ pub(crate) fn shape_inline_layout(
             );
         }
     }
-    for item in boxes {
-        builder.push_inline_box(item.clone());
-    }
-    builder.build(text)
 }
 
 /// Whether `spans` may shape `text`: sorted, not overlapping, within the

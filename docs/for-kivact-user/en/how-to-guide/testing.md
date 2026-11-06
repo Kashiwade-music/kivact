@@ -56,9 +56,10 @@ mod tests {
 }
 ```
 
-What `render` really does: it runs your component in the real application host,
-with real layout, text shaping, drawing and accessibility, in a window of
-800 × 600 logical pixels. Input is delivered as the window would deliver it, the
+What `render` really does: it mounts your component in the virtual application
+host with the same layout, text shaping, drawing and accessibility used by an
+App. Its default surface is 800 × 600 logical pixels; a desktop can mirror that
+surface into a native window. Input is delivered as the window would deliver it, the
 clock is virtual, and a settle step runs after each action so the tree is up to
 date when the next line runs. There are no mocks to configure.
 
@@ -410,7 +411,7 @@ use kivact::test::{RenderOptions, render_with};
 
 fn size_label() -> impl IntoView {
     text(|| {
-        let size = kivact::platform::window_size();
+        let size = kivact::platform::window_size().get();
         format!("{} x {}", size.width, size.height)
     })
 }
@@ -425,12 +426,7 @@ mod tests {
 
     #[test]
     fn a_phone_sized_window_at_double_density() {
-        let options = RenderOptions {
-            width: 390.0,
-            height: 844.0,
-            scale: 2.0,
-            ..RenderOptions::default()
-        };
+        let options = RenderOptions::default().window_size(390.0, 844.0).scale(2.0);
         let screen = render_with(options, size_label);
         screen.get_by_text("390 x 844");
         assert_eq!(screen.screenshot().width, 780); // physical pixels
@@ -457,7 +453,7 @@ scripted too: `clipboard` and `set_clipboard`, `respond_file_dialog`,
 Text is shaped with a **bundled font** (Tuffy) by default, so layout and pixels
 are the same on every machine. That font has no Japanese or other CJK glyphs:
 such text takes the same space on every machine but is drawn as empty boxes. To
-test with real glyphs, set `fonts: TestFonts::Only(vec![bytes])` with a font file
+test with real glyphs, set `.fonts(TestFonts::Only(vec![Asset::from(bytes)]))` with a font file
 you ship, or `TestFonts::System` to use the machine's fonts (layout then depends
 on the machine).
 
@@ -487,11 +483,7 @@ mod tests {
 
     #[test]
     fn the_badge_is_drawn_in_blue() {
-        let options = RenderOptions {
-            width: 200.0,
-            height: 100.0,
-            ..RenderOptions::default()
-        };
+        let options = RenderOptions::default().window_size(200.0, 100.0);
         let screen = render_with(options, badge);
         let shot = screen.screenshot();
         assert_eq!((shot.width, shot.height), (200, 100));
@@ -507,7 +499,7 @@ for drawn content (canvas, colors, gradients), and queries for everything that
 has a role or text. Do not compare whole-window screenshots to stored
 images as the main check; they break on every intentional change.
 
-Set `gpu: true` in `RenderOptions` (or the environment variable
+Call `RenderOptions::default().gpu()` (or the environment variable
 `KIVACT_TEST_GPU=1` with `RenderOptions::from_env()`) to render through the GPU
 and read back the pixels. `kivact::test::gpu_unavailable()` says why a GPU test
 cannot start, or `None` when it can.
@@ -532,23 +524,21 @@ returns the folder.
 
 To look at the same data on a passing test, print `screen.accessibility_tree()`
 (what a screen reader sees) or `screen.debug()` (the retained tree), or save
-`screen.screenshot().save_png("frame.png")`. Two environment variables help
-while you debug: `KIVACT_TEST_LIVE=1` draws every step to the real window so you
-can watch, and `KIVACT_TEST_HOLD_MS=3000` keeps the window open for three
-seconds when a test ends.
+`screen.screenshot().save_png("frame.png")`. Every settle draws requested frames.
+`KIVACT_TEST_HOLD_MS=3000` keeps the mirror open for three seconds when a test ends.
 
 ## Run tests in CI
 
 Tests run with the normal `cargo test`. What differs from unit tests is the
 window:
 
-- **A desktop session gives real windows.** With the default options, a test
-  screen is shown in a real window when one can be opened, and is otherwise
-  rendered headless. Both draw the same pixels, so results do not depend on it.
-  `RenderOptions::from_env()` is stricter: it requires a real window, unless
-  `KIVACT_TEST_HEADLESS=1` is set, which is meant for a developer's own machine.
-  `window: WindowMode::Real` requires one explicitly, and `WindowMode::Headless`
-  never opens one.
+- **A desktop session gives real mirrors.** `RenderOptions::default()` and
+  `RenderOptions::from_env()` read `KIVACT_TEST_MIRROR`: `off` keeps frames without
+  a native window, `auto` opens a mirror when possible (the default), and `required`
+  fails if one cannot open. Call `.mirror(MirrorMode::Off)`, `.mirror(MirrorMode::Auto)`, or
+  `.mirror(MirrorMode::Required)` explicitly to override that preference.
+  `RenderOptions::from_env()` also reads `KIVACT_TEST_GPU=1`; GPU presentation
+  requires a native mirror. CPU rendering produces the same pixels in every mode.
 - **On a CI machine without a display** the default options fall back to
   headless, and everything above works. If you want real windows there (to
   exercise the whole windowing path), run the job inside a virtual display

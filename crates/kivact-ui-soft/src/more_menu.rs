@@ -1,73 +1,88 @@
 //! Role: Attach a Neutral action menu to a compact overflow trigger.
 
-use std::hash::Hash;
+use kivact::state::ItemKey;
 
-use kivact::Value;
-use kivact::control::{Node, NodeBuilder, icon};
-use kivact::ui::{Button, ButtonVariant, ControlSize, Menu, MenuEntry, button, menu, tooltip};
-use kivact::view::{HandlerResult, IntoText, IntoValue, IntoView, OverlayAlign, Placement, View};
+use kivact::interaction::MenuEntry;
+use kivact::state::IntoText;
+use kivact::state::IntoValue;
+use kivact::state::Value;
+use kivact::ui::Button;
+use kivact::ui::ButtonVariant;
+use kivact::ui::ControlSize;
+use kivact::ui::Menu;
+use kivact::ui::button;
+use kivact::ui::menu;
+use kivact::ui::tooltip;
+use kivact::view::HandlerResult;
+use kivact::view::IntoView;
+use kivact::view::Node;
+use kivact::view::NodeBuilder;
+use kivact::view::OverlayAlign;
+use kivact::view::Placement;
+use kivact::view::View;
+use kivact::view::icon;
 
 /// Icon-only menu trigger paired with the standard themed menu.
-pub struct MoreMenu<K: Clone + Eq + Hash + 'static> {
+pub struct MoreMenu<K: ItemKey> {
     menu: Menu<K>,
     label: Value<String>,
-    variant: ButtonVariant,
-    size: ControlSize,
-    icon: Option<View>,
-    disabled: Value<bool>,
+    button: Button,
 }
 
 #[track_caller]
+/// Create an overflow menu whose chosen entry key is passed to `choose`.
 pub fn more_menu<K, R>(
     entries: impl IntoValue<Vec<MenuEntry<K>>>,
     choose: impl Fn(K) -> R + 'static,
 ) -> MoreMenu<K>
 where
-    K: Clone + Eq + Hash + 'static,
+    K: ItemKey,
     R: HandlerResult,
 {
     let label = kivact::i18n::message("soft.more_menu.label", "More options");
     MoreMenu {
-        menu: menu(label, entries, choose),
+        menu: menu(label, entries).on_activate(choose),
         label,
-        variant: ButtonVariant::Ghost,
-        size: ControlSize::Medium,
-        icon: None,
-        disabled: false.into_value(),
+        button: button(label)
+            .icon(icon("ellipsis"))
+            .hide_label(true)
+            .variant(ButtonVariant::Ghost),
     }
 }
 
-impl<K: Clone + Eq + Hash + 'static> MoreMenu<K> {
+impl<K: ItemKey> MoreMenu<K> {
+    /// Set the trigger's accessible name and tooltip text.
     pub fn label(mut self, label: impl IntoText) -> Self {
         self.label = label.into_text_value();
+        self.button = self.button.name(self.label);
         self
     }
 
+    /// Set the visual variant of the overflow trigger button.
     pub fn variant(mut self, variant: ButtonVariant) -> Self {
-        self.variant = variant;
+        self.button = self.button.variant(variant);
         self
     }
 
-    pub fn size(mut self, size: ControlSize) -> Self {
-        self.size = size;
+    /// Set the trigger button size, including reactive size changes.
+    pub fn size(mut self, size: impl IntoValue<ControlSize>) -> Self {
+        self.button = self.button.size(size);
         self
     }
 
+    /// Mount replacement trigger icon content once.
     pub fn icon(mut self, icon: impl IntoView) -> Self {
-        self.icon = Some(icon.into_view());
+        self.button = self.button.icon(icon);
         self
     }
 
-    pub fn disabled(mut self, disabled: impl IntoValue<bool>) -> Self {
-        self.disabled = disabled.into_value();
-        self
-    }
-
+    /// Place the menu on the chosen side of its trigger.
     pub fn placement(mut self, placement: Placement) -> Self {
         self.menu = self.menu.placement(placement);
         self
     }
 
+    /// Align the menu with the start, center or end of its trigger.
     pub fn align(mut self, align: OverlayAlign) -> Self {
         self.menu = self.menu.align(align);
         self
@@ -80,6 +95,7 @@ struct MoreTrigger {
 }
 
 impl NodeBuilder for MoreTrigger {
+    #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         self.button.node_mut()
     }
@@ -91,17 +107,18 @@ impl IntoView for MoreTrigger {
     }
 }
 
-impl<K: Clone + Eq + Hash + 'static> IntoView for MoreMenu<K> {
+impl<K: ItemKey> IntoView for MoreMenu<K> {
     fn into_view(self) -> View {
-        let trigger = button(self.label)
-            .icon(self.icon.unwrap_or_else(|| icon("ellipsis").into_view()))
-            .hide_label(true)
-            .variant(self.variant)
-            .size(self.size)
-            .disabled(self.disabled);
+        let trigger = self.button;
         self.menu.attach(MoreTrigger {
             button: trigger,
             label: self.label,
         })
+    }
+}
+
+impl<K: ItemKey> NodeBuilder for MoreMenu<K> {
+    fn node_mut(&mut self) -> &mut Node {
+        self.button.node_mut()
     }
 }

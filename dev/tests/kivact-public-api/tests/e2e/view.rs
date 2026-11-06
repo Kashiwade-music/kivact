@@ -4,7 +4,7 @@ use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
 use crate::support::mount;
-use kivact::diagnostics::ErrorKind;
+use kivact::ErrorKind;
 use kivact::interaction::announcer;
 use kivact::prelude::*;
 use kivact::test::{Screen, render};
@@ -131,7 +131,8 @@ fn for_each_keeps_row_owners_uses_minimal_moves_and_reports_duplicates() {
             column(for_each(
                 list,
                 |it| it.id,
-                move |id, it| {
+                move |it| {
+                    let id = it.with(|it| it.id);
                     let l4 = l3.clone();
                     l4.borrow_mut().push(format!("mount {id}"));
                     on_cleanup(move || l4.borrow_mut().push(format!("dispose {id}")));
@@ -191,7 +192,7 @@ fn virtual_list_mounts_only_the_visible_window() {
         let data = signal(items(&(0..10_000).collect::<Vec<_>>()));
         (
             data,
-            virtual_list(data, |it| it.id, |_, it| text(move || it.get().label))
+            virtual_list(data, |it| it.id, |it| text(move || it.get().label))
                 .row_height(RowHeight::Fixed(20.0))
                 .style(style().height(400))
                 .test_id("list"),
@@ -220,7 +221,7 @@ fn text_field_binding_is_two_way_without_echo() {
         (
             name,
             column((
-                kivact::control::node()
+                kivact::view::node()
                     .name("Name")
                     .part(kivact::interaction::use_text_edit(name).control()),
                 text(move || format!("hello {}", name.get())),
@@ -337,7 +338,7 @@ fn keyboard_activation_disabled_and_bubbling() {
             enabled,
             node()
                 .on_key(move |k: KeyEvent| {
-                    la.borrow_mut().push(format!("parent {:?}", k.key));
+                    la.borrow_mut().push(format!("parent {:?}", k.key()));
                     Handled::No
                 })
                 .child(
@@ -377,7 +378,7 @@ fn keyboard_activation_disabled_and_bubbling() {
 
 #[test]
 fn counter_example_end_to_end() {
-    fn counter(initial: i32) -> impl IntoView {
+    fn counter(initial: i32) -> impl Component {
         let count = signal(initial);
         let doubled = memo(move || count.get() * 2);
         column((
@@ -419,3 +420,16 @@ fn counter_example_end_to_end() {
 
 // ---------------------------------------------------------------------------
 // Regression (design survey): on_mount of a component without host nodes waits for an unrelated batch.
+
+#[test]
+fn closure_child_updates_text() {
+    let (screen, value) = mount(|| {
+        let value = signal("first");
+        (value, node().child(move || value.get()))
+    });
+    screen.get_by_text("first");
+    value.set("second");
+    screen.run_until_idle();
+    screen.get_by_text("second");
+    assert!(screen.query_by_text("first").is_none());
+}

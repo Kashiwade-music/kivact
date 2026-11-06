@@ -2,7 +2,7 @@
 
 use std::borrow::Cow;
 
-use kivact_reactive::{IntoValue, Prop as Input};
+use kivact_runtime::{IntoValue, Prop as Input};
 
 use crate::asset::Asset;
 
@@ -16,7 +16,7 @@ use crate::asset::Asset;
 /// equal when they have the same name or the same asset.
 ///
 /// ```
-/// use kivact::Asset;
+/// use kivact::view::Asset;
 /// use kivact::style::Icon;
 /// let check = Icon::named("check");
 /// assert_eq!(check.name(), Some("check"));
@@ -36,8 +36,8 @@ enum InputProp {
 
 impl Icon {
     /// An icon the theme's icon set resolves by `name`.
-    pub fn named(name: impl Into<Cow<'static, str>>) -> Self {
-        Icon(InputProp::Named(name.into()))
+    pub fn named(name: impl Into<String>) -> Self {
+        Icon(InputProp::Named(Cow::Owned(name.into())))
     }
 
     /// The name, for an icon made by [`named`](Self::named).
@@ -72,7 +72,7 @@ impl From<&'static str> for Icon {
     }
 }
 
-kivact_reactive::constant_value!(Icon);
+kivact_runtime::constant_value!(Icon);
 
 /// A constant icon from what [`Icon`] converts from: a name the theme
 /// resolves (`icon("check")`) or an image [`Asset`]. The conversion happens
@@ -95,7 +95,7 @@ icon_into_value!(&'static str, Asset);
 /// The images a theme draws for [`Icon`] names, in
 /// [`Theme::icons`](crate::Theme::icons).
 ///
-/// A component that draws an icon (`kivact::control::icon`, the
+/// A component that draws an icon (`kivact::view::icon`, the
 /// marks and item icons of the standard components) looks its name up in the
 /// theme in effect, so a component library's theme gives every name its own
 /// glyph. The [`standard`](Self::standard) set has the marks the standard
@@ -121,11 +121,17 @@ impl PartialEq for IconSet {
 }
 
 /// The marks of the standard set, 24 px outlines drawn in the icon's color.
+static ARROW_DOWN: &[u8] = br##"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14m-7-7 7 7 7-7"/></svg>"##;
+static COPY: &[u8] = br##"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>"##;
 static CHECK: &[u8] = br##"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg>"##;
 static DOT: &[u8] = br##"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.5" fill="#000"/></svg>"##;
 static MINUS: &[u8] = br##"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2" stroke-linecap="round"><path d="M6 12h12"/></svg>"##;
 static CHEVRON_DOWN: &[u8] = br##"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>"##;
 static CHEVRON_RIGHT: &[u8] = br##"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>"##;
+static CHEVRON_LEFT: &[u8] = br##"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>"##;
+static CHEVRONS_LEFT: &[u8] = br##"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2"><path d="M11 6l-6 6 6 6M19 6l-6 6 6 6"/></svg>"##;
+static CHEVRONS_RIGHT: &[u8] = br##"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2"><path d="M5 6l6 6-6 6M13 6l6 6-6 6"/></svg>"##;
+static CALENDAR: &[u8] = br##"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 11h18"/></svg>"##;
 static PLUS: &[u8] = br##"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>"##;
 static TOAST_INFO: &[u8] = br##"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>"##;
 static TOAST_SUCCESS: &[u8] = br##"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l3 3 5-6"/></svg>"##;
@@ -151,11 +157,17 @@ impl IconSet {
     pub fn standard() -> Self {
         [
             ("check", CHECK),
+            ("copy", COPY),
+            ("arrow-down", ARROW_DOWN),
             ("dot", DOT),
             ("menu-radio", DOT),
             ("minus", MINUS),
             ("chevron-down", CHEVRON_DOWN),
             ("chevron-right", CHEVRON_RIGHT),
+            ("chevron-left", CHEVRON_LEFT),
+            ("chevrons-left", CHEVRONS_LEFT),
+            ("chevrons-right", CHEVRONS_RIGHT),
+            ("calendar", CALENDAR),
             ("x", X),
             ("plus", PLUS),
             ("toast-info", TOAST_INFO),

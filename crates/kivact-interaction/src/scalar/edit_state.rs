@@ -1,30 +1,41 @@
 //! Role: Edit session, drag and focus count shared by the thumbs of one scalar.
 
+use super::focus_machine::{Effect, Event, Machine};
 use super::touch::{Touch, TouchSliderGesture};
 use super::track::{self, Grip, Pointer};
-use crate::drag::Drag;
+use crate::drag::DragApi;
 use crate::edit::EditSession;
-use kivact_core::draw::Rect;
-use kivact_core::primitive::Part;
+use crate::options_cell::OptionsCell;
+use kivact_core::custom::Owner;
+use kivact_core::geometry::Rect;
+use kivact_core::state::{MachineHandle, machine};
+use kivact_core::state::{Signal, Value, effect, memo, on_cleanup, signal};
 use kivact_core::view::{Handled, NodeRef, node_ref};
-use kivact_core::{Signal, Value, Var, effect, effect_on, memo, on_cleanup, signal, var};
 
-/// The edit plumbing one [`Scalar`] or both thumbs of a
-/// [`RangeScalar`](crate::RangeScalar) share: the session, what it restores,
+/// The edit plumbing one [`ScalarApi`] or both thumbs of a
+/// [`RangeScalarApi`](crate::RangeScalarApi) share: the session, what it restores,
 /// the track's geometry and the one drag of the thumbs and the track.
 #[derive(Clone, Copy)]
 pub(crate) struct Shared {
     pub(crate) session: EditSession<[f64; 2]>,
     pub(crate) snapshot: Value<[f64; 2]>,
     pub(crate) pointer: Pointer,
-    pub(crate) drag: Drag<Grip>,
-    pub(crate) touch: Var<Option<Touch>>,
-    /// The caller's disabled value, given to [`Scalar::disabled`].
-    pub(crate) disabled: Signal<Option<Value<bool>>>,
-    /// The keyboard increment given to `key_step`; the range's step else.
-    pub(crate) key_step: Var<Option<f64>>,
+    pub(crate) drag: DragApi<Grip>,
+    pub(crate) settings: OptionsCell<ScalarOptions>,
+    focus: MachineHandle<Machine>,
     /// Whether each thumb has the focus; a drag the focus leaves is canceled.
     thumb_focus: Signal<Vec<Value<bool>>>,
+    // xtask-allow(state-fields): per-mount caller inputs, each removed with its mount; independent of the focus registrations.
+    /// The disabled state each mounted thumb or track received from its
+    /// caller; any true value disables the whole scalar.
+    host_disabled: Signal<Vec<Value<bool>>>,
+}
+
+#[derive(Clone, Copy, Default)]
+pub(crate) struct ScalarOptions {
+    pub(crate) disabled: Option<Value<bool>>,
+    pub(crate) key_step: Option<(Value<f64>, Owner)>,
+    pub(crate) touch: Option<Touch>,
 }
 
 impl Shared {
@@ -33,34 +44,57 @@ impl Shared {
     pub(crate) fn new(snapshot: Value<[f64; 2]>, restore: impl Fn([f64; 2]) + 'static) -> Self {
         let session = EditSession::new(restore);
         let pointer = Pointer::new();
-        let disabled = signal(None);
+        let settings = OptionsCell::new(ScalarOptions::default());
+        let options = settings.value();
+        let host_disabled = signal(Vec::<Value<bool>>::new());
+        let disabled = memo(move || {
+            options.get().disabled.is_some_and(|d| d.get())
+                || host_disabled.with(|hosts| hosts.iter().any(|d| d.get()))
+        });
         let thumb_focus = signal(Vec::<Value<bool>>::new());
-        let shared = Shared {
+        let drag = track::drag(session, snapshot, pointer, disabled);
+        let focus = machine(
+            (),
+            move || Machine {
+                any_focused: thumb_focus.with(|focus| focus.iter().any(|v| v.get())),
+            },
+            move |_, Effect::Cancel| {
+                drag.cancel();
+                if let Some(touch) = settings.get().touch {
+                    touch.finish(true);
+                }
+            },
+        );
+        Shared {
             session,
             snapshot,
             pointer,
-            drag: track::drag(session, snapshot, pointer, disabled),
-            disabled,
-            touch: var(None),
-            key_step: var(None),
+            drag,
+            settings,
+            focus,
             thumb_focus,
-        };
-        let any_focused = memo(move || thumb_focus.with(|focus| focus.iter().any(|v| v.get())));
-        effect_on(any_focused, move |focused| {
-            if !*focused {
-                shared.drag.cancel();
-                shared.finish_touch(true);
-            }
-        });
-        shared
+            host_disabled,
+        }
+    }
+
+    pub(crate) fn is_disabled(self) -> bool {
+        self.settings
+            .value()
+            .get()
+            .disabled
+            .is_some_and(|disabled| disabled.get())
+            || self
+                .host_disabled
+                .with(|hosts| hosts.iter().any(|disabled| disabled.get()))
     }
 
     pub(crate) fn enable_touch(self, config: TouchSliderGesture) {
-        if self.touch.get().is_none() {
+        if self.settings.get().touch.is_none() {
             let touch = Touch::new(config, self.pointer, self.session, self.snapshot);
-            self.touch.set(Some(touch));
+            self.settings
+                .update(|settings| settings.touch = Some(touch));
             effect(move || {
-                if self.disabled.get().is_some_and(|disabled| disabled.get()) {
+                if self.is_disabled() {
                     touch.finish(false);
                 }
             });
@@ -68,17 +102,20 @@ impl Shared {
     }
 
     pub(crate) fn finish_touch(self, restore: bool) -> bool {
-        self.touch.get().is_some_and(|touch| touch.finish(restore))
+        self.settings
+            .get()
+            .touch
+            .is_some_and(|touch| touch.finish(restore))
     }
 
-    pub(crate) fn touch_source<S: Clone + PartialEq + 'static>(
+    pub(crate) fn touch_source(
         self,
-        part: Part<S>,
+        part: kivact_core::view::Node,
         grip: Grip,
-    ) -> Part<S> {
-        if let Some(touch) = self.touch.get() {
+    ) -> kivact_core::view::Node {
+        if let Some(touch) = self.settings.get().touch {
             part.on_pointer(move |event| {
-                if self.disabled.get().is_some_and(|disabled| disabled.get()) {
+                if self.is_disabled() {
                     Handled::No
                 } else {
                     touch.event(grip, event)
@@ -92,10 +129,7 @@ impl Shared {
     /// Whether the arrows of a thumb mirror: a horizontal track in a
     /// right-to-left subtree.
     pub(super) fn mirrored(self) -> bool {
-        self.pointer
-            .geometry
-            .get()
-            .is_some_and(|geometry| geometry.rtl)
+        self.pointer.geometry().is_some_and(|geometry| geometry.rtl)
     }
 
     /// Run one whole edit around `write` (or join the active one).
@@ -111,12 +145,15 @@ impl Shared {
 /// The edit plumbing of one thumb.
 #[derive(Clone, Copy)]
 pub(crate) struct Edit {
+    pub(crate) observed: Signal<Option<Value<super::data::ScalarState>>>,
     pub(crate) shared: Shared,
     /// Which thumb of the slider this is, from 0.
     pub(crate) index: usize,
     /// The thumb's element, which a press on the track focuses.
     pub(crate) thumb: NodeRef,
+    // xtask-allow(state-fields): independently observed layout, not an edit lifecycle state.
     pub(crate) thumb_rect: Value<Option<Rect>>,
+    // xtask-allow(state-fields): optional caller-supplied bounds are independent of the mounted-state observation.
     /// The published bounds of a thumb that another thumb limits.
     pub(crate) bounds: Option<(Value<f64>, Value<f64>)>,
 }
@@ -131,6 +168,7 @@ impl Edit {
     ) -> Self {
         let thumb = node_ref();
         Edit {
+            observed: signal(None),
             shared,
             index,
             thumb,
@@ -145,11 +183,40 @@ impl Edit {
 #[track_caller]
 pub(super) fn register_focus(shared: Shared, focused: Value<bool>) {
     shared.thumb_focus.update(|thumbs| thumbs.push(focused));
+    shared.focus.feed(focused, |focused| {
+        if focused {
+            Event::ThumbFocus
+        } else {
+            Event::ThumbBlur
+        }
+    });
     on_cleanup(move || {
         if shared.thumb_focus.try_get_untracked().is_some() {
+            let was_focused = focused.get_untracked();
             shared
                 .thumb_focus
                 .update(|thumbs| thumbs.retain(|thumb| *thumb != focused));
+            if was_focused {
+                shared.focus.send(Event::ThumbBlur);
+            }
+        }
+    });
+}
+
+/// Register the disabled state a mounted thumb or track received from its
+/// caller; the registration ends with that mount's owner. Setup only.
+pub(super) fn register_host_disabled(shared: Shared, disabled: Option<Value<bool>>) {
+    let Some(disabled) = disabled else {
+        return;
+    };
+    shared.host_disabled.update(|hosts| hosts.push(disabled));
+    on_cleanup(move || {
+        if shared.host_disabled.try_get_untracked().is_some() {
+            shared.host_disabled.update(|hosts| {
+                if let Some(at) = hosts.iter().position(|host| *host == disabled) {
+                    hosts.remove(at);
+                }
+            });
         }
     });
 }

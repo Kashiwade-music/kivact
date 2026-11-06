@@ -1,9 +1,9 @@
 //! Role: Catalog feature presentation card.
-use kivact::control::{Node, NodeBuilder, column, node, row, text};
-use kivact::draw::{Path, Point, Shape};
-use kivact::primitive::NodeExt;
+use kivact::draw::{Path, Shape};
+use kivact::geometry::Point;
+use kivact::state::IntoText;
 use kivact::style::{Align, ColorToken, Justify, pct, style};
-use kivact::view::IntoText;
+use kivact::view::{Node, column, node, row, text};
 /// Feature card with a clipped 18 px corner and a cyan command icon.
 #[track_caller]
 pub(super) fn feature_card(
@@ -17,12 +17,12 @@ pub(super) fn feature_card(
                 .style(
                     style()
                         .size(34, 34)
-                        .background(kivact_ui_game::Color::Navy)
-                        .color(kivact_ui_game::Color::Cyan)
+                        .background(kivact_ui_game::ColorName::Navy)
+                        .color(kivact_ui_game::ColorName::Cyan)
                         .align_items(Align::Center)
                         .justify_content(Justify::Center),
                 )
-                .child(kivact::control::icon("radar")),
+                .child(kivact::view::icon("radar")),
             text(title).style(style().font_size(14).weight(700)),
         ))
         .style(style().gap(10).align_items(Align::Center)),

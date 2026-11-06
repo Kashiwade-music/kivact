@@ -1,5 +1,7 @@
 //! Role: Application-owned bindings for this component view state.
-use kivact::{Binding, signal};
+use kivact::state::IntoBinding;
+use kivact::state::{Binding, signal};
+// xtask-allow(state-fields): Independent application-owned channel controls: gain, pan, mute and solo have no coupled transition invariant.
 /// The values a [`mixer_strip`](crate::mixer_strip) edits.
 #[derive(Clone, Copy)]
 pub struct ChannelState {
@@ -18,10 +20,10 @@ impl ChannelState {
     #[track_caller]
     pub fn new() -> Self {
         Self {
-            gain: signal(0.0).into(),
-            pan: signal(0.0).into(),
-            mute: signal(false).into(),
-            solo: signal(false).into(),
+            gain: signal(0.0).into_binding(),
+            pan: signal(0.0).into_binding(),
+            mute: signal(false).into_binding(),
+            solo: signal(false).into_binding(),
         }
     }
 }

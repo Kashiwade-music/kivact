@@ -2,15 +2,14 @@
 use super::layer::with_recipe_style;
 use super::values::TooltipArrowState;
 use super::variants::{Variant, Variants};
-use kivact_core::Value;
-use kivact_core::control::{NodeBuilder, node, text};
-use kivact_core::draw::Rect;
-use kivact_core::primitive::NodeExt;
-use kivact_core::view::{
-    IntoText, IntoValue, IntoView, NodeRef, OverlayAlign, Placement, View, node_ref, overlay,
-};
-use kivact_interaction::Side;
-use std::rc::Rc;
+use kivact_core::geometry::Edge;
+use kivact_core::geometry::Rect;
+use kivact_core::state::Value;
+use kivact_core::state::{IntoText, IntoValue};
+use kivact_core::view::{IntoView, NodeRef, OverlayAlign, Placement, View, node_ref, overlay};
+use kivact_core::view::{NodeBuilder, node, text};
+
+// xtask-allow(state-fields): Setup-only builder options; content and alignment are independent.
 /// A themed hint for a trigger, created by [`tooltip`]; attach it with
 /// [`attach`](Tooltip::attach).
 pub struct Tooltip {
@@ -18,8 +17,8 @@ pub struct Tooltip {
     enabled: Value<bool>,
     placement: Placement,
     align: Option<OverlayAlign>,
-    offset: f32,
-    content: Option<Rc<dyn Fn() -> View>>,
+    offset: f64,
+    content: Option<kivact_core::view::ViewFn>,
     variants: Variants,
 }
 /// A tooltip that says `label`, shown above its trigger by default.
@@ -57,8 +56,8 @@ impl Tooltip {
 }
 impl Tooltip {
     /// Render rich caller content in a fresh tooltip owner on each opening.
-    pub fn content<V: IntoView>(mut self, factory: impl Fn() -> V + 'static) -> Self {
-        self.content = Some(Rc::new(move || factory().into_view()));
+    pub fn content<V: IntoView>(mut self, factory: impl kivact_core::view::IntoViewFn<V>) -> Self {
+        self.content = Some(factory.into_view_fn());
         self
     }
 
@@ -74,7 +73,8 @@ impl Tooltip {
         self
     }
     /// Set the gap from the anchor in logical pixels; the default is 4.
-    pub fn offset(mut self, offset: f32) -> Self {
+    pub fn offset(mut self, offset: impl Into<f64>) -> Self {
+        let offset = offset.into();
         self.offset = offset;
         self
     }
@@ -87,19 +87,24 @@ impl Tooltip {
     /// Show the hint for `trigger` and return the trigger with it. A trigger
     /// without a description of its own is described by the label; one that
     /// has a description keeps it. The surface is mounted in a fresh owner
-    /// while the tooltip is shown.
-    pub fn attach<T: NodeBuilder + IntoView>(self, mut trigger: T) -> View {
-        let behavior = kivact_interaction::use_tooltip_when(self.enabled);
+    /// while the tooltip is shown. Moving the pointer onto the hint keeps it
+    /// shown until the pointer leaves both the trigger and the hint.
+    pub fn attach<T: NodeBuilder + IntoView>(self, trigger: T) -> View {
+        let behavior = kivact_interaction::use_tooltip().disabled(move || !self.enabled.get());
         let part = behavior.trigger();
-        let anchor = part.node_ref();
-        let described = trigger.has_description();
-        let trigger = trigger.part(part);
-        let trigger = if described {
-            trigger
-        } else {
-            trigger.description(self.label)
-        };
-        let surface = kivact_core::view::show(behavior.shown(), move || {
+        let anchor = node_ref();
+        let fallback = kivact_core::custom::Part::new(part.state(), move |mut node| {
+            // Earlier parts publish their semantics when the node is resolved.
+            if node.has_description() {
+                node
+            } else {
+                node.description(self.label)
+            }
+        });
+        let trigger = trigger
+            .node_ref(anchor)
+            .with_node(|node| node.part(part).part(fallback));
+        let surface = kivact_core::view::show(behavior.is_open(), move || {
             let part = behavior.content();
             let state = part.state();
             let placed = node_ref();
@@ -109,20 +114,19 @@ impl Tooltip {
                 with_recipe_style(
                     node()
                         .node_ref(placed)
-                        .child(
-                            self.content
-                                .as_ref()
-                                .map_or_else(|| text(self.label).into_view(), |factory| factory()),
-                        )
+                        .child(self.content.as_ref().map_or_else(
+                            || text(self.label).into_view(),
+                            |factory| factory.call(()),
+                        ))
                         .child(arrow(anchor, placed, self.placement, &self.variants)),
                     |r| r.tooltip_recipes().surface_recipe(),
                     &self.variants,
                     move || state.get(),
                 ),
             )
-            .part(part)
+            .with_node(|node| node.part(part))
             .name(self.label)
-            .keep_anchor_clear(true)
+            .keep_anchor_clear()
             .offset(self.offset);
             match self.align {
                 Some(align) => layer.align(align),
@@ -141,9 +145,10 @@ fn arrow(
     placed: NodeRef,
     requested: Placement,
     variants: &Variants,
-) -> kivact_core::control::Node {
+) -> kivact_core::view::Node {
     let (anchor, placed) = (anchor.rect(), placed.rect());
-    let state = kivact_core::memo(move || arrow_state(anchor.get(), placed.get(), requested));
+    let state =
+        kivact_core::state::memo(move || arrow_state(anchor.get(), placed.get(), requested));
     with_recipe_style(
         node(),
         |r| r.tooltip_recipes().arrow_recipe(),
@@ -160,10 +165,10 @@ fn arrow_state(
     requested: Placement,
 ) -> TooltipArrowState {
     let asked = match requested {
-        Placement::Below => Side::Bottom,
-        Placement::Start => Side::Left,
-        Placement::End => Side::Right,
-        Placement::Above | Placement::Center => Side::Top,
+        Placement::Below => Edge::Bottom,
+        Placement::Start => Edge::Left,
+        Placement::End => Edge::Right,
+        Placement::Above | Placement::Center => Edge::Top,
     };
     let (Some(a), Some(s)) = (anchor, placed) else {
         return TooltipArrowState {
@@ -173,19 +178,19 @@ fn arrow_state(
     };
     // Half a pixel of slack for rounded positions.
     let side = if s.y + s.height <= a.y + 0.5 {
-        Side::Top
+        Edge::Top
     } else if s.y >= a.y + a.height - 0.5 {
-        Side::Bottom
+        Edge::Bottom
     } else if s.x + s.width <= a.x + 0.5 {
-        Side::Left
+        Edge::Left
     } else if s.x >= a.x + a.width - 0.5 {
-        Side::Right
+        Edge::Right
     } else {
         asked
     };
     let offset = match side {
-        Side::Top | Side::Bottom => (a.x + a.width / 2.0 - s.x).clamp(0.0, s.width),
-        Side::Left | Side::Right => (a.y + a.height / 2.0 - s.y).clamp(0.0, s.height),
+        Edge::Top | Edge::Bottom => (a.x + a.width / 2.0 - s.x).clamp(0.0, s.width),
+        Edge::Left | Edge::Right => (a.y + a.height / 2.0 - s.y).clamp(0.0, s.height),
     };
     TooltipArrowState { side, offset }
 }

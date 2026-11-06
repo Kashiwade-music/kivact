@@ -1,58 +1,30 @@
-//! Role: App setup: title, theme, locale, fonts, window sizes and the run entry.
-
+//! Role: Public application builder and native window entry.
+use crate::Result;
 use crate::i18n::{Locale, Messages};
+use crate::launch::AppOptions;
+use crate::view::Asset;
 use crate::view::IntoView;
-use crate::{Asset, Result, UiError};
-use kivact_reactive::ErrorKind;
-use kivact_style::Theme;
-use kivact_wire::Size;
-use std::panic::Location;
 
-/// An application: title, window size, theme, fonts and the root
-/// component.
+use kivact_style::Theme;
+
 #[derive(Clone)]
 pub struct App {
-    title: String,
-    theme: Theme,
-    /// `None`: the system's locale (`App::locale`).
-    locale: Option<Locale>,
-    messages: Messages,
-    /// The window's first size (`window_size`); the engine's default when
-    /// `None`.
-    pub(crate) window_size: Option<Size>,
-    /// The window's minimum size (`min_window_size`).
-    pub(crate) min_window_size: Option<Size>,
-    threads: Option<usize>,
-    fonts: Vec<(Asset, &'static Location<'static>)>,
-    /// How the window's GPU device is made (`gpu_preference`).
-    #[cfg(feature = "gpu-interop")]
-    pub(crate) gpu_preference: crate::gpu_interop::GpuPreference,
+    pub(crate) options: AppOptions,
 }
-
 impl App {
     /// An app whose window is titled `title`, with the default theme.
-    pub fn new(title: impl Into<String>) -> App {
-        App {
-            title: title.into(),
-            theme: Theme::default(),
-            locale: None,
-            messages: Messages::new(),
-            window_size: None,
-            min_window_size: None,
-            threads: None,
-            fonts: Vec::new(),
-            #[cfg(feature = "gpu-interop")]
-            gpu_preference: crate::gpu_interop::GpuPreference::default(),
+    pub fn new(title: impl Into<String>) -> Self {
+        Self {
+            options: AppOptions::new(title),
         }
     }
-
-    /// Theme of the whole App (to switch it at runtime, wrap the root in
-    /// `view::provide_theme` with a `Signal<Theme>`).
-    pub fn theme(mut self, theme: Theme) -> Self {
-        self.theme = theme;
+    /// Theme of the whole App, evaluated reactively under its root owner.
+    /// Embedded startup accepts only a fixed theme; create reactive themes with
+    /// [`view::provide_theme`](crate::view::provide_theme) inside the embedded root factory.
+    pub fn theme(mut self, theme: impl kivact_runtime::IntoValue<Theme>) -> Self {
+        self.options = self.options.theme(theme);
         self
     }
-
     /// The App's locale: the language and region components format for.
     /// Without it the App speaks the system's locale (`en-US` where the
     /// system names none) and follows it when the user changes it while
@@ -61,42 +33,40 @@ impl App {
     /// [`view::provide_locale`](crate::view::provide_locale) with a `Signal<Locale>`. Read it with
     /// [`i18n::locale`](crate::i18n::locale).
     pub fn locale(mut self, locale: Locale) -> Self {
-        self.locale = Some(locale);
+        self.options = self.options.locale(locale);
         self
     }
-
     /// The App's texts: the replacements for the default (English) texts
     /// of components, by key (`"dialog.close"`). Each component lists its
     /// keys. To switch them at runtime, wrap the root in
     /// [`view::provide_messages`](crate::view::provide_messages) with a `Signal<Messages>`.
     pub fn messages(mut self, messages: Messages) -> Self {
-        self.messages = messages;
+        self.options = self.options.messages(messages);
         self
     }
-
     /// The window's first content size in logical pixels (default 960 by
     /// 720), e.g. `.window_size(1280, 800)`. The user can resize the
     /// window afterwards; read the current size with
     /// [`platform::window_size`](crate::platform::window_size) (to save it for the next start, say).
-    /// Both values must be finite and positive, and not smaller than
+    /// Both values must be finite, at least one logical pixel, fit the native
+    /// window extent, and not be smaller than
     /// [`App::min_window_size`]: otherwise [`App::run`] returns an error
     /// of kind `ErrorKind::Message` without opening the window.
     pub fn window_size(mut self, width: impl Into<f64>, height: impl Into<f64>) -> Self {
-        self.window_size = Some(size(width.into(), height.into()));
+        self.options = self.options.window_size(width, height);
         self
     }
-
     /// The smallest content size in logical pixels the user can resize the
     /// window to, e.g. `.min_window_size(480, 320)` (default: no minimum).
-    /// Both values must be finite and positive, and not larger than
+    /// Both values must be finite, at least one logical pixel, fit the native
+    /// window extent, and not be larger than
     /// [`App::window_size`] when that is set: otherwise [`App::run`]
     /// returns an error of kind `ErrorKind::Message` without opening the
     /// window.
     pub fn min_window_size(mut self, width: impl Into<f64>, height: impl Into<f64>) -> Self {
-        self.min_window_size = Some(size(width.into(), height.into()));
+        self.options = self.options.min_window_size(width, height);
         self
     }
-
     /// Register the fonts of a TTF, OTF or TTC file before the first
     /// screen, so text can name their families with
     /// `style().font_family(..)` from the start (like CSS `@font-face`).
@@ -107,10 +77,23 @@ impl App {
     /// `ErrorKind::Asset`, located here; the App starts anyway.
     #[track_caller]
     pub fn font(mut self, font: impl Into<Asset>) -> Self {
-        self.fonts.push((font.into(), Location::caller()));
+        self.options = self.options.font(font);
         self
     }
-
+    /// Register an ordered collection of font files with the same loading and
+    /// validation behavior as [`Self::font`].
+    #[track_caller]
+    pub fn fonts(mut self, fonts: impl IntoIterator<Item = impl Into<Asset>>) -> Self {
+        for font in fonts {
+            self = self.font(font);
+        }
+        self
+    }
+    /// Size of the blocking pool (default `min(4, CPUs)`).
+    pub fn blocking_threads(mut self, n: usize) -> Self {
+        self.options = self.options.blocking_threads(n);
+        self
+    }
     /// What the App wishes of the window's GPU device (experimental,
     /// feature `gpu-interop`): the kind of adapter, the graphics API and
     /// the adapter itself (default: Arvane's own choice). A wish: the
@@ -120,16 +103,9 @@ impl App {
     /// with [`gpu_interop::adapter`](crate::gpu_interop::adapter).
     #[cfg(feature = "gpu-interop")]
     pub fn gpu_preference(mut self, preference: crate::gpu_interop::GpuPreference) -> Self {
-        self.gpu_preference = preference;
+        self.options = self.options.gpu_preference(preference);
         self
     }
-
-    /// Size of the blocking pool (default `min(4, CPUs)`).
-    pub fn blocking_threads(mut self, n: usize) -> Self {
-        self.threads = Some(n.max(1));
-        self
-    }
-
     /// Open the window and run until it closes. `root` is the body of the
     /// root component (usually a plain function such as `app` or
     /// `|| counter(0)`); it runs once, in the setup of the App's root owner.
@@ -141,7 +117,8 @@ impl App {
     ///
     /// ```no_run
     /// # use kivact_core as kivact;
-    /// use kivact::prelude::*;
+    /// use kivact::{App, Result};
+    /// use kivact::view::{IntoView, NodeBuilder, text};
     ///
     /// fn app() -> impl IntoView {
     ///     text("Hello")
@@ -153,84 +130,16 @@ impl App {
     /// ```
     #[track_caller]
     pub fn run<V: IntoView>(self, root: impl FnOnce() -> V + 'static) -> Result<()> {
-        let at = Location::caller();
-        check_window_sizes(self.window_size, self.min_window_size, at)?;
-        let options = kivact_engine::HostOptions {
-            window_size: self.window_size,
-            #[cfg(feature = "gpu-interop")]
-            gpu_preference: self.gpu_preference,
-            #[cfg(not(feature = "gpu-interop"))]
-            gpu_preference: Default::default(),
-        };
-        crate::platform::run_native(self.client(root, at), options)
+        self.options.check_window_sizes()?;
+        let options = self.options.host_options();
+        let (client, _) = crate::launch::Launch::new(
+            self.options,
+            crate::launch::ClientMode::Window,
+            move || root().into_view(),
+        )
+        .into_engine_client();
+        crate::launch::run_native(client, options)
     }
-
-    fn client<V: IntoView>(
-        self,
-        root: impl FnOnce() -> V + 'static,
-        at: &'static Location<'static>,
-    ) -> kivact_engine::bridge::Client {
-        self.app_client(root, at).into_client(None)
-    }
-
-    pub(crate) fn app_client<V: IntoView>(
-        self,
-        root: impl FnOnce() -> V + 'static,
-        at: &'static Location<'static>,
-    ) -> crate::client::AppClient {
-        let mut config = crate::client::AppConfig::new(
-            self.title,
-            self.theme,
-            Box::new(move || root().into_view()),
-        );
-        config.settings.locale = self.locale;
-        config.settings.messages = self.messages;
-        config.fonts = self.fonts;
-        config.min_window_size = self.min_window_size;
-        crate::client::AppClient::new(config, self.threads, at)
-    }
-}
-
-/// A size of `width` by `height` logical pixels as the engine takes it
-/// (checked by `App::run`).
-fn size(width: f64, height: f64) -> Size {
-    // A value beyond f32 becomes infinite and is refused by the check.
-    Size {
-        width: width as f32,
-        height: height as f32,
-    }
-}
-
-/// Refuse a window size or minimum size that is not finite and positive,
-/// and a minimum larger than the size, as an error located at `at`
-/// (`App::run`): the platform would otherwise clamp or ignore it silently.
-pub(crate) fn check_window_sizes(
-    window: Option<Size>,
-    min: Option<Size>,
-    at: &'static Location<'static>,
-) -> Result<()> {
-    let usable =
-        |s: Size| s.width.is_finite() && s.height.is_finite() && s.width > 0.0 && s.height > 0.0;
-    let fail = |message: String| Err(UiError::new(ErrorKind::Message, message, Some(at)));
-    for (name, size) in [("window_size", window), ("min_window_size", min)] {
-        if let Some(s) = size
-            && !usable(s)
-        {
-            return fail(format!(
-                "App::{name}: {} by {} is not a finite, positive size in logical pixels",
-                s.width, s.height
-            ));
-        }
-    }
-    if let (Some(window), Some(min)) = (window, min)
-        && (min.width > window.width || min.height > window.height)
-    {
-        return fail(format!(
-            "App::min_window_size: {} by {} is larger than App::window_size {} by {}",
-            min.width, min.height, window.width, window.height
-        ));
-    }
-    Ok(())
 }
 
 #[cfg(test)]
@@ -240,10 +149,15 @@ mod window_size_tests {
     //! The window settings are checked before anything starts, so these
     //! need no window.
 
-    use super::*;
+    use super::App;
+    use crate::Result;
+    use crate::launch::check_window_sizes;
+    use kivact_runtime::ErrorKind;
+    use kivact_types::Size;
+    use std::panic::Location;
 
     fn check(window: Option<(f64, f64)>, min: Option<(f64, f64)>) -> Result<()> {
-        let size = |(w, h): (f64, f64)| size(w, h);
+        let size = |(w, h): (f64, f64)| Size::new(w, h);
         check_window_sizes(window.map(size), min.map(size), Location::caller())
     }
 
@@ -256,10 +170,10 @@ mod window_size_tests {
         let app = App::new("t")
             .window_size(1280, 800)
             .min_window_size(640u16, 480.5);
-        let ok = check_window_sizes(app.window_size, app.min_window_size, Location::caller());
+        let ok = app.options.check_window_sizes();
         assert!(ok.is_ok(), "integer and float literals are taken");
         assert_eq!(
-            app.window_size,
+            app.options.host_options().window_size,
             Some(Size {
                 width: 1280.0,
                 height: 800.0

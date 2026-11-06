@@ -18,10 +18,10 @@ pub use kivact_style::transform::Transform;
 #[doc(inline)]
 pub use kivact_style::draw::{
     Draw, FillRule, ImageOptions, InlineBox, InlineBoxPlacement, InlineParagraph, IntrinsicSize,
-    Layer, LineCap, LineJoin, Path, PathContour, Pixels, Point, Rect, RegionId, Size, Stroke,
-    TextBaseline, TextMetrics, TextParagraph, TextStyle,
+    Layer, LineCap, LineJoin, Path, PathContour, Pixels, RegionId, Stroke, TextBaseline,
+    TextFormat, TextMetrics, TextParagraph, TextRun, text_run,
 };
 
 mod offscreen;
 #[doc(inline)]
-pub use offscreen::{Offscreen, RgbaImage};
+pub use offscreen::Offscreen;

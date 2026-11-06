@@ -1,5 +1,6 @@
 //! Role: Application-owned bindings for this component view state.
-use kivact::{Binding, signal};
+use kivact::state::IntoBinding;
+use kivact::state::{Binding, signal};
 /// The view state of an [`outliner`](crate::outliner).
 #[derive(Clone, Copy)]
 pub struct OutlinerState {
@@ -17,9 +18,9 @@ impl OutlinerState {
     #[track_caller]
     pub fn new(expanded: impl IntoIterator<Item = u64>) -> Self {
         Self {
-            expanded: signal(expanded.into_iter().collect()).into(),
-            selection: signal(Vec::new()).into(),
-            renaming: signal(None).into(),
+            expanded: signal(expanded.into_iter().collect()).into_binding(),
+            selection: signal(Vec::new()).into_binding(),
+            renaming: signal(None).into_binding(),
         }
     }
 }

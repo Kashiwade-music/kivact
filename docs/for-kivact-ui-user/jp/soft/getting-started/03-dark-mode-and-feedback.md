@@ -7,7 +7,8 @@
 ```rust,no_run
 use kivact::prelude::*;
 use kivact::style::ThemeMode;
-use kivact::view::{provide_theme, show};
+use kivact::style::{provide_theme};
+use kivact::view::{show};
 use kivact_ui_soft as soft;
 
 fn settings_feedback() -> impl IntoView {
@@ -20,13 +21,15 @@ fn settings_feedback() -> impl IntoView {
                 button("Toggle dark mode").on_press(move || dark.update(|on| *on = !*on)),
                 button("Save").on_press(move || saved.set(true)),
                 show(saved, move || {
-                    soft::banner(soft::BannerStatus::Success, "Settings saved")
+                    kivact::ui::alert("Settings saved")
+                        .tone(kivact::interaction::Tone::Success)
+                        .icon(soft::banner_icon(kivact::interaction::Tone::Success))
                         .description("Your changes are ready to use.")
-                        .dismissable(true)
+                        .dismissible(true)
                         .on_dismiss(move || saved.set(false))
                 }),
             ))
-            .style(|| style().gap(soft::tokens().spacing.s3))
+            .style(|| style().gap(kivact::style::use_tokens::<soft::Tokens>().spacing.s3))
         },
     )
 }

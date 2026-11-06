@@ -1,24 +1,33 @@
 //! Role: Transaction ownership and selective restoration for time editors.
 use crate::editors::time::gesture::{Snapshot, State};
 use crate::editors::time::model::TimeItem;
-use kivact::Binding;
-use kivact::draw::Point;
+use kivact::geometry::Point;
+use kivact::state::Binding;
 pub(crate) fn restore(
     playhead: Binding<f64>,
-    zoom: Binding<f64>,
-    pan: Binding<Point>,
+    transform: Binding<kivact::interaction::ViewTransform>,
     snapshot: Snapshot,
 ) {
     match snapshot {
         Snapshot::Items(..) => {}
         Snapshot::Playhead(value) => playhead.set(value),
-        Snapshot::View(z, p) => {
-            zoom.set(z);
-            pan.set(p);
-        }
+        Snapshot::View(pose) => transform.set(pose),
     }
 }
 impl<T: TimeItem> State<T> {
+    pub(crate) fn set_scale(self, scale: f64) {
+        self.transform.set(kivact::interaction::ViewTransform {
+            scale,
+            ..self.transform.get_untracked()
+        });
+    }
+    pub(crate) fn set_offset(self, offset: Point) {
+        self.transform.set(kivact::interaction::ViewTransform {
+            offset,
+            ..self.transform.get_untracked()
+        });
+    }
+
     pub(crate) fn request(self, request: crate::editors::time::model::TimeRequest) {
         if let Some(callback) = self.on_edit {
             callback.call(crate::editors::shared::model::EditorEvent::Request(request));
@@ -66,7 +75,7 @@ impl<T: TimeItem> State<T> {
         )
     }
     pub(crate) fn view_snapshot(self) -> Snapshot {
-        Snapshot::View(self.scale.get_untracked(), self.offset.get_untracked())
+        Snapshot::View(self.transform.get_untracked())
     }
     /// Stop the drag without a callback, canceling its edit.
     pub(crate) fn cancel(self) {
@@ -89,11 +98,11 @@ impl<T: TimeItem> State<T> {
             });
         }
     }
-    pub(crate) fn time(self, x: f32) -> f64 {
-        f64::from(x - crate::editors::shared::metrics::SIDEBAR - self.offset.get_untracked().x)
+    pub(crate) fn time(self, x: f64) -> f64 {
+        (x - crate::editors::shared::metrics::SIDEBAR - self.offset.get_untracked().x)
             / self
                 .scale
                 .get_untracked()
-                .clamp(self.bounds.0, self.bounds.1)
+                .clamp(self.bounds.get().min(), self.bounds.get().max())
     }
 }

@@ -7,10 +7,11 @@
 //! GPU device of that API that imports (no hardware adapter, an adapter
 //! without the extensions, or `WGPU_BACKEND` choosing another API).
 
-use arvane::test_display::{VirtualWindow, VirtualWindowOptions};
-use arvane::{ErrorKind, Renderer, RendererChange, Window as _};
+use crate::support::Harness;
+use arvane::{Renderer, RendererChange};
+use arvane_virtual::VirtualOptions;
 use gpu_interop_producer::{Producer, pattern};
-use kivact_types::protocol::DrawCommand;
+use kivact_types::render::RenderCmd;
 use kivact_types::{ExternalFrame, ExternalImageId, GpuAdapter, GpuBackend, GpuPreference};
 
 use crate::support::{options, rect, show};
@@ -23,21 +24,22 @@ const IMAGE: ExternalImageId = ExternalImageId(1);
 
 /// A GPU test window of `backend` that can import, and its adapter; why
 /// not when there is none here (the test is skipped).
-fn gpu_window(backend: GpuBackend) -> Result<(VirtualWindow, GpuAdapter), String> {
-    let opened = VirtualWindow::open(VirtualWindowOptions {
-        gpu: true,
-        gpu_preference: GpuPreference {
+fn gpu_window(backend: GpuBackend) -> Result<(Harness, GpuAdapter), String> {
+    let opened = Harness::configured(
+        VirtualOptions {
+            gpu: arvane_virtual::GpuMode::Required,
+            ..options(2.0 * W as f64, 2.0 * H as f64)
+        },
+        GpuPreference {
             backend: Some(backend),
             ..GpuPreference::default()
         },
-        ..options(2.0 * W as f32, 2.0 * H as f32)
-    });
-    let window = match opened {
+    );
+    let mut window = match opened {
         Ok(window) => window,
-        Err(error) if error.kind() == ErrorKind::Unavailable => return Err(error.to_string()),
-        Err(error) => panic!("the GPU test window opens: {error}"),
+        Err(error) => return Err(error.to_string()),
     };
-    let Some(adapter) = window.gpu_adapter() else {
+    let Some(adapter) = window.with(move |w| w.gpu_adapter()) else {
         return Err(format!(
             "the {backend:?} device cannot import shared textures"
         ));
@@ -52,22 +54,22 @@ fn gpu_window(backend: GpuBackend) -> Result<(VirtualWindow, GpuAdapter), String
 }
 
 /// An engine for the window's adapter, its image imported as `image`.
-fn imported(window: &mut VirtualWindow, adapter: &GpuAdapter, image: ExternalImageId) -> Producer {
+fn imported(window: &mut Harness, adapter: &GpuAdapter, image: ExternalImageId) -> Producer {
     let mut producer = Producer::new(adapter, image, W, H).expect("the engine starts");
     let shared = producer
         .shared_textures()
         .expect("the engine shares its pool");
     window
-        .import_external_image(image, shared)
+        .with(move |w| w.import_external_image(image, shared))
         .expect("the window imports the pool");
     producer
 }
 
 /// `frame` drawn at its own size at `(x, y)`.
-fn external(frame: ExternalFrame, x: u32, y: u32, pixelated: bool) -> DrawCommand {
-    DrawCommand::External {
+fn external(frame: ExternalFrame, x: u32, y: u32, pixelated: bool) -> RenderCmd {
+    RenderCmd::External {
         frame,
-        rect: rect(x as f32, y as f32, W as f32, H as f32),
+        rect: rect(x as f64, y as f64, W as f64, H as f64),
         source: None,
         opacity: 1.0,
         pixelated,
@@ -78,7 +80,7 @@ fn external(frame: ExternalFrame, x: u32, y: u32, pixelated: bool) -> DrawComman
 const PLACES: [(u32, u32, bool); 4] = [(0, 0, true), (W, 0, true), (0, H, false), (W, H, false)];
 
 /// `frame` in all four places.
-fn four(frame: ExternalFrame) -> Vec<DrawCommand> {
+fn four(frame: ExternalFrame) -> Vec<RenderCmd> {
     PLACES
         .iter()
         .map(|&(x, y, pixelated)| external(frame, x, y, pixelated))
@@ -88,20 +90,20 @@ fn four(frame: ExternalFrame) -> Vec<DrawCommand> {
 /// What the last frame shows at the place `(x, y)`, channels at most
 /// `tolerance` off.
 fn verdict_within(
-    window: &VirtualWindow,
+    window: &Harness,
     (x, y): (u32, u32),
     number: u64,
     tolerance: u8,
 ) -> pattern::Verdict {
-    let (width, _, pixels) = window.frame().expect("a frame was presented");
-    pattern::check(pixels, width as usize, (x, y), (W, H), number, tolerance)
+    let (width, _, pixels) = window.probe().frame().expect("a frame was presented");
+    pattern::check(&pixels, width as usize, (x, y), (W, H), number, tolerance)
 }
 
 /// The last frame shows `number` in all four places, on the GPU: nearest
 /// exactly, bilinear within one level (the filter's rounding at texel
 /// centres).
 #[track_caller]
-fn assert_four(window: &VirtualWindow, number: u64) {
+fn assert_four(window: &Harness, number: u64) {
     assert_eq!(window.renderer(), Some(Renderer::Gpu));
     for (x, y, pixelated) in PLACES {
         let tolerance = if pixelated { 0 } else { 1 };

@@ -6,7 +6,7 @@
 //! itself is the model's (`kivact_editing::EditState`).
 //!
 //! Invariants:
-//! - Everything here reads the input's lines (`kivact-text`), shaped one
+//! - Everything here reads the input's lines (`text_input`), shaped one
 //!   hard line at a time: the caret, the pointer and the IME cost the
 //!   lines they touch, not the text.
 //! - Arvane's shaping carets carry Unicode scalar offsets; the
@@ -43,12 +43,12 @@
 use std::ops::Range;
 
 use crate::model::Model;
-use kivact_wire::{NodeId, Point, Rect};
+use kivact_types::{NodeId, Point, Rect};
 
 use crate::model::interact::visual;
 use crate::model::transform::map_rect;
 
-use kivact_text::{line_height, line_offset};
+use crate::text_input::{line_height, line_offset};
 
 /// Shape a non-editor text node with the same width allowance and
 /// color-independent typography as the layout diagnostics.
@@ -56,11 +56,11 @@ pub(crate) fn shape_static_text(
     host: &Model,
     id: NodeId,
     engine: &mut arvane::Engine,
-    area_width: f32,
-) -> Option<std::sync::Arc<kivact_wire::ShapedText>> {
+    area_width: f64,
+) -> Option<kivact_types::ShapedTextSnapshot> {
     let node = host.node(id)?;
-    let mut style = kivact_lower::assets::text_style(engine, &host.text_props(id));
-    style.color = kivact_types::protocol::TextStyle::default().color;
+    let mut style = crate::lower::assets::text_style(engine, &host.text_props(id));
+    style.color = kivact_types::ComputedTextStyle::default().color;
     style.decoration.color = None;
     let width = Some(area_width.max(0.0) + 1.0);
     let content = node.content().unwrap_or("");
@@ -68,7 +68,7 @@ pub(crate) fn shape_static_text(
         engine.shape_glyphs(content, &style, width).ok()
     } else {
         let spans = crate::measure::leaf::rich_spans(engine, node.spans(), &style);
-        let text = kivact_types::protocol::RichText {
+        let text = kivact_types::render::RichText {
             text: content,
             spans: &spans,
         };
@@ -80,12 +80,12 @@ pub(crate) fn shape_static_text(
 pub(crate) fn text_truncated(host: &Model, engine: &mut arvane::Engine, id: NodeId) -> bool {
     if !host
         .node(id)
-        .is_some_and(|node| node.kind() == kivact_wire::NodeType::Text)
+        .is_some_and(|node| node.kind() == crate::contract::NodeType::Text)
     {
         return false;
     }
     let props = host.text_props(id);
-    let more = props.more();
+    let more = &props;
     if more.max_lines.is_none() && more.overflow != kivact_types::TextOverflow::Ellipsis {
         return false;
     }
@@ -94,7 +94,7 @@ pub(crate) fn text_truncated(host: &Model, engine: &mut arvane::Engine, id: Node
 }
 
 /// The horizontal text scroll of a text input.
-pub(crate) fn input_scroll(host: &Model, id: NodeId) -> f32 {
+pub(crate) fn input_scroll(host: &Model, id: NodeId) -> f64 {
     host.editor_node(id).map_or(0.0, |n| n.scroll_x)
 }
 
@@ -274,23 +274,11 @@ pub(crate) fn ime_text(
     Some((text, excerpt.start))
 }
 
-/// The byte offset of the UTF-16 offset `units` in `text` (clamped to it).
-pub(crate) fn byte_of_utf16(text: &str, units: usize) -> usize {
-    let mut seen = 0;
-    for (i, c) in text.char_indices() {
-        if seen >= units {
-            return i;
-        }
-        seen += c.len_utf16();
-    }
-    text.len()
-}
-
 impl Model {
     /// Scroll every text input so its caret stays inside
     /// the field: past the right edge less 2 px, or at the left edge.
     pub(crate) fn scroll_inputs(&mut self, engine: &mut arvane::Engine) {
-        for id in self.edits.inputs() {
+        for id in self.input_ids() {
             let area = visual::text_box(self, id);
             let width = area.width;
             // Hidden or zero-width fields have no viewport to scroll into.
@@ -304,7 +292,7 @@ impl Model {
                 .edit_lines(id, engine)
                 .filter(|(lines, _)| lines.shows_value())
                 .map_or((0.0, 0.0), |(lines, _)| {
-                    (lines.width(), lines.len() as f32 * lines.height())
+                    (lines.width(), lines.len() as f64 * lines.height())
                 });
             let max_scroll = (extent_x.max(caret.x) - width + 2.0).max(0.0);
             let mut scroll = input_scroll(self, id).clamp(0.0, max_scroll);
@@ -348,16 +336,28 @@ pub(crate) fn text_layout(
     rows: Range<usize>,
     engine: &mut arvane::Engine,
 ) -> Option<kivact_editing::TextLayout> {
+    layout_snapshot(host, id, rows, engine, false)
+}
+
+pub(crate) fn layout_snapshot(
+    host: &Model,
+    id: NodeId,
+    rows: Range<usize>,
+    engine: &mut arvane::Engine,
+    canvas_coordinates: bool,
+) -> Option<kivact_editing::TextLayout> {
     use kivact_editing::{EditCaret, EditLine, TextLayout};
     let value = host.edit(id)?.value();
     let origin = text_line(host, id, engine);
     let transform = host.transform_between(id, None);
     let scroll = input_scroll(host, id);
-    let mapped = |rect: Rect| map_rect(transform.as_ref(), rect);
-    let caret = map_rect(transform.as_ref(), caret_rect(host, id, engine));
+    let canvas = visual::padding_box(host.rect(id)?, &visual::paint(host, id));
+    let mapped = |rect| map_snapshot_rect(rect, canvas_coordinates, canvas, transform.as_ref());
+    let caret = mapped(caret_rect(host, id, engine));
     let (mut lines, _) = host.edit_lines(id, engine)?;
     let mut out = TextLayout {
         caret,
+        selection: Vec::new(),
         line_count: 0,
         lines: Vec::new(),
         carets: Vec::new(),
@@ -374,7 +374,7 @@ pub(crate) fn text_layout(
     let mut offset = lines.char_of_line(rows.start);
     for i in rows {
         let x = origin.x - scroll + lines.offset(value, i, origin.width, engine);
-        let y = origin.y + i as f32 * lines.height();
+        let y = origin.y + i as f64 * lines.height();
         let shift = |r: Rect| {
             mapped(Rect {
                 x: x + r.x,
@@ -382,6 +382,20 @@ pub(crate) fn text_layout(
                 ..r
             })
         };
+        let selection = host.edit(id)?.selection();
+        for rect in lines.spans(
+            value,
+            i,
+            (selection.start, selection.end),
+            origin.width,
+            engine,
+        ) {
+            out.selection.push(mapped(Rect {
+                x: origin.x - scroll + rect.x,
+                y: origin.y + rect.y,
+                ..rect
+            }));
+        }
         let range = lines.range(i);
         let chars = value[range.clone()].chars().count() as u32;
         let shaped = lines.shaped(value, i, engine);
@@ -406,26 +420,52 @@ pub(crate) fn text_layout(
             .y,
         });
         if let Some(shaped) = shaped {
-            let mut end = None;
-            for c in &shaped.carets {
-                let rect = shift(c.rect);
-                end = Some(rect);
-                out.carets.push(EditCaret {
-                    offset: offset + c.offset,
-                    rect,
-                });
-            }
-            let content = shaped.carets.len().saturating_sub(1) as u32;
-            if lines.crlf(i)
-                && let Some(rect) = end
-            {
-                out.carets.push(EditCaret {
-                    offset: offset + content + 1,
-                    rect,
-                });
-            }
+            append_snapshot_carets(&mut out, &shaped, shift, offset, lines.crlf(i));
         }
         offset += chars;
     }
     Some(out)
+}
+
+fn append_snapshot_carets(
+    out: &mut kivact_editing::TextLayout,
+    shaped: &kivact_types::render::ShapedText,
+    shift: impl Fn(Rect) -> Rect,
+    offset: u32,
+    crlf: bool,
+) {
+    use kivact_editing::EditCaret;
+    let mut end = None;
+    for c in &shaped.carets {
+        let rect = shift(c.rect);
+        end = Some(rect);
+        out.carets.push(EditCaret {
+            offset: offset + c.offset,
+            rect,
+        });
+    }
+    let content = shaped.carets.len().saturating_sub(1) as u32;
+    if crlf && let Some(rect) = end {
+        out.carets.push(EditCaret {
+            offset: offset + content + 1,
+            rect,
+        });
+    }
+}
+
+fn map_snapshot_rect(
+    rect: Rect,
+    canvas_coordinates: bool,
+    canvas: Rect,
+    transform: Option<&kivact_types::Transform>,
+) -> Rect {
+    if canvas_coordinates {
+        Rect {
+            x: rect.x - canvas.x,
+            y: rect.y - canvas.y,
+            ..rect
+        }
+    } else {
+        map_rect(transform, rect)
+    }
 }

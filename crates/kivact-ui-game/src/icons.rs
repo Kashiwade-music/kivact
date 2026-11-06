@@ -133,13 +133,17 @@ fn bytes(name: &str) -> Option<&'static [u8]> {
 
 /// Every icon of the kit by name, which [`theme`](crate::theme) installs in
 /// the theme's [`IconSet`](kivact::style::IconSet), so
-/// `kivact::control::icon(name)` and a standard component's
+/// `kivact::view::icon(name)` and a standard component's
 /// `Icon::named(..)` draw it. The kit's components draw their icons the same
 /// way, so another theme may give a name its own glyph.
 ///
 /// The set is built once and shared, so two themes of the kit compare their
 /// icons by identity instead of name by name.
 pub(crate) fn set() -> kivact::style::IconSet {
+    #[expect(
+        clippy::disallowed_types,
+        reason = "Immutable static icon identity is shared by all Game themes."
+    )]
     static SET: std::sync::OnceLock<kivact::style::IconSet> = std::sync::OnceLock::new();
     SET.get_or_init(|| {
         let mut set = kivact::style::IconSet::standard();

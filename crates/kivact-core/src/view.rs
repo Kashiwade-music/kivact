@@ -13,8 +13,8 @@
 )]
 
 pub(crate) mod boundary;
-pub(crate) mod common;
 pub(crate) mod descriptor;
+pub(crate) mod element_data;
 mod exit_layout;
 pub(crate) mod flow;
 pub(crate) mod focus;
@@ -24,14 +24,20 @@ pub(crate) mod input;
 pub(crate) mod modifier_keys;
 pub(crate) mod modifiers;
 pub(crate) mod mount;
-pub(crate) mod node;
+mod node_draw;
+mod node_modifiers;
 pub(crate) mod node_ref;
+mod node_status;
+pub(crate) mod node_status_data;
 pub(crate) mod overlays;
 pub(crate) mod owner;
 pub(crate) mod part;
 pub(crate) mod part_data;
+pub(crate) mod ref_data;
 pub(crate) mod requests;
 pub(crate) mod root;
+pub(crate) mod semantics_data;
+pub(crate) mod snapshots;
 pub(crate) mod span;
 pub(crate) mod state;
 pub(crate) mod sync_hook;
@@ -40,94 +46,61 @@ pub(crate) mod tree;
 
 #[doc(inline)]
 pub use crate::view::flow::{
-    ErrorBoundary, RowHeight, Show, ShowSome, VirtualList, dynamic, error_boundary, for_each,
-    for_index, show, show_some, virtual_list,
+    ErrorBoundary, ListSource, RowHeight, Show, ShowSome, VirtualList, dynamic, error_boundary,
+    for_each, for_index, show, show_some, virtual_list,
 };
 #[doc(inline)]
-pub use boundary::{
-    ReadingDirection, current_direction, provide, provide_direction, provide_locale,
-    provide_messages, provide_theme,
-};
+pub use boundary::{ReadingDirection, component, provide_direction, use_direction};
 #[doc(inline)]
-pub use descriptor::{IntoView, View};
+pub use descriptor::{IntoView, IntoViewFn, View, ViewFn};
+pub use element_data::Component;
 #[doc(inline)]
-pub use hover::mouse_position;
+pub use hover::pointer_position;
 #[doc(inline)]
 pub use input::{
-    A11yEvent, ButtonPress, DismissReason, FileEvent, FilePhase, Handled, Key, KeyCode, KeyEvent,
-    KeyHandlerResult, Modifiers, MouseButton, PointerButtons, PointerEvent, PointerId, PointerKind,
-    PointerPhase, WheelEvent,
+    A11yEvent, ButtonPress, Composition, DismissReason, FileEvent, FilePhase, Handled,
+    InputPurpose, Key, KeyCode, KeyEvent, Modifiers, MouseButton, PointerButtons, PointerEvent,
+    PointerId, PointerKind, PointerPhase, WheelEvent,
 };
 #[doc(inline)]
-pub use kivact_reactive::HandlerResult;
+pub use kivact_runtime::HandlerResult;
+pub use kivact_types::Presence;
 #[doc(inline)]
-pub use kivact_reactive::{IntoReactive, IntoText, IntoValue, Reactive};
-#[doc(inline)]
-pub use kivact_reactive::{callback, constant, selector};
-#[doc(inline)]
-pub use modifier_keys::current_modifiers;
-
-/// Lets a component author take their own type as a prop.
-///
-/// `constant_value!(MyType)` makes a plain `MyType` acceptable wherever
-/// `impl IntoValue<MyType>` is taken, next to the signals, `Value`s and
-/// closures that already are. Register the type first, then pass constants
-/// directly to props or call `x.into_value()` to create a read-only handle.
-/// Without registration, pass a signal, `Value` or closure, or wrap the
-/// constant with [`constant`] (`badge(constant(Tone::Calm))`). The type must be `Clone + PartialEq`, like every prop type.
-/// List several types at once with commas,
-/// and invoke the macro once per type, in the crate that defines it.
-///
-/// ```no_run
-/// # use kivact_core as kivact;
-/// use kivact::prelude::*;
-/// use kivact::view::constant_value;
-///
-/// #[derive(Clone, Copy, PartialEq)]
-/// pub enum Tone {
-///     Calm,
-///     Alert,
-/// }
-///
-/// constant_value!(Tone);
-///
-/// pub fn badge(label: impl IntoText, tone: impl IntoValue<Tone>) -> Node {
-///     let label = label.into_text_value();
-///     let tone = tone.into_value();
-///     node()
-///         .name(label)
-///         .style(move || match tone.get() {
-///             Tone::Calm => style().background(ColorToken::Surface),
-///             Tone::Alert => style().background(ColorToken::SurfaceAlt),
-///         })
-///         .child(text(label))
-/// }
-///
-/// let status = signal(Tone::Calm);
-/// let _ = (
-///     badge("Saved", Tone::Calm),
-///     badge("Saved", status),
-///     badge("Saved", move || status.get()),
-/// );
-/// ```
-#[doc(inline)]
-pub use kivact_reactive::constant_value;
+pub use modifier_keys::modifiers;
 
 #[doc(inline)]
 pub use exit_layout::ExitLayout;
+pub use kivact_types::ImageStatus;
 #[doc(inline)]
-pub use kivact_reactive::{context, try_context};
-#[doc(inline)]
-pub use kivact_wire::{
+pub use kivact_types::{
     A11yAction, A11yRequest, CheckedState, CurrentItem, LiveRegion, Orientation, PopupKind, Role,
     SortDirection,
 };
 #[doc(inline)]
 pub use node_ref::{NodeRef, ScrollBehavior, node_ref};
+pub use node_status_data::ScrollState;
 #[doc(inline)]
-pub use overlays::{Overlay, OverlayAlign, OverlayViewport, Placement, overlay, overlay_at};
+pub use overlays::{Overlay, OverlayAlign, Placement, overlay, overlay_at};
 
 pub(crate) use part::Part;
 
 pub(crate) mod editing_data;
 pub(crate) mod ime_session;
+
+mod children;
+mod edit_phase;
+pub(crate) mod elements;
+
+pub use children::IntoChildren;
+pub use edit_phase::EditPhase;
+pub use elements::{
+    ImageFit, Node, NodeBuilder, Scroll, ScrollAxes, Span, SurfaceSize, Viewport, canvas, column,
+    grid, icon, image, node, rich_text, row, scroll, spacer, span, stack, text, viewport,
+};
+pub use kivact_style::asset::{Asset, AssetBytes};
+
+#[doc(hidden)]
+pub use flow::ListInput;
+
+#[doc(hidden)]
+pub use elements::ViewportTransform;

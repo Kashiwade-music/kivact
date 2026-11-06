@@ -2,7 +2,7 @@
 
 use super::state::AcceptedTree;
 use crate::events::ShellEvent;
-use kivact_types::{A11yAction, A11yRequest, NodeId};
+use kivact_types::{A11yAction, A11yRequest, SemanticsId};
 
 fn normalized(action: A11yAction) -> A11yAction {
     match action {
@@ -12,21 +12,28 @@ fn normalized(action: A11yAction) -> A11yAction {
 }
 
 pub(super) fn accept(tree: &AcceptedTree, node: u64, request: A11yRequest) -> Option<ShellEvent> {
-    let id = NodeId(node);
+    let id = SemanticsId(node);
     let target = tree.node(id)?;
     let action = normalized(request.action());
-    let supported = (action == A11yAction::Focus && target.focusable)
-        || target
+    let supported = if action == A11yAction::Focus {
+        target.semantics.focusable
+    } else {
+        target
+            .semantics
             .actions
             .iter()
-            .any(|offered| normalized(*offered) == action);
+            .flatten()
+            .any(|offered| normalized(*offered) == action)
+    };
     if !supported {
         return None;
     }
     let mut at = Some(id);
     while let Some(id) = at {
         let node = tree.node(id)?;
-        if node.hidden || node.disabled {
+        let retained_focus =
+            id == target.id && action == A11yAction::Focus && node.semantics.focusable;
+        if node.semantics.hidden || (node.semantics.disabled && !retained_focus) {
             return None;
         }
         at = tree.parent(id);

@@ -5,8 +5,12 @@ use kivact::view::A11yAction;
 
 #[test]
 fn consumer_buttons_checks_mixed_states_and_modifiers() {
-    let (screen, (count, checked, mixed)) =
-        kivact::test::render_with_handle(crate::support::options(true), || {
+    let (screen, (count, checked, mixed)) = kivact::test::render_with_handle(
+        kivact::test::RenderOptions::with_theme(kivact_ui_game::theme(
+            kivact::style::ThemeMode::Light,
+        ))
+        .reduced_motion(),
+        || {
             let count = signal(0);
             let checked = signal(false);
             let mixed = signal(true);
@@ -26,7 +30,8 @@ fn consumer_buttons_checks_mixed_states_and_modifiers() {
                 ))
                 .style(style().gap(20).padding(20)),
             )
-        });
+        },
+    );
     let button = screen.get_by_test_id("approve");
     assert_eq!(button.accessibility_bounds().map(|r| r.height), Some(46.));
     button.click();
@@ -49,8 +54,12 @@ fn consumer_buttons_checks_mixed_states_and_modifiers() {
 
 #[test]
 fn consumer_checkbox_switch_and_disclosure_follow_the_shared_toggle_rules() {
-    let (screen, (check, switch, open)) =
-        kivact::test::render_with_handle(crate::support::options(true), || {
+    let (screen, (check, switch, open)) = kivact::test::render_with_handle(
+        kivact::test::RenderOptions::with_theme(kivact_ui_game::theme(
+            kivact::style::ThemeMode::Light,
+        ))
+        .reduced_motion(),
+        || {
             let check = signal(false);
             let switch = signal(false);
             let open = signal(false);
@@ -59,12 +68,13 @@ fn consumer_checkbox_switch_and_disclosure_follow_the_shared_toggle_rules() {
                 column((
                     kivact::ui::checkbox("Notify", check),
                     kivact::ui::switch("Network", switch),
-                    kivact::ui::disclosure("Settings", open, || text("Inspector content")),
-                    kivact::ui::checkbox("Locked", kivact::signal(false)).disabled(true),
+                    kivact::ui::disclosure("Settings", open).content(|| text("Inspector content")),
+                    kivact::ui::checkbox("Locked", kivact::state::signal(false)).disabled(true),
                 ))
                 .style(style().padding(20).gap(16)),
             )
-        });
+        },
+    );
     let check_box = screen.get_by_role(Role::CheckBox, "Notify");
     let switch_node = screen.get_by_role(Role::Switch, "Network");
     check_box.press_key(Key::Enter);
@@ -98,8 +108,12 @@ fn consumer_checkbox_switch_and_disclosure_follow_the_shared_toggle_rules() {
 
 #[test]
 fn consumer_table_preserves_selection_and_updates_cells() {
-    let (screen, (rows, selected, query)) =
-        kivact::test::render_with_handle(crate::support::options(true), || {
+    let (screen, (rows, selected, query)) = kivact::test::render_with_handle(
+        kivact::test::RenderOptions::with_theme(kivact_ui_game::theme(
+            kivact::style::ThemeMode::Light,
+        ))
+        .reduced_motion(),
+        || {
             let rows = signal(vec![("a", "Zulu".to_owned()), ("b", "Alpha".to_owned())]);
             let selected = signal(Vec::new());
             let query = signal(String::new());
@@ -128,7 +142,8 @@ fn consumer_table_preserves_selection_and_updates_cells() {
                 ))
                 .style(style().padding(20).gap(12)),
             )
-        });
+        },
+    );
     screen.get_by_role(Role::CheckBox, "Select a").click();
     assert_eq!(selected.get_untracked(), vec!["a"]);
     screen.get_by_text("Footer renderer");

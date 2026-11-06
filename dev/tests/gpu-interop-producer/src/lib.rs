@@ -1,4 +1,5 @@
 //! Role: A render engine of its own device that shares frames with Arvane, for tests.
+
 //!
 //! The engine an application would bring, for the GPU texture sharing
 //! tests (`crates/arvane/tests/e2e/external.rs`): a device of its own (not

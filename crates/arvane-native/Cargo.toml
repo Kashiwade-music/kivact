@@ -32,13 +32,13 @@ rustix = { version = "1", features = ["event", "time", "fs"] }
 accesskit_windows = "=0.33.1"
 # The version winit uses; the window subclass answering the IME's requests
 # and telling pens and canceled contacts from touches.
-windows-sys = { workspace = true, features = ["Win32_System_LibraryLoader", "Win32_UI_HiDpi", "Win32_System_Threading", "Win32_System_SystemServices", "Win32_Storage_Xps", "Win32_UI_Controls", "Win32_UI_Accessibility", "Win32_Graphics_Dwm"] }
+windows-sys = { workspace = true, features = ["Win32_System_Registry", "Win32_System_LibraryLoader", "Win32_UI_HiDpi", "Win32_System_Threading", "Win32_System_SystemServices", "Win32_Storage_Xps", "Win32_UI_Controls", "Win32_UI_Accessibility", "Win32_Graphics_Dwm"] }
 
 [features]
 embed = []
 default = []
-# Real windows for tests on one process-wide UI thread (`test_display`).
-testing = []
+# Real windows for tests on one process-wide UI thread (`mirror`).
+test = ["embed"]
 
 [lints]
 workspace = true
@@ -46,3 +46,8 @@ workspace = true
 
 
 
+
+[[test]]
+name = "smoke"
+harness = false
+required-features = ["test"]

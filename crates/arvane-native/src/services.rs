@@ -5,21 +5,39 @@ use std::path::PathBuf;
 
 use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
 
-use arvane_shell::{ShellError, ShellFileDialog};
+use arvane_shell::{FileDialog, ShellError};
 
 #[derive(Default)]
 pub(crate) struct Services {
-    pub(crate) clipboard: Option<arboard::Clipboard>,
+    clipboard: Clipboard,
+}
+
+#[derive(Default)]
+enum Clipboard {
+    #[default]
+    Unopened,
+    Open(arboard::Clipboard),
+    Failed(kivact_types::Failure),
 }
 
 impl Services {
     fn clipboard(&mut self) -> Result<&mut arboard::Clipboard, ShellError> {
-        if self.clipboard.is_none() {
-            self.clipboard = Some(arboard::Clipboard::new().map_err(platform_error)?);
+        if matches!(self.clipboard, Clipboard::Unopened) {
+            self.clipboard = match arboard::Clipboard::new() {
+                Ok(clipboard) => Clipboard::Open(clipboard),
+                Err(error) => Clipboard::Failed(kivact_types::Failure::new(
+                    kivact_types::FailureKind::Backend,
+                    format!("clipboard: {error}"),
+                )),
+            };
         }
-        self.clipboard
-            .as_mut()
-            .ok_or_else(|| ShellError::new("clipboard initialization did not produce a handle"))
+        match &mut self.clipboard {
+            Clipboard::Open(clipboard) => Ok(clipboard),
+            Clipboard::Failed(failure) => Err(ShellError::Failed(failure.clone())),
+            Clipboard::Unopened => {
+                unreachable!("invariant: clipboard initialization has completed")
+            }
+        }
     }
 
     pub(crate) fn copy_text(&mut self, text: &str) -> Result<(), ShellError> {
@@ -32,14 +50,14 @@ impl Services {
 
     pub(crate) fn pick_file(
         window: &(impl HasWindowHandle + HasDisplayHandle),
-        request: &ShellFileDialog,
+        request: &FileDialog,
     ) -> Result<Option<PathBuf>, ShellError> {
         Ok(dialog(window, request)?.pick_file())
     }
 
     pub(crate) fn pick_files(
         window: &(impl HasWindowHandle + HasDisplayHandle),
-        request: &ShellFileDialog,
+        request: &FileDialog,
     ) -> Result<Option<Vec<PathBuf>>, ShellError> {
         Ok(dialog(window, request)?.pick_files())
     }
@@ -48,14 +66,14 @@ impl Services {
     /// they are still validated like every dialog's.
     pub(crate) fn pick_folder(
         window: &(impl HasWindowHandle + HasDisplayHandle),
-        request: &ShellFileDialog,
+        request: &FileDialog,
     ) -> Result<Option<PathBuf>, ShellError> {
         Ok(dialog(window, request)?.pick_folder())
     }
 
     pub(crate) fn save_file(
         window: &(impl HasWindowHandle + HasDisplayHandle),
-        request: &ShellFileDialog,
+        request: &FileDialog,
     ) -> Result<Option<PathBuf>, ShellError> {
         Ok(dialog(window, request)?.save_file())
     }
@@ -67,7 +85,7 @@ fn platform_error(error: arboard::Error) -> ShellError {
 
 fn dialog(
     window: &(impl HasWindowHandle + HasDisplayHandle),
-    request: &ShellFileDialog,
+    request: &FileDialog,
 ) -> Result<rfd::FileDialog, ShellError> {
     validate(request)?;
     let mut dialog = rfd::FileDialog::new()
@@ -85,7 +103,7 @@ fn dialog(
     Ok(dialog)
 }
 
-fn validate(request: &ShellFileDialog) -> Result<(), ShellError> {
+fn validate(request: &FileDialog) -> Result<(), ShellError> {
     if request.title.contains('\0')
         || request
             .file_name

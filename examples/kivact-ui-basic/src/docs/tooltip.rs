@@ -1,8 +1,8 @@
 //! Role: Catalog page of Tooltip: default, sides, icon buttons and keyboard shortcut.
+use kivact::ui::ButtonVariant;
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;
-use kivact::view::Placement;
 use kivact_ui_basic as basic;
 
 pub(crate) fn page() -> Page {
@@ -10,7 +10,7 @@ pub(crate) fn page() -> Page {
         slug: "tooltip",
         name: "Tooltip",
         description: "要素へのホバーやフォーカスで短い補足を表示します。標準の kivact::ui::tooltip に Lyra の見た目（反転した配色と、対象を指す矢印）を当てたもので、attach で対象の要素に取り付けます。",
-        usage: "use kivact::prelude::*;\nuse kivact::view::Placement;\nuse kivact_ui_basic as basic;",
+        usage: "use kivact::prelude::*;\nuse kivact::ui::ButtonVariant;\nuse kivact::view::Placement;\nuse kivact_ui_basic as basic;",
         source: include_str!("tooltip.rs"),
         align: PreviewAlign::Center,
         examples: vec![
@@ -35,7 +35,7 @@ pub(crate) fn page() -> Page {
             Example::new(
                 "shortcut",
                 "With keyboard shortcut",
-                "content で表示内容を差し替えて、basic::kbd のキーキャップを並べます。",
+                "content で表示内容を差し替えて、kivact::ui::kbd のキーキャップを並べます。",
                 shortcut,
             ),
         ],
@@ -97,7 +97,7 @@ fn shortcut() -> impl IntoView {
         .content(|| {
             row((
                 text("Save"),
-                basic::kbd_group((basic::kbd("Ctrl"), basic::kbd("S"))),
+                basic::kbd_group((kivact::ui::kbd("Ctrl"), kivact::ui::kbd("S"))),
             ))
             .style(style().gap(8).align_items(kivact::style::Align::Center))
         })

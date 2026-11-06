@@ -7,8 +7,10 @@ use crate::editors::node::layout::{control, rect, socket};
 use crate::editors::node::model::{NodeControlValue, NodeData};
 use crate::editors::shared::targets::Scene;
 use crate::editors::shared::text::label;
-use kivact::draw::{Draw, Rect};
-use kivact::draw::{Layer, Size, Transform};
+use kivact::draw::Draw;
+use kivact::draw::{Layer, Transform};
+use kivact::geometry::Rect;
+use kivact::geometry::Size;
 use kivact::style::ColorToken;
 
 fn item(
@@ -18,7 +20,7 @@ fn item(
     scene: Option<&Scene<Target>>,
     texts: crate::editors::shared::texts::Texts,
 ) {
-    let p = draw.theme().get::<crate::tokens::Tokens>();
+    let p = draw.theme().ext::<crate::tokens::Tokens>();
     let r = rect(node);
     draw.rounded_rect(r, 10.0, ColorToken::Raised);
     draw.rounded_rect(
@@ -46,7 +48,7 @@ fn item(
             let point = socket(node, outgoing, index);
             draw.circle(point, 4.5, entry.color);
             let x = if outgoing {
-                r.x + r.width - 10.0 - entry.label.len() as f32 * 4.8
+                r.x + r.width - 10.0 - entry.label.len() as f64 * 4.8
             } else {
                 r.x + 11.0
             };
@@ -57,10 +59,10 @@ fn item(
         }
     }
     let start = 58.0
-        + node.inputs.len().max(node.outputs.len()) as f32
+        + node.inputs.len().max(node.outputs.len()) as f64
             * crate::editors::shared::metrics::SOCKET_STEP;
     for (index, parameter) in node.parameters.iter().enumerate() {
-        let y = r.y + start + index as f32 * 27.0;
+        let y = r.y + start + index as f64 * 27.0;
         if y + 22.0 > r.y + r.height {
             break;
         }
@@ -89,26 +91,11 @@ fn item(
             draw.region(id, r);
         }
     }
-    if let Some(image) = &node.preview {
-        let preview = Rect::new(r.x + 10.0, r.y + r.height - 65.0, r.width - 20.0, 55.0);
-        let scale = (preview.width / image.width as f32).min(preview.height / image.height as f32);
-        let width = image.width as f32 * scale;
-        let height = image.height as f32 * scale;
-        draw.pixels(
-            image,
-            Rect::new(
-                preview.x + (preview.width - width) / 2.0,
-                preview.y + (preview.height - height) / 2.0,
-                width,
-                height,
-            ),
-            kivact::draw::ImageOptions::default(),
-        );
-    }
+    preview(draw, node, r);
     if node.muted {
         draw.line(
-            kivact::draw::Point::new(r.x, r.y + r.height),
-            kivact::draw::Point::new(r.x + r.width, r.y),
+            kivact::geometry::Point::new(r.x, r.y + r.height),
+            kivact::geometry::Point::new(r.x + r.width, r.y),
             2.0,
             p.x,
         );
@@ -116,10 +103,10 @@ fn item(
 }
 
 pub(crate) fn editor(draw: &mut kivact::draw::Draw, size: Size, state: State) {
-    let p = draw.theme().get::<crate::tokens::Tokens>();
+    let p = draw.theme().ext::<crate::tokens::Tokens>();
     for x in (0..size.width.max(0.0) as usize).step_by(20) {
         for y in (0..size.height.max(0.0) as usize).step_by(20) {
-            draw.rounded_rect(Rect::new(x as f32, y as f32, 2.0, 2.0), 1.0, p.hair);
+            draw.rounded_rect(Rect::new(x as f64, y as f64, 2.0, 2.0), 1.0, p.hair);
         }
     }
     let transform = state.transform.get();
@@ -192,4 +179,23 @@ pub(crate) fn editor(draw: &mut kivact::draw::Draw, size: Size, state: State) {
             draw.stroke_rect(Rect::from_points(from, to), 1.0, p.accent);
         }
     });
+}
+
+fn preview(draw: &mut Draw, node: &NodeData, r: Rect) {
+    if let Some(image) = &node.preview {
+        let preview = Rect::new(r.x + 10.0, r.y + r.height - 65.0, r.width - 20.0, 55.0);
+        let scale = (preview.width / image.width as f64).min(preview.height / image.height as f64);
+        let width = image.width as f64 * scale;
+        let height = image.height as f64 * scale;
+        draw.pixels(
+            image,
+            Rect::new(
+                preview.x + (preview.width - width) / 2.0,
+                preview.y + (preview.height - height) / 2.0,
+                width,
+                height,
+            ),
+            kivact::draw::ImageOptions::default(),
+        );
+    }
 }

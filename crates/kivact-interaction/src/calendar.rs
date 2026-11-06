@@ -2,9 +2,9 @@
 //!
 //! [`use_calendar_grid`] takes the shown month (the first of the months drawn
 //! side by side), the caller's [`CalendarSelection`] (one day or a range) and
-//! a [`CalendarPolicy`]. The caller draws everything: for each shown month
-//! a container with [`grid`](CalendarGrid::grid), a [`row`](CalendarGrid::row)
-//! per week and a [`cell`](CalendarGrid::cell) per day (a month's days and
+//! a [`CalendarOptions`]. The caller draws everything: for each shown month
+//! a container with [`grid`](CalendarGridApi::grid), a [`row`](CalendarGridApi::row)
+//! per week and a [`cell`](CalendarGridApi::cell) per day (a month's days and
 //! weeks are [`CalendarMonth::weeks`]), and the buttons that page the months.
 //! The grid keeps the keyboard focus, the days that cannot be chosen and the
 //! first click of a range; it creates no node.
@@ -23,27 +23,34 @@
 //! focus nor a choice.
 //!
 //! With [`CalendarSelection::Single`] a choice writes `Some(day)`. With
-//! [`CalendarSelection::Range`] the first choice writes the range of that one
-//! day and the second completes it, in either order. Escape while the second
-//! choice is awaited puts back the range from before the first choice; a write
-//! to the range binding from elsewhere starts the next choice over. The
-//! policy's `on_commit` runs when a choice is complete: each choice of a single
-//! day, the second choice of a range.
+//! [`CalendarSelection::Range`] the first choice marks that day as the start
+//! (drawn selected, nothing written) and the second writes the range, in
+//! either order. Escape while the second choice is awaited drops the start and
+//! leaves the range binding as it was; a write to the range binding from
+//! elsewhere starts the next choice over. The policy's
+//! [`on_activate`](CalendarOptions::on_activate) runs when a choice is
+//! complete: each choice of a single day, the second choice of a range.
 //!
 //! ```no_run
 //! # mod kivact {
 //! #     //! Role: Supply facade paths for this documentation example.
-//! #     pub use kivact_core::{control, i18n, prelude, view};
+//! # pub use kivact_core::{i18n, view, state, style};
+//! # pub mod prelude {
+//! # //! Role: Supply the canonical imports used by this documentation example.
+//! # pub use kivact_core::state::{Binding, Callback, IntoBinding, IntoText, IntoValue, Signal, Value, binding, effect, memo, on_cleanup, on_mount, signal};
+//! # pub use kivact_core::view::{EditPhase, Component, IntoView, NodeBuilder, Orientation, Role, column, for_each, node, node_ref, row, show, text};
+//! # pub use kivact_core::style::{ColorToken, Cursor, Style, style};
+//! # }
 //! #     pub extern crate kivact_interaction as interaction;
 //! # }
-//! use kivact::control::{column, node, row, text};
+//! use kivact::view::{column, node, row, text};
 //! use kivact::i18n::{CalendarDate, CalendarMonth};
-//! use kivact::interaction::{CalendarPolicy, CalendarSelection, use_calendar_grid};
+//! use kivact::interaction::{CalendarOptions, CalendarSelection, use_calendar_grid};
 //! use kivact::prelude::*;
 //!
 //! let day = signal(None::<CalendarDate>);
 //! let month = signal(CalendarMonth::new(2026, 10));
-//! let calendar = use_calendar_grid(month, CalendarSelection::Single(day.into()), CalendarPolicy::new());
+//! let calendar = use_calendar_grid(month, CalendarSelection::Single(day.into_binding()), CalendarOptions::new());
 //! let shown = CalendarMonth::new(2026, 10);
 //! let weeks = shown.weeks(calendar.week_start().get_untracked(), 0);
 //! let view = column((
@@ -61,9 +68,12 @@
 //! ));
 //! ```
 
+mod data;
 mod handle;
+mod machine;
 mod policy;
 mod state;
 
-pub use handle::{CalendarDayState, CalendarGrid, CalendarSpan, use_calendar_grid};
-pub use policy::{CalendarPolicy, CalendarSelection};
+pub use data::{CalendarDayState, CalendarSpan};
+pub use handle::{CalendarGridApi, use_calendar_grid};
+pub use policy::{CalendarOptions, CalendarSelection};

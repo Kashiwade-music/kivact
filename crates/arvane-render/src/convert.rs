@@ -3,7 +3,7 @@
 //! Convert portable scene vocabulary to private rasterizer types without leaking dependencies.
 //!
 //! Shapes reach the rasterizers as their one outline
-//! (`kivact_types::protocol::Shape::outline`, arcs as cubics), the outline hit tests
+//! (`kivact_types::scene::Shape::outline`, arcs as cubics), the outline hit tests
 //! use too. A zero-length contour, or a zero-length dash, with round or
 //! square caps draws a dot: kurbo's stroker draws nothing for a
 //! zero-length segment, so it becomes a segment of `DOT` (0.001) along x
@@ -14,7 +14,8 @@
 //! Limits: a zero-length dash that starts exactly where the line ends
 //! draws no dot (kurbo's dashing cuts it to nothing there).
 
-use kivact_types::protocol::{PathCmd, Shape, Transform};
+use kivact_types::geometry::Transform;
+use kivact_types::scene::{PathCmd, Shape};
 use kivact_types::{BlendMode, FillRule, LineCap, LineJoin, Point, Rect, Rgba, Stroke};
 use vello_cpu::color::{AlphaColor, Srgb};
 use vello_cpu::kurbo::{
@@ -23,32 +24,22 @@ use vello_cpu::kurbo::{
 use vello_cpu::peniko::{self, Compose, Mix};
 
 pub(crate) fn point(point: Point) -> RasterPoint {
-    RasterPoint::new(f64::from(point.x), f64::from(point.y))
+    RasterPoint::new(point.x, point.y)
 }
 
 pub(crate) fn rect(rect: Rect) -> RasterRect {
-    RasterRect::new(
-        f64::from(rect.x),
-        f64::from(rect.y),
-        f64::from(rect.x + rect.width),
-        f64::from(rect.y + rect.height),
-    )
+    RasterRect::new(rect.x, rect.y, rect.x + rect.width, rect.y + rect.height)
 }
 
-pub(crate) fn rounded_rect(rectangle: Rect, radii: [f32; 4]) -> vello_cpu::kurbo::RoundedRect {
+pub(crate) fn rounded_rect(rectangle: Rect, radii: [f64; 4]) -> vello_cpu::kurbo::RoundedRect {
     vello_cpu::kurbo::RoundedRect::from_rect(
         rect(rectangle),
-        (
-            f64::from(radii[0]),
-            f64::from(radii[1]),
-            f64::from(radii[2]),
-            f64::from(radii[3]),
-        ),
+        (radii[0], radii[1], radii[2], radii[3]),
     )
 }
 
 pub(crate) fn color(color: Rgba) -> AlphaColor<Srgb> {
-    AlphaColor::new([color.r, color.g, color.b, color.a])
+    AlphaColor::new([color.r, color.g, color.b, color.a].map(|value| value as f32))
 }
 
 /// Path of a stroked line. Drawn at `scale` device pixels per unit (no
@@ -57,7 +48,7 @@ pub(crate) fn color(color: Rgba) -> AlphaColor<Srgb> {
 /// pixel grid (pixel centers for odd widths, pixel edges for even ones), so
 /// a 1 px line covers one row or column at full coverage rather than two at
 /// half. Other lines keep their exact geometry.
-pub(crate) fn line(from: Point, to: Point, width: f32, scale: Option<f32>) -> BezPath {
+pub(crate) fn line(from: Point, to: Point, width: f64, scale: Option<f64>) -> BezPath {
     let (mut from, mut to) = (from, to);
     let Some(scale) = scale else {
         let mut path = BezPath::new();
@@ -79,7 +70,7 @@ pub(crate) fn line(from: Point, to: Point, width: f32, scale: Option<f32>) -> Be
 }
 
 /// The stroke center of a whole-pixel `width` nearest to `center`, in logical units.
-fn snap(center: f32, width: f32, scale: f32) -> f32 {
+fn snap(center: f64, width: f64, scale: f64) -> f64 {
     let device = width * scale;
     let pixels = device.round();
     if pixels < 1.0 || (device - pixels).abs() > 0.01 {
@@ -97,12 +88,12 @@ fn snap(center: f32, width: f32, scale: f32) -> f32 {
 /// The blur parameter of vello's and vello_cpu's blurred rounded
 /// rectangles for a gaussian of standard deviation `std_dev`: they fade by
 /// erf(d / s), so s is √2 deviations. Both cut the blur off at 2.5 s (3.54
-/// deviations, within `kivact_types::protocol::SHADOW_REACH`).
-pub(crate) fn blur_param(std_dev: f32) -> f64 {
-    f64::from(std_dev) * std::f64::consts::SQRT_2
+/// deviations, within `kivact_types::render::SHADOW_REACH`).
+pub(crate) fn blur_param(std_dev: f64) -> f64 {
+    std_dev * std::f64::consts::SQRT_2
 }
 
-/// How a box shadow (`DrawCommand::Shadow`) is drawn.
+/// How a box shadow (`RenderCmd::Shadow`) is drawn.
 pub(crate) enum ShadowParts {
     /// Whole, with one radius.
     Whole(f64),
@@ -110,14 +101,14 @@ pub(crate) enum ShadowParts {
     Quarters([(RasterRect, f64); 4]),
 }
 
-/// How a box shadow (`DrawCommand::Shadow`) is drawn: with one radius
+/// How a box shadow (`RenderCmd::Shadow`) is drawn: with one radius
 /// when its corners agree, else per corner, each in its quarter of
 /// the blur's reach (split at the center of `rect`), so each quadrant
 /// has its own radius. Radii are limited to half the
 /// shorter side.
-pub(crate) fn shadow_quarters(rect: Rect, radii: [f32; 4], std_dev: f32) -> ShadowParts {
-    let limit = f64::from(rect.width.min(rect.height)) / 2.0;
-    let radii = radii.map(|r| f64::from(r).min(limit));
+pub(crate) fn shadow_quarters(rect: Rect, radii: [f64; 4], std_dev: f64) -> ShadowParts {
+    let limit = rect.width.min(rect.height) / 2.0;
+    let radii = radii.map(|r| r.min(limit));
     if radii.iter().all(|r| *r == radii[0]) {
         return ShadowParts::Whole(radii[0]);
     }
@@ -185,7 +176,7 @@ pub(crate) fn fill_rule(rule: FillRule) -> peniko::Fill {
 }
 
 pub(crate) fn affine(t: Transform) -> Affine {
-    Affine::new([t.a, t.b, t.c, t.d, t.e, t.f].map(f64::from))
+    Affine::new([t.a, t.b, t.c, t.d, t.e, t.f])
 }
 
 /// The raster stroke style. Zero-length dashes with round or square caps
@@ -202,12 +193,12 @@ pub(crate) fn stroke(style: &Stroke) -> kurbo::Stroke {
         LineJoin::Round => kurbo::Join::Round,
         LineJoin::Bevel => kurbo::Join::Bevel,
     };
-    let mut out = kurbo::Stroke::new(f64::from(style.width))
+    let mut out = kurbo::Stroke::new(style.width)
         .with_caps(cap)
         .with_join(join)
-        .with_miter_limit(f64::from(style.miter_limit));
+        .with_miter_limit(style.miter_limit);
     if !style.dash.is_empty() {
-        let mut dash: Vec<f64> = style.dash.iter().map(|d| f64::from(*d)).collect();
+        let mut dash: Vec<f64> = style.dash.to_vec();
         if dash.len() % 2 == 1 {
             dash.extend_from_within(..);
         }
@@ -219,7 +210,7 @@ pub(crate) fn stroke(style: &Stroke) -> kurbo::Stroke {
                 }
             }
         }
-        out = out.with_dashes(f64::from(style.dash_offset), dash);
+        out = out.with_dashes(style.dash_offset, dash);
     }
     out
 }

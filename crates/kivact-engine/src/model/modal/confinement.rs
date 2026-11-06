@@ -1,8 +1,9 @@
 //! Role: Modal scope queries, input admission and focus confinement.
 
+use crate::contract::HostEvent;
 use crate::model::Model;
 use crate::tree::node::HostNode;
-use kivact_wire::{A11yAction, FocusTarget, HostEvent, NodeId, PointerId, PointerPhase};
+use kivact_types::{A11yAction, FocusTarget, NodeId, PointerId, PointerPhase};
 
 impl Model {
     /// The topmost shown modal overlay, if one is shown.
@@ -30,7 +31,7 @@ impl Model {
             // Several: the last one in tree order is on top.
             _ => self
                 .tree
-                .preorder()
+                .flat_preorder()
                 .into_iter()
                 .rev()
                 .find(|id| shown.contains(id)),
@@ -59,7 +60,7 @@ impl Model {
             0 => None,
             1 => candidates.pop(),
             _ => {
-                let order = self.tree.preorder();
+                let order = self.tree.flat_preorder();
                 candidates
                     .into_iter()
                     .max_by_key(|c| order.iter().position(|x| x == c))
@@ -83,12 +84,12 @@ impl Model {
     /// order.
     pub(crate) fn admit_input(&self, event: &HostEvent) -> bool {
         match event {
-            HostEvent::Pointer { node, event, .. } => {
-                self.admit_pointer(*node, event.id, event.phase, event.buttons)
-            }
-            HostEvent::Wheel { node, .. }
-            | HostEvent::File { node, .. }
-            | HostEvent::Activate { node, .. }
+            HostEvent::Pointer(event) => event.target.is_some_and(|node| {
+                self.admit_pointer(node, event.input.id, event.input.phase, event.input.buttons)
+            }),
+            HostEvent::Wheel(event) => event.target.is_some_and(|node| self.in_scope(node)),
+            HostEvent::File(event) => event.target.is_some_and(|node| self.in_scope(node)),
+            HostEvent::Activate { node, .. }
             | HostEvent::TextChanged { node, .. }
             | HostEvent::SelectionChanged { node, .. }
             | HostEvent::Ime { node, .. }
@@ -106,7 +107,7 @@ impl Model {
         node: NodeId,
         pointer: PointerId,
         phase: PointerPhase,
-        buttons: kivact_wire::PointerButtons,
+        buttons: kivact_types::PointerButtons,
     ) -> bool {
         let admission = &self.admission;
         admission.forget_missing(|n| self.tree.live(n));
@@ -130,7 +131,7 @@ impl Model {
                 admission.press(pointer, node);
                 // A new primary press ends the pointer's earlier gesture
                 // whose release never came.
-                if press.button == kivact_wire::MouseButton::Primary {
+                if press.button == kivact_types::MouseButton::Primary {
                     admission.forget_adoption(pointer);
                 }
             }
@@ -189,7 +190,7 @@ impl Model {
         if self.tree.is_in_subtree(focus.node, modal) {
             return;
         }
-        let order = self.tree.preorder();
+        let order = self.tree.flat_preorder();
         let start = order.iter().position(|x| *x == focus.node).unwrap_or(0);
         let ranks: std::collections::HashMap<_, _> = order[start..]
             .iter()

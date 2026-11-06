@@ -44,7 +44,7 @@ fn orders() -> impl IntoView {
                     } else {
                         pop::Hue::Yellow
                     };
-                    pop::badge(order.status).hue(hue)
+                    kivact::ui::badge(order.status).variant(pop::BadgeHue::new(hue))
                 },
             ),
             DataColumn::new("Total", |order: &Order| format!("${:.2}", order.total))
@@ -195,7 +195,7 @@ in the same way.
 - `.row_actions(width, |row| view)` adds a last column of controls such as a
   menu button. The header has no title and is named "Actions".
 - `.resizable(signal_of_widths)` adds resize handles to the headers and keeps
-  the widths (a `Vec<f32>`, one per column) in your signal.
+  the widths (a `Vec<f64>`, one per column) in your signal.
 - `.row_details(|row| view)` puts a view under each row, and
   `.cell_controls(..)` puts controls inside cells; both stay mounted while
   rows are sorted and paged, so their state (a half-typed edit) is kept.

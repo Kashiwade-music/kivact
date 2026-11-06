@@ -6,7 +6,7 @@
 //!   Themes compare installed extensions by value.
 //! - A theme with no extension allocates no table, and a clone of an
 //!   extended theme shares it.
-//! - A theme switches through the tracking of `current_theme()` in
+//! - A theme switches through the tracking of `use_theme()` in
 //!   `.style(..)` closures and of `provide_theme`, without remounting.
 //! - `Color::components_in(theme)` and `mix_in(other, amount, theme)`
 //!   resolve tokens in the given theme; `components` and `mix` use the
@@ -15,8 +15,8 @@
 use super::{Palette, Radii, Spacing, Typography};
 use crate::color::{Color, ColorToken, Repr, rgb, rgba};
 use crate::icon::IconSet;
-use kivact_reactive::{Owner, Value};
-use kivact_wire::{LineHeight, Rgba};
+use kivact_runtime::{Owner, Value};
+use kivact_types::{LineHeight, Rgba};
 use std::any::{Any, TypeId};
 use std::fmt;
 use std::sync::{Arc, Mutex};
@@ -27,7 +27,7 @@ use std::sync::{Arc, Mutex};
 ///
 /// A library defines one type for each, installs a value with
 /// [`Theme::with`] in its theme constructor, and reads it with
-/// [`Theme::get`] where it styles (a recipe, a style closure, a draw
+/// [`Theme::ext`] where it styles (a recipe, a style closure, a draw
 /// callback). A read in a style closure tracks the theme, so switching the
 /// theme restyles mounted components without a remount; the read shares the
 /// installed value and copies nothing. Two themes are equal when their
@@ -37,7 +37,7 @@ use std::sync::{Arc, Mutex};
 /// functions with [`Default`] as its fallback; a component library may
 /// define a table for its own components the same way. To change part of a
 /// table a theme already has (a kit's look), clone the value that
-/// [`Theme::get`] returns, change it and install it again.
+/// [`Theme::ext`] returns, change it and install it again.
 ///
 /// Recipe tables compare their functions by identity, so an unchanged table
 /// never restyles. Identity means the same `Arc`: a table built anew is a
@@ -61,8 +61,8 @@ use std::sync::{Arc, Mutex};
 ///     }
 /// }
 /// let theme = Theme::light().with(Brand { highlight: rgb(0x0088ff) });
-/// assert_eq!(theme.get::<Brand>().highlight, rgb(0x0088ff));
-/// assert_eq!(Theme::light().get::<Brand>().highlight, rgb(0xff8800));
+/// assert_eq!(theme.ext::<Brand>().highlight, rgb(0x0088ff));
+/// assert_eq!(Theme::light().ext::<Brand>().highlight, rgb(0xff8800));
 /// ```
 pub trait ThemeExtension: PartialEq + std::fmt::Debug + Send + Sync + 'static {
     /// The value a theme without this extension reads: the library's
@@ -70,6 +70,39 @@ pub trait ThemeExtension: PartialEq + std::fmt::Debug + Send + Sync + 'static {
     /// the library still draws under another library's theme. A recipe
     /// table returns its [`Default`].
     fn fallback(theme: &Theme) -> Self;
+}
+
+/// A shared installed theme extension.
+pub struct ThemeRef<T>(Arc<T>);
+impl<T> Clone for ThemeRef<T> {
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
+    }
+}
+impl<T> std::ops::Deref for ThemeRef<T> {
+    type Target = T;
+    fn deref(&self) -> &T {
+        &self.0
+    }
+}
+impl<T: Clone> ThemeRef<T> {
+    /// Copy the extension value.
+    pub fn to_owned(&self) -> T {
+        (*self.0).clone()
+    }
+}
+impl From<kivact_types::ThemeHint> for ThemeMode {
+    fn from(value: kivact_types::ThemeHint) -> Self {
+        match value {
+            kivact_types::ThemeHint::Light => Self::Light,
+            kivact_types::ThemeHint::Dark => Self::Dark,
+        }
+    }
+}
+/// The current theme's installed extension.
+#[track_caller]
+pub fn use_tokens<T: ThemeExtension>() -> ThemeRef<T> {
+    use_theme().with(Theme::ext::<T>)
 }
 
 /// One installed extension, keyed by its type.
@@ -175,10 +208,11 @@ pub struct Theme {
     space: Spacing,
     radius: Radii,
     text: Typography,
-    focus_ring: f32,
-    focus_ring_offset: f32,
-    disabled_opacity: f32,
-    control_height: f32,
+    focus_ring: f64,
+    focus_ring_offset: f64,
+    disabled_opacity: f64,
+    control_height: f64,
+    overlay_margin: f64,
     icons: IconSet,
 }
 
@@ -193,10 +227,12 @@ impl Theme {
     /// The extension of type `T` installed in this theme, or
     /// [`ThemeExtension::fallback`] when there is none. The installed value
     /// is shared, not copied.
-    pub fn get<T: ThemeExtension>(&self) -> Arc<T> {
-        self.extensions
-            .get::<T>()
-            .unwrap_or_else(|| Arc::new(T::fallback(self)))
+    pub fn ext<T: ThemeExtension>(&self) -> ThemeRef<T> {
+        ThemeRef(
+            self.extensions
+                .get::<T>()
+                .unwrap_or_else(|| Arc::new(T::fallback(self))),
+        )
     }
 
     /// Whether the palette is light or dark.
@@ -229,12 +265,12 @@ impl Theme {
     /// visible focus, unless its style has a focus look of its own (a
     /// `focus` or `focus_visible` state;
     /// `style().focus_visible(style().ring_none())` draws none).
-    pub fn focus_ring(&self) -> f32 {
+    pub fn focus_ring(&self) -> f64 {
         self.focus_ring
     }
 
     /// The gap in logical pixels between the border box and the theme focus ring.
-    pub fn focus_ring_offset(&self) -> f32 {
+    pub fn focus_ring_offset(&self) -> f64 {
         self.focus_ring_offset
     }
 
@@ -244,13 +280,23 @@ impl Theme {
     /// not the tab stop (a disabled one never is) is dimmed too
     /// (`style().disabled(style().opacity(1.0))` keeps it opaque). A disabled
     /// focusable element also drops its hover and pressed looks.
-    pub fn disabled_opacity(&self) -> f32 {
+    pub fn disabled_opacity(&self) -> f64 {
         self.disabled_opacity
     }
 
     /// Minimum height of interactive controls (px).
-    pub fn control_height(&self) -> f32 {
+    pub fn control_height(&self) -> f64 {
         self.control_height
+    }
+    /// Viewport inset used to fit overlays, in logical pixels.
+    pub fn overlay_margin(&self) -> f64 {
+        self.overlay_margin
+    }
+    /// Set the viewport inset used to fit overlays, in logical pixels.
+    #[must_use]
+    pub fn with_overlay_margin(mut self, margin: f64) -> Self {
+        self.overlay_margin = margin;
+        self
     }
 
     /// The images an [`Icon`](crate::Icon) name resolves to. The
@@ -299,29 +345,29 @@ impl Theme {
     /// The theme with the focus ring width `focus_ring` (px); see
     /// [`focus_ring`](Self::focus_ring).
     #[must_use]
-    pub fn with_focus_ring(mut self, focus_ring: f32) -> Self {
-        self.focus_ring = focus_ring;
+    pub fn with_focus_ring(mut self, focus_ring: impl Into<f64>) -> Self {
+        self.focus_ring = focus_ring.into();
         self
     }
 
     /// Set the gap in logical pixels before the theme focus ring.
-    pub fn with_focus_ring_offset(mut self, offset: f32) -> Self {
-        self.focus_ring_offset = offset;
+    pub fn with_focus_ring_offset(mut self, offset: impl Into<f64>) -> Self {
+        self.focus_ring_offset = offset.into();
         self
     }
 
     /// The theme with the disabled opacity `disabled_opacity`; see
     /// [`disabled_opacity`](Self::disabled_opacity).
     #[must_use]
-    pub fn with_disabled_opacity(mut self, disabled_opacity: f32) -> Self {
-        self.disabled_opacity = disabled_opacity;
+    pub fn with_disabled_opacity(mut self, disabled_opacity: impl Into<f64>) -> Self {
+        self.disabled_opacity = disabled_opacity.into();
         self
     }
 
     /// The theme with the minimum control height `control_height` (px).
     #[must_use]
-    pub fn with_control_height(mut self, control_height: f32) -> Self {
-        self.control_height = control_height;
+    pub fn with_control_height(mut self, control_height: impl Into<f64>) -> Self {
+        self.control_height = control_height.into();
         self
     }
 
@@ -337,9 +383,10 @@ impl Theme {
     #[must_use]
     pub fn with_icon(
         mut self,
-        name: impl Into<std::borrow::Cow<'static, str>>,
+        name: impl Into<String>,
         image: impl Into<crate::asset::Asset>,
     ) -> Self {
+        let name: String = name.into();
         self.icons = self.icons.with(name, image);
         self
     }
@@ -395,6 +442,7 @@ impl Theme {
             focus_ring_offset: 0.0,
             disabled_opacity: 0.5,
             control_height: 28.0,
+            overlay_margin: 0.0,
             icons: IconSet::standard(),
         }
     }
@@ -438,27 +486,24 @@ impl Default for Theme {
 #[derive(Clone, Copy)]
 struct ThemeCtx(Value<Theme>);
 
-kivact_reactive::constant_value!(Theme);
+kivact_runtime::constant_value!(Theme);
 
-impl Theme {
-    /// Provide `theme` to `owner`'s subtree, replacing any inherited theme.
-    /// The value stays reactive: readers below `owner` track it.
-    ///
-    /// The App's root and `kivact::view::provide_theme` use it;
-    /// [`current_theme`] and [`Theme::of`] read the nearest one above the
-    /// caller.
-    pub fn install(owner: Owner, theme: Value<Theme>) {
-        owner.provide(ThemeCtx(theme));
-    }
+/// Provide `theme` to `owner`'s subtree, replacing any inherited theme.
+/// The value stays reactive: readers below `owner` track it.
+///
+/// The App's root and `kivact::view::provide_theme` use it;
+/// [`use_theme`] and [`theme_of`] read the nearest one above the
+/// caller.
+pub fn install_theme(owner: Owner, theme: Value<Theme>) {
+    owner.provide(ThemeCtx(theme));
+}
 
-    /// The theme provided to `owner`'s subtree by the nearest [`install`]
-    /// above it, if any (the App's root always provides one). The value is
-    /// not read here: reading it tracks the current computation.
-    ///
-    /// [`install`]: Theme::install
-    pub fn of(owner: Owner) -> Option<Value<Theme>> {
-        owner.context::<ThemeCtx>().map(|c| c.0)
-    }
+/// The theme provided to `owner`'s subtree by the nearest [`install_theme`]
+/// above it, if any (the App's root always provides one). The value is
+/// not read here: reading it tracks the current computation.
+///
+pub fn theme_of(owner: Owner) -> Option<Value<Theme>> {
+    owner.context::<ThemeCtx>().map(|c| c.0)
 }
 
 /// The theme in effect for the nearest owner (setup, handler, task or
@@ -466,11 +511,11 @@ impl Theme {
 /// provided theme is reactive. A located `SetupOnly` misuse outside every
 /// owner.
 #[track_caller]
-pub fn current_theme() -> Theme {
-    let owner = Owner::ambient("current_theme", std::panic::Location::caller());
-    match Theme::of(owner) {
-        Some(s) => s.get(),
-        None => Theme::default(),
+pub fn use_theme() -> Value<Theme> {
+    let owner = Owner::ambient("use_theme", std::panic::Location::caller());
+    match theme_of(owner) {
+        Some(s) => s,
+        None => owner.constant(Theme::default(), std::panic::Location::caller()),
     }
 }
 
@@ -480,13 +525,13 @@ pub fn current_theme() -> Theme {
 /// [`Color`] is the identity and [`ColorToken`] reads the theme's
 /// [`Palette`](crate::theme::Palette). A component kit names its own colors
 /// with a `Color` enum that implements this trait by reading its tokens
-/// (`theme.get::<Tokens>().border`), so `style().background(basic::Color::Border)`
+/// (`theme.ext::<Tokens>().border`), so `style().background(basic::ColorName::Border)`
 /// follows a theme switch without a closure around it.
 ///
 /// The returned [`Color`] may itself be a token or carry an alpha; it is
 /// resolved against the same theme. An implementor is a small value type
 /// (a field-less enum): the process keeps one shared copy of each distinct
-/// value, so a value that is built from a number (`Gray(f32)`) would grow
+/// value, so a value that is built from a number (`Gray(f64)`) would grow
 /// that table without bound.
 pub trait ThemeColor: Copy + PartialEq + fmt::Debug + Send + Sync + 'static {
     /// The color this value stands for in `theme`.
@@ -522,14 +567,14 @@ impl<T: ThemeColor> Themed for T {
     }
 }
 
-/// Every distinct [`ThemeColor`] value stored so far; a `Repr::Themed`
-/// indexes it. Values are never removed.
+/// A non-shrinking interning table with one entry per distinct `ThemeColor`
+/// value. A Copy `Color` indexes it without carrying a theme.
 static THEMED: Mutex<Vec<&'static dyn Themed>> = Mutex::new(Vec::new());
 
 fn themed_index<T: ThemeColor>(value: T) -> u32 {
     let mut table = THEMED
         .lock()
-        .expect("THEMED lock poisoned: a panic already happened");
+        .expect("invariant: the THEMED interning lock is not poisoned");
     let known = table
         .iter()
         .position(|v| v.value().downcast_ref::<T>() == Some(&value));
@@ -542,7 +587,7 @@ fn themed_index<T: ThemeColor>(value: T) -> u32 {
 fn themed_value(index: u32) -> &'static dyn Themed {
     let table = THEMED
         .lock()
-        .expect("THEMED lock poisoned: a panic already happened");
+        .expect("invariant: the THEMED interning lock is not poisoned");
     table[index as usize]
 }
 
@@ -586,12 +631,12 @@ impl Color {
     }
 
     /// Concrete components (tokens resolved against the default theme).
-    pub fn components(self) -> [f32; 4] {
+    pub fn components(self) -> [f64; 4] {
         self.components_in(&Theme::default())
     }
 
     /// Components resolved against the supplied theme, in sRGB.
-    pub fn components_in(self, theme: &Theme) -> [f32; 4] {
+    pub fn components_in(self, theme: &Theme) -> [f64; 4] {
         let c = self.resolve(theme);
         [c.r, c.g, c.b, c.a]
     }
@@ -604,7 +649,7 @@ impl Color {
 
     /// Mix after resolving both colors against the supplied theme.
     pub fn mix_in(self, other: Color, amount: impl Into<f64>, theme: &Theme) -> Color {
-        let t = (amount.into() as f32).clamp(0.0, 1.0);
+        let t = (amount.into()).clamp(0.0, 1.0);
         let a = self.components_in(theme);
         let b = other.components_in(theme);
         let alpha = a[3] + (b[3] - a[3]) * t;
@@ -615,18 +660,18 @@ impl Color {
                 0.0
             }
         };
-        Color::from_rgba_f32(component(0), component(1), component(2), alpha)
+        Color::from_rgba_f64(component(0), component(1), component(2), alpha)
     }
 }
 
-impl kivact_motion::Animatable for Color {
+impl kivact_runtime::Animatable for Color {
     const COMPONENTS: usize = 4;
-    fn to_components(&self, out: &mut Vec<f32>) {
+    fn to_components(&self, out: &mut Vec<f64>) {
         out.extend_from_slice(&self.components());
     }
-    fn from_components(c: &[f32]) -> Self {
+    fn from_components(c: &[f64]) -> Self {
         let g = |i: usize| c.get(i).copied().unwrap_or_default();
-        Color::from_rgba_f32(g(0), g(1), g(2), g(3))
+        Color::from_rgba_f64(g(0), g(1), g(2), g(3))
     }
 }
 

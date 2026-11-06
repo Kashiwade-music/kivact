@@ -1,8 +1,10 @@
 //! Role: Catalog page of Command: the standard command palette in a dialog.
+use kivact::ui::ButtonVariant;
 
 use crate::model::{Example, Page, PreviewAlign};
+use kivact::interaction::Command;
 use kivact::prelude::*;
-use kivact::ui::{Command, command_palette};
+use kivact::ui::command_palette;
 use kivact_ui_basic as basic;
 
 pub(crate) fn page() -> Page {
@@ -10,8 +12,7 @@ pub(crate) fn page() -> Page {
         slug: "command",
         name: "Command",
         description: "検索しながらコマンドや項目を選ぶメニューです。標準の command_palette をモーダルのダイアログに表示します。入力で項目を絞り込み、矢印キーで移動し、Enter かクリックで選びます。グループ、アイコン、ショートカットを持てます。",
-        usage: "use kivact::prelude::*;
-use kivact::ui::{Command, command_palette};
+        usage: "use kivact::prelude::*;\nuse kivact::ui::ButtonVariant;
 use kivact_ui_basic as basic;",
         source: include_str!("command.rs"),
         align: PreviewAlign::Start,
@@ -42,30 +43,30 @@ fn default() -> impl IntoView {
             .on_press(move || open.set(true)),
         basic::muted(move || last.get()),
         command_palette(
-            open,
             vec![
                 Command::new("calendar", "Calendar")
-                    .group("Suggestions")
-                    .icon("calendar"),
+                    .with_group("Suggestions")
+                    .with_icon("calendar"),
                 Command::new("emoji", "Search Emoji")
-                    .group("Suggestions")
-                    .icon("smile")
-                    .keywords(["face"]),
+                    .with_group("Suggestions")
+                    .with_icon("smile")
+                    .with_keywords(["face"]),
                 Command::new("profile", "Profile")
-                    .group("Settings")
-                    .icon("user")
-                    .hint("Ctrl P"),
+                    .with_group("Settings")
+                    .with_icon("user")
+                    .with_hint("Ctrl P"),
                 Command::new("billing", "Billing")
-                    .group("Settings")
-                    .icon("credit-card")
-                    .hint("Ctrl B"),
+                    .with_group("Settings")
+                    .with_icon("credit-card")
+                    .with_hint("Ctrl B"),
                 Command::new("settings", "Settings")
-                    .group("Settings")
-                    .icon("settings")
-                    .hint("Ctrl S"),
+                    .with_group("Settings")
+                    .with_icon("settings")
+                    .with_hint("Ctrl S"),
             ],
-            move |key: &str| last.set(format!("Ran {key}.")),
-        ),
+            open,
+        )
+        .on_activate(move |key: &str| last.set(format!("Ran {key}."))),
     ))
     .style(style().gap(12).align_items(Align::Center))
 }
@@ -79,14 +80,14 @@ fn simple() -> impl IntoView {
             .variant(ButtonVariant::Outline)
             .on_press(move || open.set(true)),
         command_palette(
-            open,
             vec![
                 Command::new("light", "Light"),
                 Command::new("dark", "Dark"),
                 Command::new("system", "System"),
             ],
-            |_: &str| {},
+            open,
         )
+        .on_activate(|_: &str| {})
         .placeholder("Choose a theme...")
         .empty_text("No theme found."),
     ))

@@ -10,7 +10,6 @@ use std::time::Duration;
 use crate::support::mount;
 use kivact::interaction::use_tooltip;
 use kivact::prelude::*;
-use kivact::primitive::NodeExt;
 
 use kivact::test::Screen;
 use kivact::view::{OverlayAlign, Placement, overlay};
@@ -64,19 +63,19 @@ fn tip_with<V: IntoView>(
 ) -> View {
     let tip = use_tooltip();
     let part = tip.trigger();
-    let anchor = part.node_ref();
+    let anchor = node_ref();
     let described = trigger.has_description();
-    let trigger = trigger.part(part);
+    let trigger = trigger.part(part).node_ref(anchor);
     let trigger = if described {
         trigger
     } else {
         trigger.description(label)
     };
-    let hint = show(tip.shown(), move || {
+    let hint = show(tip.is_open(), move || {
         overlay(anchor, placement, body())
             .align(OverlayAlign::Center)
             .offset(6)
-            .part(tip.content())
+            .with_node(move |node| node.part(tip.content()))
             .name(label)
     });
     (trigger, hint).into_view()

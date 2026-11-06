@@ -20,16 +20,16 @@
 
 use std::panic::Location;
 
-use crate::draw::Point;
-use kivact_reactive::Runtime;
-use kivact_reactive::{Signal, Value, require_setup};
-use kivact_wire::NodeId;
+use crate::geometry::Point;
+use kivact_runtime::Runtime;
+use kivact_runtime::{Signal, Value};
+use kivact_types::FocusTarget;
 
 use crate::view::state::{PointerObservation, ViewState};
 
 /// The hover source of `rt`'s App, created under the root owner by the first
 /// call (at the node the host reported last) and kept for the App's lifetime.
-pub(crate) fn source(rt: &Runtime, at: &'static Location<'static>) -> Signal<Option<NodeId>> {
+pub(crate) fn source(rt: &Runtime, at: &'static Location<'static>) -> Signal<Option<FocusTarget>> {
     let state = ViewState::of(rt);
     let last = match state.hover() {
         PointerObservation::Reactive(source) => return source,
@@ -43,8 +43,8 @@ pub(crate) fn source(rt: &Runtime, at: &'static Location<'static>) -> Signal<Opt
 
 /// The host reported that `node` is under the pointer now; a node already
 /// unmounted on the core side hovers nothing.
-pub(crate) fn set_hovered(rt: &Runtime, node: Option<NodeId>) {
-    let node = node.filter(|id| ViewState::tree(rt).get(*id).is_some());
+pub(crate) fn set_hovered(rt: &Runtime, node: Option<FocusTarget>) {
+    let node = node.filter(|id| ViewState::tree(rt).get(id.node).is_some());
     let state = ViewState::of(rt);
     match state.hover() {
         PointerObservation::Plain(_) => state.set_hover(PointerObservation::Plain(node)),
@@ -57,10 +57,9 @@ pub(crate) fn set_hovered(rt: &Runtime, node: Option<NodeId>) {
 /// hit testing, capture or node handlers. It is absent outside the window.
 /// Call during setup to observe movement across gaps between floating views.
 #[track_caller]
-pub fn mouse_position() -> Value<Option<Point>> {
+pub fn pointer_position() -> Value<Option<Point>> {
     let at = Location::caller();
-    require_setup("mouse_position");
-    let rt = Runtime::current().expect("mouse_position requires an active App");
+    let rt = Runtime::current().expect("pointer_position requires an active App");
     let state = ViewState::of(&rt);
     let last = match state.mouse.get() {
         PointerObservation::Reactive(source) => return source.into(),
@@ -71,7 +70,7 @@ pub fn mouse_position() -> Value<Option<Point>> {
     source.into()
 }
 
-pub(crate) fn set_mouse_position(rt: &Runtime, position: Option<kivact_wire::Point>) {
+pub(crate) fn set_pointer_position(rt: &Runtime, position: Option<kivact_types::Point>) {
     let position = position.map(|point| Point::new(point.x, point.y));
     let state = ViewState::of(rt);
     match state.mouse.get() {

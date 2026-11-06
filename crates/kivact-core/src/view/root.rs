@@ -7,7 +7,7 @@
 //! Invariants:
 //! - Started once per App, when the host starts: the client creates the
 //!   root owner (recorded in the runtime so that it disposes it first at
-//!   shutdown), [`start`] installs the tree with the root node, then
+//!   shutdown), runtime construction installs the complete view state, then
 //!   [`mount_root`] mounts the App's view below it.
 //! - The root node resolves its style on the one style path of every node
 //!   (`mount::bind_style`): it fills the window with the theme's
@@ -15,55 +15,18 @@
 //! - The root node has no creation location (diagnostics show the nearest
 //!   located node instead).
 
-use std::cell::RefCell;
 use std::panic::Location;
 use std::rc::Rc;
 
 use crate::i18n::{Locale, Messages};
-use kivact_engine::bridge::Writer;
-use kivact_reactive::{IntoValue, Owner, Runtime, Signal, Value};
-use kivact_style::Theme;
-use kivact_wire::{HostInfo, NodeType, Size};
+use kivact_engine::contract::NodeType;
+use kivact_runtime::{IntoValue, Owner, Runtime, Signal, Value};
 
 use crate::view::boundary::mount_in;
 use crate::view::descriptor::Mcx;
 use crate::view::descriptor::View;
 use crate::view::mount::{NodeStyle, bind_style};
-use crate::view::state::{EnvState, Started, ViewState};
-use crate::view::tree::Tree;
-
-/// What the App sets for its whole life (`App::theme`, `App::locale`,
-/// `App::messages`).
-pub(crate) struct AppSettings {
-    pub theme: Theme,
-    /// `None`: the App names no locale, so it speaks the host's.
-    pub locale: Option<Locale>,
-    pub messages: Messages,
-}
-
-/// Install what the host's start establishes for `rt`'s App
-/// (`ViewState::start`): the tree written through `engine`, with the root
-/// node of the root owner `owner`; the environment `info` reports; its
-/// capabilities; the keyboard focus source; the minimum window size; with
-/// gpu-interop, the adapter signal. `at` is where the App was started.
-pub(crate) fn start(
-    rt: &Rc<Runtime>,
-    owner: Owner,
-    info: &HostInfo,
-    engine: Writer,
-    min_window_size: Option<Size>,
-    at: &'static Location<'static>,
-) {
-    ViewState::of(rt).start(Started {
-        tree: RefCell::new(Tree::new(engine, owner)),
-        env: Rc::new(EnvState::new(owner, info.env.clone(), at)),
-        capabilities: info.capabilities,
-        focus: crate::view::focus::keys(owner, at),
-        min_window_size,
-        #[cfg(feature = "gpu-interop")]
-        adapter: owner.signal(None::<kivact_wire::GpuAdapter>, at),
-    });
-}
+use crate::view::state::ViewState;
 
 /// Fill the root owner `owner` of `rt`'s App with the `settings` (theme,
 /// locale and messages, each a signal the root provides; the locale is the
@@ -74,32 +37,38 @@ pub(crate) fn start(
 pub(crate) fn mount_root(
     rt: &Rc<Runtime>,
     owner: Owner,
-    settings: AppSettings,
+    settings: (
+        kivact_runtime::Prop<kivact_style::Theme>,
+        Option<Locale>,
+        Messages,
+    ),
     build: Box<dyn FnOnce() -> View>,
     at: &'static Location<'static>,
 ) {
+    let (theme, app_locale, app_messages) = settings;
     let env = ViewState::of(rt).env();
     // The App's own locale is a constant; without one the locale is the
-    // host's, which follows `HostEnv::locale`.
-    let locale: Value<Locale> = match settings.locale.clone() {
+    // host's, which follows `Environment::locale`.
+    let locale: Value<Locale> = match app_locale {
         Some(named) => owner.constant(named, at),
         None => {
             let host = env.field("locale", |e| e.locale.clone());
             owner.with_setup(|| {
-                kivact_reactive::memo(move || host.with(|tag| host_locale(tag.as_deref())))
+                kivact_runtime::memo(move || host.with(|tag| host_locale(tag.as_deref())))
             })
         }
     };
-    kivact_motion::MotionState::of(rt).attach_env(kivact_motion::MotionEnv {
-        reduced_motion: env.field("reduced_motion", |e| e.reduced_motion),
-        surface_active: env.field("surface_active", |e| e.surface_active),
-        frame_period_ns: env.field("frame_period_ns", |e| e.frame_period_ns),
-    });
-    let theme: Signal<Theme> = owner.signal(settings.theme, at);
-    Theme::install(owner, theme.into_value());
-    kivact_i18n::install_locale(owner, locale);
-    let messages: Signal<Messages> = owner.signal(settings.messages, at);
-    kivact_i18n::install_messages(owner, messages.into_value());
+    // The root publishes a theme source even for a fixed startup value, so
+    // style dependencies retain the same theme identity in diagnostics.
+    // Reactive inputs keep their existing source and update semantics.
+    let theme = match theme.fixed() {
+        Some(theme) => owner.signal(theme, at).into_value(),
+        None => owner.with_setup(|| theme.into_value(owner, at)),
+    };
+    kivact_style::internal::install_theme(owner, theme);
+    crate::view::boundary::install_locale(owner, locale);
+    let messages: Signal<Messages> = owner.signal(app_messages, at);
+    crate::view::boundary::install_messages(owner, messages.into_value());
     let root = ViewState::tree(rt).root;
     let style = NodeStyle {
         layers: vec![Rc::new(|| {
@@ -111,7 +80,7 @@ pub(crate) fn mount_root(
     };
     bind_style(&Mcx { rt, owner }, root, NodeType::Root, style, at);
     let child = mount_in(rt, owner, build);
-    ViewState::tree_mut(rt).insert(root, child, None);
+    ViewState::tree(rt).engine().insert(root, child, None);
 }
 
 /// The locale the host reports (`en-US` when it names none).

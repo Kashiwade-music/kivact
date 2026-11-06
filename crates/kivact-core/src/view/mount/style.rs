@@ -3,15 +3,16 @@
 use std::panic::Location;
 use std::rc::Rc;
 
-use kivact_engine::bridge::PropValue;
-use kivact_reactive::Prop as InputProp;
-use kivact_reactive::{EffectKind, UiError};
+use kivact_engine::api::PropValue;
+use kivact_engine::contract::NodeType;
+use kivact_runtime::Prop as InputProp;
+use kivact_runtime::{EffectKind, UiError};
 use kivact_style::{Interactive, Style};
-use kivact_wire::{LayoutProps, NodeId, NodeType};
+use kivact_types::{LayoutProps, NodeId};
 
 use super::facts::{LocalPaintSource, NodeFacts};
-use crate::view::common::StyleLayer;
 use crate::view::descriptor::Mcx;
+use crate::view::element_data::StyleLayer;
 use crate::view::state::ViewState;
 
 /// Merge `layers` in order over the empty style.
@@ -21,14 +22,15 @@ pub(crate) fn merge_layers(layers: &[StyleLayer]) -> Style {
         .fold(Style::default(), |s, layer| s.merge(&layer()))
 }
 
+// xtask-allow(state-fields): Independent disabled and selected readers feed style compilation without owning their state.
 /// The readers of the disabled and selected states, for the style effect.
 pub(super) struct States {
     disabled: Option<Rc<dyn Fn() -> bool>>,
     selected: Option<Rc<dyn Fn() -> bool>>,
 }
 
-/// Stage 3: bind disabled and selected, which feed both semantics and the
-/// state styles.
+/// Stage 3: retain the semantic inputs read by the state style effect.
+/// The semantic publisher owns the corresponding engine writes.
 pub(super) fn bind_states(
     cx: &Mcx<'_>,
     id: NodeId,
@@ -36,8 +38,9 @@ pub(super) fn bind_states(
     selected: Option<InputProp<bool>>,
     at: &'static Location<'static>,
 ) -> States {
-    let disabled = disabled.map(|s| bind_state(cx, id, s, PropValue::Disabled, at));
-    let selected = selected.map(|s| bind_state(cx, id, s, PropValue::Selected, at));
+    let _ = (cx, id, at);
+    let disabled = disabled.map(InputProp::into_fn);
+    let selected = selected.map(InputProp::into_fn);
     States { disabled, selected }
 }
 
@@ -65,6 +68,7 @@ pub(super) fn bind_node_style(
     }
 }
 
+// xtask-allow(state-fields): Independent style source readers and optional layout/paint hooks are mount configuration.
 /// What the style of a host node is resolved from (see [`bind_style`]).
 #[derive(Default)]
 pub(crate) struct NodeStyle {
@@ -105,12 +109,7 @@ pub(crate) fn bind_style(
         local_paint,
     } = style;
     let owner = cx.owner;
-    // Misplaced content sizes are reported once per node.
-    let reported = std::cell::Cell::new(false);
-    // So are text values the host cannot draw.
-    let reported_text = std::cell::Cell::new(false);
-    let reported_states = std::cell::Cell::new(false);
-    let reported_leaf_paint = std::cell::Cell::new(false);
+    let reports = StyleReports::default();
     let theme = cx.theme();
     let weak = cx.weak();
     cx.effect(EffectKind::Render, at, move || {
@@ -118,7 +117,7 @@ pub(crate) fn bind_style(
         let Some(rt) = weak.upgrade() else { return };
         // The style closures only compute values: pure even when this is
         // an Internal effect feeding a paint transition.
-        let resolved = kivact_reactive::pure(|| {
+        let resolved = kivact_runtime::pure(|| {
             theme_sig.with(|theme| {
                 let s = merge_layers(&layers);
                 let state = Interactive {
@@ -127,15 +126,15 @@ pub(crate) fn bind_style(
                     selected: selected.as_ref().is_some_and(|f| f()),
                     root: kind == NodeType::Root,
                 };
-                s.compile(theme, state)
+                kivact_style::internal::compile_style(&s, theme, state)
             })
         });
         let has_paint = resolved.has_retained_paint();
-        if has_paint && local_paint.is_none() && !reported_leaf_paint.replace(true) {
+        if has_paint && local_paint.is_none() && reports.leaf_paint.note() {
             rt.report(
                 Some(owner),
                 UiError::new(
-                    kivact_reactive::ErrorKind::Unsupported,
+                    kivact_runtime::ErrorKind::Unsupported,
                     "local paint requires a box node; apply it to the containing node",
                     Some(at),
                 ),
@@ -157,26 +156,46 @@ pub(crate) fn bind_style(
                 source.revision.notify_from_render();
             }
         }
-        let mut layout = resolved.layout;
+        let mut layout = resolved.layout.clone();
         if let Some(fix) = fix_layout {
             fix(&mut layout);
         }
         let writer = rt.running_effect();
         let mut tree = ViewState::tree_mut(&rt);
         tree.update(id, PropValue::Layout(layout), writer);
-        tree.update(id, PropValue::Paint(resolved.paint), writer);
-        tree.update(id, PropValue::TextStyle(resolved.text), writer);
+        tree.update(id, PropValue::Paint(resolved.paint.clone()), writer);
+        tree.update(id, PropValue::TextStyle(resolved.text.clone()), writer);
         tree.update(
             id,
-            PropValue::States(resolved.states.unwrap_or_default()),
+            PropValue::States(resolved.states.clone().unwrap_or_default()),
             writer,
         );
         drop(tree);
-        if !resolved.unsupported_in_states.is_empty() && !reported_states.replace(true) {
+        reports.report(&rt, owner, id, &resolved, at);
+    });
+}
+
+#[derive(Default)]
+struct StyleReports {
+    content: kivact_types::cell::ReportOnce,
+    text: kivact_types::cell::ReportOnce,
+    states: kivact_types::cell::ReportOnce,
+    leaf_paint: kivact_types::cell::ReportOnce,
+}
+impl StyleReports {
+    fn report(
+        &self,
+        rt: &kivact_runtime::Runtime,
+        owner: kivact_runtime::Owner,
+        id: NodeId,
+        resolved: &kivact_style::CompiledStyle,
+        at: &'static Location<'static>,
+    ) {
+        if !resolved.unsupported_in_states.is_empty() && self.states.note() {
             rt.report(
                 Some(owner),
                 UiError::new(
-                    kivact_reactive::ErrorKind::Unsupported,
+                    kivact_runtime::ErrorKind::Unsupported,
                     format!(
                         "state styles set properties their state cannot change, ignored: {}; a hover, pressed, focus,                          focus_visible, group_hover, group_focus, enter or exit style changes paint only (background,                          border, ring, radius, opacity, shadow, transform, z_index, scrollbar, cursor, filters, mask,                          clip_path, color), and a paint callback belongs on the base style",
                         resolved.unsupported_in_states.join(", ")
@@ -191,11 +210,11 @@ pub(crate) fn bind_style(
                 id.0, resolved.duplicates
             ));
         }
-        if resolved.misplaced_content > 0 && !reported.replace(true) {
+        if resolved.misplaced_content > 0 && self.content.note() {
             rt.report(
                 Some(owner),
                 UiError::new(
-                    kivact_reactive::ErrorKind::Unsupported,
+                    kivact_runtime::ErrorKind::Unsupported,
                     format!(
                         "{} content size(s) (Length::MinContent, Length::MaxContent, Length::FitContent) outside width, height and basis; they are auto there",
                         resolved.misplaced_content
@@ -204,11 +223,11 @@ pub(crate) fn bind_style(
                 ),
             );
         }
-        if resolved.unsupported_text > 0 && !reported_text.replace(true) {
+        if resolved.unsupported_text > 0 && self.text.note() {
             rt.report(
                 Some(owner),
                 UiError::new(
-                    kivact_reactive::ErrorKind::Unsupported,
+                    kivact_runtime::ErrorKind::Unsupported,
                     format!(
                         "{} text value(s) the host cannot draw (a font feature tag that is not four ASCII characters, a text shadow's spread or inset); dropped",
                         resolved.unsupported_text
@@ -217,24 +236,5 @@ pub(crate) fn bind_style(
                 ),
             );
         }
-    });
-}
-
-/// Bind a state that semantics and the state styles both read: a value
-/// that never changes is set once (no effect), anything else gets one
-/// render effect. Returns the reader for the style effect.
-fn bind_state(
-    cx: &Mcx<'_>,
-    id: NodeId,
-    s: InputProp<bool>,
-    value: fn(bool) -> PropValue,
-    at: &'static Location<'static>,
-) -> Rc<dyn Fn() -> bool> {
-    if let Some(v) = s.fixed() {
-        cx.update(id, value(v));
-        return Rc::new(move || v);
     }
-    let f = s.into_fn();
-    cx.bind(id, kivact_reactive::Prop::computed(f.clone()), value, at);
-    f
 }

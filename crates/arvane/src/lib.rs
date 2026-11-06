@@ -1,10 +1,11 @@
 //! Role: Arvane: the public facade of the Arvane layer.
+
 //!
 //! Responsibility: the only crate outside Arvane may depend on (via
 //! `kivact-engine`). It wires the adapter crates together; the
 //! adapters share `kivact-types` values and portable `arvane-shell` contracts. Text is the [`Engine`]'s; windows ([`Window`]: the native
-//! [`NativeWindow`] run by [`Shell`], and the test windows) present scenes
-//! through their own presenters, which own the renderers, the GPU life
+//! [`Window`] run by [`Shell`], including explicitly stepped backends) present scenes
+//! through the shared presenter, which owns the renderers, the GPU life
 //! cycle and the frame policy (`presenter.rs`).
 //!
 //! Invariants:
@@ -40,19 +41,17 @@
 
 #![forbid(unsafe_code)]
 
-#[cfg(feature = "embed")]
 pub mod embed;
 
+mod availability;
 mod engine;
 mod env;
 mod error;
 mod presentation;
 mod presenter;
 mod rasterizer;
-mod shutdown;
-/// Windows for tests (feature `testing`).
-#[cfg(feature = "testing")]
-pub mod test_display;
+pub mod spi;
+mod test_font;
 mod window;
 
 /// Images, SVG and font files: loading, decoding, the image cache and its
@@ -60,16 +59,16 @@ mod window;
 pub mod asset;
 pub use arvane_render::{MAX_SCENE_DEPTH, glyph_ink_bounds};
 pub use arvane_shell::{
-    Accessibility, AccessibilityError, DEFAULT_FRAME_PERIOD_NS, ShellControl, ShellError,
-    ShellEvent, ShellFileDialog, ShellImeText, ShellOptions, ShellWaker,
+    Accessibility, AccessibilityError, FileDialog, ShellControl, ShellError, ShellEvent,
+    ShellImeText, ShellOptions, ShellWaker, WakeReasons,
 };
 pub use engine::Engine;
-pub use error::{Error, ErrorKind};
+pub use error::{Failure, FailureKind};
 pub use presentation::{Renderer, RendererChange};
 pub use presenter::{FramePlan, Presented};
 pub use rasterizer::Rasterizer;
 
-pub use window::{Handler, NativeWindow, Shell, Window};
-
-pub use arvane_native::retain_module;
-pub use shutdown::detached_threads;
+pub use availability::gpu_unavailable;
+pub use presentation::Observer;
+pub use test_font::test_font;
+pub use window::{Handler, Shell, ShellSetup, SteppedShell, Window};

@@ -4,18 +4,20 @@ use crate::editors::graph::model::{Curve, CurveKey, GraphRequest, GraphView, Key
 use crate::editors::shared::model::EditorContext;
 use crate::editors::shared::ruler::Ruler;
 use crate::editors::shared::targets::Scene;
-use kivact::draw::{Point, RegionId, Size};
-use kivact::interaction::{Drag, EditSession, List, SpacePan};
+use kivact::UiError;
+use kivact::draw::RegionId;
+use kivact::geometry::{Point, Size};
+use kivact::interaction::{DragApi, EditSession, ListApi, SpacePanApi};
+use kivact::state::{Binding, Callback, Signal, Value};
 use kivact::style::Color;
 use kivact::view::Role;
-use kivact::{Binding, Callback, Signal, UiError, Value};
 use std::rc::Rc;
 
 pub(crate) struct Settings {
     pub(crate) ruler: Ruler,
     pub(crate) value_format: Rc<dyn Fn(f64) -> String>,
     pub(crate) step: (Value<f64>, Value<f64>),
-    pub(crate) cells_width: f32,
+    pub(crate) cells_width: Value<f64>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -71,43 +73,52 @@ pub(crate) struct Gesture {
 #[derive(Clone, Copy)]
 pub(crate) struct State {
     pub(crate) curves: Value<Vec<Curve>>,
+    // xtask-allow(state-fields): Bindings, reactive options and keyboard targets are independent of the gesture lifecycle owned by DecisionMachine.
     pub(crate) on_edit: Option<Callback<crate::editors::shared::model::EditorEvent<GraphRequest>>>,
     pub(crate) view: Binding<GraphView>,
     pub(crate) selected: Binding<Vec<u64>>,
     pub(crate) playhead: Binding<f64>,
     pub(crate) visible: Value<Vec<VisibleKey>>,
     pub(crate) scene: Value<Result<Rc<Scene<Target>>, UiError>>,
-    pub(crate) choose: List<u64>,
+    pub(crate) choose: ListApi<u64>,
     pub(crate) size: Value<Size>,
+    // xtask-allow(state-fields): Bindings, reactive options and keyboard targets are independent of the gesture lifecycle owned by DecisionMachine.
     pub(crate) snap: Value<bool>,
     pub(crate) step: (Value<f64>, Value<f64>),
+    // xtask-allow(state-fields): Bindings, reactive options and keyboard targets are independent of the gesture lifecycle owned by DecisionMachine.
     pub(crate) press:
-        crate::editors::shared::gesture::CanvasGesture<Target, (Option<Gesture>, Option<Snapshot>)>,
+        crate::editors::shared::gesture::CanvasGesture<Target, Option<Gesture>, Snapshot>,
     /// The editor's drag, without the callbacks its sources carry
     /// (`State::drag`).
-    pub(crate) gesture: Drag<()>,
+    pub(crate) gesture: DragApi<Snapshot>,
     pub(crate) edit: EditSession<Snapshot>,
+    // xtask-allow(state-fields): Bindings, reactive options and keyboard targets are independent of the gesture lifecycle owned by DecisionMachine.
     pub(crate) active: Signal<Option<Target>>,
     /// Space held on the focused editor: the next primary drag pans.
-    pub(crate) space: SpacePan,
+    pub(crate) space: SpacePanApi,
+    // xtask-allow(state-fields): Bindings, reactive options and keyboard targets are independent of the gesture lifecycle owned by DecisionMachine.
     pub(crate) lane_activate: Option<Callback<u64>>,
+    // xtask-allow(state-fields): Bindings, reactive options and keyboard targets are independent of the gesture lifecycle owned by DecisionMachine.
     pub(crate) item_activate: Option<Callback<u64>>,
+    // xtask-allow(state-fields): Bindings, reactive options and keyboard targets are independent of the gesture lifecycle owned by DecisionMachine.
     pub(crate) child_focus: Value<bool>,
     pub(crate) context: Signal<EditorContext>,
 }
 
 impl State {
     pub(crate) fn drag_state(self) -> Option<Gesture> {
-        self.press
-            .with_payload(|payload| payload.0.clone())
-            .flatten()
+        self.press.with_payload(Clone::clone).flatten()
     }
     pub(crate) fn set_drag(self, drag: Option<Gesture>) {
-        self.press.update_payload(|payload| payload.0 = drag);
+        self.press.update_payload(|payload| *payload = drag);
     }
-    pub(crate) fn initial(self) -> Option<Snapshot> {
-        self.press
-            .with_payload(|payload| payload.1.clone())
-            .flatten()
+    pub(crate) fn source_snapshot(self) -> Snapshot {
+        match self.drag_state().map(|gesture| gesture.kind) {
+            Some(DragKind::Keys(ids)) => self.positions(&ids),
+            Some(DragKind::Tangent(id, incoming)) => self.tangent_snapshot(id, incoming),
+            Some(DragKind::Playhead) => Snapshot::Playhead(self.playhead.get_untracked()),
+            Some(DragKind::Pan) => Snapshot::View(self.view.get_untracked()),
+            _ => Snapshot::Keys(Vec::new()),
+        }
     }
 }

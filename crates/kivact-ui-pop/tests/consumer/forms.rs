@@ -1,41 +1,24 @@
 //! Role: Inputs, the tag editor and the dropzone commit and report publicly.
 
-use kivact::draw::Point;
+use kivact::geometry::Point;
 use kivact::prelude::*;
 use kivact::view::A11yAction;
 use kivact_ui_pop as ui;
 
 #[test]
 fn inputs_and_tag_editor_commit_native_edits() {
-    let (screen, (draft, tags, memo)) =
-        kivact::test::render_with_handle(crate::support::options(), || {
+    let (screen, (draft, tags, memo)) = kivact::test::render_with_handle(
+        kivact::test::RenderOptions::with_theme(kivact_ui_pop::theme(
+            kivact::style::ThemeMode::Light,
+        ))
+        .reduced_motion(),
+        || {
             let draft = signal(String::new());
             let tags = signal(vec!["one".into()]);
             let memo = signal(String::new());
-            (
-                (draft, tags, memo),
-                column((
-                    kivact::ui::text_input("Name", draft).placeholder("Enter name"),
-                    ui::resizable_text_area(
-                        kivact::ui::text_area("Resizable note", memo),
-                        80.0,
-                        72.0,
-                    ),
-                    kivact::ui::text_area("Fixed note", kivact::signal(String::new())),
-                    kivact::ui::tag_input(
-                        "Add tag",
-                        tags,
-                        move |tag| tags.update(|items| items.push(tag)),
-                        move |index| {
-                            tags.update(|items| {
-                                items.remove(index);
-                            })
-                        },
-                    ),
-                ))
-                .style(style().width(360).gap(8)),
-            )
-        });
+            ((draft, tags, memo), input_controls(draft, tags, memo))
+        },
+    );
     screen
         .get_by_role(Role::TextBox, "Name")
         .type_text("Minato");
@@ -44,7 +27,7 @@ fn inputs_and_tag_editor_commit_native_edits() {
     note.type_text("Keep this draft");
     let initial = note.rect().expect("note laid out");
     assert_eq!(initial.height, 80.0);
-    let resize = |delta: f32| {
+    let resize = |delta: f64| {
         let grip = screen.get_by_role(Role::Splitter, "Resize text area");
         grip.hover();
         let rect = grip.rect().expect("resize grip laid out");
@@ -103,16 +86,27 @@ fn inputs_and_tag_editor_commit_native_edits() {
 
 #[test]
 fn dropzone_reports_public_file_events_and_platform_picker_results() {
-    let (screen, paths) = kivact::test::render_with_handle(crate::support::options(), || {
-        let paths = signal(Vec::<std::path::PathBuf>::new());
-        (
-            paths,
-            ui::dropzone("Upload")
-                .hint("Select reports")
-                .filters(vec![("Reports".into(), vec!["pdf".into()])])
-                .on_files(move |files| paths.set(files)),
-        )
-    });
+    let (screen, paths) = kivact::test::render_with_handle(
+        kivact::test::RenderOptions::with_theme(kivact_ui_pop::theme(
+            kivact::style::ThemeMode::Light,
+        ))
+        .reduced_motion(),
+        || {
+            let paths = signal(Vec::<std::path::PathBuf>::new());
+            (
+                paths,
+                kivact::ui::dropzone("Upload")
+                    .multiple()
+                    .pick_on_press()
+                    .icon(icon("cloud-upload").style(style().size(24, 24)))
+                    .hint("Select reports")
+                    .filters(vec![("Reports".into(), vec!["pdf".into()])])
+                    .on_files(move |files| {
+                        paths.set(files.into_iter().map(|file| file.path).collect())
+                    }),
+            )
+        },
+    );
     screen.get_by_role(Role::Text, "Select reports");
     let dropzone = screen.get_by_role(Role::Button, "Upload");
     let rect = dropzone
@@ -143,4 +137,24 @@ fn dropzone_reports_public_file_events_and_platform_picker_results() {
         ]
     );
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+fn input_controls(
+    draft: Signal<String>,
+    tags: Signal<Vec<String>>,
+    memo: Signal<String>,
+) -> impl IntoView {
+    column((
+        kivact::ui::text_input("Name", draft).placeholder("Enter name"),
+        ui::resizable_text_area(kivact::ui::text_area("Resizable note", memo), 80.0, 72.0),
+        kivact::ui::text_area("Fixed note", kivact::state::signal(String::new())),
+        kivact::ui::tag_input("Add tag", tags)
+            .on_add(move |tag| tags.update(|items| items.push(tag)))
+            .on_remove(move |index| {
+                tags.update(|items| {
+                    items.remove(index);
+                })
+            }),
+    ))
+    .style(style().width(360).gap(8))
 }

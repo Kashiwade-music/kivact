@@ -10,10 +10,12 @@ badge, three kinds of meter and buttons that change the meters.
 Replace `src/main.rs` with:
 
 ```rust,no_run
+use kivact::interaction::Tone;
 use kivact::prelude::*;
+use kivact::style::Align;
 use kivact::style::ThemeMode;
-use kivact::ui::{Tone, progress};
-use kivact_ui_game::{self as game, Density, ThemeOptions as _};
+use kivact::ui::progress;
+use kivact_ui_game::{self as game, Density, ThemeOptions};
 
 /// A monospaced caption over a meter.
 fn labeled(label: &'static str, meter: impl IntoView) -> Node {
@@ -26,18 +28,82 @@ fn loadout() -> impl IntoView {
 
     game::hud(
         column((
-            game::section_heading("01", "LOADOUT", "Squad 04"),
             row((
-                game::badge("READY", Tone::Success),
+                text("01").style(move || {
+                    let t = kivact::style::use_theme().get();
+                    style()
+                        .font_family(t.ext::<game::Tokens>().display_family.as_str())
+                        .font_size(34)
+                        .line_height(0.9)
+                        .weight(800)
+                        .italic(true)
+                        .color(ColorToken::Accent)
+                }),
+                kivact::ui::heading("LOADOUT", 2).variant(game::HeadingVariant::Section),
+                text("Squad 04").style(style().font_size(12).color(ColorToken::TextMuted)),
+            ))
+            .style(
+                style()
+                    .gap(14)
+                    .align_items(Align::End)
+                    .padding_bottom(10)
+                    .border_bottom(2, ColorToken::Text),
+            )
+            .draw_over(|d, s| {
+                d.fill_path(
+                    &kivact::draw::Path::new()
+                        .move_to(kivact::geometry::Point::new(s.width - 44., s.height - 4.))
+                        .line_to(kivact::geometry::Point::new(s.width, s.height - 4.))
+                        .line_to(kivact::geometry::Point::new(s.width - 2., s.height + 6.))
+                        .line_to(kivact::geometry::Point::new(s.width - 46., s.height + 6.))
+                        .close(),
+                    d.theme().ext::<game::Tokens>().yellow,
+                )
+            }),
+            row((
+                kivact::ui::badge("READY").tone(Tone::Success),
                 game::mono("SLOT 2"),
             ))
             .style(style().gap(12).align_items(Align::Center)),
             row((
-                labeled(
-                    "ARMOR",
-                    game::gauge("Armor", armor).total(10).tone(Tone::Info),
-                ),
-                game::ring("ENERGY", energy, Tone::Warning),
+                labeled("ARMOR", {
+                    let total: kivact::state::Value<usize> =
+                        kivact::state::IntoValue::into_value(10);
+                    let value: kivact::state::Value<usize> =
+                        kivact::state::IntoValue::into_value(armor);
+                    kivact::ui::progress(move || {
+                        Some(if total.get() == 0 {
+                            0.0
+                        } else {
+                            value.get() as f64 / total.get() as f64
+                        })
+                    })
+                    .name("Armor")
+                    .variant(kivact::ui::ProgressVariant::Gauge)
+                    .variant(game::GaugeSegments(total))
+                    .variant(Tone::Info)
+                }),
+                {
+                    let value: kivact::state::Value<f64> =
+                        kivact::state::IntoValue::into_value(energy);
+                    kivact::ui::progress(move || Some(value.get() / 100.0))
+                        .name("ENERGY")
+                        .variant(kivact::ui::ProgressVariant::Ring)
+                        .variant(kivact::ui::ProgressMotion {
+                            determinate_ms: 900,
+                            determinate_easing: kivact::motion::Easing::CubicBezier(
+                                0.2, 0.7, 0.2, 1.,
+                            ),
+                            ..Default::default()
+                        })
+                        .variant(Tone::Warning)
+                        .with_node(|node| {
+                            node.child(
+                                game::mono("ENERGY")
+                                    .style(style().font_size(9).color(ColorToken::TextMuted)),
+                            )
+                        })
+                },
             ))
             .style(style().gap(32).align_items(Align::Center)),
             labeled(
@@ -65,7 +131,12 @@ fn loadout() -> impl IntoView {
 
 fn main() -> kivact::Result<()> {
     App::new("Loadout")
-        .theme(game::theme(ThemeMode::Dark).density(Density::Comfortable))
+        .theme(game::theme_with(
+            ThemeMode::Dark,
+            ThemeOptions {
+                density: Density::Comfortable,
+            },
+        ))
         .run(loadout)
 }
 ```
@@ -81,21 +152,15 @@ it reaches 100.
 
 **`game::hud(content)`** is the frame from step 1: a surface with a border and
 two accent brackets. Put one around each group of related controls.
-**`game::section_heading(number, title, description)`** is the numbered
-heading of a screen section.
+A row of a section number, `kivact::ui::heading(title, 2).variant(game::HeadingVariant::Section)` and a caption composes the section heading.
 
-**`game::badge(label, tone)`** is a small status label with a square dot.
+**`kivact::ui::badge(label).tone(tone)`** is a small status label with a square dot.
 `Tone` is Kivact's shared meaning enum: `Neutral`, `Info`, `Success`,
 `Warning`, `Danger` and `Accent`. You say what the status means and the
 theme picks the color.
 
-**`game::gauge(label, value)`** is a row of slanted bars, one per point of
-`value`, out of `.total(n)` (100 if you do not set it). The first argument is
-the accessible name, not a visible label, so the program draws its own caption
-with `labeled`. A gauge reads a `Signal<usize>`, so the bars follow the signal.
-**`game::ring(label, value, tone)`** is a circular meter for a value from 0 to
-100. It prints the percentage with the label under it in the middle, and the
-arc grows to the value when the meter first appears and whenever it changes.
+**`progress(..).variant(ProgressVariant::Gauge)`** draws slanted bars. Normalize the application value by its total, returning zero when the total is zero. `game::GaugeSegments(total)` supplies the same reactive segment count. Give the meter its accessible name with `.name(..)` and draw a caption beside it.
+**`ProgressVariant::Ring`** draws a segmented circular meter from the same normalized fraction. Add the small center caption through the ordinary child slot. The standard progress owner animates its arc.
 
 **`progress(Some(value))`** is the standard progress bar, with a value from 0
 to 1. The Game theme draws it flat. `.variant(game::Striped)` and

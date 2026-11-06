@@ -1,11 +1,13 @@
 //! Role: Hold the catalog's selection, search and appearance signals.
 use crate::pages::pages;
+use kivact::state::{Signal, signal};
 use kivact::style::ThemeMode;
-use kivact::{Signal, signal};
 
 #[derive(Clone, Copy)]
 pub(super) struct CatalogState {
+    // xtask-allow(state-fields): Independent caller-controlled appearance preference, unrelated to selected page or query.
     pub(super) dark: Signal<bool>,
+    // xtask-allow(state-fields): The single selected-page index, independent of appearance and search text.
     pub(super) selected: Signal<usize>,
     pub(super) query: Signal<String>,
 }

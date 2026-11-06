@@ -59,7 +59,8 @@ fn default() -> impl IntoView {
             "account" => ("Account", "Make changes to your account here."),
             _ => ("Password", "Change your password here."),
         };
-        column((basic::h4(heading), basic::muted(body))).style(style().gap(8).padding_top(16))
+        column((kivact::ui::heading(heading, 4), basic::muted(body)))
+            .style(style().gap(8).padding_top(16))
     })
 }
 // end example
@@ -77,7 +78,8 @@ fn disabled() -> impl IntoView {
             "home" => ("Home", "The Settings tab is disabled."),
             _ => ("About", "Kivact is a Rust UI toolkit."),
         };
-        column((basic::h4(heading), basic::muted(body))).style(style().gap(8).padding_top(16))
+        column((kivact::ui::heading(heading, 4), basic::muted(body)))
+            .style(style().gap(8).padding_top(16))
     })
 }
 // end example
@@ -98,7 +100,8 @@ fn vertical() -> impl IntoView {
                 "analytics" => ("Analytics", "Traffic and conversions."),
                 _ => ("Reports", "Monthly reports."),
             };
-            column((basic::h4(heading), basic::muted(body))).style(style().gap(8).padding_top(16))
+            column((kivact::ui::heading(heading, 4), basic::muted(body)))
+                .style(style().gap(8).padding_top(16))
         })
 }
 // end example
@@ -119,7 +122,8 @@ fn line() -> impl IntoView {
                 "analytics" => ("Analytics", "Traffic and conversions."),
                 _ => ("Reports", "Monthly reports."),
             };
-            column((basic::h4(heading), basic::muted(body))).style(style().gap(8).padding_top(16))
+            column((kivact::ui::heading(heading, 4), basic::muted(body)))
+                .style(style().gap(8).padding_top(16))
         })
 }
 // end example
@@ -141,7 +145,8 @@ fn line_vertical() -> impl IntoView {
                 "security" => "Password and sessions.",
                 _ => "Plans and invoices.",
             };
-            column((basic::h4(key), basic::muted(body))).style(style().gap(8).padding_left(16))
+            column((kivact::ui::heading(key, 4), basic::muted(body)))
+                .style(style().gap(8).padding_left(16))
         })
 }
 // end example

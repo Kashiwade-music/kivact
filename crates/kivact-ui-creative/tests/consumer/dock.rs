@@ -4,11 +4,11 @@
 //! drags and container menus. The layout rules are in `dock_model`.
 
 use crate::dock_model::{Layout, container_of, editor_layout, weights};
-use crate::support::{clean, near};
-use kivact::draw::{Point, Rect};
+use crate::support::near;
+use kivact::geometry::{Point, Rect};
+use kivact::interaction::MenuEntry;
 use kivact::prelude::*;
 use kivact::test::{Element, Screen};
-use kivact::ui::MenuEntry;
 use kivact::view::{A11yAction, MouseButton};
 use kivact_ui_creative as ui;
 use std::cell::Cell;
@@ -119,7 +119,7 @@ fn tabs_activate_by_click_arrow_keys_and_invoke_and_publish_roles() {
     text_tab.a11y(A11yAction::Activate);
     assert!(text_tab.is_selected());
     assert_eq!(probe.mounts.get(), 6);
-    clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 
 fn top_row(layout: &Layout) -> Vec<f64> {
@@ -175,34 +175,23 @@ fn splitters_set_value_step_reset_and_drag_between_two_neighbors() {
     let share = row[0] / (row[0] + row[1]);
     assert!(near(share, splitter.value_range().1.unwrap() / 100.0, 1e-9));
     assert!(panel(&screen, "Viewer 1").width > 39.0);
+    let expanded = row;
     splitter.press_key(Key::Enter);
     let row = top_row(&probe.layout.get_untracked());
     assert!(
-        near(row[0], row[1], 1e-9),
-        "Enter equalizes the two neighbors"
+        near(row[0] / (row[0] + row[1]), min_share, 1e-9),
+        "Enter collapses to the minimum"
+    );
+    assert!(near(row[0] + row[1], expanded[0] + expanded[1], 1e-9));
+    splitter.press_key(Key::Enter);
+    let restored = top_row(&probe.layout.get_untracked());
+    assert!(near(restored[0], expanded[0], 1e-9));
+    assert!(
+        near(restored[1], expanded[1], 1e-9),
+        "Enter restores both neighbors"
     );
 
-    // Double click equalizes too; a drag moves by the pointer's travel.
-    splitter.a11y_set_value("30");
-    splitter.double_click();
-    let row = top_row(&probe.layout.get_untracked());
-    assert!(near(row[0], row[1], 1e-9));
-    let start = splitter.rect().expect("splitter").center();
-    screen.mouse_move(start.x, start.y);
-    screen.mouse_down(MouseButton::Primary);
-    screen.mouse_move(start.x + 50.0, start.y);
-    assert!((splitter.rect().unwrap().center().x - start.x - 50.0).abs() < 1.5);
-    screen.mouse_up(MouseButton::Primary);
-    let moved = probe.layout.get_untracked();
-    assert!(top_row(&moved)[0] > top_row(&moved)[1]);
-    // Escape restores the weights of the drag's start.
-    let start = splitter.rect().expect("splitter").center();
-    screen.mouse_move(start.x, start.y);
-    screen.mouse_down(MouseButton::Primary);
-    screen.mouse_move(start.x - 80.0, start.y);
-    screen.press_key(Key::Escape);
-    screen.mouse_up(MouseButton::Primary);
-    assert_eq!(probe.layout.get_untracked(), moved);
+    assert_splitter_pointer_changes(&screen, &probe, &splitter);
     // A stacked splitter uses the vertical arrows.
     let stacked = screen.get_by_role(Role::Splitter, "Project 1 and Timeline 1");
     assert_eq!(stacked.orientation(), kivact::view::Orientation::Horizontal);
@@ -218,7 +207,7 @@ fn splitters_set_value_step_reset_and_drag_between_two_neighbors() {
         "{column:?}"
     );
     assert_eq!(probe.mounts.get(), 6);
-    clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 
 #[test]
@@ -267,7 +256,7 @@ fn tab_drags_split_right_and_bottom_and_keep_panels_mounted() {
     assert_eq!(container_of(&layout, "render"), ["render"]);
     assert!(panel(&screen, "Render Manager").y > panel(&screen, "Inspector 1").y);
     assert_eq!(probe.mounts.get(), 6, "moves retain every panel view");
-    clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 
 fn open(screen: &Screen, button: &str) {
@@ -343,5 +332,39 @@ fn close_buttons_and_commands_remove_closable_tabs_and_report_each() {
     open(&screen, "Project 1 panel menu");
     choose(&screen, &["Close Container"]);
     assert_eq!(probe.closed.get_untracked(), ["project", "text"]);
-    clean(&screen);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+fn assert_splitter_pointer_changes(screen: &Screen, probe: &Probe, splitter: &Element<'_>) {
+    // Double click equalizes; a drag moves by the pointer's travel.
+    splitter.a11y_set_value("30");
+    splitter.double_click();
+    let row = top_row(&probe.layout.get_untracked());
+    assert!(near(row[0], row[1], 1e-9));
+    let start = splitter.rect().expect("splitter").center();
+    screen.mouse_move(start.x, start.y);
+    screen.mouse_down(MouseButton::Primary);
+    screen.mouse_move(start.x + 50.0, start.y);
+    assert!(
+        (splitter
+            .rect()
+            .expect("splitter stays laid out during drag")
+            .center()
+            .x
+            - start.x
+            - 50.0)
+            .abs()
+            < 1.5
+    );
+    screen.mouse_up(MouseButton::Primary);
+    let moved = probe.layout.get_untracked();
+    assert!(top_row(&moved)[0] > top_row(&moved)[1]);
+    // Escape restores the weights of the drag's start.
+    let start = splitter.rect().expect("splitter").center();
+    screen.mouse_move(start.x, start.y);
+    screen.mouse_down(MouseButton::Primary);
+    screen.mouse_move(start.x - 80.0, start.y);
+    screen.press_key(Key::Escape);
+    screen.mouse_up(MouseButton::Primary);
+    assert_eq!(probe.layout.get_untracked(), moved);
 }

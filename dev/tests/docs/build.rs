@@ -12,6 +12,10 @@ use std::path::{Path, PathBuf};
 /// The guide trees that hold Rust examples; the developer strategy has none.
 const TREES: [&str; 2] = ["for-kivact-user", "for-kivact-ui-user"];
 
+/// Guides (by file name) whose examples need a feature of this crate; their
+/// modules, and so their doctests, exist only with that feature.
+const FEATURE_GUIDES: [(&str, &str); 1] = [("gpu-texture-sharing.md", "gpu-interop")];
+
 fn main() {
     let manifest = PathBuf::from(std::env::var_os("CARGO_MANIFEST_DIR").expect("set by Cargo"));
     let root = manifest.join("../../..");
@@ -53,6 +57,9 @@ fn directory(code: &mut String, name: &str, dir: &Path) {
         if path.is_dir() {
             directory(code, &module_name(file), &path);
         } else if let Some(stem) = file.strip_suffix(".md") {
+            if let Some((_, feature)) = FEATURE_GUIDES.iter().find(|(guide, _)| *guide == file) {
+                let _ = writeln!(code, "#[cfg(feature = \"{feature}\")]");
+            }
             guide(code, &module_name(stem), &path);
         }
     }

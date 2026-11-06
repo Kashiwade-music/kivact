@@ -1,7 +1,7 @@
 //! Role: GPU texture sharing events (feature `gpu-interop`, experimental).
 
-use kivact_reactive::Runtime;
-use kivact_wire::{ExternalImageId, ExternalImport, GpuAdapter};
+use kivact_runtime::Runtime;
+use kivact_types::{ExternalImageId, ExternalImport, GpuAdapter};
 
 pub(super) fn external_imported(rt: &Runtime, image: ExternalImageId, result: &ExternalImport) {
     crate::gpu_interop::imported(rt, image, result);

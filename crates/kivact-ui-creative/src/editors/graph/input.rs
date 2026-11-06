@@ -4,15 +4,15 @@ use crate::editors::graph::gesture::{DragKind, Gesture, Snapshot, State, Target}
 use crate::editors::graph::model::Interpolation;
 
 use crate::editors::shared::selection;
-use kivact::draw::Point;
-use kivact::interaction::{Drag, ListGesture};
+use kivact::geometry::Point;
+use kivact::interaction::{DragApi, ListGesture};
 use kivact::view::{Handled, Key, KeyEvent, MouseButton, PointerEvent, PointerPhase, WheelEvent};
 
 impl State {
     /// The press decides what the editor's drag does; the drag's sources (the
     /// canvas and its regions) then follow the pointer until it ends.
     pub(crate) fn pointer(self, event: PointerEvent) -> Handled {
-        match event.phase {
+        match event.phase() {
             PointerPhase::Down(press) => {
                 if self.gesture.is_active() {
                     return Handled::Yes;
@@ -24,8 +24,8 @@ impl State {
                 }
                 let target = self.target(event.region());
                 let mut single = None;
-                let (kind, initial) = if pan {
-                    (DragKind::Pan, Some(Snapshot::View(self.view.get())))
+                let kind = if pan {
+                    DragKind::Pan
                 } else {
                     match target {
                         Some(Target::Key(id)) => {
@@ -33,8 +33,8 @@ impl State {
                             match selection::press(
                                 &self.selected.get(),
                                 id,
-                                event.modifiers,
-                                &kivact::interaction::ListPolicy::default(),
+                                event.modifiers(),
+                                &kivact::interaction::ListOptions::default(),
                             ) {
                                 selection::Press::Pending(id) => single = Some(id),
                                 selection::Press::Select(gesture) => {
@@ -42,36 +42,29 @@ impl State {
                                 }
                             }
                             let ids = self.ids();
-                            let initial = self.positions(&ids);
-                            (DragKind::Keys(ids), Some(initial))
+                            DragKind::Keys(ids)
                         }
                         Some(Target::Tangent(id, incoming)) => {
                             self.select(Target::Tangent(id, incoming), true);
-                            (
-                                DragKind::Tangent(id, incoming),
-                                Some(self.tangent_snapshot(id, incoming)),
-                            )
+                            DragKind::Tangent(id, incoming)
                         }
                         Some(Target::Lane(id)) => {
                             self.active.set(Some(Target::Lane(id)));
-                            (DragKind::Lane, None)
+                            DragKind::Lane
                         }
                         // The press moves the playhead: see `drag`.
                         Some(Target::Playhead) => {
                             self.active.set(Some(Target::Playhead));
-                            (
-                                DragKind::Playhead,
-                                Some(Snapshot::Playhead(self.playhead.get())),
-                            )
+                            DragKind::Playhead
                         }
                         _ => {
                             self.active.set(None);
-                            (DragKind::Marquee(event.pos, event.pos), None)
+                            DragKind::Marquee(event.pos(), event.pos())
                         }
                     }
                 };
                 self.press
-                    .begin(&event, target, (Some(Gesture { kind }), initial), single);
+                    .begin(&event, target, Some(Gesture { kind }), single);
                 Handled::No
             }
             _ => Handled::No,
@@ -81,13 +74,13 @@ impl State {
     /// gesture the press chose, one edit from its first change. The returned
     /// drag has the callbacks its sources need; `self.gesture` is the same
     /// session.
-    pub(crate) fn drag(self) -> Drag<()> {
-        let drag = self.gesture.on_start(move |_| {
+    pub(crate) fn drag(self) -> DragApi<Snapshot> {
+        let drag = self.gesture.on_start(move |update| {
             if self
                 .drag_state()
                 .is_some_and(|gesture| gesture.kind == DragKind::Playhead)
             {
-                let time = self.geometry().time(self.press.origin().x);
+                let time = self.geometry().time(update.start_pos.x);
                 self.gesture.change(|| self.playhead.set(time));
             }
         });
@@ -105,7 +98,7 @@ impl State {
                 },
             ),
             (
-                move |pos| self.motion(pos),
+                move |pos, origin, snapshot| self.motion(pos, origin, snapshot),
                 move |rect| {
                     let space = self.geometry();
                     self.visible.with(|keys| {
@@ -120,15 +113,14 @@ impl State {
             ),
         )
     }
-    fn motion(self, point: Point) {
+    fn motion(self, point: Point, origin: Point, snapshot: &Snapshot) {
         let Some(mut gesture) = self.drag_state() else {
             return;
         };
-        let origin = self.press.origin();
         if point == origin && !self.press.moved() {
             return;
         }
-        let initial = self.initial();
+        let initial = Some(snapshot.clone());
         let space = self.geometry();
         let total = Point::new(point.x - origin.x, point.y - origin.y);
         match &mut gesture.kind {
@@ -163,16 +155,16 @@ impl State {
             return Handled::Yes;
         }
         let target = self
-            .target(event.region)
+            .target(event.region())
             .or(self.active.get_untracked())
             .filter(|target| {
                 self.scene.with_untracked(|scene| {
                     scene.as_ref().ok().is_some_and(|scene| scene.live(target))
                 })
             });
-        match event.key {
+        match event.key() {
             Key::Enter => {
-                if !event.repeat
+                if !event.repeat()
                     && let Some(target) = target
                 {
                     self.activate(target);
@@ -191,7 +183,7 @@ impl State {
             Key::Home => self.fit(true),
             Key::ArrowLeft | Key::ArrowRight | Key::ArrowUp | Key::ArrowDown => {
                 let step = self.step();
-                let (time, value) = match event.key {
+                let (time, value) = match event.key() {
                     Key::ArrowLeft => (-step.0, 0.0),
                     Key::ArrowRight => (step.0, 0.0),
                     Key::ArrowUp => (0.0, step.1),
@@ -233,15 +225,15 @@ impl State {
         if self.drag_state().is_some() {
             return Handled::Yes;
         }
-        if !(event.modifiers.ctrl || event.modifiers.meta)
-            || !event.delta.x.is_finite()
-            || !event.delta.y.is_finite()
+        if !(event.modifiers().ctrl || event.modifiers().meta)
+            || !event.delta().x.is_finite()
+            || !event.delta().y.is_finite()
         {
             return Handled::No;
         }
         let next = self
             .geometry()
-            .zoom(event.pos, event.delta.y, event.modifiers.shift);
+            .zoom(event.pos(), event.delta().y, event.modifiers().shift);
         if next != self.view.get() {
             self.set_view(next);
         }

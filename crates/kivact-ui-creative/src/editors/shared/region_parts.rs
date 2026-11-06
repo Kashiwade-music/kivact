@@ -1,8 +1,8 @@
 //! Role: Semantic actions shared by Arrangement and range controls.
+use kivact::custom::{Part, PartState, part};
 use kivact::draw::RegionId;
-use kivact::primitive::{Part, PartState, part};
+use kivact::state::{Callback, Value};
 use kivact::view::{A11yAction, A11yEvent, Role};
-use kivact::{Callback, Value};
 #[derive(Clone, Copy, PartialEq)]
 pub(crate) enum Kind {
     Item,
@@ -22,7 +22,9 @@ pub(crate) struct RegionInfo {
     pub(crate) kind: Kind,
     pub(crate) name: String,
     pub(crate) value: String,
+    // xtask-allow(state-fields): Independent accessibility output facts, recomputed from domain data.
     pub(crate) checked: bool,
+    // xtask-allow(state-fields): Independent accessibility output facts, recomputed from domain data.
     pub(crate) selected: bool,
     pub(crate) min: f64,
     pub(crate) max: f64,
@@ -55,23 +57,38 @@ pub(crate) fn attachment(
         Kind::Automation | Kind::LoopEndpoint | Kind::ArrangementPlayhead => Role::Slider,
         _ => Role::Button,
     };
-    let mut result = part(|input| input).role(role).name(move || data.get().name);
+    let mut result = {
+        let input_part = part(|input| input);
+        kivact::custom::Part::new(input_part.state(), move |node| {
+            node.part(input_part)
+                .role(role)
+                .name(move || data.get().name)
+        })
+    };
     if kind == Kind::Item {
-        result = result.value_text(move || data.get().value);
+        result = kivact::custom::Part::new(result.state(), move |node| {
+            node.part(result).value_text(move || data.get().value)
+        });
     }
     if kind == Kind::TrackSwitch {
-        result = result.checked(move || data.get().checked);
+        result = kivact::custom::Part::new(result.state(), move |node| {
+            node.part(result).checked(move || data.get().checked)
+        });
     }
     if matches!(kind, Kind::Automation | Kind::LoopEndpoint) {
-        result = result
-            .value_min(move || data.get().min)
-            .value_max(move || data.get().max);
+        result = kivact::custom::Part::new(result.state(), move |node| {
+            node.part(result)
+                .value_min(move || data.get().min)
+                .value_max(move || data.get().max)
+        });
     }
     if matches!(
         kind,
         Kind::Automation | Kind::LoopEndpoint | Kind::ArrangementPlayhead
     ) {
-        result = result.value_now(move || data.get().now);
+        result = kivact::custom::Part::new(result.state(), move |node| {
+            node.part(result).value_now(move || data.get().now)
+        });
     }
     let actions: &[A11yAction] = match kind {
         Kind::LoopCreate => &[],
@@ -82,7 +99,10 @@ pub(crate) fn attachment(
         _ => &[A11yAction::Activate],
     };
     for &advertised in actions {
-        result = result.on_a11y_event(advertised, move |event| action.call(event));
+        result = kivact::custom::Part::new(result.state(), move |node| {
+            node.part(result)
+                .a11y_action(advertised, move |event| action.call(event))
+        });
     }
     result
 }

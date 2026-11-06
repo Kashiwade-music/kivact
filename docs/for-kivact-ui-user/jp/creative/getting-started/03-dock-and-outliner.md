@@ -9,7 +9,7 @@
 `src/main.rs` を、次のプログラム全体に置き換えます。ステップ 2 のフィールドを再利用しますが、今回はバラバラのシグナルではなく、*レイヤー*に結び付けます。
 
 ```rust,test_harness
-use kivact::Binding;
+use kivact::state::Binding;
 use kivact::prelude::*;
 use kivact::style::{Color, ThemeMode, rgb};
 use kivact_ui_creative as ui;
@@ -84,7 +84,7 @@ fn layer_form(layers: Signal<Vec<Layer>>, current: Value<Option<u64>>) -> impl I
         ui::property_row(
             "X",
             ui::number("X", x)
-                .range(-1000.0, 1000.0)
+                .range(kivact::interaction::ScalarRange::new(-1000.0, 1000.0).expect("valid range"))
                 .step(1.0)
                 .precision(1)
                 .unit(" px")
@@ -93,14 +93,14 @@ fn layer_form(layers: Signal<Vec<Layer>>, current: Value<Option<u64>>) -> impl I
         ui::property_row(
             "不透明度",
             ui::number("不透明度", opacity)
-                .range(0.0, 1.0)
+                .range(kivact::interaction::ScalarRange::new(0.0, 1.0).expect("valid range"))
                 .step(0.01)
                 .precision(2)
                 .label_visible(false),
         ),
         ui::property_row("塗り", ui::color_popup("塗り", fill)),
         ui::bezier_curve(easing),
-    ))
+    )).role(kivact::view::Role::List)
     .style(style().gap(6).padding(10))
 }
 
@@ -172,10 +172,7 @@ mod tests {
 
     #[test]
     fn the_inspector_edits_the_selected_layer() {
-        let options = RenderOptions {
-            theme: ui::theme(ThemeMode::Dark),
-            ..RenderOptions::from_env()
-        };
+        let options = RenderOptions::from_env().theme(ui::theme(ThemeMode::Dark));
         let (screen, layers) = render_with_handle(options, || {
             let layers = signal(sample_layers());
             (layers, editor(layers))
@@ -213,7 +210,7 @@ mod tests {
 - **`show_some(current, ..).fallback(..)`** は、レイヤーが選ばれている間はフォームを、そうでなければヒントを表示します。選択中のレイヤーが別のレイヤーに変わっても、同じフォームが使われ、バインディングの結果だけが変わります。
 - **ドックのレイアウトはデータです。** `ui::DockLayout<K>` は、分割（`DockNode::split`）の木で、葉にタブ付きのコンテナ（`DockNode::tabs`）が付きます。`K` は `Clone + Eq + Hash` を満たす好きなキーで、ここでは `&'static str` で各パネルを区別しています。レイアウトはシグナルとして `ui::dock(layout, factory)` に渡します。利用者の操作（タブのドラッグ、分割、リサイズ）はすべてそのシグナルへ書き戻されるので、ほかの状態と同じように保存、復元、元に戻すことができます。
 - **パネルのファクトリはキーごとに 1 回だけ呼ばれます。** タブを切り替えてもパネルは破棄されず非表示になるだけなので、パネルは自分の状態を保てます。`closable(false)` は、タブの閉じるボタンを取り除きます。
-- **テスト**は `kivact::test::render_with_handle` を使います。テスト用のウィンドウの中にアプリを組み立て、セットアップのクロージャが返した値（ここでは `layers` シグナル）を取り出せるようにして、`Screen` を返します。要素は、支援技術から見えるのと同じアクセシビリティの役割と名前（`X` という名前の `Role::SpinButton`）で探し、`focus()`・`click()`・`press_key(..)` で操作します。`RenderOptions::from_env()` は実際のウィンドウを開くので、デスクトップのセッションで実行してください。ディスプレイのない環境では `KIVACT_TEST_HEADLESS=1` を設定します。
+- **テスト**は `kivact::test::render_with_handle` を使います。テスト用のウィンドウの中にアプリを組み立て、セットアップのクロージャが返した値（ここでは `layers` シグナル）を取り出せるようにして、`Screen` を返します。要素は、支援技術から見えるのと同じアクセシビリティの役割と名前（`X` という名前の `Role::SpinButton`）で探し、`focus()`・`click()`・`press_key(..)` で操作します。`RenderOptions::from_env()` は `KIVACT_TEST_MIRROR`（`off`・`auto`・`required`、既定 `auto`）と `KIVACT_TEST_GPU=1` を読みます。ディスプレイなしで実行するときは `KIVACT_TEST_MIRROR=off` を設定します。
 
 ## ここまでのまとめ
 

@@ -13,7 +13,7 @@
 //!   moves back by its scroll and is then mapped by its transform, which
 //!   become AccessKit's node transform; its own bounds are moved forward by
 //!   the scroll, so they stay where it is laid out
-//!   (`kivact_types::protocol::SemanticsTree::window_bounds` composes the same way).
+//!   (`kivact_types::render::SemanticsTree::window_bounds` composes the same way).
 //! - Its relations (`described_by`, `controls`, `labelled_by`, in order)
 //!   and `active_descendant` become AccessKit's relations of those names.
 //! - Its `level`, `set_size` and `pos_in_set` become `set_level`,
@@ -31,8 +31,8 @@
 //!   the first), so a run of mixed bidi text is not split by direction;
 //!   no word boundaries (AccessKit's word starts) are given.
 
-use kivact_types::protocol::SemanticsNode;
-use kivact_types::{A11yAction, CheckedState, CurrentItem, NodeId, PopupKind, Role};
+use kivact_types::render::SemanticsNode;
+use kivact_types::{A11yAction, CheckedState, CurrentItem, PopupKind, Role, SemanticsId};
 
 /// The id of the one custom action, `Dismiss`.
 const DISMISS: i32 = 1;
@@ -86,21 +86,16 @@ pub(super) fn action(request: &accesskit::ActionRequest) -> Option<A11yAction> {
 /// with all their text runs when `runs` (else none: the caller adds the
 /// runs that changed with [`text_run`]).
 pub(super) fn update<'a>(
-    root: NodeId,
-    focus: Option<NodeId>,
+    root: SemanticsId,
+    focus: Option<SemanticsId>,
     nodes: impl Iterator<Item = &'a SemanticsNode>,
     runs: bool,
 ) -> accesskit::TreeUpdate {
     let nodes = nodes
         .flat_map(|source| {
             let mut nodes = vec![(accesskit::NodeId(source.id.0), node(source, root))];
-            if let Some(text) = source
-                .properties
-                .as_ref()
-                .and_then(|p| p.text.as_ref())
-                .filter(|_| runs)
-            {
-                nodes.extend(text.runs.iter().map(|run| text_run(run)));
+            if let Some(text) = source.semantics.text.as_ref().filter(|_| runs) {
+                nodes.extend(text.runs.iter().map(text_run));
             }
             nodes
         })
@@ -121,15 +116,17 @@ pub(super) fn update<'a>(
 /// it, so they stay where it is laid out.
 /// A transformed node maps its coordinate space (its bounds included) by
 /// its transform after that.
-fn node(source: &SemanticsNode, root: NodeId) -> accesskit::Node {
+fn node(source: &SemanticsNode, root: SemanticsId) -> accesskit::Node {
     // A generic root is filtered out of platform trees unless focused,
     // which detaches its children from sibling navigation; the root
     // stands for the window.
-    let mut node = accesskit::Node::new(if source.id == root && source.role == Role::Generic {
-        accesskit::Role::Window
-    } else {
-        role(source.role)
-    });
+    let mut node = accesskit::Node::new(
+        if source.id == root && source.semantics.role.unwrap_or(Role::Generic) == Role::Generic {
+            accesskit::Role::Window
+        } else {
+            role(source.semantics.role.unwrap_or(Role::Generic))
+        },
+    );
     node.set_children(
         source
             .children
@@ -137,7 +134,7 @@ fn node(source: &SemanticsNode, root: NodeId) -> accesskit::Node {
             .map(|id| accesskit::NodeId(id.0))
             .collect::<Vec<_>>(),
     );
-    if let Some(text) = source.properties.as_ref().and_then(|p| p.text.as_ref()) {
+    if let Some(text) = source.semantics.text.as_ref() {
         let children: Vec<_> = source
             .children
             .iter()
@@ -148,23 +145,8 @@ fn node(source: &SemanticsNode, root: NodeId) -> accesskit::Node {
         let [anchor, focus] = text_positions(text, [text.selection.0, text.selection.1]);
         node.set_text_selection(accesskit::TextSelection { anchor, focus });
     }
-    if !source.label.is_empty() {
-        node.set_label(source.label.clone());
-    }
-    if !source.description.is_empty() {
-        node.set_description(source.description.clone());
-    }
-    // AccessKit names a `Label` from its value, so text carries its
-    // label there for platform names (UIA Name, AT-SPI name).
-    if source.role == Role::Text && !source.label.is_empty() {
-        node.set_value(source.label.clone());
-    } else if let Some(value) = &source.value {
-        node.set_value(value.clone());
-    }
-    if let Some(id) = &source.test_id {
-        node.set_author_id(id.clone());
-    }
-    let (sx, sy) = (f64::from(source.scroll.x), f64::from(source.scroll.y));
+    set_labels(&mut node, source);
+    let (sx, sy) = (source.scroll.x, source.scroll.y);
     // Its descendants moved back by the scroll, then everything mapped by
     // its own transform (`SemanticsTree::window_bounds`).
     let t = source.transform;
@@ -173,144 +155,23 @@ fn node(source: &SemanticsNode, root: NodeId) -> accesskit::Node {
         node.set_transform(own * accesskit::Affine::translate((-sx, -sy)));
     }
     node.set_bounds(accesskit::Rect {
-        x0: f64::from(source.bounds.x) + sx,
-        y0: f64::from(source.bounds.y) + sy,
-        x1: f64::from(source.bounds.x) + f64::from(source.bounds.width) + sx,
-        y1: f64::from(source.bounds.y) + f64::from(source.bounds.height) + sy,
+        x0: source.bounds.x + sx,
+        y0: source.bounds.y + sy,
+        x1: source.bounds.x + source.bounds.width + sx,
+        y1: source.bounds.y + source.bounds.height + sy,
     });
-    if source.disabled {
-        node.set_disabled();
-    }
-    if source.hidden {
-        node.set_hidden();
-    }
-    if source.focusable {
-        node.add_action(accesskit::Action::Focus);
-    }
-    match source.checked {
-        Some(CheckedState::Indeterminate) => node.set_toggled(accesskit::Toggled::Mixed),
-        Some(CheckedState::Checked) => node.set_toggled(accesskit::Toggled::True),
-        Some(CheckedState::Unchecked) => node.set_toggled(accesskit::Toggled::False),
-        None => {}
-    }
-    if source.selected
-        || matches!(
-            source.role,
-            Role::Option | Role::ListItem | Role::Tab | Role::TreeItem
-        )
-    {
-        node.set_selected(source.selected);
-    }
-    if let Some(expanded) = source.expanded {
-        node.set_expanded(expanded);
-    }
-    if source.role == Role::Alert {
-        node.set_live(accesskit::Live::Assertive);
-    }
-    if source.role == Role::Status {
-        node.set_live(accesskit::Live::Polite);
-    }
-    if let Some(props) = &source.properties {
-        if let Some(v) = props.value_min {
-            node.set_min_numeric_value(v);
-        }
-        if let Some(v) = props.value_max {
-            node.set_max_numeric_value(v);
-        }
-        if let Some(v) = props.value_now {
-            node.set_numeric_value(v);
-        }
-        if let Some(live) = props.live_region {
-            node.set_live(match live {
-                kivact_types::LiveRegion::Off => accesskit::Live::Off,
-                kivact_types::LiveRegion::Polite => accesskit::Live::Polite,
-                kivact_types::LiveRegion::Assertive => accesskit::Live::Assertive,
-            });
-        }
-        match props.sort {
-            kivact_types::SortDirection::None => {}
-            kivact_types::SortDirection::Ascending => {
-                node.set_sort_direction(accesskit::SortDirection::Ascending)
-            }
-            kivact_types::SortDirection::Descending => {
-                node.set_sort_direction(accesskit::SortDirection::Descending)
-            }
-            kivact_types::SortDirection::Other => {
-                node.set_sort_direction(accesskit::SortDirection::Other)
-            }
-        }
-        match props.orientation {
-            kivact_types::Orientation::Unspecified => {}
-            kivact_types::Orientation::Horizontal => {
-                node.set_orientation(accesskit::Orientation::Horizontal)
-            }
-            kivact_types::Orientation::Vertical => {
-                node.set_orientation(accesskit::Orientation::Vertical)
-            }
-        }
-        if let Some(target) = props.active_descendant {
-            node.set_active_descendant(accesskit::NodeId(target.0));
-        }
-        if !props.described_by.is_empty() {
-            node.set_described_by(accesskit_ids(&props.described_by));
-        }
-        if !props.controls.is_empty() {
-            node.set_controls(accesskit_ids(&props.controls));
-        }
-        if !props.labelled_by.is_empty() {
-            node.set_labelled_by(accesskit_ids(&props.labelled_by));
-        }
-        if let Some(level) = props.level {
-            node.set_level(level as usize);
-        }
-        if let Some(size) = props.set_size {
-            node.set_size_of_set(size as usize);
-        }
-        if let Some(position) = props.pos_in_set {
-            node.set_position_in_set(position as usize);
-        }
-        if props.multiselectable == Some(true) {
-            node.set_multiselectable();
-        }
-        if props.busy {
-            node.set_busy();
-        }
-        if props.required {
-            node.set_required();
-        }
-        if let Some(popup) = props.has_popup {
-            node.set_has_popup(match popup {
-                PopupKind::Menu => accesskit::HasPopup::Menu,
-                PopupKind::ListBox => accesskit::HasPopup::Listbox,
-                PopupKind::Tree => accesskit::HasPopup::Tree,
-                PopupKind::Grid => accesskit::HasPopup::Grid,
-                PopupKind::Dialog => accesskit::HasPopup::Dialog,
-            });
-        }
-        if let Some(current) = props.current_item {
-            node.set_aria_current(match current {
-                CurrentItem::True => accesskit::AriaCurrent::True,
-                CurrentItem::Page => accesskit::AriaCurrent::Page,
-                CurrentItem::Step => accesskit::AriaCurrent::Step,
-                CurrentItem::Location => accesskit::AriaCurrent::Location,
-                CurrentItem::Date => accesskit::AriaCurrent::Date,
-                CurrentItem::Time => accesskit::AriaCurrent::Time,
-            });
-        }
-        if props.invalid {
-            node.set_invalid(accesskit::Invalid::True);
-        }
-        if props.read_only {
-            node.set_read_only();
-        }
-        if props.protected {
-            node.set_role(accesskit::Role::PasswordInput);
-        }
-    }
-    for action in &source.actions {
+    set_states(&mut node, source);
+    set_relations(&mut node, source);
+    set_collection_properties(&mut node, source);
+    for action in source.semantics.actions.iter().flatten() {
         node.add_action(platform_action(*action));
     }
-    if source.actions.contains(&A11yAction::Dismiss) {
+    if source
+        .semantics
+        .actions
+        .as_ref()
+        .is_some_and(|actions| actions.contains(&A11yAction::Dismiss))
+    {
         node.set_custom_actions(vec![accesskit::CustomAction {
             id: DISMISS,
             description: "Dismiss".into(),
@@ -319,7 +180,203 @@ fn node(source: &SemanticsNode, root: NodeId) -> accesskit::Node {
     node
 }
 
-fn accesskit_ids(ids: &[NodeId]) -> Vec<accesskit::NodeId> {
+/// Convert one group of canonical semantics properties.
+fn set_labels(node: &mut accesskit::Node, source: &SemanticsNode) {
+    if !source
+        .semantics
+        .name
+        .as_deref()
+        .unwrap_or_default()
+        .is_empty()
+    {
+        node.set_label(source.semantics.name.clone().unwrap_or_default());
+    }
+    if !source
+        .semantics
+        .description
+        .as_deref()
+        .unwrap_or_default()
+        .is_empty()
+    {
+        node.set_description(source.semantics.description.clone().unwrap_or_default());
+    }
+    // AccessKit names a `Label` from its value, so text carries its
+    // label there for platform names (UIA Name, AT-SPI name).
+    if source.semantics.role.unwrap_or(Role::Generic) == Role::Text
+        && !source
+            .semantics
+            .name
+            .as_deref()
+            .unwrap_or_default()
+            .is_empty()
+    {
+        node.set_value(source.semantics.name.clone().unwrap_or_default());
+    } else if let Some(value) = &source.semantics.value_text {
+        node.set_value(value.clone());
+    }
+    if let Some(id) = &source.semantics.test_id {
+        node.set_author_id(id.clone());
+    }
+}
+
+/// Convert one group of canonical semantics properties.
+fn set_states(node: &mut accesskit::Node, source: &SemanticsNode) {
+    if source.semantics.disabled {
+        node.set_disabled();
+    }
+    if source.semantics.hidden {
+        node.set_hidden();
+    }
+    if source.semantics.focusable {
+        node.add_action(accesskit::Action::Focus);
+    }
+    match source.semantics.checked {
+        Some(CheckedState::Indeterminate) => node.set_toggled(accesskit::Toggled::Mixed),
+        Some(CheckedState::Checked) => node.set_toggled(accesskit::Toggled::True),
+        Some(CheckedState::Unchecked) => node.set_toggled(accesskit::Toggled::False),
+        None => {}
+    }
+    if source.semantics.selected.unwrap_or(false)
+        || matches!(
+            source.semantics.role.unwrap_or(Role::Generic),
+            Role::Option | Role::ListItem | Role::Tab | Role::TreeItem
+        )
+    {
+        node.set_selected(source.semantics.selected.unwrap_or(false));
+    }
+    if let Some(expanded) = source.semantics.expanded {
+        node.set_expanded(expanded);
+    }
+    if source.semantics.role.unwrap_or(Role::Generic) == Role::Alert {
+        node.set_live(accesskit::Live::Assertive);
+    }
+    if source.semantics.role.unwrap_or(Role::Generic) == Role::Status {
+        node.set_live(accesskit::Live::Polite);
+    }
+}
+
+/// Convert one group of canonical semantics properties.
+fn set_relations(node: &mut accesskit::Node, source: &SemanticsNode) {
+    let props = &source.semantics;
+    if let Some(v) = props.value_min {
+        node.set_min_numeric_value(v.get());
+    }
+    if let Some(v) = props.value_max {
+        node.set_max_numeric_value(v.get());
+    }
+    if let Some(v) = props.value_now {
+        node.set_numeric_value(v.get());
+    }
+    if let Some(live) = props.live_region {
+        node.set_live(match live {
+            kivact_types::LiveRegion::Off => accesskit::Live::Off,
+            kivact_types::LiveRegion::Polite => accesskit::Live::Polite,
+            kivact_types::LiveRegion::Assertive => accesskit::Live::Assertive,
+        });
+    }
+    match props.sort {
+        kivact_types::SortDirection::None => {}
+        kivact_types::SortDirection::Ascending => {
+            node.set_sort_direction(accesskit::SortDirection::Ascending)
+        }
+        kivact_types::SortDirection::Descending => {
+            node.set_sort_direction(accesskit::SortDirection::Descending)
+        }
+        kivact_types::SortDirection::Other => {
+            node.set_sort_direction(accesskit::SortDirection::Other)
+        }
+    }
+    match props.orientation {
+        kivact_types::Orientation::Unspecified => {}
+        kivact_types::Orientation::Horizontal => {
+            node.set_orientation(accesskit::Orientation::Horizontal)
+        }
+        kivact_types::Orientation::Vertical => {
+            node.set_orientation(accesskit::Orientation::Vertical)
+        }
+    }
+    if let Some(target) = props.active_descendant {
+        node.set_active_descendant(accesskit::NodeId(target.0));
+    }
+    if !props.described_by.is_empty() {
+        node.set_described_by(accesskit_ids(&props.described_by));
+    }
+    if !props.controls.is_empty() {
+        node.set_controls(accesskit_ids(&props.controls));
+    }
+    if !props.labelled_by.is_empty() {
+        node.set_labelled_by(accesskit_ids(&props.labelled_by));
+    }
+}
+
+/// Convert one group of canonical semantics properties.
+fn set_collection_properties(node: &mut accesskit::Node, source: &SemanticsNode) {
+    let props = &source.semantics;
+    if let Some(count) = props.row_count {
+        node.set_row_count(count as usize);
+    }
+    if let Some(count) = props.column_count {
+        node.set_column_count(count as usize);
+    }
+    // Canonical semantics follows ARIA's one-based indices; AccessKit uses zero-based indices.
+    if let Some(index) = props.row_index.and_then(|index| index.checked_sub(1)) {
+        node.set_row_index(index as usize);
+    }
+    if let Some(span) = props.column_span.filter(|&span| span != 0) {
+        node.set_column_span(span as usize);
+    }
+    if let Some(index) = props.column_index.and_then(|index| index.checked_sub(1)) {
+        node.set_column_index(index as usize);
+    }
+    if let Some(level) = props.level {
+        node.set_level(level as usize);
+    }
+    if let Some(size) = props.set_size {
+        node.set_size_of_set(size as usize);
+    }
+    if let Some(position) = props.pos_in_set {
+        node.set_position_in_set(position as usize);
+    }
+    if props.multiselectable == Some(true) {
+        node.set_multiselectable();
+    }
+    if props.busy == Some(true) {
+        node.set_busy();
+    }
+    if props.required == Some(true) {
+        node.set_required();
+    }
+    if let Some(popup) = props.has_popup {
+        node.set_has_popup(match popup {
+            PopupKind::Menu => accesskit::HasPopup::Menu,
+            PopupKind::ListBox => accesskit::HasPopup::Listbox,
+            PopupKind::Tree => accesskit::HasPopup::Tree,
+            PopupKind::Grid => accesskit::HasPopup::Grid,
+            PopupKind::Dialog => accesskit::HasPopup::Dialog,
+        });
+    }
+    if let Some(current) = props.current_item {
+        node.set_aria_current(match current {
+            CurrentItem::True => accesskit::AriaCurrent::True,
+            CurrentItem::Page => accesskit::AriaCurrent::Page,
+            CurrentItem::Step => accesskit::AriaCurrent::Step,
+            CurrentItem::Location => accesskit::AriaCurrent::Location,
+            CurrentItem::Date => accesskit::AriaCurrent::Date,
+            CurrentItem::Time => accesskit::AriaCurrent::Time,
+        });
+    }
+    if props.invalid == Some(true) {
+        node.set_invalid(accesskit::Invalid::True);
+    }
+    if props.read_only == Some(true) {
+        node.set_read_only();
+    }
+    if props.protected {
+        node.set_role(accesskit::Role::PasswordInput);
+    }
+}
+
+fn accesskit_ids(ids: &[SemanticsId]) -> Vec<accesskit::NodeId> {
     ids.iter().map(|id| accesskit::NodeId(id.0)).collect()
 }
 
@@ -390,7 +447,7 @@ fn text_positions<const N: usize>(
 ) -> [accesskit::TextPosition; N] {
     let first = text
         .runs
-        .first()
+        .get(0)
         .expect("invariant: validated text has a run");
     let offsets = offsets.map(|offset| offset.saturating_sub(text.start));
     let mut found = [(first, 0u32); N];
@@ -453,10 +510,10 @@ pub(super) fn text_run(
     let mut node = accesskit::Node::new(accesskit::Role::TextRun);
     node.set_value(run.value.clone());
     node.set_bounds(accesskit::Rect {
-        x0: f64::from(run.bounds.x),
-        y0: f64::from(run.bounds.y),
-        x1: f64::from(run.bounds.right()),
-        y1: f64::from(run.bounds.bottom()),
+        x0: run.bounds.x,
+        y0: run.bounds.y,
+        x1: run.bounds.right(),
+        y1: run.bounds.bottom(),
     });
     let first = run.carets.iter().min_by_key(|c| c.offset);
     let last = run.carets.iter().max_by_key(|c| c.offset);
@@ -495,6 +552,7 @@ pub(super) fn text_run(
                 }
                 _ => at(*start).unwrap_or_else(|| fallback(*start)) - run.bounds.x,
             })
+            .map(|position| position as f32)
             .collect::<Vec<_>>(),
     );
     node.set_character_widths(
@@ -509,6 +567,7 @@ pub(super) fn text_run(
                     _ => 0.0,
                 }
             })
+            .map(|width| width as f32)
             .collect::<Vec<_>>(),
     );
     (accesskit::NodeId(run.id.0), node)

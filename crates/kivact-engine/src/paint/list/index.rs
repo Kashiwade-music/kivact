@@ -23,14 +23,15 @@ use crate::model::Model;
 use crate::paint::state::{Axis, ChildIndex, Extent, Indexed};
 use crate::tree::node::HostNode;
 use kivact_layout::NodeLayout;
-use kivact_wire::{NodeId, Rect};
+use kivact_types::cell::Generation;
+use kivact_types::{NodeId, Rect};
 
 use super::ink::{grow, ink, overlaps};
 
 /// Logical pixels an entry is grown by: the index computes a child's reach
 /// relative to its location, the walk in window space, and the two may
 /// round apart (far less than the margin, so no pixel depends on it).
-const SLACK: f32 = 0.01;
+const SLACK: f64 = 0.01;
 
 impl Indexed {
     fn new(
@@ -38,7 +39,7 @@ impl Indexed {
         id: NodeId,
         n: Option<&HostNode>,
         layout: NodeLayout,
-        generation: u64,
+        generation: Generation,
         order: usize,
     ) -> Self {
         let extent = match n.and_then(|n| ink(host, id, n, &layout, generation)) {
@@ -79,7 +80,7 @@ impl Indexed {
 
 impl Axis {
     /// The `(start, end)` of `r` along the axis.
-    fn span(self, r: &Rect) -> (f32, f32) {
+    fn span(self, r: &Rect) -> (f64, f64) {
         match self {
             Axis::X => (r.x, r.x + r.width),
             Axis::Y => (r.y, r.y + r.height),
@@ -93,8 +94,8 @@ impl ChildIndex {
     pub(super) fn build(
         host: &Model,
         children: impl ExactSizeIterator<Item = NodeId>,
-        pass: u64,
-        generation: u64,
+        pass: Generation,
+        generation: Generation,
     ) -> Self {
         let layouts = host;
         let entries = children
@@ -132,7 +133,7 @@ impl ChildIndex {
 
     /// Bring the entries up to layout pass `pass` and the touched children
     /// (inks of generation `generation`).
-    pub(super) fn refresh(&mut self, host: &Model, pass: u64, generation: u64) {
+    pub(super) fn refresh(&mut self, host: &Model, pass: Generation, generation: Generation) {
         let relaid = pass != self.pass;
         if !relaid && self.touched.is_empty() {
             return;
@@ -168,7 +169,7 @@ impl ChildIndex {
                 .map(|(i, _)| i),
         );
         self.axis = [Axis::Y, Axis::X].into_iter().find(|axis| {
-            let mut last = f32::NEG_INFINITY;
+            let mut last = f64::NEG_INFINITY;
             self.entries.iter().all(|e| match e.reach() {
                 None => true,
                 Some(None) => false,
@@ -183,7 +184,7 @@ impl ChildIndex {
         self.starts.clear();
         self.furthest.clear();
         if let Some(axis) = self.axis {
-            let (mut start, mut end) = (f32::NEG_INFINITY, f32::NEG_INFINITY);
+            let (mut start, mut end) = (f64::NEG_INFINITY, f64::NEG_INFINITY);
             for e in &self.entries {
                 if let Some(Some(r)) = e.reach() {
                     let span = axis.span(&r);

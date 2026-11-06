@@ -6,6 +6,13 @@
 
 キットの見た目は、Kivact の普通の `Theme` です。`kivact::ui` の標準部品（ボタン、テキスト入力、メニュー、ダイアログなど）も含めて、すべての見た目はそこから決まります。このガイドは、[チュートリアル](../getting-started/README.md)を終えていることを前提にしています。テーマの仕組みそのものは、[テーマと部品の見た目を変える](../../../../for-kivact-user/jp/how-to-guide/theming.md)で説明しています。
 
+名前付きのツールバーは `kivact::ui::toolbar(label).start(children).center(children).end(children)`、
+連結したアクションは `button_group(label, children)`、単一選択や複数選択は
+`toggle_group(label, options, selection)` を使います。Creative テーマが密な間隔、
+フィールドの背景、押された状態の色を設定します。排他的なセグメントには
+`kivact::ui::radio_group(label, options, selection).variant(kivact::ui::RadioGroupVariant::Segmented)`
+を使います。キーボード操作と選択は標準部品が持ち、テーマが見た目を設定します。
+
 ## テーマを適用する
 
 ```rust,no_run
@@ -28,20 +35,21 @@ fn main() -> kivact::Result<()> {
 
 ## アクセントと密度を選ぶ
 
-`ThemeOptions` トレイトをインポートして（メソッドだけを使うので `_` を付けます）、メソッドをつなぎます。
+`ThemeOptions` 構造体を `theme_with` に渡します。省略するフィールドには `..Default::default()` を使います。
 
 ```rust,no_run
 use kivact::style::{Theme, ThemeMode};
-use kivact_ui_creative::{self as ui, ThemeOptions as _};
+use kivact_ui_creative as ui;
 
 fn compact_lime() -> Theme {
-    ui::theme(ThemeMode::Dark)
-        .accent(ui::Accent::Lime)
-        .density(ui::Density::Compact)
+    ui::theme_with(ThemeMode::Dark, ui::ThemeOptions {
+        accent: ui::Accent::Lime,
+        density: ui::Density::Compact,
+    })
 }
 ```
 
-`Accent` には `Iris`・`Lime`・`Aqua`・`Coral`・`Amber` があります。アクセントは、選択、フォーカスリング、操作中の部品の色になります。`Density::Compact` は、コントロールの高さを 24 から 20 ピクセルにし、間隔を詰めます。どちらのメソッドも、テーマがすでに持っているほかの設定は変えません。
+`Accent` には `Iris`・`Lime`・`Aqua`・`Coral`・`Amber` があります。アクセントは、選択、フォーカスリング、操作中の部品の色になります。`Density::Compact` は、コントロールの高さを 24 から 20 ピクセルにし、間隔を詰めます。ほかのテーマ設定は、返されたテーマに適用します。
 
 ## 実行中にテーマを切り替える
 
@@ -50,8 +58,8 @@ fn compact_lime() -> Theme {
 ```rust,no_run
 use kivact::prelude::*;
 use kivact::style::ThemeMode;
-use kivact::view::provide_theme;
-use kivact_ui_creative::{self as ui, ThemeOptions as _};
+use kivact::style::provide_theme;
+use kivact_ui_creative as ui;
 
 fn themed() -> impl IntoView {
     let dark = signal(true);
@@ -60,7 +68,7 @@ fn themed() -> impl IntoView {
     provide_theme(
         move || {
             let mode = if dark.get() { ThemeMode::Dark } else { ThemeMode::Light };
-            ui::theme(mode).accent(accent.get())
+            ui::theme_with(mode, ui::ThemeOptions { accent: accent.get(), ..Default::default() })
         },
         move || {
             column((
@@ -77,15 +85,15 @@ fn themed() -> impl IntoView {
                 style()
                     .gap(10)
                     .padding(16)
-                    .background(ui::Color::Canvas)
-                    .color(ui::Color::Text),
+                    .background(ui::ColorName::Canvas)
+                    .color(ui::ColorName::Text),
             )
         },
     )
 }
 ```
 
-`ui::Color` は、キット独自のパレットをスタイルの値にしたものです（`Canvas`・`Island`・`Header`・`Field`・`Hair`・`Text`・`Muted`・`Accent` など）。スタイルが色を受け取る場所ならどこでも使え、テーマを切り替えると自動で追従します。テーマを読むクロージャは要りません。
+`ui::ColorName` は、キット独自のパレットをスタイルの値にしたものです（`Canvas`・`Island`・`Header`・`Field`・`Hair`・`Text`・`Muted`・`Accent` など）。スタイルが色を受け取る場所ならどこでも使え、テーマを切り替えると自動で追従します。テーマを読むクロージャは要りません。
 
 ## 自分のフォントを使う
 
@@ -103,7 +111,7 @@ fn app_with_font(font: &'static [u8]) -> App {
     let theme = ui::theme(ThemeMode::Dark);
 
     // キットのトークン: ファミリ名を変えて、テーマへ戻す。
-    let mut tokens = (*theme.get::<ui::Tokens>()).clone();
+    let mut tokens = (*theme.ext::<ui::Tokens>()).clone();
     tokens.body_font = "Geist".into();
     tokens.mono_font = "Geist Mono".into();
 
@@ -125,8 +133,8 @@ fn app_with_font(font: &'static [u8]) -> App {
 アイコンは、テーマのアイコンセットにある名前です。キットのテーマには、`play`・`pause`・`eye`・`eye-off`・`lock`・`folder`・`stack`・`layout-columns`・`adjustments`・`keyframes`・`palette`・`color-picker`・`chevron-down`・`plus`・`trash`・`search`・`x` など、16 ピクセルの Tabler のアウトラインアイコンが入っています。`icon(name)` で描くと、周囲の文字色になります。
 
 ```rust,no_run
-use kivact::Asset;
-use kivact::control::icon;
+use kivact::view::Asset;
+use kivact::view::icon;
 use kivact::prelude::*;
 use kivact::style::ThemeMode;
 use kivact_ui_creative as ui;
@@ -176,3 +184,13 @@ fn translated(app: App) -> App {
 - 組み込みのアイコン名の一覧は、リポジトリの `crates/kivact-ui-creative/README.md` にあります。
 - API の全体: `cargo doc -p kivact-ui-creative --open`
 - キットの見た目ですべての部品を確認する: `cargo run -p kivact-ui-creative-catalog`
+
+標準の `kivact::ui::badge`、`avatar`、`avatar_group`、`skeleton`、`spinner`、`kbd`、`kbd_combo` は Creative の recipe を使います。tone はキットの色、key cap は等幅フォントを使い、skeleton と spinner の動きは Core が所有します。Creative の `KeyGlyph` は引き続き keyframe marker を表します。画像、fallback、status、size、動きの全 option は [インジケーターとキーボードショートカット](../../../../for-kivact-user/jp/how-to-guide/indicators.md)を参照してください。
+
+インライン通知は、標準の `kivact::ui::alert(title).description(body).tone(tone).variant(ui::NoticeVariant)` を使います。`.icon(icon("warning"))`、`.dismissible(true)`、`.dismiss_content(icon("x"))` を付けると、従来のアイコンと四角い閉じるボタンになります。閉じる状態と focus の復元は Core が所有します。標準の empty state、card、input group も Creative の recipe を使い、[フィードバックの全 option](../../../../for-kivact-user/jp/how-to-guide/feedback.md)を保持します。
+
+表示専用の概要には `kivact::ui::progress(value).variant(ProgressVariant::Ring)` または `Gauge`、`stat(label, value)`、`heading(text, level)`、`description_list((description(term, detail), ...))` を使います。Creative は高さ 8 px のバー表示を保ち、密な指標用の文字スタイルを設定します。未確定の動き、百分率の意味、独自内容の slot は Core が持ちます。編集用の `ui::property_row` は domain 部品として残ります。[指標と説明リスト](../../../../for-kivact-user/jp/how-to-guide/metrics-and-description.md)を参照してください。
+
+編集用の `ui::property_row` は標準の description 表示を組み立てます。行は `Role::ListItem` を公開するため、関連する行を `kivact::ui::description_list` または `Role::List` のレイアウトコンテナに置きます。ラベル幅、行の高さ、前後の操作、編集用の binding は変わりません。
+
+静的な `kivact::ui::table` の各部品と `item_list` / `item_row` は、密な Creative の collection recipe を使います。内容とアクセシビリティの契約は [リストと表](../../../../for-kivact-user/jp/how-to-guide/lists-and-tables.md)を参照してください。domain の outliner は単一の `use_tree` model を標準の `tree_rows` で表示し、フィルター、固定幅の cell、可視性、restriction、drag の要求を保ちます。

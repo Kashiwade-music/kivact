@@ -5,16 +5,48 @@ use std::fmt;
 use std::panic::Location;
 use std::sync::Arc;
 
-use kivact_reactive::{Owner, Runtime, Signal, Trigger};
-use kivact_wire::{GpuAdapter, SharedTextures};
+use kivact_runtime::{Notifier, Owner, Runtime, Signal};
+use kivact_types::cell::Generation;
+use kivact_types::{GpuAdapter, SharedTextures};
 
 use super::link::{LinkState, Phase, ShareLink, ShareMode, ShareRequest, ShareStatus, Work};
 use crate::gpu_interop::adapter;
 use crate::gpu_interop::import::inbox::Inbox;
 use crate::gpu_interop::import::{ExternalImage, ImportStatus, import_in};
+use kivact_runtime::spawn_in;
 use kivact_style::draw::{GpuFrame, Pixels};
-use kivact_task::spawn_in;
 
+type Size = (u32, u32);
+
+enum Issue {
+    NotIssued,
+    Issued {
+        mode: ShareMode,
+        size: Size,
+        generation: Generation,
+    },
+}
+
+impl Issue {
+    fn issue(&mut self, mode: ShareMode, size: Size) {
+        let mut generation = match self {
+            Self::NotIssued => Generation::new(),
+            Self::Issued { generation, .. } => *generation,
+        };
+        generation.next();
+        *self = Self::Issued {
+            mode,
+            size,
+            generation,
+        };
+    }
+
+    fn matches(&self, mode: &ShareMode, size: Size) -> bool {
+        matches!(self, Self::Issued { mode: issued, size: issued_size, .. } if issued == mode && *issued_size == size)
+    }
+}
+
+// xtask-allow(state-fields): GPU import and the last CPU image are independently retained outputs; CPU pixels remain available across GPU renewal.
 /// An image an engine on another thread shares with the UI
 /// ([`shared_image`]): the UI thread's handle, `Clone` and `!Send`.
 ///
@@ -26,7 +58,7 @@ pub struct SharedImage {
     state: Arc<Inbox<LinkState>>,
     /// Notified after each change of `state` the UI makes or takes from the
     /// engine (the receiving task): [`SharedImage::status`] tracks it.
-    changed: Trigger,
+    changed: Notifier,
     /// The import of the newest request, once the engine provided it.
     current: Signal<Option<Current>>,
     pixels: Signal<Option<Pixels>>,
@@ -70,7 +102,7 @@ impl PartialEq for Current {
 #[track_caller]
 pub fn shared_image(width: u32, height: u32) -> SharedImage {
     let at = Location::caller();
-    let owner = kivact_reactive::Owner::current("shared_image", at);
+    let owner = kivact_runtime::Owner::current("shared_image", at);
     let size = (width.max(1), height.max(1));
     let mode = mode_of(adapter());
     let state = Arc::new(Inbox::new(LinkState::new(ShareRequest {
@@ -81,23 +113,25 @@ pub fn shared_image(width: u32, height: u32) -> SharedImage {
     })));
     let image = SharedImage {
         state: state.clone(),
-        changed: owner.trigger(at),
+        changed: owner.notifier(at),
         current: owner.signal(None, at),
         pixels: owner.signal(None, at),
         size: owner.signal(size, at),
     };
     // A new request when what the last one was made of changes, or its
     // import was lost.
-    let issued = RefCell::new((mode, size));
+    let mut issue = Issue::NotIssued;
+    issue.issue(mode, size);
+    let issued = RefCell::new(issue);
     let renewing = image.clone();
-    kivact_reactive::effect(move || {
-        let wanted = (mode_of(adapter()), renewing.size.get());
+    kivact_runtime::effect(move || {
+        let mode = mode_of(adapter());
+        let size = renewing.size.get();
         let lost = renewing.import_lost();
-        if !lost && *issued.borrow() == wanted {
+        if !lost && issued.borrow().matches(&mode, size) {
             return;
         }
-        let (mode, size) = wanted.clone();
-        *issued.borrow_mut() = wanted;
+        issued.borrow_mut().issue(mode.clone(), size);
         renewing.renew(mode, size);
     });
     let receiving = image.clone();
@@ -208,7 +242,7 @@ impl SharedImage {
         }));
         self.changed.notify();
         let this = self.clone();
-        child.with_setup(|| kivact_reactive::effect(move || this.follow(token, &image)));
+        child.with_setup(|| kivact_runtime::effect(move || this.follow(token, &image)));
     }
 
     /// Mirror the status of the import of request `token`.

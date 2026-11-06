@@ -1,20 +1,21 @@
 //! Role: Group already sorted and paged data without adding synthetic data keys.
-use super::group_state::DataTableGroupState;
 use super::rows::{self, Grid};
 use super::types::Grouping;
 use crate::layer::with_recipe_style;
+use crate::table_values::DataTableGroupState;
 use crate::{ButtonVariant, button};
-use kivact_core::control::{NodeBuilder, icon, node, row, text};
 use kivact_core::i18n::message_with;
 use kivact_core::motion::{Easing, Transition};
+use kivact_core::state::{Binding, Value, memo};
 use kivact_core::style::{
     Align, ColorToken, Cursor, Justify, Position, TransitionProp, auto, pct, style,
 };
-use kivact_core::view::{IntoView, ReadingDirection, Role, View, current_direction, for_each};
-use kivact_core::{Binding, Value, memo};
+use kivact_core::view::IntoView;
+use kivact_core::view::NodeBuilder;
+use kivact_core::view::{ReadingDirection, Role, View, for_each, use_direction};
+use kivact_core::view::{icon, node, row, text};
 use kivact_interaction::TableFocus;
 use std::collections::HashMap;
-use std::hash::Hash;
 use std::rc::Rc;
 
 #[derive(Clone, PartialEq)]
@@ -42,7 +43,7 @@ impl<R> Clone for Plan<R> {
 
 impl<R> Copy for Plan<R> {}
 
-pub(super) fn plan<R: Clone + PartialEq + 'static>(
+pub(super) fn plan<R: kivact_core::state::PropValue>(
     rows: Value<Vec<R>>,
     grouping: Grouping<R>,
 ) -> Plan<R> {
@@ -79,7 +80,7 @@ pub(super) fn plan<R: Clone + PartialEq + 'static>(
     Plan { entries, collapsed }
 }
 
-impl<R: Clone + PartialEq + 'static> Plan<R> {
+impl<R: kivact_core::state::PropValue> Plan<R> {
     pub(super) fn rows(self) -> Value<Vec<R>> {
         memo(move || {
             self.entries.with(|entries| {
@@ -94,7 +95,7 @@ impl<R: Clone + PartialEq + 'static> Plan<R> {
         })
     }
 
-    pub(super) fn view<K: Clone + Eq + Hash + 'static>(
+    pub(super) fn view<K: kivact_core::state::ItemKey>(
         self,
         grid: Grid<R, K>,
         key: Rc<dyn Fn(&R) -> K>,
@@ -105,37 +106,117 @@ impl<R: Clone + PartialEq + 'static> Plan<R> {
                 Entry::Group(label, _) => EntryKey::Group(label.clone()),
                 Entry::Data(row) => EntryKey::Data(key(row)),
             },
-            move |key, entry| match key {
-                EntryKey::Group(label) => {
-                    let state = memo(move || {
-                        entry.with(|entry| match entry {
-                            Entry::Group(_, state) => *state,
-                            Entry::Data(_) => unreachable!("group key refers to a group"),
-                        })
-                    });
-                    header(&grid, label, state, self.collapsed)
-                }
-                EntryKey::Data(key) => {
-                    let row = memo(move || {
-                        entry.with(|entry| match entry {
-                            Entry::Data(row) => row.clone(),
-                            Entry::Group(..) => unreachable!("data key refers to a row"),
-                        })
-                    });
-                    rows::body(&grid, key, row)
+            move |entry| {
+                let entry_key = entry.with_untracked(|entry| match entry {
+                    Entry::Group(label, _) => EntryKey::Group(label.clone()),
+                    Entry::Data(row) => EntryKey::Data((grid.key)(row)),
+                });
+                match entry_key {
+                    EntryKey::Group(label) => {
+                        let state = memo(move || {
+                            entry.with(|entry| match entry {
+                                Entry::Group(_, state) => *state,
+                                Entry::Data(_) => unreachable!("group key refers to a group"),
+                            })
+                        });
+                        header(&grid, label, state, self.collapsed)
+                    }
+                    EntryKey::Data(key) => {
+                        let row = memo(move || {
+                            entry.with(|entry| match entry {
+                                Entry::Data(row) => row.clone(),
+                                Entry::Group(..) => unreachable!("data key refers to a row"),
+                            })
+                        });
+                        rows::body(&grid, key, row)
+                    }
                 }
             },
         )
     }
 }
 
-fn header<R: 'static, K: Clone + Eq + Hash + 'static>(
+fn header<R: 'static, K: kivact_core::state::ItemKey>(
     grid: &Grid<R, K>,
     label: String,
     state: Value<DataTableGroupState>,
     collapsed: Binding<Vec<String>>,
 ) -> View {
     let row_name = label.clone();
+    let metadata = grid.row_metadata;
+    let coordinate_label = label.clone();
+    let row_index = memo(move || {
+        metadata.with(|metadata| metadata.groups.get(&coordinate_label).copied().unwrap_or(0))
+    });
+    let (name, content) = group_disclosure_content(label.clone(), state);
+    let navigation_label = label.clone();
+    let disclosure = button(name)
+        .variant(ButtonVariant::Ghost)
+        .hide_label(true)
+        .with_node(|node| node.expanded(move || !state.get().collapsed))
+        .on_press(move || {
+            let mut groups = collapsed.get_untracked();
+            if groups.contains(&label) {
+                groups.retain(|key| key != &label);
+            } else {
+                groups.push(label.clone());
+            }
+            collapsed.set(groups);
+        })
+        .style(
+            style()
+                .width(pct(100))
+                .height(auto())
+                .min_height(0)
+                .padding(0)
+                .padding_y(8)
+                .padding_right(12)
+                .justify_content(Justify::Start)
+                .radius(0)
+                .cursor(Cursor::Pointer),
+        )
+        .child(content);
+    let cell_role = if matches!(grid.focus, TableFocus::None) {
+        Role::Cell
+    } else {
+        Role::GridCell
+    };
+    let cell = node()
+        .role(cell_role)
+        .column_index(1)
+        .style(style().grow(1));
+    let cell = if matches!(grid.focus, TableFocus::Cells(_)) {
+        let cell = grid.navigation.bind(
+            cell.focusable(true).name(navigation_label.clone()),
+            super::navigation::Target::Group(navigation_label.clone()),
+        );
+        let navigation = grid.navigation.clone();
+        let rows = grid.row_metadata;
+        let columns = grid.column_metadata;
+        let cell = cell.on_key(move |event| {
+            navigation.navigate_from_group(&navigation_label, &event, rows, columns)
+        });
+        rows::content_navigation(cell, disclosure.into_view(), true)
+    } else {
+        cell.child(disclosure)
+    };
+    with_recipe_style(
+        row(cell)
+            .role(Role::Row)
+            .row_index(row_index)
+            .name(row_name),
+        |recipes| recipes.data_table_recipes().group_header_recipe(),
+        &grid.variants,
+        move || state.get(),
+    )
+    .into_view()
+}
+
+/// Describe group expansion and draw its sticky label, count and rotating mark.
+fn group_disclosure_content(
+    label: String,
+    state: Value<DataTableGroupState>,
+) -> (Value<String>, impl IntoView) {
     let name = {
         let group = label.clone();
         let expand = message_with("data_table.group.expand", "Expand group {group}", {
@@ -155,7 +236,7 @@ fn header<R: 'static, K: Clone + Eq + Hash + 'static>(
             }
         })
     };
-    let rtl = current_direction() == ReadingDirection::Rtl;
+    let rtl = use_direction().get() == ReadingDirection::Rtl;
     let mark = icon("chevron-right").style(move || {
         let angle = if !state.get().collapsed {
             90
@@ -190,47 +271,5 @@ fn header<R: 'static, K: Clone + Eq + Hash + 'static>(
             base.left(0).padding_left(4)
         }
     });
-    let disclosure = button(name)
-        .variant(ButtonVariant::Ghost)
-        .hide_label(true)
-        .expanded(move || !state.get().collapsed)
-        .on_press(move || {
-            let mut groups = collapsed.get_untracked();
-            if groups.contains(&label) {
-                groups.retain(|key| key != &label);
-            } else {
-                groups.push(label.clone());
-            }
-            collapsed.set(groups);
-        })
-        .style(
-            style()
-                .width(pct(100))
-                .height(auto())
-                .min_height(0)
-                .padding(0)
-                .padding_y(8)
-                .padding_right(12)
-                .justify_content(Justify::Start)
-                .radius(0)
-                .cursor(Cursor::Pointer),
-        )
-        .child(content);
-    let cell_role = if matches!(grid.focus, TableFocus::None) {
-        Role::Cell
-    } else {
-        Role::GridCell
-    };
-    with_recipe_style(
-        row(node()
-            .role(cell_role)
-            .style(style().grow(1))
-            .child(disclosure))
-        .role(Role::Row)
-        .name(row_name),
-        |recipes| recipes.data_table_recipes().group_header_recipe(),
-        &grid.variants,
-        move || state.get(),
-    )
-    .into_view()
+    (name, content)
 }

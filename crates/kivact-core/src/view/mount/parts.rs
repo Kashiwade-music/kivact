@@ -3,15 +3,60 @@
 use std::panic::Location;
 use std::rc::Rc;
 
-use kivact_reactive::Owner;
-use kivact_reactive::Prop as InputProp;
+use kivact_runtime::Owner;
+use kivact_runtime::Prop as InputProp;
 
-use crate::view::common::SemanticSources;
-use crate::view::common::{Common, Constraints};
 use crate::view::descriptor::Mcx;
+use crate::view::element_data::{Common, Constraints};
 use crate::view::part_data::{PartBinding, PartConstraints, PartMount};
 
 impl Common {
+    /// Apply a later caller layer without changing handler or constraint ownership.
+    pub(crate) fn apply_caller(&mut self, mut later: Common) {
+        macro_rules! replace_fields { ($($field:ident),* $(,)?) => { $(replace(&mut self.$field, later.$field.take());)* }; }
+        replace_fields!(
+            exit_layout,
+            focusable_when_disabled,
+            exit_complete,
+            roving_focus,
+            hit_testable,
+            focus_on_press,
+            text_editing,
+            ime,
+            draw,
+            draw_over,
+            draw_with_layout,
+            intrinsic,
+            image_fit,
+            monochrome,
+            at
+        );
+        self.part_modal |= later.part_modal;
+        self.part_region_events |= later.part_region_events;
+        self.append_semantics(&mut later.semantics);
+        self.node_ref.append(&mut later.node_ref);
+        self.style.splice(
+            self.base_styles..self.base_styles,
+            later.style.drain(..later.base_styles),
+        );
+        self.base_styles += later.base_styles;
+        self.style.append(&mut later.style);
+        self.regions.append(&mut later.regions);
+        self.part_bindings.append(&mut later.part_bindings);
+        self.deferred_parts.append(&mut later.deferred_parts);
+        self.part_constraints
+            .disabled
+            .append(&mut later.part_constraints.disabled);
+        self.part_constraints
+            .hidden
+            .append(&mut later.part_constraints.hidden);
+        self.part_constraints
+            .focusable
+            .append(&mut later.part_constraints.focusable);
+        self.handlers.merge_caller(later.handlers);
+        self.part_actions.compose(later.part_actions);
+    }
+
     /// Merge part semantics and handlers now, but preserve constraints until mount.
     ///
     /// Precedence: a property a part sets (role, name, description, value,
@@ -23,6 +68,7 @@ impl Common {
     /// restates a semantic of the same target (for example `expanded`) without
     /// removing the earlier part's other behavior.
     pub(crate) fn attach_part(&mut self, mut part: Common) {
+        self.deferred_parts.append(&mut part.deferred_parts);
         let region_events = part.part_region_events;
         self.handlers
             .key
@@ -41,38 +87,40 @@ impl Common {
             part.handlers.secondary_context.take(),
         );
         self.part_modal |= part.part_modal;
-        self.focusable_when_disabled |= part.focusable_when_disabled;
-        self.part_constraints.disabled.extend(part.disabled.take());
+        if let Some(required) = part.focusable_when_disabled.take() {
+            let caller = self.focusable_when_disabled.take();
+            self.focusable_when_disabled =
+                Some(kivact_runtime::Prop::computed(Rc::new(move || {
+                    caller.as_ref().is_some_and(|v| v.get()) || required.get()
+                })));
+        }
+        self.part_constraints
+            .disabled
+            .extend(part.disabled_source());
         self.part_constraints
             .disabled
             .append(&mut part.part_constraints.disabled);
-        self.part_constraints.hidden.extend(part.hidden.take());
+        self.part_constraints.hidden.extend(part.hidden_source());
         self.part_constraints
             .hidden
             .append(&mut part.part_constraints.hidden);
         self.part_constraints
             .focusable
-            .extend(part.focusable.take());
+            .extend(part.focusable_source());
         self.part_constraints
             .focusable
             .append(&mut part.part_constraints.focusable);
         replace(&mut self.focus_on_press, part.focus_on_press.take());
-        replace(&mut self.role, part.role.take());
         replace(&mut self.text_editing, part.text_editing.take());
-        replace(&mut self.name, part.name.take());
-        replace(&mut self.description, part.description.take());
-        replace(&mut self.value, part.value.take());
-        replace(&mut self.selected, part.selected.take());
-        replace(&mut self.invalid, part.invalid.take());
-        replace(&mut self.checked, part.checked.take());
-        replace(&mut self.indeterminate, part.indeterminate.take());
-        replace(&mut self.expanded, part.expanded.take());
-        if let Some(semantics) = part.semantics {
-            merge_semantics(
-                self.semantics.get_or_insert_with(Default::default),
-                *semantics,
-            );
-        }
+        part.semantics.retain(|p| {
+            !matches!(
+                p.input,
+                crate::view::semantics_data::SemanticInput::Disabled(_)
+                    | crate::view::semantics_data::SemanticInput::Hidden(_)
+                    | crate::view::semantics_data::SemanticInput::Focusable(_)
+            )
+        });
+        self.append_semantics(&mut part.semantics);
         self.node_ref.append(&mut part.node_ref);
         self.part_bindings.append(&mut part.part_bindings);
         self.part_actions.compose(part.handlers.take_part_actions());
@@ -86,9 +134,9 @@ impl Common {
 pub(super) fn report_modal_unsupported(cx: &Mcx<'_>, at: &'static Location<'static>) {
     cx.rt.report(
         Some(cx.owner),
-        kivact_reactive::UiError::new(
-            kivact_reactive::ErrorKind::Unsupported,
-            "Part.modal(true) requires an Overlay attachment; requirement dropped",
+        kivact_runtime::UiError::new(
+            kivact_runtime::ErrorKind::Unsupported,
+            "Node.modal() requires an Overlay attachment; requirement dropped",
             Some(at),
         ),
     );
@@ -100,28 +148,7 @@ fn replace<T>(target: &mut Option<T>, incoming: Option<T>) {
     }
 }
 
-fn merge_semantics(target: &mut SemanticSources, mut part: SemanticSources) {
-    replace(&mut target.value_min, part.value_min.take());
-    replace(&mut target.value_max, part.value_max.take());
-    replace(&mut target.value_now, part.value_now.take());
-    replace(&mut target.live_region, part.live_region.take());
-    replace(&mut target.sort, part.sort.take());
-    replace(&mut target.orientation, part.orientation.take());
-    replace(&mut target.active_descendant, part.active_descendant.take());
-    replace(&mut target.level, part.level.take());
-    replace(&mut target.set_size, part.set_size.take());
-    replace(&mut target.pos_in_set, part.pos_in_set.take());
-    replace(&mut target.multiselectable, part.multiselectable.take());
-    replace(&mut target.busy, part.busy.take());
-    replace(&mut target.required, part.required.take());
-    replace(&mut target.read_only, part.read_only.take());
-    replace(&mut target.has_popup, part.has_popup.take());
-    replace(&mut target.current_item, part.current_item.take());
-    target.described_by.append(&mut part.described_by);
-    target.controls.append(&mut part.controls);
-    target.labelled_by.append(&mut part.labelled_by);
-}
-
+// xtask-allow(state-fields): Independent caller constraint sources and behavior requirements are mount inputs.
 /// What a target's final constraints combine: the caller's own modifiers and the parts' requirements.
 pub(super) struct ConstraintSources {
     pub(super) disabled: Option<InputProp<bool>>,
@@ -144,35 +171,47 @@ pub(super) fn constraints(
         required,
     } = sources;
     let value = |source: InputProp<bool>| source.into_value(cx.owner, at);
-    let caller_disabled = value(disabled.unwrap_or_else(|| kivact_reactive::Prop::constant(false)));
-    let caller_hidden = value(hidden.unwrap_or_else(|| kivact_reactive::Prop::constant(false)));
+    let caller_disabled = value(disabled.unwrap_or_else(|| InputProp::constant(false)));
+    let caller_hidden = value(hidden.unwrap_or_else(|| InputProp::constant(false)));
     let caller_focus = focusable.map(value);
     let PartConstraints {
         disabled: mut required_disabled,
         hidden: mut required_hidden,
-        focusable: required_focus,
+        focusable: mut required_focus,
     } = required;
     if let Some(parent) = parent {
-        required_disabled.push(kivact_reactive::Prop::value(parent.disabled));
-        required_hidden.push(kivact_reactive::Prop::value(parent.hidden));
+        required_disabled.push(InputProp::value(parent.disabled));
+        required_hidden.push(InputProp::value(parent.hidden));
     }
+    required_disabled.push(InputProp::value(caller_disabled));
+    required_hidden.push(InputProp::value(caller_hidden));
     let focus_default = !required_focus.is_empty();
-    let disabled = value(kivact_reactive::Prop::computed(Rc::new(move || {
-        caller_disabled.get() || required_disabled.iter().any(kivact_reactive::Prop::get)
-    })));
-    let hidden = value(kivact_reactive::Prop::computed(Rc::new(move || {
-        caller_hidden.get() || required_hidden.iter().any(kivact_reactive::Prop::get)
-    })));
-    let focusable = value(kivact_reactive::Prop::computed(Rc::new(move || {
-        caller_focus.map_or(focus_default, |v| v.get())
-            && required_focus.iter().all(kivact_reactive::Prop::get)
-    })));
-    let eligible = value(kivact_reactive::Prop::computed(Rc::new(move || {
-        !caller_disabled.get()
-            && !caller_hidden.get()
-            && caller_focus.is_none_or(|v| v.get())
-            && parent.is_none_or(|p| !p.caller_disabled.get() && !p.caller_hidden.get())
-    })));
+    required_focus.push(
+        caller_focus
+            .map(InputProp::value)
+            .unwrap_or_else(|| InputProp::constant(focus_default)),
+    );
+    let disabled = value(combine(required_disabled, false));
+    let hidden = value(combine(required_hidden, false));
+    let focusable = value(combine(required_focus, true));
+    let mut eligible = vec![
+        InputProp::value(caller_disabled),
+        InputProp::value(caller_hidden),
+    ];
+    if let Some(parent) = parent {
+        eligible.push(InputProp::value(parent.caller_disabled));
+        eligible.push(InputProp::value(parent.caller_hidden));
+    }
+    let available = combine(eligible, false);
+    let eligible = value(combine(
+        vec![
+            invert(available),
+            caller_focus
+                .map(InputProp::value)
+                .unwrap_or_else(|| InputProp::constant(true)),
+        ],
+        true,
+    ));
     Constraints {
         disabled,
         hidden,
@@ -180,6 +219,32 @@ pub(super) fn constraints(
         eligible,
         caller_disabled,
         caller_hidden,
+    }
+}
+
+/// Preserve constants when combining constraint inputs, avoiding a render effect
+/// for a node whose authored and behavior requirements are all constant.
+fn combine(sources: Vec<InputProp<bool>>, all: bool) -> InputProp<bool> {
+    let fixed: Option<Vec<_>> = sources.iter().map(InputProp::fixed).collect();
+    let reduce = move |values: Vec<bool>| {
+        if all {
+            values.into_iter().all(|v| v)
+        } else {
+            values.into_iter().any(|v| v)
+        }
+    };
+    if let Some(values) = fixed {
+        InputProp::constant(reduce(values))
+    } else {
+        InputProp::computed(Rc::new(move || {
+            reduce(sources.iter().map(InputProp::get).collect())
+        }))
+    }
+}
+fn invert(source: InputProp<bool>) -> InputProp<bool> {
+    match source.fixed() {
+        Some(value) => InputProp::constant(!value),
+        None => InputProp::computed(Rc::new(move || !source.get())),
     }
 }
 

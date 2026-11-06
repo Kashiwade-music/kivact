@@ -1,18 +1,26 @@
 //! Role: The Model aggregate: every passive state group, its creation and reads.
 
 use crate::a11y::state::A11yState;
+use crate::contract::HostEvent;
 use crate::mutation::Writes;
 use crate::paint::state::PaintState;
 use crate::tree::NodeTree;
 use crate::tree::node::HostNode;
 use arvane::asset::AssetStore;
-use kivact_wire::{HostEvent, Modifiers, NodeId, PlatformRequest, RequestId, Revision, Size};
+use kivact_types::{Modifiers, NodeId, PlatformRequest, RequestId, Revision, Size};
 
+/// Requests that must wait until the current client turn has finished.
+pub(crate) enum DeferredRequest {
+    Platform(PlatformRequest),
+    ReducedMotion(Option<bool>),
+}
+
+// xtask-allow(state-fields): Editor slots and deferred window requests are independent payload collections; each lifecycle is owned by its named state group.
 /// The engine's state: the node tree and one field per state group.
 pub(crate) struct Model {
     pub(crate) tree: NodeTree,
-    pub(crate) layout_columns: kivact_layout::NodeLayoutColumns,
-    pub(crate) layout_state: kivact_layout::LayoutState,
+    pub(crate) layout: kivact_layout::Layout,
+    pub(crate) layout_motion: super::layout_motion::state::LayoutMotion,
     pub(crate) measure: crate::measure::state::MeasureColumns,
     pub(crate) editors: Vec<Option<Box<crate::measure::editor::EditorNode>>>,
     pub(crate) events: super::events::EventQueue,
@@ -24,21 +32,23 @@ pub(crate) struct Model {
     /// The drags admitted before a modal opened (`modal`).
     pub(crate) admission: super::modal::state::Admission,
     /// The keyboard modifiers the shell reports held.
-    pub(crate) modifiers: Modifiers,
+    pub(crate) modifiers: kivact_types::cell::Sent<Modifiers>,
+    pub(crate) key_down_targets: super::focus::state::KeyDownTargets,
     pub(crate) edits: super::edit::state::Edits,
     pub(crate) motion: super::state_motion::state::StateMotion,
     pub(crate) presence: super::presence::state::Presences,
-    pub(crate) assets: std::cell::RefCell<kivact_lower::assets::ArvaneAssets>,
+    pub(crate) assets: std::cell::RefCell<crate::lower::assets::ArvaneAssets>,
     pub(crate) paint: PaintState,
     pub(crate) a11y: A11yState,
     pub(crate) frame: super::frame::state::Frame,
     /// The window title and minimum size to set after the turn.
     pub(crate) window_request: Option<(String, Option<Size>)>,
     /// The platform effects to carry out after the turn.
-    pub(crate) effects: Vec<(RequestId, PlatformRequest)>,
+    pub(crate) effects: Vec<(RequestId, DeferredRequest)>,
+    /// CPU captures awaiting the next settled host boundary.
+    pub(crate) snapshots: Vec<(RequestId, NodeId)>,
     /// The imports and drops of shared textures to carry out after the
     /// turn, in the order written.
-    #[cfg(feature = "gpu-interop")]
     pub(crate) external_writes: Vec<ExternalWrite>,
     #[cfg(debug_assertions)]
     pub(crate) lint: crate::check::lint::state::Lint,
@@ -48,10 +58,9 @@ pub(crate) struct Model {
 /// by the window after the turn (`Writer::import_external`,
 /// `Writer::drop_external`). The textures hold OS handles, so the write
 /// owns them (it is not `Clone`).
-#[cfg(feature = "gpu-interop")]
 pub(crate) enum ExternalWrite {
-    Import(kivact_wire::ExternalImageId, kivact_wire::SharedTextures),
-    Drop(kivact_wire::ExternalImageId),
+    Import(kivact_types::ExternalImageId, kivact_types::SharedTextures),
+    Drop(kivact_types::ExternalImageId),
 }
 
 impl Model {
@@ -60,8 +69,8 @@ impl Model {
     pub(crate) fn new(viewport: Size, store: AssetStore) -> Self {
         Self {
             tree: NodeTree::default(),
-            layout_columns: Default::default(),
-            layout_state: Default::default(),
+            layout: Default::default(),
+            layout_motion: Default::default(),
             measure: Default::default(),
             editors: Vec::new(),
             events: super::events::EventQueue::default(),
@@ -71,17 +80,22 @@ impl Model {
             focus: super::focus::state::Focus::default(),
             pointer: super::pointer::state::Pointer::default(),
             admission: super::modal::state::Admission::default(),
-            modifiers: Modifiers::default(),
+            modifiers: {
+                let mut sent = kivact_types::cell::Sent::new();
+                sent.update(Modifiers::default());
+                sent
+            },
+            key_down_targets: super::focus::state::KeyDownTargets::default(),
             edits: super::edit::state::Edits::default(),
             motion: super::state_motion::state::StateMotion::default(),
             presence: super::presence::state::Presences::default(),
-            assets: std::cell::RefCell::new(kivact_lower::assets::ArvaneAssets::new(store)),
+            assets: std::cell::RefCell::new(crate::lower::assets::ArvaneAssets::new(store)),
             paint: PaintState::new(),
             a11y: A11yState::default(),
             frame: super::frame::state::Frame::default(),
             window_request: None,
             effects: vec![],
-            #[cfg(feature = "gpu-interop")]
+            snapshots: Vec::new(),
             external_writes: Vec::new(),
             #[cfg(debug_assertions)]
             lint: Default::default(),
@@ -102,7 +116,7 @@ impl Model {
 
     /// Computed geometry from the retained node.
     pub(crate) fn computed_layout(&self, id: NodeId) -> Option<kivact_layout::NodeLayout> {
-        self.layout_columns.computed_layout(&self.tree, id)
+        self.layout.computed_layout(&self.tree, id)
     }
 
     /// The window size in logical pixels.
@@ -129,19 +143,21 @@ impl Model {
     /// promote this to a subtree/metadata refresh during the same settle.
     pub(crate) fn repaint_text(&mut self, id: NodeId) {
         if self.tree.contains(id) {
-            self.changes.mark(
-                id,
-                super::changes::Dirty::REDRAW.union(super::changes::Dirty::A11Y_LOCAL_TEXT),
-            );
+            self.a11y.local_text(id);
+            self.changes.mark(id, super::changes::Dirty::REDRAW);
         }
     }
 
     pub(crate) fn repaint(&mut self, id: NodeId) {
         if self.tree.contains(id) {
-            self.changes.mark(
-                id,
-                super::changes::Dirty::REDRAW.union(super::changes::Dirty::A11Y_METADATA),
-            );
+            self.a11y.node(id);
+            if self
+                .node(id)
+                .is_some_and(|n| n.states().is_some_and(crate::tree::states_place))
+            {
+                self.a11y.subtree(id);
+            }
+            self.changes.mark(id, super::changes::Dirty::REDRAW);
         }
     }
 }

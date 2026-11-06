@@ -12,7 +12,7 @@
 use kivact::i18n::CalendarDate;
 use kivact::prelude::*;
 use kivact::style::ThemeMode;
-use kivact::ui::Tone;
+use kivact::interaction::Tone;
 use kivact_ui_pop as pop;
 
 fn sign_up(today: CalendarDate) -> impl IntoView {
@@ -54,7 +54,7 @@ fn sign_up(today: CalendarDate) -> impl IntoView {
             && terms.get()
     });
 
-    pop::panel((
+    kivact::ui::card((
         text("新規アカウント").style(style().font_size(20).weight(600)),
         field("名前", text_input("名前", name).placeholder("お名前を入力"))
             .hint("請求書に表示されます。")
@@ -76,14 +76,14 @@ fn sign_up(today: CalendarDate) -> impl IntoView {
                 plan,
             )
             .orientation(Orientation::Horizontal)
-            .variant(pop::Segmented),
+            .variant(kivact::ui::RadioGroupVariant::Segmented),
         ),
-        pop::date_input("生年月日", birth, today).valid(birth_valid),
+        { let value: kivact::state::Binding<kivact::i18n::CalendarDate> = kivact::state::IntoBinding::into_binding(birth); let value = kivact::state::binding(move || Some(value.get()),move |day| {if let Some(day)=day {value.set(day);}}); kivact::ui::date_input("生年月日",value).calendar(move |calendar| calendar.today(today).month_title(|date| format!("{}-{:02}",date.year(),date.month()))) }.valid(birth_valid),
         show(move || birth_error.get().is_some(), move || {
             text(move || birth_error.get().unwrap_or_default())
                 .style(style().font_size(12).color(ColorToken::Danger))
         }),
-        pop::date_input("開始日", start, today).valid(start_valid),
+        { let value: kivact::state::Binding<kivact::i18n::CalendarDate> = kivact::state::IntoBinding::into_binding(start); let value = kivact::state::binding(move || Some(value.get()),move |day| {if let Some(day)=day {value.set(day);}}); kivact::ui::date_input("開始日",value).calendar(move |calendar| calendar.today(today).month_title(|date| format!("{}-{:02}",date.year(),date.month()))) }.valid(start_valid),
         show(move || start_error.get().is_some(), move || {
             text(move || start_error.get().unwrap_or_default())
                 .style(style().font_size(12).color(ColorToken::Danger))
@@ -107,9 +107,7 @@ fn sign_up(today: CalendarDate) -> impl IntoView {
         ))
         .style(style().gap(8).justify_content(Justify::End)),
         show(created, move || {
-            pop::alert("アカウントを作成しました")
-                .tone(Tone::Success)
-                .description(move || format!("ようこそ、{}さん。", name.get()))
+            {let tone=kivact::state::IntoValue::into_value(Tone::Success); kivact::ui::alert("アカウントを作成しました").tone(tone).icon(kivact::view::icon(move || kivact::style::Icon::named(match tone.get() { kivact::interaction::Tone::Danger=>"alert-circle", kivact::interaction::Tone::Warning=>"alert-triangle",kivact::interaction::Tone::Success=>"circle-check",_=>"info-circle"}))).description(move || format!("ようこそ、{}さん。", name.get()))}
         }),
     ))
     .style(style().width(420).margin(24).gap(12))
@@ -128,11 +126,7 @@ mod tests {
     use kivact::view::Modifiers;
 
     fn mount() -> Screen {
-        let options = RenderOptions {
-            theme: pop::theme(ThemeMode::Light),
-            height: 1000.0,
-            ..RenderOptions::default()
-        };
+        let options = RenderOptions::default().window_size(800., 1000.0).theme(pop::theme(ThemeMode::Light));
         render_with(options, || sign_up(CalendarDate::new(2026, 11, 1)))
     }
 
@@ -174,6 +168,7 @@ mod tests {
             },
         );
         start.type_text("2026-10-01");
+        start.press_key(Key::Enter);
         screen.get_by_text("今日以降の日付を選んでください");
     }
 }
@@ -187,11 +182,11 @@ mod tests {
 
 **検証はアプリが持ちます。** それぞれの `memo` が、シグナルから値を導き出します。`memo` は、読んだシグナルが変わったときだけ再計算されます。`.error(name_error)` は `Option<String>` を受け取り、問題があるあいだ `Some` になります。すると欄はコントロールの下にメッセージを出し、コントロールを無効な状態として印を付け、スクリーンリーダー向けにメッセージを関連付けます。名前とメールのエラーは `attempted` も読むので、ユーザーが一度ボタンを押すまで静かなままです。
 
-**`pop::date_input(label, value, today)`** は、カレンダーのポップアップが付いた編集可能な日付欄です。テキストは `YYYY-MM-DD` の形式で、シグナル（`birth`）は、テキストが完全で実在する日付になったときだけ変わります。入力途中の文字が状態に届くことはありません。`today` は呼び出し側が渡します。そのためコンポーネントの動きが予測しやすく、テストもしやすくなります。プログラムは `CalendarDate::today()` を渡し、テストは固定の日付を渡します。
+**`kivact::ui::date_input(label, optional_value)`** は、カレンダーのポップアップが付いた編集可能な日付欄です。テキストは `YYYY-MM-DD` の形式で、シグナル（`birth`）は、完全で実在する日付を Enter またはフォーカス移動で確定したときだけ変わります。入力途中の文字が状態に届くことはありません。`.calendar(|calendar| calendar.today(today))` は呼び出し側が指定します。そのためコンポーネントの動きが予測しやすく、テストもしやすくなります。プログラムは `CalendarDate::today()` を渡し、テストは固定の日付を渡します。
 
 **`.valid(signal)`** は、テキストが実在する日付のあいだ `true`、そうでなければ `false` を書き込みます。コンポーネントは自前の形式エラー（"Use YYYY-MM-DD" や "This date does not exist"）を表示します。「過去であること」のような業務ルールはアプリの責任です。`birth_error` と `start_error` は、テキストが有効なときだけ値を検査するので、2 つのメッセージが重なることはありません。
 
-**`show(condition, || view)`** は、条件が真のあいだだけビューを配置します。`Tone::Success` は `pop::alert` を緑にします。アラートなどの表示コンポーネントは、意味を標準の `kivact::ui::Tone` で受け取ります。
+**`show(condition, || view)`** は、条件が真のあいだだけビューを配置します。`Tone::Success` は `kivact::ui::alert` を緑にします。アラートなどの表示コンポーネントは、意味を標準の `kivact::interaction::Tone` で受け取ります。
 
 **テスト**は、アプリと同じテーマを `RenderOptions` で渡して同じ見た目で描き、ロールとアクセシブルな名前、つまりスクリーンリーダーが読み上げる言葉で要素を探します。日付欄のテキストを置き換えるには、Ctrl+A で全選択してから入力します。
 

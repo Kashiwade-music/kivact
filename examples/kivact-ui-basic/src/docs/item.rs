@@ -1,4 +1,5 @@
 //! Role: Catalog page of Item: variants, media, group and pressable.
+use kivact::ui::ButtonVariant;
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;
@@ -10,7 +11,7 @@ pub(crate) fn page() -> Page {
         slug: "item",
         name: "Item",
         description: "アイコン、題名、説明、操作を持つ一覧の項目です。on_press を渡すと項目全体が押せます。",
-        usage: "use kivact::prelude::*;\nuse kivact::ui::ControlSize;\nuse kivact_ui_basic as basic;",
+        usage: "use kivact::prelude::*;\nuse kivact::ui::ButtonVariant;\nuse kivact::ui::ControlSize;\nuse kivact_ui_basic as basic;",
         source: include_str!("item.rs"),
         align: PreviewAlign::Center,
         examples: vec![
@@ -29,7 +30,7 @@ pub(crate) fn page() -> Page {
             Example::new(
                 "group",
                 "Group",
-                "item_group で縦に並べ、item_separator で区切ります。",
+                "item_list で縦に並べ、item_separator で区切ります。",
                 group,
             ),
             Example::new(
@@ -49,18 +50,18 @@ fn variants() -> impl IntoView {
             .variant(ButtonVariant::Outline)
             .size(ControlSize::Small)
     };
-    basic::item_group((
-        basic::item("Default")
+    kivact::ui::item_list((
+        kivact::ui::item_row("Default")
             .description("A plain item.")
-            .actions(action),
-        basic::item("Outline")
+            .actions(action()),
+        kivact::ui::item_row("Outline")
             .variant(basic::ItemVariant::Outline)
             .description("A bordered item.")
-            .actions(action),
-        basic::item("Muted")
+            .actions(action()),
+        kivact::ui::item_row("Muted")
             .variant(basic::ItemVariant::Muted)
             .description("A muted item.")
-            .actions(action),
+            .actions(action()),
     ))
     .style(style().width(460))
 }
@@ -68,10 +69,10 @@ fn variants() -> impl IntoView {
 
 // example: media
 fn media() -> impl IntoView {
-    basic::item("Security alert")
+    kivact::ui::item_row("Security alert")
         .variant(basic::ItemVariant::Outline)
-        .media(move || icon("shield"))
-        .media_variant(basic::ItemMediaVariant::Icon)
+        .media(icon("shield"))
+        .variant(basic::ItemMediaVariant::Icon)
         .description("New login from an unknown device.")
         .style(style().width(460))
 }
@@ -79,12 +80,12 @@ fn media() -> impl IntoView {
 
 // example: group
 fn group() -> impl IntoView {
-    basic::item_group((
-        basic::item("Profile").media(move || icon("user")),
+    kivact::ui::item_list((
+        kivact::ui::item_row("Profile").media(icon("user")),
         basic::item_separator(),
-        basic::item("Billing").media(move || icon("credit-card")),
+        kivact::ui::item_row("Billing").media(icon("credit-card")),
         basic::item_separator(),
-        basic::item("Notifications").media(move || icon("bell")),
+        kivact::ui::item_row("Notifications").media(icon("bell")),
     ))
     .style(style().width(460))
 }
@@ -93,12 +94,12 @@ fn group() -> impl IntoView {
 // example: pressable
 fn pressable() -> impl IntoView {
     let count = signal(0);
-    basic::item("Open settings")
+    kivact::ui::item_row("Open settings")
         .variant(basic::ItemVariant::Outline)
-        .media(move || icon("settings"))
-        .media_variant(basic::ItemMediaVariant::Icon)
+        .media(icon("settings"))
+        .variant(basic::ItemMediaVariant::Icon)
         .description(move || format!("Opened {} times", count.get()))
-        .actions(move || icon("chevron-right"))
+        .actions(icon("chevron-right"))
         .on_press(move || count.update(|n| *n += 1))
         .style(style().width(460))
 }

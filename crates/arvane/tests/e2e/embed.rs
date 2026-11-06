@@ -1,10 +1,8 @@
 //! Role: Arvane's embedded host contract, without Kivact or a virtual window.
 #![cfg(any(windows, target_os = "linux"))]
 use arvane::embed::{self, EmbedOptions, Embedder};
-use arvane::test_display::TestParent;
-use arvane::{
-    Handler, NativeWindow, ShellControl, ShellError, ShellEvent, ShellWaker, Window as _,
-};
+use arvane::{Handler, ShellControl, ShellError, ShellEvent, ShellWaker, Window};
+use arvane_native::embed::TestParent;
 use kivact_types::Size;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -12,33 +10,31 @@ static SERIAL: Mutex<()> = Mutex::new(());
 #[derive(Default)]
 struct Seen {
     events: Vec<ShellEvent>,
-    sizes: Vec<(Size, f32)>,
+    sizes: Vec<(Size, f64)>,
     waker: Option<ShellWaker>,
     deadline: u64,
     timer: bool,
-    wheel_settings: Option<kivact_types::protocol::MouseSettings>,
+    wheel_settings: Option<kivact_types::PointerSettings>,
 }
 struct Host(Arc<Mutex<Seen>>);
 impl Handler for Host {
     fn start(
         &mut self,
-        window: &mut NativeWindow<'_>,
+        window: &mut Window<'_>,
         waker: ShellWaker,
     ) -> Result<ShellControl, ShellError> {
         assert_eq!(window.surface_generation(), Some(1));
         assert!(!window.fullscreen());
-        assert!(
-            window
-                .set_fullscreen(true)
-                .expect_err("embedded fullscreen is unsupported")
-                .is_unsupported()
+        assert_eq!(
+            window.perform(kivact_types::PlatformRequest::Fullscreen(true)),
+            kivact_types::PlatformResult::Unsupported
         );
         let deadline = window.now_ns() + 50_000_000;
         let mut seen = self
             .0
             .lock()
             .expect("handler observations are not poisoned");
-        seen.wheel_settings = Some(window.environment().mouse);
+        seen.wheel_settings = Some(window.environment().pointer);
         seen.waker = Some(waker);
         seen.deadline = deadline;
         window.request_redraw();
@@ -47,7 +43,7 @@ impl Handler for Host {
     fn event(
         &mut self,
         event: ShellEvent,
-        window: &mut NativeWindow<'_>,
+        window: &mut Window<'_>,
     ) -> Result<ShellControl, ShellError> {
         let mut seen = self
             .0
@@ -57,7 +53,7 @@ impl Handler for Host {
             seen.sizes.push((window.size(), window.scale()));
             window.request_redraw();
         }
-        if event == ShellEvent::Wake && window.now_ns() >= seen.deadline {
+        if matches!(event, ShellEvent::Wake(_)) && window.now_ns() >= seen.deadline {
             seen.timer = true;
         }
         if event == ShellEvent::Redraw {
@@ -94,20 +90,20 @@ fn host_drives_redraw_worker_wake_deadline_and_geometry() {
     let parent = TestParent::open(640, 480).unwrap();
     let seen = Arc::new(Mutex::new(Seen::default()));
     let output = seen.clone();
-    let child = embed::open(
-        parent.parent(),
-        EmbedOptions {
-            size: Size {
-                width: 160.,
-                height: 100.,
-            },
-            scale: Some(1.),
-            prefer_gpu: false,
-            ..Default::default()
+    let options = EmbedOptions {
+        size: Size {
+            width: 160.,
+            height: 100.,
         },
-        move || Embedder::new(Host(output)),
-    )
-    .unwrap();
+        scale: Some(1.),
+        prefer_gpu: false,
+        ..Default::default()
+    };
+    let make = embed::driver(&options, move || Embedder::new(Host(output)));
+    let child =
+        arvane_native::embed::open(parent.parent(), options, embed::ChildHooks::default(), make)
+            .map(embed::Embedded::new)
+            .unwrap();
     wait(&parent, || {
         seen.lock().unwrap().timer && parent.capture().is_ok()
     });
@@ -115,9 +111,13 @@ fn host_drives_redraw_worker_wake_deadline_and_geometry() {
     assert_eq!(child.scale(), 1.);
     let waker = seen.lock().unwrap().waker.clone().unwrap();
     let before = seen.lock().unwrap().events.len();
-    std::thread::spawn(move || waker.wake()).join().unwrap();
+    std::thread::spawn(move || waker.wake(arvane::WakeReasons::CLIENT))
+        .join()
+        .unwrap();
     wait(&parent, || {
-        seen.lock().unwrap().events[before..].contains(&ShellEvent::Wake)
+        seen.lock().unwrap().events[before..]
+            .iter()
+            .any(|event| matches!(event, ShellEvent::Wake(_)))
     });
     child.set_scale(2.);
     child.set_size(320, 200);
@@ -153,20 +153,20 @@ fn native_wheel_scrolls_right_and_down_by_system_settings() {
     let parent = TestParent::open(640, 480).unwrap();
     let seen = Arc::new(Mutex::new(Seen::default()));
     let output = seen.clone();
-    let child = embed::open(
-        parent.parent(),
-        EmbedOptions {
-            size: Size {
-                width: 160.,
-                height: 100.,
-            },
-            scale: Some(1.),
-            prefer_gpu: false,
-            ..Default::default()
+    let options = EmbedOptions {
+        size: Size {
+            width: 160.,
+            height: 100.,
         },
-        move || Embedder::new(Host(output)),
-    )
-    .unwrap();
+        scale: Some(1.),
+        prefer_gpu: false,
+        ..Default::default()
+    };
+    let make = embed::driver(&options, move || Embedder::new(Host(output)));
+    let child =
+        arvane_native::embed::open(parent.parent(), options, embed::ChildHooks::default(), make)
+            .map(embed::Embedded::new)
+            .unwrap();
     wait(&parent, || seen.lock().unwrap().wheel_settings.is_some());
     parent.move_to(23., 31.).unwrap();
     wait(&parent, || {
@@ -182,7 +182,7 @@ fn native_wheel_scrolls_right_and_down_by_system_settings() {
             .unwrap()
             .events
             .iter()
-            .filter(|event| matches!(event, ShellEvent::Wheel { .. }))
+            .filter(|event| matches!(event, ShellEvent::Wheel(_)))
             .count()
             == 2
     });
@@ -192,14 +192,17 @@ fn native_wheel_scrolls_right_and_down_by_system_settings() {
         if count > 100 {
             100.
         } else {
-            count as f32 * 20.
+            count as f64 * 20.
         }
     };
     let wheels: Vec<_> = seen
         .events
         .iter()
         .filter_map(|event| match event {
-            ShellEvent::Wheel { x, y } => Some((*x, *y)),
+            ShellEvent::Wheel(kivact_types::WheelInput {
+                delta: kivact_types::Point { x, y },
+                ..
+            }) => Some((*x, *y)),
             _ => None,
         })
         .collect();

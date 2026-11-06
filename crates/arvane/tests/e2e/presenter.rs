@@ -6,7 +6,7 @@
 //! row); surfaces destroyed and
 //! made again; the renderer a window is forced to.
 
-use arvane::{ErrorKind, Presented, Renderer, Window as _};
+use arvane::{FailureKind, Presented, Renderer};
 
 use crate::support::{PERIOD, RED, fill, open, pixel, present, show};
 
@@ -27,22 +27,22 @@ fn a_lost_surface_is_made_again_and_the_third_loss_in_a_row_is_an_error() {
     let mut window = open(32.0, 32.0);
     let frame = || vec![fill(0.0, 0.0, 32.0, 32.0, RED)];
     let lost = |presented: Presented| match presented {
-        Presented::SurfaceLost(error) => assert_eq!(error.kind(), ErrorKind::Surface),
+        Presented::SurfaceLost(error) => assert_eq!(error.kind, FailureKind::Surface),
         other => panic!("not lost: {other:?}"),
     };
     // Two losses, then a frame shown: the count starts again.
-    window.fail_presents(2);
+    window.script().fail_presents(2);
     lost(present(&mut window, frame()));
     lost(present(&mut window, frame()));
     show(&mut window, frame());
-    window.fail_presents(3);
+    window.script().fail_presents(3);
     lost(present(&mut window, frame()));
     lost(present(&mut window, frame()));
-    let plan = window.frame_plan();
+    let plan = window.with(move |w| w.frame_plan());
     let error = window
-        .present(&crate::support::scene(frame()), plan)
+        .with(move |w| w.present(&crate::support::scene(frame()), plan))
         .expect_err("the third loss in a row");
-    assert_eq!(error.kind(), ErrorKind::Surface);
+    assert_eq!(error.kind, FailureKind::Surface);
 }
 
 #[test]
@@ -50,18 +50,18 @@ fn a_skipped_frame_ends_a_row_of_losses_and_a_loss_restarts_the_backoff() {
     let mut window = open(32.0, 32.0);
     let frame = || vec![fill(0.0, 0.0, 32.0, 32.0, RED)];
     let lost = |presented: Presented| match presented {
-        Presented::SurfaceLost(error) => assert_eq!(error.kind(), ErrorKind::Surface),
+        Presented::SurfaceLost(error) => assert_eq!(error.kind, FailureKind::Surface),
         other => panic!("not lost: {other:?}"),
     };
     let skipped = |presented: Presented| match presented {
         Presented::Skipped { retry_at_ns } => retry_at_ns,
         other => panic!("not skipped: {other:?}"),
     };
-    let now = window.now_ns();
-    window.fail_presents(2);
+    let now = window.probe().now_ns();
+    window.script().fail_presents(2);
     lost(present(&mut window, frame()));
     lost(present(&mut window, frame()));
-    window.set_occluded(true);
+    window.script().set_occluded(true);
     assert_eq!(
         skipped(present(&mut window, frame())),
         now + PERIOD,
@@ -73,12 +73,12 @@ fn a_skipped_frame_ends_a_row_of_losses_and_a_loss_restarts_the_backoff() {
         "the second waits two"
     );
     // The skipped frames ended the row: two more losses are no error.
-    window.set_occluded(false);
-    window.fail_presents(2);
+    window.script().set_occluded(false);
+    window.script().fail_presents(2);
     lost(present(&mut window, frame()));
     lost(present(&mut window, frame()));
     // The losses started the backoff again.
-    window.set_occluded(true);
+    window.script().set_occluded(true);
     assert_eq!(
         skipped(present(&mut window, frame())),
         now + PERIOD,

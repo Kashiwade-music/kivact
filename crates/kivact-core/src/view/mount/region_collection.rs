@@ -4,11 +4,11 @@ use std::cell::RefCell;
 use std::panic::Location;
 use std::rc::Rc;
 
-use crate::Value;
-use crate::view::common::{Common, Declaration, Entry};
-use kivact_reactive::EffectKind;
-use kivact_reactive::Prop as InputProp;
-use kivact_reactive::keyed::{self, Diff, Plan, Rows};
+use crate::state::Value;
+use crate::view::element_data::{Common, Declaration, Entry};
+use kivact_runtime::EffectKind;
+use kivact_runtime::Prop as InputProp;
+use kivact_runtime::keyed::{self, Diff, Plan, Rows};
 use kivact_style::draw::RegionId;
 
 /// A keyed row and the attachment entry its setup declared.
@@ -23,7 +23,7 @@ impl<T: 'static> AsRef<keyed::Row<RegionId, T>> for Row<T> {
     }
 }
 
-pub(crate) fn declaration<T: Clone + PartialEq + 'static>(
+pub(crate) fn declaration<T: kivact_runtime::PropValue>(
     items: InputProp<Vec<T>>,
     key: impl Fn(&T) -> RegionId + 'static,
     make: impl Fn(RegionId, Value<T>) -> Common + 'static,
@@ -38,7 +38,7 @@ pub(crate) fn declaration<T: Clone + PartialEq + 'static>(
             let (Some(_), Some(registry)) = (runtime.upgrade(), weak_registry.upgrade()) else {
                 return;
             };
-            let diff = kivact_reactive::pure(|| {
+            let diff = kivact_runtime::pure(|| {
                 items.with(|items| keyed::diff(&state.borrow(), items, &key))
             });
             match diff {

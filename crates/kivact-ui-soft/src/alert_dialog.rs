@@ -1,31 +1,52 @@
 //! Role: Compose alert confirmation with the standard modal behavior.
-use kivact::control::NodeBuilder;
-use kivact::control::{column, row};
-use kivact::style::{Justify, Length, pct, style};
-use kivact::ui::{ButtonVariant, DialogKind, button, dialog};
-use kivact::view::IntoValue;
-use kivact::view::{IntoText, IntoView, View, node_ref, show};
-use kivact::{Binding, Value};
+use kivact::interaction::DialogMode;
+use kivact::state::Binding;
+use kivact::state::Callback;
+use kivact::state::IntoBinding;
+use kivact::state::IntoText;
+use kivact::state::IntoValue;
+use kivact::state::Value;
+use kivact::style::Justify;
+use kivact::style::Length;
+use kivact::style::pct;
+use kivact::style::style;
+use kivact::ui::ButtonVariant;
+use kivact::ui::button;
+use kivact::ui::dialog;
+use kivact::view::IntoView;
+use kivact::view::NodeBuilder;
+use kivact::view::View;
+use kivact::view::column;
+use kivact::view::node_ref;
+use kivact::view::row;
+use kivact::view::show;
 use std::rc::Rc;
 
+/// Confirmation dialog with a cancel button and an optional application action.
+// Immutable canonical Dialog plus its same caller-owned open binding, action/cancel configuration and independent application loading input; no local dialog lifecycle is stored.
 pub struct AlertDialog {
     dialog: kivact::ui::Dialog,
+    // xtask-allow(state-fields): The same caller-owned visibility binding supplied to canonical Dialog; no local open copy.
     open: Binding<bool>,
+    // xtask-allow(state-fields): Optional application action configuration, independent of canonical Dialog visibility.
     action: Option<(String, Rc<dyn Fn()>)>,
+    // xtask-allow(state-fields): Optional cancel-button text configuration, not an operation phase.
     cancel: Option<String>,
     variant: ButtonVariant,
+    // xtask-allow(state-fields): Application-owned loading input independent of the Dialog visibility source.
     loading: Value<bool>,
 }
 
+/// Create a 400-pixel alert modal with cancel focused initially and no close affordance.
 pub fn alert_dialog(
     title: impl IntoText,
     description: impl IntoText,
-    open: impl Into<Binding<bool>>,
+    open: impl IntoBinding<bool>,
 ) -> AlertDialog {
-    let open = open.into();
+    let open = open.into_binding();
     AlertDialog {
         dialog: dialog(title, open)
-            .kind(DialogKind::AlertModal)
+            .mode(DialogMode::AlertModal)
             .description(description)
             .width(Length::from(400))
             .closable(false),
@@ -38,26 +59,32 @@ pub fn alert_dialog(
 }
 
 impl AlertDialog {
-    pub fn action(mut self, label: impl Into<String>, action: impl Fn() + 'static) -> Self {
-        self.action = Some((label.into(), Rc::new(action)));
+    /// Add the confirmation action; the callback decides whether and when to close the dialog.
+    pub fn action(mut self, label: impl Into<String>, action: impl Into<Callback<()>>) -> Self {
+        let action: Callback<()> = action.into();
+        self.action = Some((label.into(), Rc::new(move || action.call(()))));
         self
     }
 
+    /// Replace the localized cancel-button label.
     pub fn cancel_label(mut self, label: impl Into<String>) -> Self {
         self.cancel = Some(label.into());
         self
     }
 
+    /// Choose the confirmation-button appearance; danger by default.
     pub fn action_variant(mut self, variant: ButtonVariant) -> Self {
         self.variant = variant;
         self
     }
 
+    /// Show the confirmation button as busy from a read-only input; false by default.
     pub fn action_loading(mut self, loading: impl IntoValue<bool>) -> Self {
         self.loading = loading.into_value();
         self
     }
 
+    /// Set the dialog width; defaults to 400 pixels.
     pub fn width(mut self, width: impl IntoValue<Length>) -> Self {
         self.dialog = self.dialog.width(width);
         self
@@ -89,7 +116,7 @@ impl IntoView for AlertDialog {
                             let action = action.clone();
                             button(label.clone())
                                 .variant(variant)
-                                .loading(loading)
+                                .busy(loading)
                                 .on_press(move || action())
                         });
                         if compact {
@@ -108,11 +135,14 @@ impl IntoView for AlertDialog {
                 let desktop = actions.clone();
                 (
                     show(
-                        || kivact::platform::window_size().width <= 640.0,
+                        || {
+                            kivact::platform::window_size().get().width
+                                <= crate::Breakpoint::Sm.px()
+                        },
                         move || actions(true),
                     ),
                     show(
-                        || kivact::platform::window_size().width > 640.0,
+                        || kivact::platform::window_size().get().width > crate::Breakpoint::Sm.px(),
                         move || desktop(false),
                     ),
                 )

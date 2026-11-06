@@ -17,7 +17,7 @@ fn lifecycle_reports_transitions_after_environment_and_unregisters_removed_owner
         let root = out.clone();
         on_lifecycle(move |event| {
             root.borrow_mut()
-                .push(("root", event, platform::surface_active()))
+                .push(("root", event, platform::is_surface_active().get()))
         });
         let child = out.clone();
         (
@@ -27,7 +27,7 @@ fn lifecycle_reports_transitions_after_environment_and_unregisters_removed_owner
                 on_lifecycle(move |event| {
                     child
                         .borrow_mut()
-                        .push(("child", event, platform::surface_active()))
+                        .push(("child", event, platform::is_surface_active().get()))
                 });
                 text("child")
             }),
@@ -83,7 +83,7 @@ fn lifecycle_failure_routes_to_its_owner_and_disposal_suppresses_later_events() 
             error_boundary(move || {
                 on_lifecycle(|_| -> Result<(), UiError> {
                     Err(UiError::new(
-                        kivact::diagnostics::ErrorKind::Platform,
+                        kivact::ErrorKind::Platform,
                         "lifecycle failure",
                         None,
                     ))
@@ -108,4 +108,42 @@ fn lifecycle_failure_routes_to_its_owner_and_disposal_suppresses_later_events() 
     screen.memory_warning();
     assert_eq!(later.get(), 1, "disposed owner receives no later event");
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
+fn component_initializes_once_in_mounting_context_and_cleans_up_on_removal() {
+    let started = Rc::new(Cell::new(0));
+    let cleaned = Rc::new(Cell::new(0));
+    let starts = started.clone();
+    let cleanups = cleaned.clone();
+    let (screen, (shown, value)) = mount(move || {
+        let shown = signal(true);
+        let value = signal(1);
+        let view = provide(String::from("inherited"), move || {
+            show(shown, move || {
+                let starts = starts.clone();
+                let cleanups = cleanups.clone();
+                component(move || {
+                    starts.set(starts.get() + 1);
+                    let context = use_context::<String>();
+                    on_cleanup(move || cleanups.set(cleanups.get() + 1));
+                    text(move || format!("{} {}", context.get(), value.get()))
+                })
+            })
+        });
+        ((shown, value), view)
+    });
+    assert!(screen.get_by_text("inherited 1").is_visible());
+    value.set(2);
+    screen.run_until_idle();
+    assert!(screen.get_by_text("inherited 2").is_visible());
+    assert_eq!(started.get(), 1);
+    shown.set(false);
+    screen.run_until_idle();
+    assert_eq!(cleaned.get(), 1);
+    shown.set(true);
+    screen.run_until_idle();
+    assert!(screen.get_by_text("inherited 2").is_visible());
+    assert_eq!(started.get(), 2);
+    assert_eq!(cleaned.get(), 1);
 }

@@ -10,7 +10,7 @@ pub(crate) fn page() -> Page {
         slug: "context-menu",
         name: "Context Menu",
         description: "右クリックで開くメニューです。標準の kivact::ui::menu を attach_context で対象に取り付けると、このテーマでは context-menu.tsx の幅で描きます。右クリックはポインタの位置に、Shift+F10 とメニューキーは対象の位置に開き、閉じると元のフォーカスに戻ります。項目の種類と操作は Dropdown Menu と同じです。",
-        usage: "use kivact::prelude::*;\nuse kivact::style::{BorderStyle, current_theme};\nuse kivact_ui_basic as basic;",
+        usage: "use kivact::prelude::*;\nuse kivact::style::{BorderStyle, use_theme};\nuse kivact_ui_basic as basic;",
         source: include_str!("context_menu.rs"),
         align: PreviewAlign::Center,
         examples: vec![
@@ -54,7 +54,7 @@ fn basic() -> impl IntoView {
                 .height(75)
                 .align_items(Align::Center)
                 .justify_content(Justify::Center)
-                .border(1, basic::Color::Border)
+                .border(1, basic::ColorName::Border)
                 .border_style(BorderStyle::Dashed)
                 .font_size(12),
         )
@@ -62,12 +62,12 @@ fn basic() -> impl IntoView {
     menu(
         "Context menu",
         vec![
-            MenuEntry::item("back", "Back").shortcut("Alt+Left"),
+            MenuEntry::item("back", "Back").with_shortcut("Alt+Left"),
             MenuEntry::item("forward", "Forward").disabled(true),
-            MenuEntry::item("reload", "Reload").shortcut("Ctrl+R"),
+            MenuEntry::item("reload", "Reload").with_shortcut("Ctrl+R"),
         ],
-        |_key: &'static str| {},
     )
+    .on_activate(|_key: &'static str| {})
     .attach_context(area)
 }
 // end example
@@ -84,7 +84,7 @@ fn submenu() -> impl IntoView {
                 .height(75)
                 .align_items(Align::Center)
                 .justify_content(Justify::Center)
-                .border(1, basic::Color::Border)
+                .border(1, basic::ColorName::Border)
                 .border_style(BorderStyle::Dashed)
                 .font_size(12),
         )
@@ -92,7 +92,7 @@ fn submenu() -> impl IntoView {
     menu(
         "Context menu",
         vec![
-            MenuEntry::item("copy", "Copy").icon("copy"),
+            MenuEntry::item("copy", "Copy").with_icon("copy"),
             MenuEntry::submenu(
                 "more",
                 "More Tools",
@@ -103,14 +103,14 @@ fn submenu() -> impl IntoView {
                     MenuEntry::item("devtools", "Developer Tools"),
                 ],
             )
-            .icon("wrench"),
+            .with_icon("wrench"),
             MenuEntry::separator(),
             MenuEntry::item("delete", "Delete")
-                .icon("trash-2")
+                .with_icon("trash-2")
                 .destructive(true),
         ],
-        |_key: &'static str| {},
     )
+    .on_activate(|_key: &'static str| {})
     .attach_context(area)
 }
 // end example
@@ -127,7 +127,7 @@ fn checkboxes() -> impl IntoView {
                 .height(75)
                 .align_items(Align::Center)
                 .justify_content(Justify::Center)
-                .border(1, basic::Color::Border)
+                .border(1, basic::ColorName::Border)
                 .border_style(BorderStyle::Dashed)
                 .font_size(12),
         )
@@ -143,11 +143,12 @@ fn checkboxes() -> impl IntoView {
             MenuEntry::radio("colm", "Colm Tuite", person.get() == "colm").keep_open(true),
         ]
     };
-    menu("Context menu", items, move |key: &'static str| match key {
-        "bookmarks" => bookmarks.update(|on| *on = !*on),
-        other => person.set(other),
-    })
-    .attach_context(area)
+    menu("Context menu", items)
+        .on_activate(move |key: &'static str| match key {
+            "bookmarks" => bookmarks.update(|on| *on = !*on),
+            other => person.set(other),
+        })
+        .attach_context(area)
 }
 // end example
 
@@ -163,18 +164,18 @@ fn target() -> impl IntoView {
                 .height(90)
                 .align_items(Align::Center)
                 .justify_content(Justify::Center)
-                .background(basic::Color::Muted)
+                .background(basic::ColorName::Muted)
                 .font_size(12),
         )
         .child(text("Right click the notes"));
     menu(
         "Context menu",
         vec![
-            MenuEntry::item("note", "New note").icon("pencil"),
-            MenuEntry::item("archive", "Archive").icon("archive"),
+            MenuEntry::item("note", "New note").with_icon("pencil"),
+            MenuEntry::item("archive", "Archive").with_icon("archive"),
         ],
-        |_key: &'static str| {},
     )
+    .on_activate(|_key: &'static str| {})
     .attach_context(area)
 }
 // end example

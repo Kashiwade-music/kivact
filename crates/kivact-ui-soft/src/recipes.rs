@@ -1,20 +1,73 @@
 //! Role: Cache the standard component recipe table for the Soft theme.
 use kivact::ui::UiRecipes;
+#[expect(
+    clippy::disallowed_types,
+    reason = "Immutable process-wide identity cache, not deferred instance initialization"
+)]
 use std::sync::OnceLock;
 
 pub(super) fn recipes() -> UiRecipes {
+    #[expect(
+        clippy::disallowed_types,
+        reason = "Immutable process-wide identity cache, not deferred instance initialization"
+    )]
     static RECIPES: OnceLock<UiRecipes> = OnceLock::new();
     RECIPES
         .get_or_init(|| {
             crate::recipes_controls::register(UiRecipes::default())
+                .heading(|_| crate::recipes_metrics::heading)
+                .stat(crate::recipes_metrics::stat)
+                .description_list(crate::recipes_metrics::descriptions)
                 .text_input(|_| crate::recipes_field::text_input)
                 .text_area(|_| crate::recipes_field::text_area)
+                .chat_message(crate::recipes_chat::message)
+                .chat_thread(crate::recipes_chat::thread)
+                .chat_composer(crate::recipes_chat::composer)
+                .code_block(crate::recipes_code::code)
+                .calendar(crate::recipes_calendar::calendar)
+                .carousel(crate::recipes_carousel::carousel)
+                .breadcrumb(crate::breadcrumbs::breadcrumb)
+                .empty_state(crate::empty_state::empty_state)
+                .input_group(crate::input_group::input_group)
+                .card(crate::card::card)
+                .stepper(crate::stepper::stepper)
+                .alert(crate::banner::alert)
+                .pagination(crate::recipes_pagination::pagination)
+                .navigation_menu(crate::recipes_navigation::navigation_menu)
+                .avatar(|_| crate::avatar::root)
+                .avatar_image(|_| crate::avatar::picture)
+                .avatar_status(|_| crate::avatar::status)
+                .avatar_status_content(|_| crate::avatar::status_content)
+                .avatar_group(|_| crate::avatar::group)
+                .avatar_group_member(|_| crate::avatar::member)
+                .avatar_group_overflow(|_| crate::avatar::overflow)
+                .dropzone(crate::recipes_dropzone::dropzone)
+                .date_input(|r| {
+                    r.root(|_| crate::recipes_calendar::field)
+                        .wheel(|_| crate::recipes_calendar::wheel)
+                })
+                .date_range_input(|r| r.root(|_| crate::recipes_calendar::field))
+                .time_input(|r| {
+                    r.root(|_| crate::recipes_calendar::field)
+                        .wheel(|_| crate::recipes_calendar::wheel)
+                })
+                .date_time_input(|r| r.root(|_| crate::recipes_calendar::field))
                 .field(crate::recipes_field::field)
                 .number_input(crate::recipes_field::number_input)
                 .tag_input(crate::recipes_field::tag_input)
                 .select(crate::recipes_select::select)
+                .combobox(crate::recipes_combobox::combobox)
+                .badge(|_| crate::recipes_badge::badge)
+                .skeleton(|_| crate::recipes_skeleton::skeleton)
+                .spinner(|_| crate::spinner::spinner)
+                .kbd(|_| crate::kbd::root)
+                .kbd_key(|_| crate::kbd::key)
+                .button_group(crate::recipes_groups::button_group)
+                .toggle_group(crate::recipes_groups::toggle_group)
+                .toolbar(crate::recipes_groups::toolbar)
                 .menu(crate::recipes_menu::menu)
                 .dialog(crate::recipes_dialog::dialog)
+                .hover_card(crate::recipes_popup::hover_card)
                 .tooltip(crate::recipes_popup::tooltip)
                 .toast(crate::recipes_popup::toast)
                 .command_palette(crate::recipes_popup_command::command_palette)
@@ -22,8 +75,10 @@ pub(super) fn recipes() -> UiRecipes {
                 .disclosure(crate::recipes_collections::disclosure)
                 .splitter(crate::recipes_collections::splitter)
                 .split(crate::recipes_collections::split)
+                .item_list(crate::soft_list::recipes)
                 .list(crate::recipes_collections::list)
                 .tree(crate::recipes_collections::tree)
+                .table(crate::recipes_table::table)
                 .data_table(crate::recipes_collections::data_table)
         })
         .clone()

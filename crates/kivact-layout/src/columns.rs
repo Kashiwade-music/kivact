@@ -3,7 +3,7 @@
 use crate::calcs::Calcs;
 use crate::pass_state::Epoch;
 use crate::style::node::NodeStyle;
-use kivact_wire::{LeafSize, MeasureRequest, Point, Rect, Size};
+use kivact_types::{LeafSize, MeasureRequest, Orientation, Point, Rect, Size};
 use std::cell::Cell;
 
 /// The computed layout of one node.
@@ -29,13 +29,22 @@ pub struct NodeLayout {
 #[derive(Clone, Debug, Default)]
 pub(crate) struct Record {
     pub(crate) sizes: Vec<(MeasureRequest, LeafSize)>,
-    pub(crate) incomplete: bool,
+    pub(crate) state: RecordState,
+}
+
+/// Whether retained measurements cover the last computation.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(crate) enum RecordState {
+    #[default]
+    Complete,
+    Incomplete,
 }
 
 /// A disposable filtered index cursor (`None`: never counted); never owns links or child IDs.
 #[derive(Clone, Debug, Default)]
 pub(crate) struct ChildCursor(Cell<Option<Counted>>);
 
+// xtask-allow(state-fields): Disposable traversal cache holds a count, filtering fact and optional lookup position (S-9).
 /// A cursor as counted at one epoch.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct Counted {
@@ -87,10 +96,13 @@ pub(crate) struct NodeLayoutState {
     pub(crate) measured: Record,
 }
 
+// xtask-allow(state-fields): Independent slot-indexed measurement, geometry and layout input caches (S-9).
 /// Style, caches and optional geometry borrowed for one root computation.
 #[derive(Clone, Debug)]
 pub(crate) struct NodeLayoutValues {
     pub(crate) styles: Vec<NodeStyle>,
+    pub(crate) presence_scale: Vec<Option<(Orientation, f64)>>,
+    pub(crate) natural_size: Vec<Option<taffy::Size<f32>>>,
     pub(crate) caches: Vec<taffy::Cache>,
     pub(crate) unrounded: Vec<taffy::Layout>,
     pub(crate) final_layout: Vec<Option<taffy::Layout>>,
@@ -105,6 +117,8 @@ impl Default for NodeLayoutValues {
     fn default() -> Self {
         Self {
             styles: vec![NodeStyle::default()],
+            presence_scale: vec![None],
+            natural_size: vec![None],
             caches: vec![taffy::Cache::new()],
             unrounded: vec![taffy::Layout::new()],
             final_layout: vec![None],
@@ -133,7 +147,7 @@ impl Default for NodeLayoutValues {
 /// with the same mapping; unrelated trees or reordered slot allocations are not
 /// interchangeable. Slots in this API are zero-based, excluding the viewport.
 #[derive(Clone, Debug)]
-pub struct NodeLayoutColumns {
+pub(crate) struct NodeLayoutColumns {
     pub(crate) cursors: Vec<ChildCursor>,
     pub(crate) states: Vec<NodeLayoutState>,
     pub(crate) calcs: Calcs,
@@ -156,11 +170,13 @@ impl NodeLayoutColumns {
     /// Default columns already contain the synthetic viewport at slot zero.
     /// The new slot must match the next newly allocated slot of this instance's
     /// tree domain; reusing an existing reset slot does not append columns.
-    pub fn push(&mut self) {
+    pub(crate) fn push(&mut self) {
         self.cursors.push(ChildCursor::default());
         self.states.push(NodeLayoutState::default());
         let values = &mut self.values;
         values.styles.push(NodeStyle::default());
+        values.presence_scale.push(None);
+        values.natural_size.push(None);
         values.caches.push(taffy::Cache::new());
         values.unrounded.push(taffy::Layout::new());
         values.final_layout.push(None);
@@ -171,7 +187,7 @@ impl NodeLayoutColumns {
     /// `slot` must be a zero-based allocated slot in this instance's domain,
     /// still owned by the node being removed or replaced. Reset before publishing
     /// its availability for reuse; reset does not change authoritative links.
-    pub fn reset(&mut self, slot: usize) {
+    pub(crate) fn reset(&mut self, slot: usize) {
         let index = slot + 1;
         self.calcs
             .free
@@ -180,6 +196,8 @@ impl NodeLayoutColumns {
         self.cursors[index] = ChildCursor::default();
         let values = &mut self.values;
         values.styles[index] = NodeStyle::default();
+        values.presence_scale[index] = None;
+        values.natural_size[index] = None;
         values.caches[index] = taffy::Cache::new();
         values.unrounded[index] = taffy::Layout::new();
         values.final_layout[index] = None;
@@ -191,7 +209,7 @@ impl NodeLayoutColumns {
     /// Drain neutral changes once; dropping the drain discards unread changes.
     /// Consume after computation and before the next compute/reset/reuse of the
     /// paired tree domain.
-    pub fn drain_geometry_changes(&mut self) -> GeometryChanges<'_> {
+    pub(crate) fn drain_geometry_changes(&mut self) -> GeometryChanges<'_> {
         GeometryChanges {
             values: &mut self.values,
             at: 0,
@@ -212,7 +230,7 @@ pub enum GeometryChangeKind {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct GeometryChange {
     /// The logical identity, never a reusable slot.
-    pub id: kivact_wire::NodeId,
+    pub id: kivact_types::NodeId,
     /// Local includes initial layout; order bookkeeping is excluded.
     pub kind: GeometryChangeKind,
 }

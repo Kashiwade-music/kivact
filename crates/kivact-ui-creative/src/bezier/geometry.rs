@@ -1,5 +1,5 @@
 //! Role: Finite plot coordinates shared by curve painting and hit regions.
-use kivact::draw::{Point, Rect, Size};
+use kivact::geometry::{Point, Rect, Size};
 #[derive(Clone, Copy)]
 pub(crate) struct Plane {
     pub(crate) rect: Rect,
@@ -9,7 +9,7 @@ pub(crate) struct Plane {
 }
 impl Plane {
     pub(crate) fn new(size: Size, low: f64, high: f64) -> Self {
-        let clean = |v: f32| if v.is_finite() { v.max(0.0) } else { 0.0 };
+        let clean = |v: f64| if v.is_finite() { v.max(0.0) } else { 0.0 };
         let (w, h) = (clean(size.width), clean(size.height));
         let pad = (w.min(h) / 4.0).min(18.0);
         let weight = low.abs().max(high.abs()).max(1.0);
@@ -24,15 +24,15 @@ impl Plane {
     }
     pub(crate) fn point(self, x: f64, y: f64) -> Point {
         Point::new(
-            self.rect.x + (x.clamp(0.0, 1.0) as f32) * self.rect.width,
+            self.rect.x + (x.clamp(0.0, 1.0)) * self.rect.width,
             self.rect.y + self.rect.height
-                - (((y / self.weight - self.low) / self.span) as f32) * self.rect.height,
+                - ((y / self.weight - self.low) / self.span) * self.rect.height,
         )
     }
     pub(crate) fn moved(self, point: (f64, f64), delta: Point) -> (f64, f64) {
         (
-            point.0 + f64::from(delta.x / self.rect.width.max(1.0)),
-            (point.1 / self.weight - f64::from(delta.y / self.rect.height.max(1.0)) * self.span)
+            point.0 + (delta.x / self.rect.width.max(1.0)),
+            (point.1 / self.weight - (delta.y / self.rect.height.max(1.0)) * self.span)
                 * self.weight,
         )
     }

@@ -6,7 +6,7 @@
 use super::Path;
 use crate::geometry::{Point, Rect, Size};
 use crate::transform::Transform;
-use kivact_wire::{PathCmd, Point as WirePoint};
+use kivact_types::{FillRule, PathCmd, Point as WirePoint, Stroke};
 use kurbo::{Arc, BezPath, ParamCurve, ParamCurveExtrema, PathEl, Point as KPoint, SvgArc, Vec2};
 use std::f64::consts::TAU;
 
@@ -23,14 +23,11 @@ pub struct PathContour {
 /// huge radius, so the count of cubics stays bounded).
 const ARC_TOLERANCE: f64 = 0.01;
 pub(super) fn kp(p: WirePoint) -> KPoint {
-    KPoint::new(f64::from(p.x), f64::from(p.y))
+    KPoint::new(p.x, p.y)
 }
 
 pub(super) fn wire(p: KPoint) -> WirePoint {
-    WirePoint {
-        x: p.x as f32,
-        y: p.y as f32,
-    }
+    WirePoint { x: p.x, y: p.y }
 }
 
 /// The cubics of `arc` after `current`, which they move on.
@@ -44,18 +41,84 @@ fn cubics(arc: Arc, out: &mut Vec<PathCmd>, current: &mut Option<KPoint>) {
     }
 }
 
+fn center_arc(
+    center: WirePoint,
+    rx: f64,
+    ry: f64,
+    rotation: f64,
+    from_deg: f64,
+    sweep: f64,
+) -> Option<Arc> {
+    [center.x, center.y, rx, ry, rotation, from_deg, sweep]
+        .iter()
+        .all(|v| v.is_finite())
+        .then(|| {
+            Arc::new(
+                kp(center),
+                Vec2::new(rx.abs(), ry.abs()),
+                from_deg.to_radians(),
+                sweep.to_radians().clamp(-TAU, TAU),
+                rotation.to_radians(),
+            )
+        })
+}
+
 impl Path {
+    /// Test the fill of flattened (0.1 px tolerance) contours with `rule`.
+    /// Open contours are implicitly closed; points on an edge are inside.
+    pub fn contains(&self, p: Point, rule: FillRule) -> bool {
+        if !p.x.is_finite() || !p.y.is_finite() {
+            return false;
+        }
+        let mut winding: i64 = 0;
+        for contour in self.flattened(0.1) {
+            let points = &contour.points;
+            if points.len() < 2 {
+                continue;
+            }
+            for (a, b) in points
+                .iter()
+                .zip(points.iter().cycle().skip(1))
+                .take(points.len())
+            {
+                let cross = (b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x);
+                if cross == 0.0
+                    && p.x >= a.x.min(b.x)
+                    && p.x <= a.x.max(b.x)
+                    && p.y >= a.y.min(b.y)
+                    && p.y <= a.y.max(b.y)
+                {
+                    return true;
+                }
+                if a.y <= p.y && b.y > p.y && cross > 0.0 {
+                    winding += 1;
+                }
+                if a.y > p.y && b.y <= p.y && cross < 0.0 {
+                    winding -= 1;
+                }
+            }
+        }
+        match rule {
+            FillRule::NonZero => winding != 0,
+            FillRule::EvenOdd => winding % 2 != 0,
+        }
+    }
+    /// Test the filled outline of `stroke`, including its caps, joins and dashes.
+    pub fn stroke_contains(&self, p: Point, stroke: &Stroke) -> bool {
+        self.stroke_outline(stroke).contains(p, FillRule::NonZero)
+    }
+
     /// Approximate each contour with line segments in logical pixels.
     ///
     /// `tolerance` controls the flattening error; non-positive or non-finite
     /// values use 0.25. Closed contours omit the repeated start point and set
     /// [`PathContour::closed`]. Empty or invalid paths return no contours.
-    pub fn flattened(&self, tolerance: f32) -> Vec<PathContour> {
+    pub fn flattened(&self, tolerance: f64) -> Vec<PathContour> {
         let Some(path) = self.bez() else {
             return Vec::new();
         };
         let tolerance = if tolerance.is_finite() && tolerance > 0.0 {
-            f64::from(tolerance)
+            tolerance
         } else {
             0.25
         };
@@ -128,19 +191,9 @@ impl Path {
                     start_deg: from_deg,
                     sweep_deg: sweep,
                 } => {
-                    if ![center.x, center.y, rx, ry, rotation, from_deg, sweep]
-                        .iter()
-                        .all(|v| v.is_finite())
-                    {
+                    let Some(arc) = center_arc(center, rx, ry, rotation, from_deg, sweep) else {
                         continue;
-                    }
-                    let arc = Arc::new(
-                        kp(center),
-                        Vec2::new(f64::from(rx.abs()), f64::from(ry.abs())),
-                        f64::from(from_deg).to_radians(),
-                        f64::from(sweep).to_radians().clamp(-TAU, TAU),
-                        f64::from(rotation).to_radians(),
-                    );
+                    };
                     let first = arc.eval(0.0);
                     if current.is_some() {
                         out.push(PathCmd::LineTo(wire(first)));
@@ -175,8 +228,8 @@ impl Path {
                     let svg = SvgArc {
                         from,
                         to: end,
-                        radii: Vec2::new(f64::from(rx), f64::from(ry)),
-                        x_rotation: f64::from(rotation).to_radians(),
+                        radii: Vec2::new(rx, ry),
+                        x_rotation: rotation.to_radians(),
                         large_arc,
                         sweep,
                     };
@@ -232,7 +285,8 @@ impl Path {
     /// the result keeps this path's fill rule.
     ///
     /// ```
-    /// use kivact::draw::{Path, Rect};
+    /// use kivact::draw::{Path};
+    /// use kivact::geometry::Rect;
     /// let a = Path::new().rect(Rect::new(0.0, 0.0, 10.0, 10.0));
     /// let b = Path::new().rect(Rect::new(20.0, 0.0, 10.0, 10.0));
     /// assert_eq!(a.append(&b).bounds(), Some(Rect::new(0.0, 0.0, 30.0, 10.0)));
@@ -255,7 +309,8 @@ impl Path {
     /// so it is zero: use px.
     ///
     /// ```
-    /// use kivact::draw::{Path, Rect};
+    /// use kivact::draw::{Path};
+    /// use kivact::geometry::Rect;
     /// use kivact::draw::Transform;
     /// let square = Path::new().rect(Rect::new(0.0, 0.0, 10.0, 10.0));
     /// let moved = square.transformed(Transform::new().translate(5, 7).scale(2));
@@ -264,7 +319,7 @@ impl Path {
     pub fn transformed(&self, t: Transform) -> Path {
         let [a, b, c, d, e, f] = t.matrix_for(Size::default()).map(f64::from);
         let map = |p: WirePoint| {
-            let (x, y) = (f64::from(p.x), f64::from(p.y));
+            let (x, y) = (p.x, p.y);
             wire(KPoint::new(a * x + c * y + e, b * x + d * y + f))
         };
         let cmds = self
@@ -289,7 +344,8 @@ impl Path {
     /// path has no segment: it is empty, only moves, or not finite.
     ///
     /// ```
-    /// use kivact::draw::{Path, Point};
+    /// use kivact::draw::{Path};
+    /// use kivact::geometry::Point;
     /// let circle = Path::new().arc(Point::new(50.0, 50.0), 10, 0, 360, false);
     /// let b = circle.bounds().unwrap();
     /// assert!((b.x - 40.0).abs() < 0.01 && (b.width - 20.0).abs() < 0.01);
@@ -301,7 +357,7 @@ impl Path {
             .segments()
             .map(|segment| segment.bounding_box())
             .reduce(|a, b| a.union(b))?;
-        let (x, y) = (r.x0 as f32, r.y0 as f32);
-        Some(Rect::new(x, y, r.x1 as f32 - x, r.y1 as f32 - y))
+        let (x, y) = (r.x0, r.y0);
+        Some(Rect::new(x, y, r.x1 - x, r.y1 - y))
     }
 }

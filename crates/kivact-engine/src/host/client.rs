@@ -1,7 +1,8 @@
 //! Role: Client callbacks, commit boundaries and thread-safe wake handles.
 
 use super::write::Writer;
-use kivact_wire::{HostEvent, HostInfo, Revision, TurnOutput};
+use crate::contract::{HostEvent, HostInfo, TurnOutput};
+use kivact_types::Revision;
 use std::fmt;
 use std::sync::Arc;
 

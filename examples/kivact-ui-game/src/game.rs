@@ -7,7 +7,6 @@ mod feature;
 mod foundations;
 mod frame;
 mod shell;
-mod slot;
 mod specimens;
 mod state;
 mod system;

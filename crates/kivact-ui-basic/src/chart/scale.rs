@@ -47,8 +47,8 @@ impl Domain {
     }
 
     /// Where `value` lies between `lo` (0) and `hi` (1).
-    pub(super) fn fraction(&self, value: f64) -> f32 {
-        ((value - self.lo) / (self.hi - self.lo)) as f32
+    pub(super) fn fraction(&self, value: f64) -> f64 {
+        (value - self.lo) / (self.hi - self.lo)
     }
 }
 
@@ -83,7 +83,7 @@ pub(super) fn format_value(value: f64) -> String {
 ///
 /// Hit testing runs outside the drawing closure, where text cannot be
 /// measured, so axis gutters use this estimate in both places.
-pub(super) fn text_width(text: &str, size: f32) -> f32 {
+pub(super) fn text_width(text: &str, size: f64) -> f64 {
     text.chars()
         .map(|c| match c {
             '.' | ',' | ' ' | ':' | '\'' | 'i' | 'l' | 'j' | 't' | 'f' | 'I' => 0.36,
@@ -91,6 +91,6 @@ pub(super) fn text_width(text: &str, size: f32) -> f32 {
             c if c.is_ascii() => 0.62,
             _ => 1.0,
         })
-        .sum::<f32>()
+        .sum::<f64>()
         * size
 }

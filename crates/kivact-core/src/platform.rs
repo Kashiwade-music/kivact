@@ -21,15 +21,18 @@ mod window_loop;
 pub(crate) use env::missing_capabilities;
 #[doc(inline)]
 pub use env::{
-    capabilities, font_families, fullscreen, is_initial_render, reduced_motion, safe_area,
-    scale_factor, surface_active, window_size,
+    capabilities, font_families, is_fullscreen, is_initial_render, is_motion_reduced,
+    is_surface_active, keyboard_inset, pointer_settings, restored_state, safe_area, scale_factor,
+    theme_hint, window_size,
 };
 #[doc(inline)]
 pub use services::{
     FileDialog, copy_text, open_path, pick_file, pick_files, pick_folder, read_text,
-    request_window_size, reveal_path, save_file, set_fullscreen, set_reduced_motion,
+    request_window_size, reveal_path, save_file, save_state, set_fullscreen, set_reduced_motion,
 };
 pub(crate) use window_loop::run_native;
 
 #[doc(inline)]
-pub use env::{Capabilities, Insets};
+pub use env::{
+    Capabilities, CommandKey, ContextMenuTrigger, PointerClass, PointerSettings, ThemeHint,
+};

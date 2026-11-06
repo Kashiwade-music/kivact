@@ -3,20 +3,22 @@ use super::types::DataTableContext;
 use crate::layer::with_recipe_style;
 use crate::variants::Variants;
 use crate::{
-    ButtonVariant, ControlSize, DataTableCheckState, DataTablePageState, ListItem, button,
-    checkbox, select, text_input,
+    ButtonVariant, ControlSize, DataTableCheckState, DataTablePageState, button, checkbox, select,
+    text_input,
 };
-use kivact_core::control::{NodeBuilder, node, row, text};
+use kivact_core::custom::PartState;
 use kivact_core::i18n::{message, message_with};
-use kivact_core::primitive::PartState;
+use kivact_core::state::{Binding, Value, binding, memo};
 use kivact_core::style::{pct, style};
 use kivact_core::view::CheckedState;
-use kivact_core::view::{IntoView, Role, View};
-use kivact_core::{Binding, Value, binding, memo};
-use std::hash::Hash;
+use kivact_core::view::IntoView;
+use kivact_core::view::NodeBuilder;
+use kivact_core::view::{Node, Role, View};
+use kivact_core::view::{node, row, text};
+use kivact_interaction::ListItem;
 
 /// The row above the grid: the filter field, when the table has a filter.
-pub(super) fn toolbar<R: Clone + PartialEq + 'static, K: Clone + Eq + Hash + 'static>(
+pub(super) fn toolbar<R: kivact_core::state::PropValue, K: kivact_core::state::ItemKey>(
     context: DataTableContext<R, K>,
     variants: &Variants,
 ) -> Option<View> {
@@ -45,7 +47,7 @@ pub(super) fn toolbar<R: Clone + PartialEq + 'static, K: Clone + Eq + Hash + 'st
 
 /// The row under the grid: how many of the filtered rows are selected and
 /// the pager; nothing when the table has neither.
-pub(super) fn footer<R: Clone + PartialEq + 'static, K: Clone + Eq + Hash + 'static>(
+pub(super) fn footer<R: kivact_core::state::PropValue, K: kivact_core::state::ItemKey>(
     context: DataTableContext<R, K>,
     sizes: Option<Value<Vec<usize>>>,
     variants: &Variants,
@@ -69,7 +71,7 @@ pub(super) fn footer<R: Clone + PartialEq + 'static, K: Clone + Eq + Hash + 'sta
                 ]
             },
         );
-        kivact_core::control::text(text).style(style().grow(1))
+        kivact_core::view::text(text).style(style().grow(1))
     });
     let pager = context
         .page
@@ -112,7 +114,7 @@ pub(super) fn footer<R: Clone + PartialEq + 'static, K: Clone + Eq + Hash + 'sta
 }
 
 /// The page shown, Previous and Next.
-fn pager<R: Clone + PartialEq + 'static, K: Clone + Eq + Hash + 'static>(
+fn pager<R: kivact_core::state::PropValue, K: kivact_core::state::ItemKey>(
     context: DataTableContext<R, K>,
     index: Binding<usize>,
     variants: &Variants,
@@ -172,11 +174,11 @@ fn pager<R: Clone + PartialEq + 'static, K: Clone + Eq + Hash + 'static>(
 
 /// The header check box in its box: it checks or clears the rows of the page
 /// and is mixed while some of them are checked.
-pub(super) fn select_page<K: Clone + Eq + Hash + 'static>(
+pub(super) fn select_page<K: kivact_core::state::ItemKey>(
     selection: Binding<Vec<K>>,
     keys: Value<Vec<K>>,
     variants: &Variants,
-) -> View {
+) -> (Node, View) {
     let chosen = move || {
         keys.with(|keys| {
             selection.with(|chosen| keys.iter().filter(|k| chosen.contains(k)).count())
@@ -184,7 +186,7 @@ pub(super) fn select_page<K: Clone + Eq + Hash + 'static>(
     };
     let all = move || keys.with(|keys| !keys.is_empty() && chosen() == keys.len());
     let mixed = move || keys.with(|keys| chosen() > 0 && chosen() < keys.len());
-    let select = kivact_core::view::callback(move |on: bool| {
+    let select = kivact_core::state::callback(move |on: bool| {
         let keys = keys.get();
         let mut next = selection.get();
         next.retain(|k| !keys.contains(k));
@@ -203,20 +205,19 @@ pub(super) fn select_page<K: Clone + Eq + Hash + 'static>(
             CheckedState::Unchecked
         },
     };
-    with_recipe_style(
+    let root = with_recipe_style(
         node().role(Role::ColumnHeader),
         |r| r.data_table_recipes().check_recipe(),
         variants,
         state,
+    );
+    let content = checkbox(
+        message("data_table.select_all", "Select all"),
+        binding(all, move |on| select.try_call(on)),
     )
-    .child(
-        checkbox(
-            message("data_table.select_all", "Select all"),
-            binding(all, move |on| select.try_call(on)),
-        )
-        .hide_label(true)
-        .indeterminate(mixed)
-        .disabled(move || keys.with(Vec::is_empty)),
-    )
-    .into_view()
+    .hide_label(true)
+    .indeterminate(mixed)
+    .disabled(move || keys.with(Vec::is_empty))
+    .into_view();
+    (root, content)
 }

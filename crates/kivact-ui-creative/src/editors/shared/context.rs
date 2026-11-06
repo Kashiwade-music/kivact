@@ -1,8 +1,8 @@
 //! Role: Shared domain snapshots for editor pointer, key and assistive menus.
 use crate::editors::shared::model::EditorContext;
 use crate::editors::shared::targets::Scene;
-use kivact::Signal;
 use kivact::draw::RegionId;
+use kivact::state::Signal;
 use kivact::view::{Handled, Key, KeyEvent, MouseButton, PointerEvent, PointerPhase};
 use std::hash::Hash;
 
@@ -12,16 +12,16 @@ pub(crate) fn context_pointer<T: Copy>(
     target: Option<T>,
     context: Signal<EditorContext>,
     locate: impl Fn(Option<T>) -> EditorContext,
-    time: impl Fn(f32) -> f64,
+    time: impl Fn(f64) -> f64,
 ) -> Handled {
-    if event.phase.press().map(|press| press.button) == Some(MouseButton::Secondary) {
+    if event.phase().press().map(|press| press.button) == Some(MouseButton::Secondary) {
         if dragging {
             return Handled::Yes;
         }
-        if matches!(event.phase, PointerPhase::Down(_)) {
+        if matches!(event.phase(), PointerPhase::Down(_)) {
             let mut snapshot = locate(target);
             if target.is_none() {
-                snapshot.time = time(event.pos.x);
+                snapshot.time = time(event.pos().x);
             }
             context.set(snapshot);
         }
@@ -37,11 +37,11 @@ pub(crate) fn context_key(
     if child_focus {
         return Handled::No;
     }
-    if event.key == Key::ContextMenu || (event.key == Key::F(10) && event.modifiers.shift) {
+    if event.key() == Key::ContextMenu || (event.key() == Key::F(10) && event.modifiers().shift) {
         if dragging {
             return Handled::Yes;
         }
-        request(event.region);
+        request(event.region());
     }
     Handled::No
 }

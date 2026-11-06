@@ -3,16 +3,16 @@
 //! A checkbox or a switch takes its value as the constructor's one
 //! `Binding<bool>`, like a select and a text input; there is no hidden local
 //! binding and no separate constant `checked` mode. Its recipe gets the real
-//! checked state in a `CheckState`, and `.size` only reaches the recipe,
+//! checked state in a `CheckableState`, and `.size` only reaches the recipe,
 //! which decides the dimensions.
 use super::layer::with_base_recipe_style;
-use super::values::{CheckState, ControlSize};
+use super::values::{CheckableState, ControlSize};
 use super::variants::{Variant, Variants};
-use kivact_core::control::{Node, NodeBuilder, node};
-use kivact_core::primitive::NodeExt;
-use kivact_core::view::{IntoText, IntoValue, IntoView, View};
-use kivact_core::{Binding, Value};
-use kivact_interaction::{CheckboxApi, Toggle, ToggleState, use_checkbox, use_switch};
+use kivact_core::state::{Binding, Value};
+use kivact_core::state::{IntoText, IntoValue};
+use kivact_core::view::{IntoView, View};
+use kivact_core::view::{Node, NodeBuilder, node};
+use kivact_interaction::{CheckboxApi, SwitchApi, ToggleState, use_checkbox, use_switch};
 macro_rules! toggle_builder {
     ($(#[$doc:meta])* $name:ident, $kind:ident, $recipe:ident, $parts:ident, $gesture:ident, $text:expr) => {
         $(#[$doc])*
@@ -20,29 +20,40 @@ macro_rules! toggle_builder {
             root: Node,
             label: Value<String>,
             state: Binding<bool>,
+            on_edit: Option<kivact_core::state::Callback<kivact_core::view::EditPhase>>,
             mixed: Option<Value<bool>>,
             hide_label: Option<Value<bool>>,
-            size: ControlSize,
+            size: Value<ControlSize>,
             variants: Variants,
         }
 
         impl $name {
+            /// Observe the beginning and commit of each value edit.
+            pub fn on_edit<R: kivact_core::view::HandlerResult>(
+                mut self,
+                f: impl Fn(kivact_core::view::EditPhase) -> R + 'static,
+            ) -> Self {
+                self.on_edit = Some(kivact_core::state::callback(f));
+                self
+            }
+
             fn create(label: Value<String>, state: Binding<bool>) -> Self {
                 Self {
                     root: node().style(super::helpers::single_line_text()).name(label),
                     label,
                     state,
                     mixed: None,
+                    on_edit: None,
                     hide_label: None,
-                    size: super::values::default_control_size(),
+                    size: super::values::default_control_size().into_value(),
                     variants: Variants::default(),
                 }
             }
 
             /// The size (default [`ControlSize::Medium`]), given to the
             /// recipe in its state; the recipe sizes the control by it.
-            pub fn size(mut self, size: ControlSize) -> Self {
-                self.size = size;
+            pub fn size(mut self, size: impl IntoValue<ControlSize>) -> Self {
+                self.size = size.into_value();
                 self
             }
 
@@ -82,20 +93,24 @@ macro_rules! toggle_builder {
         impl IntoView for $name {
             fn into_view(mut self) -> View {
                 let mut behavior = $kind(self.state, self.mixed);
+                if let Some(observer) = self.on_edit {
+                    behavior = behavior.on_edit(move |phase| observer.call(phase));
+                }
                 // `.disabled(..)` ignores input while true.
                 if let Some(disabled) = self.root.accessible_disabled() {
-                    behavior = behavior.disabled(move || disabled());
+                    behavior = behavior.disabled(move || disabled.get());
                 }
                 let invalid = self.root.accessible_invalid();
                 let size = self.size;
                 let text: Option<fn(Value<bool>) -> Value<String>> = $text;
                 let text = text.map(|text| text(self.state.into_value()));
-                let (control, drag) = $gesture(behavior.control(), self.state, size);
-                let part = control.map_state(move |state: ToggleState| CheckState {
+                let (control, drag) =
+                    $gesture(behavior.control(), self.state, size, self.on_edit);
+                let part = control.map_state(move |state: ToggleState| CheckableState {
                     input: state.input,
                     checked: state.checked,
-                    size,
-                    invalid: invalid.as_ref().is_some_and(|invalid| invalid()),
+                    size: size.get(),
+                    invalid: invalid.as_ref().is_some_and(|invalid| invalid.get()),
                     text,
                     switch_drag: drag.and_then(|drag| drag.get()),
                 });
@@ -146,11 +161,12 @@ toggle_builder!(
 use super::switch_drag::switch as switch_gesture;
 
 fn no_gesture(
-    control: kivact_core::primitive::Part<ToggleState>,
+    control: kivact_core::custom::Part<ToggleState>,
     _: Binding<bool>,
-    _: ControlSize,
+    _: Value<ControlSize>,
+    _: Option<kivact_core::state::Callback<kivact_core::view::EditPhase>>,
 ) -> (
-    kivact_core::primitive::Part<ToggleState>,
+    kivact_core::custom::Part<ToggleState>,
     super::switch_drag::Visual,
 ) {
     (control, None)
@@ -166,7 +182,7 @@ fn checkbox_behavior(state: Binding<bool>, mixed: Option<Value<bool>>) -> Checkb
 }
 
 /// The behavior of a switch; a switch has no mixed state.
-fn switch_behavior(state: Binding<bool>, _mixed: Option<Value<bool>>) -> Toggle {
+fn switch_behavior(state: Binding<bool>, _mixed: Option<Value<bool>>) -> SwitchApi {
     use_switch(state)
 }
 
@@ -176,7 +192,7 @@ fn switch_text(on: Value<bool>) -> Value<String> {
         kivact_core::i18n::message("switch.on", "ON"),
         kivact_core::i18n::message("switch.off", "OFF"),
     );
-    kivact_core::memo(move || if on.get() { yes.get() } else { no.get() })
+    kivact_core::state::memo(move || if on.get() { yes.get() } else { no.get() })
 }
 
 impl Checkbox {
@@ -196,7 +212,7 @@ impl Checkbox {
 /// (Enter does nothing), and so do the accessibility `Activate` and `Toggle`
 /// actions. The look is the theme's
 /// [`UiRecipes::checkbox`](super::UiRecipes), given a
-/// [`CheckState`](super::CheckState).
+/// [`CheckableState`](super::CheckableState).
 ///
 /// ```no_run
 /// use kivact::prelude::*;
@@ -211,8 +227,11 @@ impl Checkbox {
 /// }
 /// ```
 #[track_caller]
-pub fn checkbox(label: impl IntoText, checked: impl Into<Binding<bool>>) -> Checkbox {
-    Checkbox::create(label.into_text_value(), checked.into())
+pub fn checkbox(
+    label: impl IntoText,
+    checked: impl kivact_core::state::IntoBinding<bool>,
+) -> Checkbox {
+    Checkbox::create(label.into_text_value(), checked.into_binding())
 }
 
 /// A switch named and labelled `label` that edits `on`.
@@ -231,6 +250,6 @@ pub fn checkbox(label: impl IntoText, checked: impl Into<Binding<bool>>) -> Chec
 /// }
 /// ```
 #[track_caller]
-pub fn switch(label: impl IntoText, on: impl Into<Binding<bool>>) -> Switch {
-    Switch::create(label.into_text_value(), on.into())
+pub fn switch(label: impl IntoText, on: impl kivact_core::state::IntoBinding<bool>) -> Switch {
+    Switch::create(label.into_text_value(), on.into_binding())
 }

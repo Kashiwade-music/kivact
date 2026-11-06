@@ -10,52 +10,31 @@ use crate::ime::ShellImeText;
 use crate::types::{ShellControl, ShellError, ShellWaker};
 use kivact_types::{Cursor as ShellCursor, Rect, Size};
 
-/// The frame period of a display whose refresh rate is unknown (60 Hz).
-pub const DEFAULT_FRAME_PERIOD_NS: u64 = 16_666_667;
+/// Pixel layout accepted by a CPU presentation surface.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum CpuFormat {
+    Xrgb8888,
+}
 
 /// Window services implemented by a platform backend or an in-memory shell.
 /// This trait imposes no `Send` or `Sync` bound on the window itself.
 pub trait ShellWindow {
+    /// Execute a platform request synchronously on this window's UI thread.
+    fn perform(&mut self, request: kivact_types::PlatformRequest) -> kivact_types::PlatformResult;
+
+    /// Pixel format accepted by the CPU surface.
+    fn cpu_format(&self) -> CpuFormat;
+
+    /// Whether the backend retains presented frames for inspection.
+    fn keeps_frames(&self) -> bool;
+
+    /// Retain a frame read back by the presenter.
+    fn keep_frame(&mut self, frame: kivact_types::render::CpuFrame);
+
     /// Wait for UI-thread work to finish, up to `limit`. Windows backends
     /// dispatch only sent messages while waiting, never input or posted
     /// messages; other backends sleep for one millisecond between polls.
     fn wait_until(&mut self, done: &mut dyn FnMut() -> bool, limit: std::time::Duration) -> bool;
-
-    /// Write UTF-8 text to the window's clipboard service.
-    fn copy_text(&mut self, text: &str) -> Result<(), ShellError>;
-
-    /// Read UTF-8 text from the window's clipboard service.
-    fn read_text(&mut self) -> Result<String, ShellError>;
-
-    /// Request one file; cancellation returns `None`.
-    fn pick_file(
-        &mut self,
-        request: &crate::services::ShellFileDialog,
-    ) -> Result<Option<std::path::PathBuf>, ShellError>;
-
-    /// Request multiple files; cancellation returns `None`.
-    fn pick_files(
-        &mut self,
-        request: &crate::services::ShellFileDialog,
-    ) -> Result<Option<Vec<std::path::PathBuf>>, ShellError>;
-
-    /// Request a save path; cancellation returns `None`.
-    fn save_file(
-        &mut self,
-        request: &crate::services::ShellFileDialog,
-    ) -> Result<Option<std::path::PathBuf>, ShellError>;
-
-    /// Request one folder; cancellation returns `None`. File filters do not apply.
-    fn pick_folder(
-        &mut self,
-        request: &crate::services::ShellFileDialog,
-    ) -> Result<Option<std::path::PathBuf>, ShellError>;
-
-    /// Ask the platform to open a path. `Ok` acknowledges the request, not its completion.
-    fn open_path(&mut self, path: &std::path::Path) -> Result<(), ShellError>;
-
-    /// Ask the platform to reveal a path in its file manager.
-    fn reveal_path(&mut self, path: &std::path::Path) -> Result<(), ShellError>;
 
     /// Recover after a presentation failure; the next presentation may recreate resources.
     fn recover_surface(&mut self) -> Result<(), ShellError>;
@@ -70,17 +49,14 @@ pub trait ShellWindow {
     /// Validate and replace the accepted semantics tree transactionally. Rejection retains the old tree.
     fn replace_accessibility(
         &mut self,
-        tree: &kivact_types::protocol::SemanticsTree,
+        tree: &kivact_types::render::SemanticsTree,
     ) -> Result<(), crate::a11y::error::AccessibilityError>;
 
     /// Validate and apply a semantics update transactionally. A new root requires a complete tree.
     fn update_accessibility(
         &mut self,
-        update: &kivact_types::protocol::SemanticsUpdate,
+        update: &kivact_types::render::SemanticsUpdate,
     ) -> Result<(), crate::a11y::error::AccessibilityError>;
-
-    /// Whether assistive technology currently requests this window's accepted semantics.
-    fn accessibility_active(&self) -> bool;
 
     /// Current logical content extent in pixels.
     fn size(&self) -> Size;
@@ -89,7 +65,7 @@ pub trait ShellWindow {
     fn physical_size(&self) -> (u32, u32);
 
     /// Physical pixels per logical pixel.
-    fn scale(&self) -> f32;
+    fn scale(&self) -> f64;
 
     /// Monotonic window clock in nanoseconds; comparable to this loop's wake deadlines.
     fn now_ns(&self) -> u64;
@@ -113,12 +89,7 @@ pub trait ShellWindow {
     fn reduced_motion(&self) -> bool;
 
     /// Current scale, refresh period, preferences, safe area, mouse settings and locale.
-    fn environment(&self) -> kivact_types::protocol::Environment;
-
-    /// Request a logical content size.
-    fn request_size(&mut self, size: Size) -> Result<(), ShellError>;
-    /// Request fullscreen state; platform policy may constrain the result.
-    fn set_fullscreen(&self, fullscreen: bool) -> Result<(), ShellError>;
+    fn environment(&self) -> kivact_types::Environment;
 
     /// Whether the window is currently fullscreen.
     fn fullscreen(&self) -> bool;
@@ -126,6 +97,8 @@ pub trait ShellWindow {
     /// Set the cursor shown over the content.
     fn set_cursor(&self, cursor: ShellCursor);
 
+    /// Set the focused editor's content purpose and keyboard hint.
+    fn set_ime_purpose(&self, purpose: kivact_types::InputPurpose);
     /// Allow IME input for the focused editor; disabling releases its caret area.
     fn set_ime_allowed(&self, allowed: bool);
 
@@ -194,10 +167,44 @@ pub trait ShellHandler {
 }
 
 /// A UI-thread event loop consumed by one synchronous run.
-pub trait ShellEventLoop {
+pub trait Backend {
     /// Borrow the handler until exit, reporting backend or callback failures.
     /// A callback panic propagates out of `run`; a backend whose callbacks
     /// run under foreign frames carries it across them and resumes it after
     /// the loop.
     fn run(self: Box<Self>, handler: &mut dyn ShellHandler) -> Result<(), ShellError>;
+}
+
+/// A backend driven explicitly by its caller.
+pub trait SteppedBackend {
+    /// Create the window and call the handler before returning.
+    fn start(
+        self: Box<Self>,
+        handler: Box<dyn ShellHandler>,
+    ) -> Result<Box<dyn SteppedLoop>, ShellError>;
+}
+
+/// A running backend with independently controlled input, wake and redraw turns.
+pub trait SteppedLoop {
+    fn step(&mut self, step: Step) -> StepOutcome;
+}
+
+/// The event source to advance.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Step {
+    Input,
+    Wake,
+    Redraw,
+}
+
+/// The state after a backend turn.
+#[derive(Clone, Debug)]
+pub enum StepOutcome {
+    Idle {
+        next_deadline: Option<u64>,
+        redraw_requested: bool,
+        woken: bool,
+    },
+    Exited,
+    Failed(ShellError),
 }

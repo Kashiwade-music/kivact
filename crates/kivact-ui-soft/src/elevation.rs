@@ -6,9 +6,13 @@ use kivact::style::Style;
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum Elevation {
     #[default]
+    /// Keep the existing style without adding shadows; the default.
     None,
+    /// Use the theme's low-elevation shadow layers.
     Low,
+    /// Use the theme's medium-elevation shadow layers.
     Med,
+    /// Use the theme's high-elevation shadow layers.
     High,
 }
 
@@ -23,3 +27,5 @@ impl Elevation {
         shadows.iter().cloned().fold(base, Style::shadow)
     }
 }
+
+kivact::state::constant_value!(Elevation);

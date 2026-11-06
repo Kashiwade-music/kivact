@@ -10,7 +10,7 @@ small components: a header and a placeholder list of tasks.
 ```rust,no_run
 use kivact::prelude::*;
 
-fn header() -> impl IntoView {
+fn header() -> impl Component {
     column((
         text("Tasks"),
         text("Things to do today"),
@@ -18,11 +18,11 @@ fn header() -> impl IntoView {
     .style(style().gap(4))
 }
 
-fn task_row(title: &str) -> impl IntoView {
+fn task_row(title: impl IntoText) -> impl Component {
     row((text("-"), text(title))).style(style().gap(8))
 }
 
-fn task_list() -> impl IntoView {
+fn task_list() -> impl Component {
     column((
         task_row("Buy milk"),
         task_row("Write the tutorial"),
@@ -42,11 +42,45 @@ fn main() -> kivact::Result<()> {
 
 ## What is new
 
-**Components are plain functions.** `header`, `task_row` and `task_list` are
-ordinary functions. They take normal arguments (`task_row` takes a title) and
-return `impl IntoView`. Kivact calls a component **once**, when it builds the
-screen; it does not call it again every time something changes. You will see
-what that means in the next step.
+**View helpers are plain functions.** `header`, `task_row` and `task_list` run
+when their caller calls them. `task_row` accepts `impl IntoText`, so callers can
+supply a string or a reactive text value. These helpers return `impl Component`:
+a view with one modifiable root, so callers can add `.style(..)`, `.name(..)` or
+other standard node modifiers. Use `impl IntoView` when the result can be a
+branch, a fragment or another view without one modifiable root.
+
+**A setup boundary is explicit.** Calling a Rust helper does not create a new
+lifetime for its state. `App::run(app)` sets up the root once. When state
+changes, only the reactive closures introduced in the next step run again;
+unlike a React render function, the whole screen function is not called again.
+For a reusable view that should own its own signals, effects and cleanup,
+return `component(move || { .. })`:
+
+```rust,no_run
+use kivact::prelude::*;
+
+fn click_counter() -> impl IntoView {
+    component(move || {
+        let count = signal(0);
+        column((
+            text(move || format!("Pressed {} times", count.get())),
+            button("Press me").on_press(move || count.update(|n| *n += 1)),
+        ))
+        .style(style().gap(8))
+    })
+}
+```
+
+The closure runs once when this view mounts. Its state is disposed when the
+view unmounts; changing `count` updates the text without running setup again.
+The boundary adds no visible layout box. Style the `column` inside it, since
+the returned `View` does not expose a single root to modify. You will use
+signals and reactive closures in the next step.
+
+Create signals and memos in setup code: the App root, `component`, and the
+setup that `show`, `dynamic` and `for_each` run. Reactive closures such as
+`text(move || ..)` and `style(move || ..)` run again on changes, so they read
+values that setup already created.
 
 **`column` and `row`** place their children vertically and horizontally. They
 take their children as a tuple: `column((a, b, c))`. The extra pair of

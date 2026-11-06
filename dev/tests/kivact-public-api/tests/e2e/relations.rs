@@ -5,7 +5,6 @@
 
 use crate::support::mount;
 use kivact::prelude::*;
-use kivact::primitive::NodeExt;
 
 #[test]
 fn relations_reach_the_accessibility_tree_in_call_order() {

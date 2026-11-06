@@ -1,250 +1,69 @@
-//! Role: Verify the Soft theme through the public facade and kit APIs.
-use kivact::control::{NodeBuilder, column};
-use kivact::i18n::CalendarDate;
-use kivact::signal;
-use kivact::style::ThemeMode;
-use kivact::test::{RenderOptions, render_with, render_with_handle};
-use kivact::ui::{ControlSize, button};
-use kivact::view::{Key, Role};
-use kivact_ui_soft::{
-    BadgeVariant, BannerStatus, IconSize, StatusDotVariant, badge, banner, code_block, heading,
-    icon, input_group_with, status_dot,
-};
-use std::cell::Cell;
-use std::rc::Rc;
-use std::time::Duration;
-
-#[test]
-fn markdown_wraps_a_live_link_with_the_surrounding_paragraph() {
-    let (screen, opened) = render_with_handle(
-        RenderOptions {
-            theme: kivact_ui_soft::theme(ThemeMode::Light),
-            ..RenderOptions::from_env()
-        },
-        || {
-            let opened = signal(String::new());
-            let paragraph = kivact_ui_soft::markdown(
-                "The project reference lives in [the guide](https://example.com/guide) today.",
-            )
-            .on_link(move |url| opened.set(url.to_owned()))
-            .style(kivact::style::style().width(150))
-            .test_id("markdown-paragraph");
-            (opened, paragraph)
-        },
-    );
-    let paragraph = screen.get_by_test_id("markdown-paragraph").rect().unwrap();
-    let link = screen.get_by_role(Role::Link, "the guide");
-    let bounds = link.rect().unwrap();
-    assert!(bounds.y > paragraph.y + 8.0);
-    assert!(bounds.x + bounds.width <= paragraph.x + paragraph.width + 1.0);
-    link.click();
-    assert_eq!(opened.get_untracked(), "https://example.com/guide");
-    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
-}
-
-#[test]
-fn code_block_disclosure_releases_its_height_as_it_closes() {
-    let screen = render_with(
-        RenderOptions {
-            theme: kivact_ui_soft::theme(ThemeMode::Light),
-            reduced_motion: false,
-            ..RenderOptions::from_env()
-        },
-        || {
-            column((
-                code_block("let a = 1;\nlet b = 2;\nlet c = 3;".to_owned())
-                    .title("Snippet")
-                    .language_label(false)
-                    .collapsible(true)
-                    .collapsible_threshold(2),
-                button("After code"),
-            ))
-        },
-    );
-    let snippet = screen.get_by_role(Role::Button, "Snippet");
-    let after = screen.get_by_role(Role::Button, "After code");
-    let open_y = after.rect().expect("laid out sibling").y;
-    assert_eq!(snippet.controls().len(), 1);
-    snippet.press_key(Key::Enter);
-    assert_eq!(snippet.is_expanded(), Some(false));
-    screen.advance(Duration::from_millis(85));
-    let intermediate_y = after.rect().expect("laid out sibling").y;
-    screen.advance(Duration::from_millis(300));
-    let closed_y = after.rect().expect("laid out sibling").y;
-    assert!(closed_y < intermediate_y && intermediate_y < open_y);
-    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
-}
-
-#[test]
-fn input_group_inherits_size_without_overriding_an_explicit_member() {
-    let screen = render_with(
-        RenderOptions {
-            theme: kivact_ui_soft::theme(ThemeMode::Light),
-            ..RenderOptions::from_env()
-        },
-        || {
-            input_group_with("Actions", || {
-                (
-                    button("Inherited"),
-                    button("Explicit").size(ControlSize::Small),
-                )
-            })
-            .size(ControlSize::Large)
-        },
-    );
-    let inherited = screen.get_by_role(Role::Button, "Inherited");
-    let explicit = screen.get_by_role(Role::Button, "Explicit");
-    assert_eq!(inherited.rect().expect("laid out").height, 36.0);
-    assert_eq!(explicit.rect().expect("laid out").height, 28.0);
-    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
-}
-
-#[test]
-fn dismissing_a_banner_restores_the_previous_external_focus() {
-    let screen = render_with(
-        RenderOptions {
-            theme: kivact_ui_soft::theme(ThemeMode::Light),
-            ..RenderOptions::from_env()
-        },
-        || {
-            column((
-                button("Continue"),
-                banner(BannerStatus::Info, "Workspace updated").dismissable(true),
-                button("Other"),
-            ))
-        },
-    );
-    let outside = screen.get_by_role(Role::Button, "Continue");
-    outside.focus();
-    let dismiss = screen.get_by_role(Role::Button, "Dismiss Workspace updated");
-    dismiss.focus();
-    dismiss.press_key(Key::Enter);
-    assert!(outside.is_focused());
-    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
-}
-
-#[test]
-fn the_neutral_theme_mounts_standard_buttons_in_both_appearances() {
-    for mode in [ThemeMode::Light, ThemeMode::Dark] {
-        let clicks = Rc::new(Cell::new(0));
-        let pressed = Rc::clone(&clicks);
-        let screen = render_with(
-            RenderOptions {
-                theme: kivact_ui_soft::theme(mode),
-                ..RenderOptions::from_env()
-            },
-            move || button("Continue").on_press(move || pressed.set(pressed.get() + 1)),
-        );
-        screen.get_by_role(Role::Button, "Continue").click();
-        assert_eq!(clicks.get(), 1);
-        assert!(screen.errors().is_empty(), "{:?}", screen.errors());
-    }
-}
-
-#[test]
-fn content_components_publish_their_names_and_roles() {
-    let screen = render_with(
-        RenderOptions {
-            theme: kivact_ui_soft::theme(ThemeMode::Dark),
-            ..RenderOptions::from_env()
-        },
-        || {
-            column((
-                heading(2, "Workspace"),
-                icon("search").size(IconSize::Lg).label("Search icon"),
-                badge("Review").variant(BadgeVariant::Warning),
-                status_dot(StatusDotVariant::Success, "Online"),
-            ))
-        },
-    );
-    screen.get_by_role(Role::Heading, "Workspace");
-    screen.get_by_role(Role::Image, "Search icon");
-    screen.get_by_text("Review");
-    screen.get_by_role(Role::Image, "Online");
-    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
-}
-
-#[test]
-fn date_and_time_fields_commit_through_the_public_bindings() {
-    let (screen, (date, time)) = render_with_handle(
-        RenderOptions {
-            theme: kivact_ui_soft::theme(ThemeMode::Light),
-            ..RenderOptions::from_env()
-        },
-        || {
-            let date = signal(None::<CalendarDate>);
-            let time = signal(None::<kivact_ui_soft::TimeOfDay>);
-            (
-                (date, time),
-                column((
-                    kivact_ui_soft::date_input("Due date", date)
-                        .presentation(kivact_ui_soft::DatePresentation::Desktop),
-                    kivact_ui_soft::time_input("Reminder", time)
-                        .presentation(kivact_ui_soft::DatePresentation::Desktop),
-                )),
-            )
-        },
-    );
-    let field = screen.get_by_role(Role::TextBox, "Due date");
-    field.type_text("2026-11-03");
-    field.press_key(Key::Enter);
-    assert_eq!(date.get_untracked(), CalendarDate::checked(2026, 11, 3));
-    let field = screen.get_by_role(Role::TextBox, "Reminder");
-    field.type_text("14:35");
-    field.press_key(Key::Enter);
-    assert_eq!(
-        time.get_untracked(),
-        kivact_ui_soft::TimeOfDay::new(14, 35, 0)
-    );
-}
-
-#[test]
-fn rich_text_source_toolbar_wraps_and_unwraps_native_unicode_selection() {
-    let screen = render_with(
-        RenderOptions {
-            theme: kivact_ui_soft::theme(ThemeMode::Light),
-            ..RenderOptions::from_env()
-        },
-        || {
-            let source = signal("café 東京".to_owned());
-            kivact_ui_soft::rich_text_editor("Markdown source", source)
-        },
-    );
-    let editor = screen.get_by_role(Role::TextBox, "Markdown source");
-    editor.press_key(Key::End);
-    editor.press_key_with(
-        Key::Home,
-        kivact::view::Modifiers {
-            shift: true,
-            ..Default::default()
-        },
-    );
-    for (command, wrapped) in [
-        ("Bold", "**café 東京**"),
-        ("Italic", "*café 東京*"),
-        ("Strikethrough", "~~café 東京~~"),
-        ("Inline code", "`café 東京`"),
-    ] {
-        let button = screen.get_by_role(Role::Button, command);
-        button.click();
-        assert_eq!(editor.value().as_deref(), Some(wrapped));
-        assert!(editor.is_focused());
-        button.click();
-        assert_eq!(editor.value().as_deref(), Some("café 東京"));
-    }
-    screen.get_by_role(Role::Button, "Preview").click();
-    assert!(
-        screen
-            .query_by_role(Role::TextBox, "Markdown source")
-            .is_none()
-    );
-    screen.get_by_role(Role::Button, "Write").click();
-    assert_eq!(
-        screen
-            .get_by_role(Role::TextBox, "Markdown source")
-            .value()
-            .as_deref(),
-        Some("café 東京")
-    );
-    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
-}
+//! Role: Verify Soft components through one public consumer test binary.
+#[path = "consumer/button_busy.rs"]
+mod button_busy;
+#[path = "consumer/chat_keyboard.rs"]
+mod chat_keyboard;
+#[path = "consumer/chat_scroll.rs"]
+mod chat_scroll;
+#[path = "consumer/collections.rs"]
+mod collections;
+#[path = "consumer/date_controls.rs"]
+mod date_controls;
+#[path = "consumer/date_touch.rs"]
+mod date_touch;
+#[path = "consumer/disabled_menu.rs"]
+mod disabled_menu;
+#[path = "consumer/empty_state_announcement.rs"]
+mod empty_state_announcement;
+#[path = "consumer/form_layout.rs"]
+mod form_layout;
+#[path = "consumer/foundation.rs"]
+mod foundation;
+#[path = "consumer/grouped_table.rs"]
+mod grouped_table;
+#[path = "consumer/menu_press.rs"]
+mod menu_press;
+#[path = "consumer/metrics.rs"]
+mod metrics;
+#[path = "consumer/navigation.rs"]
+mod navigation;
+#[path = "consumer/overlay_interaction.rs"]
+mod overlay_interaction;
+#[path = "consumer/progress_motion.rs"]
+mod progress_motion;
+#[path = "consumer/rich_blocks.rs"]
+mod rich_blocks;
+#[path = "consumer/search.rs"]
+mod search;
+#[path = "consumer/selector_focus.rs"]
+mod selector_focus;
+#[path = "consumer/selector_keyboard.rs"]
+mod selector_keyboard;
+#[path = "consumer/selector_touch.rs"]
+mod selector_touch;
+#[path = "consumer/slider_touch_motion.rs"]
+mod slider_touch_motion;
+#[path = "consumer/switch_touch.rs"]
+mod switch_touch;
+#[path = "consumer/tab_indicator_motion.rs"]
+mod tab_indicator_motion;
+#[path = "consumer/table_column_filters.rs"]
+mod table_column_filters;
+#[path = "consumer/table_row_status.rs"]
+mod table_row_status;
+#[path = "consumer/table_sticky_columns.rs"]
+mod table_sticky_columns;
+#[path = "consumer/table_tree.rs"]
+mod table_tree;
+#[path = "consumer/text_truncation_tooltip.rs"]
+mod text_truncation_tooltip;
+#[path = "consumer/toast_motion.rs"]
+mod toast_motion;
+#[path = "consumer/toast_swipe.rs"]
+mod toast_swipe;
+#[path = "consumer/toggle_label.rs"]
+mod toggle_label;
+#[path = "consumer/tree_reveal.rs"]
+mod tree_reveal;
+#[path = "consumer/typed_table_filters.rs"]
+mod typed_table_filters;

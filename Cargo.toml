@@ -2,11 +2,10 @@
 members = [
     "crates/kivact",
     "crates/kivact-core",
+    "crates/kivact-test",
     "dev/tests/kivact-public-api",
-    "crates/kivact-reactive",
+    "crates/kivact-runtime",
     "crates/kivact-i18n",
-    "crates/kivact-task",
-    "crates/kivact-motion",
     "crates/kivact-style",
     "crates/kivact-interaction",
     "crates/kivact-ui",
@@ -17,9 +16,6 @@ members = [
     "crates/kivact-ui-soft",
     "crates/kivact-engine",
     "crates/kivact-editing",
-    "crates/kivact-wire",
-    "crates/kivact-lower",
-    "crates/kivact-text",
     "crates/kivact-layout",
     "dev/tests/docs",
     "templates/basic",
@@ -37,6 +33,7 @@ members = [
     "crates/kivact-types",
     "crates/arvane-native",
     "crates/arvane-shell",
+    "crates/arvane-virtual",
     "crates/arvane-text",
     "crates/arvane-render",
     "crates/arvane-asset",
@@ -86,6 +83,8 @@ unsafe_op_in_unsafe_fn = "deny"
 unreachable_pub = "warn"
 
 [workspace.lints.clippy]
+disallowed_types = "deny"
+too_many_lines = "deny"
 mod_module_files = "deny"
 allow_attributes_without_reason = "deny"
 undocumented_unsafe_blocks = "deny"
@@ -159,6 +158,8 @@ opt-level = 3
 opt-level = 3
 [profile.dev.package.arvane-shell]
 opt-level = 3
+[profile.dev.package.arvane-virtual]
+opt-level = 3
 [profile.dev.package.parley]
 opt-level = 3
 [profile.dev.package.wgpu]
@@ -172,15 +173,6 @@ opt-level = 3
 [profile.dev.package.accesskit_consumer]
 opt-level = 3
 [profile.dev.package.accesskit_windows]
-opt-level = 3
-
-[profile.dev.package.kivact-wire]
-opt-level = 3
-
-[profile.dev.package.kivact-lower]
-opt-level = 3
-
-[profile.dev.package.kivact-text]
 opt-level = 3
 
 [profile.dev.package.kivact-layout]

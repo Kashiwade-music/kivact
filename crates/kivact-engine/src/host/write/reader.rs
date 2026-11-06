@@ -1,9 +1,8 @@
 //! Role: `Reader`: the turn's read API over the engine's tree and layout.
 
+use crate::contract::{HostEvent, NodeProperties, SceneLayer};
 use crate::model::Model;
-use kivact_wire::{
-    FocusTarget, HostEvent, NodeId, NodeProperties, Point, PointerId, RegionId, Scene, SceneLayer,
-};
+use kivact_types::{DrawList, FocusTarget, NodeId, Point};
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -20,6 +19,61 @@ pub struct Reader {
 }
 
 impl Reader {
+    /// The current image asset result; absent and non-image nodes are loading.
+    pub fn image_status(&self, id: NodeId) -> kivact_types::ImageStatus {
+        let model = self.model.borrow();
+        let Some(asset) = model.tree().get(id).and_then(|node| node.image()) else {
+            return kivact_types::ImageStatus::Loading;
+        };
+        model.assets.borrow().image_status(asset)
+    }
+
+    /// The listener retaining this pointer, if its gesture holds capture.
+    pub fn pointer_capture(&self, pointer: kivact_types::PointerId) -> Option<NodeId> {
+        self.model.borrow().pointer_capture(pointer)
+    }
+
+    /// Client mutation totals and the last committed revision.
+    pub fn stats(&self) -> crate::mutation::WriteStats {
+        let model = self.model.borrow();
+        let stats = model.writes.stats;
+        #[cfg(feature = "testing")]
+        let stats = crate::mutation::WriteStats {
+            a11y_constructed: model.a11y.constructed,
+            a11y_published: model.a11y.published,
+            ..stats
+        };
+        stats
+    }
+
+    /// The current display lifetime phase; missing nodes have left.
+    pub fn presence(&self, id: NodeId) -> kivact_types::Presence {
+        self.model
+            .borrow()
+            .tree()
+            .get(id)
+            .map_or(kivact_types::Presence::Leaving, |node| node.presence.into())
+    }
+
+    /// The logical parent, including transparent containers.
+    pub fn parent(&self, id: NodeId) -> Option<NodeId> {
+        let model = self.model.borrow();
+        model
+            .tree()
+            .get(id)
+            .and_then(|node| model.tree().parent_id(node))
+    }
+
+    /// Logical children, excluding nodes already removed by the client.
+    pub fn children(&self, id: NodeId) -> Vec<NodeId> {
+        self.model.borrow().tree().logical_children(id)
+    }
+
+    /// Clone the one canonical semantics value stored for this node.
+    pub fn semantics(&self, id: NodeId) -> Option<kivact_types::Semantics<FocusTarget>> {
+        self.model.borrow().tree().get(id)?.semantics().cloned()
+    }
+
     /// Registered and system font family names, sorted and unique, preserving case.
     pub fn font_families(&self) -> Vec<String> {
         self.engine.borrow().font_families()
@@ -52,6 +106,17 @@ impl Reader {
         )
     }
 
+    /// Editing geometry in the node's untransformed canvas coordinates.
+    pub fn editing_canvas_layout(&self, id: NodeId) -> Option<kivact_editing::TextLayout> {
+        crate::model::interact::text_geometry::layout_snapshot(
+            &self.model.borrow(),
+            id,
+            0..usize::MAX,
+            &mut self.engine.borrow_mut(),
+            true,
+        )
+    }
+
     /// The value of the text input `id` (`None`: it is none, or a
     /// password). A text input publishes no accessible value (only its text
     /// runs), so this is where its value is read.
@@ -67,10 +132,14 @@ impl Reader {
     }
 
     /// Map node-local region bounds into logical window coordinates.
-    pub fn region_bounds(&self, id: NodeId, rect: kivact_wire::Rect) -> Option<kivact_wire::Rect> {
+    pub fn region_bounds(
+        &self,
+        id: NodeId,
+        rect: kivact_types::Rect,
+    ) -> Option<kivact_types::Rect> {
         let model = self.model.borrow();
         let bounds = model.rect(id)?;
-        let own = kivact_wire::Rect {
+        let own = kivact_types::Rect {
             x: bounds.x + rect.x,
             y: bounds.y + rect.y,
             ..rect
@@ -127,31 +196,24 @@ impl Reader {
         self.model.borrow().admit_input(event)
     }
 
-    /// Whether the activation of `region` of `node` that a click of
-    /// `pointer` produced must be skipped, because `pointer`'s gesture was
-    /// adopted at that region (`Writer::adopt_pointer`). Answers once: it
-    /// ends the pointer's adoption either way. An activation of the node's
-    /// own action (no region) is never skipped.
-    pub fn take_adopted_activation(
-        &self,
-        node: NodeId,
-        region: Option<RegionId>,
-        pointer: PointerId,
-    ) -> bool {
-        self.model
-            .borrow()
-            .admission
-            .take_adoption(pointer, node, region)
-    }
-
     /// Borrow a node's typed values for one read callback.
     pub fn with_node<R>(&self, id: NodeId, f: impl FnOnce(Option<&NodeProperties>) -> R) -> R {
         let model = self.model.borrow();
         f(model.node(id).map(|node| &node.properties))
     }
 
+    /// CPU pixels of the current subtree; absent when the node has no layout.
+    pub fn snapshot(
+        &self,
+        id: NodeId,
+    ) -> Option<Result<crate::offscreen::OffscreenImage, crate::offscreen::OffscreenError>> {
+        self.model
+            .borrow_mut()
+            .snapshot(id, &mut self.engine.borrow_mut())
+    }
+
     /// The scene of node `id`'s draw `layer`, if it has one.
-    pub fn scene(&self, id: NodeId, layer: SceneLayer) -> Option<Arc<Scene>> {
+    pub fn scene(&self, id: NodeId, layer: SceneLayer) -> Option<Arc<DrawList>> {
         let model = self.model.borrow();
         model.node(id).and_then(|n| n.scene(layer)).cloned()
     }
@@ -160,7 +222,7 @@ impl Reader {
     /// inherited defaults. Each shaping borrow ends before returning its result.
     pub fn paragraph_measurer(
         &self,
-        inherited: kivact_wire::ComputedText,
+        inherited: kivact_types::ComputedTextStyle,
     ) -> crate::text_measure::TextMeasurer {
         crate::text_measure::TextMeasurer::new(Rc::clone(&self.engine), inherited)
     }
@@ -173,7 +235,7 @@ impl Reader {
             let model = self.model.try_borrow().expect(
                 "invariant: draw callbacks run in kivact's turn, never while the engine holds the model",
             );
-            kivact_wire::ComputedText::clone(&model.text_props(id))
+            kivact_types::ComputedTextStyle::clone(&model.text_props(id))
         };
         crate::text_measure::TextMeasurer::new(Rc::clone(&self.engine), inherited)
     }

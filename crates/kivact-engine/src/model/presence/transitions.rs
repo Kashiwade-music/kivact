@@ -1,15 +1,58 @@
 //! Role: Start entrance transitions and run exits before a node is removed.
 
+use crate::contract::{HostEvent, NodeType};
 use crate::model::Model;
 use crate::mutation::Mutation;
-use crate::tree::node::Presence;
-use kivact_wire::{Dimension, Edges, NodeId, NodeType, Position};
+use crate::tree::node::{ArrivalPhase, LeavingRole, NodePresence, Notify};
+use kivact_types::{Dimension, Edges, NodeId, Position};
 
 impl Model {
+    /// Update authoritative presence and its scheduling indexes together.
+    pub(crate) fn transition_presence(&mut self, id: NodeId, presence: NodePresence) {
+        self.forget_presence(id);
+        if let Some(node) = self.tree.get_mut(id) {
+            let presence = match (node.presence, presence) {
+                (
+                    NodePresence::Leaving(LeavingRole::Root {
+                        notify: Notify::OnComplete,
+                    }),
+                    NodePresence::Leaving(LeavingRole::Root { .. }),
+                ) => NodePresence::Leaving(LeavingRole::Root {
+                    notify: Notify::OnComplete,
+                }),
+                (_, presence) => presence,
+            };
+            let previous = kivact_types::Presence::from(node.presence);
+            node.presence = presence;
+            let current = kivact_types::Presence::from(presence);
+            if previous != current {
+                self.events.push(HostEvent::PresenceChanged {
+                    node: id,
+                    presence: current,
+                });
+            }
+            match presence {
+                NodePresence::Arriving(_) => {
+                    self.presence.arriving.insert(id);
+                }
+                NodePresence::Leaving(LeavingRole::Root { .. }) => {
+                    self.presence.leaving.insert(id);
+                }
+                NodePresence::Mounted | NodePresence::Leaving(LeavingRole::Descendant) => {}
+            }
+        }
+    }
+
+    /// Remove scheduling indexes when a node is physically destroyed.
+    pub(crate) fn forget_presence(&mut self, id: NodeId) {
+        self.presence.arriving.remove(&id);
+        self.presence.leaving.remove(&id);
+    }
+
     /// `id` was created: it enters at the first commit that finds it
     /// attached.
     pub(crate) fn arrive(&mut self, id: NodeId) {
-        self.presence.arriving.insert(id);
+        self.transition_presence(id, NodePresence::Arriving(ArrivalPhase::Pending));
     }
 
     /// Capture the nodes attached since the last commit at their enter
@@ -18,26 +61,63 @@ impl Model {
         if self.presence.arriving.is_empty() {
             return;
         }
-        let arriving = std::mem::take(&mut self.presence.arriving);
+        let arriving: Vec<_> = self
+            .presence
+            .arriving
+            .iter()
+            .copied()
+            .filter(|id| {
+                self.tree.get(*id).is_some_and(|node| {
+                    matches!(node.presence, NodePresence::Arriving(ArrivalPhase::Pending))
+                })
+            })
+            .collect();
         for id in arriving {
             let enters = self
                 .tree
                 .get(id)
                 .and_then(|n| n.states())
-                .is_some_and(|s| s.enter.is_some());
+                .is_some_and(|s| s.enter.is_some())
+                || self.size_shown(id, true);
             if !enters {
+                self.transition_presence(id, NodePresence::Mounted);
                 continue;
             }
             if !self.tree.attached(id) {
-                self.presence.arriving.insert(id);
                 continue;
             }
-            if self.transition_shown(id, |s| s.enter.is_some()) {
+            if self.transition_shown(id, |s| s.enter.is_some()) || self.size_shown(id, true) {
                 // Writing its props captured it at its paint: it starts at
                 // its enter paint instead.
+                self.transition_presence(id, NodePresence::Arriving(ArrivalPhase::Animating));
                 self.motion.forget(id);
                 self.prepare_entrance(id);
+                self.start_size(id, true);
+            } else {
+                self.transition_presence(id, NodePresence::Mounted);
             }
+        }
+    }
+
+    /// Complete attached entrances once their captured motion settles.
+    pub(crate) fn finish_entrances(&mut self) {
+        let done: Vec<_> = self
+            .presence
+            .arriving
+            .iter()
+            .copied()
+            .filter(|id| {
+                self.tree.get(*id).is_some_and(|node| {
+                    matches!(
+                        node.presence,
+                        NodePresence::Arriving(ArrivalPhase::Animating)
+                    )
+                }) && self.motion.get(*id).is_none()
+                    && !self.presence.sizes.contains_key(id)
+            })
+            .collect();
+        for id in done {
+            self.transition_presence(id, NodePresence::Mounted);
         }
     }
 
@@ -46,7 +126,7 @@ impl Model {
     fn transition_shown(
         &self,
         id: NodeId,
-        has: impl Fn(&kivact_wire::StateStyles) -> bool,
+        has: impl Fn(&kivact_types::StateStyles) -> bool,
     ) -> bool {
         let Some(n) = self.tree.get(id) else {
             return false;
@@ -60,7 +140,7 @@ impl Model {
 
     /// Start the exit of the subtree kivact removes at `id`: `false` when
     /// nothing in it has an exit to show, and the subtree goes at once.
-    pub(crate) fn begin_exit(&mut self, id: NodeId, pop_layout: bool) -> bool {
+    pub(crate) fn begin_exit(&mut self, id: NodeId, pop_layout: bool, notify: Notify) -> bool {
         if !self.tree.drawn(id) {
             return false;
         }
@@ -68,11 +148,27 @@ impl Model {
         let exits: Vec<NodeId> = subtree
             .iter()
             .copied()
-            .filter(|x| self.transition_shown(*x, |s| s.exit.is_some()))
+            .filter(|x| {
+                self.transition_shown(*x, |s| s.exit.is_some())
+                    || (!pop_layout && self.size_shown(*x, false))
+                    || self
+                        .tree
+                        .get(*x)
+                        .is_some_and(|n| matches!(n.presence, NodePresence::Leaving(_)))
+            })
             .collect();
         if exits.is_empty() {
             return false;
         }
+        let size_starts: Vec<_> = exits
+            .iter()
+            .copied()
+            .filter(|x| {
+                self.tree
+                    .get(*x)
+                    .is_some_and(|n| !matches!(n.presence, NodePresence::Leaving(_)))
+            })
+            .collect();
         let focus_lost = self
             .focused()
             .is_some_and(|f| self.tree.is_in_subtree(f.node, id));
@@ -87,15 +183,32 @@ impl Model {
         }
         for x in &subtree {
             self.tree.set_observed(*x, false);
-            if let Some(n) = self.tree.get_mut(*x) {
-                n.presence = Presence::Leaving;
+            let role = if *x == id {
+                LeavingRole::Root { notify }
+            } else if let Some(NodePresence::Leaving(role @ LeavingRole::Root { .. })) =
+                self.tree.get(*x).map(|n| n.presence)
+            {
+                role
+            } else {
+                LeavingRole::Descendant
+            };
+            self.transition_presence(*x, NodePresence::Leaving(role));
+        }
+        if !pop_layout {
+            for x in &size_starts {
+                self.start_size(*x, false);
             }
         }
         if pop_layout {
+            for x in &subtree {
+                self.presence.sizes.remove(x);
+                if let Some(n) = self.tree.get(*x) {
+                    self.layout.set_presence_scale(&self.tree, n.index.0, None);
+                }
+            }
             self.pop_exit_layout(id);
         }
-        self.presence.leaving.insert(id);
-        self.changes.a11y_subtrees.insert(id);
+        self.a11y.subtree(id);
         self.changes.restack = true;
         self.revalidate_hover();
         self.focus.forget_missing(&self.tree);
@@ -111,13 +224,20 @@ impl Model {
         let Some(node) = self.tree.get(id) else {
             return;
         };
+        if node.is_transparent() {
+            let children: Vec<_> = self.tree.flat_children(id).collect();
+            for child in children {
+                self.pop_exit_layout(child);
+            }
+            return;
+        }
         let mut layout = node.layout().cloned().unwrap_or_default();
         if node.kind() == NodeType::Overlay
             || matches!(layout.position, Position::Absolute | Position::Fixed)
         {
             return;
         }
-        let Some(parent) = self.tree.parent_id(node) else {
+        let Some(parent) = self.tree.flat_parent(node) else {
             return;
         };
         let Some(last) = self.computed_layout(id) else {
@@ -167,16 +287,22 @@ impl Model {
             .copied()
             .filter(|root| {
                 !self.tree.contains(*root)
-                    || !self
+                    || (!self
                         .motion
                         .moving()
                         .any(|x| self.tree.is_in_subtree(x, *root))
+                        && !self
+                            .presence
+                            .sizes
+                            .keys()
+                            .any(|x| self.tree.is_in_subtree(*x, *root)))
             })
             .collect();
         for root in done {
-            self.presence.leaving.remove(&root);
             if self.tree.contains(root) {
                 self.remove_now(root);
+            } else {
+                self.transition_presence(root, NodePresence::Mounted);
             }
         }
     }

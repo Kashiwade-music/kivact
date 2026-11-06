@@ -1,9 +1,7 @@
 //! Role: The two directions a behavior moves along, read from a public Orientation.
 
-use std::panic::Location;
-
-use kivact_core::diagnostics::ErrorKind;
-use kivact_core::primitive::raise;
+use kivact_core::ErrorKind;
+use kivact_core::custom::raise;
 use kivact_core::view::Orientation;
 
 /// A direction a behavior moves along: `Orientation` without `Unspecified`.
@@ -21,7 +19,7 @@ impl Axis {
         match orientation {
             Orientation::Horizontal => Self::Horizontal,
             Orientation::Vertical => Self::Vertical,
-            Orientation::Unspecified => unspecified(api, Location::caller()),
+            Orientation::Unspecified => unspecified(api),
         }
     }
 
@@ -46,19 +44,18 @@ pub(crate) fn check_list_axis(axis: Option<Orientation>, api: &'static str) {
         raise(
             ErrorKind::Message,
             format!(
-                "{api}: ListPolicy::axis is Some(Orientation::Unspecified); use None for all four arrow keys"
+                "{api}: ListOptions::axis is Some(Orientation::Unspecified); use None for all four arrow keys"
             ),
-            Location::caller(),
         );
     }
 }
 
-fn unspecified(api: &'static str, at: &'static Location<'static>) -> ! {
+#[track_caller]
+fn unspecified(api: &'static str) -> ! {
     raise(
         ErrorKind::Message,
         format!(
             "{api}: Orientation::Unspecified is not a direction; pass Orientation::Horizontal or Orientation::Vertical"
         ),
-        at,
     )
 }

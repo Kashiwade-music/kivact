@@ -2,11 +2,11 @@
 //!
 //! A node outside the native editors (a canvas editor, a code editor that
 //! draws its own text) gives the platform's input method a session
-//! (`NodeExt::ime_session`): the text around its caret, the selection and
+//! (`Node::ime_session`): the text around its caret, the selection and
 //! where the caret is. While the node has the focus the window allows the
 //! IME, puts its candidate window at the caret and answers its queries from
 //! the session; the IME's composition, commits and reconversion ranges come
-//! back to `NodeExt::on_ime`.
+//! back to `Node::on_ime`.
 //!
 //! Invariants:
 //! - The session's text is the node's committed text. The node shows the
@@ -18,21 +18,22 @@
 
 use std::ops::Range;
 
-use kivact_reactive::{IntoValue, Value};
+use kivact_runtime::{IntoValue, Value};
 use kivact_style::draw::Rect;
 
-pub use kivact_wire::ImeEvent;
+pub use kivact_types::ImeInput;
 
 /// What a focusable node that edits its own text shows the input method
 /// (IME): its text, selection and caret. Attach it with
-/// `NodeExt::ime_session` and handle the IME's answers with
-/// `NodeExt::on_ime`.
+/// `Node::ime_session` and handle the IME's answers with
+/// `Node::on_ime`.
 ///
 /// ```no_run
 /// # use kivact_core as kivact;
-/// use kivact::prelude::*;
-/// use kivact::draw::Rect;
-/// use kivact::primitive::{ImeEvent, ImeSession, NodeExt};
+/// use kivact::state::{signal};
+/// use kivact::view::{IntoView, NodeBuilder, Role, node, text};
+/// use kivact::geometry::Rect;
+/// use kivact::custom::{ImeInput, ImeSession};
 ///
 /// fn line_editor() -> impl IntoView {
 ///     let text = signal(String::new());
@@ -44,7 +45,7 @@ pub use kivact_wire::ImeEvent;
 ///         .focusable(true)
 ///         .ime_session(ImeSession::new(text, selection, caret))
 ///         .on_ime(move |e| {
-///             if let ImeEvent::Commit(committed) = e {
+///             if let ImeInput::Commit(committed) = e {
 ///                 text.update(|t| t.push_str(&committed));
 ///             }
 ///         })
@@ -56,7 +57,7 @@ pub struct ImeSession {
     pub(crate) text: Value<String>,
     pub(crate) selection: Value<Range<usize>>,
     pub(crate) caret: Value<Rect>,
-    pub(crate) password: bool,
+    pub(crate) purpose: Value<kivact_types::InputPurpose>,
 }
 
 impl ImeSession {
@@ -75,14 +76,14 @@ impl ImeSession {
             text: text.into_value(),
             selection: selection.into_value(),
             caret: caret.into_value(),
-            password: false,
+            purpose: kivact_types::InputPurpose::Text.into_value(),
         }
     }
 
-    /// Password text: the IME is given no surrounding text, only the caret.
+    /// Set the input purpose. Password gives the IME only the caret.
     #[must_use]
-    pub fn password(mut self, on: bool) -> Self {
-        self.password = on;
+    pub fn purpose(mut self, value: impl IntoValue<kivact_types::InputPurpose>) -> Self {
+        self.purpose = value.into_value();
         self
     }
 }
