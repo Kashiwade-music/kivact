@@ -137,6 +137,8 @@ fn main() -> kivact::Result<()> {
 
 `virtual_list` はビューポート付近の行だけをマウントするので、1 万件でも 1 画面分のコストで済みます。高さに上限があることと、行の高さが分かっていることが必要です。
 
+行のクロージャは、`for_each` と同じく行のハンドルを 1 つ受け取ります。ふつうの元データなら `Value<T>`、元データが `Signal` または `Binding` なら書き込める `Binding<T>` です(下の例は `Signal` です)。
+
 ```rust,test_harness
 use kivact::prelude::*;
 use kivact::view::RowHeight;
@@ -157,7 +159,7 @@ fn app() -> impl IntoView {
 
     column((
         button("5000 へ移動").on_press(move || target.set(Some(5_000))),
-        virtual_list(entries, |e| e.id, |_, entry| text(move || entry.get().message))
+        virtual_list(entries, |e| e.id, |entry| text(move || entry.get().message))
             .row_height(RowHeight::Fixed(24.0))
             .scroll_to(target)
             .style(style().height(300).border(1, ColorToken::Border)),

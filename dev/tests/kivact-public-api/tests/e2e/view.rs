@@ -192,7 +192,7 @@ fn virtual_list_mounts_only_the_visible_window() {
         let data = signal(items(&(0..10_000).collect::<Vec<_>>()));
         (
             data,
-            virtual_list(data, |it| it.id, |_, it| text(move || it.get().label))
+            virtual_list(data, |it| it.id, |it| text(move || it.get().label))
                 .row_height(RowHeight::Fixed(20.0))
                 .style(style().height(400))
                 .test_id("list"),

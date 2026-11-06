@@ -156,7 +156,7 @@ fn virtual_list_mounts_visible_rows_with_plain_rows() {
         let view = virtual_list(
             items,
             |n| *n,
-            |k, v| text(move || format!("row {k} {}", v.get())),
+            |v| text(move || format!("row {0} {0}", v.get())),
         )
         .row_height(RowHeight::Fixed(20.0))
         .style(style().height(200));
@@ -164,6 +164,39 @@ fn virtual_list_mounts_visible_rows_with_plain_rows() {
     });
     screen.get_by_text("row 0 0");
     assert!(screen.query_by_text("row 900 900").is_none());
+}
+
+#[test]
+fn virtual_list_rows_write_back_through_a_signal_source() {
+    let (screen, list) = mount(|| {
+        let list = signal(tasks(&(0..500).collect::<Vec<_>>()));
+        let view = virtual_list(
+            list,
+            |t| t.id,
+            |task: Binding<Task>| {
+                let id = task.get_untracked().id;
+                let label = (move || format!("{} #{id}", task.get().title)).into_value();
+                node()
+                    .role(Role::Button)
+                    .focusable(true)
+                    .name(label)
+                    .child(text(label))
+                    .on_press(move || {
+                        let id = task.get_untracked().id;
+                        task.set(Task { id, title: "done" });
+                    })
+            },
+        )
+        .row_height(RowHeight::Fixed(20.0))
+        .style(style().height(200));
+        (list, view)
+    });
+    screen.get_by_role(Role::Button, "t #2").click();
+    screen.get_by_role(Role::Button, "done #2");
+    let edited = list.get_untracked();
+    assert_eq!(edited[2].title, "done");
+    assert_eq!(edited[1].title, "t", "other rows are untouched");
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 
 fn failing(label: &'static str) -> impl Component {
@@ -231,8 +264,8 @@ fn rows_list(count: u32, height: RowHeight, keep_focused: bool) -> (kivact::test
         let view = virtual_list(
             rows,
             |n| *n,
-            |k, _| {
-                let name = format!("row {k}");
+            |n| {
+                let name = format!("row {}", n.get());
                 node()
                     .role(Role::Button)
                     .focusable(true)
@@ -335,7 +368,8 @@ fn a_list_navigation_in_a_virtual_list_reaches_the_last_row_and_keeps_the_focus(
             let list = virtual_list(
                 keys,
                 |n| *n,
-                move |k, _| {
+                move |n| {
+                    let k = n.get();
                     let name = format!("row {k}");
                     (node()
                         .role(Role::Option)
