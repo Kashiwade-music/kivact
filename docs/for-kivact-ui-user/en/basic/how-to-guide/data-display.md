@@ -192,7 +192,7 @@ fn people() -> impl IntoView {
 ```
 
 - Badge variants are `Default`, `Secondary`, `Destructive`, `Outline`, `Ghost` and `Link`. A badge becomes a button when you give it `.on_press(..)`.
-- `kivact::ui::avatar(name).src(Some(asset))` reads reactive images. Use `.fallback_content(|| text("CN"))` for exact fallback text; otherwise the component derives initials from the name. Sizes are `ControlSize::Small`, `Medium` and `Large`. `.status(Some(Tone::Success))` draws a semantic corner dot; `.status_content(view)` accepts custom corner content.
+- `kivact::ui::avatar(name).src(Some(asset))` reads reactive images. Use `.fallback_content(|| text("CN"))` for exact fallback text; otherwise the component derives initials from the name. Sizes are `ControlSize::Small`, `Medium` and `Large`. `.status(Some(Tone::Success))` draws a semantic corner dot; `.status_content(view)` accepts custom corner content. `.name_tooltip(true)` shows the name in a tooltip; the Basic theme leaves it off unless asked.
 - `kivact::ui::avatar_group(children)` overlaps its avatars. `.max(limit)` bounds visible children, and `.total(count)` includes participants not yet loaded; the overflow disc shows the actual remainder.
 
 ## Show code with a copy button

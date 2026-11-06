@@ -215,7 +215,7 @@ names and their replacements:
 | `rust_lines(src)` (returned `Vec<CodeLine>`) | `basic::rust_source(src)`; `basic::rust_lines` is now the callback of `kivact::ui::code_block(src).highlight(move \|\| (lines.clone(), kivact::style::use_tokens::<basic::Tokens>().code.clone()), basic::rust_lines)` |
 | `SelectionValue` | `kivact::interaction::IntoSelection` |
 | `skeleton`, `Skeleton`, `spinner` | `kivact::ui::skeleton()` / `kivact::ui::Skeleton`, `kivact::ui::spinner()` |
-| `table`, `table_body`, `table_cell`, `table_footer`, `table_head`, `table_header`, `table_row`, `TableCell`, `TableRow`, `TableAlign` | `kivact::ui::table*` with tuple or `Vec` children (`table_header((row,))`); `kivact::ui::TableCell`, `kivact::ui::Table`; `.align(kivact::style::TextAlign::End)`; `table_row(..).selected(b)` -> `.with_node(\|n\| n.selected(b))`; `basic::table_caption(..)` after the table |
+| `table`, `table_body`, `table_cell`, `table_footer`, `table_head`, `table_header`, `table_row`, `TableCell`, `TableRow`, `TableAlign` | `kivact::ui::table*` with tuple or `Vec` children (`table_header((row,))`); `kivact::ui::TableCell`, `kivact::ui::Table`, `kivact::ui::TableRow`; `.align(kivact::style::TextAlign::End)`; `table_row(..).selected(b)` (`kivact::ui::TableRow`); `basic::table_caption(..)` after the table |
 | `toggle_group(items, value)`, `ToggleGroup` | `kivact::ui::toggle_group(label, items, selection)` / `kivact::ui::ToggleGroup` |
 | `trace_collapsible(open, line, content)` | Same function; `content` is a closure `\|\| view` that runs each time the line opens |
 

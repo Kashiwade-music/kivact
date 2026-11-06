@@ -1,4 +1,5 @@
 //! Role: Group per-component visual tokens in one theme extension.
+use crate::avatar_tokens::AvatarTokens;
 use crate::button_tokens::ButtonTokens;
 use crate::data_table_tokens::DataTableTokens;
 use crate::dialog_tokens::DialogTokens;
@@ -28,6 +29,7 @@ pub struct UiTokens {
     pub toolbar: crate::collection_values::ToolbarTokens,
     pub toggle_group: crate::group_types::ToggleGroupTokens,
     pub button_group: crate::group_types::ButtonGroupTokens,
+    pub avatar: AvatarTokens,
     pub button: ButtonTokens,
     pub progress: ProgressTokens,
     pub toast: ToastTokens,

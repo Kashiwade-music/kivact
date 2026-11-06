@@ -113,7 +113,7 @@ Branch reveals use `.reveal(2.0, kivact::motion::Transition::tween(734.77, kivac
 
 ## Tables
 
-Build static tables with `kivact::ui::{table, table_header, table_body, table_footer, table_row, table_head, table_cell}`. The Soft theme styles their actual recipes. `TableCell::align(TextAlign)` replaces `TableAlign`; `width` and reactive `col_span` remain on the standard cell. Pass `TableRowAppearance::new(dividers, hover, striped)` or `TableCellAppearance::new(density, vertical_align, divider)` with `.variant(...)`; each input can be reactive. `ItemDensity` replaces the former `TableDensity` alias. Selected rows use `.with_node(|node| node.selected(selected))`.
+Build static tables with `kivact::ui::{table, table_header, table_body, table_footer, table_row, table_head, table_cell}`. The Soft theme styles their actual recipes. `TableCell::align(TextAlign)` replaces `TableAlign`; `width` and reactive `col_span` remain on the standard cell. Pass `TableRowAppearance::new(dividers, hover, striped)` or `TableCellAppearance::new(density, vertical_align, divider)` with `.variant(...)`; each input can be reactive. `ItemDensity` replaces the former `TableDensity` alias. Selected rows use `table_row(..).selected(selected)` (`kivact::ui::TableRow`), which sets the accessibility state and the Soft selected fill.
 
 ```rust,no_run
 use kivact::prelude::*;

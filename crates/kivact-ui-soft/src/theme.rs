@@ -355,6 +355,7 @@ fn ui_tokens(tokens: &Tokens, mode: ThemeMode) -> UiTokens {
             offset: tokens.spacing.s1,
             viewport_margin: tokens.spacing.layer_viewport_gutter,
         },
+        avatar: kivact::ui::AvatarTokens { name_tooltip: true },
         button: button_tokens(tokens),
         dialog: DialogTokens {
             center: DialogCenter::Window,

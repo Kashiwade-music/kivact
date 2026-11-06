@@ -291,7 +291,7 @@ names and their replacements:
 | --- | --- |
 | `Avatar`, `avatar`, `AvatarShape` | `kivact::ui::avatar(name)` (`ui::Avatar`); `.shape(ui::AvatarShape::..)`, `.src(..)`, `.status(Tone)`; size via `.variant(soft::AvatarSize::..)` or `.variant(soft::AvatarAppearance::new(size))`; anonymous: `.fallback_content(soft::avatar_silhouette)` |
 | `AvatarGroup`, `avatar_group`, `AvatarGroupOverflow`, `avatar_group_overflow` | `ui::avatar_group(children).name(..).total(n).overflow_content(\|count\| ..)` (`ui::AvatarGroup`); `.variant(soft::AvatarGroupAppearance::new(size, shape))` |
-| `AvatarTooltip` | Removed; `ui::tooltip(name).attach(ui::avatar(name))` (Text: other tooltip text; Off: no tooltip) |
+| `AvatarTooltip` | `ui::avatar(name).name_tooltip(..)`: the Soft theme shows the name by default (Name); `.name_tooltip(false)` for Off; other text: `.name_tooltip(false)` with `ui::tooltip(text).attach(..)` |
 | `Badge`, `badge` | `ui::badge(label).tone(Tone::..)` (`ui::Badge`); categorical colors `.variant(soft::BadgeVariant::..)` |
 | `Banner`, `banner`, `BannerStatus` | `ui::alert(title).tone(Tone::Info\|Success\|Warning\|Danger).icon(soft::banner_icon(tone))` (Error -> `Tone::Danger`); `.actions(..)`, `.content(..).collapsible(true)`; `.variant(soft::BannerAppearance::new(container, elevation))` |
 | `BreadcrumbItem`, `breadcrumb_item`, `Breadcrumbs`, `breadcrumbs` | `ui::breadcrumb(Vec<ListItem<K>>)` (`ui::Breadcrumb`); `.current(..)`, `.on_activate(..)`, `.item(..)`, `.separator(..)`; `.variant(soft::BreadcrumbsVariant::..)` |
@@ -337,7 +337,7 @@ names and their replacements:
 | `Spinner`, `spinner`, `SpinnerSize` | `ui::spinner().size(ControlSize::ExtraSmall\|Small\|Medium\|Large)` (= Sm/Md/Lg/Xl) (`ui::Spinner`); `.variant(soft::SpinnerVariant { shade, ink })`, `.label_content(..)` |
 | `Stack`, `stack` | `soft::FlexStack`, `soft::flex_stack(children)` |
 | `Step`, `step`, `StepIndicator`, `StepStatus`, `Stepper`, `stepper` | `ui::stepper(vec![ui::StepperItem::new(label)], current)` (`ui::Stepper`; argument order swapped); `.status(ui::StepStatus::..)`, `.indicator(ui::StepIndicator::custom(..))`; `.variant(soft::StepperAppearance)` |
-| `table`, `table_body`, `table_cell`, `table_footer`, `table_head`, `table_header`, `table_row`, `TableCell`, `TableRow` | Same builders in `kivact::ui` (`ui::Table`, `ui::TableCell`); `.variant(soft::TableRowAppearance::new(dividers, hover, striped))`; selected row `.with_node(\|n\| n.selected(..))` |
+| `table`, `table_body`, `table_cell`, `table_footer`, `table_head`, `table_header`, `table_row`, `TableCell`, `TableRow` | Same builders in `kivact::ui` (`ui::Table`, `ui::TableRow`, `ui::TableCell`); `.variant(soft::TableRowAppearance::new(dividers, hover, striped))`; selected row `.selected(..)` (`ui::TableRow`) |
 | `TableAlign`, `TableDensity` | `ui::TableCell::align(kivact::style::TextAlign::..)`; density `soft::ItemDensity` via `.variant(soft::TableCellAppearance::new(density, vertical_align, divider))` |
 | `Text`, `text` | `soft::StyledText`, `soft::styled_text(value)` (prelude `text` is the unstyled primitive) |
 | `ToggleButtonGroup`, `toggle_button_group`, `ToggleSelection` | `ui::toggle_group(label, options, selection)` (`ui::ToggleGroup`); `Option<K>` binding = single, `Vec<K>` = multiple; `ListItem::with_pressed_icon(..)`, `.icon_only(..)` |

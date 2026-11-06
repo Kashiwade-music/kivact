@@ -25,7 +25,7 @@ fn indicators() -> impl IntoView {
 }
 ```
 
-`Avatar::src` と `fallback_src` は reactive な optional asset を受け取ります。読み込み中や失敗時は頭文字を表示します。画像 node が読み込み状態を所有し、source の変更で再試行します。`shape` は Circle、Rounded、Square です。`status` は在席の意味と支援技術向けの名前を指定し、`status_content` は独自の重ねる表示を指定します。ボタンには `on_press`、リンクの操作には `on_open` を使います。tooltip は `ui::tooltip(name)` を attach します。group の `max` は reactive で、矢印の移動は共通の roving focus が所有します。
+`Avatar::src` と `fallback_src` は reactive な optional asset を受け取ります。読み込み中や失敗時は頭文字を表示します。画像 node が読み込み状態を所有し、source の変更で再試行します。`shape` は Circle、Rounded、Square です。`status` は在席の意味と支援技術向けの名前を指定し、`status_content` は独自の重ねる表示を指定します。ボタンには `on_press`、リンクの操作には `on_open` を使います。`name_tooltip(show)` は avatar の名前を tooltip に表示するかどうかを指定します。指定しなければ theme が決め（`AvatarTokens::name_tooltip`、既定は表示しない）、別の文字には `ui::tooltip(text)` を attach します。group の `max` は reactive で、矢印の移動は共通の roving focus が所有します。
 
 skeleton は装飾です。reduced motion では時計を一時停止して静止します。spinner は `spinner.loading` の message で名前を付けた status で、Animated 一つで動きます。`label_content` が表示内容を追加し、`.name(...)` が支援技術向けの名前を変えます。`async_view` の既定の loading も同じ spinner を使います。
 
