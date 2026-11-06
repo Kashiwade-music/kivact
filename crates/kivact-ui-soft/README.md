@@ -349,6 +349,7 @@ names and their replacements:
 | `TopNavHeading`, `TopNavMenuItem` | `soft::SideNavHeading`, `soft::NavHeadingMenuItem` (still returned by `top_nav_heading`, `top_nav_menu_item`) |
 | `TreeDensity`, `TreeList`, `tree_list`, `TreeVariant` | `ui::tree(label, nodes).expanded(expanded)` (`ui::Tree`); `.variant(soft::TreeLook::default().density(soft::ItemDensity::..).guides(bool))` |
 | `Typeahead`, `typeahead`, `base_typeahead` | `ui::combobox(label, options, selected)` (`ui::Combobox`); `.search(..)`, `.debounce(..)`, `.placeholder(..)`, `.empty_text(..)` |
+| `use_overflow`, `OverflowOptions` (f32 widths and gap) | Same functions with f64 widths, available width, indicator width and `OverflowOptions::gap` |
 
 ## Filled standard recipes
 
