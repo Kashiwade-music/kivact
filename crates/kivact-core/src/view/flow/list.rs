@@ -3,9 +3,9 @@
 //! owner while their key (or index) stays; changed items only update the
 //! row's `Value<T>`; order changes use the fewest moves (LIS).
 //!
-//! A `for_each` row builder receives one row handle (`ListSource::Row`): a
-//! `Value<T>`, or a `Binding<T>` for a writable source. A `for_index` row
-//! builder receives the index and the row's `Value<T>`.
+//! A `for_each` or `virtual_list` row builder receives one row handle
+//! (`ListSource::Row`): a `Value<T>`, or a `Binding<T>` for a writable
+//! source. A `for_index` row builder receives the index and the row's `Value<T>`.
 //!
 //! Invariants:
 //! - Items and keys are read in a pure section; rows are mounted, moved
@@ -37,8 +37,32 @@ use kivact_runtime::{
     Runtime, Signal, UiError, Value,
 };
 
-/// A row builder of a keyed list.
-pub(crate) type RowFn<K, T> = crate::view::ViewFn<(K, Value<T>)>;
+/// A row builder of a keyed list: the key and the row's item signal.
+pub(crate) type RowFn<K, T> = crate::view::ViewFn<(K, Signal<T>)>;
+
+/// The per-row conversion of a normalized list source.
+type MakeRow<T, R> = Rc<dyn Fn(Signal<T>, Rc<dyn Fn(&T, &T) -> bool>) -> R>;
+
+/// Wraps a user row function: converts the row's item signal into the
+/// source's row handle (`ListSource::Row`) with the key comparison the
+/// handle needs to find its slot, then calls `row` with it. Shared by
+/// `for_each` and `virtual_list`, so both keyed lists give rows one shape.
+pub(crate) fn source_row<T, K, V, R>(
+    key: Rc<impl Fn(&T) -> K + 'static + ?Sized>,
+    make_row: MakeRow<T, R>,
+    row: impl Fn(R) -> V + 'static,
+) -> RowFn<K, T>
+where
+    T: 'static,
+    K: PartialEq + 'static,
+    V: IntoView,
+    R: 'static,
+{
+    let same_key: Rc<dyn Fn(&T, &T) -> bool> = Rc::new(move |a, b| key(a) == key(b));
+    crate::view::ViewFn::from(move |(_k, value): (K, Signal<T>)| {
+        row(make_row(value, same_key.clone()))
+    })
+}
 
 /// A mounted row: the keyed row (owner and item) and its node.
 struct Row<K, T: 'static> {
@@ -108,13 +132,7 @@ where
         row: make_row,
     } = items.into_list_source();
     let key = Rc::new(key);
-    let same_key: Rc<dyn Fn(&T, &T) -> bool> = {
-        let key = key.clone();
-        Rc::new(move |a, b| key(a) == key(b))
-    };
-    let row = crate::view::ViewFn::from(move |(_k, value): (K, Signal<T>)| {
-        row(make_row(value, same_key.clone()))
-    });
+    let row = source_row(key.clone(), make_row, row);
     view_fn(move |cx| {
         let frag = cx.fragment();
         let weak = cx.weak();
@@ -169,7 +187,7 @@ fn apply_list<T: Clone + 'static, K: kivact_runtime::ItemKey>(
     state: &RefCell<Rows<K, Row<K, T>>>,
     keys: Vec<K>,
     plans: Vec<Plan<T>>,
-    row: &crate::view::ViewFn<(K, Signal<T>)>,
+    row: &RowFn<K, T>,
     at: &'static Location<'static>,
 ) {
     let mut old: Vec<Option<Row<K, T>>> = state.borrow_mut().take().into_iter().map(Some).collect();
@@ -340,8 +358,8 @@ pub trait ListSource<T: PropValue>: Sized + 'static {
 /// Normalized list storage and its per-row conversion.
 #[doc(hidden)]
 pub struct ListInput<T: 'static, R> {
-    items: Prop<Vec<T>>,
-    row: Rc<dyn Fn(Signal<T>, Rc<dyn Fn(&T, &T) -> bool>) -> R>,
+    pub(crate) items: Prop<Vec<T>>,
+    pub(crate) row: MakeRow<T, R>,
 }
 fn writable_list<T: PropValue>(source: Binding<Vec<T>>) -> ListInput<T, Binding<T>> {
     ListInput {

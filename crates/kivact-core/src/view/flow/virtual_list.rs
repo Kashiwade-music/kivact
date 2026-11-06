@@ -4,7 +4,9 @@
 //! from `ScrollChanged` (offset, viewport). Only visible rows (plus overscan)
 //! are mounted; each row is an absolutely positioned wrapper. The host needs
 //! no virtualization-specific node kind. Each row is set up in its own
-//! owner; the row builder receives the key and the row's `Value<T>`.
+//! owner; the row builder receives the list source's row handle
+//! (`ListSource::Row`), as `for_each` does: a `Value<T>`, or a `Binding<T>`
+//! that writes back for a `Signal` or `Binding` source.
 //!
 //! The list is a scroll box, spacers and absolutely positioned rows; core
 //! computes the visible range (±200 px of overscan by default).
@@ -38,12 +40,12 @@ use crate::view::boundary::mount_in;
 use crate::view::descriptor::Mcx;
 use crate::view::descriptor::{IntoView, View, view_fn};
 use crate::view::element_data::{Content, Node, NodeBuilder};
-use crate::view::flow::list::{RowFn, key_hash, lis};
+use crate::view::flow::list::{ListInput, ListSource, RowFn, key_hash, lis, source_row};
 use crate::view::mount::mount_host_with;
 use crate::view::state::ViewState;
 use kivact_runtime::{
     EffectKind, ErrorKind, IntoValue, Notifier, Owner, Prop as InputProp, Runtime, Signal, UiError,
-    Value, untrack,
+    untrack,
 };
 use kivact_types::Role;
 
@@ -73,26 +75,36 @@ pub struct VirtualList<T: 'static, K: 'static> {
 }
 
 /// A virtualized keyed list: only the rows in (or near) the viewport are
-/// mounted, each as `row(key, item)` in its own owner.
+/// mounted, each as `row(item)` in its own owner. `item` is the source's
+/// row handle ([`ListSource::Row`]), the same as for
+/// [`for_each`](crate::view::for_each): a `Value<T>`, or a `Binding<T>`
+/// that writes back into a `Signal`/`Binding` source.
 ///
 /// ```ignore
+/// fn log_row(entry: Value<Entry>) -> impl IntoView { .. }
 /// virtual_list(rows, |r| r.id, log_row).row_height(RowHeight::Fixed(22.0))
 /// ```
 #[track_caller]
-pub fn virtual_list<T, K, V>(
-    items: impl IntoValue<Vec<T>>,
+pub fn virtual_list<T, K, V, S>(
+    items: S,
     key: impl Fn(&T) -> K + 'static,
-    row: impl Fn(K, Value<T>) -> V + 'static,
+    row: impl Fn(S::Row) -> V + 'static,
 ) -> VirtualList<T, K>
 where
     T: kivact_runtime::PropValue,
     K: kivact_runtime::ItemKey,
     V: IntoView,
+    S: ListSource<T>,
 {
+    let ListInput {
+        items,
+        row: make_row,
+    } = items.into_list_source();
+    let key = Rc::new(key);
     VirtualList {
-        items: items.into_prop(),
-        key: Rc::new(key),
-        row: crate::view::ViewFn::from(move |(k, v)| row(k, v)),
+        items,
+        row: source_row(key.clone(), make_row, row),
+        key,
         height: RowHeight::Fixed(24.0),
         overscan: 200.0,
         scroll_to: kivact_runtime::Prop::constant(None),
@@ -517,7 +529,7 @@ fn apply_visible<K: kivact_runtime::ItemKey, T: Clone + 'static>(
                     }
                 }
                 let fragment = cx.fragment();
-                let content = mount_in(rt, owner, || row.call((k.clone(), sig.into_value())));
+                let content = mount_in(rt, owner, || row.call((k.clone(), sig)));
                 cx.append(fragment, content);
                 cx.append(wrapper, fragment);
                 order.push(wrapper);

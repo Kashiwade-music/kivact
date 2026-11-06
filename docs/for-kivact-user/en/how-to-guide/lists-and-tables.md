@@ -166,6 +166,10 @@ input), use `for_each` with an id.
 cost the same as a screenful. It needs a bounded height and rows of a known
 height.
 
+Its row closure takes one row handle, as `for_each` does: a `Value<T>` for a
+plain source, and a writable `Binding<T>` when the source is a `Signal` (as in
+the example below) or a `Binding`.
+
 ```rust,test_harness
 use kivact::prelude::*;
 use kivact::view::RowHeight;
@@ -186,7 +190,7 @@ fn app() -> impl IntoView {
 
     column((
         button("Jump to 5000").on_press(move || target.set(Some(5_000))),
-        virtual_list(entries, |e| e.id, |_, entry| text(move || entry.get().message))
+        virtual_list(entries, |e| e.id, |entry| text(move || entry.get().message))
             .row_height(RowHeight::Fixed(24.0))
             .scroll_to(target)
             .style(style().height(300).border(1, ColorToken::Border)),
