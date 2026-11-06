@@ -115,7 +115,7 @@ pub use table::{
     TableHeaderState, TableRowState, use_data_table, use_data_table_model,
 };
 pub use tabs::{TabListState, TabState, TabsApi, use_tabs};
-pub use toaster::{Toast, ToastId, ToastOptions, ToastState, Toaster, toaster};
+pub use toaster::{Toast, ToastId, ToastOptions, ToastState, ToasterApi, toaster};
 pub use toggle::{
     ButtonApi, CheckboxApi, SwitchApi, ToggleButtonApi, ToggleState, use_button, use_checkbox,
     use_switch, use_toggle_button,
@@ -158,7 +158,7 @@ mod surface_policy;
 pub use surface_policy::{DrawerPolicy, DrawerSwipe, HoverCardTiming};
 
 mod hover_card;
-pub use hover_card::{HoverCardApi, HoverCardState, OpenedBy, use_hover_card};
+pub use hover_card::{HoverCardApi, HoverCardOpenedBy, HoverCardState, use_hover_card};
 mod navigation_menu;
 mod surface;
 pub use navigation_menu::{NavOpen, NavigationMenuApi, use_navigation_menu};

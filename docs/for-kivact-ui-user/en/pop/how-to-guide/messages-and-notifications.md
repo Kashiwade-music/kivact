@@ -84,7 +84,7 @@ fn main() -> kivact::Result<()> {
 - `max_visible(n)` limits how many show at once; call it where you create
   the toaster.
 - The region is part of the app, not of one screen. Put it once at the root, and
-  call `toaster()` once there and pass the `Toaster` (it is `Copy`) to the
+  call `toaster()` once there and pass the `ToasterApi` (it is `Copy`) to the
   code that pushes.
 
 ## Keep a history of notifications
@@ -174,7 +174,7 @@ is a core topic, covered in the core guide on asynchronous work.
 - [Show figures, status and records on a business screen](status-and-figures.md)
 - [Pick dates and ranges](dates-and-calendars.md) for the text keys of the
   calendar
-- Toast and toaster API: `kivact::interaction::Toast`, `kivact::interaction::Toaster` and `kivact::ui::toast_region` in
+- Toast and toaster API: `kivact::interaction::Toast`, `kivact::interaction::ToasterApi` and `kivact::ui::toast_region` in
   `cargo doc -p kivact --open`; all Pop components: `cargo doc -p kivact-ui-pop
   --open`
 

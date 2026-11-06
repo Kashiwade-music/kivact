@@ -1,6 +1,6 @@
 //! Role: Tests for toast notification queue and dismissal.
 //!
-//! The unstyled `Toaster` parts: the App-wide queue, timed
+//! The unstyled `ToasterApi` parts: the App-wide queue, timed
 //! dismissal on the task timer that waits for the pointer and the focus, the
 //! visible limit and its waiting line, live regions and roles by tone, Escape,
 //! the action and dismissal by id.
@@ -11,7 +11,7 @@ use std::time::Duration;
 
 use crate::support::mount;
 use kivact::interaction::ToastId;
-use kivact::interaction::{Toast, ToastOptions, Toaster, toaster};
+use kivact::interaction::{Toast, ToastOptions, ToasterApi, toaster};
 use kivact::prelude::*;
 use kivact::test::Screen;
 use kivact::view::{LiveRegion, View};
@@ -84,7 +84,7 @@ fn app() -> View {
     column((other(), region(card))).into_view()
 }
 
-fn mount_app() -> (Screen, Toaster) {
+fn mount_app() -> (Screen, ToasterApi) {
     mount(|| (toaster(), app()))
 }
 
