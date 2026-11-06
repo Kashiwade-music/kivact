@@ -183,25 +183,38 @@ fn toast_swipe_dismiss_exits_from_the_drag_offset() {
     assert!(screen.query_by_role(Role::Status, "Swipe").is_none());
     let exit_top = red_top(&screen).expect("invariant: exit retains drag paint");
     assert!(exit_top >= drag_top.saturating_sub(2));
-    advance(&screen, 40);
+    // One display frame into the exit: the card fades as it slides on from
+    // the drag offset, so its paint is red tinted rather than red.
+    advance(&screen, 16);
     assert!(
-        red_top(&screen).is_some(),
+        tinted_top(&screen).is_some_and(|top| top + 2 >= exit_top),
         "exit must animate instead of vanishing"
     );
     advance(&screen, 400);
-    assert!(red_top(&screen).is_none());
+    assert!(tinted_top(&screen).is_none());
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 
-fn red_top(screen: &Screen) -> Option<u32> {
+/// The first row of the screenshot with a pixel `matches` accepts.
+fn top_where(screen: &Screen, matches: impl Fn(u32, u32, u32) -> bool) -> Option<u32> {
     let shot = screen.screenshot();
     shot.pixels
         .iter()
-        .position(|pixel| {
-            let red = (pixel >> 16) & 255;
-            red > 80 && ((pixel >> 8) & 255) < red / 3 && (pixel & 255) < red / 3
-        })
+        .position(|pixel| matches((pixel >> 16) & 255, (pixel >> 8) & 255, pixel & 255))
         .map(|index| index as u32 / shot.width)
+}
+
+fn red_top(screen: &Screen) -> Option<u32> {
+    top_where(screen, |red, green, blue| {
+        red > 80 && green < red / 3 && blue < red / 3
+    })
+}
+
+/// The top of the red card's paint, faded or not.
+fn tinted_top(screen: &Screen) -> Option<u32> {
+    top_where(screen, |red, green, blue| {
+        red > green + 40 && red > blue + 40
+    })
 }
 
 #[test]

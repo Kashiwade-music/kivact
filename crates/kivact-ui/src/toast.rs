@@ -4,6 +4,7 @@ use super::toast_swipe::Swipe;
 use super::values::{ButtonVariant, ToastGroupState};
 use super::variants::{Variant, Variants};
 use kivact_core::custom::part;
+use kivact_core::motion::Transition;
 use kivact_core::state::signal;
 use kivact_core::state::{IntoValue, Value};
 use kivact_core::style::use_theme;
@@ -106,12 +107,17 @@ impl IntoView for ToastRegion {
                 shown,
                 |id| *id,
                 move |id| {
-                    with_recipe_style(
-                        column(build(id.get_untracked())),
+                    let (card, swipe) = build(id.get_untracked());
+                    let row = with_recipe_style(
+                        column(card),
                         |r| r.toast_recipes().row_recipe(),
                         &row_variants,
                         kivact_core::custom::PartState::default,
-                    )
+                    );
+                    match swipe {
+                        Some((swipe, exit)) => row.style(move || swipe.row_style(&exit)),
+                        None => row,
+                    }
                 },
             );
             let part = toaster.region(live);
@@ -171,10 +177,15 @@ fn tone_icon(tone: Tone) -> Option<&'static str> {
         .map(|_| name)
 }
 
-/// One toast's row.
-fn toast(toaster: Toaster, id: ToastId, variants: &Variants) -> View {
+/// One toast's card, with its swipe gesture and the gesture's exit
+/// transition when the theme enables swiping.
+fn toast(
+    toaster: Toaster,
+    id: ToastId,
+    variants: &Variants,
+) -> (View, Option<(Swipe, Transition)>) {
     let Some(content) = toaster.toast(id) else {
-        return ().into_view();
+        return (().into_view(), None);
     };
     let card_ref = kivact_core::view::node_ref();
     let swipe = use_theme()
@@ -246,11 +257,14 @@ fn toast(toaster: Toaster, id: ToastId, variants: &Variants) -> View {
         move || state.get(),
     );
     if let Some((gesture, transition)) = swipe {
-        card.on_pointer(move |event| gesture.event(event))
+        let exit = transition.clone();
+        let card = card
+            .on_pointer(move |event| gesture.event(event))
             .style(move || gesture.style(&transition))
-            .into_view()
+            .into_view();
+        (card, Some((gesture, exit)))
     } else {
-        card.into_view()
+        (card.into_view(), None)
     }
 }
 

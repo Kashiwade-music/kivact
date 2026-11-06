@@ -316,6 +316,15 @@ impl Transition {
         Self::new(Kind::Spring(spring))
     }
 
+    /// How long the first iteration takes to end, its delay included, in
+    /// milliseconds: `None` for a spring, which settles by its physics.
+    pub fn duration_ms(&self) -> Option<f64> {
+        match &self.kind {
+            Kind::Tween { ms, .. } | Kind::Keyframes { ms, .. } => Some(self.delay_ms + ms),
+            Kind::Spring(_) => None,
+        }
+    }
+
     /// Wait `ms` milliseconds before the first iteration starts.
     pub fn delay(mut self, ms: impl Into<f64>) -> Self {
         self.delay_ms = (ms.into()).max(0.0);
