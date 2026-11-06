@@ -113,7 +113,7 @@ Soft の `ChatDensity`、`BubbleVariant`、`SystemMessageVariant`、`ComposerEle
 
 ## テーブル
 
-静的なテーブルには `kivact::ui::{table, table_header, table_body, table_footer, table_row, table_head, table_cell}` を使います。Soft theme は実際の recipe を装飾します。`TableAlign` は `TableCell::align(TextAlign)` に対応し、`width` と reactive な `col_span` は標準 cell の入力です。`.variant(...)` に `TableRowAppearance::new(dividers, hover, striped)` または `TableCellAppearance::new(density, vertical_align, divider)` を渡します。各入力は reactive value を受け付けます。従来の `TableDensity` alias は `ItemDensity` に統一します。行の選択は `.with_node(|node| node.selected(selected))` で指定します。
+静的なテーブルには `kivact::ui::{table, table_header, table_body, table_footer, table_row, table_head, table_cell}` を使います。Soft theme は実際の recipe を装飾します。`TableAlign` は `TableCell::align(TextAlign)` に対応し、`width` と reactive な `col_span` は標準 cell の入力です。`.variant(...)` に `TableRowAppearance::new(dividers, hover, striped)` または `TableCellAppearance::new(density, vertical_align, divider)` を渡します。各入力は reactive value を受け付けます。従来の `TableDensity` alias は `ItemDensity` に統一します。行の選択は `table_row(..).selected(selected)`（`kivact::ui::TableRow`）で指定します。アクセシビリティの状態と Soft の選択色の両方に効きます。
 
 ```rust,no_run
 use kivact::prelude::*;

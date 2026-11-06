@@ -215,6 +215,7 @@ pub use tooltip::{Tooltip, tooltip};
 mod tokens;
 pub use tokens::UiTokens;
 
+mod avatar_tokens;
 mod button_tokens;
 mod dialog_tokens;
 mod disclosure_tokens;
@@ -334,6 +335,7 @@ mod avatar_group;
 mod avatar_initials;
 pub use avatar::{Avatar, avatar};
 pub use avatar_group::{AvatarGroup, avatar_group};
+pub use avatar_tokens::AvatarTokens;
 
 mod kbd;
 mod kbd_labels;
@@ -350,8 +352,8 @@ pub use item_list::{ItemList, item_list};
 pub use item_row::{ItemRow, item_row};
 pub use recipes::{ItemListRecipes, TableRecipes};
 pub use table::{
-    Table, TableCell, table, table_body, table_cell, table_footer, table_head, table_header,
-    table_row,
+    Table, TableCell, TableRow, table, table_body, table_cell, table_footer, table_head,
+    table_header, table_row,
 };
 mod breadcrumb;
 mod look_navigation;

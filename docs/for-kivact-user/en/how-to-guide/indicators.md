@@ -25,7 +25,7 @@ fn indicators() -> impl IntoView {
 }
 ```
 
-`Avatar::src` and `fallback_src` accept reactive optional assets. While an image loads, or if decoding fails, initials remain available. The image node owns loading status; replacing its source retries naturally. `shape` chooses Circle, Rounded or Square. `status` supplies semantic presence and its accessible label; `status_content` supplies a custom overlay. Use `on_press` for a button and `on_open` for a link action. Attach `ui::tooltip(name)` when a tooltip is wanted. A group's maximum is reactive; arrow navigation belongs to the shared roving focus implementation.
+`Avatar::src` and `fallback_src` accept reactive optional assets. While an image loads, or if decoding fails, initials remain available. The image node owns loading status; replacing its source retries naturally. `shape` chooses Circle, Rounded or Square. `status` supplies semantic presence and its accessible label; `status_content` supplies a custom overlay. Use `on_press` for a button and `on_open` for a link action. `name_tooltip(show)` shows or hides the avatar's name in a tooltip; without it the theme decides (`AvatarTokens::name_tooltip`, off by default). Attach `ui::tooltip(text)` for other tooltip text. A group's maximum is reactive; arrow navigation belongs to the shared roving focus implementation.
 
 Skeletons are decorative. Reduced motion pauses their clock and leaves them still. Spinners expose a status named by the `spinner.loading` message and use one animation. `label_content` adds visible content; `.name(...)` changes the accessible label. The default loading content of `async_view` uses this same spinner.
 

@@ -192,7 +192,7 @@ fn people() -> impl IntoView {
 ```
 
 - バッジのバリアントは `Default`、`Secondary`、`Destructive`、`Outline`、`Ghost`、`Link` です。`.on_press(..)` を付けると、バッジはボタンになります。
-- `kivact::ui::avatar(name).src(Some(asset))` は画像をリアクティブに読みます。代わりの文字をそのまま示すには `.fallback_content(|| text("CN"))` を使います。省略時は名前から頭文字を作ります。サイズは `ControlSize::Small`、`Medium`、`Large` です。`.status(Some(Tone::Success))` は状態の点、`.status_content(view)` は独自の印を置きます。
+- `kivact::ui::avatar(name).src(Some(asset))` は画像をリアクティブに読みます。代わりの文字をそのまま示すには `.fallback_content(|| text("CN"))` を使います。省略時は名前から頭文字を作ります。サイズは `ControlSize::Small`、`Medium`、`Large` です。`.status(Some(Tone::Success))` は状態の点、`.status_content(view)` は独自の印を置きます。`.name_tooltip(true)` は名前を tooltip に表示します。Basic theme は指定しない限り表示しません。
 - `kivact::ui::avatar_group(children)` はアバターを重ねます。`.max(limit)` は表示する子の数を制限し、`.total(count)` で未読み込みの参加者を含めた総人数を渡します。残りの人数は標準の overflow 部分が表示します。
 
 ## コピーボタンつきでコードを見せる

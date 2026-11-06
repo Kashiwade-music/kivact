@@ -48,8 +48,10 @@ pub fn table_footer(children: impl IntoChildren) -> Table {
 }
 /// A row of header or data cells.
 #[track_caller]
-pub fn table_row(children: impl IntoChildren) -> Table {
-    section(children, Role::Row, TablePart::Row)
+pub fn table_row(children: impl IntoChildren) -> TableRow {
+    TableRow {
+        table: section(children, Role::Row, TablePart::Row),
+    }
 }
 impl Table {
     pub fn variant(self, variant: impl Variant) -> Self {
@@ -79,6 +81,31 @@ impl IntoView for Table {
             state.get()
         })
         .into_view()
+    }
+}
+/// A row of header or data cells, created by [`table_row`].
+pub struct TableRow {
+    table: Table,
+}
+impl TableRow {
+    pub fn variant(mut self, variant: impl Variant) -> Self {
+        self.table = self.table.variant(variant);
+        self
+    }
+    /// Mark the row selected: the row is `selected` in the accessibility tree, and the theme's row recipe draws its selected look.
+    pub fn selected(mut self, selected: impl IntoValue<bool>) -> Self {
+        self.table.root = self.table.root.selected(selected);
+        self
+    }
+}
+impl NodeBuilder for TableRow {
+    fn node_mut(&mut self) -> &mut Node {
+        self.table.node_mut()
+    }
+}
+impl IntoView for TableRow {
+    fn into_view(self) -> View {
+        self.table.into_view()
     }
 }
 /// A header or data cell with proportional or fixed width.

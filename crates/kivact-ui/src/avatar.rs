@@ -26,6 +26,7 @@ pub struct Avatar {
     shape: Value<AvatarShape>,
     status: Value<Option<Tone>>,
     status_content: Option<View>,
+    name_tooltip: Option<Value<bool>>,
     variants: Variants,
 }
 pub fn avatar(name: impl IntoText) -> Avatar {
@@ -40,6 +41,7 @@ pub fn avatar(name: impl IntoText) -> Avatar {
         shape: AvatarShape::Circle.into_value(),
         status: None::<Tone>.into_value(),
         status_content: None,
+        name_tooltip: None,
         variants: Variants::default(),
     }
 }
@@ -72,6 +74,11 @@ impl Avatar {
     }
     pub fn status_content(mut self, content: impl IntoView) -> Self {
         self.status_content = Some(content.into_view());
+        self
+    }
+    /// Show the avatar's name in a tooltip, or not. Without this the theme decides ([`AvatarTokens::name_tooltip`](crate::AvatarTokens::name_tooltip)).
+    pub fn name_tooltip(mut self, show: impl IntoValue<bool>) -> Self {
+        self.name_tooltip = Some(show.into_value());
         self
     }
     pub fn variant(self, variant: impl Variant) -> Self {
@@ -178,7 +185,7 @@ impl IntoView for Avatar {
                 state,
             )
         });
-        crate::layer::with_base_recipe_style(
+        let root = crate::layer::with_base_recipe_style(
             self.root.name(label),
             |r| r.avatar_recipe(),
             &self.variants,
@@ -187,9 +194,22 @@ impl IntoView for Avatar {
         .base_style(style().position(Position::Relative))
         .child(image)
         .child(status_content)
-        .child(status_badge)
-        .into_view()
+        .child(status_badge);
+        match name_tooltip(self.name_tooltip) {
+            Some(show) => crate::tooltip(name).enabled(show).attach(root),
+            None => root.into_view(),
+        }
     }
+}
+
+/// The caller's choice, or the theme's default; `None` attaches no tooltip at all.
+fn name_tooltip(explicit: Option<Value<bool>>) -> Option<Value<bool>> {
+    explicit.or_else(|| {
+        let tokens = kivact_core::style::use_theme()
+            .get()
+            .ext::<crate::UiTokens>();
+        tokens.avatar.name_tooltip.then(|| true.into_value())
+    })
 }
 
 fn accessible_label(accessible_name: Value<String>, status: Value<Option<Tone>>) -> Value<String> {
