@@ -231,18 +231,7 @@ fn toast(
             .into_view()
         }),
     };
-    let action = content.action.as_ref().map(|(label, _)| {
-        let activate = content.clone();
-        let action = super::button(label.clone())
-            .variant(ButtonVariant::Outline)
-            .size(super::ControlSize::Small)
-            .on_press(move || activate.activate(id));
-        if let Some(gesture) = gesture {
-            action.on_pointer(move |event| gesture.protect_action(event))
-        } else {
-            action
-        }
-    });
+    let action = action_button(&content, id, gesture);
     let close = close_button(toaster, id, gesture, state, variants);
     let card = with_recipe_style(
         node()
@@ -266,6 +255,26 @@ fn toast(
     } else {
         (card.into_view(), None)
     }
+}
+
+/// The toast's action button, protected from swipe activation.
+fn action_button(
+    content: &kivact_interaction::Toast,
+    id: ToastId,
+    gesture: Option<Swipe>,
+) -> Option<super::Button> {
+    content.action.as_ref().map(|(label, _)| {
+        let activate = content.clone();
+        let action = super::button(label.clone())
+            .variant(ButtonVariant::Outline)
+            .size(super::ControlSize::Small)
+            .on_press(move || activate.activate(id));
+        if let Some(gesture) = gesture {
+            action.on_pointer(move |event| gesture.protect_action(event))
+        } else {
+            action
+        }
+    })
 }
 
 pub use crate::toast_tokens::{ToastRowMotion, ToastTokens};
