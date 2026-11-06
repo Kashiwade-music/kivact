@@ -99,7 +99,7 @@ pub fn use_scroll_overflow(viewport: NodeRef, content: NodeRef) -> ScrollOverflo
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct OverflowOptions {
     /// Gap between items, and between the last visible item and the indicator.
-    pub gap: f32,
+    pub gap: f64,
     /// Items that stay visible even when they do not fit.
     pub min_visible_items: usize,
     /// Hide items from the start instead of the end.
@@ -109,18 +109,18 @@ pub struct OverflowOptions {
 /// Count the items of `widths` that fit in `available`, reserving room for an overflow
 /// indicator of width `indicator` whenever some items are hidden. Setup only (it creates a memo).
 pub fn use_overflow(
-    widths: Value<Vec<f32>>,
-    available: Value<f32>,
-    indicator: Value<f32>,
+    widths: Value<Vec<f64>>,
+    available: Value<f64>,
+    indicator: Value<f64>,
     options: OverflowOptions,
 ) -> Value<usize> {
     memo(move || fitting_items(&widths.get(), available.get(), indicator.get(), options))
 }
 
 fn fitting_items(
-    widths: &[f32],
-    available: f32,
-    indicator: f32,
+    widths: &[f64],
+    available: f64,
+    indicator: f64,
     options: OverflowOptions,
 ) -> usize {
     let total = widths.len();

@@ -1,4 +1,4 @@
-//! Role: Values the engine and Arvane exchange; the facade re-exports only the inline boxes.
+//! Role: Values the engine and Arvane exchange; the facade re-exports only inline boxes.
 //!
 //! The host-to-Arvane protocol: drawing, shaping and semantics snapshots a
 //! host hands Arvane, and what a window reports back. It uses the

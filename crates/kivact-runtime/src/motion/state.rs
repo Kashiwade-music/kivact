@@ -307,6 +307,7 @@ pub(crate) enum LoopGate {
     While(Value<bool>),
 }
 
+// xtask-allow(state-fields): The run lifecycle lives in LoopState alone; the scheduling gate, the frame count and the lazily made rate memo are independent facts of the loop.
 pub(crate) struct LoopCell {
     pub(crate) owner: Owner,
     pub(crate) f: Handler<FrameInfo>,

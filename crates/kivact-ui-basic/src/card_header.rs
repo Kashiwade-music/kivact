@@ -4,6 +4,7 @@ use kivact::state::{IntoText, Value};
 use kivact::style::{Align, Direction, style, use_tokens};
 use kivact::view::{IntoView, Node, NodeBuilder, View, column, node, row, text};
 
+// xtask-allow(state-fields): Builder inputs and optional content are independent configuration; the header owns no interaction phase.
 /// The header of a standard `kivact::ui::card`: a title, a description and
 /// an action. Created by [`card_header`]; pass it to the card's `.header(..)`.
 /// The card's header region draws the spacing and, with

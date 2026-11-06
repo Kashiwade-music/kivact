@@ -1,4 +1,4 @@
-//! Role: Small Lyra primitives: label, separators, key groups, captions and the crumb ellipsis.
+//! Role: Small Lyra primitives: label, separators, key groups, captions, crumb ellipsis.
 
 use crate::ColorName;
 
