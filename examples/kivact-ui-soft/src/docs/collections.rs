@@ -462,9 +462,9 @@ fn table_folders() -> Node {
             )],
         )
         .tree(|row| row.1, signal(vec![1]))
-        .initially_expanded()
+        .expand_all_control()
         .style(style().width(350)),
-        "data_table(rows, |row| row.0, columns)\n    .tree(|row| row.1, expanded)\n    .initially_expanded()",
+        "data_table(rows, |row| row.0, columns)\n    .tree(|row| row.1, expanded)\n    .expand_all_control()",
     )
 }
 

@@ -242,7 +242,7 @@ Chat Layout follows new messages while the viewport is near the end. Pass
 `.history_revision(..)` and update it in the same batch as a history prepend
 to preserve the reader's position.
 
-Toast uses the standard queue. Pass `ToastOptions` to `Toaster::push_with(..)`
+Toast uses the standard queue. Pass `ToastOptions` to `ToasterApi::push_with(..)`
 to deduplicate by key or register a callback when a visible toast is dismissed.
 Hovering or focusing one toast pauses its timer. Dismissing a focused toast
 restores the last available focus outside it.
@@ -263,7 +263,7 @@ adds collapsible group headings with counts for the current page. Use
 `.page_sizes(..)` for a page-size control and `.remote_page(..)` when the
 application supplies one page at a time. `.multi_sort(..)` enables
 multi-column sorting. Shift activation changes one column while preserving the
-other sort keys. Use `.tree(..)` for hierarchical rows and `.initially_expanded()`
+other sort keys. Use `.tree(..)` for hierarchical rows and `.expand_all_control()`
 for the header control. `DataColumn::filter_field(..)` and
 `.typed_column_filters(..)` provide draft popovers or inline filters.
 Number, date, and time filter fields validate values entered as text.
@@ -340,6 +340,7 @@ names and their replacements:
 | `table`, `table_body`, `table_cell`, `table_footer`, `table_head`, `table_header`, `table_row`, `TableCell`, `TableRow` | Same builders in `kivact::ui` (`ui::Table`, `ui::TableCell`); `.variant(soft::TableRowAppearance::new(dividers, hover, striped))`; selected row `.with_node(\|n\| n.selected(..))` |
 | `TableAlign`, `TableDensity` | `ui::TableCell::align(kivact::style::TextAlign::..)`; density `soft::ItemDensity` via `.variant(soft::TableCellAppearance::new(density, vertical_align, divider))` |
 | `Text`, `text` | `soft::StyledText`, `soft::styled_text(value)` (prelude `text` is the unstyled primitive) |
+| `kivact::interaction::Toaster` | `kivact::interaction::ToasterApi`, the handle `toaster()` returns |
 | `ToggleButtonGroup`, `toggle_button_group`, `ToggleSelection` | `ui::toggle_group(label, options, selection)` (`ui::ToggleGroup`); `Option<K>` binding = single, `Vec<K>` = multiple; `ListItem::with_pressed_icon(..)`, `.icon_only(..)` |
 | `tokens` | `kivact::style::use_tokens::<soft::Tokens>()` |
 | `Tokenizer`, `tokenizer` | `ui::combobox(label, options, Vec<K> binding).chips().exclude_selected()` |

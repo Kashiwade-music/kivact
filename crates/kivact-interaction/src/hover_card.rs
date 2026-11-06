@@ -5,7 +5,7 @@ use kivact_core::view::NodeRef;
 
 /// The input that currently requests a preview.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum OpenedBy {
+pub enum HoverCardOpenedBy {
     Pointer,
     Focus,
     Binding,
@@ -15,7 +15,7 @@ pub enum OpenedBy {
 pub enum HoverCardState {
     Closed,
     Opening,
-    Open { by: OpenedBy },
+    Open { by: HoverCardOpenedBy },
     Closing,
     Dismissed,
 }
@@ -72,13 +72,13 @@ pub fn use_hover_card(
                 DelayedPhase::Closing => HoverCardState::Closing,
                 DelayedPhase::Shown => HoverCardState::Open {
                     by: if focused.get() {
-                        OpenedBy::Focus
+                        HoverCardOpenedBy::Focus
                     } else {
-                        OpenedBy::Pointer
+                        HoverCardOpenedBy::Pointer
                     },
                 },
                 _ => HoverCardState::Open {
-                    by: OpenedBy::Binding,
+                    by: HoverCardOpenedBy::Binding,
                 },
             }
         } else {

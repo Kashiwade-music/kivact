@@ -311,6 +311,7 @@ names and their replacements:
 | `SurfaceRegion` | Canvas regions: `Node::region(id, part)` / `Node::regions(..)`, with the geometry painted by `Draw::region(id, rect)` |
 | `SurfaceSize` | `kivact::view::SurfaceSize` (from `viewport(..).on_resize(..)`) |
 | `theme(mode).accent(a).density(d)` (`ThemeOptions` trait) | `creative::theme_with(mode, creative::ThemeOptions { accent, density })` (`ThemeOptions` is a struct) |
+| `kivact::interaction::Toaster` | `kivact::interaction::ToasterApi`, the handle `toaster()` returns |
 | `ToolWindow` (the handle given to content) | `creative::ToolWindowApi` (`.close()`) |
 | `ToolWindowBuilder` (returned by `window(..)`) | `creative::ToolWindow` (`window(anchor, open, options).content(\|w: ToolWindowApi\| ..)`) |
 | `viewport_surface(image)`, `ViewportSurface` | `kivact::view::viewport(pixels)` (takes `Pixels`, not `Option<Pixels>`), with `.fit(..)`, `.pixelated(..)` and `.on_resize(..)`; `.transform(binding)` -> `.transform(kivact::interaction::use_zoom_pan(binding))`; `.on_edit(..)` -> `use_zoom_pan(..).on_edit(..)`; `.overlay(..)` -> `.with_node(\|n\| n.draw_over(..))` with `zoom.to_view(..)` |

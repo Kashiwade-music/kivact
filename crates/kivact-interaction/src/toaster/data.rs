@@ -83,7 +83,7 @@ impl ToastOptions {
     }
 }
 
-/// The identity of a pushed toast, to [`dismiss`](crate::Toaster::dismiss) it or to
+/// The identity of a pushed toast, to [`dismiss`](crate::ToasterApi::dismiss) it or to
 /// tell the toasts a kit draws apart.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct ToastId(pub(super) Generation);
@@ -92,7 +92,7 @@ pub struct ToastId(pub(super) Generation);
 /// The content of one notification: what it says, how urgent it is, how long
 /// it stays and an optional action.
 ///
-/// A toast is plain data built before [`crate::Toaster::push`]; it does not change
+/// A toast is plain data built before [`crate::ToasterApi::push`]; it does not change
 /// afterwards. Its fields are what the caller's drawing of a toast reads.
 ///
 /// ```no_run
@@ -175,7 +175,7 @@ impl Toast {
 
     /// How long the toast stays once it is shown, not counting the time the
     /// pointer is over it, the keyboard focus is in it or the toaster is held
-    /// ([`crate::Toaster::hold_while`]). `None` keeps it
+    /// ([`crate::ToasterApi::hold_while`]). `None` keeps it
     /// until it is dismissed. The default is 5 seconds.
     pub fn duration(mut self, duration: Option<Duration>) -> Self {
         self.duration = duration;

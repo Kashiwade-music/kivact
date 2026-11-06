@@ -29,7 +29,7 @@ fn tree_rows_keep_table_roles_and_expand_before_paging() {
                 .compare(|a, b| a.2.cmp(b.2));
             let table = data_table(rows, |row| row.0, vec![name])
                 .tree(|row| row.1, expanded)
-                .initially_expanded()
+                .expand_all_control()
                 .page(page, 4)
                 .sort(sort);
             ((expanded, page), table)

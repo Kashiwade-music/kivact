@@ -7,7 +7,7 @@ use kivact_core::state::{MachineHandle, Signal, Value, machine};
 use kivact_core::style::{Style, TransitionProp, pct, style, use_theme};
 use kivact_core::task::spawn;
 use kivact_core::view::{Handled, PointerEvent, PointerPhase};
-use kivact_interaction::{InteractionPolicy, ToastId, Toaster};
+use kivact_interaction::{InteractionPolicy, ToastId, ToasterApi};
 #[derive(Clone, Copy)]
 pub(crate) struct Swipe {
     edge: Edge,
@@ -18,7 +18,7 @@ impl Swipe {
         edge: Edge,
         rect: Value<Option<Rect>>,
         held: Signal<bool>,
-        toaster: Toaster,
+        toaster: ToasterApi,
         id: ToastId,
     ) -> Self {
         let session = machine(

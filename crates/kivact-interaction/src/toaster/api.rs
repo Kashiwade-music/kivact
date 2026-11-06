@@ -18,7 +18,7 @@
 //! The countdown is an owner-scoped machine timer that stops while the toast is really
 //! hovered or holds the focus and resumes with what is left; a toast with no
 //! duration is never dismissed by time and uses no frame loop.
-//! [`Toaster::hold_while`] lets a kit that stacks the toasts stop every
+//! [`ToasterApi::hold_while`] lets a kit that stacks the toasts stop every
 //! countdown at once (the true holds add up and end with their owner).
 //! Placement is the caller's layout: there is no placement type or region
 //! component here. A kit keeps only the card, the placement and its
@@ -119,7 +119,7 @@ impl Toast {
 /// }
 /// ```
 #[derive(Clone, Copy)]
-pub struct Toaster {
+pub struct ToasterApi {
     /// Every toast not yet gone, shown or waiting, oldest first.
     column: MachineHandle<ColumnMachine>,
     /// The first `limit` of `queue`.
@@ -137,7 +137,7 @@ pub struct Toaster {
 /// application's own name for the shared queue: call it from a handler
 /// whenever a toast is due.
 #[track_caller]
-pub fn toaster() -> Toaster {
+pub fn toaster() -> ToasterApi {
     kivact_core::state::use_app_state(|| {
         let column = machine(
             ColumnState::default(),
@@ -159,7 +159,7 @@ pub fn toaster() -> Toaster {
                 }
             },
         );
-        Toaster {
+        ToasterApi {
             column,
             visible: memo(move || {
                 let state = column.get();
@@ -175,7 +175,7 @@ pub fn toaster() -> Toaster {
     })
 }
 
-impl Toaster {
+impl ToasterApi {
     /// Queue `toast`. It is shown at once when fewer than
     /// [`max_visible`](Self::max_visible) are shown, and when the ones before
     /// it have gone otherwise.
@@ -243,7 +243,7 @@ impl Toaster {
         if n == 0 {
             raise(
                 ErrorKind::Message,
-                "Toaster::max_visible: show at least one toast",
+                "ToasterApi::max_visible: show at least one toast",
             );
         }
         self.column.send(ColumnEvent::Limit(n));
@@ -322,14 +322,14 @@ pub struct ToastState {
     /// The toast's tone; [`Tone::Neutral`] once it is gone.
     pub tone: Tone,
     /// The pointer is over the toast or the keyboard focus is in it, or a
-    /// [`Toaster::hold_while`] is true, which stops its countdown.
+    /// [`ToasterApi::hold_while`] is true, which stops its countdown.
     pub engaged: bool,
     /// How many newer toasts are shown in the same live region: 0 for the
     /// newest, which a stacked look draws in front of the others.
     pub depth: usize,
 }
 
-impl Toaster {
+impl ToasterApi {
     /// The toast `id` while it is shown, for drawing it.
     pub fn toast(self, id: ToastId) -> Option<Toast> {
         self.is_open(id)

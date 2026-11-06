@@ -65,7 +65,7 @@ fn main() -> kivact::Result<()> {
 - `.action(label, handler)` はトーストにボタン（たとえば「元に戻す」）を足します。押すとハンドラーが実行され、トーストが閉じます。
 - `.icon(|| view)` は色調のアイコンを置き換えます。たとえば `.icon(|| icon("gift"))` です。
 - `max_visible(n)` は同時に表示する数を制限します。toaster を作った場所で呼びます。
-- リージョンは画面ごとではなく、アプリの一部です。ルートに 1 つ置き、そこで `toaster()` を一度だけ呼び、push する側のコードには `Toaster`（`Copy`）を渡します。
+- リージョンは画面ごとではなく、アプリの一部です。ルートに 1 つ置き、そこで `toaster()` を一度だけ呼び、push する側のコードには `ToasterApi`（`Copy`）を渡します。
 
 ## 通知の履歴を持たせる
 
@@ -141,7 +141,7 @@ fn orders(loading: Signal<bool>, count: Signal<usize>) -> impl IntoView {
 
 - [業務画面で数値・状態・レコードを見せる](status-and-figures.md)
 - [日付と期間を選ばせる](dates-and-calendars.md): カレンダーの文言のキーについて。
-- トーストの API は `cargo doc -p kivact --open` の `kivact::interaction::Toast`、`kivact::interaction::Toaster`、`kivact::ui::toast_region`、Pop 全体のコンポーネントは `cargo doc -p kivact-ui-pop --open` で確認できます。
+- トーストの API は `cargo doc -p kivact --open` の `kivact::interaction::Toast`、`kivact::interaction::ToasterApi`、`kivact::ui::toast_region`、Pop 全体のコンポーネントは `cargo doc -p kivact-ui-pop --open` で確認できます。
 
 メッセージのログには標準の `chat_thread`、`chat_message(author)`、`chat_composer`、`typing_indicator` を使います。`PopBubble` はコンパクトな吹き出しです。`.sender(..)` は著者名とは独立した参加者の役割、`.content(..)` は任意のビュー、`.time(..)` はアプリが整形した時刻です。段落のグループは `ChatBubbleGroup::First`、`Middle`、`Last` を持つメッセージを並べ、最初にアバター、最後に時刻を置きます。共有のログが末尾への追従を持ち、履歴、ストリーミング、revision はアプリが持ちます。`pop::thread` は選択、未読数、プレビューを持つ会話の一覧行として残ります。標準の `code_block` は行番号、ハイライト、折り返し、コピーのフィードバックを提供します。
 

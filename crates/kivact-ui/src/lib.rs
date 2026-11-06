@@ -21,7 +21,7 @@
 //! | [`toggle_button`] | the visible label, also the name | [`use_toggle_button`](kivact_interaction::use_toggle_button) |
 //! | [`progress`] | none; it takes the value (`None` is indeterminate), and the caller names it | `Role::ProgressBar` with a range of 0 to 1 |
 //! | [`disclosure`] | the title of the trigger, also its name | [`use_disclosure`](kivact_interaction::use_disclosure) |
-//! | [`toast_region`] | none; it takes the [`Toaster`] | [`Toaster`]'s regions and items |
+//! | [`toast_region`] | none; it takes the [`ToasterApi`] | [`ToasterApi`]'s regions and items |
 //! | [`command_palette`] | none; it takes the open state and the commands, and names its search field with the message `palette.search` | [`use_command_palette`](kivact_interaction::use_command_palette) |
 //! | [`tag_input`] | the assistive name of the text input; not drawn | [`use_text_edit`](kivact_interaction::use_text_edit) |
 //! | [`number_input`] | the assistive name of the field; not drawn | [`use_scalar`](kivact_interaction::use_scalar) as a spin button |

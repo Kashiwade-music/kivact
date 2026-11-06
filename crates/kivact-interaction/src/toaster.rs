@@ -3,5 +3,5 @@ mod api;
 mod column;
 mod data;
 mod timer;
-pub use api::{ToastState, Toaster, toaster};
+pub use api::{ToastState, ToasterApi, toaster};
 pub use data::{Toast, ToastId, ToastOptions};

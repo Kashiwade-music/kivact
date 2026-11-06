@@ -429,7 +429,7 @@ list = [
     "VirtualList::row_height", "ListApi::keep_focus", "Overlay::modal", "Node::modal", "Node::region_events",
     "VirtualList::release_offscreen_focus", "TextEditing::multiline", "TextEditing::report_text",
     "DragApi::axis_lock", "DragApi::track_velocity",
-    "DataTable::initially_expanded", "Overlay::keep_anchor_clear", "Overlay::at_least_anchor_width",
+    "DataTable::expand_all_control", "Overlay::keep_anchor_clear", "Overlay::at_least_anchor_width",
     "Menu::at_least_anchor_width", "Span::italic", "Transition::essential",
     "Carousel::looping", "Dropzone::multiple", "DropzoneApi::multiple", "Dropzone::pick_on_press",
     "Combobox::free_text", "Combobox::chips", "Combobox::exclude_selected", "Disclosure::always_open", "DisclosureApi::always_open",
