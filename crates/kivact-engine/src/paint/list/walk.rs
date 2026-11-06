@@ -23,6 +23,7 @@ const INDEXED: usize = 32;
 /// its `DrawOver` scene.
 fn closes(step: &Step, n: &HostNode) -> bool {
     step.clips
+        || step.presence_clip.is_some()
         || step.layers > 0
         || step.transform.is_some()
         || (step.own && n.scenes()[1].is_some())
