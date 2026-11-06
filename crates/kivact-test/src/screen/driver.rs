@@ -101,12 +101,21 @@ impl Screen {
     }
 
     /// Debug check after every settle: the core's node records are the
-    /// engine's live tree. A divergence fails at once.
+    /// engine's live tree, and the engine's retained results (layout,
+    /// paint list, text styles, edited lines, the published accessibility
+    /// tree) equal a computation from scratch. A divergence fails at once.
     #[cfg(debug_assertions)]
     fn self_check(&self) {
         if let Err(error) = self.inspect().check_tree() {
             self.fail(&format!(
                 "the core's node records and the engine's tree diverged: {error}"
+            ));
+        }
+        let errors = self.host.borrow_mut().self_check();
+        if !errors.is_empty() {
+            self.fail(&format!(
+                "the engine's retained results diverged from a fresh computation:\n{}",
+                errors.join("\n")
             ));
         }
     }
