@@ -178,6 +178,8 @@ fn padded(range: Option<(f64, f64)>, scale: AxisScale) -> (f64, f64) {
 
 #[cfg(test)]
 mod tests {
+    //! Role: Tests for axis mapping and the automatic view range.
+
     use super::*;
     use crate::plot::model::{
         LegendPosition, LineDash, PlotAxis, PlotColor, PlotData, PlotSeries, TickFormat,

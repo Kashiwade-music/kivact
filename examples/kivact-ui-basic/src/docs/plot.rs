@@ -1,12 +1,12 @@
-//! Role: Catalog page of Plot: lines, points, stems, histograms and heatmaps on zoomable axes.
+//! Role: Catalog page of Plot: lines, points, stems, histograms and heatmaps.
 
 use crate::model::{Example, Page, PreviewAlign};
-use kivact::prelude::*;
-use kivact_ui_basic as basic;
 use basic::plot::{
     AxisScale, LegendPosition, LineDash, PlotAxis, PlotColor, PlotData, PlotModel, PlotRange,
     PlotSeries, PlotSeriesKind, TickFormat,
 };
+use kivact::prelude::*;
+use kivact_ui_basic as basic;
 
 pub(crate) fn page() -> Page {
     Page {

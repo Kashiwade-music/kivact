@@ -6,7 +6,7 @@
 //! rectangle in device pixels (one per logical pixel, rounded up), so its
 //! resolution is that of the drawn size, not of the original file.
 
-use super::emit::Emitter;
+use super::emitter::Emitter;
 use super::encode::{number, png_data_uri};
 use crate::{Result, UiError};
 use kivact_engine::api::{OffscreenError, OffscreenRenderer};

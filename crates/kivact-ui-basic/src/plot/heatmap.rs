@@ -114,6 +114,8 @@ pub(super) fn paint(
 
 #[cfg(test)]
 mod tests {
+    //! Role: Tests for heatmap cells and their colors.
+
     use super::*;
 
     #[test]

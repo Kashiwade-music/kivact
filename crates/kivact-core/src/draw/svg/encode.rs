@@ -1,7 +1,8 @@
-//! Role: Number, XML text and PNG data-URI encoding for the SVG writer.
+//! Role: Number, color, XML text and PNG encoding for the SVG writer.
 
 use crate::{Result, UiError};
 use kivact_runtime::ErrorKind;
+use kivact_types::Rgba;
 use std::panic::Location;
 
 /// A number with at most three decimals, trailing zeros dropped.
@@ -13,6 +14,27 @@ pub(super) fn number(value: f64) -> String {
     } else {
         trimmed.to_owned()
     }
+}
+
+/// `stroke-opacity="…"` (or `fill-opacity`) for a color that is not opaque.
+pub(super) fn opacity_attribute(kind: &str, color: Rgba) -> String {
+    let alpha = (color.a.clamp(0.0, 1.0) * 255.0).round() / 255.0;
+    if alpha == 1.0 {
+        String::new()
+    } else {
+        format!(" {kind}-opacity=\"{}\"", number(alpha))
+    }
+}
+
+/// `#rrggbb` of a color (its alpha is an opacity attribute).
+pub(super) fn hex(color: Rgba) -> String {
+    let channel = |v: f64| (v.clamp(0.0, 1.0) * 255.0).round() as u8;
+    format!(
+        "#{:02x}{:02x}{:02x}",
+        channel(color.r),
+        channel(color.g),
+        channel(color.b)
+    )
 }
 
 /// Escape `text` for an XML text node or a double-quoted attribute.

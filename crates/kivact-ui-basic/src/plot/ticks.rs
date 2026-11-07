@@ -154,6 +154,8 @@ fn si(value: f64) -> String {
 
 #[cfg(test)]
 mod tests {
+    //! Role: Tests for tick positions and label formats.
+
     use super::*;
 
     #[test]
@@ -194,7 +196,7 @@ mod tests {
     fn plain_labels_have_four_significant_digits() {
         assert_eq!(format_value(1500.0, &TickFormat::Plain, 0.0), "1500");
         assert_eq!(format_value(186.0, &TickFormat::Plain, 0.0), "186");
-        assert_eq!(format_value(3.14159, &TickFormat::Plain, 0.0), "3.142");
+        assert_eq!(format_value(1.23456, &TickFormat::Plain, 0.0), "1.235");
         assert_eq!(
             format_value(0.00123456, &TickFormat::Plain, 0.0),
             "0.001235"

@@ -1,4 +1,4 @@
-//! Role: Splits a line into drawable runs and thins dense runs to one min and max per pixel column.
+//! Role: Splits a line into runs and keeps one min and max per pixel column.
 
 /// A point in plot pixels; `None` breaks the line (a NaN, or a value the axis cannot show).
 pub(super) type Pixel = Option<(f64, f64)>;
@@ -107,6 +107,8 @@ fn finish(run: &[(f64, f64)], bounds: Bounds) -> Vec<(f64, f64)> {
 
 #[cfg(test)]
 mod tests {
+    //! Role: Tests for line runs and min and max thinning.
+
     use super::*;
 
     fn bounds(width: f64) -> Bounds {

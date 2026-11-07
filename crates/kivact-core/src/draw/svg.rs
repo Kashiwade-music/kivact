@@ -2,6 +2,7 @@
 
 mod api;
 mod emit;
+mod emitter;
 mod encode;
 mod fill;
 mod image;
