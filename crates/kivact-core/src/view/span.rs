@@ -126,6 +126,13 @@ impl Span {
         self
     }
 
+    /// CSS `-webkit-text-stroke` (replacing the paragraph's): the outline's
+    /// width and color.
+    pub fn text_stroke(mut self, width: impl Into<TextLength>, color: impl ThemeColor) -> Self {
+        self.style.stroke = Some((width.into(), Color::of(color)));
+        self
+    }
+
     /// CSS `font-stretch` (font-width) in percent, 50 to 200.
     pub fn font_width(mut self, v: impl Into<f64>) -> Self {
         self.style.font_width = Some(v.into());

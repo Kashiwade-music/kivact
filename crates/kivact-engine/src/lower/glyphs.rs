@@ -18,7 +18,7 @@
 //!   so culling never drops a shadow's pixels.
 
 use crate::lower::effects::Tint;
-use kivact_types::render::{GlyphStroke, RenderCmd as D};
+use kivact_types::render::{GlyphStroke, Paint, RenderCmd as D};
 use kivact_types::{ComputedTextStyle, LineJoin, PaintOrder, Rect, Stroke, TextMetrics, TextRun};
 use kivact_types::{Point, Rgba, TextShadow};
 
@@ -26,8 +26,8 @@ use kivact_types::{Point, Rgba, TextShadow};
 /// How a shaped text is colored as it is drawn.
 #[derive(Default)]
 pub(crate) struct Colors {
-    /// Every glyph run's color (plain text shaped without its color).
-    pub(crate) glyphs: Option<Rgba>,
+    /// The paint of every glyph run (`None`: the shaped run's own color).
+    pub(crate) glyphs: Option<Paint>,
     /// Every decoration line's color (plain text's `currentColor`).
     pub(crate) decorations: Option<Rgba>,
     /// The outline of the glyphs (CSS `-webkit-text-stroke`), when there is one.
@@ -43,17 +43,21 @@ impl Colors {
         self.order = style.paint_order;
         self.outline = style.stroke.and_then(|stroke| {
             let width = stroke.width.px(style.font_size);
-            width.is_finite().then(|| {
-                let mut line = Stroke::new(width.max(0.0));
-                line.join = LineJoin::Round;
-                GlyphStroke {
-                    stroke: line,
-                    paint: kivact_types::render::Paint::Solid(tint.color(stroke.color)),
-                }
+            width.is_finite().then(|| GlyphStroke {
+                stroke: outline_line(width),
+                paint: Paint::Solid(tint.color(stroke.color)),
             })
         });
         self
     }
+}
+
+/// The line of a glyph outline of `width` px: round-joined, centered on the
+/// glyph edge.
+fn outline_line(width: f64) -> Stroke {
+    let mut line = Stroke::new(width.max(0.0));
+    line.join = LineJoin::Round;
+    line
 }
 
 /// `shaped` at `origin`: its shadows, decorations and glyphs in paint
@@ -81,40 +85,49 @@ pub(crate) fn push_text(
             out.push(crate::lower::effects::blur_group(shadow.blur / 2.0));
         }
         let all = Colors {
-            glyphs: Some(color),
+            glyphs: Some(Paint::Solid(color)),
             decorations: Some(color),
             outline: colors.outline.as_ref().map(|o| GlyphStroke {
                 stroke: o.stroke.clone(),
-                paint: kivact_types::render::Paint::Solid(color),
+                paint: Paint::Solid(color),
             }),
             order: colors.order,
         };
         lines(out, shaped, at, &all, false, device);
-        glyphs(out, shaped, at, &all);
+        glyphs(out, shaped, at, &all, Some(color));
         lines(out, shaped, at, &all, true, device);
         if blurred {
             out.push(D::PopGroup);
         }
     }
     lines(out, shaped, origin, colors, false, device);
-    glyphs(out, shaped, origin, colors);
+    glyphs(out, shaped, origin, colors, None);
     lines(out, shaped, origin, colors, true, device);
 }
 
 /// The glyph runs of `shaped` at `origin`, filled and outlined as `colors`
-/// says, in its paint order.
+/// says, in its paint order. A run's own span outline wins over the text's;
+/// in a shadow (`shadow`) every outline is the shadow's color.
 fn glyphs(
     out: &mut crate::lower::SceneOut,
     shaped: &kivact_types::render::ShapedText,
     origin: Point,
     colors: &Colors,
+    shadow: Option<Rgba>,
 ) {
     for run in &shaped.runs {
+        let stroke = match run.stroke {
+            Some((width, color)) => Some(GlyphStroke {
+                stroke: outline_line(width),
+                paint: Paint::Solid(shadow.unwrap_or(color)),
+            }),
+            None => colors.outline.clone(),
+        };
         out.push(D::Glyphs {
             run: run.clone(),
             origin,
-            fill: colors.glyphs.map(kivact_types::render::Paint::Solid),
-            stroke: colors.outline.clone(),
+            fill: colors.glyphs.clone(),
+            stroke,
             order: colors.order,
         });
     }

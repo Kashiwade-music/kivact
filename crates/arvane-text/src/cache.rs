@@ -88,6 +88,7 @@ struct SpanBits {
     font_size: Option<u64>,
     weight: Option<u16>,
     color: Option<[u64; 4]>,
+    stroke: Option<(u64, [u64; 4])>,
     family: Option<String>,
     italic: Option<bool>,
     letter_spacing: Option<u64>,
@@ -186,6 +187,11 @@ impl TextKey {
                             font_size: s.font_size.map(f64::to_bits),
                             weight: s.weight,
                             color: if drawn { s.color.map(color_bits) } else { None },
+                            stroke: if drawn {
+                                s.stroke.map(|(w, c)| (w.to_bits(), color_bits(c)))
+                            } else {
+                                None
+                            },
                             family: s.family.clone(),
                             italic: s.italic,
                             letter_spacing: s.letter_spacing.map(f64::to_bits),

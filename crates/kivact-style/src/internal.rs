@@ -47,7 +47,10 @@ pub fn compile_span_style(style: &SpanStyle, theme: &Theme) -> CompiledSpanStyle
                 theme,
             )
         }),
-        stroke: None,
+        stroke: style.stroke.map(|(width, color)| p::TextStroke {
+            width: width.to_wire(),
+            color: color.resolve(theme),
+        }),
         variations,
         font_width: style.font_width,
         background: style.background.as_ref().map(|paint| match paint.solid() {

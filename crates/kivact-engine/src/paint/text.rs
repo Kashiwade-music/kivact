@@ -102,7 +102,7 @@ impl Model {
             };
             style.decoration.color = None;
             let colors = Colors {
-                glyphs: Some(color),
+                glyphs: Some(kivact_types::render::Paint::Solid(color)),
                 decorations: Some(deco),
                 ..Default::default()
             }
