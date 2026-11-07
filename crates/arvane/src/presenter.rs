@@ -44,11 +44,13 @@
 //!   it: a device failure, a new device or the presenter's drop releases
 //!   every frame of them (`arvane-render`'s `gpu/external.rs`).
 
+mod exports;
 mod frame;
 mod frame_policy;
 mod gpu;
 mod health;
 
+pub use exports::ExportNotice;
 pub use frame::{FramePlan, Presented};
 pub(crate) use frame::{no_pixels, no_surface};
 pub(crate) use frame_policy::Presenter;

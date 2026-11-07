@@ -8,10 +8,11 @@ use kivact_types::AssetBytes;
 use std::sync::Arc;
 
 use crate::support::Harness;
+use crate::support::commands_composition;
 use arvane::Renderer;
 use arvane::gpu_unavailable;
-use kivact_types::render::{Paint, RenderCmd};
-use kivact_types::{ComputedTextStyle, Pixels};
+use kivact_types::render::{Gradient, GradientShape, Paint, RenderCmd};
+use kivact_types::{ComputedTextStyle, Extend, PaintOrder, Pixels};
 use kivact_types::{Point, Size};
 
 use crate::support::{
@@ -73,7 +74,9 @@ fn draw_text(window: &mut Harness, text: &str, origin: Point) -> (Size, f64) {
             RenderCmd::Glyphs {
                 run: run.clone(),
                 origin,
-                color: None,
+                fill: None,
+                stroke: None,
+                order: PaintOrder::FillStroke,
             }
         })
         .collect();
@@ -140,10 +143,14 @@ fn representative() -> Vec<RenderCmd> {
         RenderCmd::RoundedRect {
             rect: rect(20.0, 20.0, 120.0, 60.0),
             radius: 8.0,
-            fill: Paint::LinearGradient {
-                angle_deg: 0.0,
+            fill: Paint::Gradient(Gradient {
+                shape: GradientShape::Linear {
+                    start: Point { x: 20.0, y: 50.0 },
+                    end: Point { x: 140.0, y: 50.0 },
+                },
                 stops: vec![(0.0, color(0x3366cc)), (1.0, color(0xcc6633))],
-            },
+                extend: Extend::Pad,
+            }),
         },
         RenderCmd::PushClip(rect(160.0, 20.0, 60.0, 60.0)),
         RenderCmd::Rect {
@@ -163,13 +170,14 @@ fn representative() -> Vec<RenderCmd> {
             },
             rect: rect(20.0, 100.0, 80.0, 40.0),
             opacity: 0.8,
-            color_matrix: None,
         },
     ];
     commands.extend(shaped.runs.iter().map(|run| RenderCmd::Glyphs {
         run: run.clone(),
         origin: Point { x: 120.0, y: 110.0 },
-        color: None,
+        fill: None,
+        stroke: None,
+        order: PaintOrder::FillStroke,
     }));
     commands
 }
@@ -180,6 +188,15 @@ fn the_gpu_frame_matches_the_cpu_frame_within_the_tolerance() {
         eprintln!("SKIPPED the_gpu_frame_matches_the_cpu_frame_within_the_tolerance: {reason}");
         return;
     }
-    gpu_against_cpu((260.0, 160.0), &[representative()])[0]
-        .assert_within_tolerance("the representative scene");
+    gpu_against_cpu(
+        (260.0, 160.0),
+        &[commands_composition(
+            representative(),
+            Size {
+                width: 260.0,
+                height: 160.0,
+            },
+        )],
+    )[0]
+    .assert_within_tolerance("the representative scene");
 }

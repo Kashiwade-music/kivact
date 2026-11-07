@@ -7,8 +7,13 @@ use arvane::{
     Window, test_font,
 };
 use arvane_virtual::{GpuMode, Probe, Script, VirtualBackend, VirtualOptions};
-use kivact_types::render::{Paint, RenderCmd, RenderScene};
-use kivact_types::{Rect, Rgba, Size};
+use kivact_types::geometry3d::Matrix4;
+use kivact_types::paint::BackfaceVisibility;
+use kivact_types::render::{
+    CompositeLayer, Composition, LayerEffects, LayerItem, LayerKey, Paint, Plane, RasterGrid,
+    RenderCmd, RenderScene,
+};
+use kivact_types::{PaintOrder, Rect, Rgba, Size};
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -77,18 +82,83 @@ pub(crate) fn fill(x: f64, y: f64, width: f64, height: f64, rgb: u32) -> RenderC
     }
 }
 
-pub(crate) fn scene(commands: Vec<RenderCmd>) -> RenderScene {
-    RenderScene { commands }
+/// A raster item of `commands` in layer space.
+pub(crate) fn raster(commands: Vec<RenderCmd>) -> LayerItem {
+    LayerItem::Raster(RenderScene { commands })
+}
+
+/// A layer of identity transform, flat, with `bounds` in its space.
+pub(crate) fn layer(
+    key: LayerKey,
+    bounds: Rect,
+    effects: LayerEffects,
+    items: Vec<LayerItem>,
+) -> CompositeLayer {
+    CompositeLayer {
+        key,
+        transform: Matrix4::IDENTITY,
+        bounds,
+        plane: Plane::Flat,
+        backface: BackfaceVisibility::Visible,
+        grid: RasterGrid::Target,
+        effects,
+        items,
+    }
+}
+
+/// The key of the test layer numbered `n` (a node's layer).
+pub(crate) fn node_key(n: u64) -> LayerKey {
+    LayerKey::Node(kivact_types::ids::NodeId(n))
+}
+
+/// A root layer of `size` (window logical px) that draws `items`.
+pub(crate) fn root_layer(size: Size, items: Vec<LayerItem>) -> CompositeLayer {
+    layer(
+        LayerKey::Root,
+        rect(0.0, 0.0, size.width, size.height),
+        LayerEffects::default(),
+        items,
+    )
+}
+
+/// The composition of one frame of `commands` drawn by the root layer of `size`.
+pub(crate) fn commands_composition(commands: Vec<RenderCmd>, size: Size) -> Composition {
+    Composition {
+        layers: vec![root_layer(size, vec![raster(commands)])],
+        exports: Vec::new(),
+    }
 }
 
 /// Present `commands` as the window plans its frame.
 pub(crate) fn present(window: &mut Harness, commands: Vec<RenderCmd>) -> Presented {
+    present_composition(window, move |size| commands_composition(commands, size))
+}
+
+/// Present the composition `make` builds for the window's logical size.
+pub(crate) fn present_composition(
+    window: &mut Harness,
+    make: impl FnOnce(Size) -> Composition + 'static,
+) -> Presented {
     let result = window.with(move |w| {
         let plan = w.frame_plan();
-        w.present(&scene(commands), plan)
+        let composition = make(plan.size);
+        w.present(&composition, plan)
     });
     window.record(&result);
     result.expect("the window can present")
+}
+
+/// Present the composition `make` builds and require the frame to be shown.
+#[track_caller]
+pub(crate) fn show_composition(
+    window: &mut Harness,
+    make: impl FnOnce(Size) -> Composition + 'static,
+) {
+    let presented = present_composition(window, make);
+    assert!(
+        matches!(presented, Presented::Shown { .. }),
+        "the frame is shown: {presented:?}"
+    );
 }
 
 /// Present `commands` and require the frame to be shown.
@@ -168,7 +238,7 @@ impl FrameDiff {
 /// caller skips when `arvane::gpu_unavailable` says so.
 pub(crate) fn gpu_against_cpu(
     (width, height): (f64, f64),
-    frames: &[Vec<RenderCmd>],
+    frames: &[Composition],
 ) -> Vec<FrameDiff> {
     let run = |gpu: bool| {
         let mut window = Harness::open(VirtualOptions {
@@ -177,8 +247,9 @@ pub(crate) fn gpu_against_cpu(
         });
         let shots: Vec<Vec<u32>> = frames
             .iter()
-            .map(|commands| {
-                show(&mut window, commands.clone());
+            .map(|composition| {
+                let composition = composition.clone();
+                show_composition(&mut window, move |_| composition);
                 window.probe().frame().expect("a frame").2.to_vec()
             })
             .collect();
@@ -244,7 +315,9 @@ pub(crate) fn text_runs(text: &str, size: f64, origin: kivact_types::Point) -> V
         .map(|run| RenderCmd::Glyphs {
             run: run.clone(),
             origin,
-            color: None,
+            fill: None,
+            stroke: None,
+            order: PaintOrder::FillStroke,
         })
         .collect()
 }

@@ -65,7 +65,7 @@ pub use arvane_shell::{
 pub use engine::Engine;
 pub use error::{Failure, FailureKind};
 pub use presentation::{Renderer, RendererChange};
-pub use presenter::{FramePlan, Presented};
+pub use presenter::{ExportNotice, FramePlan, Presented};
 pub use rasterizer::Rasterizer;
 
 pub use availability::gpu_unavailable;

@@ -11,10 +11,12 @@ use crate::support::Harness;
 use arvane::{Renderer, RendererChange};
 use arvane_virtual::VirtualOptions;
 use gpu_interop_producer::{Producer, pattern};
-use kivact_types::render::RenderCmd;
-use kivact_types::{ExternalFrame, ExternalImageId, GpuAdapter, GpuBackend, GpuPreference};
+use kivact_types::render::{Composition, ExternalItem, LayerItem};
+use kivact_types::{
+    ExternalFrame, ExternalImageId, GpuAdapter, GpuBackend, GpuPreference, Transform,
+};
 
-use crate::support::{options, rect, show};
+use crate::support::{options, rect, root_layer, show_composition};
 
 /// The engine's frame size: a window shows four frames.
 const W: u32 = 256;
@@ -66,21 +68,24 @@ fn imported(window: &mut Harness, adapter: &GpuAdapter, image: ExternalImageId) 
 }
 
 /// `frame` drawn at its own size at `(x, y)`.
-fn external(frame: ExternalFrame, x: u32, y: u32, pixelated: bool) -> RenderCmd {
-    RenderCmd::External {
+fn external(frame: ExternalFrame, x: u32, y: u32, pixelated: bool) -> LayerItem {
+    LayerItem::External(ExternalItem {
         frame,
         rect: rect(x as f64, y as f64, W as f64, H as f64),
         source: None,
+        transform: Transform::IDENTITY,
+        clips: Vec::new(),
         opacity: 1.0,
         pixelated,
-    }
+        cpu: None,
+    })
 }
 
 /// The window's four places: nearest on top, bilinear below.
 const PLACES: [(u32, u32, bool); 4] = [(0, 0, true), (W, 0, true), (0, H, false), (W, H, false)];
 
 /// `frame` in all four places.
-fn four(frame: ExternalFrame) -> Vec<RenderCmd> {
+fn four(frame: ExternalFrame) -> Vec<LayerItem> {
     PLACES
         .iter()
         .map(|&(x, y, pixelated)| external(frame, x, y, pixelated))
@@ -121,7 +126,11 @@ fn frames_match_in_four_places(backend: GpuBackend) -> Result<(), String> {
     let mut producer = imported(&mut window, &adapter, IMAGE);
     for number in 0..FRAMES {
         let frame = producer.draw(number).expect("the engine draws");
-        show(&mut window, four(frame));
+        let items = four(frame);
+        show_composition(&mut window, move |size| Composition {
+            layers: vec![root_layer(size, items)],
+            exports: Vec::new(),
+        });
         assert_four(&window, number);
     }
     assert!(

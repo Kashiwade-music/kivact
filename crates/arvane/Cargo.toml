@@ -12,6 +12,7 @@ arvane-shell = { path = "../arvane-shell", version = "0.1.0" }
 kivact-types = { path = "../kivact-types", version = "0.1.0" }
 arvane-text = { path = "../arvane-text", version = "0.1.0" }
 arvane-render = { path = "../arvane-render", version = "0.1.0" }
+arvane-compose = { path = "../arvane-compose", version = "0.1.0" }
 arvane-asset = { path = "../arvane-asset", version = "0.1.0" }
 tracing = "0.1.41"
 
@@ -26,7 +27,7 @@ path = "tests/e2e/main.rs"
 
 [dev-dependencies]
 # The GPU and shared-texture contract tests run with `cargo test -p arvane` alone.
-arvane-render = { path = "../arvane-render", features = ["gpu"] }
+arvane-compose = { path = "../arvane-compose", version = "0.1.0", features = ["gpu-interop"] }
 arvane-native = { path = "../arvane-native", features = ["test"] }
 arvane-virtual = { path = "../arvane-virtual", features = ["mirror"] }
 

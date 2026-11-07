@@ -241,6 +241,7 @@ name = "arvane"
 version = "0.1.0"
 dependencies = [
  "arvane-asset",
+ "arvane-compose",
  "arvane-native",
  "arvane-render",
  "arvane-shell",
