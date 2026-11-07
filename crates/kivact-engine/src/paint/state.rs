@@ -14,7 +14,10 @@ use std::cell::{Cell, RefCell};
 use std::collections::{BTreeSet, HashMap};
 
 use kivact_types::cell::Generation;
-use kivact_types::{Edges, NodeId, Point, Rect, Size};
+use kivact_types::geometry3d::Matrix4;
+use kivact_types::paint::BackfaceVisibility;
+use kivact_types::render::{Plane, RasterGrid};
+use kivact_types::{Edges, NodeId, Point, Rect, Size, WillChange};
 
 /// The parameters of one walk over a paint list; nothing in [`PaintState`]
 /// is changed for its duration (it replaces temporary scale and list swaps).
@@ -23,8 +26,6 @@ pub(crate) struct PaintPass {
     /// Device pixels per logical pixel the walk draws at (inside a
     /// transform, enlarged by its zoom).
     pub(crate) scale: f64,
-    /// What the walk draws for.
-    pub(crate) purpose: crate::lower::context::Purpose,
     /// The logical size of the root layer.
     pub(crate) size: Size,
 }
@@ -93,11 +94,6 @@ impl PaintState {
     pub(crate) fn forget_missing(&mut self, live: impl Fn(NodeId) -> bool) {
         self.dropped_reported.get_mut().retain(|(id, _)| live(*id));
     }
-
-    /// A node's paint reads around its box by `reach` (backdrop filters).
-    pub(crate) fn note_backdrop(&mut self, reach: f64) {
-        self.list.note_backdrop(reach);
-    }
 }
 
 // xtask-allow(state-fields): Normalized paint cache stores independent optional color and geometric drawing facts (S-9).
@@ -122,6 +118,28 @@ pub(crate) struct Look {
     pub(super) items: u8,
     /// Its corners are rounded.
     pub(super) rounded: bool,
+    /// It has a CSS filter, masks or a backdrop filter (each needs a layer).
+    pub(super) filtered: bool,
+    pub(super) masked: bool,
+    pub(super) backdropped: bool,
+    /// Its blend mode is not normal.
+    pub(super) blended: bool,
+    /// It isolates its group (`isolation: isolate`).
+    pub(super) isolated: bool,
+    /// Its `will-change` value.
+    pub(super) will_change: WillChange,
+    /// Its `transform-style` is `preserve-3d`.
+    pub(super) preserves: bool,
+    /// Its element transform has no z component and no perspective.
+    pub(super) flat: bool,
+    /// Its element transform is not the identity.
+    pub(super) transformed: bool,
+    /// Its children are in a perspective.
+    pub(super) perspective: bool,
+    /// Its back face is hidden.
+    pub(super) backface_hidden: bool,
+    /// One of its background layers is a shader.
+    pub(super) shader: bool,
 }
 
 /// Everything a node's subtree can draw on, relative to its layout
@@ -136,6 +154,52 @@ pub(crate) struct Ink {
     pub(super) generation: Generation,
 }
 
+// xtask-allow(state-fields): A pure derived record of independent presence facts about one subtree, rebuilt with the paint list and never a lifecycle (S-9).
+/// What a subtree holds that decides its layers (§6.1): whether the node
+/// itself is a layer, and what its subtree contains.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub(crate) struct SubtreeFacts {
+    /// The node is a compositor layer.
+    pub(super) layer: bool,
+    /// A layer is in the subtree (the node's own included).
+    pub(super) has_layer: bool,
+    /// An external frame or a shader is in the subtree.
+    pub(super) has_item: bool,
+    /// A backdrop filter is in the subtree.
+    pub(super) has_backdrop: bool,
+    /// A non-normal blend mode is in the subtree.
+    pub(super) has_blend: bool,
+}
+
+/// The compositor layer one listed node is drawn in.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) struct LayerSpec {
+    /// Layer space (the node's box at its origin) → the parent's space.
+    pub(super) matrix: Matrix4,
+    /// Its content bounds in layer space.
+    pub(super) bounds: Rect,
+    pub(super) plane: Plane,
+    pub(super) backface: BackfaceVisibility,
+    pub(super) grid: RasterGrid,
+}
+
+/// One thing a listed node opens, in the order it is opened.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Opening {
+    /// Its compositor layer.
+    Layer,
+    /// Its transform (inline, not a layer).
+    Transform,
+    /// Its group (opacity, clip path, blend; inline, not a layer).
+    Group,
+    /// Its presence clip.
+    Presence,
+    /// Its padding box as a rect clip.
+    Clip,
+    /// Its padding box as a rounded group.
+    ClipGroup,
+}
+
 // xtask-allow(state-fields): Immutable paint-list record stores independent drawing and clipping facts, not a lifecycle.
 /// How one listed node is drawn.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -143,13 +207,13 @@ pub(crate) struct Step {
     pub(super) id: NodeId,
     /// Its untransformed layout box's origin, in the space of the
     /// transforms pushed around it (its own and its ancestors'
-    /// translations below them applied).
+    /// translations below them applied). A layer's origin is its own box.
     pub(super) origin: Point,
     /// The transform it is drawn through (an index into
     /// [`PaintList::transforms`]).
     pub(super) transform: Option<u32>,
     /// The alpha its colors are faded by (outside a group: its opacity
-    /// times its ancestors').
+    /// times its ancestors'; inside a layer: its ancestors' only).
     pub(super) alpha: f64,
     pub(super) clips: bool,
     pub(super) presence_clip: Option<Rect>,
@@ -166,6 +230,38 @@ pub(crate) struct Step {
     /// margin), in the space of its origin: a text input draws only the
     /// lines that reach it.
     pub(super) clip: Rect,
+    /// Its compositor layer (an index into [`PaintList::layers`]).
+    pub(super) layer: Option<u32>,
+}
+
+impl Step {
+    /// What opening this step pushes, in order (§6.3). Its layer comes
+    /// first; its transform and group are not opened inside a layer,
+    /// whose transform and effects are its own.
+    pub(crate) fn opened(&self) -> Vec<Opening> {
+        let mut out = Vec::with_capacity(5);
+        if self.layer.is_some() {
+            out.push(Opening::Layer);
+        } else {
+            if self.transform.is_some() {
+                out.push(Opening::Transform);
+            }
+            if self.grouped {
+                out.push(Opening::Group);
+            }
+        }
+        if self.presence_clip.is_some() {
+            out.push(Opening::Presence);
+        }
+        if self.clips {
+            out.push(if self.rounded {
+                Opening::ClipGroup
+            } else {
+                Opening::Clip
+            });
+        }
+        out
+    }
 }
 
 /// One step of the paint list.
@@ -186,9 +282,11 @@ pub(crate) struct PaintList {
     /// The transforms of the listed transformed nodes, each in the space
     /// of the transforms around it.
     pub(super) transforms: Vec<kivact_types::Transform>,
-    /// How far the farthest-reaching backdrop filter seen reads around its
-    /// box (the viewport grows by it).
-    pub(super) backdrop_reach: f64,
+    /// The compositor layers of the listed layer nodes.
+    pub(super) layers: Vec<LayerSpec>,
+    /// What each subtree holds that decides its layers (only the nodes
+    /// with something to say are kept).
+    pub(super) facts: HashMap<NodeId, SubtreeFacts>,
     /// Whether the list is reusable for its window size and raster scale.
     pub(super) state: ListState,
     /// The child indices of the containers with many children.

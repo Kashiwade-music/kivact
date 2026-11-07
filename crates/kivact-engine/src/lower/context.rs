@@ -41,18 +41,10 @@ use crate::lower::assets::ArvaneAssets;
 use crate::lower::scene_cache::{Dependency, SceneCache};
 use std::sync::Arc;
 
-/// The destination of one independent lowering operation.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum Purpose {
-    Window,
-    Cpu,
-}
-
 /// A UI-local, non-reentrant lowering operation borrowing resources and scale.
 /// Callers must not hold an overlapping resource borrow while invoking it.
 /// It records failures and drops; publishing them remains the caller's policy.
 pub(crate) struct Context<'a> {
-    pub(crate) purpose: Purpose,
     pub(crate) assets: &'a RefCell<ArvaneAssets>,
     /// Device pixels per logical pixel of what is painted now.
     pub(crate) raster: Cell<f64>,
@@ -89,7 +81,6 @@ impl<'a> Context<'a> {
             .borrow_mut()
             .revision(assets.borrow().revision());
         Self {
-            purpose: Purpose::Window,
             assets,
             raster: Cell::new(raster),
             scene_cache,

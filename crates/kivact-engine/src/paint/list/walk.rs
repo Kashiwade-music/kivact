@@ -1,13 +1,23 @@
 //! Role: Rebuild the paint list by walking the tree in paint order within the view.
+//!
+//! A layer node (see `layers.rs`) is walked in its own space: its box at the
+//! origin, its children's origins and clips relative to it, its transform
+//! kept as a [`LayerSpec`]. Any other node is walked in the space of the
+//! transforms pushed around it, as before.
 
-use super::ink::{grow, ink, local_transform, overlaps, placed, reach};
+use super::ink::{grow, ink, ink_local, local_transform, overlaps, placed, reach};
 use crate::contract::NodeType;
 use crate::model::Model;
 use crate::model::transform::map_rect;
-use crate::paint::state::{ChildIndex, Entry, ListState, Look, Step};
+use crate::paint::state::{
+    ChildIndex, Entry, LayerSpec, ListState, Look, PaintList, Step, SubtreeFacts,
+};
 use crate::tree::node::HostNode;
 use kivact_types::cell::Generation;
-use kivact_types::{NodeId, Point, Rect};
+use kivact_types::geometry3d::Matrix4;
+use kivact_types::paint::BackfaceVisibility;
+use kivact_types::render::{Plane, RasterGrid};
+use kivact_types::{NodeId, Point, Rect, Transform, WillChange};
 use std::collections::{HashMap, HashSet};
 
 /// Logical pixels the clip is grown by before culling: more than a device
@@ -18,20 +28,35 @@ const MARGIN: f64 = 2.0;
 const INDEXED: usize = 32;
 
 /// Whether the listed `step` of node `n` needs a `Close` after its
-/// descendants: it pops a clip, a layer or a transform it pushed, or draws
-/// its `DrawOver` scene.
-fn closes(step: &Step, n: &HostNode) -> bool {
-    step.clips
-        || step.presence_clip.is_some()
-        || step.grouped
-        || step.transform.is_some()
-        || (step.own && n.scenes()[1].is_some())
+/// descendants: it opens something (a layer, a transform, a group or a
+/// clip), draws its `DrawOver` scene, or draws its scrollbars.
+fn closes(step: &Step, n: &HostNode, host: &Model) -> bool {
+    !step.opened().is_empty()
+        || (step.own
+            && (n.scenes()[1].is_some()
+                || host.scrollbar_bars(step.id).iter().any(Option::is_some)))
+}
+
+/// The compositor layer a node is walked as, before its origin and clip
+/// are placed.
+struct LayerPlan {
+    /// Layer space → the parent's space (the node's box at its origin).
+    matrix: Matrix4,
+    /// The same map when it is affine (culling maps the clip through it).
+    affine: Option<Transform>,
+    /// The content bounds in layer space.
+    bounds: Rect,
+    plane: Plane,
+    backface: BackfaceVisibility,
+    grid: RasterGrid,
 }
 
 struct Walk<'a> {
     host: &'a Model,
     margin: f64,
     indices: &'a mut HashMap<NodeId, ChildIndex>,
+    /// What each subtree holds (decides the layers).
+    facts: &'a HashMap<NodeId, SubtreeFacts>,
     /// The layout pass the tree is laid out by.
     pass: Generation,
     /// The generation of the nodes' inks.
@@ -40,7 +65,9 @@ struct Walk<'a> {
     used: HashSet<NodeId>,
     out: Vec<Entry>,
     /// The listed transformed nodes' transforms.
-    transforms: Vec<kivact_types::Transform>,
+    transforms: Vec<Transform>,
+    /// The listed layers.
+    layers: Vec<LayerSpec>,
 }
 
 impl Walk<'_> {
@@ -59,7 +86,11 @@ impl Walk<'_> {
         let look = Look::now(host, id, n);
         let local = local_transform(host, id, n, &layout);
         let own = reach(host, id, n, &layout, &look);
-        let visible = overlaps(placed(local.as_ref(), own, origin), clip);
+        let plan = self.plan(id, n, &layout, &look, origin);
+        let visible = match &plan {
+            Some(LayerPlan { affine: None, .. }) => true,
+            _ => overlaps(placed(local.as_ref(), own, origin), clip),
+        };
         if !visible {
             // Neither it nor anything in its subtree shows.
             let shows = ink(host, id, n, &layout, self.generation).is_some_and(|k| {
@@ -74,12 +105,14 @@ impl Walk<'_> {
                 return;
             }
         }
-        let Some((transform, clip, o)) = self.place_transform(local, clip, origin) else {
+        let Some((transform, clip, o, layer)) = self.place(local, clip, origin, plan) else {
             return;
         };
         let clips = n.clips();
         let presence_clip = presence_clip(host, id, clip, o, layout.size);
         let (group, grouped, alpha) = opacity(host, id, n, &look, parent_alpha);
+        // A layer applies its node's opacity itself.
+        let alpha = if layer.is_some() { parent_alpha } else { alpha };
         let step = Step {
             id,
             origin: o,
@@ -92,24 +125,13 @@ impl Walk<'_> {
             grouped,
             group,
             clip,
+            layer,
         };
-        let listed = visible || grouped || transform.is_some();
+        let listed = visible || grouped || transform.is_some() || layer.is_some();
         if listed {
             self.out.push(Entry::Open(step));
         }
-        let clip = grow(clip, look.fx);
-        let child_clip = if clips {
-            let padding = look.inside(Rect {
-                x: o.x,
-                y: o.y,
-                width: layout.size.width,
-                height: layout.size.height,
-            });
-            clip.intersect(&grow(padding, self.margin))
-        } else {
-            clip
-        };
-        let child_clip = presence_clip.map_or(child_clip, |p| child_clip.intersect(&p));
+        let child_clip = self.child_clip(&look, o, layout.size, clip, clips, presence_clip);
         let scroll = n.scroll();
         // The children's layout locations are relative to this origin.
         let base = Point {
@@ -117,14 +139,113 @@ impl Walk<'_> {
             y: o.y - scroll.y,
         };
         self.children(id, n, base, alpha, child_clip);
-        if listed && closes(&step, n) {
+        if listed && closes(&step, n, host) {
             self.out.push(Entry::Close(step));
         }
     }
 
+    /// The area a node's children may draw in: its own area grown by its
+    /// filters, cut to its padding box when it clips and to its presence
+    /// clip (`clip` is in its space, `o` its box's origin).
+    fn child_clip(
+        &self,
+        look: &Look,
+        o: Point,
+        size: kivact_types::Size,
+        clip: Rect,
+        clips: bool,
+        presence_clip: Option<Rect>,
+    ) -> Rect {
+        let clip = grow(clip, look.fx);
+        let child_clip = if clips {
+            let padding = look.inside(Rect {
+                x: o.x,
+                y: o.y,
+                width: size.width,
+                height: size.height,
+            });
+            clip.intersect(&grow(padding, self.margin))
+        } else {
+            clip
+        };
+        presence_clip.map_or(child_clip, |p| child_clip.intersect(&p))
+    }
+
+    /// The layer `id` is walked as, if it is one (`origin` is its box's
+    /// origin in its parent's space).
+    fn plan(
+        &self,
+        id: NodeId,
+        n: &HostNode,
+        layout: &kivact_layout::NodeLayout,
+        look: &Look,
+        origin: Point,
+    ) -> Option<LayerPlan> {
+        if !self.facts.get(&id).is_some_and(|f| f.layer) {
+            return None;
+        }
+        let host = self.host;
+        let own = host
+            .local_matrix(id, layout.size)
+            .unwrap_or(Matrix4::IDENTITY);
+        let matrix = own.then(Matrix4::translate(origin.x, origin.y, 0.0));
+        let moves = host.motion.moves_layer(id) || host.layout_motion_transform(id).is_some();
+        Some(LayerPlan {
+            matrix,
+            affine: matrix.as_affine(),
+            bounds: ink_local(host, id, n, layout, self.generation),
+            plane: if look.plane_3d() {
+                Plane::Preserve3d
+            } else {
+                Plane::Flat
+            },
+            backface: if look.backface_hidden {
+                BackfaceVisibility::Hidden
+            } else {
+                BackfaceVisibility::Visible
+            },
+            grid: if moves || look.will_change == WillChange::Transform {
+                RasterGrid::Layer
+            } else {
+                RasterGrid::Target
+            },
+        })
+    }
+
+    /// Place a node: its transform index (a transform pushed around it),
+    /// the clip its subtree is culled in, its origin and its layer. A layer
+    /// is placed at its own origin, in its own space.
+    fn place(
+        &mut self,
+        local: Option<Transform>,
+        clip: Rect,
+        origin: Point,
+        plan: Option<LayerPlan>,
+    ) -> Option<(Option<u32>, Rect, Point, Option<u32>)> {
+        if let Some(plan) = plan {
+            // A layer's subtree is culled in its space: through the inverse of
+            // an affine map, else within its bounds.
+            let clip = match plan.affine.and_then(|t| t.invert()) {
+                Some(back) => map_rect(Some(&back), clip),
+                None => plan.bounds,
+            };
+            self.layers.push(LayerSpec {
+                matrix: plan.matrix,
+                bounds: plan.bounds,
+                plane: plan.plane,
+                backface: plan.backface,
+                grid: plan.grid,
+            });
+            let index = (self.layers.len() - 1) as u32;
+            return Some((None, clip, Point::default(), Some(index)));
+        }
+        let (transform, clip, o) = self.place_transform(local, clip, origin)?;
+        Some((transform, clip, o, None))
+    }
+
     fn place_transform(
         &mut self,
-        local: Option<kivact_types::Transform>,
+        local: Option<Transform>,
         clip: Rect,
         origin: Point,
     ) -> Option<(Option<u32>, Rect, Point)> {
@@ -231,22 +352,24 @@ impl Model {
         };
         if list.state != key {
             let margin = MARGIN.max(1.0 / self.paint.scale.max(f64::MIN_POSITIVE));
-            let reach = margin + list.backdrop_reach;
             let viewport = Rect {
-                x: -reach,
-                y: -reach,
-                width: window.width + 2.0 * reach,
-                height: window.height + 2.0 * reach,
+                x: -margin,
+                y: -margin,
+                width: window.width + 2.0 * margin,
+                height: window.height + 2.0 * margin,
             };
+            list.facts = self.layer_facts();
             let mut walk = Walk {
                 host: self,
                 margin,
                 indices: &mut list.indices,
+                facts: &list.facts,
                 pass: list.pass,
                 generation: list.ink_gen,
                 used: HashSet::new(),
                 out: Vec::with_capacity(list.entries.len()),
                 transforms: Vec::new(),
+                layers: Vec::new(),
             };
             if let Some(root) = self.tree().root() {
                 walk.node(root, Point::default(), 1.0, viewport);
@@ -258,9 +381,11 @@ impl Model {
                 out,
                 used,
                 transforms,
+                layers,
                 ..
             } = walk;
             list.transforms = transforms;
+            list.layers = layers;
             // Indices of containers this walk did not reach (removed, or
             // culled with an ancestor) are built again when reached.
             list.indices.retain(|id, _| used.contains(id));
@@ -269,44 +394,49 @@ impl Model {
         }
         self.paint.list = list;
     }
-}
 
-impl Model {
     /// Build an independent list in the target's local output space.
-    pub(crate) fn subtree_paint_list(
-        &self,
-        id: NodeId,
-        clip: Rect,
-    ) -> crate::paint::state::PaintList {
+    pub(crate) fn subtree_paint_list(&self, id: NodeId, clip: Rect) -> PaintList {
         let mut indices = HashMap::new();
+        let mut facts = HashMap::new();
+        self.subtree_facts(id, None, &mut facts);
+        let bounds = self.rect(id).unwrap_or_default();
+        let overlays: Vec<_> = self
+            .layers()
+            .into_iter()
+            .filter(|(layer, _)| *layer != id && self.tree().is_in_subtree(*layer, id))
+            .collect();
+        for (layer, _) in &overlays {
+            self.subtree_facts(*layer, None, &mut facts);
+        }
         let mut walk = Walk {
             host: self,
             margin: MARGIN,
             indices: &mut indices,
+            facts: &facts,
             pass: self.paint.list.pass,
             generation: self.paint.list.ink_gen,
             used: HashSet::new(),
             out: Vec::new(),
             transforms: Vec::new(),
+            layers: Vec::new(),
         };
         walk.node(id, Point::default(), 1.0, clip);
-        let bounds = self.rect(id).unwrap_or_default();
-        for (layer, origin) in self.layers() {
-            if layer != id && self.tree().is_in_subtree(layer, id) {
-                walk.node(
-                    layer,
-                    Point {
-                        x: origin.x - bounds.x,
-                        y: origin.y - bounds.y,
-                    },
-                    1.0,
-                    clip,
-                );
-            }
+        for (layer, origin) in overlays {
+            walk.node(
+                layer,
+                Point {
+                    x: origin.x - bounds.x,
+                    y: origin.y - bounds.y,
+                },
+                1.0,
+                clip,
+            );
         }
-        crate::paint::state::PaintList {
+        PaintList {
             entries: walk.out,
             transforms: walk.transforms,
+            layers: walk.layers,
             ..Default::default()
         }
     }
@@ -335,6 +465,7 @@ fn presence_clip(
         rect
     })
 }
+
 fn opacity(
     host: &Model,
     id: NodeId,

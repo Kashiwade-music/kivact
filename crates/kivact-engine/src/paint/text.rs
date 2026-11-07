@@ -9,14 +9,12 @@ use crate::model::Model;
 use kivact_types::{DrawList, Fill, NodeId, Point, Rect};
 
 impl Model {
-    /// The painting context of `pass`: its assets, raster scale and
-    /// purpose. A window drops the failures the context keeps.
-    fn painting(&self, pass: PaintPass) -> Context<'_> {
-        let mut context = Context::new(&self.assets, pass.scale, &self.paint.scene_cache);
-        context.purpose = pass.purpose;
-        context
+    /// The painting context of `pass`: its assets and raster scale.
+    pub(super) fn painting(&self, pass: PaintPass) -> Context<'_> {
+        Context::new(&self.assets, pass.scale, &self.paint.scene_cache)
     }
 
+    /// Fill `shape` with `fill` at `origin`; a shader layer is an item.
     pub(crate) fn fill(
         &self,
         out: &mut crate::lower::SceneOut,
@@ -27,7 +25,7 @@ impl Model {
         pass: PaintPass,
     ) {
         let context = self.painting(pass);
-        context.fill(out, shape, fill, tint, origin);
+        context.fill_items(out, shape, fill, tint, origin);
         context.finish();
     }
 
@@ -53,6 +51,7 @@ impl Model {
             .any(|cmd| matches!(cmd, kivact_types::DrawCmd::Text(run) if crate::lower::glyphs::inherits(run)))
             .then(|| self.text_props(id));
         let context = self.painting(pass);
+        out.scope(id, layer);
         context.paint_scene(scene, inherited.as_deref(), origin, tint, engine, out);
         let dropped = context.finish().dropped;
         if dropped == 0 {

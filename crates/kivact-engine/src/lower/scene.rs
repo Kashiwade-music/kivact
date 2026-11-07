@@ -19,9 +19,10 @@
 //!   canvas's size) is pushed as Arvane's `PushTransform` about the canvas
 //!   origin, never flattened here, so it applies alike to text, images,
 //!   clips, fills, strokes and shadows; under it images are rasterized for
-//!   its zoom too (`raster_zoom`). A layer opens a group
-//!   (`effects`: clip, opacity, blend); its filters, masks, Porter-Duff
-//!   operator and 3D transform need a compositor layer and are not lowered.
+//!   its zoom too (`raster_zoom`). A layer opens a group (clip, opacity,
+//!   blend) unless it needs a compositor layer (a 3D transform, a filter, a
+//!   mask, a Porter–Duff operator, or an item inside it): then it opens a
+//!   child layer of the composition (`layers`, `layer_effects`).
 //! - A rect clip (`DrawCmd::PushClip`, kivact's `Layer::clip_rect`) opens
 //!   no group: it is Arvane's `PushClip`. A layer's clip shape (kivact's
 //!   `Layer::clip(&Shape)`, placed in its area) is the clip of the layer's
@@ -34,9 +35,8 @@
 //!   limit); both are drawn at their opacity, sampled nearest-neighbour
 //!   when pixelated.
 //! - An external frame (`DrawCmd::External`) is a compositor layer item,
-//!   which this lowering has no place for: it draws its CPU pixels where
-//!   the destination is the CPU and has them, and counts as dropped
-//!   otherwise on the CPU; a window draws nothing for it.
+//!   carrying its CPU pixels, which the CPU compositor draws where it has
+//!   them. A shader fill is a layer item too (`layer_effects`).
 //! - A scene passes its neutral asset sources directly to the asset store.
 //! - A text run with a size or origin that is not finite, or a negative
 //!   size, is dropped; one of size 0 draws nothing.
@@ -45,10 +45,12 @@
 //!   origin that is not finite is dropped.
 
 mod geometry;
+mod layer_effects;
 mod layers;
 mod paint;
 mod raster;
 mod state;
 mod text;
 
+pub(crate) use layers::scene_layers;
 pub(crate) use raster::raster_zoom;

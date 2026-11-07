@@ -32,7 +32,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use crate::lower::assets::ArvaneAssets;
-use crate::lower::context::{Context, Purpose};
+use crate::lower::context::Context;
 use crate::lower::effects::Tint;
 use crate::text_measure::TextMeasurer;
 use kivact_types::{Asset, ComputedTextStyle, DrawList, PlatformResult, Rect, Size};
@@ -127,8 +127,7 @@ impl OffscreenRenderer {
     ) -> Result<OffscreenImage, OffscreenError> {
         self.assets.get_mut().begin_frame();
         self.assets.get_mut().discard_failures();
-        let mut context = Context::new(&self.assets, 1.0, &self.scene_cache);
-        context.purpose = Purpose::Cpu;
+        let context = Context::new(&self.assets, 1.0, &self.scene_cache);
         let mut lowered = crate::lower::SceneOut::default();
         context.paint_scene(
             scene,
@@ -155,13 +154,10 @@ impl OffscreenRenderer {
         }
         // The failures the store kept are the ones the context reported.
         self.assets.get_mut().discard_failures();
-        let composition = crate::lower::composition::root_composition(
-            lowered.into_scene(),
-            Size {
-                width: size.0 as f64,
-                height: size.1 as f64,
-            },
-        );
+        let composition = lowered.into_composition(Size {
+            width: size.0 as f64,
+            height: size.1 as f64,
+        });
         self.render_composition(&composition, size)
     }
 

@@ -2,7 +2,7 @@
 use super::state::State;
 use crate::lower::context::Context;
 use crate::lower::sanitize;
-use kivact_types::render::RenderCmd as D;
+use kivact_types::render::{ExternalItem, LayerItem, RenderCmd as D};
 use kivact_types::{DrawCmd, Rect, Size};
 impl Context<'_> {
     pub(super) fn paint_raster(&self, cmd: &DrawCmd, state: &mut State<'_>) -> bool {
@@ -36,6 +36,7 @@ impl Context<'_> {
                 true
             }
             DrawCmd::External {
+                frame,
                 cpu_pixels,
                 rect: r,
                 source,
@@ -43,24 +44,19 @@ impl Context<'_> {
                 pixelated,
                 ..
             } => {
-                if self.purpose == crate::lower::context::Purpose::Cpu
-                    && let Some(image) = cpu_pixels
-                {
-                    state.out.push(D::ImageSampled {
-                        image: image.clone(),
-                        rect: rect(*r),
-                        source: *source,
-                        opacity: opacity.clamp(0.0, 1.0) * tint.alpha,
-                        pixelated: *pixelated,
-                    });
-                    return true;
-                }
-                // A frame of an external engine is a compositor layer item, which
-                // the paint model cannot place among its commands; the CPU has
-                // no representation of it either: count it as not drawn.
-                if self.purpose == crate::lower::context::Purpose::Cpu {
-                    self.drop_command();
-                }
+                // A frame of an external engine is a layer item; the CPU
+                // compositor draws its `cpu` pixels when it has them.
+                let item = ExternalItem {
+                    frame: frame.clone(),
+                    rect: rect(*r),
+                    source: *source,
+                    transform: state.out.space(),
+                    clips: state.out.clips(),
+                    opacity: opacity.clamp(0.0, 1.0) * tint.alpha,
+                    pixelated: *pixelated,
+                    cpu: cpu_pixels.clone(),
+                };
+                state.out.item(LayerItem::External(item));
                 true
             }
             DrawCmd::ImagePart { .. } => {
