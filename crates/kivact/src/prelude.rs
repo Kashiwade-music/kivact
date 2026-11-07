@@ -29,6 +29,10 @@ pub use crate::style::{
 
 pub use crate::style::{use_theme, use_tokens};
 
+pub use crate::motion::{Easing, Spring, Transition, animated, frame_loop, timeline};
+
+pub use crate::draw::Transform;
+
 pub use crate::task::ActionMode;
 
 pub use crate::task::{Action, AsyncState, Resource, action, blocking, resource, spawn};

@@ -1,7 +1,7 @@
 //! Role: Render loading placeholders and pause their clock for reduced motion.
 use crate::variants::{Variant, Variants};
 use crate::{SkeletonShape, SkeletonState};
-use kivact_core::motion::{Animated, Easing, Repeat, Transition};
+use kivact_core::motion::{Animated, Easing, Repeat, Stagger, Transition};
 use kivact_core::state::{IntoValue, Value, effect};
 use kivact_core::view::{IntoView, Node, NodeBuilder, View, column, for_index, node};
 pub struct Skeleton {
@@ -48,7 +48,10 @@ impl IntoView for Skeleton {
     fn into_view(self) -> View {
         let tokens = kivact_core::style::use_tokens::<crate::UiTokens>();
         let period = tokens.indicators.period_ms;
-        let delay = tokens.indicators.delay_ms + self.index as f64 * tokens.indicators.stagger_ms;
+        // The placeholder is the last of the group 0..=index, so a linear stagger
+        // from the first item gives `index * stagger_ms`.
+        let stagger = Stagger::new(tokens.indicators.stagger_ms);
+        let delay = tokens.indicators.delay_ms + stagger.delay(self.index, self.index + 1);
         let transition = tokens
             .indicators
             .skeleton_transition

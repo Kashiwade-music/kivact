@@ -241,7 +241,7 @@ fn control(open: Value<bool>, all: bool) -> Button {
                     0.0
                 })
                 .transition(
-                    TransitionProp::Paint,
+                    TransitionProp::All,
                     Transition::tween(150, Easing::CubicBezier(0.25, 0.1, 0.25, 1.0)),
                 )
         }),

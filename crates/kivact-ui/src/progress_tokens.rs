@@ -2,7 +2,7 @@
 use kivact_core::motion::Easing;
 // xtask-allow(state-fields): Independent immutable animation settings supplied by the theme, not mounted animation state.
 /// Timing of standard progress bars. Configure it through [`crate::UiTokens`].
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct ProgressMotion {
     /// Whether the first determinate fill animates from zero.
     pub animate_initial: bool,

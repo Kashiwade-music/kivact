@@ -106,7 +106,7 @@ impl Swipe {
         } else {
             transition.clone()
         };
-        let base = style().transition(TransitionProp::Paint, timing);
+        let base = style().transition(TransitionProp::All, timing);
         let (travel, height, base) = match swipe {
             machine::Swipe::Dragging { contact, offset } => (offset, contact.height, base),
             // Only a qualifying swipe slides the card off; any other

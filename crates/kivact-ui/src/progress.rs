@@ -155,10 +155,19 @@ impl IntoView for Progress {
             variants,
         } = self;
         let target = memo(move || fraction(value.get()));
-        let motion_override = variants.look(()).variant::<ProgressMotion>().copied();
-        let motion = motion_override
-            .unwrap_or_else(|| use_theme().get().ext::<crate::UiTokens>().progress.motion);
-        let transition = Transition::tween(motion.determinate_ms as f64, motion.determinate_easing);
+        let motion_override = variants.look(()).variant::<ProgressMotion>().cloned();
+        let motion = motion_override.clone().unwrap_or_else(|| {
+            use_theme()
+                .get()
+                .ext::<crate::UiTokens>()
+                .progress
+                .motion
+                .clone()
+        });
+        let transition = Transition::tween(
+            motion.determinate_ms as f64,
+            motion.determinate_easing.clone(),
+        );
         let fill = move || target.get().unwrap_or(0.0);
         let shown = if motion.animate_initial {
             Animated::from(0.0, fill, transition)
@@ -224,8 +233,14 @@ fn motion_clock(
 ) -> Value<f64> {
     let phase = signal(0.0f64);
     let period = memo(move || {
-        let motion = motion_override
-            .unwrap_or_else(|| use_theme().get().ext::<crate::UiTokens>().progress.motion);
+        let motion = motion_override.clone().unwrap_or_else(|| {
+            use_theme()
+                .get()
+                .ext::<crate::UiTokens>()
+                .progress
+                .motion
+                .clone()
+        });
         if is_motion_reduced().get() {
             motion.reduced_period_ms
         } else {

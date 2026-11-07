@@ -15,7 +15,7 @@ pub(super) fn surface(header: bool, selected: bool, tint: Option<Color>) -> Styl
     if !header {
         base = base.group_hover(style().background(over(&theme, paint.hover, color)));
         if let Some(transition) = paint.overlay_transition.clone() {
-            base = base.transition(TransitionProp::Paint, transition);
+            base = base.transition(TransitionProp::All, transition);
         }
     }
     base
