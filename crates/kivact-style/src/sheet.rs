@@ -87,7 +87,9 @@
 //!   `Length` and duplicate diagnostics; one side never sets another, so an
 //!   asymmetric layout needs only the public `Style`.
 
-use kivact_types::{Align, Cursor, ScrollAxes, TextAlign};
+use kivact_types::{
+    Align, BackfaceVisibility, Cursor, Isolation, ScrollAxes, TextAlign, TransformStyle, WillChange,
+};
 
 use super::color::Color;
 use super::draw::{Draw, LocalPaint, Size};
@@ -96,10 +98,10 @@ use super::effect::{BlendMode, BorderStyle, CornerRadius, Filter, Shadow, Shape}
 use super::grid::Track;
 use super::grid::{GridAutoFlow, GridPlacement, GridStyle, Tracks};
 use super::length::Length;
-use super::paint::{Background, Paint};
+use super::paint::{Background, BorderImage, Mask};
 use super::text::{
-    FontFeature, FontKerning, LineHeight, TextDecorationLine, TextExtras, TextLength, TextOverflow,
-    TextTransform,
+    FontFeature, FontKerning, FontVariation, LineHeight, PaintOrder, TextDecorationLine,
+    TextExtras, TextLength, TextOverflow, TextTransform,
 };
 use super::theme::value::ThemeColor;
 use crate::transform::Transform;
@@ -145,19 +147,9 @@ pub use kivact_types::Position;
 #[doc(inline)]
 pub use kivact_types::Overflow;
 
-/// Property group animated by `Style::transition`.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum TransitionProp {
-    /// Paint: opacity, a solid background color, border and text colors, the
-    /// transform (its translate, rotate, skew and scale parts and its
-    /// origin: `rotate(0)` to `rotate(360)` turns once), the first two
-    /// shadows (offset, blur, spread, color) and the filter's amounts
-    /// (brightness .. opacity, blur, drop shadow). Gradients, images,
-    /// shapes, the z-index and the filter's order change at once.
-    Paint,
-    /// Entrance and exit size along the selected axis.
-    Size,
-}
+/// Property group animated by `Style::transition` (the wire enum).
+#[doc(inline)]
+pub use kivact_types::TransitionProp;
 
 // xtask-allow(state-fields): Each independently unspecified edge participates in style cascading.
 #[derive(Clone, Copy, Debug, PartialEq, Default)]
@@ -218,7 +210,8 @@ pub struct Style {
     /// Border widths and colors, top, right, bottom, left.
     pub(super) border_width: [Option<f64>; 4],
     pub(super) border_color: [Option<Color>; 4],
-    pub(super) border_style: Option<BorderStyle>,
+    /// Border line styles, top, right, bottom, left.
+    pub(super) border_style: [Option<BorderStyle>; 4],
     pub(super) ring: Option<(f64, f64, Color)>,
     /// Corner radii, top left, top right, bottom right, bottom left.
     pub(super) radius: [Option<CornerRadius>; 4],
@@ -231,6 +224,17 @@ pub struct Style {
     pub(super) scale: Option<(f64, f64)>,
     pub(super) transform: Option<Transform>,
     pub(super) transform_origin: Option<(Length, Length)>,
+    pub(super) translate_z: Option<f64>,
+    pub(super) rotate_x: Option<f64>,
+    pub(super) rotate_y: Option<f64>,
+    pub(super) transform_origin_z: Option<f64>,
+    pub(super) perspective: Option<f64>,
+    pub(super) perspective_origin: Option<(Length, Length)>,
+    pub(super) transform_style: Option<TransformStyle>,
+    pub(super) backface: Option<BackfaceVisibility>,
+    pub(super) will_change: Option<WillChange>,
+    pub(super) isolation: Option<Isolation>,
+    pub(super) border_image: Option<Box<BorderImage>>,
     pub(super) scrollbar: Option<Box<ScrollbarStyle>>,
     pub(super) cursor: Option<Cursor>,
     pub(super) z_index: Option<i32>,
@@ -238,7 +242,7 @@ pub struct Style {
     pub(super) filter: Option<Filter>,
     pub(super) backdrop_filter: Option<Filter>,
     pub(super) blend: Option<BlendMode>,
-    pub(super) mask: Option<Box<Paint>>,
+    pub(super) mask: Option<Box<Mask>>,
     pub(super) clip_path: Option<Box<Shape>>,
     pub(super) font_size: Option<f64>,
     pub(super) weight: Option<u16>,
@@ -267,15 +271,6 @@ pub struct Style {
     pub(super) layout_transition: Option<Transition>,
     pub(super) transitions: Vec<(TransitionProp, Transition)>,
     pub(super) duplicates: u32,
-}
-
-/// The transition of the paint props (`TransitionProp::Paint`), if `s`
-/// sets one.
-pub(crate) fn paint_transition(s: &Style) -> Option<Transition> {
-    s.transitions
-        .iter()
-        .find(|(p, _)| *p == TransitionProp::Paint)
-        .map(|(_, t)| t.clone())
 }
 
 /// Start a style chain.
@@ -430,10 +425,10 @@ impl Style {
         /// CSS `mix-blend-mode`.
         mix_blend_mode, blend, BlendMode, |v| v);
     setter!(
-        /// CSS `mask`: the node and its subtree keep the alpha of this
-        /// paint (`mask(linear_gradient(180).colors([Color::BLACK,
+        /// CSS `mask`: the node and its subtree keep the alpha of these
+        /// layers (`mask(linear_gradient(180).colors([Color::BLACK,
         /// Color::TRANSPARENT]))` fades them out downwards).
-        mask, mask, impl Into<Paint>, |v: Paint| Box::new(v));
+        mask, mask, impl Into<Mask>, |v: Mask| Box::new(v));
     setter!(
         /// CSS `clip-path`: the node's own paint (background, border,
         /// shadows) and its subtree are clipped to `shape`, and so are
@@ -616,6 +611,58 @@ impl Style {
         self
     }
 
+    setter!(
+        /// CSS `translate` on the z axis, in px (`translateZ`).
+        translate_z, translate_z, impl Into<f64>, |v: f64| v);
+
+    setter!(
+        /// CSS `rotate` about the x axis, in degrees (`rotateX`).
+        rotate_x, rotate_x, impl Into<f64>, |v: f64| v);
+
+    setter!(
+        /// CSS `rotate` about the y axis, in degrees (`rotateY`).
+        rotate_y, rotate_y, impl Into<f64>, |v: f64| v);
+
+    setter!(
+        /// The z of the transform origin, in px (the third value of CSS `transform-origin`).
+        transform_origin_z, transform_origin_z, impl Into<f64>, |v: f64| v);
+
+    setter!(
+        /// CSS `perspective` of this node's children, in px: the distance of
+        /// the viewer. The origin is the center of the box unless
+        /// [`perspective_origin`](Self::perspective_origin) says otherwise.
+        perspective, perspective, impl Into<f64>, |v: f64| v);
+
+    /// CSS `perspective-origin`: where the viewer looks at, against the box.
+    pub fn perspective_origin(mut self, x: impl Into<Length>, y: impl Into<Length>) -> Self {
+        if self.perspective_origin.is_some() {
+            self.duplicates += 1;
+        }
+        self.perspective_origin = Some((x.into(), y.into()));
+        self
+    }
+
+    setter!(
+        /// CSS `transform-style`: `Preserve3d` keeps the children in one 3D space.
+        transform_style, transform_style, TransformStyle, |v| v);
+
+    setter!(
+        /// CSS `backface-visibility`.
+        backface_visibility, backface, BackfaceVisibility, |v| v);
+
+    setter!(
+        /// CSS `will-change`.
+        will_change, will_change, WillChange, |v| v);
+
+    setter!(
+        /// CSS `isolation`.
+        isolation, isolation, Isolation, |v| v);
+
+    setter!(
+        /// CSS `border-image`: a picture or a gradient cut into nine pieces
+        /// that fill the border.
+        border_image, border_image, BorderImage, Box::new);
+
     /// A border on every side (CSS `border: w solid c`). Like padding, it
     /// takes room inside the box (CSS `box-sizing: border-box`): the
     /// children and the text sit inside the border and the padding, and a
@@ -666,10 +713,38 @@ impl Style {
 
     /// How every side's border is drawn (CSS `border-style`).
     pub fn border_style(mut self, s: BorderStyle) -> Self {
-        if self.border_style.is_some() {
+        if self.border_style.iter().any(Option::is_some) {
             self.duplicates += 1;
         }
-        self.border_style = Some(s);
+        self.border_style = [Some(s); 4];
+        self
+    }
+
+    /// The top border's line style alone (CSS `border-top-style`).
+    pub fn border_top_style(self, s: BorderStyle) -> Self {
+        self.border_side_style(0, s)
+    }
+
+    /// The right border's line style alone (CSS `border-right-style`).
+    pub fn border_right_style(self, s: BorderStyle) -> Self {
+        self.border_side_style(1, s)
+    }
+
+    /// The bottom border's line style alone (CSS `border-bottom-style`).
+    pub fn border_bottom_style(self, s: BorderStyle) -> Self {
+        self.border_side_style(2, s)
+    }
+
+    /// The left border's line style alone (CSS `border-left-style`).
+    pub fn border_left_style(self, s: BorderStyle) -> Self {
+        self.border_side_style(3, s)
+    }
+
+    fn border_side_style(mut self, side: usize, s: BorderStyle) -> Self {
+        if self.border_style[side].is_some() {
+            self.duplicates += 1;
+        }
+        self.border_style[side] = Some(s);
         self
     }
 
@@ -1025,7 +1100,6 @@ impl Style {
             scroll_axes,
             scroll_snap,
             background,
-            border_style,
             ring,
             shadows,
             opacity,
@@ -1033,6 +1107,17 @@ impl Style {
             scale,
             transform,
             transform_origin,
+            translate_z,
+            rotate_x,
+            rotate_y,
+            transform_origin_z,
+            perspective,
+            perspective_origin,
+            transform_style,
+            backface,
+            will_change,
+            isolation,
+            border_image,
             z_index,
             cursor,
             clip,
@@ -1071,6 +1156,9 @@ impl Style {
         self.margin.merge(&o.margin);
         self.inset.merge(&o.inset);
         for (a, b) in self.border_width.iter_mut().zip(o.border_width) {
+            *a = b.or(*a);
+        }
+        for (a, b) in self.border_style.iter_mut().zip(o.border_style) {
             *a = b.or(*a);
         }
         for (a, b) in self.border_color.iter_mut().zip(o.border_color) {
@@ -1248,6 +1336,44 @@ impl Style {
         /// CSS `text-transform`: draw the text in upper case, lower case
         /// or capitalized; its accessible name keeps it as written.
         text_transform, transform, TextTransform, |v| v);
+    /// CSS `-webkit-text-stroke`: the outline of the glyphs, in px or em, in
+    /// `color`, drawn over or under the fill as `paint_order` says.
+    pub fn text_stroke(mut self, width: impl Into<TextLength>, color: impl ThemeColor) -> Self {
+        let x = self.text.get_or_insert_with(Default::default);
+        if x.stroke.is_some() {
+            self.duplicates += 1;
+        }
+        let x = self.text.get_or_insert_with(Default::default);
+        x.stroke = Some((width.into(), Color::of(color)));
+        self
+    }
+
+    text_setter!(
+        /// CSS `paint-order`: whether the fill or the stroke of the glyphs is drawn first.
+        paint_order, paint_order, PaintOrder, |v| v);
+
+    /// CSS `font-variation-settings`: axis settings such as `wght`.
+    pub fn font_variation_settings(
+        mut self,
+        settings: impl IntoIterator<Item = impl Into<FontVariation>>,
+    ) -> Self {
+        let x = self.text.get_or_insert_with(Default::default);
+        if x.variations.is_some() {
+            self.duplicates += 1;
+        }
+        let x = self.text.get_or_insert_with(Default::default);
+        x.variations = Some(settings.into_iter().map(Into::into).collect());
+        self
+    }
+
+    text_setter!(
+        /// CSS `font-optical-sizing`: whether the optical size axis follows the font size.
+        font_optical_sizing, optical_sizing, bool, |v| v);
+
+    text_setter!(
+        /// CSS `font-stretch` as a percentage of the normal width (50 to 200).
+        font_width, font_width, impl Into<f64>, |v: f64| v);
+
     text_color_setter!(
         /// CSS `caret-color` of a text field.
         caret_color, caret_color);

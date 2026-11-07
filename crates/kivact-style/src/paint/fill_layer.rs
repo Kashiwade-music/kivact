@@ -18,6 +18,7 @@ pub(crate) fn fill_layer(l: &Paint, theme: &Theme) -> FillLayer {
             PaintImage::Gradient(g) => FillImage::Gradient(gradient(g, theme)),
             PaintImage::Canvas(g) => FillImage::Coordinate(canvas_gradient(g, theme)),
             PaintImage::Image(a) => FillImage::Image(a.clone()),
+            PaintImage::Shader(s) => FillImage::Shader(std::sync::Arc::new(s.spec(theme))),
         },
         size: match l.size {
             PaintSize::Auto => FillSize::Auto,
@@ -28,6 +29,9 @@ pub(crate) fn fill_layer(l: &Paint, theme: &Theme) -> FillLayer {
         position: [len(l.position.0), len(l.position.1)],
         repeat_x: l.repeat.0,
         repeat_y: l.repeat.1,
+        clip: l.clip,
+        origin: l.origin,
+        blend: l.blend,
     }
 }
 
@@ -52,14 +56,31 @@ fn canvas_gradient(g: &CanvasGradient, theme: &Theme) -> p::CoordinateGradient {
         stops: g
             .stops
             .iter()
-            .map(|(o, c)| (*o, c.resolve(theme)))
+            .map(|(o, c)| (*o, c.resolve_space(theme)))
             .collect(),
         extend: g.extend,
+        interpolation: g.interpolation,
     }
 }
 
 fn gradient(g: &Gradient, theme: &Theme) -> p::Gradient {
     let at = |(x, y): (Length, Length)| [x.to_len(), y.to_len()];
+    let stops: Vec<GradientStop> = g
+        .stops
+        .iter()
+        .map(|(c, at)| GradientStop {
+            color: c.resolve_space(theme),
+            at: at.map(Length::to_len),
+        })
+        .collect();
+    // One hint per gap between stops; the last stop's hint has no gap.
+    let gaps = stops.len().saturating_sub(1);
+    let hints = g
+        .hints
+        .iter()
+        .take(gaps)
+        .map(|h| h.map(Length::to_len))
+        .collect();
     p::Gradient {
         kind: match g.kind {
             GradientKind::Linear { angle } => WireKind::Linear { angle_deg: angle },
@@ -85,14 +106,9 @@ fn gradient(g: &Gradient, theme: &Theme) -> p::Gradient {
                 center: at(c),
             },
         },
-        stops: g
-            .stops
-            .iter()
-            .map(|(c, at)| GradientStop {
-                color: c.resolve(theme),
-                at: at.map(Length::to_len),
-            })
-            .collect(),
+        stops,
+        hints,
         repeating: g.repeating,
+        interpolation: g.interpolation,
     }
 }

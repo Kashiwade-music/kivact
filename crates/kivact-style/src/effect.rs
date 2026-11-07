@@ -4,6 +4,8 @@
 //! `Style` (and of custom drawing), and how a shape and a filter become the
 //! engine's.
 
+use std::sync::Arc;
+
 use kivact_types as p;
 use kivact_types::{ClipShape, Corners, FilterOp};
 
@@ -11,6 +13,16 @@ use super::color::Color;
 use super::geometry::{Point, Rect, corner};
 use super::length::Length;
 use super::theme::value::{Theme, ThemeColor};
+
+mod filter_graph;
+
+pub(crate) use filter_graph::AuthoredGraph;
+pub use filter_graph::{FilterGraph, FilterInput};
+pub use kivact_types::{
+    Channel, CompositeOp, EdgeMode, Light, MorphologyOp, TransferFn, TurbulenceKind,
+};
+
+use crate::shader::ShaderFilter;
 
 /// A box shadow (CSS `box-shadow`); several stack, the first on top.
 ///
@@ -80,7 +92,7 @@ pub use super::geometry::CornerRadius;
 #[doc(inline)]
 pub use kivact_types::BlendMode;
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub(crate) enum FilterFn {
     Brightness(f64),
     Contrast(f64),
@@ -96,6 +108,10 @@ pub(crate) enum FilterFn {
         blur: f64,
         color: Color,
     },
+    /// An SVG filter graph (`Filter::graph`).
+    Graph(Arc<AuthoredGraph>),
+    /// A filter shader (`Filter::shader`).
+    Shader(Arc<ShaderFilter>),
 }
 
 /// A list of CSS filter functions, applied in order (CSS `filter`,
@@ -181,6 +197,32 @@ impl Filter {
         });
         self
     }
+
+    /// An SVG filter graph (CSS `url(#filter)`), built with [`FilterGraph`].
+    /// Its problems are reported when the style is compiled, and the graph
+    /// is then dropped.
+    pub fn graph(mut self, graph: FilterGraph) -> Filter {
+        self.ops.push(FilterFn::Graph(Arc::new(graph.built())));
+        self
+    }
+
+    /// A filter shader (see [`ShaderFilter`]), applied in its place in the list.
+    pub fn shader(mut self, shader: ShaderFilter) -> Filter {
+        self.ops.push(FilterFn::Shader(Arc::new(shader)));
+        self
+    }
+}
+
+/// The problems the filter's graphs and shaders have, for reporting.
+pub(crate) fn filter_problems(f: &Filter, theme: &Theme) -> Vec<String> {
+    f.ops
+        .iter()
+        .filter_map(|op| match op {
+            FilterFn::Graph(g) => g.problem(theme).map(|e| format!("filter graph: {e}")),
+            FilterFn::Shader(s) => s.problems().first().cloned(),
+            _ => None,
+        })
+        .collect()
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -360,25 +402,31 @@ pub(super) fn clip_shape(shape: &ShapeKind) -> ClipShape {
 pub(crate) fn filter_ops(f: &Filter, theme: &Theme) -> Vec<FilterOp> {
     f.ops
         .iter()
-        .map(|op| match *op {
-            FilterFn::Brightness(a) => FilterOp::Brightness(a),
-            FilterFn::Contrast(a) => FilterOp::Contrast(a),
-            FilterFn::Saturate(a) => FilterOp::Saturate(a),
-            FilterFn::Grayscale(a) => FilterOp::Grayscale(a),
-            FilterFn::Sepia(a) => FilterOp::Sepia(a),
-            FilterFn::HueRotate(a) => FilterOp::HueRotate(a),
-            FilterFn::Invert(a) => FilterOp::Invert(a),
-            FilterFn::Opacity(a) => FilterOp::Opacity(a),
-            FilterFn::Blur(a) => FilterOp::Blur(a),
+        .filter_map(|op| match op {
+            FilterFn::Brightness(a) => Some(FilterOp::Brightness(*a)),
+            FilterFn::Contrast(a) => Some(FilterOp::Contrast(*a)),
+            FilterFn::Saturate(a) => Some(FilterOp::Saturate(*a)),
+            FilterFn::Grayscale(a) => Some(FilterOp::Grayscale(*a)),
+            FilterFn::Sepia(a) => Some(FilterOp::Sepia(*a)),
+            FilterFn::HueRotate(a) => Some(FilterOp::HueRotate(*a)),
+            FilterFn::Invert(a) => Some(FilterOp::Invert(*a)),
+            FilterFn::Opacity(a) => Some(FilterOp::Opacity(*a)),
+            FilterFn::Blur(a) => Some(FilterOp::Blur(*a)),
             FilterFn::DropShadow {
                 offset,
                 blur,
                 color,
-            } => FilterOp::DropShadow {
-                offset,
-                blur,
+            } => Some(FilterOp::DropShadow {
+                offset: *offset,
+                blur: *blur,
                 color: color.resolve(theme),
-            },
+            }),
+            // A graph with a problem is dropped (reported by `filter_problems`).
+            FilterFn::Graph(g) => g
+                .resolve(theme)
+                .ok()
+                .map(|graph| FilterOp::Graph(Arc::new(graph))),
+            FilterFn::Shader(s) => Some(FilterOp::Shader(Arc::new(s.spec(theme)))),
         })
         .collect()
 }

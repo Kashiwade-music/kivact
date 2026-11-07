@@ -42,6 +42,9 @@ pub fn compile_span_style(style: &SpanStyle, theme: &Theme) -> CompiledSpanStyle
                 theme,
             )
         }),
+        stroke: None,
+        variations: None,
+        font_width: None,
         background: style.background.as_ref().map(|paint| match paint.solid() {
             Some(c) => p::Fill::Solid(c.resolve(theme)),
             None => p::Fill::Layers(vec![fill_layer(paint, theme)]),

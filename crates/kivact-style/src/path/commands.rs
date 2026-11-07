@@ -18,6 +18,14 @@ impl Path {
     pub fn new() -> Self {
         Self::default()
     }
+
+    /// A path of these commands, not even-odd (for outlines the shaper gives).
+    pub(crate) fn from_cmds(cmds: Vec<p::PathCmd>) -> Self {
+        Path {
+            cmds,
+            even_odd: false,
+        }
+    }
     pub fn move_to(mut self, point: Point) -> Self {
         self.cmds.push(p::PathCmd::MoveTo(point));
         self

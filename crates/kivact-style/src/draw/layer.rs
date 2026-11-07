@@ -2,9 +2,11 @@
 use super::recorder::Draw;
 use crate::effect::{BlendMode, Filter, Shadow, Shape, basic, filter_ops};
 use crate::geometry::Rect;
-use crate::paint::{Paint, fill_layer};
+use crate::paint::Mask;
 use crate::transform::Transform;
 use kivact_types as p;
+use kivact_types::render::Composite;
+use kivact_types::{BackfaceVisibility, TransformStyle};
 
 // xtask-allow(state-fields): This authored drawing options bundle independently selects clip, opacity, transform and paint effects.
 /// What [`Draw::layer`](super::Draw::layer) applies to the commands its closure draws: a
@@ -13,9 +15,11 @@ use kivact_types as p;
 ///
 /// The parts apply from the outside in: the transform first (so the clip,
 /// the area and the mask are in the transformed coordinates), then the
-/// clip, then the group (opacity, blend, filter, mask, shadow), which is
-/// composited as one image. A clip outside a transform is a layer around a
-/// layer.
+/// clip, then the group (opacity, blend or composite, filter, mask, shadow),
+/// which is composited as one image. A clip outside a transform is a layer
+/// around a layer. A transform with a z component or a perspective is a 3D
+/// matrix that the group carries (its `transform_style` and
+/// `backface_visibility` apply to it); a 2D one maps the drawing directly.
 ///
 /// ```
 /// use kivact::draw::{Layer, Shape, Transform};
@@ -36,12 +40,15 @@ use kivact_types as p;
 pub struct Layer {
     pub(super) area: Option<Rect>,
     pub(super) transform: Option<Transform>,
+    pub(super) transform_style: TransformStyle,
+    pub(super) backface: BackfaceVisibility,
     pub(super) clip_rect: Option<Rect>,
     pub(super) clip: Option<Shape>,
     pub(super) opacity: f64,
     pub(super) blend: BlendMode,
+    pub(super) composite: Composite,
     pub(super) filter: Filter,
-    pub(super) mask: Option<Paint>,
+    pub(super) mask: Option<Mask>,
     pub(super) shadow: Option<Shadow>,
 }
 
@@ -57,10 +64,13 @@ impl Layer {
         Self {
             area: None,
             transform: None,
+            transform_style: TransformStyle::Flat,
+            backface: BackfaceVisibility::Visible,
             clip_rect: None,
             clip: None,
             opacity: 1.0,
             blend: BlendMode::Normal,
+            composite: Composite::SourceOver,
             filter: Filter::new(),
             mask: None,
             shadow: None,
@@ -79,6 +89,16 @@ impl Layer {
         self.transform = Some(t);
         self
     }
+    /// How the children of a 3D transform share one 3D space (CSS `transform-style`).
+    pub fn transform_style(mut self, style: TransformStyle) -> Self {
+        self.transform_style = style;
+        self
+    }
+    /// Whether the back face of a 3D transform is shown (CSS `backface-visibility`).
+    pub fn backface_visibility(mut self, backface: BackfaceVisibility) -> Self {
+        self.backface = backface;
+        self
+    }
     /// Clip to a shape placed in the [`area`](Self::area).
     pub fn clip(mut self, shape: &Shape) -> Self {
         self.clip = Some(shape.clone());
@@ -94,16 +114,27 @@ impl Layer {
         self.opacity = opacity.into();
         self
     }
+    /// The blend mode with what is beneath (CSS `mix-blend-mode`). It sets
+    /// the composite to source-over, as a blend does.
     pub fn blend(mut self, blend: BlendMode) -> Self {
         self.blend = blend;
+        self.composite = Composite::SourceOver;
+        self
+    }
+    /// The Porter–Duff composite with what is beneath (Canvas
+    /// `globalCompositeOperation`). It sets the blend to normal, so the
+    /// last of `blend` and `composite` wins.
+    pub fn composite(mut self, composite: Composite) -> Self {
+        self.composite = composite;
+        self.blend = BlendMode::Normal;
         self
     }
     pub fn filter(mut self, filter: Filter) -> Self {
         self.filter = filter;
         self
     }
-    /// Mask with `mask` painted over the [`area`](Self::area).
-    pub fn mask(mut self, mask: impl Into<Paint>) -> Self {
+    /// Mask with `mask` (its layers) painted over the [`area`](Self::area).
+    pub fn mask(mut self, mask: impl Into<Mask>) -> Self {
         self.mask = Some(mask.into());
         self
     }
@@ -121,10 +152,18 @@ impl Layer {
         self.clip.is_some()
             || self.opacity != 1.0
             || self.blend != BlendMode::Normal
+            || self.composite != Composite::SourceOver
             || self.filter != Filter::new()
             || self.mask.is_some()
             || self.shadow.is_some()
+            || self.transform.is_some_and(|t| !is_2d(&t))
     }
+}
+
+/// Whether `t` is a 2D affine transform on a box of `size` (drawn as a
+/// canvas transform, not a 3D group).
+fn is_2d(t: &Transform) -> bool {
+    t.to_wire([p::Len::ZERO, p::Len::ZERO], 0.0).is_2d()
 }
 
 impl Draw {
@@ -132,7 +171,8 @@ impl Draw {
     /// effects), which ends with `f`.
     pub fn layer(&mut self, layer: Layer, f: impl FnOnce(&mut Draw)) {
         let saved = self.transform;
-        if let Some(t) = layer.transform {
+        let transform_2d = layer.transform.filter(is_2d);
+        if let Some(t) = transform_2d {
             let [a, b, c, d, e, f] = t.matrix_for(self.size);
             let m = p::Transform { a, b, c, d, e, f };
             self.transform = m.then(self.transform);
@@ -152,7 +192,7 @@ impl Draw {
         if layer.clip_rect.is_some() {
             self.cmds.push(p::DrawCmd::PopClip);
         }
-        if layer.transform.is_some() {
+        if transform_2d.is_some() {
             self.transform = saved;
             self.cmds.push(p::DrawCmd::PopTransform);
         }
@@ -168,14 +208,27 @@ impl Draw {
             filter =
                 filter.drop_shadow(shadow.offset.x, shadow.offset.y, shadow.blur, shadow.color);
         }
+        // A 3D transform is carried by the group: its matrix about the canvas origin.
+        let transform = layer.transform.filter(|t| !is_2d(t)).map(|t| {
+            t.to_wire([p::Len::ZERO, p::Len::ZERO], 0.0)
+                .matrix(self.size)
+        });
         self.cmds
             .push(p::DrawCmd::PushLayer(Box::new(p::DrawingLayer {
                 area,
                 clip: layer.clip.as_ref().map(|shape| basic(area, shape)),
                 opacity: layer.opacity,
                 blend: layer.blend,
+                composite: layer.composite,
                 filter: filter_ops(&filter, &self.theme),
-                mask: layer.mask.as_ref().map(|p| fill_layer(p, &self.theme)),
+                masks: layer
+                    .mask
+                    .as_ref()
+                    .map(|m| m.wire(&self.theme))
+                    .unwrap_or_default(),
+                transform,
+                transform_style: layer.transform_style,
+                backface: layer.backface,
             })));
     }
 }

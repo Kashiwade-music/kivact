@@ -3,6 +3,7 @@
 use crate::color::Color;
 use crate::length::Length;
 use crate::theme::value::ThemeColor;
+use kivact_types::{ColorInterpolation, ColorSpace, HueInterpolation};
 
 /// The shape of a radial gradient's end, when no radius is given (CSS
 /// `closest-side` .. `farthest-corner`).
@@ -60,7 +61,10 @@ pub(crate) enum RadialSize {
 pub struct Gradient {
     pub(crate) kind: GradientKind,
     pub(crate) stops: Vec<(Color, Option<Length>)>,
+    /// The hint after each stop (the last one is unused), as `hint` sets it.
+    pub(crate) hints: Vec<Option<Length>>,
     pub(crate) repeating: bool,
+    pub(crate) interpolation: ColorInterpolation,
 }
 
 /// A linear gradient along `angle` degrees as CSS measures it: 0 to top,
@@ -113,7 +117,9 @@ impl Gradient {
         Gradient {
             kind,
             stops: Vec::new(),
+            hints: Vec::new(),
             repeating: false,
+            interpolation: ColorInterpolation::DEFAULT,
         }
     }
 
@@ -124,6 +130,7 @@ impl Gradient {
     /// 10.
     pub fn stop(mut self, color: impl ThemeColor, at: impl Into<Length>) -> Gradient {
         self.stops.push((Color::of(color), Some(at.into())));
+        self.hints.push(None);
         self
     }
 
@@ -131,8 +138,32 @@ impl Gradient {
     /// positioned neighbours (the first at 0%, the last at 100% when they
     /// have no position), as in CSS `linear-gradient(red, blue)`.
     pub fn colors<C: ThemeColor>(mut self, colors: impl IntoIterator<Item = C>) -> Gradient {
-        self.stops
-            .extend(colors.into_iter().map(|c| (Color::of(c), None)));
+        for c in colors {
+            self.stops.push((Color::of(c), None));
+            self.hints.push(None);
+        }
+        self
+    }
+
+    /// The color space the stops are interpolated in (CSS `in <space>`;
+    /// default Oklab).
+    pub fn interpolate(mut self, space: ColorSpace) -> Gradient {
+        self.interpolation.space = space;
+        self
+    }
+
+    /// How hues are interpolated in a polar space (CSS `in <space> <hue>`).
+    pub fn hue(mut self, hue: HueInterpolation) -> Gradient {
+        self.interpolation.hue = hue;
+        self
+    }
+
+    /// The midpoint between the stop before it and the next one: where
+    /// their colors are halfway (CSS color hint, `.hint(30)` after a stop).
+    pub fn hint(mut self, at: impl Into<Length>) -> Gradient {
+        if let Some(h) = self.hints.last_mut() {
+            *h = Some(at.into());
+        }
         self
     }
 
