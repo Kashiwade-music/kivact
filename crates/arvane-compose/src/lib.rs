@@ -8,6 +8,7 @@ mod gpu;
 mod gpu_unbuilt;
 mod output;
 mod plan;
+mod tables;
 
 pub use arvane_render::RenderError as ComposeError;
 pub use cpu::{CpuCompositor, CpuOutput, Rendered};

@@ -30,13 +30,13 @@ use super::convolve_matrix;
 use super::displacement_map;
 use super::lighting;
 use super::morphology;
-use super::tables::{LINEAR_RGB_TO_SRGB_TABLE, SRGB_TO_LINEAR_RGB_TABLE};
 use super::turbulence;
 use crate::ComposeError;
 use crate::cpu::blend::combine;
 use crate::cpu::blur::gaussian;
 use crate::cpu::effects::{blur_sigmas, color_matrix, drop_shadow};
 use crate::cpu::surface::{Pixmap, Premul, sample_bilinear, sample_nearest};
+use crate::tables::{LINEAR_RGB_TO_SRGB_TABLE, SRGB_TO_LINEAR_RGB_TABLE};
 
 /// A primitive's result: its pixels and the color space they are in.
 #[derive(Clone)]

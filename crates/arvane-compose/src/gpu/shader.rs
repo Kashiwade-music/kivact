@@ -300,11 +300,6 @@ impl GpuContext {
         op: &ShaderOp<'_>,
         frame: &FrameTextures<'_>,
     ) -> Result<(), ComposeError> {
-        if op.input.is_some() {
-            return Err(ComposeError::InvalidComposition(
-                "a paint shader reads a target, which the plan does not produce".into(),
-            ));
-        }
         let key = (op.shader.program.hash, true);
         if self.pipeline(op.shader.program.as_ref(), key).is_none() {
             return self.record_fallback(encoder, op, frame);

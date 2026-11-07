@@ -190,7 +190,6 @@ impl<'a> Builder<'a> {
                 scale: grid.scale,
                 size: grid.size,
                 redraw,
-                index: index.clone(),
             });
         }
         if cached {

@@ -42,6 +42,7 @@ pub(crate) struct ChunkKey {
 /// A shared allocation a cached record must keep alive, so that the
 /// address folded into its hash is not reused for other contents.
 #[derive(Clone, Debug)]
+#[expect(dead_code, reason = "held so the hashed pointers stay valid (§8.6)")]
 pub(crate) enum Retained {
     /// Pixel or byte storage.
     Bytes(AssetBytes),

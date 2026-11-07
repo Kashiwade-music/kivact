@@ -155,7 +155,6 @@ impl<'a> Builder<'a> {
             coverage,
             fallback,
             fallback_map,
-            input: None,
             opacity: shader.opacity,
         }));
         Ok(())

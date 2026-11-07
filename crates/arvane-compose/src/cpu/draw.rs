@@ -266,10 +266,6 @@ fn resolve<'a>(
                 None
             }
         },
-        Source::Pixels(pixels) => Some(Texture::Straight(Straight {
-            pixels,
-            source: None,
-        })),
     })
 }
 

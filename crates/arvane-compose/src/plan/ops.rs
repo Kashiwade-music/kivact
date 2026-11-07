@@ -3,7 +3,6 @@
 //! The plan knows no backend. A CPU or GPU executor draws these ops in order.
 
 use std::borrow::Cow;
-use std::sync::Arc;
 
 use kivact_types::Matrix4;
 use kivact_types::effect::ShaderUse;
@@ -130,8 +129,6 @@ pub(crate) struct ChunkTask<'a> {
     pub(crate) size: (u32, u32),
     /// The part to raster.
     pub(crate) redraw: Redraw,
-    /// Per command: hash and chunk px bounds, stored into the cache.
-    pub(crate) index: Arc<[(u64, Option<PixelRect>)]>,
 }
 
 /// Where a draw reads its pixels from.
@@ -150,8 +147,6 @@ pub(crate) enum Source<'a> {
         /// The source rectangle, None for all of it.
         source: Option<kivact_types::geometry::Rect>,
     },
-    /// Straight-alpha pixels (filter images and the like).
-    Pixels(&'a Pixels),
 }
 
 /// How a draw samples its source.
@@ -217,14 +212,30 @@ pub(crate) struct ShaderOp<'a> {
     /// The target drawn into.
     pub(crate) target: TargetId,
     /// The shader with its parameters and images.
+    #[cfg_attr(
+        not(feature = "gpu"),
+        expect(dead_code, reason = "read only by the GPU executor")
+    )]
     pub(crate) shader: &'a ShaderUse,
     /// Destination polygon in target px.
     pub(crate) polygon: Polygon,
     /// Target px → shader space.
+    #[cfg_attr(
+        not(feature = "gpu"),
+        expect(dead_code, reason = "read only by the GPU executor")
+    )]
     pub(crate) map: Projective,
     /// The shader's coordinate box size in logical px.
+    #[cfg_attr(
+        not(feature = "gpu"),
+        expect(dead_code, reason = "read only by the GPU executor")
+    )]
     pub(crate) size: Size,
     /// Shader px per logical px.
+    #[cfg_attr(
+        not(feature = "gpu"),
+        expect(dead_code, reason = "read only by the GPU executor")
+    )]
     pub(crate) px_per_unit: f64,
     /// The coverage chunk.
     pub(crate) coverage: ChunkKey,
@@ -233,8 +244,6 @@ pub(crate) struct ShaderOp<'a> {
     /// Target px → fallback chunk px. The chunk already holds the item's transform,
     /// so this is the layer-to-px map of the chunk's grid composed with the target's.
     pub(crate) fallback_map: Projective,
-    /// Filter shaders read this target as content.
-    pub(crate) input: Option<TargetId>,
     /// Alpha multiplier.
     pub(crate) opacity: f64,
 }
