@@ -31,3 +31,8 @@ pub(crate) enum PlaybackState {
     /// The repeat count is spent: the last frame is shown.
     Finished,
 }
+
+/// The playback slot of background layer `index` (slot 0 is the content image).
+pub(crate) fn background_slot(index: usize) -> u8 {
+    u8::try_from(index + 1).unwrap_or(u8::MAX)
+}

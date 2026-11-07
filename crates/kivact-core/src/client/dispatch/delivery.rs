@@ -80,6 +80,8 @@ pub(crate) fn dispatch(rt: &Runtime, host_event: &HostEvent) {
 
 fn dispatch_host(rt: &Runtime, host_event: &HostEvent) {
     match host_event {
+        // Reported as a UiError by the core's diagnostics (R21).
+        HostEvent::DuplicateLayoutId { .. } => {}
         HostEvent::EnvChanged {
             environment,
             surface_active,

@@ -205,7 +205,8 @@ impl Model {
                 // Around the clip path, beneath the node's paint.
                 border::focus_ring(out, &outline, Some(clip), ring, &tint);
             }
-            self.paint_box(&p, &outline, clip_path.is_some(), &tint, pass, out);
+            let boxes = self.node_boxes(id, &p, &outline, &tint, engine);
+            self.paint_box(&p, &boxes, clip_path.is_some(), &tint, pass, out);
         }
         for kind in inner {
             self.open(kind, &place, pass, out);
@@ -319,12 +320,13 @@ impl Model {
     fn paint_box(
         &self,
         p: &PaintProps,
-        outline: &BoxShape,
+        boxes: &Boxes,
         clip_path: bool,
         tint: &Tint,
         pass: PaintPass,
         out: &mut SceneOut,
     ) {
+        let outline = &boxes.border;
         let knockout = !border::opaque(p.background.as_ref(), tint);
         border::shadows(out, outline, &p.shadows, false, knockout, tint);
         if let Some(fill) = &p.background {
@@ -333,11 +335,7 @@ impl Model {
                 x: area.x,
                 y: area.y,
             };
-            let boxes = Boxes {
-                border: outline.clone(),
-                padding: outline.inset(shape::border_widths(p.border.as_ref())),
-            };
-            self.fill(out, &boxes, fill, tint, origin, pass);
+            self.fill(out, boxes, fill, tint, origin, pass);
         }
         border::shadows(out, outline, &p.shadows, true, false, tint);
         if let Some(image) = &p.border_image {

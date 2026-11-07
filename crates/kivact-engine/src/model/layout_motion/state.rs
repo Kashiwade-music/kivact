@@ -3,6 +3,7 @@
 use std::collections::HashMap;
 
 use kivact_types::NodeId;
+use kivact_types::cell::ReportOnceSet;
 use kivact_types::motion::{SpringRun, Transition};
 
 use super::shared::SharedLayouts;
@@ -15,6 +16,8 @@ pub(crate) struct LayoutMotion {
     pub(super) runs: HashMap<NodeId, LayoutAnimation>,
     /// The boxes of removed nodes with a layout id, for the next layout pass.
     pub(super) shared: SharedLayouts,
+    /// The layout ids already reported as duplicates.
+    pub(super) reported_ids: ReportOnceSet<std::sync::Arc<str>>,
 }
 
 /// One layout run: the window boxes (x, y, w, h) it moves from and to.

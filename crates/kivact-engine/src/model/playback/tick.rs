@@ -2,11 +2,16 @@
 
 use std::collections::BTreeMap;
 
+use kivact_types::paint::{Fill, FillImage};
 use kivact_types::{Asset, NodeId};
 
-use super::state::{Entry, PlaybackState};
+use super::state::{Entry, PlaybackState, background_slot};
 use super::timing::{frame_at, next_switch, settle};
 use crate::model::Model;
+
+/// The playing images, by node and slot: the content image of each drawn node
+/// (slot 0), and each animated background layer of a drawn node (its slot).
+type Wanted = BTreeMap<(NodeId, u8), Asset>;
 
 impl Model {
     /// Bring the playbacks up to date with the images drawn now: an entry
@@ -16,10 +21,10 @@ impl Model {
         let wanted = self.playing_images();
         self.playback
             .0
-            .retain(|(id, _), entry| wanted.get(id) == Some(&entry.asset));
+            .retain(|key, entry| wanted.get(key) == Some(&entry.asset));
         let now = self.frame.now();
-        for (id, asset) in wanted {
-            if self.playback.0.contains_key(&(id, 0)) {
+        for (key, asset) in wanted {
+            if self.playback.0.contains_key(&key) {
                 continue;
             }
             let Some(info) = self.assets.borrow_mut().animation(&asset) else {
@@ -34,32 +39,51 @@ impl Model {
             if let Some(at) = next_switch(&entry, now) {
                 self.frame.request(at);
             }
-            self.playback.0.insert((id, 0), entry);
+            self.playback.0.insert(key, entry);
         }
     }
 
-    /// The content images drawn now that play: their `playing` prop is not
-    /// false, and reduced motion is off.
-    fn playing_images(&self) -> BTreeMap<NodeId, Asset> {
+    /// The animated images drawn now that play: a content image whose
+    /// `playing` prop is not false, and each animated background layer. Reduced
+    /// motion plays none.
+    fn playing_images(&self) -> Wanted {
+        let mut wanted = Wanted::new();
         if self.frame.reduced_motion() {
-            return BTreeMap::new();
+            return wanted;
         }
-        self.tree
-            .iter()
-            .filter_map(|(id, node)| {
-                let asset = node.image()?.clone();
+        for (id, node) in self.tree.iter() {
+            if !self.tree.drawn(id) {
+                continue;
+            }
+            if let Some(asset) = node.image() {
                 let playing = node.image_data().and_then(|d| d.playing).unwrap_or(true);
-                (playing && self.tree.drawn(id)).then_some((id, asset))
-            })
-            .collect()
+                if playing {
+                    wanted.insert((id, 0), asset.clone());
+                }
+            }
+            let background = node.paint().and_then(|p| p.background.as_ref());
+            if let Some(Fill::Layers(layers)) = background {
+                for (index, layer) in layers.iter().enumerate() {
+                    if let FillImage::Image(asset) = &layer.image {
+                        wanted.insert((id, background_slot(index)), asset.clone());
+                    }
+                }
+            }
+        }
+        wanted
     }
 
     /// The frame of the content image of `id` to draw now (0 without a
     /// playback).
     pub(crate) fn playback_frame(&self, id: NodeId) -> u32 {
+        self.playback_frame_at(id, 0)
+    }
+
+    /// The frame of playback `slot` of node `id` to draw now (0 without one).
+    pub(crate) fn playback_frame_at(&self, id: NodeId, slot: u8) -> u32 {
         self.playback
             .0
-            .get(&(id, 0))
+            .get(&(id, slot))
             .map_or(0, |entry| frame_at(entry, self.frame.now()))
     }
 

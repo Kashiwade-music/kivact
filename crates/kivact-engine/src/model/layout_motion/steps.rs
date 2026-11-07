@@ -88,6 +88,7 @@ impl Model {
     /// moved since `previous` starts a run from its old box, and so does each
     /// node that takes over a departed shared layout. The mailbox is emptied.
     pub(crate) fn retarget_layout_motion(&mut self, previous: Vec<(NodeId, Rect)>) {
+        self.report_duplicate_layout_ids();
         let arrivals = self.take_arrivals(&previous);
         for (id, old) in previous.into_iter().chain(arrivals) {
             self.retarget_run(id, old);

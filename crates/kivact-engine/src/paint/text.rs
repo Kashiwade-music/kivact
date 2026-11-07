@@ -71,6 +71,48 @@ impl Model {
 }
 
 impl Model {
+    /// The shaped paragraph of text node `id` in its content box `area`,
+    /// wrapped at its width. Box paint clips to the same shaping (§9.4): the
+    /// arvane cache serves both.
+    pub(super) fn shape_node_text(
+        &self,
+        id: NodeId,
+        area: Rect,
+        tint: &Tint,
+        engine: &mut arvane::Engine,
+    ) -> Option<kivact_types::ShapedTextSnapshot> {
+        let n = self.node(id)?;
+        let props = self.text_props(id);
+        let color = tint.color(self.text_color(id));
+        let mut style = crate::lower::assets::text_style(engine, &props);
+        let content = n.content().unwrap_or("");
+        let spans = n.spans();
+        // One pixel of slack over the laid-out width keeps a pixel-rounded
+        // box from wrapping its measured lines.
+        let width = Some(area.width.max(0.0) + 1.0);
+        let shaped = if spans.is_empty() {
+            // Shaped without a color: a color change (a hover) reuses it.
+            style.color = kivact_types::ComputedTextStyle::default().color;
+            style.decoration.color = None;
+            engine.shape_glyphs(content, &style, width)
+        } else {
+            style.color = color;
+            style.decoration.color = props.decoration.color.map(|c| tint.color(c));
+            let rich = crate::lower::conversion::spans(
+                spans,
+                style.font_size,
+                |c| tint.color(c),
+                |f| crate::lower::assets::family(engine, Some(f)),
+            );
+            let text = kivact_types::render::RichText {
+                text: content,
+                spans: &rich,
+            };
+            engine.shape_glyphs(text, &style, width)
+        };
+        shaped.ok()
+    }
+
     /// The text node `id`'s paragraph in its content box `area`, wrapped
     /// at its width.
     pub(crate) fn paint_text(
@@ -85,53 +127,26 @@ impl Model {
         let Some(n) = self.node(id) else {
             return;
         };
+        let spans = n.spans();
         let props = self.text_props(id);
         let color = tint.color(self.text_color(id));
-        let mut style = crate::lower::assets::text_style(engine, &props);
-        let content = n.content().unwrap_or("");
-        let spans = n.spans();
-        // One pixel of slack over the laid-out width keeps a pixel-rounded
-        // box from wrapping its measured lines.
-        let width = Some(area.width.max(0.0) + 1.0);
-        let (shaped, colors) = if spans.is_empty() {
-            // Shaped without a color: a color change (a hover) reuses it.
-            style.color = kivact_types::ComputedTextStyle::default().color;
+        // A missing font leaves the text undrawn.
+        let Some(shaped) = self.shape_node_text(id, area, tint, engine) else {
+            return;
+        };
+        let colors = if n.spans().is_empty() {
             let deco = match props.decoration.color {
                 Some(own) => tint.color(own),
                 None => color,
             };
-            style.decoration.color = None;
-            let colors = Colors {
+            Colors {
                 glyphs: Some(kivact_types::render::Paint::Solid(color)),
                 decorations: Some(deco),
                 ..Default::default()
             }
-            .outlined(&props, tint);
-            (engine.shape_glyphs(content, &style, width), colors)
+            .outlined(&props, tint)
         } else {
-            style.color = color;
-            style.decoration.color = props.decoration.color.map(|c| tint.color(c));
-            let rich = crate::lower::conversion::spans(
-                spans,
-                style.font_size,
-                |c| tint.color(c),
-                |f| crate::lower::assets::family(engine, Some(f)),
-            );
-            let text = kivact_types::render::RichText {
-                text: content,
-                spans: &rich,
-            };
-            let colors = Colors {
-                glyphs: None,
-                decorations: None,
-                ..Default::default()
-            }
-            .outlined(&props, tint);
-            (engine.shape_glyphs(text, &style, width), colors)
-        };
-        // A missing font leaves the text undrawn.
-        let Ok(shaped) = shaped else {
-            return;
+            Colors::default().outlined(&props, tint)
         };
         let origin = Point {
             x: area.x,

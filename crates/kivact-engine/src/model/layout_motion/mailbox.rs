@@ -9,14 +9,36 @@
 //! - The mailbox is emptied at the end of every layout pass that retargets
 //!   the runs, so a record lives until the next pass only.
 
-use std::collections::{BTreeMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::sync::Arc;
 
 use kivact_types::{NodeId, Rect};
 
+use crate::contract::HostEvent;
 use crate::model::Model;
 
 impl Model {
+    /// Report each layout id that two live nodes carry, once: the later node
+    /// (the one created last) is named. A duplicate is an error of the app
+    /// (`HostEvent::DuplicateLayoutId`), and the record goes to that node.
+    pub(crate) fn report_duplicate_layout_ids(&mut self) {
+        let mut first: HashMap<Arc<str>, NodeId> = HashMap::new();
+        let mut duplicates = Vec::new();
+        for (id, node) in self.tree.iter() {
+            let Some(key) = node.layout_id() else {
+                continue;
+            };
+            if first.insert(key.clone(), id).is_some() {
+                duplicates.push((id, key.clone()));
+            }
+        }
+        for (node, id) in duplicates {
+            if self.layout_motion.reported_ids.note(id.clone()) {
+                self.push(HostEvent::DuplicateLayoutId { node, id });
+            }
+        }
+    }
+
     /// Record the window boxes of the nodes of `subtree` that depart now
     /// with a layout id: only those not leaving yet, so each is recorded
     /// once. A later node of the subtree replaces an earlier one's record.

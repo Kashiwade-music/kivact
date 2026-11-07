@@ -180,14 +180,15 @@ impl<'a> Context<'a> {
         size
     }
 
-    /// The pixels of the whole of `asset` at `size` (`None`: nothing to
-    /// draw; a failure is kept unless `size` is empty).
+    /// The pixels of the whole of `asset` at `size`, at animation `frame`
+    /// (`None`: nothing to draw; a failure is kept unless `size` is empty).
     pub(crate) fn pixels(
         &self,
         asset: &kivact_types::Asset,
         size: arvane::asset::PixelSize,
+        frame: u32,
     ) -> Option<(kivact_types::Pixels, arvane::asset::Region)> {
-        self.pixels_in(asset, size, arvane::asset::Region::WHOLE, None)
+        self.pixels_in(asset, size, arvane::asset::Region::WHOLE, None, frame)
     }
 
     fn pixels_in(
@@ -196,6 +197,7 @@ impl<'a> Context<'a> {
         size: arvane::asset::PixelSize,
         region: arvane::asset::Region,
         tint: Option<kivact_types::Rgba>,
+        frame: u32,
     ) -> Option<(kivact_types::Pixels, arvane::asset::Region)> {
         if size.is_empty() {
             return None;
@@ -203,13 +205,14 @@ impl<'a> Context<'a> {
         let pixels = self
             .assets
             .borrow_mut()
-            .pixels(asset, size, region, tint, 0);
+            .pixels(asset, size, region, tint, frame);
         if let Some((image, _)) = &pixels {
             self.record(Dependency::Pixels {
                 asset: asset.clone(),
                 device: size,
                 region,
                 tint,
+                frame,
                 width: image.width,
                 height: image.height,
                 pixels: Arc::downgrade(image.rgba.as_shared()),
@@ -228,11 +231,12 @@ impl<'a> Context<'a> {
                 device,
                 region,
                 tint,
+                frame,
                 width,
                 height,
                 pixels,
             } => self
-                .pixels_in(asset, *device, *region, *tint)
+                .pixels_in(asset, *device, *region, *tint, *frame)
                 .is_some_and(|(image, _)| {
                     image.width == *width
                         && image.height == *height

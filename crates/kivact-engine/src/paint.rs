@@ -52,6 +52,7 @@
 //!   for the drawn rect × the frame's scale × how much the transforms
 //!   around it enlarge it (SVGs; `raster_zoom`), in its text color when
 //!   monochrome. A scene image fills its rect.
+mod boxes;
 mod frame_scene;
 mod list;
 pub(crate) mod state;

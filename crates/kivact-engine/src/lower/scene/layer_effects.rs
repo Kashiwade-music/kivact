@@ -239,7 +239,7 @@ impl Context<'_> {
     /// The pixels of `asset` at its natural size (`None` while not ready).
     fn natural_pixels(&self, asset: &Asset) -> Option<Pixels> {
         let size = self.natural(asset)?;
-        self.pixels(asset, PixelSize::of(size, 1.0))
+        self.pixels(asset, PixelSize::of(size, 1.0), 0)
             .map(|(pixels, _)| pixels)
     }
 

@@ -48,6 +48,7 @@ use kivact_types::{
 use kivact_types::{BlendMode, ColorInterpolation, Len, Rgba, Size, SpaceColor, interpolate};
 
 use kivact_types::render::{GradientShape, Group, Pattern, PatternSource};
+use kivact_types::scene::Shape;
 use kivact_types::{Extend, Point, Rect};
 
 /// Copies of a gradient tile drawn one by one; more are a pattern.
@@ -93,14 +94,21 @@ impl BoxShape {
 }
 
 /// The boxes of one painted box: a background layer is placed in its origin
-/// box and clipped to its clip box. The content box is not modeled here, so
-/// a layer whose origin or clip is the content box (or whose clip is the
-/// text) is not drawn; see [`Boxes::origin`] and [`Boxes::clip`].
+/// box and clipped to its clip box (§9.3, §9.4).
 pub(crate) struct Boxes {
     /// The border box.
     pub(crate) border: BoxShape,
     /// The padding box: the border box inset by the border widths.
     pub(crate) padding: BoxShape,
+    /// The content box: the border box inset by the border widths and the
+    /// padding, as layout resolved them.
+    pub(crate) content: BoxShape,
+    /// The glyph outlines of the node's text (for a background clipped to
+    /// the text); `None` when the node has no text to clip to.
+    pub(crate) glyphs: Option<Shape>,
+    /// The frame each background layer shows (by layer index, in the fill's
+    /// order); a layer without one shows frame 0.
+    pub(crate) frames: Vec<u32>,
 }
 
 impl Boxes {
@@ -108,25 +116,30 @@ impl Boxes {
     pub(crate) fn uniform(shape: BoxShape) -> Boxes {
         Boxes {
             padding: shape.clone(),
+            content: shape.clone(),
             border: shape,
+            glyphs: None,
+            frames: Vec::new(),
         }
     }
 
     /// The box a layer is placed in: its origin (`None`: the padding box).
-    fn origin(&self, origin: Option<BackgroundOrigin>) -> Option<&BoxShape> {
+    fn origin(&self, origin: Option<BackgroundOrigin>) -> &BoxShape {
         match origin.unwrap_or_default() {
-            BackgroundOrigin::BorderBox => Some(&self.border),
-            BackgroundOrigin::PaddingBox => Some(&self.padding),
-            BackgroundOrigin::ContentBox => None,
+            BackgroundOrigin::BorderBox => &self.border,
+            BackgroundOrigin::PaddingBox => &self.padding,
+            BackgroundOrigin::ContentBox => &self.content,
         }
     }
 
-    /// The outline a layer is clipped to (`None`: not drawn).
+    /// The outline a layer is clipped to (`None`: not drawn). A text clip is
+    /// the border box, drawn through the glyph outlines (`glyphs`).
     pub(crate) fn clip(&self, clip: BackgroundClip) -> Option<&BoxShape> {
         match clip {
             BackgroundClip::BorderBox => Some(&self.border),
             BackgroundClip::PaddingBox => Some(&self.padding),
-            BackgroundClip::ContentBox | BackgroundClip::Text => None,
+            BackgroundClip::ContentBox => Some(&self.content),
+            BackgroundClip::Text => self.glyphs.as_ref().map(|_| &self.border),
         }
     }
 }
@@ -235,12 +248,13 @@ impl Context<'_> {
                 if blended {
                     out.push(D::PushGroup(blend_group(BlendMode::Normal)));
                 }
-                for layer in layers.iter().rev() {
+                for (index, layer) in layers.iter().enumerate().rev() {
+                    let frame = boxes.frames.get(index).copied().unwrap_or(0);
                     if layer.blend == BlendMode::Normal {
-                        self.fill_layer(out, boxes, layer, tint, origin);
+                        self.fill_layer(out, boxes, layer, tint, origin, frame);
                     } else {
                         out.push(D::PushGroup(blend_group(layer.blend)));
-                        self.fill_layer(out, boxes, layer, tint, origin);
+                        self.fill_layer(out, boxes, layer, tint, origin, frame);
                         out.push(D::PopGroup);
                     }
                 }
@@ -306,7 +320,8 @@ impl Context<'_> {
     }
 
     /// One background layer of `boxes`: placed in its origin box, repeated
-    /// over and clipped to its clip box.
+    /// over and clipped to its clip box. A layer clipped to the text is drawn
+    /// inside the group clipped to the glyph outlines (§9.4).
     fn fill_layer(
         &self,
         out: &mut crate::lower::SceneOut,
@@ -314,6 +329,28 @@ impl Context<'_> {
         layer: &FillLayer,
         tint: &Tint,
         origin: Point,
+        frame: u32,
+    ) {
+        match &boxes.glyphs {
+            Some(glyphs) if layer.clip == BackgroundClip::Text => {
+                out.push(crate::lower::effects::clip_group(glyphs.clone()));
+                self.paint_layer(out, boxes, layer, tint, origin, frame);
+                out.push(D::PopGroup);
+            }
+            _ => self.paint_layer(out, boxes, layer, tint, origin, frame),
+        }
+    }
+
+    /// The paint of one background layer within its clip box (see
+    /// [`Context::fill_layer`]).
+    fn paint_layer(
+        &self,
+        out: &mut crate::lower::SceneOut,
+        boxes: &Boxes,
+        layer: &FillLayer,
+        tint: &Tint,
+        origin: Point,
+        frame: u32,
     ) {
         let Some(shape) = boxes.clip(layer.clip) else {
             return;
@@ -324,9 +361,7 @@ impl Context<'_> {
             }
             return;
         }
-        let Some(placed) = boxes.origin(layer.origin) else {
-            return;
-        };
+        let placed = boxes.origin(layer.origin);
         let (place, cover) = (placed.rect(), shape.rect());
         let Some(size) = self.tile_size(layer, place) else {
             return;
@@ -377,7 +412,7 @@ impl Context<'_> {
                     },
                     self.raster.get(),
                 );
-                let pixels = self.pixels(source, device);
+                let pixels = self.pixels(source, device, frame);
                 if let Some((image, _)) = pixels {
                     let paint = tiles.pattern(layer, PatternSource::Image { image });
                     self.put(out, shape, tint.paint(paint));
@@ -464,7 +499,7 @@ impl Context<'_> {
                     },
                     self.raster.get(),
                 );
-                let (image, _) = self.pixels(asset, device)?;
+                let (image, _) = self.pixels(asset, device, 0)?;
                 Some(tiles.pattern(layer, PatternSource::Image { image }))
             }
         }
