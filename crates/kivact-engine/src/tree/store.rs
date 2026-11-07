@@ -57,6 +57,7 @@ impl NodeStore {
         self.by_id.contains_key(id)
     }
 
+    #[cfg(feature = "testing")]
     pub(crate) fn len(&self) -> usize {
         self.by_id.len()
     }

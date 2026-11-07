@@ -134,6 +134,7 @@ impl NodeTree {
     }
 
     /// Pre-order traversal from the root (overlays where they are attached).
+    #[cfg(feature = "testing")]
     pub(crate) fn preorder(&self) -> Vec<NodeId> {
         let mut out = Vec::with_capacity(self.nodes.len());
         let mut stack: Vec<NodeId> = self.root.into_iter().collect();

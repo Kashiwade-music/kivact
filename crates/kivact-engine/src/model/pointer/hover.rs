@@ -92,6 +92,7 @@ impl Model {
 
     /// The node under the pointer: the head of the first non-empty hover
     /// chain (the mouse's first).
+    #[cfg(feature = "testing")]
     pub(crate) fn hovered(&self) -> Option<NodeId> {
         self.pointer
             .state
