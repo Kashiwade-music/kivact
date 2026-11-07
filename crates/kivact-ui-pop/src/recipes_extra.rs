@@ -164,7 +164,7 @@ fn dialog_surface(t: &Theme, s: &Look<DialogState>) -> Style {
     // A modal and a drawer grow in from 96%.
     let enter = |s: Style| {
         s.enter(style().scale(0.96)).transition(
-            kivact::style::TransitionProp::Paint,
+            kivact::style::TransitionProp::All,
             kivact::motion::Transition::tween(200, kivact::motion::Easing::EaseOut),
         )
     };

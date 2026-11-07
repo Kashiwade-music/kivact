@@ -1,6 +1,6 @@
 //! Role: Preserve Pop badge hues and visual variants on the standard badge.
 use crate::{Hue, Tokens};
-use kivact::draw::{Transform, linear_gradient};
+use kivact::draw::{BackgroundOrigin, Paint, Transform, linear_gradient};
 use kivact::geometry::Rect;
 use kivact::state::{IntoValue, Value};
 use kivact::style::{Align, Color, Direction, Justify, Style, Theme, style};
@@ -99,15 +99,19 @@ fn badge_style(t: &Theme, hue: Hue, variant: BadgeVariant) -> Style {
             .border_color(p.line),
         BadgeVariant::Solid => s.background(p.text).color(p.surface).weight(600),
         BadgeVariant::Slant => s
-            .background(linear_gradient(90).colors([
-                p.accent(hue),
-                match hue {
-                    Hue::Yellow => crate::tokens::yellow_gradient_end(),
-                    Hue::Red => crate::tokens::red_gradient_end(),
-                    Hue::Pink => crate::tokens::pink_gradient_end(),
-                    _ => p.cyan,
-                },
-            ]))
+            // The gradient sits under the 1px border: keep it on the border box.
+            .background(
+                Paint::from(linear_gradient(90).colors([
+                    p.accent(hue),
+                    match hue {
+                        Hue::Yellow => crate::tokens::yellow_gradient_end(),
+                        Hue::Red => crate::tokens::red_gradient_end(),
+                        Hue::Pink => crate::tokens::pink_gradient_end(),
+                        _ => p.cyan,
+                    },
+                ]))
+                .origin(BackgroundOrigin::BorderBox),
+            )
             .color(if hue == Hue::Yellow {
                 crate::tokens::accent_text()
             } else {
