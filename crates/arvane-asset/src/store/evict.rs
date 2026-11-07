@@ -26,7 +26,8 @@
 use kivact_types::Asset;
 
 use super::AssetStore;
-use super::entry::{Residency, Stamp, State, Variant, VariantKey};
+use super::entry::{Residency, Stamp, State, Variant, VariantKey, frames_bytes};
+use crate::pixels::AssetImage;
 
 /// The most tinted copies of one asset at one size kept beyond those the
 /// current frame uses.
@@ -88,10 +89,10 @@ impl AssetStore {
                     return;
                 };
                 if let State::Raster { residency, .. } = &mut entry.state
-                    && let Residency::Resident { pixels, .. } = residency
+                    && let Residency::Resident { frames, .. } = residency
                 {
-                    self.bytes -= pixels.bytes();
-                    self.evicted.push(pixels.id());
+                    self.bytes -= frames_bytes(frames);
+                    self.evicted.extend(frames.iter().map(AssetImage::id));
                     *residency = Residency::Evicted;
                 }
             }
@@ -160,11 +161,11 @@ impl AssetStore {
                 continue;
             }
             if let State::Raster {
-                residency: Residency::Resident { pixels, drawn },
+                residency: Residency::Resident { frames, drawn },
                 ..
             } = &entry.state
             {
-                consider(*drawn, pixels.bytes(), Victim::Source(asset.clone()));
+                consider(*drawn, frames_bytes(frames), Victim::Source(asset.clone()));
             }
             for (key, variant) in &entry.variants {
                 if let Variant::Ready { used, pixels } = variant {
@@ -182,11 +183,11 @@ impl AssetStore {
         };
         self.bytes -= entry.bytes_held();
         if let State::Raster {
-            residency: Residency::Resident { pixels, .. },
+            residency: Residency::Resident { frames, .. },
             ..
         } = &entry.state
         {
-            self.evicted.push(pixels.id());
+            self.evicted.extend(frames.iter().map(AssetImage::id));
         }
         for variant in entry.variants.values() {
             if let Variant::Ready { pixels, .. } = variant {

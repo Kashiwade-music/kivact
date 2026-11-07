@@ -176,7 +176,7 @@ impl ArvaneAssets {
         if device.is_empty() {
             return None;
         }
-        let drawn = self.store.pixels_in(asset, device, visible, tint);
+        let drawn = self.store.pixels_in(asset, device, visible, tint, 0);
         // Arvane keeps no device textures: evicted pixels need no work.
         self.store.take_evicted();
         let (pixels, region) = drawn?;

@@ -23,6 +23,9 @@
 //!   the failures to report and the pixel ids whose device textures can go.
 //!   [`AssetStore::release_caches`] evicts eligible unused entries under memory
 //!   pressure without changing its normal budget or invalidating recent work.
+//!   [`AssetStore::animation`] gives an animated image's [`AnimationInfo`]
+//!   (its frame delays and repeat), and `pixels`/`pixels_in` take the frame
+//!   to draw; [`AssetStore::register_font`] adds a font to SVG `<text>`.
 //! - [`fit_image`] places an image of a natural size in a box by
 //!   [`ImageFit`] (CSS `object-fit`); [`PixelSize::of`] turns a drawn size
 //!   and a scale into the device size to ask for.
@@ -36,9 +39,10 @@
 //! # Invariants
 //!
 //! - Formats are detected from the content, never from a file extension:
-//!   PNG, JPEG (with its EXIF orientation applied), GIF and WebP (first
-//!   frame), SVG and SVGZ. Anything else fails with the detected format
-//!   named.
+//!   PNG and APNG, JPEG (with its EXIF orientation applied), GIF and WebP
+//!   (animations give all their frames while they fit a quarter of the
+//!   budget, else the first one), SVG and SVGZ. Anything else fails with the
+//!   detected format named.
 //! - AssetImage are straight-alpha RGBA8, `width * height * 4` bytes. A raster
 //!   image's natural size is its pixel size (one pixel per logical px); an
 //!   SVG's is its `width`/`height`, else its `viewBox`.
@@ -75,5 +79,5 @@ pub use font::{
 pub use kivact_types::Asset;
 pub use limits::{MAX_ENCODED_BYTES, MAX_IMAGE_EDGE, MAX_SVG_RASTER_EDGE};
 pub use pixels::{AssetImage, PixelSize};
-pub use store::image_state::ImageState;
+pub use store::image_state::{AnimationInfo, ImageState};
 pub use store::{AssetStore, DEFAULT_BUDGET};

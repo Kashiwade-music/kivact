@@ -94,6 +94,8 @@ struct SpanBits {
     word_spacing: Option<u64>,
     kerning: Option<FontKerning>,
     features: Option<Vec<FontFeature>>,
+    variations: Option<Vec<layouts::VariationBits>>,
+    font_width: Option<u64>,
     decoration: Option<DecorationBits>,
     highlight: bool,
 }
@@ -131,6 +133,10 @@ pub(crate) struct TextKey {
     align: u8,
     family: Option<String>,
     italic: bool,
+    /// The paragraph's axis settings, as bits.
+    variations: Vec<layouts::VariationBits>,
+    font_width: u64,
+    optical_sizing: bool,
     max_width: Option<u64>,
     /// Whether the shaped text has its carets.
     carets: bool,
@@ -186,6 +192,8 @@ impl TextKey {
                             word_spacing: s.word_spacing.map(f64::to_bits),
                             kerning: s.kerning,
                             features: s.features.clone(),
+                            variations: s.variations.as_deref().map(layouts::variation_bits),
+                            font_width: s.font_width.map(f64::to_bits),
                             decoration: if drawn {
                                 s.decoration.map(decoration_bits)
                             } else {
@@ -216,6 +224,9 @@ impl TextKey {
             },
             family: style.family.clone(),
             italic: style.italic,
+            variations: layouts::variation_bits(&style.variations),
+            font_width: style.font_width.to_bits(),
+            optical_sizing: style.optical_sizing,
             max_width: max_width.map(f64::to_bits),
             carets: true,
             rich,

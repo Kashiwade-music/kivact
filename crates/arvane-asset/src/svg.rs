@@ -4,9 +4,11 @@
 //! device size, so SVGs stay sharp at any scale.
 //!
 //! Invariants:
-//! - Built without resvg's `text` feature and with an empty font database,
-//!   so `<text>` is never drawn, the same in every build. Raster images
-//!   inside an SVG are not drawn either (resvg's `raster-images` is off).
+//! - `<text>` is drawn with the store's font database (the system fonts
+//!   and the fonts registered with it; usvg turns the glyphs into outlines
+//!   at parse time, so a font change parses the SVG again).
+//! - Raster images inside an SVG (PNG, JPEG, GIF, WebP, as data URLs) are
+//!   drawn; their decoded size counts in the parsed tree's estimate.
 //! - External files are never read: `<image href>` paths resolve to
 //!   nothing, so an SVG cannot make the process read other files.
 //! - The natural size is the SVG's `width`/`height`, else its `viewBox`.
@@ -26,5 +28,5 @@ mod document;
 pub(crate) mod nesting;
 mod svgz;
 
-pub(crate) use document::{Svg, parse};
+pub(crate) use document::{FontDb, ParseError, Svg, parse};
 pub(crate) use svgz::{DecompressError, decompress};

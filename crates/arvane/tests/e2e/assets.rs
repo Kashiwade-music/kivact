@@ -61,7 +61,7 @@ fn pixels(
     height: u32,
 ) -> AssetImage {
     wait(store, woken, |store| {
-        store.pixels(asset, PixelSize { width, height }, None)
+        store.pixels(asset, PixelSize { width, height }, None, 0)
     })
 }
 
