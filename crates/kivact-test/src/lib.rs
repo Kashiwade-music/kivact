@@ -90,12 +90,14 @@ pub mod raw;
 mod render;
 mod screen;
 
+/// The work counts of a presented frame, as [`Screen::frame_stats`] reports them.
+pub use kivact_types::render::FrameStats;
 pub use options::{MirrorMode, RenderOptions, TestFonts};
 pub use render::{gpu_unavailable, native_unavailable, render, render_with, render_with_handle};
 
 pub use screen::{
-    Contact, Element, ImeText, LayoutCheck, LayoutLimit, LayoutRule, LayoutViolation, Screen,
-    Screenshot, SemanticNode, Within, failure_dir,
+    Contact, Element, ImeText, LayoutCheck, LayoutLimit, LayoutRule, LayoutViolation,
+    RasterDifference, Screen, Screenshot, SemanticNode, Within, failure_dir,
 };
 
 // xtask-allow(os-branch): Native test environment availability is a test platform boundary.

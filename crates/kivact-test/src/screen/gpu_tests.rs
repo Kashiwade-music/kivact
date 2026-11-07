@@ -329,7 +329,7 @@ fn gpu_host_state_transition_matches_the_cpu_intermediate_frame() {
                             .background(rgb(0xff0000))
                             .hover(style().background(rgb(0x0000ff)).translate(20, 0))
                             .transition(
-                                kivact_style::TransitionProp::Paint,
+                                kivact_style::TransitionProp::All,
                                 kivact_core::motion::Transition::tween(
                                     200,
                                     kivact_core::motion::Easing::Linear,
@@ -440,27 +440,16 @@ fn canvas_vocabulary() -> impl IntoView {
 )]
 fn assert_close(cpu: &Screenshot, gpu: &Screenshot, name: &str) {
     assert_eq!((gpu.width, gpu.height), (cpu.width, cpu.height));
-    let channels = |p: u32| [(p >> 16) as u8, (p >> 8) as u8, p as u8];
-    let diffs: Vec<u8> = cpu
-        .pixels
-        .iter()
-        .zip(&gpu.pixels)
-        .map(|(a, b)| {
-            let (a, b) = (channels(*a), channels(*b));
-            (0..3).map(|i| a[i].abs_diff(b[i])).max().unwrap_or(0)
-        })
-        .collect();
-    let mean = diffs.iter().map(|d| f64::from(*d)).sum::<f64>() / diffs.len() as f64;
-    let far = diffs.iter().filter(|d| **d > 64).count() as f64 / diffs.len() as f64;
-    // The rasterizers' blurred shadows approximate the gaussian slightly
-    // differently: up to 7 levels apart in their smooth falloff.
-    let close = diffs.iter().filter(|d| **d <= 8).count() as f64 / diffs.len() as f64;
+    // Raster pixels (§3.3, the third tier: the rasterizers' blurred shadows,
+    // glyph edges and gradients differ slightly), judged by the shared tolerance.
+    let diff = cpu.raster_difference(gpu);
     println!(
-        "{name}: GPU vs CPU frame: mean channel difference {mean:.3}, {:.3}% of pixels off by more than 64, {:.2}% within 8",
-        far * 100.0,
-        close * 100.0
+        "{name}: GPU vs CPU frame: mean channel difference {:.3}, {:.3}% of pixels off by more than 64, {:.2}% within 8",
+        diff.mean,
+        diff.far * 100.0,
+        diff.close * 100.0
     );
-    let differs = mean > 1.0 || far > 0.005 || close < 0.99;
+    let differs = !diff.within_raster_tolerance();
     // `KIVACT_GPU_SMOKE_SAVE=1` keeps both frames of a passing run too.
     if differs || std::env::var_os("KIVACT_GPU_SMOKE_SAVE").is_some() {
         let dir = super::failure_dir();

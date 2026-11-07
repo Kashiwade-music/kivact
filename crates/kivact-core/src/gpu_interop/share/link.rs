@@ -23,7 +23,8 @@ use kivact_types::cell::Mailbox;
 use kivact_types::{GpuAdapter, SharedTextures};
 
 use crate::gpu_interop::import::FramePublisher;
-use crate::gpu_interop::import::inbox::Inbox;
+use crate::sync::Inbox;
+use crate::view::ShareError;
 use kivact_style::draw::Pixels;
 
 /// How the engine shares its pictures for a [`ShareRequest`].
@@ -53,35 +54,6 @@ pub struct ShareRequest {
     /// Counted from 1, one more for each request of the image.
     pub(crate) token: u64,
 }
-
-/// Why a call of a [`ShareLink`] did not do what it asked.
-#[derive(Clone, Debug, PartialEq)]
-pub enum ShareError {
-    /// The request was replaced by a newer one: drop what was made for
-    /// it and take the newer one ([`ShareLink::poll_request`]).
-    Stale,
-    /// The shared image's owner is gone: stop.
-    Closed,
-    /// The wait ran out of time.
-    Timeout,
-    /// The request cannot be served so: the window refused the textures
-    /// (its message), a [`ShareMode::Pixels`] request was given textures,
-    /// or a request was given textures twice.
-    Failed(String),
-}
-
-impl fmt::Display for ShareError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            ShareError::Stale => f.write_str("the share request was replaced by a newer one"),
-            ShareError::Closed => f.write_str("the shared image is closed"),
-            ShareError::Timeout => f.write_str("the wait for the shared image timed out"),
-            ShareError::Failed(message) => write!(f, "the shared image failed: {message}"),
-        }
-    }
-}
-
-impl std::error::Error for ShareError {}
 
 /// Where a [`SharedImage`](super::app_side::SharedImage) stands, tracked
 /// ([`SharedImage::status`](super::app_side::SharedImage::status)).
@@ -391,10 +363,10 @@ impl ShareLink {
     /// As for `gpu_interop::import`: the engine keeps the contract of
     /// `SharedTextures` (its rustdoc, "The engine's contract"): how the
     /// textures and fences are made, on the request's adapter and size,
-    /// the hand-off state, writing a texture only after
-    /// [`ShareLink::wait_ready`] is `Ok` and only once the release fence
-    /// reached the value of its last frame, and new textures for a new
-    /// request. Breaking it is undefined behavior of the graphics API
+    /// the hand-off state, the order rule of `SharedTextures` (a texture is
+    /// first written only after its release fence reached `SHARED_PREPARED`,
+    /// and later only once the fence reached the value of its last frame),
+    /// and new textures for a new request. Breaking it is undefined behavior of the graphics API
     /// (Vulkan and Direct3D 12): a broken picture, a lost device, a
     /// crashed process, or access to GPU memory outside the resource are
     /// all possible. Kivact and Arvane cannot check most of it, which is

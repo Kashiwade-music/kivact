@@ -11,8 +11,8 @@ use kivact_types::{GpuAdapter, SharedTextures};
 
 use super::link::{LinkState, Phase, ShareLink, ShareMode, ShareRequest, ShareStatus, Work};
 use crate::gpu_interop::adapter;
-use crate::gpu_interop::import::inbox::Inbox;
 use crate::gpu_interop::import::{ExternalImage, ImportStatus, import_in};
+use crate::sync::Inbox;
 use kivact_runtime::spawn_in;
 use kivact_style::draw::{GpuFrame, Pixels};
 

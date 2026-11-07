@@ -38,14 +38,14 @@ fn empty_real_empty_and_replaced_roots_publish_without_stale_nodes() {
     let empty = host.semantics().expect("empty root published");
     assert_eq!(empty.nodes.len(), 1);
     assert_eq!(empty.nodes[0].semantics.role, Some(Role::Generic));
-    assert_eq!(empty.nodes[0].bounds.width, 320.0);
+    assert_eq!(empty.nodes[0].bounds.map(|b| b.width), Some(320.0));
     assert!(empty.nodes[0].children.is_empty());
     assert!(empty.focus.is_none());
     host.resize(400.0, 240.0);
     settle(&mut host);
     let resized = host.semantics().unwrap();
     assert_eq!(resized.root, empty.root);
-    assert_eq!(resized.nodes[0].bounds.width, 400.0);
+    assert_eq!(resized.nodes[0].bounds.map(|b| b.width), Some(400.0));
     for root in [NodeId(1), NodeId(3)] {
         writer.create(root, NodeKind::Root);
         let child = NodeId(root.0 + 1);

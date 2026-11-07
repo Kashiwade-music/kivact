@@ -119,6 +119,14 @@ impl Screen {
         self.run_until_idle();
     }
 
+    /// The window's GPU device is lost, as a device failure makes it; the
+    /// frames go on, and nothing happens on a window that draws on the CPU.
+    pub fn lose_gpu_device(&self) {
+        self.log("gpu device lost".into());
+        self.host.borrow_mut().lose_gpu_device();
+        self.run_until_idle();
+    }
+
     /// Resize the window to `width` × `height` logical pixels.
     pub fn resize(&self, width: f64, height: f64) {
         self.log(format!("resize {width} x {height}"));

@@ -91,7 +91,7 @@ pub(crate) use import::{State, adapter_changed, imported};
 #[doc(inline)]
 pub use kivact_style::draw::GpuFrame;
 #[doc(inline)]
-pub use share::link::{ShareError, ShareLink, ShareMode, ShareRequest};
+pub use share::link::{ShareLink, ShareMode, ShareRequest};
 #[doc(inline)]
 pub use share::{ShareStatus, SharedImage, shared_image};
 
