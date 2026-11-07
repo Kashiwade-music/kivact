@@ -389,17 +389,56 @@ fn paint_steps(
     }
 }
 
+/// The longest share of the plot's width that a series name may take in the legend.
+const LEGEND_NAME_SHARE: f64 = 0.4;
+/// The gap between the legend box and the plot's right edge.
+const LEGEND_MARGIN: f64 = 8.0;
+/// The width of a legend color swatch, which the name follows.
+const LEGEND_SWATCH: f64 = 16.0;
+/// The mark that ends a shortened name.
+const ELLIPSIS: &str = "\u{2026}";
+
+/// The legend in the top right corner of the plot. Its box is as wide as the names it holds, and
+/// it stays inside the plot: a name wider than [`LEGEND_NAME_SHARE`] of the plot is shortened.
 fn paint_legend(draw: &mut Draw, model: &PlotModel, bounds: Bounds, tokens: &Tokens) {
-    let x = bounds.right - 120.0;
-    for (i, series) in model.series.iter().enumerate() {
+    let style = text_style(TEXT, tokens.plot.text, TextAlign::Start, TextBaseline::Top);
+    let limit = (bounds.right - bounds.left) * LEGEND_NAME_SHARE;
+    let names: Vec<(String, f64)> = model
+        .series
+        .iter()
+        .map(|series| {
+            let name = fit_name(&series.name, limit, |text| {
+                draw.measure_text(text, &style).size.width
+            });
+            let width = draw.measure_text(&name, &style).size.width;
+            (name, width)
+        })
+        .collect();
+    let widest = names.iter().map(|(_, width)| *width).fold(0.0, f64::max);
+    let left = (bounds.right - LEGEND_MARGIN - LEGEND_SWATCH - widest).max(bounds.left);
+    for (i, (series, (name, _))) in model.series.iter().zip(&names).enumerate() {
         let y = bounds.top + 8.0 + i as f64 * 16.0;
         draw.fill_rect(
-            Rect::new(x, y + 2.0, 10.0, 10.0),
+            Rect::new(left, y + 2.0, 10.0, 10.0),
             series_color(series.color, tokens),
         );
-        let style = text_style(TEXT, tokens.plot.text, TextAlign::Start, TextBaseline::Top);
-        draw.text(&series.name, Point::new(x + 16.0, y), style);
+        draw.text(name, Point::new(left + LEGEND_SWATCH, y), style.clone());
     }
+}
+
+/// The name, cut to its longest prefix that ends with an ellipsis and measures at most `limit`.
+/// A name that already fits is returned as it is. Only the ellipsis is left when even it does not
+/// fit.
+fn fit_name(name: &str, limit: f64, measure: impl Fn(&str) -> f64) -> String {
+    if measure(name) <= limit {
+        return name.to_string();
+    }
+    let chars: Vec<char> = name.chars().collect();
+    (0..chars.len())
+        .rev()
+        .map(|kept| chars[..kept].iter().collect::<String>() + ELLIPSIS)
+        .find(|candidate| measure(candidate) <= limit)
+        .unwrap_or_else(|| ELLIPSIS.to_string())
 }
 
 fn paint_hover(
@@ -455,5 +494,28 @@ fn paint_hover(
             Point::new(x + 8.0, y + 4.0 + 16.0 * i as f64),
             style.clone(),
         );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    //! Role: Tests for the legend's name fitting.
+
+    use super::*;
+
+    /// Six px for each character, so the widths in the assertions are easy to read.
+    fn six_px(text: &str) -> f64 {
+        text.chars().count() as f64 * 6.0
+    }
+
+    #[test]
+    fn legend_names_are_cut_to_the_limit_with_an_ellipsis() {
+        assert_eq!(fit_name("Gain", 24.0, six_px), "Gain");
+        assert_eq!(
+            fit_name("Very long series name", 36.0, six_px),
+            "Very \u{2026}"
+        );
+        assert_eq!(fit_name("abc", 3.0, six_px), ELLIPSIS);
+        assert_eq!(fit_name("", 0.0, six_px), "");
     }
 }
