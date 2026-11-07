@@ -1,6 +1,6 @@
 //! Role: Pop button appearance and compact icon actions.
 use crate::Tokens;
-use kivact::draw::{Filter, Shadow, Transform, linear_gradient};
+use kivact::draw::{BackgroundOrigin, Filter, Paint, Shadow, Transform, linear_gradient};
 use kivact::motion::{Easing, Transition};
 use kivact::style::{Align, Color, Direction, Justify, Style, Theme, TransitionProp, style};
 use kivact::ui::{ButtonVariant, ControlSize};
@@ -56,7 +56,11 @@ pub(crate) fn button_style(
                 _ => (p.blue, p.blue.mix_in(p.cyan, 0.3, t), Color::WHITE),
             };
             s = s
-                .background(linear_gradient(90).colors([a, b]))
+                // The gradient sits under the 1px border: keep it on the border box.
+                .background(
+                    Paint::from(linear_gradient(90).colors([a, b]))
+                        .origin(BackgroundOrigin::BorderBox),
+                )
                 .color(fg)
                 .shadow(Shadow::new(0, 1, 2, crate::tokens::control_shadow()))
                 .hover(style().filter(Filter::new().brightness(0.95)))
@@ -124,8 +128,5 @@ fn button_base(size: ControlSize, slant: bool) -> Style {
         .border(1, Color::TRANSPARENT)
         .shadow(Shadow::new(0, 0, 0, Color::TRANSPARENT))
         .cursor(kivact::style::Cursor::Pointer)
-        .transition(
-            TransitionProp::Paint,
-            Transition::tween(150, Easing::EaseOut),
-        )
+        .transition(TransitionProp::All, Transition::tween(150, Easing::EaseOut))
 }

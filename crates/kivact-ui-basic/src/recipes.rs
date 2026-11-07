@@ -424,7 +424,7 @@ fn carousel_root(_: &Theme, _: &kivact::ui::Look<kivact::ui::CarouselSurfaceStat
 }
 fn carousel_track(_: &Theme, _: &kivact::ui::Look<kivact::ui::CarouselSurfaceState>) -> Style {
     style().gap(16).transition(
-        kivact::style::TransitionProp::Paint,
+        kivact::style::TransitionProp::All,
         kivact::motion::Transition::tween(
             300,
             kivact::motion::Easing::CubicBezier(0.4, 0.0, 0.2, 1.0),
