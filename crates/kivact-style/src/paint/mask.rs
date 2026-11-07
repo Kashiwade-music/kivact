@@ -14,6 +14,7 @@ pub use kivact_types::{MaskComposite, MaskMode};
 /// ```
 /// use kivact::prelude::*;
 /// use kivact::draw::{Mask, MaskComposite, MaskLayer, MaskMode, linear_gradient};
+/// use kivact::style::rgba;
 /// let fade = linear_gradient(180)
 ///     .colors([rgb(0xffffff), rgba(0xffffff, 0.0)]);
 /// let m = Mask::from(MaskLayer::new(fade).mode(MaskMode::Luminance));

@@ -960,7 +960,7 @@ impl Style {
     /// let toast = style()
     ///     .enter(style().translate_x(40).opacity(0.0))
     ///     .exit(style().translate_x(40).opacity(0.0))
-    ///     .transition(TransitionProp::Paint, Transition::tween(260, Easing::EaseOut));
+    ///     .transition(TransitionProp::All, Transition::tween(260, Easing::EaseOut));
     /// # let _ = toast;
     /// ```
     ///
