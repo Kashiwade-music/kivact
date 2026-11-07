@@ -1,12 +1,14 @@
-//! Role: Records the layer filters of a plan: the gaussian blur, the drop shadow, the colour matrix, filter graphs and filter shaders (design §8.8).
+//! Role: Records the layer filters of a plan (design §8.8).
+//!
+//! The gaussian blur, the drop shadow, the colour matrix and the filter shader.
 
-use super::exec::{CLEAR, FrameTextures, size_f, view, with_pass};
+use super::pass::{CLEAR, FrameTextures, blur_sigmas, copy, size_f, view, with_pass};
 use super::pipelines::{Words, buffer};
 use super::state::GpuContext;
 use super::targets;
 use crate::ComposeError;
 use kivact_types::Rgba;
-use kivact_types::geometry::Point;
+use kivact_types::geometry::{Point, Size};
 use kivact_types::pixel::ColorMatrix;
 use kivact_types::render::LayerFilter;
 
@@ -55,6 +57,7 @@ impl GpuContext {
         output: u32,
         filter: &LayerFilter,
         (px_per_unit, origin): (f64, Point),
+        bounds: Size,
         frame: &FrameTextures<'_>,
     ) -> Result<(), ComposeError> {
         let source = frame.target(input)?;
@@ -99,7 +102,13 @@ impl GpuContext {
                 self.record_graph(encoder, source, dest, graph, px_per_unit, origin)?;
             }
             LayerFilter::Shader(shader) => {
-                self.record_filter_shader(encoder, source, dest, shader, px_per_unit, origin)?;
+                self.record_filter_shader(
+                    encoder,
+                    source,
+                    dest,
+                    shader,
+                    (px_per_unit, origin, bounds),
+                )?;
             }
         }
         Ok(())
@@ -144,7 +153,7 @@ impl GpuContext {
         for row in args.matrix.as_chunks::<4>().0 {
             words.v4([row[0], row[1], row[2], row[3]]);
         }
-        let params = super::exec::uniform(&self.device, &self.queue, words.bytes());
+        let params = super::pass::uniform(&self.device, &self.queue, words.bytes());
         let src_view = view(src);
         let aux_view = aux.map(view);
         let aux_ref = aux_view.as_ref().unwrap_or(&self.pipelines.dummy);
@@ -342,16 +351,6 @@ impl GpuContext {
         self.filter_pass_with(encoder, &out, src, None, args, Some(&weight_buffer))?;
         Ok(out)
     }
-}
-
-/// Copy all of `src` into `dst` (the same size and format).
-pub(super) fn copy(encoder: &mut wgpu::CommandEncoder, src: &wgpu::Texture, dst: &wgpu::Texture) {
-    encoder.copy_texture_to_texture(src.as_image_copy(), dst.as_image_copy(), src.size());
-}
-
-/// The σ (px) per axis when the blur changes the image: None when both are below half a pixel.
-pub(super) fn blur_sigmas(sigma_x: f64, sigma_y: f64) -> Option<(f64, f64)> {
-    (sigma_x >= 0.5 || sigma_y >= 0.5).then_some((sigma_x, sigma_y))
 }
 
 /// The halvings of an axis with σ (px): while σ / 2^k > 4, at most six.

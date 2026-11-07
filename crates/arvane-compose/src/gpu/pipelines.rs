@@ -1,4 +1,6 @@
-//! Role: The compositor's render pipelines, bind group layouts and shared buffers, made once per device.
+//! Role: The compositor's pipelines, layouts and shared buffers.
+//!
+//! Made once per device; the draw modules use them by name.
 
 use arvane_render::RASTER_FORMAT;
 use kivact_types::render::Composite;

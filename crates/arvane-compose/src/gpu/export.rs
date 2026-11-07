@@ -1,55 +1,17 @@
-//! Role: The GPU export pools of drawables (design §8.12): a frame is copied into a free slot of its sink's pool and shared, and a frame that finds no free slot waits for the next one.
+//! Role: Sends drawable frames to their sinks' export pools (design §8.12).
+//!
+//! A frame is copied into a free slot of its sink's pool and shared; a frame
+//! that finds no free slot waits for the next one. The pools and the records
+//! of what each sink received are passive state in `export_pool`.
 
-use std::collections::HashMap;
-
+use super::export_pool::{ExportPool, ExportRecord, Pool};
+use super::pass::unpremultiply;
 use super::state::GpuContext;
 use crate::ComposeError;
 use crate::plan::PlannedExport;
 use kivact_types::ids::DrawableId;
 use kivact_types::render::{Composition, Export, ExportFrame, ExportMode, ExportedFrame};
 use kivact_types::{GpuAdapter, SharedTextures};
-
-/// The export pool of a sink (feature `gpu-interop`).
-#[cfg(feature = "gpu-interop")]
-pub(crate) type Pool = kivact_gpu_share::wgpu::Pool;
-
-/// Without the `gpu-interop` feature no pool is ever made.
-#[cfg(not(feature = "gpu-interop"))]
-pub(crate) enum Pool {}
-
-/// A sink's export pool with the request it serves.
-pub(crate) struct ExportPool {
-    /// The request the pool serves.
-    generation: u64,
-    /// The pool's texture size in px.
-    size: (u32, u32),
-    /// The pool itself.
-    pool: Pool,
-}
-
-/// What a sink last received, by which the compositor decides whether to send another frame (design §8.12).
-#[derive(Clone, Copy, Debug, PartialEq)]
-struct ExportRecord {
-    /// The request answered.
-    generation: u64,
-    /// How the frame was delivered.
-    mode: ExportMode,
-    /// The layer's content signature.
-    signature: u64,
-    /// Size in device px.
-    size: (u32, u32),
-    /// Device px per logical px.
-    scale: f64,
-}
-
-/// The export state of a GPU executor: its pools by sink, and what each sink last received.
-#[derive(Default)]
-pub(crate) struct Exports {
-    /// The pools by sink.
-    pools: HashMap<DrawableId, ExportPool>,
-    /// The last record of each sink.
-    records: HashMap<DrawableId, ExportRecord>,
-}
 
 impl GpuContext {
     /// The export pool of `sink` for request `generation` on `adapter`, as shared textures (`size` device px).
@@ -109,7 +71,7 @@ impl GpuContext {
             let frame = match export.mode {
                 ExportMode::Pixels => {
                     let mut rgba = self.read_rgba(texture)?;
-                    super::exec::unpremultiply(&mut rgba);
+                    unpremultiply(&mut rgba);
                     let pixels =
                         kivact_types::pixel::Pixels::new(texture.width(), texture.height(), rgba);
                     Some(ExportFrame::Pixels(pixels))

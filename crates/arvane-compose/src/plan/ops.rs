@@ -272,6 +272,12 @@ pub(crate) enum Op<'a> {
         px_per_unit: f64,
         /// The layer point at px (0, 0).
         origin: Point,
+        /// The layer's bounds in layer units: the size of a filter shader's box.
+        #[cfg_attr(
+            not(feature = "gpu"),
+            expect(dead_code, reason = "read only by the GPU executor")
+        )]
+        bounds: Size,
     },
     /// Multiply `target` by the combined mask of `masks` (bottom layer last).
     Mask {

@@ -1,6 +1,8 @@
-//! Role: Records the draw operations of a plan: sampling, anti-aliased coverage, blend and composite (design §8.7).
+//! Role: Records the draw operations of a plan (design §8.7).
+//!
+//! Sampling, anti-aliased coverage, blend and composite of each draw.
 
-use super::exec::{FrameTextures, size_f, view, with_pass};
+use super::pass::{FrameTextures, blend_index, size_f, view, with_pass};
 use super::pipelines::{SHADER_BLEND, Words, buffer, composite_slot};
 use super::state::GpuContext;
 use crate::ComposeError;
@@ -72,7 +74,7 @@ impl GpuContext {
             .u(edges.len() as u32)
             .u(flags)
             .u(blend_index(op.blend));
-        let params = super::exec::uniform(&self.device, &self.queue, words.bytes());
+        let params = super::pass::uniform(&self.device, &self.queue, words.bytes());
         let edge_buffer = self.edge_buffer(&edges);
         let group = self.draw_group(&params, &src_view, dst, cov, &edge_buffer);
         let slot = if blended {
@@ -197,29 +199,6 @@ impl GpuContext {
 /// A bind group entry.
 fn entry(binding: u32, resource: wgpu::BindingResource<'_>) -> wgpu::BindGroupEntry<'_> {
     wgpu::BindGroupEntry { binding, resource }
-}
-
-/// The index of a blend mode in the draw shader (`blend_fn`); PlusLighter is 255.
-pub(super) fn blend_index(mode: BlendMode) -> u32 {
-    match mode {
-        BlendMode::Normal => 0,
-        BlendMode::Multiply => 1,
-        BlendMode::Screen => 2,
-        BlendMode::Overlay => 3,
-        BlendMode::Darken => 4,
-        BlendMode::Lighten => 5,
-        BlendMode::ColorDodge => 6,
-        BlendMode::ColorBurn => 7,
-        BlendMode::HardLight => 8,
-        BlendMode::SoftLight => 9,
-        BlendMode::Difference => 10,
-        BlendMode::Exclusion => 11,
-        BlendMode::Hue => 12,
-        BlendMode::Saturation => 13,
-        BlendMode::Color => 14,
-        BlendMode::Luminosity => 15,
-        BlendMode::PlusLighter => 255,
-    }
 }
 
 /// The pixel box of a polygon, grown by one px for the anti-aliased edge, clipped to the target.

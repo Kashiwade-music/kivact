@@ -1,9 +1,11 @@
-//! Role: Creates a GpuContext on a hardware adapter and reports device failures.
+//! Role: Creates a GPU context on a hardware adapter and device.
+//!
+//! It also reports the device failures the context keeps.
 
-use super::export::Exports;
+use super::export_pool::Exports;
 use super::external::External;
 use super::pipelines::Pipelines;
-use super::shader::Shaders;
+use super::shader_cache::Shaders;
 use super::state::{DeviceLost, GpuContext, GpuEnv};
 use super::targets::Pool;
 use crate::ComposeError;

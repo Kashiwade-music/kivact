@@ -1,4 +1,4 @@
-//! Role: Presenter: one window's renderers and the policy applied to each frame.
+//! Role: Presenter: one window's renderers and its frame policy.
 
 use super::exports::{ExportNotice, ExportRegistry};
 use super::frame::{FramePlan, Presented};
@@ -130,10 +130,10 @@ impl Presenter {
         adapter: &kivact_types::GpuAdapter,
         size: (u32, u32),
     ) -> Result<kivact_types::SharedTextures, Failure> {
-        if !arvane_compose::GPU_BUILT {
+        if !arvane_compose::GPU_INTEROP_BUILT {
             return Err(Failure::new(
                 FailureKind::Unavailable,
-                "built without GPU support",
+                "built without GPU interop support (feature gpu-interop)",
             ));
         }
         let Some(context) = self.gpu.context() else {

@@ -1,4 +1,4 @@
-//! Role: The images external render engines share with a GPU context, frame by frame.
+//! Role: Images that external render engines share with a GPU context.
 //!
 //! A context's imports (feature `gpu-interop`): each image is a pool of
 //! textures and two timeline fences imported into this context's device

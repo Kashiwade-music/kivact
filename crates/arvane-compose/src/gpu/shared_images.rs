@@ -1,4 +1,4 @@
-//! Role: GpuContext's imports of the images external render engines share.
+//! Role: The GPU context's imports of externally shared images.
 
 use super::state::GpuContext;
 use crate::ComposeError;

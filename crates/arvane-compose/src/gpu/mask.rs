@@ -1,7 +1,9 @@
-//! Role: Records the mask and clip operations (design §8.9): mask values folded into an accumulator,
-//! then multiplied into the target; clips multiply the target by their coverage.
+//! Role: Records the masks and clips of a target (design §8.9).
+//!
+//! Mask values are folded into an accumulator and multiplied into the target;
+//! clips multiply the target by their coverage.
 
-use super::exec::{CLEAR, FrameTextures, view, with_pass};
+use super::pass::{CLEAR, FrameTextures, view, with_pass};
 use super::pipelines::Words;
 use super::state::GpuContext;
 use super::targets;
@@ -82,7 +84,7 @@ impl GpuContext {
             .u(composite_index)
             .u(u32::from(prev.is_none()))
             .u(0);
-        let params = super::exec::uniform(&self.device, &self.queue, words.bytes());
+        let params = super::pass::uniform(&self.device, &self.queue, words.bytes());
         let prev_view = prev.map(view);
         let prev_ref = prev_view.as_ref().unwrap_or(&self.pipelines.dummy_acc);
         let group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {

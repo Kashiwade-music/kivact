@@ -1,9 +1,12 @@
-//! Role: Holds a GPU context's device, pipelines, texture stores and the window surfaces' state.
+//! Role: The GPU context, its environment and the window surfaces.
+//!
+//! The aggregate of the GPU executor. Its fields are passive state from the
+//! leaf modules (targets, pipelines, shader_cache, export_pool, external).
 
-use super::export::Exports;
+use super::export_pool::Exports;
 use super::external::External;
 use super::pipelines::Pipelines;
-use super::shader::Shaders;
+use super::shader_cache::Shaders;
 use super::targets::Pool;
 use crate::cache::{CacheIndex, ChunkKey};
 use arvane_render::GpuRaster;
