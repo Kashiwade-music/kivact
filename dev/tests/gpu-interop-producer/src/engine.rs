@@ -21,4 +21,8 @@ pub(crate) trait Engine {
     fn wait_release(&self, value: u64, timeout: Duration) -> bool;
     /// Texture `slot`'s last frame, read back as straight RGBA8.
     fn read_back(&self, slot: u32) -> Result<Vec<u8>, String>;
+    /// Send the preparation signal ([`kivact_types::SHARED_PREPARED`]) on
+    /// the pool's `release` fence, as an importing window does: the
+    /// engine's first frames wait for it.
+    fn prepare(&self, release: &kivact_types::SharedHandle) -> Result<(), String>;
 }

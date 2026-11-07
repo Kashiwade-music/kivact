@@ -17,11 +17,90 @@ use crate::engine::{Engine, POOL, WAIT};
 use ash::vk;
 use kivact_gpu_share::vulkan::{self as interop, Pool};
 use kivact_gpu_share::{FrameReady, PoolConfig};
-use kivact_types::{GpuAdapter, GpuBackend, SharedTextures};
+use kivact_types::{GpuAdapter, GpuBackend, SHARED_PREPARED, SharedHandle, SharedTextures};
 use std::time::Duration;
 
 fn failed(what: &'static str) -> impl Fn(vk::Result) -> String {
     move |e| format!("{what} failed: {e}")
+}
+
+/// The preparation signal on the pool's `release` timeline semaphore,
+/// sent as an importing window sends it: a timeline semaphore of
+/// `device` imports the handle (the import keeps the payload), is
+/// signaled to [`SHARED_PREPARED`] and is destroyed.
+pub(crate) fn prepare(
+    instance: &ash::Instance,
+    device: &ash::Device,
+    release: &SharedHandle,
+) -> Result<(), String> {
+    let mut kind = vk::SemaphoreTypeCreateInfo::default()
+        .semaphore_type(vk::SemaphoreType::TIMELINE)
+        .initial_value(0);
+    let info = vk::SemaphoreCreateInfo::default().push_next(&mut kind);
+    // SAFETY: valid create information on the engine's device, which has
+    // timeline semaphores (API 1.2).
+    let semaphore =
+        unsafe { device.create_semaphore(&info, None) }.map_err(failed("vkCreateSemaphore"))?;
+    let outcome = import(instance, device, semaphore, release).and_then(|()| {
+        let signal = vk::SemaphoreSignalInfo::default()
+            .semaphore(semaphore)
+            .value(SHARED_PREPARED);
+        // SAFETY: the imported timeline semaphore of the device, signaled
+        // on the host to a value above its current one (0).
+        unsafe { device.signal_semaphore(&signal) }.map_err(failed("vkSignalSemaphore"))
+    });
+    // SAFETY: the semaphore made above, used by no submission.
+    unsafe { device.destroy_semaphore(semaphore, None) };
+    outcome
+}
+
+/// Import the `release` handle into `semaphore` (a new timeline
+/// semaphore of `device`), permanently.
+fn import(
+    instance: &ash::Instance,
+    device: &ash::Device,
+    semaphore: vk::Semaphore,
+    release: &SharedHandle,
+) -> Result<(), String> {
+    #[cfg(windows)]
+    {
+        use std::os::windows::io::{AsHandle, AsRawHandle};
+        let ext = ash::khr::external_semaphore_win32::Device::new(instance, device);
+        let info = vk::ImportSemaphoreWin32HandleInfoKHR::default()
+            .semaphore(semaphore)
+            .handle_type(vk::ExternalSemaphoreHandleTypeFlags::OPAQUE_WIN32)
+            .handle(release.as_handle().as_raw_handle() as isize);
+        // SAFETY: a live handle of a timeline semaphore exported for this
+        // adapter; `semaphore` is a new timeline semaphore of `device`.
+        unsafe { ext.import_semaphore_win32_handle(&info) }
+            .map_err(failed("vkImportSemaphoreWin32HandleKHR"))
+    }
+    #[cfg(target_os = "linux")]
+    {
+        use std::os::fd::{AsFd, FromRawFd, IntoRawFd};
+        let ext = ash::khr::external_semaphore_fd::Device::new(instance, device);
+        // The driver takes a descriptor it imports, so the import gets a
+        // duplicate and the pool keeps its own.
+        let fd = release
+            .as_fd()
+            .try_clone_to_owned()
+            .map_err(|e| format!("duplicating the shared semaphore failed: {e}"))?;
+        let raw = fd.into_raw_fd();
+        let info = vk::ImportSemaphoreFdInfoKHR::default()
+            .semaphore(semaphore)
+            .handle_type(vk::ExternalSemaphoreHandleTypeFlags::OPAQUE_FD)
+            .fd(raw);
+        // SAFETY: as above, with a descriptor of this process.
+        match unsafe { ext.import_semaphore_fd(&info) } {
+            Ok(()) => Ok(()),
+            Err(e) => {
+                // SAFETY: the import failed, so the driver did not take the
+                // duplicate: this process still owns it.
+                drop(unsafe { std::os::fd::OwnedFd::from_raw_fd(raw) });
+                Err(format!("vkImportSemaphoreFdKHR failed: {e}"))
+            }
+        }
+    }
 }
 
 /// What draws into one texture of the pool.
@@ -296,6 +375,10 @@ impl Engine for Vulkan {
         // SAFETY: the engine's own queue of the pool's family, used by this
         // thread alone; the caller's window does not use the texture.
         unsafe { self.pool().read_back(self.queue, slot, WAIT) }.map_err(|e| e.to_string())
+    }
+
+    fn prepare(&self, release: &SharedHandle) -> Result<(), String> {
+        prepare(&self.instance, self.device(), release)
     }
 }
 
