@@ -2,9 +2,9 @@
 
 use super::canvas_gradient::{CanvasGradient, CanvasShape};
 use super::gradient::{Gradient, GradientKind, RadialExtent, RadialSize};
-use super::layer::{Paint, PaintImage, PaintSize};
+use super::layer::{Paint, PaintImage, PaintSize, ShaderPaint};
 use crate::length::Length;
-use crate::shader::{ShaderPaint, pack};
+use crate::shader::data::pack;
 use crate::theme::value::Theme;
 use kivact_types as p;
 use kivact_types::{
@@ -128,11 +128,11 @@ fn shader_spec(s: &ShaderPaint, theme: &Theme) -> ShaderSpec {
             image => Some(image),
         });
     ShaderSpec {
-        program: s.program.clone(),
-        params: pack(&s.program, &s.params, theme),
-        images: s.images.clone(),
-        clock: s.clock,
-        essential: s.essential,
+        program: s.data.program.clone(),
+        params: pack(&s.data.program, &s.data.params, theme),
+        images: s.data.images.clone(),
+        clock: s.data.clock,
+        essential: s.data.essential,
         fallback,
         margin: 0.0,
     }
