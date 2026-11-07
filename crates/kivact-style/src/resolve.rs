@@ -807,7 +807,7 @@ fn reports(s: &Style, theme: &Theme) -> Vec<UiError> {
         if let p::Kind::Spring(spring) = &t.kind
             && let Some(problem) = spring.problem()
         {
-            message(format!("transition: {problem}"));
+            message(format!("spring: {problem}"));
         }
     }
     if let Some(t) = &s.layout_transition

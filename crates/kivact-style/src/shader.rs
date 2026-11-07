@@ -146,7 +146,11 @@ fn param_problem(program: &ShaderProgram, name: &str, value: &ShaderValue) -> Op
 /// The `Params` bytes of `values` against `program`'s layout. Parameters
 /// left unset are zero; a value that does not fit is dropped (reported when
 /// it was set).
-fn pack(program: &ShaderProgram, values: &[(String, ShaderValue)], theme: &Theme) -> Arc<[u8]> {
+pub(crate) fn pack(
+    program: &ShaderProgram,
+    values: &[(String, ShaderValue)],
+    theme: &Theme,
+) -> Arc<[u8]> {
     let mut bytes = vec![0u8; program.params_size.max(16) as usize];
     for (name, value) in values {
         let Some(slot) = program.params.iter().find(|slot| &slot.name == name) else {
@@ -239,13 +243,13 @@ impl FilterShader {
 /// and the clock. A [`Paint`] (`style().background(..)`, `mask(..)`).
 #[derive(Clone, Debug, PartialEq)]
 pub struct ShaderPaint {
-    program: Arc<ShaderProgram>,
-    params: Vec<(String, ShaderValue)>,
-    images: [Option<Asset>; 4],
-    clock: ShaderClock,
-    essential: bool,
-    fallback: Option<Box<Paint>>,
-    problems: Vec<String>,
+    pub(crate) program: Arc<ShaderProgram>,
+    pub(crate) params: Vec<(String, ShaderValue)>,
+    pub(crate) images: [Option<Asset>; 4],
+    pub(crate) clock: ShaderClock,
+    pub(crate) essential: bool,
+    pub(crate) fallback: Option<Box<Paint>>,
+    pub(crate) problems: Vec<String>,
 }
 
 impl ShaderPaint {
@@ -295,26 +299,6 @@ impl ShaderPaint {
     /// The problems with the values set so far (for reporting).
     pub(crate) fn problems(&self) -> &[String] {
         &self.problems
-    }
-
-    /// The engine's shader fill, with the theme's colors resolved.
-    pub(crate) fn spec(&self, theme: &Theme) -> ShaderSpec {
-        let fallback = self.fallback.as_ref().and_then(|p| {
-            // A shader cannot be its own fallback: such a fallback draws nothing.
-            match crate::paint::fill_layer(p, theme).image {
-                kivact_types::FillImage::Shader(_) => None,
-                image => Some(image),
-            }
-        });
-        ShaderSpec {
-            program: self.program.clone(),
-            params: pack(&self.program, &self.params, theme),
-            images: self.images.clone(),
-            clock: self.clock,
-            essential: self.essential,
-            fallback,
-            margin: 0.0,
-        }
     }
 }
 

@@ -1,12 +1,15 @@
-//! Role: Resolve paint layers and gradients with the theme into the wire's fill layers.
+//! Role: Resolve paints, gradients and shader paints with the theme into wire fills.
 
 use super::canvas_gradient::{CanvasGradient, CanvasShape};
 use super::gradient::{Gradient, GradientKind, RadialExtent, RadialSize};
 use super::layer::{Paint, PaintImage, PaintSize};
 use crate::length::Length;
+use crate::shader::{ShaderPaint, pack};
 use crate::theme::value::Theme;
 use kivact_types as p;
-use kivact_types::{FillImage, FillLayer, FillSize, GradientKind as WireKind, GradientStop};
+use kivact_types::{
+    FillImage, FillLayer, FillSize, GradientKind as WireKind, GradientStop, ShaderSpec,
+};
 
 /// A paint as the engine fills an area with it.
 pub(crate) fn fill_layer(l: &Paint, theme: &Theme) -> FillLayer {
@@ -18,7 +21,7 @@ pub(crate) fn fill_layer(l: &Paint, theme: &Theme) -> FillLayer {
             PaintImage::Gradient(g) => FillImage::Gradient(gradient(g, theme)),
             PaintImage::Canvas(g) => FillImage::Coordinate(canvas_gradient(g, theme)),
             PaintImage::Image(a) => FillImage::Image(a.clone()),
-            PaintImage::Shader(s) => FillImage::Shader(std::sync::Arc::new(s.spec(theme))),
+            PaintImage::Shader(s) => FillImage::Shader(std::sync::Arc::new(shader_spec(s, theme))),
         },
         size: match l.size {
             PaintSize::Auto => FillSize::Auto,
@@ -110,5 +113,27 @@ fn gradient(g: &Gradient, theme: &Theme) -> p::Gradient {
         hints,
         repeating: g.repeating,
         interpolation: g.interpolation,
+    }
+}
+
+/// The engine's shader fill, with the theme's colors resolved and the
+/// fallback lowered (a shader cannot be its own fallback: such a fallback
+/// draws nothing).
+fn shader_spec(s: &ShaderPaint, theme: &Theme) -> ShaderSpec {
+    let fallback = s
+        .fallback
+        .as_ref()
+        .and_then(|p| match fill_layer(p, theme).image {
+            FillImage::Shader(_) => None,
+            image => Some(image),
+        });
+    ShaderSpec {
+        program: s.program.clone(),
+        params: pack(&s.program, &s.params, theme),
+        images: s.images.clone(),
+        clock: s.clock,
+        essential: s.essential,
+        fallback,
+        margin: 0.0,
     }
 }

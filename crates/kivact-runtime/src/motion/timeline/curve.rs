@@ -6,7 +6,7 @@ use kivact_types::motion::{PlayDirection, Spring, SpringRun, Transition, lerp};
 
 use super::super::Repeat;
 use super::super::transition::{Kind, settles_at_start};
-use super::plan::{SegmentDef, SegmentKind};
+use super::segment::{SegmentDef, SegmentKind};
 
 /// Largest rest time (ms) a spring segment is measured to; a spring that is
 /// still moving at this time ends here.

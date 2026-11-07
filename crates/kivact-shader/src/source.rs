@@ -1,4 +1,6 @@
-//! Role: Lexical checks of a user's shader source, and the map from offsets of the assembled module back to that source.
+//! Role: Lexical checks of a user's shader source, and the offset map back to it.
+//!
+//! The map takes offsets of the assembled module back to the user's source.
 
 use crate::error::ShaderError;
 

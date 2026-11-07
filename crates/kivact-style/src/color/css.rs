@@ -2,7 +2,7 @@
 //! `rgb()`, `hsl()`, `hwb()`, `lab()`, `lch()`, `oklab()`, `oklch()` and
 //! `color()`.
 
-use super::Color;
+use super::value::Color;
 use kivact_types::ColorSpace;
 
 /// The CSS named colors (CSS Color 4 §6.1), as `0xRRGGBB`.
@@ -415,5 +415,15 @@ impl Value {
             Unit::Number => Ok(self.value),
             _ => Err("this component takes a number or a percentage".to_string()),
         }
+    }
+}
+
+impl Color {
+    /// Parse a CSS color (§11.4.1): names, hex, `rgb()`, `hsl()`, `hwb()`,
+    /// `lab()`, `lch()`, `oklab()`, `oklch()` and `color()`. Errors are
+    /// `ErrorKind::Message` naming the problem.
+    #[track_caller]
+    pub fn css(text: &str) -> Result<Color, kivact_runtime::UiError> {
+        parse(text).map_err(kivact_runtime::UiError::msg)
     }
 }

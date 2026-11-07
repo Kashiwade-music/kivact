@@ -55,6 +55,7 @@
 
 mod border_image;
 mod drawable;
+pub mod filter;
 mod image;
 mod layer;
 mod local_paint;
@@ -105,11 +106,3 @@ pub use crate::paint::{
 pub use crate::shader::{FilterShader, PaintShader, ShaderFilter, ShaderPaint, ShaderValue};
 pub use drawable::DrawableSource;
 pub use kivact_types::render::Composite;
-
-/// The filter graph's value types, as SVG names them.
-pub mod filter {
-    pub use kivact_types::{
-        Channel, CompositeOp, EdgeMode, FilterColorSpace, Light, MorphologyOp, TransferFn,
-        TurbulenceKind,
-    };
-}
