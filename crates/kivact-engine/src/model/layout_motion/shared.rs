@@ -15,6 +15,14 @@ use std::sync::Arc;
 use kivact_types::{NodeId, Rect};
 
 use crate::model::Model;
+use crate::tree::node::HostNode;
+
+/// The shared-layout id of `node`. §12.11 keeps it on the node's properties,
+/// which do not carry one yet, so no node has an id (the value the removed
+/// `LayoutProps::layout_id` always had).
+fn shared_layout_id(_node: &HostNode) -> Option<Arc<str>> {
+    None
+}
 
 /// Window layout boxes of removed nodes with a layout id, kept until the
 /// next layout pass has had the chance to use them (a per-pass mailbox).
@@ -36,7 +44,7 @@ impl Model {
             if self.tree.leaving(id) {
                 continue;
             }
-            let Some(key) = node.layout().and_then(|l| l.layout_id.clone()) else {
+            let Some(key) = shared_layout_id(node) else {
                 continue;
             };
             if let Some(rect) = self.window_layout_rect(id) {
@@ -60,10 +68,10 @@ impl Model {
             if known.contains(&id) {
                 continue;
             }
-            let Some(layout) = node.layout().filter(|l| l.layout_transition.is_some()) else {
+            if node.layout().is_none_or(|l| l.layout_transition.is_none()) {
                 continue;
-            };
-            let Some(key) = layout.layout_id.clone() else {
+            }
+            let Some(key) = shared_layout_id(node) else {
                 continue;
             };
             if !self.layout_motion.shared.departed.contains_key(&key) {

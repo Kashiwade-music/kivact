@@ -81,5 +81,6 @@ pub(crate) mod states;
 pub(crate) mod text;
 pub(crate) mod transform;
 
+pub(crate) use crate::layer::{EVERYWHERE, Look, SubtreeFacts};
 pub(crate) use aggregate::ExternalWrite;
 pub(crate) use aggregate::{DeferredRequest, Model};

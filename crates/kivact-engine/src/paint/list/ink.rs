@@ -1,7 +1,7 @@
 //! Role: Ink bounds: how far a node, its text and its scene paint beyond its box.
 
 use crate::contract::NodeType;
-use crate::layer::EVERYWHERE;
+use crate::model::EVERYWHERE;
 use crate::model::Model;
 use crate::model::transform::map_rect;
 use crate::paint::state::{Ink, Look};

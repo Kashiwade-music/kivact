@@ -45,9 +45,12 @@ use kivact_types::geometry3d::Matrix4;
 use kivact_types::{NodeId, OverlayAt, Point, Rect};
 use std::collections::{HashMap, HashSet};
 
-use crate::layer::Look;
+use crate::layer::{self, Look, SubtreeFacts};
+use crate::lower::scene::scene_layers;
 use crate::measure::leaf::Measure;
 use crate::model::Model;
+use crate::tree::node::HostNode;
+use kivact_types::PaintProps;
 
 /// One plane of a 3D rendering context: its node and the map from its box
 /// space to the box space of the context root's parent (§8.4).
@@ -56,7 +59,79 @@ struct ContextPlane {
     map: Matrix4,
 }
 
+impl Look {
+    /// The look of `id` now: its base paint's, or with state styles its
+    /// paint's with the active deltas.
+    pub(crate) fn now(host: &Model, id: NodeId, n: &HostNode) -> Self {
+        if n.states().is_some() || host.motion.get(id).is_some() {
+            Look::of(&host.effective_paint(id))
+        } else {
+            host.paint.look[n.index.0].unwrap_or_else(|| {
+                n.paint()
+                    .map_or_else(|| Look::of(&PaintProps::default()), Look::of)
+            })
+        }
+    }
+}
+
+impl layer::LayerView for Model {
+    fn drawn_look(&self, id: NodeId) -> Option<Look> {
+        let n = self.node(id)?;
+        self.tree().drawn(id).then(|| Look::now(self, id, n))
+    }
+
+    fn flat_children(&self, id: NodeId) -> Vec<NodeId> {
+        self.tree().flat_children(id).collect()
+    }
+
+    fn is_layer_node(&self, id: NodeId) -> bool {
+        self.node(id).is_some_and(|n| n.is_layer())
+    }
+
+    fn scene_facts(&self, id: NodeId) -> (bool, bool) {
+        let Some(n) = self.node(id) else {
+            return (false, false);
+        };
+        n.scenes()
+            .iter()
+            .flatten()
+            .fold((false, false), |(layer, item), scene| {
+                let (l, i) = scene_layers(scene);
+                (layer || l, item || i)
+            })
+    }
+
+    fn moves_layer(&self, id: NodeId) -> bool {
+        self.motion.moves_layer(id) || self.layout_motion_transform(id).is_some()
+    }
+
+    fn layer_roots(&self) -> Vec<NodeId> {
+        self.tree()
+            .root()
+            .into_iter()
+            .chain(self.layers().into_iter().map(|(id, _)| id))
+            .collect()
+    }
+}
+
 impl Model {
+    /// The facts of every drawn subtree of the layer roots (§6.1), see
+    /// [`layer::layer_facts`].
+    pub(crate) fn layer_facts(&self) -> HashMap<NodeId, SubtreeFacts> {
+        layer::layer_facts(self)
+    }
+
+    /// The facts of the subtree at `id` (its parent's look is `parent`),
+    /// recorded in `out`, see [`layer::subtree_facts`].
+    pub(crate) fn subtree_facts(
+        &self,
+        id: NodeId,
+        parent: Option<&Look>,
+        out: &mut HashMap<NodeId, SubtreeFacts>,
+    ) -> SubtreeFacts {
+        layer::subtree_facts(self, id, parent, out)
+    }
+
     /// Lay the tree out if anything changed since the last pass, scroll
     /// pending nodes into view and queue the geometry reports. Returns
     /// whether a pass ran. Taffy computes only when the layout tree was

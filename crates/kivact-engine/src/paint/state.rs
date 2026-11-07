@@ -19,7 +19,7 @@ use kivact_types::paint::BackfaceVisibility;
 use kivact_types::render::{Plane, RasterGrid};
 use kivact_types::{NodeId, Point, Rect, Size};
 
-pub(crate) use crate::layer::{Look, SubtreeFacts};
+pub(crate) use crate::model::{Look, SubtreeFacts};
 
 /// The parameters of one walk over a paint list; nothing in [`PaintState`]
 /// is changed for its duration (it replaces temporary scale and list swaps).
