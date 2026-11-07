@@ -227,13 +227,34 @@ fn color_matrix_group(checker: Pixels) -> CompositeLayer {
 }
 
 /// [`vocabulary`] scaled down about the middle: tiles, glyphs and blurs at
-/// other device sizes (the root layer's transform).
+/// other device sizes. The root keeps the identity transform (design §8.3),
+/// so the vocabulary is a child layer of the root that is scaled instead.
 fn scaled_vocabulary() -> Composition {
-    let mut composition = vocabulary();
-    composition.layers[0].transform = kivact_types::geometry3d::Matrix4::from_affine(
+    let mut layers = vocabulary().layers;
+    let mut vocab = layers.remove(0);
+    // Layers 1 to 5 move to 2 to 6, and the scaled child takes index 1.
+    for item in &mut vocab.items {
+        if let LayerItem::Layer { index, .. } = item {
+            *index += 1;
+        }
+    }
+    vocab.key = node_key(6);
+    vocab.transform = kivact_types::geometry3d::Matrix4::from_affine(
         Transform::scale(0.75).about(pt(120.0, 100.0)),
     );
-    composition
+    let root = root_layer(
+        SIZE,
+        vec![LayerItem::Layer {
+            index: 1,
+            clips: Vec::new(),
+        }],
+    );
+    let mut all = vec![root, vocab];
+    all.extend(layers);
+    Composition {
+        layers: all,
+        exports: Vec::new(),
+    }
 }
 
 #[test]
