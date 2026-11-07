@@ -103,5 +103,5 @@ pub use property_row::{PropertyRow, PropertyStateButton, property_row, property_
 pub use range::{Range, range};
 pub use tabs::{DocumentTabs, document_tabs};
 pub use theme::{ThemeOptions, theme, theme_with};
-pub use timeline::{Timeline, timeline};
+pub use timeline::{Timeline, timeline_editor};
 pub use tokens::{Accent, Density, LabelTone, Tokens};
