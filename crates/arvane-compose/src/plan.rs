@@ -211,7 +211,8 @@ pub(crate) struct DrawOp<'a> {
     pub(crate) polygon: Polygon,
     /// Edges of `polygon` that are BSP splits (no antialiasing, top-left rule).
     pub(crate) split_edges: Vec<usize>,
-    /// Target px → source space.
+    /// Target px → source space: chunk, target and Pixels px, or for External the
+    /// item rect space (the executor takes it to texels by the frame size and `source`).
     pub(crate) map: Projective,
     /// Alpha multiplier.
     pub(crate) opacity: f64,
@@ -246,6 +247,9 @@ pub(crate) struct ShaderOp<'a> {
     pub(crate) coverage: ChunkKey,
     /// The fallback chunk the CPU draws instead.
     pub(crate) fallback: ChunkKey,
+    /// Target px → fallback chunk px. The chunk already holds the item's transform,
+    /// so this is the layer-to-px map of the chunk's grid composed with the target's.
+    pub(crate) fallback_map: Projective,
     /// Filter shaders read this target as content.
     pub(crate) input: Option<TargetId>,
     /// Alpha multiplier.
