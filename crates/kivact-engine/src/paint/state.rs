@@ -58,6 +58,10 @@ pub(crate) struct PaintState {
     pub(crate) scene_cache: RefCell<crate::lower::SceneCache>,
     pub(super) dropped_reported: RefCell<BTreeSet<(NodeId, u8)>>,
     pub(super) dropped_draws: RefCell<Vec<(NodeId, u32)>>,
+    /// The canvas drawables of the frame being composed (`canvas.rs`).
+    pub(crate) drawables: RefCell<crate::lower::drawables::DrawablePlan>,
+    /// The misplaced drawables already reported, by node.
+    pub(super) misplaced_reported: RefCell<BTreeSet<(NodeId, kivact_types::DrawableId)>>,
     pub(super) list: PaintList,
     pub(super) redraw: Redraw,
 }
@@ -72,6 +76,8 @@ impl PaintState {
             scene_cache: RefCell::default(),
             dropped_reported: RefCell::default(),
             dropped_draws: RefCell::default(),
+            drawables: RefCell::default(),
+            misplaced_reported: RefCell::default(),
             list: PaintList::new(),
             redraw: Redraw::Needed,
         }
@@ -80,6 +86,11 @@ impl PaintState {
     /// The window's scale factor the next frame is drawn at.
     pub(crate) fn set_scale(&mut self, scale: f64) {
         self.scale = scale;
+    }
+
+    /// The window's scale factor the next frame is drawn at, as last set.
+    pub(crate) fn scale(&self) -> f64 {
+        self.scale
     }
 
     /// Ask for the next frame to be drawn (a skipped export is due).

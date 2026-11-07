@@ -127,6 +127,9 @@ fn dispatch_host(rt: &Runtime, host_event: &HostEvent) {
             diagnostics::layout_warning(rt, *node, *rule, *amount)
         }
         HostEvent::DrawDropped { node, count } => diagnostics::draw_dropped(rt, *node, *count),
+        HostEvent::DrawableNotHosted { node, drawable } => {
+            diagnostics::drawable_not_hosted(rt, *node, *drawable)
+        }
         HostEvent::TurnsCut { turns } => diagnostics::turns_cut(rt, *turns),
         HostEvent::ExternalImported { .. }
         | HostEvent::GpuAdapterChanged(_)

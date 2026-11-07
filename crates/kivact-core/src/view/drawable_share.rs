@@ -1,4 +1,4 @@
-//! Role: The app's side of a drawable's export: requests, geometry, frames and GPU textures.
+//! Role: The app's side of a drawable's export: requests, frames, textures.
 //!
 //! `DrawableShare` is the `Send + Sync` handle an app's render thread holds.
 //! Its state (`ExportLink`) lives in an [`Inbox`]: each call wakes the UI

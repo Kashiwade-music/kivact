@@ -44,6 +44,7 @@ impl Model {
             scale: self.paint.scale,
             size: self.window(),
         };
+        self.prepare_canvas(engine);
         let mut composition = self.compose_list(engine, &self.paint.list, pass);
         self.report_dropped_draws();
         self.append_exports(engine, &mut composition);
@@ -60,32 +61,20 @@ impl Model {
             let Some(bounds) = self.rect(root) else {
                 continue;
             };
-            // The subtree is walked at its own origin: its clip is its local box.
-            let local = Rect {
-                x: 0.0,
-                y: 0.0,
-                width: bounds.width,
-                height: bounds.height,
+            let scale = ask.scale_at(self.paint.scale());
+            let Some(layers) = self.subtree_layers(engine, id, root, scale) else {
+                continue;
             };
-            let list = self.subtree_paint_list(root, local);
-            let pass = PaintPass {
-                scale: ask.scale,
-                size: Size::new(bounds.width, bounds.height),
-            };
-            let subtree = self.compose_list(engine, &list, pass);
             let base = out.layers.len() as u32;
-            for (index, mut layer) in subtree.layers.into_iter().enumerate() {
+            for mut layer in layers {
                 for item in &mut layer.items {
                     if let kivact_types::render::LayerItem::Layer { index, .. } = item {
                         *index += base;
                     }
                 }
-                if index == 0 {
-                    layer.key = LayerKey::Drawable(id);
-                }
                 out.layers.push(layer);
             }
-            out.exports.push(export_of(id, base, bounds, &ask));
+            out.exports.push(export_of(id, base, bounds, scale, &ask));
         }
     }
 
@@ -94,6 +83,7 @@ impl Model {
         for (node, count) in self.paint.dropped_draws.take() {
             self.push(HostEvent::DrawDropped { node, count });
         }
+        self.report_misplaced();
     }
 
     /// The composition of `list`: every listed node with its current
@@ -299,7 +289,9 @@ impl Model {
             }),
         };
         // The context's failures are the frame's: a window keeps painting.
-        let _ = context.finish();
+        // The layer effects that were dropped are reported under layer 2.
+        let dropped = context.finish().dropped;
+        self.note_dropped(place.step.id, 2, dropped);
         LayerProps {
             key: LayerKey::Node(place.step.id),
             transform: spec.matrix,

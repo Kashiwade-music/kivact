@@ -34,13 +34,15 @@
 //!   `HostEvent::DrawDropped { node, count }`, and the layer reports again
 //!   only after it painted once without dropping one.
 
-use kivact_types::Size;
+use kivact_types::{NodeId, Size};
 use std::cell::{Cell, RefCell};
 
 use crate::lower::assets::ArvaneAssets;
+use crate::lower::drawables::{DrawablePlan, DrawableSite};
 use crate::lower::scene_cache::{Dependency, SceneCache};
 use std::sync::Arc;
 
+// xtask-allow(state-fields): One lowering operation's own borrows, counters and site; it is not retained state, and the drawables field borrows the frame's plan (A-5).
 /// A UI-local, non-reentrant lowering operation borrowing resources and scale.
 /// Callers must not hold an overlapping resource borrow while invoking it.
 /// It records failures and drops; publishing them remains the caller's policy.
@@ -53,6 +55,8 @@ pub(crate) struct Context<'a> {
     pub(crate) dependencies: RefCell<Vec<Dependency>>,
     dropped: Cell<u32>,
     failures: RefCell<Vec<kivact_types::Failure>>,
+    /// The canvas drawables of the host scene being lowered, if it is one.
+    pub(crate) drawables: Option<DrawableSite<'a>>,
 }
 
 /// The completed lowering operation.
@@ -87,7 +91,20 @@ impl<'a> Context<'a> {
             dependencies: RefCell::new(Vec::new()),
             dropped: Cell::new(0),
             failures: RefCell::new(Vec::new()),
+            drawables: None,
         }
+    }
+
+    /// Lower the scene of `host`'s slot `slot` with the frame's canvas
+    /// drawables `plan` (its `Draw::drawable` commands place them).
+    pub(crate) fn hosting(
+        mut self,
+        plan: &'a RefCell<DrawablePlan>,
+        host: NodeId,
+        slot: u8,
+    ) -> Self {
+        self.drawables = Some(DrawableSite { plan, host, slot });
+        self
     }
 
     pub(crate) fn checkpoint(&self) -> Checkpoint {

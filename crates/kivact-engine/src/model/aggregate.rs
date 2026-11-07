@@ -52,7 +52,7 @@ pub(crate) struct Model {
     /// turn, in the order written.
     pub(crate) external_writes: Vec<ExternalWrite>,
     /// The drawable roots and what the app asked of each export.
-    pub(crate) drawables: super::drawables::Drawables,
+    pub(crate) drawables: super::drawables::state::Drawables,
     #[cfg(debug_assertions)]
     pub(crate) lint: crate::check::lint::state::Lint,
 }

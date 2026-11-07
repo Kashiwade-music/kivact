@@ -1,4 +1,4 @@
-//! Role: Hit tests of drawables: a canvas's drawables and its hosted exports, in the order §10.4 gives.
+//! Role: Hit tests of drawables: canvas drawables and exports, in §10.4 order.
 //!
 //! A host asks at two points of its walk: a slot-1 (`draw_over`) drawable
 //! comes before the host's children, a slot-0 (`draw`) drawable and an
@@ -14,8 +14,9 @@ use kivact_types::{DrawableId, NodeId, Point, Rect};
 
 use crate::contract::{DrawableMode, SceneLayer};
 use crate::model::Model;
-use crate::model::drawables::place::{DrawnPlacement, drawable_placements};
 use crate::model::interact::visual;
+
+use super::place::{DrawnPlacement, drawable_placements};
 
 impl Model {
     /// The deepest drawable of `host` drawn in `slot` (0 or 1) under `p`,
