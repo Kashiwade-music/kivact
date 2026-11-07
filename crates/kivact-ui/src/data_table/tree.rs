@@ -195,6 +195,7 @@ impl<K: kivact_core::state::ItemKey> Plan<K> {
                     .into_view()
             },
         )
+        .into_view()
     }
 }
 

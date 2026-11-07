@@ -37,9 +37,14 @@ pub(crate) struct HostNode {
     pub(crate) shift: Point,
 }
 
-/// The last published geometry and text clipping observation.
+/// The last published geometry, text clipping and window layout box observation.
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub(crate) struct LayoutReport(pub(crate) Rect, pub(crate) Size, pub(crate) Clipping);
+pub(crate) struct LayoutReport(
+    pub(crate) Rect,
+    pub(crate) Size,
+    pub(crate) Clipping,
+    pub(crate) Option<Rect>,
+);
 /// The last published scroll offset, viewport, content extents and enabled axes.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) struct ScrollReport(

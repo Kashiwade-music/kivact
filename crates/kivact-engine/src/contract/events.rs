@@ -99,6 +99,9 @@ pub enum HostEvent {
         size: Size,
         /// A native ellipsis or line clamp cut this node's text.
         text_truncated: bool,
+        /// The window layout box without the node's own transform (`None`
+        /// when it has no layout).
+        layout: Option<Rect>,
     },
     /// A request for an offered action: from assistive technology, or a
     /// `Dismiss(OutsidePress)` when a pointer press lands outside a shown
