@@ -38,8 +38,6 @@
 //!   event loop through the host's waker when it finishes; the next turn
 //!   applies its work.
 
-use std::collections::HashMap;
-
 use crate::lower::AssetEvent;
 use arvane::asset::{
     AnimationInfo, AssetStore, FamilyChoice, ImageState, PixelSize, Region, load_font,
@@ -55,8 +53,9 @@ pub(crate) struct ArvaneAssets {
     /// Families of the registered font files, in registration order (for
     /// the missing-family diagnostic).
     registered: Vec<String>,
-    /// The last failed asset reported for each `Image` node.
-    reported_images: HashMap<NodeId, Asset>,
+    /// The (`Image` node, failed asset) pairs already reported. Pairs of
+    /// removed nodes are pruned at each commit.
+    reported_images: kivact_types::cell::ReportOnceSet<(NodeId, Asset)>,
     /// Missing families already reported (lowercase).
     reported_families: kivact_types::cell::ReportOnceSet<String>,
     /// Reports found during a layout pass (missing families).
@@ -71,7 +70,7 @@ impl ArvaneAssets {
             store,
             revision: 0,
             registered: Vec::new(),
-            reported_images: HashMap::new(),
+            reported_images: kivact_types::cell::ReportOnceSet::new(),
             reported_families: kivact_types::cell::ReportOnceSet::new(),
             pending: Vec::new(),
         }
@@ -103,7 +102,6 @@ impl ArvaneAssets {
     pub(crate) fn release_caches(&mut self) {
         self.store.release_caches();
         self.registered.shrink_to_fit();
-        self.reported_images.shrink_to_fit();
         self.pending.shrink_to_fit();
     }
 
@@ -214,31 +212,26 @@ impl ArvaneAssets {
     /// The report for `Image` node `id` showing `asset` (the source in the
     /// store) when it failed and was not reported for this node yet.
     pub(crate) fn check_image(&mut self, id: NodeId, asset: &Asset) -> Option<AssetEvent> {
-        if self
-            .reported_images
-            .get(&id)
-            .is_some_and(|reported| reported != asset)
-        {
-            self.reported_images.remove(&id);
+        // The node shows `asset` now: a report for any other asset of the
+        // node is forgotten, so showing that asset again reports again.
+        self.reported_images
+            .retain(|(node, reported)| *node != id || reported == asset);
+        let Some(ImageState::Failed(e)) = self.store.peek(asset) else {
+            return None;
+        };
+        if !self.reported_images.note((id, asset.clone())) {
+            return None;
         }
-        match self.store.peek(asset) {
-            Some(ImageState::Failed(e)) if self.reported_images.get(&id) != Some(asset) => {
-                self.reported_images.insert(id, asset.clone());
-                Some(AssetEvent::AssetFailed {
-                    node: id,
-                    message: e.message().to_owned(),
-                })
-            }
-            _ => None,
-        }
+        Some(AssetEvent::AssetFailed {
+            node: id,
+            message: e.message().to_owned(),
+        })
     }
 
     /// Forget the image reports of nodes that no longer exist (at a
     /// commit: removed nodes must not keep their assets' bytes alive).
     pub(crate) fn prune_reports(&mut self, exists: impl Fn(NodeId) -> bool) {
-        if !self.reported_images.is_empty() {
-            self.reported_images.retain(|id, _| exists(*id));
-        }
+        self.reported_images.retain(|(id, _)| exists(*id));
     }
 
     // ----- fonts ------------------------------------------------------------

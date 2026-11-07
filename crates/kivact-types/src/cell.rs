@@ -45,6 +45,12 @@ impl<K> ReportOnceSet<K> {
     pub fn new() -> Self {
         Self(RefCell::new(HashSet::new()))
     }
+
+    /// Forget every reported key that `keep` rejects. Keys it accepts stay
+    /// reported. `keep` must not touch this set.
+    pub fn retain(&self, keep: impl FnMut(&K) -> bool) {
+        self.0.borrow_mut().retain(keep);
+    }
 }
 
 impl<K: Eq + Hash> ReportOnceSet<K> {
