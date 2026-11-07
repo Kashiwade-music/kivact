@@ -24,7 +24,7 @@ impl ShellHandler for Smoke {
     ) -> Result<ShellControl, ShellError> {
         if matches!(event, ShellEvent::Redraw) {
             let (width, height) = window.physical_size();
-            self.presented = window.present_with(width, height, &mut |pixels| {
+            self.presented = window.present_with(width, height, None, &mut |pixels, _age| {
                 pixels.fill(0x00336699);
                 true
             })?;

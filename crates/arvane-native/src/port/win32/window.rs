@@ -285,7 +285,8 @@ impl ShellWindow for Window {
         &mut self,
         width: u32,
         height: u32,
-        draw: &mut dyn FnMut(&mut [u32]) -> bool,
+        damage: Option<&[kivact_types::render::PixelRect]>,
+        draw: &mut dyn FnMut(&mut [u32], arvane_shell::BufferAge) -> bool,
     ) -> Result<bool, ShellError> {
         let (Some(w), Some(h)) = (NonZeroU32::new(width), NonZeroU32::new(height)) else {
             return Ok(false);
@@ -304,7 +305,7 @@ impl ShellWindow for Window {
             crate::module::retain_module();
             crate::present::surface(&self.0.target)
         };
-        self.0.cpu.borrow_mut().present(w, h, make, draw)
+        self.0.cpu.borrow_mut().present(w, h, make, damage, draw)
     }
 
     fn with_gpu_target(

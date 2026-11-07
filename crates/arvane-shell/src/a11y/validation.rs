@@ -113,35 +113,26 @@ fn check_relations(
     Ok(())
 }
 
-/// Bounds are finite with a non-negative size, and the scroll offset and
-/// the transform are finite.
+/// Bounds, when present, are finite with a non-negative size; the scroll
+/// offset and the transform are finite. A node without bounds has no position.
 pub(crate) fn check_values(node: &SemanticsNode) -> Result<(), AccessibilityError> {
     let props = &node.semantics;
     if matches!((props.value_min, props.value_max), (Some(min), Some(max)) if min.get() > max.get())
     {
         return Err(AccessibilityError::InvalidProperties(node.id));
     }
-    let b = node.bounds;
     let t = node.transform;
-    let finite = [
-        b.x,
-        b.y,
-        b.width,
-        b.height,
-        b.x + b.width,
-        b.y + b.height,
-        node.scroll.x,
-        node.scroll.y,
-        t.a,
-        t.b,
-        t.c,
-        t.d,
-        t.e,
-        t.f,
-    ]
-    .into_iter()
-    .all(f64::is_finite);
-    if !finite || b.width < 0.0 || b.height < 0.0 {
+    let bounds_valid = node.bounds.is_none_or(|b| {
+        [b.x, b.y, b.width, b.height, b.x + b.width, b.y + b.height]
+            .into_iter()
+            .all(f64::is_finite)
+            && b.width >= 0.0
+            && b.height >= 0.0
+    });
+    let finite = [node.scroll.x, node.scroll.y, t.a, t.b, t.c, t.d, t.e, t.f]
+        .into_iter()
+        .all(f64::is_finite);
+    if !finite || !bounds_valid {
         return Err(AccessibilityError::InvalidBounds(node.id));
     }
     Ok(())

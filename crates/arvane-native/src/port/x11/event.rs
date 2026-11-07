@@ -91,6 +91,10 @@ impl Input {
                     window.resized(e.width.into(), e.height.into());
                     out.push(ShellEvent::Resized);
                 }
+                // The window may have moved to another display; its refresh rate follows it.
+                if window.refresh_frame_period() {
+                    out.push(ShellEvent::EnvironmentChanged);
+                }
             }
             Event::FocusIn(_) => self.focus_in(out),
             Event::FocusOut(_) => self.blur(out),

@@ -318,7 +318,7 @@ impl Presenter {
         let renderer = &mut self.cpu;
         let mut render_error = None;
         let format = window.cpu_format();
-        let backend = window.present_with(physical.0, physical.1, &mut |buffer| {
+        let backend = window.present_with(physical.0, physical.1, None, &mut |buffer, _age| {
             let drawn = match format {
                 arvane_shell::CpuFormat::Xrgb8888 => {
                     renderer.render_0rgb(scene, size, scale, physical, buffer)

@@ -8,12 +8,22 @@
 use crate::events::ShellEvent;
 use crate::ime::ShellImeText;
 use crate::types::{ShellControl, ShellError, ShellWaker};
+use kivact_types::render::PixelRect;
 use kivact_types::{Cursor as ShellCursor, Rect, Size};
 
 /// Pixel layout accepted by a CPU presentation surface.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum CpuFormat {
     Xrgb8888,
+}
+
+/// Whether an offered buffer still holds the frame presented last time.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum BufferAge {
+    /// The buffer holds the previously presented frame.
+    Previous,
+    /// The buffer's content is unknown and must be fully written.
+    Unknown,
 }
 
 /// Window services implemented by a platform backend or an in-memory shell.
@@ -115,17 +125,21 @@ pub trait ShellWindow {
     fn frame_period_ns(&self) -> u64;
 
     /// Offer exactly `width * height` row-major 0x00RRGGBB pixels to `draw`.
-    /// The callback runs synchronously at most once. `false` discards its
-    /// buffer without presentation. `Ok(true)` acknowledges a committed frame;
-    /// `Ok(false)` means no buffer was offered or the callback declined it.
-    /// A backend error is independent of an error captured by the caller's
-    /// callback. Zero dimensions or no surface skip the callback. Dimensions
-    /// must match the current physical surface or return an error.
+    /// `damage` lists the device pixels that changed since the last frame, or
+    /// `None` for the whole frame. The callback receives the buffer's
+    /// [`BufferAge`]: with `Previous`, the pixels outside `damage` already hold
+    /// the last presented frame. The callback runs synchronously at most once.
+    /// `false` discards its buffer without presentation. `Ok(true)` acknowledges
+    /// a committed frame; `Ok(false)` means no buffer was offered or the callback
+    /// declined it. A backend error is independent of an error captured by the
+    /// caller's callback. Zero dimensions or no surface skip the callback.
+    /// Dimensions must match the current physical surface or return an error.
     fn present_with(
         &mut self,
         width: u32,
         height: u32,
-        draw: &mut dyn FnMut(&mut [u32]) -> bool,
+        damage: Option<&[PixelRect]>,
+        draw: &mut dyn FnMut(&mut [u32], BufferAge) -> bool,
     ) -> Result<bool, ShellError>;
 
     /// Run `make` on the native target's owning UI thread.

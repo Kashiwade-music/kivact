@@ -293,6 +293,7 @@ dependencies = [
  "x11rb",
  "xim",
  "xkbcommon-dl",
+ "zbus",
 ]
 
 [[package]]
