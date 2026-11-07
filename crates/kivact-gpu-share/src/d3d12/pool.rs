@@ -282,7 +282,7 @@ impl Pool {
     /// (waited at most `timeout`).
     pub(crate) fn begin(&self, timeout: Duration) -> Result<Acquired, Error> {
         let acquired = self.frames.next();
-        if let Some(last) = acquired.wait {
+        if let Some(last) = self.frames.drawn(acquired.slot)? {
             wait(&self.ready, last.get(), timeout, "the texture's last frame")?;
         }
         Ok(acquired)

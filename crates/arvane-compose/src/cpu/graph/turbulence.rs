@@ -13,9 +13,9 @@ const RAND_A: i32 = 16_807;
 const RAND_Q: i32 = 127_773;
 const RAND_R: i32 = 2_836;
 /// Lattice size.
-const B_SIZE: usize = 0x100;
+pub(crate) const B_SIZE: usize = 0x100;
 const B_SIZE_32: i32 = 0x100;
-const B_LEN: usize = B_SIZE + B_SIZE + 2;
+pub(crate) const B_LEN: usize = B_SIZE + B_SIZE + 2;
 const BM: i32 = 0xff;
 const PERLIN_N: i32 = 0x1000;
 
@@ -75,11 +75,11 @@ struct StitchInfo {
 }
 
 /// The lattice selector and the gradients of the four channels.
-struct Tables {
-    /// Lattice selector.
-    lattice: Vec<usize>,
-    /// Gradients by channel, lattice point and component.
-    gradient: Vec<Vec<[f64; 2]>>,
+pub(crate) struct Tables {
+    /// Lattice selector (`B_LEN` entries).
+    pub(crate) lattice: Vec<usize>,
+    /// Gradients by channel, lattice point and component (`B_LEN` each).
+    pub(crate) gradient: Vec<Vec<[f64; 2]>>,
 }
 
 /// A `w` × `h` pixmap of the turbulence noise (premultiplied).
@@ -116,7 +116,7 @@ pub(crate) fn apply(p: &Params, w: u32, h: u32) -> Pixmap {
 }
 
 /// The lattice and gradient tables of a seed.
-fn init(mut seed: i32) -> Tables {
+pub(crate) fn init(mut seed: i32) -> Tables {
     let mut lattice = vec![0_usize; B_LEN];
     let mut gradient = vec![vec![[0.0_f64; 2]; B_LEN]; 4];
     if seed <= 0 {

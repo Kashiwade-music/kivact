@@ -1,7 +1,9 @@
 //! Role: Creates a GpuContext on a hardware adapter and reports device failures.
 
+use super::export::Exports;
 use super::external::External;
 use super::pipelines::Pipelines;
+use super::shader::Shaders;
 use super::state::{DeviceLost, GpuContext, GpuEnv};
 use super::targets::Pool;
 use crate::ComposeError;
@@ -83,6 +85,7 @@ impl GpuContext {
         }));
         let raster = GpuRaster::new(&device, &queue).map_err(|e| failed(&e))?;
         let pipelines = Pipelines::new(&device, &queue);
+        let shaders = Shaders::new(&device, &queue);
         Ok(Self {
             external: External::default(),
             interop,
@@ -97,6 +100,9 @@ impl GpuContext {
             pool: Pool::default(),
             kept: HashMap::new(),
             chunks: HashMap::new(),
+            shaders,
+            shader_failures: Vec::new(),
+            exports: Exports::default(),
         })
     }
 

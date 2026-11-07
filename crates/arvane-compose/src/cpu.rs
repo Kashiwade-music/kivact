@@ -4,7 +4,7 @@ mod blend;
 mod blur;
 mod draw;
 mod filters;
-mod graph;
+pub(crate) mod graph;
 mod mask;
 mod surface;
 
@@ -412,7 +412,7 @@ struct ExportOutcome {
 /// Decides and builds the export frames of the frame (design §8.12, the CPU part).
 fn export_frames(
     composition: &Composition,
-    exports: &[(DrawableId, plan::TargetId)],
+    exports: &[plan::PlannedExport],
     targets: &[Pixmap],
     stores: &mut Stores,
 ) -> ExportOutcome {
@@ -420,7 +420,8 @@ fn export_frames(
         frames: Vec::new(),
         pending: Vec::new(),
     };
-    for (export, &(sink, target)) in composition.exports.iter().zip(exports) {
+    for (export, planned) in composition.exports.iter().zip(exports) {
+        let (sink, target) = (planned.sink, planned.target);
         if export.mode == ExportMode::Gpu {
             outcome.pending.push(sink);
             continue;

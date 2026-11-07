@@ -7,7 +7,17 @@ use std::collections::HashMap;
 /// The draw shader: the operations' sampling, coverage and blends.
 const DRAW_WGSL: &str = concat!(
     include_str!("wgsl/common.wgsl"),
+    include_str!("wgsl/blend.wgsl"),
     include_str!("wgsl/draw.wgsl")
+);
+/// The graph shader: the filter graph's primitives (design §8.8.4).
+const GRAPH_WGSL: &str = concat!(
+    include_str!("wgsl/common.wgsl"),
+    include_str!("wgsl/blend.wgsl"),
+    include_str!("wgsl/graph_common.wgsl"),
+    include_str!("wgsl/graph_ops.wgsl"),
+    include_str!("wgsl/graph_light.wgsl"),
+    include_str!("wgsl/graph_turb.wgsl")
 );
 /// The filter shader: resampling, blur, shadow and colour matrix.
 const FILTER_WGSL: &str = concat!(
@@ -38,6 +48,9 @@ pub(crate) struct Pipelines {
     pub(crate) draw_layout: wgpu::BindGroupLayout,
     pub(crate) filter: wgpu::RenderPipeline,
     pub(crate) filter_layout: wgpu::BindGroupLayout,
+    /// One filter graph primitive per pass.
+    pub(crate) graph: wgpu::RenderPipeline,
+    pub(crate) graph_layout: wgpu::BindGroupLayout,
     pub(crate) mask_step: wgpu::RenderPipeline,
     pub(crate) mask_layout: wgpu::BindGroupLayout,
     /// Multiplies the target by the accumulator's value.
@@ -373,8 +386,30 @@ impl Pipelines {
         let empty_pl = layout(device, &[]);
         let draw = draw_pipelines(device, &draw_pl, &draw_module);
         let multiply = blend(wgpu::BlendFactor::Zero, wgpu::BlendFactor::Src);
+        let graph_module = shader(device, GRAPH_WGSL);
+        let graph_layout = group_layout(
+            device,
+            &[
+                uniform_entry(0),
+                texture_entry(1),
+                texture_entry(2),
+                storage_entry(3),
+                storage_entry(4),
+                storage_entry(5),
+            ],
+        );
+        let graph_pl = layout(device, &[&graph_layout]);
         Self {
             draw,
+            graph: pipeline(
+                device,
+                &graph_pl,
+                &graph_module,
+                ("vs_full", "fs_graph"),
+                RASTER_FORMAT,
+                None,
+            ),
+            graph_layout,
             filter: pipeline(
                 device,
                 &filter_pl,

@@ -269,6 +269,7 @@ version = "0.1.0"
 dependencies = [
  "arvane-render",
  "kivact-gpu-share",
+ "kivact-shader",
  "kivact-types",
  "pollster",
  "raw-window-handle",

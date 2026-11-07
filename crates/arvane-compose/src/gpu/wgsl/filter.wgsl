@@ -30,16 +30,29 @@ fn fs_filter(@builtin(position) frag: vec4<f32>) -> @location(0) vec4<f32> {
             return texel(fsrc, size, x);
         }
         case 1u: {
-            let base = x * 2;
-            let sum = texel(fsrc, size, base)
-                + texel(fsrc, size, base + vec2<i32>(1, 0))
-                + texel(fsrc, size, base + vec2<i32>(0, 1))
-                + texel(fsrc, size, base + vec2<i32>(1, 1));
-            return sum * 0.25;
+            // Halve the width: the mean of two texels (design §8.8.1).
+            let base = x * vec2<i32>(2, 1);
+            return (texel(fsrc, size, base) + texel(fsrc, size, base + vec2<i32>(1, 0))) * 0.5;
         }
         case 2u: {
-            let idx = (xf + vec2<f32>(0.5)) / 2.0 - vec2<f32>(0.5);
-            return bilinear(fsrc, size, idx);
+            // Halve the height: the mean of two texels.
+            let base = x * vec2<i32>(1, 2);
+            return (texel(fsrc, size, base) + texel(fsrc, size, base + vec2<i32>(0, 1))) * 0.5;
+        }
+        case 7u: {
+            // Double the width: linear between the two halved texels around the centre (design §8.8.1).
+            let u = (xf.x + 0.5) / 2.0 - 0.5;
+            let i0 = floor(u);
+            let t = u - i0;
+            let b = vec2<i32>(i32(i0), x.y);
+            return mix(texel(fsrc, size, b), texel(fsrc, size, b + vec2<i32>(1, 0)), t);
+        }
+        case 8u: {
+            let v = (xf.y + 0.5) / 2.0 - 0.5;
+            let j0 = floor(v);
+            let t = v - j0;
+            let b = vec2<i32>(x.x, i32(j0));
+            return mix(texel(fsrc, size, b), texel(fsrc, size, b + vec2<i32>(0, 1)), t);
         }
         case 3u: {
             let r = i32(fp.radius);

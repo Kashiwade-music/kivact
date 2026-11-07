@@ -10,6 +10,7 @@ description = "Arvane compositor plan: layer trees to draw operations, with cach
 [dependencies]
 kivact-types = { path = "../kivact-types", version = "0.1.0" }
 arvane-render = { path = "../arvane-render", version = "0.1.0" }
+kivact-shader = { path = "../kivact-shader", version = "0.1.0" }
 # The GPU executor: wgpu pipelines, a window surface, and blocking adapter requests.
 wgpu = { workspace = true, optional = true }
 pollster = { workspace = true, optional = true }

@@ -272,6 +272,34 @@ impl Pool {
         })
     }
 
+    /// The texture of the next frame if the window has released it, without
+    /// waiting on the GPU queue: None while the texture is still held (its
+    /// last frame is not released, or the preparation signal has not come).
+    /// The same texture as [`Pool::acquire`] gives.
+    pub fn try_acquire(&mut self) -> Result<Option<Target<'_>>, Error> {
+        if matches!(self.health, PoolHealth::Broken) {
+            return Err(Error::Mismatch(
+                "a submission of the pool failed: make a new pool".into(),
+            ));
+        }
+        let released = self.release_value()?;
+        let acquired = match self.raw.begin(Duration::ZERO) {
+            Ok(acquired) => acquired,
+            // The texture's last frame is not ready, so it is not released either.
+            Err(Error::Timeout(_)) => return Ok(None),
+            Err(error) => return Err(error),
+        };
+        if let Some(wait) = acquired.wait
+            && released < wait.get()
+        {
+            return Ok(None);
+        }
+        Ok(Some(Target {
+            pool: self,
+            acquired,
+        }))
+    }
+
     /// The `release` value now: the window reads no frame of this value
     /// or less again.
     pub fn release_value(&self) -> Result<u64, Error> {

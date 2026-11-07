@@ -19,7 +19,7 @@ mod convolve_matrix;
 mod displacement_map;
 mod lighting;
 mod morphology;
-mod turbulence;
+pub(crate) mod turbulence;
 
 use std::rc::Rc;
 
@@ -39,7 +39,7 @@ use super::surface::{Pixmap, Premul, sample_bilinear, sample_nearest};
 use crate::ComposeError;
 
 #[rustfmt::skip]
-const SRGB_TO_LINEAR_RGB_TABLE: &[u8; 256] = &[
+pub(crate) const SRGB_TO_LINEAR_RGB_TABLE: &[u8; 256] = &[
     0,   0,   0,   0,   0,   0,  0,    1,   1,   1,   1,   1,   1,   1,   1,   1,
     1,   1,   2,   2,   2,   2,  2,    2,   2,   2,   3,   3,   3,   3,   3,   3,
     4,   4,   4,   4,   4,   5,  5,    5,   5,   6,   6,   6,   6,   7,   7,   7,
@@ -72,7 +72,7 @@ const SRGB_TO_LINEAR_RGB_TABLE: &[u8; 256] = &[
 ///
 /// Thanks to librsvg for the idea.
 #[rustfmt::skip]
-const LINEAR_RGB_TO_SRGB_TABLE: &[u8; 256] = &[
+pub(crate) const LINEAR_RGB_TO_SRGB_TABLE: &[u8; 256] = &[
     0,  13,  22,  28,  34,  38,  42,  46,  50,  53,  56,  59,  61,  64,  66,  69,
     71,  73,  75,  77,  79,  81,  83,  85,  86,  88,  90,  92,  93,  95,  96,  98,
     99, 101, 102, 104, 105, 106, 108, 109, 110, 112, 113, 114, 115, 117, 118, 119,

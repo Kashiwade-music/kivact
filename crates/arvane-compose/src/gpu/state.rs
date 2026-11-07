@@ -1,7 +1,9 @@
 //! Role: Holds a GPU context's device, pipelines, texture stores and the window surfaces' state.
 
+use super::export::Exports;
 use super::external::External;
 use super::pipelines::Pipelines;
+use super::shader::Shaders;
 use super::targets::Pool;
 use crate::cache::{CacheIndex, ChunkKey};
 use arvane_render::GpuRaster;
@@ -84,6 +86,12 @@ pub struct GpuContext {
     pub(crate) kept: HashMap<LayerKey, wgpu::Texture>,
     /// The chunk textures, by chunk.
     pub(crate) chunks: HashMap<ChunkKey, wgpu::Texture>,
+    /// The user shaders' pipelines.
+    pub(crate) shaders: Shaders,
+    /// The shader programs that failed since the last frame report: (hash, message).
+    pub(crate) shader_failures: Vec<(u64, String)>,
+    /// The export pools and what each sink last received.
+    pub(crate) exports: Exports,
 }
 
 /// The first failure the device reported (validation error or loss).
