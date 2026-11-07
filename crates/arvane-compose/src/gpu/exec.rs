@@ -5,6 +5,7 @@
 //! frame's textures, rasters its chunks and submits it.
 
 use super::external::{self, ExternalPass};
+use super::filters::FilterGeometry;
 use super::pass::{CLEAR, Drawn, FrameTextures, view, with_pass};
 use super::state::GpuContext;
 use super::targets;
@@ -191,8 +192,11 @@ impl GpuContext {
                     *input,
                     *output,
                     filter,
-                    (*px_per_unit, *origin),
-                    *bounds,
+                    FilterGeometry {
+                        px_per_unit: *px_per_unit,
+                        origin: *origin,
+                        bounds: *bounds,
+                    },
                     frame,
                 )?,
                 Op::Mask { target, masks } => self.record_mask(encoder, *target, masks, frame)?,

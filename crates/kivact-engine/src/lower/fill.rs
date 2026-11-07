@@ -115,8 +115,8 @@ impl Boxes {
     /// The boxes of a canvas shape: every box is the shape itself.
     pub(crate) fn uniform(shape: BoxShape) -> Boxes {
         Boxes {
-            padding: shape.clone(),
-            content: shape.clone(),
+            padding: shape,
+            content: shape,
             border: shape,
             glyphs: None,
             frames: Vec::new(),

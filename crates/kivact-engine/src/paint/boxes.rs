@@ -58,7 +58,7 @@ impl Model {
             None
         };
         Boxes {
-            border: outline.clone(),
+            border: *outline,
             padding: outline.inset(shape::border_widths(p.border.as_ref())),
             content: outline.inset(inside),
             glyphs,

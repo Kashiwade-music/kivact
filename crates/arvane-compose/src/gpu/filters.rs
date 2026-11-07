@@ -48,18 +48,33 @@ pub(super) struct Pass {
     matrix: [f32; 20],
 }
 
+/// The layer geometry of a filter: `px_per_unit` px per layer unit, the layer point `origin` at px (0, 0) and the layer `bounds`.
+#[derive(Clone, Copy)]
+pub(super) struct FilterGeometry {
+    /// Px per layer unit.
+    pub(super) px_per_unit: f64,
+    /// The layer point at px (0, 0).
+    pub(super) origin: Point,
+    /// The bounds of the layer.
+    pub(super) bounds: Size,
+}
+
 impl GpuContext {
-    /// Record one filter of a layer from `input` into `output` (same size), with `px_per_unit` px per layer unit and the layer point `origin` at px (0, 0).
+    /// Record one filter of a layer from `input` into `output` (same size), in the layer `geometry`.
     pub(super) fn record_filter(
         &mut self,
         encoder: &mut wgpu::CommandEncoder,
         input: u32,
         output: u32,
         filter: &LayerFilter,
-        (px_per_unit, origin): (f64, Point),
-        bounds: Size,
+        geometry: FilterGeometry,
         frame: &FrameTextures<'_>,
     ) -> Result<(), ComposeError> {
+        let FilterGeometry {
+            px_per_unit,
+            origin,
+            bounds,
+        } = geometry;
         let source = frame.target(input)?;
         let dest = frame.target(output)?;
         if (source.width(), source.height()) != (dest.width(), dest.height()) {
