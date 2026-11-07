@@ -135,7 +135,7 @@ impl<'a> Builder<'a> {
         to_win: &Matrix4,
         cache_it: bool,
     ) -> Result<(), PlanError> {
-        let cached = cache_it && self.cacheable;
+        let cached = cache_it && self.cacheable();
         let bounds = scene_bounds(&scene)?;
         let mut retain: Vec<Retained> = Vec::new();
         let hashes = hash::scene_hashes(&scene, &mut retain);
