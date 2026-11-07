@@ -31,6 +31,7 @@ members = [
     "examples/kivact-ui-soft",
     "crates/arvane",
     "crates/kivact-types",
+    "crates/kivact-shader",
     "crates/arvane-native",
     "crates/arvane-shell",
     "crates/arvane-virtual",
@@ -58,6 +59,7 @@ ash = "0.38"
 async-channel = "2.5.0"
 fontique = { version = "0.11.1", default-features = false, features = ["fontconfig-dlopen"] }
 kurbo = "=0.13.1"
+naga = { version = "=29.0.4", default-features = false, features = ["wgsl-in"] }
 parley = { version = "0.11.1", features = ["complex-scripts"] }
 png = "0.18.1"
 pollster = "0.4.0"
@@ -143,6 +145,8 @@ opt-level = 3
 [profile.dev.package.kivact-editing]
 opt-level = 3
 [profile.dev.package.kivact-types]
+opt-level = 3
+[profile.dev.package.kivact-shader]
 opt-level = 3
 [profile.dev.package.arvane]
 opt-level = 3
