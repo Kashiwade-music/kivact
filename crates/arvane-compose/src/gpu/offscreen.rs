@@ -1,81 +1,45 @@
-//! Role: Renders scenes into offscreen textures and reads frames back.
+//! Role: Offscreen rendering and readback of textures (tests, GPU snapshots, exported pixels).
 
-use super::external::ExternalPass;
-use super::state::{GpuContext, Offscreen};
-use super::texture::target_texture;
-use crate::error::RenderError;
-use kivact_types::Size;
-use kivact_types::render::{CpuFrame, RenderScene};
+use super::state::GpuContext;
+use crate::ComposeError;
+use kivact_types::render::{Composition, CpuFrame};
 use std::sync::mpsc;
 use std::time::Duration;
 
 impl GpuContext {
-    /// Renders a validated scene offscreen into premultiplied RGBA8 and
-    /// reads it back (tests and screenshots; windows use
-    /// [`GpuContext::present`]).
+    /// Render `composition` into an offscreen frame of `size` px at `scale`, and read it back
+    /// as premultiplied RGBA8.
     pub fn render(
         &mut self,
-        scene: &RenderScene,
-        size: Size,
+        composition: &Composition,
+        size: (u32, u32),
         scale: f64,
-    ) -> Result<CpuFrame, RenderError> {
-        let mut external = std::mem::take(&mut self.external);
-        let drawn = (|| {
-            let pass = ExternalPass::begin(&mut external, scene)?;
-            self.render_frame(scene, size, scale, pass)
-        })();
-        self.external = external;
-        drawn
+    ) -> Result<CpuFrame, ComposeError> {
+        let drawn = self.draw_frame(composition, size, scale)?;
+        let frame = self.read_frame(&drawn.output);
+        self.pool.give(drawn.output);
+        frame
     }
 
-    /// [`GpuContext::render`] between the external frames' hand-offs.
-    fn render_frame(
-        &mut self,
-        scene: &RenderScene,
-        size: Size,
-        scale: f64,
-        pass: ExternalPass<'_>,
-    ) -> Result<CpuFrame, RenderError> {
-        let ((width, height), info) = self.dimensions(scene, size, scale)?;
-        if !matches!(&self.offscreen, Offscreen::Allocated { size, .. } if *size == (width, height))
-        {
-            self.offscreen = Offscreen::Allocated {
-                texture: target_texture(&self.device, width, height),
-                size: (width, height),
-            };
-        }
-        let texture = match &self.offscreen {
-            Offscreen::Allocated { texture, .. } => texture.clone(),
-            Offscreen::None => unreachable!("invariant: the offscreen texture was just made"),
-        };
-        let mut encoder = self
-            .device
-            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                label: Some("Arvane offscreen"),
-            });
-        self.encode(scene, scale, (width, height), &info, false, pass.frame());
-        let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
-        let drawn = self.draw(&mut encoder, (width, height), &view);
-        self.queue.submit([encoder.finish()]);
-        let submitted = pass.submit();
-        drawn?;
-        let drawn = self.read_texture(&texture);
-        let ended = submitted.finish();
-        let frame = drawn?;
-        ended?;
-        Ok(frame)
+    /// Copy `texture` (premultiplied RGBA8) into a frame, waiting a bounded time.
+    pub(crate) fn read_frame(&self, texture: &wgpu::Texture) -> Result<CpuFrame, ComposeError> {
+        let rgba = self.read_rgba(texture)?;
+        Ok(CpuFrame {
+            width: texture.width(),
+            height: texture.height(),
+            rgba,
+        })
     }
 
-    /// Copy `texture` (in [`FORMAT`]) into an RGBA frame, waiting a
-    /// bounded time.
-    pub(crate) fn read_texture(&self, texture: &wgpu::Texture) -> Result<CpuFrame, RenderError> {
+    /// The premultiplied RGBA8 bytes of `texture`, rows without padding, waiting a bounded time.
+    pub(crate) fn read_rgba(&self, texture: &wgpu::Texture) -> Result<Vec<u8>, ComposeError> {
         let (width, height) = (texture.width(), texture.height());
         // wgpu requires rows aligned to COPY_BYTES_PER_ROW_ALIGNMENT during copy.
         let row_bytes = width * 4;
         let stride = row_bytes.div_ceil(wgpu::COPY_BYTES_PER_ROW_ALIGNMENT)
             * wgpu::COPY_BYTES_PER_ROW_ALIGNMENT;
         let buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("Arvane raster readback"),
+            label: Some("Arvane readback"),
             size: u64::from(stride) * u64::from(height),
             usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
             mapped_at_creation: false,
@@ -116,22 +80,16 @@ impl GpuContext {
         let data = slice.get_mapped_range();
         let mut rgba = Vec::with_capacity((row_bytes * height) as usize);
         for row in data.chunks_exact(stride as usize) {
-            // BGRA to RGBA.
-            for [b, g, r, a] in row[..row_bytes as usize].as_chunks::<4>().0 {
-                rgba.extend_from_slice(&[*r, *g, *b, *a]);
-            }
+            rgba.extend_from_slice(&row[..row_bytes as usize]);
         }
         drop(data);
         buffer.unmap();
         self.check()?;
-        Ok(CpuFrame {
-            width,
-            height,
-            rgba,
-        })
+        Ok(rgba)
     }
 }
 
-pub(crate) fn backend(error: impl std::fmt::Display) -> RenderError {
-    RenderError::Backend(error.to_string())
+/// A backend failure with its message.
+pub(crate) fn backend(error: impl std::fmt::Display) -> ComposeError {
+    ComposeError::Backend(error.to_string())
 }

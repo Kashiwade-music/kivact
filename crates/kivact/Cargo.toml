@@ -9,7 +9,7 @@ description = "Setup-once fine-grained reactive UI (Solid-style, no macros) over
 
 [dependencies]
 # Enable implementation features; the facade never calls these crates.
-arvane-render = { path = "../arvane-render", version = "0.1.0", optional = true }
+arvane-compose = { path = "../arvane-compose", version = "0.1.0", optional = true }
 arvane-native = { path = "../arvane-native", version = "0.1.0", optional = true }
 kivact-core = { path = "../kivact-core", version = "0.1.0", default-features = false }
 kivact-interaction = { path = "../kivact-interaction", version = "0.1.0" }
@@ -20,8 +20,8 @@ kivact-test = { path = "../kivact-test", version = "0.1.0", optional = true }
 [features]
 tokio = ["kivact-core/tokio"]
 default = ["gpu"]
-gpu = ["dep:arvane-render", "arvane-render/gpu"]
-gpu-interop = ["gpu", "kivact-core/gpu-interop", "kivact-test?/gpu-interop"]
+gpu = ["dep:arvane-compose", "arvane-compose/gpu"]
+gpu-interop = ["gpu", "arvane-compose/gpu-interop", "kivact-core/gpu-interop", "kivact-test?/gpu-interop"]
 embed = ["dep:arvane-native", "arvane-native/embed", "kivact-core/embed", "kivact-test?/embed"]
 test = ["dep:kivact-test"]
 

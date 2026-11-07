@@ -187,4 +187,6 @@ pub use common::{Error, Identity};
 #[cfg(feature = "export")]
 pub use pool::{DEFAULT_SLOTS, FrameReady, PoolConfig};
 #[cfg(feature = "import")]
+pub mod device;
+#[cfg(feature = "import")]
 pub mod import;

@@ -1,117 +1,166 @@
-//! Role: Keeps GPU contracts available when GPU rendering is not built.
+//! Role: The GPU executor's public names when feature `gpu` is not built: no device exists, so every call fails.
 
-use crate::RenderError;
-use kivact_types::Size;
-use kivact_types::render::{CpuFrame, RenderScene};
+use crate::{ComposeError, GpuReport};
+use kivact_types::ids::DrawableId;
+use kivact_types::render::{Composition, CpuFrame};
+use kivact_types::{ExternalFrame, ExternalImageId, GpuAdapter, SharedTextures};
 use std::time::Duration;
 
+/// How GPU devices are made (inert without the `gpu` feature).
 #[derive(Clone, Copy, Debug)]
 pub struct GpuEnv;
+
 impl GpuEnv {
+    /// The environment is not read without the `gpu` feature.
     pub fn from_env(_: kivact_types::GpuPreference) -> Self {
         Self
     }
 }
+
+/// A GPU executor cannot exist without the `gpu` feature.
 pub enum GpuContext {}
+
+/// A window surface cannot exist without the `gpu` feature.
 pub enum GpuSurface {}
+
+/// What [`GpuContext::present`] did.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Presentation {
+    /// The frame is on its way to the screen.
     Shown,
+    /// The surface had no buffer to give; the frame was not shown.
     Skipped,
 }
 
 impl GpuContext {
+    /// Nothing to release without a device.
     pub fn release_caches(&mut self) {
         match *self {}
     }
-    pub fn new(_env: &GpuEnv) -> Result<Self, RenderError> {
-        Err(RenderError::NoAdapter(
+
+    /// Always fails: the `gpu` feature is not built.
+    pub fn new(_env: &GpuEnv) -> Result<Self, ComposeError> {
+        Err(ComposeError::NoAdapter(
             "built without the gpu feature".into(),
         ))
     }
+
+    /// Unreachable: no context exists.
     pub fn describe(&self) -> String {
         match *self {}
     }
-    pub fn interop_adapter(&self) -> Option<kivact_types::GpuAdapter> {
+
+    /// Unreachable: no context exists.
+    pub fn interop_adapter(&self) -> Option<GpuAdapter> {
         match *self {}
     }
+
+    /// Unreachable: no context exists.
     pub fn failure(&self) -> Option<String> {
         match *self {}
     }
+
+    /// Unreachable: no context exists.
     pub fn present(
         &mut self,
         _surface: &mut GpuSurface,
-        _scene: &RenderScene,
-        _size: Size,
+        _composition: &Composition,
         _scale: f64,
         _physical: (u32, u32),
-    ) -> Result<(Presentation, Duration), RenderError> {
+    ) -> Result<(Presentation, Duration, GpuReport), ComposeError> {
         match *self {}
     }
+
+    /// Unreachable: no context exists.
     pub fn present_pixels(
         &mut self,
         _surface: &mut GpuSurface,
         _pixels: &[u32],
-        (_width, _height): (u32, u32),
-    ) -> Result<(Presentation, Duration), RenderError> {
+        _size: (u32, u32),
+    ) -> Result<(Presentation, Duration), ComposeError> {
         match *self {}
     }
-    pub fn read_back(&self, _surface: &GpuSurface) -> Result<CpuFrame, RenderError> {
+
+    /// Unreachable: no context exists.
+    pub fn read_back(&self, _surface: &GpuSurface) -> Result<CpuFrame, ComposeError> {
         match *self {}
     }
+
+    /// Unreachable: no context exists.
     pub fn configure(
         &self,
         _surface: &mut GpuSurface,
         _width: u32,
         _height: u32,
-    ) -> Result<(), RenderError> {
+    ) -> Result<(), ComposeError> {
         match *self {}
     }
-    pub fn surface<T>(&self, _target: T) -> Result<GpuSurface, RenderError>
+
+    /// Unreachable: no context exists.
+    pub fn surface<T>(&self, _target: T) -> Result<GpuSurface, ComposeError>
     where
-        T: raw_window_handle::HasWindowHandle
-            + raw_window_handle::HasDisplayHandle
-            + Send
-            + Sync
-            + 'static,
+        T: Send + Sync + 'static,
     {
         match *self {}
     }
-    pub fn surface_maker<T: 'static>(
+
+    /// Unreachable: no context exists.
+    pub fn surface_maker<T: Send + Sync + 'static>(
         &self,
-    ) -> impl FnOnce(T) -> Result<GpuSurface, RenderError> + Send + 'static + use<T> {
-        // No window handles are read: an unbuilt GPU context has no values.
-        surface_callback::<T>(self)
+    ) -> impl FnOnce(T) -> Result<GpuSurface, ComposeError> + Send + 'static {
+        let maker: fn(T) -> Result<GpuSurface, ComposeError> = match *self {};
+        maker
     }
+
+    /// Unreachable: no context exists.
     pub fn render(
         &mut self,
-        _scene: &RenderScene,
-        _size: Size,
+        _composition: &Composition,
+        _size: (u32, u32),
         _scale: f64,
-    ) -> Result<CpuFrame, RenderError> {
+    ) -> Result<CpuFrame, ComposeError> {
         match *self {}
     }
+
+    /// Unreachable: no context exists.
     pub fn import_external(
         &mut self,
-        _id: kivact_types::ExternalImageId,
-        _shared: kivact_types::SharedTextures,
-    ) -> Result<(), RenderError> {
+        _id: ExternalImageId,
+        _shared: SharedTextures,
+    ) -> Result<(), ComposeError> {
         match *self {}
     }
-    pub fn drop_external(&mut self, _id: kivact_types::ExternalImageId) {
+
+    /// Unreachable: no context exists.
+    pub fn drop_external(&mut self, _id: ExternalImageId) {
         match *self {}
     }
-    pub fn take_missed_external(&mut self) -> Vec<kivact_types::ExternalFrame> {
+
+    /// Unreachable: no context exists.
+    pub fn take_missed_external(&mut self) -> Vec<ExternalFrame> {
+        match *self {}
+    }
+
+    /// Unreachable: no context exists.
+    pub fn export_drawable(
+        &mut self,
+        _sink: DrawableId,
+        _generation: u64,
+        _adapter: &GpuAdapter,
+        _size: (u32, u32),
+    ) -> Result<SharedTextures, ComposeError> {
+        match *self {}
+    }
+
+    /// Unreachable: no context exists.
+    pub fn drop_export(&mut self, _sink: DrawableId) {
         match *self {}
     }
 }
 
 impl GpuSurface {
+    /// Unreachable: no surface exists.
     pub fn keep_frames(&mut self) {
         match *self {}
     }
-}
-
-fn surface_callback<T>(context: &GpuContext) -> fn(T) -> Result<GpuSurface, RenderError> {
-    match *context {}
 }
