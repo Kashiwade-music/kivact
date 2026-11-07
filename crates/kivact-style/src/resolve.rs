@@ -392,25 +392,46 @@ const DELTA: &[&str] = &[
     "color",
 ];
 
-/// The properties `s` sets, by the name of the setter that sets them. Every
-/// field of `Style` is named in the destructure, so a new field must be
-/// classified here.
+/// Declares `set_properties`, which lists the properties `s` sets by the
+/// name of the setter that sets them, and one classifier per group. Every
+/// field of `Style` is named in the exhaustive pattern of `set_properties`,
+/// so a new field must be classified in one of the groups below.
 macro_rules! classify_properties {
-    ($s:expr, $($field:ident => $set:expr, $name:literal;)* @ignored $($ignored:ident),*) => {{
-        let Style { $($field,)* $($ignored: _,)* } = $s;
-        [$(($set, $name),)*].into_iter().filter_map(|(set, name)| set.then_some(name)).collect()
-    }};
+    (
+        $(
+            fn $group:ident {
+                $($field:ident => $set:expr, $name:literal;)*
+            }
+        )*
+        @ignored $($ignored:ident),*
+    ) => {
+        fn set_properties(s: &Style) -> Vec<&'static str> {
+            let Style { $($($field: _,)*)* $($ignored: _,)* } = s;
+            let mut out = Vec::new();
+            $(out.extend($group(s));)*
+            out
+        }
+
+        $(
+            fn $group(s: &Style) -> Vec<&'static str> {
+                let Style { $($field,)* .. } = s;
+                [$(($set, $name),)*]
+                    .into_iter()
+                    .filter_map(|(set, name)| set.then_some(name))
+                    .collect()
+            }
+        )*
+    };
 }
 
-fn set_properties(s: &Style) -> Vec<&'static str> {
-    let sides = Sides::default();
-    classify_properties!(s,
+classify_properties! {
+    fn layout_properties {
         enter_size => enter_size.is_some(), "enter_size";
         exit_size => exit_size.is_some(), "exit_size";
         local_paint => local_paint.is_some(), "paint";
-        padding => *padding != sides, "padding";
-        margin => *margin != sides, "margin";
-        inset => *inset != sides, "inset";
+        padding => *padding != Sides::default(), "padding";
+        margin => *margin != Sides::default(), "margin";
+        inset => *inset != Sides::default(), "inset";
         row_gap => row_gap.is_some(), "row_gap";
         column_gap => column_gap.is_some(), "column_gap";
         width => width.is_some(), "width";
@@ -432,10 +453,18 @@ fn set_properties(s: &Style) -> Vec<&'static str> {
         visibility => visibility.is_some(), "visibility";
         grid => grid.is_some(), "grid";
         wrap => wrap.is_some(), "wrap";
+    }
+    fn position_properties {
         position => position.is_some(), "position";
         overflow => overflow.is_some(), "overflow";
         scroll_snap => scroll_snap.is_some(), "scroll_snap";
         scroll_axes => scroll_axes.is_some(), "with_scroll_axes";
+        scrollbar => scrollbar.is_some(), "scrollbar";
+        cursor => cursor.is_some(), "cursor";
+        z_index => z_index.is_some(), "z_index";
+        clip => clip.is_some(), "clip";
+    }
+    fn paint_properties {
         background => background.is_some(), "background";
         border_width => border_width.iter().any(Option::is_some), "border_width";
         border_color => border_color.iter().any(Option::is_some), "border_color";
@@ -444,6 +473,15 @@ fn set_properties(s: &Style) -> Vec<&'static str> {
         radius => radius.iter().any(Option::is_some), "radius";
         shadows => shadows.is_some(), "shadow";
         opacity => opacity.is_some(), "opacity";
+        border_image => border_image.is_some(), "border_image";
+        isolation => isolation.is_some(), "isolation";
+        filter => filter.is_some(), "filter";
+        backdrop_filter => backdrop_filter.is_some(), "backdrop_filter";
+        blend => blend.is_some(), "blend";
+        mask => mask.is_some(), "mask";
+        clip_path => clip_path.is_some(), "clip_path";
+    }
+    fn transform_properties {
         translate => translate.iter().any(Option::is_some), "translate";
         rotate => rotate.is_some(), "rotate";
         scale => scale.is_some(), "scale";
@@ -458,17 +496,8 @@ fn set_properties(s: &Style) -> Vec<&'static str> {
         transform_style => transform_style.is_some(), "transform_style";
         backface => backface.is_some(), "backface_visibility";
         will_change => will_change.is_some(), "will_change";
-        isolation => isolation.is_some(), "isolation";
-        border_image => border_image.is_some(), "border_image";
-        scrollbar => scrollbar.is_some(), "scrollbar";
-        cursor => cursor.is_some(), "cursor";
-        z_index => z_index.is_some(), "z_index";
-        clip => clip.is_some(), "clip";
-        filter => filter.is_some(), "filter";
-        backdrop_filter => backdrop_filter.is_some(), "backdrop_filter";
-        blend => blend.is_some(), "blend";
-        mask => mask.is_some(), "mask";
-        clip_path => clip_path.is_some(), "clip_path";
+    }
+    fn text_properties {
         font_size => font_size.is_some(), "font_size";
         weight => weight.is_some(), "weight";
         color => color.is_some(), "color";
@@ -478,6 +507,8 @@ fn set_properties(s: &Style) -> Vec<&'static str> {
         font_family => font_family.is_some(), "font_family";
         italic => italic.is_some(), "italic";
         text => text.is_some(), "text";
+    }
+    fn state_properties {
         hover => hover.is_some(), "hover";
         group => *group, "group";
         group_hover => group_hover.is_some(), "group_hover";
@@ -491,8 +522,8 @@ fn set_properties(s: &Style) -> Vec<&'static str> {
         exit => exit.is_some(), "exit";
         transitions => !transitions.is_empty(), "transition";
         layout_transition => layout_transition.is_some(), "layout_transition";
-        @ignored duplicates
-    )
+    }
+    @ignored duplicates
 }
 
 /// Push `prefix` + `state.property` for every property the delta states

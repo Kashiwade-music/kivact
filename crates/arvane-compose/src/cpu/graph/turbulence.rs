@@ -128,9 +128,9 @@ fn init(mut seed: i32) -> Tables {
     for g in gradient.iter_mut() {
         for i in 0..B_SIZE {
             lattice[i] = i;
-            for j in 0..2 {
+            for slot in &mut g[i] {
                 seed = random(seed);
-                g[i][j] =
+                *slot =
                     f64::from((seed % (B_SIZE_32 + B_SIZE_32)) - B_SIZE_32) / f64::from(B_SIZE_32);
             }
             let s = (g[i][0] * g[i][0] + g[i][1] * g[i][1]).sqrt();

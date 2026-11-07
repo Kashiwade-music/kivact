@@ -285,114 +285,142 @@ fn surface_normal(surface_scale: f32, normal: Normal) -> V3 {
     }
 }
 
+const THIRD: f32 = 1.0 / 3.0;
+const HALF: f32 = 1.0 / 2.0;
+const QUARTER: f32 = 1.0 / 4.0;
+const TWO_THIRDS: f32 = 2.0 / 3.0;
+
 /// The Sobel normal at (`x`, `y`), with the kernel of its place on the edge or in the interior.
 fn sobel(a: &impl Fn(i64, i64) -> i32, x: i64, y: i64, w: u32, h: u32) -> Normal {
     let (wi, hi) = (i64::from(w), i64::from(h));
-    let third = 1.0 / 3.0;
-    let half = 1.0 / 2.0;
-    let quarter = 1.0 / 4.0;
-    let two_thirds = 2.0 / 3.0;
     let left_edge = x == 0;
     let right_edge = x == wi - 1;
     let top_edge = y == 0;
     let bottom_edge = y == hi - 1;
     match (left_edge, right_edge, top_edge, bottom_edge) {
-        (true, _, true, _) => {
-            let (c, r, b, br) = (a(0, 0), a(1, 0), a(0, 1), a(1, 1));
-            Normal::new(
-                two_thirds,
-                two_thirds,
-                -2 * c + 2 * r - b + br,
-                -2 * c - r + 2 * b + br,
-            )
-        }
-        (_, true, true, _) => {
-            let (l, c, bl, b) = (a(x - 1, 0), a(x, 0), a(x - 1, 1), a(x, 1));
-            Normal::new(
-                two_thirds,
-                two_thirds,
-                -2 * l + 2 * c - bl + b,
-                -l - 2 * c + bl + 2 * b,
-            )
-        }
-        (true, _, _, true) => {
-            let (t, tr, c, r) = (a(0, hi - 2), a(1, hi - 2), a(0, hi - 1), a(1, hi - 1));
-            Normal::new(
-                two_thirds,
-                two_thirds,
-                -t + tr - 2 * c + 2 * r,
-                -2 * t - tr + 2 * c + r,
-            )
-        }
-        (_, true, _, true) => {
-            let (tl, t, l, c) = (
-                a(wi - 2, hi - 2),
-                a(wi - 1, hi - 2),
-                a(wi - 2, hi - 1),
-                a(wi - 1, hi - 1),
-            );
-            Normal::new(
-                two_thirds,
-                two_thirds,
-                -tl + t - 2 * l + 2 * c,
-                -tl - 2 * t + l + 2 * c,
-            )
-        }
-        (_, _, true, _) => {
-            let (l, c, r) = (a(x - 1, 0), a(x, 0), a(x + 1, 0));
-            let (bl, b, br) = (a(x - 1, 1), a(x, 1), a(x + 1, 1));
-            Normal::new(
-                third,
-                half,
-                -2 * l + 2 * r - bl + br,
-                -l - 2 * c - r + bl + 2 * b + br,
-            )
-        }
-        (_, _, _, true) => {
-            let (tl, t, tr) = (a(x - 1, hi - 2), a(x, hi - 2), a(x + 1, hi - 2));
-            let (l, c, r) = (a(x - 1, hi - 1), a(x, hi - 1), a(x + 1, hi - 1));
-            Normal::new(
-                third,
-                half,
-                -tl + tr - 2 * l + 2 * r,
-                -tl - 2 * t - tr + l + 2 * c + r,
-            )
-        }
-        (true, _, _, _) => {
-            let (t, tr, c, r) = (a(0, y - 1), a(1, y - 1), a(0, y), a(1, y));
-            let (b, br) = (a(0, y + 1), a(1, y + 1));
-            Normal::new(
-                half,
-                third,
-                -t + tr - 2 * c + 2 * r - b + br,
-                -2 * t - tr + 2 * b + br,
-            )
-        }
-        (_, true, _, _) => {
-            let (tl, t, l, c) = (
-                a(wi - 2, y - 1),
-                a(wi - 1, y - 1),
-                a(wi - 2, y),
-                a(wi - 1, y),
-            );
-            let (bl, b) = (a(wi - 2, y + 1), a(wi - 1, y + 1));
-            Normal::new(
-                half,
-                third,
-                -tl + t - 2 * l + 2 * c - bl + b,
-                -tl - 2 * t + bl + 2 * b,
-            )
-        }
-        _ => {
-            let (tl, t, tr) = (a(x - 1, y - 1), a(x, y - 1), a(x + 1, y - 1));
-            let (l, r) = (a(x - 1, y), a(x + 1, y));
-            let (bl, b, br) = (a(x - 1, y + 1), a(x, y + 1), a(x + 1, y + 1));
-            Normal::new(
-                quarter,
-                quarter,
-                -tl + tr - 2 * l + 2 * r - bl + br,
-                -tl - 2 * t - tr + bl + 2 * b + br,
-            )
-        }
+        (true, _, true, _) => sobel_top_left(a),
+        (_, true, true, _) => sobel_top_right(a, x),
+        (true, _, _, true) => sobel_bottom_left(a, hi),
+        (_, true, _, true) => sobel_bottom_right(a, wi, hi),
+        (_, _, true, _) => sobel_top(a, x),
+        (_, _, _, true) => sobel_bottom(a, x, hi),
+        (true, _, _, _) => sobel_left(a, y),
+        (_, true, _, _) => sobel_right(a, wi, y),
+        _ => sobel_interior(a, x, y),
     }
+}
+
+/// The Sobel normal of the top left corner.
+fn sobel_top_left(a: &impl Fn(i64, i64) -> i32) -> Normal {
+    let (c, r, b, br) = (a(0, 0), a(1, 0), a(0, 1), a(1, 1));
+    Normal::new(
+        TWO_THIRDS,
+        TWO_THIRDS,
+        -2 * c + 2 * r - b + br,
+        -2 * c - r + 2 * b + br,
+    )
+}
+
+/// The Sobel normal of the top row, right corner.
+fn sobel_top_right(a: &impl Fn(i64, i64) -> i32, x: i64) -> Normal {
+    let (l, c, bl, b) = (a(x - 1, 0), a(x, 0), a(x - 1, 1), a(x, 1));
+    Normal::new(
+        TWO_THIRDS,
+        TWO_THIRDS,
+        -2 * l + 2 * c - bl + b,
+        -l - 2 * c + bl + 2 * b,
+    )
+}
+
+/// The Sobel normal of the bottom left corner.
+fn sobel_bottom_left(a: &impl Fn(i64, i64) -> i32, hi: i64) -> Normal {
+    let (t, tr, c, r) = (a(0, hi - 2), a(1, hi - 2), a(0, hi - 1), a(1, hi - 1));
+    Normal::new(
+        TWO_THIRDS,
+        TWO_THIRDS,
+        -t + tr - 2 * c + 2 * r,
+        -2 * t - tr + 2 * c + r,
+    )
+}
+
+/// The Sobel normal of the bottom right corner.
+fn sobel_bottom_right(a: &impl Fn(i64, i64) -> i32, wi: i64, hi: i64) -> Normal {
+    let (tl, t, l, c) = (
+        a(wi - 2, hi - 2),
+        a(wi - 1, hi - 2),
+        a(wi - 2, hi - 1),
+        a(wi - 1, hi - 1),
+    );
+    Normal::new(
+        TWO_THIRDS,
+        TWO_THIRDS,
+        -tl + t - 2 * l + 2 * c,
+        -tl - 2 * t + l + 2 * c,
+    )
+}
+
+/// The Sobel normal of the top edge.
+fn sobel_top(a: &impl Fn(i64, i64) -> i32, x: i64) -> Normal {
+    let (l, c, r) = (a(x - 1, 0), a(x, 0), a(x + 1, 0));
+    let (bl, b, br) = (a(x - 1, 1), a(x, 1), a(x + 1, 1));
+    Normal::new(
+        THIRD,
+        HALF,
+        -2 * l + 2 * r - bl + br,
+        -l - 2 * c - r + bl + 2 * b + br,
+    )
+}
+
+/// The Sobel normal of the bottom edge.
+fn sobel_bottom(a: &impl Fn(i64, i64) -> i32, x: i64, hi: i64) -> Normal {
+    let (tl, t, tr) = (a(x - 1, hi - 2), a(x, hi - 2), a(x + 1, hi - 2));
+    let (l, c, r) = (a(x - 1, hi - 1), a(x, hi - 1), a(x + 1, hi - 1));
+    Normal::new(
+        THIRD,
+        HALF,
+        -tl + tr - 2 * l + 2 * r,
+        -tl - 2 * t - tr + l + 2 * c + r,
+    )
+}
+
+/// The Sobel normal of the left edge.
+fn sobel_left(a: &impl Fn(i64, i64) -> i32, y: i64) -> Normal {
+    let (t, tr, c, r) = (a(0, y - 1), a(1, y - 1), a(0, y), a(1, y));
+    let (b, br) = (a(0, y + 1), a(1, y + 1));
+    Normal::new(
+        HALF,
+        THIRD,
+        -t + tr - 2 * c + 2 * r - b + br,
+        -2 * t - tr + 2 * b + br,
+    )
+}
+
+/// The Sobel normal of the right edge.
+fn sobel_right(a: &impl Fn(i64, i64) -> i32, wi: i64, y: i64) -> Normal {
+    let (tl, t, l, c) = (
+        a(wi - 2, y - 1),
+        a(wi - 1, y - 1),
+        a(wi - 2, y),
+        a(wi - 1, y),
+    );
+    let (bl, b) = (a(wi - 2, y + 1), a(wi - 1, y + 1));
+    Normal::new(
+        HALF,
+        THIRD,
+        -tl + t - 2 * l + 2 * c - bl + b,
+        -tl - 2 * t + bl + 2 * b,
+    )
+}
+
+/// The Sobel normal of an interior pixel.
+fn sobel_interior(a: &impl Fn(i64, i64) -> i32, x: i64, y: i64) -> Normal {
+    let (tl, t, tr) = (a(x - 1, y - 1), a(x, y - 1), a(x + 1, y - 1));
+    let (l, r) = (a(x - 1, y), a(x + 1, y));
+    let (bl, b, br) = (a(x - 1, y + 1), a(x, y + 1), a(x + 1, y + 1));
+    Normal::new(
+        QUARTER,
+        QUARTER,
+        -tl + tr - 2 * l + 2 * r - bl + br,
+        -tl - 2 * t - tr + bl + 2 * b + br,
+    )
 }

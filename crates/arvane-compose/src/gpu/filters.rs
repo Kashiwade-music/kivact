@@ -137,7 +137,7 @@ impl GpuContext {
             .u(args.mode)
             .u(0)
             .u(0);
-        for row in args.matrix.chunks_exact(4) {
+        for row in args.matrix.as_chunks::<4>().0 {
             words.v4([row[0], row[1], row[2], row[3]]);
         }
         let params = super::exec::uniform(&self.device, &self.queue, words.bytes());
@@ -239,11 +239,25 @@ impl GpuContext {
         }
         let small = chain.last().expect("invariant: the chain is not empty");
         let (radius, weights) = gaussian(sigma);
+        let blurred = self.blur_separable(encoder, small, radius, &weights)?;
+        let current = self.upscale_chain(encoder, &chain, blurred)?;
+        debug_assert_eq!((current.width(), current.height()), (w, h));
+        Ok(current)
+    }
+
+    /// Blur `small` horizontally, then vertically, with the gaussian `weights` of `radius`.
+    fn blur_separable(
+        &self,
+        encoder: &mut wgpu::CommandEncoder,
+        small: &wgpu::Texture,
+        radius: u32,
+        weights: &[u8],
+    ) -> Result<wgpu::Texture, ComposeError> {
         let weight_buffer = buffer(
             &self.device,
             &self.queue,
             wgpu::BufferUsages::STORAGE,
-            &weights,
+            weights,
         );
         let horizontal = targets::target(&self.device, (small.width(), small.height()));
         let blur_x = Pass {
@@ -279,7 +293,16 @@ impl GpuContext {
             blur_y,
             Some(&weight_buffer),
         )?;
-        let mut current = vertical;
+        Ok(vertical)
+    }
+
+    /// Upscale `current` back up the levels of `chain`, from its smallest level to its largest.
+    fn upscale_chain(
+        &self,
+        encoder: &mut wgpu::CommandEncoder,
+        chain: &[wgpu::Texture],
+        mut current: wgpu::Texture,
+    ) -> Result<wgpu::Texture, ComposeError> {
         for level in chain.iter().rev().skip(1) {
             let up = targets::target(&self.device, (level.width(), level.height()));
             let args = Pass {
@@ -291,7 +314,6 @@ impl GpuContext {
             self.filter_pass(encoder, &up, &current, None, args)?;
             current = up;
         }
-        debug_assert_eq!((current.width(), current.height()), (w, h));
         Ok(current)
     }
 }

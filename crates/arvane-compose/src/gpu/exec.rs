@@ -456,7 +456,7 @@ fn external_frames(ops: &[Op<'_>]) -> Vec<kivact_types::ExternalFrame> {
 
 /// Unpremultiply RGBA8 in place (straight alpha, as exported pixels are).
 fn unpremultiply(rgba: &mut [u8]) {
-    for px in rgba.chunks_exact_mut(4) {
+    for px in rgba.as_chunks_mut::<4>().0 {
         let a = u32::from(px[3]);
         if a == 0 {
             px[0] = 0;

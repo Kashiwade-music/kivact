@@ -281,6 +281,83 @@ fn shader(device: &wgpu::Device, source: &str) -> wgpu::ShaderModule {
     })
 }
 
+/// The bind group layouts of the draw, filter, mask and apply shaders, in that order.
+fn group_layouts(
+    device: &wgpu::Device,
+) -> (
+    wgpu::BindGroupLayout,
+    wgpu::BindGroupLayout,
+    wgpu::BindGroupLayout,
+    wgpu::BindGroupLayout,
+) {
+    let draw = group_layout(
+        device,
+        &[
+            uniform_entry(0),
+            texture_entry(1),
+            texture_entry(2),
+            texture_entry(3),
+            storage_entry(4),
+        ],
+    );
+    let filter = group_layout(
+        device,
+        &[
+            uniform_entry(0),
+            texture_entry(1),
+            texture_entry(2),
+            storage_entry(3),
+        ],
+    );
+    let mask = group_layout(
+        device,
+        &[uniform_entry(0), texture_entry(1), texture_entry(2)],
+    );
+    let apply = group_layout(device, &[texture_entry(0)]);
+    (draw, filter, mask, apply)
+}
+
+/// The draw pipelines: one per composite in the order of [`composite_slot`], then the shader blend.
+fn draw_pipelines(
+    device: &wgpu::Device,
+    layout: &wgpu::PipelineLayout,
+    module: &wgpu::ShaderModule,
+) -> Vec<wgpu::RenderPipeline> {
+    let mut draw = Vec::with_capacity(SHADER_BLEND + 1);
+    for composite in [
+        Composite::SourceOver,
+        Composite::SourceIn,
+        Composite::SourceOut,
+        Composite::SourceAtop,
+        Composite::DestinationOver,
+        Composite::DestinationIn,
+        Composite::DestinationOut,
+        Composite::DestinationAtop,
+        Composite::Lighter,
+        Composite::Copy,
+        Composite::Xor,
+    ] {
+        let (src, dst) = factors(composite);
+        draw.push(pipeline(
+            device,
+            layout,
+            module,
+            ("vs_draw", "fs_draw"),
+            RASTER_FORMAT,
+            Some(blend(src, dst)),
+        ));
+    }
+    draw.push(pipeline(
+        device,
+        layout,
+        module,
+        ("vs_draw", "fs_blend"),
+        RASTER_FORMAT,
+        None,
+    ));
+    draw
+}
+
 impl Pipelines {
     /// Make every pipeline the executor draws with on `device`.
     pub(crate) fn new(device: &wgpu::Device, queue: &wgpu::Queue) -> Self {
@@ -288,67 +365,13 @@ impl Pipelines {
         let filter_module = shader(device, FILTER_WGSL);
         let mask_module = shader(device, MASK_WGSL);
         let apply_module = shader(device, APPLY_WGSL);
-        let draw_layout = group_layout(
-            device,
-            &[
-                uniform_entry(0),
-                texture_entry(1),
-                texture_entry(2),
-                texture_entry(3),
-                storage_entry(4),
-            ],
-        );
-        let filter_layout = group_layout(
-            device,
-            &[
-                uniform_entry(0),
-                texture_entry(1),
-                texture_entry(2),
-                storage_entry(3),
-            ],
-        );
-        let mask_layout = group_layout(
-            device,
-            &[uniform_entry(0), texture_entry(1), texture_entry(2)],
-        );
-        let apply_layout = group_layout(device, &[texture_entry(0)]);
+        let (draw_layout, filter_layout, mask_layout, apply_layout) = group_layouts(device);
         let draw_pl = layout(device, &[&draw_layout]);
         let filter_pl = layout(device, &[&filter_layout]);
         let mask_pl = layout(device, &[&mask_layout]);
         let apply_pl = layout(device, &[&apply_layout]);
         let empty_pl = layout(device, &[]);
-        let mut draw = Vec::with_capacity(SHADER_BLEND + 1);
-        for composite in [
-            Composite::SourceOver,
-            Composite::SourceIn,
-            Composite::SourceOut,
-            Composite::SourceAtop,
-            Composite::DestinationOver,
-            Composite::DestinationIn,
-            Composite::DestinationOut,
-            Composite::DestinationAtop,
-            Composite::Lighter,
-            Composite::Copy,
-            Composite::Xor,
-        ] {
-            let (src, dst) = factors(composite);
-            draw.push(pipeline(
-                device,
-                &draw_pl,
-                &draw_module,
-                ("vs_draw", "fs_draw"),
-                RASTER_FORMAT,
-                Some(blend(src, dst)),
-            ));
-        }
-        draw.push(pipeline(
-            device,
-            &draw_pl,
-            &draw_module,
-            ("vs_draw", "fs_blend"),
-            RASTER_FORMAT,
-            None,
-        ));
+        let draw = draw_pipelines(device, &draw_pl, &draw_module);
         let multiply = blend(wgpu::BlendFactor::Zero, wgpu::BlendFactor::Src);
         Self {
             draw,
