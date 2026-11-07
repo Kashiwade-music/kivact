@@ -211,12 +211,12 @@ fn reduced_motion_completes_decorative_transitions_only() {
         v > 0.0 && v < 10.0,
         "informational animation still runs: {v}"
     );
-    // frame loops are never stopped by reduced motion
+    // A decorative frame loop is held under reduced motion (§12.5, §17.2).
     let (screen3, (fl, ticks)) = counter_app();
     screen3.set_reduced_motion(true);
     fl.start(FrameRate::Hz(30.0));
     screen3.advance(Duration::from_secs(1));
-    assert_eq!(ticks.get(), 30);
+    assert_eq!(ticks.get(), 0);
 }
 
 #[test]
@@ -242,7 +242,8 @@ fn keyframes_delay_and_repeat() {
     let v = shown.get_untracked();
     assert!(v > 30.0 && v < 70.0, "{v}");
     screen.advance(ms(200));
-    assert_eq!(shown.get_untracked(), 100.0);
+    // Two alternating iterations end where they began (§12.3).
+    assert_eq!(shown.get_untracked(), 0.0);
 }
 
 /// `on_complete` runs when a run reaches its target, never for a run that a new target or a
