@@ -2402,6 +2402,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "kivact-shader"
+version = "0.1.0"
+dependencies = [
+ "kivact-types",
+ "naga",
+]
+
+[[package]]
 name = "kivact-style"
 version = "0.1.0"
 dependencies = [

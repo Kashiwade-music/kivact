@@ -15,6 +15,9 @@ targets = "lib-bin"
 
 [visible_to]
 
+# ----- Shader validation: naga is confined to kivact-shader, which style (kivact-style) and the compositor (arvane-compose) use.
+kivact-shader = ["kivact-style", "arvane-compose"]
+
 # ----- Kivact の内部 crate: host を知らない反応の核は kivact-core だけが使う。アプリと部品は
 # kivact facade だけに依存する。
 kivact-runtime = ["kivact-style", "kivact-i18n", "kivact-core", "kivact-test"]
