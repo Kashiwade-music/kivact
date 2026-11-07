@@ -6,58 +6,96 @@ use std::cell::RefCell;
 use std::panic::Location;
 use std::rc::Rc;
 
+use super::Repeat;
 use super::state::{Anim, MotionState};
-use super::transition::{Kind, Transition};
+use super::transition::{Kind, Transition, settles_at_start};
 use super::values::Animatable;
 use crate::Prop as InputProp;
 use crate::{
-    AppId, EffectKind, IntoReactive, IntoValue, Owned, Owner, Runtime, Signal, Value,
-    require_effectful,
+    AppId, EffectKind, ErrorKind, IntoReactive, IntoValue, Owned, Owner, Runtime, Signal, UiError,
+    Value, require_effectful,
 };
-use kivact_types::motion::SpringRun;
+use kivact_types::motion::{PlayDirection, SpringRun};
+
+/// One run: fixed endpoints and timing, and the spring's integration state.
+pub(crate) struct Run {
+    pub(crate) from: Vec<f64>,
+    pub(crate) to: Vec<f64>,
+    pub(crate) timing: Transition,
+    pub(crate) spring: RefCell<SpringRun>,
+}
 
 pub(crate) struct AnimCell<T: 'static> {
     pub(crate) owner: Owner,
     pub(crate) value: Signal<T>,
     pub(crate) transition: Transition,
-    timing: RefCell<Transition>,
-    pub(crate) from: RefCell<Vec<f64>>,
-    pub(crate) to: RefCell<Vec<f64>>,
+    /// The value now (always valid; published to `value`).
     pub(crate) current: RefCell<Vec<f64>>,
-    /// A spring's velocity, step time and iteration (`Transition::step`).
-    pub(crate) spring: RefCell<SpringRun>,
     pub(crate) phase: Signal<AnimPhase>,
 }
 
-/// Where an animated value stands.
-#[derive(Clone, Copy, PartialEq, Eq)]
+/// Where an animated value stands; the run it moves by is in its payload.
+#[derive(Clone)]
 pub(crate) enum AnimPhase {
-    /// At rest on `to`: no run.
+    /// Not running; the target is `current`.
     Idle,
-    /// A naturally completed run at its target.
-    Completed,
-    /// A run toward `to` that started at `start_ns` on the App's clock (its
-    /// delay and timing count from here).
-    Running { start_ns: u64 },
+    /// The last run completed. `target` is the value last given to `set`;
+    /// `current` may differ from it (alternate with an even count).
+    Completed { target: Vec<f64> },
+    /// A run toward its target that started at `start_ns` on the App's clock.
+    Running { start_ns: u64, run: Rc<Run> },
     /// A run stopped by `Animated::pause` at `at_ns`; `resume` continues it.
-    Paused { start_ns: u64, at_ns: u64 },
+    Paused {
+        start_ns: u64,
+        at_ns: u64,
+        run: Rc<Run>,
+    },
 }
 
-/// Why a run ends.
-#[derive(Clone, Copy, PartialEq, Eq)]
-pub(crate) enum RunEnd {
-    /// It reached its target, in time or at once under reduced motion:
-    /// `on_complete` runs.
-    Completed,
-    /// `jump_to`, or a target equal to the current value (no run starts):
-    /// nothing is reported.
-    Cancelled,
+impl PartialEq for AnimPhase {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Idle, Self::Idle) => true,
+            (Self::Completed { target: a }, Self::Completed { target: b }) => a == b,
+            (
+                Self::Running {
+                    start_ns: a,
+                    run: ra,
+                },
+                Self::Running {
+                    start_ns: b,
+                    run: rb,
+                },
+            ) => a == b && Rc::ptr_eq(ra, rb),
+            (
+                Self::Paused {
+                    start_ns: a,
+                    at_ns: ta,
+                    run: ra,
+                },
+                Self::Paused {
+                    start_ns: b,
+                    at_ns: tb,
+                    run: rb,
+                },
+            ) => a == b && ta == tb && Rc::ptr_eq(ra, rb),
+            _ => false,
+        }
+    }
+}
+
+impl Run {
+    /// Move the spring's last step time with a stop of the frame clock.
+    pub(crate) fn shift_last(&self, paused: u64, now: u64) {
+        let mut spring = self.spring.borrow_mut();
+        spring.last_ns = shift(spring.last_ns, paused, now);
+    }
 }
 
 /// The time `t` after a stop at `paused` that went on at `now`: times up to
 /// the stop move by its length, times during it move to `now`, later ones
 /// stay.
-fn shift(t: u64, paused: u64, now: u64) -> u64 {
+pub(super) fn shift(t: u64, paused: u64, now: u64) -> u64 {
     if t <= paused {
         t.saturating_add(now.saturating_sub(paused))
     } else if t <= now {
@@ -73,6 +111,25 @@ fn comps<T: Animatable>(v: &T) -> Vec<f64> {
     c
 }
 
+/// The value a finished run settles on: the end of its last iteration (§12.3).
+fn settled(run: &Run) -> Vec<f64> {
+    if settles_at_start(&run.timing) {
+        run.from.clone()
+    } else {
+        run.to.clone()
+    }
+}
+
+/// A copy of `transition` for a run that moves once, forward, without delay.
+fn one_shot(transition: &Transition) -> Transition {
+    Transition {
+        repeat: Repeat::Times(1),
+        direction: PlayDirection::Normal,
+        delay_ms: 0.0,
+        ..transition.clone()
+    }
+}
+
 impl<T: Animatable> AnimCell<T> {
     fn publish(&self, c: &[f64]) {
         let v = T::from_components(c);
@@ -80,74 +137,94 @@ impl<T: Animatable> AnimCell<T> {
         self.value.update(move |slot| *slot = v);
     }
 
-    fn set_phase(&self, phase: AnimPhase) {
-        self.phase.set(phase);
-    }
-
-    fn finish(&self, end: RunEnd) {
-        match end {
-            // Every completion notifies, also one after another (reduced
-            // motion completes each run at once): `on_complete` runs for each.
-            RunEnd::Completed => self.phase.update(|phase| *phase = AnimPhase::Completed),
-            RunEnd::Cancelled => self.set_phase(AnimPhase::Idle),
+    /// The target: the value `set` last gave (the current value when idle).
+    fn target(&self) -> Vec<f64> {
+        match self.phase.get_untracked() {
+            AnimPhase::Idle => self.current.borrow().clone(),
+            AnimPhase::Completed { target } => target,
+            AnimPhase::Running { run, .. } | AnimPhase::Paused { run, .. } => run.to.clone(),
         }
-        let to = self.to.borrow().clone();
-        self.publish(&to);
-        self.spring.borrow_mut().velocity.fill(0.0);
     }
 
-    /// Run from `from` toward `to` on `clock`, or end at once: a target equal
-    /// to the current value starts no run, and under reduced motion a
-    /// decorative run completes at once.
-    fn begin(&self, start_ns: u64, reduced: bool) {
-        let wire = &self.transition;
-        if *self.from.borrow() == *self.to.borrow() && !matches!(wire.kind, Kind::Keyframes { .. })
-        {
-            self.finish(RunEnd::Cancelled);
-        } else if reduced && wire.decorative {
-            self.finish(RunEnd::Completed);
+    /// Stop with no run, the current value being `value`.
+    fn settle(&self, value: Vec<f64>) {
+        self.publish(&value);
+        self.phase.set(AnimPhase::Idle);
+    }
+
+    /// End `run` at its settled value and report the completion.
+    fn complete(&self, run: &Run) {
+        self.publish(&settled(run));
+        let target = run.to.clone();
+        self.phase
+            .update(|phase| *phase = AnimPhase::Completed { target });
+    }
+
+    /// Start `run` at `start_ns`, or complete it at once under reduced motion.
+    fn start_run(&self, run: Rc<Run>, start_ns: u64, reduced: bool) {
+        if reduced && run.timing.decorative {
+            self.complete(&run);
         } else {
-            self.set_phase(AnimPhase::Running { start_ns });
+            self.phase.set(AnimPhase::Running { start_ns, run });
         }
+    }
+
+    /// Begin `run`, or end it at once when nothing moves: a target equal to
+    /// the current value starts no run (a keyframes run always plays).
+    fn begin(&self, run: Rc<Run>, start_ns: u64, reduced: bool) {
+        if run.from == run.to && !matches!(run.timing.kind, Kind::Keyframes { .. }) {
+            self.settle(run.to.clone());
+        } else {
+            self.start_run(run, start_ns, reduced);
+        }
+    }
+
+    /// A run of `timing` from the current value toward `to`, keeping `velocity`.
+    fn make_run(&self, now: u64, timing: Transition, to: Vec<f64>, velocity: Vec<f64>) -> Rc<Run> {
+        let from = self.current.borrow().clone();
+        let mut spring = SpringRun {
+            velocity,
+            ..SpringRun::default()
+        };
+        spring.start(now, &timing, &from, &to);
+        Rc::new(Run {
+            from,
+            to,
+            timing,
+            spring: RefCell::new(spring),
+        })
     }
 
     /// Start moving from the current value to `target` at `now`.
     pub(crate) fn retarget(&self, target: &T, now: u64, reduced: bool) {
         let to = comps(target);
         let phase = self.phase.get_untracked();
-        if *self.to.borrow() == to && !matches!(phase, AnimPhase::Idle | AnimPhase::Completed) {
+        if !matches!(phase, AnimPhase::Idle) && self.target() == to {
             return;
         }
-        let timing = if matches!(phase, AnimPhase::Running { .. } | AnimPhase::Paused { .. }) {
-            self.transition.retargeted(
-                &self.from.borrow(),
-                &self.to.borrow(),
-                &self.current.borrow(),
-                &to,
-            )
-        } else {
-            self.transition.clone()
-        };
-        *self.timing.borrow_mut() = timing;
-        *self.from.borrow_mut() = self.current.borrow().clone();
-        *self.to.borrow_mut() = to;
-        {
-            let mut run = self.spring.borrow_mut();
-            if run.velocity.len() != T::COMPONENTS {
-                run.velocity = vec![0.0; T::COMPONENTS];
+        let (timing, velocity) = match &phase {
+            AnimPhase::Running { run, .. } | AnimPhase::Paused { run, .. } => {
+                let timing =
+                    self.transition
+                        .retargeted(&run.from, &run.to, &self.current.borrow(), &to);
+                (timing, run.spring.borrow().velocity.clone())
             }
-            run.restart(now);
-        }
+            AnimPhase::Idle | AnimPhase::Completed { .. } => {
+                (self.transition.clone(), vec![0.0; T::COMPONENTS])
+            }
+        };
+        let run = self.make_run(now, timing, to, velocity);
         // A paused run stays paused, now toward the new target, and keeps its
         // current value.
         if let AnimPhase::Paused { .. } = phase {
-            self.set_phase(AnimPhase::Paused {
+            self.phase.set(AnimPhase::Paused {
                 start_ns: now,
                 at_ns: now,
+                run,
             });
             return;
         }
-        self.begin(now, reduced);
+        self.begin(run, now, reduced);
     }
 }
 
@@ -157,48 +234,55 @@ impl<T: Animatable> Anim for AnimCell<T> {
     }
 
     fn finish_decorative(&self) {
-        if self.is_running() && self.transition.decorative {
-            self.finish(RunEnd::Completed);
+        if let AnimPhase::Running { run, .. } = self.phase.get_untracked()
+            && self.transition.decorative
+        {
+            self.complete(&run);
         }
     }
 
     fn shift_clock(&self, paused: u64, now: u64) {
         match self.phase.get_untracked() {
-            AnimPhase::Idle | AnimPhase::Completed => return,
-            AnimPhase::Running { start_ns } => self.set_phase(AnimPhase::Running {
-                start_ns: shift(start_ns, paused, now),
-            }),
-            AnimPhase::Paused { start_ns, at_ns } => {
+            AnimPhase::Idle | AnimPhase::Completed { .. } => {}
+            AnimPhase::Running { start_ns, run } => {
+                run.shift_last(paused, now);
+                self.phase.set(AnimPhase::Running {
+                    start_ns: shift(start_ns, paused, now),
+                    run,
+                });
+            }
+            AnimPhase::Paused {
+                start_ns,
+                at_ns,
+                run,
+            } => {
                 let at_ns = if at_ns <= now {
                     at_ns.max(paused).saturating_add(now.saturating_sub(paused))
                 } else {
                     at_ns
                 };
-                self.set_phase(AnimPhase::Paused {
+                run.shift_last(paused, now);
+                self.phase.set(AnimPhase::Paused {
                     start_ns: shift(start_ns, paused, now),
                     at_ns,
+                    run,
                 });
             }
         }
-        let mut run = self.spring.borrow_mut();
-        run.last_ns = shift(run.last_ns, paused, now);
     }
 
     fn step(&self, now: u64) {
-        let AnimPhase::Running { start_ns } = self.phase.get_untracked() else {
+        let AnimPhase::Running { start_ns, run } = self.phase.get_untracked() else {
             return;
         };
         let mut current = self.current.borrow().clone();
-        let done = self.timing.borrow().step(
-            &self.from.borrow(),
-            &self.to.borrow(),
-            start_ns,
-            now,
-            &mut current,
-            &mut self.spring.borrow_mut(),
-        );
+        let done = {
+            let mut spring = run.spring.borrow_mut();
+            run.timing
+                .step(&run.from, &run.to, start_ns, now, &mut current, &mut spring)
+        };
         if done {
-            self.finish(RunEnd::Completed);
+            self.complete(&run);
         } else {
             self.publish(&current);
         }
@@ -249,19 +333,21 @@ impl<T: Animatable> Animated<T> {
         let initial = start.unwrap_or_else(|| crate::untrack(|| target.get()));
         let c = comps(&initial);
         let app = rt.id();
+        if let Kind::Spring(spring) = &transition.kind
+            && let Some(problem) = spring.problem()
+        {
+            owner.report(UiError::new(
+                ErrorKind::Message,
+                format!("spring: {problem}"),
+                Some(at),
+            ));
+        }
         let value: Signal<T> = owner.signal(initial, at);
         let cell = Rc::new(AnimCell {
             owner,
             value,
-            timing: RefCell::new(transition.clone()),
             transition,
-            from: RefCell::new(c.clone()),
-            to: RefCell::new(c.clone()),
             current: RefCell::new(c),
-            spring: RefCell::new(SpringRun {
-                velocity: vec![0.0; T::COMPONENTS],
-                ..SpringRun::default()
-            }),
             phase: owner.signal(AnimPhase::Idle, at),
         });
         let anim: Rc<dyn Anim> = cell.clone();
@@ -335,8 +421,7 @@ impl<T: Animatable> Animated<T> {
         let cell = self.cell(at);
         // Checked before any state changes.
         require_effectful("Animated::jump_to");
-        *cell.to.borrow_mut() = comps(&v);
-        cell.finish(RunEnd::Cancelled);
+        cell.settle(comps(&v));
     }
 
     /// Pause this animation. Retargeting while paused keeps it paused.
@@ -346,10 +431,11 @@ impl<T: Animatable> Animated<T> {
         let cell = self.cell(at);
         let rt = cell.owner.runtime();
         require_effectful("Animated::pause");
-        if let AnimPhase::Running { start_ns } = cell.phase.get_untracked() {
-            cell.set_phase(AnimPhase::Paused {
+        if let AnimPhase::Running { start_ns, run } = cell.phase.get_untracked() {
+            cell.phase.set(AnimPhase::Paused {
                 start_ns,
                 at_ns: rt.now_ns(),
+                run,
             });
         }
     }
@@ -361,16 +447,55 @@ impl<T: Animatable> Animated<T> {
         let cell = self.cell(at);
         let rt = cell.owner.runtime();
         require_effectful("Animated::resume");
-        if let AnimPhase::Paused { start_ns, at_ns } = cell.phase.get_untracked() {
+        if let AnimPhase::Paused {
+            start_ns,
+            at_ns,
+            run,
+        } = cell.phase.get_untracked()
+        {
             let now = rt.now_ns();
             let reduced = MotionState::of(&rt).reduced_motion(&rt);
-            {
-                let mut run = cell.spring.borrow_mut();
-                run.last_ns = shift(run.last_ns, at_ns, now);
-            }
-            cell.begin(shift(start_ns, at_ns, now), reduced);
+            run.shift_last(at_ns, now);
+            cell.begin(run, shift(start_ns, at_ns, now), reduced);
             rt.request_turn();
         }
+    }
+
+    /// Give the spring a velocity (units per second, per component) now: a
+    /// running or paused spring keeps its target and goes on with the
+    /// velocity; an idle or completed one starts a run from its current value
+    /// toward its target (for a completed alternate run, the value last given
+    /// to `set`), once, forward and without delay. Not a spring transition:
+    /// reported (`ErrorKind::Message`) and ignored.
+    #[track_caller]
+    pub fn set_velocity(&self, velocity: T) {
+        let at = Location::caller();
+        let cell = self.cell(at);
+        let rt = cell.owner.runtime();
+        // Checked before any state changes.
+        require_effectful("Animated::set_velocity");
+        if !matches!(cell.transition.kind, Kind::Spring(_)) {
+            cell.owner.report(UiError::new(
+                ErrorKind::Message,
+                "set_velocity needs a spring transition",
+                Some(at),
+            ));
+            return;
+        }
+        let v = comps(&velocity);
+        let now = rt.now_ns();
+        match cell.phase.get_untracked() {
+            AnimPhase::Running { run, .. } | AnimPhase::Paused { run, .. } => {
+                run.spring.borrow_mut().velocity = v;
+            }
+            AnimPhase::Idle | AnimPhase::Completed { .. } => {
+                let target = cell.target();
+                let run = cell.make_run(now, one_shot(&cell.transition), target, v);
+                let reduced = MotionState::of(&rt).reduced_motion(&rt);
+                cell.start_run(run, now, reduced);
+            }
+        }
+        rt.request_turn();
     }
 
     /// Register a setup-owned callback for natural completion of a run (and
@@ -398,7 +523,7 @@ impl<T: Animatable> Animated<T> {
                 move || phase.get(),
                 EffectKind::Internal,
                 move |phase| {
-                    if matches!(phase, AnimPhase::Completed) {
+                    if matches!(phase, AnimPhase::Completed { .. }) {
                         owner.run_handler(|| {
                             if let Err(err) = f.try_call(()) {
                                 owner.report(err);

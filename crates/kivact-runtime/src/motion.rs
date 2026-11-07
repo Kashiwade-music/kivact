@@ -60,13 +60,17 @@
 
 mod animated;
 mod frame_loop;
+mod stagger;
 mod state;
+mod timeline;
 mod transition;
 mod values;
 
 pub use animated::{Animated, animated};
 pub use frame_loop::{FrameLoop, frame_loop};
 pub use kivact_types::motion::{Easing, Repeat, Retarget, Spring};
+pub use stagger::{Stagger, StaggerFrom};
 pub use state::{MotionEnv, MotionState, MotionStats};
+pub use timeline::{At, Segment, Timeline, TimelineTrack, timeline};
 pub use transition::Transition;
 pub use values::{Animatable, FrameInfo, FrameRate};

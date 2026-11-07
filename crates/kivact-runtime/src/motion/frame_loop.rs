@@ -7,7 +7,7 @@ use std::cell::Cell;
 use std::panic::Location;
 use std::rc::Rc;
 
-use super::state::{LoopCell, LoopGate, LoopRun, LoopState, MotionState};
+use super::state::{LoopCell, LoopGate, LoopMotion, LoopRun, LoopState, MotionState};
 use super::values::{FrameInfo, FrameRate};
 
 use crate::{ErrorKind, HandlerResult, Owned, Owner, Runtime, UiError, Value, require_effectful};
@@ -34,6 +34,7 @@ pub fn frame_loop<R: HandlerResult>(f: impl Fn(FrameInfo) -> R + 'static) -> Fra
         frames: Cell::new(0),
         gate: Cell::new(LoopGate::Always),
         rate: Cell::new(None),
+        motion: Cell::new(LoopMotion::Decorative),
     });
     MotionState::of(&rt).register_loop(&cell);
     FrameLoop {
@@ -42,6 +43,18 @@ pub fn frame_loop<R: HandlerResult>(f: impl Fn(FrameInfo) -> R + 'static) -> Fra
 }
 
 impl FrameLoop {
+    /// Keep this loop running under reduced motion. A loop is decorative by
+    /// default: under reduced motion it requests no frame and gets no
+    /// callback, and it counts again from the moment reduced motion is off.
+    /// Setup only.
+    #[track_caller]
+    pub fn essential(self) -> Self {
+        crate::require_setup("FrameLoop::essential");
+        let (_rt, cell) = self.cell(Location::caller());
+        cell.motion.set(LoopMotion::Essential);
+        self
+    }
+
     /// Host adapter bridge: restrict scheduling to an observed node lifetime.
     #[doc(hidden)]
     #[track_caller]

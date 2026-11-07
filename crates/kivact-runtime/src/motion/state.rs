@@ -140,6 +140,29 @@ impl MotionState {
         });
     }
 
+    /// Reduced motion was turned off: the running decorative frame loops
+    /// count from now, as they do when a surface resumes (the counterpart of
+    /// [`MotionState::reduce_motion`]). The host calls it only for the change
+    /// from on to off, in the turn that reports it.
+    pub fn restore_motion(&self, rt: &Runtime) {
+        let now = rt.now_ns();
+        rt.enter(|| {
+            for l in self.live_loops() {
+                if l.motion.get() != LoopMotion::Decorative {
+                    continue;
+                }
+                if let LoopState::Running(run) = l.state.get_untracked() {
+                    l.set_run(Some(LoopRun {
+                        start_ns: now,
+                        index: 0,
+                        last_tick: None,
+                        ..run
+                    }));
+                }
+            }
+        });
+    }
+
     /// Take over what the tick's `clock` says since the last tick: a stop of
     /// the frame clock that ended. Animations go on from where they stood
     /// and frame loops count from `now` again.
@@ -180,8 +203,9 @@ impl MotionState {
             return;
         };
         let period = period.get();
+        let reduced = self.reduced_motion(rt);
         for l in self.live_loops() {
-            if !l.is_present() {
+            if !l.is_present() || skips_under(&l, reduced) {
                 continue;
             }
             let LoopState::Running(run) = l.state.get_untracked() else {
@@ -236,9 +260,10 @@ impl MotionState {
         let period = self.period(rt)?.get();
         let now = rt.now_ns();
         let last = self.clock.borrow().phase.last_tick();
+        let reduced = self.reduced_motion(rt);
         let mut want: Option<u64> = None;
         for l in self.live_loops() {
-            if !l.is_present() {
+            if !l.is_present() || skips_under(&l, reduced) {
                 continue;
             }
             if let LoopState::Running(run) = l.state.get_untracked() {
@@ -307,7 +332,16 @@ pub(crate) enum LoopGate {
     While(Value<bool>),
 }
 
-// xtask-allow(state-fields): The run lifecycle lives in LoopState alone; the scheduling gate, the frame count and the lazily made rate memo are independent facts of the loop.
+/// Whether a frame loop or a timeline is decorative (stopped under reduced
+/// motion, the default) or essential (kept running).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(crate) enum LoopMotion {
+    #[default]
+    Decorative,
+    Essential,
+}
+
+// xtask-allow(state-fields): The run lifecycle lives in LoopState alone; the scheduling gate, the frame count, the lazily made rate memo and the motion class are independent facts of the loop.
 pub(crate) struct LoopCell {
     pub(crate) owner: Owner,
     pub(crate) f: Handler<FrameInfo>,
@@ -316,6 +350,8 @@ pub(crate) struct LoopCell {
     pub(crate) gate: Cell<LoopGate>,
     /// The memo `FrameLoop::rate` returns, made on its first call.
     pub(crate) rate: Cell<Option<crate::Value<Option<super::values::FrameRate>>>>,
+    /// Set in setup by `FrameLoop::essential`.
+    pub(crate) motion: Cell<LoopMotion>,
 }
 
 /// A running frame loop.
@@ -340,6 +376,12 @@ impl LoopRun {
             FrameRate::Display => self.last_tick.unwrap_or(self.start_ns) + period_ns,
         }
     }
+}
+
+/// Whether a frame loop is held back now: a decorative loop under reduced
+/// motion requests no frame and gets no callback.
+fn skips_under(l: &LoopCell, reduced: bool) -> bool {
+    reduced && l.motion.get() == LoopMotion::Decorative
 }
 
 impl LoopCell {
