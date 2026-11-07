@@ -3,7 +3,7 @@
 
 use crate::layouts;
 use crate::output;
-use kivact_types::render::RichText;
+use kivact_types::render::{RichText, TextSpan};
 use kivact_types::{ComputedTextStyle, FontFeature, TextDecoration, TextWrap};
 use kivact_types::{
     DecorationLines, FontKerning, LineHeight, Rgba, TextAlign, TextOverflow, TextTransform,
@@ -155,79 +155,16 @@ impl TextKey {
     ) -> Self {
         let decoration = (drawn && style.decoration != TextDecoration::default())
             .then(|| decoration_bits(style.decoration));
-        let plain = text.spans.is_empty()
-            && style.resolve(style.letter_spacing) == 0.0
-            && style.resolve(style.word_spacing) == 0.0
-            && style.kerning == FontKerning::Auto
-            && style.shaping_features().is_empty()
-            && decoration.is_none()
-            && style.overflow == TextOverflow::Clip
-            && style.max_lines.is_none()
-            && !style.capsize
-            && style.transform == TextTransform::None;
-        let rich = (!plain).then(|| {
-            Box::new(RichKey {
-                letter_spacing: style.resolve(style.letter_spacing).to_bits(),
-                word_spacing: style.resolve(style.word_spacing).to_bits(),
-                kerning: style.kerning,
-                features: style.shaping_features(),
-                decoration,
-                overflow: style.overflow == TextOverflow::Ellipsis,
-                max_lines: style.max_lines,
-                capsize: style.capsize,
-                transform: style.transform,
-                spans: text
-                    .spans
-                    .iter()
-                    .map(|span| {
-                        let s = &span.style;
-                        SpanBits {
-                            start: span.range.start,
-                            end: span.range.end,
-                            font_size: s.font_size.map(f64::to_bits),
-                            weight: s.weight,
-                            color: if drawn { s.color.map(color_bits) } else { None },
-                            stroke: if drawn {
-                                s.stroke.map(|(w, c)| (w.to_bits(), color_bits(c)))
-                            } else {
-                                None
-                            },
-                            family: s.family.clone(),
-                            italic: s.italic,
-                            letter_spacing: s.letter_spacing.map(f64::to_bits),
-                            word_spacing: s.word_spacing.map(f64::to_bits),
-                            kerning: s.kerning,
-                            features: s.features.clone(),
-                            variations: s.variations.as_deref().map(layouts::variation_bits),
-                            font_width: s.font_width.map(f64::to_bits),
-                            decoration: if drawn {
-                                s.decoration.map(decoration_bits)
-                            } else {
-                                None
-                            },
-                            highlight: drawn && s.highlight,
-                        }
-                    })
-                    .collect(),
-            })
-        });
+        let rich = (!is_plain(text, style, decoration))
+            .then(|| Box::new(rich_key(text, style, decoration, drawn)));
         Self {
             text: text.text.to_owned(),
             font_size: style.font_size.to_bits(),
             weight: style.weight,
             color: drawn.then(|| color_bits(style.color)),
-            line_height: match style.line_height {
-                LineHeight::Normal => (0, 0),
-                LineHeight::Scale(v) => (1, v.to_bits()),
-                LineHeight::Px(v) => (2, v.to_bits()),
-            },
+            line_height: line_height_bits(style.line_height),
             wrap: style.wrap == TextWrap::Wrap,
-            align: match style.align {
-                TextAlign::Start => 0,
-                TextAlign::Center => 1,
-                TextAlign::End => 2,
-                TextAlign::Justify => 3,
-            },
+            align: align_bits(style.align),
             family: style.family.clone(),
             italic: style.italic,
             variations: layouts::variation_bits(&style.variations),
@@ -243,6 +180,97 @@ impl TextKey {
     pub(crate) fn with_carets(mut self, carets: bool) -> Self {
         self.carets = carets;
         self
+    }
+}
+
+/// Whether a key needs no rich part: plain text in a plain style.
+fn is_plain(
+    text: RichText<'_>,
+    style: &ComputedTextStyle,
+    decoration: Option<DecorationBits>,
+) -> bool {
+    text.spans.is_empty()
+        && style.resolve(style.letter_spacing) == 0.0
+        && style.resolve(style.word_spacing) == 0.0
+        && style.kerning == FontKerning::Auto
+        && style.shaping_features().is_empty()
+        && decoration.is_none()
+        && style.overflow == TextOverflow::Clip
+        && style.max_lines.is_none()
+        && !style.capsize
+        && style.transform == TextTransform::None
+}
+
+/// The rich part of a key: the style's vocabulary and every span's bits.
+fn rich_key(
+    text: RichText<'_>,
+    style: &ComputedTextStyle,
+    decoration: Option<DecorationBits>,
+    drawn: bool,
+) -> RichKey {
+    RichKey {
+        letter_spacing: style.resolve(style.letter_spacing).to_bits(),
+        word_spacing: style.resolve(style.word_spacing).to_bits(),
+        kerning: style.kerning,
+        features: style.shaping_features(),
+        decoration,
+        overflow: style.overflow == TextOverflow::Ellipsis,
+        max_lines: style.max_lines,
+        capsize: style.capsize,
+        transform: style.transform,
+        spans: text
+            .spans
+            .iter()
+            .map(|span| span_bits(span, drawn))
+            .collect(),
+    }
+}
+
+/// One span's bits; drawing-only fields are left out unless `drawn`.
+fn span_bits(span: &TextSpan, drawn: bool) -> SpanBits {
+    let s = &span.style;
+    SpanBits {
+        start: span.range.start,
+        end: span.range.end,
+        font_size: s.font_size.map(f64::to_bits),
+        weight: s.weight,
+        color: if drawn { s.color.map(color_bits) } else { None },
+        stroke: if drawn {
+            s.stroke.map(|(w, c)| (w.to_bits(), color_bits(c)))
+        } else {
+            None
+        },
+        family: s.family.clone(),
+        italic: s.italic,
+        letter_spacing: s.letter_spacing.map(f64::to_bits),
+        word_spacing: s.word_spacing.map(f64::to_bits),
+        kerning: s.kerning,
+        features: s.features.clone(),
+        variations: s.variations.as_deref().map(layouts::variation_bits),
+        font_width: s.font_width.map(f64::to_bits),
+        decoration: if drawn {
+            s.decoration.map(decoration_bits)
+        } else {
+            None
+        },
+        highlight: drawn && s.highlight,
+    }
+}
+
+fn line_height_bits(line_height: LineHeight) -> (u8, u64) {
+    match line_height {
+        LineHeight::Normal => (0, 0),
+        LineHeight::Scale(v) => (1, v.to_bits()),
+        LineHeight::Px(v) => (2, v.to_bits()),
+    }
+}
+
+fn align_bits(align: TextAlign) -> u8 {
+    match align {
+        TextAlign::Start => 0,
+        TextAlign::Center => 1,
+        TextAlign::End => 2,
+        TextAlign::Justify => 3,
     }
 }
 
