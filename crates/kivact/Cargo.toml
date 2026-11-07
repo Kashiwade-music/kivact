@@ -21,7 +21,7 @@ kivact-test = { path = "../kivact-test", version = "0.1.0", optional = true }
 tokio = ["kivact-core/tokio"]
 default = ["gpu"]
 gpu = ["dep:arvane-render", "arvane-render/gpu"]
-gpu-interop = ["gpu", "arvane-render/gpu-interop", "kivact-core/gpu-interop", "kivact-test?/gpu-interop"]
+gpu-interop = ["gpu", "kivact-core/gpu-interop", "kivact-test?/gpu-interop"]
 embed = ["dep:arvane-native", "arvane-native/embed", "kivact-core/embed", "kivact-test?/embed"]
 test = ["dep:kivact-test"]
 

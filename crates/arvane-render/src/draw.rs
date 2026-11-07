@@ -1,4 +1,4 @@
-//! Role: Drawing of a scene's commands, shared by the CPU and the GPU renderers.
+//! Role: Drawing of a scene's commands, shared by the CPU and the GPU rasterizers.
 //!
 //! Drawing a scene's commands, the same on the CPU and the GPU: the one
 //! place that gives every `RenderCmd` its meaning.
@@ -13,32 +13,16 @@
 //! are sampled (from a pixmap on the CPU, from a texture on the GPU) and
 //! in how patterns repeat (`Canvas::fill_pattern`).
 //!
-//! External frames (`RenderCmd::External`, textures an application's
-//! render engine shares) are placed, clipped and faded as images are; only
-//! the GPU canvas has them, and only frames ready for the frame being
-//! drawn (`Canvas::external_size`): elsewhere nothing is drawn. A
-//! backdrop's color matrix does not reach them (it changes image pixels on
-//! the CPU, which an external frame never is).
+//! The scene is mapped by a root transform (`Frame::origin` and
+//! `Frame::scale`) before its own transforms, so one raster can show any
+//! part of a scene. Groups are the scene's own: a [`RenderCmd::PushGroup`]
+//! is clipped, faded and blended as one layer, and its blur is a filter
+//! layer inside it (vello's layers clip before they filter, so the blur
+//! is applied first, as CSS orders filter, clip-path and opacity).
 //!
-//! What vello_hybrid lacks is drawn in a form both have (`effects.rs`):
-//! masks and inset shadows remove alpha with destination-out drawing
-//! inside a layer, backdrops draw the commands beneath them again (no
-//! pixel is read back), color matrices change colors and image pixels
-//! before they are drawn (`derived.rs`).
-//!
-//! State while drawing: the open groups (clips, transforms, layers) and
+//! State while drawing: the open groups (clips, transforms, groups) and
 //! the current transform. A group opened under a transform that flattens
-//! everything, or a fully transparent layer, draws nothing up to its pop.
-//!
-//! Layers, in CSS order: the content is drawn, filtered (blur, drop
-//! shadow), clipped, masked, faded by the group opacity and blended with
-//! what is beneath. vello's layers clip before they filter, so a layer
-//! with a filter is two: a filter-only layer inside a layer holding the
-//! clip, the opacity and the blend (the mask is applied between their
-//! pops, to the filtered content). The blend modes are peniko's
-//! non-destructive mixes (normal to luminosity) and plus-lighter
-//! (additive compositing); destination-out is used only inside, for masks
-//! and inset shadows.
+//! everything, or a fully transparent group, draws nothing up to its pop.
 //!
 //! Glyphs under the identity transform, or a translation and a uniform
 //! scale (`Transform::uniform_scale`), are hinted and put on quarter
@@ -48,8 +32,8 @@
 //! does not hold rotated glyphs). See `text.rs`.
 
 mod canvas;
-mod effects;
 mod painter;
+mod shadows;
 
 pub(crate) use canvas::{Canvas, GlyphRun};
 pub(crate) use painter::{Caches, Frame, draw};

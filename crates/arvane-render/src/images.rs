@@ -20,7 +20,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use kivact_types::scene::Pixels;
+use kivact_types::pixel::Pixels;
 
 /// The converted pixels kept at most (256 MiB, as the facade's decoded
 /// image cache).
