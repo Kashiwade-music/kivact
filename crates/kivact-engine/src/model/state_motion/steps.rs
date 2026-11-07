@@ -127,6 +127,8 @@ impl StateAnimation {
                 spring.velocity.clear();
                 Transition::clone(&transition)
             };
+            // A zero-length run starts no motion (CSS): its end lands now.
+            let instant = matches!(timing.duration_ms(), Some(ms) if ms <= 0.0);
             spring.start(now, &timing, &new.from, &new.to);
             track.transition = Arc::new(timing);
             track.phase = TrackPhase::Running {
@@ -135,6 +137,9 @@ impl StateAnimation {
                 start: now,
                 spring,
             };
+            if instant {
+                step_track(track, now, reduced);
+            }
         }
         self.target = target;
         self.target_text = text;
@@ -144,47 +149,53 @@ impl StateAnimation {
     /// settled, one that ends elsewhere (alternate, even count) is held.
     fn step(&mut self, now: u64, reduced: bool) {
         for track in &mut self.tracks {
-            let phase = std::mem::replace(&mut track.phase, TrackPhase::Settled);
-            track.phase = match phase {
-                TrackPhase::Running {
-                    interp,
-                    mut current,
-                    start,
-                    mut spring,
-                } => {
-                    let done = if reduced && track.transition.decorative {
-                        current.clone_from(&interp.to);
-                        true
-                    } else {
-                        track.transition.step(
-                            &interp.from,
-                            &interp.to,
-                            start,
-                            now,
-                            &mut current,
-                            &mut spring,
-                        )
-                    };
-                    if !done {
-                        TrackPhase::Running {
-                            interp,
-                            current,
-                            start,
-                            spring,
-                        }
-                    } else if current == interp.to {
-                        TrackPhase::Settled
-                    } else {
-                        TrackPhase::Held {
-                            interp,
-                            value: current,
-                        }
-                    }
-                }
-                other => other,
-            };
+            step_track(track, now, reduced);
         }
     }
+}
+
+/// Step one track to `now`: a running track that ends at its target is
+/// settled, one that ends elsewhere (alternate, even count) is held.
+fn step_track(track: &mut PropTrack, now: u64, reduced: bool) {
+    let phase = std::mem::replace(&mut track.phase, TrackPhase::Settled);
+    track.phase = match phase {
+        TrackPhase::Running {
+            interp,
+            mut current,
+            start,
+            mut spring,
+        } => {
+            let done = if reduced && track.transition.decorative {
+                current.clone_from(&interp.to);
+                true
+            } else {
+                track.transition.step(
+                    &interp.from,
+                    &interp.to,
+                    start,
+                    now,
+                    &mut current,
+                    &mut spring,
+                )
+            };
+            if !done {
+                TrackPhase::Running {
+                    interp,
+                    current,
+                    start,
+                    spring,
+                }
+            } else if current == interp.to {
+                TrackPhase::Settled
+            } else {
+                TrackPhase::Held {
+                    interp,
+                    value: current,
+                }
+            }
+        }
+        other => other,
+    };
 }
 
 impl Model {
