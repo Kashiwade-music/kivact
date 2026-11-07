@@ -1,5 +1,6 @@
 //! Role: Deliver prepared host events to the handlers of their kind.
 use super::{a11y, common, diagnostics, env, gpu, ime, key, platform, pointer, text};
+use crate::view::drawable::events;
 use kivact_engine::contract::HostEvent;
 use kivact_runtime::Runtime;
 
@@ -165,17 +166,15 @@ fn dispatch_export_host(rt: &Runtime, host_event: &HostEvent) {
     match host_event {
         HostEvent::ExternalImported { image, result } => gpu::external_imported(rt, *image, result),
         HostEvent::GpuAdapterChanged(adapter) => gpu::adapter_changed(rt, adapter.as_ref()),
-        HostEvent::DrawableFrame(frame) => crate::view::drawable::events::frame(frame),
-        HostEvent::DrawableResized { id } => crate::view::drawable::events::resized(*id),
+        HostEvent::DrawableFrame(frame) => events::frame(frame),
+        HostEvent::DrawableResized { id } => events::resized(*id),
         HostEvent::DrawableTextures {
             id,
             generation,
             result,
-        } => crate::view::drawable::events::textures(*id, *generation, result),
-        HostEvent::DrawableExportLost(loss) => {
-            crate::view::drawable::events::lost(loss.sink, loss.generation)
-        }
-        HostEvent::GpuExportAvailable => crate::view::drawable::events::gpu_available(),
+        } => events::textures(*id, *generation, result),
+        HostEvent::DrawableExportLost(loss) => events::lost(loss.sink, loss.generation),
+        HostEvent::GpuExportAvailable => events::gpu_available(),
         _ => unreachable!("invariant: only export events are routed here"),
     }
 }
