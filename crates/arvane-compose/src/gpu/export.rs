@@ -193,11 +193,65 @@ fn publish(
     texture: &wgpu::Texture,
     size: (u32, u32),
 ) -> Result<Option<(u32, u64)>, ComposeError> {
-    // STOPPED (design A-2): the hand-off submission is the pool's `unsafe` `Target::submit`, and
-    // `unsafe_code` is denied in this crate. Until the orchestrator decides where that boundary sits,
-    // a GPU frame never reaches a slot: it stays pending. The slot is not acquired here.
-    let _ = (pool, device, queue, texture, size);
-    Ok(None)
+    if (texture.width(), texture.height()) != size {
+        return Err(ComposeError::InvalidComposition(
+            "an export target does not match its export size".into(),
+        ));
+    }
+    // Never waits on the window: a slot the window has not released stays pending.
+    let target = pool
+        .try_acquire()
+        .map_err(|error| ComposeError::Backend(error.to_string()))?;
+    let Some(target) = target else {
+        return Ok(None);
+    };
+    let commands = copy_commands(device, texture, target.texture(), size);
+    let ready = hand_off(target, queue, commands)?;
+    Ok(Some((ready.slot, ready.value)))
+}
+
+/// The command buffer copying `source` into `destination`: both are `size` px and `Rgba8Unorm` (`RASTER_FORMAT` is the pool's `FORMAT`), so the copy is valid.
+#[cfg(feature = "gpu-interop")]
+fn copy_commands(
+    device: &wgpu::Device,
+    source: &wgpu::Texture,
+    destination: &wgpu::Texture,
+    size: (u32, u32),
+) -> wgpu::CommandBuffer {
+    let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+        label: Some("Arvane export hand-off copy"),
+    });
+    encoder.copy_texture_to_texture(
+        source.as_image_copy(),
+        destination.as_image_copy(),
+        wgpu::Extent3d {
+            width: size.0,
+            height: size.1,
+            depth_or_array_layers: 1,
+        },
+    );
+    encoder.finish()
+}
+
+/// Submit `commands` (the copy into `target`'s slot) as the frame's hand-off to the window: the only `unsafe` of the export path.
+#[cfg(feature = "gpu-interop")]
+#[allow(
+    unsafe_code,
+    reason = "the user-approved export hand-off: publishing a frame into a drawable export pool slot needs kivact-gpu-share's Target::submit, which is unsafe because it submits raw on wgpu's queue"
+)]
+fn hand_off(
+    target: kivact_gpu_share::wgpu::Target<'_>,
+    queue: &wgpu::Queue,
+    commands: wgpu::CommandBuffer,
+) -> Result<kivact_gpu_share::FrameReady, ComposeError> {
+    // SAFETY: the contract of `Target::submit` is: "`queue` is the queue of the pool's device. No other thread
+    // uses that queue during the call (`Queue::submit`, `Surface::present`, `Device::poll` and the like)."
+    // The first part holds because the pool is made on `self.device` (`export_drawable`) and `self.queue` comes from the same
+    // `open_device` call as that device (`GpuContext::with_backends`). The second part holds because a `GpuContext` is owned by one
+    // thread at a time (it moves between threads by value and is never shared), so the queue is used only by that thread, and the
+    // retiring thread of `retire` drops its pool without any queue submission.
+    unsafe { target.submit(queue, std::iter::once(commands)) }
+        .map_err(|error| ComposeError::Backend(error.to_string()))
 }
 
 /// Without `gpu-interop` no pool exists, so nothing is published.

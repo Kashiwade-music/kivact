@@ -294,6 +294,32 @@ fn shader(device: &wgpu::Device, source: &str) -> wgpu::ShaderModule {
     })
 }
 
+/// The graph shader's pipeline and the layout of its bind group.
+fn graph_pipeline(device: &wgpu::Device) -> (wgpu::RenderPipeline, wgpu::BindGroupLayout) {
+    let graph_module = shader(device, GRAPH_WGSL);
+    let graph_layout = group_layout(
+        device,
+        &[
+            uniform_entry(0),
+            texture_entry(1),
+            texture_entry(2),
+            storage_entry(3),
+            storage_entry(4),
+            storage_entry(5),
+        ],
+    );
+    let graph_pl = layout(device, &[&graph_layout]);
+    let graph = pipeline(
+        device,
+        &graph_pl,
+        &graph_module,
+        ("vs_full", "fs_graph"),
+        RASTER_FORMAT,
+        None,
+    );
+    (graph, graph_layout)
+}
+
 /// The bind group layouts of the draw, filter, mask and apply shaders, in that order.
 fn group_layouts(
     device: &wgpu::Device,
@@ -386,29 +412,10 @@ impl Pipelines {
         let empty_pl = layout(device, &[]);
         let draw = draw_pipelines(device, &draw_pl, &draw_module);
         let multiply = blend(wgpu::BlendFactor::Zero, wgpu::BlendFactor::Src);
-        let graph_module = shader(device, GRAPH_WGSL);
-        let graph_layout = group_layout(
-            device,
-            &[
-                uniform_entry(0),
-                texture_entry(1),
-                texture_entry(2),
-                storage_entry(3),
-                storage_entry(4),
-                storage_entry(5),
-            ],
-        );
-        let graph_pl = layout(device, &[&graph_layout]);
+        let (graph, graph_layout) = graph_pipeline(device);
         Self {
             draw,
-            graph: pipeline(
-                device,
-                &graph_pl,
-                &graph_module,
-                ("vs_full", "fs_graph"),
-                RASTER_FORMAT,
-                None,
-            ),
+            graph,
             graph_layout,
             filter: pipeline(
                 device,

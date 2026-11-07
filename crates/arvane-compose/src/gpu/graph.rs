@@ -15,9 +15,20 @@ use kivact_types::effect::{
     MorphologyOp, PrimitiveOp, TransferFn, TurbulenceKind,
 };
 use kivact_types::geometry::{Point, Rect};
-use kivact_types::pixel::Pixels;
+use kivact_types::pixel::{BlendMode, ColorMatrix, Pixels};
 
 use super::draw::blend_index;
+
+/// The parameters of a convolution (feConvolveMatrix).
+struct Convolve<'a> {
+    order: &'a (u32, u32),
+    kernel: &'a [f64],
+    divisor: &'a f64,
+    bias: &'a f64,
+    target: &'a (u32, u32),
+    edge: &'a EdgeMode,
+    preserve_alpha: &'a bool,
+}
 
 /// The modes of the graph shader (`graph_ops.wgsl`).
 const M_SOURCE_ALPHA: u32 = 1;
@@ -316,91 +327,32 @@ impl Run<'_> {
         cs: FilterColorSpace,
     ) -> Result<Img, ComposeError> {
         match op {
-            PrimitiveOp::Blend { top, bottom, mode } => {
-                let dst = self.fetch_in(*bottom, cs)?;
-                let src = self.fetch_in(*top, cs)?;
-                let mut pass = Op::new(M_BLEND);
-                pass.ints[0] = blend_index(*mode);
-                self.pass(&pass, None, Some(&src.tex), Some(&dst.tex), cs)
-            }
-            PrimitiveOp::ColorMatrix { input, matrix } => {
-                let img = self.fetch_in(*input, cs)?;
-                let out = targets::target(&self.gpu.device, self.size);
-                self.gpu
-                    .color_matrix_into(self.encoder, &out, &img.tex, matrix)?;
-                Ok(Img { tex: out, cs })
-            }
+            PrimitiveOp::Blend { top, bottom, mode } => self.blend(*top, *bottom, *mode, cs),
+            PrimitiveOp::ColorMatrix { input, matrix } => self.color_matrix(*input, matrix, cs),
             PrimitiveOp::ComponentTransfer { input, r, g, b, a } => {
-                let img = self.fetch_in(*input, cs)?;
-                let mut data = Data::new();
-                data.set_transfer(0, r);
-                data.set_transfer(1, g);
-                data.set_transfer(2, b);
-                data.set_transfer(3, a);
-                let buffers = data.buffers(&self.gpu.device, &self.gpu.queue);
-                self.pass(
-                    &Op::new(M_TRANSFER),
-                    Some(&buffers),
-                    Some(&img.tex),
-                    None,
-                    cs,
-                )
+                self.component_transfer(*input, [r, g, b, a], cs)
             }
-            PrimitiveOp::Composite {
-                top,
-                bottom,
-                op: composite,
-            } => {
-                let first = self.fetch_in(*top, cs)?;
-                let second = self.fetch_in(*bottom, cs)?;
-                let mut pass = Op::new(M_COMPOSITE);
-                if let CompositeOp::Arithmetic { k1, k2, k3, k4 } = composite {
-                    pass = Op::new(M_ARITHMETIC);
-                    pass.p[0] = [*k1 as f32, *k2 as f32, *k3 as f32, *k4 as f32];
-                } else {
-                    pass.ints[0] = composite_index(*composite);
-                }
-                self.pass(&pass, None, Some(&first.tex), Some(&second.tex), cs)
-            }
+            PrimitiveOp::Composite { top, bottom, op } => self.composite(*top, *bottom, *op, cs),
             PrimitiveOp::Flood { color } => {
                 let mut pass = Op::new(M_FLOOD);
                 pass.p[0] = premultiplied(*color);
                 self.pass(&pass, None, None, None, FilterColorSpace::Srgb)
             }
             PrimitiveOp::Image { image, rect } => self.image(image, *rect),
-            PrimitiveOp::Merge { inputs } => {
-                let mut acc = self.pass(&Op::new(M_CLEAR), None, None, None, cs)?;
-                for input in inputs {
-                    let src = self.fetch_in(*input, cs)?;
-                    let mut pass = Op::new(M_COMPOSITE);
-                    pass.ints[0] = composite_index(CompositeOp::Over);
-                    acc = self.pass(&pass, None, Some(&src.tex), Some(&acc.tex), cs)?;
-                }
-                Ok(acc)
-            }
-            PrimitiveOp::Offset { input, offset } => {
-                let img = self.fetch(*input)?;
-                let dx = (offset.x * self.ppu) as i64;
-                let dy = (offset.y * self.ppu) as i64;
-                if dx == 0 && dy == 0 {
-                    return Ok(img);
-                }
-                let mut pass = Op::new(M_OFFSET);
-                pass.p[0] = [dx as f32, dy as f32, 0.0, 0.0];
-                self.pass(&pass, None, Some(&img.tex), None, img.cs)
-            }
-            PrimitiveOp::Tile { input, tile } => {
-                let img = self.fetch(*input)?;
-                let (x, y) = self.layer_to_px(tile.x, tile.y);
-                let mut pass = Op::new(M_TILE);
-                pass.p[0] = [
-                    x as f32,
-                    y as f32,
-                    (tile.width * self.ppu) as f32,
-                    (tile.height * self.ppu) as f32,
-                ];
-                self.pass(&pass, None, Some(&img.tex), None, img.cs)
-            }
+            PrimitiveOp::Merge { inputs } => self.merge(inputs, cs),
+            PrimitiveOp::Offset { input, offset } => self.offset(*input, offset),
+            PrimitiveOp::Tile { input, tile } => self.tile(*input, tile, cs),
+            other => self.filter_primitive(other, cs),
+        }
+    }
+
+    /// The filter-kernel, lighting and turbulence primitives (the rest of `primitive`).
+    fn filter_primitive(
+        &mut self,
+        op: &PrimitiveOp<Pixels>,
+        cs: FilterColorSpace,
+    ) -> Result<Img, ComposeError> {
+        match op {
             PrimitiveOp::ConvolveMatrix {
                 input,
                 order,
@@ -411,30 +363,16 @@ impl Run<'_> {
                 edge,
                 preserve_alpha,
             } => {
-                let mut img = self.fetch_in(*input, cs)?;
-                if *preserve_alpha {
-                    img = self.pass(&Op::new(M_DEMULTIPLY), None, Some(&img.tex), None, cs)?;
-                }
-                let divisor = if *divisor == 0.0 {
-                    let sum: f64 = kernel.iter().sum();
-                    if sum == 0.0 { 1.0 } else { sum }
-                } else {
-                    *divisor
+                let conv = Convolve {
+                    order,
+                    kernel,
+                    divisor,
+                    bias,
+                    target,
+                    edge,
+                    preserve_alpha,
                 };
-                let buffers = Data::new()
-                    .with_kernel(kernel)
-                    .buffers(&self.gpu.device, &self.gpu.queue);
-                let mut pass = Op::new(M_CONVOLVE);
-                pass.p[0] = [divisor as f32, *bias as f32, 0.0, 0.0];
-                pass.ints = [
-                    order.0,
-                    order.1,
-                    target.0,
-                    target.1,
-                    edge_index(*edge),
-                    u32::from(*preserve_alpha),
-                ];
-                self.pass(&pass, Some(&buffers), Some(&img.tex), None, cs)
+                self.convolve(*input, conv, cs)
             }
             PrimitiveOp::DiffuseLighting {
                 input,
@@ -443,19 +381,8 @@ impl Run<'_> {
                 color,
                 light,
             } => {
-                let img = self.fetch(*input)?;
-                self.lighting(
-                    &img,
-                    Lighting {
-                        specular: false,
-                        surface_scale: *surface_scale,
-                        constant: *diffuse_constant,
-                        exponent: 0.0,
-                        color: *color,
-                        light,
-                    },
-                    cs,
-                )
+                let lighting = Lighting::diffuse(*surface_scale, *diffuse_constant, *color, light);
+                self.light(*input, lighting, cs)
             }
             PrimitiveOp::SpecularLighting {
                 input,
@@ -465,19 +392,14 @@ impl Run<'_> {
                 color,
                 light,
             } => {
-                let img = self.fetch(*input)?;
-                self.lighting(
-                    &img,
-                    Lighting {
-                        specular: true,
-                        surface_scale: *surface_scale,
-                        constant: *specular_constant,
-                        exponent: *specular_exponent,
-                        color: *color,
-                        light,
-                    },
-                    cs,
-                )
+                let lighting = Lighting::specular(
+                    *surface_scale,
+                    *specular_constant,
+                    *specular_exponent,
+                    *color,
+                    light,
+                );
+                self.light(*input, lighting, cs)
             }
             PrimitiveOp::DisplacementMap {
                 input,
@@ -485,61 +407,16 @@ impl Run<'_> {
                 scale,
                 x,
                 y,
-            } => {
-                let src = self.fetch_in(*input, cs)?;
-                let map = self.fetch_in(*map, cs)?;
-                let s = (scale * self.ppu) as f32;
-                let mut pass = Op::new(M_DISPLACE);
-                pass.p[0] = [s, s, 0.0, 0.0];
-                pass.ints[0] = channel_index(*x);
-                pass.ints[1] = channel_index(*y);
-                self.pass(&pass, None, Some(&src.tex), Some(&map.tex), cs)
-            }
+            } => self.displace(*input, *map, *scale, (*x, *y), cs),
             PrimitiveOp::DropShadow {
                 input,
                 offset,
                 std_dev,
                 color,
-            } => {
-                let img = self.fetch_in(*input, cs)?;
-                let tint = color_in(*color, cs);
-                let silhouette = self.gpu.shadow(self.encoder, &img.tex, tint)?;
-                let (sx, sy) = (std_dev.0 * self.ppu, std_dev.1 * self.ppu);
-                let blurred = match blur_sigmas(sx, sy) {
-                    Some((sx, sy)) => self.gpu.blur_axes(self.encoder, &silhouette, sx, sy)?,
-                    None => silhouette,
-                };
-                let shift = ((offset.x * self.ppu) as f32, (offset.y * self.ppu) as f32);
-                let out = targets::target(&self.gpu.device, self.size);
-                self.gpu
-                    .shadow_over(self.encoder, &out, &img.tex, &blurred, shift)?;
-                Ok(Img { tex: out, cs })
-            }
-            PrimitiveOp::GaussianBlur { input, std_dev, .. } => {
-                let img = self.fetch_in(*input, cs)?;
-                match blur_sigmas(std_dev.0 * self.ppu, std_dev.1 * self.ppu) {
-                    Some((sx, sy)) => {
-                        let tex = self.gpu.blur_axes(self.encoder, &img.tex, sx, sy)?;
-                        Ok(Img { tex, cs })
-                    }
-                    None => Ok(img),
-                }
-            }
+            } => self.drop_shadow(*input, offset, *std_dev, *color, cs),
+            PrimitiveOp::GaussianBlur { input, std_dev, .. } => self.gaussian(*input, *std_dev, cs),
             PrimitiveOp::Morphology { input, op, radius } => {
-                let img = self.fetch_in(*input, cs)?;
-                let (rx, ry) = (radius.0 * self.ppu, radius.1 * self.ppu);
-                let pass = if rx > 0.0 && ry > 0.0 {
-                    let mut pass = Op::new(M_MORPH);
-                    pass.p[0] = [rx as f32, ry as f32, 0.0, 0.0];
-                    pass.ints[0] = match op {
-                        MorphologyOp::Erode => 0,
-                        MorphologyOp::Dilate => 1,
-                    };
-                    pass
-                } else {
-                    Op::new(M_CLEAR)
-                };
-                self.pass(&pass, None, Some(&img.tex), None, cs)
+                self.morphology(*input, *op, *radius, cs)
             }
             PrimitiveOp::Turbulence {
                 base_frequency,
@@ -547,28 +424,284 @@ impl Run<'_> {
                 seed,
                 kind,
                 stitch,
-            } => {
-                let mut data = Data::new();
-                data.set_turbulence(seed.trunc() as i32);
-                let buffers = data.buffers(&self.gpu.device, &self.gpu.queue);
-                let mut pass = Op::new(M_TURBULENCE);
-                pass.p[0] = [
-                    (self.origin.x * self.ppu) as f32,
-                    (self.origin.y * self.ppu) as f32,
-                    (base_frequency.0 / self.ppu) as f32,
-                    (base_frequency.1 / self.ppu) as f32,
-                ];
-                pass.ints = [
-                    *octaves,
-                    u32::from(*stitch),
-                    u32::from(*kind == TurbulenceKind::Turbulence),
-                    0,
-                    0,
-                    0,
-                ];
-                self.pass(&pass, Some(&buffers), None, None, cs)
-            }
+            } => self.turbulence(*base_frequency, *octaves, *seed, *kind, *stitch, cs),
+            other => self.primitive(other, cs),
         }
+    }
+
+    /// feBlend of `top` over `bottom`.
+    fn blend(
+        &mut self,
+        top: FilterInput,
+        bottom: FilterInput,
+        mode: BlendMode,
+        cs: FilterColorSpace,
+    ) -> Result<Img, ComposeError> {
+        let dst = self.fetch_in(bottom, cs)?;
+        let src = self.fetch_in(top, cs)?;
+        let mut pass = Op::new(M_BLEND);
+        pass.ints[0] = blend_index(mode);
+        self.pass(&pass, None, Some(&src.tex), Some(&dst.tex), cs)
+    }
+
+    /// feColorMatrix of `input`.
+    fn color_matrix(
+        &mut self,
+        input: FilterInput,
+        matrix: &ColorMatrix,
+        cs: FilterColorSpace,
+    ) -> Result<Img, ComposeError> {
+        let img = self.fetch_in(input, cs)?;
+        let out = targets::target(&self.gpu.device, self.size);
+        self.gpu
+            .color_matrix_into(self.encoder, &out, &img.tex, matrix)?;
+        Ok(Img { tex: out, cs })
+    }
+
+    /// feComponentTransfer of `input` with the functions of the channels r, g, b and a.
+    fn component_transfer(
+        &mut self,
+        input: FilterInput,
+        [r, g, b, a]: [&TransferFn; 4],
+        cs: FilterColorSpace,
+    ) -> Result<Img, ComposeError> {
+        let img = self.fetch_in(input, cs)?;
+        let mut data = Data::new();
+        data.set_transfer(0, r);
+        data.set_transfer(1, g);
+        data.set_transfer(2, b);
+        data.set_transfer(3, a);
+        let buffers = data.buffers(&self.gpu.device, &self.gpu.queue);
+        self.pass(
+            &Op::new(M_TRANSFER),
+            Some(&buffers),
+            Some(&img.tex),
+            None,
+            cs,
+        )
+    }
+
+    /// feComposite of `top` and `bottom` by `composite`.
+    fn composite(
+        &mut self,
+        top: FilterInput,
+        bottom: FilterInput,
+        composite: CompositeOp,
+        cs: FilterColorSpace,
+    ) -> Result<Img, ComposeError> {
+        let first = self.fetch_in(top, cs)?;
+        let second = self.fetch_in(bottom, cs)?;
+        let mut pass = Op::new(M_COMPOSITE);
+        if let CompositeOp::Arithmetic { k1, k2, k3, k4 } = composite {
+            pass = Op::new(M_ARITHMETIC);
+            pass.p[0] = [k1 as f32, k2 as f32, k3 as f32, k4 as f32];
+        } else {
+            pass.ints[0] = composite_index(composite);
+        }
+        self.pass(&pass, None, Some(&first.tex), Some(&second.tex), cs)
+    }
+
+    /// feMerge: the inputs composited over each other in order.
+    fn merge(&mut self, inputs: &[FilterInput], cs: FilterColorSpace) -> Result<Img, ComposeError> {
+        let mut acc = self.pass(&Op::new(M_CLEAR), None, None, None, cs)?;
+        for &input in inputs {
+            let src = self.fetch_in(input, cs)?;
+            let mut pass = Op::new(M_COMPOSITE);
+            pass.ints[0] = composite_index(CompositeOp::Over);
+            acc = self.pass(&pass, None, Some(&src.tex), Some(&acc.tex), cs)?;
+        }
+        Ok(acc)
+    }
+
+    /// feOffset of `input` by `offset` (layer units).
+    fn offset(&mut self, input: FilterInput, offset: &Point) -> Result<Img, ComposeError> {
+        let img = self.fetch(input)?;
+        let dx = (offset.x * self.ppu) as i64;
+        let dy = (offset.y * self.ppu) as i64;
+        if dx == 0 && dy == 0 {
+            return Ok(img);
+        }
+        let mut pass = Op::new(M_OFFSET);
+        pass.p[0] = [dx as f32, dy as f32, 0.0, 0.0];
+        self.pass(&pass, None, Some(&img.tex), None, img.cs)
+    }
+
+    /// feTile of `input` over the tile rectangle `tile`.
+    fn tile(
+        &mut self,
+        input: FilterInput,
+        tile: &Rect,
+        cs: FilterColorSpace,
+    ) -> Result<Img, ComposeError> {
+        let img = self.fetch(input)?;
+        let (x, y) = self.layer_to_px(tile.x, tile.y);
+        let mut pass = Op::new(M_TILE);
+        pass.p[0] = [
+            x as f32,
+            y as f32,
+            (tile.width * self.ppu) as f32,
+            (tile.height * self.ppu) as f32,
+        ];
+        self.pass(&pass, None, Some(&img.tex), None, cs)
+    }
+
+    /// feConvolveMatrix of `input`.
+    fn convolve(
+        &mut self,
+        input: FilterInput,
+        conv: Convolve<'_>,
+        cs: FilterColorSpace,
+    ) -> Result<Img, ComposeError> {
+        let mut img = self.fetch_in(input, cs)?;
+        if *conv.preserve_alpha {
+            img = self.pass(&Op::new(M_DEMULTIPLY), None, Some(&img.tex), None, cs)?;
+        }
+        let divisor = if *conv.divisor == 0.0 {
+            let sum: f64 = conv.kernel.iter().sum();
+            if sum == 0.0 { 1.0 } else { sum }
+        } else {
+            *conv.divisor
+        };
+        let buffers = Data::new()
+            .with_kernel(conv.kernel)
+            .buffers(&self.gpu.device, &self.gpu.queue);
+        let mut pass = Op::new(M_CONVOLVE);
+        pass.p[0] = [divisor as f32, *conv.bias as f32, 0.0, 0.0];
+        pass.ints = [
+            conv.order.0,
+            conv.order.1,
+            conv.target.0,
+            conv.target.1,
+            edge_index(*conv.edge),
+            u32::from(*conv.preserve_alpha),
+        ];
+        self.pass(&pass, Some(&buffers), Some(&img.tex), None, cs)
+    }
+
+    /// The lighting primitives: `lighting` of the alpha surface of `input`.
+    fn light(
+        &mut self,
+        input: FilterInput,
+        lighting: Lighting<'_>,
+        cs: FilterColorSpace,
+    ) -> Result<Img, ComposeError> {
+        let img = self.fetch(input)?;
+        self.lighting(&img, lighting, cs)
+    }
+
+    /// feDisplacementMap of `input` by `map`, scaled by `scale` (layer units) on the channels `axes`.
+    fn displace(
+        &mut self,
+        input: FilterInput,
+        map: FilterInput,
+        scale: f64,
+        axes: (Channel, Channel),
+        cs: FilterColorSpace,
+    ) -> Result<Img, ComposeError> {
+        let src = self.fetch_in(input, cs)?;
+        let map = self.fetch_in(map, cs)?;
+        let s = (scale * self.ppu) as f32;
+        let mut pass = Op::new(M_DISPLACE);
+        pass.p[0] = [s, s, 0.0, 0.0];
+        pass.ints[0] = channel_index(axes.0);
+        pass.ints[1] = channel_index(axes.1);
+        self.pass(&pass, None, Some(&src.tex), Some(&map.tex), cs)
+    }
+
+    /// feDropShadow of `input`: its silhouette in `color`, blurred and moved by `offset`.
+    fn drop_shadow(
+        &mut self,
+        input: FilterInput,
+        offset: &Point,
+        std_dev: (f64, f64),
+        color: Rgba,
+        cs: FilterColorSpace,
+    ) -> Result<Img, ComposeError> {
+        let img = self.fetch_in(input, cs)?;
+        let tint = color_in(color, cs);
+        let silhouette = self.gpu.shadow(self.encoder, &img.tex, tint)?;
+        let (sx, sy) = (std_dev.0 * self.ppu, std_dev.1 * self.ppu);
+        let blurred = match blur_sigmas(sx, sy) {
+            Some((sx, sy)) => self.gpu.blur_axes(self.encoder, &silhouette, sx, sy)?,
+            None => silhouette,
+        };
+        let shift = ((offset.x * self.ppu) as f32, (offset.y * self.ppu) as f32);
+        let out = targets::target(&self.gpu.device, self.size);
+        self.gpu
+            .shadow_over(self.encoder, &out, &img.tex, &blurred, shift)?;
+        Ok(Img { tex: out, cs })
+    }
+
+    /// feGaussianBlur of `input` with the deviations `std_dev` (layer units).
+    fn gaussian(
+        &mut self,
+        input: FilterInput,
+        std_dev: (f64, f64),
+        cs: FilterColorSpace,
+    ) -> Result<Img, ComposeError> {
+        let img = self.fetch_in(input, cs)?;
+        match blur_sigmas(std_dev.0 * self.ppu, std_dev.1 * self.ppu) {
+            Some((sx, sy)) => {
+                let tex = self.gpu.blur_axes(self.encoder, &img.tex, sx, sy)?;
+                Ok(Img { tex, cs })
+            }
+            None => Ok(img),
+        }
+    }
+
+    /// feMorphology of `input` by `op` over `radius` (layer units).
+    fn morphology(
+        &mut self,
+        input: FilterInput,
+        op: MorphologyOp,
+        radius: (f64, f64),
+        cs: FilterColorSpace,
+    ) -> Result<Img, ComposeError> {
+        let img = self.fetch_in(input, cs)?;
+        let (rx, ry) = (radius.0 * self.ppu, radius.1 * self.ppu);
+        let pass = if rx > 0.0 && ry > 0.0 {
+            let mut pass = Op::new(M_MORPH);
+            pass.p[0] = [rx as f32, ry as f32, 0.0, 0.0];
+            pass.ints[0] = match op {
+                MorphologyOp::Erode => 0,
+                MorphologyOp::Dilate => 1,
+            };
+            pass
+        } else {
+            Op::new(M_CLEAR)
+        };
+        self.pass(&pass, None, Some(&img.tex), None, cs)
+    }
+
+    /// feTurbulence of the given frequency, octaves, seed, kind and stitching.
+    fn turbulence(
+        &mut self,
+        base_frequency: (f64, f64),
+        octaves: u32,
+        seed: f64,
+        kind: TurbulenceKind,
+        stitch: bool,
+        cs: FilterColorSpace,
+    ) -> Result<Img, ComposeError> {
+        let mut data = Data::new();
+        data.set_turbulence(seed.trunc() as i32);
+        let buffers = data.buffers(&self.gpu.device, &self.gpu.queue);
+        let mut pass = Op::new(M_TURBULENCE);
+        pass.p[0] = [
+            (self.origin.x * self.ppu) as f32,
+            (self.origin.y * self.ppu) as f32,
+            (base_frequency.0 / self.ppu) as f32,
+            (base_frequency.1 / self.ppu) as f32,
+        ];
+        pass.ints = [
+            octaves,
+            u32::from(stitch),
+            u32::from(kind == TurbulenceKind::Turbulence),
+            0,
+            0,
+            0,
+        ];
+        self.pass(&pass, Some(&buffers), None, None, cs)
     }
 
     /// feImage: the image stretched over its rectangle, in sRGB.
@@ -653,6 +786,38 @@ struct Lighting<'a> {
     color: Rgba,
     /// The light source.
     light: &'a Light,
+}
+
+impl<'a> Lighting<'a> {
+    /// The parameters of feDiffuseLighting.
+    fn diffuse(surface_scale: f64, constant: f64, color: Rgba, light: &'a Light) -> Self {
+        Self {
+            specular: false,
+            surface_scale,
+            constant,
+            exponent: 0.0,
+            color,
+            light,
+        }
+    }
+
+    /// The parameters of feSpecularLighting.
+    fn specular(
+        surface_scale: f64,
+        constant: f64,
+        exponent: f64,
+        color: Rgba,
+        light: &'a Light,
+    ) -> Self {
+        Self {
+            specular: true,
+            surface_scale,
+            constant,
+            exponent,
+            color,
+            light,
+        }
+    }
 }
 
 impl GpuContext {
