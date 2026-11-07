@@ -1,6 +1,6 @@
 # Kivact 表現力パリティ 設計書
 
-版: 1.4（2026-11-07。四回のレビュー `20261107_1305_CODEX_REVIEW.md`、`20261107_1333_CODEX_REVIEW.md`、`20261107_1402_CODEX_REVIEW.md`、`20261107_1425_CODEX_REVIEW.md` を反映）。対象: `main` @ f4e40cc。
+版: 1.5（2026-11-07。四回のレビュー `20261107_1305_CODEX_REVIEW.md`、`20261107_1333_CODEX_REVIEW.md`、`20261107_1402_CODEX_REVIEW.md`、`20261107_1425_CODEX_REVIEW.md` と、実装の中断の報告 `VISUAL_PARITY_STATUS.md` を反映）。対象: `main` @ f4e40cc。
 
 本書は、Kivact の描画・アニメーション・HTML-in-Canvas 相当の表現力を Web プラットフォームと同等にするための設計である。実装は別の AI がサブエージェントを用いて行う。実装者は本書と `VISUAL_PARITY_WORK_ORDER.md`（以下「作業指示書」）だけを根拠に作業し、追加の設計や探索をしない。
 
@@ -33,6 +33,16 @@
 - CI 機能を追加しない（`.github/` を変更しない）。
 - 新しい暗黙の状態機械を作らない（§13）。新しい state は本書が定義した enum だけを使う。
 - 公開 API にバックエンドの型（vello、peniko、kurbo、wgpu、naga、resvg、tiny-skia、parley）を出さない。
+- **コードの構造の規則（`cargo xtask check` が検査する。`dev/xtask/policy/workspace.toml` の `[style]` と module の検査）:** 新しく書く code と、本書が変える module は、次を守る。本書の module の一覧（§8.1 など）は、この規則に合わせてある。
+  - **non-leaf の file:** 子 module を持つ file（`foo.rs` と `foo/` が並ぶもの、`lib.rs`）は、`mod` の宣言、`use`、再公開だけを持つ。型、関数、`impl`、定数を置かない。既存の leaf の module に子 module を足すときは、親の中身を `foo/<役割の名前>.rs` の leaf に移し、親は再公開する。
+  - **module の循環を作らない:** module の参照（`use` と、本体の中の path）は循環してはいけない。次の形にする。
+    - **passive state と処理を分ける:** 集約の型（`Model`、`GpuContext`、`Builder`、`CpuCompositor` など）の field になる型は、集約の型を参照しない leaf（例: `drawables/state.rs`）に置く。集約の型の method を実装する処理の leaf（例: `drawables/place.rs`）は、集約の型と passive state の leaf を参照してよい。
+    - **集約の型は passive state を leaf の path で import する:** `use crate::model::drawables::state::Drawables` のように直接書き、親の再公開を経由しない（親が処理の leaf も再公開していると、親を経由した参照が循環になる）。
+    - **処理の leaf 同士は path で参照しない:** 再帰（layer → item → 子 layer など）は、集約の型の method（`self.emit_items()`）で呼ぶ。複数の処理の leaf が使う free 関数と型は、処理を持たない helper の leaf（例: `plan/frame.rs`、`gpu/pass.rs`）に置く。
+    - **子は兄弟を兄弟の path で参照する:** `use super::types::DrawOp` と書き、親の再公開（`use super::DrawOp`）を経由しない。
+  - **Role:** すべての module に `//! Role: <説明>` を一行置く。説明は 80 文字以下（Unicode の文字数）にする。説明を補う文は、Role の行の後の別の段落に書く。inline の `mod x { … }` にも Role が要る（inline の module を作らず file にする）。
+  - **その他の style の規則:** `#[rustfmt::skip]` を使わない（表は通常の書式で書く）。一つの `use` は一つの module から import する（波括弧の中に入れ子の path を書かない）。引数に `&Option<T>`、`&Vec<T>`、`&String`、`&Box<T>` を使わない（`Option<&T>`、`&[T]`、`&str`、`&T`）。
+  - **依存の可視性:** crate の依存は `[visible_to]`（§4.4）に従う。
 - 新しい `unsafe` は `kivact-gpu-share` と `arvane-compose/src/gpu/` の中だけに置く。どちらも既存の `undocumented_unsafe_blocks` 等の lint に従う。drawable の export の公開 API（kivact-core の `DrawableShare`）は unsafe を持たない（§8.12 の準備の合図）。
 
 ---
@@ -1225,7 +1235,8 @@ impl<T> From<(f64, T)> for Keyframe<T>;
 | `geometry3d`（新規） | §5.1 | `["geometry"]` |
 | `color_space`（新規） | §5.4 | `["color"]` |
 | `pixel`（新規） | `Pixels`（`scene/recording.rs` から移す）、`ColorMatrix`（`render/color.rs` から移す）、`BlendMode`（`paint.rs` から移す。filter graph が使うため） | `["asset", "color"]` |
-| `effect`（新規） | `effect/filter_graph.rs`（§5.9）、`effect/shader.rs`（§5.10） | `["asset", "color", "geometry", "pixel"]` |
+| `effect`（新規） | `effect/filter_graph.rs`（§5.9）、`effect/shader.rs`（§5.10）。`effect.rs` は宣言と再公開だけ | `["asset", "color", "geometry", "pixel"]` |
+| `prop_interp`（新規） | §12.9.2 | `["color", "color_space", "geometry", "motion", "paint"]`（使うものだけ） |
 
 既存の module の `uses` に次を加える。
 
@@ -1245,7 +1256,6 @@ FilterGraph の `ColorMatrix` primitive は `ColorMatrix` 型をそのまま使�
 |---|---|
 | `motion.rs` | `kivact-style` の `TransitionProp` をここへ移し、§12.9 の variant にする。`kivact-style` は `pub use kivact_types::TransitionProp;` で公開する |
 | `paint.rs` `PaintProps` | `transition: Option<Arc<Transition>>` を `transitions: Option<Arc<[(TransitionProp, Transition)]>>` にする（`Size` は含めない。`LayoutProps::size_transition` のまま） |
-| `layout.rs` `LayoutProps` | `layout_id: Option<std::sync::Arc<str>>` を追加する（§12.11） |
 | `paint.rs` `ImageData` | `playing: Option<bool>` を追加する（§9.8） |
 | `paint.rs` `PaintVec` | 削除し、§12.9.2 の `prop_interp`/`apply_components`（`PropInterp`、`PropBasis`） に置き換える |
 | `semantics`（`render/semantics.rs` の node の bounds） | `bounds: Rect` を `bounds: Option<Rect>` にする。None は「位置を持たない」（drawable の Unplaced など。§10.4）。`arvane-native/src/a11y/conversion.rs` は None のとき AccessKit の bounds を設定しない。virtual と kivact-test の要素の矩形の読み出し（`rect()`）は `Option` を返す既存の形のまま、None を返す |
@@ -1399,6 +1409,8 @@ pub(crate) enum Opened {
 **参加面:**
 
 - `Preserve3d` の layer の子のうち、layer であるもの（R1〜R7 のどれかに当たるもの）が参加面になる。R1 の (b) により、2D でない transform を持つ子と `Preserve3d` の子は必ず layer になる。
+- **clip の内側の子は参加面にしない:** root と子の layer の間に clip がある子（`LayerItem::Layer { clips }` の clips が空でない子。layer でない祖先の overflow の clip、clip path、Draw の recording の clip の内側に開かれた layer）は、参加面にしない。その子は、root の平面の内容として、root の平面に平坦化して描く（clip はその平面の上の通常の 2D の clip である）。CSS で、clip を持つ要素が grouping property となって子孫を平坦にするのと同じ結果である。その子の plane が `Preserve3d` なら、その子が新しい 3D コンテキストの root になる。
+  - engine の hit test（§7.3）と drawable の配置（§10.3）と a11y（§7.4）も、同じ規則で参加面を決める（clips が空かどうかは、engine が `Composition` を作るときの同じ事実である）。
 - layer でない子（2D の transform だけを持つ子）は、親と同じ平面にあるので、親の平面の内容として親の chunk に DOM 順で描く。
 
 **backface:**
@@ -1578,41 +1590,56 @@ overlay と fixed の root は、既存のとおり window 原点から始まる
 
 ```text
 crates/arvane-compose/src/
-  lib.rs              公開 API の再公開
-  error.rs            ComposeError（= arvane_render::RenderError の再公開。§14）
-  plan.rs             Plan と Op の型（§8.2）、build の入口
+  lib.rs              Role、module の宣言、公開 API の再公開だけ
+  cache.rs            CacheIndex: 前フレームの chunk と layer の記録（純粋 cache）
+  plan.rs             宣言と再公開だけ
+  plan/ops.rs         Plan、Op、DrawOp、ShaderOp、Source、TargetId、Sampling、Scissor、Damage、Redraw、ChunkTask、PlanError（データだけ。§8.2）
+  plan/frame.rs       処理の leaf が共有する型と free 関数（Dest、ItemCtx、Geometry、Part、px_map、area、coverage の scene）
+  plan/builder.rs     Builder（集約の型）と build の入口
   plan/validate.rs    Composition の検査
-  plan/layers.rs      layer の評価、surface、raster scale、可視領域（§8.3）
-  plan/context3d.rs   3D コンテキストの収集と BSP（§8.4）
+  plan/layers.rs      layer の評価、surface、raster scale、可視領域（§8.3。impl Builder）
+  plan/items.rs       item の評価（§8.3 の手順 6。impl Builder）
+  plan/context3d.rs   3D コンテキストの収集と BSP（§8.4。impl Builder）
   plan/polygon.rs     同次座標の切り取り、凸多角形、BSP の分割
   plan/bounds.rs      RenderCmd の bounds の索引（arvane-render/src/backdrop.rs の Index を移す）
   plan/hash.rs        RenderCmd、LayerEffects、item の 64 bit hash（FNV-1a）
-  plan/damage.rs      chunk の差分と window damage（§8.6）
-  cache.rs            CacheIndex: 前フレームの chunk と layer の記録（純粋 cache）
-  cpu.rs              CpuCompositor（公開）
-  cpu/surface.rs      Pixmap（premultiplied RGBA8）
+  plan/damage.rs      chunk の差分と window damage（§8.6。impl Builder）
+  cpu.rs              宣言と再公開だけ
+  cpu/compositor.rs   CpuCompositor、CpuOutput、Rendered（公開）と Op の振り分け
+  cpu/surface.rs      Pixmap（premultiplied RGBA8）と標本化
   cpu/draw.rs         DrawOp の実行（標本化、coverage、blend、composite、color matrix）
   cpu/blend.rs        blend mode と Porter–Duff の式（§8.7）
   cpu/blur.rs         gaussian blur（§8.8.1）
-  cpu/filters.rs      Filter op の実行（drop shadow、color matrix、graph と shader の振り分け）
-  cpu/graph/          filter graph の primitive（resvg 0.46.0 の src/filter/ を移植。§8.8.4）
+  cpu/effects.rs      drop shadow、color matrix、blur の σ（filters と graph が共有する helper）
+  cpu/filters.rs      Filter op の実行（graph と shader の振り分け）
+  cpu/graph.rs        宣言と再公開だけ
+  cpu/graph/apply.rs  filter graph の評価の入口と primitive の振り分け
+  cpu/graph/*.rs      filter graph の primitive（resvg 0.46.0 の src/filter/ を移植。§8.8.4）
   cpu/mask.rs         mask と clip の coverage
-  gpu.rs              （feature gpu）GpuContext 等の再公開
-  gpu/state.rs        GpuContext、GpuEnv、GpuSurface、Presentation（arvane-render から移す）
+  gpu.rs              （feature gpu）宣言と再公開だけ
+  gpu/state.rs        GpuContext、GpuEnv、GpuSurface、Presentation（集約の型。passive state の leaf だけを参照する）
   gpu/context.rs      adapter と device（移す）
   gpu/surface.rs      swapchain（移す。最後の合成を swapchain に描く）
   gpu/external.rs     外部 frame の import（移す）
   gpu/shared_images.rs（移す）
   gpu/offscreen.rs    読み戻し（移す）
-  gpu/targets.rs      surface と chunk の texture の pool
+  gpu/targets.rs      surface と chunk の texture の pool（passive state）
+  gpu/pipelines.rs    内部の pipeline の表（passive state）
+  gpu/pass.rs         処理の leaf が共有する helper（render pass の開始、view、uniform、copy、unpremultiply、FrameTextures）
+  gpu/exec.rs         Op の振り分け（impl GpuContext）
   gpu/draw.rs         DrawOp の pipeline（draw.wgsl）
-  gpu/blur.rs         blur の pipeline（blur.wgsl）
-  gpu/filters.rs      drop shadow、color matrix の pipeline
-  gpu/graph.rs        filter graph の pipeline（graph/*.wgsl）
-  gpu/shader.rs       user shader の pipeline cache
-  gpu/export.rs       drawable の export pool（feature gpu-interop）
+  gpu/filters.rs      blur、drop shadow、color matrix の pipeline（impl GpuContext）
+  gpu/graph.rs        filter graph の pipeline（graph/*.wgsl。impl GpuContext）
+  gpu/shader_cache.rs user shader の pipeline の cache（passive state）
+  gpu/shader.rs       user shader の描画（impl GpuContext）
+  gpu/export_pool.rs  drawable の export pool の表（passive state。feature gpu-interop）
+  gpu/export.rs       drawable の export の処理（impl GpuContext。feature gpu-interop）
   gpu/wgsl/*.wgsl     内部の shader（include_str!）
 ```
+
+`gpu/state.rs` は passive state の leaf（`targets`、`pipelines`、`shader_cache`、`export_pool`、`external` の表の型）だけを import する。処理の leaf（`exec`、`draw`、`filters`、`graph`、`shader`、`export`）は、`state` と passive state の leaf と `pass` を import し、互いに path で参照しない。plan と cpu も同じ形にする（`plan/builder.rs` は `plan/ops.rs`、`plan/frame.rs`、`plan/validate.rs` だけを import する）。
+
+`ChunkRecord::retain` と `LayerRecord::retain` は、hash に畳み込んだ pointer の寿命を保つために持つだけで、読まない。この二つの field には `#[expect(dead_code, reason = "held so the hashed pointers stay valid (§8.6)")]` を付ける。他の field と variant は、読まれない（strict な Clippy の `dead_code`）なら、本書の配線が未完了のしるしなので、配線して解消する。
 
 module の一覧に `gpu_unbuilt.rs`（feature `gpu` が無いときの空の型。`arvane-render` から移す）を加える。
 
@@ -1665,14 +1692,20 @@ impl GpuContext {
         -> Result<(Presentation, std::time::Duration, GpuReport), ComposeError>;
     /// GPU offscreen render with readback (tests and GPU snapshots).
     pub fn render(&mut self, composition: &Composition, size: (u32, u32), scale: f64) -> Result<CpuFrame, ComposeError>;
-    /// Without the `gpu-interop` feature: `Err(ComposeError::External("built without the gpu-interop feature"))`.
+    /// Without the `gpu-interop` feature: an error (arvane checks `GPU_INTEROP_BUILT` first).
     pub fn export_drawable(&mut self, sink: DrawableId, generation: u64, adapter: &GpuAdapter, size: (u32, u32)) -> Result<SharedTextures, ComposeError>;
     /// Without the `gpu-interop` feature: does nothing.
     pub fn drop_export(&mut self, sink: DrawableId);
 }
 ```
 
-`export_drawable` と `drop_export` は、feature の組み合わせ（`gpu` だけ、`gpu-interop`、どちらも無い）のすべてで同じ署名を持つ。`gpu-interop` の無い build では、中身を Unsupported と何もしない処理にする。`gpu` の無い build の `gpu_unbuilt.rs` にも同じ署名の stub を置く（既存の外部 image の import の `shared_images` と `gpu_unbuilt` の形と同じ）。arvane は compose の feature を見ずに、常にこれらを呼ぶ。この error は、`Window::export_drawable` で `Failure { kind: FailureKind::Unavailable, .. }` になり、core では `GpuWaiting` ではなく `Failed` になる（feature が無いので待っても変わらない）。
+`export_drawable` と `drop_export` は、feature の組み合わせ（`gpu` だけ、`gpu-interop`、どちらも無い）のすべてで同じ署名を持つ。`gpu-interop` の無い build では、中身を error を返す処理と何もしない処理にする。`gpu` の無い build の `gpu_unbuilt.rs` にも同じ署名の stub を置く（既存の外部 image の import の `shared_images` と `gpu_unbuilt` の形と同じ）。
+
+**feature の有無の判定:** compose は既存の `GPU_BUILT` と並べて `pub const GPU_INTEROP_BUILT: bool`（feature `gpu-interop` のときだけ true）を公開する。arvane の presenter の `export_drawable` は、次の順で結果を決める（error の文字列で判定しない）。
+
+1. `!arvane_compose::GPU_INTEROP_BUILT`: `Failure { kind: FailureKind::Unavailable, .. }`（core は `Failed` にする。feature が無いので待っても変わらない）。
+2. presenter が GPU の device を持たない: `Failure { kind: FailureKind::NotReady, .. }`（core は `GpuWaiting` にする）。
+3. それ以外: `GpuContext::export_drawable` を呼び、error は既存の `error::render` で `Failure` にする（core は `Failed` にする）。
 
 ### 8.2 描画計画の型（`plan.rs`、`cache.rs`）
 
@@ -1787,12 +1820,15 @@ pub(crate) struct DrawOp<'a> {
     pub opacity: f64,
     pub blend: BlendMode,
     pub composite: Composite,
-    pub nearest: bool,
+    /// Smooth (bilinear) or Nearest.
+    pub sampling: Sampling,
     /// Coverage multiplied in (item clips), in target px.
     pub coverage: Option<ChunkKey>,
-    /// Pixels of `target` outside these rects stay as they are (window damage).
-    pub scissor: Option<Vec<PixelRect>>,
+    /// Off, or Rects(..): pixels of `target` outside them stay as they are (window damage).
+    pub scissor: Scissor,
 }
+// Sampling { Smooth, Nearest }, Scissor { Off, Rects(Vec<PixelRect>) }; the
+// build of an export plan carries Caching { Cached, Uncached } (no reuse, no record).
 
 // xtask-allow(state-fields): One shader draw's independent optional inputs, not lifecycle state.
 pub(crate) struct ShaderOp<'a> {
@@ -1858,8 +1894,8 @@ pub(crate) enum Retained { Bytes(AssetBytes), Glyphs(GlyphRunSnapshot) }
 3. **raster scale:**
    - s_raw = H.max_scale(surface_rect)（layer 空間 1 単位あたりの T px）とする。
    - H が軸に平行な affine（回転と skew を含まず、x と y の scale が正）なら、s = s_raw とする。さらに、`layer.grid` で次のように決める。
-     - `RasterGrid::Target`: surface_rect.origin を、H で写した位置が T の整数 px になるように切り下げ（snap）、平行移動が整数 px なら手順 9 の Draw を `nearest: true` にする（overlay などの 2D の layer の内容をぼかさない）。
-     - `RasterGrid::Layer`: surface_rect.origin を layer 空間の 1/s の格子に切り下げる（H によらない）。平行移動の小数部は手順 9 の Draw の写像に残し、bilinear で標本化する（整数 px のときだけ `nearest: true`）。H の平行移動だけが変わっても、chunk の origin、scale、size は変わらない。
+     - `RasterGrid::Target`: surface_rect.origin を、H で写した位置が T の整数 px になるように切り下げ（snap）、平行移動が整数 px なら手順 9 の Draw を `sampling: Sampling::Nearest` にする（overlay などの 2D の layer の内容をぼかさない）。
+     - `RasterGrid::Layer`: surface_rect.origin を layer 空間の 1/s の格子に切り下げる（H によらない）。平行移動の小数部は手順 9 の Draw の写像に残し、bilinear で標本化する（整数 px のときだけ `sampling: Sampling::Nearest`）。H の平行移動だけが変わっても、chunk の origin、scale、size は変わらない。
    - それ以外は、s = 2^(⌈2·log2(s_raw)⌉ / 2)（√2 刻みで切り上げ）とする。
    - s を [1/16, 16] に収める。
    - surface の大きさ (⌈w·s⌉, ⌈h·s⌉) のどちらかが 8192 を超えるなら、超えなくなるまで s を √2 で割る。
@@ -1876,7 +1912,7 @@ pub(crate) enum Retained { Bytes(AssetBytes), Glyphs(GlyphRunSnapshot) }
      - layer.plane が `Preserve3d` のとき: 子は参加面なので、ここでは出さない（手順 8）。
      - それ以外: emit(child, S, child.transform.then(Ms4)) とする（Ms4 は Ms を 4×4 にしたもの）。emit の中で平坦化される（手順 1 の H）。
      - clips があれば coverage chunk（`Clip(n)`）を作り、子の最後の Draw（手順 9）の `coverage` にする。
-   - `External(item)`: `Draw { source: External { frame, cpu: item.cpu.as_ref(), source: item.source }, map: (S px → item.rect の空間), polygon: item.rect を item.transform と Ms で写した四角形, coverage: clips の coverage chunk, opacity, nearest: pixelated }`。executor は、item.rect の空間の点を、texture の大きさ（GPU は import した texture、CPU は `cpu` の大きさ）と `source`（None なら全体）で texel に変換する。
+   - `External(item)`: `Draw { source: External { frame, cpu: item.cpu.as_ref(), source: item.source }, map: (S px → item.rect の空間), polygon: item.rect を item.transform と Ms で写した四角形, coverage: clips の coverage chunk, opacity, sampling: pixelated なら Nearest }`。executor は、item.rect の空間の点を、texture の大きさ（GPU は import した texture、CPU は `cpu` の大きさ）と `source`（None なら全体）で texel に変換する。
    - `Shader(item)`: coverage chunk（`Coverage(n)`、item.coverage を item.transform で layer 空間に置いた scene）と fallback chunk（`Fallback(n)`）を作り、`Shader(ShaderOp)` を出す。CPU は ShaderOp を、`Draw { source: Chunk(fallback), map: 単位, polygon, opacity, blend: Normal, composite: SourceOver }` として実行する。
 7. **効果:** S に次の順で掛ける（CSS の順）。
    1. filters を順に `Filter` op で掛ける（S → S1 → S2 …。各段は同じ大きさの一時 target）。
@@ -1893,8 +1929,10 @@ pub(crate) enum Retained { Bytes(AssetBytes), Glyphs(GlyphRunSnapshot) }
   - R 自身の平面は、R の item の列を子 layer の item（`LayerItem::Layer`）の位置で区切った断片に分ける。子 layer の前、子 layer と子 layer の間、最後の子 layer の後の、空でない item の連続をそれぞれ参加面 P0_k とし、行列は to_t（R の空間から T px）とする。
     - 例: item が Raster 赤 → Layer 青（`scale_z(2)`）→ Raster 緑なら、P0_0（赤）、青の参加面、P0_1（緑）の三つになる。三つとも z = 0 の同じ平面なので、下の同一平面の規則で item の順に重なり、緑が上になる。
     - R の effects（filter、mask など）は、断片ではなくコンテキスト全体の平坦化の後に掛かる（§6.4 の grouping property。effects を持つ R は Preserve3d の root にならない）。
-  - R の子 layer C ごとに、行列 C.transform.then(to_t)（平坦化しない）で参加面を作る。
-  - C の plane も Preserve3d なら、C の子も同じ規則で再帰的に参加面にする。
+  - R の子 layer C（`LayerItem::Layer { index, clips }`）のうち、clips が空のものごとに、行列 C.transform.then(to_t)（平坦化しない）で参加面を作る。
+  - clips が空でない子 C は参加面にしない（§6.4）。C は断片の item として扱い、その断片の surface に §8.3 の手順 6 の `Layer` の規則（flat）で描く。clips は、その surface の上の coverage chunk（`Clip(n)`）である。断片は、参加面になる子の位置だけで区切る。
+  - C の plane も Preserve3d なら（clips が空のとき）、C の子も同じ規則で再帰的に参加面にする。
+  - 断片の中の `External` と `Shader` の item の clips も、断片の surface の上の通常の coverage（§8.3 の手順 6）である。3D の扱いは要らず、plan はこれらを error にしない。
 - 各参加面は、自分の平面の内容（参加面になる子を除く item と effects）を、§8.3 の手順 2〜7 で自分の surface に描く。raster scale は、行列を平坦化した H_p で求める。
 
 **多角形と並べ替え:**
@@ -1908,7 +1946,7 @@ pub(crate) enum Retained { Bytes(AssetBytes), Glyphs(GlyphRunSnapshot) }
 4. 描画順は、viewer を +z の無限遠に置く（正射影の視線）として決める。
    - n_z ≥ 0 なら、後の部分木 → 同一平面（DOM 順）→ 前の部分木の順。
    - n_z < 0 なら逆順。
-5. 各多角形について、`Draw { target: T, source: Target(参加面の surface), polygon: (x, y) の多角形, split_edges, map: (T px → surface px) }` を出す。map は H_p⁻¹ に surface の Ms を合成したもの。参加面の `LayerItem::Layer { clips }` の clips は、親の空間の coverage chunk として各多角形の Draw の `coverage` に付ける。
+5. 各多角形について、`Draw { target: T, source: Target(参加面の surface), polygon: (x, y) の多角形, split_edges, map: (T px → surface px) }` を出す。map は H_p⁻¹ に surface の Ms を合成したもの。参加面には clips が無い（clips のある子は参加面にしない）。コンテキストの root R 自身の `LayerItem::Layer { clips }`（R の親の空間、T の平面）の clips は、T の px の coverage chunk として、すべての多角形の Draw の `coverage` に付ける。
 
 同じ平面上の多角形は、参加面の順を保つ。順の key は、R から参加面までの item の位置の列（R の断片と子 layer は R の items の中の位置、さらに入れ子の参加面はその中の位置）の辞書順である。これは `Composition` の item の順であり、tree の DOM 順と Draw の命令の順の両方を表す。
 
@@ -2258,9 +2296,9 @@ pub enum ExportNotice {
   - その layer の中（子の surface の中を除く）に、blend ≠ Normal の `Group` または `LayerEffects`、composite ≠ SourceOver の `LayerEffects` を持たない（surface を持つかどうかで合成の結果が変わる layer は inline にしない）
 
   それでも超える場合は、GPU は `RenderError::GpuLimit` を返す。presenter は既存の規則で、そのフレームを CPU で描く。CPU の executor は target の数の上限を持たない（大きさの上限 8192 だけを持つ）。
-- **3D の多角形:** 多角形の数で描き方を変えない。代わりに、参加面が 256 を超える 3D コンテキストは、engine と compositor の両方が同じ規則で「平坦な重なり」として扱う。描画は参加面を DOM 順（後のものが上）に重ね、hit test も DOM 順（後のものが先）で判定する。参加面の数は、tree の node の layer、Draw の recording の 3D の layer（`DrawingLayer`。tree の node を増やさない）、R の空でない断片のすべてを数える。engine は `Composition` を作るときに、コンテキストごとの数を同じ規則で数えて hit test にも使うので、描画と hit が食い違わない。256 以下のコンテキストの BSP は分割の数に上限を持たない。
+- **3D の多角形:** 多角形の数で描き方を変えない。代わりに、参加面が 256 を超える 3D コンテキストは、engine と compositor の両方が同じ規則で「平坦な重なり」として扱う。描画は参加面を DOM 順（後のものが上）に重ね、hit test も DOM 順（後のものが先）で判定する。参加面の数は、tree の node の layer、Draw の recording の 3D の layer（`DrawingLayer`。tree の node を増やさない）、R の空でない断片のすべてを数える（clips のある子は参加面ではないので数えない）。engine は `Composition` を作るときに、コンテキストごとの数を同じ規則で数えて hit test にも使うので、描画と hit が食い違わない。256 以下のコンテキストの BSP は分割の数に上限を持たない。
 - **layer の数:** 上限を持たない。
-- **診断:** inline、GpuLimit、平坦な重なりのどれかが起きたら、arvane は diagnostics に `RendererChange::LimitExceeded { what }` を一度だけ記録する。engine の平坦な重なりの判定（§7.3）は、同じ定数 `MAX_CONTEXT_PLANES = 256`（kivact-types の `render` に置く）を使う。
+- **診断:** inline、GpuLimit、平坦な重なりのどれかが起きたら、arvane は diagnostics に `RendererChange::LimitExceeded { what }` を一度だけ記録する。engine の平坦な重なりの判定（§7.3）は、同じ定数 `MAX_CONTEXT_PLANES = 256`（kivact-types の `render/composition.rs` に置き、`render` から再公開する。`render.rs` は non-leaf なので定数を置かない）を使う。
 
 
 ### 8.15 計測（`FrameStats`）
@@ -2566,6 +2604,14 @@ impl Viewport {
 }
 ```
 
+**module の配置（循環を作らない）:**
+
+- `kivact-core/src/view/drawable.rs` は宣言と再公開だけにする。
+- `view/drawable/handle.rs`: `Drawable`、`DrawableState`、`DrawableBinding`、`drawable()`、`Drawable::{size, share}`。builder も mount も参照しない。
+- `view/drawable/mount.rs`: drawable の root の mount（binding の検査と `DrawableRole` の書き込み）と、`impl Node { pub fn drawable }`、`impl Viewport { pub fn drawable }`。`elements::builders::node` と `handle` を参照する。
+- `view/elements/builders.rs` と `viewport.rs` は、drawable を参照しない（既存の `view/mount/drawable.rs` の中身は `drawable/mount.rs` へ移す）。
+- `view/drawable_share.rs` は `handle` と `crate::sync` を参照する。
+
 **binding（一つの drawable は同時に一か所にだけ mount される）:**
 
 ```rust
@@ -2719,7 +2765,8 @@ impl DrawableShare {
     pub fn request_gpu(&self, adapter: GpuAdapter);
     /// Stop exporting (frees the window's pool). Starts a new generation.
     pub fn stop(&self);
-    /// Device px per logical px of exported frames (default: the window's scale).
+    /// Device px per logical px of exported frames (default: the window's
+    /// scale, followed when it changes).
     pub fn set_scale(&self, scale: f64);
     /// Where the app shows the drawable: drawable box (logical px) → the
     /// hosting viewport's local logical px; None hides it from hit testing.
@@ -2860,7 +2907,7 @@ loop {
 
 1. `DrawableShare` の method は、Inbox を更新して、`ThreadWaker` で UI thread を起こす。
 2. core は turn の始めに各 drawable の Inbox を読み、次の host request を出す。
-   - request の変化: `HostRequest::DrawableExport { id, generation, mode: ExportRequestMode, scale }`。`ExportRequestMode` は `None`、`Pixels`、`Gpu(adapter)` である。`GpuRequested` と `GpuProvided` は `Gpu(adapter)`、`GpuWaiting` と `Failed` は `None` として送る。
+   - request の変化: `HostRequest::DrawableExport { id, generation, mode: ExportRequestMode, scale: Option<f64> }`。scale は `set_scale` の値で、None なら engine が window の scale を使う（window の scale が変わったら、engine は大きさの変化と同じく扱う）。core は window の scale を読まない（`view` は `platform` を参照しない。§0.3 の module の規則）。`ExportRequestMode` は `None`、`Pixels`、`Gpu(adapter)` である。`GpuRequested` と `GpuProvided` は `Gpu(adapter)`、`GpuWaiting` と `Failed` は `None` として送る。
    - geometry の Mailbox: `HostRequest::SetDrawableGeometry { id, generation, geometry }`
 3. engine は mode が `Pixels` の drawable と、mode が `Gpu` で pool を作れた drawable について、毎フレーム `Composition::exports` に `Export { layer, sink: id, size: ⌈size × scale⌉, scale, generation, mode }` を加える。
 4. GPU の mode の扱い:
@@ -3488,6 +3535,8 @@ impl Node {   // the image() builder
 }
 ```
 
+`playing` は、既存の `image_fit` と同じく reactive な property として engine へ書く。engine の property の表（`host/write/typed.rs`）に `ImagePlaying: set_image_playing(v: bool) => field(Some(v), |p| Some(&mut image(p)?.playing))` を加え、core の builder は値が変わるたびに `PropValue::ImagePlaying(v)` を書く。
+
 `BackgroundClip`、`BackgroundOrigin`、`MaskMode`、`MaskComposite` は、`kivact_types` の型を `kivact::draw` からそのまま公開する。
 
 ### 11.6 prelude
@@ -3905,7 +3954,7 @@ pub enum TransitionProp {
 
 #### 12.9.2 property ごとの補間の値（`PaintVec` を置き換える）
 
-既存の固定長の `PaintVec` は削除する。代わりに、property ごとに補間の成分を取り出して書き戻す関数を、kivact-types の `paint.rs` に置く。色の成分は、すべて Oklab の premultiplied（L·α, a·α, b·α, α）である。
+既存の固定長の `PaintVec` は削除する。代わりに、property ごとに補間の成分を取り出して書き戻す関数を、kivact-types の新しい top-level の module `prop_interp`（`src/prop_interp.rs`、leaf。`//! Role: Interpolate paint properties per transition property.`）に置く。`paint.rs` は leaf のまま保つ（子 module を持たせない）。`lib.rs` が `prop_interp`、`PropInterp`、`PropBasis`、`apply_components` を root から再公開する。`[module_rules.kivact-types.uses]` に `prop_interp = ["color", "color_space", "geometry", "motion", "paint"]`（使うものだけ）を加える。`paint` は `prop_interp` を参照しない。色の成分は、すべて Oklab の premultiplied（L·α, a·α, b·α, α）である。
 
 ```rust
 /// One property's interpolation: the shape the numbers are written into
@@ -4073,6 +4122,12 @@ impl<B: NodeBuilder> B {   // node_modifiers
     pub fn layout_id(self, id: impl Into<String>) -> Self;
 }
 ```
+
+**engine への受け渡し:** `layout_id` は style ではなく node の属性である（Framer Motion の `layoutId` prop と同じ）。
+
+- core: node の builder の共通の field `common.layout_id: Option<Arc<str>>` に入れ、mount のときに `PropValue::LayoutId(Some(id))` を一度書く（reactive ではない）。
+- engine: `NodeProperties` に `pub layout_id: Option<std::sync::Arc<str>>` を加え、property の表（`host/write/typed.rs`）に `LayoutId: set_layout_id(v: Option<Arc<str>>) => field(v, |p| Some(&mut p.layout_id))` を加える。
+- `LayoutProps` には加えない。
 
 engine は `model/layout_motion/shared.rs`（新規）に次の型を置く。
 
@@ -4592,7 +4647,7 @@ fn present_with(
 | `SpringRun` の field | `amplitude: Vec<f64>` を加える（§12.2） |
 | 意味情報の `bounds: Rect` | `Option<Rect>`（§5.15） |
 | `FilterOp` の `Copy`（`Graph` と `Shader` が `Arc` を持つ） | `Clone` |
-| `TransitionProp::Paint` | `TransitionProp::All` |
+| `TransitionProp::Paint` | `TransitionProp::All`（意味は同じ: 個別の指定の無い paint の property すべて。`Size` は含まない） |
 | `kivact_style::TransitionProp` | `kivact_types::TransitionProp`（`kivact::style::TransitionProp` の path は同じ） |
 | `Effects::mask: Option<FillLayer>` | `Effects::masks: Vec<MaskLayer>` |
 | `Style::mask(impl Into<Paint>)` | `Style::mask(impl Into<Mask>)`（`Paint` からの変換があるので、多くの呼び出しは変更不要） |
@@ -4610,6 +4665,7 @@ fn present_with(
 | `arvane::Window::present(&RenderScene, FramePlan)` | `present(&Composition, FramePlan)` |
 | `ShellWindow::present_with(w, h, draw)` | `present_with(w, h, damage, draw)`（§15.1） |
 | `kivact::gpu_interop::ShareError` | `kivact::view::ShareError` |
+| `kivact_ui_creative::timeline`（timeline の編集の widget） | `kivact_ui_creative::timeline_editor`（prelude の `kivact::motion::timeline` と名前が衝突するため。A-4 で決めた。文書の `ui::timeline(..)` も直す） |
 | background の positioning area（border box） | padding box（CSS の既定）。kit の背景画像の位置が border の幅だけずれる箇所は、`.origin(BackgroundOrigin::BorderBox)` で元の見た目に合わせる |
 
 ---

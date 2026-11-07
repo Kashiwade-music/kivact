@@ -1,6 +1,6 @@
 # Kivact 表現力パリティ 作業指示書
 
-版: 1.5（2026-11-07。`20261107_1305_CODEX_REVIEW.md`、`20261107_1333_CODEX_REVIEW.md`、`20261107_1402_CODEX_REVIEW.md`、`20261107_1425_CODEX_REVIEW.md` の指摘を反映）。設計: `VISUAL_PARITY_DESIGN.md`（以下「設計書」）。
+版: 1.6（2026-11-07。四回のレビューと、実装の中断の報告 `VISUAL_PARITY_STATUS.md` を反映。**再開は §13 から始める**）。設計: `VISUAL_PARITY_DESIGN.md`（以下「設計書」）。
 
 この文書は、設計書を実装する手順を定める。実装はオーケストレータ（あなた）がサブエージェントに割り振って行う。サブエージェントは設計の判断をせず、指定された設計書の節に従って実装する。
 
@@ -22,6 +22,16 @@
 3. 「互換性のためのコード（alias、deprecated、二重経路）を書かない。unit の範囲外の crate が自分の変更で compile できなくなったら、設計書 付録 A の A-7 のとおり、意味を変えない最小の修正（import、型の追従）だけをして commit message に書く。範囲外の crate の機能は実装しない」。
 4. 「PR を作らない。main に merge・push しない。integration branch に push しない」。
 5. 「設計書の挙動を、依存 crate の制約などで実装できないと分かったら、近似を実装せず、その部分を止めてオーケストレータに報告する（設計書 付録 A の A-2）」。
+6. 「終わるときに、unit の『内容』の各項目を一覧にし、それぞれ『実装した』か『A-2 で止めた（理由）』のどちらかを書いて報告する。どちらでもない項目を残して終えない。時間や文脈が足りなくなったら、そこまでを commit し、残りの項目を書いて、続きを求める」。
+7. 「設計書 §0.3 のコードの構造の規則（non-leaf の file、module の循環、Role の長さ、style の規則、依存の可視性）を守る。新しい module を足すたびに確かめる」。
+
+**完了の監査:** オーケストレータは、merge の前に、サブエージェントの報告の一覧を unit の「内容」と一項目ずつ突き合わせ、実装の有無を差分で確かめる。
+
+- 実装していない項目があれば、その unit を同じ worktree で続けさせる（同じサブエージェントに続きを指示するか、新しいサブエージェントにその worktree と残りの一覧を渡す）。残りを別の wave の unit に回さない。
+- 一部だけ実装した unit を merge して checkpoint や次の wave に進まない。
+- A-2 で止めた項目だけは、下の「止めた部分の扱い」に従う。
+
+**サブエージェントのモデル:** unit は、設計書の多くの節を読み、複数の file と crate にまたがる変更を正確に実装する。サブエージェントには、オーケストレータと同じ能力のモデル（小型・高速のモデルではないもの）を使う。前回の実行（wave 1〜8）では、小型のモデルで動かした unit の多くが一部だけで終わり、未実装が後の wave へ積み残された（`VISUAL_PARITY_STATUS.md` の §5-3）。
 
 **止めた部分の扱い:** オーケストレータは、A-2 で止まった部分を、代替案と影響（公開 API、許容差、試験）とともにユーザーへ報告し、決定を待つ。その間、依存しない unit は進める。決定は設計書に書き足してから、その部分を再開する。
 
@@ -33,12 +43,13 @@
   - `cargo fmt --all`
   - 完了条件の `cargo check`
   - 完了条件の `cargo xtask check --no-write --only <rules> --crate <crate>`
+  - §13 の再開の wave（R1、R2）と、それより後の unit では、完了条件の `cargo xtask check --no-write`（`--only` なし。workspace が compile できる状態になったので実行できる。`--no-write` なので architecture を書き換えない）。結果のうち、自分の範囲の file と crate のエラーだけを 0 にする（他の範囲のエラーは数えない）。
   - 完了条件に書かれた試験。window を開かない doctest（dev-dependency に `kivact` を持たない crate だけ）は、どの wave でもよい。window を開く試験は wave 9 と、CP8 の修正の unit だけ。
   - 単体試験（`cfg(test)`）は作らない（`docs/for-kivact-developer/decisions.md` の Q-01。設計書 §17.1）。新しい振る舞いは wave 9 の E2E で確かめる。
 - **unit の中で実行しないもの:**
   - workspace 全体の `cargo test`
   - `cargo clippy`
-  - 引数なしの `cargo xtask check`（rustfmt と Clippy を workspace 全体で走らせ、architecture を書き換えるため）
+  - wave 1〜8 での `--only` なしの `cargo xtask check`（workspace が compile できない途中の状態で、rustfmt と Clippy を workspace 全体で走らせるため）。`--no-write` の無い `cargo xtask check` は、どの unit でも実行しない（architecture を書き換えるため）
   - WSL の検査
 
   これらは checkpoint でオーケストレータが行う。
@@ -59,7 +70,10 @@
 
   ```text
   git worktree add ../kivact-wt/<unit-id> -b wt/<unit-id> feat/kashiwade/visual-parity
+  git -C ../kivact-wt/<unit-id> submodule update --init vendor/xtask-core
   ```
+
+  submodule の中身を手で複製しない（gitlink を commit に含めないこと自体は正しい）。
 
 - **unit の完了:** サブエージェントは worktree で commit して終わる（commit の数は問わない）。
 - **merge:** オーケストレータは、wave の unit を表の順に `git merge --no-ff wt/<unit-id>` で integration branch に取り込む。conflict は設計書に従って解く。
@@ -609,14 +623,18 @@ merge の順: U81 → U82。
 各 CP で、次の command を、表の crate について実行する。
 
 ```text
+cargo fetch --locked
 cargo fmt --all -- --check
 cargo check -p <A の crate…> --all-targets --all-features
 cargo check -p <A の crate…> --all-targets --no-default-features
 cargo check -p <L の crate…> --lib --all-features
 cargo check -p <L の crate…> --lib --no-default-features
-cargo clippy -p <その CP で A に加わった crate…> --all-targets --all-features -- -D warnings
-cargo clippy -p <その CP で L に加わった crate…> --lib --all-features -- -D warnings
+cargo clippy -p <その CP で A に加わった crate…> --all-targets --all-features -- -D warnings -A dead_code
+cargo clippy -p <その CP で L に加わった crate…> --lib --all-features -- -D warnings -A dead_code
 ```
+
+- `-A dead_code`: 後の wave で配線する item が途中の CP で未使用になるため、CP1〜CP7 と CP-R1 だけ dead code を除く。CP-R2、CP8、CP9 は除かない。
+- `cargo fetch --locked`: xtask と一部の検査は cargo を `--offline` で動かすので、依存の cache を先に用意する。
 
 - **A:** `--all-targets` で check できる crate。
 - **L:** dev-dependency に `kivact` を持ち、CP7 まで `--lib` で check する crate（§0.4 の例外）。
@@ -633,15 +651,19 @@ cargo clippy -p <その CP で L に加わった crate…> --lib --all-features 
 
 CP では、それまでの CP の crate も毎回含める（合計の集合を check する）。
 
-**WSL の検査:** CP2 と CP4 では、加えて WSL で Linux の code を check する。integration branch を、main の checkout（`C:\w\kashiwade\kivact`）に checkout した状態で行う。
+**WSL の検査:** CP2 と CP4 では、加えて WSL で Linux の code を check する。integration branch を main の checkout に checkout した状態で行う。
+
+- `<repo>` は、その環境の main の checkout の path である（決め打ちしない）。WSL の中の path は `wsl -d $DISTRO -- wslpath -a '<repo>'` で求める（以下 `$WSL_REPO`）。
+- `$DISTRO` は、環境変数 `KIVACT_WSL_DISTRO` があればその値、無ければ `wsl -l -q` の中で `cargo --version` が成功する distro を使う。
 
 ```text
-wsl -d Ubuntu-24.04 -- bash -lc 'cd /mnt/c/w/kashiwade/kivact && CARGO_TARGET_DIR=$HOME/kivact-target cargo check -p arvane-native -p arvane-compose -p kivact-gpu-share --all-targets --all-features'
+wsl -d $DISTRO -- bash -lc 'cd $WSL_REPO && CARGO_TARGET_DIR=$HOME/kivact-target cargo check -p arvane-native -p arvane-compose -p kivact-gpu-share --all-targets --all-features'
 ```
 
 ### CP8（既存の試験一式）
 
 ```text
+cargo fetch --locked
 cargo fmt --all -- --check
 cargo xtask check --no-write
 cargo clippy --workspace --all-targets --all-features -- -D warnings
@@ -712,6 +734,7 @@ merge の順: U91 → U92 → U93 → U94 → U95 → U96。
 CONTRIBUTING.md の merge の前の検査を、すべて実行する。
 
 ```text
+cargo fetch --locked
 cargo fmt --all -- --check
 cargo xtask check
 git add architecture && git commit -m "chore: regenerate architecture" (変更があるときだけ)
@@ -732,13 +755,13 @@ dev/tools/check-features.sh
 KIVACT_TEST_GPU=1 KIVACT_TEST_MIRROR=required dev/tools/window-lock.sh --timeout 5400 -- cargo test -p kivact-public-api-tests --test e2e --all-features -- shaders:: drawable_export_gpu:: transform_3d:: compositor:: effects_filters:: --test-threads=1
 ```
 
-**Linux（WSL Ubuntu-24.04）:** integration branch を main の checkout に checkout した状態で、Wayland と X11 を分けて実行し、結果を分けて記録する。
+**Linux（WSL）:** integration branch を main の checkout に checkout した状態で、Wayland と X11 を分けて実行し、結果を分けて記録する。`$DISTRO` と `$WSL_REPO` は CP1〜CP7 の WSL の検査と同じ決め方である。
 
 ```text
 # Wayland (WSLg)
-wsl -d Ubuntu-24.04 -- bash -lc 'cd /mnt/c/w/kashiwade/kivact && export CARGO_TARGET_DIR=$HOME/kivact-target KIVACT_TEST_MIRROR=off && dev/tools/window-lock.sh --timeout 5400 -- cargo test --workspace --exclude gpu-interop-producer --exclude kivact-docs --all-features'
+wsl -d $DISTRO -- bash -lc 'cd $WSL_REPO && export CARGO_TARGET_DIR=$HOME/kivact-target KIVACT_TEST_MIRROR=off && dev/tools/window-lock.sh --timeout 5400 -- cargo test --workspace --exclude gpu-interop-producer --exclude kivact-docs --all-features'
 # X11 (Xwayland of WSLg): the same with WAYLAND_DISPLAY unset
-wsl -d Ubuntu-24.04 -- bash -lc 'cd /mnt/c/w/kashiwade/kivact && export CARGO_TARGET_DIR=$HOME/kivact-target KIVACT_TEST_MIRROR=off && env -u WAYLAND_DISPLAY dev/tools/window-lock.sh --timeout 5400 -- cargo test --workspace --exclude gpu-interop-producer --exclude kivact-docs --all-features'
+wsl -d $DISTRO -- bash -lc 'cd $WSL_REPO && export CARGO_TARGET_DIR=$HOME/kivact-target KIVACT_TEST_MIRROR=off && env -u WAYLAND_DISPLAY dev/tools/window-lock.sh --timeout 5400 -- cargo test --workspace --exclude gpu-interop-producer --exclude kivact-docs --all-features'
 ```
 
 **失敗したとき:** 修正の unit を作って直し、CP9 をやり直す。
@@ -748,6 +771,7 @@ wsl -d Ubuntu-24.04 -- bash -lc 'cd /mnt/c/w/kashiwade/kivact && export CARGO_TA
 1. integration branch を push する。
 2. `PR_DRAFT.md` を書く。内容は次のとおり。
    - 概要、設計書の決定 D-01〜D-10
+   - 中断と再開の記録: `VISUAL_PARITY_STATUS.md` の §3（承認済みの判断）と §4（逸脱）、§13 の再開の wave で直したこと
    - 設計書が設けた制限（元の要求より狭い点。2026-11-07 にユーザーが承認済み）として記録する: CONTRACT-COLOR（engine の state transition は sRGB に写した端点から補間する）、§3.3 の三段目（Vello の raster の CPU と GPU の差は縮めない）、CONTRACT-3D-CROWD（参加面が 256 を超える 3D コンテキストは平坦な重なり）、CONTRACT-SPRING-DURATION（振幅 500 を超えると静止が少し遅れる）。加えて、2026-11-07 の第 3 回のレビューで加えた制限（同日にユーザーが承認済み）: CONTRACT-GRADIENT-PRECISION（最終の画素は Vello の LUT の量子化を含む）、CONTRACT-LAYOUT-REPEAT（layout motion は反復しない）、CONTRACT-RASTER-GRID（動いている layer は小数 px で bilinear）
    - wave と unit の一覧
    - 付録 A の裁定の記録
@@ -770,6 +794,276 @@ wsl -d Ubuntu-24.04 -- bash -lc 'cd /mnt/c/w/kashiwade/kivact && export CARGO_TA
 | 6 | U61 | U62 | U64 | | | |
 | 7 | U71 | U72 | U73 | U74 | | |
 | 8 | U81 | U82 | | | | |
+| R1 | R11 | R12 | R13 | R14 | R15 | R16 |
+| R2 | R21 | R22 | R23 | | | |
 | 9 | U91 | U92 | U93 | U94 | U95 | U96 |
 
 各 wave は、前の wave の checkpoint を通してから始める。wave の中の unit は同時に始める。
+
+---
+
+## 13. 再開の手順（2026-11-07 の中断から）
+
+### 13.1 中断の時点の状態と原因
+
+- **状態:** integration branch の `6104a66`（`VISUAL_PARITY_STATUS.md` を追加した commit）の時点で、wave 1〜8 の unit を merge し、CP1〜CP7 を通している。CP8、wave 9、CP9 は未着手である。
+- **原因と、この版での対策:**
+
+| 原因 | 対策 |
+|---|---|
+| 一部だけ実装した unit を merge して次の wave へ進み、未実装が積み残された（STATUS §5-3） | §0.1 の「完了の監査」と「サブエージェントのモデル」。残りは §13.3、§13.5 の wave で実装する |
+| wave 1〜8 で `--only` の検査しか実行せず、xtask-core の検査（non-leaf の file、module の循環、Role の長さ、style、依存の可視性）が最後まで一度も走らなかった。2026-11-07 の `cargo xtask check --no-write` は 315 件のエラーである（non-leaf 210 件・12 file、Role 74 件、module の循環 9 個、policy 2 件、style 4 件） | 設計書 §0.3 のコードの構造の規則（設計書の module の一覧もこれに合わせた）。R1 と R2 の unit が、自分の範囲で 0 件にする。§0.2 で、R1 以降の unit は `cargo xtask check --no-write` を実行する |
+| U26 が 3D の参加面の clip を A-2 で止めた（clip を描く空間が定義されていなかった） | 設計書 §6.4、§8.4 で決めた。clip の内側の子は参加面にせず、root の平面に平坦化して描く（CSS の grouping property と同じ結果。新しい executor の機能は要らない） |
+| `layout_id` と `playing` を engine へ渡す経路が設計書に無かった | 設計書 §12.11（`NodeProperties::layout_id` と `PropValue::LayoutId`）、§11.5（`PropValue::ImagePlaying`） |
+| WSL の path と distro を決め打ちしていた | §10 の WSL の検査の決め方 |
+
+- **承認済みの判断（STATUS §3）と逸脱（STATUS §4）の扱い:** §3 の判断はそのまま使う。§4 の逸脱のうち、CP2〜CP7 の `-A dead_code`、WSL の path と distro、`kivact_ui_creative::timeline` の `timeline_editor` への改名、A-5 の lint の例外、`DrawOp` の enum 化（`Sampling`、`Scissor`、`Caching`）、U32 の衝突の解き方は、この版の §10 と設計書（§8.2、§17.3）に取り込んだ。
+
+### 13.2 再開の前にオーケストレータが行うこと
+
+1. integration branch を checkout し、`git status` が clean で、HEAD が `6104a66` かその子孫であることを確かめる。
+2. `git worktree list` を見て、使っていない worktree（`../kivact-wt/*` の古い unit、`.claude/worktrees/agent-*` のような作業と無関係のもの）を、未 commit の変更が無いことを確かめてから `git worktree remove` で消す。
+3. `cargo fetch --locked` の後、`cargo xtask check --no-write` の出力を repo の外の作業 dir の `xtask-baseline.txt` に保存する（R1 と R2 の unit に、自分の範囲のエラーの一覧として渡す）。
+4. R1 を始める。
+
+**R1 と R2 の unit に共通の規則:**
+
+- **まず確かめる:** 各項目について、まず現在の code で実装済みかを確かめる（STATUS は実装者の自己申告である）。実装済みなら設計書と一致するかを確かめ、違えば直す。
+- **file の持ち主:** 各 unit の「範囲」の file だけを変える。持ち主でない file には、新しい関数の呼び出しを 1〜3 行足すことと、A-7 の最小の追従（import、型）だけを許す。
+- **policy の file:** R1 では、`dev/xtask/policy/workspace.toml` の `[module_rules.<crate>]` の節を、次の unit だけが変えてよい: arvane-compose は R11、kivact-engine は R13、kivact-types は R15、kivact-style と kivact-runtime は R16。他の unit は、その節を変える必要があれば持ち主の unit に頼む（オーケストレータが伝える）。`[visible_to]` と kivact-core の節は R22 が変える。
+- **完了条件に共通のもの:** 範囲の crate の `cargo check`（`--all-targets` で `--all-features` と `--no-default-features`）と、`cargo xtask check --no-write` で自分の範囲の file と crate のエラーが 0 件であること。§0.4 の `--lib` の例外は、もう使わない（CP7 で全 crate が `--all-targets` で通っている）。
+
+### 13.3 wave R1
+
+| 行 | unit | 名前 |
+|---|---|---|
+| 1 | R11 | compose-plan-cpu |
+| 2 | R12 | compose-gpu |
+| 3 | R13 | engine-composition-drawables |
+| 4 | R14 | engine-lower-text-motion |
+| 5 | R15 | types-geometry-a11y |
+| 6 | R16 | style-runtime-shader |
+
+merge の順: R15 → R11 → R12 → R16 → R13 → R14。
+
+#### R11 compose-plan-cpu
+
+- **節:** 設計書 §0.3、§4.2（compose の Role）、§4.4（compose の module の規則）、§4.5（resvg）、§6.4（clip の内側の子）、§8.1、§8.2〜§8.6、§8.14、§11.3.4（filter shader の input の plan の側）
+- **範囲:**
+  - `crates/arvane-compose/src/{lib.rs,cache.rs,plan.rs,cpu.rs}`、`plan/**`、`cpu/**`
+  - `THIRD-PARTY-NOTICES.md` の resvg の段落
+  - policy の `[module_rules.arvane-compose]`
+- **内容:**
+  1. §8.4 の「clips のある子は参加面にしない」を実装し、clip を理由にした `PlanError`（3D の子の clips、断片の `External` の clips）を削除する。
+  2. filter shader の `ShaderOp::input` に content の target を入れる（§11.3.4。GPU の側は R12）。
+  3. module の構成を §8.1 の一覧にする。`lib.rs`、`plan.rs`、`cpu.rs`、`cpu/graph.rs` を宣言と再公開だけにし、plan と cpu の循環（`plan`↔`bounds`/`items`/`layers`/`validate`、`cpu::filters`↔`cpu::graph`）を解く。
+  4. 範囲の全 module の Role を 80 文字以下にし、`lib.rs` に §4.2 の Role を置く。
+  5. `cpu/graph.rs` の `#[rustfmt::skip]` を外す。
+  6. strict な dead code を §8.1 の最後の段落のとおりに解消する（`retain` だけ `#[expect(dead_code, …)]`、他は配線する）。
+  7. `THIRD-PARTY-NOTICES.md` に resvg 0.46.0 の移植の段落を加える（§4.5）。
+  8. policy の `[module_rules.arvane-compose.uses]` に `cpu = ["plan", "cache"]` と `gpu = ["plan", "cache"]` を加える（§4.4）。
+- **完了条件:**
+  - `cargo check -p arvane-compose --all-targets`（`--all-features`、`--features gpu`、`--no-default-features` の 3 回）
+  - `cargo xtask check --no-write`（範囲のエラーが 0 件）
+
+#### R12 compose-gpu
+
+- **節:** 設計書 §0.3、§4.1（device の移動）、§8.1、§8.7〜§8.8（GPU）、§8.10、§8.12、§8.13、§10.5（GPU の pool）、§11.3.4
+- **範囲:**
+  - `crates/arvane-compose/src/{gpu.rs,gpu_unbuilt.rs}`、`gpu/**`（`gpu/draw.rs` と `gpu/wgsl/**` を含む）、`crates/arvane-compose/Cargo.toml`
+  - `crates/arvane-compose/src/lib.rs` への `GPU_INTEROP_BUILT` の再公開の 1 行
+  - `crates/kivact-gpu-share/src/**`（device の移動）と、その利用箇所の import
+  - `crates/arvane/src/presenter/{frame_policy,exports}.rs`
+- **内容:**
+  1. filter shader が `content()` で入力を読む（`ShaderOp::input` の target を bind する）。filter shader の `kivact_context.size` を layer の bounds の大きさにする（§11.3.4。target の px を ppu で割った値ではない）。
+  2. `GPU_INTEROP_BUILT` を作り、presenter の `export_drawable` の結果を §8.12 の順（`Unavailable`、`NotReady`、`error::render`）で決める。
+  3. `kivact_gpu_share::import::request_device` を `device::request_device` へ移す（再公開ではなく移動。設計書 §0.3 の「互換のための別名を作らない」）。利用箇所を直す。
+  4. §8.13 の GPU の提示を設計書どおりにする。簡略化した部分が意味の同じものなら、そのことを PR 草稿の材料として報告する。
+  5. module の構成を §8.1 の一覧にする（`gpu.rs` は宣言と再公開だけ、passive state と処理の分離、`gpu/pass.rs`、`gpu/shader_cache.rs`、`gpu/export_pool.rs`）。gpu の循環（`exec`、`export`、`filters`、`shader`、`state`）を解く。
+  6. 範囲の全 module（gpu と `arvane/src/presenter/exports.rs`）の Role を 80 文字以下にする。
+  7. 範囲の strict な dead code を配線で解消する。
+  8. `bytemuck` は、使うときだけ依存に加える。convolve の表を storage buffer で渡す実装は、値が同じなので変えない（A-2 の同義の実装）。
+- **完了条件:**
+  - `cargo check -p arvane-compose --all-targets`（`--features gpu`、`--features gpu-interop`、`--no-default-features`）
+  - `cargo check -p kivact-gpu-share --features import,wgpu`
+  - `cargo check -p arvane --all-targets --all-features`
+  - `cargo xtask check --no-write`（範囲のエラーが 0 件）
+
+#### R13 engine-composition-drawables
+
+- **節:** 設計書 §0.3、§6.1〜§6.9、§9.5、§10.2（engine の部分）、§10.3〜§10.5（engine）、§11.2.1（graph の image の解決）
+- **範囲:**
+  - kivact-engine: `paint/**`、`lower/{effects,context,scene,scene_out,scene_cache}.rs`、`lower/scene/*`、`model/drawables*`（`model/drawables/` の leaf に分ける）、`model/aggregate.rs` の import、`contract/host.rs`、`host/pump.rs` と `host/write/*`（`typed.rs` を除く）の export の部分
+  - kivact-core: `src/view/drawable_share.rs`（scale を `Option` で送る部分だけ）
+  - policy の `[module_rules.kivact-engine]`（必要なときだけ）
+- **内容:**
+  1. R6 の drawable の layer（`LayerKey::Drawable`）を作る。
+  2. §6.2 の perspective（親の perspective の行列を子の写像に含める）を作る。
+  3. 3D の layer の cull を、効果の到達範囲を含めて作る（§6.2）。
+  4. §6.8 の shader の fill を、背景と Draw の shape の両方で `LayerItem::Shader` にする。
+  5. §10.5 の `Composition::exports`（Pixels と、pool のある Gpu）を作る。
+  6. §11.2.1 の graph の `Image` を、asset の natural pixels（読み込み前は 1×1 の透明）で解決する。
+  7. §9.5 の shader の mask を、描かずに unsupported として報告する（黙って捨てない）。
+  8. canvas の drawable: `DrawCmd::Drawable` の配置（§10.3）と描画、host でない node の `Draw::drawable` の報告（"drawable {id} is not hosted by this node"。§10.2）。
+  9. export の scale を `Option` にする（§10.5）。core は `set_scale` の前は None を送り、engine が window の scale で解決する。core の `view` は `platform` を参照しない。
+  10. engine の循環（`model::aggregate`、`model::drawables`）を、drawables を passive state の leaf と処理の leaf に分けて解く（設計書 §0.3）。`aggregate` は passive state を leaf の path で import する。
+  11. 範囲の module の Role を 80 文字以下にする。
+- **完了条件:**
+  - `cargo check -p kivact-engine -p kivact-core --all-targets --all-features`
+  - `cargo check -p kivact-core --no-default-features`
+  - `cargo xtask check --no-write`（範囲のエラーが 0 件）
+
+#### R14 engine-lower-text-motion
+
+- **節:** 設計書 §0.3、§5.7、§9.2〜§9.4、§9.7、§9.8（engine の再生）、§11.3.5、§11.5（`playing`）、§12.3（layout motion は反復しない）、§12.11、§12.12
+- **範囲:**
+  - kivact-engine: `lower/{border,border_image,fill,glyphs,assets,shape,conversion}.rs`、`measure/editor.rs`、`text_input/shaping.rs` の span の部分、`model/layout_motion/**`、`model/playback*`、`model/frame/**`、`model/states.rs`、`contract/node.rs`、`host/write/typed.rs`。`paint/compose.rs` には呼び出しの 1〜3 行だけ
+  - `crates/arvane-text/src/**`
+  - kivact-types: `src/render/{text,shaped}.rs`、`src/text/**`
+  - kivact-style: `src/text.rs`、`src/internal.rs` の span の部分
+  - kivact-core: `src/view/span.rs`
+- **内容:**
+  1. §9.2 の border image を描く（paint の側の呼び出しは 1〜3 行）。
+  2. §9.3 の background の origin と clip（既定は padding box）を作る。
+  3. §9.4 の background-clip: text を作る。
+  4. §9.7 の text の stroke、fill、paint order を作る（`push_text` と `ShapedText` の拡張、arvane-text の glyph の輪郭）。
+  5. §5.7 の span の `stroke`、`variations`、`font_width` を、types、style、core の span、engine の変換、arvane-text まで通す。
+  6. §11.3.5 の `ShaderClocks` と、`ShaderUse::time` の書き込み（`paint/compose.rs` に 1〜3 行）と、frame の要求を作る。
+  7. §9.8 の背景の layer（slot 1 以降）のアニメーション画像の再生を作る。
+  8. §12.11 の `layout_id` の engine の受け渡し（`NodeProperties::layout_id`、property の表の `LayoutId`）と、重複の報告を作る。
+  9. §11.5 の `playing` の property（property の表の `ImagePlaying`、`ImageData::playing`）を作る。
+  10. §12.3 の「layout motion の run は一回・通常の向き」が実装されているか確かめる。
+  11. engine の循環（`model::playback`、`model::layout_motion::{shared,state}`）を、passive state の leaf と処理の leaf に分けて解く（設計書 §0.3）。`model/aggregate.rs` の import は 1〜3 行の追従だけ。
+  12. 範囲の module の Role を 80 文字以下にする。
+- **完了条件:**
+  - `cargo check -p kivact-engine -p arvane-text -p kivact-types -p kivact-style -p kivact-core --all-targets --all-features`
+  - `cargo xtask check --no-write`（範囲のエラーが 0 件）
+
+#### R15 types-geometry-a11y
+
+- **節:** 設計書 §0.3、§5.14、§5.15、§6.4（clip の内側の子）、§7.1〜§7.6、§8.4（同一平面の順の key）、§8.14、§12.9.2（`prop_interp` の置き場所）
+- **範囲:**
+  - kivact-types: `src/**`（R14 の file を除く）
+  - kivact-engine: `model/transform.rs`、`model/interact/geometry.rs`、`a11y/**`、`tree/**`、`model/presence/**`、`host/write/reader.rs`、`model/state_motion/**` の import の追従
+  - `crates/arvane-native/src/a11y/conversion.rs`
+  - kivact-test の意味情報の bounds の追従
+  - policy の `[module_rules.kivact-types]`
+- **内容:**
+  1. §5.15 の意味情報の bounds を `Option<Rect>` にし、engine の a11y の build（§7.4）、arvane-native の AccessKit の変換、kivact-test の照会を追従させる。
+  2. §7.3 の 3D の hit test を作る（参加面の集め方は §6.4 の clip の内側の子の規則を含む、奥行きの順、`MAX_CONTEXT_PLANES` を超えるときの DOM 順、z が等しいときの §8.4 の順の key、backface）。
+  3. §7.4 の a11y の bounds（3D の投影、None）を作る。
+  4. kivact-types の構造を直す。
+     - `prop_interp` を top-level の module（`src/prop_interp.rs`）へ移し、`paint.rs` を leaf に戻す（§12.9.2）。policy に `prop_interp` の規則を加える（§5.14）。
+     - `MAX_CONTEXT_PLANES` を `render/composition.rs` へ移す（§8.14）。
+     - `prop_interp` の `&Option<T>` の引数を `Option<&T>` にする。
+     - `pixel.rs` の Role を 80 文字以下にする。
+- **完了条件:**
+  - `cargo check -p kivact-types -p kivact-engine -p arvane-native -p kivact-test --all-targets --all-features`
+  - `cargo check -p arvane-native --features embed`
+  - `cargo xtask check --no-write`（範囲のエラーが 0 件）
+
+#### R16 style-runtime-shader
+
+- **節:** 設計書 §0.3、§10.2（`Draw::drawable` の二度目）、§11.1〜§11.5（style の側の残り）、§12.2（spring の報告）、§12.3（`layout_transition` の報告）、§12.6
+- **範囲:**
+  - kivact-style: `src/**`（R14 の file を除く）
+  - `crates/kivact-runtime/src/**`、`crates/kivact-shader/src/**`
+  - policy の `[module_rules.kivact-style]`、`[module_rules.kivact-runtime]`
+- **内容:**
+  1. `Draw::drawable` の二度目を記録せず、`Recording::region_errors` に `"drawable {id} drawn twice"` を加える（§10.2）。
+  2. `CompiledStyle::reports` に、spring の問題（§12.2）、`layout_transition` の反復（§12.3）、shader の値、filter graph の検査が入ることを確かめる（core への転送は R21）。
+  3. kivact-style の構造を直す。
+     - `color.rs` を宣言と再公開だけにする（`color/value.rs` に `Color` と `rgba`、`color/css.rs` に parser と `Color::css`）。`color`↔`color::css` の循環を解く。
+     - `effect.rs` と `draw.rs` を宣言と再公開だけにする。`draw.rs` の inline の `mod filter` は file にして Role を付ける。
+     - `paint::fill_layer`、`paint::layer`、`shader` の循環を解く（shader の fallback の lower を paint の側へ移し、`shader.rs` は型と builder だけにする）。
+  4. kivact-runtime の構造を直す。`motion/timeline.rs` を宣言と再公開だけにし（中身を `timeline/api.rs` へ）、`timeline::curve`↔`timeline::plan` の循環を解く（区間の型を `timeline/segment.rs` へ）。
+  5. kivact-shader の `entry.rs` と `source.rs` の Role を 80 文字以下にする。
+- **完了条件:**
+  - `cargo check -p kivact-style -p kivact-runtime -p kivact-shader --all-targets --all-features`
+  - `cargo xtask check --no-write`（範囲のエラーが 0 件）
+
+### 13.4 CP-R1
+
+```text
+cargo fetch --locked
+cargo fmt --all -- --check
+cargo check --workspace --all-targets --all-features
+cargo check --workspace --all-targets --no-default-features
+cargo clippy --workspace --all-targets --all-features -- -D warnings -A dead_code
+cargo xtask check --no-write
+```
+
+- WSL の検査（§10 の決め方）で `cargo check -p arvane-native -p arvane-compose -p kivact-gpu-share --all-targets --all-features` を行う。
+- `cargo xtask check --no-write` のエラーは、R2 の範囲（kivact-core、kivact-test、arvane-render、policy の `[visible_to]` と kivact-core の module の規則）のものだけが残ってよい。それ以外が残れば、その範囲の R1 の unit を続けさせてから R2 に進む。
+
+### 13.5 wave R2
+
+| 行 | unit | 名前 |
+|---|---|---|
+| 1 | R21 | core-test-hooks |
+| 2 | R22 | render-policy |
+| 3 | R23 | docs-prose |
+
+merge の順: R22 → R21 → R23。
+
+#### R21 core-test-hooks
+
+- **節:** 設計書 §0.3、§10.2、§10.5（core）、§10.6（統計と試験の制御）、§11.5（`playing` の builder）、§12.11（`layout_id` の modifier）、§17.1（比較の基準）
+- **範囲:**
+  - `crates/kivact-core/src/**`、`crates/kivact-test/src/**`
+  - arvane の `spi`（`lose_gpu_device`）
+  - kivact-engine: `host/testing/**`、`host/pump.rs` の `last_stats`
+- **内容:**
+  1. `CompiledStyle::reports` の各 `UiError` を、node の owner に一度ずつ報告する（`view/mount/style.rs`。既存の unsupported の報告と同じ形）。
+  2. `Node::playing` を `PropValue::ImagePlaying` で reactive に書く（§11.5）。
+  3. `layout_id` の modifier を、`common.layout_id` から `PropValue::LayoutId` で書く（§12.11）。
+  4. `DrawableSource` を core の `Drawable` に実装する。
+  5. §10.2 の drawable の module の配置（`drawable/handle.rs`、`drawable/mount.rs`。builder は drawable を参照しない）にし、`view::elements::builders`↔`view::mount::drawable` の循環を解く。binding の検査（WrongApp、Disposed、二重の mount、root が一致するときだけの解除）が実装されているか確かめる。
+  6. 範囲の module の Role を 80 文字以下にする。
+  7. §10.6 を作る: `Host::last_stats`（あれば確かめる）、`ArvaneTestHost::frame_stats()`、`ArvaneTestHost::lose_gpu_device()`、`arvane::spi::lose_gpu_device`、kivact-test の `Screen::frame_stats()` と `Screen::lose_gpu_device()`。
+  8. §17.1 の `Screenshot::raster_difference` と `RasterDifference::within_raster_tolerance` を作り、`screen/gpu_tests.rs` の `assert_close` をそれを使う形に書き換える。
+- **完了条件:**
+  - `cargo check -p kivact-core -p kivact-test -p kivact-engine -p arvane --all-targets --all-features`
+  - `cargo check -p kivact-core --no-default-features`
+  - `cargo xtask check --no-write`（範囲のエラーが 0 件）
+
+#### R22 render-policy
+
+- **節:** 設計書 §0.3、§4.4、§10.5（`sync` の module）
+- **範囲:** `crates/arvane-render/src/**`、`dev/xtask/policy/workspace.toml`（R1 の unit が変えた `[module_rules.<crate>]` の節を除く）、`dev/tools/check-features.sh`
+- **内容:**
+  1. arvane-render の `gpu.rs` を宣言と再公開だけにし（`GpuRaster` などを `gpu/raster.rs` へ）、`gpu`↔`gpu::encode` の循環を解く。`gpu.rs` の Role を 80 文字以下にする。`draw/painter.rs` の `use` を一つの module ずつに分ける。
+  2. policy の `[visible_to]` の `arvane-render` に `arvane-compose` を加える（§4.4）。
+  3. policy の `[module_rules.kivact-core.uses]` に `sync = []` を加え、`view` と `gpu_interop` の uses に `"sync"` を足す（§10.5）。
+  4. `dev/tools/check-features.sh` が §4.4 の feature の行を持つことを確かめる。
+- **完了条件:**
+  - `cargo check -p arvane-render --all-targets`（`--features gpu`、`--no-default-features`）
+  - `cargo xtask check --no-write`（arvane-render と policy のエラーが 0 件）
+
+#### R23 docs-prose
+
+- **節:** 設計書 §16.1（既存のページ）、§17.3
+- **範囲:** `docs/**`、kit の文書（`docs/for-kivact-ui-user/**`）、`README.md`、`README_JP.md`
+- **内容:**
+  1. U81 の残りを直す: `TransitionProp::Paint` → `TransitionProp::All`、`steps_end`/`steps_start` → `Easing::steps(n, StepPosition::…)`。
+  2. `ui::timeline(..)` を `ui::timeline_editor(..)` に直す（英日）。
+  3. §17.3 の移行表の旧名（左の列）を、`docs/` と README の散文と例から grep で探し、すべて新しい名前にする。
+- **完了条件:**
+  - `cargo check -p kivact-docs --all-targets --all-features`
+  - §17.3 の旧名の grep が、移行表と設計書・作業指示書を除いて 0 件であること
+
+### 13.6 CP-R2（CP8 の前の門）
+
+```text
+cargo fetch --locked
+cargo fmt --all -- --check
+cargo xtask check --no-write
+cargo clippy --workspace --all-targets --all-features -- -D warnings
+cargo clippy --workspace --all-targets --no-default-features -- -D warnings
+dev/tools/check-features.sh
+```
+
+- `cargo xtask check --no-write` は 0 件でなければならない。Clippy は dead code を含めて strict に行う。
+- WSL の検査（§10 の決め方）で、`cargo check -p arvane-native -p arvane-compose -p kivact-gpu-share --all-targets --all-features` と、同じ crate の `cargo clippy … -- -D warnings` を行う。
+- **失敗したとき:** 原因の crate ごとに修正の unit（`R2x-fix-<crate>`、最大 6 並列）を作り、§0.1 の完了の監査をしてから merge する。再実行は、失敗した command だけにする。
+- CP-R2 を通したら push し、§10 の CP8、§11 の wave 9、CP9 の順に進む。
