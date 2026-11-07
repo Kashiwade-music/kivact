@@ -225,6 +225,9 @@ target = []
 [module_rules.arvane-compose.uses]
 cache = []
 plan = ["cache"]
+tables = []
+cpu = ["plan", "cache", "tables"]
+gpu = ["plan", "cache", "tables"]
 
 [module_rules.kivact-engine]
 except = [

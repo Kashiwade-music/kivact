@@ -1,4 +1,4 @@
-//! Role: Chunk rasters and window damage: which chunks redraw, and which window rectangles change (design §8.6).
+//! Role: Chunk rasters and window damage: which chunks and rectangles change (§8.6).
 
 use std::borrow::Cow;
 use std::sync::Arc;
@@ -8,8 +8,10 @@ use kivact_types::geometry::{Point, Rect};
 use kivact_types::render::{PixelRect, RenderScene};
 
 use super::bounds::{mapped_bounds, scene_bounds};
+use super::builder::Builder;
+use super::frame::area;
 use super::hash;
-use super::{Builder, ChunkTask, Damage, Grid, PlanError, Redraw, area};
+use super::ops::{ChunkTask, Damage, Grid, PlanError, Redraw};
 use crate::cache::{ChunkKey, ChunkRecord, LayerRecord, Retained};
 
 /// Changed commands beyond which their bounds merge into one rectangle (§8.6).
@@ -188,7 +190,6 @@ impl<'a> Builder<'a> {
                 scale: grid.scale,
                 size: grid.size,
                 redraw,
-                index: index.clone(),
             });
         }
         if cached {

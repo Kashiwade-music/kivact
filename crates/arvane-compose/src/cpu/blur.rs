@@ -1,4 +1,4 @@
-//! Role: Gaussian blur of premultiplied pixels by repeated halving, as design §8.8.1 defines it.
+//! Role: Gaussian blur of premultiplied pixels by repeated halving (§8.8.1).
 
 use super::surface::{Pixmap, Premul};
 

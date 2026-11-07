@@ -1,4 +1,4 @@
-//! Role: FNV-1a 64-bit hashes of the plan's values: commands, paints, effects and layer parameters.
+//! Role: FNV-1a 64-bit hashes of the plan's commands, paints, effects and layers.
 //!
 //! Floats hash by their bits. Allocations shared by `Arc` hash by address
 //! and length, and the record keeps them alive through [`Retained`].
@@ -8,7 +8,7 @@ use std::sync::Arc;
 use kivact_types::color::Rgba;
 use kivact_types::effect::ShaderUse;
 use kivact_types::geometry::{Point, Rect, Transform};
-use kivact_types::geometry3d::{Matrix4, Projective};
+use kivact_types::geometry3d::Matrix4;
 use kivact_types::paint::{BackfaceVisibility, Extend, MaskComposite, MaskMode};
 use kivact_types::pixel::Pixels;
 use kivact_types::render::{ExternalItem, Group};
@@ -113,15 +113,6 @@ impl Fnv {
     /// Fold in a 4×4 matrix.
     pub(crate) fn matrix4(&mut self, m: &Matrix4) {
         for row in m.m {
-            for v in row {
-                self.f64(v);
-            }
-        }
-    }
-
-    /// Fold in a projective map.
-    pub(crate) fn projective(&mut self, p: &Projective) {
-        for row in p.m {
             for v in row {
                 self.f64(v);
             }

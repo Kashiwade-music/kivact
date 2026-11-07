@@ -1,4 +1,4 @@
-//! Role: Blend modes (W3C Compositing 1) and Porter–Duff operators on premultiplied colors (design §8.7).
+//! Role: Blend modes and Porter–Duff operators on premultiplied colors (§8.7).
 
 use kivact_types::pixel::BlendMode;
 use kivact_types::render::Composite;

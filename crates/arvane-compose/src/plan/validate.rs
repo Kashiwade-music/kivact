@@ -3,7 +3,7 @@
 use kivact_types::geometry3d::Matrix4;
 use kivact_types::render::{Composition, LayerEffects, LayerItem};
 
-use super::PlanError;
+use super::ops::PlanError;
 
 /// Check the composition before planning: a finite scale, an identity root
 /// transform and no effects on the root, every child referenced once from

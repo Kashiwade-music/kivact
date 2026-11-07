@@ -6,16 +6,8 @@
 //! Role: feTurbulence on the CPU (Perlin noise by the SVG reference algorithm).
 
 use crate::cpu::surface::Pixmap;
+use crate::tables::{Tables, init};
 
-/// Random generator constants (Park–Miller, 2^31 − 1).
-const RAND_M: i32 = 2_147_483_647;
-const RAND_A: i32 = 16_807;
-const RAND_Q: i32 = 127_773;
-const RAND_R: i32 = 2_836;
-/// Lattice size.
-pub(crate) const B_SIZE: usize = 0x100;
-const B_SIZE_32: i32 = 0x100;
-pub(crate) const B_LEN: usize = B_SIZE + B_SIZE + 2;
 const BM: i32 = 0xff;
 const PERLIN_N: i32 = 0x1000;
 
@@ -74,14 +66,6 @@ struct StitchInfo {
     wrap_y: i32,
 }
 
-/// The lattice selector and the gradients of the four channels.
-pub(crate) struct Tables {
-    /// Lattice selector (`B_LEN` entries).
-    pub(crate) lattice: Vec<usize>,
-    /// Gradients by channel, lattice point and component (`B_LEN` each).
-    pub(crate) gradient: Vec<Vec<[f64; 2]>>,
-}
-
 /// A `w` × `h` pixmap of the turbulence noise (premultiplied).
 pub(crate) fn apply(p: &Params, w: u32, h: u32) -> Pixmap {
     let tables = init(p.seed);
@@ -113,45 +97,6 @@ pub(crate) fn apply(p: &Params, w: u32, h: u32) -> Pixmap {
         }
     }
     out
-}
-
-/// The lattice and gradient tables of a seed.
-pub(crate) fn init(mut seed: i32) -> Tables {
-    let mut lattice = vec![0_usize; B_LEN];
-    let mut gradient = vec![vec![[0.0_f64; 2]; B_LEN]; 4];
-    if seed <= 0 {
-        seed = -seed % (RAND_M - 1) + 1;
-    }
-    if seed > RAND_M - 1 {
-        seed = RAND_M - 1;
-    }
-    for g in gradient.iter_mut() {
-        for i in 0..B_SIZE {
-            lattice[i] = i;
-            for slot in &mut g[i] {
-                seed = random(seed);
-                *slot =
-                    f64::from((seed % (B_SIZE_32 + B_SIZE_32)) - B_SIZE_32) / f64::from(B_SIZE_32);
-            }
-            let s = (g[i][0] * g[i][0] + g[i][1] * g[i][1]).sqrt();
-            g[i][0] /= s;
-            g[i][1] /= s;
-        }
-    }
-    for i in (1..B_SIZE).rev() {
-        let k = lattice[i];
-        seed = random(seed);
-        let j = (seed % B_SIZE_32) as usize;
-        lattice[i] = lattice[j];
-        lattice[j] = k;
-    }
-    for i in 0..B_SIZE + 2 {
-        lattice[B_SIZE + i] = lattice[i];
-        for g in gradient.iter_mut() {
-            g[B_SIZE + i] = g[i];
-        }
-    }
-    Tables { lattice, gradient }
 }
 
 /// One channel's turbulence at the noise point (`x`, `y`) for the tile at `tile` of size `size`.
@@ -270,15 +215,6 @@ fn noise2(channel: usize, x: f64, y: f64, t: &Tables, stitch: Option<StitchInfo>
     let v = rx1 * q[0] + ry1 * q[1];
     let b = lerp(sx, u, v);
     lerp(sy, a, b)
-}
-
-/// The Park–Miller step of the seed.
-fn random(seed: i32) -> i32 {
-    let mut result = RAND_A * (seed % RAND_Q) - RAND_R * (seed / RAND_Q);
-    if result <= 0 {
-        result += RAND_M;
-    }
-    result
 }
 
 /// The smoothstep `t² (3 − 2t)`.

@@ -1,4 +1,4 @@
-//! Role: Premultiplied RGBA8 pixel buffers of the CPU compositor and their sampling.
+//! Role: Premultiplied RGBA8 pixel buffers of the CPU compositor and sampling.
 
 use kivact_types::geometry::Point;
 use kivact_types::render::PixelRect;

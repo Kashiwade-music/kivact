@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 // Changes: the scale is already in pixels and the channels are kivact's Channel.
 
-//! Role: feDisplacementMap on the CPU (each pixel takes the source pixel its map moves it to).
+//! Role: feDisplacementMap on the CPU (each pixel takes its mapped source pixel).
 
 use kivact_types::effect::Channel;
 

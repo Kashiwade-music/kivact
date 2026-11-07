@@ -178,9 +178,6 @@ impl GpuContext {
                     map,
                 )))
             }
-            Source::Pixels(_) => Err(ComposeError::InvalidComposition(
-                "pixel sources are not drawn by this executor".into(),
-            )),
         }
     }
 

@@ -3,7 +3,7 @@
 // Changes: the functions are kivact's TransferFn; the values are f32 in 0..=1
 // and written through the compositor's premultiplied pixmap.
 
-//! Role: feComponentTransfer on the CPU (per-channel transfer functions on unpremultiplied colors).
+//! Role: feComponentTransfer on the CPU (per-channel transfer functions).
 
 use kivact_types::effect::TransferFn;
 

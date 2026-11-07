@@ -1,4 +1,4 @@
-//! Role: 3D contexts: the planes that share a context, drawn in depth order over the target (design §8.4, §8.14).
+//! Role: 3D contexts: planes sharing a context, drawn in depth order (§8.4).
 
 use kivact_types::Matrix4;
 use kivact_types::geometry::{Point, Rect};
@@ -8,9 +8,10 @@ use kivact_types::render::{Composite, LayerItem, MAX_CONTEXT_PLANES, Plane as La
 use kivact_types::scene::Shape;
 
 use super::bounds::mapped_bounds;
-use super::items::{Dest, ItemCtx};
+use super::builder::Builder;
+use super::frame::{Dest, ItemCtx, px_map};
+use super::ops::{DrawOp, Op, PlanError, Sampling, Scissor, Source, TargetId};
 use super::polygon::{Plane, Poly, Split, plane_of, project_rect, split};
-use super::{Builder, DrawOp, Op, PlanError, Sampling, Scissor, Source, TargetId, px_map};
 
 /// One participant of a context: a run of the root's own items, or a flat child layer.
 #[derive(Clone, Copy, Debug)]
@@ -184,7 +185,6 @@ impl<'a> Builder<'a> {
         };
         let surface = self.new_temp(geo.size);
         let cx = ItemCtx {
-            index,
             layer: owner,
             first: start,
             items: &owner.items[start..end],
@@ -273,17 +273,10 @@ impl<'a> Builder<'a> {
         out: &mut Vec<Part>,
     ) -> Result<(), PlanError> {
         let layer = self.layer(index)?;
-        for item in &layer.items {
-            if let LayerItem::External(external) = item
-                && !external.clips.is_empty()
-            {
-                return Err(PlanError::new(
-                    "a clip on an external frame in a 3D context has no coverage space (design §8.4)",
-                ));
-            }
-        }
         let mut start = 0usize;
         for (pos, item) in layer.items.iter().enumerate() {
+            // A child with clips is not a participant (design §6.4, §8.4): it stays in the
+            // fragment, drawn flat with its clips as a coverage on that fragment's surface.
             let LayerItem::Layer {
                 index: child,
                 clips,
@@ -291,6 +284,9 @@ impl<'a> Builder<'a> {
             else {
                 continue;
             };
+            if !clips.is_empty() {
+                continue;
+            }
             if start < pos {
                 let mut key = path.clone();
                 key.push(start as u32);
@@ -304,11 +300,6 @@ impl<'a> Builder<'a> {
                     to_win: *to_win,
                     key,
                 });
-            }
-            if !clips.is_empty() {
-                return Err(PlanError::new(
-                    "a clip on a child of a 3D context has no coverage space (design §8.4)",
-                ));
             }
             let child_layer = self.layer(*child)?;
             let child_to = child_layer.transform.then(*to_t);
