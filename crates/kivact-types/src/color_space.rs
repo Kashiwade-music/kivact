@@ -113,13 +113,13 @@ const D50_TO_D65: Mat3 = [
     ],
 ];
 const XYZ_TO_LMS: Mat3 = [
-    [0.8190224379967030, 0.3619062600528904, -0.1288737815209879],
+    [0.819022437996703, 0.3619062600528904, -0.1288737815209879],
     [0.0329836539323885, 0.9292868615863434, 0.0361446663506424],
     [0.0481771893596242, 0.2642395317527308, 0.6335478284694309],
 ];
 const LMS_CBRT_TO_OKLAB: Mat3 = [
-    [0.2104542683093140, 0.7936177747023054, -0.0040720430116193],
-    [1.9779985324311684, -2.4285922420485799, 0.4505937096174110],
+    [0.210454268309314, 0.7936177747023054, -0.0040720430116193],
+    [1.9779985324311684, -2.42859224204858, 0.450593709617411],
     [0.0259040424655478, 0.7827717124575296, -0.8086757549230774],
 ];
 const OKLAB_TO_LMS_CBRT: Mat3 = [
@@ -129,7 +129,7 @@ const OKLAB_TO_LMS_CBRT: Mat3 = [
 ];
 const LMS_TO_XYZ: Mat3 = [
     [1.2268798758459243, -0.5578149944602171, 0.2813910456659647],
-    [-0.0405757452148008, 1.1122868032803170, -0.0717110580655164],
+    [-0.0405757452148008, 1.112286803280317, -0.0717110580655164],
     [-0.0763729366746601, -0.4214933324022432, 1.5869240198367816],
 ];
 
@@ -498,7 +498,7 @@ fn hsl_to_rgb(hsl: [f64; 3]) -> [f64; 3] {
     let a = s * l.min(1.0 - l);
     let f = |n: f64| {
         let k = (n + h / 30.0) % 12.0;
-        l - a * (k - 3.0).min(9.0 - k).min(1.0).max(-1.0)
+        l - a * (k - 3.0).min(9.0 - k).clamp(-1.0, 1.0)
     };
     [f(0.0), f(8.0), f(4.0)]
 }
@@ -550,7 +550,7 @@ impl SpaceColor {
             let xyz = to_xyz_d65(rect.space, rect.channels);
             SpaceColor::new(base, from_xyz_d65(base, xyz), self.alpha)
         };
-        in_base.from_rectangular(to)
+        in_base.into_space(to)
     }
 
     /// This color in its rectangular counterpart (itself if rectangular).
@@ -566,7 +566,7 @@ impl SpaceColor {
     }
 
     /// `self` (in the rectangular base of `to`) expressed in `to`.
-    fn from_rectangular(self, to: ColorSpace) -> SpaceColor {
+    fn into_space(self, to: ColorSpace) -> SpaceColor {
         let channels = match to {
             ColorSpace::Lch | ColorSpace::Oklch => rect_to_polar(self.channels),
             ColorSpace::Hsl => rgb_to_hsl(self.channels),

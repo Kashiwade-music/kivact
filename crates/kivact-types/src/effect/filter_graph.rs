@@ -288,6 +288,10 @@ impl<I> FilterGraph<I> {
 fn map_op<I, J>(op: &PrimitiveOp<I>, f: &mut impl FnMut(&I) -> J) -> PrimitiveOp<J> {
     use PrimitiveOp as P;
     match op {
+        P::Image { image, rect } => P::Image {
+            image: f(image),
+            rect: *rect,
+        },
         P::Blend { top, bottom, mode } => P::Blend {
             top: *top,
             bottom: *bottom,
@@ -356,6 +360,15 @@ fn map_op<I, J>(op: &PrimitiveOp<I>, f: &mut impl FnMut(&I) -> J) -> PrimitiveOp
             color: *color,
             light: light.clone(),
         },
+        other => map_op_rest(other),
+    }
+}
+
+/// Copies the primitives whose parameters do not depend on the image type.
+/// `map_op` dispatches only the remaining variants here.
+fn map_op_rest<I, J>(op: &PrimitiveOp<I>) -> PrimitiveOp<J> {
+    use PrimitiveOp as P;
+    match op {
         P::DisplacementMap {
             input,
             map,
@@ -390,10 +403,6 @@ fn map_op<I, J>(op: &PrimitiveOp<I>, f: &mut impl FnMut(&I) -> J) -> PrimitiveOp
             std_dev: *std_dev,
             edge: *edge,
         },
-        P::Image { image, rect } => P::Image {
-            image: f(image),
-            rect: *rect,
-        },
         P::Merge { inputs } => P::Merge {
             inputs: inputs.clone(),
         },
@@ -423,6 +432,16 @@ fn map_op<I, J>(op: &PrimitiveOp<I>, f: &mut impl FnMut(&I) -> J) -> PrimitiveOp
             kind: *kind,
             stitch: *stitch,
         },
+        P::Image { .. } | P::Blend { .. } | P::ColorMatrix { .. } => {
+            unreachable!("map_op dispatches these variants before map_op_rest")
+        }
+        P::ComponentTransfer { .. }
+        | P::Composite { .. }
+        | P::ConvolveMatrix { .. }
+        | P::DiffuseLighting { .. }
+        | P::SpecularLighting { .. } => {
+            unreachable!("map_op dispatches these variants before map_op_rest")
+        }
     }
 }
 
@@ -488,6 +507,21 @@ fn validate_op<I>(i: usize, op: &PrimitiveOp<I>) -> Result<(), String> {
             check_input(i, *input)?;
             check_non_negative(i, &[std_dev.0, std_dev.1])
         }
+        P::Merge { inputs } => {
+            if inputs.is_empty() || inputs.len() > 16 {
+                return Err(format!("primitive {i}: Merge needs 1 to 16 inputs"));
+            }
+            inputs.iter().try_for_each(|input| check_input(i, *input))
+        }
+        other => validate_op_rest(i, other),
+    }
+}
+
+/// Validates the primitives with tables, kernels, or lighting parameters.
+/// `validate_op` dispatches only the remaining variants here.
+fn validate_op_rest<I>(i: usize, op: &PrimitiveOp<I>) -> Result<(), String> {
+    use PrimitiveOp as P;
+    match op {
         P::ComponentTransfer { input, r, g, b, a } => {
             check_input(i, *input)?;
             [r, g, b, a]
@@ -552,11 +586,18 @@ fn validate_op<I>(i: usize, op: &PrimitiveOp<I>) -> Result<(), String> {
                 Err(format!("primitive {i}: octaves must be 0 to 16"))
             }
         }
-        P::Merge { inputs } => {
-            if inputs.is_empty() || inputs.len() > 16 {
-                return Err(format!("primitive {i}: Merge needs 1 to 16 inputs"));
-            }
-            inputs.iter().try_for_each(|input| check_input(i, *input))
+        P::Blend { .. }
+        | P::Composite { .. }
+        | P::ColorMatrix { .. }
+        | P::Flood { .. }
+        | P::Offset { .. }
+        | P::Tile { .. }
+        | P::Image { .. }
+        | P::Morphology { .. }
+        | P::DropShadow { .. }
+        | P::GaussianBlur { .. }
+        | P::Merge { .. } => {
+            unreachable!("validate_op dispatches these variants before validate_op_rest")
         }
     }
 }

@@ -674,7 +674,7 @@ impl SpringRun {
         self.amplitude.extend(to.iter().enumerate().map(|(i, to)| {
             let distance = from.get(i).map_or(0.0, |from| (to - from).abs());
             let speed = velocity[i].abs() / w0;
-            distance.max(speed).max(AMPLITUDE_MIN).min(AMPLITUDE_MAX)
+            distance.max(speed).clamp(AMPLITUDE_MIN, AMPLITUDE_MAX)
         }));
     }
 }

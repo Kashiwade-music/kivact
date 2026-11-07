@@ -116,6 +116,10 @@ pub struct TextRun {
 
 /// One authored draw command of a recording.
 #[derive(Clone, Debug, PartialEq)]
+#[allow(
+    clippy::large_enum_variant,
+    reason = "authored once per draw command and moved into the recording; boxing the image payload would allocate per command"
+)]
 pub enum DrawCmd {
     /// A pixel image drawn into a rectangle.
     Pixels {

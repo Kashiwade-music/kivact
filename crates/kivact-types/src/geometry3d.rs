@@ -300,7 +300,7 @@ impl Matrix4 {
             [m[2][0], m[2][1], m[2][2]],
         ];
         let det = det3(&linear);
-        if !bottom_ok || !self.is_finite() || !(det.abs() >= NEAR) {
+        if !bottom_ok || !self.is_finite() || det.is_nan() || det.abs() < NEAR {
             return None;
         }
         let cols = [0, 1, 2].map(|j| [m[0][j], m[1][j], m[2][j]]);
@@ -483,7 +483,7 @@ impl Projective {
     /// the result is not finite.
     pub fn apply(&self, p: Point) -> Option<Point> {
         let [x, y, w] = self.homogeneous(p.x, p.y);
-        if !(w > W_EPS) {
+        if w.is_nan() || w <= W_EPS {
             return None;
         }
         let out = Point::new(x / w, y / w);
