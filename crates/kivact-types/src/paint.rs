@@ -1,6 +1,15 @@
 //! Role: Shared node paint, image payloads, effects and state-dependent styling.
+mod prop_interp;
+
+pub use prop_interp::{PropBasis, PropInterp, apply_components, prop_interp};
+
+use crate::color_space::SpaceColor;
+use crate::effect::FilterGraph;
+use crate::geometry3d::Matrix4;
 use crate::layout::IntrinsicSize;
-use crate::{Asset, BorderStyle, Edges, Point, Rgba};
+use crate::motion::{Transition, TransitionProp};
+use crate::pixel::BlendMode;
+use crate::{Asset, BorderStyle, Edges, Point, Rgba, Size};
 
 /// Image content, fitting policy and optional intrinsic sizing.
 #[derive(Clone, Debug, PartialEq, Default)]
@@ -14,6 +23,8 @@ pub struct ImageData {
     pub monochrome: Option<bool>,
     /// Optional natural dimensions used to size the image.
     pub intrinsic: Option<IntrinsicSize>,
+    /// Animated images: `Some(true)` plays, `Some(false)` holds the frame.
+    pub playing: Option<bool>,
 }
 
 /// How a gradient continues beyond its first and last stop.
@@ -32,17 +43,22 @@ pub enum Extend {
 /// `px + pct / 100 × reference` (CSS `calc(pct% + px)`).
 #[derive(Clone, Copy, Debug, PartialEq, Default)]
 pub struct Len {
+    /// The absolute part in logical px.
     pub px: f64,
+    /// The percentage part.
     pub pct: f64,
 }
 
 impl Len {
+    /// Zero length.
     pub const ZERO: Len = Len { px: 0.0, pct: 0.0 };
 
+    /// A length of `px` logical pixels.
     pub const fn px(px: f64) -> Len {
         Len { px, pct: 0.0 }
     }
 
+    /// A length of `pct` percent of the reference.
     pub const fn pct(pct: f64) -> Len {
         Len { px: 0.0, pct }
     }
@@ -56,22 +72,60 @@ impl Len {
 /// What a box (or a scene rect) is filled with.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Fill {
+    /// One solid color.
     Solid(Rgba),
     /// CSS background layers, the first on top.
     Layers(Vec<FillLayer>),
+}
+
+/// The clip of a background or mask layer (CSS `background-clip`, `mask-clip`).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub enum BackgroundClip {
+    /// Clipped to the border box.
+    #[default]
+    BorderBox,
+    /// Clipped to the padding box.
+    PaddingBox,
+    /// Clipped to the content box.
+    ContentBox,
+    /// Painted only through the text glyphs.
+    Text,
+}
+
+/// The origin a background or mask layer is positioned from (CSS `background-origin`).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub enum BackgroundOrigin {
+    /// The border box.
+    BorderBox,
+    /// The padding box (the default for backgrounds).
+    #[default]
+    PaddingBox,
+    /// The content box.
+    ContentBox,
 }
 
 /// One CSS background layer: an image (a color, a gradient or a picture)
 /// sized, positioned and repeated in the box it fills.
 #[derive(Clone, Debug, PartialEq)]
 pub struct FillLayer {
+    /// What the layer paints.
     pub image: FillImage,
+    /// The size of one tile.
     pub size: FillSize,
     /// Where the first tile is: x against `box − tile` width, y against
     /// `box − tile` height (CSS `background-position`).
     pub position: [Len; 2],
+    /// Repeat horizontally.
     pub repeat_x: bool,
+    /// Repeat vertically.
     pub repeat_y: bool,
+    /// CSS background-clip / mask-clip.
+    pub clip: BackgroundClip,
+    /// CSS background-origin / mask-origin; None: the context's default
+    /// (backgrounds: PaddingBox, masks: BorderBox).
+    pub origin: Option<BackgroundOrigin>,
+    /// CSS background-blend-mode (masks ignore it).
+    pub blend: BlendMode,
 }
 
 impl FillLayer {
@@ -83,18 +137,28 @@ impl FillLayer {
             position: [Len::ZERO; 2],
             repeat_x: true,
             repeat_y: true,
+            clip: BackgroundClip::BorderBox,
+            origin: None,
+            blend: BlendMode::Normal,
         }
     }
 }
 
+/// What one background or mask layer paints.
 #[derive(Clone, Debug, PartialEq)]
 pub enum FillImage {
+    /// A solid color.
     Solid(Rgba),
+    /// A CSS gradient image.
     Gradient(Gradient),
+    /// A picture.
     Image(Asset),
     /// A gradient placed by coordinates, not by the area it fills (the
     /// layer's size, position and repeat do not apply to it).
     Coordinate(CoordinateGradient),
+    /// A paint shader (§11.3).
+    // xtask-allow(api-shape): Shared immutable payload, cloned without copying its data; the design keeps one allocation.
+    Shader(std::sync::Arc<ShaderSpec>),
 }
 
 /// A gradient placed by coordinates, as canvas `createLinearGradient`,
@@ -104,30 +168,48 @@ pub enum FillImage {
 /// top left corner).
 #[derive(Clone, Debug, PartialEq)]
 pub struct CoordinateGradient {
+    /// The geometry of the gradient.
     pub shape: CoordinateShape,
-    /// Offsets and colors, in order of offset (the engine draws nothing for
+    /// Offsets and authored colors, in order of offset (the engine draws nothing for
     /// offsets outside `0..=1`, not finite or out of order, or for no stop);
     /// two stops at one offset make a hard edge.
-    pub stops: Vec<(f64, Rgba)>,
+    pub stops: Vec<(f64, SpaceColor)>,
+    /// What happens beyond the offsets.
     pub extend: Extend,
+    /// The color space the stops are interpolated in (canvas: sRGB).
+    pub interpolation: crate::color_space::ColorInterpolation,
 }
 
 /// Where a [`CoordinateGradient`]'s offsets lie.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum CoordinateShape {
     /// Offset 0 at `start`, offset 1 at `end`.
-    Linear { start: Point, end: Point },
+    Linear {
+        /// Where offset 0 lies.
+        start: Point,
+        /// Where offset 1 lies.
+        end: Point,
+    },
     /// Offset 0 on the circle of `start_radius` around `start_center`,
     /// offset 1 on the circle of `end_radius` around `end_center`.
     RadialTwoCircle {
+        /// Center of the offset-0 circle.
         start_center: Point,
+        /// Radius of the offset-0 circle.
         start_radius: f64,
+        /// Center of the offset-1 circle.
         end_center: Point,
+        /// Radius of the offset-1 circle.
         end_radius: f64,
     },
     /// Offsets by angle around `center`, one turn clockwise from
     /// `start_deg` (0 along the positive x axis).
-    Conic { center: Point, start_deg: f64 },
+    Conic {
+        /// The center of the turn.
+        center: Point,
+        /// Where the turn starts, in degrees.
+        start_deg: f64,
+    },
 }
 
 /// The size of one tile (CSS `background-size`).
@@ -136,7 +218,9 @@ pub enum FillSize {
     /// A gradient or color: the box; an image: its natural size.
     #[default]
     Auto,
+    /// Covers the box, keeping the aspect ratio.
     Cover,
+    /// Fits inside the box, keeping the aspect ratio.
     Contain,
     /// Width against the box width, height against the box height; `None`
     /// is auto (the box for a gradient, the image's aspect for an image).
@@ -146,43 +230,66 @@ pub enum FillSize {
 /// A CSS gradient image.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Gradient {
+    /// Linear, radial or conic.
     pub kind: GradientKind,
     /// Stops in order; a stop without a position is placed as CSS places
     /// it (evenly between its positioned neighbours).
     pub stops: Vec<GradientStop>,
+    /// CSS color hint between stop i and stop i + 1; len = stops.len() − 1.
+    pub hints: Vec<Option<Len>>,
     /// CSS `repeating-*-gradient`.
     pub repeating: bool,
+    /// The color space of the interpolation (CSS default: Oklab).
+    pub interpolation: crate::color_space::ColorInterpolation,
 }
 
+/// One color stop of a [`Gradient`], with the authored color.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct GradientStop {
-    pub color: Rgba,
+    /// The color, in the space it was authored in.
+    pub color: SpaceColor,
     /// Against the gradient line's length (linear, radial); a conic
     /// gradient's `px` are degrees and `pct` a percentage of the turn.
     pub at: Option<Len>,
 }
 
+/// The shape of a CSS gradient.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum GradientKind {
     /// CSS `linear-gradient(<angle>deg, ..)`: 0 = to top, 90 = to right.
-    Linear { angle_deg: f64 },
+    Linear {
+        /// The angle in degrees.
+        angle_deg: f64,
+    },
     /// CSS `radial-gradient(<shape> <size> at <center>, ..)`; the center's
     /// x is against the box width, y against its height.
     Radial {
+        /// A circle (true) or an ellipse.
         circle: bool,
+        /// The size of the ending shape.
         extent: RadialExtent,
+        /// The center.
         center: [Len; 2],
     },
     /// CSS `conic-gradient(from <deg> at <center>, ..)`.
-    Conic { from_deg: f64, center: [Len; 2] },
+    Conic {
+        /// Where the turn starts, in degrees.
+        from_deg: f64,
+        /// The center.
+        center: [Len; 2],
+    },
 }
 
 /// The size of a radial gradient's ending shape.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum RadialExtent {
+    /// Closest side.
     ClosestSide,
+    /// Closest corner.
     ClosestCorner,
+    /// Farthest side.
     FarthestSide,
+    /// Farthest corner.
     FarthestCorner,
     /// Explicit radii, x against the box width and y against its height (a
     /// circle uses x).
@@ -192,9 +299,12 @@ pub enum RadialExtent {
 /// A border inside the border box, per side.
 #[derive(Clone, Copy, Debug, PartialEq, Default)]
 pub struct Border {
+    /// Widths per side.
     pub widths: Edges<f64>,
+    /// Colors per side.
     pub colors: Edges<Rgba>,
-    pub style: BorderStyle,
+    /// Line styles per side.
+    pub styles: Edges<BorderStyle>,
 }
 
 impl Border {
@@ -203,7 +313,7 @@ impl Border {
         Border {
             widths: Edges::all(width),
             colors: Edges::all(color),
-            style: BorderStyle::Solid,
+            styles: Edges::all(BorderStyle::Solid),
         }
     }
 }
@@ -242,47 +352,6 @@ pub enum Cursor {
     None,
 }
 
-/// How a layer's pixels combine with what is beneath them (CSS
-/// `mix-blend-mode`; [`BlendMode::PlusLighter`] is canvas `lighter`).
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub enum BlendMode {
-    /// Source over.
-    #[default]
-    Normal,
-    /// Multiply.
-    Multiply,
-    /// Screen.
-    Screen,
-    /// Overlay.
-    Overlay,
-    /// Darken.
-    Darken,
-    /// Lighten.
-    Lighten,
-    /// Color dodge.
-    ColorDodge,
-    /// Color burn.
-    ColorBurn,
-    /// Hard light.
-    HardLight,
-    /// Soft light.
-    SoftLight,
-    /// Difference.
-    Difference,
-    /// Exclusion.
-    Exclusion,
-    /// Hue.
-    Hue,
-    /// Saturation.
-    Saturation,
-    /// Color.
-    Color,
-    /// Luminosity.
-    Luminosity,
-    /// Additive (CSS `plus-lighter`, canvas `lighter`).
-    PlusLighter,
-}
-
 /// How an image fills its box.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 pub enum ImageFit {
@@ -302,8 +371,11 @@ pub enum ImageFit {
 /// A focus ring of `width` separated from the border box by `offset`.
 #[derive(Clone, Copy, Debug, PartialEq, Default)]
 pub struct Ring {
+    /// Width of the ring in logical px.
     pub width: f64,
+    /// Gap between the border box and the ring.
     pub offset: f64,
+    /// Color of the ring.
     pub color: Rgba,
 }
 
@@ -311,7 +383,9 @@ pub struct Ring {
 /// height.
 #[derive(Clone, Copy, Debug, PartialEq, Default)]
 pub struct CornerRadius {
+    /// The horizontal radius.
     pub x: Len,
+    /// The vertical radius.
     pub y: Len,
 }
 
@@ -328,9 +402,13 @@ impl CornerRadius {
 /// Elliptical radii for each corner of a border box.
 #[derive(Clone, Copy, Debug, PartialEq, Default)]
 pub struct Corners {
+    /// Top left corner.
     pub top_left: CornerRadius,
+    /// Top right corner.
     pub top_right: CornerRadius,
+    /// Bottom right corner.
     pub bottom_right: CornerRadius,
+    /// Bottom left corner.
     pub bottom_left: CornerRadius,
 }
 
@@ -365,51 +443,152 @@ impl Corners {
 }
 
 /// One CSS filter function.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum FilterOp {
+    /// `brightness()`.
     Brightness(f64),
+    /// `contrast()`.
     Contrast(f64),
+    /// `saturate()`.
     Saturate(f64),
+    /// `grayscale()`.
     Grayscale(f64),
+    /// `sepia()`.
     Sepia(f64),
     /// Degrees.
     HueRotate(f64),
+    /// `invert()`.
     Invert(f64),
+    /// `opacity()`.
     Opacity(f64),
     /// CSS `blur(px)`.
     Blur(f64),
     /// CSS `drop-shadow(x y blur color)`.
     DropShadow {
+        /// Offset of the shadow.
         offset: Point,
+        /// Blur radius.
         blur: f64,
+        /// Color of the shadow.
         color: Rgba,
     },
+    /// CSS `url(#filter)`: an SVG filter graph (§5.9), images as assets.
+    // xtask-allow(api-shape): Shared immutable payload, cloned without copying its data; the design keeps one allocation.
+    Graph(std::sync::Arc<FilterGraph<Asset>>),
+    /// A filter shader (§11.3).
+    // xtask-allow(api-shape): Shared immutable payload, cloned without copying its data; the design keeps one allocation.
+    Shader(std::sync::Arc<ShaderSpec>),
 }
 
 /// A CSS basic shape in the border box (`clip-path`): x against the box
 /// width, y against its height.
 #[derive(Clone, Debug, PartialEq)]
 pub enum ClipShape {
+    /// An explicit path.
     Path {
+        /// The path commands.
         cmds: Vec<crate::scene::PathCmd>,
+        /// Even-odd fill rule (false: non-zero).
         even_odd: bool,
     },
     /// CSS `inset(top right bottom left round radii)`.
-    Inset { edges: Edges<Len>, radius: Corners },
+    Inset {
+        /// The insets from each edge.
+        edges: Edges<Len>,
+        /// The corner radii.
+        radius: Corners,
+    },
     /// CSS `circle(r at x y)`; a percentage radius is against
     /// `√(w² + h²) / √2`.
-    Circle { radius: Len, center: [Len; 2] },
+    Circle {
+        /// The radius.
+        radius: Len,
+        /// The center.
+        center: [Len; 2],
+    },
     /// CSS `ellipse(rx ry at x y)`.
     Ellipse {
+        /// Horizontal radius.
         radius_x: Len,
+        /// Vertical radius.
         radius_y: Len,
+        /// The center.
         center: [Len; 2],
     },
     /// CSS `polygon(x y, ..)`.
     Polygon {
+        /// The vertices.
         points: Vec<[Len; 2]>,
+        /// Even-odd fill rule (false: non-zero).
         even_odd: bool,
     },
+}
+
+/// The mode of one CSS mask layer (`mask-mode`).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub enum MaskMode {
+    /// The alpha of the mask masks.
+    #[default]
+    Alpha,
+    /// The luminance times the alpha of the mask masks.
+    Luminance,
+}
+
+/// How a mask layer combines with the layers below it (`mask-composite`).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub enum MaskComposite {
+    /// Add.
+    #[default]
+    Add,
+    /// Subtract.
+    Subtract,
+    /// Intersect.
+    Intersect,
+    /// Exclude.
+    Exclude,
+}
+
+/// One CSS mask layer.
+#[derive(Clone, Debug, PartialEq)]
+pub struct MaskLayer {
+    /// The image of the mask.
+    pub fill: FillLayer,
+    /// Alpha or luminance.
+    pub mode: MaskMode,
+    /// How it combines with the layers below.
+    pub composite: MaskComposite,
+}
+
+/// How a border image tiles its edges (`border-image-repeat`).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub enum BorderImageRepeat {
+    /// Stretch the slices to fill.
+    #[default]
+    Stretch,
+    /// Repeat the slices.
+    Repeat,
+    /// Repeat with a whole number of slices.
+    Round,
+    /// Repeat with spacing.
+    Space,
+}
+
+/// CSS border-image (also the nine-slice of `Draw::border_image`).
+#[derive(Clone, Debug, PartialEq)]
+pub struct BorderImage {
+    /// Image, gradient or solid color (§9.2).
+    pub source: FillImage,
+    /// Insets into the source: px are source pixels (for gradients and
+    /// solid colors, px of the border image area), pct of the source size.
+    pub slice: Edges<Len>,
+    /// Paint the middle of the slices.
+    pub fill: bool,
+    /// None: the border widths. pct is of the border image area (§9.2).
+    pub width: Option<Edges<Len>>,
+    /// How far the border image extends beyond the border box.
+    pub outset: Edges<f64>,
+    /// Horizontal, vertical.
+    pub repeat: [BorderImageRepeat; 2],
 }
 
 /// The paint effects of a node, rare enough to be boxed: none of them costs
@@ -420,9 +599,11 @@ pub struct Effects {
     pub filter: Vec<FilterOp>,
     /// CSS `backdrop-filter`, in order (empty: none).
     pub backdrop: Vec<FilterOp>,
+    /// Blend mode with what is beneath.
     pub blend: BlendMode,
-    /// CSS `mask` (its alpha masks the node and its subtree).
-    pub mask: Option<FillLayer>,
+    /// CSS `mask` layers (their alpha masks the node and its subtree).
+    pub masks: Vec<MaskLayer>,
+    /// CSS `clip-path`.
     pub clip_path: Option<ClipShape>,
 }
 
@@ -432,284 +613,132 @@ impl Effects {
         self.filter.is_empty()
             && self.backdrop.is_empty()
             && self.blend == BlendMode::Normal
-            && self.mask.is_none()
+            && self.masks.is_empty()
             && self.clip_path.is_none()
     }
 }
 
-/// Shadows animated (more change at once).
-const SHADOWS: usize = 2;
-
-const BG: usize = 1;
-
-const BORDER: usize = BG + 4;
-
-const TRANSFORM: usize = BORDER + 16;
-
-/// The transform's parts (`Transform::components`), then its origin's.
-const SHADOW: usize = TRANSFORM + 14;
-
-const FILTER: usize = SHADOW + 8 * SHADOWS;
-
-/// brightness, contrast, saturate, grayscale, sepia, hue rotation, invert,
-/// opacity, blur, drop shadow (x, y, blur, r, g, b, a).
-const FILTER_LEN: usize = 16;
-
-const LEN: usize = FILTER + FILTER_LEN;
-
-/// The filter amounts that change nothing.
-const IDENTITY: [f64; FILTER_LEN] = [
-    1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-];
-
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct PaintVec([f64; LEN]);
-
-fn rgba(c: Rgba) -> [f64; 4] {
-    [c.r, c.g, c.b, c.a]
+/// How a shader's `time` advances (§11.3.5).
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub enum ShaderClock {
+    /// Time does not advance.
+    #[default]
+    Still,
+    /// Time advances at this rate in hertz.
+    Hz(f64),
+    /// Time advances with the display.
+    Display,
 }
 
-fn color(v: &[f64]) -> Rgba {
-    Rgba {
-        r: v[0],
-        g: v[1],
-        b: v[2],
-        a: v[3].clamp(0.0, 1.0),
-    }
+/// A shader as authored on a node (paint wire): the engine turns it into a
+/// `ShaderUse` for each frame (time, decoded images).
+#[derive(Clone, Debug, PartialEq)]
+pub struct ShaderSpec {
+    /// The validated program.
+    // xtask-allow(api-shape): Shared immutable payload, cloned without copying its data; the design keeps one allocation.
+    pub program: std::sync::Arc<crate::effect::ShaderProgram>,
+    /// The parameter bytes, laid out by the program's parameter slots.
+    // xtask-allow(api-shape): Shared immutable payload, cloned without copying its data; the design keeps one allocation.
+    pub params: std::sync::Arc<[u8]>,
+    /// Slots 0..=3 of the WGSL `image(slot, uv)` helper.
+    pub images: [Option<Asset>; 4],
+    /// How the shader's time advances.
+    pub clock: ShaderClock,
+    /// Keeps the clock running under reduced motion.
+    pub essential: bool,
+    /// Paint shaders: what the CPU (and a failed pipeline) draws instead; None: nothing.
+    /// Never `FillImage::Shader` (resolve reports and drops it).
+    pub fallback: Option<FillImage>,
+    /// Filter shaders: px the output may extend beyond the layer bounds.
+    pub margin: f64,
 }
 
-/// The filter of `p` as amounts in the canonical order (a function given
-/// twice composes: amounts multiply, angles and blurs add).
-fn filter_amounts(p: &PaintProps) -> [f64; FILTER_LEN] {
-    let mut v = IDENTITY;
-    for op in p.effects.iter().flat_map(|e| &e.filter) {
-        match *op {
-            FilterOp::Brightness(a) => v[0] *= a,
-            FilterOp::Contrast(a) => v[1] *= a,
-            FilterOp::Saturate(a) => v[2] *= a,
-            FilterOp::Grayscale(a) => v[3] = a,
-            FilterOp::Sepia(a) => v[4] = a,
-            FilterOp::HueRotate(a) => v[5] += a,
-            FilterOp::Invert(a) => v[6] = a,
-            FilterOp::Opacity(a) => v[7] *= a,
-            FilterOp::Blur(a) => v[8] += a,
-            FilterOp::DropShadow {
-                offset,
-                blur,
-                color,
-            } => {
-                v[9..12].copy_from_slice(&[offset.x, offset.y, blur]);
-                v[12..16].copy_from_slice(&rgba(color));
-            }
-        }
-    }
-    v
-}
-
-/// The filter of the amounts `v`, in the canonical order, leaving out the
-/// functions that change nothing.
-fn filter_of(v: &[f64]) -> Vec<FilterOp> {
-    let mut out = Vec::new();
-    let mut push = |i: usize, op: fn(f64) -> FilterOp| {
-        if (v[i] - IDENTITY[i]).abs() > 1e-4 {
-            out.push(op(v[i]));
-        }
-    };
-    push(0, FilterOp::Brightness);
-    push(1, FilterOp::Contrast);
-    push(2, FilterOp::Saturate);
-    push(3, FilterOp::Grayscale);
-    push(4, FilterOp::Sepia);
-    push(5, FilterOp::HueRotate);
-    push(6, FilterOp::Invert);
-    push(7, FilterOp::Opacity);
-    push(8, FilterOp::Blur);
-    if v[15] > 1e-3 {
-        out.push(FilterOp::DropShadow {
-            offset: Point { x: v[9], y: v[10] },
-            blur: v[11].max(0.0),
-            color: color(&v[12..16]),
-        });
-    }
-    out
-}
-
-impl PaintVec {
-    pub fn of(p: &PaintProps) -> PaintVec {
-        let mut v = [0.0; LEN];
-        v[0] = p.opacity;
-        if let Some(Fill::Solid(c)) = &p.background {
-            v[BG..BORDER].copy_from_slice(&rgba(*c));
-        }
-        if let Some(b) = &p.border {
-            let c = b.colors;
-            for (i, side) in [c.top, c.right, c.bottom, c.left].into_iter().enumerate() {
-                v[BORDER + 4 * i..BORDER + 4 * i + 4].copy_from_slice(&rgba(side));
-            }
-        }
-        let t = p.transform;
-        v[TRANSFORM..TRANSFORM + 10].copy_from_slice(&[
-            t.translate.x,
-            t.translate.y,
-            t.per_size[0],
-            t.per_size[1],
-            t.per_size[2],
-            t.per_size[3],
-            t.rotate,
-            t.skew_x,
-            t.scale.x,
-            t.scale.y,
-        ]);
-        let [x, y] = t.origin;
-        v[TRANSFORM + 10..SHADOW].copy_from_slice(&[x.px, x.pct, y.px, y.pct]);
-        for (i, s) in p.shadows.iter().take(SHADOWS).enumerate() {
-            let at = SHADOW + 8 * i;
-            v[at..at + 4].copy_from_slice(&[s.offset.x, s.offset.y, s.blur, s.spread]);
-            v[at + 4..at + 8].copy_from_slice(&rgba(s.color));
-        }
-        v[FILTER..].copy_from_slice(&filter_amounts(p));
-        PaintVec(v)
-    }
-
-    /// Put the animated components into `p` (the target paint).
-    pub fn apply(&self, p: &mut PaintProps) {
-        let v = &self.0;
-        p.opacity = v[0].clamp(0.0, 1.0);
-        let bg = color(&v[BG..BORDER]);
-        match &mut p.background {
-            Some(Fill::Solid(c)) => *c = bg,
-            None if bg.a > 0.001 => p.background = Some(Fill::Solid(bg)),
-            _ => {}
-        }
-        if let Some(b) = &mut p.border {
-            let side = |i: usize| color(&v[BORDER + 4 * i..BORDER + 4 * i + 4]);
-            b.colors = Edges {
-                top: side(0),
-                right: side(1),
-                bottom: side(2),
-                left: side(3),
-            };
-        }
-        let parts: [f64; 10] = std::array::from_fn(|i| v[TRANSFORM + i]);
-        let o = &v[TRANSFORM + 10..SHADOW];
-        p.transform = crate::ElementTransform {
-            translate: Point {
-                x: parts[0],
-                y: parts[1],
-            },
-            per_size: [parts[2], parts[3], parts[4], parts[5]],
-            rotate: parts[6],
-            skew_x: parts[7],
-            scale: Point {
-                x: parts[8],
-                y: parts[9],
-            },
-            origin: [
-                Len {
-                    px: o[0],
-                    pct: o[1],
-                },
-                Len {
-                    px: o[2],
-                    pct: o[3],
-                },
-            ],
-        };
-        for i in 0..SHADOWS {
-            let at = SHADOW + 8 * i;
-            let c = color(&v[at + 4..at + 8]);
-            if p.shadows.len() == i && c.a > 0.001 {
-                p.shadows.push(Shadow::default());
-            }
-            if let Some(s) = p.shadows.get_mut(i) {
-                s.offset = Point {
-                    x: v[at],
-                    y: v[at + 1],
-                };
-                s.blur = v[at + 2].max(0.0);
-                s.spread = v[at + 3];
-                s.color = c;
-            }
-        }
-        // The target's own filter, unless the amounts are on their way.
-        let amounts = &v[FILTER..];
-        let target = filter_amounts(p);
-        if amounts
-            .iter()
-            .zip(target)
-            .any(|(a, b)| (a - b).abs() > 1e-4)
-        {
-            p.effects.get_or_insert_with(Box::<Effects>::default).filter = filter_of(amounts);
-        }
-    }
-}
-
-impl PaintVec {
-    pub const COMPONENTS: usize = LEN;
-    pub fn components(&self) -> &[f64] {
-        &self.0
-    }
-    pub fn from_components(c: &[f64]) -> Self {
-        let mut v = [0.0; LEN];
-        for (d, s) in v.iter_mut().zip(c) {
-            *d = *s;
-        }
-        PaintVec(v)
-    }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Default)]
-pub struct Shadow {
-    pub offset: Point,
-    pub blur: f64,
-    pub spread: f64,
-    pub color: Rgba,
-    /// Inside the box (CSS `inset`).
-    pub inset: bool,
-}
-
-/// Element transform: CSS `translate`, `rotate`, `scale` and `transform`
-/// with `transform-origin`, in one canonical form. About `origin`, the
-/// box is scaled, skewed along x, rotated and moved (CSS
-/// `translate(..) rotate(..) skewX(..) scale(..)`); it maps the node's box
-/// and its whole subtree.
+/// Element transform: CSS individual transforms and `transform`, in one
+/// canonical form. About its origin the box is scaled, skewed, rotated
+/// (x, then y, then z), moved, then seen through `perspective()`:
+/// T(o) · P · T(t) · Rz · Ry · Rx · K · S · T(−o).
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ElementTransform {
-    /// The move in px ...
-    pub translate: Point,
-    /// ... plus fractions of the box's own size: x moves by
-    /// `per_size[0] × width + per_size[1] × height`, y by
-    /// `per_size[2] × width + per_size[3] × height` (a percentage
-    /// translation, mapped by what precedes it in the CSS list).
+    /// The move in px (x, y, z) ...
+    pub translate: [f64; 3],
+    /// ... plus fractions of the box size, as before:
+    /// x += per_size[0]·w + per_size[1]·h, y += per_size[2]·w + per_size[3]·h.
     pub per_size: [f64; 4],
-    /// Clockwise, in degrees.
-    pub rotate: f64,
-    /// Along x, in degrees.
-    pub skew_x: f64,
-    pub scale: Point,
-    /// Against the box's width and height (CSS `transform-origin`,
-    /// default `50% 50%`).
+    /// Degrees about x, y and z.
+    pub rotate: [f64; 3],
+    /// Degrees: xy (skewX), xz, yz.
+    pub skew: [f64; 3],
+    /// Scale factors along x, y and z.
+    pub scale: [f64; 3],
+    /// 1/d of the transform's `perspective(d)` function; 0 is none.
+    pub perspective_inverse: f64,
+    /// Against the box's width and height (CSS default 50% 50%).
     pub origin: [Len; 2],
+    /// z of the origin in px (CSS transform-origin's third value).
+    pub origin_z: f64,
 }
 
 impl ElementTransform {
     /// No transform (origin at the centre).
     pub const NONE: ElementTransform = ElementTransform {
-        translate: Point { x: 0.0, y: 0.0 },
+        translate: [0.0; 3],
         per_size: [0.0; 4],
-        rotate: 0.0,
-        skew_x: 0.0,
-        scale: Point { x: 1.0, y: 1.0 },
+        rotate: [0.0; 3],
+        skew: [0.0; 3],
+        scale: [1.0; 3],
+        perspective_inverse: 0.0,
         origin: [Len::pct(50.0), Len::pct(50.0)],
+        origin_z: 0.0,
     };
 
     /// Whether it moves nothing (whatever its origin).
     pub fn is_none(&self) -> bool {
-        self.translate == Point::default()
+        self.translate == [0.0; 3]
             && self.per_size == [0.0; 4]
-            && self.rotate == 0.0
-            && self.skew_x == 0.0
-            && self.scale == Point { x: 1.0, y: 1.0 }
+            && self.rotate == [0.0; 3]
+            && self.skew == [0.0; 3]
+            && self.scale == [1.0; 3]
+            && self.perspective_inverse == 0.0
+    }
+
+    /// The 4×4 matrix of this transform for a box of `size`.
+    pub fn matrix(&self, size: Size) -> Matrix4 {
+        let o = [
+            self.origin[0].of(size.width),
+            self.origin[1].of(size.height),
+            self.origin_z,
+        ];
+        let t = [
+            self.translate[0] + self.per_size[0] * size.width + self.per_size[1] * size.height,
+            self.translate[1] + self.per_size[2] * size.width + self.per_size[3] * size.height,
+            self.translate[2],
+        ];
+        let p = if self.perspective_inverse > 0.0 {
+            Matrix4::perspective(1.0 / self.perspective_inverse)
+        } else {
+            Matrix4::IDENTITY
+        };
+        Matrix4::translate(-o[0], -o[1], -o[2])
+            .then(Matrix4::scale(self.scale[0], self.scale[1], self.scale[2]))
+            .then(Matrix4::skew(self.skew[0], self.skew[1], self.skew[2]))
+            .then(Matrix4::rotate_x(self.rotate[0]))
+            .then(Matrix4::rotate_y(self.rotate[1]))
+            .then(Matrix4::rotate_z(self.rotate[2]))
+            .then(Matrix4::translate(t[0], t[1], t[2]))
+            .then(p)
+            .then(Matrix4::translate(o[0], o[1], o[2]))
+    }
+
+    /// Whether the transform is two-dimensional (no z component, no perspective).
+    pub fn is_2d(&self) -> bool {
+        self.translate[2] == 0.0
+            && self.rotate[0] == 0.0
+            && self.rotate[1] == 0.0
+            && self.skew[1] == 0.0
+            && self.skew[2] == 0.0
+            && self.scale[2] == 1.0
+            && self.perspective_inverse == 0.0
+            && self.origin_z == 0.0
     }
 }
 
@@ -719,35 +748,120 @@ impl Default for ElementTransform {
     }
 }
 
+/// CSS `perspective` and `perspective-origin`: how a node's children are seen.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Perspective {
+    /// Distance from the viewer to the plane z = 0, in px.
+    pub distance: f64,
+    /// Where the viewer looks at, against the box (default 50% 50%).
+    pub origin: [Len; 2],
+}
+
+/// CSS `transform-style`.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub enum TransformStyle {
+    /// Children are flattened into the node.
+    #[default]
+    Flat,
+    /// Children share a 3D context with the node.
+    Preserve3d,
+}
+
+/// CSS `backface-visibility`.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub enum BackfaceVisibility {
+    /// The back face is shown.
+    #[default]
+    Visible,
+    /// The back face is hidden.
+    Hidden,
+}
+
+/// CSS `will-change`.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub enum WillChange {
+    /// No hint.
+    #[default]
+    Auto,
+    /// The transform will change.
+    Transform,
+    /// The opacity will change.
+    Opacity,
+}
+
+/// CSS `isolation`.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub enum Isolation {
+    /// Isolated only where the other rules say.
+    #[default]
+    Auto,
+    /// Always an isolated group.
+    Isolate,
+}
+
+/// Shadows animated (more change at once).
+#[derive(Clone, Copy, Debug, PartialEq, Default)]
+pub struct Shadow {
+    /// Offset of the shadow.
+    pub offset: Point,
+    /// Blur radius.
+    pub blur: f64,
+    /// Growth of the shadow's shape.
+    pub spread: f64,
+    /// Color.
+    pub color: Rgba,
+    /// Inside the box (CSS `inset`).
+    pub inset: bool,
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct PaintProps {
-    /// Optional host-driven paint transition, absent on ordinary nodes.
-    pub transition: Option<std::sync::Arc<super::motion::Transition>>,
+    /// Per-property paint transitions, absent on ordinary nodes.
+    // xtask-allow(api-shape): Shared immutable payload, cloned without copying its data; the design keeps one allocation.
+    pub transitions: Option<std::sync::Arc<[(TransitionProp, Transition)]>>,
+    /// The background fill.
     pub background: Option<Fill>,
+    /// The border.
     pub border: Option<Border>,
     /// Focus ring drawn outside the border box.
     pub ring: Option<Ring>,
+    /// Corner radii.
     pub radius: Corners,
     /// CSS order: the first is on top.
     pub shadows: Vec<Shadow>,
     /// Group opacity of the node and its subtree.
     pub opacity: f64,
+    /// The element transform.
     pub transform: ElementTransform,
+    /// CSS `perspective` of this node's children.
+    pub perspective: Option<Perspective>,
+    /// CSS `transform-style`.
+    pub transform_style: TransformStyle,
+    /// CSS `backface-visibility`.
+    pub backface: BackfaceVisibility,
+    /// CSS `will-change`.
+    pub will_change: WillChange,
+    /// CSS `isolation`.
+    pub isolation: Isolation,
+    /// CSS `border-image`.
+    pub border_image: Option<Box<BorderImage>>,
     /// The paint and hit order among its siblings (CSS `z-index`; ties
     /// keep the tree order).
     pub z_index: i32,
+    /// The mouse cursor.
     pub cursor: Cursor,
+    /// Overlay scrollbar appearance.
     pub scrollbar: Option<Box<ScrollbarProps>>,
     /// Clip children to the padding box (rounded by the inner radii).
     pub clip: bool,
-    /// Filters, backdrop, blending, mask and clip path (`None`: none).
+    /// Filters, backdrop, blending, masks and clip path (`None`: none).
     pub effects: Option<Box<Effects>>,
 }
 
 impl Default for PaintProps {
     fn default() -> Self {
         PaintProps {
-            transition: None,
+            transitions: None,
             background: None,
             border: None,
             ring: None,
@@ -755,6 +869,12 @@ impl Default for PaintProps {
             shadows: Vec::new(),
             opacity: 1.0,
             transform: ElementTransform::NONE,
+            perspective: None,
+            transform_style: TransformStyle::Flat,
+            backface: BackfaceVisibility::Visible,
+            will_change: WillChange::Auto,
+            isolation: Isolation::Auto,
+            border_image: None,
             z_index: 0,
             cursor: Cursor::Auto,
             scrollbar: None,
@@ -768,18 +888,35 @@ impl Default for PaintProps {
 /// is active. Layout never changes with these states.
 #[derive(Clone, Debug, PartialEq, Default)]
 pub struct PaintDelta {
+    /// Replaces the background.
     pub background: Option<Fill>,
+    /// Replaces the border.
     pub border: Option<Border>,
+    /// Replaces the focus ring.
     pub ring: Option<Ring>,
+    /// Replaces the corner radii.
     pub radius: Option<Corners>,
+    /// Replaces the opacity.
     pub opacity: Option<f64>,
+    /// Replaces the shadows.
     pub shadows: Option<Vec<Shadow>>,
+    /// Replaces the element transform.
     pub transform: Option<ElementTransform>,
+    /// Replaces the perspective (the complete value, or none).
+    pub perspective: Option<Option<Perspective>>,
+    /// Replaces the transform style.
+    pub transform_style: Option<TransformStyle>,
+    /// Replaces the backface visibility.
+    pub backface: Option<BackfaceVisibility>,
+    /// Replaces the z-index.
     pub z_index: Option<i32>,
+    /// Replaces the cursor.
     pub cursor: Option<Cursor>,
+    /// Replaces the scrollbar appearance.
     pub scrollbar: Option<Box<ScrollbarDelta>>,
     /// Replaces the node's effects.
     pub effects: Option<Option<Box<Effects>>>,
+    /// Replaces the text color.
     pub text_color: Option<Rgba>,
 }
 
@@ -787,8 +924,11 @@ pub struct PaintDelta {
 /// core because the core owns those states.
 #[derive(Clone, Debug, PartialEq, Default)]
 pub struct StateStyles {
+    /// Applied while hovered.
     pub hover: Option<PaintDelta>,
+    /// Applied while pressed.
     pub pressed: Option<PaintDelta>,
+    /// Applied while focused.
     pub focus: Option<PaintDelta>,
     /// Applied over `focus` while the focus is visible (the host asks for a
     /// focus indication: keyboard focus, not a pointer press).
@@ -839,7 +979,9 @@ impl StateStyles {
 pub struct ScrollbarProps {
     /// Preferred border-box width.
     pub width: f64,
+    /// Color of the thumb.
     pub thumb: Rgba,
+    /// Color of the track.
     pub track: Rgba,
 }
 
@@ -848,6 +990,7 @@ pub struct ScrollbarProps {
 pub struct ScrollbarDelta {
     /// Preferred border-box width.
     pub width: Option<f64>,
+    /// Thumb and track colors.
     pub colors: Option<(Rgba, Rgba)>,
 }
 

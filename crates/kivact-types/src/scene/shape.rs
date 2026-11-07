@@ -5,7 +5,7 @@
 //! and cubic curves only), which the renderer fills and strokes and
 //! [`Shape::contains`] hit-tests, so what is drawn and what is hit agree.
 
-use crate::geometry::{Point, Rect};
+use crate::geometry::{Point, Rect, Transform};
 use crate::scene::primitives::FillRule;
 
 /// Portable path segment, usable on any thread.
@@ -341,6 +341,108 @@ impl Shape {
             }
         }
     }
+
+    /// This shape mapped by `t`.
+    ///
+    /// A `Rect` stays a `Rect` when `t` keeps the axes parallel (scale,
+    /// translation, a flip or a quarter turn), and is a four-corner
+    /// `Polygon` otherwise. A `RoundedRect` stays a `RoundedRect` for a
+    /// uniform scale (equal x and y factors, either sign) with a
+    /// translation, its radii scaled and moved to the corners they land
+    /// on, and is a `Path` otherwise. A `Polygon` and a `Path` map their
+    /// points; the arcs of a `Path` are lowered to cubic curves first (as
+    /// [`Shape::outline`] does), since an arc does not stay an arc under a
+    /// skew.
+    pub fn transformed(&self, t: Transform) -> Shape {
+        match self {
+            Shape::Rect(r) => transformed_rect(*r, t),
+            Shape::RoundedRect(r) => transformed_rounded_rect(*r, t),
+            Shape::Polygon { points, rule } => Shape::Polygon {
+                points: points.iter().map(|p| t.apply(*p)).collect(),
+                rule: *rule,
+            },
+            Shape::Path { cmds, rule } => Shape::Path {
+                cmds: map_cmds(&lower_arcs(cmds), t),
+                rule: *rule,
+            },
+        }
+    }
+}
+
+/// The axis-aligned rectangle spanned by two opposite corners.
+fn rect_between(p: Point, q: Point) -> Rect {
+    Rect {
+        x: p.x.min(q.x),
+        y: p.y.min(q.y),
+        width: (q.x - p.x).abs(),
+        height: (q.y - p.y).abs(),
+    }
+}
+
+/// `r` mapped by `t`: a `Rect` while the axes stay parallel, else a polygon.
+fn transformed_rect(r: Rect, t: Transform) -> Shape {
+    let axis_parallel = (t.b == 0.0 && t.c == 0.0) || (t.a == 0.0 && t.d == 0.0);
+    let corner = |x: f64, y: f64| t.apply(Point { x, y });
+    if axis_parallel {
+        return Shape::Rect(rect_between(
+            corner(r.x, r.y),
+            corner(r.x + r.width, r.y + r.height),
+        ));
+    }
+    Shape::Polygon {
+        points: vec![
+            corner(r.x, r.y),
+            corner(r.x + r.width, r.y),
+            corner(r.x + r.width, r.y + r.height),
+            corner(r.x, r.y + r.height),
+        ],
+        rule: FillRule::NonZero,
+    }
+}
+
+/// `r` mapped by `t`: a `RoundedRect` for a uniform scale and translation,
+/// else a path.
+fn transformed_rounded_rect(r: RoundedRect, t: Transform) -> Shape {
+    if t.b != 0.0 || t.c != 0.0 || t.a == 0.0 || t.a.abs() != t.d.abs() {
+        return Shape::Path {
+            cmds: map_cmds(&r.outline(), t),
+            rule: FillRule::NonZero,
+        };
+    }
+    let scale = t.a.abs();
+    // Radii order is top-left, top-right, bottom-right, bottom-left; a flip
+    // moves each radius to the corner it lands on.
+    let order = match (t.a < 0.0, t.d < 0.0) {
+        (false, false) => [0, 1, 2, 3],
+        (true, false) => [1, 0, 3, 2],
+        (false, true) => [3, 2, 1, 0],
+        (true, true) => [2, 3, 0, 1],
+    };
+    let corner = |x: f64, y: f64| t.apply(Point { x, y });
+    let rect = rect_between(
+        corner(r.rect.x, r.rect.y),
+        corner(r.rect.x + r.rect.width, r.rect.y + r.rect.height),
+    );
+    Shape::RoundedRect(RoundedRect {
+        rect,
+        radii: order.map(|i| Radius {
+            x: r.radii[i].x * scale,
+            y: r.radii[i].y * scale,
+        }),
+    })
+}
+
+/// `cmds` (without arcs) with every point mapped by `t`.
+fn map_cmds(cmds: &[PathCmd], t: Transform) -> Vec<PathCmd> {
+    cmds.iter()
+        .map(|cmd| match *cmd {
+            PathCmd::MoveTo(p) => PathCmd::MoveTo(t.apply(p)),
+            PathCmd::LineTo(p) => PathCmd::LineTo(t.apply(p)),
+            PathCmd::QuadTo(c, p) => PathCmd::QuadTo(t.apply(c), t.apply(p)),
+            PathCmd::CubicTo(c1, c2, p) => PathCmd::CubicTo(t.apply(c1), t.apply(c2), t.apply(p)),
+            other => other,
+        })
+        .collect()
 }
 
 /// The points a segment names.

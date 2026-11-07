@@ -69,6 +69,8 @@ pub enum FailureKind {
     Surface,
     /// A required capability is unavailable in this environment.
     Unavailable,
+    /// A capability exists but its backend is not ready yet; retry when it reports ready.
+    NotReady,
 }
 
 /// Classified failure shared by platform services and rendering boundaries.

@@ -1,17 +1,15 @@
 //! Role: What scene fills and strokes are painted with.
 //! Plain data usable on any thread.
 
-use super::color::ColorMatrix;
 use crate::color::Rgba;
 use crate::geometry::{Point, Rect};
 use crate::paint::Extend;
-use crate::scene::Pixels;
+use crate::pixel::Pixels;
 
 /// A paint for fills and strokes.
 ///
 /// Coordinates are in the drawing command's coordinates (so they follow
-/// [`crate::render::RenderCmd::PushTransform`] like the geometry), except
-/// [`Paint::LinearGradient`], which spans the bounds of what it fills.
+/// [`crate::render::RenderCmd::PushTransform`] like the geometry).
 ///
 /// ```
 /// use kivact_types::{Extend, Point, Rgba};
@@ -34,58 +32,10 @@ use crate::scene::Pixels;
 pub enum Paint {
     /// One color.
     Solid(Rgba),
-    /// Linear gradient across the bounds of what it fills; `angle_deg` 0 =
-    /// left to right, 90 = top to bottom. The gradient line passes through
-    /// the bounds' center and is as long as the bounds are across in its
-    /// direction (as CSS angles size it; [`GradientShape::linear_angle`]
-    /// gives the same geometry as a [`Gradient`]).
-    LinearGradient {
-        /// Direction, in degrees clockwise from left to right.
-        angle_deg: f64,
-        /// Stops: offsets in `0.0..=1.0`, not decreasing.
-        stops: Vec<(f64, Rgba)>,
-    },
     /// A linear, radial or conic gradient with its own geometry.
     Gradient(Gradient),
     /// A tiled image or gradient tile.
     Pattern(Pattern),
-}
-
-impl Paint {
-    /// The same paint with every color through `matrix` (gradient stops
-    /// included); a pattern's image gets the matrix after its own.
-    pub fn filtered(&self, matrix: &ColorMatrix) -> Paint {
-        let stops = |stops: &[(f64, Rgba)]| -> Vec<(f64, Rgba)> {
-            stops.iter().map(|(t, c)| (*t, matrix.apply(*c))).collect()
-        };
-        match self {
-            Paint::Solid(c) => Paint::Solid(matrix.apply(*c)),
-            Paint::LinearGradient {
-                angle_deg,
-                stops: s,
-            } => Paint::LinearGradient {
-                angle_deg: *angle_deg,
-                stops: stops(s),
-            },
-            Paint::Gradient(g) => Paint::Gradient(g.filtered(matrix)),
-            Paint::Pattern(p) => Paint::Pattern(Pattern {
-                source: match &p.source {
-                    PatternSource::Image {
-                        image,
-                        color_matrix,
-                    } => PatternSource::Image {
-                        image: image.clone(),
-                        color_matrix: Some(match color_matrix {
-                            Some(own) => own.then(*matrix),
-                            None => *matrix,
-                        }),
-                    },
-                    PatternSource::Gradient(g) => PatternSource::Gradient(g.filtered(matrix)),
-                },
-                ..p.clone()
-            }),
-        }
-    }
 }
 
 /// Where a gradient's offsets 0 and 1 lie.
@@ -143,8 +93,9 @@ pub enum GradientShape {
 }
 
 impl GradientShape {
-    /// The linear geometry of [`Paint::LinearGradient`] with `angle_deg`
-    /// over `rect`.
+    /// The linear geometry of a CSS angle (degrees clockwise from left to
+    /// right) over `rect`: the gradient line passes through the bounds'
+    /// center and is as long as the bounds are across in its direction.
     pub fn linear_angle(rect: Rect, angle_deg: f64) -> GradientShape {
         let angle = angle_deg.to_radians();
         let (dy, dx) = angle.sin_cos();
@@ -166,8 +117,8 @@ impl GradientShape {
 
 /// A gradient: geometry, color stops and how it extends.
 ///
-/// Two stops at the same offset make a hard edge. Colors are interpolated
-/// in sRGB with premultiplied alpha.
+/// Two stops at the same offset make a hard edge. The stops are sRGB: the
+/// engine expands the authored gradient into them before it reaches here.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Gradient {
     /// Geometry.
@@ -176,21 +127,6 @@ pub struct Gradient {
     pub stops: Vec<(f64, Rgba)>,
     /// Beyond the stops.
     pub extend: Extend,
-}
-
-impl Gradient {
-    /// The same gradient with every stop's color through `matrix`.
-    pub fn filtered(&self, matrix: &ColorMatrix) -> Gradient {
-        Gradient {
-            shape: self.shape,
-            stops: self
-                .stops
-                .iter()
-                .map(|(t, c)| (*t, matrix.apply(*c)))
-                .collect(),
-            extend: self.extend,
-        }
-    }
 }
 
 /// An image or a gradient tile repeated over what it fills (a CSS
@@ -216,13 +152,10 @@ pub struct Pattern {
 /// What a [`Pattern`]'s tile shows.
 #[derive(Clone, Debug, PartialEq)]
 pub enum PatternSource {
-    /// An image, through an optional color matrix (the converted pixels
-    /// are cached like [`crate::render::RenderCmd::Image`]'s).
+    /// An image.
     Image {
         /// Pixels.
         image: Pixels,
-        /// Color matrix applied to the pixels.
-        color_matrix: Option<ColorMatrix>,
     },
     /// A gradient in the tile's own coordinates (`(0, 0)` is the tile's
     /// top-left corner), for 2D tiles a gradient's own period cannot make

@@ -1,4 +1,4 @@
-//! Role: Color matrices (CSS filter functions as 4×5 matrices).
+//! Role: Pixel buffers, color matrices and blend modes shared by paint, scene, effect and composition.
 //! Plain data usable on any thread.
 
 use crate::color::Rgba;
@@ -12,14 +12,13 @@ use crate::color::Rgba;
 /// sRGB components as browsers apply them; [`ColorMatrix::then`] chains
 /// them as a CSS `filter` list does.
 ///
-/// Arvane applies one to the pixels of an image
-/// ([`crate::render::RenderCmd::Image`]) and to the colors a backdrop replays
-/// ([`crate::render::Backdrop`]); a host applies one to the colors of what it
-/// draws ([`ColorMatrix::apply`], [`crate::render::Paint::filtered`]).
+/// Arvane applies one to the pixels of an image and to the colors of a
+/// filter graph; a host applies one to the colors of what it draws
+/// ([`ColorMatrix::apply`]).
 ///
 /// ```
 /// use kivact_types::Rgba;
-/// use kivact_types::render::ColorMatrix;
+/// use kivact_types::ColorMatrix;
 /// let red = Rgba { r: 1.0, g: 0.0, b: 0.0, a: 1.0 };
 /// let gray = ColorMatrix::grayscale(1.0).apply(red);
 /// assert!((gray.r - 0.2126).abs() < 1e-4 && gray.r == gray.g && gray.g == gray.b);
@@ -198,4 +197,79 @@ impl ColorMatrix {
         };
         [row(0), row(1), row(2), row(3)]
     }
+}
+
+/// Straight-alpha RGBA8 pixels a scene draws as they are (no decode, no
+/// asset store). Compared by size and `Arc` identity, never by content, so
+/// a new `Arc` every frame costs one comparison.
+#[derive(Clone, Debug)]
+pub struct Pixels {
+    /// Pixel width of the buffer.
+    pub width: u32,
+    /// Pixel height of the buffer.
+    pub height: u32,
+    /// Tightly packed straight-alpha RGBA8, row-major from the top left,
+    /// width times height times four bytes with no row padding.
+    /// Keep the same allocation for unchanged pixels; renderers cache by Arc identity.
+    pub rgba: crate::AssetBytes,
+}
+
+impl Pixels {
+    /// Construct an image without copying its shared pixel allocation.
+    pub fn new(width: u32, height: u32, rgba: impl Into<crate::AssetBytes>) -> Self {
+        Self {
+            width,
+            height,
+            rgba: rgba.into(),
+        }
+    }
+}
+
+impl PartialEq for Pixels {
+    fn eq(&self, other: &Self) -> bool {
+        self.width == other.width
+            && self.height == other.height
+            && self.rgba.same_allocation(&other.rgba)
+    }
+}
+
+/// How a layer's pixels combine with what is beneath them (CSS
+/// `mix-blend-mode`; [`BlendMode::PlusLighter`] is canvas `lighter`).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum BlendMode {
+    /// Source over.
+    #[default]
+    Normal,
+    /// Multiply.
+    Multiply,
+    /// Screen.
+    Screen,
+    /// Overlay.
+    Overlay,
+    /// Darken.
+    Darken,
+    /// Lighten.
+    Lighten,
+    /// Color dodge.
+    ColorDodge,
+    /// Color burn.
+    ColorBurn,
+    /// Hard light.
+    HardLight,
+    /// Soft light.
+    SoftLight,
+    /// Difference.
+    Difference,
+    /// Exclusion.
+    Exclusion,
+    /// Hue.
+    Hue,
+    /// Saturation.
+    Saturation,
+    /// Color.
+    Color,
+    /// Luminosity.
+    Luminosity,
+    /// Additive (CSS `plus-lighter`, canvas `lighter`).
+    PlusLighter,
 }

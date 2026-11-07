@@ -1,8 +1,8 @@
 //! Role: Resolve inherited typography without losing relative length semantics.
 use crate::Rgba;
 use crate::text::{
-    FontFeature, FontKerning, LineHeight, TextAlign, TextDecoration, TextLen, TextOverflow,
-    TextShadow, TextStyle, TextTransform, TextWrap,
+    FontFeature, FontKerning, FontVariation, LineHeight, PaintOrder, TextAlign, TextDecoration,
+    TextLen, TextOverflow, TextShadow, TextStroke, TextStyle, TextTransform, TextWrap,
 };
 
 /// Typography after inheritance. Optional values here have semantic meaning:
@@ -35,6 +35,16 @@ pub struct ComputedTextStyle {
     pub caret_color: Option<Rgba>,
     pub selection_color: Option<Rgba>,
     pub placeholder_color: Option<Rgba>,
+    /// An outline around glyphs; inherited.
+    pub stroke: Option<TextStroke>,
+    /// Whether the fill or the stroke is painted first; inherited.
+    pub paint_order: PaintOrder,
+    /// Variable-font axis settings; inherited.
+    pub variations: Vec<FontVariation>,
+    /// Whether the optical-size axis follows the font size; inherited.
+    pub optical_sizing: bool,
+    /// CSS font-width (font-stretch) in percent; inherited.
+    pub font_width: f64,
 }
 
 impl Default for ComputedTextStyle {
@@ -67,6 +77,11 @@ impl Default for ComputedTextStyle {
             caret_color: None,
             selection_color: None,
             placeholder_color: None,
+            stroke: None,
+            paint_order: PaintOrder::FillStroke,
+            variations: Vec::new(),
+            optical_sizing: true,
+            font_width: 100.0,
         }
     }
 }
@@ -137,6 +152,17 @@ impl ComputedTextStyle {
                 .placeholder_color
                 .or(parent.placeholder_color)
                 .map(Rgba::sanitize),
+            stroke: own.stroke.or(parent.stroke).map(|s| TextStroke {
+                color: s.color.sanitize(),
+                ..s
+            }),
+            paint_order: own.paint_order.unwrap_or(parent.paint_order),
+            variations: own
+                .variations
+                .clone()
+                .unwrap_or_else(|| parent.variations.clone()),
+            optical_sizing: own.optical_sizing.unwrap_or(parent.optical_sizing),
+            font_width: own.font_width.unwrap_or(parent.font_width),
         }
     }
 
