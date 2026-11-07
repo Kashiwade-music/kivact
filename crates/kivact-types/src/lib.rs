@@ -47,10 +47,11 @@ pub use geometry::{Edge, Edges, Insets, Point, Rect, Size, Transform};
 pub use geometry3d::{Decomposed, Matrix4, Polygon, Projective, W_EPS};
 pub use gpu::{
     AdapterMatch, ExternalFrame, ExternalImageId, ExternalImport, GpuAdapter, GpuBackend, GpuPower,
-    GpuPreference, SharedHandle, SharedTextureFormat, SharedTextures,
+    GpuPreference, SHARED_PREPARED, SharedHandle, SharedTextureFormat, SharedTextures,
 };
 pub use ids::{
-    FocusTarget, IdHasher, IdMap, NodeId, RegionId, RequestId, Revision, SemanticsId, TextRunId,
+    DrawableId, FocusTarget, IdHasher, IdMap, NodeId, RegionId, RequestId, Revision, SemanticsId,
+    TextRunId,
 };
 pub use image_status::ImageStatus;
 pub use input::{
@@ -90,9 +91,10 @@ pub use semantics::{
 };
 pub use semantics_text::{SemanticsText, SemanticsTextRun, SemanticsTextRuns, TextCaret};
 pub use text::{
-    ComputedTextStyle, DecorationLines, FontFeature, FontKerning, LineHeight, SpanProps, TextAlign,
-    TextData, TextDecoration, TextDecorationStyle, TextLen, TextMetrics, TextOverflow, TextShadow,
-    TextSpan, TextStyle, TextTransform, TextWrap,
+    ComputedTextStyle, DecorationLines, FontFeature, FontKerning, FontVariation, LineHeight,
+    PaintOrder, SpanProps, TextAlign, TextData, TextDecoration, TextDecorationStyle, TextLen,
+    TextMetrics, TextOverflow, TextShadow, TextSpan, TextStroke, TextStyle, TextTransform,
+    TextWrap,
 };
 pub use text_shaping::TextShaper;
 

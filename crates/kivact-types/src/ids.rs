@@ -41,6 +41,11 @@ pub type IdMap<V> = HashMap<NodeId, V, BuildHasherDefault<IdHasher>>;
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct NodeId(pub u64);
 
+/// Identity of a drawable (a window-scoped GPU render target an application
+/// draws into); allocated by the engine.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct DrawableId(pub u64);
+
 /// Identity of a request that expects a result event (focus, platform effect).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct RequestId(pub u64);

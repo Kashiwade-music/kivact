@@ -2,7 +2,7 @@
 //! Plain data usable on any thread.
 
 use crate::color::Rgba;
-use crate::text::{FontFeature, FontKerning, TextDecoration};
+use crate::text::{FontFeature, FontKerning, FontVariation, TextDecoration};
 use std::ops::Range;
 
 /// What a span of rich text sets over its paragraph's [`crate::text::ComputedTextStyle`]
@@ -29,6 +29,10 @@ pub struct SpanStyle {
     pub features: Option<Vec<FontFeature>>,
     /// Lines drawn with it (replacing the paragraph's).
     pub decoration: Option<TextDecoration>,
+    /// Variable-font axis settings (replacing the paragraph's).
+    pub variations: Option<Vec<FontVariation>>,
+    /// CSS font-width (font-stretch) in percent (replacing the paragraph's).
+    pub font_width: Option<f64>,
     /// Its band (one rect per line it is on) is reported in
     /// [`crate::render::ShapedText::highlights`], for the host to fill behind the
     /// glyphs (a `<mark>`).
