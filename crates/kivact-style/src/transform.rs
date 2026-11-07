@@ -402,7 +402,7 @@ impl Transform {
     pub fn matrix_3d(mut self, entries: [f64; 16]) -> Self {
         self.begin();
         let mut mat = Matrix4::IDENTITY;
-        for (col, chunk) in entries.chunks_exact(4).enumerate() {
+        for (col, chunk) in entries.as_chunks::<4>().0.iter().enumerate() {
             for (row, v) in chunk.iter().enumerate() {
                 mat.m[row][col] = *v;
             }

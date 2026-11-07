@@ -118,7 +118,7 @@ impl GpuContext {
             .filter(|_| surface.keep == Retain::Keep)
             .ok_or_else(|| ComposeError::Surface("no frame was kept".into()))?;
         let mut frame = self.read_frame(texture)?;
-        for px in frame.rgba.chunks_exact_mut(4) {
+        for px in frame.rgba.as_chunks_mut::<4>().0 {
             let clear = 255 - u32::from(px[3]);
             for c in &mut px[..3] {
                 *c = (u32::from(*c) + clear).min(255) as u8;

@@ -214,7 +214,7 @@ fn resolve<'a>(
         Source::Target(t) => Some(Texture::Premul(&targets[*t as usize])),
         Source::External { frame, cpu, source } => match cpu {
             Some(pixels) => Some(Texture::Straight(Straight {
-                pixels: *pixels,
+                pixels,
                 source: *source,
             })),
             None => {
@@ -223,7 +223,7 @@ fn resolve<'a>(
             }
         },
         Source::Pixels(pixels) => Some(Texture::Straight(Straight {
-            pixels: *pixels,
+            pixels,
             source: None,
         })),
     })

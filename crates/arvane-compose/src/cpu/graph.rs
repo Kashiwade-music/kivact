@@ -25,10 +25,11 @@ use std::rc::Rc;
 
 use kivact_types::Rgba;
 use kivact_types::effect::{
-    CompositeOp, FilterColorSpace, FilterGraph, FilterInput, Light, PrimitiveOp, TurbulenceKind,
+    Channel, CompositeOp, FilterColorSpace, FilterGraph, FilterInput, Light, MorphologyOp,
+    PrimitiveOp, TransferFn, TurbulenceKind,
 };
 use kivact_types::geometry::{Point, Rect};
-use kivact_types::pixel::{BlendMode, Pixels};
+use kivact_types::pixel::{BlendMode, ColorMatrix, Pixels};
 use kivact_types::render::Composite;
 
 use super::blend::combine;
@@ -162,7 +163,7 @@ fn fetch(input: FilterInput, env: &Env<'_>) -> Result<Image, ComposeError> {
         }),
         FilterInput::SourceAlpha => {
             let mut px = (**env.source).clone();
-            for p in px.data.chunks_exact_mut(4) {
+            for p in px.data.as_chunks_mut::<4>().0 {
                 p[0] = 0;
                 p[1] = 0;
                 p[2] = 0;
@@ -186,7 +187,7 @@ fn into_space(img: Image, cs: FilterColorSpace) -> Image {
         FilterColorSpace::LinearRgb => &SRGB_TO_LINEAR_RGB_TABLE,
     };
     demultiply(&mut px);
-    for p in px.data.chunks_exact_mut(4) {
+    for p in px.data.as_chunks_mut::<4>().0 {
         for c in &mut p[..3] {
             *c = table[usize::from(*c)];
         }
@@ -197,7 +198,7 @@ fn into_space(img: Image, cs: FilterColorSpace) -> Image {
 
 /// Unpremultiplies the bytes of `px` (resvg's rounding).
 fn demultiply(px: &mut Pixmap) {
-    for p in px.data.chunks_exact_mut(4) {
+    for p in px.data.as_chunks_mut::<4>().0 {
         let a = f32::from(p[3]) / 255.0;
         for c in &mut p[..3] {
             *c = (f32::from(*c) / a + 0.5) as u8;
@@ -207,7 +208,7 @@ fn demultiply(px: &mut Pixmap) {
 
 /// Premultiplies the bytes of `px` (resvg's rounding).
 fn multiply(px: &mut Pixmap) {
-    for p in px.data.chunks_exact_mut(4) {
+    for p in px.data.as_chunks_mut::<4>().0 {
         let a = f32::from(p[3]) / 255.0;
         for c in &mut p[..3] {
             *c = (f32::from(*c) * a + 0.5) as u8;
@@ -215,30 +216,36 @@ fn multiply(px: &mut Pixmap) {
     }
 }
 
-/// Runs one primitive in color space `cs`.
+/// Runs one primitive in color space `cs`. The primitives are split over
+/// three dispatchers by their family, so each stays a short match.
 fn run(
     op: &PrimitiveOp<Pixels>,
     cs: FilterColorSpace,
     env: &Env<'_>,
 ) -> Result<Image, ComposeError> {
     match op {
-        PrimitiveOp::Blend { top, bottom, mode } => {
-            let mut dst = into_space(fetch(*bottom, env)?, cs).take();
-            let src = into_space(fetch(*top, env)?, cs);
-            draw(&mut dst, &src.pixmap, *mode, Composite::SourceOver);
-            Ok(Image::new(dst, cs))
-        }
-        PrimitiveOp::ColorMatrix { input, matrix } => {
-            let img = into_space(fetch(*input, env)?, cs);
-            Ok(Image::new(color_matrix(&img.pixmap, matrix), cs))
-        }
+        PrimitiveOp::Blend { top, bottom, mode } => blend(*top, *bottom, *mode, cs, env),
+        PrimitiveOp::ColorMatrix { input, matrix } => color_matrix_op(*input, matrix, cs, env),
         PrimitiveOp::ComponentTransfer { input, r, g, b, a } => {
-            let mut px = into_space(fetch(*input, env)?, cs).take();
-            let funcs = component_transfer::Transfers { r, g, b, a };
-            component_transfer::apply(&funcs, &mut px);
-            Ok(Image::new(px, cs))
+            component_transfer_op(*input, r, g, b, a, cs, env)
         }
         PrimitiveOp::Composite { top, bottom, op } => composite_op(*top, *bottom, *op, cs, env),
+        PrimitiveOp::Flood { color } => Ok(flood(*color, env)),
+        PrimitiveOp::Image { image, rect } => Ok(image_op(image, *rect, env)),
+        PrimitiveOp::Merge { inputs } => merge(inputs, cs, env),
+        PrimitiveOp::Offset { input, offset } => offset_op(*input, offset, env),
+        PrimitiveOp::Tile { input, tile } => tile_op(*input, *tile, env),
+        _ => run_spatial(op, cs, env),
+    }
+}
+
+/// Runs a convolution, lighting or displacement primitive in color space `cs`.
+fn run_spatial(
+    op: &PrimitiveOp<Pixels>,
+    cs: FilterColorSpace,
+    env: &Env<'_>,
+) -> Result<Image, ComposeError> {
+    match op {
         PrimitiveOp::ConvolveMatrix {
             input,
             order,
@@ -249,10 +256,6 @@ fn run(
             edge,
             preserve_alpha,
         } => {
-            let mut px = into_space(fetch(*input, env)?, cs).take();
-            if *preserve_alpha {
-                demultiply(&mut px);
-            }
             let conv = convolve_matrix::Convolution {
                 order: *order,
                 kernel,
@@ -262,8 +265,7 @@ fn run(
                 edge: *edge,
                 preserve_alpha: *preserve_alpha,
             };
-            convolve_matrix::apply(&conv, &mut px);
-            Ok(Image::new(px, cs))
+            convolve(*input, &conv, cs, env)
         }
         PrimitiveOp::DiffuseLighting {
             input,
@@ -272,18 +274,10 @@ fn run(
             color,
             light,
         } => {
-            let img = fetch(*input, env)?;
             let kind = lighting::Kind::Diffuse {
                 constant: *diffuse_constant as f32,
             };
-            let px = lighting::apply(
-                kind,
-                *surface_scale as f32,
-                lighting_color(*color),
-                light_px(light, env),
-                &img.pixmap,
-            );
-            Ok(Image::new(px, cs))
+            lighting_op(*input, kind, *surface_scale, *color, light, cs, env)
         }
         PrimitiveOp::SpecularLighting {
             input,
@@ -293,19 +287,11 @@ fn run(
             color,
             light,
         } => {
-            let img = fetch(*input, env)?;
             let kind = lighting::Kind::Specular {
                 constant: *specular_constant as f32,
                 exponent: *specular_exponent as f32,
             };
-            let px = lighting::apply(
-                kind,
-                *surface_scale as f32,
-                lighting_color(*color),
-                light_px(light, env),
-                &img.pixmap,
-            );
-            Ok(Image::new(px, cs))
+            lighting_op(*input, kind, *surface_scale, *color, light, cs, env)
         }
         PrimitiveOp::DisplacementMap {
             input,
@@ -313,87 +299,27 @@ fn run(
             scale,
             x,
             y,
-        } => {
-            let src = into_space(fetch(*input, env)?, cs);
-            let map = into_space(fetch(*map, env)?, cs);
-            let s = (scale * env.ppu) as f32;
-            let px = displacement_map::apply(&src.pixmap, &map.pixmap, (s, s), (*x, *y));
-            Ok(Image::new(px, cs))
-        }
+        } => displacement_op(*input, *map, *scale, *x, *y, cs, env),
+        _ => run_effect(op, cs, env),
+    }
+}
+
+/// Runs a drop shadow, blur, morphology or turbulence primitive in color space `cs`.
+fn run_effect(
+    op: &PrimitiveOp<Pixels>,
+    cs: FilterColorSpace,
+    env: &Env<'_>,
+) -> Result<Image, ComposeError> {
+    match op {
         PrimitiveOp::DropShadow {
             input,
             offset,
             std_dev,
             color,
-        } => {
-            let img = into_space(fetch(*input, env)?, cs);
-            let tint = color_in(*color, cs);
-            let shifted = (offset.x * env.ppu, offset.y * env.ppu);
-            let sigmas = (std_dev.0 * env.ppu, std_dev.1 * env.ppu);
-            let px = drop_shadow(&img.pixmap, shifted, sigmas, tint);
-            Ok(Image::new(px, cs))
-        }
-        PrimitiveOp::Flood { color } => {
-            let mut px = Pixmap::new(env.source.size().0, env.source.size().1);
-            let premul = premultiplied(*color);
-            let (w, h) = px.size();
-            for y in 0..h {
-                for x in 0..w {
-                    px.set(x, y, premul);
-                }
-            }
-            Ok(Image::new(px, FilterColorSpace::Srgb))
-        }
-        PrimitiveOp::GaussianBlur { input, std_dev, .. } => {
-            let img = into_space(fetch(*input, env)?, cs);
-            let (sx, sy) = (std_dev.0 * env.ppu, std_dev.1 * env.ppu);
-            let px = match blur_sigmas(sx, sy) {
-                Some((sx, sy)) => gaussian(&img.pixmap, sx, sy),
-                None => (*img.pixmap).clone(),
-            };
-            Ok(Image::new(px, cs))
-        }
-        PrimitiveOp::Image { image, rect } => Ok(Image::new(
-            stretch(image, *rect, env),
-            FilterColorSpace::Srgb,
-        )),
-        PrimitiveOp::Merge { inputs } => {
-            let mut dst = Pixmap::new(env.source.size().0, env.source.size().1);
-            for input in inputs {
-                let src = into_space(fetch(*input, env)?, cs);
-                draw(
-                    &mut dst,
-                    &src.pixmap,
-                    BlendMode::Normal,
-                    Composite::SourceOver,
-                );
-            }
-            Ok(Image::new(dst, cs))
-        }
+        } => drop_shadow_op(*input, offset, *std_dev, *color, cs, env),
+        PrimitiveOp::GaussianBlur { input, std_dev, .. } => gaussian_op(*input, *std_dev, cs, env),
         PrimitiveOp::Morphology { input, op, radius } => {
-            let mut px = into_space(fetch(*input, env)?, cs).take();
-            let (rx, ry) = (radius.0 * env.ppu, radius.1 * env.ppu);
-            if rx > 0.0 && ry > 0.0 {
-                morphology::apply(*op, rx, ry, &mut px);
-            } else {
-                px.clear(None);
-            }
-            Ok(Image::new(px, cs))
-        }
-        PrimitiveOp::Offset { input, offset } => {
-            let img = fetch(*input, env)?;
-            let dx = (offset.x * env.ppu) as i64;
-            let dy = (offset.y * env.ppu) as i64;
-            if dx == 0 && dy == 0 {
-                return Ok(img);
-            }
-            let cs_in = img.cs;
-            Ok(Image::new(shifted(&img.pixmap, dx, dy), cs_in))
-        }
-        PrimitiveOp::Tile { input, tile } => {
-            let img = fetch(*input, env)?;
-            let cs_in = img.cs;
-            Ok(Image::new(tiled(&img.pixmap, *tile, env), cs_in))
+            morphology_op(*input, *op, *radius, cs, env)
         }
         PrimitiveOp::Turbulence {
             base_frequency,
@@ -401,31 +327,246 @@ fn run(
             seed,
             kind,
             stitch,
-        } => {
-            let (w, h) = env.source.size();
-            let params = turbulence::Params {
-                offset_x: env.origin.x * env.ppu,
-                offset_y: env.origin.y * env.ppu,
-                sx: 1.0,
-                sy: 1.0,
-                base_x: base_frequency.0 / env.ppu,
-                base_y: base_frequency.1 / env.ppu,
-                octaves: *octaves,
-                seed: seed.trunc() as i32,
-                stitch: if *stitch {
-                    turbulence::Stitching::On
-                } else {
-                    turbulence::Stitching::Off
-                },
-                kind: if *kind == TurbulenceKind::FractalNoise {
-                    turbulence::NoiseKind::Fractal
-                } else {
-                    turbulence::NoiseKind::Turbulence
-                },
-            };
-            Ok(Image::new(turbulence::apply(&params, w, h), cs))
+        } => turbulence_op(*base_frequency, *octaves, *seed, kind, *stitch, cs, env),
+        _ => Err(ComposeError::InvalidComposition(
+            "filter primitive has no CPU implementation".into(),
+        )),
+    }
+}
+
+/// feBlend: `top` blended over `bottom` with `mode`.
+fn blend(
+    top: FilterInput,
+    bottom: FilterInput,
+    mode: BlendMode,
+    cs: FilterColorSpace,
+    env: &Env<'_>,
+) -> Result<Image, ComposeError> {
+    let mut dst = into_space(fetch(bottom, env)?, cs).take();
+    let src = into_space(fetch(top, env)?, cs);
+    draw(&mut dst, &src.pixmap, mode, Composite::SourceOver);
+    Ok(Image::new(dst, cs))
+}
+
+/// feColorMatrix of `input`.
+fn color_matrix_op(
+    input: FilterInput,
+    matrix: &ColorMatrix,
+    cs: FilterColorSpace,
+    env: &Env<'_>,
+) -> Result<Image, ComposeError> {
+    let img = into_space(fetch(input, env)?, cs);
+    Ok(Image::new(color_matrix(&img.pixmap, matrix), cs))
+}
+
+/// feComponentTransfer of `input`, one transfer function per channel.
+fn component_transfer_op(
+    input: FilterInput,
+    r: &TransferFn,
+    g: &TransferFn,
+    b: &TransferFn,
+    a: &TransferFn,
+    cs: FilterColorSpace,
+    env: &Env<'_>,
+) -> Result<Image, ComposeError> {
+    let mut px = into_space(fetch(input, env)?, cs).take();
+    let funcs = component_transfer::Transfers { r, g, b, a };
+    component_transfer::apply(&funcs, &mut px);
+    Ok(Image::new(px, cs))
+}
+
+/// feFlood: `color` over the whole source.
+fn flood(color: Rgba, env: &Env<'_>) -> Image {
+    let mut px = Pixmap::new(env.source.size().0, env.source.size().1);
+    let premul = premultiplied(color);
+    let (w, h) = px.size();
+    for y in 0..h {
+        for x in 0..w {
+            px.set(x, y, premul);
         }
     }
+    Image::new(px, FilterColorSpace::Srgb)
+}
+
+/// feImage: `image` drawn into `rect`.
+fn image_op(image: &Pixels, rect: Rect, env: &Env<'_>) -> Image {
+    Image::new(stretch(image, rect, env), FilterColorSpace::Srgb)
+}
+
+/// feMerge: the inputs stacked in order, the first at the bottom.
+fn merge(
+    inputs: &[FilterInput],
+    cs: FilterColorSpace,
+    env: &Env<'_>,
+) -> Result<Image, ComposeError> {
+    let mut dst = Pixmap::new(env.source.size().0, env.source.size().1);
+    for input in inputs {
+        let src = into_space(fetch(*input, env)?, cs);
+        draw(
+            &mut dst,
+            &src.pixmap,
+            BlendMode::Normal,
+            Composite::SourceOver,
+        );
+    }
+    Ok(Image::new(dst, cs))
+}
+
+/// feOffset of `input` by `offset`.
+fn offset_op(input: FilterInput, offset: &Point, env: &Env<'_>) -> Result<Image, ComposeError> {
+    let img = fetch(input, env)?;
+    let dx = (offset.x * env.ppu) as i64;
+    let dy = (offset.y * env.ppu) as i64;
+    if dx == 0 && dy == 0 {
+        return Ok(img);
+    }
+    let cs_in = img.cs;
+    Ok(Image::new(shifted(&img.pixmap, dx, dy), cs_in))
+}
+
+/// feTile of `input` over `tile`.
+fn tile_op(input: FilterInput, tile: Rect, env: &Env<'_>) -> Result<Image, ComposeError> {
+    let img = fetch(input, env)?;
+    let cs_in = img.cs;
+    Ok(Image::new(tiled(&img.pixmap, tile, env), cs_in))
+}
+
+/// feConvolveMatrix of `input`.
+fn convolve(
+    input: FilterInput,
+    conv: &convolve_matrix::Convolution<'_>,
+    cs: FilterColorSpace,
+    env: &Env<'_>,
+) -> Result<Image, ComposeError> {
+    let mut px = into_space(fetch(input, env)?, cs).take();
+    if conv.preserve_alpha {
+        demultiply(&mut px);
+    }
+    convolve_matrix::apply(conv, &mut px);
+    Ok(Image::new(px, cs))
+}
+
+/// feDiffuseLighting or feSpecularLighting of `input`, lit by `light`.
+fn lighting_op(
+    input: FilterInput,
+    kind: lighting::Kind,
+    surface_scale: f64,
+    color: Rgba,
+    light: &Light,
+    cs: FilterColorSpace,
+    env: &Env<'_>,
+) -> Result<Image, ComposeError> {
+    let img = fetch(input, env)?;
+    let px = lighting::apply(
+        kind,
+        surface_scale as f32,
+        lighting_color(color),
+        light_px(light, env),
+        &img.pixmap,
+    );
+    Ok(Image::new(px, cs))
+}
+
+/// feDisplacementMap of `input`, displaced by the `map` channels.
+fn displacement_op(
+    input: FilterInput,
+    map: FilterInput,
+    scale: f64,
+    x: Channel,
+    y: Channel,
+    cs: FilterColorSpace,
+    env: &Env<'_>,
+) -> Result<Image, ComposeError> {
+    let src = into_space(fetch(input, env)?, cs);
+    let map = into_space(fetch(map, env)?, cs);
+    let s = (scale * env.ppu) as f32;
+    let px = displacement_map::apply(&src.pixmap, &map.pixmap, (s, s), (x, y));
+    Ok(Image::new(px, cs))
+}
+
+/// feDropShadow of `input`.
+fn drop_shadow_op(
+    input: FilterInput,
+    offset: &Point,
+    std_dev: (f64, f64),
+    color: Rgba,
+    cs: FilterColorSpace,
+    env: &Env<'_>,
+) -> Result<Image, ComposeError> {
+    let img = into_space(fetch(input, env)?, cs);
+    let tint = color_in(color, cs);
+    let shifted = (offset.x * env.ppu, offset.y * env.ppu);
+    let sigmas = (std_dev.0 * env.ppu, std_dev.1 * env.ppu);
+    let px = drop_shadow(&img.pixmap, shifted, sigmas, tint);
+    Ok(Image::new(px, cs))
+}
+
+/// feGaussianBlur of `input`.
+fn gaussian_op(
+    input: FilterInput,
+    std_dev: (f64, f64),
+    cs: FilterColorSpace,
+    env: &Env<'_>,
+) -> Result<Image, ComposeError> {
+    let img = into_space(fetch(input, env)?, cs);
+    let (sx, sy) = (std_dev.0 * env.ppu, std_dev.1 * env.ppu);
+    let px = match blur_sigmas(sx, sy) {
+        Some((sx, sy)) => gaussian(&img.pixmap, sx, sy),
+        None => (*img.pixmap).clone(),
+    };
+    Ok(Image::new(px, cs))
+}
+
+/// feMorphology of `input`.
+fn morphology_op(
+    input: FilterInput,
+    op: MorphologyOp,
+    radius: (f64, f64),
+    cs: FilterColorSpace,
+    env: &Env<'_>,
+) -> Result<Image, ComposeError> {
+    let mut px = into_space(fetch(input, env)?, cs).take();
+    let (rx, ry) = (radius.0 * env.ppu, radius.1 * env.ppu);
+    if rx > 0.0 && ry > 0.0 {
+        morphology::apply(op, rx, ry, &mut px);
+    } else {
+        px.clear(None);
+    }
+    Ok(Image::new(px, cs))
+}
+
+/// feTurbulence with the given parameters.
+fn turbulence_op(
+    base_frequency: (f64, f64),
+    octaves: u32,
+    seed: f64,
+    kind: &TurbulenceKind,
+    stitch: bool,
+    cs: FilterColorSpace,
+    env: &Env<'_>,
+) -> Result<Image, ComposeError> {
+    let (w, h) = env.source.size();
+    let params = turbulence::Params {
+        offset_x: env.origin.x * env.ppu,
+        offset_y: env.origin.y * env.ppu,
+        sx: 1.0,
+        sy: 1.0,
+        base_x: base_frequency.0 / env.ppu,
+        base_y: base_frequency.1 / env.ppu,
+        octaves,
+        seed: seed.trunc() as i32,
+        stitch: if stitch {
+            turbulence::Stitching::On
+        } else {
+            turbulence::Stitching::Off
+        },
+        kind: if *kind == TurbulenceKind::FractalNoise {
+            turbulence::NoiseKind::Fractal
+        } else {
+            turbulence::NoiseKind::Turbulence
+        },
+    };
+    Ok(Image::new(turbulence::apply(&params, w, h), cs))
 }
 
 /// feComposite: the arithmetic operator on the two inputs, or the Porter–Duff operator with `top` over `bottom`.
@@ -549,7 +690,14 @@ fn layer_to_px(x: f64, y: f64, env: &Env<'_>) -> (f64, f64) {
 fn straight_to_premul(image: &Pixels) -> Pixmap {
     let mut out = Pixmap::new(image.width, image.height);
     let texels = image.width as usize * image.height as usize;
-    for (i, p) in image.rgba.chunks_exact(4).take(texels).enumerate() {
+    for (i, p) in image
+        .rgba
+        .as_chunks::<4>()
+        .0
+        .iter()
+        .take(texels)
+        .enumerate()
+    {
         let a = f32::from(p[3]) / 255.0;
         let color: Premul = [
             f32::from(p[0]) / 255.0 * a,

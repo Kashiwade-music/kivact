@@ -441,7 +441,7 @@ fn content_hash(px: &Pixmap) -> u64 {
 fn unpremultiplied(px: &Pixmap) -> Pixels {
     let (w, h) = px.size();
     let mut out = Vec::with_capacity(px.data.len());
-    for p in px.data.chunks_exact(4) {
+    for p in px.data.as_chunks::<4>().0 {
         let a = f32::from(p[3]) / 255.0;
         if a <= 0.0 {
             out.extend_from_slice(&[0, 0, 0, 0]);

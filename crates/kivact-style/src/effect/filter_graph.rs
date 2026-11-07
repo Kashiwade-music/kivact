@@ -425,10 +425,7 @@ impl FilterGraph {
     /// A picture drawn into `rect` (feImage).
     pub fn image(&mut self, image: impl Into<Asset>, rect: Rect) -> FilterInput {
         let image: Asset = image.into();
-        self.add(|_| PrimitiveOp::Image {
-            image,
-            rect: rect.into(),
-        })
+        self.add(|_| PrimitiveOp::Image { image, rect })
     }
 
     /// The inputs stacked in order, the first at the bottom (feMerge).
@@ -476,7 +473,7 @@ impl FilterGraph {
     pub fn tile(&mut self, input: FilterInput, tile: Rect) -> FilterInput {
         self.add(|g| PrimitiveOp::Tile {
             input: g.input(input),
-            tile: tile.into(),
+            tile,
         })
     }
 

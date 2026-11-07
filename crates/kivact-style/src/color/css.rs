@@ -184,96 +184,109 @@ pub(super) fn parse(text: &str) -> Result<Color, String> {
         return Err(format!("color `{text}` uses an unsupported form"));
     }
     let (values, alpha) = split_alpha(inner, text)?;
-    let v = |i: usize| -> Result<Value, String> {
-        values
-            .get(i)
-            .ok_or_else(|| format!("color `{text}` needs more components"))
-            .and_then(|s| Value::parse(s, text))
-    };
     if name != "color" && values.len() != 3 {
         return Err(format!("color `{text}` needs three components"));
     }
-    let color = match name {
-        "rgb" | "rgba" => {
-            // Percentages are of full scale, numbers are 0..=255.
-            let ch = |i: usize| -> Result<f64, String> {
-                let x = v(i)?;
-                Ok(match x.unit {
-                    Unit::Percent => x.value / 100.0,
-                    _ => x.value / 255.0,
-                })
-            };
-            Color::from_rgba_f64(ch(0)?, ch(1)?, ch(2)?, 1.0)
-        }
-        "hsl" | "hsla" => {
-            let h = v(0)?.angle_deg()?;
-            Color::from_space(
-                ColorSpace::Hsl,
-                h,
-                v(1)?.fraction(100.0)?,
-                v(2)?.fraction(100.0)?,
-            )
-        }
-        "hwb" => {
-            let h = v(0)?.angle_deg()?;
-            Color::from_space(
-                ColorSpace::Hwb,
-                h,
-                v(1)?.fraction(100.0)?,
-                v(2)?.fraction(100.0)?,
-            )
-        }
-        "lab" => Color::from_space(
-            ColorSpace::Lab,
-            v(0)?.scaled_pct(100.0)?,
-            v(1)?.scaled_pct(125.0)?,
-            v(2)?.scaled_pct(125.0)?,
-        ),
-        "lch" => Color::from_space(
-            ColorSpace::Lch,
-            v(0)?.scaled_pct(100.0)?,
-            v(1)?.scaled_pct(150.0)?,
-            v(2)?.angle_deg()?,
-        ),
-        "oklab" => Color::from_space(
-            ColorSpace::Oklab,
-            v(0)?.scaled_pct(1.0)?,
-            v(1)?.scaled_pct(0.4)?,
-            v(2)?.scaled_pct(0.4)?,
-        ),
-        "oklch" => Color::from_space(
-            ColorSpace::Oklch,
-            v(0)?.scaled_pct(1.0)?,
-            v(1)?.scaled_pct(0.4)?,
-            v(2)?.angle_deg()?,
-        ),
-        "color" => {
-            let space = values
-                .first()
-                .ok_or_else(|| format!("color `{text}` needs a color space"))?;
-            let space = match space.as_str() {
-                "srgb" => ColorSpace::Srgb,
-                "srgb-linear" => ColorSpace::SrgbLinear,
-                "display-p3" => ColorSpace::DisplayP3,
-                "a98-rgb" => ColorSpace::A98Rgb,
-                "prophoto-rgb" => ColorSpace::ProphotoRgb,
-                "rec2020" => ColorSpace::Rec2020,
-                "xyz" | "xyz-d65" => ColorSpace::XyzD65,
-                "xyz-d50" => ColorSpace::XyzD50,
-                other => return Err(format!("unknown color space `{other}`")),
-            };
-            if values.len() != 4 {
-                return Err(format!("color `{text}` needs three components"));
-            }
-            let c = |s: &str| Value::parse(s, text).and_then(|x| x.fraction(1.0));
-            Color::from_space(space, c(&values[1])?, c(&values[2])?, c(&values[3])?)
-        }
-        other => return Err(format!("unknown color function `{other}()`")),
-    };
+    let color = color_function(name, &values, text)?;
     Ok(match alpha {
         Some(a) => color.with_alpha(a),
         None => color,
     })
+}
+
+/// The component `i` of a color function, or an error naming `text`.
+fn component(values: &[String], i: usize, text: &str) -> Result<Value, String> {
+    values
+        .get(i)
+        .ok_or_else(|| format!("color `{text}` needs more components"))
+        .and_then(|s| Value::parse(s, text))
+}
+
+/// The color of the color function `name` (without alpha) over `values`.
+fn color_function(name: &str, values: &[String], text: &str) -> Result<Color, String> {
+    let v = |i: usize| component(values, i, text);
+    match name {
+        "rgb" | "rgba" => rgb_color(values, text),
+        "hsl" | "hsla" => Ok(Color::from_space(
+            ColorSpace::Hsl,
+            v(0)?.angle_deg()?,
+            v(1)?.fraction(100.0)?,
+            v(2)?.fraction(100.0)?,
+        )),
+        "hwb" => Ok(Color::from_space(
+            ColorSpace::Hwb,
+            v(0)?.angle_deg()?,
+            v(1)?.fraction(100.0)?,
+            v(2)?.fraction(100.0)?,
+        )),
+        "lab" => Ok(Color::from_space(
+            ColorSpace::Lab,
+            v(0)?.scaled_pct(100.0)?,
+            v(1)?.scaled_pct(125.0)?,
+            v(2)?.scaled_pct(125.0)?,
+        )),
+        "lch" => Ok(Color::from_space(
+            ColorSpace::Lch,
+            v(0)?.scaled_pct(100.0)?,
+            v(1)?.scaled_pct(150.0)?,
+            v(2)?.angle_deg()?,
+        )),
+        "oklab" => Ok(Color::from_space(
+            ColorSpace::Oklab,
+            v(0)?.scaled_pct(1.0)?,
+            v(1)?.scaled_pct(0.4)?,
+            v(2)?.scaled_pct(0.4)?,
+        )),
+        "oklch" => Ok(Color::from_space(
+            ColorSpace::Oklch,
+            v(0)?.scaled_pct(1.0)?,
+            v(1)?.scaled_pct(0.4)?,
+            v(2)?.angle_deg()?,
+        )),
+        "color" => color_space_color(values, text),
+        other => Err(format!("unknown color function `{other}()`")),
+    }
+}
+
+/// The `rgb()` and `rgba()` color: percentages are of full scale, numbers
+/// are 0..=255.
+fn rgb_color(values: &[String], text: &str) -> Result<Color, String> {
+    let ch = |i: usize| -> Result<f64, String> {
+        let x = component(values, i, text)?;
+        Ok(match x.unit {
+            Unit::Percent => x.value / 100.0,
+            _ => x.value / 255.0,
+        })
+    };
+    Ok(Color::from_rgba_f64(ch(0)?, ch(1)?, ch(2)?, 1.0))
+}
+
+/// The `color(space c1 c2 c3)` color.
+fn color_space_color(values: &[String], text: &str) -> Result<Color, String> {
+    let space = values
+        .first()
+        .ok_or_else(|| format!("color `{text}` needs a color space"))?;
+    let space = match space.as_str() {
+        "srgb" => ColorSpace::Srgb,
+        "srgb-linear" => ColorSpace::SrgbLinear,
+        "display-p3" => ColorSpace::DisplayP3,
+        "a98-rgb" => ColorSpace::A98Rgb,
+        "prophoto-rgb" => ColorSpace::ProphotoRgb,
+        "rec2020" => ColorSpace::Rec2020,
+        "xyz" | "xyz-d65" => ColorSpace::XyzD65,
+        "xyz-d50" => ColorSpace::XyzD50,
+        other => return Err(format!("unknown color space `{other}`")),
+    };
+    if values.len() != 4 {
+        return Err(format!("color `{text}` needs three components"));
+    }
+    let c = |s: &str| Value::parse(s, text).and_then(|x| x.fraction(1.0));
+    Ok(Color::from_space(
+        space,
+        c(&values[1])?,
+        c(&values[2])?,
+        c(&values[3])?,
+    ))
 }
 
 /// Split `inner` into its three components and an optional alpha. The

@@ -15,6 +15,9 @@ const FLAG_NEAREST: u32 = 1;
 /// The flag of a draw's uniform: a coverage chunk multiplies in.
 const FLAG_COVERAGE: u32 = 2;
 
+/// The source of a draw: its view, its size in px, and the map from the target px into it.
+type DrawSource = (wgpu::TextureView, (f32, f32), Projective);
+
 impl GpuContext {
     /// Record one [`DrawOp`] into its target.
     pub(super) fn record_draw(
@@ -41,13 +44,7 @@ impl GpuContext {
         };
         let blended = op.blend != BlendMode::Normal;
         let copy = if blended {
-            let copy = super::targets::target(&self.device, (target.width(), target.height()));
-            encoder.copy_texture_to_texture(
-                target.as_image_copy(),
-                copy.as_image_copy(),
-                target.size(),
-            );
-            Some(copy)
+            Some(self.blend_copy(encoder, target))
         } else {
             None
         };
@@ -76,27 +73,8 @@ impl GpuContext {
             .u(flags)
             .u(blend_index(op.blend));
         let params = super::exec::uniform(&self.device, &self.queue, words.bytes());
-        let edge_bytes: Vec<u8> = edges
-            .iter()
-            .flat_map(|e| e.iter().flat_map(|v| v.to_le_bytes()))
-            .collect();
-        let edge_buffer = buffer(
-            &self.device,
-            &self.queue,
-            wgpu::BufferUsages::STORAGE,
-            &edge_bytes,
-        );
-        let group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("Arvane draw"),
-            layout: &self.pipelines.draw_layout,
-            entries: &[
-                entry(0, params.as_entire_binding()),
-                entry(1, wgpu::BindingResource::TextureView(&src_view)),
-                entry(2, wgpu::BindingResource::TextureView(dst)),
-                entry(3, wgpu::BindingResource::TextureView(cov)),
-                entry(4, edge_buffer.as_entire_binding()),
-            ],
-        });
+        let edge_buffer = self.edge_buffer(&edges);
+        let group = self.draw_group(&params, &src_view, dst, cov, &edge_buffer);
         let slot = if blended {
             SHADER_BLEND
         } else {
@@ -112,13 +90,64 @@ impl GpuContext {
         Ok(())
     }
 
+    /// A copy of `target` that a blended draw reads as its backdrop, copied into `encoder`.
+    fn blend_copy(
+        &self,
+        encoder: &mut wgpu::CommandEncoder,
+        target: &wgpu::Texture,
+    ) -> wgpu::Texture {
+        let copy = super::targets::target(&self.device, (target.width(), target.height()));
+        encoder.copy_texture_to_texture(
+            target.as_image_copy(),
+            copy.as_image_copy(),
+            target.size(),
+        );
+        copy
+    }
+
+    /// The storage buffer holding the edges of a draw.
+    fn edge_buffer(&self, edges: &[[f32; 4]]) -> wgpu::Buffer {
+        let edge_bytes: Vec<u8> = edges
+            .iter()
+            .flat_map(|e| e.iter().flat_map(|v| v.to_le_bytes()))
+            .collect();
+        buffer(
+            &self.device,
+            &self.queue,
+            wgpu::BufferUsages::STORAGE,
+            &edge_bytes,
+        )
+    }
+
+    /// The bind group of a draw: its uniform, source, backdrop, coverage and edges.
+    fn draw_group(
+        &self,
+        params: &wgpu::Buffer,
+        src: &wgpu::TextureView,
+        dst: &wgpu::TextureView,
+        cov: &wgpu::TextureView,
+        edges: &wgpu::Buffer,
+    ) -> wgpu::BindGroup {
+        self.device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("Arvane draw"),
+            layout: &self.pipelines.draw_layout,
+            entries: &[
+                entry(0, params.as_entire_binding()),
+                entry(1, wgpu::BindingResource::TextureView(src)),
+                entry(2, wgpu::BindingResource::TextureView(dst)),
+                entry(3, wgpu::BindingResource::TextureView(cov)),
+                entry(4, edges.as_entire_binding()),
+            ],
+        })
+    }
+
     /// The source view, its size in px, and the map from the target px into it.
     /// None when an external frame is not drawn this frame.
     fn source_of(
         &self,
         op: &DrawOp<'_>,
         frame: &FrameTextures<'_>,
-    ) -> Result<Option<(wgpu::TextureView, (f32, f32), Projective)>, ComposeError> {
+    ) -> Result<Option<DrawSource>, ComposeError> {
         match &op.source {
             Source::Chunk(key) => {
                 let (v, size) = self.chunk_view(key)?;
