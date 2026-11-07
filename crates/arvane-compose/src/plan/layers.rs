@@ -21,6 +21,7 @@ use super::{
     Builder, DrawOp, Grid, Op, PlanError, Source, TargetId, TargetKind, filter_reach, full_polygon,
     px_map,
 };
+use super::{Sampling, Scissor};
 use crate::cache::{ChunkKey, ChunkRole, LayerRecord, Retained};
 
 /// The largest surface side in px (a larger surface is rastered at a lower scale).
@@ -421,13 +422,13 @@ impl<'a> Builder<'a> {
             return Ok(Source::Chunk(key));
         }
         let cache = self.cache;
-        let reuse = self.cacheable
+        let reuse = self.cacheable()
             && !subtree_has_backdrop(self.comp, index)
             && cache
                 .layers
                 .get(&layer.key)
                 .is_some_and(|r| r.signature == sig);
-        let surface = if self.cacheable {
+        let surface = if self.cacheable() {
             self.push_target(
                 geo.size,
                 TargetKind::Kept {
@@ -444,7 +445,7 @@ impl<'a> Builder<'a> {
             self.reuse_subtree(index)?;
             return Ok(Source::Target(surface));
         }
-        if self.cacheable {
+        if self.cacheable() {
             self.ops.push(Op::Clear {
                 target: surface,
                 rect: None,
@@ -507,9 +508,9 @@ impl<'a> Builder<'a> {
             opacity: 1.0,
             blend: BlendMode::Normal,
             composite: Composite::SourceOver,
-            nearest: false,
+            sampling: Sampling::Smooth,
             coverage: None,
-            scissor: None,
+            scissor: Scissor::Off,
         }));
         let mut cur = behind;
         for filter in &backdrop.filters {
@@ -538,11 +539,11 @@ impl<'a> Builder<'a> {
             opacity: 1.0,
             blend: BlendMode::Normal,
             composite: Composite::SourceOver,
-            nearest: false,
+            sampling: Sampling::Smooth,
             coverage: Some(key),
-            scissor: None,
+            scissor: Scissor::Off,
         }));
-        if self.cacheable {
+        if self.cacheable() {
             self.backdrops.extend(mapped_bounds(to_win, geo.rect));
         }
         Ok(())
@@ -629,9 +630,9 @@ impl<'a> Builder<'a> {
             opacity: layer.effects.opacity,
             blend: layer.effects.blend,
             composite: layer.effects.composite,
-            nearest: geo.nearest,
+            sampling: Sampling::nearest(geo.nearest),
             coverage: cover,
-            scissor: None,
+            scissor: Scissor::Off,
         }));
     }
 
@@ -643,7 +644,7 @@ impl<'a> Builder<'a> {
         mark: usize,
         to_win: &Matrix4,
     ) {
-        if !self.cacheable {
+        if !self.cacheable() {
             return;
         }
         let spreads = !layer.effects.filters.is_empty()
@@ -668,7 +669,7 @@ impl<'a> Builder<'a> {
         clips: &[Shape],
         whole_on_change: bool,
     ) {
-        if !self.cacheable {
+        if !self.cacheable() {
             return;
         }
         let own = own_hash(layer, to_win, clips);

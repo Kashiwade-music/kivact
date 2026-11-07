@@ -10,7 +10,7 @@ use kivact_types::scene::Shape;
 use super::bounds::mapped_bounds;
 use super::items::{Dest, ItemCtx};
 use super::polygon::{Plane, Poly, Split, plane_of, project_rect, split};
-use super::{Builder, DrawOp, Op, PlanError, Source, TargetId, px_map};
+use super::{Builder, DrawOp, Op, PlanError, Sampling, Scissor, Source, TargetId, px_map};
 
 /// One participant of a context: a run of the root's own items, or a flat child layer.
 #[derive(Clone, Copy, Debug)]
@@ -146,9 +146,9 @@ impl<'a> Builder<'a> {
                 opacity: draw.opacity,
                 blend: draw.blend,
                 composite: draw.composite,
-                nearest: draw.nearest,
+                sampling: Sampling::nearest(draw.nearest),
                 coverage: cover,
-                scissor: None,
+                scissor: Scissor::Off,
             }));
         }
         Ok(())

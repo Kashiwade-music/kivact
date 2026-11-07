@@ -61,7 +61,7 @@ impl PlanError {
 
 /// The damaged part of the output window.
 #[derive(Clone, Debug, PartialEq)]
-pub(crate) enum Damage {
+pub enum Damage {
     /// Everything is redrawn.
     Full,
     /// Only these rectangles (device px) are redrawn.
@@ -171,6 +171,35 @@ pub(crate) enum Source<'a> {
     Pixels(&'a Pixels),
 }
 
+/// How a draw samples its source.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Sampling {
+    /// Bilinear.
+    Smooth,
+    /// The texel holding the sample point.
+    Nearest,
+}
+
+impl Sampling {
+    /// The sampling of a draw that is `nearest` (pixel aligned) or smooth.
+    pub(crate) fn nearest(nearest: bool) -> Sampling {
+        if nearest {
+            Sampling::Nearest
+        } else {
+            Sampling::Smooth
+        }
+    }
+}
+
+/// The rectangles a draw is limited to (window damage on the output).
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) enum Scissor {
+    /// No limit.
+    Off,
+    /// Only these rectangles (device px).
+    Rects(Vec<PixelRect>),
+}
+
 /// One draw of a target's pixels from a source.
 #[derive(Clone, Debug)]
 pub(crate) struct DrawOp<'a> {
@@ -191,11 +220,11 @@ pub(crate) struct DrawOp<'a> {
     /// Porter–Duff operator with what lies beneath.
     pub(crate) composite: Composite,
     /// Disable smoothing.
-    pub(crate) nearest: bool,
+    pub(crate) sampling: Sampling,
     /// Coverage multiplied in, in target px.
     pub(crate) coverage: Option<ChunkKey>,
     /// Pixels of the target outside these rectangles stay as they are (window damage).
-    pub(crate) scissor: Option<Vec<PixelRect>>,
+    pub(crate) scissor: Scissor,
 }
 
 /// One shader draw: the GPU runs the shader, the CPU draws `fallback`.
@@ -317,6 +346,15 @@ pub(crate) fn build<'a>(
     }
 }
 
+/// Whether the frame's surfaces and chunks are cached or planned for an export (no reuse, no records).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Caching {
+    /// Surfaces and chunks are cached.
+    Cached,
+    /// Planned for an export: nothing is reused or recorded.
+    Uncached,
+}
+
 /// The state of planning one frame.
 pub(crate) struct Builder<'a> {
     /// The composition being planned.
@@ -333,8 +371,8 @@ pub(crate) struct Builder<'a> {
     pub(crate) frame: u64,
     /// Layers drawn into their parent instead of a surface.
     pub(crate) inline: HashSet<u32>,
-    /// False while planning exports: no reuse, records or window damage.
-    pub(crate) cacheable: bool,
+    /// Whether this frame's surfaces and chunks are cached: no reuse, records or window damage while planning exports.
+    pub(crate) caching: Caching,
     /// The targets so far.
     pub(crate) targets: Vec<TargetSpec>,
     /// The chunk tasks so far.
@@ -379,7 +417,7 @@ impl<'a> Builder<'a> {
             gpu,
             frame: cache.frame + 1,
             inline,
-            cacheable: true,
+            caching: Caching::Cached,
             targets: vec![TargetSpec {
                 size: window,
                 kind: TargetKind::Temp,
@@ -396,6 +434,11 @@ impl<'a> Builder<'a> {
             reused_surfaces: 0,
             signatures: HashMap::new(),
         }
+    }
+
+    /// Whether this frame's surfaces and chunks are cached (false while planning exports).
+    fn cacheable(&self) -> bool {
+        self.caching == Caching::Cached
     }
 
     /// The layer at `index`.
@@ -459,8 +502,8 @@ impl<'a> Builder<'a> {
     fn emit_exports(&mut self) -> Result<Vec<(DrawableId, TargetId)>, PlanError> {
         let comp = self.comp;
         let mut out = Vec::with_capacity(comp.exports.len());
-        let saved = self.cacheable;
-        self.cacheable = false;
+        let saved = self.caching;
+        self.caching = Caching::Uncached;
         for export in &comp.exports {
             let layer = self.layer(export.layer)?;
             let target = self.new_temp(export.size);
@@ -476,7 +519,7 @@ impl<'a> Builder<'a> {
             self.emit_layer(export.layer, dest, to, &[])?;
             out.push((export.sink, target));
         }
-        self.cacheable = saved;
+        self.caching = saved;
         Ok(out)
     }
 
@@ -555,7 +598,7 @@ impl<'a> Builder<'a> {
                     if let Op::Draw(draw) = op
                         && draw.target == OUTPUT
                     {
-                        draw.scissor = Some(rects.clone());
+                        draw.scissor = Scissor::Rects(rects.clone());
                     }
                 }
                 clears.append(&mut self.ops);

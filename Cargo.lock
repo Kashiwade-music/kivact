@@ -267,6 +267,7 @@ dependencies = [
 name = "arvane-compose"
 version = "0.1.0"
 dependencies = [
+ "arvane-render",
  "kivact-types",
 ]
 

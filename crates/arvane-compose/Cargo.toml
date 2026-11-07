@@ -9,6 +9,7 @@ description = "Arvane compositor plan: layer trees to draw operations, with cach
 
 [dependencies]
 kivact-types = { path = "../kivact-types", version = "0.1.0" }
+arvane-render = { path = "../arvane-render", version = "0.1.0" }
 
 [lints]
 workspace = true

@@ -12,7 +12,9 @@ use kivact_types::render::{
 };
 use kivact_types::scene::Shape;
 
-use super::{Builder, DrawOp, Grid, Op, PlanError, ShaderOp, Source, TargetId, px_map};
+use super::{
+    Builder, DrawOp, Grid, Op, PlanError, Sampling, Scissor, ShaderOp, Source, TargetId, px_map,
+};
 use crate::cache::{ChunkKey, ChunkRole};
 
 /// Where a set of items draws: its target, the map from layer space to the
@@ -97,9 +99,9 @@ impl<'a> Builder<'a> {
             opacity: 1.0,
             blend: BlendMode::Normal,
             composite: Composite::SourceOver,
-            nearest: false,
+            sampling: Sampling::Smooth,
             coverage: cx.dest.cover,
-            scissor: None,
+            scissor: Scissor::Off,
         }));
         Ok(())
     }
@@ -135,9 +137,9 @@ impl<'a> Builder<'a> {
             opacity: external.opacity,
             blend: BlendMode::Normal,
             composite: Composite::SourceOver,
-            nearest: external.pixelated,
+            sampling: Sampling::nearest(external.pixelated),
             coverage,
-            scissor: None,
+            scissor: Scissor::Off,
         }));
         Ok(())
     }
