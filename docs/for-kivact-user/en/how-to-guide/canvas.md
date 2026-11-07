@@ -615,7 +615,47 @@ fn exporter() -> impl IntoView {
 # fn main() -> kivact::Result<()> { App::new("Export").run(exporter) }
 ```
 
-## Capture a mounted node
+## Write a drawing as SVG
+
+`Svg` records the same `Draw` vocabulary as `Offscreen` and writes it as one
+SVG 1.1 document. Like `Offscreen` it needs no `App`, so one picture function
+serves the screen, the PNG export and the SVG export:
+
+```rust,no_run
+use kivact::draw::{Draw, Svg};
+use kivact::geometry::{Point, Rect, Size};
+use kivact::prelude::*;
+
+fn artwork(draw: &mut Draw, size: Size) {
+    draw.fill_rect(Rect::new(0.0, 0.0, size.width, size.height), rgb(0x101820));
+    let center = Point::new(size.width / 2.0, size.height / 2.0);
+    draw.circle(center, size.height / 3.0, rgb(0xf2aa4c));
+}
+
+fn main() -> kivact::Result<()> {
+    let document = Svg::new().render(640.0, 360.0, artwork)?;
+    assert!(document.starts_with("<?xml"));
+    // Write `document` to a `.svg` file here.
+    Ok(())
+}
+```
+
+- The size is in logical pixels, and the `width`, `height` and `viewBox` of
+  the document are that size. The document has no background; paint one to
+  make it opaque.
+- Rectangles, rounded rectangles, lines, paths, shapes, text, clips,
+  transforms, layers with opacity, linear and radial gradients, and images
+  are written as SVG elements. Images are embedded as PNG data URIs at the
+  size they are drawn.
+- A command SVG cannot express is an `ErrorKind::Unsupported` error, not a
+  silent omission. Among them are blend modes, masks and filters on layers,
+  text decorations and font features, shaped paragraphs, conic gradients,
+  and radial gradients sized by keywords. A size of zero, or a value that is
+  not finite, is an error and `paint` is not called.
+- SVG does not embed fonts. Register the fonts the text uses with
+  `svg.font(include_bytes!("…"))` so the text is measured, and install the
+  same fonts (under the same family names) where the document is viewed.
+
 
 Bind a `NodeRef` with `.node_ref(target)` and await `target.snapshot()` from
 an async action or task. It returns owned `Pixels` in straight-alpha RGBA8,

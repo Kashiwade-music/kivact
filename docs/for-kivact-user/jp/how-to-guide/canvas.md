@@ -513,6 +513,43 @@ fn exporter() -> impl IntoView {
 # fn main() -> kivact::Result<()> { App::new("Export").run(exporter) }
 ```
 
+## SVG に書き出す
+
+`Svg` は `Offscreen` と同じ `Draw` の語彙を記録し、1 つの SVG 1.1 文書として
+書き出します。`Offscreen` と同じく `App` を必要としないので、1 つの描画関数を
+画面、PNG 書き出し、SVG 書き出しで共有できます。
+
+```rust,no_run
+use kivact::draw::{Draw, Svg};
+use kivact::geometry::{Point, Rect, Size};
+use kivact::prelude::*;
+
+fn artwork(draw: &mut Draw, size: Size) {
+    draw.fill_rect(Rect::new(0.0, 0.0, size.width, size.height), rgb(0x101820));
+    let center = Point::new(size.width / 2.0, size.height / 2.0);
+    draw.circle(center, size.height / 3.0, rgb(0xf2aa4c));
+}
+
+fn main() -> kivact::Result<()> {
+    let document = Svg::new().render(640.0, 360.0, artwork)?;
+    assert!(document.starts_with("<?xml"));
+    // `document` を `.svg` ファイルに書き出します。
+    Ok(())
+}
+```
+
+- 大きさは論理 px で、文書の `width`、`height`、`viewBox` はその大きさです。
+  文書に背景はないので、不透明にしたい場合は背景を描いてください。
+- 矩形、角丸の矩形、線、パス、図形、文字、クリップ、変換、不透明度つきの層、
+  線形と放射状のグラデーション、画像は SVG の要素になります。画像は描いた大きさの
+  PNG データ URI として埋め込まれます。
+- SVG で表せない命令は `ErrorKind::Unsupported` のエラーになり、黙って欠落させません。
+  層のブレンドモード、マスク、フィルタ、文字の装飾とフォント機能、整形済みの段落、
+  円錐グラデーション、キーワードで大きさを決めた放射状グラデーションがこれに当たります。
+  大きさが 0 のときや有限でない値があるときもエラーで、`paint` は呼ばれません。
+- SVG はフォントを埋め込みません。文字の計測のために `svg.font(include_bytes!("…"))` で
+  使うフォントを登録し、文書を見る環境にも同じフォントを同じファミリ名で入れてください。
+
 ## マウント済みの node を画像にする
 
 `NodeRef` を `.node_ref(target)` で結び付け、非同期の action や task から

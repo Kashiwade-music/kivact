@@ -75,6 +75,62 @@ pub struct Tokens {
     pub sidebar_ring: Color,
     /// The syntax colors of [`code_block`](kivact::ui::code_block).
     pub code: CodeColors,
+    /// The colors of [`plot`](crate::plot).
+    pub plot: PlotTokens,
+}
+
+/// The colors of a plot: its surface, grid, axes, text, crosshair and the
+/// colormap of heatmaps. Grid and axes reuse the kit's border and muted
+/// tones.
+#[derive(Clone, Debug, PartialEq)]
+pub struct PlotTokens {
+    /// The plot area's surface.
+    pub background: Color,
+    /// The major grid lines.
+    pub grid: Color,
+    /// The minor grid lines of a log axis.
+    pub grid_minor: Color,
+    /// The axis lines.
+    pub axis: Color,
+    /// The tick labels and titles.
+    pub text: Color,
+    /// The crosshair and the readout marker.
+    pub crosshair: Color,
+    /// The heatmap colormap, from its lowest value to its highest: viridis.
+    pub colormap: [Color; 9],
+}
+
+impl PlotTokens {
+    /// The plot colors of the light or dark scheme.
+    pub fn new(mode: ThemeMode) -> Self {
+        let dark = mode == ThemeMode::Dark;
+        let pick = |light: u32, dark_value: u32| rgb(if dark { dark_value } else { light });
+        let border = if dark {
+            rgba(0xffffff, 0.10)
+        } else {
+            rgb(0xe5e5e5)
+        };
+        let muted = pick(0x737373, 0xa1a1a1);
+        Self {
+            background: pick(0xffffff, 0x171717),
+            grid: border,
+            grid_minor: border,
+            axis: muted,
+            text: muted,
+            crosshair: pick(0xa1a1a1, 0x737373),
+            colormap: [
+                rgb(0x440154),
+                rgb(0x472d7b),
+                rgb(0x3b528b),
+                rgb(0x2c728e),
+                rgb(0x21918c),
+                rgb(0x28ae80),
+                rgb(0x5ec962),
+                rgb(0xaddc30),
+                rgb(0xfde725),
+            ],
+        }
+    }
 }
 
 /// The syntax colors of a code block, one per highlighted tone.
@@ -189,6 +245,7 @@ impl Tokens {
             },
             sidebar_ring: pick(0xa1a1a1, 0x737373),
             code: CodeColors::new(mode),
+            plot: PlotTokens::new(mode),
         }
     }
 

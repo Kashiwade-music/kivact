@@ -2328,6 +2328,7 @@ dependencies = [
  "kivact-runtime",
  "kivact-style",
  "kivact-types",
+ "png 0.18.1",
  "tracing",
 ]
 

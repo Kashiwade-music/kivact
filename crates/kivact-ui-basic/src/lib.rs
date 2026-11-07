@@ -78,6 +78,7 @@ mod native_select;
 mod navigation_menu;
 mod pagination;
 mod parts;
+pub mod plot;
 mod primitives;
 mod questionnaire;
 mod recipes;

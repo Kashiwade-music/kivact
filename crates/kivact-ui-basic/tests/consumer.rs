@@ -16,6 +16,8 @@ mod navigation;
 mod navigation_layout;
 #[path = "consumer/overlays.rs"]
 mod overlays;
+#[path = "consumer/plot.rs"]
+mod plot;
 #[path = "consumer/support.rs"]
 mod support;
 #[path = "consumer/toasts.rs"]

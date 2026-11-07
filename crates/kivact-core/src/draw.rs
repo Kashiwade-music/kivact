@@ -35,3 +35,7 @@ pub use kivact_style::draw::{
 mod offscreen;
 #[doc(inline)]
 pub use offscreen::Offscreen;
+
+mod svg;
+#[doc(inline)]
+pub use svg::Svg;

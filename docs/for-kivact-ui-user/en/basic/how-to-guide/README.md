@@ -10,4 +10,5 @@ These guides solve one goal each with `kivact-ui-basic`. Every page starts with 
 | [Show dialogs, sheets, popovers, menus and toasts](overlays.md) | Put a dialog, a confirmation, a sheet, a drawer, a popover, a hover card, a menu or a toast above the page |
 | [Build navigation](navigation.md) | Add a sidebar shell, tabs, a breadcrumb, a menu bar, a navigation menu and pagination |
 | [Display data](data-display.md) | Show a table, a sortable data table, a chart, badges, avatars and code blocks |
+| [Plot data on zoomable axes](plot.md) | Draw lines, points, stems, histograms and heatmaps on linear or log axes, and let the user zoom, pan and reset the range |
 | [Build forms](forms.md) | Label and validate fields, group them, add input addons, and use the combobox, date picker, calendar and one-time code |
