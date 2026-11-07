@@ -17,7 +17,7 @@
 //!   border, radius, shadow, ring, effects, transform, z-index), so a state
 //!   that sets only `border_color` keeps the base width, and one that sets
 //!   only `scale` keeps the base rotation.
-//! - A paint transition (`TransitionProp::Paint`) works the same for a
+//! - A transition over the paint properties (`TransitionProp::All`) works the same for a
 //!   signal or style change and for the host's hover, pressed and focus
 //!   switches: it interpolates the opacity, a solid background, each
 //!   border color, the canonical transform and its origin, the first two

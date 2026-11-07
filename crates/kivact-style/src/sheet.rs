@@ -18,7 +18,7 @@
 //!   focus is visible); `enter` and `exit` are deltas of the same kind, on
 //!   top right after mounting and while leaving (`kivact::motion`).
 //!   `disabled` and `selected` are merged when the style is compiled.
-//!   A state style changes paint only (see [`TransitionProp::Paint`]); a
+//!   A state style changes paint only (see [`TransitionProp::All`]); a
 //!   layout or text property other than `color` set in a delta state is
 //!   reported as `Unsupported` and ignored. `selected` and `disabled` apply
 //!   any property.
@@ -860,7 +860,7 @@ impl Style {
     /// The style while the pointer is over the node or a node below it
     /// (CSS `:hover`, which a hovered child keeps on its parents).
     ///
-    /// A state style changes paint only (see [`TransitionProp::Paint`]); a
+    /// A state style changes paint only (see [`TransitionProp::All`]); a
     /// layout or text property other than `color` set in it is reported as
     /// `Unsupported` and ignored. `selected` and `disabled` apply any
     /// property.
@@ -949,7 +949,7 @@ impl Style {
 
     /// The paint the node starts from when it is mounted (CSS
     /// `@starting-style`, Framer Motion's `initial`): its
-    /// [`TransitionProp::Paint`] transition moves it from there to its
+    /// [`TransitionProp::All`] transition moves it from there to its
     /// paint. Only the paint properties the transition animates move; the
     /// others take their value at once.
     ///
@@ -960,7 +960,7 @@ impl Style {
     /// let toast = style()
     ///     .enter(style().translate_x(40).opacity(0.0))
     ///     .exit(style().translate_x(40).opacity(0.0))
-    ///     .transition(TransitionProp::Paint, Transition::tween(260, Easing::EaseOut));
+    ///     .transition(TransitionProp::All, Transition::tween(260, Easing::EaseOut));
     /// # let _ = toast;
     /// ```
     ///
