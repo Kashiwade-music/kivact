@@ -2,7 +2,9 @@
 
 use crate::engine::Engine;
 use crate::engine::POOL;
-use kivact_types::{ExternalFrame, ExternalImageId, GpuAdapter, GpuBackend, SharedTextures};
+use kivact_types::{
+    ExternalFrame, ExternalImageId, GpuAdapter, GpuBackend, SHARED_PREPARED, SharedTextures,
+};
 use std::time::Duration;
 
 /// Which engine a [`Producer`] runs.
@@ -135,7 +137,8 @@ impl Producer {
     }
 
     /// Draw `frame` (counted from 0, in order) into texture `frame % POOL`
-    /// and signal `ready` to `frame + 1`: the frame to name in a scene.
+    /// and signal `ready` to `frame + SHARED_PREPARED + 1` (frame values
+    /// start above the preparation signal): the frame to name in a scene.
     pub fn draw(&mut self, frame: u64) -> Result<ExternalFrame, String> {
         if frame != self.next {
             return Err(format!("frame {frame} drawn after {}", self.next));
@@ -145,7 +148,7 @@ impl Producer {
         self.next += 1;
         debug_assert_eq!(
             (u64::from(ready.slot), ready.value),
-            (frame % POOL as u64, frame + 1),
+            (frame % POOL as u64, frame + SHARED_PREPARED + 1),
             "the pool counts frames as the producer does"
         );
         Ok(ready.frame(self.image))
