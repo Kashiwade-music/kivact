@@ -2410,6 +2410,7 @@ version = "0.1.0"
 dependencies = [
  "async-channel",
  "gpu-interop-producer",
+ "image",
  "kivact",
  "kivact-ui-basic",
  "kivact-ui-creative",

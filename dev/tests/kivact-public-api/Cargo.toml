@@ -19,6 +19,9 @@ gpu-interop = ["gpu", "kivact/gpu-interop"]
 [dev-dependencies]
 async-channel = { workspace = true }
 kivact = { path = "../../../crates/kivact", default-features = false, features = ["test"] }
+# Encodes the GIF, APNG and WebP fixtures of the image tests
+# (tests/e2e/images_animated.rs).
+image = { version = "0.25.10", default-features = false, features = ["png", "gif", "webp"] }
 # The standard components are drawn like a kit's own once the kit's theme is
 # installed (tests/e2e/ui_standard.rs).
 kivact-ui-basic = { path = "../../../crates/kivact-ui-basic" }
