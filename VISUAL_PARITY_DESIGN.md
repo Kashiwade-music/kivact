@@ -4705,3 +4705,5 @@ wave R1 で A-2 により止まった項目について、ユーザーの指示�
 | B-12 | R11、R12、§8.1、§4.4 | turbulence と色の表のように CPU と GPU の両方が使う表は、`cpu` でも `gpu` でもない leaf（`crate::tables`）に置く。policy の `cpu` と `gpu` の uses に `tables` を加える。`gpu` は `cpu` を参照しない |
 | B-13 | R12、§8.1 | `gpu/mask.rs`（mask と clip の pass、§8.9）を §8.1 の module の一覧に加える |
 | B-14 | R11、§8.1、§0.3 | `GpuReport` の alias と `GPU_BUILT` は leaf に置き、`lib.rs` は宣言と再公開だけにする（§0.3 が §8.1 の code block に優先する） |
+| B-15 | CP8、§12.5、§17.2 | reduced motion の間、decorative な frame loop は tick しない（§12.5）。既存の試験 `motion::reduced_motion_completes_decorative_transitions_only` が、decorative な loop が回り続けることを期待していた部分は、設計の決定で意味が変わったものとして期待値を更新する。作業指示書 §10 CP8 の「期待値を更新してよいもの」に加える |
+| B-16 | CP8、§0.3、§8.1 | 特定の feature（例: `testing`）のときだけ使う item は、その feature のときだけ存在させる（`#[cfg(feature = …)]`）。feature の組み合わせによって未使用になる item に `allow` を付けない |
