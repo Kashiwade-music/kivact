@@ -5,7 +5,9 @@
 //! - A color filter becomes a layer color matrix, in order; `blur` and
 //!   `drop-shadow` become layer filters; a filter graph takes its images as
 //!   pixels at their natural size (§11.2.1); a filter shader is a shader use.
-//! - A shader's images are their natural pixels and its time is 0 (§6.8).
+//! - A shader's images are their natural pixels and its time is its clock's
+//!   (§11.3.5; still shaders, and non-essential ones under reduced motion,
+//!   are at 0).
 //!   A shader whose images are not ready draws its fallback in place.
 //! - A mask is the scene of its fill over its area. A shader mask is not
 //!   supported and is left out.
@@ -17,7 +19,9 @@ use std::sync::Arc;
 
 use arvane::asset::PixelSize;
 use kivact_types::effect::ShaderUse;
-use kivact_types::paint::{Fill, FillImage, FillLayer, FilterOp, MaskLayer, ShaderSpec};
+use kivact_types::paint::{
+    Fill, FillImage, FillLayer, FilterOp, MaskLayer, ShaderClock, ShaderSpec,
+};
 use kivact_types::pixel::ColorMatrix;
 use kivact_types::render::{
     LayerFilter, LayerItem, Paint, RenderBackdrop, RenderCmd as D, RenderMask, RenderScene,
@@ -208,8 +212,9 @@ impl Context<'_> {
         out.item(LayerItem::Shader(item));
     }
 
-    /// The shader use of `spec` at time 0 with its images at their natural
-    /// pixels (`None` while an image is not ready).
+    /// The shader use of `spec` at its clock's time with its images at their
+    /// natural pixels (`None` while an image is not ready). A still clock, or
+    /// reduced motion for a shader that is not essential, is at time 0.
     pub(crate) fn shader_use(&self, spec: &ShaderSpec) -> Option<ShaderUse> {
         let mut images = [None, None, None, None];
         for (slot, asset) in spec.images.iter().enumerate() {
@@ -217,11 +222,16 @@ impl Context<'_> {
                 images[slot] = Some(self.natural_pixels(asset)?);
             }
         }
+        let time = match spec.clock {
+            ShaderClock::Still => 0.0,
+            _ if self.time.reduced && !spec.essential => 0.0,
+            _ => self.time.seconds,
+        };
         Some(ShaderUse {
             program: spec.program.clone(),
             params: spec.params.clone(),
             images,
-            time: 0.0,
+            time,
             margin: spec.margin,
         })
     }

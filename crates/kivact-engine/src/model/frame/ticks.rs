@@ -146,6 +146,7 @@ impl Model {
         let sizes = self.step_sizes(stamp, self.frame.reduced_motion());
         let layout = self.step_layout_motion(stamp, self.frame.reduced_motion());
         self.step_playback(stamp);
+        self.step_shader_clocks(stamp);
         if self.step_states(stamp, self.frame.reduced_motion()) || sizes || layout {
             self.frame.frames.0.insert(stamp.saturating_add(period));
         }

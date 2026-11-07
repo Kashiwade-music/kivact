@@ -42,6 +42,7 @@ impl Model {
     pub(crate) fn composition(&mut self, engine: &mut arvane::Engine) -> Composition {
         self.paint_list();
         self.sync_playback();
+        self.sync_shader_clocks();
         let pass = PaintPass {
             scale: self.paint.scale,
             size: self.window(),

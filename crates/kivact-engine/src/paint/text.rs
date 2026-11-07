@@ -1,7 +1,7 @@
 //! Role: Model-aware fill, scene and text painting orchestration.
 
 use super::state::PaintPass;
-use crate::lower::context::Context;
+use crate::lower::context::{Context, ShaderTime};
 use crate::lower::effects::Tint;
 use crate::lower::fill::Boxes;
 use crate::lower::glyphs::{Colors, push_text};
@@ -10,9 +10,13 @@ use crate::model::Model;
 use kivact_types::{DrawList, Fill, NodeId, Point, Rect};
 
 impl Model {
-    /// The painting context of `pass`: its assets and raster scale.
+    /// The painting context of `pass`: its assets, raster scale and shader clock.
     pub(super) fn painting(&self, pass: PaintPass) -> Context<'_> {
-        Context::new(&self.assets, pass.scale, &self.paint.scene_cache)
+        let time = ShaderTime {
+            seconds: self.frame.now() as f64 / 1e9,
+            reduced: self.frame.reduced_motion(),
+        };
+        Context::new(&self.assets, pass.scale, &self.paint.scene_cache).timed(time)
     }
 
     /// Fill `boxes` with `fill` at `origin`; a shader layer is an item.

@@ -51,8 +51,20 @@ pub(crate) struct Context<'a> {
     pub(crate) scene_cache: &'a RefCell<SceneCache>,
     /// Every resource resolved so far, in order; a scene lowering keeps the ones it resolved.
     pub(crate) dependencies: RefCell<Vec<Dependency>>,
+    /// The shader clock of what is painted (§11.3.5).
+    pub(crate) time: ShaderTime,
     dropped: Cell<u32>,
     failures: RefCell<Vec<kivact_types::Failure>>,
+}
+
+/// The shader clock of a paint: the motion clock in seconds, and whether
+/// reduced motion stops the shaders that are not essential.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub(crate) struct ShaderTime {
+    /// Seconds of the motion clock.
+    pub(crate) seconds: f64,
+    /// Reduced motion is on.
+    pub(crate) reduced: bool,
 }
 
 /// The completed lowering operation.
@@ -85,9 +97,16 @@ impl<'a> Context<'a> {
             raster: Cell::new(raster),
             scene_cache,
             dependencies: RefCell::new(Vec::new()),
+            time: ShaderTime::default(),
             dropped: Cell::new(0),
             failures: RefCell::new(Vec::new()),
         }
+    }
+
+    /// The same context with the shader clock of the paint being made.
+    pub(crate) fn timed(mut self, time: ShaderTime) -> Self {
+        self.time = time;
+        self
     }
 
     pub(crate) fn checkpoint(&self) -> Checkpoint {
