@@ -3,6 +3,7 @@
 use super::state::PaintPass;
 use crate::lower::context::Context;
 use crate::lower::effects::Tint;
+use crate::lower::fill::Boxes;
 use crate::lower::glyphs::{Colors, push_text};
 use crate::lower::shape::BoxShape;
 use crate::model::Model;
@@ -14,18 +15,18 @@ impl Model {
         Context::new(&self.assets, pass.scale, &self.paint.scene_cache)
     }
 
-    /// Fill `shape` with `fill` at `origin`; a shader layer is an item.
+    /// Fill `boxes` with `fill` at `origin`; a shader layer is an item.
     pub(crate) fn fill(
         &self,
         out: &mut crate::lower::SceneOut,
-        shape: &BoxShape,
+        boxes: &Boxes,
         fill: &Fill,
         tint: &Tint,
         origin: Point,
         pass: PaintPass,
     ) {
         let context = self.painting(pass);
-        context.fill_items(out, shape, fill, tint, origin);
+        context.fill_items(out, boxes, fill, tint, origin);
         context.finish();
     }
 
@@ -140,7 +141,7 @@ impl Model {
                 };
                 self.fill(
                     out,
-                    &BoxShape::Rect(rect),
+                    &Boxes::uniform(BoxShape::Rect(rect)),
                     fill,
                     tint,
                     Point {

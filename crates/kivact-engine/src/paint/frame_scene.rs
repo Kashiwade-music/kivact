@@ -13,6 +13,7 @@ use super::state::{Entry, LayerSpec, Opening, PaintList, PaintPass, Step};
 use crate::contract::{HostEvent, NodeType};
 use crate::lower::border_image::lower_border_image;
 use crate::lower::effects::{self, Tint};
+use crate::lower::fill::Boxes;
 use crate::lower::sanitize;
 use crate::lower::shape::BoxShape;
 use crate::lower::{LayerProps, SceneOut, border, scene, shape};
@@ -331,7 +332,11 @@ impl Model {
                 x: area.x,
                 y: area.y,
             };
-            self.fill(out, outline, fill, tint, origin, pass);
+            let boxes = Boxes {
+                border: outline.clone(),
+                padding: outline.inset(shape::border_widths(p.border.as_ref())),
+            };
+            self.fill(out, &boxes, fill, tint, origin, pass);
         }
         border::shadows(out, outline, &p.shadows, true, false, tint);
         if let Some(image) = &p.border_image {

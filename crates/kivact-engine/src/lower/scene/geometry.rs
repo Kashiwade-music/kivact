@@ -2,6 +2,7 @@
 use super::state::State;
 use crate::lower::border_image::lower_border_image;
 use crate::lower::context::Context;
+use crate::lower::fill::Boxes;
 use crate::lower::sanitize;
 use crate::lower::shape::BoxShape;
 use kivact_types::render::RenderCmd as D;
@@ -36,7 +37,8 @@ impl Context<'_> {
                         fill: kivact_types::render::Paint::Solid(tint.color(*color)),
                     });
                 } else {
-                    self.fill_items(state.out, &BoxShape::Rect(r), fill, tint, origin_point);
+                    let boxes = Boxes::uniform(BoxShape::Rect(r));
+                    self.fill_items(state.out, &boxes, fill, tint, origin_point);
                 }
                 return true;
             }
@@ -49,7 +51,7 @@ impl Context<'_> {
                 if sanitize::drawable(&D::PushClip(r)) && radius.is_finite() && *radius >= 0.0 {
                     self.fill_items(
                         state.out,
-                        &BoxShape::Circular(r, [*radius; 4]),
+                        &Boxes::uniform(BoxShape::Circular(r, [*radius; 4])),
                         fill,
                         tint,
                         origin_point,

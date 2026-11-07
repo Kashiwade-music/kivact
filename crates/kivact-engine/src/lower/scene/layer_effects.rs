@@ -29,7 +29,7 @@ use kivact_types::{Asset, Pixels, Point, Rect, Rgba};
 use crate::lower::SceneOut;
 use crate::lower::context::Context;
 use crate::lower::effects::Tint;
-use crate::lower::shape::BoxShape;
+use crate::lower::fill::Boxes;
 
 /// A CSS blur radius as a standard deviation, sanitized.
 fn blur_px(px: f64) -> f64 {
@@ -134,49 +134,52 @@ impl Context<'_> {
         })
     }
 
-    /// Fill `shape` with `fill` as [`Context::fill`] does, except that each
+    /// Fill `boxes` with `fill` as [`Context::fill`] does, except that each
     /// shader layer is an item of its own, in the layers' order.
     pub(crate) fn fill_items(
         &self,
         out: &mut SceneOut,
-        shape: &BoxShape,
+        boxes: &Boxes,
         fill: &Fill,
         tint: &Tint,
         origin: Point,
     ) {
         let Fill::Layers(layers) = fill else {
-            return self.fill(out, shape, fill, tint, origin);
+            return self.fill(out, boxes, fill, tint, origin);
         };
         if !has_shader(fill) {
-            return self.fill(out, shape, fill, tint, origin);
+            return self.fill(out, boxes, fill, tint, origin);
         }
         for layer in layers.iter().rev() {
             match &layer.image {
-                FillImage::Shader(spec) => self.shader_item(out, shape, layer, spec, tint, origin),
-                _ => self.fill(out, shape, &Fill::Layers(vec![layer.clone()]), tint, origin),
+                FillImage::Shader(spec) => self.shader_item(out, boxes, layer, spec, tint, origin),
+                _ => self.fill(out, boxes, &Fill::Layers(vec![layer.clone()]), tint, origin),
             }
         }
     }
 
-    /// One shader layer over `shape` as a shader item, its coverage and its
-    /// fallback in the item's space; the fallback alone while the shader's
-    /// images are not ready.
+    /// One shader layer over its clip box as a shader item, its coverage and
+    /// its fallback in the item's space; the fallback alone while the
+    /// shader's images are not ready.
     fn shader_item(
         &self,
         out: &mut SceneOut,
-        shape: &BoxShape,
+        boxes: &Boxes,
         layer: &FillLayer,
         spec: &ShaderSpec,
         tint: &Tint,
         origin: Point,
     ) {
+        let Some(shape) = boxes.clip(layer.clip) else {
+            return;
+        };
         let fallback = scene_of(|tmp| {
             if let Some(image) = &spec.fallback {
                 let as_layer = FillLayer {
                     image: image.clone(),
                     ..layer.clone()
                 };
-                self.fill(tmp, shape, &Fill::Layers(vec![as_layer]), tint, origin);
+                self.fill(tmp, boxes, &Fill::Layers(vec![as_layer]), tint, origin);
             }
         });
         let Some(shader) = self.shader_use(spec) else {
