@@ -112,45 +112,26 @@ impl GpuContext {
         op: &ShaderOp<'_>,
         frame: &FrameTextures<'_>,
     ) -> Result<(), ComposeError> {
-        // A shader that reads a target is a filter: it overwrites its output over
-        // white, with its input as `content` (design §11.3.4).
-        let input = op.input.map(|id| frame.target(id)).transpose()?;
-        let key = (op.shader.program.hash, input.is_none());
-        if self.pipeline(op.shader.program.as_ref(), key).is_none() {
-            return match input {
-                Some(source) => {
-                    copy(encoder, source, frame.target(op.target)?);
-                    Ok(())
-                }
-                None => self.record_fallback(encoder, op, frame),
-            };
+        if op.input.is_some() {
+            return Err(ComposeError::InvalidComposition(
+                "a paint shader reads a target, which the plan does not produce".into(),
+            ));
         }
-        let (coverage, content) = match input {
-            Some(source) => {
-                let origin = op.map.apply(Point::new(0.0, 0.0)).ok_or_else(|| {
-                    ComposeError::InvalidComposition("a shader map has no origin".into())
-                })?;
-                let content = (
-                    source,
-                    (origin.x as f32, origin.y as f32),
-                    op.px_per_unit as f32,
-                );
-                (Coverage::White, Some(content))
-            }
-            None => {
-                let coverage = self.chunks.get(&op.coverage).ok_or_else(|| {
-                    ComposeError::Backend("a shader's coverage chunk is missing".into())
-                })?;
-                (Coverage::Texture(coverage), None)
-            }
-        };
+        let key = (op.shader.program.hash, true);
+        if self.pipeline(op.shader.program.as_ref(), key).is_none() {
+            return self.record_fallback(encoder, op, frame);
+        }
+        let coverage = self
+            .chunks
+            .get(&op.coverage)
+            .ok_or_else(|| ComposeError::Backend("a shader's coverage chunk is missing".into()))?;
         let draw = Draw {
             shader: op.shader,
             size: (op.size.width as f32, op.size.height as f32),
             scale: op.px_per_unit as f32,
             opacity: op.opacity as f32,
-            content,
-            coverage,
+            content: None,
+            coverage: Coverage::Texture(coverage),
             map: map_columns(&op.map).try_into().map_err(|_| {
                 ComposeError::InvalidComposition("a shader map has no 3 × 3 matrix".into())
             })?,
