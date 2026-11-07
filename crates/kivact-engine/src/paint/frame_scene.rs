@@ -1,15 +1,37 @@
 //! Role: Build a frame's composition from the paint list, step by step.
+//!
+//! Invariants:
+//! - A listed node opens what [`Step::opened`] says, in that order. A layer
+//!   opens first, and its own transform and effects are its layer's. The
+//!   box is drawn between the outer openings (layer, transform, group) and
+//!   the inner ones (the presence clip and the padding-box clip), so the box
+//!   is not clipped to its padding. Each opening is closed by its own pop,
+//!   in reverse order, after the node's draw-over and scrollbars.
+//! - A layer's raster scale enlarges what is inside it like a transform's.
 
-use super::state::{Entry, PaintList, PaintPass, Step};
+use super::state::{Entry, LayerSpec, Opening, PaintList, PaintPass, Step};
 use crate::contract::{HostEvent, NodeType};
 use crate::lower::effects::{self, Tint};
+use crate::lower::sanitize;
 use crate::lower::shape::BoxShape;
-use crate::lower::{border, scene, shape};
+use crate::lower::{LayerProps, SceneOut, border, scene, shape};
 use crate::model::Model;
 use crate::model::interact::visual;
 use arvane::asset::{PixelSize, fit_image};
-use kivact_types::render::{Composition, RenderCmd as D};
-use kivact_types::{NodeId, PaintProps, Point, Rect, Size};
+use kivact_types::render::{Composition, LayerEffects, LayerKey, Paint, RenderCmd as D};
+use kivact_types::scene::Shape;
+use kivact_types::{BlendMode, NodeId, PaintProps, Point, Rect, Size};
+
+/// The parts of one listed node that its opening and closing read.
+struct Place<'a> {
+    step: &'a Step,
+    list: &'a PaintList,
+    paint: &'a PaintProps,
+    /// Its border box, in the space of its origin.
+    bounds: Rect,
+    /// Its clip path in the same space.
+    clip_path: Option<Shape>,
+}
 
 impl Model {
     /// The frame's composition: the paint list brought up to date, drawn at
@@ -18,7 +40,6 @@ impl Model {
         self.paint_list();
         let pass = PaintPass {
             scale: self.paint.scale,
-            purpose: crate::lower::context::Purpose::Window,
             size: self.window(),
         };
         let composition = self.compose_list(engine, &self.paint.list, pass);
@@ -43,17 +64,17 @@ impl Model {
         pass: PaintPass,
     ) -> Composition {
         self.assets.borrow_mut().begin_frame();
-        let mut out = crate::lower::SceneOut::default();
-        // How much the transforms around a node enlarge it, outermost
-        // first: its images are rasterized for that much more.
+        let mut out = SceneOut::default();
+        // How much the transforms and layers around a node enlarge it,
+        // outermost first: its images are rasterized for that much more.
         let mut zoom: Vec<f64> = Vec::new();
         for entry in &list.entries {
             let at = zoom.last().copied().unwrap_or(1.0);
             match entry {
                 Entry::Open(step) => {
-                    let at = match step.transform.and_then(|t| list.transforms.get(t as usize)) {
-                        Some(t) => {
-                            let z = at * t.max_scale();
+                    let at = match zoom_of(step, list) {
+                        Some(z) => {
+                            let z = at * z;
                             zoom.push(z);
                             z
                         }
@@ -71,13 +92,13 @@ impl Model {
                         ..pass
                     };
                     self.paint_close(step, here, engine, &mut out);
-                    if step.transform.is_some() {
+                    if zoom_of(step, list).is_some() {
                         zoom.pop();
                     }
                 }
             }
         }
-        crate::lower::composition::root_composition(out.into_scene(), pass.size)
+        out.into_composition(pass.size)
     }
 
     /// Where `id` is painted when its layout box starts at `o`: its
@@ -96,22 +117,19 @@ impl Model {
         (p, bounds, canvas)
     }
 
-    /// Paint `step`'s node up to its children: push its transform, open
-    /// its group, draw its box (when its own paint shows), then (inside
-    /// its clip when it clips) its canvas scene and its content.
+    /// Paint `step`'s node up to its children: open what it opens, draw its
+    /// box (when its own paint shows), then (inside its clips when it clips)
+    /// its canvas scene and its content.
     fn paint_open(
         &self,
         step: &Step,
         list: &PaintList,
         pass: PaintPass,
         engine: &mut arvane::Engine,
-        out: &mut crate::lower::SceneOut,
+        out: &mut SceneOut,
     ) {
         let host = &self;
         let id = step.id;
-        if let Some(t) = step.transform.and_then(|t| list.transforms.get(t as usize)) {
-            out.push(D::PushTransform(*t));
-        }
         let Some(n) = host.node(id) else {
             return;
         };
@@ -123,23 +141,30 @@ impl Model {
             .as_ref()
             .and_then(|e| e.clip_path.as_ref())
             .map(|s| shape::clip_path(s, bounds));
-        if step.own
-            && let (Some(ring), Some(clip)) = (&p.ring, &clip_path)
-        {
-            // Around the clip path, beneath the node's paint.
-            border::focus_ring(out, &outline, Some(clip), ring, &tint);
-        }
-        if step.grouped {
-            let opacity = if step.group { p.opacity } else { 1.0 };
-            out.push(D::PushGroup(effects::group(&p, clip_path.clone(), opacity)));
+        let place = Place {
+            step,
+            list,
+            paint: &p,
+            bounds,
+            clip_path: clip_path.clone(),
+        };
+        let (outer, inner): (Vec<Opening>, Vec<Opening>) = step
+            .opened()
+            .into_iter()
+            .partition(|kind| matches!(kind, Opening::Layer | Opening::Transform | Opening::Group));
+        for kind in outer {
+            self.open(kind, &place, pass, out);
         }
         if step.own {
+            if let (Some(ring), Some(clip)) = (&p.ring, &clip_path) {
+                // Around the clip path, beneath the node's paint.
+                border::focus_ring(out, &outline, Some(clip), ring, &tint);
+            }
             self.paint_box(&p, &outline, clip_path.is_some(), &tint, pass, out);
         }
-        if let Some(clip) = step.presence_clip {
-            out.push(D::PushClip(clip));
+        for kind in inner {
+            self.open(kind, &place, pass, out);
         }
-        paint_content_clip(step, bounds, &p, out);
         if !step.own {
             return;
         }
@@ -167,6 +192,83 @@ impl Model {
         }
     }
 
+    /// Open one thing of `place`'s node.
+    fn open(&self, kind: Opening, place: &Place, pass: PaintPass, out: &mut SceneOut) {
+        let step = place.step;
+        match kind {
+            Opening::Layer => out.open_layer(self.node_layer(place, pass)),
+            Opening::Transform => {
+                if let Some(t) = step
+                    .transform
+                    .and_then(|t| place.list.transforms.get(t as usize))
+                {
+                    out.push(D::PushTransform(*t));
+                }
+            }
+            Opening::Group => {
+                let opacity = if step.group { place.paint.opacity } else { 1.0 };
+                let clip = place.clip_path.clone();
+                out.push(D::PushGroup(effects::group(place.paint, clip, opacity)));
+            }
+            Opening::Presence => {
+                if let Some(clip) = step.presence_clip {
+                    out.push(D::PushClip(clip));
+                }
+            }
+            Opening::Clip => out.push(D::PushClip(self.padding_box(place).rect())),
+            Opening::ClipGroup => out.push(effects::clip_group(self.padding_box(place).shape())),
+        }
+    }
+
+    /// The padding box of `place`'s node: what its children are clipped to.
+    fn padding_box(&self, place: &Place) -> BoxShape {
+        BoxShape::of(place.bounds, &place.paint.radius)
+            .inset(shape::border_widths(place.paint.border.as_ref()))
+    }
+
+    /// The layer properties of `place`'s node: its layer's transform, bounds
+    /// and plane, and its effects (opacity, blend, clip path, filters, masks
+    /// and backdrop) in its own space.
+    fn node_layer(&self, place: &Place, pass: PaintPass) -> LayerProps {
+        let spec = place
+            .step
+            .layer
+            .and_then(|index| place.list.layers.get(index as usize))
+            .copied()
+            .unwrap_or(LayerSpec {
+                matrix: kivact_types::geometry3d::Matrix4::IDENTITY,
+                bounds: place.bounds,
+                plane: kivact_types::render::Plane::Flat,
+                backface: kivact_types::paint::BackfaceVisibility::Visible,
+                grid: kivact_types::render::RasterGrid::Target,
+            });
+        let context = self.painting(pass);
+        let effects = place.paint.effects.as_deref();
+        let layer_effects = LayerEffects {
+            opacity: sanitize::unit(place.paint.opacity, 1.0),
+            blend: effects.map_or(BlendMode::Normal, |e| e.blend),
+            composite: kivact_types::render::Composite::SourceOver,
+            filters: effects.map_or_else(Vec::new, |e| context.layer_filters(&e.filter)),
+            clip: place.clip_path.clone(),
+            masks: effects.map_or_else(Vec::new, |e| context.layer_masks(&e.masks, place.bounds)),
+            backdrop: effects.and_then(|e| {
+                let shape = BoxShape::of(place.bounds, &place.paint.radius).shape();
+                context.layer_backdrop(&e.backdrop, shape)
+            }),
+        };
+        // The context's failures are the frame's: a window keeps painting.
+        let _ = context.finish();
+        LayerProps {
+            key: LayerKey::Node(place.step.id),
+            transform: spec.matrix,
+            bounds: spec.bounds,
+            plane: spec.plane,
+            backface: spec.backface,
+            grid: spec.grid,
+            effects: layer_effects,
+        }
+    }
+
     /// The node's own box: shadows, background, border and ring
     /// (see the module invariants).
     fn paint_box(
@@ -176,7 +278,7 @@ impl Model {
         clip_path: bool,
         tint: &Tint,
         pass: PaintPass,
-        out: &mut crate::lower::SceneOut,
+        out: &mut SceneOut,
     ) {
         let knockout = !border::opaque(p.background.as_ref(), tint);
         border::shadows(out, outline, &p.shadows, false, knockout, tint);
@@ -199,14 +301,14 @@ impl Model {
         }
     }
 
-    /// Paint `step`'s node after its children: its `DrawOver` scene, then
-    /// pop its clip, its group and its transform.
+    /// Paint `step`'s node after its children: its `DrawOver` scene and its
+    /// scrollbars, then close what it opened, innermost first.
     fn paint_close(
         &self,
         step: &Step,
         pass: PaintPass,
         engine: &mut arvane::Engine,
-        out: &mut crate::lower::SceneOut,
+        out: &mut SceneOut,
     ) {
         let id = step.id;
         if step.own
@@ -217,44 +319,42 @@ impl Model {
             let tint = tint(step);
             self.paint_scene(id, 1, scene, canvas, &tint, engine, out, pass);
         }
+        self.paint_bars(step, out);
+        for kind in step.opened().into_iter().rev() {
+            match kind {
+                Opening::Layer => out.close_layer(),
+                Opening::Transform => out.push(D::PopTransform),
+                Opening::Group | Opening::ClipGroup => out.push(D::PopGroup),
+                Opening::Presence | Opening::Clip => out.push(D::PopClip),
+            }
+        }
+    }
+
+    /// The scrollbars of `step`'s node (when it draws its own).
+    fn paint_bars(&self, step: &Step, out: &mut SceneOut) {
         let bars = if step.own {
-            self.scrollbar_bars(id)
+            self.scrollbar_bars(step.id)
         } else {
             [None, None]
         };
-        if bars.iter().any(Option::is_some) {
-            let props = self.scrollbar_style(id);
-            let tint = tint(step);
-            for bar in bars.into_iter().flatten() {
-                for (rect, color) in [(bar.track, props.track), (bar.thumb, props.thumb)] {
-                    let rect = Rect {
-                        x: step.origin.x + rect.x,
-                        y: step.origin.y + rect.y,
-                        width: rect.width,
-                        height: rect.height,
-                    };
-                    out.push(D::FillShape {
-                        shape: kivact_types::scene::Shape::Rect(rect),
-                        paint: kivact_types::render::Paint::Solid(tint.color(color)),
-                    });
-                }
+        if !bars.iter().any(Option::is_some) {
+            return;
+        }
+        let props = self.scrollbar_style(step.id);
+        let tint = tint(step);
+        for bar in bars.into_iter().flatten() {
+            for (rect, color) in [(bar.track, props.track), (bar.thumb, props.thumb)] {
+                let rect = Rect {
+                    x: step.origin.x + rect.x,
+                    y: step.origin.y + rect.y,
+                    width: rect.width,
+                    height: rect.height,
+                };
+                out.push(D::FillShape {
+                    shape: Shape::Rect(rect),
+                    paint: Paint::Solid(tint.color(color)),
+                });
             }
-        }
-        if step.clips {
-            out.push(if step.rounded {
-                D::PopGroup
-            } else {
-                D::PopClip
-            });
-        }
-        if step.presence_clip.is_some() {
-            out.push(D::PopClip);
-        }
-        if step.grouped {
-            out.push(D::PopGroup);
-        }
-        if step.transform.is_some() {
-            out.push(D::PopTransform);
         }
     }
 
@@ -268,7 +368,7 @@ impl Model {
         canvas: Rect,
         tint: &Tint,
         pass: PaintPass,
-        out: &mut crate::lower::SceneOut,
+        out: &mut SceneOut,
     ) {
         let Some(source) = n.image() else {
             return;
@@ -311,17 +411,18 @@ impl Model {
     }
 }
 
-fn paint_content_clip(step: &Step, bounds: Rect, p: &PaintProps, out: &mut crate::lower::SceneOut) {
-    if step.clips {
-        // Closed as the list says (a rect clip or a rounded group).
-        let padding =
-            BoxShape::of(bounds, &p.radius).inset(shape::border_widths(p.border.as_ref()));
-        if step.rounded {
-            out.push(effects::clip_group(padding.shape()));
-        } else {
-            out.push(D::PushClip(padding.rect()));
-        }
-    }
+/// The zoom a listed node's transform or layer enlarges its content by
+/// (`None`: neither).
+fn zoom_of(step: &Step, list: &PaintList) -> Option<f64> {
+    let transform = step
+        .transform
+        .and_then(|t| list.transforms.get(t as usize))
+        .map(|t| t.max_scale());
+    let layer = step
+        .layer
+        .and_then(|l| list.layers.get(l as usize))
+        .map(|l| l.matrix.as_affine().map_or(1.0, |t| t.max_scale()));
+    transform.or(layer)
 }
 
 /// How `step`'s colors are drawn.

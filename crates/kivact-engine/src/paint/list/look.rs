@@ -6,9 +6,12 @@ use crate::lower::sanitize::{extent, offset, unit};
 use crate::model::Model;
 use crate::paint::state::Look;
 use crate::tree::node::HostNode;
-use kivact_types::{Edges, FilterOp, NodeId, PaintProps, Rect};
+use kivact_types::paint::{BackfaceVisibility, Fill, FillImage, TransformStyle};
+use kivact_types::pixel::BlendMode;
+use kivact_types::{Edges, ElementTransform, FilterOp, Isolation, NodeId, PaintProps, Rect};
 
 impl Look {
+    /// The look of the paint `p`.
     pub(crate) fn of(p: &PaintProps) -> Self {
         let shadows = p
             .shadows
@@ -35,6 +38,7 @@ impl Look {
         .iter()
         .filter(|x| **x)
         .count() as u8;
+        let effects = p.effects.as_deref();
         Look {
             opacity: unit(p.opacity, 1.0),
             overflow: shadows.max(ring),
@@ -49,7 +53,40 @@ impl Look {
             clip: p.clip,
             items,
             rounded: !p.radius.is_zero(),
+            filtered: effects.is_some_and(|e| !e.filter.is_empty()),
+            masked: effects.is_some_and(|e| !e.masks.is_empty()),
+            backdropped: effects.is_some_and(|e| !e.backdrop.is_empty()),
+            blended: effects.is_some_and(|e| e.blend != BlendMode::Normal),
+            isolated: p.isolation == Isolation::Isolate,
+            will_change: p.will_change,
+            preserves: p.transform_style == TransformStyle::Preserve3d,
+            flat: p.transform.is_2d(),
+            transformed: p.transform != ElementTransform::NONE,
+            perspective: p.perspective.is_some(),
+            backface_hidden: p.backface == BackfaceVisibility::Hidden,
+            shader: p
+                .background
+                .as_ref()
+                .is_some_and(|fill| matches!(fill, Fill::Layers(layers) if layers.iter().any(|l| matches!(l.image, FillImage::Shader(_))))),
         }
+    }
+
+    /// Whether the node's effects group its subtree (CSS: the grouping
+    /// properties that flatten a preserve-3d context).
+    pub(crate) fn grouping(&self) -> bool {
+        self.clip
+            || self.opacity < 1.0
+            || self.filtered
+            || self.masked
+            || self.backdropped
+            || self.grouped
+            || self.isolated
+    }
+
+    /// Whether the node is a flat member of a preserve-3d context: its
+    /// own plane is shared with its parent.
+    pub(crate) fn plane_3d(&self) -> bool {
+        self.preserves && !self.grouping()
     }
 
     /// What of a paint the paint list is made of, so that a paint with the
@@ -57,8 +94,10 @@ impl Look {
     /// how it is composited (opacity, which a listed step carries as its
     /// alpha, group), what it draws and where it reaches
     /// (items, rounding, overflow, border, filter reach: they decide the
-    /// culling and the clip of its children) and whether it clips. Colors,
-    /// radii values, shadow colors and the like are not among them.
+    /// culling and the clip of its children), whether it clips, and which
+    /// layers it needs (filters, masks, backdrop, blend, isolation, 3D
+    /// facts, will-change). Colors, radii values, shadow colors and the
+    /// like are not among them.
     pub(crate) fn stacking(&self) -> impl PartialEq + use<> {
         (
             self.opacity,
@@ -69,6 +108,22 @@ impl Look {
             self.items,
             self.rounded,
             self.clip,
+            (
+                self.filtered,
+                self.masked,
+                self.backdropped,
+                self.blended,
+                self.isolated,
+                self.will_change,
+            ),
+            (
+                self.preserves,
+                self.flat,
+                self.transformed,
+                self.perspective,
+                self.backface_hidden,
+                self.shader,
+            ),
         )
     }
 

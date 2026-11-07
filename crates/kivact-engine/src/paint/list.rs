@@ -87,6 +87,7 @@
 mod index;
 mod ink;
 mod invalidation;
+mod layers;
 mod look;
 #[cfg(all(debug_assertions, feature = "testing"))]
 mod self_check;

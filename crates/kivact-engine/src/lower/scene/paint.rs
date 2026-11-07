@@ -1,4 +1,7 @@
 //! Role: Paint one node's scene: reuse its cached lowering or lower each command.
+//!
+//! Invariants: a scene with a child layer or an item is not cached: what it
+//! lowers to is in the composition's layers, not a plain command list (§6.7).
 
 use super::state::State;
 use crate::lower::SceneOut;
@@ -20,10 +23,8 @@ impl Context<'_> {
         engine: &mut arvane::Engine,
         out: &mut SceneOut,
     ) {
-        let cacheable = !scene
-            .cmds
-            .iter()
-            .any(|cmd| matches!(cmd, kivact_types::DrawCmd::External { .. }));
+        let (layer, item) = super::scene_layers(scene);
+        let cacheable = !layer && !item;
 
         if !cacheable || !origin.x.is_finite() || !origin.y.is_finite() {
             self.lower_scene(scene, inherited, origin, tint, engine, out);
@@ -95,9 +96,10 @@ impl Context<'_> {
     ) {
         let raster = self.raster.get();
         let mut state = State::new(inherited, engine, out, origin, *tint);
-        for cmd in &scene.cmds {
+        for (index, cmd) in scene.cmds.iter().enumerate() {
+            let rest = &scene.cmds[index + 1..];
             let _ = self.paint_raster(cmd, &mut state)
-                || self.paint_layers(cmd, &mut state)
+                || self.paint_layers(cmd, rest, &mut state)
                 || self.paint_geometry(cmd, &mut state)
                 || self.paint_text(cmd, &mut state);
         }

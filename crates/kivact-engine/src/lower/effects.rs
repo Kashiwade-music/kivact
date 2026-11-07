@@ -6,8 +6,8 @@
 //!
 //! Invariants:
 //! - Color filters (brightness .. opacity), layer filters (`blur`,
-//!   `drop-shadow`), masks and `backdrop-filter` need the pixels of a
-//!   compositor layer; the paint model does not lower them.
+//!   `drop-shadow`), masks and `backdrop-filter` need a compositor layer:
+//!   they are lowered into its effects (`layer_effects`), never into a group.
 //! - One group carries the clip path, the group opacity and the blend
 //!   mode (CSS order: clip, opacity, blend).
 
@@ -123,19 +123,5 @@ pub(crate) fn blur_group(std_dev: f64) -> RenderCmd {
         opacity: 1.0,
         blend: BlendMode::Normal,
         blur: Some(std_dev),
-    })
-}
-
-/// How far a backdrop blurs what lies around its shape (what it reads
-/// beyond the shape).
-pub(crate) fn backdrop_reach(p: &PaintProps) -> f64 {
-    p.effects.as_ref().map_or(0.0, |e| {
-        e.backdrop
-            .iter()
-            .map(|op| match *op {
-                FilterOp::Blur(px) => blur(px) * kivact_types::render::SHADOW_REACH,
-                _ => 0.0,
-            })
-            .sum()
     })
 }

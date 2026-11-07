@@ -35,7 +35,7 @@ impl Context<'_> {
                         fill: kivact_types::render::Paint::Solid(tint.color(*color)),
                     });
                 } else {
-                    self.fill(state.out, &BoxShape::Rect(r), fill, tint, origin_point);
+                    self.fill_items(state.out, &BoxShape::Rect(r), fill, tint, origin_point);
                 }
                 return true;
             }
@@ -46,7 +46,7 @@ impl Context<'_> {
             } => {
                 let r = rect(*r);
                 if sanitize::drawable(&D::PushClip(r)) && radius.is_finite() && *radius >= 0.0 {
-                    self.fill(
+                    self.fill_items(
                         state.out,
                         &BoxShape::Circular(r, [*radius; 4]),
                         fill,
