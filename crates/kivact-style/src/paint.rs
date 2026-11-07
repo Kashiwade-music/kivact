@@ -46,5 +46,5 @@ pub use canvas_gradient::{CanvasGradient, GradientExtend};
 pub(crate) use fill_layer::fill_layer;
 pub use gradient::{Gradient, RadialExtent, conic_gradient, linear_gradient, radial_gradient};
 pub use kivact_types::{BackgroundClip, BackgroundOrigin, BlendMode, BorderImageRepeat};
-pub use layer::Paint;
+pub use layer::{Paint, ShaderPaint};
 pub use mask::{Mask, MaskComposite, MaskLayer, MaskMode};

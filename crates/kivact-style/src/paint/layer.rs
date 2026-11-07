@@ -5,7 +5,7 @@ use super::gradient::Gradient;
 use crate::asset::Asset;
 use crate::color::Color;
 use crate::length::Length;
-use crate::shader::ShaderPaint;
+use crate::shader::data::ShaderData;
 use crate::theme::value::ThemeColor;
 use kivact_types::{BackgroundClip, BackgroundOrigin, BlendMode};
 
@@ -211,5 +211,19 @@ impl Gradient {
     /// As a [`Paint`] of one tile ([`Paint::no_repeat`]).
     pub fn no_repeat(self) -> Paint {
         Paint::from(self).no_repeat()
+    }
+}
+
+/// A paint shader with its values: the parameters, the images for `image()`
+/// and the clock. A [`Paint`] (`style().background(..)`, `mask(..)`).
+#[derive(Clone, Debug, PartialEq)]
+pub struct ShaderPaint {
+    pub(crate) data: ShaderData,
+    pub(crate) fallback: Option<Box<Paint>>,
+}
+
+impl From<ShaderPaint> for Paint {
+    fn from(s: ShaderPaint) -> Paint {
+        Paint::from_shader(s)
     }
 }

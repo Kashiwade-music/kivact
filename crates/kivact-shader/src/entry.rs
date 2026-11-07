@@ -1,4 +1,6 @@
-//! Role: Reads the entry point and the `Params` declaration from the first parse of a user source.
+//! Role: The entry point and `Params` declaration read from a user source.
+//!
+//! Read from the first parse of the source.
 
 use kivact_types::ShaderKind;
 use naga::{Function, Handle, Module, Scalar, ScalarKind, Type, TypeInner, VectorSize};
