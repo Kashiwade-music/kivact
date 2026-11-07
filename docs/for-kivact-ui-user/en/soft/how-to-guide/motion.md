@@ -19,7 +19,7 @@ fn hover_surface() -> impl IntoView {
             .background(p.colors.bg_surface)
             .hover(style().background(p.colors.bg_muted))
             .transition(
-                TransitionProp::Paint,
+                TransitionProp::All,
                 Transition::tween(p.motion.fast as f64, p.motion.ease_standard),
             )
     })

@@ -116,7 +116,8 @@ viewport(move || pixels.pixels().unwrap_or_else(|| Pixels::new(1, 1, [0u8; 4])))
 use std::time::Duration;
 
 use kivact_gpu_share::{FrameReady, PoolConfig, wgpu as share};
-use kivact::gpu_interop::{ShareError, ShareLink, ShareMode, ShareRequest};
+use kivact::gpu_interop::{ShareLink, ShareMode, ShareRequest};
+use kivact::view::ShareError;
 
 struct Engine {
     request: ShareRequest,
@@ -163,7 +164,8 @@ GPU のリクエストに応えるには、報告されたアダプターの上�
 ```rust,no_run
 # use std::time::Duration;
 # use kivact_gpu_share::{FrameReady, PoolConfig, wgpu as share};
-# use kivact::gpu_interop::{ShareError, ShareLink, ShareMode, ShareRequest};
+# use kivact::gpu_interop::{ShareLink, ShareMode, ShareRequest};
+# use kivact::view::ShareError;
 # struct Engine {
 #     request: ShareRequest,
 #     pool: share::Pool,

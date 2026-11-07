@@ -29,7 +29,7 @@ fn popped_exit_releases_layout_and_finishes_after_the_last_descendant() {
             let finished = kivact::state::callback(move |()| count.set(count.get() + 1));
             let exit = |duration| {
                 style().exit(style().opacity(0.0)).transition(
-                    TransitionProp::Paint,
+                    TransitionProp::All,
                     Transition::tween(duration, Easing::Linear),
                 )
             };
@@ -112,7 +112,7 @@ fn exit_completion_fires_for_instant_removal_and_skips_a_disposed_callback() {
                 (
                     node().on_exit_complete(finished).style(
                         style().exit(style().opacity(0.0)).transition(
-                            TransitionProp::Paint,
+                            TransitionProp::All,
                             Transition::tween(400, Easing::Linear),
                         ),
                     ),
@@ -340,10 +340,11 @@ fn reactive_text_color_transitions_on_inheriting_children() {
         (
             switched,
             row((child, explicit)).style(move || {
-                style().font_size(48).weight(700).color(ink()).transition(
-                    TransitionProp::Paint,
-                    Transition::tween(200, Easing::Linear),
-                )
+                style()
+                    .font_size(48)
+                    .weight(700)
+                    .color(ink())
+                    .transition(TransitionProp::All, Transition::tween(200, Easing::Linear))
             }),
         )
     });
@@ -453,13 +454,13 @@ fn proportional_retarget_shortens_the_remaining_time() {
                 style()
                     .size(20, 20)
                     .translate_x(target.get())
-                    .transition(TransitionProp::Paint, paint_proportional.clone())
+                    .transition(TransitionProp::All, paint_proportional.clone())
             }),
             node().test_id("restart-paint").style(move || {
                 style()
                     .size(20, 20)
                     .translate_x(target.get())
-                    .transition(TransitionProp::Paint, paint_restart.clone())
+                    .transition(TransitionProp::All, paint_restart.clone())
             }),
         ));
         ((target, proportional, restart), content)

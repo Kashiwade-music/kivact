@@ -100,10 +100,7 @@ fn frame_loop_runs_only_while_present() {
                         .size(40, 30)
                         .enter(style().opacity(0.0))
                         .exit(style().opacity(0.0))
-                        .transition(
-                            TransitionProp::Paint,
-                            Transition::tween(120, Easing::Linear),
-                        ),
+                        .transition(TransitionProp::All, Transition::tween(120, Easing::Linear)),
                 )
             }),
         )
