@@ -183,8 +183,8 @@ fn root(theme: &Theme, s: &Look<CardState>) -> Style {
         base = base
             .focus_visible(crate::recipe_style::ring(&t, c.accent))
             .transition(
-                TransitionProp::Paint,
-                Transition::tween(t.motion.fast as f64, t.motion.ease_standard),
+                TransitionProp::All,
+                Transition::tween(t.motion.fast as f64, t.motion.ease_standard.clone()),
             );
         if s.disabled {
             base = base.opacity(t.sizes.disabled_opacity);
@@ -214,8 +214,8 @@ fn overlay(theme: &Theme, s: &Look<CardState>) -> Style {
         .radius(t.radius.container)
         .background(color)
         .transition(
-            TransitionProp::Paint,
-            Transition::tween(t.motion.fast as f64, t.motion.ease_standard),
+            TransitionProp::All,
+            Transition::tween(t.motion.fast as f64, t.motion.ease_standard.clone()),
         )
 }
 kivact::state::constant_value!(CardVariant);

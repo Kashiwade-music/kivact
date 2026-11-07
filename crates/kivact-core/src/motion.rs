@@ -6,5 +6,5 @@ pub use frame_loop::{FrameLoop, frame_loop};
 #[doc(inline)]
 pub use kivact_runtime::{
     Animatable, Animated, At, Easing, FrameInfo, FrameRate, Repeat, Retarget, Segment, Spring,
-    Stagger, StaggerFrom, Timeline, TimelineTrack, Transition, animated, timeline,
+    Stagger, StaggerFrom, StepPosition, Timeline, TimelineTrack, Transition, animated, timeline,
 };

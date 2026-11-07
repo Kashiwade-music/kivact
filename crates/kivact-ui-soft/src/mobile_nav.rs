@@ -411,8 +411,8 @@ fn drawer_scrim() -> Node {
             .enter(hidden.clone())
             .exit(hidden)
             .transition(
-                TransitionProp::Paint,
-                Transition::tween(t.motion.medium as f64, t.motion.ease_standard),
+                TransitionProp::All,
+                Transition::tween(t.motion.medium as f64, t.motion.ease_standard.clone()),
             )
     })
 }
@@ -510,8 +510,8 @@ fn drawer_panel(
                 .enter(hidden.clone())
                 .exit(hidden)
                 .transition(
-                    TransitionProp::Paint,
-                    Transition::tween(t.motion.medium as f64, t.motion.ease_standard),
+                    TransitionProp::All,
+                    Transition::tween(t.motion.medium as f64, t.motion.ease_standard.clone()),
                 );
             if right {
                 base.right(0)

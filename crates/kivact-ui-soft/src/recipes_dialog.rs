@@ -216,8 +216,8 @@ pub(crate) fn shadows(base: Style, shadows: &[kivact::draw::Shadow]) -> Style {
 
 pub(crate) fn motion(base: Style, p: &Tokens, duration: u64) -> Style {
     base.transition(
-        TransitionProp::Paint,
-        Transition::tween(duration as f64, p.motion.ease_standard),
+        TransitionProp::All,
+        Transition::tween(duration as f64, p.motion.ease_standard.clone()),
     )
 }
 

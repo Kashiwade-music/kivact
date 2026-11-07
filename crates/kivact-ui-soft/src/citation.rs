@@ -205,8 +205,8 @@ fn citation_style(
                 p.colors.focus_ring,
             ))
             .transition(
-                TransitionProp::Paint,
-                Transition::tween(p.motion.fast_max as f64, p.motion.ease_standard),
+                TransitionProp::All,
+                Transition::tween(p.motion.fast_max as f64, p.motion.ease_standard.clone()),
             )
     } else {
         look

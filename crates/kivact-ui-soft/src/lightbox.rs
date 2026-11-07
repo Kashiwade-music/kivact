@@ -349,10 +349,7 @@ fn gallery_image(
                 .shrink(1)
                 .translate(x, y)
                 .scale_xy(scale, scale)
-                .transition(
-                    TransitionProp::Paint,
-                    Transition::tween(200, Easing::EaseOut),
-                )
+                .transition(TransitionProp::All, Transition::tween(200, Easing::EaseOut))
         });
     let photo = if zoom {
         photo

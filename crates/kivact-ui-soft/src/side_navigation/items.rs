@@ -567,8 +567,8 @@ impl ItemContext {
                     .size(t.spacing.s6, t.spacing.s6)
                     .rotate(if disclosure.is_open().get() { 180 } else { 0 })
                     .transition(
-                        TransitionProp::Paint,
-                        Transition::tween(t.motion.fast as f64, t.motion.ease_standard),
+                        TransitionProp::All,
+                        Transition::tween(t.motion.fast as f64, t.motion.ease_standard.clone()),
                     )
             });
             if independent {
@@ -721,7 +721,7 @@ impl ItemContext {
                         style().gap(kivact::style::use_tokens::<crate::Tokens>().spacing.s0_5)
                     });
                     if let Some(disclosure) = disclosure {
-                        let motion = kivact::style::use_tokens::<crate::Tokens>().motion;
+                        let motion = kivact::style::use_tokens::<crate::Tokens>().motion.clone();
                         group
                             .with_node(move |node| node.role(Role::Group))
                             .with_node(move |node| node.part(disclosure.content()))
@@ -734,7 +734,7 @@ impl ItemContext {
                                         TransitionProp::Size,
                                         Transition::tween(
                                             motion.medium as f64,
-                                            motion.ease_standard,
+                                            motion.ease_standard.clone(),
                                         ),
                                     ),
                             )

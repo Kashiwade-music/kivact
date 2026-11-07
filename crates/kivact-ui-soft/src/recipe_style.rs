@@ -9,8 +9,8 @@ use kivact::style::style;
 
 pub(super) fn fast(t: &Tokens, base: Style) -> Style {
     base.transition(
-        TransitionProp::Paint,
-        Transition::tween(t.motion.fast as f64, t.motion.ease_standard),
+        TransitionProp::All,
+        Transition::tween(t.motion.fast as f64, t.motion.ease_standard.clone()),
     )
 }
 
