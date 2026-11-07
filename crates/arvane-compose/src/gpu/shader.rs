@@ -266,6 +266,14 @@ fn map_columns(map: &Projective) -> Vec<f32> {
     out
 }
 
+/// The coverage a shader draw multiplies in.
+enum Coverage<'a> {
+    /// The white coverage of a filter: nothing is multiplied in.
+    White,
+    /// A coverage chunk's texture.
+    Texture(&'a wgpu::Texture),
+}
+
 /// What one shader draw reads besides its polygon and map.
 struct Draw<'a> {
     /// The shader with its parameters and images.
@@ -278,8 +286,8 @@ struct Draw<'a> {
     opacity: f32,
     /// The content (the filter's input) and its origin and scale in shader space.
     content: Option<(&'a wgpu::Texture, (f32, f32), f32)>,
-    /// The coverage texture, or None for the white coverage of a filter.
-    coverage: Option<&'a wgpu::Texture>,
+    /// The coverage the draw multiplies in.
+    coverage: Coverage<'a>,
     /// Target px → shader space.
     map: [f32; 12],
 }
@@ -311,7 +319,7 @@ impl GpuContext {
             scale: op.px_per_unit as f32,
             opacity: op.opacity as f32,
             content: None,
-            coverage: Some(coverage),
+            coverage: Coverage::Texture(coverage),
             map: map_columns(&op.map).try_into().map_err(|_| {
                 ComposeError::InvalidComposition("a shader map has no 3 × 3 matrix".into())
             })?,
@@ -360,7 +368,7 @@ impl GpuContext {
             scale: ppu,
             opacity: 1.0,
             content: Some((source, (origin.x as f32, origin.y as f32), ppu)),
-            coverage: None,
+            coverage: Coverage::White,
             map,
         };
         let full = [(0.0, 0.0), (w, 0.0), (0.0, h), (0.0, h), (w, 0.0), (w, h)];
@@ -441,48 +449,63 @@ impl GpuContext {
             wgpu::BufferUsages::UNIFORM,
             &draw.shader.params,
         );
-        let mut images: Vec<wgpu::TextureView> = Vec::with_capacity(IMAGE_SLOTS);
-        for slot in &draw.shader.images {
-            images.push(match slot {
-                Some(pixels) => premultiplied_texture(device, queue, pixels),
-                None => self.pipelines.dummy.clone(),
-            });
-        }
+        let images = self.shader_images(&draw);
         let content_view = draw.content.map(|(texture, _, _)| view(texture));
         let content_ref = content_view.as_ref().unwrap_or(&self.pipelines.dummy);
-        let coverage_view = draw.coverage.map(view);
-        let coverage_ref = coverage_view.as_ref().unwrap_or(&self.shaders.white);
-        let (origin, content_scale) = match draw.content {
-            Some((_, origin, scale)) => (origin, scale),
-            None => ((0.0, 0.0), 1.0),
+        let coverage_view = match draw.coverage {
+            Coverage::White => None,
+            Coverage::Texture(texture) => Some(view(texture)),
         };
-        let (tw, th) = (target.width() as f32, target.height() as f32);
-        let mut draw_bytes: Vec<u8> = Vec::with_capacity(80);
-        for v in draw.map {
-            draw_bytes.extend_from_slice(&v.to_le_bytes());
-        }
-        for v in [
-            tw,
-            th,
-            origin.0,
-            origin.1,
-            content_scale,
-            draw.opacity,
-            0.0,
-            0.0,
-        ] {
-            draw_bytes.extend_from_slice(&v.to_le_bytes());
-        }
+        let coverage_ref = coverage_view.as_ref().unwrap_or(&self.shaders.white);
+        let draw_bytes = draw_uniform_bytes(&draw, target);
         let draw_buffer = buffer(device, queue, wgpu::BufferUsages::UNIFORM, &draw_bytes);
         let vertex_bytes: Vec<u8> = vertices.iter().flat_map(|v| v.to_le_bytes()).collect();
         let vertex_buffer = buffer(device, queue, wgpu::BufferUsages::VERTEX, &vertex_bytes);
-        let group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+        let group = self.shader_group(
+            [&context_buffer, &params, &draw_buffer],
+            &images,
+            content_ref,
+            coverage_ref,
+        );
+        let out = view(target);
+        let count = (vertices.len() / 2) as u32;
+        with_pass(encoder, &out, wgpu::LoadOp::Load, |pass| {
+            pass.set_pipeline(pipeline);
+            pass.set_bind_group(0, &group, &[]);
+            pass.set_vertex_buffer(0, vertex_buffer.slice(..));
+            pass.draw(0..count, 0..1);
+        });
+        Ok(())
+    }
+
+    /// The shader's image slots as views: the dummy view stands for an empty slot.
+    fn shader_images(&self, draw: &Draw<'_>) -> Vec<wgpu::TextureView> {
+        let mut images: Vec<wgpu::TextureView> = Vec::with_capacity(IMAGE_SLOTS);
+        for slot in &draw.shader.images {
+            images.push(match slot {
+                Some(pixels) => premultiplied_texture(&self.device, &self.queue, pixels),
+                None => self.pipelines.dummy.clone(),
+            });
+        }
+        images
+    }
+
+    /// The bind group of a shader draw: the uniforms `[context, params, draw]`, the sampler, the image slots, the content and the coverage.
+    fn shader_group(
+        &self,
+        uniforms: [&wgpu::Buffer; 3],
+        images: &[wgpu::TextureView],
+        content: &wgpu::TextureView,
+        coverage: &wgpu::TextureView,
+    ) -> wgpu::BindGroup {
+        let [context, params, draw] = uniforms;
+        self.device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("Arvane shader"),
             layout: &self.shaders.layout,
             entries: &[
                 wgpu::BindGroupEntry {
                     binding: 0,
-                    resource: context_buffer.as_entire_binding(),
+                    resource: context.as_entire_binding(),
                 },
                 wgpu::BindGroupEntry {
                     binding: 1,
@@ -510,28 +533,45 @@ impl GpuContext {
                 },
                 wgpu::BindGroupEntry {
                     binding: 7,
-                    resource: wgpu::BindingResource::TextureView(content_ref),
+                    resource: wgpu::BindingResource::TextureView(content),
                 },
                 wgpu::BindGroupEntry {
                     binding: 8,
-                    resource: wgpu::BindingResource::TextureView(coverage_ref),
+                    resource: wgpu::BindingResource::TextureView(coverage),
                 },
                 wgpu::BindGroupEntry {
                     binding: 9,
-                    resource: draw_buffer.as_entire_binding(),
+                    resource: draw.as_entire_binding(),
                 },
             ],
-        });
-        let out = view(target);
-        let count = (vertices.len() / 2) as u32;
-        with_pass(encoder, &out, wgpu::LoadOp::Load, |pass| {
-            pass.set_pipeline(pipeline);
-            pass.set_bind_group(0, &group, &[]);
-            pass.set_vertex_buffer(0, vertex_buffer.slice(..));
-            pass.draw(0..count, 0..1);
-        });
-        Ok(())
+        })
     }
+}
+
+/// The bytes of a shader draw's uniform block: the map, the target size, the content's origin and scale, the opacity and padding.
+fn draw_uniform_bytes(draw: &Draw<'_>, target: &wgpu::Texture) -> Vec<u8> {
+    let (tw, th) = (target.width() as f32, target.height() as f32);
+    let (origin, content_scale) = match draw.content {
+        Some((_, origin, scale)) => (origin, scale),
+        None => ((0.0, 0.0), 1.0),
+    };
+    let mut draw_bytes: Vec<u8> = Vec::with_capacity(80);
+    for v in draw.map {
+        draw_bytes.extend_from_slice(&v.to_le_bytes());
+    }
+    for v in [
+        tw,
+        th,
+        origin.0,
+        origin.1,
+        content_scale,
+        draw.opacity,
+        0.0,
+        0.0,
+    ] {
+        draw_bytes.extend_from_slice(&v.to_le_bytes());
+    }
+    draw_bytes
 }
 
 /// The triangle list of the convex polygon `points` as a fan from its first vertex, as x, y pairs.

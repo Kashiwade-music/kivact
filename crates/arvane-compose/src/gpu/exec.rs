@@ -13,6 +13,13 @@ use kivact_types::render::{
     Composition, ExportedFrame, FrameReport, FrameStats, LayerKey, RenderScene,
 };
 
+/// What drawing a frame's operations and sending its exports produced: the exported frames, the external frames missed, and the sinks whose GPU frame waits for a slot.
+type DrawOutcome = (
+    Vec<ExportedFrame>,
+    Vec<kivact_types::ExternalFrame>,
+    Vec<kivact_types::ids::DrawableId>,
+);
+
 /// The textures one frame draws with: its targets, by target id, and the external frames it may read.
 pub(super) struct FrameTextures<'a> {
     pub(super) targets: Vec<wgpu::Texture>,
@@ -198,14 +205,7 @@ impl GpuContext {
         textures: &mut Vec<wgpu::Texture>,
         exports: &[PlannedExport],
         composition: &Composition,
-    ) -> Result<
-        (
-            Vec<ExportedFrame>,
-            Vec<kivact_types::ExternalFrame>,
-            Vec<kivact_types::ids::DrawableId>,
-        ),
-        ComposeError,
-    > {
+    ) -> Result<DrawOutcome, ComposeError> {
         let pass = ExternalPass::begin(external, frames)?;
         let mut encoder = self
             .device

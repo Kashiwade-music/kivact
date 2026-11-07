@@ -162,10 +162,8 @@ impl Model {
             }
             _ => {}
         }
-        if host.editors[n.index.0].is_none()
-            && let Some(asset) = n.image()
-        {
-            self.paint_image(id, n, asset, canvas, &tint, pass, out);
+        if host.editors[n.index.0].is_none() && n.image().is_some() {
+            self.paint_image(id, n, canvas, &tint, pass, out);
         }
     }
 
@@ -267,12 +265,14 @@ impl Model {
         &self,
         id: NodeId,
         n: &crate::tree::node::HostNode,
-        source: &kivact_types::Asset,
         canvas: Rect,
         tint: &Tint,
         pass: PaintPass,
         out: &mut crate::lower::SceneOut,
     ) {
+        let Some(source) = n.image() else {
+            return;
+        };
         let mut assets = self.assets.borrow_mut();
         let Some(natural) = assets.natural(source) else {
             return;

@@ -10,8 +10,8 @@ use std::sync::Arc;
 use kivact_types::AssetBytes;
 use kivact_types::paint::{MaskComposite, MaskMode};
 use kivact_types::render::{
-    BoxShadow, Composition, Gradient, GradientShape, LayerEffects, LayerFilter, LayerItem, Paint,
-    Pattern, PatternSource, RenderBackdrop, RenderCmd, RenderMask, RenderScene,
+    BoxShadow, CompositeLayer, Composition, Gradient, GradientShape, LayerEffects, LayerFilter,
+    LayerItem, Paint, Pattern, PatternSource, RenderBackdrop, RenderCmd, RenderMask, RenderScene,
 };
 use kivact_types::scene::{PathCmd, Radius, RoundedRect, Shape};
 use kivact_types::{
@@ -54,15 +54,27 @@ fn checker() -> Pixels {
 /// A frame of every new kind of drawing: the root layer draws the commands
 /// and the layers in its order; each layer is a group with its effects.
 fn vocabulary() -> Composition {
-    let black = color(0x000000);
     let checker = checker();
+    let mut layers = vec![vocabulary_root(&checker)];
+    layers.push(masked_group());
+    layers.push(shadow_group());
+    layers.push(blur_group());
+    layers.push(backdrop_group());
+    layers.push(color_matrix_group(checker));
+    Composition {
+        layers,
+        exports: Vec::new(),
+    }
+}
+
+/// The root layer: the stripes, the scenes of strokes, shadows and tiles, and layers 1 to 5 in that order.
+fn vocabulary_root(checker: &Pixels) -> CompositeLayer {
     let mut stripes: Vec<RenderCmd> = (0..60)
         .map(|i| fill(4.0 * i as f64, 0.0, 2.0, 200.0, 0x203040))
         .collect();
     stripes.insert(0, fill(0.0, 0.0, 240.0, 200.0, 0xf0e0d0));
     stripes.extend(transformed_scene());
-    let whole = rect(0.0, 0.0, SIZE.width, SIZE.height);
-    let mut layers = vec![root_layer(
+    root_layer(
         SIZE,
         vec![
             raster(stripes),
@@ -94,9 +106,14 @@ fn vocabulary() -> Composition {
             },
             raster(tiled_scene(checker.clone())),
         ],
-    )];
-    // A group: clipped, faded and blended, and masked by a gradient.
-    layers.push(layer(
+    )
+}
+
+/// Layer 1: a group clipped, faded and blended, and masked by a gradient.
+fn masked_group() -> CompositeLayer {
+    let black = color(0x000000);
+    let whole = rect(0.0, 0.0, SIZE.width, SIZE.height);
+    layer(
         node_key(1),
         whole,
         LayerEffects {
@@ -131,8 +148,13 @@ fn vocabulary() -> Composition {
             ..LayerEffects::default()
         },
         vec![raster(vec![fill(150.0, 0.0, 90.0, 70.0, 0x40c080)])],
-    ));
-    layers.push(layer(
+    )
+}
+
+/// Layer 2: a radial gradient under a drop shadow.
+fn shadow_group() -> CompositeLayer {
+    let whole = rect(0.0, 0.0, SIZE.width, SIZE.height);
+    layer(
         node_key(2),
         whole,
         LayerEffects {
@@ -155,8 +177,13 @@ fn vocabulary() -> Composition {
                 extend: Extend::Pad,
             }),
         }])],
-    ));
-    layers.push(layer(
+    )
+}
+
+/// Layer 3: a square blurred.
+fn blur_group() -> CompositeLayer {
+    let whole = rect(0.0, 0.0, SIZE.width, SIZE.height);
+    layer(
         node_key(3),
         whole,
         LayerEffects {
@@ -164,9 +191,12 @@ fn vocabulary() -> Composition {
             ..LayerEffects::default()
         },
         vec![raster(vec![fill(80.0, 80.0, 30.0, 30.0, 0x8020a0)])],
-    ));
-    // The backdrop: what lies behind the rounded rect, blurred and saturated.
-    layers.push(layer(
+    )
+}
+
+/// Layer 4: the backdrop: what lies behind the rounded rect, blurred and saturated.
+fn backdrop_group() -> CompositeLayer {
+    layer(
         node_key(4),
         rect(10.0, 150.0, 70.0, 40.0),
         LayerEffects {
@@ -180,9 +210,12 @@ fn vocabulary() -> Composition {
             ..LayerEffects::default()
         },
         Vec::new(),
-    ));
-    // An image through a color matrix: the matrix is the layer's filter.
-    layers.push(layer(
+    )
+}
+
+/// Layer 5: an image through a color matrix: the matrix is the layer's filter.
+fn color_matrix_group(checker: Pixels) -> CompositeLayer {
+    layer(
         node_key(5),
         rect(200.0, 150.0, 30.0, 30.0),
         LayerEffects {
@@ -190,11 +223,7 @@ fn vocabulary() -> Composition {
             ..LayerEffects::default()
         },
         vec![raster(vec![image(rect(200.0, 150.0, 30.0, 30.0), checker)])],
-    ));
-    Composition {
-        layers,
-        exports: Vec::new(),
-    }
+    )
 }
 
 /// [`vocabulary`] scaled down about the middle: tiles, glyphs and blurs at

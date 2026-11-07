@@ -108,8 +108,7 @@ impl GpuContext {
     pub fn surface_maker<T: Send + Sync + 'static>(
         &self,
     ) -> impl FnOnce(T) -> Result<GpuSurface, ComposeError> + Send + 'static {
-        let maker: fn(T) -> Result<GpuSurface, ComposeError> = match *self {};
-        maker
+        unbuilt_maker(self)
     }
 
     /// Unreachable: no context exists.
@@ -163,4 +162,11 @@ impl GpuSurface {
     pub fn keep_frames(&mut self) {
         match *self {}
     }
+}
+
+/// The surface maker of an executor that cannot exist: never called.
+fn unbuilt_maker<T: Send + Sync + 'static>(
+    context: &GpuContext,
+) -> fn(T) -> Result<GpuSurface, ComposeError> {
+    match *context {}
 }
