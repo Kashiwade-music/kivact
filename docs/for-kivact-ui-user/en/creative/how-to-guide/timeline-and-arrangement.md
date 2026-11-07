@@ -76,7 +76,7 @@ fn timeline_panel() -> impl IntoView {
     };
 
     column((
-        ui::timeline(clips, state)
+        ui::timeline_editor(clips, state)
             .lanes(lanes)
             .step(1.0)
             .snap(true)
@@ -99,7 +99,7 @@ Drag a clip, trim an edge, click the ruler to move the playhead, select a clip a
 
 ### How the contract works
 
-- **Items are read-only input.** `ui::timeline(clips, state)` takes a signal, a closure or a plain `Vec<Clip>`. The editor never writes to it.
+- **Items are read-only input.** `ui::timeline_editor(clips, state)` takes a signal, a closure or a plain `Vec<Clip>`. The editor never writes to it.
 - **`on_edit` receives an `EditorEvent`.** A gesture is `Begin`, any number of `Request(..)`, then `Commit` (the user released) or `Cancel` (the user pressed `Esc`, or the gesture was interrupted). A single action, such as a key press, sends the same sequence with one request.
 - **Requests are absolute.** A `Retime` carries the new start and duration of every item involved, computed from the items as they were at `Begin`. You do not have to accumulate deltas, and applying only the latest request is enough. Ignoring a request is allowed; the item simply keeps drawing where your model puts it.
 - **Take the snapshot at `Begin`.** On `Cancel`, put the snapshot back. The editor restores the values it holds itself (playhead, zoom, scroll), but your items are yours to restore.

@@ -54,7 +54,7 @@ around from where it is: an interrupted animation never jumps.
 
 `Transition::tween(milliseconds, easing)` moves over a fixed time. The easing is
 `Linear`, `EaseIn`, `EaseOut`, `EaseInOut`, `CubicBezier(x1, y1, x2, y2)` (the
-same numbers as CSS) or `Easing::steps_end(n)` / `steps_start(n)`.
+same numbers as CSS) or `Easing::steps(n, StepPosition::JumpEnd)` / `Easing::steps(n, StepPosition::JumpStart)`.
 `Transition::spring(Spring::DEFAULT)` moves with a physical spring instead.
 There is no fixed duration: it settles when it settles, and an interrupted spring
 keeps its velocity. `Spring::GENTLE`, `WOBBLY` and `STIFF` are presets, and you
@@ -149,7 +149,7 @@ and does no work per frame.
 ## Animate elements entering and leaving
 
 `enter` is the look an element starts from when it is added, and `exit` is the
-look it moves to when it is removed. Both use the style's `Paint` transition.
+look it moves to when it is removed. Both use the style's `TransitionProp::All` transition.
 Pair them with `show`, `show_some`, a list or any other way elements come and
 go.
 
@@ -190,7 +190,7 @@ What to know about a leaving element:
   tree, so it cannot be activated twice or announced after it is "gone".
 - It keeps its place in the layout until it finishes, so what follows moves up
   at the end. To avoid that, give the element `style().position(Position::Absolute)` (`kivact::style::Position`).
-- Without a `Paint` transition, an element appears and disappears at once.
+- Without a `TransitionProp::All` transition, an element appears and disappears at once.
 
 The standard toast, dialog, popup and tooltip components use this too: a
 theme's recipe for them can return a style with `enter` and `exit`.
