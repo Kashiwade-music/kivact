@@ -37,6 +37,7 @@ pub(crate) mod ref_data;
 pub(crate) mod requests;
 pub(crate) mod root;
 pub(crate) mod semantics_data;
+mod share_error;
 pub(crate) mod snapshots;
 pub(crate) mod span;
 pub(crate) mod state;
@@ -67,6 +68,8 @@ pub use kivact_runtime::HandlerResult;
 pub use kivact_types::Presence;
 #[doc(inline)]
 pub use modifier_keys::modifiers;
+#[doc(inline)]
+pub use share_error::ShareError;
 
 #[doc(inline)]
 pub use exit_layout::ExitLayout;

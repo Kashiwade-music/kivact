@@ -798,7 +798,7 @@ pub(crate) fn node_value(r: &NodeRef, at: &'static Location<'static>) -> Option<
 }
 
 /// How a requested scroll reaches its target.
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub enum ScrollBehavior {
     /// Apply immediately.
     #[default]

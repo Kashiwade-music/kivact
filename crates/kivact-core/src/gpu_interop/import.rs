@@ -18,13 +18,12 @@
 //!   `HostEvent::GpuAdapterChanged`. An import that is `Ready` is `Lost`
 //!   once the adapter's generation is not the one it was imported into
 //!   (a new device, or none).
-//! - Each import has one `FramePublisher` state ([`inbox`]) and a task of
+//! - Each import has one `FramePublisher` state (an `Inbox`, see `sync`) and a task of
 //!   its owner that moves the newest published frame into the tracked
 //!   `latest` signal; the owner's cleanup closes the state, so publishing
 //!   after it does nothing.
 
 mod image;
-pub(crate) mod inbox;
 mod registry;
 
 pub(crate) use image::import_in;

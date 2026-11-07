@@ -26,7 +26,8 @@ mod state;
 pub use artifacts::failure_dir;
 pub use model::{Contact, Element, Screen, Within};
 pub use results::{
-    ImeText, LayoutCheck, LayoutLimit, LayoutRule, LayoutViolation, Screenshot, SemanticNode,
+    ImeText, LayoutCheck, LayoutLimit, LayoutRule, LayoutViolation, RasterDifference, Screenshot,
+    SemanticNode,
 };
 
 #[cfg(test)]

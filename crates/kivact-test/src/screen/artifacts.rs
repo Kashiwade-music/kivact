@@ -132,8 +132,11 @@ impl Screen {
             let Some(n) = nodes.iter().find(|n| n.id.0 == id) else {
                 return;
             };
-            let b = n.transform.then(above).bounds(n.bounds);
-            let (x, y) = (b.x, b.y);
+            let placed = n.bounds.map(|r| n.transform.then(above).bounds(r));
+            let geometry = match placed {
+                Some(b) => format!("{} {} {}x{}", b.x, b.y, b.width, b.height),
+                None => "unplaced".to_owned(),
+            };
             let mut states = String::new();
             for (on, s) in [
                 (n.semantics.hidden, " hidden"),
@@ -153,7 +156,7 @@ impl Screen {
             }
             let _ = writeln!(
                 out,
-                "{}{:?} {:?}{}{}{} [{} {} {}x{}]",
+                "{}{:?} {:?}{}{}{} [{}]",
                 "  ".repeat(depth),
                 n.semantics.role.unwrap_or(kivact_types::Role::Generic),
                 n.semantics.name.clone().unwrap_or_default(),
@@ -168,10 +171,7 @@ impl Screen {
                     .as_ref()
                     .map(|t| format!(" #{t}"))
                     .unwrap_or_default(),
-                x,
-                y,
-                b.width,
-                b.height
+                geometry
             );
             let below = Transform::translate(-n.scroll.x, -n.scroll.y)
                 .then(n.transform)

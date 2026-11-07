@@ -1,12 +1,12 @@
-//! Role: State an engine's threads share with a UI task, and the wakes between them.
+//! Role: Thread-safe mailboxes shared by worker-thread handles.
 //!
 //! The one way the engine's threads reach the UI thread in
-//! `kivact::gpu_interop` (`FramePublisher`, `ShareLink`): they change the
-//! state and wake the task the UI side awaits it in, through the waker of
-//! the UI thread's executor (the host's `HostWaker`), as a worker's
-//! channel wakes a receiving task (the canvas guide's worker). An engine
-//! thread waits for the UI's changes on a condition variable with a time
-//! limit.
+//! `kivact::gpu_interop` (`FramePublisher`, `ShareLink`) and in the
+//! drawable exports: they change the state and wake the task the UI side
+//! awaits it in, through the waker of the UI thread's executor (the host's
+//! `HostWaker`), as a worker's channel wakes a receiving task (the canvas
+//! guide's worker). An engine thread waits for the UI's changes on a
+//! condition variable with a time limit.
 //!
 //! Invariants:
 //! - The task's waker is kept under the state's lock, so a change made

@@ -76,6 +76,7 @@ pub mod motion;
 pub mod platform;
 pub mod state;
 pub mod style;
+mod sync;
 pub mod task;
 pub mod view;
 

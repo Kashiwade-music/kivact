@@ -19,6 +19,15 @@ pub fn frame_loop<R: HandlerResult>(f: impl Fn(FrameInfo) -> R + 'static) -> Fra
 }
 
 impl FrameLoop {
+    /// Keep this loop running under reduced motion; a loop is decorative by
+    /// default. Setup only.
+    #[track_caller]
+    pub fn essential(self) -> Self {
+        Self {
+            inner: self.inner.essential(),
+        }
+    }
+
     /// Run callbacks only while `node` is present, resuming the requested rate
     /// when it becomes present again. Entering, leaving and unbound nodes pause
     /// scheduling without changing the requested start/stop state. Setup only.
