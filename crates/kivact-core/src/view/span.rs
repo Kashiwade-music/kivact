@@ -11,7 +11,9 @@
 use kivact_types as p;
 
 use crate::draw::Paint;
-use kivact_style::text::{FontFeature, FontKerning, SpanStyle, TextDecorationLine, TextLength};
+use kivact_style::text::{
+    FontFeature, FontKerning, FontVariation, SpanStyle, TextDecorationLine, TextLength,
+};
 use kivact_style::{Color, Theme, ThemeColor};
 
 /// A piece of rich text with its own style. Built by [`span`]; a `&str`
@@ -112,6 +114,21 @@ impl Span {
         features: impl IntoIterator<Item = impl Into<FontFeature>>,
     ) -> Self {
         self.style.features = Some(features.into_iter().map(Into::into).collect());
+        self
+    }
+
+    /// CSS `font-variation-settings` (replacing the paragraph's).
+    pub fn font_variation_settings(
+        mut self,
+        settings: impl IntoIterator<Item = impl Into<FontVariation>>,
+    ) -> Self {
+        self.style.variations = Some(settings.into_iter().map(Into::into).collect());
+        self
+    }
+
+    /// CSS `font-stretch` (font-width) in percent, 50 to 200.
+    pub fn font_width(mut self, v: impl Into<f64>) -> Self {
+        self.style.font_width = Some(v.into());
         self
     }
 

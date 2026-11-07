@@ -100,7 +100,9 @@ impl Model {
             let colors = Colors {
                 glyphs: Some(color),
                 decorations: Some(deco),
-            };
+                ..Default::default()
+            }
+            .outlined(&props, tint);
             (engine.shape_glyphs(content, &style, width), colors)
         } else {
             style.color = color;
@@ -118,7 +120,9 @@ impl Model {
             let colors = Colors {
                 glyphs: None,
                 decorations: None,
-            };
+                ..Default::default()
+            }
+            .outlined(&props, tint);
             (engine.shape_glyphs(text, &style, width), colors)
         };
         // A missing font leaves the text undrawn.

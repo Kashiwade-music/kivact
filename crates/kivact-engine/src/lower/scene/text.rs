@@ -49,9 +49,31 @@ impl Context<'_> {
         }
         match state.engine.shape_glyphs(run.text.as_str(), &style, None) {
             Ok(shaped) => {
+                let outline = match &run.stroke {
+                    Some((stroke, Fill::Solid(color))) => Some(kivact_types::render::GlyphStroke {
+                        stroke: stroke.clone(),
+                        paint: kivact_types::render::Paint::Solid(tint.color(*color)),
+                    }),
+                    Some(_) => {
+                        // A non-solid outline is not drawn; it is counted.
+                        self.drop_command();
+                        None
+                    }
+                    None => None,
+                };
+                let glyphs = match &run.fill {
+                    None => None,
+                    Some(Fill::Solid(color)) => Some(tint.color(*color)),
+                    Some(_) => {
+                        // A non-solid fill is not drawn; it is counted.
+                        self.drop_command();
+                        None
+                    }
+                };
                 let colors = crate::lower::glyphs::Colors {
-                    glyphs: None,
-                    decorations: None,
+                    glyphs,
+                    outline,
+                    ..Default::default()
                 };
                 crate::lower::glyphs::push_text(
                     state.out,
@@ -93,6 +115,7 @@ impl Context<'_> {
         let colors = crate::lower::glyphs::Colors {
             glyphs: Some(color),
             decorations: Some(color),
+            ..Default::default()
         };
         crate::lower::glyphs::push_text(
             state.out,

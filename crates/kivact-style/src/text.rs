@@ -477,6 +477,10 @@ pub struct SpanStyle {
     pub underline_offset: Option<TextLength>,
     /// A band behind the glyphs on each line the span is on.
     pub background: Option<Paint>,
+    /// OpenType variation axis settings replacing the paragraph's.
+    pub variations: Option<Vec<FontVariation>>,
+    /// CSS font-width (font-stretch) in percent, 50 to 200.
+    pub font_width: Option<f64>,
 }
 
 /// A [`SpanStyle`] in the engine's form, made by [`crate::internal::compile_span_style`].
