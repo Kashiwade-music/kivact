@@ -25,10 +25,7 @@ fn presence_reports_entering_present_leaving() {
                     .size(40, 30)
                     .enter(style().opacity(0.0))
                     .exit(style().opacity(0.0))
-                    .transition(
-                        TransitionProp::Paint,
-                        Transition::tween(200, Easing::Linear),
-                    ),
+                    .transition(TransitionProp::All, Transition::tween(200, Easing::Linear)),
             )
         });
         ((shown, presence), panel)
@@ -160,10 +157,7 @@ fn toast_swipe_dismiss_exits_from_the_drag_offset() {
                         .padding(12)
                         .background(rgb(0xcc0000))
                         .exit(style().opacity(0.0).translate_y(120))
-                        .transition(
-                            TransitionProp::Paint,
-                            Transition::tween(180, Easing::Linear),
-                        )
+                        .transition(TransitionProp::All, Transition::tween(180, Easing::Linear))
                 }
             })
         }));

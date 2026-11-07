@@ -193,10 +193,7 @@ fn text_color_transitions_with_paint() {
                         .font_size(48)
                         .weight(700)
                         .color(if changed.get() { rgb(BLUE) } else { rgb(RED) })
-                        .transition(
-                            TransitionProp::Paint,
-                            Transition::tween(240, Easing::Linear),
-                        )
+                        .transition(TransitionProp::All, Transition::tween(240, Easing::Linear))
                 }),
             )
         },

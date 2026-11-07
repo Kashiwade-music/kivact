@@ -46,10 +46,7 @@ fn a_switch_thumb_recipe_animates_when_the_binding_changes() {
                     .size(16, 16)
                     .background(rgb(RED))
                     .translate_x(if state.checked.is_checked() { 80 } else { 0 })
-                    .transition(
-                        TransitionProp::Paint,
-                        Transition::tween(400, Easing::Linear),
-                    )
+                    .transition(TransitionProp::All, Transition::tween(400, Easing::Linear))
             }
         });
     let (screen, checked) = mount(move || {

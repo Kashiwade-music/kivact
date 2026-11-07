@@ -104,7 +104,7 @@ fn hover_card() -> impl IntoView {
                 .padding(24)
                 .background(ColorToken::Surface)
                 .hover(style().background(ColorToken::SurfaceAlt).translate_y(-2))
-                .transition(TransitionProp::Paint, Transition::tween(150, Easing::EaseOut)),
+                .transition(TransitionProp::All, Transition::tween(150, Easing::EaseOut)),
         )
 }
 # fn main() -> kivact::Result<()> { App::new("Hover").run(hover_card) }
@@ -130,7 +130,7 @@ fn notice(shown: Signal<bool>) -> impl IntoView {
                 // 右からスライドしてフェードインし、同じ向きに出ていきます。
                 .enter(style().translate_x(40).opacity(0.0))
                 .exit(style().translate_x(40).opacity(0.0))
-                .transition(TransitionProp::Paint, Transition::tween(260, Easing::EaseOut)),
+                .transition(TransitionProp::All, Transition::tween(260, Easing::EaseOut)),
         )
     })
 }
