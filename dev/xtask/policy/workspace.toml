@@ -232,8 +232,6 @@ except = [
     "model::aggregate -> paint::state",
     "model::aggregate -> a11y::state",
     "model::aggregate -> check::lint::state",
-    # Sync derives Look values directly and calls PaintState's narrow invalidator.
-    "model::interact::sync -> paint::state",
 ]
 [module_rules.kivact-engine.uses]
 lower = []
@@ -246,7 +244,7 @@ measure = ["text_input", "lower", "contract", "tree"]
 layer = ["lower"]
 model = ["text_input", "lower", "contract", "tree", "measure", "mutation", "layer"]
 text_measure = ["lower", "contract", "tree", "measure", "model"]
-paint = ["lower", "contract", "tree", "measure", "mutation", "model", "text_measure", "offscreen"]
+paint = ["lower", "contract", "tree", "measure", "mutation", "model", "text_measure", "offscreen", "layer"]
 a11y = ["contract", "tree", "measure", "mutation", "model"]
 check = ["lower", "contract", "tree", "measure", "mutation", "model", "paint", "a11y"]
 host = ["text_input", "contract", "tree", "measure", "mutation", "model", "paint", "a11y", "check", "text_measure", "frame_log", "offscreen"]
