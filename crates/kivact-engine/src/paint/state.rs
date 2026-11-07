@@ -80,6 +80,11 @@ impl PaintState {
         self.scale = scale;
     }
 
+    /// The window's scale factor the next frame is drawn at, as last set.
+    pub(crate) fn scale(&self) -> f64 {
+        self.scale
+    }
+
     /// Ask for the next frame to be drawn (a skipped export is due).
     pub(crate) fn request_redraw(&mut self) {
         self.redraw = Redraw::Needed;

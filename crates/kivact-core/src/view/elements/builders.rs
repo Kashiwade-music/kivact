@@ -30,7 +30,7 @@ use crate::view::element_data::Common;
 use crate::view::element_data::{Content, Node};
 use crate::view::mount::mount_host;
 use crate::view::state::ViewState;
-use crate::view::{IntoView, IntoViewFn, Role, View};
+use crate::view::{IntoView, Role, View};
 use kivact_runtime::Prop as InputProp;
 use kivact_runtime::{ErrorKind, UiError};
 use kivact_style::asset::Asset;
@@ -189,26 +189,6 @@ impl Node {
     /// (`ErrorKind::Unsupported`).
     pub fn child(mut self, v: impl IntoView) -> Self {
         self.children.push(v.into_view());
-        self
-    }
-
-    /// Mount `content` as a drawable of this node: an absolutely positioned
-    /// child at (0, 0) of this node's padding box (its own style may move or
-    /// size it). The content is drawn only where this node's `draw` or
-    /// `draw_over` scene calls `Draw::drawable`.
-    #[track_caller]
-    pub fn drawable<V: IntoView>(
-        mut self,
-        drawable: crate::view::drawable::Drawable,
-        content: impl IntoViewFn<V>,
-    ) -> Self {
-        let at = Location::caller();
-        self.children.push(crate::view::mount::drawable::root_view(
-            drawable,
-            content.into_view_fn(),
-            kivact_engine::contract::DrawableMode::Canvas,
-            at,
-        ));
         self
     }
 

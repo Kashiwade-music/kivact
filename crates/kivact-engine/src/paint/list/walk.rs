@@ -44,8 +44,11 @@ struct LayerPlan {
     matrix: Matrix4,
     /// The same map when it is affine (culling maps the clip through it).
     affine: Option<Transform>,
-    /// The content bounds in layer space.
+    /// The content bounds in layer space (before its effects).
     bounds: Rect,
+    /// The content in layer space with its own effects' reach: what the
+    /// subtree is culled within when the map is not affine (§6.2).
+    cull: Rect,
     plane: Plane,
     backface: BackfaceVisibility,
     grid: RasterGrid,
@@ -74,7 +77,14 @@ impl Walk<'_> {
     /// List `id` and its subtree; `origin` is its untransformed layout
     /// box's origin and `clip` the area its ancestors let it draw in
     /// (grown by the margin), both in its parent's own space.
-    fn node(&mut self, id: NodeId, origin: Point, parent_alpha: f64, clip: Rect) {
+    fn node(
+        &mut self,
+        id: NodeId,
+        origin: Point,
+        parent_alpha: f64,
+        clip: Rect,
+        parent_perspective: Option<Matrix4>,
+    ) {
         let host = self.host;
         let Some(n) = host.node(id) else {
             return;
@@ -86,7 +96,10 @@ impl Walk<'_> {
         let look = Look::now(host, id, n);
         let local = local_transform(host, id, n, &layout);
         let own = reach(host, id, n, &layout, &look);
-        let plan = self.plan(id, n, &layout, &look, origin);
+        // A parent's perspective moves only a node that has a transform of
+        // its own (§6.2); the others stay in the plane of their parent.
+        let perspective = parent_perspective.filter(|_| local.is_some());
+        let plan = self.plan(id, n, &layout, &look, origin, perspective);
         let visible = match &plan {
             Some(LayerPlan { affine: None, .. }) => true,
             _ => overlaps(placed(local.as_ref(), own, origin), clip),
@@ -138,7 +151,12 @@ impl Walk<'_> {
             x: o.x - scroll.x,
             y: o.y - scroll.y,
         };
-        self.children(id, n, base, alpha, child_clip);
+        let perspective = if look.perspective {
+            host.perspective_at(id, o)
+        } else {
+            None
+        };
+        self.children(id, n, base, alpha, child_clip, perspective);
         if listed && closes(&step, n, host) {
             self.out.push(Entry::Close(step));
         }
@@ -180,6 +198,7 @@ impl Walk<'_> {
         layout: &kivact_layout::NodeLayout,
         look: &Look,
         origin: Point,
+        parent_perspective: Option<Matrix4>,
     ) -> Option<LayerPlan> {
         if !self.facts.get(&id).is_some_and(|f| f.layer) {
             return None;
@@ -188,12 +207,17 @@ impl Walk<'_> {
         let own = host
             .local_matrix(id, layout.size)
             .unwrap_or(Matrix4::IDENTITY);
-        let matrix = own.then(Matrix4::translate(origin.x, origin.y, 0.0));
+        // M = Mn · T(o) · Pp: the parent's perspective after the placement (§6.2).
+        let matrix = own
+            .then(Matrix4::translate(origin.x, origin.y, 0.0))
+            .then(parent_perspective.unwrap_or(Matrix4::IDENTITY));
         let moves = host.motion.moves_layer(id) || host.layout_motion_transform(id).is_some();
+        let content = ink_local(host, id, n, layout, self.generation);
         Some(LayerPlan {
             matrix,
             affine: matrix.as_affine(),
-            bounds: ink_local(host, id, n, layout, self.generation),
+            bounds: content,
+            cull: grow(content, look.fx),
             plane: if look.plane_3d() {
                 Plane::Preserve3d
             } else {
@@ -227,7 +251,7 @@ impl Walk<'_> {
             // an affine map, else within its bounds.
             let clip = match plan.affine.and_then(|t| t.invert()) {
                 Some(back) => map_rect(Some(&back), clip),
-                None => plan.bounds,
+                None => plan.cull,
             };
             self.layers.push(LayerSpec {
                 matrix: plan.matrix,
@@ -275,7 +299,15 @@ impl Walk<'_> {
 
     /// The children of `id` (its node `n`), whose layout locations are
     /// relative to `base`: through its child index when it has many.
-    fn children(&mut self, id: NodeId, n: &HostNode, base: Point, alpha: f64, clip: Rect) {
+    fn children(
+        &mut self,
+        id: NodeId,
+        n: &HostNode,
+        base: Point,
+        alpha: f64,
+        clip: Rect,
+        perspective: Option<Matrix4>,
+    ) {
         let host = self.host;
         let place = |at: Point| Point {
             x: base.x + at.x,
@@ -290,7 +322,7 @@ impl Walk<'_> {
                     continue;
                 };
                 let at = host.location(c);
-                self.node(child, place(at), alpha, clip);
+                self.node(child, place(at), alpha, clip, perspective);
             }
             return;
         }
@@ -332,7 +364,7 @@ impl Walk<'_> {
                 },
                 None => at,
             };
-            self.node(child, place(at), alpha, clip);
+            self.node(child, place(at), alpha, clip, perspective);
         }
     }
 }
@@ -375,10 +407,10 @@ impl Model {
                 layers: Vec::new(),
             };
             if let Some(root) = self.tree().root() {
-                walk.node(root, Point::default(), 1.0, viewport);
+                walk.node(root, Point::default(), 1.0, viewport, None);
             }
             for (layer, origin) in self.layers() {
-                walk.node(layer, origin, 1.0, viewport);
+                walk.node(layer, origin, 1.0, viewport, None);
             }
             let Walk {
                 out,
@@ -424,7 +456,7 @@ impl Model {
             transforms: Vec::new(),
             layers: Vec::new(),
         };
-        walk.node(id, Point::default(), 1.0, clip);
+        walk.node(id, Point::default(), 1.0, clip, None);
         for (layer, origin) in overlays {
             walk.node(
                 layer,
@@ -434,6 +466,7 @@ impl Model {
                 },
                 1.0,
                 clip,
+                None,
             );
         }
         PaintList {

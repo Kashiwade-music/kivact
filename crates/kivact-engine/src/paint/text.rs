@@ -54,6 +54,13 @@ impl Model {
         out.scope(id, layer);
         context.paint_scene(scene, inherited.as_deref(), origin, tint, engine, out);
         let dropped = context.finish().dropped;
+        self.note_dropped(id, layer, dropped);
+    }
+
+    /// Queue one report of `dropped` commands of `id`'s `layer` (its draw
+    /// is 0, its draw-over is 1, its own layer effects 2), until a frame
+    /// draws it cleanly.
+    pub(super) fn note_dropped(&self, id: NodeId, layer: u8, dropped: u32) {
         if dropped == 0 {
             self.paint
                 .dropped_reported

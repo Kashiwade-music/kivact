@@ -96,12 +96,13 @@ impl Context<'_> {
     }
 
     /// The masks of a layer over `area` (layer space), one per mask layer
-    /// that paints.
+    /// that paints. A shader mask is not drawn: it is counted as dropped.
     pub(crate) fn layer_masks(&self, masks: &[MaskLayer], area: Rect) -> Vec<RenderMask> {
         masks
             .iter()
             .filter_map(|mask| {
                 if matches!(mask.fill.image, FillImage::Shader(_)) {
+                    self.drop_command();
                     return None;
                 }
                 let origin = Point {

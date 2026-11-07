@@ -1,4 +1,4 @@
-//! Role: Where a canvas draws each drawable: its map into the host canvas, its clips and its backface.
+//! Role: Where a canvas draws each drawable: its map, clips and backface.
 //!
 //! The host's two scenes are read in order (slot 0, then slot 1). The
 //! transforms, layers and clips open around a `Drawable` command make the

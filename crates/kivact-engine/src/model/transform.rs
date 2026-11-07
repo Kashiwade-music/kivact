@@ -288,6 +288,18 @@ impl Model {
         regular.then_some(Step { matrix, up })
     }
 
+    /// The perspective that the children of `parent` are in, when the parent's
+    /// box origin is at `origin` in the walk's space: `T(q) P(d) T(-q)` with
+    /// `q` the perspective origin in that space (§6.2). `None` without one.
+    pub(crate) fn perspective_at(&self, parent: NodeId, origin: Point) -> Option<Matrix4> {
+        let perspective = self.effective_paint(parent).perspective?;
+        Some(
+            Matrix4::translate(-origin.x, -origin.y, 0.0)
+                .then(self.perspective_matrix(parent, perspective))
+                .then(Matrix4::translate(origin.x, origin.y, 0.0)),
+        )
+    }
+
     /// `T(o) * P(d) * T(-o)`: the perspective of the node `parent`, with its
     /// origin resolved against its border box.
     fn perspective_matrix(&self, parent: NodeId, perspective: Perspective) -> Matrix4 {

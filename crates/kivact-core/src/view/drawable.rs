@@ -1,4 +1,4 @@
-//! Role: Drawables: view subtrees a canvas draws (HTML-in-Canvas), their handles and binding.
+//! Role: Drawables: view subtrees a canvas draws, their handles and binding.
 //!
 //! A drawable is created in setup and mounted once (`Node::drawable` or
 //! `Viewport::drawable`). The canvas draws it with `Draw::drawable`, and a
@@ -131,8 +131,9 @@ async fn wake(inbox: Arc<Inbox<ExportLink>>, changed: Notifier) {
     }
 }
 
-/// What the engine was last asked to export: mode, generation and scale.
-type Sent = Option<(ExportRequestMode, u64, f64)>;
+/// What the engine was last asked to export: mode, generation and scale
+/// (`None` follows the window's scale, which the engine reads).
+type Sent = Option<(ExportRequestMode, u64, Option<f64>)>;
 
 /// Send the export request of the drawable `id` when it differs from the
 /// one sent last, and its geometry when the app set one.
@@ -140,15 +141,10 @@ fn send_requests(app: AppId, id: DrawableId, inbox: &Inbox<ExportLink>, sent: &R
     let Some(rt) = Runtime::get(app) else {
         return;
     };
-    let window_scale = crate::platform::scale_factor().get();
     let writer = crate::view::state::ViewState::tree(&rt).engine().clone();
     let (request, geometry) = inbox.update(|link| match link {
         ExportLink::Open(open) => (
-            Some((
-                open.request_mode(),
-                open.current(),
-                open.scale.unwrap_or(window_scale),
-            )),
+            Some((open.request_mode(), open.current(), open.scale)),
             open.geometry.take().map(|g| (open.current(), g)),
         ),
         ExportLink::Closed => (None, None),

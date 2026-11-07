@@ -65,12 +65,13 @@ pub enum HostRequest {
     /// Override reduced motion, or follow the system preference.
     ReducedMotion(Option<bool>),
     /// What a drawable's export asks of the window: its frames of
-    /// `generation`, as `mode`, at `scale` device px per logical px.
+    /// `generation`, as `mode`, at `scale` device px per logical px. `None`
+    /// follows the window's scale.
     DrawableExport {
         id: kivact_types::DrawableId,
         generation: u64,
         mode: ExportRequestMode,
-        scale: f64,
+        scale: Option<f64>,
     },
     /// Where the app shows a drawable (drawable box → the viewport's local
     /// logical px), for the request of `generation`; `None` hides it.
