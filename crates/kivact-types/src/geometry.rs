@@ -409,6 +409,49 @@ impl Insets {
     }
 }
 
+impl From<f64> for Insets {
+    /// The same distance on all four sides.
+    fn from(v: f64) -> Self {
+        Insets {
+            top: v,
+            right: v,
+            bottom: v,
+            left: v,
+        }
+    }
+}
+
+impl From<i32> for Insets {
+    /// The same distance on all four sides.
+    fn from(v: i32) -> Self {
+        Insets::from(f64::from(v))
+    }
+}
+
+impl From<(f64, f64)> for Insets {
+    /// `(vertical, horizontal)`: top and bottom, then left and right.
+    fn from((vertical, horizontal): (f64, f64)) -> Self {
+        Insets {
+            top: vertical,
+            right: horizontal,
+            bottom: vertical,
+            left: horizontal,
+        }
+    }
+}
+
+impl From<(f64, f64, f64, f64)> for Insets {
+    /// `(top, right, bottom, left)`.
+    fn from((top, right, bottom, left): (f64, f64, f64, f64)) -> Self {
+        Insets {
+            top,
+            right,
+            bottom,
+            left,
+        }
+    }
+}
+
 /// The edge of the window a drawer is attached to.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Edge {

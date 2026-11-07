@@ -5,11 +5,13 @@ pub mod asset;
 pub mod cell;
 pub mod check;
 pub mod color;
+pub mod color_space;
 pub mod defaults;
 pub mod drag_velocity;
 pub mod embed;
 pub mod env;
 pub mod geometry;
+pub mod geometry3d;
 pub mod gpu;
 pub mod ids;
 pub mod image_status;
@@ -32,6 +34,9 @@ pub mod text_utf;
 pub use asset::{Asset, AssetBytes};
 pub use check::{LayoutCheck, LayoutFinding, LayoutLimit, LayoutRule};
 pub use color::Rgba;
+pub use color_space::{
+    ColorInterpolation, ColorSpace, HueInterpolation, SpaceColor, delta_e_ok, interpolate, mix_rgba,
+};
 pub use drag_velocity::DragVelocity;
 pub use embed::{EmbedOptions, ParentWindow};
 pub use env::{
@@ -39,6 +44,7 @@ pub use env::{
     PointerSettings, ThemeHint,
 };
 pub use geometry::{Edge, Edges, Insets, Point, Rect, Size, Transform};
+pub use geometry3d::{Decomposed, Matrix4, Polygon, Projective, W_EPS};
 pub use gpu::{
     AdapterMatch, ExternalFrame, ExternalImageId, ExternalImport, GpuAdapter, GpuBackend, GpuPower,
     GpuPreference, SharedHandle, SharedTextureFormat, SharedTextures,
