@@ -247,13 +247,16 @@ fn motion_clock(
             Some(motion.period_ms)
         }
     });
+    // Essential: under reduced motion the clock runs only with a reduced
+    // period (`reduced_period_ms`); without one `period` is None and it stops.
     let clock = frame_loop(move |frame| {
         if let Some(period) = period.get() {
             let period = period.max(1) as f64;
             let elapsed = frame.now.as_secs_f64() * 1000.0;
             phase.set(elapsed.rem_euclid(period) / period);
         }
-    });
+    })
+    .essential();
     let motion_machine = machine(
         ProgressMotionPhase::Stopped,
         || ProgressMotionInput,
