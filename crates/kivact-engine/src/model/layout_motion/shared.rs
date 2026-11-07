@@ -15,7 +15,6 @@ use std::sync::Arc;
 use kivact_types::{NodeId, Rect};
 
 use crate::model::Model;
-use crate::tree::node::NodePresence;
 
 /// Window layout boxes of removed nodes with a layout id, kept until the
 /// next layout pass has had the chance to use them (a per-pass mailbox).
