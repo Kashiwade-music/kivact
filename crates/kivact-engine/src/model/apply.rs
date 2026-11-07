@@ -473,6 +473,8 @@ impl Model {
             Notify::Silent
         };
         if !self.begin_exit(id, pop_layout, notify) {
+            let subtree = self.tree.subtree(id);
+            self.record_departures(&subtree);
             self.transition_presence(id, NodePresence::Leaving(LeavingRole::Root { notify }));
             self.remove_now(id);
         }
