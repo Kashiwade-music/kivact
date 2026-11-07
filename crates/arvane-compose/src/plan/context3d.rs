@@ -157,83 +157,99 @@ impl<'a> Builder<'a> {
         tsize: (u32, u32),
     ) -> Result<Option<(Draw<'a>, Vec<[f64; 3]>, Option<Rect>)>, PlanError> {
         match part.kind {
-            PartKind::Fragment {
-                layer: index,
-                start,
-                end,
-            } => {
-                let owner = self.layer(index)?;
-                let Some(geo) = self.geometry(owner, &part.to_t, tsize) else {
-                    return Ok(None);
-                };
-                let surface = self.new_temp(geo.size);
-                let cx = ItemCtx {
-                    index,
-                    layer: owner,
-                    first: start,
-                    items: &owner.items[start..end],
-                    grid: geo.grid(),
-                    dest: Dest {
-                        target: surface,
-                        to: geo.ms,
-                        size: geo.size,
-                        cover: None,
-                    },
-                    to_win: part.to_win,
-                    cache_chunks: true,
-                };
-                self.emit_items(&cx)?;
-                let (Some(pts), Some(map)) = (
-                    project_rect(&part.to_t, geo.rect),
-                    px_map(&part.to_t, &geo.ms),
-                ) else {
-                    return Ok(None);
-                };
-                let win = mapped_bounds(&part.to_win, geo.rect);
-                let draw = Draw {
-                    source: Source::Target(surface),
-                    map,
-                    opacity: 1.0,
-                    blend: BlendMode::Normal,
-                    composite: Composite::SourceOver,
-                    nearest: false,
-                };
-                Ok(Some((draw, pts, win)))
+            PartKind::Fragment { layer, start, end } => {
+                self.fragment_part(part, layer, start, end, tsize)
             }
-            PartKind::Flat { layer: index } => {
-                let owner = self.layer(index)?;
-                if owner.backface == kivact_types::paint::BackfaceVisibility::Hidden
-                    && part.to_t.shows_back()
-                {
-                    return Ok(None);
-                }
-                let Some(geo) = self.geometry(owner, &part.to_t, tsize) else {
-                    return Ok(None);
-                };
-                let sig = self.signature(index, &part.to_t, tsize)?;
-                let mark = self.damage.len();
-                let source =
-                    self.build_surface(index, owner, &geo, t, &part.to_t, &part.to_win, sig)?;
-                self.expand_effects(owner, &geo, mark, &part.to_win);
-                let win = mapped_bounds(&part.to_win, geo.rect);
-                self.record(owner, win, sig, &part.to_win, &[], false);
-                let (Some(pts), Some(map)) = (
-                    project_rect(&part.to_t, geo.rect),
-                    px_map(&part.to_t, &geo.ms),
-                ) else {
-                    return Ok(None);
-                };
-                let draw = Draw {
-                    source,
-                    map,
-                    opacity: owner.effects.opacity,
-                    blend: owner.effects.blend,
-                    composite: owner.effects.composite,
-                    nearest: geo.nearest,
-                };
-                Ok(Some((draw, pts, win)))
-            }
+            PartKind::Flat { layer } => self.flat_part(part, layer, t, tsize),
         }
+    }
+
+    /// Plan a run of the root's own items as one surface.
+    fn fragment_part(
+        &mut self,
+        part: &Part,
+        index: u32,
+        start: usize,
+        end: usize,
+        tsize: (u32, u32),
+    ) -> Result<Option<(Draw<'a>, Vec<[f64; 3]>, Option<Rect>)>, PlanError> {
+        let owner = self.layer(index)?;
+        let Some(geo) = self.geometry(owner, &part.to_t, tsize) else {
+            return Ok(None);
+        };
+        let surface = self.new_temp(geo.size);
+        let cx = ItemCtx {
+            index,
+            layer: owner,
+            first: start,
+            items: &owner.items[start..end],
+            grid: geo.grid(),
+            dest: Dest {
+                target: surface,
+                to: geo.ms,
+                size: geo.size,
+                cover: None,
+            },
+            to_win: part.to_win,
+            cache_chunks: true,
+        };
+        self.emit_items(&cx)?;
+        let (Some(pts), Some(map)) = (
+            project_rect(&part.to_t, geo.rect),
+            px_map(&part.to_t, &geo.ms),
+        ) else {
+            return Ok(None);
+        };
+        let win = mapped_bounds(&part.to_win, geo.rect);
+        let draw = Draw {
+            source: Source::Target(surface),
+            map,
+            opacity: 1.0,
+            blend: BlendMode::Normal,
+            composite: Composite::SourceOver,
+            nearest: false,
+        };
+        Ok(Some((draw, pts, win)))
+    }
+
+    /// Plan a flat child layer as its own surface.
+    fn flat_part(
+        &mut self,
+        part: &Part,
+        index: u32,
+        t: TargetId,
+        tsize: (u32, u32),
+    ) -> Result<Option<(Draw<'a>, Vec<[f64; 3]>, Option<Rect>)>, PlanError> {
+        let owner = self.layer(index)?;
+        if owner.backface == kivact_types::paint::BackfaceVisibility::Hidden
+            && part.to_t.shows_back()
+        {
+            return Ok(None);
+        }
+        let Some(geo) = self.geometry(owner, &part.to_t, tsize) else {
+            return Ok(None);
+        };
+        let sig = self.signature(index, &part.to_t, tsize)?;
+        let mark = self.damage.len();
+        let source = self.build_surface(index, owner, &geo, t, &part.to_t, &part.to_win, sig)?;
+        self.expand_effects(owner, &geo, mark, &part.to_win);
+        let win = mapped_bounds(&part.to_win, geo.rect);
+        self.record(owner, win, sig, &part.to_win, &[], false);
+        let (Some(pts), Some(map)) = (
+            project_rect(&part.to_t, geo.rect),
+            px_map(&part.to_t, &geo.ms),
+        ) else {
+            return Ok(None);
+        };
+        let draw = Draw {
+            source,
+            map,
+            opacity: owner.effects.opacity,
+            blend: owner.effects.blend,
+            composite: owner.effects.composite,
+            nearest: geo.nearest,
+        };
+        Ok(Some((draw, pts, win)))
     }
 
     /// Collect the participants of the context rooted at `index`, depth first in item order.

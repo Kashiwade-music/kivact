@@ -322,6 +322,27 @@ fn group(h: &mut Fnv, g: &Group) {
 pub(crate) fn command(cmd: &RenderCmd, retain: &mut Vec<Retained>) -> u64 {
     let mut h = Fnv::new();
     match cmd {
+        RenderCmd::ImageSampled { .. }
+        | RenderCmd::Image { .. }
+        | RenderCmd::Glyphs { .. }
+        | RenderCmd::BoxShadow(_)
+        | RenderCmd::Shadow { .. } => media_command(&mut h, cmd, retain),
+        RenderCmd::Rect { .. }
+        | RenderCmd::RoundedRect { .. }
+        | RenderCmd::RoundedRectCorners { .. }
+        | RenderCmd::StrokeRect { .. }
+        | RenderCmd::StrokeRoundedRectCorners { .. }
+        | RenderCmd::Line { .. }
+        | RenderCmd::Path { .. } => shape_command(&mut h, cmd, retain),
+        _ => state_command(&mut h, cmd, retain),
+    }
+    h.finish()
+}
+
+/// Fold in an image, text, shadow command's own values.
+fn media_command(h: &mut Fnv, cmd: &RenderCmd, retain: &mut Vec<Retained>) {
+    match cmd {
+        RenderCmd::Glyphs { .. } => glyphs_command(h, cmd, retain),
         RenderCmd::ImageSampled {
             image,
             rect,
@@ -336,16 +357,97 @@ pub(crate) fn command(cmd: &RenderCmd, retain: &mut Vec<Retained>) -> u64 {
             h.f64(*opacity);
             h.bool(*pixelated);
         }
+        RenderCmd::Shadow {
+            rect,
+            radii,
+            std_dev,
+            color,
+        } => {
+            h.tag(8);
+            h.rect(*rect);
+            for r in radii {
+                h.f64(*r);
+            }
+            h.f64(*std_dev);
+            h.rgba(*color);
+        }
+
+        RenderCmd::Image {
+            image,
+            rect,
+            opacity,
+        } => {
+            h.tag(10);
+            h.pixels(image, retain);
+            h.rect(*rect);
+            h.f64(*opacity);
+        }
+        RenderCmd::BoxShadow(b) => {
+            h.tag(15);
+            h.rect(b.shape.rect);
+            for r in b.shape.radii {
+                h.f64(r.x);
+                h.f64(r.y);
+            }
+            h.point(b.offset);
+            h.f64(b.spread);
+            h.f64(b.std_dev);
+            h.rgba(b.color);
+            h.bool(b.inset);
+            h.bool(b.knockout);
+        }
+        _ => {}
+    }
+}
+
+/// Fold in a shaped glyph run's own values.
+fn glyphs_command(h: &mut Fnv, cmd: &RenderCmd, retain: &mut Vec<Retained>) {
+    match cmd {
+        RenderCmd::Glyphs {
+            run,
+            origin,
+            fill,
+            stroke: outline,
+            order,
+        } => {
+            h.tag(9);
+            h.glyphs(run, retain);
+            h.point(*origin);
+            match fill {
+                Some(p) => {
+                    h.tag(1);
+                    paint(h, p, retain);
+                }
+                None => h.tag(0),
+            }
+            match outline {
+                Some(o) => {
+                    h.tag(1);
+                    stroke(h, &o.stroke);
+                    paint(h, &o.paint, retain);
+                }
+                None => h.tag(0),
+            }
+            h.tag(*order as u8);
+        }
+        _ => {}
+    }
+}
+
+/// Fold in a filled or stroked geometry command's own values.
+fn shape_command(h: &mut Fnv, cmd: &RenderCmd, retain: &mut Vec<Retained>) {
+    match cmd {
+        RenderCmd::Path { .. } => path_command(h, cmd),
         RenderCmd::Rect { rect, fill } => {
             h.tag(1);
             h.rect(*rect);
-            paint(&mut h, fill, retain);
+            paint(h, fill, retain);
         }
         RenderCmd::RoundedRect { rect, radius, fill } => {
             h.tag(2);
             h.rect(*rect);
             h.f64(*radius);
-            paint(&mut h, fill, retain);
+            paint(h, fill, retain);
         }
         RenderCmd::RoundedRectCorners { rect, radii, fill } => {
             h.tag(3);
@@ -353,7 +455,7 @@ pub(crate) fn command(cmd: &RenderCmd, retain: &mut Vec<Retained>) -> u64 {
             for r in radii {
                 h.f64(*r);
             }
-            paint(&mut h, fill, retain);
+            paint(h, fill, retain);
         }
         RenderCmd::StrokeRect {
             rect,
@@ -393,6 +495,14 @@ pub(crate) fn command(cmd: &RenderCmd, retain: &mut Vec<Retained>) -> u64 {
             h.f64(*width);
             h.rgba(*color);
         }
+
+        _ => {}
+    }
+}
+
+/// Fold in a path command's own values.
+fn path_command(h: &mut Fnv, cmd: &RenderCmd) {
+    match cmd {
         RenderCmd::Path {
             cmds,
             fill,
@@ -419,57 +529,13 @@ pub(crate) fn command(cmd: &RenderCmd, retain: &mut Vec<Retained>) -> u64 {
                 None => h.tag(0),
             }
         }
-        RenderCmd::Shadow {
-            rect,
-            radii,
-            std_dev,
-            color,
-        } => {
-            h.tag(8);
-            h.rect(*rect);
-            for r in radii {
-                h.f64(*r);
-            }
-            h.f64(*std_dev);
-            h.rgba(*color);
-        }
-        RenderCmd::Glyphs {
-            run,
-            origin,
-            fill,
-            stroke: outline,
-            order,
-        } => {
-            h.tag(9);
-            h.glyphs(run, retain);
-            h.point(*origin);
-            match fill {
-                Some(p) => {
-                    h.tag(1);
-                    paint(&mut h, p, retain);
-                }
-                None => h.tag(0),
-            }
-            match outline {
-                Some(o) => {
-                    h.tag(1);
-                    stroke(&mut h, &o.stroke);
-                    paint(&mut h, &o.paint, retain);
-                }
-                None => h.tag(0),
-            }
-            h.tag(*order as u8);
-        }
-        RenderCmd::Image {
-            image,
-            rect,
-            opacity,
-        } => {
-            h.tag(10);
-            h.pixels(image, retain);
-            h.rect(*rect);
-            h.f64(*opacity);
-        }
+        _ => {}
+    }
+}
+
+/// Fold in a clip, transform, group or shape-filling command's own values.
+fn state_command(h: &mut Fnv, cmd: &RenderCmd, retain: &mut Vec<Retained>) {
+    match cmd {
         RenderCmd::PushClip(r) => {
             h.tag(11);
             h.rect(*r);
@@ -477,8 +543,8 @@ pub(crate) fn command(cmd: &RenderCmd, retain: &mut Vec<Retained>) -> u64 {
         RenderCmd::PopClip => h.tag(12),
         RenderCmd::FillShape { shape: s, paint: p } => {
             h.tag(13);
-            shape(&mut h, s);
-            paint(&mut h, p, retain);
+            shape(h, s);
+            paint(h, p, retain);
         }
         RenderCmd::StrokeShape {
             shape: s,
@@ -486,23 +552,9 @@ pub(crate) fn command(cmd: &RenderCmd, retain: &mut Vec<Retained>) -> u64 {
             paint: p,
         } => {
             h.tag(14);
-            shape(&mut h, s);
-            stroke(&mut h, line);
-            paint(&mut h, p, retain);
-        }
-        RenderCmd::BoxShadow(b) => {
-            h.tag(15);
-            h.rect(b.shape.rect);
-            for r in b.shape.radii {
-                h.f64(r.x);
-                h.f64(r.y);
-            }
-            h.point(b.offset);
-            h.f64(b.spread);
-            h.f64(b.std_dev);
-            h.rgba(b.color);
-            h.bool(b.inset);
-            h.bool(b.knockout);
+            shape(h, s);
+            stroke(h, line);
+            paint(h, p, retain);
         }
         RenderCmd::PushTransform(t) => {
             h.tag(16);
@@ -511,11 +563,11 @@ pub(crate) fn command(cmd: &RenderCmd, retain: &mut Vec<Retained>) -> u64 {
         RenderCmd::PopTransform => h.tag(17),
         RenderCmd::PushGroup(g) => {
             h.tag(18);
-            group(&mut h, g);
+            group(h, g);
         }
         RenderCmd::PopGroup => h.tag(19),
+        _ => {}
     }
-    h.finish()
 }
 
 /// The hash of each command of a scene, in order.
