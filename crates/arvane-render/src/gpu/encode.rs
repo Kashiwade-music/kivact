@@ -6,7 +6,7 @@
 //! Glyphs: drawn from vello_hybrid's glyph atlas (glifo's cache: each glyph
 //! is rasterized once per size, hinting, emboldening and quarter-pixel
 //! position into an atlas page and copied from there; pages of
-//! [`GLYPH_PAGE`] pixels are added as needed and unused glyphs are evicted
+//! `GLYPH_PAGE` (in `raster.rs`) pixels are added as needed and unused glyphs are evicted
 //! after 64 frames), so a frame of text costs one textured rectangle per
 //! glyph rather than its outline's strips. Only solid glyph fills use the
 //! atlas; glyph outline strokes, gradient or pattern fills, and glyphs under
@@ -46,8 +46,8 @@
 //! - An image beyond the device's texture limit (16,384 px on most) is
 //!   shrunk, so it is coarser on the GPU than on the CPU.
 
-use super::GpuRaster;
 use super::images::{AtlasImage, GpuImage, Images};
+use super::raster::GpuRaster;
 use crate::draw;
 use crate::paint::PatternFill;
 use kivact_types::pixel::Pixels;
@@ -63,10 +63,6 @@ use vello_cpu::peniko::{
 };
 use vello_cpu::{Glyph, Image, ImageSource, PaintType, Pixmap};
 use vello_hybrid::{Renderer, Resources, SampleRect, TextureBindings, TextureId};
-
-/// The side of a glyph atlas page, in pixels (1 MiB each): a page holds
-/// about a thousand glyphs of body text.
-pub(crate) const GLYPH_PAGE: u32 = 512;
 
 /// The longest side, in device pixels, of a pattern tile repeated from the
 /// image atlas (a larger one is drawn copy by copy).

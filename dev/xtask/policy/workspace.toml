@@ -53,7 +53,7 @@ arvane-native = ["kivact-engine", "arvane-virtual", "arvane", "kivact"]
 # Engine testing owns the stepped Script/Probe bridge; core uses its public test host.
 arvane-virtual = ["kivact-engine", "arvane", "kivact-test"]
 arvane-text = ["arvane"]
-arvane-render = ["arvane", "kivact"]
+arvane-render = ["arvane", "arvane-compose", "kivact"]
 # The compositor plan: Composition to draw operations, owned by the window (arvane) and the facade (kivact).
 arvane-compose = ["arvane", "kivact"]
 arvane-asset = ["arvane"]
@@ -114,7 +114,8 @@ geometry = []
 task = []
 motion = []
 style = []
-view = ["task", "motion", "style", "state", "geometry"]
+sync = []
+view = ["task", "motion", "style", "state", "geometry", "sync"]
 draw = ["task", "motion", "style"]
 # env・service の要求・`why`・GPU の取り込みは、公開 module が実装を持つ（view の state と requests の上に立つ）。
 platform = ["task", "motion", "style", "view"]
@@ -122,7 +123,7 @@ platform = ["task", "motion", "style", "view"]
 embed = ["state", "view", "launch", "app"]
 diagnostics = ["task", "motion", "style", "view"]
 # 実験 feature `gpu-interop`。per-App の状態は client が runtime の extension に入れる。
-gpu_interop = ["task", "motion", "style", "view"]
+gpu_interop = ["task", "motion", "style", "view", "sync"]
 client = ["task", "motion", "style", "view", "platform", "gpu_interop", "diagnostics"]
 # Launch owns client construction; App and embedding consume that shared boundary.
 launch = ["state", "view", "platform", "diagnostics", "gpu_interop", "client"]

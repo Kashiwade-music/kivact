@@ -1,10 +1,12 @@
 //! Role: Records a scene's commands in order through a Canvas, tracking open groups.
 
 use super::canvas::{Canvas, GlyphRun};
+use crate::convert;
 use crate::derived::Derived;
 use crate::outline::glyph_outline;
 use crate::paint::{self, Brush, PatternFill};
-use crate::{convert, text, validate::Fonts};
+use crate::text;
+use crate::validate::Fonts;
 use kivact_types::geometry::Transform;
 use kivact_types::render::{GlyphStroke, Group, Paint, RenderCmd, RenderScene};
 use kivact_types::scene::Shape;
