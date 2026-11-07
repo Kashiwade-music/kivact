@@ -35,6 +35,7 @@ use crate::lower::assets::ArvaneAssets;
 use crate::lower::context::Context;
 use crate::lower::effects::Tint;
 use crate::text_measure::TextMeasurer;
+use kivact_types::render::LayerItem;
 use kivact_types::{Asset, ComputedTextStyle, DrawList, PlatformResult, Rect, Size};
 
 /// Resources and rasterizer of window-independent drawing, confined to the
@@ -162,11 +163,22 @@ impl OffscreenRenderer {
     }
 
     /// Rasterize already composed window content with the same CPU renderer.
+    /// External frames without CPU pixels cannot be read here, so they are
+    /// an error rather than an omission.
     pub(crate) fn render_composition(
         &mut self,
         composition: &kivact_types::render::Composition,
         size: (u32, u32),
     ) -> Result<OffscreenImage, OffscreenError> {
+        let undrawn = composition
+            .layers
+            .iter()
+            .flat_map(|layer| &layer.items)
+            .filter(|item| matches!(item, LayerItem::External(frame) if frame.cpu.is_none()))
+            .count();
+        if undrawn > 0 {
+            return Err(OffscreenError::Dropped(undrawn as u32));
+        }
         let mut frame = self
             .rasterizer
             .render(composition, size.0, size.1)
