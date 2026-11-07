@@ -2,6 +2,8 @@
 //!
 //! No window: the engine runs on an adapter of this machine and its pool
 //! is never imported, as for a window that shows the frames as `Pixels`.
+//! The test sends the preparation signal a window sends on import
+//! (`SHARED_PREPARED`), which the engine's first frames wait for.
 //! With the feature `wgpu`, the same for the engine on wgpu, and a texture
 //! of its own read back with wgpu alone. Each test is skipped, saying why, when the machine has no hardware
 //! adapter of that graphics API.
@@ -19,6 +21,7 @@ fn reads_back_the_pattern(backend: GpuBackend) -> Result<(), String> {
         .ok_or_else(|| format!("no {backend:?} hardware adapter"))?;
     let mut producer =
         Producer::new(&adapter, ExternalImageId(1), W, H).expect("the engine starts");
+    producer.signal_prepared().expect("the pool is prepared");
     // One frame per texture: without a window nothing releases a frame,
     // so a texture is not written twice.
     for number in 0..POOL as u64 {
@@ -63,6 +66,7 @@ fn reads_back_the_pattern_with_wgpu(backend: GpuBackend) -> Result<(), String> {
         .ok_or_else(|| format!("no {backend:?} hardware adapter"))?;
     let mut producer =
         Producer::with_wgpu(&adapter, ExternalImageId(1), W, H).expect("the engine starts");
+    producer.signal_prepared().expect("the pool is prepared");
     for number in 0..POOL as u64 {
         producer.draw(number).expect("the engine draws");
     }

@@ -154,6 +154,19 @@ impl Producer {
         Ok(ready.frame(self.image))
     }
 
+    /// The preparation signal ([`SHARED_PREPARED`]) that a window sends
+    /// once it has imported the pool, for a pool no window imports (the
+    /// read back tests): the engine's first frames wait for it. The pool's
+    /// handles are taken, as an import takes them, so the pool is not
+    /// shared afterwards. Send it once.
+    pub fn signal_prepared(&mut self) -> Result<(), String> {
+        let shared = self
+            .shared
+            .take()
+            .ok_or_else(|| "the pool was shared already".to_owned())?;
+        self.engine.prepare(&shared.release)
+    }
+
     /// Texture `slot`'s last frame, read back as straight-alpha RGBA8
     /// (`width` × `height` × 4 bytes), while no window uses it.
     pub fn read_back(&self, slot: u32) -> Result<Vec<u8>, String> {

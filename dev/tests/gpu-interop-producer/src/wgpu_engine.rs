@@ -17,7 +17,7 @@
 use crate::engine::{Engine, POOL, WAIT};
 use kivact_gpu_share::wgpu::{FORMAT, Pool, request_device};
 use kivact_gpu_share::{FrameReady, PoolConfig};
-use kivact_types::{GpuAdapter, GpuBackend, SharedTextures};
+use kivact_types::{GpuAdapter, GpuBackend, SharedHandle, SharedTextures};
 use std::time::Duration;
 
 pub(crate) struct Wgpu {
@@ -138,5 +138,28 @@ impl Engine for Wgpu {
         // SAFETY: the engine's own queue, used by this thread alone; the
         // caller's window does not use the texture.
         unsafe { self.pool.read_back(slot, WAIT) }.map_err(|e| e.to_string())
+    }
+
+    fn prepare(&self, release: &SharedHandle) -> Result<(), String> {
+        #[cfg(windows)]
+        {
+            // SAFETY: the device's raw handle is read for the preparation
+            // signal alone, on the thread that owns the device; the guard
+            // is dropped on return.
+            let dx12 = unsafe { self.device.as_hal::<wgpu::hal::api::Dx12>() };
+            if let Some(hal) = dx12 {
+                return crate::d3d12::prepare(hal.raw_device(), release);
+            }
+        }
+        // SAFETY: as above, for the Vulkan device of wgpu.
+        let vulkan = unsafe { self.device.as_hal::<wgpu::hal::api::Vulkan>() };
+        match vulkan {
+            Some(hal) => crate::vulkan::prepare(
+                hal.shared_instance().raw_instance(),
+                hal.raw_device(),
+                release,
+            ),
+            None => Err("the engine's device is neither Direct3D 12 nor Vulkan".into()),
+        }
     }
 }
