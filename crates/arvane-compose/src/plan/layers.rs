@@ -1,4 +1,4 @@
-//! Role: Layers: geometry and raster scale, signatures and reuse, surfaces, backdrops, effects and records (§8.3, §8.6).
+//! Role: Layers: geometry, raster scale, signatures, surfaces, backdrops and effects.
 
 use std::borrow::Cow;
 use std::f64::consts::SQRT_2;
@@ -9,19 +9,19 @@ use kivact_types::geometry3d::Projective;
 use kivact_types::paint::BackfaceVisibility;
 use kivact_types::pixel::BlendMode;
 use kivact_types::render::{
-    Composite, CompositeLayer, Composition, LayerEffects, LayerItem, Plane, RasterGrid,
-    RenderBackdrop, RenderCmd, RenderScene,
+    Composite, CompositeLayer, LayerEffects, LayerItem, Plane, RasterGrid, RenderBackdrop,
+    RenderScene,
 };
 use kivact_types::scene::Shape;
 
 use super::bounds::{mapped_bounds, points_bounds};
-use super::hash::{self, Fnv};
-use super::items::{Dest, ItemCtx, coverage_scene};
-use super::{
-    Builder, DrawOp, Grid, Op, PlanError, Source, TargetId, TargetKind, filter_reach, full_polygon,
-    px_map,
+use super::builder::Builder;
+use super::frame::{
+    Dest, ItemCtx, coverage_scene, filter_reach, full_polygon, inline_candidate, px_map,
+    subtree_has_backdrop,
 };
-use super::{Sampling, Scissor};
+use super::hash::{self, Fnv};
+use super::ops::{DrawOp, Grid, Op, PlanError, Sampling, Scissor, Source, TargetId, TargetKind};
 use crate::cache::{ChunkKey, ChunkRole, LayerRecord, Retained};
 
 /// The largest surface side in px (a larger surface is rastered at a lower scale).
@@ -59,43 +59,6 @@ impl Geo {
             size: self.size,
         }
     }
-}
-
-/// Whether a layer may be drawn into its parent instead of a surface (design §8.14),
-/// ignoring the runtime affine test. The rules keep each draw's coverage and
-/// shader grid in its parent's space.
-pub(super) fn inline_candidate(comp: &Composition, index: u32) -> bool {
-    let Some(layer) = comp.layers.get(index as usize) else {
-        return false;
-    };
-    if index == 0
-        || layer.plane != Plane::Flat
-        || layer.effects != LayerEffects::default()
-        || subtree_has_backdrop(comp, index)
-    {
-        return false;
-    }
-    layer.items.iter().all(|item| match item {
-        LayerItem::Raster(scene) => scene
-            .commands
-            .iter()
-            .all(|c| !matches!(c, RenderCmd::PushGroup(g) if g.blend != BlendMode::Normal)),
-        LayerItem::External(external) => external.clips.is_empty(),
-        LayerItem::Shader(_) => false,
-        LayerItem::Layer { clips, .. } => clips.is_empty(),
-    })
-}
-
-/// Whether a layer or one of its descendants has a backdrop.
-fn subtree_has_backdrop(comp: &Composition, index: u32) -> bool {
-    let Some(layer) = comp.layers.get(index as usize) else {
-        return false;
-    };
-    layer.effects.backdrop.is_some()
-        || layer.items.iter().any(|item| match item {
-            LayerItem::Layer { index, .. } => subtree_has_backdrop(comp, *index),
-            _ => false,
-        })
 }
 
 /// The scene of a layer that is a single raster with default effects: its chunk is its surface.
@@ -378,7 +341,6 @@ impl<'a> Builder<'a> {
             && geo.h.as_affine().is_some();
         if inline {
             let cx = ItemCtx {
-                index,
                 layer,
                 first: 0,
                 items: &layer.items,
@@ -460,7 +422,6 @@ impl<'a> Builder<'a> {
             self.emit_backdrop(layer, backdrop, geo, content, dest, to_win)?;
         }
         let cx = ItemCtx {
-            index,
             layer,
             first: 0,
             items: &layer.items,

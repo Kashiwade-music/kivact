@@ -1,4 +1,4 @@
-//! Role: Records of the previous frame's chunks and layers, the plan's pure cache index.
+//! Role: Previous frame's chunk and layer records: the plan's pure cache index.
 //!
 //! The plan only reads this index and returns the records of the frame it
 //! planned; the executor stores them after a successful frame.
@@ -63,6 +63,7 @@ pub(crate) struct ChunkRecord {
     /// The frame that last used the record.
     pub(crate) frame: u64,
     /// Allocations the index hashes by address.
+    #[expect(dead_code, reason = "held so the hashed pointers stay valid (§8.6)")]
     pub(crate) retain: Vec<Retained>,
 }
 
@@ -78,6 +79,7 @@ pub(crate) struct LayerRecord {
     /// The frame that last used the record.
     pub(crate) frame: u64,
     /// Allocations the signature hashes by address (images, shader and filter pixels).
+    #[expect(dead_code, reason = "held so the hashed pointers stay valid (§8.6)")]
     pub(crate) retain: Vec<Retained>,
 }
 

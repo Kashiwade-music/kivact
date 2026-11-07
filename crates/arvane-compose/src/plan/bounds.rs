@@ -1,4 +1,4 @@
-//! Role: Where each command of a render scene can draw, in the scene's own coordinates.
+//! Role: Where each command of a render scene can draw, in scene coordinates.
 //!
 //! Ported from `arvane-render`'s backdrop index (`git show f4e40cc:crates/arvane-render/src/backdrop.rs`)
 //! to the scene vocabulary of `kivact-types`: clips, transforms and groups
@@ -10,7 +10,7 @@ use kivact_types::geometry::{Point, Rect, Transform};
 use kivact_types::render::{BoxShadow, Glyph, Group, RenderCmd, RenderScene, SHADOW_REACH};
 use kivact_types::scene::{LineJoin, Shape, Stroke};
 
-use super::PlanError;
+use super::ops::PlanError;
 
 /// Blur reach in standard deviations (design §8.6: a group's blur grows it by 3σ).
 const BLUR_REACH: f64 = 3.0;

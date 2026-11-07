@@ -1,4 +1,4 @@
-//! Role: Convex polygons in 3D: projecting a layer rectangle, fitting planes and splitting polygons by them.
+//! Role: Convex polygons in 3D: projecting rectangles, planes and splitting.
 //!
 //! A polygon keeps, per vertex, whether the edge leaving it is a split made
 //! by a plane (those edges are drawn without antialiasing, see §8.4).

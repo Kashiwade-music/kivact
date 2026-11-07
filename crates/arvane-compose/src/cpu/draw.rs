@@ -1,4 +1,4 @@
-//! Role: Executes one DrawOp of the plan: samples its source, applies coverage, opacity and cover, then blends it into its target.
+//! Role: Executes one DrawOp: samples, applies coverage and blends into its target.
 
 use std::collections::HashMap;
 

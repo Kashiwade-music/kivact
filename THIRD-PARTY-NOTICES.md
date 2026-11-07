@@ -28,3 +28,7 @@ Geist Mono and Noto Sans JP retain their original family OFL notices, combined
 [SHA-256 records](examples/shared-assets/fonts/SHA256SUMS.txt). No font was upgraded.
 Pop's Barlow, Game's Barlow Condensed and JetBrains Mono, and Soft's Figtree
 remain beside their original notices in their catalog asset directories.
+
+## resvg 0.46.0 filter port
+
+`crates/arvane-compose/src/cpu/graph/` ports the filter driver, the color space conversions, the sRGB tables and the primitive filters of resvg 0.46.0 (`src/filter/`, Copyright 2018 the Resvg Authors), dual licensed under `MIT OR Apache-2.0`. The ported files keep their attribution headers. The gaussian blur and the drop shadow are Kivact's own and do not come from resvg.

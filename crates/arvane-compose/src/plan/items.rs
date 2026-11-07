@@ -1,55 +1,17 @@
-//! Role: The items of a layer drawn into a destination: rasters, external frames, shaders, child layers and clips.
+//! Role: Items of a layer drawn into a destination: rasters, externals, shaders, clips.
 
 use std::borrow::Cow;
 
 use kivact_types::Matrix4;
-use kivact_types::geometry::{Rect, Size, Transform};
-
+use kivact_types::geometry::Size;
 use kivact_types::pixel::BlendMode;
-use kivact_types::render::{
-    Composite, CompositeLayer, ExternalItem, Group, LayerItem, Paint, RenderCmd, RenderScene,
-    ShaderItem,
-};
+use kivact_types::render::{Composite, ExternalItem, LayerItem, RenderScene, ShaderItem};
 use kivact_types::scene::Shape;
 
-use super::{
-    Builder, DrawOp, Grid, Op, PlanError, Sampling, Scissor, ShaderOp, Source, TargetId, px_map,
-};
+use super::builder::Builder;
+use super::frame::{Dest, ItemCtx, coverage_scene, px_map, raster_ordinal, wrapped};
+use super::ops::{DrawOp, Op, PlanError, Sampling, Scissor, ShaderOp, Source};
 use crate::cache::{ChunkKey, ChunkRole};
-
-/// Where a set of items draws: its target, the map from layer space to the
-/// target's px, the target's size, and the clip that covers every draw.
-#[derive(Clone, Copy, Debug)]
-pub(super) struct Dest {
-    /// The target drawn into.
-    pub(super) target: TargetId,
-    /// Layer space → target px.
-    pub(super) to: Matrix4,
-    /// The target's size in px.
-    pub(super) size: (u32, u32),
-    /// Coverage inherited from an inline ancestor's clip, applied to every draw.
-    pub(super) cover: Option<ChunkKey>,
-}
-
-/// The layer and items being drawn.
-pub(super) struct ItemCtx<'a> {
-    /// Index of the layer in the composition.
-    pub(super) index: u32,
-    /// The layer that owns the items.
-    pub(super) layer: &'a CompositeLayer,
-    /// Position of `items[0]` in `layer.items`.
-    pub(super) first: usize,
-    /// The items to draw, in order.
-    pub(super) items: &'a [LayerItem],
-    /// The grid of the layer's chunks.
-    pub(super) grid: Grid,
-    /// Where the items draw.
-    pub(super) dest: Dest,
-    /// Layer space → window px, for damage.
-    pub(super) to_win: Matrix4,
-    /// Whether the rasters are cached (false for inline layers, which draw into their parent).
-    pub(super) cache_chunks: bool,
-}
 
 impl<'a> Builder<'a> {
     /// Draw every item of `cx` in order.
@@ -239,46 +201,4 @@ impl<'a> Builder<'a> {
         self.chunk(key, Cow::Owned(scene), cx.grid, &cx.to_win, cx.cache_chunks)?;
         Ok(key)
     }
-}
-
-/// The number of Raster items before position `at` of the layer (the chunk ordinal of a raster).
-pub(super) fn raster_ordinal(layer: &CompositeLayer, at: usize) -> u32 {
-    layer.items[..at]
-        .iter()
-        .filter(|item| matches!(item, LayerItem::Raster(_)))
-        .count() as u32
-}
-
-/// A white coverage scene: the rectangle `rect` clipped by every shape of `clips`.
-pub(super) fn coverage_scene(clips: &[Shape], rect: Rect) -> RenderScene {
-    let white = kivact_types::Rgba {
-        r: 1.0,
-        g: 1.0,
-        b: 1.0,
-        a: 1.0,
-    };
-    let mut commands = Vec::with_capacity(clips.len() * 2 + 3);
-    for clip in clips {
-        commands.push(RenderCmd::PushGroup(Group {
-            clip: Some(clip.clone()),
-            opacity: 1.0,
-            blend: BlendMode::Normal,
-            blur: None,
-        }));
-    }
-    commands.push(RenderCmd::FillShape {
-        shape: Shape::Rect(rect),
-        paint: Paint::Solid(white),
-    });
-    commands.extend(clips.iter().map(|_| RenderCmd::PopGroup));
-    RenderScene { commands }
-}
-
-/// A scene placed by `t` in its owner's space: the commands wrapped in a transform.
-pub(super) fn wrapped(scene: &RenderScene, t: Transform) -> RenderScene {
-    let mut commands = Vec::with_capacity(scene.commands.len() + 2);
-    commands.push(RenderCmd::PushTransform(t));
-    commands.extend(scene.commands.iter().cloned());
-    commands.push(RenderCmd::PopTransform);
-    RenderScene { commands }
 }
