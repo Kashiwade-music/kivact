@@ -292,12 +292,8 @@ dependencies = [
 name = "arvane-render"
 version = "0.1.0"
 dependencies = [
- "bytemuck",
  "glifo",
- "kivact-gpu-share",
  "kivact-types",
- "pollster",
- "raw-window-handle",
  "skrifa",
  "vello_common",
  "vello_cpu",

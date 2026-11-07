@@ -1,34 +1,22 @@
 //! Role: Converts gradient paints without renderer cache state.
 
 use crate::convert;
-use kivact_types::render::{ColorMatrix, Gradient, GradientShape};
+use kivact_types::render::{Gradient, GradientShape};
 use kivact_types::{Extend, Rgba};
 use vello_cpu::PaintType;
 use vello_cpu::kurbo::Affine;
 use vello_cpu::peniko::{self, Gradient as RasterGradient};
 
-/// `color` through `matrix` when there is one.
-pub(crate) fn color(color: Rgba, matrix: Option<&ColorMatrix>) -> Rgba {
-    match matrix {
-        Some(m) => m.apply(color),
-        None => color,
-    }
-}
-
-/// Stops as the rasterizers take them, colors through `matrix`.
+/// Stops as the rasterizers take them.
 ///
 /// Two stops at offset 0 (or 1) make a hard edge there, which the
 /// rasterizers lose when padding: beyond the end they paint the first of
 /// the stops at that offset. Then (`pad`) the stops move inwards by a
 /// hair and the outer color ends the list.
-pub(crate) fn stops_of(
-    stops: &[(f64, Rgba)],
-    matrix: Option<&ColorMatrix>,
-    pad: bool,
-) -> Vec<RasterStop> {
+pub(crate) fn stops_of(stops: &[(f64, Rgba)], pad: bool) -> Vec<RasterStop> {
     let mut out: Vec<RasterStop> = stops
         .iter()
-        .map(|(offset, c)| (*offset as f32, convert::color(color(*c, matrix))))
+        .map(|(offset, c)| (*offset as f32, convert::color(*c)))
         .collect();
     let n = out.len();
     if !pad || n < 2 {
@@ -56,7 +44,7 @@ pub(crate) fn stops_of(
 type RasterStop = (f32, peniko::color::AlphaColor<peniko::color::Srgb>);
 
 /// A gradient's brush and paint transform.
-pub(crate) fn gradient(g: &Gradient, matrix: Option<&ColorMatrix>) -> (PaintType, Option<Affine>) {
+pub(crate) fn gradient(g: &Gradient) -> (PaintType, Option<Affine>) {
     if let GradientShape::Radial {
         radius_x, radius_y, ..
     } = g.shape
@@ -64,7 +52,7 @@ pub(crate) fn gradient(g: &Gradient, matrix: Option<&ColorMatrix>) -> (PaintType
     {
         // Nothing to spread over: the last stop's color everywhere.
         let last = g.stops.last().map_or(Rgba::default(), |s| s.1);
-        return (PaintType::Solid(convert::color(color(last, matrix))), None);
+        return (PaintType::Solid(convert::color(last)), None);
     }
     let (raster, transform) = gradient_shape(&g.shape);
     let extend = match g.extend {
@@ -76,7 +64,7 @@ pub(crate) fn gradient(g: &Gradient, matrix: Option<&ColorMatrix>) -> (PaintType
         PaintType::Gradient(
             raster
                 .with_extend(extend)
-                .with_stops(stops_of(&g.stops, matrix, g.extend == Extend::Pad).as_slice()),
+                .with_stops(stops_of(&g.stops, g.extend == Extend::Pad).as_slice()),
         ),
         transform,
     )

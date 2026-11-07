@@ -1,10 +1,11 @@
-//! Role: CpuRenderer: rasterizes validated scenes with vello_cpu on the calling thread.
+//! Role: CpuRaster: rasterizes validated scenes with vello_cpu on the calling thread.
 
+use crate::draw::{self, GlyphRun};
 use crate::error::RenderError;
-use crate::{draw, images, paint, validate};
-use kivact_types::Size;
-use kivact_types::render::{CpuFrame, RenderScene};
-use kivact_types::scene::Pixels;
+use crate::{images, paint, validate};
+use kivact_types::pixel::Pixels;
+use kivact_types::render::{PixelRect, RenderScene};
+use kivact_types::{Point, Rect as LogicalRect};
 use std::sync::Arc;
 use vello_common::filter_effects::Filter;
 use vello_cpu::kurbo::{Affine, BezPath, Rect, Stroke};
@@ -15,26 +16,24 @@ use vello_cpu::{
     Glyph, Image, ImageSource, PaintType, Pixmap, RenderContext, RenderSettings, Resources,
 };
 
-/// CPU renderer, used serially on the thread which owns it.
+/// CPU rasterizer, used serially on the thread which owns it.
 ///
 /// The single-thread rasterizer and reusable resource cache are private.
-/// The same renderer serves native windows and deterministic headless
-/// image tests. (vello_cpu's worker threads halve the cost of simple
-/// frames but double that of text-heavy ones, so they are not used.) It
-/// draws on the calling thread alone, so a scene's frame is the same bit
-/// for bit on every run and machine.
-pub struct CpuRenderer {
+/// It draws on the calling thread alone, so a scene's raster is the same
+/// bit for bit on every run and machine. (vello_cpu's worker threads halve
+/// the cost of simple frames but double that of text-heavy ones, so they
+/// are not used.)
+pub struct CpuRaster {
     context: RenderContext,
     resources: Resources,
     caches: draw::Caches,
     /// Premultiplied images of the last frame, by their pixels' identity.
     images: images::ImageCache<ImageSource>,
-    /// The raster of a frame that is not drawn straight into its target,
-    /// kept from frame to frame.
+    /// The raster of the frame being drawn, copied out when it is done.
     pixmap: Pixmap,
 }
 
-impl Default for CpuRenderer {
+impl Default for CpuRaster {
     fn default() -> Self {
         Self {
             context: RenderContext::new_with(
@@ -53,89 +52,70 @@ impl Default for CpuRenderer {
     }
 }
 
-impl CpuRenderer {
+impl CpuRaster {
+    /// Create an empty rasterizer and persistent raster resources.
+    pub fn new() -> CpuRaster {
+        Self::default()
+    }
+
     /// Release rebuildable font validation metadata, retaining live drawing resources.
     pub fn release_caches(&mut self) {
         self.caches.validation.clear();
     }
 
-    /// Create an empty renderer and persistent raster resources.
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    /// Renders a scene into `out`, a `width` × `height` buffer of
-    /// 0x00RRGGBB pixels (premultiplied color composited over white, as
-    /// [`CpuFrame::to_softbuffer`]), without an intermediate frame. A
-    /// scene rasterized smaller than `out` (a scale reduced to the frame
-    /// budget) is enlarged by nearest neighbor.
-    pub fn render_0rgb(
+    /// Rasterize `scene` mapped by scale(scale) · translate(−origin) into
+    /// `out` (size.0 × size.1 premultiplied RGBA8, row-major, no padding).
+    /// With `clip`, only that rect of `out` is drawn and the rest is left as
+    /// it is; without it `out` is cleared to transparent first.
+    pub fn raster(
         &mut self,
         scene: &RenderScene,
-        size: Size,
+        origin: Point,
         scale: f64,
-        (width, height): (u32, u32),
-        out: &mut [u32],
+        size: (u16, u16),
+        clip: Option<PixelRect>,
+        out: &mut [u8],
     ) -> Result<(), RenderError> {
-        if out.len() != width as usize * height as usize {
+        if !scale.is_finite() || scale <= 0.0 {
             return Err(RenderError::InvalidSize);
         }
-        let (w, h) = self.draw(scene, size, scale)?;
-        if (u32::from(w), u32::from(h)) == (width, height) {
-            let target = vello_cpu::PixmapMut::new(w, h, bytemuck::cast_slice_mut(out))
-                .expect("invariant: the buffer holds width × height pixels");
-            self.context.render(target, &mut self.resources);
-            for pixel in out.iter_mut() {
-                *pixel = over_white(pixel.to_le_bytes());
-            }
-            return Ok(());
+        validate::target(size)?;
+        let (frame_width, frame_height) = (u32::from(size.0), u32::from(size.1));
+        if out.len() != frame_width as usize * frame_height as usize * 4 {
+            return Err(RenderError::InvalidSize);
         }
-        self.pixmap.resize(w, h);
-        self.context.render(&mut self.pixmap, &mut self.resources);
-        let source = self.pixmap.data_as_u8_slice().as_chunks::<4>().0;
-        let index = |target: u32, extent: u32, source: u16| {
-            ((u64::from(target) * u64::from(source) / u64::from(extent)) as usize)
-                .min(usize::from(source) - 1)
+        // The rectangle drawn: the whole frame, or `clip` within it.
+        let region = clip.unwrap_or(PixelRect {
+            x: 0,
+            y: 0,
+            width: frame_width,
+            height: frame_height,
+        });
+        if region.width == 0
+            || region.height == 0
+            || u64::from(region.x) + u64::from(region.width) > u64::from(frame_width)
+            || u64::from(region.y) + u64::from(region.height) > u64::from(frame_height)
+        {
+            return Err(RenderError::InvalidSize);
+        }
+        // A scene drawn from the region's corner is the same as one drawn
+        // from the frame's, moved by the region's origin.
+        let at = Point {
+            x: origin.x + f64::from(region.x) / scale,
+            y: origin.y + f64::from(region.y) / scale,
         };
-        for (y, row) in out.chunks_exact_mut(width as usize).enumerate() {
-            let line = index(y as u32, height, h) * usize::from(w);
-            for (x, pixel) in row.iter_mut().enumerate() {
-                *pixel = over_white(source[line + index(x as u32, width, w)]);
-            }
-        }
-        Ok(())
-    }
-
-    /// Renders a scene using logical dimensions and a physical display scale.
-    ///
-    /// Coordinates and paint are validated before touching the render context,
-    /// so an error leaves the renderer usable for the next frame.
-    pub fn render(
-        &mut self,
-        scene: &RenderScene,
-        size: Size,
-        scale: f64,
-    ) -> Result<CpuFrame, RenderError> {
-        let (width, height) = self.draw(scene, size, scale)?;
-        self.pixmap.resize(width, height);
-        self.context.render(&mut self.pixmap, &mut self.resources);
-        Ok(CpuFrame {
-            width: u32::from(width),
-            height: u32::from(height),
-            rgba: self.pixmap.data_as_u8_slice().to_vec(),
-        })
-    }
-
-    /// Validate `scene` and record it in the render context for a frame of
-    /// `size` × `scale`, returning the frame's pixel dimensions.
-    fn draw(
-        &mut self,
-        scene: &RenderScene,
-        size: Size,
-        scale: f64,
-    ) -> Result<(u16, u16), RenderError> {
-        let (width, height) = validate::dimensions(size, scale)?;
-        let info = validate::scene(scene, &mut self.caches.validation)?;
+        let (width, height) = (region.width as u16, region.height as u16);
+        let frame = draw::Frame {
+            scale,
+            origin: at,
+            visible: LogicalRect {
+                x: at.x,
+                y: at.y,
+                width: f64::from(width) / scale,
+                height: f64::from(height) / scale,
+            },
+        };
+        validate::scene(scene, &mut self.caches.validation)?;
         self.context.reset_and_resize(width, height);
         self.images.begin_frame();
         let mut canvas = CpuCanvas {
@@ -143,19 +123,26 @@ impl CpuRenderer {
             resources: &mut self.resources,
             images: &mut self.images,
         };
-        let frame = draw::Frame {
-            scale,
-            size,
-            backdrops: info.backdrops,
-        };
         draw::draw(&mut canvas, &mut self.caches, scene, &frame);
         self.images.end_frame();
         self.context.flush();
-        Ok((width, height))
+        self.pixmap.resize(width, height);
+        self.context.render(&mut self.pixmap, &mut self.resources);
+        let source = self.pixmap.data_as_u8_slice();
+        if region.width == frame_width && region.height == frame_height {
+            out.copy_from_slice(source);
+            return Ok(());
+        }
+        let row_bytes = usize::from(width) * 4;
+        for (y, row) in source.chunks_exact(row_bytes).enumerate() {
+            let start = ((region.y as usize + y) * frame_width as usize + region.x as usize) * 4;
+            out[start..start + row_bytes].copy_from_slice(row);
+        }
+        Ok(())
     }
 }
 
-/// The CPU renderer's [`draw::Canvas`].
+/// The CPU rasterizer's [`draw::Canvas`].
 struct CpuCanvas<'a> {
     context: &'a mut RenderContext,
     resources: &'a mut Resources,
@@ -257,13 +244,14 @@ impl draw::Canvas for CpuCanvas<'_> {
         self.context.pop_layer();
     }
 
-    fn fill_glyphs(
-        &mut self,
-        run: draw::GlyphRun<'_>,
-        glyphs: impl Iterator<Item = Glyph> + Clone,
-    ) {
+    fn fill_glyphs(&mut self, run: GlyphRun<'_>, glyphs: impl Iterator<Item = Glyph> + Clone) {
         run.apply(self.context.glyph_run(self.resources, run.font))
             .fill_glyphs(glyphs);
+    }
+
+    fn stroke_glyphs(&mut self, run: GlyphRun<'_>, glyphs: impl Iterator<Item = Glyph> + Clone) {
+        run.apply(self.context.glyph_run(self.resources, run.font))
+            .stroke_glyphs(glyphs);
     }
 
     fn draw_image(&mut self, image: &Pixels, rect: Rect, pixelated: bool) {
@@ -290,13 +278,6 @@ impl draw::Canvas for CpuCanvas<'_> {
         self.context.reset_paint_transform();
     }
 
-    /// The CPU renderer has no external frames: nothing is drawn.
-    fn external_size(&self, _: &kivact_types::ExternalFrame) -> Option<(u32, u32)> {
-        None
-    }
-
-    fn draw_external(&mut self, _: &kivact_types::ExternalFrame, _: Rect, _: bool) {}
-
     fn fill_pattern(&mut self, path: &BezPath, pattern: &paint::PatternFill, _visible: Rect) {
         let source = self.source(&pattern.image);
         let extend = |repeat: bool| if repeat { Extend::Repeat } else { Extend::Pad };
@@ -313,11 +294,4 @@ impl draw::Canvas for CpuCanvas<'_> {
         self.context.fill_path(path);
         self.context.reset_paint_transform();
     }
-}
-
-/// A premultiplied RGBA pixel composited over white, as 0x00RRGGBB.
-fn over_white([r, g, b, a]: [u8; 4]) -> u32 {
-    let white = 255 - u32::from(a);
-    let channel = |c: u8| (u32::from(c) + white).min(255);
-    (channel(r) << 16) | (channel(g) << 8) | channel(b)
 }
