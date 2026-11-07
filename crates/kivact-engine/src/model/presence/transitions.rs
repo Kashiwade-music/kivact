@@ -162,6 +162,7 @@ impl Model {
         for x in &exits {
             self.prepare_state_motion(*x);
         }
+        self.record_departures(&subtree);
         for x in &subtree {
             self.tree.set_observed(*x, false);
             let role = if *x == id {

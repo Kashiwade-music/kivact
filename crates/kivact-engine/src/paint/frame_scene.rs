@@ -38,6 +38,7 @@ impl Model {
     /// the window's scale into the root layer.
     pub(crate) fn composition(&mut self, engine: &mut arvane::Engine) -> Composition {
         self.paint_list();
+        self.sync_playback();
         let pass = PaintPass {
             scale: self.paint.scale,
             size: self.window(),
@@ -390,9 +391,10 @@ impl Model {
             },
             pass.scale,
         );
+        let frame = self.playback_frame(id);
         // An overflowing SVG is rasterized for the part the box shows.
         let Some((image, region)) =
-            assets.pixels(source, device, placed.visible(canvas), tint_color)
+            assets.pixels(source, device, placed.visible(canvas), tint_color, frame)
         else {
             return;
         };

@@ -181,7 +181,10 @@ impl<'a> Context<'a> {
         if size.is_empty() {
             return None;
         }
-        let pixels = self.assets.borrow_mut().pixels(asset, size, region, tint);
+        let pixels = self
+            .assets
+            .borrow_mut()
+            .pixels(asset, size, region, tint, 0);
         if let Some((image, _)) = &pixels {
             self.record(Dependency::Pixels {
                 asset: asset.clone(),

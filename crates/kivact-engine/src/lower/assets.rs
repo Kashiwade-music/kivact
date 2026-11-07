@@ -41,7 +41,9 @@
 use std::collections::HashMap;
 
 use crate::lower::AssetEvent;
-use arvane::asset::{AssetStore, FamilyChoice, ImageState, PixelSize, Region, load_font};
+use arvane::asset::{
+    AnimationInfo, AssetStore, FamilyChoice, ImageState, PixelSize, Region, load_font,
+};
 use kivact_types::{Asset, ComputedTextStyle, NodeId, PlatformResult, Rgba, Size};
 
 /// UI-thread resource owner with image and font diagnostic deduplication.
@@ -162,20 +164,28 @@ impl ArvaneAssets {
         }
     }
 
+    /// The timing of the animated `asset` (`None` while it is not ready or
+    /// is not an animation).
+    pub(crate) fn animation(&mut self, asset: &kivact_types::Asset) -> Option<AnimationInfo> {
+        self.store.animation(asset)
+    }
+
     /// The image to draw for the part `visible` of `asset` drawn at
-    /// `device` pixels, in `tint` when given, and the part of the image it
-    /// covers (`None`: nothing to draw yet). Shares the store's pixels.
+    /// `device` pixels, in `tint` when given, at animation frame `frame`
+    /// (0 for a still image), and the part of the image it covers (`None`:
+    /// nothing to draw yet). Shares the store's pixels.
     pub(crate) fn pixels(
         &mut self,
         asset: &kivact_types::Asset,
         device: PixelSize,
         visible: Region,
         tint: Option<Rgba>,
+        frame: u32,
     ) -> Option<(kivact_types::Pixels, Region)> {
         if device.is_empty() {
             return None;
         }
-        let drawn = self.store.pixels_in(asset, device, visible, tint, 0);
+        let drawn = self.store.pixels_in(asset, device, visible, tint, frame);
         // Arvane keeps no device textures: evicted pixels need no work.
         self.store.take_evicted();
         let (pixels, region) = drawn?;

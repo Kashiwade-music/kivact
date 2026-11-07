@@ -95,6 +95,11 @@ impl Frame {
         self.env.theme_hint
     }
 
+    /// The host clock (ns) of the event or turn being handled.
+    pub(crate) fn now(&self) -> u64 {
+        self.now
+    }
+
     /// The display's frame period.
     pub(crate) fn period_ns(&self) -> u64 {
         self.env.frame_period_ns
