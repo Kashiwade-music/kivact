@@ -7,7 +7,6 @@ use crate::model::transform::map_rect;
 use crate::paint::state::{ChildIndex, Entry, ListState, Look, Step};
 use crate::tree::node::HostNode;
 use kivact_types::cell::Generation;
-use kivact_types::render::ColorMatrix;
 use kivact_types::{NodeId, Point, Rect};
 use std::collections::{HashMap, HashSet};
 
@@ -24,7 +23,7 @@ const INDEXED: usize = 32;
 fn closes(step: &Step, n: &HostNode) -> bool {
     step.clips
         || step.presence_clip.is_some()
-        || step.layers > 0
+        || step.grouped
         || step.transform.is_some()
         || (step.own && n.scenes()[1].is_some())
 }
@@ -40,8 +39,6 @@ struct Walk<'a> {
     /// The containers whose index this walk used.
     used: HashSet<NodeId>,
     out: Vec<Entry>,
-    /// The listed nodes' color matrices.
-    matrices: Vec<ColorMatrix>,
     /// The listed transformed nodes' transforms.
     transforms: Vec<kivact_types::Transform>,
 }
@@ -50,14 +47,7 @@ impl Walk<'_> {
     /// List `id` and its subtree; `origin` is its untransformed layout
     /// box's origin and `clip` the area its ancestors let it draw in
     /// (grown by the margin), both in its parent's own space.
-    fn node(
-        &mut self,
-        id: NodeId,
-        origin: Point,
-        parent_alpha: f64,
-        matrix: Option<u32>,
-        clip: Rect,
-    ) {
+    fn node(&mut self, id: NodeId, origin: Point, parent_alpha: f64, clip: Rect) {
         let host = self.host;
         let Some(n) = host.node(id) else {
             return;
@@ -89,11 +79,7 @@ impl Walk<'_> {
         };
         let clips = n.clips();
         let presence_clip = presence_clip(host, id, clip, o, layout.size);
-        let (group, layers, alpha) = opacity(host, id, n, &look, parent_alpha);
-        let own_matrix = match look.recolor {
-            Some(own) => Some(self.matrix(own, matrix)),
-            None => matrix,
-        };
+        let (group, grouped, alpha) = opacity(host, id, n, &look, parent_alpha);
         let step = Step {
             id,
             origin: o,
@@ -103,13 +89,11 @@ impl Walk<'_> {
             presence_clip,
             rounded: look.rounded,
             own: visible,
-            layers,
+            grouped,
             group,
-            matrix: own_matrix,
-            parent_matrix: matrix,
             clip,
         };
-        let listed = visible || layers > 0 || transform.is_some();
+        let listed = visible || grouped || transform.is_some();
         if listed {
             self.out.push(Entry::Open(step));
         }
@@ -132,7 +116,7 @@ impl Walk<'_> {
             x: o.x - scroll.x,
             y: o.y - scroll.y,
         };
-        self.children(id, n, base, alpha, own_matrix, child_clip);
+        self.children(id, n, base, alpha, child_clip);
         if listed && closes(&step, n) {
             self.out.push(Entry::Close(step));
         }
@@ -168,28 +152,9 @@ impl Walk<'_> {
         })
     }
 
-    /// The index of the color matrix of a node with the color filters
-    /// `own`: its color filters, then its ancestors' (`parent`).
-    fn matrix(&mut self, own: ColorMatrix, parent: Option<u32>) -> u32 {
-        let m = match parent.and_then(|p| self.matrices.get(p as usize)) {
-            Some(p) => own.then(*p),
-            None => own,
-        };
-        self.matrices.push(m);
-        (self.matrices.len() - 1) as u32
-    }
-
     /// The children of `id` (its node `n`), whose layout locations are
     /// relative to `base`: through its child index when it has many.
-    fn children(
-        &mut self,
-        id: NodeId,
-        n: &HostNode,
-        base: Point,
-        alpha: f64,
-        matrix: Option<u32>,
-        clip: Rect,
-    ) {
+    fn children(&mut self, id: NodeId, n: &HostNode, base: Point, alpha: f64, clip: Rect) {
         let host = self.host;
         let place = |at: Point| Point {
             x: base.x + at.x,
@@ -201,7 +166,7 @@ impl Walk<'_> {
                     continue;
                 };
                 let at = host.location(c);
-                self.node(child, place(at), alpha, matrix, clip);
+                self.node(child, place(at), alpha, clip);
             }
             return;
         }
@@ -243,7 +208,7 @@ impl Walk<'_> {
                 },
                 None => at,
             };
-            self.node(child, place(at), alpha, matrix, clip);
+            self.node(child, place(at), alpha, clip);
         }
     }
 }
@@ -281,23 +246,20 @@ impl Model {
                 generation: list.ink_gen,
                 used: HashSet::new(),
                 out: Vec::with_capacity(list.entries.len()),
-                matrices: Vec::new(),
                 transforms: Vec::new(),
             };
             if let Some(root) = self.tree().root() {
-                walk.node(root, Point::default(), 1.0, None, viewport);
+                walk.node(root, Point::default(), 1.0, viewport);
             }
             for (layer, origin) in self.layers() {
-                walk.node(layer, origin, 1.0, None, viewport);
+                walk.node(layer, origin, 1.0, viewport);
             }
             let Walk {
                 out,
                 used,
-                matrices,
                 transforms,
                 ..
             } = walk;
-            list.matrices = matrices;
             list.transforms = transforms;
             // Indices of containers this walk did not reach (removed, or
             // culled with an ancestor) are built again when reached.
@@ -325,10 +287,9 @@ impl Model {
             generation: self.paint.list.ink_gen,
             used: HashSet::new(),
             out: Vec::new(),
-            matrices: Vec::new(),
             transforms: Vec::new(),
         };
-        walk.node(id, Point::default(), 1.0, None, clip);
+        walk.node(id, Point::default(), 1.0, clip);
         let bounds = self.rect(id).unwrap_or_default();
         for (layer, origin) in self.layers() {
             if layer != id && self.tree().is_in_subtree(layer, id) {
@@ -339,14 +300,12 @@ impl Model {
                         y: origin.y - bounds.y,
                     },
                     1.0,
-                    None,
                     clip,
                 );
             }
         }
         crate::paint::state::PaintList {
             entries: walk.out,
-            matrices: walk.matrices,
             transforms: walk.transforms,
             ..Default::default()
         }
@@ -382,7 +341,7 @@ fn opacity(
     n: &HostNode,
     look: &Look,
     parent_alpha: f64,
-) -> (bool, u8, f64) {
+) -> (bool, bool, f64) {
     // Group opacity over more than one thing it draws.
     let content = match n.kind() {
         _ if host.editors[n.index.0].is_some() => 2,
@@ -392,17 +351,13 @@ fn opacity(
     let more = host.tree().flat_children(id).len() != 0
         || n.scenes().iter().any(Option::is_some)
         || look.items + content > 1
-        || look.layers > 0;
+        || look.grouped;
     let group = look.opacity < 1.0 && more;
-    let layers = if group {
-        look.layers.max(1)
-    } else {
-        look.layers
-    };
+    let grouped = group || look.grouped;
     let alpha = if group {
         parent_alpha
     } else {
         parent_alpha * look.opacity
     };
-    (group, layers, alpha)
+    (group, grouped, alpha)
 }

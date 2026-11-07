@@ -56,8 +56,17 @@ pub struct ArvaneTestHost {
     outcome: StepOutcome,
     renderer: Rc<RefCell<RendererState>>,
     injected: Rc<RefCell<Vec<HostEvent>>>,
+    controls: Rc<RefCell<Vec<Control>>>,
     counts: Rc<Counts>,
 }
+
+/// A test control the window handler applies at the next event, where the
+/// window is at hand.
+enum Control {
+    /// Make the window's GPU device lost (`arvane::spi::lose_gpu_device`).
+    LoseGpuDevice,
+}
+
 enum RendererState {
     Unreported,
     Ready(Renderer),
@@ -67,6 +76,7 @@ enum RendererState {
 struct SharedHost {
     host: Rc<RefCell<Launch>>,
     injected: Rc<RefCell<Vec<HostEvent>>>,
+    controls: Rc<RefCell<Vec<Control>>>,
 }
 impl Handler for SharedHost {
     fn start(
@@ -81,6 +91,11 @@ impl Handler for SharedHost {
         event: ShellEvent,
         window: &mut Window<'_>,
     ) -> Result<ShellControl, ShellError> {
+        for control in self.controls.borrow_mut().drain(..) {
+            match control {
+                Control::LoseGpuDevice => arvane::spi::lose_gpu_device(window),
+            }
+        }
         let mut launch = self.host.borrow_mut();
         let host = launch.host_mut();
         for injected in self.injected.borrow_mut().drain(..) {
@@ -164,6 +179,7 @@ impl ArvaneTestHost {
         let renderer = Rc::new(RefCell::new(RendererState::Unreported));
         let observed = renderer.clone();
         let injected = Rc::new(RefCell::new(Vec::new()));
+        let controls = Rc::new(RefCell::new(Vec::new()));
         let shell = Shell::start_stepped(
             Box::new(backend),
             ShellSetup {
@@ -179,12 +195,15 @@ impl ArvaneTestHost {
                     RendererChange::Cpu { reason } => {
                         *observed.borrow_mut() = RendererState::Failed(reason.clone());
                     }
-                    RendererChange::ExternalFrameMissed { .. } => {}
+                    RendererChange::ExternalFrameMissed { .. }
+                    | RendererChange::ShaderFailed { .. }
+                    | RendererChange::LimitExceeded { .. } => {}
                 })),
             },
             SharedHost {
                 host: host.clone(),
                 injected: injected.clone(),
+                controls: controls.clone(),
             },
         )
         .map_err(|e| error(&e))?;
@@ -200,6 +219,7 @@ impl ArvaneTestHost {
             },
             renderer,
             injected,
+            controls,
             counts,
         };
         driver.step(Step::Wake);
@@ -316,6 +336,22 @@ impl ArvaneTestHost {
     /// the next [`Self::wake`].
     pub fn set_now(&mut self, ns: u64) {
         self.script.set_now(ns);
+    }
+
+    /// The work counts of the last frame presented, or `None` while the host
+    /// has not started or has presented none.
+    pub fn frame_stats(&self) -> Option<kivact_types::render::FrameStats> {
+        match &*self.host.borrow() {
+            Launch::Running(host) => host.last_stats,
+            _ => None,
+        }
+    }
+
+    /// Make the window's GPU device lost, as a device failure does (a test
+    /// control; nothing happens on a CPU-only window).
+    pub fn lose_gpu_device(&mut self) {
+        self.controls.borrow_mut().push(Control::LoseGpuDevice);
+        self.step(Step::Wake);
     }
 
     /// The display refresh period frame ticks are paced at (ns).
@@ -635,8 +671,7 @@ impl ArvaneTestHost {
             y: bounds.y + r.y,
             ..r
         };
-        let t = model.transform_between(id, None);
-        Some(crate::model::transform::map_rect(t.as_ref(), own))
+        Some(model.drawn_rect(id, own))
     }
 
     /// The window point drawn at `local`, a point relative to the

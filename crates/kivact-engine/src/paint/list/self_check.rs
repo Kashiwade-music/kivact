@@ -138,12 +138,6 @@ fn compare_entries(retained: &PaintList, rebuilt: &PaintList, errors: &mut Vec<S
             ));
         }
     }
-    if retained.matrices != rebuilt.matrices {
-        errors.push(format!(
-            "paint color matrices: retained {:?}, rebuilt {:?}",
-            retained.matrices, rebuilt.matrices
-        ));
-    }
     if retained.transforms != rebuilt.transforms {
         errors.push(format!(
             "paint transforms: retained {:?}, rebuilt {:?}",

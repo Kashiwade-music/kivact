@@ -1,7 +1,7 @@
 //! Role: One concrete rendering window and shared backend lifecycle driver.
 
 use crate::presentation::{Notes, Observer};
-use crate::presenter::Presenter;
+use crate::presenter::{ExportNotice, Presenter};
 use crate::{
     AccessibilityError, Failure, FramePlan, Presented, RendererChange, ShellControl, ShellError,
     ShellEvent, ShellImeText, ShellWaker,
@@ -11,7 +11,8 @@ use arvane_shell::{
 };
 use kivact_types::Environment;
 use kivact_types::GpuPreference;
-use kivact_types::render::{RenderScene, SemanticsTree, SemanticsUpdate};
+use kivact_types::ids::DrawableId;
+use kivact_types::render::{Composition, SemanticsTree, SemanticsUpdate};
 use kivact_types::{Capabilities, Cursor, Rect, Size};
 use kivact_types::{ExternalImageId, GpuAdapter, SharedTextures};
 
@@ -44,7 +45,7 @@ impl Window<'_> {
     }
     pub fn capabilities(&self) -> Capabilities {
         Capabilities {
-            gpu: arvane_render::GPU_BUILT,
+            gpu: arvane_compose::GPU_BUILT,
             ..self.shell.capabilities()
         }
     }
@@ -88,14 +89,19 @@ impl Window<'_> {
     pub fn frame_plan(&self) -> FramePlan {
         FramePlan::new(self.shell.physical_size(), self.shell.scale())
     }
-    pub fn present(&mut self, scene: &RenderScene, plan: FramePlan) -> Result<Presented, Failure> {
+    /// Present one frame: `composition` drawn at `plan`'s size and scale.
+    pub fn present(
+        &mut self,
+        composition: &Composition,
+        plan: FramePlan,
+    ) -> Result<Presented, Failure> {
         if self.shell.surface_generation().is_none() {
             return Ok(crate::presenter::no_surface());
         }
         if let Some(dropped) = crate::presenter::no_pixels(self.shell.physical_size()) {
             return Ok(dropped);
         }
-        self.presenter.present_native(self.shell, scene, plan)
+        self.presenter.present_native(self.shell, composition, plan)
     }
     pub fn replace_accessibility(
         &mut self,
@@ -122,6 +128,36 @@ impl Window<'_> {
     }
     pub fn drop_external_image(&mut self, id: ExternalImageId) {
         self.presenter.drop_external(id);
+    }
+
+    /// Make the GPU export pool of drawable `sink` for request `generation`
+    /// on `adapter`, sized `size` px. A failure is kind `NotReady` while the
+    /// device is starting (retry when it reports ready), and `Unavailable` in
+    /// a build without GPU support.
+    pub fn export_drawable(
+        &mut self,
+        sink: DrawableId,
+        generation: u64,
+        adapter: &GpuAdapter,
+        size: (u32, u32),
+    ) -> Result<SharedTextures, Failure> {
+        self.presenter
+            .export_drawable(sink, generation, adapter, size)
+    }
+
+    /// Drop the GPU export pool of drawable `sink`.
+    pub fn drop_export(&mut self, sink: DrawableId) {
+        self.presenter.drop_export(sink);
+    }
+
+    /// Pool losses and GPU availability since the last call.
+    pub fn take_export_notices(&mut self) -> Vec<ExportNotice> {
+        self.presenter.take_export_notices()
+    }
+
+    /// Make the window's GPU device lost, as a device failure does (test control).
+    pub(crate) fn lose_gpu_device(&mut self) {
+        self.presenter.lose_gpu_device();
     }
 }
 

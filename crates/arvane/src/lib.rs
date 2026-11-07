@@ -57,7 +57,7 @@ mod window;
 /// Images, SVG and font files: loading, decoding, the image cache and its
 /// worker, fit geometry and font family resolution.
 pub mod asset;
-pub use arvane_render::{MAX_SCENE_DEPTH, glyph_ink_bounds};
+pub use arvane_render::{MAX_SCENE_DEPTH, glyph_ink_bounds, glyph_outline};
 pub use arvane_shell::{
     Accessibility, AccessibilityError, FileDialog, ShellControl, ShellError, ShellEvent,
     ShellImeText, ShellOptions, ShellWaker, WakeReasons,
@@ -65,7 +65,7 @@ pub use arvane_shell::{
 pub use engine::Engine;
 pub use error::{Failure, FailureKind};
 pub use presentation::{Renderer, RendererChange};
-pub use presenter::{FramePlan, Presented};
+pub use presenter::{ExportNotice, FramePlan, Presented};
 pub use rasterizer::Rasterizer;
 
 pub use availability::gpu_unavailable;

@@ -7,13 +7,15 @@
 //! ```text
 //! # <key>=<value> ...                                   (host notes)
 //! F <end_unix_ns> <work_ns> <scene_ns> <raster_ns> <present_ns>
+//! S <chunks_rastered> <pixels_rastered> <surfaces_reused> <damage_pixels> <targets>
 //! ```
 //!
 //! `end_unix_ns` is the wall clock (`SystemTime`) when the frame was handed
 //! to the platform, so an app can match it with its own wall clock
 //! readings. `work_ns` is the host's time on the UI thread for that frame
 //! (the span is described at the host's call site), and the other three
-//! are its parts.
+//! are its parts. The `S` line after it counts the work of that frame
+//! (`FrameStats`).
 //!
 //! The notes: each renderer change as Arvane reports it when it happens
 //! (`Shell::on_renderer_change`, written as Arvane words it; the first,
@@ -75,8 +77,9 @@ impl FrameLog {
         self.write(&format!("# {text}\n"));
     }
 
-    /// Record a frame that was just handed to the platform.
-    pub(crate) fn frame(&mut self, times: FrameTimes) {
+    /// Record a frame that was just handed to the platform, with the work
+    /// it did.
+    pub(crate) fn frame(&mut self, times: FrameTimes, stats: &kivact_types::render::FrameStats) {
         if self.file.is_none() {
             return;
         }
@@ -90,6 +93,14 @@ impl FrameLog {
             times.scene.as_nanos(),
             times.raster.as_nanos(),
             times.present.as_nanos(),
+        ));
+        self.write(&format!(
+            "S {} {} {} {} {}\n",
+            stats.chunks_rastered,
+            stats.pixels_rastered,
+            stats.surfaces_reused,
+            stats.damage_pixels,
+            stats.targets,
         ));
     }
 

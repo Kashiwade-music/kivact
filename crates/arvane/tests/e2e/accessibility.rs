@@ -15,7 +15,7 @@ fn node(id: u64, role: Role, children: &[u64]) -> SemanticsNode {
     SemanticsNode {
         id: SemanticsId(id),
         children: children.iter().copied().map(SemanticsId).collect(),
-        bounds: rect(0.0, 0.0, 10.0, 10.0),
+        bounds: Some(rect(0.0, 0.0, 10.0, 10.0)),
         scroll: Point::default(),
         transform: Transform::IDENTITY,
         semantics: kivact_types::Semantics {

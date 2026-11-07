@@ -46,7 +46,6 @@ use crate::model::Model;
 use kivact_types::{NodeId, Point, Rect};
 
 use crate::model::interact::visual;
-use crate::model::transform::map_rect;
 
 use crate::text_input::{line_height, line_offset};
 
@@ -177,7 +176,12 @@ pub(crate) fn offset_at(
     at: Point,
     engine: &mut arvane::Engine,
 ) -> Option<usize> {
-    let at = host.to_own(id, at)?;
+    let origin = host.rect(id)?;
+    let local = host.to_local(id, at)?;
+    let at = Point {
+        x: origin.x + local.x,
+        y: origin.y + local.y,
+    };
     let bounds = text_line(host, id, engine);
     let (mut lines, text) = host.edit_lines(id, engine)?;
     let x = at.x - bounds.x + input_scroll(host, id);
@@ -234,13 +238,10 @@ pub(crate) fn ime_text(
     }
     rects.push(place(to));
     // Into the window, as drawn.
-    let t = host.transform_between(id, None);
-    if let Some(t) = &t {
-        for r in &mut rects {
-            *r = t.bounds(*r);
-        }
+    for r in &mut rects {
+        *r = host.drawn_rect(id, *r);
     }
-    let area = map_rect(t.as_ref(), area);
+    let area = host.drawn_rect(id, area);
     if node.password() {
         let text = arvane::ShellImeText {
             password: true,
@@ -349,10 +350,9 @@ pub(crate) fn layout_snapshot(
     use kivact_editing::{EditCaret, EditLine, TextLayout};
     let value = host.edit(id)?.value();
     let origin = text_line(host, id, engine);
-    let transform = host.transform_between(id, None);
     let scroll = input_scroll(host, id);
     let canvas = visual::padding_box(host.rect(id)?, &visual::paint(host, id));
-    let mapped = |rect| map_snapshot_rect(rect, canvas_coordinates, canvas, transform.as_ref());
+    let mapped = |rect| map_snapshot_rect(host, id, rect, canvas_coordinates, canvas);
     let caret = mapped(caret_rect(host, id, engine));
     let (mut lines, _) = host.edit_lines(id, engine)?;
     let mut out = TextLayout {
@@ -454,10 +454,11 @@ fn append_snapshot_carets(
 }
 
 fn map_snapshot_rect(
+    host: &Model,
+    id: NodeId,
     rect: Rect,
     canvas_coordinates: bool,
     canvas: Rect,
-    transform: Option<&kivact_types::Transform>,
 ) -> Rect {
     if canvas_coordinates {
         Rect {
@@ -466,6 +467,6 @@ fn map_snapshot_rect(
             ..rect
         }
     } else {
-        map_rect(transform, rect)
+        host.drawn_rect(id, rect)
     }
 }

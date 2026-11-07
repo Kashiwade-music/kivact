@@ -40,7 +40,10 @@ fn a_lost_surface_is_made_again_and_the_third_loss_in_a_row_is_an_error() {
     lost(present(&mut window, frame()));
     let plan = window.with(move |w| w.frame_plan());
     let error = window
-        .with(move |w| w.present(&crate::support::scene(frame()), plan))
+        .with(move |w| {
+            let composition = crate::support::commands_composition(frame(), plan.size);
+            w.present(&composition, plan)
+        })
         .expect_err("the third loss in a row");
     assert_eq!(error.kind, FailureKind::Surface);
 }

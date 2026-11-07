@@ -100,4 +100,8 @@ impl TextShaper for TextMeasurer {
             boxes,
         )
     }
+
+    fn outline(&self, run: &kivact_types::render::GlyphRun) -> Vec<kivact_types::PathCmd> {
+        arvane::glyph_outline(run)
+    }
 }

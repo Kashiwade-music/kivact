@@ -23,7 +23,7 @@ impl Context<'_> {
                 pixelated,
             } => {
                 state.out.push(D::ImageSampled {
-                    image: kivact_types::scene::Pixels {
+                    image: kivact_types::Pixels {
                         width: image.width,
                         height: image.height,
                         rgba: image.rgba.clone(),
@@ -31,18 +31,17 @@ impl Context<'_> {
                     rect: rect(*r),
                     source: *source,
                     opacity: opacity.clamp(0.0, 1.0) * tint.alpha,
-                    color_matrix: tint.matrix,
                     pixelated: *pixelated,
                 });
                 true
             }
             DrawCmd::External {
-                frame,
                 cpu_pixels,
                 rect: r,
                 source,
                 opacity,
                 pixelated,
+                ..
             } => {
                 if self.purpose == crate::lower::context::Purpose::Cpu
                     && let Some(image) = cpu_pixels
@@ -52,21 +51,14 @@ impl Context<'_> {
                         rect: rect(*r),
                         source: *source,
                         opacity: opacity.clamp(0.0, 1.0) * tint.alpha,
-                        color_matrix: tint.matrix,
                         pixelated: *pixelated,
                     });
                     return true;
                 }
-                let command = D::External {
-                    frame: *frame,
-                    rect: rect(*r),
-                    source: *source,
-                    opacity: opacity.clamp(0.0, 1.0) * tint.alpha,
-                    pixelated: *pixelated,
-                };
-                if sanitize::drawable(&command) {
-                    state.out.push(command);
-                } else {
+                // A frame of an external engine is a compositor layer item, which
+                // the paint model cannot place among its commands; the CPU has
+                // no representation of it either: count it as not drawn.
+                if self.purpose == crate::lower::context::Purpose::Cpu {
                     self.drop_command();
                 }
                 true
@@ -107,7 +99,6 @@ impl Context<'_> {
                 image,
                 rect: r,
                 opacity: tint.alpha,
-                color_matrix: tint.matrix,
             });
         }
     }
@@ -163,7 +154,6 @@ impl Context<'_> {
                 rect: rect(*r),
                 source,
                 opacity: opacity.clamp(0.0, 1.0) * tint.alpha,
-                color_matrix: tint.matrix,
                 pixelated: *pixelated,
             });
         }

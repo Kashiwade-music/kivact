@@ -128,7 +128,7 @@ impl Reader {
 
     /// A window point in a node's untransformed local coordinates.
     pub fn local_point(&self, id: NodeId, point: Point) -> Point {
-        self.model.borrow().to_local(id, point)
+        self.model.borrow().pointer_local(id, point)
     }
 
     /// Map node-local region bounds into logical window coordinates.
@@ -144,8 +144,7 @@ impl Reader {
             y: bounds.y + rect.y,
             ..rect
         };
-        let transform = model.transform_between(id, None);
-        Some(crate::model::transform::map_rect(transform.as_ref(), own))
+        Some(model.drawn_rect(id, own))
     }
 
     /// Whether the frontmost hit belongs to this subtree.

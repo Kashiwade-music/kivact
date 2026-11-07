@@ -45,8 +45,7 @@ impl Look {
                 left: extent(border.left),
             },
             fx: effects::filter_reach(filter).min(EVERYWHERE),
-            layers: effects::layer_count(p),
-            recolor: effects::color_matrix(filter),
+            grouped: effects::grouped(p),
             clip: p.clip,
             items,
             rounded: !p.radius.is_zero(),
@@ -56,7 +55,7 @@ impl Look {
     /// What of a paint the paint list is made of, so that a paint with the
     /// same facts lists the same steps and needs no new list: whether and
     /// how it is composited (opacity, which a listed step carries as its
-    /// alpha, layers, color matrix), what it draws and where it reaches
+    /// alpha, group), what it draws and where it reaches
     /// (items, rounding, overflow, border, filter reach: they decide the
     /// culling and the clip of its children) and whether it clips. Colors,
     /// radii values, shadow colors and the like are not among them.
@@ -66,8 +65,7 @@ impl Look {
             self.overflow,
             self.border,
             self.fx,
-            self.layers,
-            self.recolor,
+            self.grouped,
             self.items,
             self.rounded,
             self.clip,

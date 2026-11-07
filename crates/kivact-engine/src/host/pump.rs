@@ -84,6 +84,10 @@ pub(crate) struct Host {
     /// The window's adapter the client was told of last
     /// (`HostEvent::GpuAdapterChanged`).
     pub(super) adapter: Sent<kivact_types::GpuAdapter>,
+    // xtask-allow(state-fields): last presented frame's report; not used for control (S-9 delivery record).
+    /// The work counts of the last frame presented (`Presented::Shown`),
+    /// overwritten by every one; `None` before the first.
+    pub(super) last_stats: Option<kivact_types::render::FrameStats>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -236,23 +240,31 @@ impl Host {
         // Images are rasterized for the scale the frame is drawn at.
         model.paint.set_scale(plan.scale);
         let t_scene = Instant::now();
-        let scene = model.scene(&mut self.engine.borrow_mut());
+        let composition = model.composition(&mut self.engine.borrow_mut());
         drop(model);
         let t_raster = Instant::now();
-        let presented = window.present(&scene, plan)?;
+        let presented = window.present(&composition, plan)?;
+        // The exports and pending exports are handled with the drawable exports.
         if let Presented::Shown {
-            raster, present, ..
-        } = presented
+            raster,
+            present,
+            stats,
+            ..
+        } = &presented
         {
+            self.last_stats = Some(*stats);
             let mut frame_log = self.frame_log.borrow_mut();
             if frame_log.enabled() {
                 let end = Instant::now();
-                frame_log.frame(FrameTimes {
-                    work: end - started,
-                    scene: t_raster - t_scene,
-                    raster,
-                    present,
-                });
+                frame_log.frame(
+                    FrameTimes {
+                        work: end - started,
+                        scene: t_raster - t_scene,
+                        raster: *raster,
+                        present: *present,
+                    },
+                    stats,
+                );
             }
         }
         Ok(presented)

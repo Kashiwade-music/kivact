@@ -10,8 +10,8 @@ pub(super) enum Frame {
     Clip { drawn: bool },
     /// A transform, with the raster scale outside it.
     Transform { raster: f64 },
-    /// A drawing layer: the output layers it pushed and the tint outside it.
-    Layer { pushed: usize, tint: Tint },
+    /// A drawing layer: the group it opened in the output.
+    Layer,
 }
 
 pub(super) struct State<'a> {
@@ -46,9 +46,7 @@ impl<'a> State<'a> {
                 Frame::Clip { drawn: true } => self.out.push(D::PopClip),
                 Frame::Clip { drawn: false } => {}
                 Frame::Transform { .. } => self.out.push(D::PopTransform),
-                Frame::Layer { pushed, .. } => {
-                    self.out.extend(std::iter::repeat_n(D::PopLayer, pushed));
-                }
+                Frame::Layer => self.out.push(D::PopGroup),
             }
         }
     }

@@ -35,10 +35,9 @@
 //! leaves the presenter on the CPU.
 
 use crate::presentation::{Notes, RendererChange};
-use arvane_render::{GpuContext, GpuEnv, GpuSurface, Presentation, RenderError};
-use kivact_types::Size;
-use kivact_types::render::CpuFrame;
-use kivact_types::render::RenderScene;
+use arvane_compose::{GpuContext, GpuEnv, GpuSurface, Presentation};
+use arvane_render::RenderError;
+use kivact_types::render::{Composition, CpuFrame, FrameReport};
 use std::sync::Arc;
 use std::sync::mpsc;
 use std::thread::JoinHandle;
@@ -534,17 +533,16 @@ impl Gpu {
     pub(crate) fn present(
         &mut self,
         make: MakeSurface<'_>,
-        scene: &RenderScene,
-        size: Size,
+        composition: &Composition,
         scale: f64,
         physical: (u32, u32),
-    ) -> Option<Result<(Presentation, Duration), RenderError>> {
+    ) -> Option<Result<(Presentation, Duration, FrameReport), RenderError>> {
         let Device { surface, context } = self.device_mut()?;
         let surface = match window_surface(context, surface, make) {
             Ok(surface) => surface,
             Err(error) => return Some(Err(error)),
         };
-        let presented = context.present(surface, scene, size, scale, physical);
+        let presented = context.present(surface, composition, scale, physical);
         Some(presented)
     }
 
@@ -575,12 +573,6 @@ impl Gpu {
     /// The context of the device drawing the window's frames, when ready.
     pub(crate) fn context(&mut self) -> Option<&mut GpuContext> {
         self.device_mut().map(|device| &mut *device.context)
-    }
-
-    /// The external frames the last frames did not draw (each once).
-    pub(crate) fn take_missed(&mut self) -> Vec<kivact_types::ExternalFrame> {
-        self.device_mut()
-            .map_or_else(Vec::new, |device| device.context.take_missed_external())
     }
 
     /// Read back the last frame presented to the window.

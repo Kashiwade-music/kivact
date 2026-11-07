@@ -1,47 +1,57 @@
-//! Role: Build a frame's draw commands from the paint list, step by step.
+//! Role: Build a frame's composition from the paint list, step by step.
 
-use super::state::{Entry, Step};
+use super::state::{Entry, PaintList, PaintPass, Step};
 use crate::contract::{HostEvent, NodeType};
-use crate::lower::context::Purpose;
-use crate::lower::effects::Tint;
+use crate::lower::effects::{self, Tint};
 use crate::lower::shape::BoxShape;
-use crate::lower::{border, effects, scene, shape};
+use crate::lower::{border, scene, shape};
 use crate::model::Model;
 use crate::model::interact::visual;
 use arvane::asset::{PixelSize, fit_image};
-use kivact_types::render::RenderCmd as D;
+use kivact_types::render::{Composition, RenderCmd as D};
 use kivact_types::{NodeId, PaintProps, Point, Rect, Size};
 
 impl Model {
-    /// Build the frame's display list from the paint list (`list`): every
-    /// listed node with its current content. Every shown image is drawn in
-    /// it: a new frame of the asset store's recency.
-    pub(crate) fn scene(
-        &mut self,
-        engine: &mut arvane::Engine,
-    ) -> kivact_types::render::RenderScene {
+    /// The frame's composition: the paint list brought up to date, drawn at
+    /// the window's scale into the root layer.
+    pub(crate) fn composition(&mut self, engine: &mut arvane::Engine) -> Composition {
         self.paint_list();
-        self.paint_scene_list(engine, Purpose::Window)
+        let pass = PaintPass {
+            scale: self.paint.scale,
+            purpose: crate::lower::context::Purpose::Window,
+            size: self.window(),
+        };
+        let composition = self.compose_list(engine, &self.paint.list, pass);
+        self.report_dropped_draws();
+        composition
     }
 
-    pub(super) fn paint_scene_list(
-        &mut self,
+    /// Queue the commands dropped since the last report for the client.
+    pub(super) fn report_dropped_draws(&mut self) {
+        for (node, count) in self.paint.dropped_draws.take() {
+            self.push(HostEvent::DrawDropped { node, count });
+        }
+    }
+
+    /// The composition of `list`: every listed node with its current
+    /// content in the root layer of `pass.size`. Every shown image is drawn
+    /// in it: a new frame of the asset store's recency.
+    pub(super) fn compose_list(
+        &self,
         engine: &mut arvane::Engine,
-        purpose: Purpose,
-    ) -> kivact_types::render::RenderScene {
+        list: &PaintList,
+        pass: PaintPass,
+    ) -> Composition {
         self.assets.borrow_mut().begin_frame();
         let mut out = crate::lower::SceneOut::default();
         // How much the transforms around a node enlarge it, outermost
         // first: its images are rasterized for that much more.
         let mut zoom: Vec<f64> = Vec::new();
-        for entry in &self.paint.list.entries {
+        for entry in &list.entries {
             let at = zoom.last().copied().unwrap_or(1.0);
             match entry {
                 Entry::Open(step) => {
-                    let at = match step
-                        .transform
-                        .and_then(|t| self.paint.list.transforms.get(t as usize))
-                    {
+                    let at = match step.transform.and_then(|t| list.transforms.get(t as usize)) {
                         Some(t) => {
                             let z = at * t.max_scale();
                             zoom.push(z);
@@ -49,40 +59,25 @@ impl Model {
                         }
                         None => at,
                     };
-                    self.paint
-                        .raster
-                        .set(self.paint.scale * scene::raster_zoom(at));
-                    self.paint_open(step, engine, &mut out, purpose);
+                    let here = PaintPass {
+                        scale: pass.scale * scene::raster_zoom(at),
+                        ..pass
+                    };
+                    self.paint_open(step, list, here, engine, &mut out);
                 }
                 Entry::Close(step) => {
-                    self.paint
-                        .raster
-                        .set(self.paint.scale * scene::raster_zoom(at));
-                    self.paint_close(step, engine, &mut out, purpose);
+                    let here = PaintPass {
+                        scale: pass.scale * scene::raster_zoom(at),
+                        ..pass
+                    };
+                    self.paint_close(step, here, engine, &mut out);
                     if step.transform.is_some() {
                         zoom.pop();
                     }
                 }
             }
         }
-        self.paint.raster.set(self.paint.scale);
-        for (node, count) in self.paint.dropped_draws.take() {
-            self.push(HostEvent::DrawDropped { node, count });
-        }
-        out.into_scene()
-    }
-
-    /// The color matrix at `index` of the paint list.
-    fn matrix(&self, index: Option<u32>) -> Option<kivact_types::render::ColorMatrix> {
-        self.paint.list.matrices.get(index? as usize).copied()
-    }
-
-    /// How `step`'s colors are drawn.
-    fn tint(&self, step: &Step) -> Tint {
-        Tint {
-            alpha: step.alpha,
-            matrix: self.matrix(step.matrix),
-        }
+        crate::lower::composition::root_composition(out.into_scene(), pass.size)
     }
 
     /// Where `id` is painted when its layout box starts at `o`: its
@@ -101,66 +96,27 @@ impl Model {
         (p, bounds, canvas)
     }
 
-    /// The layers `step` is composited in, outermost first: the clip path
-    /// and mask over its painted box `bounds`, its group opacity, its
-    /// blend mode and its layer filters.
-    fn paint_layers(
-        &self,
-        step: &Step,
-        p: &PaintProps,
-        bounds: Rect,
-    ) -> Vec<kivact_types::render::Layer> {
-        let e = p.effects.as_deref();
-        let outer = kivact_types::render::Layer {
-            clip: e
-                .and_then(|e| e.clip_path.as_ref())
-                .map(|s| shape::clip_path(s, bounds)),
-            mask: e.and_then(|e| e.mask.as_ref()).and_then(|m| {
-                let area = bounds;
-                // A mask still loading hides nothing yet.
-                let origin = Point {
-                    x: area.x,
-                    y: area.y,
-                };
-                self.layer_paint(m, area, origin)
-                    .map(|paint| kivact_types::render::Mask { rect: area, paint })
-            }),
-            ..kivact_types::render::Layer::default()
-        };
-        let opacity = if step.group { p.opacity } else { 1.0 };
-        let parent = self.matrix(step.parent_matrix);
-        let mut layers = effects::layers(p, outer, opacity, parent.as_ref());
-        // As many as the list counted (it closes as many).
-        layers.resize_with(
-            usize::from(step.layers),
-            kivact_types::render::Layer::default,
-        );
-        layers
-    }
-
     /// Paint `step`'s node up to its children: push its transform, open
-    /// its layers, draw its box (when its own paint shows), then (inside
+    /// its group, draw its box (when its own paint shows), then (inside
     /// its clip when it clips) its canvas scene and its content.
     fn paint_open(
         &self,
         step: &Step,
+        list: &PaintList,
+        pass: PaintPass,
         engine: &mut arvane::Engine,
         out: &mut crate::lower::SceneOut,
-        purpose: Purpose,
     ) {
         let host = &self;
         let id = step.id;
-        if let Some(t) = step
-            .transform
-            .and_then(|t| self.paint.list.transforms.get(t as usize))
-        {
+        if let Some(t) = step.transform.and_then(|t| list.transforms.get(t as usize)) {
             out.push(D::PushTransform(*t));
         }
         let Some(n) = host.node(id) else {
             return;
         };
         let (p, bounds, canvas) = self.placed(id, step.origin);
-        let tint = self.tint(step);
+        let tint = tint(step);
         let outline = BoxShape::of(bounds, &p.radius);
         let clip_path = p
             .effects
@@ -173,13 +129,12 @@ impl Model {
             // Around the clip path, beneath the node's paint.
             border::focus_ring(out, &outline, Some(clip), ring, &tint);
         }
-        if step.layers > 0 {
-            for layer in self.paint_layers(step, &p, bounds) {
-                out.push(D::PushLayer(layer));
-            }
+        if step.grouped {
+            let opacity = if step.group { p.opacity } else { 1.0 };
+            out.push(D::PushGroup(effects::group(&p, clip_path.clone(), opacity)));
         }
         if step.own {
-            self.paint_box(step, &p, &outline, clip_path.is_some(), &tint, out);
+            self.paint_box(&p, &outline, clip_path.is_some(), &tint, pass, out);
         }
         if let Some(clip) = step.presence_clip {
             out.push(D::PushClip(clip));
@@ -191,53 +146,49 @@ impl Model {
         if host.editors[n.index.0].is_none()
             && let Some(scene) = &n.scenes()[0]
         {
-            self.paint_scene(id, 0, scene, canvas, &tint, engine, out, purpose);
+            self.paint_scene(id, 0, scene, canvas, &tint, engine, out, pass);
         }
         match n.kind() {
             _ if host.editors[n.index.0].is_some() => {
                 self.paint_input(id, bounds, step.clip, &tint, engine, out);
                 if let Some(scene) = &n.scenes()[0] {
-                    self.paint_scene(id, 0, scene, canvas, &tint, engine, out, purpose);
+                    self.paint_scene(id, 0, scene, canvas, &tint, engine, out, pass);
                 }
             }
             NodeType::Text => {
                 let layout = host.computed_layout(id).unwrap_or_default();
                 let area = visual::content_at(bounds, layout.content_box);
-                self.paint_text(id, area, &tint, engine, out);
+                self.paint_text(id, area, &tint, pass, engine, out);
             }
             _ => {}
         }
         if host.editors[n.index.0].is_none()
             && let Some(asset) = n.image()
         {
-            self.paint_image(id, n, asset, canvas, &tint, out);
+            self.paint_image(id, n, asset, canvas, &tint, pass, out);
         }
     }
 
-    /// The node's own box: shadows, backdrop, background, border and ring
+    /// The node's own box: shadows, background, border and ring
     /// (see the module invariants).
     fn paint_box(
         &self,
-        step: &Step,
         p: &PaintProps,
         outline: &BoxShape,
         clip_path: bool,
         tint: &Tint,
+        pass: PaintPass,
         out: &mut crate::lower::SceneOut,
     ) {
         let knockout = !border::opaque(p.background.as_ref(), tint);
         border::shadows(out, outline, &p.shadows, false, knockout, tint);
-        let parent = self.matrix(step.parent_matrix);
-        if let Some(b) = effects::backdrop(p, outline.shape(), parent.as_ref()) {
-            out.push(D::Backdrop(b));
-        }
         if let Some(fill) = &p.background {
             let area = outline.rect();
             let origin = Point {
                 x: area.x,
                 y: area.y,
             };
-            self.fill(out, outline, fill, tint, origin);
+            self.fill(out, outline, fill, tint, origin, pass);
         }
         border::shadows(out, outline, &p.shadows, true, false, tint);
         if let Some(b) = &p.border {
@@ -251,13 +202,13 @@ impl Model {
     }
 
     /// Paint `step`'s node after its children: its `DrawOver` scene, then
-    /// pop its clip, its layers and its transform.
+    /// pop its clip, its group and its transform.
     fn paint_close(
         &self,
         step: &Step,
+        pass: PaintPass,
         engine: &mut arvane::Engine,
         out: &mut crate::lower::SceneOut,
-        purpose: Purpose,
     ) {
         let id = step.id;
         if step.own
@@ -265,8 +216,8 @@ impl Model {
             && let Some(scene) = &n.scenes()[1]
         {
             let (_, _, canvas) = self.placed(id, step.origin);
-            let tint = self.tint(step);
-            self.paint_scene(id, 1, scene, canvas, &tint, engine, out, purpose);
+            let tint = tint(step);
+            self.paint_scene(id, 1, scene, canvas, &tint, engine, out, pass);
         }
         let bars = if step.own {
             self.scrollbar_bars(id)
@@ -275,7 +226,7 @@ impl Model {
         };
         if bars.iter().any(Option::is_some) {
             let props = self.scrollbar_style(id);
-            let tint = self.tint(step);
+            let tint = tint(step);
             for bar in bars.into_iter().flatten() {
                 for (rect, color) in [(bar.track, props.track), (bar.thumb, props.thumb)] {
                     let rect = Rect {
@@ -293,7 +244,7 @@ impl Model {
         }
         if step.clips {
             out.push(if step.rounded {
-                D::PopLayer
+                D::PopGroup
             } else {
                 D::PopClip
             });
@@ -301,7 +252,9 @@ impl Model {
         if step.presence_clip.is_some() {
             out.push(D::PopClip);
         }
-        out.extend(std::iter::repeat_n(D::PopLayer, usize::from(step.layers)));
+        if step.grouped {
+            out.push(D::PopGroup);
+        }
         if step.transform.is_some() {
             out.push(D::PopTransform);
         }
@@ -317,6 +270,7 @@ impl Model {
         source: &kivact_types::Asset,
         canvas: Rect,
         tint: &Tint,
+        pass: PaintPass,
         out: &mut crate::lower::SceneOut,
     ) {
         let mut assets = self.assets.borrow_mut();
@@ -334,7 +288,7 @@ impl Model {
                 width: placed.rect.width,
                 height: placed.rect.height,
             },
-            self.paint.raster.get(),
+            pass.scale,
         );
         // An overflowing SVG is rasterized for the part the box shows.
         let Some((image, region)) =
@@ -350,7 +304,6 @@ impl Model {
             image,
             rect: region.place(placed.rect),
             opacity: tint.alpha,
-            color_matrix: tint.matrix,
         });
         if placed.clip {
             out.push(D::PopClip);
@@ -360,16 +313,18 @@ impl Model {
 
 fn paint_content_clip(step: &Step, bounds: Rect, p: &PaintProps, out: &mut crate::lower::SceneOut) {
     if step.clips {
-        // Closed as the list says (a rect clip or a rounded layer).
+        // Closed as the list says (a rect clip or a rounded group).
         let padding =
             BoxShape::of(bounds, &p.radius).inset(shape::border_widths(p.border.as_ref()));
         if step.rounded {
-            out.push(D::PushLayer(kivact_types::render::Layer {
-                clip: Some(padding.shape()),
-                ..kivact_types::render::Layer::default()
-            }));
+            out.push(effects::clip_group(padding.shape()));
         } else {
             out.push(D::PushClip(padding.rect()));
         }
     }
+}
+
+/// How `step`'s colors are drawn.
+fn tint(step: &Step) -> Tint {
+    Tint { alpha: step.alpha }
 }

@@ -1,42 +1,52 @@
 //! Role: Layer rendering contract tests.
 //!
 //! Layers: group opacity, clips to any shape, blend modes, blur and drop
-//! shadow filters, gradient masks, and how groups must nest.
+//! shadow filters, gradient masks, and how groups must nest. A group is a
+//! compositor layer (`LayerEffects`) that the root layer draws as a child.
 
-use kivact_types::render::{Layer, LayerFilter, Paint, RenderCmd};
+use kivact_types::render::{Composition, LayerEffects, LayerFilter, LayerItem, Paint, RenderCmd};
 
 use crate::support::{
-    RED, WHITE, assert_near, color, color_alpha, fill, gray, open, pixel, pt, rect, show,
+    RED, WHITE, assert_near, color, color_alpha, fill, gray, layer, node_key, open, pixel, pt,
+    raster, rect, root_layer, show_composition,
 };
 
-fn layer(layer: Layer, content: Vec<RenderCmd>) -> Vec<RenderCmd> {
-    let mut commands = vec![RenderCmd::PushLayer(layer)];
-    commands.extend(content);
-    commands.push(RenderCmd::PopLayer);
-    commands
+/// The root item drawing child layer `index`, with no clip.
+fn child(index: u32) -> LayerItem {
+    LayerItem::Layer {
+        index,
+        clips: Vec::new(),
+    }
 }
 
 #[test]
 fn group_opacity_fades_the_group_not_each_command() {
     let mut window = open(100.0, 40.0);
-    let mut commands = layer(
-        Layer {
-            opacity: 0.5,
-            ..Layer::default()
-        },
-        vec![
-            fill(0.0, 0.0, 30.0, 40.0, RED),
-            fill(20.0, 0.0, 30.0, 40.0, RED),
-        ],
-    );
-    // The same two rects, each half transparent.
+    // The same two rects, each half transparent, drawn after the group.
+    let mut loose = Vec::new();
     for x in [50.0, 70.0] {
-        commands.push(RenderCmd::Rect {
+        loose.push(RenderCmd::Rect {
             rect: rect(x, 0.0, 30.0, 40.0),
             fill: Paint::Solid(color_alpha(RED, 0.5)),
         });
     }
-    show(&mut window, commands);
+    let group_effects = LayerEffects {
+        opacity: 0.5,
+        ..LayerEffects::default()
+    };
+    let group = layer(
+        node_key(1),
+        rect(0.0, 0.0, 100.0, 40.0),
+        group_effects,
+        vec![raster(vec![
+            fill(0.0, 0.0, 30.0, 40.0, RED),
+            fill(20.0, 0.0, 30.0, 40.0, RED),
+        ])],
+    );
+    show_composition(&mut window, move |size| Composition {
+        layers: vec![root_layer(size, vec![child(1), raster(loose)]), group],
+        exports: Vec::new(),
+    });
     assert_near(pixel(&window, 10, 20), 0xff8080, 2, "one rect in the group");
     assert_near(
         pixel(&window, 25, 20),
@@ -56,25 +66,36 @@ fn group_opacity_fades_the_group_not_each_command() {
 #[test]
 fn blur_and_drop_shadow_layers_filter_their_content() {
     let mut window = open(200.0, 80.0);
-    let mut commands = layer(
-        Layer {
-            filter: Some(LayerFilter::Blur { std_dev: 3.0 }),
-            ..Layer::default()
+    let blurred = layer(
+        node_key(1),
+        rect(0.0, 0.0, 200.0, 80.0),
+        LayerEffects {
+            filters: vec![LayerFilter::Blur { std_dev: 3.0 }],
+            ..LayerEffects::default()
         },
-        vec![fill(20.0, 20.0, 40.0, 40.0, 0x000000)],
+        vec![raster(vec![fill(20.0, 20.0, 40.0, 40.0, 0x000000)])],
     );
-    commands.extend(layer(
-        Layer {
-            filter: Some(LayerFilter::DropShadow {
+    let shadowed = layer(
+        node_key(2),
+        rect(0.0, 0.0, 200.0, 80.0),
+        LayerEffects {
+            filters: vec![LayerFilter::DropShadow {
                 offset: pt(10.0, 10.0),
                 std_dev: 2.0,
                 color: color(0x000000),
-            }),
-            ..Layer::default()
+            }],
+            ..LayerEffects::default()
         },
-        vec![fill(110.0, 10.0, 40.0, 40.0, RED)],
-    ));
-    show(&mut window, commands);
+        vec![raster(vec![fill(110.0, 10.0, 40.0, 40.0, RED)])],
+    );
+    show_composition(&mut window, move |size| Composition {
+        layers: vec![
+            root_layer(size, vec![child(1), child(2)]),
+            blurred,
+            shadowed,
+        ],
+        exports: Vec::new(),
+    });
     assert!(
         gray(pixel(&window, 40, 40)) < 8,
         "the blurred square's middle"

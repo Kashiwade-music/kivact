@@ -57,7 +57,7 @@ impl Model {
                 continue;
             }
             let start = self.frame.request_motion_frame();
-            spring.restart(start);
+            spring.start(start, &timing, &from, &to);
             self.layout_motion.0.insert(
                 id,
                 LayoutAnimation {

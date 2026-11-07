@@ -53,12 +53,7 @@ pub(crate) fn push_text(
         };
         let blurred = shadow.blur.is_finite() && shadow.blur > 0.0;
         if blurred {
-            out.push(D::PushLayer(kivact_types::render::Layer {
-                filter: Some(kivact_types::render::LayerFilter::Blur {
-                    std_dev: shadow.blur / 2.0,
-                }),
-                ..kivact_types::render::Layer::default()
-            }));
+            out.push(crate::lower::effects::blur_group(shadow.blur / 2.0));
         }
         let all = Colors {
             glyphs: Some(color),
@@ -68,7 +63,7 @@ pub(crate) fn push_text(
         glyphs(out, shaped, at, all.glyphs);
         lines(out, shaped, at, &all, true, device);
         if blurred {
-            out.push(D::PopLayer);
+            out.push(D::PopGroup);
         }
     }
     lines(out, shaped, origin, colors, false, device);
@@ -87,7 +82,9 @@ fn glyphs(
         out.push(D::Glyphs {
             run: run.clone(),
             origin,
-            color,
+            fill: color.map(kivact_types::render::Paint::Solid),
+            stroke: None,
+            order: kivact_types::PaintOrder::default(),
         });
     }
 }
@@ -175,6 +172,8 @@ pub(crate) fn run_style(
         },
         kerning: run.kerning,
         features: run.features.clone(),
+        variations: run.variations.clone(),
+        font_width: run.font_width,
         decoration: kivact_types::TextDecoration {
             color: run.decoration.color.map(kivact_types::Rgba::sanitize),
             ..run.decoration
