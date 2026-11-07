@@ -5,7 +5,7 @@ use crate::geometry::Size;
 use crate::paint::{Paint, fill_layer};
 use crate::theme::value::Theme;
 use kivact_types as p;
-use kivact_types::{DrawCmd, DrawList, Fill, RegionId};
+use kivact_types::{DrawCmd, DrawList, DrawableId, Fill, RegionId};
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
@@ -16,6 +16,7 @@ pub struct Draw {
     pub(super) regions: Vec<p::Region>,
     pub(super) declarations: HashMap<RegionId, RegionSemantics>,
     pub(super) drawn_regions: HashSet<RegionId>,
+    pub(super) drawn_drawables: HashSet<DrawableId>,
     pub(super) region_errors: Vec<String>,
     /// The canvas size (percentages in layer transforms are of it).
     pub(super) size: Size,
@@ -55,6 +56,7 @@ impl Draw {
             regions: Vec::new(),
             declarations: HashMap::new(),
             drawn_regions: HashSet::new(),
+            drawn_drawables: HashSet::new(),
             region_errors: Vec::new(),
             size,
             transform: p::Transform::IDENTITY,

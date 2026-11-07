@@ -26,17 +26,22 @@ mod length;
 pub mod paint;
 pub(crate) mod path;
 pub(crate) mod resolve;
+pub mod shader;
 mod sheet;
 pub mod text;
 pub mod theme;
 pub mod transform;
 
-pub use color::{Color, ColorToken, hsl, rgb, rgba};
+pub use color::{Color, ColorToken, hsl, hwb, lab, lch, oklab, oklch, rgb, rgba};
 pub use effect::BorderStyle;
 pub use grid::{GridAutoFlow, GridPlacement, Track};
 pub use icon::{Icon, IconSet};
 #[doc(inline)]
 pub use kivact_types::{Align, Display};
+#[doc(inline)]
+pub use kivact_types::{
+    BackfaceVisibility, ColorSpace, HueInterpolation, Isolation, TransformStyle, WillChange,
+};
 pub use kivact_types::{Cursor, TextAlign};
 pub use length::{Length, auto, pct};
 pub use paint::Background;
@@ -51,8 +56,6 @@ pub use text::{
 pub use theme::value::{
     Theme, ThemeColor, ThemeExtension, ThemeMode, ThemeRef, use_theme, use_tokens,
 };
-
-pub(crate) use sheet::paint_transition;
 
 /// Visibility of a layout box and its subtree.
 pub use kivact_types::Visibility;

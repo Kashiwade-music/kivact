@@ -53,6 +53,8 @@
 //!   located at the node; the engine's scene culling includes the reach of
 //!   transforms, strokes and filters.
 
+mod border_image;
+mod drawable;
 mod image;
 mod layer;
 mod local_paint;
@@ -94,3 +96,20 @@ pub use recorder::{Draw, Recording, RegionSemantics};
 pub use text_run::{TextBaseline, TextFormat, text_run};
 
 pub use kivact_types::TextRun;
+
+pub use crate::effect::{FilterGraph, FilterInput};
+pub use crate::paint::{
+    BackgroundClip, BackgroundOrigin, BorderImage, BorderImageRepeat, BorderImageSource, Mask,
+    MaskComposite, MaskLayer, MaskMode,
+};
+pub use crate::shader::{FilterShader, PaintShader, ShaderFilter, ShaderPaint, ShaderValue};
+pub use drawable::DrawableSource;
+pub use kivact_types::render::Composite;
+
+/// The filter graph's value types, as SVG names them.
+pub mod filter {
+    pub use kivact_types::{
+        Channel, CompositeOp, EdgeMode, FilterColorSpace, Light, MorphologyOp, TransferFn,
+        TurbulenceKind,
+    };
+}

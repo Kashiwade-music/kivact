@@ -159,10 +159,11 @@ path = ["geometry", "transform"]
 grid = ["length"]
 icon = ["asset"]
 theme = ["color", "icon"]
-effect = ["color", "geometry", "length", "path", "theme"]
-paint = ["asset", "color", "geometry", "length", "theme"]
+effect = ["asset", "color", "geometry", "length", "path", "shader", "theme"]
+paint = ["asset", "color", "geometry", "length", "shader", "theme"]
+shader = ["asset", "color", "geometry", "paint", "theme"]
 text = ["color", "effect", "paint", "theme"]
-draw = ["asset", "color", "effect", "geometry", "paint", "path", "text", "theme", "transform"]
+draw = ["asset", "color", "effect", "geometry", "paint", "path", "shader", "text", "theme", "transform"]
 sheet = ["color", "draw", "effect", "geometry", "grid", "length", "paint", "text", "theme", "transform"]
 resolve = [
     "color", "draw", "effect", "geometry", "grid", "length", "paint", "sheet", "text", "theme",
@@ -435,7 +436,7 @@ allowed_paths = ["crates/arvane-native/", "crates/kivact-gpu-share/", "crates/ar
 [structural_options]
 # Passive data values and collection records do not configure mounted UI structure.
 # Path geometry contracts: contains/stroke_contains, canvas arc_to, SVG svg_arc_to/parse_svg.
-record_types = ["Generation", "Rgba", "Insets", "InspectorPanel", "CalendarDate", "SortOrder", "ColumnDef", "DataColumn", "Path", "Style", "Span"]
+record_types = ["Generation", "Rgba", "Insets", "InspectorPanel", "CalendarDate", "SortOrder", "ColumnDef", "DataColumn", "Path", "Style", "Span", "BorderImage", "Mask", "MaskLayer", "ShaderPaint", "ShaderFilter", "FilterGraph"]
 list = [
     "Dialog::mode", "Disclosure::keep_mounted", "Tabs::keep_mounted",
     "ComboboxApi::mode", "Combobox::mode", "CarouselApi::mode", "Carousel::mode",
@@ -453,6 +454,8 @@ list = [
     "Step::indicator", "Skeleton::index",
     "List::selection", "Tree::selection", "DataTable::selection",
     "Transition::alternate", "variant",
+    "Timeline::alternate", "Timeline::essential", "FrameLoop::essential", "ShaderPaint::essential",
+    "ShaderFilter::essential",
 ]
 
 [module_rules.arvane-virtual.uses]

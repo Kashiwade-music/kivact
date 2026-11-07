@@ -73,7 +73,7 @@ impl Draw {
         let y1 = pts.iter().map(|p| p.y).fold(f64::NEG_INFINITY, f64::max);
         self.regions.push(p::Region {
             shape: None,
-            transform: self.transform,
+            transform: p::Projective::from_affine(self.transform),
             local_rect: rect,
             id,
             rect: p::Rect {

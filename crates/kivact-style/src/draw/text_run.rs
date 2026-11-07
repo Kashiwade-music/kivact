@@ -3,10 +3,16 @@
 use super::recorder::Draw;
 use crate::color::Color;
 use crate::geometry::Point;
-use crate::text::{FontFeature, FontKerning, LineHeight, TextDecorationLine, TextLength};
+use crate::paint::{Paint, fill_layer};
+use crate::path::Path;
+use crate::text::{
+    FontFeature, FontKerning, FontVariation, LineHeight, TextDecorationLine, TextLength,
+    wire_variations,
+};
 use crate::theme::value::Theme;
+use crate::transform::Transform;
 use kivact_types as p;
-use kivact_types::{DrawCmd, TextMetrics};
+use kivact_types::{DrawCmd, Fill, Stroke, TextMetrics};
 
 // xtask-allow(state-fields): Independent authored text formatting options do not represent a lifecycle.
 /// Text style for `Draw::text` and `Draw::measure_text`: the text
@@ -66,6 +72,15 @@ pub struct TextFormat {
     pub decoration: TextDecorationLine,
     /// Their color (default: `color`).
     pub decoration_color: Option<Color>,
+    /// The glyph fill: any paint (a gradient too); None fills with `color`.
+    pub fill: Option<Paint>,
+    /// The glyph outline, its stroke and paint (drawn with the fill; the
+    /// order is the `paint-order` of the text: fill first by default).
+    pub stroke: Option<(Stroke, Paint)>,
+    /// OpenType variation settings (CSS `font-variation-settings`).
+    pub variations: Vec<FontVariation>,
+    /// The font width in percent (CSS `font-stretch`; 100 is normal).
+    pub font_width: f64,
 }
 
 impl Default for TextFormat {
@@ -86,7 +101,19 @@ impl Default for TextFormat {
             tabular_nums: false,
             decoration: TextDecorationLine::NONE,
             decoration_color: None,
+            fill: None,
+            stroke: None,
+            variations: Vec::new(),
+            font_width: 100.0,
         }
+    }
+}
+
+/// The engine's fill of `paint` in `theme`.
+pub(crate) fn fill_for(paint: &Paint, theme: &Theme) -> Fill {
+    match paint.solid() {
+        Some(c) => Fill::Solid(c.resolve(theme)),
+        None => Fill::Layers(vec![fill_layer(paint, theme)]),
     }
 }
 
@@ -100,12 +127,23 @@ pub fn text_run(
 ) -> p::TextRun {
     let size = style.size * scale;
     let (features, _) = crate::text::features(Some(&style.features), style.tabular_nums);
+    let (variations, _) = wire_variations(&style.variations);
     p::TextRun {
         text: text.to_string(),
         origin,
         font_size: size,
         weight: style.weight,
         color,
+        fill: style
+            .fill
+            .as_ref()
+            .and_then(|f| theme.map(|t| fill_for(f, t))),
+        stroke: style
+            .stroke
+            .as_ref()
+            .and_then(|(stroke, paint)| theme.map(|t| (stroke.clone(), fill_for(paint, t)))),
+        variations,
+        font_width: style.font_width,
         family: style.family.clone(),
         italic: style.italic,
         line_height: style.line_height,
@@ -122,6 +160,20 @@ pub fn text_run(
     }
 }
 
+/// The glyph outlines of every run of `shaped`, in the shaped text's own
+/// coordinates (the outlines of a run are in its glyph positions' space).
+pub(crate) fn outline_runs(
+    shaper: &dyn p::TextShaper,
+    shaped: &p::ShapedTextSnapshot,
+) -> Vec<p::PathCmd> {
+    shaped
+        .as_shared()
+        .runs
+        .iter()
+        .flat_map(|run| shaper.outline(run.as_shared()))
+        .collect()
+}
+
 /// A canvas text anchor's vertical alignment.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum TextBaseline {
@@ -134,9 +186,23 @@ pub enum TextBaseline {
 
 impl Draw {
     pub fn text(&mut self, text: &str, pos: Point, style: TextFormat) {
+        let pos = self.anchored(text, pos, &style);
+        let run = text_run(
+            text,
+            pos,
+            &style,
+            1.0,
+            self.color(style.color),
+            Some(&self.theme),
+        );
+        self.cmds.push(DrawCmd::Text(run));
+    }
+
+    /// Where `text` is drawn for its anchor `pos` and its alignment.
+    fn anchored(&self, text: &str, pos: Point, style: &TextFormat) -> Point {
         let mut pos = pos;
         if style.align != crate::TextAlign::Start || style.baseline != TextBaseline::Top {
-            let m = self.measure_text(text, &style);
+            let m = self.measure_text(text, style);
             pos.x -= match style.align {
                 crate::TextAlign::Center => m.size.width / 2.0,
                 crate::TextAlign::End => m.size.width,
@@ -150,15 +216,29 @@ impl Draw {
                 TextBaseline::Bottom => m.size.height,
             };
         }
+        pos
+    }
+
+    /// The outline of `text` drawn at `pos` with `style` as a path (Canvas
+    /// has none; SVG does), placed as `text` places it.
+    pub fn text_path(&self, text: &str, pos: Point, style: &TextFormat) -> Path {
+        let Some(m) = &self.measurer else {
+            return Path::new();
+        };
+        let origin = self.anchored(text, pos, style);
         let run = text_run(
             text,
-            pos,
-            &style,
+            p::Point { x: 0.0, y: 0.0 },
+            style,
             1.0,
-            self.color(style.color),
-            Some(&self.theme),
+            p::Rgba::TRANSPARENT,
+            None,
         );
-        self.cmds.push(DrawCmd::Text(run));
+        let cmds = match m.shape(&run, None) {
+            Some(shaped) => outline_runs(m.as_ref(), &shaped),
+            None => Vec::new(),
+        };
+        Path::from_cmds(cmds).transformed(Transform::new().translate(origin.x, origin.y))
     }
 
     /// The extent `text(text, pos, style)` draws `text` with, before the

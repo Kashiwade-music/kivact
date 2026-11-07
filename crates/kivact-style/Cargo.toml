@@ -9,6 +9,7 @@ description = "Kivact internal crate: styles, themes, tokens and the drawing voc
 
 [dependencies]
 kivact-editing = { path = "../kivact-editing", version = "0.1.0" }
+kivact-shader = { path = "../kivact-shader", version = "0.1.0" }
 kivact-runtime = { path = "../kivact-runtime", version = "0.1.0" }
 kivact-types = { path = "../kivact-types", version = "0.1.0" }
 # Curve geometry behind `Path` (bounds, length, trim, stroke outline); the same

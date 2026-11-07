@@ -5,8 +5,11 @@ use super::gradient::Gradient;
 use crate::asset::Asset;
 use crate::color::Color;
 use crate::length::Length;
+use crate::shader::ShaderPaint;
 use crate::theme::value::ThemeColor;
+use kivact_types::{BackgroundClip, BackgroundOrigin, BlendMode};
 
+// xtask-allow(state-fields): A paint layer independently authors its image, size, position, repeat, clip, origin and blend (CSS background longhands).
 /// One fill: a color, a gradient or an image, with the size, position and
 /// repetition of its tiles in the area it fills (one CSS background layer).
 ///
@@ -33,6 +36,9 @@ pub struct Paint {
     pub(crate) size: PaintSize,
     pub(crate) position: (Length, Length),
     pub(crate) repeat: (bool, bool),
+    pub(crate) clip: BackgroundClip,
+    pub(crate) origin: Option<BackgroundOrigin>,
+    pub(crate) blend: BlendMode,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -41,6 +47,7 @@ pub(crate) enum PaintImage {
     Gradient(Gradient),
     Canvas(CanvasGradient),
     Image(Asset),
+    Shader(ShaderPaint),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -58,6 +65,44 @@ impl Paint {
             size: PaintSize::Auto,
             position: (Length::Px(0.0), Length::Px(0.0)),
             repeat: (true, true),
+            clip: BackgroundClip::BorderBox,
+            origin: None,
+            blend: BlendMode::Normal,
+        }
+    }
+
+    /// The area the paint is clipped to (CSS `background-clip`; the
+    /// default is the border box). `BackgroundClip::Text` paints only
+    /// through the glyphs of a text node.
+    pub fn clip(mut self, clip: BackgroundClip) -> Paint {
+        self.clip = clip;
+        self
+    }
+
+    /// The box the paint is positioned from (CSS `background-origin`;
+    /// backgrounds default to the padding box, masks to the border box).
+    pub fn origin(mut self, origin: BackgroundOrigin) -> Paint {
+        self.origin = Some(origin);
+        self
+    }
+
+    /// How the paint blends with the layers beneath it (CSS
+    /// `background-blend-mode`).
+    pub fn blend(mut self, mode: BlendMode) -> Paint {
+        self.blend = mode;
+        self
+    }
+
+    /// A paint shader fills the area (see [`ShaderPaint`]).
+    pub(crate) fn from_shader(shader: ShaderPaint) -> Paint {
+        Paint::of(PaintImage::Shader(shader))
+    }
+
+    /// The problems of the shader values this paint sets (for reporting).
+    pub(crate) fn shader_problems(&self) -> Vec<String> {
+        match &self.image {
+            PaintImage::Shader(s) => s.problems().to_vec(),
+            _ => Vec::new(),
         }
     }
 
@@ -120,7 +165,13 @@ impl Paint {
     /// The color, when this is a color covering the area.
     pub(crate) fn solid(&self) -> Option<Color> {
         match self.image {
-            PaintImage::Color(c) if self.size == PaintSize::Auto && self.repeat == (true, true) => {
+            PaintImage::Color(c)
+                if self.size == PaintSize::Auto
+                    && self.repeat == (true, true)
+                    && self.clip == BackgroundClip::BorderBox
+                    && self.origin.is_none()
+                    && self.blend == BlendMode::Normal =>
+            {
                 Some(c)
             }
             _ => None,
