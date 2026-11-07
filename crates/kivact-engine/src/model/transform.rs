@@ -59,7 +59,7 @@ use kivact_types::{
 
 use crate::contract::NodeType;
 use crate::model::Model;
-use crate::tree::node::HostNode;
+use crate::tree::node::{HostNode, Place};
 
 /// The determinant below which a node's map counts as singular.
 const SINGULAR: f64 = 1e-12;
@@ -151,6 +151,42 @@ impl Model {
             }
         }
         (!t.is_none()).then_some(t)
+    }
+
+    /// Whether the running state motion of `id` has a current transform
+    /// that is not none.
+    pub(crate) fn motion_moves(&self, id: NodeId) -> bool {
+        self.motion
+            .get(id)
+            .is_some_and(|a| !a.current_paint().transform.is_none())
+    }
+
+    /// Derive the place of `id` again and return the one it had. The only
+    /// caller of `NodeTree::update_place`, so `Place::transformed` has one
+    /// writer (§7.6). `moving` is [`Model::motion_moves`] as the caller
+    /// sees it. A node whose parent has a perspective, or whose own
+    /// perspective moves its children, keeps them in step.
+    pub(crate) fn refresh_place(&mut self, id: NodeId, moving: bool) -> Place {
+        let Some(node) = self.tree.get(id) else {
+            return Place::default();
+        };
+        let Some(index) = self.tree.nodes.index_of(id) else {
+            return Place::default();
+        };
+        let parent = self.tree.flat_parent(node);
+        let under_perspective =
+            parent.is_some_and(|p| self.effective_paint(p).perspective.is_some());
+        let old = self.tree.update_place(index, moving, under_perspective);
+        if self.effective_paint(id).perspective.is_some() {
+            let children: Vec<NodeId> = self.tree.flat_children(id).collect();
+            for child in children {
+                if self.tree.raise_under_perspective(child) {
+                    self.changes.restack = true;
+                    self.repaint(child);
+                }
+            }
+        }
+        old
     }
 
     /// The 2D transform of `id` relative to its box's top-left corner, for a

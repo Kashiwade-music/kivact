@@ -78,11 +78,7 @@ impl Model {
         };
         let scroll = n.scroll();
 
-        let transform = if n.place.transformed || n.is_layer() {
-            self.a11y_transform(id, n.is_layer(), bounds, offset)
-        } else {
-            kivact_types::Transform::IDENTITY
-        };
+        let (bounds, transform) = self.a11y_placement(id, n.is_layer(), bounds, offset);
         let children: Vec<kivact_types::SemanticsId> = self
             .tree()
             .logical_children(id)
@@ -186,6 +182,9 @@ impl Model {
         let hidden = output.semantics.hidden;
         let disabled = output.semantics.disabled;
         let bounds = output.bounds.unwrap_or_default();
+        // A region's space starts at the padding box, where its scene is drawn (§7.5).
+        let paint = crate::model::interact::visual::paint(self, id);
+        let canvas = crate::model::interact::visual::padding_box(bounds, &paint);
         let mut leaves = Vec::new();
         for (region_id, region) in scene_regions {
             let native_id = self.region_identity(id, region_id);
@@ -216,12 +215,14 @@ impl Model {
             leaves.push(kivact_types::render::SemanticsNode {
                 id: kivact_types::SemanticsId(native_id),
                 children: Vec::new(),
-                bounds: Some(kivact_types::Rect {
-                    x: bounds.x + region.rect.x,
-                    y: bounds.y + region.rect.y,
-                    width: region.rect.width,
-                    height: region.rect.height,
-                }),
+                bounds: region
+                    .transform
+                    .bounds(region.local_rect)
+                    .map(|r| kivact_types::Rect {
+                        x: canvas.x + r.x,
+                        y: canvas.y + r.y,
+                        ..r
+                    }),
                 scroll: kivact_types::Point::default(),
                 transform: kivact_types::Transform::IDENTITY,
                 semantics: kivact_types::Semantics {
@@ -243,6 +244,79 @@ impl Model {
         }
         leaves
     }
+
+    /// Whether the window map of `id` is affine (`false` when it has none).
+    fn affine_map(&self, id: types::NodeId) -> bool {
+        self.window_map(id)
+            .is_some_and(|map| map.as_affine().is_some())
+    }
+
+    /// The bounds and the transform the accessibility node of `id` carries
+    /// (§7.4). Where its map and its parent's are affine, the transform is
+    /// relative to the parent (`a11y_transform`). Otherwise the
+    /// bounds are in the coordinates of the nearest ancestor with an affine
+    /// map, and the transform is the identity. A layer keeps its own rule.
+    fn a11y_placement(
+        &self,
+        id: types::NodeId,
+        layer: bool,
+        bounds: types::Rect,
+        offset: types::Point,
+    ) -> (types::Rect, kivact_types::Transform) {
+        let Some(n) = self.node(id) else {
+            return (bounds, kivact_types::Transform::IDENTITY);
+        };
+        if layer {
+            return (bounds, self.a11y_transform(id, true, bounds, offset));
+        }
+        let parent_affine = self
+            .tree()
+            .flat_parent(n)
+            .is_none_or(|parent| self.affine_map(parent));
+        if self.affine_map(id) && parent_affine {
+            let own = if n.place.transformed {
+                self.a11y_transform(id, false, bounds, offset)
+            } else {
+                kivact_types::Transform::IDENTITY
+            };
+            return (bounds, own);
+        }
+        let frame = self.affine_frame_bounds(id).unwrap_or(bounds);
+        (frame, kivact_types::Transform::IDENTITY)
+    }
+
+    /// The bounds of `id`'s box in the coordinates of its nearest ancestor
+    /// with an affine map (the window without one), content-space as the
+    /// accessibility tree places them (`None` when it has no map).
+    fn affine_frame_bounds(&self, id: types::NodeId) -> Option<types::Rect> {
+        let n = self.node(id)?;
+        let size = self.computed_layout(id)?.size;
+        let own = types::Rect {
+            x: 0.0,
+            y: 0.0,
+            width: size.width,
+            height: size.height,
+        };
+        let mut frame = self.tree().flat_parent(n);
+        while let Some(x) = frame {
+            if self.affine_map(x) {
+                break;
+            }
+            frame = self.node(x).and_then(|p| self.tree().flat_parent(p));
+        }
+        let Some(ancestor) = frame else {
+            return self.window_map(id)?.bounds(own);
+        };
+        let r = self.rect(ancestor)?;
+        let above = self.scroll_above(ancestor);
+        let inside = self.map_between(id, Some(ancestor))?.bounds(own)?;
+        Some(types::Rect {
+            x: r.x + above.x + inside.x,
+            y: r.y + above.y + inside.y,
+            ..inside
+        })
+    }
+
     /// The transform the accessibility node of `id` carries (G-07: the one
     /// it is drawn and hit with), about its content-space box `bounds`
     /// (its layout box moved by the scrolls above it, `offset`). A layer
