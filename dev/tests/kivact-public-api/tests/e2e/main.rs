@@ -7,6 +7,7 @@ mod apg_breadcrumb;
 #[cfg(feature = "embed")]
 mod embed;
 mod support;
+mod svg;
 mod theme_conformance;
 mod ui_navigation;
 

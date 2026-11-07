@@ -57,6 +57,7 @@ mod message_scroller;
 mod native_select;
 mod navigation_menu;
 mod pagination;
+mod plot;
 mod popover;
 mod progress;
 mod questionnaire;
@@ -131,6 +132,7 @@ pub(crate) static PAGES: LazyLock<Vec<Page>> = LazyLock::new(|| {
         native_select::page(),
         navigation_menu::page(),
         pagination::page(),
+        plot::page(),
         popover::page(),
         progress::page(),
         questionnaire::page(),
