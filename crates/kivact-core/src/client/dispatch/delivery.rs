@@ -112,14 +112,7 @@ fn dispatch_host(rt: &Runtime, host_event: &HostEvent) {
         HostEvent::SnapshotResult { request, result } => {
             crate::view::snapshots::resolve(rt, *request, result)
         }
-        HostEvent::ImageStatusChanged { node, status } => {
-            let observation = crate::view::state::ViewState::tree(rt)
-                .get(*node)
-                .and_then(|node| node.observation);
-            if let Some(observation) = observation {
-                observation.image_status.set(*status);
-            }
-        }
+        HostEvent::ImageStatusChanged { node, status } => set_image_status(rt, *node, *status),
         HostEvent::AssetFailed { node, message } => platform::asset_failed(rt, *node, message),
         HostEvent::HostFailure { revision, reason } => {
             platform::host_failure(rt, *revision, reason)
@@ -135,19 +128,13 @@ fn dispatch_host(rt: &Runtime, host_event: &HostEvent) {
         }
         HostEvent::DrawDropped { node, count } => diagnostics::draw_dropped(rt, *node, *count),
         HostEvent::TurnsCut { turns } => diagnostics::turns_cut(rt, *turns),
-        HostEvent::ExternalImported { image, result } => gpu::external_imported(rt, *image, result),
-        HostEvent::GpuAdapterChanged(adapter) => gpu::adapter_changed(rt, adapter.as_ref()),
-        HostEvent::DrawableFrame(frame) => crate::view::drawable::frame(frame),
-        HostEvent::DrawableResized { id } => crate::view::drawable::resized(*id),
-        HostEvent::DrawableTextures {
-            id,
-            generation,
-            result,
-        } => crate::view::drawable::textures(*id, *generation, result),
-        HostEvent::DrawableExportLost(loss) => {
-            crate::view::drawable::lost(loss.sink, loss.generation)
-        }
-        HostEvent::GpuExportAvailable => crate::view::drawable::gpu_available(),
+        HostEvent::ExternalImported { .. }
+        | HostEvent::GpuAdapterChanged(_)
+        | HostEvent::DrawableFrame(_)
+        | HostEvent::DrawableResized { .. }
+        | HostEvent::DrawableTextures { .. }
+        | HostEvent::DrawableExportLost(_)
+        | HostEvent::GpuExportAvailable => dispatch_export_host(rt, host_event),
         HostEvent::PresenceChanged { .. }
         | HostEvent::Pointer(_)
         | HostEvent::Wheel(_)
@@ -164,6 +151,36 @@ fn dispatch_host(rt: &Runtime, host_event: &HostEvent) {
         | HostEvent::ExitComplete { .. }
         | HostEvent::FocusResult { .. }
         | HostEvent::A11y { .. } => unreachable!("invariant: input event already dispatched"),
+    }
+}
+
+/// Deliver the GPU and drawable export events of the host.
+fn dispatch_export_host(rt: &Runtime, host_event: &HostEvent) {
+    match host_event {
+        HostEvent::ExternalImported { image, result } => gpu::external_imported(rt, *image, result),
+        HostEvent::GpuAdapterChanged(adapter) => gpu::adapter_changed(rt, adapter.as_ref()),
+        HostEvent::DrawableFrame(frame) => crate::view::drawable::frame(frame),
+        HostEvent::DrawableResized { id } => crate::view::drawable::resized(*id),
+        HostEvent::DrawableTextures {
+            id,
+            generation,
+            result,
+        } => crate::view::drawable::textures(*id, *generation, result),
+        HostEvent::DrawableExportLost(loss) => {
+            crate::view::drawable::lost(loss.sink, loss.generation)
+        }
+        HostEvent::GpuExportAvailable => crate::view::drawable::gpu_available(),
+        _ => unreachable!("invariant: only export events are routed here"),
+    }
+}
+
+/// Record the image status of an observed node for the views that read it.
+fn set_image_status(rt: &Runtime, node: kivact_types::NodeId, status: kivact_types::ImageStatus) {
+    let observation = crate::view::state::ViewState::tree(rt)
+        .get(node)
+        .and_then(|node| node.observation);
+    if let Some(observation) = observation {
+        observation.image_status.set(status);
     }
 }
 
