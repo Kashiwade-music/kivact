@@ -524,7 +524,7 @@ fn expand_interval(
     let ((p0, c0), (p1, c1)) = (a, b);
     let end = c1.to_srgb().sanitize();
     let span = p1 - p0;
-    if !(span > 0.0) {
+    if span.is_nan() || span <= 0.0 {
         out.push((p1, end));
         return;
     }

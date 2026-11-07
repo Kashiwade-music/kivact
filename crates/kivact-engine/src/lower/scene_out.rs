@@ -115,7 +115,7 @@ enum Piece {
     /// Vello-drawn commands.
     Raster(RenderScene),
     /// An external frame or a shader.
-    Item(LayerItem),
+    Item(Box<LayerItem>),
     /// A child layer.
     Layer(Box<Layer>),
 }
@@ -355,7 +355,7 @@ impl SceneOut {
     pub(crate) fn item(&mut self, item: LayerItem) {
         let top = self.top();
         top.split(true);
-        top.pieces.push(Piece::Item(item));
+        top.pieces.push(Piece::Item(Box::new(item)));
     }
 
     /// `scene` (in the chunk's space) inside the groups and clips open now:
@@ -420,7 +420,7 @@ fn flatten(pieces: Vec<Piece>, layers: &mut Vec<CompositeLayer>) -> Vec<LayerIte
         .into_iter()
         .map(|piece| match piece {
             Piece::Raster(scene) => LayerItem::Raster(scene),
-            Piece::Item(item) => item,
+            Piece::Item(item) => *item,
             Piece::Layer(child) => {
                 let Layer {
                     props,

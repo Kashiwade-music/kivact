@@ -259,7 +259,7 @@ fn scale(width: f64, slice: f64) -> f64 {
 /// with tiles `tile` px long, as `mode` says.
 fn pieces(src: (f64, f64), dst: (f64, f64), tile: f64, mode: Repeat) -> Vec<Piece> {
     let (start, len) = dst;
-    if !(len > 0.0) {
+    if len.is_nan() || len <= 0.0 {
         return Vec::new();
     }
     let whole = vec![Piece {
@@ -269,7 +269,7 @@ fn pieces(src: (f64, f64), dst: (f64, f64), tile: f64, mode: Repeat) -> Vec<Piec
     }];
     match mode {
         Repeat::Stretch => whole,
-        _ if !(tile > 0.0) => Vec::new(),
+        _ if tile.is_nan() || tile <= 0.0 => Vec::new(),
         _ if len / tile > MAX_TILES => whole,
         Repeat::Repeat => repeated(src, dst, tile),
         Repeat::Round => rounded(src, dst, len / tile),

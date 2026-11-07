@@ -47,7 +47,7 @@ impl Context<'_> {
                 // A frame of an external engine is a layer item; the CPU
                 // compositor draws its `cpu` pixels when it has them.
                 let item = ExternalItem {
-                    frame: frame.clone(),
+                    frame: *frame,
                     rect: rect(*r),
                     source: *source,
                     transform: state.out.space(),
