@@ -1,6 +1,6 @@
 # Kivact 表現力パリティ 作業指示書
 
-版: 1.4（2026-11-07。`20261107_1305_CODEX_REVIEW.md`、`20261107_1333_CODEX_REVIEW.md`、`20261107_1402_CODEX_REVIEW.md` の指摘を反映）。設計: `VISUAL_PARITY_DESIGN.md`（以下「設計書」）。
+版: 1.5（2026-11-07。`20261107_1305_CODEX_REVIEW.md`、`20261107_1333_CODEX_REVIEW.md`、`20261107_1402_CODEX_REVIEW.md`、`20261107_1425_CODEX_REVIEW.md` の指摘を反映）。設計: `VISUAL_PARITY_DESIGN.md`（以下「設計書」）。
 
 この文書は、設計書を実装する手順を定める。実装はオーケストレータ（あなた）がサブエージェントに割り振って行う。サブエージェントは設計の判断をせず、指定された設計書の節に従って実装する。
 
@@ -110,7 +110,7 @@ checkpoint は各 wave の後に行う（§10）。CP8（既存の試験一式�
 
 | API | 作る unit | 初めて使う unit | 使える checkpoint |
 |---|---|---|---|
-| kivact-types の全語彙（`Composition`、`Matrix4::shows_back`、`MAX_CONTEXT_PLANES`、`prop_interp`/`PropInterp`/`PropBasis`、`spring_advance` を使う `Transition::step`、`Spring::rest`/`Spring::problem`、`SpringRun::start`、`FilterGraph<I>` と `map_images`、`RasterGrid`、`FrameReport`（`pending_exports`）、`FrameStats`、`ExportMode`/`ExportFrame`/`ExportedFrame`（generation の envelope）/`ExportLoss`、意味情報の `Option` の bounds） | U11 | wave 2 の全 unit | CP1 |
+| kivact-types の全語彙（`Composition`、`Matrix4::shows_back`、`MAX_CONTEXT_PLANES`、`prop_interp`/`PropInterp`/`PropBasis`（`same_shape`）、`FailureKind::NotReady`、`spring_advance` を使う `Transition::step`、`Spring::rest`/`Spring::problem`、`SpringRun::start`、`FilterGraph<I>` と `map_images`、`RasterGrid`、`FrameReport`（`pending_exports`）、`FrameStats`、`ExportMode`/`ExportFrame`/`ExportedFrame`（generation の envelope）/`ExportLoss`、意味情報の `Option` の bounds） | U11 | wave 2 の全 unit | CP1 |
 | `kivact_shader::assemble` | U22 | U33、U42 | CP2 |
 | `arvane_render::{CpuRaster, GpuRaster, glyph_outline}` | U23 | U31、U32、U41 | CP2 |
 | `ShellWindow::present_with`（damage と `BufferAge`） | U24 | U41 | CP2 |
@@ -121,8 +121,9 @@ checkpoint は各 wave の後に行う（§10）。CP8（既存の試験一式�
 | engine の `Model::{local_matrix, to_parent, window_map, map_between, bounds, to_local}`（§7.1、§7.2） | U41 | U51、U52、U62 | CP4 |
 | engine の state motion の全体（`PropTrack`、`TrackPhase`、`StateMotion::moves_layer`。§12.9.3） | U41 | U51 | CP4 |
 | `Pool::try_acquire`（kivact-gpu-share） | U42 | U62 | CP4 |
-| kivact-core の再公開と `Screen::frame_stats`、`Screen::lose_gpu_device` | U55 | U61、U62、U64、wave 9 | CP5 |
-| `Drawable`、`DrawableShare`（`imported` を含む）、drawable の engine の API | U62 | U64（prelude）、U93 | CP6 |
+| kivact-core の再公開と `Screen::frame_stats`、`Screen::lose_gpu_device`、`Screenshot::raster_difference`/`RasterDifference` | U55 | U61、U62、U64、wave 9 | CP5 |
+| `GpuContext::export_drawable`/`drop_export`（全 feature の組み合わせで同じ署名。U32 は stub、U42 が中身） | U32 | U41 | CP3 |
+| `Drawable`、`DrawableShare`（`wait`、`ShareUpdate`）、drawable の engine の API | U62 | U64（prelude）、U93 | CP6 |
 
 ---
 
@@ -141,6 +142,8 @@ checkpoint は各 wave の後に行う（§10）。CP8（既存の試験一式�
   - §12.1〜§12.3、§12.9.1、§12.9.2（`PaintVec` を削除し、`prop_interp`/`apply_components`（`PropInterp`、`PropBasis`）を作る）
   - §8.5 の `Matrix4::shows_back`、§8.12 と §5.11 の `Export`/`ExportMode`/`ExportFrame`/`ExportedFrame`/`ExportLoss`、§8.15 と §5.11 の `FrameReport`/`FrameStats`、§5.15 の意味情報の `Option` の bounds、§8.14 の `MAX_CONTEXT_PLANES`
   - §12.2 の `spring_advance`（解析解）、`Spring` の `rest` と `problem`、`SpringRun::amplitude` と `SpringRun::start`（`restart` を置き換え、workspace の呼び出しを移す）、§12.3 の反復の終わりの値（`Transition::step` と `sample_timed`）
+  - §12.9.2 の `PropBasis::same_shape`、§8.12 の `FailureKind::NotReady`（`FailureKind` の match の追従を含む）
+  - §8.12 の `SHARED_PREPARED` と、`SharedTextures` の rustdoc の契約の順序と frame の値の変更（`kivact-core` の `ShareLink::provide` の `# Safety` の文言の追従は U55）
   - §5.9 の `FilterGraph<I>`、`Primitive<I>`、`PrimitiveOp<I>`、`map_images`（wire は `FilterGraph<Asset>`、composition は `FilterGraph<Pixels>`）、§5.11 の `RasterGrid` と `CompositeLayer::grid`
   - `render::Gradient` の stop は sRGB の `Rgba` のまま（§5 の gradient の段落）。展開は U53 が engine で行う
 - **範囲:**
@@ -180,7 +183,7 @@ merge の順: U23 → U26 → U22 → U21 → U24 → U25。
   - `crates/kivact-runtime/src/**`（新しい file: `motion/timeline.rs`、`motion/stagger.rs`）
   - `crates/kivact-i18n/src/**`（compile の追従だけ）
 - **内容:**
-  - `Animated` を再構成し、`set_velocity` を足す。`finish(Completed)` は §12.3 の反復の終わりの値を publish し、target を `AnimPhase::Completed { target }` に残す（§12.4）。
+  - `Animated` を再構成し、`set_velocity` を足す。`finish(Completed)` は §12.3 の反復の終わりの値を publish し、target を `AnimPhase::Completed { target }` に残す（§12.4）。`set_velocity` は §12.4 の遷移表のとおり（Idle と Completed からの run は一回・通常の向き・delay 0）。
   - `animated` の作成と Timeline の区間の追加で `Spring::problem` を報告する（§12.2）。
   - frame loop に `essential` と reduced motion の扱いを足し、`restore_motion` を作る。
   - Timeline（`TimelineTrack`、`At`、`Segment`、`TimelinePhase`）と Stagger を作る。
@@ -252,7 +255,7 @@ merge の順: U23 → U26 → U22 → U21 → U24 → U25。
   - `crates/kivact-editing/**`（compile の追従）
 - **内容:**
   - font variation、font width、optical sizing と、cache の key を作る。
-  - アニメーション画像の decode、`AnimationInfo`、`pixels(.., frame)` を作る。予算は、次の frame の decode の前に、形式ごとの作業領域 W を含めて見積もる。1 枚目の前に超えるなら既存の静止画の `decode` に回し、2 枚目以降で超えるなら最初の frame の Still にする。GIF と APNG の decoder に `Limits` を掛ける（WebP は外側の見積りだけ。§9.8）。
+  - アニメーション画像の decode、`AnimationInfo`、`pixels(.., frame)` を作る。予算は、次の frame の decode の前に、形式ごとの作業領域 W を含めて見積もる。1 枚目の前に超えるなら既存の静止画の `decode` に回し、2 枚目以降で超えるなら最初の frame の Still にする。GIF は `set_limits`、APNG は `PngDecoder::with_limits` で作ってから `apng()` へ進む（WebP は外側の見積りだけ。§9.8）。
   - SVG の fontdb と、data URL の画像を有効にする。
 - **完了条件:**
   - `cargo check -p arvane-text -p arvane-asset -p kivact-layout -p kivact-editing`
@@ -272,7 +275,8 @@ merge の順: U23 → U26 → U22 → U21 → U24 → U25。
   - `bounds.rs` には、旧 `arvane-render/src/backdrop.rs` の `Index` の計算（`git show f4e40cc:crates/arvane-render/src/backdrop.rs`）を、新しい `RenderCmd` に合わせて移す。
   - 次も plan に含める: damage の効果を通る伝播と部分消去の `Clear`（§8.6、§8.13）、`ChunkRecord::retain` と `LayerRecord::retain`（§8.2）、効果の到達範囲での cull（§8.3）、上限の inline とその除外条件、参加面が `MAX_CONTEXT_PLANES` を超えるコンテキストの平坦な重なり（§8.14）、`FrameStats` のうち plan が決める値（§8.15）。
   - `plan::build` の error は crate 内の `PlanError`（§8.2）。`arvane-render` の型を使わない。
-  - §8.3 の手順 3 の `RasterGrid` の二つの格子と、§8.6 の `LayerFilter::Graph` の signature の畳み込み（graph の Arc の pointer を使わない）。
+  - §8.4 の R の平面の断片（子 layer の位置で区切る）と、同一平面の順の key（item の位置の列）。
+  - §8.3 の手順 2 の `RasterGrid::Layer` の 256/s の格子への切り取りの拡大、手順 3 の `RasterGrid` の二つの格子と、§8.6 の `LayerFilter::Graph` の signature の畳み込み（graph の Arc の pointer を使わない）。
   - feature と GPU の module は U32 が足す。
 - **完了条件:** `cargo check -p arvane-compose --all-targets`
 
@@ -321,9 +325,11 @@ merge の順: U31 → U32 → U33。
     - blend と composite、blur、drop shadow、color matrix、mask と clip、backdrop
   - chunk の部分 redraw、swapchain への合成、外部 frame の `ExternalPass`、offscreen の読み戻し、`FrameStats` の計数を作る。target が 1024 を超えたら `RenderError::GpuLimit` を返す（§8.14）。`PlanError` を `ComposeError::InvalidComposition` に変える。
   - filter graph と user shader と export は U42 が作る。この unit では、Op に Graph・Shader・export が来たら、CPU と同じ fallback（入力をそのまま出す、fallback chunk を描く、読み戻しで pixels を返す）で実行する。
+  - `GpuContext::export_drawable`/`drop_export` を、feature の組み合わせのすべて（`gpu` だけ、`gpu-interop`、`gpu_unbuilt.rs`）で同じ署名で作る。この unit では、どれも `ComposeError::External("built without the gpu-interop feature")` と何もしない処理にする（`gpu-interop` の版の中身は U42）。既存の外部 image の import の `shared_images.rs` と同じ形にする（§8.1）。
 - **完了条件:**
   - `cargo check -p arvane-compose --all-targets --features gpu`
   - `cargo check -p arvane-compose --all-targets --features gpu-interop`
+  - `cargo check -p arvane-compose --all-targets --no-default-features`
   - `cargo check -p kivact-gpu-share --features import,wgpu`
   - `cargo xtask check --no-write --only state-fields,os-branch --crate arvane-compose`
 
@@ -366,7 +372,7 @@ merge の順: U41 → U42。
   - `crates/arvane/**`（`src/{window,presenter,presenter/*,rasterizer,presentation,availability,env,error,lib}.rs`、`Cargo.toml`、`tests/e2e/**`）
   - `crates/kivact-engine/**`（compile の基盤だけ）
 - **内容（arvane）:**
-  - `Window::present(&Composition, FramePlan)`、`Presented::Shown::{exports, pending_exports}`、`export_drawable`/`drop_export`/`take_export_notices` を作る（§10.6）。presenter に `ExportRegistry`（`presenter/exports.rs`）を置き、`GpuContext` を捨てる全箇所の前で `Lost` を積み、新しい context の準備の完了で `Available` を積む。`export_drawable` が `Unsupported` を返すのは device が無いときだけ（§8.12）。`arvane::spi::lose_gpu_device` を作る（§10.6）。CPU の presenter も `CpuOutput::report` から同じ報告を返す。`RendererChange` に `ShaderFailed`、`LimitExceeded` を足す。
+  - `Window::present(&Composition, FramePlan)`、`Presented::Shown::{exports, pending_exports}`、`export_drawable`/`drop_export`/`take_export_notices` を作る（§10.6）。presenter に `ExportRegistry`（`presenter/exports.rs`）を置き、`GpuContext` を捨てる全箇所の前で `Lost` を積み、新しい context の準備の完了で `Available` を積む。`export_drawable` の失敗は、device が無いときは kind `NotReady`、feature の無い build では kind `Unavailable` にする（§8.12）。`Available` は presenter が Ready に入る一箇所で積む。`arvane::spi::lose_gpu_device` を作る（§10.6）。CPU の presenter も `CpuOutput::report` から同じ報告を返す。`RendererChange` に `ShaderFailed`、`LimitExceeded` を足す。
   - CPU の damage 提示を作る。Rasterizer は `CpuCompositor::render` を使う形にする。
   - dev-dependency を `arvane-compose = { features = ["gpu-interop"] }` にする。
   - `Presented::Shown` に `stats: FrameStats` を加える（§10.6）。
@@ -377,7 +383,7 @@ merge の順: U41 → U42。
 - **内容（engine の基盤）:** kivact-engine 全体を、新しい arvane、types、layout、editing の API で compile できるようにする。
   - `Model::composition` は、この unit では「root layer に、今の paint list から作った Raster chunk を一つだけ置く」形にする。layer 化は U51 が作る。
   - 機械的な追従をする。
-    - `PaintProps.transitions` への改名（state motion は全 paint を `All` の transition として扱う）
+    - `PaintProps.transitions` への改名（state motion は下の「state motion」の項で §12.9.3 の最終の形にする）
     - `Easing` の `.clone()`
     - `TextShaper::outline` の実装（`arvane::glyph_outline` を呼ぶ）
     - `RenderCmd::Glyphs` の新しい field（fill None、stroke None）
@@ -400,13 +406,13 @@ merge の順: U41 → U42。
   - `crates/arvane-compose/src/gpu/{graph,shader,export}.rs`（新）
   - `crates/arvane-compose/src/gpu/wgsl/graph_*.wgsl`（新）
   - `crates/arvane-compose/Cargo.toml`（kivact-shader）
-  - `crates/kivact-gpu-share/src/wgpu/pool.rs`（`try_acquire`）
+  - `crates/kivact-gpu-share/src/wgpu/pool.rs`（`try_acquire`）、`src/pool.rs`（`Slots`）、`src/import/pool.rs`（準備の合図）
 - **内容:**
   - filter graph の各 primitive を WGSL で実装する。Turbulence の表は CPU で作る。
   - user shader の pipeline cache と bind group を作り、失敗は `FrameReport::shader_failures` で報告する。
   - drawable の export pool と frame の書き出しを作る（§8.12）。generation の envelope、`ExportRecord`、`try_acquire`、見送りの `pending_exports` を含める。pool の記録と喪失の通知は arvane の presenter（U41）が持つので、compose は通知を持たない。
-  - `kivact-gpu-share` の wgpu の export の `Pool` に `try_acquire` を足す（§8.12）。
-  - U32 の fallback の経路を、これらで置き換える。
+  - `kivact-gpu-share` の wgpu の export の `Pool` に `try_acquire` を足す。共通の `Slots` の frame の値を 2 から振り、fresh な slot の待ちの値を `SHARED_PREPARED` にする。`Import::new` が準備の後に `signal(SHARED_PREPARED)` を行う（§8.12）。
+  - U32 の fallback の経路と、`gpu-interop` の版の `export_drawable`/`drop_export` の stub を、これらで置き換える。
 - **完了条件:**
   - `cargo check -p arvane-compose --all-targets --features gpu-interop`
   - `cargo check -p arvane-compose --all-targets --no-default-features`
@@ -453,7 +459,7 @@ merge の順: U51 → U53 → U52 → U54 → U55。
 
 - **節:** §7.1〜§7.6、§13.1 の SM-01、SM-02
 - **内容:**
-  - U41 が作った `to_parent` などの関数を使い、hit test（3D コンテキストの奥行きと backface、`MAX_CONTEXT_PLANES` を超えるコンテキストの DOM 順。§7.3、§8.5、§8.14）、a11y の bounds（`Option` の bounds を含む。§7.4、§5.15）、region の写像（padding box の基準。§7.5）を作る。
+  - U41 が作った `to_parent` などの関数を使い、hit test（3D コンテキストの奥行きと backface、`MAX_CONTEXT_PLANES` を超えるコンテキストの DOM 順、z が等しい候補の順を §8.4 の同一平面の key にそろえること。§7.3、§8.4、§8.5、§8.14）、a11y の bounds（`Option` の bounds を含む。§7.4、§5.15）、region の写像（padding box の基準。§7.5）を作る。
   - `Place.transformed` の一本化と、presence の唯一の持ち主を作る。
 - **完了条件:** `cargo check -p kivact-engine --all-targets --all-features`
 
@@ -485,7 +491,9 @@ merge の順: U51 → U53 → U52 → U54 → U55。
   - kivact-core と kivact-test を、新しい style、engine、runtime の API で compile できるようにする。
   - `kivact::draw`、`kivact::style`、`kivact::motion` に新しい公開名を加える（drawable と scroll timeline の名前は U62 と U61 が足す）。
   - viewport の gpu_frame が External item になる部分、`env_changed` の `restore_motion`、`Inbox` の `sync.rs` への移動（§10.5）を行う。
-  - kivact-test に `Screen::frame_stats() -> FrameStats` と `Screen::lose_gpu_device()` を足す（`ArvaneTestHost` の同名の関数を呼ぶ。§10.6）。意味情報の bounds の `Option` に追従する。
+  - kivact-test に `Screen::frame_stats() -> FrameStats` と `Screen::lose_gpu_device()` を足す（`ArvaneTestHost` の同名の関数を呼ぶ。§10.6）。
+  - kivact-core の `ShareLink::provide` の `# Safety` の文言を、`SharedTextures` の新しい順序の規則への参照に直す（設計書 §8.12）。
+  - kivact-test に `Screenshot::raster_difference` と `RasterDifference::within_raster_tolerance` を作り、`screen/gpu_tests.rs` の `assert_close` をそれを使う形に書き換える（設計書 §17.1）。意味情報の bounds の `Option` に追従する。
 - **完了条件:**
   - `cargo check -p kivact-core -p kivact-test --all-targets --all-features`
   - `cargo check -p kivact-core --no-default-features`
@@ -531,7 +539,8 @@ drawable と export は互いの型（`Drawable::share`、drawable の登録）�
   - drawable の core の API を作る。
   - engine の配置を作る。両 slot から一つの関数で作り、clip と backface を持たせる。backface は compositor と同じ行列の選び方で判定する（§10.3）。
   - paint、hit test、a11y（bounds の None を含む）、layout を作る。
-  - `DrawableShare` を作る（generation、`ExportLink`、`ExportRequest` と GPU の遷移表、`imported` の ACK、`wait` と `ShareUpdate`、生涯で単調な frame の number、host request と host event、毎フレームの export、GPU の textures と frame の受け渡し、mode の切替、resize、device が無い間の `GpuWaiting` と `GpuExportAvailable`、喪失の `DrawableExportLost`）。
+  - drawable の binding（`DrawableBinding`、WrongApp・Disposed・二重 mount の拒否と報告、root が一致するときだけの解除。§10.2）と、host 以外の node の `Draw::drawable` の報告を作る。
+  - `DrawableShare` を作る（generation、`ExportLink`、`ExportRequest` と GPU の遷移表、ACK の API は作らない（準備は fence の合図で compositor が見る。§8.12）、`wait` が Stale を返さないこと、`wait` と `ShareUpdate`、生涯で単調な frame の number、host request と host event、毎フレームの export、GPU の textures と frame の受け渡し、mode の切替、resize、device が無い間の `GpuWaiting` と `GpuExportAvailable`、喪失の `DrawableExportLost`）。
   - engine の `ExportRetry`（host の ns の時計、提示ごとの確定、backoff と pump の deadline）と、`take_export_notices` の読み出しを作る（§10.5）。
 - **完了条件:**
   - `cargo check -p kivact-core -p kivact-engine --all-targets --all-features`
@@ -645,7 +654,7 @@ dev/tools/check-features.sh
 **失敗した試験の扱い:**
 
 - 失敗した試験を原因の crate ごとにまとめ、修正の unit（`U8x-fix-<crate>`、最大 6 並列）に割り当てる。修正の unit は、指定された試験の binary だけを window lock の下で `--test-threads=1` で再実行して確かめる。
-- 既存の試験の期待値を更新してよいのは、設計書の決定で意味が変わったもの（§17.3 の注、CSS の isolation、Oklab の補間、background の origin、`EaseIn` の曲線、色の filter の合成後の適用、spring の相対の静止判定（`rest` 一つ、速度は ω0 で割る）と解析解の step、alternate で偶数回の run の終わりの値、layout motion が反復しないこと）だけである。それ以外は実装を直す。
+- 既存の試験の期待値を更新してよいのは、設計書の決定で意味が変わったもの（§17.3 の注、CSS の isolation、Oklab の補間、background の origin、`EaseIn` の曲線、色の filter の合成後の適用、共有 texture の frame の値が 2 から始まること（§8.12。GPU 共有の既存の試験の期待値）、spring の相対の静止判定（`rest` 一つ、速度は ω0 で割る）と解析解の step、alternate で偶数回の run の終わりの値、layout motion が反復しないこと）だけである。それ以外は実装を直す。
 - 既存の試験を削除してよいのは、U41 の対応表に載った private な helper の試験だけである。
 
 **再実行の範囲:** CP8 の修正の後は、失敗した試験の binary と、修正した crate に依存する crate の試験だけを再実行する。CP8 を最初からやり直さない。workspace 全体は CP9 で実行する。

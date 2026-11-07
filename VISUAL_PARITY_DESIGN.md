@@ -1,6 +1,6 @@
 # Kivact 表現力パリティ 設計書
 
-版: 1.3（2026-11-07。三回のレビュー `20261107_1305_CODEX_REVIEW.md`、`20261107_1333_CODEX_REVIEW.md`、`20261107_1402_CODEX_REVIEW.md` を反映）。対象: `main` @ f4e40cc。
+版: 1.4（2026-11-07。四回のレビュー `20261107_1305_CODEX_REVIEW.md`、`20261107_1333_CODEX_REVIEW.md`、`20261107_1402_CODEX_REVIEW.md`、`20261107_1425_CODEX_REVIEW.md` を反映）。対象: `main` @ f4e40cc。
 
 本書は、Kivact の描画・アニメーション・HTML-in-Canvas 相当の表現力を Web プラットフォームと同等にするための設計である。実装は別の AI がサブエージェントを用いて行う。実装者は本書と `VISUAL_PARITY_WORK_ORDER.md`（以下「作業指示書」）だけを根拠に作業し、追加の設計や探索をしない。
 
@@ -33,7 +33,7 @@
 - CI 機能を追加しない（`.github/` を変更しない）。
 - 新しい暗黙の状態機械を作らない（§13）。新しい state は本書が定義した enum だけを使う。
 - 公開 API にバックエンドの型（vello、peniko、kurbo、wgpu、naga、resvg、tiny-skia、parley）を出さない。
-- 新しい `unsafe` は `kivact-gpu-share` と `arvane-compose/src/gpu/` の中だけに置く。どちらも既存の `undocumented_unsafe_blocks` 等の lint に従う。
+- 新しい `unsafe` は `kivact-gpu-share` と `arvane-compose/src/gpu/` の中だけに置く。どちらも既存の `undocumented_unsafe_blocks` 等の lint に従う。drawable の export の公開 API（kivact-core の `DrawableShare`）は unsafe を持たない（§8.12 の準備の合図）。
 
 ---
 
@@ -848,8 +848,8 @@ impl<I> FilterGraph<I> {
     /// Errors (messages name the primitive index), the same limits for the CPU and the GPU:
     /// - a Result index that is not below its primitive's index; an empty graph; a non-finite number;
     /// - ConvolveMatrix: order 1..=16 on each axis, kernel length order.0 × order.1,
-    ///   target.0 < order.0 and target.1 < order.1; divisor 0 is replaced by the kernel sum
-    ///   (by 1 if the sum is 0), as SVG;
+    ///   target.0 < order.0 and target.1 < order.1 (divisor 0 is allowed here; the plan
+    ///   replaces it by the kernel sum, or 1 if the sum is 0, as SVG, once for both executors);
     /// - ComponentTransfer: Table and Discrete 1..=256 values;
     /// - GaussianBlur, DropShadow std_dev >= 0; Morphology radius >= 0; Turbulence
     ///   base_frequency >= 0 and octaves 0..=16; lighting surface_scale finite,
@@ -1177,8 +1177,8 @@ pub struct Spring {
     pub stiffness: f64,
     pub damping: f64,
     pub mass: f64,
-    /// Settled when, for every component, |x − to| ≤ rest·a and
-    /// |v| ≤ rest·a·ω0 (a: the run's amplitude, ω0 = √(stiffness/mass); §12.2).
+    /// Settled when, for every component, √((x − to)² + (v/ω0)²) ≤ rest·a
+    /// (a: the run's amplitude, ω0 = √(stiffness/mass); §12.2).
     pub rest: f64,
 }
 impl Spring {
@@ -1270,7 +1270,7 @@ paint list を作るとき（`paint_list()` の再構築時）、engine は描�
 | R3 | 明示 | `will_change` が `Auto` でない |
 | R4 | 動き | engine の motion がこの node の transform または opacity を動かしている（§12.9.3 の `StateMotion::moves_layer(id)`）、または layout motion が動いている |
 
-**raster の格子:** layer の理由に R4 があるか、R3 の `will_change` が Transform を含む layer は `RasterGrid::Layer`、それ以外は `RasterGrid::Target` とする（§8.3 の手順 3）。動く layer は小数 px の移動でも raster をやり直さず、止まっている layer は輪郭をぼかさない。
+**raster の格子:** layer の理由に R4 があるか、R3 の `will_change` が Transform を含む layer は `RasterGrid::Layer`、それ以外は `RasterGrid::Target` とする（§8.3 の手順 3）。動く layer は小数 px の移動でも raster をやり直さず、止まっている layer は輪郭をぼかさない。例外として、画面の端で切り取られている動く layer は、見える範囲が 256 device px の格子の境界を越えたときに raster をやり直す（§8.3 の手順 2）。
 | R5 | 木の上の layer | overlay、fixed（既存の `HostNode::is_layer()`） |
 | R6 | drawable | drawable の root（§10）。key は `LayerKey::Drawable(id)` |
 | R7 | 3D コンテキストの構成員 | 自身の `transform_style` が `Preserve3d` で、grouping property（§6.4）で平坦にされない |
@@ -1665,12 +1665,14 @@ impl GpuContext {
         -> Result<(Presentation, std::time::Duration, GpuReport), ComposeError>;
     /// GPU offscreen render with readback (tests and GPU snapshots).
     pub fn render(&mut self, composition: &Composition, size: (u32, u32), scale: f64) -> Result<CpuFrame, ComposeError>;
-    #[cfg(feature = "gpu-interop")]
+    /// Without the `gpu-interop` feature: `Err(ComposeError::External("built without the gpu-interop feature"))`.
     pub fn export_drawable(&mut self, sink: DrawableId, generation: u64, adapter: &GpuAdapter, size: (u32, u32)) -> Result<SharedTextures, ComposeError>;
-    #[cfg(feature = "gpu-interop")]
+    /// Without the `gpu-interop` feature: does nothing.
     pub fn drop_export(&mut self, sink: DrawableId);
 }
 ```
+
+`export_drawable` と `drop_export` は、feature の組み合わせ（`gpu` だけ、`gpu-interop`、どちらも無い）のすべてで同じ署名を持つ。`gpu-interop` の無い build では、中身を Unsupported と何もしない処理にする。`gpu` の無い build の `gpu_unbuilt.rs` にも同じ署名の stub を置く（既存の外部 image の import の `shared_images` と `gpu_unbuilt` の形と同じ）。arvane は compose の feature を見ずに、常にこれらを呼ぶ。この error は、`Window::export_drawable` で `Failure { kind: FailureKind::Unavailable, .. }` になり、core では `GpuWaiting` ではなく `Failed` になる（feature が無いので待っても変わらない）。
 
 ### 8.2 描画計画の型（`plan.rs`、`cache.rs`）
 
@@ -1852,7 +1854,7 @@ pub(crate) enum Retained { Bytes(AssetBytes), Glyphs(GlyphRunSnapshot) }
      - Shader: margin
    - surface_rect = layer.bounds を reach だけ広げたものとする。
    - **cull:** H.map_rect(surface_rect)（効果の到達範囲を含む）が None、または T の矩形と交わらなければ何も出さない。layer.bounds（効果を含まない）では cull しない。
-   - H が逆を持ち、T の矩形を H⁻¹ で写した多角形がすべて viewer の前にあるなら、その bounds を reach だけ広げたものと surface_rect の交わりを surface_rect にする（見えない部分を描かない）。
+   - H が逆を持ち、T の矩形を H⁻¹ で写した多角形がすべて viewer の前にあるなら、その bounds を reach だけ広げたものと surface_rect の交わりを surface_rect にする（見えない部分を描かない）。`layer.grid` が `RasterGrid::Layer` のときは、交わりの矩形を layer 空間の 256/s の格子へ外側に広げてから使う。これで、画面の端をまたいで少し動いても surface_rect は変わらず、格子の境界を越えたときだけ raster をやり直す（契約の例外として §6.1 の raster の格子に書く）。
 3. **raster scale:**
    - s_raw = H.max_scale(surface_rect)（layer 空間 1 単位あたりの T px）とする。
    - H が軸に平行な affine（回転と skew を含まず、x と y の scale が正）なら、s = s_raw とする。さらに、`layer.grid` で次のように決める。
@@ -1888,7 +1890,9 @@ pub(crate) enum Retained { Bytes(AssetBytes), Glyphs(GlyphRunSnapshot) }
 **参加面の収集:**
 
 - コンテキストの root R（plane が Preserve3d の layer）について、参加面を次のように集める。
-  - R 自身の平面（R の item のうち、子 layer 以外のもの）を参加面 P0 とし、行列は to_t（R の空間から T px）とする。
+  - R 自身の平面は、R の item の列を子 layer の item（`LayerItem::Layer`）の位置で区切った断片に分ける。子 layer の前、子 layer と子 layer の間、最後の子 layer の後の、空でない item の連続をそれぞれ参加面 P0_k とし、行列は to_t（R の空間から T px）とする。
+    - 例: item が Raster 赤 → Layer 青（`scale_z(2)`）→ Raster 緑なら、P0_0（赤）、青の参加面、P0_1（緑）の三つになる。三つとも z = 0 の同じ平面なので、下の同一平面の規則で item の順に重なり、緑が上になる。
+    - R の effects（filter、mask など）は、断片ではなくコンテキスト全体の平坦化の後に掛かる（§6.4 の grouping property。effects を持つ R は Preserve3d の root にならない）。
   - R の子 layer C ごとに、行列 C.transform.then(to_t)（平坦化しない）で参加面を作る。
   - C の plane も Preserve3d なら、C の子も同じ規則で再帰的に参加面にする。
 - 各参加面は、自分の平面の内容（参加面になる子を除く item と effects）を、§8.3 の手順 2〜7 で自分の surface に描く。raster scale は、行列を平坦化した H_p で求める。
@@ -1906,7 +1910,9 @@ pub(crate) enum Retained { Bytes(AssetBytes), Glyphs(GlyphRunSnapshot) }
    - n_z < 0 なら逆順。
 5. 各多角形について、`Draw { target: T, source: Target(参加面の surface), polygon: (x, y) の多角形, split_edges, map: (T px → surface px) }` を出す。map は H_p⁻¹ に surface の Ms を合成したもの。参加面の `LayerItem::Layer { clips }` の clips は、親の空間の coverage chunk として各多角形の Draw の `coverage` に付ける。
 
-同じ平面上の多角形は、参加面の DOM 順（`Composition` の item の順）を保つ。
+同じ平面上の多角形は、参加面の順を保つ。順の key は、R から参加面までの item の位置の列（R の断片と子 layer は R の items の中の位置、さらに入れ子の参加面はその中の位置）の辞書順である。これは `Composition` の item の順であり、tree の DOM 順と Draw の命令の順の両方を表す。
+
+**hit test と drawable の配置:** engine の hit test（§7.3）と drawable の配置（§10.3）の z が等しい候補の順も、同じ key（描画順）で決める。R の断片にある region や drawable は、その断片の位置で並ぶ。
 
 ### 8.5 backface
 
@@ -2168,12 +2174,24 @@ pipeline の作成に失敗した場合（driver のエラー）は、その pro
 - **Pixels:** target を unpremultiply して `ExportFrame::Pixels` を返す（GPU では読み戻す）。
 - **Gpu:**
   - その sink の export pool（`export_drawable` で作ったもの）から `Pool::try_acquire()` で slot を得る。
-  - `try_acquire` は、consumer が release 済みの slot（release fence の CPU から読んだ完了値が、その slot の最後の ready 値以上）だけを返す。無ければ None を返し、GPU の queue に待ちを積まない。
+  - `try_acquire` は、consumer が release 済みの slot（release fence の CPU から読んだ完了値が、その slot の待ちの値以上）だけを返す。待ちの値は、frame を描いた slot ではその最後の ready 値、まだ描いていない slot では準備の合図の値 `PREPARED = 1` である。無ければ None を返し、GPU の queue に待ちを積まない。
   - None なら、このフレームの export を見送る（記録を更新しないので、次に Export を処理するフレームで再試行する）。window の提示は続ける。
   - slot が得られたら、target をその texture に copy し、ready fence を signal して `ExportedFrame { sink, generation, frame: ExportFrame::Gpu { slot, value } }` を返す。
-  - **consumer の準備:** GPU の export は、`Export::mode` が Gpu で、かつ consumer が import の完了を知らせた（§10.5 の `GpuReady`）generation だけに来る。engine は、それより前は mode を Gpu にしない（その間 window の提示は続く）。新しい pool の fresh な slot へ、import の前に書くことはない（`SharedTextures` の既存の契約）。
+  - **consumer の準備（準備の合図）:** import の完了は、API の呼び出しではなく、共有の release fence で知らせる。
+    - import した側は、texture の準備（layout と所有権の受け渡し）を終えたら、release fence を `PREPARED = 1` に signal する。`kivact_gpu_share::import::Import::new` が、準備の barrier の submit の直後にこれを行う（アプリは何もしない）。
+    - frame の ready の値は 2 から始める。だから release = 1 は、どの frame も解放しない「準備の完了」だけを表す。
+    - window は、まだ描いていない slot を、release fence が 1 に達するまで `try_acquire` で返さない。consumer が import する前の export は「slot が無い」と同じく見送られ、`pending_exports` と再試行（§10.5）で、import の後に最初の frame が届く。新しい pool の fresh な slot へ import の前に書くことは、型と fence の両方から起きない。
+    - pool ごとに fence が別なので、古い generation の import が新しい pool の合図になることはない。
   - **見送りの報告:** slot が無くて見送った sink は、`FrameReport::pending_exports` に入れる。CPU の compositor が描いたフレーム（GPU の device を保ったまま一フレームだけ CPU で描く `GpuLimit` の fallback を含む）で mode が Gpu の Export も、同じく `pending_exports` に入れる（次のフレームで GPU が再試行する）。engine は、その sink の export が成功するまで再試行の frame を要求する（§10.5 の `ExportRetry`）。
-- **`kivact-gpu-share` の追加:** wgpu の export の `Pool` に、`pub fn try_acquire(&mut self) -> Result<Option<Target<'_>>, Error>` を足す。既存の `acquire(timeout)` は、release を待たない slot の選び方に変えない（drawable の export は `try_acquire` だけを使う）。
+- **`kivact-gpu-share` の変更:**
+  - wgpu の export の `Pool` に、`pub fn try_acquire(&mut self) -> Result<Option<Target<'_>>, Error>` を足す。既存の `acquire(timeout)` は、release を待たない slot の選び方に変えない（drawable の export は `try_acquire` だけを使う）。
+  - 共通の `Slots`（`src/pool.rs`）: frame の値を 2 から振る（`next_value` の最初の値を 2 にする）。まだ描いていない slot の待ちの値（`Acquired::wait`）を `PREPARED`（1）にする（`SlotState::Fresh` の `value()` が `Some(PREPARED)` を返す）。これで、既存の producer（wgpu、D3D12、Vulkan の pool）は、最初の書き込みの前に GPU 側で release ≥ 1 を待つ。
+  - `Import::new`（`src/import/pool.rs`）: 準備の submit（既存の barrier と、各 slot の `release`）の後、`idle` を待つ前に、`signal(SHARED_PREPARED)` を一度行う（queue の順で準備の後に signal される）。既存の逆方向（アプリが作った texture を Arvane が import する。`arvane-compose/src/gpu/external.rs` も `Import::new` を使う）にも同じ合図が出る。
+  - `PREPARED` は kivact-types の `gpu.rs` に `pub const SHARED_PREPARED: u64 = 1;` として置き、両側がこれを使う。
+- **`SharedTextures` の契約の変更（kivact-types `gpu.rs` の rustdoc）:**
+  - 「Order」の段落の「writes a texture for the first time only after the import returned `Ok`」を、「writes a texture for the first time only after `release` reached `SHARED_PREPARED` (1): the importer signals it once the textures are prepared for the hand-off」に置き換える。
+  - 「Frames」の段落に「frame values start at 2 (1 is the preparation signal)」を加える。
+  - 既存の `ShareLink::provide` の `# Safety` の節の、「writing a texture only after `ShareLink::wait_ready` is `Ok`」を、この新しい順序の規則への参照に直す（provide が unsafe であることは変えない。texture の作り方など、確かめられない契約が残るため）。
 
 **pool の寿命:**
 
@@ -2204,9 +2222,9 @@ pub enum ExportNotice {
 
   - `export_drawable` が成功したら `pools` に (sink, generation) を入れ、`drop_export` で外す。
   - presenter が `GpuContext` を捨てる前に（device の喪失、`fallback_to_cpu` による session の CPU 化、その他の理由のすべて。presenter の `State` を GPU の状態から置き換える箇所）、`pools` の全項目を `ExportNotice::Lost` として `notices` に移し、`pools` を空にする。
-  - presenter が新しい `GpuContext` を使えるようにしたとき（`Starting` の完了、喪失の後の再起動の完了）に、`ExportNotice::Available` を一つ積む。
+  - presenter の状態が、export が `GpuContext` を借りられる Ready に入ったとき（起動の完了、喪失の後の再起動の完了のどちらでも、Ready へ入る一箇所）に、`ExportNotice::Available` を一つ積む。
   - `notices` は、提示が成功したか失敗したかに関係なく、`Window::take_export_notices() -> Vec<ExportNotice>` で取り出せる（取り出すと空になる）。
-- **`export_drawable` が `Unsupported` を返す条件:** presenter が GPU の device を持たないとき（`Starting` の間、CPU の session、feature の無い build）だけである。device を保ったまま一フレームだけ CPU で描く fallback の間は、device があるので pool を作る。
+- **`export_drawable` の失敗の区別:** presenter が GPU の device を持たないとき（`Starting` の間、CPU の session）は、kind が新しい `FailureKind::NotReady`（kivact-types の `platform.rs` に加える。"A capability exists but its backend is not ready yet; retry when it reports ready."）の `Failure` を返す（待てば変わり得る）。`gpu-interop` の無い build では kind が `FailureKind::Unavailable` の `Failure` を返す（変わらない）。device を保ったまま一フレームだけ CPU で描く fallback の間は、device があるので pool を作る。
 - **engine と core:** engine は pump ごとに `take_export_notices` を読み、`Lost` を `HostEvent::DrawableExportLost(ExportLoss)`、`Available` を `HostEvent::GpuExportAvailable` にする。core の扱いは §10.5 の遷移表のとおり（`Lost` は generation が現在と一致するときだけ新しい generation の `GpuRequested` に戻し、`Available` は `GpuWaiting` を新しい generation の `GpuRequested` に戻す）。adapter の identity（`GpuAdapterChanged`）は export の可否の判定に使わない。
 
 ### 8.13 提示
@@ -2240,7 +2258,7 @@ pub enum ExportNotice {
   - その layer の中（子の surface の中を除く）に、blend ≠ Normal の `Group` または `LayerEffects`、composite ≠ SourceOver の `LayerEffects` を持たない（surface を持つかどうかで合成の結果が変わる layer は inline にしない）
 
   それでも超える場合は、GPU は `RenderError::GpuLimit` を返す。presenter は既存の規則で、そのフレームを CPU で描く。CPU の executor は target の数の上限を持たない（大きさの上限 8192 だけを持つ）。
-- **3D の多角形:** 多角形の数で描き方を変えない。代わりに、参加面が 256 を超える 3D コンテキストは、engine と compositor の両方が同じ規則で「平坦な重なり」として扱う。描画は参加面を DOM 順（後のものが上）に重ね、hit test も DOM 順（後のものが先）で判定する。参加面の数は、tree の node の layer と、Draw の recording の 3D の layer（`DrawingLayer`。tree の node を増やさない）の両方を数える。engine は `Composition` を作るときに、コンテキストごとの数を同じ規則で数えて hit test にも使うので、描画と hit が食い違わない。256 以下のコンテキストの BSP は分割の数に上限を持たない。
+- **3D の多角形:** 多角形の数で描き方を変えない。代わりに、参加面が 256 を超える 3D コンテキストは、engine と compositor の両方が同じ規則で「平坦な重なり」として扱う。描画は参加面を DOM 順（後のものが上）に重ね、hit test も DOM 順（後のものが先）で判定する。参加面の数は、tree の node の layer、Draw の recording の 3D の layer（`DrawingLayer`。tree の node を増やさない）、R の空でない断片のすべてを数える。engine は `Composition` を作るときに、コンテキストごとの数を同じ規則で数えて hit test にも使うので、描画と hit が食い違わない。256 以下のコンテキストの BSP は分割の数に上限を持たない。
 - **layer の数:** 上限を持たない。
 - **診断:** inline、GpuLimit、平坦な重なりのどれかが起きたら、arvane は diagnostics に `RendererChange::LimitExceeded { what }` を一度だけ記録する。engine の平坦な重なりの判定（§7.3）は、同じ定数 `MAX_CONTEXT_PLANES = 256`（kivact-types の `render` に置く）を使う。
 
@@ -2345,11 +2363,11 @@ clip が Text の layer は、node 自身の shaped text のグリフの輪郭�
 2. **色:** t の色を C(t) = `interpolate(c_i, c_{i+1}, w(t), interpolation).to_srgb()` とする（元の色のまま補間してから gamut mapping する）。
 3. **適応分割:** 区間を、最初に t = h で二つに分け、各部分 [t_a, t_b] を次の条件を満たすまで二等分する。
    - 条件: 中点 t_m で、C(t_m) と、両端の色 C(t_a)、C(t_b) を Vello と同じ方法（premultiplied の sRGB の線形補間）で補間した色との差が、どの channel も 0.5/255 以下。
-   - 二等分の深さは最大 12 とする（1 区間あたり最大 4096 個の stop）。
+   - 二等分の深さは最大 12 とする（1 区間あたり最大 4096 個の stop）。深さ 12 で条件を満たさない部分（重みの式の傾きが無限大に近い t = 0 の近くなど。幅は区間の 1/4096 以下）は、そのまま両端の線形補間にする。
    - 特別扱いの省略は無い。端点が sRGB の範囲の外にある区間は、mapping が非線形なので、この条件によって必ず分割される。端点が sRGB の範囲の内側で、sRGB の補間で hint が無い区間だけが、結果として 2 stop のままになる。
 4. **stop の列:** 得られた t の列を位置 p_i + t·(p_{i+1} − p_i) に写し、C(t) を色とする stop の列にする。
 
-**精度の範囲:** この展開が保証するのは、stop の列が gradient の式と 0.5/255 以内で一致することまでである。Vello は gradient を有限の LUT（最大 4096 項目、補間なし）で標本化するので、色が数 px で大きく変わる箇所（hint が端に近い場合など）では、最終の画素が式から数階調ずれる。これは §3.3 の三段目（Vello の raster の差）に属し、本書は縮めない。
+**精度の範囲:** この展開が保証するのは、深さ 12 までに条件を満たした部分で、stop の列が gradient の式と 0.5/255 以内で一致することまでである。深さ 12 で打ち切った部分（幅は区間の 1/4096 以下）は保証しない。この幅は Vello の LUT の 1 項目以下なので、それ以上分割しても最終の画素は変わらない。Vello は gradient を有限の LUT（最大 4096 項目、補間なし）で標本化するので、色が数 px で大きく変わる箇所（hint が端に近い場合など）では、最終の画素が式から数階調ずれる。これは §3.3 の三段目（Vello の raster の差）に属し、本書は縮めない。
 
 ### 9.7 text の stroke、fill、variation
 
@@ -2412,13 +2430,14 @@ pub struct Animation {
 - **decode 中の予算:**
   - **次の frame を decode する前に**、その decode の後の同時の保持量を見積もる。見積り = (保存済みの frame 数 + 1 + W) × w × h × 4 とする。W は形式ごとの decoder の作業領域の frame 数で、image 0.25 の実装の割り当てから決めた値である。
     - GIF: W = 2（合成の canvas と、frame の raw buffer）
-    - WebP: W = 2（合成の canvas と、frame の buffer）
+    - WebP: W = 2（合成の canvas と、frame の buffer。主な画像の buffer の見積りであり、bitstream によって決まる補助の領域（color cache、Huffman の画像など）は含まない）
     - APNG: W = 4（current と previous の 2 frame、raw frame の領域、出力の clone）
   - **1 枚目の前:** 見積り（保存 0 + 1 + W）が予算の 1/4 を超えるなら、アニメーションとしての decode をせず、既存の静止画の `decode`（その形式の最初の frame だけを読む。既存の予算と `OverBudget`/`Memory` の検査を持つ）で Still にする。`tracing::warn!` を一度出す。静止画の `decode` も失敗すれば、既存のとおり失敗として扱う。
   - **2 枚目以降の前:** 見積りが予算の 1/4 を超えるなら、その frame を decode せずに止め、それまでに decode した最初の frame だけの Still にする（2 枚目以降は捨てる）。`tracing::warn!` を一度出す。
   - **decoder の内部の上限:** decoder 自身の割り当ての扱いは、形式ごとに次のとおりである（固定版 image 0.25.10 の実装による）。
-    - GIF、APNG: `ImageDecoder::set_limits` で既存の `decode` と同じ `Limits`（`max_image_width`/`max_image_height` = `MAX_IMAGE_EDGE`、`max_alloc` = `MAX_DECODER_ALLOC`）を掛ける。超えたら既存の `RasterError::Memory` にする。
-    - WebP: image の WebP の wrapper は `set_limits` を上書きせず、寸法しか検査しない（`max_alloc` は効かない）。WebP の decoder の割り当ては header の寸法で決まる canvas と frame の buffer なので、保証は上の外側の見積り（寸法 × W）だけである。本書は、WebP の decoder の内部の割り当てに、それ以上の上限を約束しない。
+    - GIF: `GifDecoder::new` の後、`ImageDecoder::set_limits` で既存の `decode` と同じ `Limits`（`max_image_width`/`max_image_height` = `MAX_IMAGE_EDGE`、`max_alloc` = `MAX_DECODER_ALLOC`）を掛ける。超えたら既存の `RasterError::Memory` にする。
+    - APNG: `PngDecoder::with_limits(reader, limits)`（同じ `Limits`）で作り、その後に `apng()` へ進む。`PngDecoder::new` の後の `set_limits` は png crate の内部の buffer に効かないので使わない。
+    - WebP: image の WebP の wrapper は `set_limits` を上書きせず、寸法しか検査しない（`max_alloc` は効かない）。保証は上の外側の見積り（寸法 × W。主な画像の buffer だけ）である。本書は、WebP の decoder の内部の割り当ての総量に上限を約束しない。
   - 1 frame の大きさの検査は、既存の `decode` と同じく割り当ての前に行う。
 
 **AssetStore:** `pub fn animation(&mut self, asset: &Asset) -> Option<AnimationInfo>` を追加する。`pixels`/`pixels_in` に引数 `frame: u32` を追加する。
@@ -2546,6 +2565,27 @@ impl Viewport {
     pub fn drawable<V: IntoView>(self, drawable: Drawable, content: impl IntoViewFn<V>) -> Self;
 }
 ```
+
+**binding（一つの drawable は同時に一か所にだけ mount される）:**
+
+```rust
+// kivact-core/src/view/drawable.rs
+pub(crate) enum DrawableBinding {
+    Unbound,
+    /// Mounted: its root node and the node that hosts it.
+    Bound { root: NodeId, host: NodeId },
+}
+// DrawableState { owner: Owner, binding: Cell<DrawableBinding>, share: … }
+```
+
+- `Node::drawable` と `Viewport::drawable` は、mount の前に、既存の `NodeRef::bind_target` と同じ順で検査し、当たれば中身を mount せずに報告する。
+  - drawable が別の App のもの: `ErrorKind::WrongApp`（"`.drawable(d)` got a Drawable of another App; it was not mounted"）
+  - drawable の owner が dispose 済み: `ErrorKind::Disposed`
+  - binding が `Bound` で、その root が tree に残っている: `ErrorKind::Message`（"Drawable is already mounted"）
+- 検査を通ったら mount し、`Bound { root, host }` にする。
+- root を unmount したとき、binding の root がその root と一致するときだけ `Unbound` に戻す（後の mount の binding を消さない）。unmount の後は、別の場所に mount し直せる。
+- engine の entry（§10.3）も、remove の時に entry の root が一致するときだけ消す。
+- **`Draw::drawable` の host の検査:** engine は drawable を、その entry の host の `draw`/`draw_over` の scene の中でだけ配置する。他の node の scene の `DrawCmd::Drawable` は描かず、その node の region の errors に `"drawable {id} is not hosted by this node"` を一度報告する。
 
 **mount の手順:**
 
@@ -2677,11 +2717,6 @@ impl DrawableShare {
     /// (the window's adapter: `kivact::gpu_interop::adapter()`). Starts a new generation.
     #[cfg(feature = "gpu-interop")]
     pub fn request_gpu(&self, adapter: GpuAdapter);
-    /// Tell the window that the textures of `generation` were imported and
-    /// GPU frames may start (the consumer-ready acknowledgement). Ignored
-    /// unless `generation` is the current one.
-    #[cfg(feature = "gpu-interop")]
-    pub fn imported(&self, generation: u64);
     /// Stop exporting (frees the window's pool). Starts a new generation.
     pub fn stop(&self);
     /// Device px per logical px of exported frames (default: the window's scale).
@@ -2693,13 +2728,15 @@ impl DrawableShare {
     pub fn latest(&self) -> Option<DrawableFrame>;
     /// Wait for what the consumer must handle next:
     /// - new shared textures not yet taken (after `request_gpu`, a resize or
-    ///   a device change): import them, then call `imported(generation)`;
-    ///   GPU frames of that generation come only after that;
+    ///   a device change): import them (`kivact_gpu_share::import::Import::new`
+    ///   tells the window when they are ready); GPU frames of that generation
+    ///   come only after the import;
     /// - otherwise a frame of the current generation with `number > after`.
     ///   Frame numbers grow over the whole life of the drawable and never
     ///   restart, so `after` from an older generation returns the first frame
     ///   of the current one (pass 0 for "any frame").
-    /// Errors: `Timeout`, `Closed` (disposed), `Failed` (the request failed).
+    /// Errors: `Timeout`, `Closed` (disposed), `Failed` (the request failed,
+    /// e.g. a build without GPU sharing). Never `Stale`.
     pub fn wait(&self, after: u64, timeout: std::time::Duration) -> Result<ShareUpdate, ShareError>;
     pub fn is_closed(&self) -> bool;
 }
@@ -2729,7 +2766,7 @@ pub enum DrawableFrame {
 **`ShareError` と `Inbox` の移動:**
 
 - `ShareError` は、既存の `kivact::gpu_interop::ShareError` を `kivact-core::view` へ移し、両方の経路で使う（feature の外に置く。DEP-4）。
-  - variant `Stale`（待っている間に generation が変わった）を、両方の経路で使う。
+  - variant `Stale` は、既存の `ShareLink` の token 付きの操作だけが返す。`DrawableShare::wait` は Stale を返さない。待っている間に generation が変わったら、新しい generation の `Textures` か `Frame` を待ち続ける（§10.5 の consumer の繰り返しが Err で終わらない）。
 - 既存の `Inbox`（`gpu_interop/import/inbox.rs`）は、feature の外の新しい module `kivact-core/src/sync.rs`（`//! Role: Thread-safe mailboxes shared by worker-thread handles.`）へ移し、`gpu_interop` と `view` の両方から使う。
   - `[module_rules.kivact-core.uses]` に `sync = []` を加え、`gpu_interop` と `view` の uses に `"sync"` を足す。
 
@@ -2758,11 +2795,10 @@ pub(crate) enum ExportRequest {
     GpuRequested { generation: u64, adapter: GpuAdapter },
     /// The window has no GPU device; retried on `GpuExportAvailable`.
     GpuWaiting { generation: u64, adapter: GpuAdapter },
-    /// Textures made; waiting for `imported(generation)`. `textures` is
-    /// taken once by `wait` (as `ShareUpdate::Textures`). No GPU frames yet.
-    GpuAwaitingImport { generation: u64, adapter: GpuAdapter, textures: Option<SharedTextures>, size: (u32, u32) },
-    /// The consumer imported the textures; GPU frames flow.
-    GpuReady { generation: u64, adapter: GpuAdapter, size: (u32, u32) },
+    /// Textures made. `textures` is taken once by `wait` (as
+    /// `ShareUpdate::Textures`). GPU frames flow once the consumer's import
+    /// signals the pool's release fence (§8.12); the core does not track it.
+    GpuProvided { generation: u64, adapter: GpuAdapter, textures: Option<SharedTextures>, size: (u32, u32) },
     Failed { generation: u64, error: UiError },
 }
 ```
@@ -2783,18 +2819,16 @@ pub(crate) enum ExportRequest {
 
 | 状態 | event | 次の状態 |
 |---|---|---|
-| `GpuRequested { g }` | `DrawableTextures { g, Ok(t) }` | `GpuAwaitingImport { g, textures: Some(t) }` |
-| `GpuRequested { g }` | `DrawableTextures { g, Err(Unsupported) }` | `GpuWaiting { g }` |
-| `GpuRequested { g }` | `DrawableTextures { g, Err(その他) }` | `Failed { g }` |
+| `GpuRequested { g }` | `DrawableTextures { g, Ok(t) }` | `GpuProvided { g, textures: Some(t) }` |
+| `GpuRequested { g }` | `DrawableTextures { g, Err(kind NotReady) }` | `GpuWaiting { g }` |
+| `GpuRequested { g }` | `DrawableTextures { g, Err(その他。Unavailable を含む) }` | `Failed { g }` |
 | `GpuWaiting { g }` | `GpuExportAvailable` | 新 g の `GpuRequested` |
-| `GpuAwaitingImport { g }` | `imported(g)` | `GpuReady { g }` |
-| `GpuAwaitingImport { g }`、`GpuReady { g }` | `DrawableResized`、`DrawableExportLost { g }` | 新 g の `GpuRequested` |
-| `GpuRequested { g }`、`GpuAwaitingImport { g }`、`GpuReady { g }` | `GpuExportAvailable` | 変化なし |
+| `GpuProvided { g }` | `DrawableResized`、`DrawableExportLost { g }` | 新 g の `GpuRequested` |
+| `GpuRequested { g }`、`GpuProvided { g }` | `GpuExportAvailable` | 変化なし |
 | どの Gpu の状態でも | `request_pixels`、`request_gpu`、`stop` | 新 g の各状態 |
 
-- **import の失敗と未接続:** アプリが import に失敗したか、import しない間は、`GpuAwaitingImport` のままである。window の提示は続き、GPU の frame は来ない。アプリは `stop` か `request_pixels` で抜ける。
-- **古い ACK:** `imported` の generation が現在と違えば捨てる（resize の後に古い textures の ACK が届いても、新しい pool には書かない）。
-- **`textures` の受け渡し:** `wait` が `take()` で一度だけ `ShareUpdate::Textures` として渡す。まだ取られていない textures があれば、`wait` は frame より先にそれを返す（ACK の前に frame を待つ循環が起きない）。
+- **import の失敗と未接続:** アプリが import に失敗したか、import しない間は、`GpuProvided` のまま、pool の release fence が 1 にならない。window の提示は続き、export は見送られて再試行が続く（間隔は 100 ms まで伸びる）。GPU の frame は来ない。アプリは `stop` か `request_pixels` で抜ける。
+- **`textures` の受け渡し:** `wait` が `take()` で一度だけ `ShareUpdate::Textures` として渡す。まだ取られていない textures があれば、`wait` は frame より先にそれを返す（import の前に frame を待つ循環が起きない）。
 - **number:** core は、受け付けた frame に `next_number` を振る。number は generation をまたいで増え続ける。`wait(after)` は、現在の generation の frame で number > after のものを返す。after が古い generation の number でも、現在の generation の frame の number はそれより大きいので、待ち続けない。
 - **consumer の標準の繰り返し:**
 
@@ -2804,8 +2838,9 @@ let mut imported = None; // the app's own imported textures
 loop {
     match share.wait(seen, Duration::from_millis(100)) {
         Ok(ShareUpdate::Textures(t)) => {
-            imported = Some(import_into_my_device(t.textures)?); // kivact_gpu_share::import::Import
-            share.imported(t.generation);
+            // kivact_gpu_share::import::Import; its success also tells the
+            // window that these textures are ready for frames.
+            imported = Some(Import::new(&device, &queue, t.textures)?);
         }
         Ok(ShareUpdate::Frame(frame)) => {
             seen = frame.number();
@@ -2825,11 +2860,11 @@ loop {
 
 1. `DrawableShare` の method は、Inbox を更新して、`ThreadWaker` で UI thread を起こす。
 2. core は turn の始めに各 drawable の Inbox を読み、次の host request を出す。
-   - request の変化: `HostRequest::DrawableExport { id, generation, mode: ExportRequestMode, scale }`。`ExportRequestMode` は `None`、`Pixels`、`GpuPrepare(adapter)`（`GpuRequested` のとき。pool を作るが frame は出さない）、`GpuReady`（frame を出す）である。`GpuWaiting`、`GpuAwaitingImport` と `Failed` は、それぞれ None、`GpuPrepare`（作成済みなので engine は何もしない）、None として送る。
+   - request の変化: `HostRequest::DrawableExport { id, generation, mode: ExportRequestMode, scale }`。`ExportRequestMode` は `None`、`Pixels`、`Gpu(adapter)` である。`GpuRequested` と `GpuProvided` は `Gpu(adapter)`、`GpuWaiting` と `Failed` は `None` として送る。
    - geometry の Mailbox: `HostRequest::SetDrawableGeometry { id, generation, geometry }`
-3. engine は mode が `Pixels` か `GpuReady` の drawable について、毎フレーム `Composition::exports` に `Export { layer, sink: id, size: ⌈size × scale⌉, scale, generation, mode }` を加える。
+3. engine は mode が `Pixels` の drawable と、mode が `Gpu` で pool を作れた drawable について、毎フレーム `Composition::exports` に `Export { layer, sink: id, size: ⌈size × scale⌉, scale, generation, mode }` を加える。
 4. GPU の mode の扱い:
-   - **pool の作成:** engine は、`GpuPrepare` の generation が変わったときに、`window.export_drawable(id, generation, adapter, size)` を呼ぶ。`GpuPrepare` か `GpuReady` の間に大きさが変わったら、core に新しい generation を求める `HostEvent::DrawableResized { id }` を出し、core の新しい request（`GpuPrepare`）を受けてから呼ぶ。
+   - **pool の作成:** engine は、`Gpu` の generation が変わったときに、`window.export_drawable(id, generation, adapter, size)` を呼ぶ。`Gpu` の間に大きさが変わったら、core に新しい generation を求める `HostEvent::DrawableResized { id }` を出し、core の新しい request を受けてから呼ぶ。consumer の import の前の export は compositor が見送る（§8.12）ので、engine は import を待たない。
    - **textures の返却:** 結果の textures は `HostEvent::DrawableTextures { id, generation, result }` で core へ返す。
    - **Gpu を離れるとき:** mode が Gpu から Pixels または None に変わったら、engine は `window.drop_export(id)` を呼ぶ。
 5. compositor が返した `ExportedFrame` は、`Presented::Shown::exports`（§10.6）から `HostEvent::DrawableFrame(ExportedFrame)` のまま core へ返す（Pixels も Gpu も同じ envelope の generation を持つ）。core は、envelope の generation が現在と一致する frame だけで `latest` を更新し、number を振る。
@@ -2848,7 +2883,7 @@ pub(crate) enum ExportRetry {
    - **遷移（提示ごとに確定する）:** `Presented::Shown` を受けるたびに、export 中の各 drawable の `ExportRetry` を、その提示の `pending_exports` だけから決める。
      - sink が `pending_exports` にある: `Idle` なら `Pending { retry_at_ns: now + period, interval_ns: period }`（period は display の 1 フレーム）。`Pending` なら interval を 2 倍（上限 100 ms）にして retry_at を更新する。
      - sink が `pending_exports` に無い: `Idle` にする（送れた場合も、内容が最後に送ったものへ戻って送る必要が無くなった場合も同じ）。
-     - mode が `GpuReady` でなくなったとき、drawable を破棄したときも `Idle` にする。
+     - mode が `Gpu` でなくなったとき、drawable を破棄したときも `Idle` にする。
    - **frame の要求:** `Pending` の retry_at_ns を、pump の既存の deadline（timer と同じ ns の値）に加える。retry_at_ns に達したら、dirty が無くても frame を提示する。この frame の damage は空で、compositor は Export だけを処理する（画面の画素は変わらない）。`Instant` は使わない（仮想時計の試験で進まないため）。
    - consumer が止まっても、interval が 100 ms まで伸びるので busy loop にならない。
 7. **喪失と復帰:** engine は pump ごとに `window.take_export_notices()` を読み、`Lost` を `HostEvent::DrawableExportLost(ExportLoss)`、`Available` を `HostEvent::GpuExportAvailable` で core へ返す（§8.12）。
@@ -2865,7 +2900,7 @@ pub(crate) enum ExportRetry {
 
 **受入条件:** 次の場合に window の提示が止まらず、export だけが見送られるか作り直されることを、試験（§17.2）で確かめる。
 
-- アプリが import しない（ACK が来ない）
+- アプリが import しない（準備の合図が来ない）
 - アプリが release しない（再試行の間隔が伸び、release の後に他の UI の変化が無くても最新の frame が届く）
 - device を失った、window が CPU へ fallback した
 - drawable を破棄した
@@ -2882,7 +2917,7 @@ compositor の報告（export した frame、見落とした外部 frame、shade
   - `missed`: 既存の `RendererChange::ExternalFrameMissed` で記録する（既存の振る舞いのまま）。
   - `shader_failures`: `RendererChange::ShaderFailed { message }` で、hash ごとに一度だけ記録する。
 - engine の `Host::present` は、`Presented::Shown::exports` の各 frame を `HostEvent::DrawableFrame(frame)` にし、`pending_exports` で `ExportRetry` を更新する（§10.5）。
-- `arvane::Window` に次の method を加える。`import_external_image` と同じく、feature の無い build では `Failure`（Unsupported）を返す。
+- `arvane::Window` に次の method を加える。feature の無い build では kind が `Unavailable` の `Failure` を返す（§8.12）。
 
 ```rust
 impl Window<'_> {
@@ -3513,10 +3548,9 @@ prelude に次を加える（日常の利用に要る最小限）。
 - 成分 i の振幅を a_i = clamp(max(|to_i − from_i|, |v0_i| / ω0), 1e-9, 500) とする。v0 は run の開始の速度、ω0 = √(k/m) である。
   - 下限 1e-9: 振幅も速度も 0 の成分は、最初の step で静止する。0 → 0.0005 のような小さい振幅も、相対の判定なので 0 → 1 と同じ時間で静止する。
   - 上限 500: 振幅が 500 を超える run（長い scroll など）でも、最後に跳ぶ量が 0.5（px などの単位）を超えない。その代わり、振幅が 500 を超えると、静止までの時間が ln(a/500)/(ζω0) だけ伸びる（`with_duration` の保証の範囲は、振幅 500 以下である）。
-- すべての成分で次を満たしたら静止とする。
-  - |x_i − to_i| ≤ rest·a_i
-  - |v_i| / ω0 ≤ rest·a_i
-- 速度を ω0 で割るので、duration を短くして ω0 が大きくなっても、速度の閾値が相対的に厳しくならない（duration によらず、位置と速度が同じ時刻に閾値を下回る）。
+- 成分ごとの大きさ E_i = √((x_i − to_i)² + (v_i / ω0)²) を使い、すべての成分で E_i ≤ rest·a_i を満たしたら静止とする。
+- E は減衰振動の energy（½k·x² + ½m·v² = ½k·E²）の平方根なので、どの ζ でも時間とともに増えない（d/dt = −c·v² ≤ 0）。だから一度条件を満たせば、以後ずっと満たす。位置と速度が一瞬だけ小さくなる時刻で終わることはない。以後の |x − to| と |v|/ω0 も E 以下である。
+- 速度を ω0 で割るので、duration を短くして ω0 が大きくなっても、判定が相対的に厳しくならない。
 
 **step（解析解。`spring_step` を置き換える）:** 既存の半陰的 Euler 法（1 ms の substep）は、高い減衰（`with_duration(500, −0.99)` の ζ ≈ 100）で発散するので削除する。代わりに、各 step で、成分ごとに、前の step の位置と速度を初期値とする減衰振動の解析解で dt だけ進める。これは公開 API が受け付けるすべての係数と dt で安定である。
 
@@ -3552,13 +3586,11 @@ impl SpringRun {
 
 1. ζ = bounce ≥ 0 ? 1 − bounce : 1 / (1 + bounce)
 2. ω0 = 1 での正規化した静止時刻 τ(ζ) を、δ = 1e-3 として求める。τ は「それ以後ずっと、位置と速度/ω0 の両方が δ 以下」になる時刻である。
-   - 以下、0 → 1（x0 = −1、v0 = 0、ω0 = 1）の解析解（§12.2 の式）の x(t)、v(t) を使い、「t で静止の条件が成り立つ」を max(|x(t)|, |v(t)|) ≤ δ とする。
-   - ζ < 1: τ_env = ln(1 / (δ·√(1 − ζ²))) / ζ とする。|x(t)| と |v(t)| はどちらも e^(−ζt)/√(1 − ζ²) 以下なので、τ_env 以後は条件が必ず成り立つ。τ は、t = τ_env から 1e-3 ずつ戻り、条件が成り立たない最初の点に 1e-3 を足した値とする（τ 以後、条件が成り立ち続ける）。
-   - ζ ≥ 1: 解は単調に近づくので、t = 0 から 1e-3 刻みで探し、条件が成り立つ最初の t を τ とする（上限 t = 1e5。ζ = 100 で τ ≈ 1381.5）。
+   - 0 → 1（x0 = −1、v0 = 0、ω0 = 1）の解析解（§12.2 の式）の x(t)、v(t) から E(t) = √(x(t)² + v(t)²) を作る。E は増えないので、E(t) ≤ δ となる最小の t を二分探索で求め、τ とする（上端は E ≤ δ になるまで t = 1 から倍にして探す。精度 1e-7）。ζ = 100 で τ ≈ 1381.5 程度になる。
 3. ω0 = τ / (duration_ms / 1000)
 4. stiffness = ω0²、damping = 2ζ·ω0、mass = 1、rest = 1e-3
 
-**frame の間隔:** 静止の判定は各 frame の step の後で行う。τ 以後は条件が成り立ち続けるので、検出は duration + 1 frame 以内である。振動が大きい場合（bounce 0.9〜0.99）は τ より少し前に一瞬成り立つことがあり、検出は 0.95·duration 以上になる（検算: duration 500 ms、bounce −0.99〜0.99、frame の間隔 1 ms・16 ms・100 ms で 480〜512 ms。振幅 500 以下、v0 = 0 のとき）。
+**frame の間隔:** 静止の判定は各 frame の step の後で行う。E は増えないので、τ より前に静止することはなく、τ 以後の最初の frame で静止する。検出は [duration, duration + 1 frame] に入る（検算: duration 500 ms、bounce −0.99〜0.99 を 0.01 刻み、frame の間隔 1 ms・16 ms・100 ms で 500〜512 ms。振幅 500 以下、v0 = 0 のとき）。
 
 ### 12.3 keyframes
 
@@ -3611,6 +3643,16 @@ pub(crate) struct AnimCell<T: 'static> {
 ```
 
 既存の field `from`、`to`、`timing`、`spring` は `Run` に移す（S-3）。`retarget`、`begin`、`finish`、`step`、`shift_clock` は、phase の payload を読み書きする形に書き直す。
+
+**`set_velocity` の遷移:**
+
+| phase | `set_velocity(v)` の結果 |
+|---|---|
+| Running | 今の run の速度を v にする。run の repeat、direction、反復の回数はそのまま |
+| Paused | 今の run の速度を v にする（resume の後にその速度から動く） |
+| Idle、Completed | current から target へ、新しい run を始める。timing は cell の transition の spring を使い、`Repeat::Times(1)`、`PlayDirection::Normal`、delay 0 とする（速度を与えて target へ戻す一回の動きである） |
+
+transition が spring でなければ、どの phase でも報告して無視する。
 
 **target の持ち主:** cell の target は phase だけが持つ（別の field に写さない）。Idle では `current`、Completed では `target`、Running と Paused では `run.to` である。`get_target()` 相当の内部関数 `target(&self) -> Vec<f64>` は、この規則で phase から読む。
 
@@ -3886,6 +3928,14 @@ pub enum PropBasis {
     Filters { backdrop: bool, ops: Vec<FilterOp> },
 }
 
+impl PropBasis {
+    /// Whether two bases interpolate the same components: the same variant
+    /// and prop; for Shadows the same length and inset at each index; for
+    /// Filters the same `backdrop`, length, function kind at each index and
+    /// `==` Graph and Shader ops. The numbers in the basis are not compared.
+    pub fn same_shape(&self, other: &PropBasis) -> bool;
+}
+
 /// The interpolation of `prop` between two paints, or None when they cannot
 /// be interpolated (the property switches at once, as CSS discrete interpolation).
 pub fn prop_interp(prop: TransitionProp, from: &PaintProps, to: &PaintProps, text: (Rgba, Rgba)) -> Option<PropInterp>;
@@ -3963,8 +4013,8 @@ pub(crate) enum TrackPhase {
   2. new = `prop_interp(prop, 表示中の paint, 新しい target, …)` を作る。new.from は、表示中の値を新しい basis で表したものになる（shown を流用しない。basis の成分の数が変わっても整合する）。None なら、track を Settled にする（即座に切り替わる）。
   3. new.to が new.from と等しければ Settled にする。
   4. そうでなければ、basis が変わったかで次のように決める。
-     - `old.basis == new.basis` のとき: 成分が一対一に対応するので、timing = `transition.retargeted(old.from, old.to, new.from, new.to)` とし、速度を保つ。
-     - basis が違うとき（shadow の数、filter の列が変わった）: 成分が対応しないので、新しい run として始める。timing は `transition` のまま（比例の retarget をしない）、速度は 0 にする。
+     - `old.basis.same_shape(&new.basis)` のとき: 成分が一対一に対応するので、timing = `transition.retargeted(old.from, old.to, new.from, new.to)` とし、速度を保つ。
+     - shape が違うとき（shadow の数や inset、filter の関数の列が変わった）: 成分が対応しないので、新しい run として始める。timing は `transition` のまま（比例の retarget をしない）、速度は 0 にする。
   5. Running { interp: new, current: new.from, start: now, spring } にし、`spring.start(now, &timing, &new.from, &new.to)` を呼ぶ。
 - **step:** Running の track を `Transition::step` で進める。終わったら、終わりの値（§12.3）が interp.to なら Settled、そうでなければ Held { value } にする。
 - 全 track が Settled になったら、`StateAnimation` を map から消す。
@@ -4116,8 +4166,9 @@ box_map(a, b) = T(−a.x, −a.y).then(S(b.w / a.w, b.h / a.h)).then(T(b.x, b.y)
 | `LoopMotion` | §12.5 | 構築時の設定（`essential()`） | owner の dispose |
 | `PlaybackState` | §9.8 | engine。paint list の再構築と tick | 再生しない条件で entry を消す |
 | `Placement`、`DrawnPlacement` | §10.3 | engine。`set_scene`（Canvas。両 slot から作り直す）と `SetDrawableGeometry`（Export。generation を照合） | drawable root の remove で entry ごと消す |
-| `ExportLink`、`ExportRequest`（generation 付き。GPU は Requested、Waiting、AwaitingImport、Ready） | §10.5 | core。`DrawableShare` の method（`imported` を含む）と、generation を照合した host event。GPU は §10.5 の遷移表 | dispose で Closed |
-| `ExportRetry`（Idle、Pending） | §10.5 | engine。提示ごとに `pending_exports` から確定する。Pending の retry_at_ns は pump の deadline（host の ns の時計） | `pending_exports` に無い提示、mode が `GpuReady` でなくなる、drawable の破棄で Idle |
+| `ExportLink`、`ExportRequest`（generation 付き。GPU は Requested、Waiting、Provided） | §10.5 | core。`DrawableShare` の method と、generation を照合した host event。GPU は §10.5 の遷移表 | dispose で Closed |
+| `DrawableBinding`（Unbound、Bound） | §10.2 | core。`Node::drawable`/`Viewport::drawable` の mount（検査の後）、root の unmount（root が一致するときだけ） | drawable の owner の dispose |
+| `ExportRetry`（Idle、Pending） | §10.5 | engine。提示ごとに `pending_exports` から確定する。Pending の retry_at_ns は pump の deadline（host の ns の時計） | `pending_exports` に無い提示、mode が `Gpu` でなくなる、drawable の破棄で Idle |
 | `ExportRegistry`（pool の記録と `ExportNotice` の queue） | §8.12 | arvane の presenter。`export_drawable`、`drop_export`、`GpuContext` を捨てる前、新しい `GpuContext` の準備の完了 | presenter と同じ寿命。notices は `take_export_notices` で空になる |
 | `ExportRecord` | §8.12 | compositor。export に成功したとき（純粋 cache） | sink の drop_export、device の喪失 |
 | `ShowArm::Leaving`、`Next` | §12.10 | Show、ShowSome、Dynamic の effect と exit の callback | branch の owner の dispose |
@@ -4292,7 +4343,7 @@ fn present_with(
 | CONTRACT-GRADIENT-PRECISION | gradient の画素の精度 | engine の展開は式と 0.5/255 以内。最終の画素は Vello の LUT（最大 4096 項目）の量子化を含む | 独自の gradient の rasterizer を持たず、CPU と GPU で同じ Vello の経路を使うため。ユーザーが 2026-11-07 に承認した |
 | CONTRACT-REPEAT-END | 反復した run の終わりの値 | 最後の反復の終わりの値（alternate で偶数回なら from）。`Animated`、state transition、Timeline で共通 | CSS の animation と Framer Motion と同じにし、経路で終わりの値が違わないようにするため |
 | CONTRACT-3D-CROWD | 参加面の多い 3D コンテキスト | 参加面が 256 を超えたら、描画も hit も DOM 順の平坦な重なりにする（engine と compositor が同じ定数で判定する） | 描画と hit の食い違いを作らずに、BSP の分割の量を有限にするため。ユーザーが 2026-11-07 に承認した |
-| CONTRACT-EXPORT-ACK | GPU の export の開始 | consumer が `imported(generation)` で import の完了を知らせるまで、GPU の frame を書かない。slot が無いときは backoff（上限 100 ms）で再試行する | 既存の `SharedTextures` の hand-off の契約を守り、止まった consumer で window も CPU も止めないため |
+| CONTRACT-EXPORT-ACK | GPU の export の開始 | consumer の import が共有の release fence を `SHARED_PREPARED`（1）に signal するまで、window は fresh な slot に書かない（frame の値は 2 から）。それまでの export と、slot が無いときの export は、backoff（上限 100 ms）で再試行する。公開 API に ACK も unsafe も持たない | 既存の `SharedTextures` の hand-off の契約を、確かめられない自己申告ではなく GPU の fence で守るため。import の完了を知らせる処理は kivact-gpu-share の safe な `Import::new` の中にあり、利用者は import するだけでよい。止まった consumer で window も CPU も止めない |
 | CONTRACT-BACKDROP-ROOT | backdrop が読む範囲 | CSS の Backdrop Root（effects を持つ layer）または root。effects が既定の layer（overlay、fixed、cache、3D、drawable）は透過として、その中身を重ねて読む | 実画素を読む合成で、CSS の Backdrop Root と同じ見え方にするため |
 
 日付はすべて 2026-11-07 とする。
@@ -4307,7 +4358,8 @@ fn present_with(
 - 画素の比較の許容差は §3.3 の三段に従う。
   - 一段目（幾何）: 位置は ±1 device px。
   - 二段目（compositor の Op の結果）: channel ごとに ±2/255。
-  - 三段目（Vello の raster を含む画素。輪郭の AA、glyph、box shadow の blur、gradient の LUT）: 最大差を決めない。既存の `kivact-test/src/screen/gpu_tests.rs` の分布の基準（平均の差、差が大きい画素の比率）をそのまま使う。基準の値は、その file の定数を参照し、試験に書き写さない。
+  - 三段目（Vello の raster を含む画素。輪郭の AA、glyph、box shadow の blur、gradient の LUT）: 最大差を決めない。既存の `kivact-test/src/screen/gpu_tests.rs` の `assert_close` の分布の基準（平均の差 ≤ 1.0、差 > 64 の画素 ≤ 0.5%、差 ≤ 8 の画素 ≥ 99%）を使う。
+  - この基準は、kivact-test の公開 API に一か所だけ置く: `Screenshot::raster_difference(&self, other: &Screenshot) -> RasterDifference`（`pub struct RasterDifference { pub mean: f64, pub far: f64, pub close: f64 }`）と `RasterDifference::within_raster_tolerance(&self) -> bool`（上の三つの値を定数として持つ）。既存の `assert_close` もこれを使う形に書き換える（U55）。E2E は試験に閾値を書き写さず、これを呼ぶ。
   - 試験は、比べる画素がどの段かを試験名の近くのコメントに書く。
 - 色や数式の期待値は、実装の関数で計算しない。本書の式から求めた既知の数値、または性質（範囲の内側にある、L と H が保たれる、など）で確かめる。
 - GPU の試験は `RenderOptions::from_env().gpu().mirror(MirrorMode::Required)` を使い、`gpu_unavailable()` が理由を返したら skip する（既存の `gpu_interop.rs` と同じ形）。
@@ -4338,13 +4390,14 @@ fn present_with(
 | `partial_redraw_matches_full_redraw` | 多数の node のうち一つの色を変えた後の screenshot が、最終状態を新しく mount した screenshot と一致する。そのフレームの `frame_stats()` の `damage_pixels` が window の 10% 未満である |
 | `damage_reaches_through_blur_and_backdrop` | blur を持つ親の中の子の色を変える場合と、backdrop の下の内容を変える場合の両方で、screenshot が新しい mount と一致する（damage の伝播） |
 | `translucent_move_leaves_no_trail` | 半透明の node を動かした後の screenshot が、新しい mount と一致する（damage の部分消去） |
-| `cached_layer_moves_without_raster` | `will_change(Transform)` の node を、小数 px を含む translate（0 → 37.25 px を 16 ms ごとの値）で動かす。各時刻の位置が期待どおり（±1 device px）で、最終の screenshot が新しい mount と ±2/255 で一致する。動かしている間の `Screen::frame_stats()` の `chunks_rastered` が 0 である（`RasterGrid::Layer`。§8.15） |
+| `cached_layer_moves_without_raster` | window の内側に収まる `will_change(Transform)` の node を、小数 px を含む translate（0 → 37.25 px を 16 ms ごとの値）で動かす。各時刻の位置が期待どおり（±1 device px）で、最終の screenshot が新しい mount と ±2/255 で一致する。動かしている間の `Screen::frame_stats()` の `chunks_rastered` が 0 である（`RasterGrid::Layer`。§8.15） |
 | `backdrop_sees_backdrop` | 二枚重ねた backdrop blur の内側の画素が、一枚だけのときの画素と異なる |
 | `backdrop_in_overlay_sees_the_app` | overlay の中の panel の backdrop blur が、overlay の下のアプリの内容をぼかす（panel の内側の画素が、下の内容の blur の値になる） |
 | `destination_out_cuts_a_hole` | Draw の layer に `composite(DestinationOut)` で円を描くと、その内側の画素が下の背景色になる |
 | `many_cache_layers_keep_content` | 5000 個の `will_change` の node の button がすべて描かれ（各 button の中心の画素が背景と異なる）、最後の button をクリックできる（上限の inline、§8.14） |
 | `cull_keeps_blur_reaching_into_view` | window の左端の外 20 px に置いた幅 10 px の box に blur(10) を掛けると、window の x = 0〜5 の画素が、同じ scene を左に 40 px 広い window で描いて切り出した画素と ±2/255 で一致する（効果の到達範囲で cull する。§8.3） |
 | `inline_keeps_isolation_and_blend` | 5000 個の `will_change` の node と同じ window で、赤い背景の上に、透明な `isolation(Isolate)` の親とその中の不透明な青の `blend_mode(Multiply)` の子を置くと、子の画素が青になる（inline にしない。§8.14） |
+| `coplanar_draw_order_is_kept_in_3d` | `transform_style(Preserve3d)` の canvas の同じ矩形に、赤を塗る → `scale_z(2)` の Draw layer の中で青を塗る → 緑を塗る、と描くと、矩形の画素が緑になる。同じ構成で、三つの命令の位置に置いた region のクリックが、緑の region に当たる |
 | `crowded_3d_context_hits_what_is_drawn` | 互いに交差する 300 枚の button を一つの `Preserve3d` の親に置く（`MAX_CONTEXT_PLANES` を超える）。重なった点のクリックが、その点に最後に描かれた（DOM 順で後の）button の `on_press` を呼び、その点の画素がその button の色である |
 
 **`effects_filters.rs`**
@@ -4388,7 +4441,7 @@ fn present_with(
 | `wide_gamut_gradient_interpolates_source_colors` | `color(display-p3 0 1 0)` から `oklch(0.6, 0.3, 300)` の Oklab の gradient の中央の画素が、二色を元の値のまま Oklab で補間し最後に写した値（試験の中で式を直接書いて計算する）と ±3/255 で一致する |
 | `css_color_parsing` | §11.4.1 の例と、エラーになる入力（`none`、`calc()`） |
 | `gradient_interpolation_spaces` | 赤から青の gradient の中央の画素が、Srgb で (128, 0, 128) ±2、Oklab で (140, 83, 162) ±3 になる（§5.4.1 の行列で求めた既知値） |
-| `gradient_hint_moves_the_midpoint` | 黒から白の sRGB の gradient（幅 4000 px）で、hint 25% と 0.5% のそれぞれについて、hint の位置の画素が 128 ± 2 になり、行の画素が左から右へ減らない（単調）。hint 99.9% では、x = 3990 の画素が 64 未満、右端の画素が 250 以上である（LUT の量子化を許す性質の試験。§9.6 の精度の範囲） |
+| `gradient_hint_moves_the_midpoint` | 黒から白の sRGB の gradient（幅 4000 px）で、hint 25% と 0.5% のそれぞれについて、hint の位置の画素が 128 ± 2 になり、行の画素が左から右へ減らない（単調）。hint 99.9% では、x = 3990 の画素が 64 未満、右端（x = 3999、t = 0.999875）の画素が 200 以上である（式の値は約 234、LUT の値は約 215。LUT の量子化を許す性質の試験。§9.6 の精度の範囲） |
 | `same_color_gradient_matches_solid` | `oklch(0.7, 0.4, 30)` の単色の背景と、両端が同じその色の gradient の背景の画素が一致する（どちらも CSS の gamut mapping。§9.6） |
 | `wide_gamut_to_white_gradient_maps_each_point` | `oklch(0.7, 0.4, 30)` から白への sRGB の補間の gradient の中央の画素が、二色を元の値のまま補間して最後に CSS の gamut mapping した値（試験の中で式を書いて計算する）と ±3/255 で一致する（端点を先に mapping した値とは G が約 59 違う） |
 | `transition_interpolates_in_oklab` | 色の transition の途中の値が Oklab の補間と一致する |
@@ -4425,6 +4478,7 @@ fn present_with(
 | `drawable_button_is_clickable_through_3d` | 3D の layer の下の drawable の button を、投影された位置のクリックで押せる |
 | `drawable_content_is_focusable_and_findable` | `get_by_role(Role::Button, "Apply")` で見つかり、Tab で focus が中へ入る |
 | `drawable_a11y_bounds_are_projected` | 支援技術の bounds が、描いた変換の bounds と一致する |
+| `drawable_mounted_twice_reports` | 同じ `Drawable` を二つの node の `.drawable(d, …)` に渡すと、二つ目は mount されず一度報告される。一つ目を unmount した後なら、別の node に mount できる。別の node の `Draw::drawable(d)` は描かれず報告される |
 | `drawing_a_drawable_twice_reports` | 二度描くと一度報告され、最初の位置だけに描かれる |
 | `unplaced_drawable_is_not_hit` | 描かない drawable はクリックが当たらず、a11y の bounds が無い（node は a11y の tree に残る） |
 | `draw_over_update_keeps_draw_placement` | `draw` に drawable を描き、`draw_over` だけを更新しても、drawable の button がクリックでき、a11y の bounds が変わらない |
@@ -4446,9 +4500,9 @@ fn present_with(
 | `export_generation_rejects_stale_frames` | resize の後、`wait` が新しい generation の `ShareUpdate::Textures` を返し、古い generation の frame は `latest` に出ない |
 | `documented_consumer_loop_survives_resize` | §10.5 の consumer の繰り返しを、そのままの形で別 thread で動かす。初回の frame が届き、drawable の大きさを 2 回変えた後も、それぞれ新しい大きさの frame が届く |
 | `export_mode_switch_resends_static_content` | 内容を変えずに Pixels → Gpu → Pixels → stop と切り替えると、各 mode で最初の frame が届き、stop の後は届かない |
-| `gpu_frames_start_after_import_ack` | `request_gpu` の後、`imported(g)` を呼ぶまで GPU の frame は来ず、window の提示は続く。`imported(g)` の後に frame が来る。resize の後に古い generation の `imported` を呼んでも、新しい generation の frame は来ない |
+| `gpu_frames_start_after_import` | `request_gpu` の後、`Import::new` で import するまで GPU の frame は来ず、window の提示は続く。import の後 200 ms 以内に frame が来る。resize の後、古い generation の textures を import しても、新しい generation の frame は来ない（新しい textures を import すると来る） |
 | `released_slot_delivers_latest_without_other_updates` | consumer が release しないまま drawable の内容を一度だけ C に変え、その後 release すると、他の UI の変化が無くても 200 ms 以内に内容 C の frame が届く。release しない間の提示の間隔が 100 ms まで伸びる（busy loop にならない） |
-| `gpu_export_recovers_after_device_loss` | GPU の export が流れている間に `Screen::lose_gpu_device()` を呼ぶと、window の提示は続き、`wait` が新しい generation の `ShareUpdate::Textures` を返す。import して `imported` を呼ぶと、新しい generation の frame が届く。古い generation の喪失は、その後の新しい request を戻さない |
+| `gpu_export_recovers_after_device_loss` | GPU の export が流れている間に `Screen::lose_gpu_device()` を呼ぶと、window の提示は続き、`wait` が新しい generation の `ShareUpdate::Textures` を返す。import すると、新しい generation の frame が届く。古い generation の喪失は、その後の新しい request を戻さない |
 | `retry_stops_when_content_returns` | release しない間に内容を A（最後に送った内容）→ C → A と変えると、A に戻った後の提示で再試行が止まり、以後 frame の要求が出ない（`ScreenDriver` の仮想時計で 1 秒進めても提示が増えない） |
 
 **`motion_easing.rs`**
@@ -4459,7 +4513,7 @@ fn present_with(
 | `linear_points_and_steps` | linear() の点と、jump-none、jump-both の段 |
 | `back_elastic_bounce_shapes` | 各 easing の 50% の値（§12.1 の式） |
 | `keyframe_segment_easing` | 区間ごとの easing |
-| `spring_with_duration_settles_near_duration` | `with_duration(500, b)`（b = −0.99、−0.5、0、0.5、0.99）が、0→1、0→100、0→0.0005 のどれでも、frame の間隔 1 ms、16 ms、100 ms のそれぞれで、475〜600 ms で静止する（§12.2 の位置と速度/ω0 の判定） |
+| `spring_with_duration_settles_near_duration` | `with_duration(500, b)`（b = −0.99、−0.5、0、0.094、0.5、0.99）が、0→1、0→100、0→0.0005 のどれでも、frame の間隔 1 ms、16 ms、100 ms のそれぞれで、500〜600 ms で静止する（§12.2 の E の判定。bounce 0.094 は一瞬だけ小さくなる時刻がある場合） |
 | `spring_extremes_stay_finite` | `with_duration(500, −0.99)` と `with_duration(500, 0.99)` の `Animated` の 0→1 が、各 frame で有限の値である。16 ms と 100 ms の frame 間隔で、同じ時刻（400 ms）の値が ±1e-6 で一致する（解析解の step） |
 | `alternate_even_count_ends_at_from` | `tween(100).repeat(2).alternate()` の `Animated`、Timeline の区間、state transition の三つが、どれも from の値で終わる（§12.3）。`layout_transition` に同じ transition を与えると、報告が一度出て、layout motion は一回だけ goal へ動く |
 | `set_velocity_after_alternate_resumes_the_target` | spring の `Animated` を 0 から `set(10)` し、`repeat(2).alternate()` で 0 に戻って完了した後、`set_velocity(5)` を呼ぶと 10 へ向かって動き、10 で静止する（target は `Completed` に残る） |
@@ -4514,6 +4568,7 @@ fn present_with(
 | `filter_to_none_interpolates` | `blur(4)` → none の 50% で blur が 2 の画素になり、終わりで filter の無い画素になる。`brightness(2)` → none の 50% は brightness 1.5 の画素である |
 | `filter_identity_values` | none → `grayscale(1)` の 50% の画素が `grayscale(0.5)` の画素と一致する（初期値の表。§12.9.2） |
 | `shadow_list_shortening_interpolates` | (外側の shadow、inset の shadow) → (外側の shadow) の途中で、inset の shadow が透明へ薄れながら inset のまま描かれる |
+| `reversed_blur_keeps_its_velocity` | spring の transition で `blur(0)` → `blur(10)` の途中（blur ≈ 5）で戻すと、戻した直後の frame の blur の変化が直前の速度と連続する（同じ shape の retarget。§12.9.3） |
 | `retarget_across_shadow_counts_starts_from_shown` | shadow 1 個から 2 個への transition の途中で 3 個へ retarget すると、retarget の直後の frame の 1 個目の shadow が直前の frame と連続し、2 個目以降は透明から始まる（どの shadow も即座に target へ跳ばない） |
 | `interrupted_transition_continues_from_shown` | hover の transition の途中で hover を外すと、外した直後の frame の値が、直前の frame の値から 1 frame 分の変化しか動かない（旧始点へ跳ばない）。spring では速度も続く |
 | `frame_loop_pauses_under_reduced_motion` | decorative な loop は止まり、essential な loop は動く |
@@ -4528,6 +4583,8 @@ fn present_with(
 | `PaintVec` | 削除。`prop_interp`/`apply_components`（`PropInterp`、`PropBasis`）（§12.9.2） |
 | `Tint::matrix`、`RenderCmd::{Image, ImageSampled}::color_matrix`、`Paint::filtered` | 削除。色の filter は layer に掛ける（§6.3、§5.8） |
 | `Spring` の静止の判定 | 絶対値の位置と速度から、振幅に対する相対値の一つの閾値 `rest`（既定 1e-3。速度は ω0 で割って比べる）へ（§12.2）。新しい field `rest` を加える。`Spring { .. }` を直接書く箇所は `rest: 1e-3` を足す |
+| `FailureKind` | variant `NotReady` を加える（§8.12）。`FailureKind` を match する箇所を追従させる |
+| `SharedTextures` の契約の順序（import が `Ok` を返した後に最初の書き込み） | release fence が `SHARED_PREPARED`（1）に達した後に最初の書き込み。frame の値は 2 から（§8.12）。kivact-gpu-share の pool と `Import::new` は内部で従う。自前の graphics API のコードで texture を作る producer は、この順序に合わせる |
 | `SpringRun::restart(now_ns)` | `SpringRun::start(now_ns, &transition, from, to)`（§12.2） |
 | `layout_transition` の `repeat`/`alternate` | 使わない（報告する。§12.3） |
 | spring の step（半陰的 Euler 法） | 解析解（§12.2）。spring の途中の値を固定値で比べる既存の試験は、期待値を解析解の値に更新してよい |
