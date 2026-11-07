@@ -17,11 +17,11 @@ use kivact_types::{DrawList, IdMap, NodeId, Rect, Size};
 
 use crate::view::handler_layers::EventHandlers;
 use crate::view::input::{Handled, KeyEvent, PointerEvent, WheelEvent};
-use kivact_runtime::{Handler, NodeId as EffectId, Notifier, Owner, Signal};
+use kivact_runtime::{Handler, NodeId as EffectId, Notifier, Owner, Signal, UiError};
 use kivact_types::A11yAction;
 
 /// Scroll position report of a scroll container.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub(crate) struct ScrollState {
     /// Scroll offset of the content.
     pub offset: kivact_types::Point,
@@ -256,6 +256,10 @@ pub(crate) struct NodeObservation {
     pub(crate) text_truncated: Signal<bool>,
     pub(crate) scroll: Signal<crate::geometry::Point>,
     pub(crate) scroll_state: Signal<super::node_status_data::ScrollState>,
+    /// The offset, viewport and content extents of a scroll container.
+    pub(crate) scroll_geometry: Signal<ScrollState>,
+    /// The window layout box, without the node's own transform.
+    pub(crate) layout_rect: Signal<Option<crate::geometry::Rect>>,
     pub(crate) image_status: Signal<kivact_types::ImageStatus>,
     pub(crate) scene_revision: Notifier,
     pub(crate) editing_revision: Notifier,
@@ -442,6 +446,8 @@ impl ViewNodes {
             scroll_state: node
                 .owner
                 .signal(super::node_status_data::ScrollState::NotScrollable, at),
+            scroll_geometry: node.owner.signal(ScrollState::default(), at),
+            layout_rect: node.owner.signal(None::<crate::geometry::Rect>, at),
             image_status: node.owner.signal(image_status, at),
             scene_revision: node.owner.notifier(at),
             editing_revision: node.owner.notifier(at),
@@ -458,9 +464,11 @@ impl ViewNodes {
         });
         let scroll = observation.scroll;
         let scroll_state = observation.scroll_state;
+        let scroll_geometry = observation.scroll_geometry;
         handlers.observe_scroll(move |state| {
             scroll.set(state.offset);
             scroll_state.set(classify_scroll(state));
+            scroll_geometry.set(state);
         });
         node.observation = Some(observation);
         Some(observation)
@@ -728,6 +736,35 @@ impl ViewNodes {
             }
         }
         ids
+    }
+
+    /// Set how node `id` leaves when it is removed next: `layout` when given,
+    /// and `on_exit` run after the callback the node already has.
+    pub(crate) fn set_exit(
+        &mut self,
+        id: NodeId,
+        layout: Option<crate::view::ExitLayout>,
+        on_exit: Option<Handler<()>>,
+    ) {
+        let Some(node) = self.nodes.0.get_mut(&id) else {
+            return;
+        };
+        if let Some(layout) = layout {
+            node.exit_layout = layout;
+        }
+        let Some(on_exit) = on_exit else {
+            return;
+        };
+        node.exit_complete = Some(match node.exit_complete.take() {
+            None => on_exit,
+            Some(own) => Handler::from_fn(move |()| -> Result<(), UiError> {
+                let first = own.call(());
+                let second = on_exit.call(());
+                first?;
+                second?;
+                Ok(())
+            }),
+        });
     }
 
     pub(crate) fn take_exit_callback(&mut self, id: NodeId) -> Option<kivact_runtime::Handler<()>> {

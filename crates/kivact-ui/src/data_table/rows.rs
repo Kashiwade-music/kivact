@@ -606,6 +606,7 @@ where
         dynamic(tree.is_parent(id.clone()), move |branch| {
             body_row(&grid, id.clone(), item, branch)
         })
+        .into_view()
     } else {
         body_row(grid, id, item, false)
     }

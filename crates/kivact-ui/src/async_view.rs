@@ -48,6 +48,7 @@ impl<T: Clone + 'static> IntoView for AsyncView<T> {
                 AsyncState::Failed(error) => (self.fallback)(error, self.retry.clone()),
             },
         )
+        .into_view()
     }
 }
 fn default_loading() -> View {

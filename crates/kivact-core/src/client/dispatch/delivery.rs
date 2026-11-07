@@ -100,7 +100,11 @@ fn dispatch_host(rt: &Runtime, host_event: &HostEvent) {
             rect,
             size,
             text_truncated,
-        } => env::layout_changed(rt, *node, *rect, *size, *text_truncated),
+            layout,
+        } => {
+            set_layout_rect(rt, *node, *layout);
+            env::layout_changed(rt, *node, *rect, *size, *text_truncated)
+        }
         HostEvent::CloseRequested => env::close_requested(rt),
         HostEvent::EffectResult { request, result } => {
             platform::effect_result(rt, *request, result)
@@ -149,6 +153,17 @@ fn dispatch_host(rt: &Runtime, host_event: &HostEvent) {
         | HostEvent::ExitComplete { .. }
         | HostEvent::FocusResult { .. }
         | HostEvent::A11y { .. } => unreachable!("invariant: input event already dispatched"),
+    }
+}
+
+/// Record the window layout box of an observed node for the scroll-driven
+/// progress values that read it.
+fn set_layout_rect(rt: &Runtime, node: kivact_types::NodeId, layout: Option<kivact_types::Rect>) {
+    let observation = crate::view::state::ViewState::tree(rt)
+        .get(node)
+        .and_then(|node| node.observation);
+    if let Some(observation) = observation {
+        observation.layout_rect.set(layout);
     }
 }
 

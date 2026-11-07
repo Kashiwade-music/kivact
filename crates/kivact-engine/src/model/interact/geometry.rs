@@ -563,6 +563,7 @@ impl Model {
                 continue;
             };
             let size = l.size;
+            let layout = self.window_layout_rect(id);
             let text_truncated = super::text_geometry::text_truncated(self, engine, id);
             if let Some(n) = self.tree.get_mut(id)
                 && n.sent_layout
@@ -574,6 +575,7 @@ impl Model {
                         } else {
                             crate::tree::node::Clipping::No
                         },
+                        layout,
                     ))
                     .is_some()
             {
@@ -582,6 +584,7 @@ impl Model {
                     rect,
                     size,
                     text_truncated,
+                    layout,
                 });
             }
         }
