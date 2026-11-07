@@ -96,8 +96,11 @@ fn item(t: &Theme, s: &Look<ItemRowState>) -> Style {
             .pressed(style().background(p.colors.overlay_pressed))
             .focus_visible(style().ring(p.sizes.focus_ring_width, p.colors.focus_ring))
             .transition(
-                kivact::style::TransitionProp::Paint,
-                kivact::motion::Transition::tween(p.motion.fast as f64, p.motion.ease_standard),
+                kivact::style::TransitionProp::All,
+                kivact::motion::Transition::tween(
+                    p.motion.fast as f64,
+                    p.motion.ease_standard.clone(),
+                ),
             )
     } else {
         base

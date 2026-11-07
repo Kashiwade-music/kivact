@@ -226,8 +226,8 @@ pub(crate) fn popup_surface() -> kivact::style::Style {
         .radius(t.radius.container)
         .enter(hidden)
         .transition(
-            TransitionProp::Paint,
-            Transition::tween(t.motion.fast_max as f64, t.motion.ease_standard),
+            TransitionProp::All,
+            Transition::tween(t.motion.fast_max as f64, t.motion.ease_standard.clone()),
         );
     for shadow in &t.shadows.low {
         base = base.shadow(*shadow);
@@ -518,8 +518,8 @@ fn nav_entry_style(
         })
         .disabled(style().opacity(t.sizes.disabled_opacity))
         .transition(
-            TransitionProp::Paint,
-            Transition::tween(t.motion.fast as f64, t.motion.ease_standard),
+            TransitionProp::All,
+            Transition::tween(t.motion.fast as f64, t.motion.ease_standard.clone()),
         )
 }
 
@@ -597,12 +597,13 @@ pub(crate) fn menu_chevron(open: Value<bool>) -> Node {
             .size(16, 16)
             .rotate(if open.get() { 180 } else { 0 })
             .transition(
-                TransitionProp::Paint,
+                TransitionProp::All,
                 Transition::tween(
                     kivact::style::use_tokens::<crate::Tokens>().motion.fast as f64,
                     kivact::style::use_tokens::<crate::Tokens>()
                         .motion
-                        .ease_standard,
+                        .ease_standard
+                        .clone(),
                 ),
             )
     })

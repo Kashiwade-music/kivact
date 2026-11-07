@@ -576,6 +576,7 @@ fn sidebar_width(
                 stiffness: 157.91,
                 damping: 25.13,
                 mass: 1.0,
+                rest: 1e-3,
             }),
         ))
     } else {

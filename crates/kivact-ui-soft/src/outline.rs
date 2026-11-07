@@ -478,8 +478,8 @@ fn outline_row(level: u8, density: OutlineDensity, active: bool) -> kivact::styl
         .pressed(style().background(t.colors.overlay_pressed))
         .focus_visible(crate::recipe_style::ring(&t, t.colors.accent))
         .transition(
-            TransitionProp::Paint,
-            Transition::tween(t.motion.fast as f64, t.motion.ease_standard),
+            TransitionProp::All,
+            Transition::tween(t.motion.fast as f64, t.motion.ease_standard.clone()),
         )
 }
 
@@ -527,7 +527,7 @@ fn active_heading(
 
 fn outline_track(indicator_rect: Value<Option<(f64, f64)>>) -> Node {
     let t = kivact::style::use_tokens::<crate::Tokens>();
-    let transition = Transition::tween(t.motion.fast_min as f64, t.motion.ease_standard);
+    let transition = Transition::tween(t.motion.fast_min as f64, t.motion.ease_standard.clone());
     let height = animated(
         move || indicator_rect.get().map_or(0.0, |(_, height)| height),
         transition.clone(),
@@ -555,7 +555,7 @@ fn outline_track(indicator_rect: Value<Option<(f64, f64)>>) -> Node {
                 .translate_y(offset)
                 .radius(t.radius.full)
                 .background(t.colors.icon_primary)
-                .transition(TransitionProp::Paint, transition.clone())
+                .transition(TransitionProp::All, transition.clone())
         }))
 }
 

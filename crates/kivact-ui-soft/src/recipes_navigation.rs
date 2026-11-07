@@ -133,8 +133,11 @@ fn panel(theme: &Theme, _: &Look<NavOpen>) -> Style {
         .border(0, Color::TRANSPARENT)
         .enter(hidden)
         .transition(
-            kivact::style::TransitionProp::Paint,
-            kivact::motion::Transition::tween(t.motion.fast_max as f64, t.motion.ease_standard),
+            kivact::style::TransitionProp::All,
+            kivact::motion::Transition::tween(
+                t.motion.fast_max as f64,
+                t.motion.ease_standard.clone(),
+            ),
         );
     t.shadows.low.iter().copied().fold(base, Style::shadow)
 }

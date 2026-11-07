@@ -35,7 +35,7 @@ use kivact::view::ReadingDirection;
 use kivact::view::use_direction;
 
 fn paint_transition(p: &Tokens, duration: u64) -> Transition {
-    Transition::tween(duration as f64, p.motion.ease_standard)
+    Transition::tween(duration as f64, p.motion.ease_standard.clone())
 }
 
 fn focus(p: &Tokens) -> Style {
@@ -131,8 +131,8 @@ fn tree_marker(theme: &Theme, row: &Look<TreeRowRecipeState>) -> Style {
         .color(ink)
         .rotate(angle)
         .transition(
-            TransitionProp::Paint,
-            Transition::tween(125.0, p.motion.ease_standard),
+            TransitionProp::All,
+            Transition::tween(125.0, p.motion.ease_standard.clone()),
         )
         .paint(move |draw, _| {
             if branch {
@@ -203,7 +203,7 @@ fn tab(t: &Theme, s: &Look<TabState>) -> Style {
             p.typography.weight_normal
         })
         .focus_visible(focus(&p))
-        .transition(TransitionProp::Paint, paint_transition(&p, p.motion.fast));
+        .transition(TransitionProp::All, paint_transition(&p, p.motion.fast));
     if !s.input.disabled {
         tab = tab
             .hover(style().background(p.colors.overlay_hover))
@@ -221,7 +221,7 @@ fn tab_indicator(t: &Theme, s: &Look<TabState>) -> Style {
         .background(p.colors.accent)
         .opacity(if s.selected { 1.0 } else { 0.0 })
         .transition(
-            TransitionProp::Paint,
+            TransitionProp::All,
             paint_transition(&p, p.motion.fast).essential(),
         );
     if s.orientation == Orientation::Vertical {
@@ -284,7 +284,7 @@ pub(crate) fn disclosure(r: DisclosureRecipes) -> DisclosureRecipes {
                     })
                     .pressed(style().background(p.colors.overlay_pressed))
                     .focus_visible(focus(&p))
-                    .transition(TransitionProp::Paint, paint_transition(&p, p.motion.fast))
+                    .transition(TransitionProp::All, paint_transition(&p, p.motion.fast))
             }
         });
     disclosure_details(r)
@@ -313,7 +313,7 @@ fn disclosure_details(r: DisclosureRecipes) -> DisclosureRecipes {
                 .color(p.colors.icon_secondary)
                 .scale_xy(if start && rtl { -1.0 } else { 1.0 }, 1.0)
                 .rotate(degrees)
-                .transition(TransitionProp::Paint, paint_transition(&p, p.motion.fast))
+                .transition(TransitionProp::All, paint_transition(&p, p.motion.fast))
         }
     })
     .content(|_| {
@@ -412,7 +412,7 @@ pub(crate) fn split(r: SplitRecipes) -> SplitRecipes {
                 } else {
                     p.colors.border
                 })
-                .transition(TransitionProp::Paint, paint_transition(&p, p.motion.fast));
+                .transition(TransitionProp::All, paint_transition(&p, p.motion.fast));
             if s.orientation == Orientation::Vertical {
                 grip.size(long, 3).translate_y(-5.5)
             } else {
@@ -447,10 +447,7 @@ pub(crate) fn list(r: ListRecipes) -> ListRecipes {
                     })
                     .selected(style().background(p.colors.accent_muted))
                     .focus_visible(focus(&p))
-                    .transition(
-                        TransitionProp::Paint,
-                        paint_transition(&p, p.motion.fast_min),
-                    );
+                    .transition(TransitionProp::All, paint_transition(&p, p.motion.fast_min));
                 if !s.input.disabled {
                     item = item
                         .hover(style().background(p.colors.overlay_hover))
@@ -520,7 +517,7 @@ pub(crate) fn data_table(r: DataTableRecipes) -> DataTableRecipes {
                     .border_bottom(p.sizes.border_width, p.colors.border)
                     .hover(style().background(p.colors.overlay_hover))
                     .selected(style().background(p.colors.accent_muted))
-                    .transition(TransitionProp::Paint, paint_transition(&p, p.motion.fast))
+                    .transition(TransitionProp::All, paint_transition(&p, p.motion.fast))
             }
         });
     table_body(r)
