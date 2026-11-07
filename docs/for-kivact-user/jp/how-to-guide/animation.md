@@ -42,7 +42,7 @@ fn main() -> kivact::Result<()> {
 
 目標には、シグナル、クロージャ（`move || if open.get() { 240.0 } else { 0.0 }`）、定数のどれでも渡せます。満たす途中で「空にする」を押すと、値は今の位置から折り返します。途中で止められたアニメーションが飛ぶことはありません。
 
-`Transition::tween(ミリ秒, easing)` は、決まった時間で動きます。イージングは `Linear`・`EaseIn`・`EaseOut`・`EaseInOut`・`CubicBezier(x1, y1, x2, y2)`（CSS と同じ数値）、または `Easing::steps_end(n)` / `steps_start(n)` です。`Transition::spring(Spring::DEFAULT)` は、物理的なバネのように動きます。時間は決まっておらず、収まったときに終わります。途中で止められたバネは速度を引き継ぎます。`Spring::GENTLE`・`WOBBLY`・`STIFF` はプリセットで、`stiffness`・`damping`・`mass` を自分で指定することもできます。どのトランジションにも `.delay(ms)`、`.repeat(Repeat::Times(3))`（`Repeat::Forever` なら目標が変わるまで繰り返し）、`.alternate()`（1 回おきに逆再生）を付けられます。バネの 1 回分は、収まったところで終わります。`Transition::keyframes([(0.0, 0.0), (0.6, 1.2), (1.0, 1.0)], 400)` は、0 から 1 までのオフセットで指定した値を通り、目標で終わります。
+`Transition::tween(ミリ秒, easing)` は、決まった時間で動きます。イージングは `Linear`・`EaseIn`・`EaseOut`・`EaseInOut`・`CubicBezier(x1, y1, x2, y2)`（CSS と同じ数値）、または `Easing::steps(n, StepPosition::JumpEnd)` / `Easing::steps(n, StepPosition::JumpStart)` です。`Transition::spring(Spring::DEFAULT)` は、物理的なバネのように動きます。時間は決まっておらず、収まったときに終わります。途中で止められたバネは速度を引き継ぎます。`Spring::GENTLE`・`WOBBLY`・`STIFF` はプリセットで、`stiffness`・`damping`・`mass` を自分で指定することもできます。どのトランジションにも `.delay(ms)`、`.repeat(Repeat::Times(3))`（`Repeat::Forever` なら目標が変わるまで繰り返し）、`.alternate()`（1 回おきに逆再生）を付けられます。バネの 1 回分は、収まったところで終わります。`Transition::keyframes([(0.0, 0.0), (0.6, 1.2), (1.0, 1.0)], 400)` は、0 から 1 までのオフセットで指定した値を通り、目標で終わります。
 
 `.retarget(kivact::motion::Retarget::Proportional)` を指定すると、時間指定の transition の途中で目標が変わったとき、残りの成分距離に比例して新しい所要時間を短縮・延長し、意図した速度を保ちます。既定は `Restart` です。spring は物理モデルの時間で動きます。
 
@@ -114,7 +114,7 @@ fn hover_card() -> impl IntoView {
 
 ## 要素の登場と退場をアニメーションさせる
 
-`enter` は要素が追加されたときの出発点の見た目、`exit` は取り除かれるときに向かう見た目です。どちらもスタイルの `Paint` トランジションを使います。`show`・`show_some`・リストなど、要素が出入りする仕組みと組み合わせます。
+`enter` は要素が追加されたときの出発点の見た目、`exit` は取り除かれるときに向かう見た目です。どちらもスタイルの `TransitionProp::All` トランジションを使います。`show`・`show_some`・リストなど、要素が出入りする仕組みと組み合わせます。
 
 ```rust,no_run
 use kivact::motion::{Easing, Transition};
@@ -150,7 +150,7 @@ fn app() -> impl IntoView {
 
 - トランジションが終わるまで描かれ、その後に取り除かれます。取り除かれた時点から、クリックもフォーカスも受けず、アクセシビリティツリーにも現れません。そのため、2 回操作されたり、「消えた」後に読み上げられたりすることはありません。
 - 終わるまではレイアウト上の場所を保つので、後ろの要素は最後に詰まります。これを避けるには、その要素に `style().position(Position::Absolute)`（`kivact::style::Position`）を付けます。
-- `Paint` トランジションがなければ、要素はすぐに現れ、すぐに消えます。
+- `TransitionProp::All` トランジションがなければ、要素はすぐに現れ、すぐに消えます。
 
 標準の toast・dialog・popup・tooltip もこの仕組みを使っています。テーマのレシピが、`enter` と `exit` を含むスタイルを返せます。
 
