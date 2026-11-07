@@ -39,7 +39,6 @@ use kivact_types::{ComputedTextStyle, NodeId, PaintDelta, PaintProps, Rgba, Stat
 
 use crate::model::Model;
 use crate::mutation::Mutation;
-use crate::tree::node::NodePresence;
 
 fn merge(p: &mut PaintProps, d: &PaintDelta) {
     if let Some(b) = &d.background {
@@ -117,9 +116,7 @@ impl Model {
             s.hover.as_ref().filter(|_| self.is_hovered(id)),
             s.pressed.as_ref().filter(|_| self.is_pressed(id)),
             s.enter.as_ref().filter(|_| entering),
-            s.exit
-                .as_ref()
-                .filter(|_| matches!(node.presence, NodePresence::Leaving(_))),
+            s.exit.as_ref().filter(|_| self.tree.leaving(id)),
         ]
         .into_iter()
         .flatten()

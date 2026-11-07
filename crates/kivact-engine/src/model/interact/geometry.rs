@@ -22,7 +22,7 @@
 //! - Fixed boxes and overlays are layers over the root's tree
 //!   ([`Model::layers`]): a layer leaves its parent's hit testing, and
 //!   takes none of its
-//!   ancestors' scroll or transforms (`rect` and `transform_between` stop
+//!   ancestors' scroll or transforms (`rect` and `window_map` stop
 //!   at it). They are hit top first, before the root's tree; scrolling
 //!   into view stops at a fixed box.
 //! - A scroll offset stays within `[0, content - viewport]` on a scrolling
@@ -338,42 +338,47 @@ impl Model {
     /// be hit; everything else is an inert backdrop.
     pub(crate) fn hit(&self, p: Point) -> Option<NodeId> {
         let modal = self.modal();
-        for (o, origin) in self.layers().into_iter().rev() {
+        for (o, _) in self.layers().into_iter().rev() {
             if modal.is_some_and(|m| !self.tree.is_in_subtree(o, m)) {
                 continue;
             }
-            if let Some(h) = self.hit_node(o, origin, p) {
+            if let Some(h) = self.hit_node(o, p) {
                 return Some(h);
             }
         }
         if modal.is_some() {
             return None;
         }
-        self.hit_node(self.tree.root?, Point::default(), p)
+        self.hit_node(self.tree.root?, p)
     }
 
-    /// The deepest node under `p` in `id`'s subtree; `origin` is its
-    /// untransformed box's origin and `p` the point, both in its parent's
-    /// own space.
-    fn hit_node(&self, id: NodeId, origin: Point, p: Point) -> Option<NodeId> {
+    /// The deepest node under `p` in `id`'s subtree. `p` is in the box space
+    /// of `id`'s parent (the window for a root or a layer), where
+    /// [`Model::to_parent`] maps the box of `id`. A node whose map is not
+    /// invertible, or puts the point behind the viewer, is not hit; nor is
+    /// a back face that is hidden (§7.3).
+    ///
+    /// The depth order of a 3D rendering context (§7.3, §8.4) is not derived
+    /// yet: its nodes are hit flat, in the order of their siblings.
+    fn hit_node(&self, id: NodeId, p: Point) -> Option<NodeId> {
         let n = self.tree.get(id)?;
         if !self.tree.shown(id) || !n.hit_testable() {
             return None;
         }
         let size = self.computed_layout(id)?.size;
+        let map = self.to_parent(id)?;
+        if map.shows_back()
+            && self.effective_paint(id).backface == kivact_types::paint::BackfaceVisibility::Hidden
+        {
+            return None;
+        }
+        // Into its own box space.
+        let p = map.flatten().invert()?.apply(p)?;
         let r = Rect {
-            x: origin.x,
-            y: origin.y,
+            x: 0.0,
+            y: 0.0,
             width: size.width,
             height: size.height,
-        };
-        // Into its own space (a flattening transform hits nothing).
-        let p = match n.place.transformed || self.layout_motion_transform(id).is_some() {
-            true => match self.transform_at(id, r) {
-                Some(t) => t.invert()?.apply(p),
-                None => p,
-            },
-            false => p,
         };
         let paint = n.paint();
         // A clip path clips the node and its subtree.
@@ -384,28 +389,14 @@ impl Model {
         if n.clips() && !crate::lower::shape::in_child_clip(paint, r, p) {
             return inside.then_some(id);
         }
-        if self
-            .scrollbar_at(
-                id,
-                Point {
-                    x: p.x - origin.x,
-                    y: p.y - origin.y,
-                },
-            )
-            .is_some()
-        {
+        if self.scrollbar_at(id, p).is_some() {
             return Some(id);
         }
         for c in self.stacked(n).rev() {
-            let Some(cn) = self.tree.get(c).filter(|cn| !cn.is_layer()) else {
+            if self.tree.get(c).is_none_or(|cn| cn.is_layer()) {
                 continue;
-            };
-            let loc = self.location(cn);
-            let o = Point {
-                x: origin.x - n.scroll.x + loc.x,
-                y: origin.y - n.scroll.y + loc.y,
-            };
-            if let Some(h) = self.hit_node(c, o, p) {
+            }
+            if let Some(h) = self.hit_node(c, p) {
                 return Some(h);
             }
         }

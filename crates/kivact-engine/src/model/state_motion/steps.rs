@@ -260,10 +260,8 @@ impl Model {
                 !colors_text && c != a.current_color(),
             );
             a.retarget(target, c, now, reduced);
-            if let Some(n) = self.tree.get_mut(*id) {
-                n.place.transformed |=
-                    !a.current_paint().transform.is_none() || !a.target.transform.is_none();
-            }
+            let moving = !a.current_paint().transform.is_none();
+            self.refresh_place(*id, moving);
             !a.settled()
         });
         let active = !animations.is_empty();
@@ -284,6 +282,8 @@ impl Model {
                 return true;
             }
             a.step(now, reduced);
+            let moving = !a.current_paint().transform.is_none();
+            self.refresh_place(*id, moving);
             self.repaint(*id);
             if a.target.transform != PaintProps::default().transform
                 || self.tree.get(*id).is_some_and(|n| n.place.transformed)
@@ -294,11 +294,7 @@ impl Model {
                     .insert(crate::model::changes::LayoutReasons::PASS);
                 self.changes.moved();
             }
-            let done = a.settled();
-            if done && let Some(n) = self.tree.get_mut(*id) {
-                n.place.transformed = !a.target.transform.is_none();
-            }
-            !done
+            !a.settled()
         });
         let active = animations.values().any(StateAnimation::running);
         self.motion.0 = animations;

@@ -35,8 +35,6 @@ pub(crate) struct HostNode {
     /// How far a sticky box is moved from its laid out position by the
     /// scroll of its scrollport (`model::interact::sticky`; zero otherwise).
     pub(crate) shift: Point,
-    /// Whether it shows its enter or exit paint (`model::presence`).
-    pub(crate) presence: NodePresence,
 }
 
 /// The last published geometry and text clipping observation.
@@ -154,13 +152,16 @@ impl HostNode {
             sent_image: Default::default(),
             place: Place::default(),
             shift: Point::default(),
-            presence: NodePresence::Mounted,
         };
-        node.update_place();
+        node.update_place(false, false);
         node
     }
 
-    pub(crate) fn update_place(&mut self) {
+    /// Derive the place from the props. `moving` says a running state
+    /// motion has a current transform that is not none; `under_perspective`
+    /// says the parent has a perspective, which moves a node whose transform
+    /// is not 2D. The only writer of `Place::transformed` (§7.6).
+    pub(crate) fn update_place(&mut self, moving: bool, under_perspective: bool) {
         if self.is_transparent() {
             self.place = Place::default();
             return;
@@ -172,8 +173,10 @@ impl HostNode {
             moved |= delta.transform.is_some_and(|t| !t.is_none());
             z_states |= delta.z_index.is_some();
         }
+        let base_moves = base.is_some_and(|p| !p.transform.is_none());
+        let spatial = self.has_spatial_transform();
         self.place = Place {
-            transformed: moved || base.is_some_and(|p| !p.transform.is_none()),
+            transformed: moved || base_moves || moving || (under_perspective && spatial),
             z: base.map_or(0, |p| p.z_index),
             z_states,
             ..self.place
@@ -181,6 +184,16 @@ impl HostNode {
         let position = self.layout().map(|l| l.position);
         self.place.sticky = position == Some(Position::Sticky);
         self.place.fixed = position == Some(Position::Fixed);
+    }
+
+    /// Whether its base paint or one of its state styles sets a transform
+    /// that is not 2D (one a parent's perspective moves).
+    pub(crate) fn has_spatial_transform(&self) -> bool {
+        let spatial = |t: kivact_types::ElementTransform| !t.is_none() && !t.is_2d();
+        self.paint().is_some_and(|p| spatial(p.transform))
+            || self
+                .states()
+                .is_some_and(|s| s.deltas().any(|d| d.transform.is_some_and(spatial)))
     }
 
     pub(crate) fn is_transparent(&self) -> bool {

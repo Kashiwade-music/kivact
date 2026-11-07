@@ -290,7 +290,8 @@ impl Model {
             return;
         };
         let parent = self.tree.nodes.links(index).parent;
-        let old_place = self.tree.update_place(index);
+        let moving = self.motion_moves(id);
+        let old_place = self.refresh_place(id, moving);
         let n = self.tree.nodes.at(index);
         // Where it lists among its siblings and whether it moves: only a
         // change of these (and of its paint's stacking facts, `derive`)
@@ -507,14 +508,12 @@ impl Model {
             .subtree(id)
             .into_iter()
             .filter(|gone| {
-                self.tree.get(*gone).is_some_and(|node| {
-                    matches!(
-                        node.presence,
-                        NodePresence::Leaving(LeavingRole::Root {
-                            notify: Notify::OnComplete
-                        })
-                    )
-                })
+                matches!(
+                    self.tree.presence_of(*gone),
+                    NodePresence::Leaving(LeavingRole::Root {
+                        notify: Notify::OnComplete
+                    })
+                )
             })
             .collect();
         for gone in self.tree.subtree(id) {
