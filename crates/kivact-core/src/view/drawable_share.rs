@@ -97,7 +97,7 @@ impl DrawableFrame {
 
 /// The state of a drawable's export, shared by the app's threads and the UI.
 pub(crate) enum ExportLink {
-    Open(ExportOpen),
+    Open(Box<ExportOpen>),
     /// The drawable was disposed.
     Closed,
 }
@@ -301,14 +301,14 @@ impl ExportLink {
     /// The open state, or `None` when disposed.
     fn open_mut(&mut self) -> Option<&mut ExportOpen> {
         match self {
-            Self::Open(open) => Some(open),
+            Self::Open(open) => Some(open.as_mut()),
             Self::Closed => None,
         }
     }
 
     /// The initial state of a new drawable's export: nothing requested.
     pub(crate) fn initial() -> Self {
-        Self::Open(ExportOpen {
+        Self::Open(Box::new(ExportOpen {
             request: ExportRequest::None { generation: 0 },
             geometry: Mailbox::default(),
             scale: None,
@@ -316,7 +316,7 @@ impl ExportLink {
             next_generation: 0,
             next_number: 0,
             changed: false,
-        })
+        }))
     }
 
     /// Take the wake marker of the UI side; `None` when nothing changed.
