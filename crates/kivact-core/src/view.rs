@@ -14,6 +14,8 @@
 
 pub(crate) mod boundary;
 pub(crate) mod descriptor;
+pub(crate) mod drawable;
+mod drawable_share;
 pub(crate) mod element_data;
 mod exit_layout;
 pub(crate) mod flow;
@@ -54,6 +56,13 @@ pub use crate::view::flow::{
 pub use boundary::{ReadingDirection, component, provide_direction, use_direction};
 #[doc(inline)]
 pub use descriptor::{IntoView, IntoViewFn, View, ViewFn};
+#[doc(inline)]
+pub use drawable::{Drawable, drawable};
+#[cfg(feature = "gpu-interop")]
+#[doc(inline)]
+pub use drawable_share::DrawableTextures;
+#[doc(inline)]
+pub use drawable_share::{DrawableFrame, DrawableShare, ShareUpdate};
 pub use element_data::Component;
 #[doc(inline)]
 pub use hover::pointer_position;

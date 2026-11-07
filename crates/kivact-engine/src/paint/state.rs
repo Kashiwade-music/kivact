@@ -80,6 +80,11 @@ impl PaintState {
         self.scale = scale;
     }
 
+    /// Ask for the next frame to be drawn (a skipped export is due).
+    pub(crate) fn request_redraw(&mut self) {
+        self.redraw = Redraw::Needed;
+    }
+
     /// Whether the next frame must be drawn.
     pub(crate) fn needs_redraw(&self) -> bool {
         self.redraw == Redraw::Needed

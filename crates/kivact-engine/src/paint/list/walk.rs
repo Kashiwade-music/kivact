@@ -283,7 +283,10 @@ impl Walk<'_> {
         };
         if host.tree().flat_children(id).len() < INDEXED {
             for child in host.stacked(n) {
-                let Some(c) = host.node(child).filter(|c| !c.is_layer()) else {
+                let Some(c) = host
+                    .node(child)
+                    .filter(|c| !c.is_layer() && c.properties.drawable.is_none())
+                else {
                     continue;
                 };
                 let at = host.location(c);

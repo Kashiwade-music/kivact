@@ -60,6 +60,7 @@ mod aggregate;
 pub(crate) mod apply;
 pub(crate) mod changes;
 pub(crate) mod dismiss;
+pub(crate) mod drawables;
 pub(crate) mod edit;
 pub(crate) mod events;
 pub(crate) mod focus;

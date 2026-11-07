@@ -202,4 +202,51 @@ pub enum HostEvent {
     /// starts with `None`; the host sends the first adapter when the
     /// device is ready.
     GpuAdapterChanged(Option<kivact_types::GpuAdapter>),
+    /// An exported frame of a drawable; its generation travels with it.
+    DrawableFrame(kivact_types::render::ExportedFrame),
+    /// The drawable was resized while its GPU export runs: it needs a new pool.
+    DrawableResized {
+        id: kivact_types::DrawableId,
+    },
+    /// The window's answer to the textures request of `generation` of `id`.
+    DrawableTextures {
+        id: kivact_types::DrawableId,
+        generation: u64,
+        result: Result<DrawableTexturesHandle, kivact_types::Failure>,
+    },
+    /// A GPU export pool was lost with the device (of the request `generation`).
+    DrawableExportLost(kivact_types::render::ExportLoss),
+    /// The window can export to the GPU again: waiting requests are made anew.
+    GpuExportAvailable,
+}
+
+/// Shared textures a window made for a drawable's export. The textures hold
+/// OS handles, so the event cannot copy them: the receiver takes them once.
+#[derive(Clone)]
+pub struct DrawableTexturesHandle(
+    std::sync::Arc<std::sync::Mutex<Option<kivact_types::SharedTextures>>>,
+);
+
+impl DrawableTexturesHandle {
+    /// Wrap the textures the window made.
+    pub fn new(textures: kivact_types::SharedTextures) -> Self {
+        Self(std::sync::Arc::new(std::sync::Mutex::new(Some(textures))))
+    }
+
+    /// Take the textures; `None` once taken.
+    pub fn take(&self) -> Option<kivact_types::SharedTextures> {
+        self.0.lock().ok().and_then(|mut slot| slot.take())
+    }
+}
+
+impl std::fmt::Debug for DrawableTexturesHandle {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("DrawableTexturesHandle")
+    }
+}
+
+impl PartialEq for DrawableTexturesHandle {
+    fn eq(&self, other: &Self) -> bool {
+        std::sync::Arc::ptr_eq(&self.0, &other.0)
+    }
 }

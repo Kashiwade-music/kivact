@@ -4,7 +4,7 @@ use crate::geometry::{Rect, Size};
 use crate::gpu_interop::GpuFrame;
 use crate::state::{IntoValue, Value, callback, effect, memo};
 use crate::view::{
-    HandlerResult, ImageFit, IntoView, Node, NodeBuilder, Role, View, node, node_ref,
+    HandlerResult, ImageFit, IntoView, IntoViewFn, Node, NodeBuilder, Role, View, node, node_ref,
 };
 use kivact_style::{Overflow, style};
 use kivact_types::ViewTransform;
@@ -86,6 +86,25 @@ impl Viewport {
     #[cfg(feature = "gpu-interop")]
     pub fn gpu_frame(mut self, frame: impl IntoValue<Option<GpuFrame>>) -> Self {
         self.gpu_frame = frame.into_value();
+        self
+    }
+}
+impl Viewport {
+    /// Mount `content` as an exported drawable: laid out like `Node::drawable`,
+    /// never drawn on screen, rendered for `Drawable::share`.
+    #[track_caller]
+    pub fn drawable<V: IntoView>(
+        mut self,
+        drawable: crate::view::drawable::Drawable,
+        content: impl IntoViewFn<V>,
+    ) -> Self {
+        let at = std::panic::Location::caller();
+        self.root = self.root.child(crate::view::mount::drawable::root_view(
+            drawable,
+            content.into_view_fn(),
+            kivact_engine::contract::DrawableMode::Export,
+            at,
+        ));
         self
     }
 }

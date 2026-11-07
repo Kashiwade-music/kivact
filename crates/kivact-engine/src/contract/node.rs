@@ -51,6 +51,26 @@ pub struct NodeProperties {
     pub input: NodeInput,
     /// Optional accessible node properties.
     pub semantics: Option<Box<kivact_types::Semantics<FocusTarget>>>,
+    /// The drawable this node is the root of, if any (its id and mode).
+    pub drawable: Option<DrawableRole>,
+}
+
+/// The root node of a drawable: which drawable it is and how it is shown.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct DrawableRole {
+    /// The drawable.
+    pub id: kivact_types::DrawableId,
+    /// Whether the canvas draws it or the app exports it.
+    pub mode: DrawableMode,
+}
+
+/// How a drawable's content is shown.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DrawableMode {
+    /// Drawn by the host canvas that places it (`Draw::drawable`).
+    Canvas,
+    /// Never drawn on screen; rendered for the app's export.
+    Export,
 }
 
 /// What a focusable node that edits its own text (not a native editor) shows
@@ -188,6 +208,7 @@ impl NodeProperties {
             states: None,
             input: Default::default(),
             semantics: None,
+            drawable: None,
         }
     }
 }

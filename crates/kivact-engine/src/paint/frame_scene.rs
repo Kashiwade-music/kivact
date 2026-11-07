@@ -16,6 +16,7 @@ use crate::lower::sanitize;
 use crate::lower::shape::BoxShape;
 use crate::lower::{LayerProps, SceneOut, border, scene, shape};
 use crate::model::Model;
+use crate::model::drawables::export_of;
 use crate::model::interact::visual;
 use arvane::asset::{PixelSize, fit_image};
 use kivact_types::render::{Composition, LayerEffects, LayerKey, Paint, RenderCmd as D};
@@ -43,9 +44,49 @@ impl Model {
             scale: self.paint.scale,
             size: self.window(),
         };
-        let composition = self.compose_list(engine, &self.paint.list, pass);
+        let mut composition = self.compose_list(engine, &self.paint.list, pass);
         self.report_dropped_draws();
+        self.append_exports(engine, &mut composition);
         composition
+    }
+
+    /// Add the layers of the exported drawables (`DrawableMode::Export`) that
+    /// the app asked frames of, each as a layer no item of the screen draws.
+    /// A drawable's layer is its subtree composed on its own: the layers
+    /// are appended to `out`, their items renumbered, and the export names
+    /// the subtree's root layer.
+    fn append_exports(&self, engine: &mut arvane::Engine, out: &mut Composition) {
+        for (id, root, ask) in self.export_requests() {
+            let Some(bounds) = self.rect(root) else {
+                continue;
+            };
+            // The subtree is walked at its own origin: its clip is its local box.
+            let local = Rect {
+                x: 0.0,
+                y: 0.0,
+                width: bounds.width,
+                height: bounds.height,
+            };
+            let list = self.subtree_paint_list(root, local);
+            let pass = PaintPass {
+                scale: ask.scale,
+                size: Size::new(bounds.width, bounds.height),
+            };
+            let subtree = self.compose_list(engine, &list, pass);
+            let base = out.layers.len() as u32;
+            for (index, mut layer) in subtree.layers.into_iter().enumerate() {
+                for item in &mut layer.items {
+                    if let kivact_types::render::LayerItem::Layer { index, .. } = item {
+                        *index += base;
+                    }
+                }
+                if index == 0 {
+                    layer.key = LayerKey::Drawable(id);
+                }
+                out.layers.push(layer);
+            }
+            out.exports.push(export_of(id, base, bounds, &ask));
+        }
     }
 
     /// Queue the commands dropped since the last report for the client.

@@ -121,7 +121,10 @@ pub(super) fn ink_local(
     if !n.clips() {
         let scroll = n.scroll();
         for child in host.tree().flat_children(host.tree().nodes.id_at(n.index)) {
-            let Some(c) = host.node(child).filter(|c| !c.is_layer()) else {
+            let Some(c) = host
+                .node(child)
+                .filter(|c| !c.is_layer() && c.properties.drawable.is_none())
+            else {
                 continue;
             };
             let l = host.computed_layout(child).unwrap_or_default();
