@@ -34,7 +34,7 @@ impl Model {
             let Some(node) = self.tree.get(id) else {
                 continue;
             };
-            if matches!(node.presence, NodePresence::Leaving(_)) {
+            if self.tree.leaving(id) {
                 continue;
             }
             let Some(key) = node.layout().and_then(|l| l.layout_id.clone()) else {
