@@ -281,10 +281,10 @@ impl<'a> Builder<'a> {
         key.u64(u64::from(tsize.0));
         key.u64(u64::from(tsize.1));
         let key = key.finish();
-        if let Some((known, sig)) = self.signatures.get(&index) {
-            if *known == key {
-                return Ok(*sig);
-            }
+        if let Some((known, sig)) = self.signatures.get(&index)
+            && *known == key
+        {
+            return Ok(*sig);
         }
         let layer = self.layer(index)?;
         let geo = self.geometry(layer, to_t, tsize);
@@ -346,23 +346,26 @@ impl<'a> Builder<'a> {
         Ok(sig)
     }
 
-    /// Plan a layer that draws into target `t` (of `tsize`) at `to_t`, with `clips` on its item and an inherited `cover`.
+    /// Plan a layer drawn into `dest` (its target, map and size, with an inherited cover), with `clips` on its item.
     pub(super) fn emit_layer(
         &mut self,
         index: u32,
-        t: TargetId,
-        tsize: (u32, u32),
-        to_t: Matrix4,
+        dest: Dest,
         to_win: Matrix4,
         clips: &'a [Shape],
-        cover: Option<ChunkKey>,
     ) -> Result<(), PlanError> {
+        let Dest {
+            target: t,
+            to: to_t,
+            size: tsize,
+            cover,
+        } = dest;
         let layer = self.layer(index)?;
         if layer.backface == BackfaceVisibility::Hidden && layer.transform.shows_back() {
             return Ok(());
         }
         if layer.plane == Plane::Preserve3d {
-            return self.emit_context(index, t, tsize, to_t, to_win, clips, cover);
+            return self.emit_context(index, dest, to_win, clips);
         }
         let Some(geo) = self.geometry(layer, &to_t, tsize) else {
             return Ok(());
@@ -390,7 +393,7 @@ impl<'a> Builder<'a> {
             };
             self.emit_items(&cx)?;
         } else {
-            let src = self.build_surface(index, layer, &geo, t, &to_t, &to_win, sig)?;
+            let src = self.build_surface(index, layer, &geo, dest, &to_win, sig)?;
             self.draw_surface(layer, &geo, src, t, cover);
         }
         self.expand_effects(layer, &geo, mark, &to_win);
@@ -405,8 +408,7 @@ impl<'a> Builder<'a> {
         index: u32,
         layer: &'a CompositeLayer,
         geo: &Geo,
-        t: TargetId,
-        to_t: &Matrix4,
+        dest: Dest,
         to_win: &Matrix4,
         sig: u64,
     ) -> Result<Source<'a>, PlanError> {
@@ -454,7 +456,7 @@ impl<'a> Builder<'a> {
             self.new_temp(geo.size)
         };
         if let Some(backdrop) = &layer.effects.backdrop {
-            self.emit_backdrop(layer, backdrop, geo, content, t, to_t, to_win)?;
+            self.emit_backdrop(layer, backdrop, geo, content, dest, to_win)?;
         }
         let cx = ItemCtx {
             index,
@@ -483,12 +485,16 @@ impl<'a> Builder<'a> {
         backdrop: &'a RenderBackdrop,
         geo: &Geo,
         content: TargetId,
-        t: TargetId,
-        to_t: &Matrix4,
+        dest: Dest,
         to_win: &Matrix4,
     ) -> Result<(), PlanError> {
+        let Dest {
+            target: t,
+            to: to_t,
+            ..
+        } = dest;
         let size = geo.size;
-        let Some(map) = px_map(&geo.ms, to_t) else {
+        let Some(map) = px_map(&geo.ms, &to_t) else {
             return Ok(());
         };
         let behind = self.new_temp(size);

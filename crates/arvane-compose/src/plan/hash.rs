@@ -402,35 +402,33 @@ fn media_command(h: &mut Fnv, cmd: &RenderCmd, retain: &mut Vec<Retained>) {
 
 /// Fold in a shaped glyph run's own values.
 fn glyphs_command(h: &mut Fnv, cmd: &RenderCmd, retain: &mut Vec<Retained>) {
-    match cmd {
-        RenderCmd::Glyphs {
-            run,
-            origin,
-            fill,
-            stroke: outline,
-            order,
-        } => {
-            h.tag(9);
-            h.glyphs(run, retain);
-            h.point(*origin);
-            match fill {
-                Some(p) => {
-                    h.tag(1);
-                    paint(h, p, retain);
-                }
-                None => h.tag(0),
+    if let RenderCmd::Glyphs {
+        run,
+        origin,
+        fill,
+        stroke: outline,
+        order,
+    } = cmd
+    {
+        h.tag(9);
+        h.glyphs(run, retain);
+        h.point(*origin);
+        match fill {
+            Some(p) => {
+                h.tag(1);
+                paint(h, p, retain);
             }
-            match outline {
-                Some(o) => {
-                    h.tag(1);
-                    stroke(h, &o.stroke);
-                    paint(h, &o.paint, retain);
-                }
-                None => h.tag(0),
-            }
-            h.tag(*order as u8);
+            None => h.tag(0),
         }
-        _ => {}
+        match outline {
+            Some(o) => {
+                h.tag(1);
+                stroke(h, &o.stroke);
+                paint(h, &o.paint, retain);
+            }
+            None => h.tag(0),
+        }
+        h.tag(*order as u8);
     }
 }
 
@@ -502,34 +500,32 @@ fn shape_command(h: &mut Fnv, cmd: &RenderCmd, retain: &mut Vec<Retained>) {
 
 /// Fold in a path command's own values.
 fn path_command(h: &mut Fnv, cmd: &RenderCmd) {
-    match cmd {
-        RenderCmd::Path {
-            cmds,
-            fill,
-            stroke: line,
-        } => {
-            h.tag(7);
-            h.len(cmds.len());
-            for cmd in cmds {
-                h.bytes(format!("{cmd:?}").as_bytes());
-            }
-            match fill {
-                Some(c) => {
-                    h.tag(1);
-                    h.rgba(*c);
-                }
-                None => h.tag(0),
-            }
-            match line {
-                Some((w, c)) => {
-                    h.tag(1);
-                    h.f64(*w);
-                    h.rgba(*c);
-                }
-                None => h.tag(0),
-            }
+    if let RenderCmd::Path {
+        cmds,
+        fill,
+        stroke: line,
+    } = cmd
+    {
+        h.tag(7);
+        h.len(cmds.len());
+        for cmd in cmds {
+            h.bytes(format!("{cmd:?}").as_bytes());
         }
-        _ => {}
+        match fill {
+            Some(c) => {
+                h.tag(1);
+                h.rgba(*c);
+            }
+            None => h.tag(0),
+        }
+        match line {
+            Some((w, c)) => {
+                h.tag(1);
+                h.f64(*w);
+                h.rgba(*c);
+            }
+            None => h.tag(0),
+        }
     }
 }
 

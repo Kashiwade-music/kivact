@@ -10,6 +10,7 @@ use crate::limits::ENTRY_BYTES;
 use crate::limits::MAX_SVG_RASTER_EDGE;
 use crate::pixels::{self, AssetImage, PixelSize, Tint};
 use crate::raster::Decoded;
+use crate::read::FileVersion;
 use crate::svg::{FontDb, Svg};
 use kivact_types::Asset;
 use kivact_types::Pixels;
@@ -416,6 +417,58 @@ impl AssetStore {
         });
     }
 
+    /// Applies a finished load of `asset` (of file `version`) to the entry of `generation`: the loaded
+    /// state, or the failure; whether anything a host shows changed.
+    fn apply_load(
+        &mut self,
+        asset: Asset,
+        generation: u64,
+        version: FileVersion,
+        result: Result<Loaded, AssetError>,
+    ) -> bool {
+        if self.entries.get(&asset).map(|e| e.generation) != Some(generation) {
+            return false;
+        }
+        let loaded = match result {
+            Ok(Loaded::Raster(Decoded::Still(bitmap))) => {
+                self.admit_frames(&asset, vec![bitmap], None)
+            }
+            Ok(Loaded::Raster(Decoded::Animated(animation))) => {
+                let (frames, delays): (Vec<Pixels>, Vec<u32>) =
+                    animation.frames.into_iter().unzip();
+                let timing = AnimationInfo {
+                    delays_ms: delays.into(),
+                    repeat: animation.repeat,
+                };
+                self.admit_frames(&asset, frames, Some(timing))
+            }
+            Ok(Loaded::Vector(svg)) => {
+                self.make_room(svg.bytes());
+                let natural = svg.natural();
+                Ok(State::Vector { svg, natural })
+            }
+            Err(error) => Err(error),
+        };
+        let state = match loaded {
+            Ok(state) => state,
+            Err(error) => {
+                self.failures.push((asset.clone(), error.clone()));
+                let at = Instant::now() + self.recheck_interval;
+                State::Failed {
+                    recheck: Recheck::after(&asset, &error, version, at),
+                    error,
+                }
+            }
+        };
+        let Some(entry) = self.entries.get_mut(&asset) else {
+            return false;
+        };
+        self.bytes -= entry.state.bytes();
+        self.bytes += state.bytes();
+        entry.state = state;
+        true
+    }
+
     /// Applies a finished job; whether anything a host shows changed.
     fn apply(&mut self, done: Done) -> bool {
         match done {
@@ -424,49 +477,7 @@ impl AssetStore {
                 generation,
                 version,
                 result,
-            } => {
-                if self.entries.get(&asset).map(|e| e.generation) != Some(generation) {
-                    return false;
-                }
-                let loaded = match result {
-                    Ok(Loaded::Raster(Decoded::Still(bitmap))) => {
-                        self.admit_frames(&asset, vec![bitmap], None)
-                    }
-                    Ok(Loaded::Raster(Decoded::Animated(animation))) => {
-                        let (frames, delays): (Vec<Pixels>, Vec<u32>) =
-                            animation.frames.into_iter().unzip();
-                        let timing = AnimationInfo {
-                            delays_ms: delays.into(),
-                            repeat: animation.repeat,
-                        };
-                        self.admit_frames(&asset, frames, Some(timing))
-                    }
-                    Ok(Loaded::Vector(svg)) => {
-                        self.make_room(svg.bytes());
-                        let natural = svg.natural();
-                        Ok(State::Vector { svg, natural })
-                    }
-                    Err(error) => Err(error),
-                };
-                let state = match loaded {
-                    Ok(state) => state,
-                    Err(error) => {
-                        self.failures.push((asset.clone(), error.clone()));
-                        let at = Instant::now() + self.recheck_interval;
-                        State::Failed {
-                            recheck: Recheck::after(&asset, &error, version, at),
-                            error,
-                        }
-                    }
-                };
-                let Some(entry) = self.entries.get_mut(&asset) else {
-                    return false;
-                };
-                self.bytes -= entry.state.bytes();
-                self.bytes += state.bytes();
-                entry.state = state;
-                true
-            }
+            } => self.apply_load(asset, generation, version, result),
             Done::Unchanged { asset, generation } => {
                 let at = Instant::now() + self.recheck_interval;
                 if let Some(entry) = self

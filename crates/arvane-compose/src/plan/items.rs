@@ -208,15 +208,13 @@ impl<'a> Builder<'a> {
         };
         let to_child = child.transform.then(cx.dest.to);
         let win_child = child.transform.then(cx.to_win);
-        self.emit_layer(
-            index,
-            cx.dest.target,
-            cx.dest.size,
-            to_child,
-            win_child,
-            clips,
+        let dest = Dest {
+            target: cx.dest.target,
+            to: to_child,
+            size: cx.dest.size,
             cover,
-        )
+        };
+        self.emit_layer(index, dest, win_child, clips)
     }
 
     /// The coverage chunk of the clips of item `at` of the layer, on the layer's grid.
