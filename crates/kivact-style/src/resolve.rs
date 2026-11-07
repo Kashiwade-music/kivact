@@ -150,7 +150,6 @@ fn layout(s: &Style) -> LayoutProps {
         visibility: s.visibility.unwrap_or_default(),
         display: s.display.unwrap_or_default(),
         grid: super::grid::resolve(s.grid.as_deref(), s.display == Some(p::Display::Grid)),
-        layout_id: None,
     }
 }
 

@@ -1,4 +1,5 @@
-//! Role: Pixel buffers, color matrices and blend modes shared by paint, scene, effect and composition.
+//! Role: Pixel buffers, color matrices and blend modes shared across the vocabulary.
+//!
 //! Plain data usable on any thread.
 
 use crate::color::Rgba;

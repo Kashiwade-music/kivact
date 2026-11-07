@@ -232,8 +232,6 @@ except = [
     "model::aggregate -> paint::state",
     "model::aggregate -> a11y::state",
     "model::aggregate -> check::lint::state",
-    # Sync derives Look values directly and calls PaintState's narrow invalidator.
-    "model::interact::sync -> paint::state",
 ]
 [module_rules.kivact-engine.uses]
 lower = []
@@ -243,9 +241,10 @@ tree = ["lower", "contract"]
 mutation = ["contract", "tree"]
 frame_log = ["contract"]
 measure = ["text_input", "lower", "contract", "tree"]
-model = ["text_input", "lower", "contract", "tree", "measure", "mutation"]
+layer = ["lower"]
+model = ["text_input", "lower", "contract", "tree", "measure", "mutation", "layer"]
 text_measure = ["lower", "contract", "tree", "measure", "model"]
-paint = ["lower", "contract", "tree", "measure", "mutation", "model", "text_measure", "offscreen"]
+paint = ["lower", "contract", "tree", "measure", "mutation", "model", "text_measure", "offscreen", "layer"]
 a11y = ["contract", "tree", "measure", "mutation", "model"]
 check = ["lower", "contract", "tree", "measure", "mutation", "model", "paint", "a11y"]
 host = ["text_input", "contract", "tree", "measure", "mutation", "model", "paint", "a11y", "check", "text_measure", "frame_log", "offscreen"]
@@ -279,11 +278,12 @@ paint = ["asset", "color", "color_space", "effect", "geometry", "geometry3d", "l
 platform = ["asset", "geometry"]
 process = []
 pixel = ["asset", "color"]
-render = ["asset", "check", "color", "color_space", "effect", "env", "geometry", "geometry3d", "gpu", "pixel", "ids", "input", "layout", "motion", "paint", "platform", "scene", "semantics", "semantics_text", "text", "text_shaping"]
+prop_interp = ["color", "color_space", "geometry", "motion", "paint"]
+render =["asset", "check", "color", "color_space", "effect", "env", "geometry", "geometry3d", "gpu", "pixel", "ids", "input", "layout", "motion", "paint", "platform", "scene", "semantics", "semantics_text", "text", "text_shaping"]
 scene = ["asset", "color", "effect", "geometry", "geometry3d", "gpu", "ids", "paint", "pixel", "render", "semantics", "text"]
 semantics = ["geometry", "ids", "semantics_text"]
 semantics_text = ["geometry", "ids"]
-text = ["color", "color_space", "geometry", "paint"]
+text =["color", "color_space", "geometry", "paint"]
 text_shaping = ["render", "scene", "text"]
 text_utf = []
 

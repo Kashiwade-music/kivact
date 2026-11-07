@@ -81,13 +81,14 @@ pub use paint::{
     ClipShape, CoordinateGradient, CoordinateShape, CornerRadius, Corners, Cursor, Effects,
     ElementTransform, Extend, Fill, FillImage, FillLayer, FillSize, FilterOp, Gradient,
     GradientKind, GradientStop, ImageData, ImageFit, Isolation, Len, MaskComposite, MaskLayer,
-    MaskMode, PaintDelta, PaintProps, Perspective, PropBasis, PropInterp, RadialExtent, Ring,
-    ScrollbarDelta, ScrollbarProps, ShaderClock, ShaderSpec, Shadow, StateStyles, TransformStyle,
-    WillChange, apply_components, prop_interp,
+    MaskMode, PaintDelta, PaintProps, Perspective, RadialExtent, Ring, ScrollbarDelta,
+    ScrollbarProps, ShaderClock, ShaderSpec, Shadow, StateStyles, TransformStyle, WillChange,
 };
+mod prop_interp;
 pub use pixel::{BlendMode, ColorMatrix, Pixels};
 pub use platform::{Failure, FailureKind, FileDialog, PlatformRequest, PlatformResult};
 pub use presence::Presence;
+pub use prop_interp::{PropBasis, PropInterp, apply_components, prop_interp};
 pub use render::{
     InlineBox, InlineBoxPlacement, ShapedInlineText, ShapedText, ShapedTextSnapshot, TextLine,
 };

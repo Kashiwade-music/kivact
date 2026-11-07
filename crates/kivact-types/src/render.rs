@@ -18,7 +18,8 @@ mod text;
 pub use composition::{
     Composite, CompositeLayer, Composition, Export, ExportFrame, ExportLoss, ExportMode,
     ExportedFrame, ExternalItem, FrameReport, FrameStats, LayerEffects, LayerFilter, LayerItem,
-    LayerKey, PixelRect, Plane, RasterGrid, RenderBackdrop, RenderMask, ShaderItem,
+    LayerKey, MAX_CONTEXT_PLANES, PixelRect, Plane, RasterGrid, RenderBackdrop, RenderMask,
+    ShaderItem,
 };
 pub use effect::BoxShadow;
 pub use paint::{Gradient, GradientShape, Paint, Pattern, PatternSource};
@@ -29,7 +30,3 @@ pub use shaped::{
     ShapedTextSnapshot, TextDecorationRect, TextHighlight, TextLine,
 };
 pub use text::{RichText, SpanStyle, TextSpan};
-
-/// The most 3D context planes one context may hold (§8.14). Above it the
-/// engine and the compositor draw the planes flat, in tree order.
-pub const MAX_CONTEXT_PLANES: usize = 256;

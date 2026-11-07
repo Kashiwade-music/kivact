@@ -17,7 +17,9 @@ use kivact_types::cell::Generation;
 use kivact_types::geometry3d::Matrix4;
 use kivact_types::paint::BackfaceVisibility;
 use kivact_types::render::{Plane, RasterGrid};
-use kivact_types::{Edges, NodeId, Point, Rect, Size, WillChange};
+use kivact_types::{NodeId, Point, Rect, Size};
+
+pub(crate) use crate::model::{Look, SubtreeFacts};
 
 /// The parameters of one walk over a paint list; nothing in [`PaintState`]
 /// is changed for its duration (it replaces temporary scale and list swaps).
@@ -101,52 +103,6 @@ impl PaintState {
     }
 }
 
-// xtask-allow(state-fields): Normalized paint cache stores independent optional color and geometric drawing facts (S-9).
-/// What a node's paint says about where it draws, sanitized like
-/// `paint::sanitize_paint` (read in place: most nodes have no state
-/// styles, and their paint is not copied).
-#[derive(Clone, Copy, Debug)]
-pub(crate) struct Look {
-    pub(super) opacity: f64,
-    /// How far its outer shadows and focus ring reach outside its box.
-    pub(super) overflow: f64,
-    /// The widths of its visible border sides (canvas scenes start inside
-    /// them).
-    pub(super) border: Edges<f64>,
-    /// How far its layer filters draw beyond what they filter.
-    pub(super) fx: f64,
-    /// Its effects need a group (clip path, blend), whatever its opacity.
-    pub(super) grouped: bool,
-    /// It clips its children to its padding box.
-    pub(super) clip: bool,
-    /// How many of a background, a border, shadows and a ring it draws.
-    pub(super) items: u8,
-    /// Its corners are rounded.
-    pub(super) rounded: bool,
-    /// It has a CSS filter, masks or a backdrop filter (each needs a layer).
-    pub(super) filtered: bool,
-    pub(super) masked: bool,
-    pub(super) backdropped: bool,
-    /// Its blend mode is not normal.
-    pub(super) blended: bool,
-    /// It isolates its group (`isolation: isolate`).
-    pub(super) isolated: bool,
-    /// Its `will-change` value.
-    pub(super) will_change: WillChange,
-    /// Its `transform-style` is `preserve-3d`.
-    pub(super) preserves: bool,
-    /// Its element transform has no z component and no perspective.
-    pub(super) flat: bool,
-    /// Its element transform is not the identity.
-    pub(super) transformed: bool,
-    /// Its children are in a perspective.
-    pub(super) perspective: bool,
-    /// Its back face is hidden.
-    pub(super) backface_hidden: bool,
-    /// One of its background layers is a shader.
-    pub(super) shader: bool,
-}
-
 /// Everything a node's subtree can draw on, relative to its layout
 /// location, and the layout and generation it was found for (see the
 /// module invariants).
@@ -157,23 +113,6 @@ pub(crate) struct Ink {
     pub(super) size: Size,
     pub(super) content: Size,
     pub(super) generation: Generation,
-}
-
-// xtask-allow(state-fields): A pure derived record of independent presence facts about one subtree, rebuilt with the paint list and never a lifecycle (S-9).
-/// What a subtree holds that decides its layers (§6.1): whether the node
-/// itself is a layer, and what its subtree contains.
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
-pub(crate) struct SubtreeFacts {
-    /// The node is a compositor layer.
-    pub(super) layer: bool,
-    /// A layer is in the subtree (the node's own included).
-    pub(super) has_layer: bool,
-    /// An external frame or a shader is in the subtree.
-    pub(super) has_item: bool,
-    /// A backdrop filter is in the subtree.
-    pub(super) has_backdrop: bool,
-    /// A non-normal blend mode is in the subtree.
-    pub(super) has_blend: bool,
 }
 
 /// The compositor layer one listed node is drawn in.

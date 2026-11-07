@@ -103,7 +103,7 @@ impl Model {
         let mut output = kivact_types::render::SemanticsNode {
             id: kivact_types::SemanticsId(id.0),
             children,
-            bounds: Some(bounds),
+            bounds,
             scroll,
             transform,
             semantics: kivact_types::Semantics {
@@ -138,7 +138,8 @@ impl Model {
             output.semantics.text = Some(text);
         } else if let Some(authored) = authored_text {
             // A node that draws and edits its own text publishes its own runs.
-            let text = self.authored_semantics(id, &authored, bounds);
+            // Without a position the runs are relative to the node's own origin.
+            let text = self.authored_semantics(id, &authored, bounds.unwrap_or_default());
             output.semantics.text = text;
         }
         let leaves = self.build_region_leaves(id, scene_regions, regions, &mut output);
@@ -181,10 +182,12 @@ impl Model {
     ) -> Vec<kivact_types::render::SemanticsNode> {
         let hidden = output.semantics.hidden;
         let disabled = output.semantics.disabled;
-        let bounds = output.bounds.unwrap_or_default();
         // A region's space starts at the padding box, where its scene is drawn (§7.5).
-        let paint = crate::model::interact::visual::paint(self, id);
-        let canvas = crate::model::interact::visual::padding_box(bounds, &paint);
+        // A node without a position has no region position either.
+        let canvas = output.bounds.map(|bounds| {
+            let paint = crate::model::interact::visual::paint(self, id);
+            crate::model::interact::visual::padding_box(bounds, &paint)
+        });
         let mut leaves = Vec::new();
         for (region_id, region) in scene_regions {
             let native_id = self.region_identity(id, region_id);
@@ -215,14 +218,16 @@ impl Model {
             leaves.push(kivact_types::render::SemanticsNode {
                 id: kivact_types::SemanticsId(native_id),
                 children: Vec::new(),
-                bounds: region
-                    .transform
-                    .bounds(region.local_rect)
-                    .map(|r| kivact_types::Rect {
-                        x: canvas.x + r.x,
-                        y: canvas.y + r.y,
-                        ..r
-                    }),
+                bounds: canvas.and_then(|canvas| {
+                    region
+                        .transform
+                        .bounds(region.local_rect)
+                        .map(|r| kivact_types::Rect {
+                            x: canvas.x + r.x,
+                            y: canvas.y + r.y,
+                            ..r
+                        })
+                }),
                 scroll: kivact_types::Point::default(),
                 transform: kivact_types::Transform::IDENTITY,
                 semantics: kivact_types::Semantics {
@@ -254,20 +259,24 @@ impl Model {
     /// The bounds and the transform the accessibility node of `id` carries
     /// (§7.4). Where its map and its parent's are affine, the transform is
     /// relative to the parent (`a11y_transform`). Otherwise the
-    /// bounds are in the coordinates of the nearest ancestor with an affine
-    /// map, and the transform is the identity. A layer keeps its own rule.
+    /// bounds are the projected box in the coordinates of the nearest
+    /// ancestor with an affine map, and the transform is the identity. A
+    /// node whose box has no map (singular, or behind the viewer) has no
+    /// position, so its bounds are `None`. A boxless group (`display:
+    /// contents`) keeps its untransformed group box. A layer keeps its own
+    /// rule.
     fn a11y_placement(
         &self,
         id: types::NodeId,
         layer: bool,
         bounds: types::Rect,
         offset: types::Point,
-    ) -> (types::Rect, kivact_types::Transform) {
+    ) -> (Option<types::Rect>, kivact_types::Transform) {
         let Some(n) = self.node(id) else {
-            return (bounds, kivact_types::Transform::IDENTITY);
+            return (Some(bounds), kivact_types::Transform::IDENTITY);
         };
         if layer {
-            return (bounds, self.a11y_transform(id, true, bounds, offset));
+            return (Some(bounds), self.a11y_transform(id, true, bounds, offset));
         }
         let parent_affine = self
             .tree()
@@ -279,10 +288,15 @@ impl Model {
             } else {
                 kivact_types::Transform::IDENTITY
             };
-            return (bounds, own);
+            return (Some(bounds), own);
         }
-        let frame = self.affine_frame_bounds(id).unwrap_or(bounds);
-        (frame, kivact_types::Transform::IDENTITY)
+        if n.is_transparent() {
+            return (Some(bounds), kivact_types::Transform::IDENTITY);
+        }
+        (
+            self.affine_frame_bounds(id),
+            kivact_types::Transform::IDENTITY,
+        )
     }
 
     /// The bounds of `id`'s box in the coordinates of its nearest ancestor
@@ -472,7 +486,7 @@ fn is_clipping_list(n: &crate::tree::node::HostNode, editor_present: bool) -> bo
 pub(super) fn structural(
     id: types::NodeId,
     children: Vec<kivact_types::SemanticsId>,
-    bounds: kivact_types::Rect,
+    bounds: Option<kivact_types::Rect>,
     scroll: kivact_types::Point,
     transform: kivact_types::Transform,
     hidden: bool,
@@ -480,7 +494,7 @@ pub(super) fn structural(
     kivact_types::render::SemanticsNode {
         id: kivact_types::SemanticsId(id.0),
         children,
-        bounds: Some(bounds),
+        bounds,
         scroll,
         transform,
         semantics: kivact_types::Semantics {
