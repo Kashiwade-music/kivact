@@ -77,6 +77,7 @@ pub enum Easing {
         position: StepPosition,
     },
     /// CSS linear(): (input, output) points with increasing input.
+    // xtask-allow(api-shape): Shared immutable payload, cloned without copying its data; the design keeps one allocation.
     LinearPoints(Arc<[(f64, f64)]>),
     /// Pulls back before moving forward.
     BackIn,

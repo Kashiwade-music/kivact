@@ -438,6 +438,7 @@ pub struct LayoutProps {
     pub grid: Option<Box<GridProps>>,
     /// A shared-layout identity: boxes with the same id are the same visual
     /// element across the tree (`None`: no shared identity).
+    // xtask-allow(api-shape): Shared immutable payload, cloned without copying its data; the design keeps one allocation.
     pub layout_id: Option<std::sync::Arc<str>>,
 }
 

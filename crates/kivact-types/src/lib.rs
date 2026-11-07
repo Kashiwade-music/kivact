@@ -8,6 +8,7 @@ pub mod color;
 pub mod color_space;
 pub mod defaults;
 pub mod drag_velocity;
+pub mod effect;
 pub mod embed;
 pub mod env;
 pub mod geometry;
@@ -19,6 +20,7 @@ pub mod input;
 pub mod layout;
 pub mod motion;
 pub mod paint;
+pub mod pixel;
 pub mod platform;
 pub mod presence;
 pub mod process;
@@ -38,6 +40,11 @@ pub use color_space::{
     ColorInterpolation, ColorSpace, HueInterpolation, SpaceColor, delta_e_ok, interpolate, mix_rgba,
 };
 pub use drag_velocity::DragVelocity;
+pub use effect::{
+    Channel, CompositeOp, EdgeMode, FilterColorSpace, FilterGraph, FilterInput, Light,
+    MorphologyOp, ParamSlot, ParamType, Primitive, PrimitiveOp, ShaderKind, ShaderProgram,
+    ShaderUse, TransferFn, TurbulenceKind,
+};
 pub use embed::{EmbedOptions, ParentWindow};
 pub use env::{
     Capabilities, CommandKey, ContextMenuTrigger, Environment, LifecycleEvent, PointerClass,
@@ -70,11 +77,15 @@ pub use motion::{
     StepPosition, Transition, TransitionProp, lerp,
 };
 pub use paint::{
-    BlendMode, Border, ClipShape, CoordinateGradient, CoordinateShape, CornerRadius, Corners,
-    Cursor, Effects, ElementTransform, Extend, Fill, FillImage, FillLayer, FillSize, FilterOp,
-    Gradient, GradientKind, GradientStop, ImageData, ImageFit, Len, PaintDelta, PaintProps,
-    PaintVec, RadialExtent, Ring, ScrollbarDelta, ScrollbarProps, Shadow, StateStyles,
+    BackfaceVisibility, BackgroundClip, BackgroundOrigin, Border, BorderImage, BorderImageRepeat,
+    ClipShape, CoordinateGradient, CoordinateShape, CornerRadius, Corners, Cursor, Effects,
+    ElementTransform, Extend, Fill, FillImage, FillLayer, FillSize, FilterOp, Gradient,
+    GradientKind, GradientStop, ImageData, ImageFit, Isolation, Len, MaskComposite, MaskLayer,
+    MaskMode, PaintDelta, PaintProps, Perspective, PropBasis, PropInterp, RadialExtent, Ring,
+    ScrollbarDelta, ScrollbarProps, ShaderClock, ShaderSpec, Shadow, StateStyles, TransformStyle,
+    WillChange, apply_components, prop_interp,
 };
+pub use pixel::{BlendMode, ColorMatrix, Pixels};
 pub use platform::{Failure, FailureKind, FileDialog, PlatformRequest, PlatformResult};
 pub use presence::Presence;
 pub use render::{
@@ -82,7 +93,7 @@ pub use render::{
 };
 pub use scene::{
     BorderStyle, DrawCmd, DrawList, DrawingLayer, DrawingShape, FillRule, LineCap, LineJoin,
-    PathCmd, PathData, Pixels, Region, ShapePaint, Stroke, TextRun,
+    PathCmd, PathData, Region, ShapePaint, Stroke, TextRun,
 };
 pub use scroll::{ScrollSnap, nearest_snap};
 pub use semantics::{
