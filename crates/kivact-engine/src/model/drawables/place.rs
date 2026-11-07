@@ -56,16 +56,22 @@ enum Frame {
 
 /// What a layer contributes to the walk.
 struct LayerFrame {
+    // xtask-allow(state-fields): Geometric value of one layer; it is set from the command's transform and has no phase that depends on the flags below.
     /// The flattened map of the layer's transform (identity without one).
     map: Projective,
+    // xtask-allow(state-fields): Geometric value of one layer; it is set from the command's own transform, independent of the 3D flags.
     /// The layer's own 4×4 transform (identity without one).
     own: Matrix4,
+    // xtask-allow(state-fields): Accumulated matrix from the parent walk; a separate value, not a phase of `in_3d` or `preserves`.
     /// The accumulated 4×4 of its 3D context (`own` in a flat parent).
     context: Matrix4,
+    // xtask-allow(state-fields): Membership fact read from the parent; independent of the layer's own `preserves` setting.
     /// Whether the layer is inside a `Preserve3d` parent.
     in_3d: bool,
+    // xtask-allow(state-fields): Setting from the command; independent of 3D membership, so any combination with `in_3d` is valid.
     /// The layer's backface visibility.
     backface: BackfaceVisibility,
+    // xtask-allow(state-fields): Setting from the command; independent of `in_3d`, which is the parent's fact, not this layer's.
     /// Whether the layer's children share a 3D context.
     preserves: bool,
 }
