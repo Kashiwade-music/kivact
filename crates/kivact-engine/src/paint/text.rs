@@ -1,17 +1,20 @@
 //! Role: Model-aware fill, scene and text painting orchestration.
 
-use crate::lower::context::{Context, Purpose};
+use super::state::PaintPass;
+use crate::lower::context::Context;
 use crate::lower::effects::Tint;
 use crate::lower::glyphs::{Colors, push_text};
 use crate::lower::shape::BoxShape;
 use crate::model::Model;
-use kivact_types::{DrawList, Fill, FillLayer, NodeId, Point, Rect};
+use kivact_types::{DrawList, Fill, NodeId, Point, Rect};
 
 impl Model {
-    /// The window's painting context: its assets and raster scale. A
-    /// window drops the failures the context keeps.
-    fn painting(&self) -> Context<'_> {
-        Context::new(&self.assets, &self.paint.raster, &self.paint.scene_cache)
+    /// The painting context of `pass`: its assets, raster scale and
+    /// purpose. A window drops the failures the context keeps.
+    fn painting(&self, pass: PaintPass) -> Context<'_> {
+        let mut context = Context::new(&self.assets, pass.scale, &self.paint.scene_cache);
+        context.purpose = pass.purpose;
+        context
     }
 
     pub(crate) fn fill(
@@ -21,22 +24,11 @@ impl Model {
         fill: &Fill,
         tint: &Tint,
         origin: Point,
+        pass: PaintPass,
     ) {
-        let context = self.painting();
+        let context = self.painting(pass);
         context.fill(out, shape, fill, tint, origin);
         context.finish();
-    }
-
-    pub(crate) fn layer_paint(
-        &self,
-        layer: &FillLayer,
-        area: Rect,
-        origin: Point,
-    ) -> Option<kivact_types::render::Paint> {
-        let context = self.painting();
-        let paint = context.layer_paint(layer, area, origin);
-        context.finish();
-        paint
     }
 
     /// Paint `scene`, the draw `layer` (0: draw, 1: draw-over) of node `id`,
@@ -53,15 +45,14 @@ impl Model {
         tint: &Tint,
         engine: &mut arvane::Engine,
         out: &mut crate::lower::SceneOut,
-        purpose: Purpose,
+        pass: PaintPass,
     ) {
         let inherited = scene
             .cmds
             .iter()
             .any(|cmd| matches!(cmd, kivact_types::DrawCmd::Text(run) if crate::lower::glyphs::inherits(run)))
             .then(|| self.text_props(id));
-        let mut context = self.painting();
-        context.purpose = purpose;
+        let context = self.painting(pass);
         context.paint_scene(scene, inherited.as_deref(), origin, tint, engine, out);
         let dropped = context.finish().dropped;
         if dropped == 0 {
@@ -83,6 +74,7 @@ impl Model {
         id: NodeId,
         area: Rect,
         tint: &Tint,
+        pass: PaintPass,
         engine: &mut arvane::Engine,
         out: &mut crate::lower::SceneOut,
     ) {
@@ -156,6 +148,7 @@ impl Model {
                         x: rect.x,
                         y: rect.y,
                     },
+                    pass,
                 );
             }
         }
@@ -166,7 +159,7 @@ impl Model {
             &colors,
             &props.shadows,
             tint,
-            self.paint.raster.get(),
+            pass.scale,
         );
     }
 }

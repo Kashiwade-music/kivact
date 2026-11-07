@@ -14,8 +14,20 @@ use std::cell::{Cell, RefCell};
 use std::collections::{BTreeSet, HashMap};
 
 use kivact_types::cell::Generation;
-use kivact_types::render::ColorMatrix;
 use kivact_types::{Edges, NodeId, Point, Rect, Size};
+
+/// The parameters of one walk over a paint list; nothing in [`PaintState`]
+/// is changed for its duration (it replaces temporary scale and list swaps).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) struct PaintPass {
+    /// Device pixels per logical pixel the walk draws at (inside a
+    /// transform, enlarged by its zoom).
+    pub(crate) scale: f64,
+    /// What the walk draws for.
+    pub(crate) purpose: crate::lower::context::Purpose,
+    /// The logical size of the root layer.
+    pub(crate) size: Size,
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum Redraw {
@@ -40,7 +52,6 @@ pub(crate) struct PaintState {
     pub(crate) ink: Vec<Cell<Option<Ink>>>,
     pub(crate) look: Vec<Option<Look>>,
     pub(super) scale: f64,
-    pub(super) raster: Cell<f64>,
     pub(crate) scene_cache: RefCell<crate::lower::SceneCache>,
     pub(super) dropped_reported: RefCell<BTreeSet<(NodeId, u8)>>,
     pub(super) dropped_draws: RefCell<Vec<(NodeId, u32)>>,
@@ -55,7 +66,6 @@ impl PaintState {
             ink: Vec::new(),
             look: Vec::new(),
             scale: 1.0,
-            raster: Cell::new(1.0),
             scene_cache: RefCell::default(),
             dropped_reported: RefCell::default(),
             dropped_draws: RefCell::default(),
@@ -104,11 +114,8 @@ pub(crate) struct Look {
     pub(super) border: Edges<f64>,
     /// How far its layer filters draw beyond what they filter.
     pub(super) fx: f64,
-    /// The layers its effects need (layer filters, clip path, mask,
-    /// blend), whatever its opacity: 0 or at least 1.
-    pub(super) layers: u8,
-    /// Its color filters as one matrix (`None`: it has none).
-    pub(super) recolor: Option<ColorMatrix>,
+    /// Its effects need a group (clip path, blend), whatever its opacity.
+    pub(super) grouped: bool,
     /// It clips its children to its padding box.
     pub(super) clip: bool,
     /// How many of a background, a border, shadows and a ring it draws.
@@ -149,16 +156,12 @@ pub(crate) struct Step {
     /// Its corners are rounded (a clip is a layer clipped to its rounded
     /// padding box, not a rect clip).
     pub(super) rounded: bool,
-    /// It draws itself (else it is listed for its layers only).
+    /// It draws itself (else it is listed for its group only).
     pub(super) own: bool,
-    /// The layers it is composited in (0: none).
-    pub(super) layers: u8,
-    /// Its opacity is a group's (applied by its outer layer).
+    /// It is composited in a group.
+    pub(super) grouped: bool,
+    /// Its opacity is the group's (applied by its group).
     pub(super) group: bool,
-    /// Its colors' matrix and its parent's (indices into
-    /// [`PaintList::matrices`]).
-    pub(super) matrix: Option<u32>,
-    pub(super) parent_matrix: Option<u32>,
     /// The area its ancestors let it draw in (grown by the culling
     /// margin), in the space of its origin: a text input draws only the
     /// lines that reach it.
@@ -168,11 +171,11 @@ pub(crate) struct Step {
 /// One step of the paint list.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) enum Entry {
-    /// Open the node's layers, draw its box, then (inside its clip when it
+    /// Open the node's group, draw its box, then (inside its clip when it
     /// clips) its canvas scene and its content.
     Open(Step),
     /// After its descendants: its `DrawOver` scene, then pop its clip and
-    /// its layers.
+    /// its group.
     Close(Step),
 }
 
@@ -180,8 +183,6 @@ pub(crate) enum Entry {
 #[derive(Clone, Debug, Default)]
 pub(crate) struct PaintList {
     pub(super) entries: Vec<Entry>,
-    /// The color matrices of the listed nodes with color filters.
-    pub(super) matrices: Vec<ColorMatrix>,
     /// The transforms of the listed transformed nodes, each in the space
     /// of the transforms around it.
     pub(super) transforms: Vec<kivact_types::Transform>,

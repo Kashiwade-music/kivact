@@ -107,7 +107,7 @@ impl Model {
         self.pointer.state.mouse_mut().at = Some(at);
         self.report_mouse_position(Some(at));
         if let MouseGesture::Scrollbar(drag) = self.pointer.state.mouse().gesture {
-            let local = self.to_local(drag.node, at);
+            let local = self.pointer_local(drag.node, at);
             if let Some(bar) = self
                 .scrollbar_bars(drag.node)
                 .into_iter()
@@ -193,7 +193,7 @@ impl Model {
                 .is_none()
             && let Some(id) = hit
         {
-            let local = self.to_local(id, at);
+            let local = self.pointer_local(id, at);
             if let Some(bar) = self.scrollbar_at(id, local) {
                 let mut offset = self.node(id).map(|n| n.scroll()).unwrap_or_default();
                 let pointer = if bar.vertical { local.y } else { local.x };
@@ -394,7 +394,7 @@ impl Model {
         let previous = self.pointer.file_target;
         if previous != hit {
             if let Some(node) = previous {
-                let pos = self.to_local(node, point);
+                let pos = self.pointer_local(node, point);
                 self.push(HostEvent::File(crate::contract::Routed {
                     target: Some(node),
                     region: None,
@@ -409,7 +409,7 @@ impl Model {
                 }));
             }
             if let Some(node) = hit {
-                let pos = self.to_local(node, point);
+                let pos = self.pointer_local(node, point);
                 self.push(HostEvent::File(crate::contract::Routed {
                     target: Some(node),
                     region: None,
@@ -425,7 +425,7 @@ impl Model {
             }
         }
         if let Some(node) = hit {
-            let pos = self.to_local(node, point);
+            let pos = self.pointer_local(node, point);
             let phase = if phase == kivact_types::FilePhase::Drop {
                 FilePhase::Drop
             } else {

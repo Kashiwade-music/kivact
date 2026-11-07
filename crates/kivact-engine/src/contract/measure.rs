@@ -63,6 +63,10 @@ impl TextShaper for LeafTextMeasurer<'_> {
     ) -> Option<kivact_types::ShapedTextSnapshot> {
         self.0.shape(run, max_width)
     }
+
+    fn outline(&self, run: &kivact_types::render::GlyphRun) -> Vec<kivact_types::PathCmd> {
+        self.0.outline(run)
+    }
 }
 
 impl std::fmt::Debug for LeafTextMeasurer<'_> {

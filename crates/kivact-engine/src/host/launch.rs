@@ -144,6 +144,7 @@ impl arvane::Handler for Launch {
             frame_log: args.frame_log.clone(),
             accessibility_noted: kivact_types::cell::ReportOnce::new(),
             adapter: kivact_types::cell::Sent::new(),
+            last_stats: None,
         };
         let result = host.begin(
             window,

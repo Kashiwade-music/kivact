@@ -15,7 +15,7 @@
 //!   or gradient stop, ...) is dropped and counted, never skipped silently:
 //!   a window reports the count to the client, image output returns it as
 //!   an error.
-//! - What is counted: a `PopClip`, `PopTransform` or `PopLayer` that does not
+//! - What is counted: a `PopClip`, `PopTransform` or `PopGroup` that does not
 //!   close the innermost group its scene opened; a non-finite coordinate; a size, radius or stroke
 //!   width that is non-finite or negative; a path whose points or arcs are not finite (or
 //!   that draws before it moves), a text run whose origin or size is not
@@ -42,7 +42,7 @@ use crate::lower::scene_cache::{Dependency, SceneCache};
 use std::sync::Arc;
 
 /// The destination of one independent lowering operation.
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum Purpose {
     Window,
     Cpu,
@@ -55,7 +55,7 @@ pub(crate) struct Context<'a> {
     pub(crate) purpose: Purpose,
     pub(crate) assets: &'a RefCell<ArvaneAssets>,
     /// Device pixels per logical pixel of what is painted now.
-    pub(crate) raster: &'a Cell<f64>,
+    pub(crate) raster: Cell<f64>,
     pub(crate) scene_cache: &'a RefCell<SceneCache>,
     /// Every resource resolved so far, in order; a scene lowering keeps the ones it resolved.
     pub(crate) dependencies: RefCell<Vec<Dependency>>,
@@ -77,12 +77,12 @@ pub(crate) struct Checkpoint {
 }
 
 impl<'a> Context<'a> {
-    /// Borrow resources, device scale and the host-owned retained scene cache.
+    /// Borrow resources, take the device scale and the host-owned retained scene cache.
     /// Resource revisions invalidate cached payloads before this operation.
     /// The context and its operations cannot outlive either borrowed value.
     pub(crate) fn new(
         assets: &'a RefCell<ArvaneAssets>,
-        raster: &'a Cell<f64>,
+        raster: f64,
         scene_cache: &'a RefCell<SceneCache>,
     ) -> Self {
         scene_cache
@@ -91,7 +91,7 @@ impl<'a> Context<'a> {
         Self {
             purpose: Purpose::Window,
             assets,
-            raster,
+            raster: Cell::new(raster),
             scene_cache,
             dependencies: RefCell::new(Vec::new()),
             dropped: Cell::new(0),
@@ -176,7 +176,7 @@ impl<'a> Context<'a> {
         &self,
         asset: &kivact_types::Asset,
         size: arvane::asset::PixelSize,
-    ) -> Option<(kivact_types::scene::Pixels, arvane::asset::Region)> {
+    ) -> Option<(kivact_types::Pixels, arvane::asset::Region)> {
         self.pixels_in(asset, size, arvane::asset::Region::WHOLE, None)
     }
 
@@ -186,7 +186,7 @@ impl<'a> Context<'a> {
         size: arvane::asset::PixelSize,
         region: arvane::asset::Region,
         tint: Option<kivact_types::Rgba>,
-    ) -> Option<(kivact_types::scene::Pixels, arvane::asset::Region)> {
+    ) -> Option<(kivact_types::Pixels, arvane::asset::Region)> {
         if size.is_empty() {
             return None;
         }

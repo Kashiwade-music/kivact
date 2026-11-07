@@ -261,6 +261,17 @@ fn plain_scene_reach(cmds: &[DrawCmd], canvas: Rect) -> Option<Rect> {
                     .as_ref()
                     .map_or(0.0, |s| s.width.abs() * s.miter_limit.max(1.0)),
             )),
+            DrawCmd::BorderImage { rect, image } => {
+                let o = image.outset;
+                add(at(Rect {
+                    x: rect.x - o.left,
+                    y: rect.y - o.top,
+                    width: rect.width + o.left + o.right,
+                    height: rect.height + o.top + o.bottom,
+                }));
+            }
+            // A drawable's extent is its subtree's; the paint model does not draw it.
+            DrawCmd::Drawable { .. } => {}
             DrawCmd::PushLayer(_) | DrawCmd::PopLayer => {}
             DrawCmd::PushClip(_)
             | DrawCmd::PopClip

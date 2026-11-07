@@ -16,13 +16,13 @@
 //!   CSS's formula, so sharp corners stay sharp), moved by the offset,
 //!   blurred by a gaussian of standard deviation blur / 2 (a blur of 0 is a
 //!   hard edge); an inset one lies inside the box. A background is opaque
-//!   only as one opaque color with no fade and no color filter; a shadow
+//!   only as one opaque color with no fade; a shadow
 //!   whose color is transparent is left out.
 //! - The focus ring is a band outside the border box, following its
 //!   corners with an optional gap. With zero offset, a clip path
 //!   supplies the outline.
 
-use crate::lower::effects::Tint;
+use crate::lower::effects::{Tint, clip_group};
 use crate::lower::shape::BoxShape;
 use kivact_types::render::RenderCmd as D;
 use kivact_types::{Border, BorderStyle, Edges, Fill, Ring, Shadow};
@@ -152,18 +152,21 @@ pub(crate) fn border(
     let colors = sides(&border.colors);
     let shown: Vec<usize> = (0..4).filter(|i| w[*i] > 0.0).collect();
     let one_color = shown.iter().all(|i| colors[*i] == colors[shown[0]]);
+    let styles = sides(&border.styles);
+    let one_style = shown.iter().all(|i| styles[*i] == styles[shown[0]]);
+    let all_solid = shown.iter().all(|i| styles[*i] == BorderStyle::Solid);
     let color = |i: usize| tint.color(colors[i]);
-    if one_color && w.iter().all(|x| *x == w[0]) {
+    if one_color && one_style && w.iter().all(|x| *x == w[0]) {
         // The same band all around.
         let solid_corners = !matches!(shape, BoxShape::Rounded(_));
-        if border.style != BorderStyle::Solid || solid_corners {
-            stroke_band(out, shape, w[0], border.style, color(0));
+        if styles[shown[0]] != BorderStyle::Solid || solid_corners {
+            stroke_band(out, shape, w[0], styles[shown[0]], color(0));
             return;
         }
     }
     let inner = shape.inset(widths);
     let (o, p) = (shape.rect(), inner.rect());
-    if border.style == BorderStyle::Solid {
+    if all_solid {
         let band = ring(shape, &inner);
         if one_color {
             out.push(D::FillShape {
@@ -173,32 +176,26 @@ pub(crate) fn border(
             return;
         }
         for i in shown {
-            out.push(D::PushLayer(kivact_types::render::Layer {
-                clip: Some(trapezoid(i, o, p)),
-                ..kivact_types::render::Layer::default()
-            }));
+            out.push(clip_group(trapezoid(i, o, p)));
             out.push(D::FillShape {
                 shape: band.clone(),
                 paint: kivact_types::render::Paint::Solid(color(i)),
             });
-            out.push(D::PopLayer);
+            out.push(D::PopGroup);
         }
         return;
     }
-    // Dashed or dotted sides of their own widths.
+    // Sides of their own widths and styles.
     for i in shown {
-        out.push(D::PushLayer(kivact_types::render::Layer {
-            clip: Some(trapezoid(i, o, p)),
-            ..kivact_types::render::Layer::default()
-        }));
-        stroke_band(out, shape, w[i], border.style, color(i));
-        out.push(D::PopLayer);
+        out.push(clip_group(trapezoid(i, o, p)));
+        stroke_band(out, shape, w[i], styles[i], color(i));
+        out.push(D::PopGroup);
     }
 }
 
 /// Whether `fill` hides everything beneath the box (one opaque color).
 pub(crate) fn opaque(fill: Option<&Fill>, tint: &Tint) -> bool {
-    matches!(fill, Some(Fill::Solid(c)) if c.a >= 1.0) && tint.alpha >= 1.0 && tint.matrix.is_none()
+    matches!(fill, Some(Fill::Solid(c)) if c.a >= 1.0) && tint.alpha >= 1.0
 }
 
 /// The box shadows of `shadows` that are (`inset`) or are not inset, the

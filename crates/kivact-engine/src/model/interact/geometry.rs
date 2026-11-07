@@ -515,16 +515,13 @@ impl Model {
                 && let Some(view) = self.rect(p)
                 && let Some(target) = self.rect(id)
             {
+                // The target as drawn in the container's own space.
+                let target = self.drawn_within(id, p, target, view);
                 // Respect the container's padding when revealing a target.
                 // Its gutter stays available for focus rings and scrollbars.
                 let view = self.computed_layout(p).map_or(view, |l| {
                     crate::model::interact::visual::content_at(view, l.content_box)
                 });
-                // The target as drawn in the container's own space.
-                let target = crate::model::transform::map_rect(
-                    self.transform_between(id, Some(p)).as_ref(),
-                    target,
-                );
                 let mut s = n.scroll;
                 if axes.1 {
                     s.y += reveal(target.y, target.height, view.y, view.height);

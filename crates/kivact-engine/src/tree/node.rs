@@ -443,7 +443,9 @@ impl HostNode {
                 let Some(inverse) = r.transform.invert() else {
                     return false;
                 };
-                let point = inverse.apply(local);
+                let Some(point) = inverse.apply(local) else {
+                    return false;
+                };
                 match &r.shape {
                     Some(shape) => crate::lower::scene_shape::shape(shape).contains(point),
                     None => r.local_rect.contains(point),

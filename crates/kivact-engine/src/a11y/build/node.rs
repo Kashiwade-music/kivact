@@ -107,7 +107,7 @@ impl Model {
         let mut output = kivact_types::render::SemanticsNode {
             id: kivact_types::SemanticsId(id.0),
             children,
-            bounds,
+            bounds: Some(bounds),
             scroll,
             transform,
             semantics: kivact_types::Semantics {
@@ -185,7 +185,7 @@ impl Model {
     ) -> Vec<kivact_types::render::SemanticsNode> {
         let hidden = output.semantics.hidden;
         let disabled = output.semantics.disabled;
-        let bounds = output.bounds;
+        let bounds = output.bounds.unwrap_or_default();
         let mut leaves = Vec::new();
         for (region_id, region) in scene_regions {
             let native_id = self.region_identity(id, region_id);
@@ -216,12 +216,12 @@ impl Model {
             leaves.push(kivact_types::render::SemanticsNode {
                 id: kivact_types::SemanticsId(native_id),
                 children: Vec::new(),
-                bounds: kivact_types::Rect {
+                bounds: Some(kivact_types::Rect {
                     x: bounds.x + region.rect.x,
                     y: bounds.y + region.rect.y,
                     width: region.rect.width,
                     height: region.rect.height,
-                },
+                }),
                 scroll: kivact_types::Point::default(),
                 transform: kivact_types::Transform::IDENTITY,
                 semantics: kivact_types::Semantics {
@@ -406,7 +406,7 @@ pub(super) fn structural(
     kivact_types::render::SemanticsNode {
         id: kivact_types::SemanticsId(id.0),
         children,
-        bounds,
+        bounds: Some(bounds),
         scroll,
         transform,
         semantics: kivact_types::Semantics {

@@ -17,12 +17,12 @@ impl SceneOut {
     pub(crate) fn push(&mut self, command: RenderCmd) {
         use RenderCmd as D;
         match command {
-            D::PushClip(_) | D::PushTransform(_) | D::PushLayer(_) => {
+            D::PushClip(_) | D::PushTransform(_) | D::PushGroup(_) => {
                 self.open += 1;
                 self.deepest = self.deepest.max(self.open);
             }
             // An unbalanced pop is the writer's bug; Arvane's scene validation reports it.
-            D::PopClip | D::PopTransform | D::PopLayer => {
+            D::PopClip | D::PopTransform | D::PopGroup => {
                 self.open = self.open.saturating_sub(1);
             }
             _ => {}

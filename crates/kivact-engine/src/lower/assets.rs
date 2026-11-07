@@ -172,7 +172,7 @@ impl ArvaneAssets {
         device: PixelSize,
         visible: Region,
         tint: Option<Rgba>,
-    ) -> Option<(kivact_types::scene::Pixels, Region)> {
+    ) -> Option<(kivact_types::Pixels, Region)> {
         if device.is_empty() {
             return None;
         }
@@ -180,7 +180,7 @@ impl ArvaneAssets {
         // Arvane keeps no device textures: evicted pixels need no work.
         self.store.take_evicted();
         let (pixels, region) = drawn?;
-        let image = kivact_types::scene::Pixels {
+        let image = kivact_types::Pixels {
             width: pixels.width(),
             height: pixels.height(),
             rgba: kivact_types::AssetBytes::from_shared(std::sync::Arc::clone(pixels.rgba())),

@@ -1,9 +1,10 @@
-//! Role: Store running state style transitions and their color channels.
+//! Role: Store running state style transitions, their tracks and color channels.
 
 use std::collections::BTreeMap;
+use std::sync::Arc;
 
-use kivact_types::motion::{SpringRun, Transition};
-use kivact_types::{NodeId, PaintProps, PaintVec, Rgba};
+use kivact_types::motion::{SpringRun, Transition, TransitionProp};
+use kivact_types::{NodeId, PaintProps, PropBasis, PropInterp, Rgba, apply_components};
 
 /// The state motion group: the transitions of the nodes whose state
 /// styles are moving (allocated only while one moves).
@@ -30,6 +31,18 @@ impl StateMotion {
     pub(crate) fn moving(&self) -> impl Iterator<Item = NodeId> + '_ {
         self.0.keys().copied()
     }
+
+    /// Whether `id` moves its opacity or its transform now (a track of
+    /// either is running): such a node is a compositor layer. Captured and
+    /// held tracks do not move it.
+    pub(crate) fn moves_layer(&self, id: NodeId) -> bool {
+        self.0.get(&id).is_some_and(|a| {
+            a.tracks.iter().any(|t| {
+                matches!(t.phase, TrackPhase::Running { .. })
+                    && matches!(t.prop, TransitionProp::Opacity | TransitionProp::Transform)
+            })
+        })
+    }
 }
 
 /// The independently interpolated text color channels.
@@ -53,30 +66,80 @@ impl ColorChannels {
     }
 }
 
-/// Where a state animation is in its life.
-#[derive(Debug)]
-pub(super) enum StateAnimPhase {
-    /// The shown value was captured before a state change; the next retarget
-    /// starts it from `current` or drops it. Never stepped.
-    Captured { from: Vec<f64>, to: Vec<f64> },
-    /// Moving from `from` to `to` since `start` (host ns).
-    Running {
-        from: Vec<f64>,
-        to: Vec<f64>,
-        start: u64,
-    },
-}
-
+/// The state animation of one node: its target paint and one track per
+/// property it moves.
 #[derive(Debug)]
 pub(crate) struct StateAnimation {
-    pub(super) transition: std::sync::Arc<Transition>,
+    /// The paint the animation moves to.
     pub(super) target: PaintProps,
-    pub(super) current: Vec<f64>,
-    /// A spring's velocity, step time and iteration; it survives a
-    /// re-capture, so an interrupted spring goes on with its velocity.
-    pub(super) spring: SpringRun,
+    /// The text color the animation moves to.
+    pub(super) target_text: Rgba,
+    /// One track per property that has a transition and can be interpolated.
+    pub(super) tracks: Vec<PropTrack>,
+    /// Which text colors the tracks move.
     pub(super) colors: ColorChannels,
-    pub(super) phase: StateAnimPhase,
+}
+
+/// The motion of one property.
+#[derive(Debug)]
+pub(crate) struct PropTrack {
+    /// The property it moves.
+    pub(super) prop: TransitionProp,
+    /// How it moves.
+    pub(super) transition: Arc<Transition>,
+    /// Where it is in its life.
+    pub(super) phase: TrackPhase,
+}
+
+/// Where a track is in its life.
+#[derive(Debug)]
+pub(crate) enum TrackPhase {
+    /// A state change is pending: `shown` is drawn; `interp.from`/`to` are
+    /// the interrupted run's endpoints (for `Retarget::Proportional`), equal
+    /// to `shown` when nothing ran; `spring` keeps the interrupted velocity.
+    Captured {
+        /// The interrupted interpolation.
+        interp: PropInterp,
+        /// The numbers drawn.
+        shown: Vec<f64>,
+        /// The interrupted spring state.
+        spring: SpringRun,
+    },
+    /// Moving from `interp.from` to `interp.to` since `start` (host ns).
+    Running {
+        /// The interpolation.
+        interp: PropInterp,
+        /// The numbers drawn now.
+        current: Vec<f64>,
+        /// When it started (host ns).
+        start: u64,
+        /// A spring's velocity, step time and iteration.
+        spring: SpringRun,
+    },
+    /// The run ended away from the target (alternate with an even count):
+    /// `value` is drawn until the next capture.
+    Held {
+        /// The finished interpolation.
+        interp: PropInterp,
+        /// The numbers drawn.
+        value: Vec<f64>,
+    },
+    /// At the target value.
+    Settled,
+}
+
+impl TrackPhase {
+    /// The basis and numbers drawn, unless the track is at the target.
+    fn drawn(&self) -> Option<(&PropBasis, &[f64])> {
+        match self {
+            TrackPhase::Captured { interp, shown, .. } => Some((&interp.basis, shown)),
+            TrackPhase::Running {
+                interp, current, ..
+            } => Some((&interp.basis, current)),
+            TrackPhase::Held { interp, value } => Some((&interp.basis, value)),
+            TrackPhase::Settled => None,
+        }
+    }
 }
 
 impl StateAnimation {
@@ -85,18 +148,48 @@ impl StateAnimation {
         self.colors.contains(ColorChannels::TEXT)
             || (self.colors.contains(ColorChannels::BASE_TEXT) && inherits_base())
     }
+
+    /// The paint drawn now: the target with every unsettled track's numbers
+    /// written in.
     pub(crate) fn current_paint(&self) -> PaintProps {
-        let mut p = self.target.clone();
-        PaintVec::from_components(&self.current).apply(&mut p);
-        p
+        self.displayed().0
     }
+
+    /// The text color drawn now.
     pub(crate) fn current_color(&self) -> Rgba {
-        let at = PaintVec::COMPONENTS;
-        Rgba {
-            r: self.current[at],
-            g: self.current[at + 1],
-            b: self.current[at + 2],
-            a: self.current[at + 3],
+        self.displayed().1
+    }
+
+    /// The paint and the text color drawn now.
+    pub(super) fn displayed(&self) -> (PaintProps, Rgba) {
+        let mut paint = self.target.clone();
+        let mut text = self.target_text;
+        for track in &self.tracks {
+            if let Some((basis, values)) = track.phase.drawn() {
+                apply_components(basis, values, &mut paint, &mut text);
+            }
         }
+        (paint, text)
+    }
+
+    /// Whether any track is running.
+    pub(super) fn running(&self) -> bool {
+        self.tracks
+            .iter()
+            .any(|t| matches!(t.phase, TrackPhase::Running { .. }))
+    }
+
+    /// Whether every track is at the target.
+    pub(super) fn settled(&self) -> bool {
+        self.tracks
+            .iter()
+            .all(|t| matches!(t.phase, TrackPhase::Settled))
+    }
+
+    /// Whether any track waits for a retarget.
+    pub(super) fn captured(&self) -> bool {
+        self.tracks
+            .iter()
+            .any(|t| matches!(t.phase, TrackPhase::Captured { .. }))
     }
 }

@@ -28,14 +28,14 @@
 //!   owns the assets and the text engine, which its thread keeps. An
 //!   [`OffscreenRenderer`] is not `Send`; dropping it releases its caches.
 
-use std::cell::{Cell, RefCell};
+use std::cell::RefCell;
 use std::rc::Rc;
 
 use crate::lower::assets::ArvaneAssets;
-use crate::lower::context::Context;
+use crate::lower::context::{Context, Purpose};
 use crate::lower::effects::Tint;
 use crate::text_measure::TextMeasurer;
-use kivact_types::{Asset, ComputedTextStyle, DrawList, PlatformResult, Rect};
+use kivact_types::{Asset, ComputedTextStyle, DrawList, PlatformResult, Rect, Size};
 
 /// Resources and rasterizer of window-independent drawing, confined to the
 /// thread that made them.
@@ -127,8 +127,8 @@ impl OffscreenRenderer {
     ) -> Result<OffscreenImage, OffscreenError> {
         self.assets.get_mut().begin_frame();
         self.assets.get_mut().discard_failures();
-        let raster = Cell::new(1.0);
-        let context = Context::new(&self.assets, &raster, &self.scene_cache);
+        let mut context = Context::new(&self.assets, 1.0, &self.scene_cache);
+        context.purpose = Purpose::Cpu;
         let mut lowered = crate::lower::SceneOut::default();
         context.paint_scene(
             scene,
@@ -139,10 +139,7 @@ impl OffscreenRenderer {
                 width: size.0 as f64,
                 height: size.1 as f64,
             },
-            &Tint {
-                alpha: 1.0,
-                matrix: None,
-            },
+            &Tint { alpha: 1.0 },
             &mut self.engine.borrow_mut(),
             &mut lowered,
         );
@@ -158,27 +155,25 @@ impl OffscreenRenderer {
         }
         // The failures the store kept are the ones the context reported.
         self.assets.get_mut().discard_failures();
-        let lowered = lowered.into_scene();
-        self.render_scene(&lowered, size)
+        let composition = crate::lower::composition::root_composition(
+            lowered.into_scene(),
+            Size {
+                width: size.0 as f64,
+                height: size.1 as f64,
+            },
+        );
+        self.render_composition(&composition, size)
     }
 
-    /// Rasterize already lowered window content with the same CPU renderer.
-    pub(crate) fn render_scene(
+    /// Rasterize already composed window content with the same CPU renderer.
+    pub(crate) fn render_composition(
         &mut self,
-        scene: &kivact_types::render::RenderScene,
+        composition: &kivact_types::render::Composition,
         size: (u32, u32),
     ) -> Result<OffscreenImage, OffscreenError> {
-        // External frames have no CPU representation. Never silently omit them.
-        if scene
-            .commands
-            .iter()
-            .any(|command| matches!(command, kivact_types::render::RenderCmd::External { .. }))
-        {
-            return Err(OffscreenError::Dropped(1));
-        }
         let mut frame = self
             .rasterizer
-            .render(scene, size.0, size.1)
+            .render(composition, size.0, size.1)
             .map_err(OffscreenError::Failed)?;
         // PNG and Draw::pixels are straight alpha; Arvane's frame is
         // premultiplied.

@@ -165,16 +165,17 @@ impl Model {
                 if let SmoothScroll::Fling { velocity, last_ns } = scroll {
                     return self.tick_fling(*id, velocity, last_ns, stamp);
                 }
-                let (start, target, began, easing) = match *scroll {
+                let (start, target, began, easing) = match &*scroll {
                     SmoothScroll::Scheduled {
                         start,
                         target,
                         easing,
                     } => {
+                        let (start, target, easing) = (*start, *target, easing.clone());
                         *scroll = SmoothScroll::Running {
                             start,
                             target,
-                            easing,
+                            easing: easing.clone(),
                             began_ns: stamp,
                         };
                         (start, target, stamp, easing)
@@ -185,7 +186,7 @@ impl Model {
                         target,
                         easing,
                         began_ns,
-                    } => (start, target, began_ns, easing),
+                    } => (*start, *target, *began_ns, easing.clone()),
                 };
                 let t = if self.frame.reduced_motion() {
                     1.0

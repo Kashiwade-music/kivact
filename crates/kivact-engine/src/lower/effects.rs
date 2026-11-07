@@ -1,36 +1,26 @@
-//! Role: A node's effects as Arvane values: tint, layers and backdrop.
+//! Role: A node's effects as Arvane values: tint, group and layer reach.
 //!
-//! A node's effects as Arvane values: the color filter every color of its
-//! subtree goes through ([`Tint`]), the layers it is composited in (group
-//! opacity, filters, clip path, mask, blending) and its backdrop.
+//! A node's effects as Arvane values: the opacity every color of its
+//! subtree is faded by ([`Tint`]) and the group it is composited in (group
+//! opacity, clip path, blend mode).
 //!
 //! Invariants:
-//! - Color functions (brightness .. opacity) compose into one
-//!   `ColorMatrix`, applied to every color the subtree emits (paints and
-//!   gradient stops, borders, shadows, text, scenes) and to its images
-//!   through the image's matrix; Arvane is never asked to filter pixels by
-//!   a matrix. A node's matrix applies after its descendants' (CSS).
-//! - `blur` and `drop-shadow` are layer filters, nested in CSS order (the
-//!   first innermost); a drop shadow's color goes through the color
-//!   functions after it and the ancestors' matrices.
-//! - One layer carries the clip path, the mask, the group opacity and the
-//!   blend mode, outermost, so they apply after the filters (CSS order:
-//!   filter, clip, mask, opacity, blend).
+//! - Color filters (brightness .. opacity), layer filters (`blur`,
+//!   `drop-shadow`), masks and `backdrop-filter` need the pixels of a
+//!   compositor layer; the paint model does not lower them.
+//! - One group carries the clip path, the group opacity and the blend
+//!   mode (CSS order: clip, opacity, blend).
 
-use kivact_types::Point;
+use kivact_types::render::{Group, Paint, PatternSource, RenderCmd};
+use kivact_types::scene::Shape;
 use kivact_types::{BlendMode, FilterOp, PaintProps, Rgba};
 
-use kivact_types::render::{ColorMatrix, Layer, LayerFilter};
-
 /// How the colors of one node are drawn: faded by `alpha` (the opacity of
-/// the node and its ancestors that is not a group's) and through `matrix`
-/// (its and its ancestors' color filters).
+/// the node and its ancestors that is not a group's).
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) struct Tint {
     /// Accumulated non-group opacity multiplier.
     pub(crate) alpha: f64,
-    /// Accumulated color transform, applied before the opacity multiplier.
-    pub(crate) matrix: Option<ColorMatrix>,
 }
 
 impl Tint {
@@ -39,61 +29,40 @@ impl Tint {
         self.arvane(kivact_types::Rgba::sanitize(color))
     }
 
-    /// Apply matrix and opacity to an already-lowered neutral color,
-    /// without repeating shared component sanitization.
+    /// Apply opacity to an already-lowered neutral color, without
+    /// repeating shared component sanitization.
     pub(crate) fn arvane(&self, color: Rgba) -> Rgba {
-        let color = match &self.matrix {
-            Some(m) => m.apply(color),
-            None => color,
-        };
         Rgba {
             a: color.a * self.alpha,
             ..color
         }
     }
 
-    /// A paint as drawn (every stop, a pattern's image through the matrix).
-    pub(crate) fn paint(&self, paint: kivact_types::render::Paint) -> kivact_types::render::Paint {
-        let paint = match &self.matrix {
-            Some(m) => paint.filtered(m),
-            None => paint,
-        };
+    /// A paint as drawn (every stop faded; a pattern's image is drawn at
+    /// full opacity: a tile image has no opacity of its own).
+    pub(crate) fn paint(&self, paint: Paint) -> Paint {
         if self.alpha == 1.0 {
-            paint
-        } else {
-            paint.filtered(&ColorMatrix::opacity(self.alpha))
+            return paint;
+        }
+        let fade = |g: &mut kivact_types::render::Gradient| {
+            for stop in &mut g.stops {
+                stop.1 = self.arvane(stop.1);
+            }
+        };
+        match paint {
+            Paint::Solid(color) => Paint::Solid(self.arvane(color)),
+            Paint::Gradient(mut g) => {
+                fade(&mut g);
+                Paint::Gradient(g)
+            }
+            Paint::Pattern(mut p) => {
+                if let PatternSource::Gradient(g) = &mut p.source {
+                    fade(g);
+                }
+                Paint::Pattern(p)
+            }
         }
     }
-
-    /// The tint of a child: its own color filter (`own`) first.
-    pub(crate) fn then_own(&self, own: Option<ColorMatrix>) -> Option<ColorMatrix> {
-        match (own, self.matrix) {
-            (Some(own), Some(parent)) => Some(own.then(parent)),
-            (own, parent) => own.or(parent),
-        }
-    }
-}
-
-fn op_matrix(op: &FilterOp) -> Option<ColorMatrix> {
-    let finite = |v: f64, fallback: f64| if v.is_finite() { v } else { fallback };
-    Some(match *op {
-        FilterOp::Brightness(a) => ColorMatrix::brightness(finite(a, 1.0)),
-        FilterOp::Contrast(a) => ColorMatrix::contrast(finite(a, 1.0)),
-        FilterOp::Saturate(a) => ColorMatrix::saturate(finite(a, 1.0)),
-        FilterOp::Grayscale(a) => ColorMatrix::grayscale(finite(a, 0.0)),
-        FilterOp::Sepia(a) => ColorMatrix::sepia(finite(a, 0.0)),
-        FilterOp::HueRotate(a) => ColorMatrix::hue_rotate(finite(a, 0.0)),
-        FilterOp::Invert(a) => ColorMatrix::invert(finite(a, 0.0)),
-        FilterOp::Opacity(a) => ColorMatrix::opacity(finite(a, 1.0)),
-        FilterOp::Blur(_) | FilterOp::DropShadow { .. } => return None,
-    })
-}
-
-/// The color functions of `ops`, composed in order (`None`: none, or only
-/// ones that change nothing).
-pub(crate) fn color_matrix(ops: &[FilterOp]) -> Option<ColorMatrix> {
-    let m = ops.iter().filter_map(op_matrix).reduce(ColorMatrix::then)?;
-    (!m.is_identity()).then_some(m)
 }
 
 /// A blur's standard deviation (CSS `blur(px)`), sanitized.
@@ -118,114 +87,42 @@ pub(crate) fn filter_reach(ops: &[FilterOp]) -> f64 {
         .sum()
 }
 
-/// Whether `op` is a layer filter that changes something.
-fn is_layer_filter(op: &FilterOp) -> bool {
-    match *op {
-        FilterOp::Blur(px) => blur(px) > 0.0,
-        FilterOp::DropShadow { .. } => true,
-        _ => false,
+/// Whether the effects of `p` need a group around the node, whatever its
+/// opacity: a clip path or a blend mode.
+pub(crate) fn grouped(p: &PaintProps) -> bool {
+    p.effects
+        .as_ref()
+        .is_some_and(|e| e.blend != BlendMode::Normal || e.clip_path.is_some())
+}
+
+/// The group a node is composited in: `clip` (the clip path), the group
+/// `opacity` and the blend mode of `p`.
+pub(crate) fn group(p: &PaintProps, clip: Option<Shape>, opacity: f64) -> Group {
+    Group {
+        clip,
+        opacity,
+        blend: p.effects.as_ref().map_or(BlendMode::Normal, |e| e.blend),
+        blur: None,
     }
 }
 
-/// How many layers the effects of `p` need, whatever its opacity (one
-/// per layer filter, at least one for a clip path, a mask or a blend
-/// mode; [`layers`] makes them).
-pub(crate) fn layer_count(p: &PaintProps) -> u8 {
-    let Some(e) = &p.effects else {
-        return 0;
-    };
-    let filters = e.filter.iter().filter(|op| is_layer_filter(op)).count();
-    let other = e.blend != BlendMode::Normal || e.mask.is_some() || e.clip_path.is_some();
-    let n = if other { filters.max(1) } else { filters };
-    n.min(usize::from(u8::MAX)) as u8
+/// The command that opens a group clipped to `shape`.
+pub(crate) fn clip_group(shape: Shape) -> RenderCmd {
+    RenderCmd::PushGroup(Group {
+        clip: Some(shape),
+        opacity: 1.0,
+        blend: BlendMode::Normal,
+        blur: None,
+    })
 }
 
-/// The layers a node is composited in, outermost first (see the module
-/// invariants): `outer` carries the clip, the mask, the group opacity
-/// (`opacity`) and the blend mode; the layer filters follow, the last one
-/// outermost. Drop shadow colors go through `parent` (the ancestors'
-/// matrix) after the node's later color functions.
-pub(crate) fn layers(
-    p: &PaintProps,
-    mut outer: Layer,
-    opacity: f64,
-    parent: Option<&ColorMatrix>,
-) -> Vec<Layer> {
-    outer.opacity = opacity;
-    let mut filters: Vec<LayerFilter> = Vec::new();
-    if let Some(e) = &p.effects {
-        outer.blend = e.blend;
-        for (i, op) in e.filter.iter().enumerate() {
-            if !is_layer_filter(op) {
-                continue;
-            }
-            match *op {
-                FilterOp::Blur(px) => filters.push(LayerFilter::Blur { std_dev: blur(px) }),
-                FilterOp::DropShadow {
-                    offset,
-                    blur: b,
-                    color,
-                } => {
-                    let later = color_matrix(&e.filter[i + 1..]);
-                    let tint = Tint {
-                        alpha: 1.0,
-                        matrix: Tint {
-                            alpha: 1.0,
-                            matrix: parent.copied(),
-                        }
-                        .then_own(later),
-                    };
-                    let finite = |v: f64| if v.is_finite() { v } else { 0.0 };
-                    filters.push(LayerFilter::DropShadow {
-                        offset: Point {
-                            x: finite(offset.x),
-                            y: finite(offset.y),
-                        },
-                        std_dev: blur(b) / 2.0,
-                        color: tint.color(color),
-                    });
-                }
-                _ => {}
-            }
-        }
-    }
-    let mut out = Vec::with_capacity(filters.len().max(1));
-    let last = filters.pop();
-    outer.filter = last;
-    out.push(outer);
-    out.extend(filters.into_iter().rev().map(|f| Layer {
-        filter: Some(f),
-        ..Layer::default()
-    }));
-    out
-}
-
-/// The backdrop of a node with a `backdrop-filter`, behind `shape`: its
-/// blur and its color functions, then the ancestors' matrix (`parent`).
-pub(crate) fn backdrop(
-    p: &PaintProps,
-    shape: kivact_types::scene::Shape,
-    parent: Option<&ColorMatrix>,
-) -> Option<kivact_types::render::Backdrop> {
-    let ops = &p.effects.as_ref()?.backdrop;
-    if ops.is_empty() {
-        return None;
-    }
-    let std_dev = ops
-        .iter()
-        .map(|op| match *op {
-            FilterOp::Blur(px) => blur(px),
-            _ => 0.0,
-        })
-        .sum();
-    let parent = Tint {
-        alpha: 1.0,
-        matrix: parent.copied(),
-    };
-    Some(kivact_types::render::Backdrop {
-        shape,
-        std_dev,
-        color_matrix: parent.then_own(color_matrix(ops)),
+/// The command that opens a group blurred by `std_dev`.
+pub(crate) fn blur_group(std_dev: f64) -> RenderCmd {
+    RenderCmd::PushGroup(Group {
+        clip: None,
+        opacity: 1.0,
+        blend: BlendMode::Normal,
+        blur: Some(std_dev),
     })
 }
 

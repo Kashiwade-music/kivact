@@ -17,6 +17,7 @@
 
 pub(crate) mod assets;
 pub(crate) mod border;
+pub(crate) mod composition;
 pub(crate) mod context;
 pub(crate) mod conversion;
 pub(crate) mod effects;

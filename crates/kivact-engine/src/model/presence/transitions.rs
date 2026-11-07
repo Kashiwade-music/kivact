@@ -133,8 +133,11 @@ impl Model {
         };
         let moves = n
             .paint()
-            .and_then(|p| p.transition.as_ref())
-            .is_some_and(|t| !(self.frame.reduced_motion() && t.decorative));
+            .and_then(|p| p.transitions.as_ref())
+            .is_some_and(|list| {
+                list.iter()
+                    .any(|(_, t)| !(self.frame.reduced_motion() && t.decorative))
+            });
         moves && n.states().is_some_and(has)
     }
 

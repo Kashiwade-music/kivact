@@ -297,6 +297,8 @@ impl Context<'_> {
             }
             // Placed above, by coordinates.
             FillImage::Coordinate(_) => {}
+            // A shader paint is a compositor layer item; this model has none.
+            FillImage::Shader(_) => {}
             FillImage::Image(asset) => {
                 let source = asset;
                 let device = arvane::asset::PixelSize::of(
@@ -308,13 +310,7 @@ impl Context<'_> {
                 );
                 let pixels = self.pixels(source, device);
                 if let Some((image, _)) = pixels {
-                    let paint = tiles.pattern(
-                        layer,
-                        PatternSource::Image {
-                            image,
-                            color_matrix: None,
-                        },
-                    );
+                    let paint = tiles.pattern(layer, PatternSource::Image { image });
                     self.put(out, shape, tint.paint(paint));
                 }
             }
@@ -390,7 +386,7 @@ impl Context<'_> {
                     other => Some(other),
                 }
             }
-            FillImage::Coordinate(_) => None,
+            FillImage::Coordinate(_) | FillImage::Shader(_) => None,
             FillImage::Image(asset) => {
                 let device = arvane::asset::PixelSize::of(
                     Size {
@@ -400,13 +396,7 @@ impl Context<'_> {
                     self.raster.get(),
                 );
                 let (image, _) = self.pixels(asset, device)?;
-                Some(tiles.pattern(
-                    layer,
-                    PatternSource::Image {
-                        image,
-                        color_matrix: None,
-                    },
-                ))
+                Some(tiles.pattern(layer, PatternSource::Image { image }))
             }
         }
     }
@@ -464,7 +454,7 @@ fn stops(g: &Gradient, length: f64) -> Vec<(f64, Rgba)> {
     g.stops
         .iter()
         .zip(at)
-        .map(|(s, t)| (t.unwrap_or(0.0), kivact_types::Rgba::sanitize(s.color)))
+        .map(|(s, t)| (t.unwrap_or(0.0), s.color.to_srgb().sanitize()))
         .collect()
 }
 
@@ -634,7 +624,7 @@ pub(crate) fn coordinate(
     let stops = g
         .stops
         .iter()
-        .map(|(t, c)| (*t, kivact_types::Rgba::sanitize(*c)))
+        .map(|(t, c)| (*t, c.to_srgb().sanitize()))
         .collect();
     let (shape, extend) = match g.shape {
         CoordinateShape::Linear { start, end } => (

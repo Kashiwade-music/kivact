@@ -123,8 +123,8 @@ pub(crate) fn paint(p: &mut PaintProps) {
         layers.iter_mut().for_each(fill_layer);
     }
     if let Some(e) = &mut p.effects {
-        if let Some(m) = &mut e.mask {
-            fill_layer(m);
+        for m in &mut e.masks {
+            fill_layer(&mut m.fill);
         }
         match &mut e.clip_path {
             Some(ClipShape::Path { .. }) => {}
@@ -233,10 +233,6 @@ pub(crate) fn fill(value: &kivact_types::render::Paint) -> bool {
                 && p.tile.width > 0.0
                 && p.tile.height > 0.0
         }
-        kivact_types::render::Paint::LinearGradient {
-            angle_deg,
-            stops: s,
-        } => angle_deg.is_finite() && stops(s),
         kivact_types::render::Paint::Gradient(g) => gradient(g),
     }
 }
@@ -296,12 +292,6 @@ pub(crate) fn drawable(cmd: &D) -> bool {
         } => point(*from) && point(*to) && length(*width),
         D::Path { cmds, stroke, .. } => path(cmds) && stroke.is_none_or(|(width, _)| length(width)),
         D::PushClip(r) => rect(*r),
-        D::External {
-            rect: r,
-            source,
-            opacity,
-            ..
-        } => rect(*r) && source.is_none_or(rect) && opacity.is_finite(),
         _ => true,
     }
 }
