@@ -35,6 +35,7 @@ pub(crate) fn wheel(
             stiffness: 246.7,
             damping: 31.4,
             mass: 1.0,
+            rest: 1e-3,
         }),
     );
     let scalar = use_scalar(value, range).on_edit(move |phase| {
