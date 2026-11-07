@@ -63,6 +63,7 @@ mod check;
 pub mod contract;
 mod frame_log;
 mod host;
+mod layer;
 mod lower;
 mod measure;
 mod model;

@@ -1,6 +1,7 @@
 //! Role: Ink bounds: how far a node, its text and its scene paint beyond its box.
 
 use crate::contract::NodeType;
+use crate::layer::EVERYWHERE;
 use crate::model::Model;
 use crate::model::transform::map_rect;
 use crate::paint::state::{Ink, Look};
@@ -8,9 +9,6 @@ use crate::tree::node::HostNode;
 use kivact_layout::NodeLayout;
 use kivact_types::cell::Generation;
 use kivact_types::{DrawCmd, DrawList, NodeId, Point, Rect};
-
-/// The extent of what reaches everywhere (finite, so unions keep it).
-pub(super) const EVERYWHERE: f64 = f64::MAX / 4.0;
 
 /// Everything one node itself can draw on, with its own filter reach
 /// (see the module invariants), untransformed, relative to its layout
