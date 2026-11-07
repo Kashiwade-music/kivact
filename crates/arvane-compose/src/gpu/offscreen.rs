@@ -1,4 +1,4 @@
-//! Role: Offscreen rendering and readback of textures (tests, GPU snapshots, exported pixels).
+//! Role: Offscreen rendering and readback of textures.
 
 use super::state::GpuContext;
 use crate::ComposeError;

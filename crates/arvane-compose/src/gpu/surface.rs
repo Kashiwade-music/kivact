@@ -6,7 +6,7 @@
 //! retried once; a timeout or an occluded window skips the frame ([`Presentation::Skipped`]);
 //! anything else is an error for the facade.
 
-use super::exec::{Drawn, view, with_pass};
+use super::pass::{Drawn, view, with_pass};
 use super::state::{Configured, GpuContext, GpuSurface, Presentation, Retain, Swapchain};
 use super::targets;
 use crate::{ComposeError, GpuReport};

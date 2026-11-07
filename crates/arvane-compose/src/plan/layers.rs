@@ -4,7 +4,7 @@ use std::borrow::Cow;
 use std::f64::consts::SQRT_2;
 
 use kivact_types::Matrix4;
-use kivact_types::geometry::{Point, Rect, Transform};
+use kivact_types::geometry::{Point, Rect, Size, Transform};
 use kivact_types::geometry3d::Projective;
 use kivact_types::paint::BackfaceVisibility;
 use kivact_types::pixel::BlendMode;
@@ -521,6 +521,7 @@ impl<'a> Builder<'a> {
                 filter,
                 px_per_unit: geo.scale,
                 origin: geo.grid().origin,
+                bounds: Size::new(layer.bounds.width, layer.bounds.height),
             });
             cur = out;
         }
@@ -573,6 +574,7 @@ impl<'a> Builder<'a> {
                 filter,
                 px_per_unit: geo.scale,
                 origin: grid.origin,
+                bounds: Size::new(layer.bounds.width, layer.bounds.height),
             });
             cur = out;
         }

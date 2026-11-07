@@ -1,4 +1,4 @@
-//! Role: Textures of the frame's targets, chunks and scratch passes, with a pool of free targets.
+//! Role: Target textures of a frame, and a pool of the free ones.
 
 use arvane_render::RASTER_FORMAT;
 

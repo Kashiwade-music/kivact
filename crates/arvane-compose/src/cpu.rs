@@ -361,6 +361,7 @@ fn exec(
             filter,
             px_per_unit,
             origin,
+            ..
         } => {
             let source = targets[*input as usize].clone();
             targets[*output as usize] = filters::apply(filter, &source, *px_per_unit, *origin)?;

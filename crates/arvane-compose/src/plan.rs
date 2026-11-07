@@ -280,6 +280,8 @@ pub(crate) enum Op<'a> {
         px_per_unit: f64,
         /// The layer point at px (0, 0).
         origin: Point,
+        /// The layer's bounds in layer units: the size of a filter shader's box.
+        bounds: Size,
     },
     /// Multiply `target` by the combined mask of `masks` (bottom layer last).
     Mask {

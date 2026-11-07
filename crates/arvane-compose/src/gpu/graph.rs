@@ -1,7 +1,8 @@
-//! Role: Records a filter graph of SVG primitives (design §8.8.4): one pass of the graph shader per primitive, over textures of the region's size.
+//! Role: Records a filter graph's primitives (design §8.8.4).
+//!
+//! One pass of the graph shader per primitive, over textures of the region's size.
 
-use super::exec::{CLEAR, uniform, view, with_pass};
-use super::filters::{blur_sigmas, copy};
+use super::pass::{CLEAR, blend_index, blur_sigmas, copy, uniform, view, with_pass};
 use super::pipelines::{Words, buffer};
 use super::state::GpuContext;
 use super::targets;
@@ -16,8 +17,6 @@ use kivact_types::effect::{
 };
 use kivact_types::geometry::{Point, Rect};
 use kivact_types::pixel::{BlendMode, ColorMatrix, Pixels};
-
-use super::draw::blend_index;
 
 /// The parameters of a convolution (feConvolveMatrix).
 struct Convolve<'a> {

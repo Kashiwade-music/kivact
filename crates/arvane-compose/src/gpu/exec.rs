@@ -1,7 +1,11 @@
-//! Role: Runs one frame's plan on the GPU: its targets and chunks, the operations in order, and the exports.
+//! Role: Runs one frame's plan on the GPU: targets, chunks, ops and exports.
+//!
+//! The operations of the plan are recorded in order by the process modules
+//! (`draw`, `filters`, `graph`, `mask`, `shader`); this module allocates the
+//! frame's textures, rasters its chunks and submits it.
 
 use super::external::{self, ExternalPass};
-use super::pipelines::buffer;
+use super::pass::{CLEAR, Drawn, FrameTextures, view, with_pass};
 use super::state::GpuContext;
 use super::targets;
 use crate::ComposeError;
@@ -20,78 +24,12 @@ type DrawOutcome = (
     Vec<kivact_types::ids::DrawableId>,
 );
 
-/// The textures one frame draws with: its targets, by target id, and the external frames it may read.
-pub(super) struct FrameTextures<'a> {
-    pub(super) targets: Vec<wgpu::Texture>,
-    pub(super) external: &'a external::Frame,
-}
-
-impl FrameTextures<'_> {
-    /// The texture of target `id`.
-    pub(super) fn target(&self, id: u32) -> Result<&wgpu::Texture, ComposeError> {
-        self.targets
-            .get(id as usize)
-            .ok_or_else(|| ComposeError::InvalidComposition(format!("target {id} is out of range")))
-    }
-}
-
 /// The records and output of one planned frame, before the cache keeps them.
 pub(super) struct Records {
     pub(super) frame: u64,
     pub(super) chunks: Vec<(ChunkKey, ChunkRecord)>,
     pub(super) layers: Vec<(LayerKey, LayerRecord)>,
 }
-
-/// One drawn frame: its output (the window's size) and what it produced.
-pub(super) struct Drawn {
-    pub(super) output: wgpu::Texture,
-    pub(super) report: FrameReport,
-}
-
-/// A view of all of `texture`.
-pub(super) fn view(texture: &wgpu::Texture) -> wgpu::TextureView {
-    texture.create_view(&wgpu::TextureViewDescriptor::default())
-}
-
-/// The size of `texture` in px, as floats.
-pub(super) fn size_f(texture: &wgpu::Texture) -> (f32, f32) {
-    (texture.width() as f32, texture.height() as f32)
-}
-
-/// Run `draw` in one render pass into `view`, loaded as `load`.
-pub(super) fn with_pass(
-    encoder: &mut wgpu::CommandEncoder,
-    view: &wgpu::TextureView,
-    load: wgpu::LoadOp<wgpu::Color>,
-    draw: impl FnOnce(&mut wgpu::RenderPass<'_>),
-) {
-    let attachment = wgpu::RenderPassColorAttachment {
-        view,
-        depth_slice: None,
-        resolve_target: None,
-        ops: wgpu::Operations {
-            load,
-            store: wgpu::StoreOp::Store,
-        },
-    };
-    let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-        label: Some("Arvane compositor pass"),
-        color_attachments: &[Some(attachment)],
-        depth_stencil_attachment: None,
-        timestamp_writes: None,
-        occlusion_query_set: None,
-        multiview_mask: None,
-    });
-    draw(&mut pass);
-}
-
-/// The transparent colour that clears a target.
-pub(super) const CLEAR: wgpu::LoadOp<wgpu::Color> = wgpu::LoadOp::Clear(wgpu::Color {
-    r: 0.0,
-    g: 0.0,
-    b: 0.0,
-    a: 0.0,
-});
 
 impl GpuContext {
     /// Plan and draw one frame of `composition` at `size` px and `scale`.
@@ -247,12 +185,14 @@ impl GpuContext {
                     filter,
                     px_per_unit,
                     origin,
+                    bounds,
                 } => self.record_filter(
                     encoder,
                     *input,
                     *output,
                     filter,
                     (*px_per_unit, *origin),
+                    *bounds,
                     frame,
                 )?,
                 Op::Mask { target, masks } => self.record_mask(encoder, *target, masks, frame)?,
@@ -439,25 +379,4 @@ fn external_frames(ops: &[Op<'_>]) -> Vec<kivact_types::ExternalFrame> {
             _ => None,
         })
         .collect()
-}
-
-/// Unpremultiply RGBA8 in place (straight alpha, as exported pixels are).
-pub(super) fn unpremultiply(rgba: &mut [u8]) {
-    for px in rgba.as_chunks_mut::<4>().0 {
-        let a = u32::from(px[3]);
-        if a == 0 {
-            px[0] = 0;
-            px[1] = 0;
-            px[2] = 0;
-        } else if a < 255 {
-            for c in &mut px[..3] {
-                *c = ((u32::from(*c) * 255 + a / 2) / a).min(255) as u8;
-            }
-        }
-    }
-}
-
-/// Keeps `buffer` alive for the frame (its bind groups reference it).
-pub(super) fn uniform(device: &wgpu::Device, queue: &wgpu::Queue, bytes: &[u8]) -> wgpu::Buffer {
-    buffer(device, queue, wgpu::BufferUsages::UNIFORM, bytes)
 }

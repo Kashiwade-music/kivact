@@ -1,4 +1,4 @@
-//! Role: The GPU export pools the window has made, and the notices the engine has not yet taken.
+//! Role: The GPU export pools the window has made, and pending engine notices.
 
 use kivact_types::ids::DrawableId;
 use kivact_types::render::ExportLoss;
