@@ -9,6 +9,17 @@ description = "Arvane compositor plan: layer trees to draw operations, with cach
 
 [dependencies]
 kivact-types = { path = "../kivact-types", version = "0.1.0" }
+arvane-render = { path = "../arvane-render", version = "0.1.0" }
+# The GPU executor: wgpu pipelines, a window surface, and blocking adapter requests.
+wgpu = { workspace = true, optional = true }
+pollster = { workspace = true, optional = true }
+raw-window-handle = { workspace = true, optional = true }
+# Shared textures with external render engines (the import side of the device).
+kivact-gpu-share = { path = "../kivact-gpu-share", version = "0.1.0", features = ["import", "wgpu"], optional = true }
+
+[features]
+gpu = ["arvane-render/gpu", "dep:wgpu", "dep:pollster", "dep:raw-window-handle"]
+gpu-interop = ["gpu", "dep:kivact-gpu-share"]
 
 [lints]
 workspace = true

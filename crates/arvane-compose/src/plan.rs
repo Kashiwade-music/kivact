@@ -171,6 +171,7 @@ pub(crate) enum Source<'a> {
     Pixels(&'a Pixels),
 }
 
+// xtask-allow(state-fields): A draw is a passive record of independent operands (source, geometry, blend and coverage), each set by the planner.
 /// One draw of a target's pixels from a source.
 #[derive(Clone, Debug)]
 pub(crate) struct DrawOp<'a> {
@@ -317,6 +318,7 @@ pub(crate) fn build<'a>(
     }
 }
 
+// xtask-allow(state-fields): Planning accumulators are independent outputs of one pass (targets, tasks, ops, records); each is filled in its own step.
 /// The state of planning one frame.
 pub(crate) struct Builder<'a> {
     /// The composition being planned.

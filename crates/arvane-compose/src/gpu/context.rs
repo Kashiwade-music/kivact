@@ -1,28 +1,31 @@
 //! Role: Creates a GpuContext on a hardware adapter and reports device failures.
 
-use super::state::{DeviceLost, FORMAT, GpuContext, GpuEnv, Offscreen};
-use crate::draw;
-use crate::error::RenderError;
-use kivact_types::Size;
-use kivact_types::render::RenderScene;
+use super::external::External;
+use super::pipelines::Pipelines;
+use super::state::{DeviceLost, GpuContext, GpuEnv};
+use super::targets::Pool;
+use crate::ComposeError;
+use crate::cache::CacheIndex;
+use arvane_render::GpuRaster;
+use std::collections::HashMap;
 use std::sync::Arc;
-use vello_hybrid::{AtlasConfig, MemorySettings, RenderSettings, RenderTargetConfig, Renderer};
-
-/// Glyph atlas pages at most (added as needed, `encode.rs`).
-const GLYPH_PAGES: usize = 64;
 
 impl GpuContext {
-    /// Release rebuildable validation metadata without releasing imports or leases.
+    /// Release rebuildable metadata: the previous frame's records, the free
+    /// textures and the kept surfaces and chunks they describe. Imports stay.
     pub fn release_caches(&mut self) {
-        self.caches.validation.clear();
+        self.cache = CacheIndex::default();
+        self.pool.clear();
+        self.chunks.clear();
+        self.kept.clear();
     }
 
-    /// Requests a hardware adapter and creates the renderer's pipelines,
+    /// Requests a hardware adapter and creates the executor's pipelines,
     /// as `env` says. Any thread may do it (windows' surfaces are made
     /// later, on their windows' threads: [`GpuContext::surface`]). Fails
-    /// with [`RenderError::NoAdapter`] when no backend has a hardware
+    /// with [`ComposeError::NoAdapter`] when no backend has a hardware
     /// adapter.
-    pub fn new(env: &GpuEnv) -> Result<Self, RenderError> {
+    pub fn new(env: &GpuEnv) -> Result<Self, ComposeError> {
         let mut failures = Vec::new();
         let mut adapter_found = false;
         for backends in backend_order(env) {
@@ -37,9 +40,9 @@ impl GpuContext {
         }
         let message = failures.join("; ");
         Err(if adapter_found {
-            RenderError::Backend(message)
+            ComposeError::Backend(message)
         } else {
-            RenderError::NoAdapter(message)
+            ComposeError::NoAdapter(message)
         })
     }
 
@@ -78,46 +81,23 @@ impl GpuContext {
         device.on_uncaptured_error(Arc::new(move |error: wgpu::Error| {
             uncaptured.record(error.to_string());
         }));
-        let settings = render_settings();
-        let (renderer, resources) = Renderer::new_with(
-            &device,
-            &RenderTargetConfig {
-                format: FORMAT,
-                width: 1,
-                height: 1,
-            },
-            settings,
-        );
-        let mut context = Self {
-            external: super::external::External::default(),
+        let raster = GpuRaster::new(&device, &queue).map_err(|e| failed(&e))?;
+        let pipelines = Pipelines::new(&device, &queue);
+        Ok(Self {
+            external: External::default(),
             interop,
             instance,
             adapter,
             device,
             queue,
-            renderer,
-            resources,
-            scene: vello_hybrid::Scene::new(1, 1),
-            caches: draw::Caches::default(),
-            images: super::state::Images::new(),
+            raster,
+            pipelines,
             failure,
-            offscreen: Offscreen::None,
-        };
-        // One small frame makes the renderer's first buffers here, not in
-        // the first frame of a window.
-        let blank = RenderScene::default();
-        context
-            .render(
-                &blank,
-                Size {
-                    width: 16.0,
-                    height: 16.0,
-                },
-                1.0,
-            )
-            .map_err(|e| failed(&e))?;
-        context.offscreen = Offscreen::None;
-        Ok(context)
+            cache: CacheIndex::default(),
+            pool: Pool::default(),
+            kept: HashMap::new(),
+            chunks: HashMap::new(),
+        })
     }
 
     /// The adapter and backend, for diagnostics ("NVIDIA ... (Vulkan)").
@@ -140,9 +120,9 @@ impl GpuContext {
     }
 
     /// Fail when the device reported a failure.
-    pub(crate) fn check(&self) -> Result<(), RenderError> {
+    pub(crate) fn check(&self) -> Result<(), ComposeError> {
         match self.failure() {
-            Some(message) => Err(RenderError::Backend(message)),
+            Some(message) => Err(ComposeError::Backend(message)),
             None => Ok(()),
         }
     }
@@ -152,7 +132,7 @@ impl GpuContext {
 enum Attempt {
     /// No usable hardware adapter there.
     NoAdapter(String),
-    /// An adapter was found, but its device or renderer failed.
+    /// An adapter was found, but its device or executor failed.
     Failed(String),
 }
 
@@ -170,7 +150,7 @@ fn adapter(
             .into_iter()
             .filter(|adapter| adapter.get_info().device_type != wgpu::DeviceType::Cpu)
             .find(|adapter| {
-                kivact_gpu_share::import::identity(adapter)
+                kivact_gpu_share::device::identity(adapter)
                     .is_some_and(|identity| gpu_adapter(adapter, identity, 0).matches(&wanted))
             });
         if let Some(adapter) = named {
@@ -194,11 +174,11 @@ fn open_device(
 ) -> Result<(wgpu::Device, wgpu::Queue, Option<kivact_types::GpuAdapter>), String> {
     #[cfg(feature = "gpu-interop")]
     {
-        let opened = kivact_gpu_share::import::request_device(adapter, desc)
+        let opened = kivact_gpu_share::device::request_device(adapter, desc)
             .map_err(|error| error.to_string())?;
         let interop = opened
             .interop
-            .then(|| kivact_gpu_share::import::identity(adapter))
+            .then(|| kivact_gpu_share::device::identity(adapter))
             .flatten()
             .map(|identity| gpu_adapter(adapter, identity, next_generation()));
         Ok((opened.device, opened.queue, interop))
@@ -246,21 +226,5 @@ fn backend_order(env: &GpuEnv) -> Vec<wgpu::Backends> {
         vec![wgpu::Backends::VULKAN, wgpu::Backends::DX12]
     } else {
         vec![wgpu::Backends::PRIMARY]
-    }
-}
-
-/// Bound the glyph atlas allocation to the renderer's configured page budget.
-fn render_settings() -> RenderSettings {
-    RenderSettings {
-        memory_settings: MemorySettings {
-            image_atlas_config: AtlasConfig {
-                atlas_size: (super::encode::GLYPH_PAGE, super::encode::GLYPH_PAGE),
-                max_atlases: GLYPH_PAGES,
-                initial_atlas_count: 0,
-                ..AtlasConfig::default()
-            },
-            ..MemorySettings::default()
-        },
-        ..RenderSettings::default()
     }
 }
