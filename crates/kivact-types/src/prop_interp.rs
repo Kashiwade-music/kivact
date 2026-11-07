@@ -2,9 +2,11 @@
 //!
 //! Each property is a list of numbers plus the shape they are written into
 //! (`PropBasis`). Colors are premultiplied Oklab components (`L·α, a·α, b·α, α`).
-use super::{CornerRadius, Corners, ElementTransform, Fill, FilterOp, Len, PaintProps, Shadow};
 use crate::color_space::{ColorSpace, SpaceColor};
 use crate::motion::TransitionProp;
+use crate::paint::{
+    CornerRadius, Corners, ElementTransform, Fill, FilterOp, Len, PaintProps, Shadow,
+};
 use crate::{Edges, Point, Rgba};
 
 /// One property's interpolation: the shape the numbers are written into
@@ -82,8 +84,8 @@ pub fn prop_interp(
     match prop {
         P::Opacity => Some(plain(prop, vec![from.opacity], vec![to.opacity])),
         P::Background => {
-            let a = solid(&from.background)?;
-            let b = solid(&to.background)?;
+            let a = solid(from.background.as_ref())?;
+            let b = solid(to.background.as_ref())?;
             Some(plain(prop, color4(a).to_vec(), color4(b).to_vec()))
         }
         P::BorderColor => Some(plain(
@@ -207,7 +209,7 @@ fn rgba4(v: &[f64]) -> Rgba {
 
 /// The color of a background; no background is transparent, a layered one
 /// cannot be interpolated.
-fn solid(fill: &Option<Fill>) -> Option<Rgba> {
+fn solid(fill: Option<&Fill>) -> Option<Rgba> {
     match fill {
         None => Some(Rgba::TRANSPARENT),
         Some(Fill::Solid(c)) => Some(*c),

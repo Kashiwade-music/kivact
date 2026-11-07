@@ -10,6 +10,10 @@ use crate::paint::{BackfaceVisibility, MaskComposite, MaskMode};
 use crate::pixel::{ColorMatrix, Pixels};
 use crate::scene::Shape;
 
+/// The most 3D context planes one context may hold (§8.14). Above it the
+/// engine and the compositor draw the planes flat, in tree order.
+pub const MAX_CONTEXT_PLANES: usize = 256;
+
 /// One frame: `layers[0]` is the window's root layer (window logical px).
 /// Child layers are referenced by index from `LayerItem::Layer`. Layers
 /// referenced only from `exports` are drawn into their export sinks.

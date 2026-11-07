@@ -1,7 +1,4 @@
 //! Role: Shared node paint, image payloads, effects and state-dependent styling.
-mod prop_interp;
-
-pub use prop_interp::{PropBasis, PropInterp, apply_components, prop_interp};
 
 use crate::color_space::SpaceColor;
 use crate::effect::FilterGraph;
