@@ -11,7 +11,6 @@ use super::bounds::mapped_bounds;
 use super::items::{Dest, ItemCtx};
 use super::polygon::{Plane, Poly, Split, plane_of, project_rect, split};
 use super::{Builder, DrawOp, Op, PlanError, Source, TargetId, px_map};
-use crate::cache::ChunkKey;
 
 /// One participant of a context: a run of the root's own items, or a flat child layer.
 #[derive(Clone, Copy, Debug)]
@@ -55,6 +54,9 @@ struct Draw<'a> {
     nearest: bool,
 }
 
+/// A participant's planned surface: its draw, its polygon in target px (3D), and its window bounds.
+type PlannedPart<'a> = (Draw<'a>, Vec<[f64; 3]>, Option<Rect>);
+
 /// The binary space partition of the participants' polygons.
 enum Bsp {
     /// Nothing left.
@@ -77,13 +79,16 @@ impl<'a> Builder<'a> {
     pub(super) fn emit_context(
         &mut self,
         index: u32,
-        t: TargetId,
-        tsize: (u32, u32),
-        to_t: Matrix4,
+        dest: Dest,
         to_win: Matrix4,
         clips: &'a [Shape],
-        cover: Option<ChunkKey>,
     ) -> Result<(), PlanError> {
+        let Dest {
+            target: t,
+            to: to_t,
+            size: tsize,
+            cover,
+        } = dest;
         let root = self.layer(index)?;
         let mut parts = Vec::new();
         self.collect_parts(index, &to_t, &to_win, &mut Vec::new(), &mut parts)?;
@@ -155,7 +160,7 @@ impl<'a> Builder<'a> {
         part: &Part,
         t: TargetId,
         tsize: (u32, u32),
-    ) -> Result<Option<(Draw<'a>, Vec<[f64; 3]>, Option<Rect>)>, PlanError> {
+    ) -> Result<Option<PlannedPart<'a>>, PlanError> {
         match part.kind {
             PartKind::Fragment { layer, start, end } => {
                 self.fragment_part(part, layer, start, end, tsize)
@@ -172,7 +177,7 @@ impl<'a> Builder<'a> {
         start: usize,
         end: usize,
         tsize: (u32, u32),
-    ) -> Result<Option<(Draw<'a>, Vec<[f64; 3]>, Option<Rect>)>, PlanError> {
+    ) -> Result<Option<PlannedPart<'a>>, PlanError> {
         let owner = self.layer(index)?;
         let Some(geo) = self.geometry(owner, &part.to_t, tsize) else {
             return Ok(None);
@@ -219,7 +224,7 @@ impl<'a> Builder<'a> {
         index: u32,
         t: TargetId,
         tsize: (u32, u32),
-    ) -> Result<Option<(Draw<'a>, Vec<[f64; 3]>, Option<Rect>)>, PlanError> {
+    ) -> Result<Option<PlannedPart<'a>>, PlanError> {
         let owner = self.layer(index)?;
         if owner.backface == kivact_types::paint::BackfaceVisibility::Hidden
             && part.to_t.shows_back()
@@ -231,7 +236,13 @@ impl<'a> Builder<'a> {
         };
         let sig = self.signature(index, &part.to_t, tsize)?;
         let mark = self.damage.len();
-        let source = self.build_surface(index, owner, &geo, t, &part.to_t, &part.to_win, sig)?;
+        let dest = Dest {
+            target: t,
+            to: part.to_t,
+            size: tsize,
+            cover: None,
+        };
+        let source = self.build_surface(index, owner, &geo, dest, &part.to_win, sig)?;
         self.expand_effects(owner, &geo, mark, &part.to_win);
         let win = mapped_bounds(&part.to_win, geo.rect);
         self.record(owner, win, sig, &part.to_win, &[], false);
@@ -263,12 +274,12 @@ impl<'a> Builder<'a> {
     ) -> Result<(), PlanError> {
         let layer = self.layer(index)?;
         for item in &layer.items {
-            if let LayerItem::External(external) = item {
-                if !external.clips.is_empty() {
-                    return Err(PlanError::new(
-                        "a clip on an external frame in a 3D context has no coverage space (design §8.4)",
-                    ));
-                }
+            if let LayerItem::External(external) = item
+                && !external.clips.is_empty()
+            {
+                return Err(PlanError::new(
+                    "a clip on an external frame in a 3D context has no coverage space (design §8.4)",
+                ));
             }
         }
         let mut start = 0usize;

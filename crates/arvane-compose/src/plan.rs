@@ -467,7 +467,13 @@ impl<'a> Builder<'a> {
             let to = layer
                 .transform
                 .then(Matrix4::scale(export.scale, export.scale, 1.0));
-            self.emit_layer(export.layer, target, export.size, to, to, &[], None)?;
+            let dest = Dest {
+                target,
+                to,
+                size: export.size,
+                cover: None,
+            };
+            self.emit_layer(export.layer, dest, to, &[])?;
             out.push((export.sink, target));
         }
         self.cacheable = saved;
@@ -478,7 +484,13 @@ impl<'a> Builder<'a> {
     fn run(mut self) -> Result<Plan<'a>, PlanError> {
         let root_to = Matrix4::scale(self.scale, self.scale, 1.0);
         if self.layer(0)?.plane == Plane::Preserve3d {
-            self.emit_layer(0, OUTPUT, self.window, root_to, root_to, &[], None)?;
+            let dest = Dest {
+                target: OUTPUT,
+                to: root_to,
+                size: self.window,
+                cover: None,
+            };
+            self.emit_layer(0, dest, root_to, &[])?;
         } else {
             self.emit_root(root_to)?;
         }
@@ -540,10 +552,10 @@ impl<'a> Builder<'a> {
                     })
                     .collect();
                 for op in &mut self.ops {
-                    if let Op::Draw(draw) = op {
-                        if draw.target == OUTPUT {
-                            draw.scissor = Some(rects.clone());
-                        }
+                    if let Op::Draw(draw) = op
+                        && draw.target == OUTPUT
+                    {
+                        draw.scissor = Some(rects.clone());
                     }
                 }
                 clears.append(&mut self.ops);

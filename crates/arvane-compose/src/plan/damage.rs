@@ -220,10 +220,9 @@ impl<'a> Builder<'a> {
         let mut added = vec![false; self.backdrops.len()];
         loop {
             let mut grew = false;
-            for i in 0..self.backdrops.len() {
-                let bounds = self.backdrops[i];
-                if !added[i] && self.damage.iter().any(|d| d.intersects(bounds)) {
-                    added[i] = true;
+            for (&bounds, done) in self.backdrops.iter().zip(added.iter_mut()) {
+                if !*done && self.damage.iter().any(|d| d.intersects(bounds)) {
+                    *done = true;
                     self.damage.push(bounds);
                     grew = true;
                 }

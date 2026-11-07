@@ -38,6 +38,18 @@ pub const RASTER_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba8Unorm;
 /// Glyph atlas pages at most (added as needed, `encode.rs`).
 const GLYPH_PAGES: usize = 64;
 
+/// Where a scene is drawn: a view of `size` px whose top left corner is the
+/// logical point `origin`, at `scale` device px per logical px.
+#[derive(Clone, Copy, Debug)]
+pub struct Canvas {
+    /// The logical point at the view's top left corner.
+    pub origin: Point,
+    /// Device px per logical px.
+    pub scale: f64,
+    /// The view's size in px.
+    pub size: (u16, u16),
+}
+
 /// The GPU rasterizer: a vello_hybrid renderer and its resources, drawing
 /// on the device a caller gives each call.
 pub struct GpuRaster {
@@ -90,14 +102,17 @@ impl GpuRaster {
         let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
             label: Some("Arvane raster warm-up"),
         });
+        let canvas = Canvas {
+            origin: Point { x: 0.0, y: 0.0 },
+            scale: 1.0,
+            size: (16, 16),
+        };
         raster.raster(
             device,
             queue,
             &mut encoder,
             &RenderScene::default(),
-            Point { x: 0.0, y: 0.0 },
-            1.0,
-            (16, 16),
+            canvas,
             &view,
         )?;
         queue.submit([encoder.finish()]);
@@ -109,11 +124,9 @@ impl GpuRaster {
         self.caches.validation.clear();
     }
 
-    /// Draws `scene` into `view` (a `size` pixel texture in [`RASTER_FORMAT`],
-    /// cleared to transparent first) with `encoder`. `origin` is the
-    /// logical point at the view's top left corner and `scale` the device
-    /// pixels per logical pixel; the scene is mapped by
-    /// scale(scale) · translate(−origin).
+    /// Draws `scene` into `view` (a texture in [`RASTER_FORMAT`] of the
+    /// canvas's `size`, cleared to transparent first) with `encoder`. The
+    /// scene is mapped by scale(scale) · translate(−origin).
     ///
     /// The scene is checked whole before anything is recorded. Atlas
     /// uploads are submitted to `queue` apart, before the draw in
@@ -124,11 +137,14 @@ impl GpuRaster {
         queue: &wgpu::Queue,
         encoder: &mut wgpu::CommandEncoder,
         scene: &RenderScene,
-        origin: Point,
-        scale: f64,
-        size: (u16, u16),
+        canvas: Canvas,
         view: &wgpu::TextureView,
     ) -> Result<(), RenderError> {
+        let Canvas {
+            origin,
+            scale,
+            size,
+        } = canvas;
         if !scale.is_finite() || scale <= 0.0 {
             return Err(RenderError::InvalidSize);
         }

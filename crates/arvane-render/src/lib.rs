@@ -45,7 +45,7 @@ mod validate;
 pub use cpu::CpuRaster;
 pub use error::RenderError;
 #[cfg(feature = "gpu")]
-pub use gpu::{GpuRaster, RASTER_FORMAT};
+pub use gpu::{Canvas, GpuRaster, RASTER_FORMAT};
 pub use ink::glyph_ink_bounds;
 pub use limits::MAX_SCENE_DEPTH;
 pub use outline::glyph_outline;

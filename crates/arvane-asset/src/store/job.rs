@@ -184,45 +184,8 @@ fn load(
             ),
         )
     })?;
-    let decode_error = |reason: String| {
-        AssetError::new(
-            AssetErrorKind::Decode,
-            asset,
-            format!("cannot decode {}: {reason}", format.name()),
-        )
-    };
     if format.is_vector() {
-        let plain;
-        let text: &[u8] = if format == Format::Svgz {
-            plain = svg::decompress(&bytes, MAX_ENCODED_BYTES).map_err(|e| match e {
-                DecompressError::TooLarge => AssetError::new(
-                    AssetErrorKind::TooLarge,
-                    asset,
-                    format!(
-                        "the decompressed SVGZ is larger than the {} MiB limit for encoded input",
-                        MAX_ENCODED_BYTES / (1024 * 1024)
-                    ),
-                ),
-                DecompressError::Malformed(reason) => decode_error(reason),
-            })?;
-            &plain
-        } else {
-            &bytes
-        };
-        return svg::parse(text, fonts, budget)
-            .map(|svg| Loaded::Vector(Arc::new(svg)))
-            .map_err(|e| match e {
-                ParseError::Malformed(reason) => decode_error(reason),
-                ParseError::TooLarge { bytes } => AssetError::new(
-                    AssetErrorKind::TooLarge,
-                    asset,
-                    format!(
-                        "the parsed SVG needs about {} MiB, more than a quarter of the {} MiB image cache",
-                        bytes.div_ceil(1024 * 1024),
-                        budget / (1024 * 1024)
-                    ),
-                ),
-            });
+        return load_vector(asset, &bytes, format, budget, fonts);
     }
     let max_bytes = budget.saturating_sub(retained) as u64;
     match raster::decode(&bytes, format, max_bytes, budget as u64) {
@@ -249,8 +212,58 @@ fn load(
                 format.name()
             ),
         )),
-        Err(RasterError::Decode(reason)) => Err(decode_error(reason)),
+        Err(RasterError::Decode(reason)) => Err(decode_failure(asset, format, reason)),
     }
+}
+
+/// Parses a vector image (decompressing SVGZ first) into its shared tree.
+fn load_vector(
+    asset: &Asset,
+    bytes: &[u8],
+    format: Format,
+    budget: usize,
+    fonts: &FontDb,
+) -> Result<Loaded, AssetError> {
+    let plain;
+    let text: &[u8] = if format == Format::Svgz {
+        plain = svg::decompress(bytes, MAX_ENCODED_BYTES).map_err(|e| match e {
+            DecompressError::TooLarge => AssetError::new(
+                AssetErrorKind::TooLarge,
+                asset,
+                format!(
+                    "the decompressed SVGZ is larger than the {} MiB limit for encoded input",
+                    MAX_ENCODED_BYTES / (1024 * 1024)
+                ),
+            ),
+            DecompressError::Malformed(reason) => decode_failure(asset, format, reason),
+        })?;
+        &plain
+    } else {
+        bytes
+    };
+    svg::parse(text, fonts, budget)
+        .map(|svg| Loaded::Vector(Arc::new(svg)))
+        .map_err(|e| match e {
+            ParseError::Malformed(reason) => decode_failure(asset, format, reason),
+            ParseError::TooLarge { bytes } => AssetError::new(
+                AssetErrorKind::TooLarge,
+                asset,
+                format!(
+                    "the parsed SVG needs about {} MiB, more than a quarter of the {} MiB image cache",
+                    bytes.div_ceil(1024 * 1024),
+                    budget / (1024 * 1024)
+                ),
+            ),
+        })
+}
+
+/// The decode failure of `asset` in `format`, for `reason`.
+fn decode_failure(asset: &Asset, format: Format, reason: String) -> AssetError {
+    AssetError::new(
+        AssetErrorKind::Decode,
+        asset,
+        format!("cannot decode {}: {reason}", format.name()),
+    )
 }
 
 /// The failure of a decoded image of `width` × `height` px (`bytes` of
