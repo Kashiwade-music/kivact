@@ -299,6 +299,17 @@ pub(crate) enum Op<'a> {
     Shader(ShaderOp<'a>),
 }
 
+/// One export of the frame: the target that holds its frame and the content signature of its layer.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct PlannedExport {
+    /// The drawable that receives the frame.
+    pub(crate) sink: DrawableId,
+    /// The target holding the frame.
+    pub(crate) target: TargetId,
+    /// The layer's signature at the export's transform and size.
+    pub(crate) signature: u64,
+}
+
 /// The plan of one frame.
 #[derive(Debug)]
 pub(crate) struct Plan<'a> {
@@ -311,7 +322,7 @@ pub(crate) struct Plan<'a> {
     /// The output's damage (computed for the GPU too; the GPU redraws all).
     pub(crate) damage: Damage,
     /// Drawables exported this frame, with the target holding each frame.
-    pub(crate) exports: Vec<(DrawableId, TargetId)>,
+    pub(crate) exports: Vec<PlannedExport>,
     /// Chunk records to store after a successful frame.
     pub(crate) chunk_records: Vec<(ChunkKey, ChunkRecord)>,
     /// Layer records to store after a successful frame.
@@ -503,7 +514,7 @@ impl<'a> Builder<'a> {
     }
 
     /// Plan the drawables' exports: each layer drawn into its own target.
-    fn emit_exports(&mut self) -> Result<Vec<(DrawableId, TargetId)>, PlanError> {
+    fn emit_exports(&mut self) -> Result<Vec<PlannedExport>, PlanError> {
         let comp = self.comp;
         let mut out = Vec::with_capacity(comp.exports.len());
         let saved = self.caching;
@@ -521,7 +532,12 @@ impl<'a> Builder<'a> {
                 cover: None,
             };
             self.emit_layer(export.layer, dest, to, &[])?;
-            out.push((export.sink, target));
+            let signature = self.signature(export.layer, &to, export.size)?;
+            out.push(PlannedExport {
+                sink: export.sink,
+                target,
+                signature,
+            });
         }
         self.caching = saved;
         Ok(out)
@@ -546,7 +562,7 @@ impl<'a> Builder<'a> {
     }
 
     /// Finish the frame: damage, carried-over records and the output's clear and scissor.
-    fn finish(mut self, exports: Vec<(DrawableId, TargetId)>) -> Plan<'a> {
+    fn finish(mut self, exports: Vec<PlannedExport>) -> Plan<'a> {
         let damage = self.finish_damage();
         self.carry_reused();
         let damage_pixels = self.patch_output(&damage);

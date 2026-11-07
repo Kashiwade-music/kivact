@@ -101,8 +101,23 @@ pub(crate) struct Acquired {
     pub(crate) wait: Option<NonZeroU64>,
 }
 
+/// The release value that says a pool's textures are prepared for the
+/// hand-off: the importer signals it once, before any frame is written
+/// ([`kivact_types::SHARED_PREPARED`]).
+const PREPARED: NonZeroU64 = match NonZeroU64::new(kivact_types::SHARED_PREPARED) {
+    Some(value) => value,
+    None => panic!("invariant: the preparation signal is not zero"),
+};
+
+/// The value of the first frame: values 1 is the preparation signal.
+const FIRST_FRAME: NonZeroU64 = match NonZeroU64::new(kivact_types::SHARED_PREPARED + 1) {
+    Some(value) => value,
+    None => panic!("invariant: the frame values start above zero"),
+};
+
 /// Which texture the next frame goes into and which values the frames of
-/// each texture had: round robin, values counting up from 1. A pool's
+/// each texture had: round robin, values counting up from 2 (1 is
+/// [`PREPARED`]). A pool's
 /// target borrows the pool until it is submitted or dropped, so one frame
 /// is drawn at a time and the frame finished is the one acquired.
 #[cfg_attr(
@@ -146,7 +161,7 @@ impl Slots {
             Some(last) => last
                 .checked_add(1)
                 .expect("invariant: frame values fit u64"),
-            None => NonZeroU64::MIN,
+            None => FIRST_FRAME,
         }
     }
 
@@ -167,12 +182,12 @@ impl Slots {
         }
     }
 
-    /// The value of the last frame drawn into `slot`.
+    /// The value of the last frame drawn into `slot` (None before its first frame).
     pub(crate) fn drawn(&self, slot: u32) -> Result<Option<NonZeroU64>, Error> {
         self.drawn
             .get(slot as usize)
             .copied()
-            .map(SlotState::value)
+            .map(SlotState::drawn_value)
             .ok_or_else(|| {
                 Error::Mismatch(format!(
                     "no texture {slot} in a pool of {}",
@@ -189,11 +204,21 @@ impl Slots {
 
 #[derive(Clone, Copy, Debug)]
 enum SlotState {
+    /// Never drawn: the wait is the preparation signal.
     Fresh,
     Drawn(NonZeroU64),
 }
 impl SlotState {
+    /// The release value the texture's next write waits for.
     fn value(self) -> Option<NonZeroU64> {
+        match self {
+            Self::Fresh => Some(PREPARED),
+            Self::Drawn(value) => Some(value),
+        }
+    }
+
+    /// The value of the frame drawn into the texture, None before its first frame.
+    fn drawn_value(self) -> Option<NonZeroU64> {
         match self {
             Self::Fresh => None,
             Self::Drawn(value) => Some(value),

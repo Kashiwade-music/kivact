@@ -1,29 +1,33 @@
-//! Role: Records the filter operations of a plan: the gaussian blur, the drop shadow, the colour matrix,
-//! and the pass-through of graphs and shaders (design §8.8).
+//! Role: Records the layer filters of a plan: the gaussian blur, the drop shadow, the colour matrix, filter graphs and filter shaders (design §8.8).
 
 use super::exec::{CLEAR, FrameTextures, size_f, view, with_pass};
 use super::pipelines::{Words, buffer};
 use super::state::GpuContext;
 use super::targets;
 use crate::ComposeError;
+use kivact_types::Rgba;
+use kivact_types::geometry::Point;
+use kivact_types::pixel::ColorMatrix;
 use kivact_types::render::LayerFilter;
 
 /// The `mode` values of the filter shader (`fs_filter`).
-const MODE_DOWNSCALE: u32 = 1;
-const MODE_UPSCALE: u32 = 2;
+const MODE_SHRINK_X: u32 = 1;
+const MODE_SHRINK_Y: u32 = 2;
 const MODE_BLUR: u32 = 3;
 const MODE_SHADOW_COLOR: u32 = 4;
 const MODE_SHADOW_OVER: u32 = 5;
 const MODE_MATRIX: u32 = 6;
+const MODE_EXPAND_X: u32 = 7;
+const MODE_EXPAND_Y: u32 = 8;
 
-/// The largest σ (px) the blur filters at full size; above it the image is halved first.
+/// The σ (px) above which a blur axis is halved first.
 const BLUR_LIMIT: f64 = 4.0;
-/// The most halvings the blur makes.
+/// The most halvings a blur axis makes.
 const BLUR_LEVELS: u32 = 6;
 
 /// The arguments of one filter pass (the uniform of `filter.wgsl`).
 #[derive(Default)]
-struct Pass {
+pub(super) struct Pass {
     /// Size of the output in px.
     out: (f32, f32),
     /// Size of the source in px.
@@ -43,14 +47,14 @@ struct Pass {
 }
 
 impl GpuContext {
-    /// Record one filter from `input` into `output` (same size).
+    /// Record one filter of a layer from `input` into `output` (same size), with `px_per_unit` px per layer unit and the layer point `origin` at px (0, 0).
     pub(super) fn record_filter(
-        &self,
+        &mut self,
         encoder: &mut wgpu::CommandEncoder,
         input: u32,
         output: u32,
         filter: &LayerFilter,
-        px_per_unit: f64,
+        (px_per_unit, origin): (f64, Point),
         frame: &FrameTextures<'_>,
     ) -> Result<(), ComposeError> {
         let source = frame.target(input)?;
@@ -62,41 +66,41 @@ impl GpuContext {
         }
         match filter {
             LayerFilter::Blur { std_dev } => {
-                let blurred = self.blur(encoder, source, std_dev * px_per_unit)?;
-                copy(encoder, &blurred, dest);
+                let sigma = std_dev * px_per_unit;
+                match blur_sigmas(sigma, sigma) {
+                    Some((sx, sy)) => {
+                        let blurred = self.blur_axes(encoder, source, sx, sy)?;
+                        copy(encoder, &blurred, dest);
+                    }
+                    None => copy(encoder, source, dest),
+                }
             }
             LayerFilter::DropShadow {
                 offset,
                 std_dev,
                 color,
             } => {
-                let shadow = self.shadow(encoder, source, *color)?;
-                let blurred = self.blur(encoder, &shadow, std_dev * px_per_unit)?;
-                let args = Pass {
-                    mode: MODE_SHADOW_OVER,
-                    offset: (
-                        (offset.x * px_per_unit) as f32,
-                        (offset.y * px_per_unit) as f32,
-                    ),
-                    ..Pass::default()
+                let silhouette = self.shadow(encoder, source, *color)?;
+                let sigma = std_dev * px_per_unit;
+                let blurred = match blur_sigmas(sigma, sigma) {
+                    Some((sx, sy)) => self.blur_axes(encoder, &silhouette, sx, sy)?,
+                    None => silhouette,
                 };
-                self.filter_pass(encoder, dest, source, Some(&blurred), args)?;
+                let shift = (
+                    (offset.x * px_per_unit) as f32,
+                    (offset.y * px_per_unit) as f32,
+                );
+                self.shadow_over(encoder, dest, source, &blurred, shift)?;
             }
             LayerFilter::ColorMatrix(matrix) => {
-                let mut coefficients = [0.0_f32; 20];
-                for (c, v) in coefficients.iter_mut().zip(matrix.0) {
-                    *c = v as f32;
-                }
-                let args = Pass {
-                    mode: MODE_MATRIX,
-                    matrix: coefficients,
-                    ..Pass::default()
-                };
-                self.filter_pass(encoder, dest, source, None, args)?;
+                self.color_matrix_into(encoder, dest, source, matrix)?;
             }
-            // Graphs and shaders are not run by this executor yet: their input
-            // passes through (the CPU's rule for these filters).
-            LayerFilter::Graph(_) | LayerFilter::Shader(_) => copy(encoder, source, dest),
+            LayerFilter::Graph(graph) => {
+                self.record_graph(encoder, source, dest, graph, px_per_unit, origin)?;
+            }
+            LayerFilter::Shader(shader) => {
+                self.record_filter_shader(encoder, source, dest, shader, px_per_unit, origin)?;
+            }
         }
         Ok(())
     }
@@ -179,12 +183,12 @@ impl GpuContext {
         Ok(())
     }
 
-    /// The premultiplied colour `color` where `source` is opaque (the drop shadow's silhouette).
-    fn shadow(
+    /// The premultiplied colour `color` where `source` is opaque (the drop shadow's silhouette), in a new texture.
+    pub(super) fn shadow(
         &self,
         encoder: &mut wgpu::CommandEncoder,
         source: &wgpu::Texture,
-        color: kivact_types::color::Rgba,
+        color: Rgba,
     ) -> Result<wgpu::Texture, ComposeError> {
         let shadow = targets::target(&self.device, (source.width(), source.height()));
         let args = Pass {
@@ -203,129 +207,160 @@ impl GpuContext {
         Ok(shadow)
     }
 
-    /// A new texture holding `src` gaussian-blurred by `sigma_px` (design §8.8.1).
-    fn blur(
+    /// The drop shadow of `input` over its `shadow`, shifted by `offset` px, into `out` (design §8.8.2).
+    pub(super) fn shadow_over(
+        &self,
+        encoder: &mut wgpu::CommandEncoder,
+        out: &wgpu::Texture,
+        input: &wgpu::Texture,
+        shadow: &wgpu::Texture,
+        offset: (f32, f32),
+    ) -> Result<(), ComposeError> {
+        let args = Pass {
+            mode: MODE_SHADOW_OVER,
+            offset,
+            ..Pass::default()
+        };
+        self.filter_pass(encoder, out, input, Some(shadow), args)
+    }
+
+    /// The colour matrix of `src` into `out` (design §8.8.3).
+    pub(super) fn color_matrix_into(
+        &self,
+        encoder: &mut wgpu::CommandEncoder,
+        out: &wgpu::Texture,
+        src: &wgpu::Texture,
+        matrix: &ColorMatrix,
+    ) -> Result<(), ComposeError> {
+        let mut coefficients = [0.0_f32; 20];
+        for (c, v) in coefficients.iter_mut().zip(matrix.0) {
+            *c = v as f32;
+        }
+        let args = Pass {
+            mode: MODE_MATRIX,
+            matrix: coefficients,
+            ..Pass::default()
+        };
+        self.filter_pass(encoder, out, src, None, args)
+    }
+
+    /// The gaussian blur of `src` with the standard deviations `sigma_x` and `sigma_y` px, in a new texture (design §8.8.1).
+    /// Each axis is halved on its own, as the CPU does.
+    pub(super) fn blur_axes(
         &self,
         encoder: &mut wgpu::CommandEncoder,
         src: &wgpu::Texture,
-        sigma_px: f64,
+        sigma_x: f64,
+        sigma_y: f64,
     ) -> Result<wgpu::Texture, ComposeError> {
-        let (w, h) = (src.width(), src.height());
-        let first = targets::target(&self.device, (w, h));
-        copy(encoder, src, &first);
-        if sigma_px < 0.5 {
-            return Ok(first);
+        let (kx, ky) = (levels(sigma_x), levels(sigma_y));
+        let mut current = src.clone();
+        let mut widths = Vec::with_capacity(kx as usize);
+        let mut heights = Vec::with_capacity(ky as usize);
+        for _ in 0..kx {
+            widths.push(current.width());
+            current = self.shrink(encoder, &current, MODE_SHRINK_X)?;
         }
-        let mut sigma = sigma_px;
-        let mut levels = 0;
-        while sigma > BLUR_LIMIT && levels < BLUR_LEVELS {
-            sigma /= 2.0;
-            levels += 1;
+        for _ in 0..ky {
+            heights.push(current.height());
+            current = self.shrink(encoder, &current, MODE_SHRINK_Y)?;
         }
-        let mut chain = vec![first];
-        for _ in 0..levels {
-            let prev = chain
-                .last()
-                .expect("invariant: the chain starts with a texture");
-            let next = targets::target(&self.device, half(prev.width(), prev.height()));
-            let args = Pass {
-                out: size_f(&next),
-                src: size_f(prev),
-                mode: MODE_DOWNSCALE,
-                ..Pass::default()
-            };
-            self.filter_pass(encoder, &next, prev, None, args)?;
-            chain.push(next);
+        if sigma_x >= 0.5 {
+            let sigma = sigma_x / f64::from(1_u32 << kx);
+            current = self.convolve_axis(encoder, &current, sigma, (1.0, 0.0))?;
         }
-        let small = chain.last().expect("invariant: the chain is not empty");
-        let (radius, weights) = gaussian(sigma);
-        let blurred = self.blur_separable(encoder, small, radius, &weights)?;
-        let current = self.upscale_chain(encoder, &chain, blurred)?;
-        debug_assert_eq!((current.width(), current.height()), (w, h));
+        if sigma_y >= 0.5 {
+            let sigma = sigma_y / f64::from(1_u32 << ky);
+            current = self.convolve_axis(encoder, &current, sigma, (0.0, 1.0))?;
+        }
+        for &w in widths.iter().rev() {
+            let h = current.height();
+            current = self.resample(encoder, &current, (w, h), MODE_EXPAND_X)?;
+        }
+        for &h in heights.iter().rev() {
+            let w = current.width();
+            current = self.resample(encoder, &current, (w, h), MODE_EXPAND_Y)?;
+        }
         Ok(current)
     }
 
-    /// Blur `small` horizontally, then vertically, with the gaussian `weights` of `radius`.
-    fn blur_separable(
+    /// `src` halved along one axis (`mode` MODE_SHRINK_X or MODE_SHRINK_Y), in a new texture.
+    fn shrink(
         &self,
         encoder: &mut wgpu::CommandEncoder,
-        small: &wgpu::Texture,
-        radius: u32,
-        weights: &[u8],
+        src: &wgpu::Texture,
+        mode: u32,
     ) -> Result<wgpu::Texture, ComposeError> {
+        let (w, h) = (src.width(), src.height());
+        let size = if mode == MODE_SHRINK_X {
+            (w.div_ceil(2), h)
+        } else {
+            (w, h.div_ceil(2))
+        };
+        self.resample(encoder, src, size, mode)
+    }
+
+    /// `src` resampled by `mode` into a new texture of `size` px.
+    fn resample(
+        &self,
+        encoder: &mut wgpu::CommandEncoder,
+        src: &wgpu::Texture,
+        size: (u32, u32),
+        mode: u32,
+    ) -> Result<wgpu::Texture, ComposeError> {
+        let out = targets::target(&self.device, size);
+        let args = Pass {
+            mode,
+            ..Pass::default()
+        };
+        self.filter_pass(encoder, &out, src, None, args)?;
+        Ok(out)
+    }
+
+    /// `src` convolved along `dir` with the gaussian of `sigma` px, in a new texture.
+    fn convolve_axis(
+        &self,
+        encoder: &mut wgpu::CommandEncoder,
+        src: &wgpu::Texture,
+        sigma: f64,
+        dir: (f32, f32),
+    ) -> Result<wgpu::Texture, ComposeError> {
+        let (radius, weights) = gaussian(sigma);
         let weight_buffer = buffer(
             &self.device,
             &self.queue,
             wgpu::BufferUsages::STORAGE,
-            weights,
+            &weights,
         );
-        let horizontal = targets::target(&self.device, (small.width(), small.height()));
-        let blur_x = Pass {
-            out: size_f(&horizontal),
-            src: size_f(small),
-            dir: (1.0, 0.0),
+        let out = targets::target(&self.device, (src.width(), src.height()));
+        let args = Pass {
+            dir,
             radius,
             mode: MODE_BLUR,
             ..Pass::default()
         };
-        self.filter_pass_with(
-            encoder,
-            &horizontal,
-            small,
-            None,
-            blur_x,
-            Some(&weight_buffer),
-        )?;
-        let vertical = targets::target(&self.device, (small.width(), small.height()));
-        let blur_y = Pass {
-            out: size_f(&vertical),
-            src: size_f(&horizontal),
-            dir: (0.0, 1.0),
-            radius,
-            mode: MODE_BLUR,
-            ..Pass::default()
-        };
-        self.filter_pass_with(
-            encoder,
-            &vertical,
-            &horizontal,
-            None,
-            blur_y,
-            Some(&weight_buffer),
-        )?;
-        Ok(vertical)
-    }
-
-    /// Upscale `current` back up the levels of `chain`, from its smallest level to its largest.
-    fn upscale_chain(
-        &self,
-        encoder: &mut wgpu::CommandEncoder,
-        chain: &[wgpu::Texture],
-        mut current: wgpu::Texture,
-    ) -> Result<wgpu::Texture, ComposeError> {
-        for level in chain.iter().rev().skip(1) {
-            let up = targets::target(&self.device, (level.width(), level.height()));
-            let args = Pass {
-                out: size_f(&up),
-                src: size_f(&current),
-                mode: MODE_UPSCALE,
-                ..Pass::default()
-            };
-            self.filter_pass(encoder, &up, &current, None, args)?;
-            current = up;
-        }
-        Ok(current)
+        self.filter_pass_with(encoder, &out, src, None, args, Some(&weight_buffer))?;
+        Ok(out)
     }
 }
 
 /// Copy all of `src` into `dst` (the same size and format).
-fn copy(encoder: &mut wgpu::CommandEncoder, src: &wgpu::Texture, dst: &wgpu::Texture) {
+pub(super) fn copy(encoder: &mut wgpu::CommandEncoder, src: &wgpu::Texture, dst: &wgpu::Texture) {
     encoder.copy_texture_to_texture(src.as_image_copy(), dst.as_image_copy(), src.size());
 }
 
-/// The size of a texture halved (rounded up), as one downscale level.
-fn half(w: u32, h: u32) -> (u32, u32) {
-    (w.div_ceil(2), h.div_ceil(2))
+/// The σ (px) per axis when the blur changes the image: None when both are below half a pixel.
+pub(super) fn blur_sigmas(sigma_x: f64, sigma_y: f64) -> Option<(f64, f64)> {
+    (sigma_x >= 0.5 || sigma_y >= 0.5).then_some((sigma_x, sigma_y))
+}
+
+/// The halvings of an axis with σ (px): while σ / 2^k > 4, at most six.
+fn levels(sigma: f64) -> u32 {
+    let mut k = 0;
+    while k < BLUR_LEVELS && sigma / f64::from(1_u32 << k) > BLUR_LIMIT {
+        k += 1;
+    }
+    k
 }
 
 /// The radius and the normalised weights of a gaussian of `sigma` px: w_i = exp(-i² / 2σ²) over [-r, r], r = ⌈3σ⌉.

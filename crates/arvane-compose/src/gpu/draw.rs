@@ -203,7 +203,7 @@ fn entry(binding: u32, resource: wgpu::BindingResource<'_>) -> wgpu::BindGroupEn
 }
 
 /// The index of a blend mode in the draw shader (`blend_fn`); PlusLighter is 255.
-fn blend_index(mode: BlendMode) -> u32 {
+pub(super) fn blend_index(mode: BlendMode) -> u32 {
     match mode {
         BlendMode::Normal => 0,
         BlendMode::Multiply => 1,

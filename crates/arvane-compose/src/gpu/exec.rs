@@ -6,12 +6,11 @@ use super::state::GpuContext;
 use super::targets;
 use crate::ComposeError;
 use crate::cache::{CacheIndex, ChunkKey, ChunkRecord, LayerRecord};
-use crate::plan::{self, ChunkTask, Op, Plan, Redraw, TargetKind, TargetSpec};
+use crate::plan::{self, ChunkTask, Op, Plan, PlannedExport, Redraw, TargetKind, TargetSpec};
 use arvane_render::Canvas;
 use kivact_types::geometry::Point;
-use kivact_types::pixel::Pixels;
 use kivact_types::render::{
-    Composition, ExportFrame, ExportedFrame, FrameReport, FrameStats, LayerKey, RenderScene,
+    Composition, ExportedFrame, FrameReport, FrameStats, LayerKey, RenderScene,
 };
 
 /// The textures one frame draws with: its targets, by target id, and the external frames it may read.
@@ -172,13 +171,13 @@ impl GpuContext {
             composition,
         );
         self.external = external;
-        let (exported, missed) = result?;
+        let (exported, missed, pending) = result?;
         let output = self.finish_targets(&targets, textures);
         let report = FrameReport {
             exports: exported,
             missed,
-            shader_failures: Vec::new(),
-            pending_exports: Vec::new(),
+            shader_failures: std::mem::take(&mut self.shader_failures),
+            pending_exports: pending,
             stats,
         };
         let records = Records {
@@ -189,17 +188,24 @@ impl GpuContext {
         Ok((Drawn { output, report }, records))
     }
 
-    /// Acquire the external frames, draw the operations, submit, and read the exports back.
-    /// Returns the exported frames and the external frames that were missed.
+    /// Acquire the external frames, draw the operations, submit, and send the exports.
+    /// Returns the exported frames, the external frames that were missed and the sinks whose export waits.
     fn draw_ops(
         &mut self,
         external: &mut external::External,
         frames: &[kivact_types::ExternalFrame],
         ops: &[Op<'_>],
         textures: &mut Vec<wgpu::Texture>,
-        exports: &[(kivact_types::ids::DrawableId, u32)],
+        exports: &[PlannedExport],
         composition: &Composition,
-    ) -> Result<(Vec<ExportedFrame>, Vec<kivact_types::ExternalFrame>), ComposeError> {
+    ) -> Result<
+        (
+            Vec<ExportedFrame>,
+            Vec<kivact_types::ExternalFrame>,
+            Vec<kivact_types::ids::DrawableId>,
+        ),
+        ComposeError,
+    > {
         let pass = ExternalPass::begin(external, frames)?;
         let mut encoder = self
             .device
@@ -217,14 +223,14 @@ impl GpuContext {
         self.queue.submit([encoder.finish()]);
         submitted.finish()?;
         recorded?;
-        let exported = self.read_exports(textures, exports, composition)?;
+        let (exported, pending) = self.send_exports(exports, composition, textures)?;
         self.check()?;
-        Ok((exported, external.take_missed()))
+        Ok((exported, external.take_missed(), pending))
     }
 
     /// Record every operation of the plan, in order.
     fn record_ops(
-        &self,
+        &mut self,
         encoder: &mut wgpu::CommandEncoder,
         ops: &[Op<'_>],
         frame: &FrameTextures<'_>,
@@ -240,15 +246,20 @@ impl GpuContext {
                     output,
                     filter,
                     px_per_unit,
-                    ..
-                } => self.record_filter(encoder, *input, *output, filter, *px_per_unit, frame)?,
+                    origin,
+                } => self.record_filter(
+                    encoder,
+                    *input,
+                    *output,
+                    filter,
+                    (*px_per_unit, *origin),
+                    frame,
+                )?,
                 Op::Mask { target, masks } => self.record_mask(encoder, *target, masks, frame)?,
                 Op::Clip { target, coverage } => {
                     self.record_clip(encoder, *target, *coverage, frame)?
                 }
-                // The user shader is not drawn yet: its fallback chunk needs the
-                // item-to-layer transform, which the plan does not carry.
-                Op::Shader(_) => {}
+                Op::Shader(shader) => self.record_shader(encoder, shader, frame)?,
             }
         }
         Ok(())
@@ -322,30 +333,6 @@ impl GpuContext {
             }
         }
         output.unwrap_or_else(|| targets::target(&self.device, (0, 0)))
-    }
-
-    /// Read the exported targets back as straight-alpha pixels, one per request.
-    fn read_exports(
-        &self,
-        textures: &[wgpu::Texture],
-        exports: &[(kivact_types::ids::DrawableId, u32)],
-        composition: &Composition,
-    ) -> Result<Vec<ExportedFrame>, ComposeError> {
-        let mut out = Vec::with_capacity(exports.len());
-        for ((sink, target), export) in exports.iter().zip(&composition.exports) {
-            let texture = textures.get(*target as usize).ok_or_else(|| {
-                ComposeError::InvalidComposition("an export target is missing".into())
-            })?;
-            let mut rgba = self.read_rgba(texture)?;
-            unpremultiply(&mut rgba);
-            let pixels = Pixels::new(texture.width(), texture.height(), rgba);
-            out.push(ExportedFrame {
-                sink: *sink,
-                generation: export.generation,
-                frame: ExportFrame::Pixels(pixels),
-            });
-        }
-        Ok(out)
     }
 
     /// Raster one chunk into its texture (all of it, or the damaged rectangles).
@@ -455,7 +442,7 @@ fn external_frames(ops: &[Op<'_>]) -> Vec<kivact_types::ExternalFrame> {
 }
 
 /// Unpremultiply RGBA8 in place (straight alpha, as exported pixels are).
-fn unpremultiply(rgba: &mut [u8]) {
+pub(super) fn unpremultiply(rgba: &mut [u8]) {
     for px in rgba.as_chunks_mut::<4>().0 {
         let a = u32::from(px[3]);
         if a == 0 {
