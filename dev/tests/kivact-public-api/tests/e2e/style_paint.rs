@@ -206,8 +206,10 @@ fn text_color_transitions_with_paint() {
     screen.advance(Duration::from_millis(100));
     assert!(
         ink.screenshot().pixels.iter().any(|pixel| {
-            let (r, g, b) = ((pixel >> 16) & 255, (pixel >> 8) & 255, pixel & 255);
-            r > 25 && b > 25 && g < 30
+            // Oklab (§5.4.2) keeps some green mid-transition, so require a
+            // pixel that mixes both ends, not an end or the background.
+            let (r, b) = ((pixel >> 16) & 255, pixel & 255);
+            r > 25 && b > 25 && r < 230 && b < 230
         }),
         "glyphs pass through an intermediate text color"
     );
