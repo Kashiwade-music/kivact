@@ -458,7 +458,8 @@ impl ShellWindow for WinitWindow {
         &mut self,
         width: u32,
         height: u32,
-        draw: &mut dyn FnMut(&mut [u32]) -> bool,
+        damage: Option<&[kivact_types::render::PixelRect]>,
+        draw: &mut dyn FnMut(&mut [u32], arvane_shell::BufferAge) -> bool,
     ) -> Result<bool, ShellError> {
         let _ = &self.affinity;
         let (Some(w), Some(h)) = (NonZeroU32::new(width), NonZeroU32::new(height)) else {
@@ -471,7 +472,7 @@ impl ShellWindow for WinitWindow {
         if (width, height) != physical {
             return Err(ShellError::new("frame size differs from window surface"));
         }
-        cpu.present(w, h, || cpu_surface(&self.window), draw)
+        cpu.present(w, h, || cpu_surface(&self.window), damage, draw)
     }
 }
 /// A physical client position in logical pixels.
@@ -755,11 +756,12 @@ impl ApplicationHandler<()> for Runner<'_> {
                 self.input(el, event);
             }
         }
-        let environment = self
+        let changed = self
             .run
             .live_ref()
             .is_some_and(|window| window.input.env_changed.take().is_some());
-        if environment {
+        // A wake for the environment (the Linux settings portal) announces the change too.
+        if changed || reasons.contains(arvane_shell::WakeReasons::ENVIRONMENT) {
             self.callback(el, Some(ShellEvent::EnvironmentChanged));
         }
         let actions = self
@@ -1042,6 +1044,10 @@ impl Backend for NativeBackend {
                 let _ = proxy.send_event(());
             }
         });
+        #[cfg(target_os = "linux")]
+        {
+            crate::port::linux_settings::watch(waker.clone());
+        }
         let mut app = Runner {
             handler,
             options: self.options,

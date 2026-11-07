@@ -56,7 +56,8 @@ pub use types::{ShellControl, ShellError, ShellOptions, ShellWaker, WakeReasons}
 
 pub use target::{GpuTarget, GpuWindow};
 pub use window::{
-    Backend, CpuFormat, ShellHandler, ShellWindow, Step, StepOutcome, SteppedBackend, SteppedLoop,
+    Backend, BufferAge, CpuFormat, ShellHandler, ShellWindow, Step, StepOutcome, SteppedBackend,
+    SteppedLoop,
 };
 
 pub use child::{ChildHooks, MakeHandler, PanicSlot, ShellChild};

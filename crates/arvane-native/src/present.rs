@@ -1,5 +1,6 @@
 //! Role: The softbuffer CPU surface of a window and whether it shows a frame.
-use arvane_shell::ShellError;
+use arvane_shell::{BufferAge, ShellError};
+use kivact_types::render::PixelRect;
 use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
 use std::num::NonZeroU32;
 
@@ -26,20 +27,22 @@ impl<D: HasDisplayHandle, W: HasWindowHandle> CpuSurface<D, W> {
     }
 
     /// Offer a `width` by `height` buffer to `draw` once and present it when `draw` accepts;
-    /// `make` creates the surface when there is none.
+    /// `make` creates the surface when there is none. `damage` selects the device pixels
+    /// presented (`None` presents the whole buffer).
     pub(crate) fn present(
         &mut self,
         width: NonZeroU32,
         height: NonZeroU32,
         make: impl FnOnce() -> Result<softbuffer::Surface<D, W>, ShellError>,
-        draw: &mut dyn FnMut(&mut [u32]) -> bool,
+        damage: Option<&[PixelRect]>,
+        draw: &mut dyn FnMut(&mut [u32], BufferAge) -> bool,
     ) -> Result<bool, ShellError> {
         let (mut surface, shown) = match std::mem::replace(self, Self::Released) {
             Self::Released => (make()?, false),
             Self::Ready(surface) => (surface, false),
             Self::Shown(surface) => (surface, true),
         };
-        let presented = offer(&mut surface, width, height, draw);
+        let presented = offer(&mut surface, width, height, damage, draw);
         *self = if shown || matches!(presented, Ok(true)) {
             Self::Shown(surface)
         } else {
@@ -67,14 +70,39 @@ fn offer<D: HasDisplayHandle, W: HasWindowHandle>(
     surface: &mut softbuffer::Surface<D, W>,
     width: NonZeroU32,
     height: NonZeroU32,
-    draw: &mut dyn FnMut(&mut [u32]) -> bool,
+    damage: Option<&[PixelRect]>,
+    draw: &mut dyn FnMut(&mut [u32], BufferAge) -> bool,
 ) -> Result<bool, ShellError> {
     surface.resize(width, height).map_err(error)?;
     let mut buffer = surface.buffer_mut().map_err(error)?;
-    if !draw(&mut buffer[..]) {
+    // An age of 1 is the frame presented last time; 0 (never presented) and older ages are unknown.
+    let age = if buffer.age() == 1 {
+        BufferAge::Previous
+    } else {
+        BufferAge::Unknown
+    };
+    if !draw(&mut buffer[..], age) {
         return Ok(false);
     }
-    buffer.present().map(|()| true).map_err(error)
+    match damage {
+        Some(rects) => {
+            let rects: Vec<softbuffer::Rect> = rects.iter().filter_map(damage_rect).collect();
+            buffer.present_with_damage(&rects)
+        }
+        None => buffer.present(),
+    }
+    .map(|()| true)
+    .map_err(error)
+}
+
+/// The softbuffer rectangle of `rect`; an empty rectangle covers no pixel and is dropped.
+fn damage_rect(rect: &PixelRect) -> Option<softbuffer::Rect> {
+    Some(softbuffer::Rect {
+        x: rect.x,
+        y: rect.y,
+        width: NonZeroU32::new(rect.width)?,
+        height: NonZeroU32::new(rect.height)?,
+    })
 }
 
 fn error(error: softbuffer::SoftBufferError) -> ShellError {
