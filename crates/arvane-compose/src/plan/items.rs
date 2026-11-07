@@ -176,7 +176,11 @@ impl<'a> Builder<'a> {
         let h = Matrix4::from_affine(shader.transform)
             .then(cx.dest.to)
             .flatten();
-        let (Some(polygon), Some(map)) = (h.map_rect(shader.rect), h.invert()) else {
+        let (Some(polygon), Some(map), Some(fallback_map)) = (
+            h.map_rect(shader.rect),
+            h.invert(),
+            px_map(&cx.dest.to, &cx.grid.to_px()),
+        ) else {
             return Ok(());
         };
         self.ops.push(Op::Shader(ShaderOp {
@@ -188,6 +192,7 @@ impl<'a> Builder<'a> {
             px_per_unit: h.max_scale(shader.rect),
             coverage,
             fallback,
+            fallback_map,
             input: None,
             opacity: shader.opacity,
         }));

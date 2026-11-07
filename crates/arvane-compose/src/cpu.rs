@@ -15,15 +15,17 @@ use std::hash::{Hash, Hasher};
 use arvane_render::{CpuRaster, RenderError};
 use kivact_types::gpu::ExternalFrame;
 use kivact_types::ids::DrawableId;
-use kivact_types::pixel::Pixels;
+use kivact_types::pixel::{BlendMode, Pixels};
 use kivact_types::render::{
-    Composition, CpuFrame, ExportFrame, ExportMode, ExportedFrame, FrameReport, FrameStats,
-    LayerKey, PixelRect, RenderScene,
+    Composite, Composition, CpuFrame, ExportFrame, ExportMode, ExportedFrame, FrameReport,
+    FrameStats, LayerKey, PixelRect, RenderScene,
 };
 
 use crate::ComposeError;
 use crate::cache::{CacheIndex, ChunkKey, ChunkRecord, LayerRecord};
-use crate::plan::{self, ChunkTask, Damage, Op, Redraw, TargetKind};
+use crate::plan::{
+    self, ChunkTask, Damage, DrawOp, Op, Redraw, Sampling, Scissor, Source, TargetKind,
+};
 use draw::Chunks;
 use surface::Pixmap;
 
@@ -373,9 +375,23 @@ fn exec(
         Op::Clip { target, coverage } => {
             mask::clip(&mut targets[*target as usize], chunk(chunks, coverage)?);
         }
-        // The CPU draws a shader's fallback chunk instead; the plan's ShaderOp does not carry
-        // the mapping to that chunk, so this is not yet drawn (see the report of the unit).
-        Op::Shader(_) => {}
+        // The CPU draws the shader's fallback chunk in place of the shader (design §8.3, §11.3.6).
+        Op::Shader(shader) => {
+            let fallback = DrawOp {
+                target: shader.target,
+                source: Source::Chunk(shader.fallback),
+                polygon: shader.polygon.clone(),
+                split_edges: Vec::new(),
+                map: shader.fallback_map,
+                opacity: shader.opacity,
+                blend: BlendMode::Normal,
+                composite: Composite::SourceOver,
+                sampling: Sampling::Smooth,
+                coverage: Some(shader.coverage),
+                scissor: Scissor::Off,
+            };
+            draw::draw(&fallback, targets, chunks, missed)?;
+        }
     }
     Ok(())
 }

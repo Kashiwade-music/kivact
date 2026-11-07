@@ -3,6 +3,7 @@
 use std::collections::HashMap;
 
 use kivact_types::geometry::{Point, Rect};
+use kivact_types::geometry3d::Projective;
 use kivact_types::gpu::ExternalFrame;
 use kivact_types::pixel::Pixels;
 use kivact_types::render::PixelRect;
@@ -188,11 +189,54 @@ pub(crate) fn draw(
     };
     let mut dst = std::mem::take(&mut targets[target]);
     let result = match resolve(&op.source, targets, chunks, missed)? {
-        Some(texture) => paint(&mut dst, op, &shape, &texture, cover),
+        Some(texture) => match texel_map(op, &texture) {
+            Some(map) => paint(&mut dst, op, &map, &shape, &texture, cover),
+            None => Ok(()),
+        },
         None => Ok(()),
     };
     targets[target] = dst;
     result
+}
+
+/// The map from target px to the texels `texture` is sampled at.
+///
+/// Every source but an external frame is already in its own px, so `op.map` is used as it is.
+/// An external frame's map ends at the item rect space (design §8.3): it is taken to the
+/// frame's px here, by the size of the CPU pixels and the source rectangle, as the GPU does.
+/// None when the item rect has no area in target px.
+fn texel_map(op: &DrawOp<'_>, texture: &Texture<'_>) -> Option<Projective> {
+    let (Source::External { source, .. }, Texture::Straight(straight)) = (&op.source, texture)
+    else {
+        return Some(op.map);
+    };
+    let (w, h) = (
+        f64::from(straight.pixels.width),
+        f64::from(straight.pixels.height),
+    );
+    let (mut x0, mut y0) = (f64::INFINITY, f64::INFINITY);
+    let (mut x1, mut y1) = (f64::NEG_INFINITY, f64::NEG_INFINITY);
+    for p in &op.polygon.points {
+        let q = op.map.apply(*p)?;
+        x0 = x0.min(q.x);
+        y0 = y0.min(q.y);
+        x1 = x1.max(q.x);
+        y1 = y1.max(q.y);
+    }
+    let (rw, rh) = (x1 - x0, y1 - y0);
+    if rw <= 0.0 || rh <= 0.0 {
+        return None;
+    }
+    let src = source.unwrap_or(Rect::new(0.0, 0.0, w, h));
+    let (sx, sy) = (src.width / rw, src.height / rh);
+    let to_texel = Projective {
+        m: [
+            [sx, 0.0, src.x - x0 * sx],
+            [0.0, sy, src.y - y0 * sy],
+            [0.0, 0.0, 1.0],
+        ],
+    };
+    Some(op.map.then(to_texel))
 }
 
 /// The error for a chunk the plan named but the executor does not hold.
@@ -233,6 +277,7 @@ fn resolve<'a>(
 fn paint(
     dst: &mut Pixmap,
     op: &DrawOp<'_>,
+    map: &Projective,
     shape: &Shape<'_>,
     texture: &Texture<'_>,
     cover: Option<&Pixmap>,
@@ -251,7 +296,7 @@ fn paint(
             if coverage <= 0.0 {
                 continue;
             }
-            let Some(q) = op.map.apply(p) else {
+            let Some(q) = map.apply(p) else {
                 continue;
             };
             let cover_alpha =
