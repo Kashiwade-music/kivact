@@ -36,6 +36,7 @@ members = [
     "crates/arvane-virtual",
     "crates/arvane-text",
     "crates/arvane-render",
+    "crates/arvane-compose",
     "crates/arvane-asset",
     "crates/kivact-gpu-share",
     "dev/tests/gpu-interop-producer",
@@ -151,6 +152,8 @@ opt-level = 3
 [profile.dev.package.kivact-gpu-share]
 opt-level = 3
 [profile.dev.package.arvane-render]
+opt-level = 3
+[profile.dev.package.arvane-compose]
 opt-level = 3
 [profile.dev.package.arvane-text]
 opt-level = 3

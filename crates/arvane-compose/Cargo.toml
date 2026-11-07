@@ -1,0 +1,14 @@
+[package]
+name = "arvane-compose"
+authors.workspace = true
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Arvane compositor plan: layer trees to draw operations, with caches and damage"
+
+[dependencies]
+kivact-types = { path = "../kivact-types", version = "0.1.0" }
+
+[lints]
+workspace = true

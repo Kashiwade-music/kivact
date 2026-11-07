@@ -264,6 +264,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "arvane-compose"
+version = "0.1.0"
+dependencies = [
+ "kivact-types",
+]
+
+[[package]]
 name = "arvane-native"
 version = "0.1.0"
 dependencies = [
