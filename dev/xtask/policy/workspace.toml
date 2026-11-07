@@ -51,6 +51,8 @@ arvane-native = ["kivact-engine", "arvane-virtual", "arvane", "kivact"]
 arvane-virtual = ["kivact-engine", "arvane", "kivact-test"]
 arvane-text = ["arvane"]
 arvane-render = ["arvane", "kivact"]
+# The compositor plan: Composition to draw operations, owned by the window (arvane) and the facade (kivact).
+arvane-compose = ["arvane", "kivact"]
 arvane-asset = ["arvane"]
 # 試験だけの engine（自前の device で frame を描いて共有する）。Arvane の契約の試験と、公開 API の試験・
 # viewport の GPU frame の試験（dev-dependency）だけが使う。
@@ -216,6 +218,10 @@ target = []
 
 # B7: topology below measurement, Model processing, presentation,
 # diagnostics and host. model::interact belongs to the Model processing tier.
+[module_rules.arvane-compose.uses]
+cache = []
+plan = ["cache"]
+
 [module_rules.kivact-engine]
 except = [
     # Model owns passive state; these leaves import no Model or processing code.
@@ -421,7 +427,7 @@ value_modules = ["kivact-engine::contract", "kivact-types::semantics", "kivact-t
 allowed_files = ["tokens.rs", "theme.rs", "color.rs"]
 
 [os_branch]
-allowed_paths = ["crates/arvane-native/", "crates/kivact-gpu-share/", "crates/arvane-render/src/gpu/", "crates/kivact-types/src/gpu.rs", "crates/arvane-asset/", "crates/arvane-text/"]
+allowed_paths = ["crates/arvane-native/", "crates/kivact-gpu-share/", "crates/arvane-render/src/gpu/", "crates/arvane-compose/src/gpu/", "crates/kivact-types/src/gpu.rs", "crates/arvane-asset/", "crates/arvane-text/"]
 
 [structural_options]
 # Passive data values and collection records do not configure mounted UI structure.
