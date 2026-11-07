@@ -548,7 +548,7 @@ impl Model {
             })
             .collect();
         if flat {
-            hits.sort_by(|a, b| b.0.cmp(&a.0));
+            hits.sort_by_key(|hit| std::cmp::Reverse(hit.0));
         } else {
             hits.sort_by(|a, b| b.1.total_cmp(&a.1).then(b.0.cmp(&a.0)));
         }
