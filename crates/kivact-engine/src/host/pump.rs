@@ -1,11 +1,12 @@
 //! Role: Run host turns, effects, layout and frame presentation.
 
 use super::client::{Boundary, Client};
-use crate::contract::HostEvent;
+use crate::contract::{DrawableTexturesHandle, HostEvent};
 use crate::model::edit::state::ImeUpdate;
 use crate::model::{DeferredRequest, Model};
 use crate::{FrameLog, FrameTimes};
-use arvane::{Presented, ShellControl, ShellError, Window};
+use arvane::{ExportNotice, Presented, ShellControl, ShellError, Window};
+use kivact_types::DrawableId;
 use kivact_types::cell::{ReportOnce, Sent};
 use kivact_types::{PlatformRequest, PlatformResult};
 use std::cell::RefCell;
@@ -208,6 +209,7 @@ impl Host {
                 ExternalWrite::Drop(image) => window.drop_external_image(image),
             }
         }
+        self.export_notices(window);
     }
     /// Tell the client when the window's adapter changed.
     fn adapter_changed(&mut self, window: &Window<'_>) {
@@ -234,9 +236,10 @@ impl Host {
         window: &mut Window<'_>,
         started: Instant,
     ) -> Result<Presented, kivact_types::Failure> {
+        let plan = window.frame_plan();
+        self.export_pools(window);
         let mut model = self.model.borrow_mut();
         model.scroll_inputs(&mut self.engine.borrow_mut());
-        let plan = window.frame_plan();
         // Images are rasterized for the scale the frame is drawn at.
         model.paint.set_scale(plan.scale);
         let t_scene = Instant::now();
@@ -244,7 +247,7 @@ impl Host {
         drop(model);
         let t_raster = Instant::now();
         let presented = window.present(&composition, plan)?;
-        // The exports and pending exports are handled with the drawable exports.
+        self.export_presented(&presented, window.now_ns());
         if let Presented::Shown {
             raster,
             present,
@@ -285,6 +288,10 @@ impl Host {
         let drawable = self.drawable();
         self.model.borrow_mut().set_surface(drawable);
         self.model.borrow_mut().frame.set_now(window.now_ns());
+        // A skipped export due now draws a frame, even with nothing else changed.
+        if self.model.borrow().drawables.retry_due(window.now_ns()) {
+            self.model.borrow_mut().paint.request_redraw();
+        }
         let output = self.client.turn(events, boundaries, window.now_ns());
         if self.observe_close() {
             return Ok(());
@@ -447,6 +454,83 @@ impl Host {
             window.set_cursor(cursor);
         }
     }
+    /// Make the GPU export pools the drawables ask for: a pool is made for a
+    /// new generation, dropped when no longer wanted, and asked anew from
+    /// the drawable when its size changed. The window's answer goes to the
+    /// client as `DrawableTextures`.
+    fn export_pools(&mut self, window: &mut Window<'_>) {
+        let wanted = self.model.borrow().wanted_pools();
+        let ids: Vec<DrawableId> = wanted.iter().map(|w| w.id).collect();
+        let unwanted = self.model.borrow().drawables.unwanted_pools(&ids);
+        for id in unwanted {
+            window.drop_export(id);
+            self.model.borrow_mut().drawables.set_pool(id, None);
+        }
+        for want in wanted {
+            let current = self.model.borrow().drawables.pool_of(want.id);
+            match current {
+                Some((generation, size)) if generation == want.generation && size == want.size => {
+                    continue;
+                }
+                Some((generation, _)) if generation == want.generation => {
+                    window.drop_export(want.id);
+                    let mut model = self.model.borrow_mut();
+                    model.drawables.set_pool(want.id, None);
+                    model.push(HostEvent::DrawableResized { id: want.id });
+                    continue;
+                }
+                _ => {}
+            }
+            let result = window.export_drawable(want.id, want.generation, &want.adapter, want.size);
+            let mut model = self.model.borrow_mut();
+            let result = match result {
+                Ok(textures) => {
+                    model
+                        .drawables
+                        .set_pool(want.id, Some((want.generation, want.size)));
+                    Ok(DrawableTexturesHandle::new(textures))
+                }
+                Err(failure) => Err(failure),
+            };
+            model.push(HostEvent::DrawableTextures {
+                id: want.id,
+                generation: want.generation,
+                result,
+            });
+        }
+    }
+
+    /// Hand over the frames of a shown presentation and decide the drawables'
+    /// export retries from its pending exports.
+    fn export_presented(&mut self, presented: &Presented, now_ns: u64) {
+        let Presented::Shown {
+            exports,
+            pending_exports,
+            ..
+        } = presented
+        else {
+            return;
+        };
+        let mut model = self.model.borrow_mut();
+        for frame in exports {
+            model.push(HostEvent::DrawableFrame(frame.clone()));
+        }
+        let period = model.frame.period_ns();
+        model.drawables.presented(pending_exports, now_ns, period);
+    }
+
+    /// Pass the window's export notices to the client: lost pools and
+    /// the GPU's return.
+    fn export_notices(&mut self, window: &mut Window<'_>) {
+        for notice in window.take_export_notices() {
+            let event = match notice {
+                ExportNotice::Lost(loss) => HostEvent::DrawableExportLost(loss),
+                ExportNotice::Available => HostEvent::GpuExportAvailable,
+            };
+            self.model.borrow_mut().push(event);
+        }
+    }
+
     /// A frame is due: the picture changed and there is a surface.
     fn paint_due(&self) -> bool {
         let model = self.model.borrow();
@@ -472,10 +556,15 @@ impl Host {
         let next = if model.has_events() || !model.effects.is_empty() {
             Some(window.now_ns())
         } else {
-            [self.next_wake, frame_deadline, self.retry_at()]
-                .into_iter()
-                .flatten()
-                .min()
+            [
+                self.next_wake,
+                frame_deadline,
+                self.retry_at(),
+                model.drawables.retry_deadline(),
+            ]
+            .into_iter()
+            .flatten()
+            .min()
         };
         if self.phase == HostPhase::Exiting {
             ShellControl::Exit

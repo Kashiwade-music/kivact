@@ -19,6 +19,7 @@ mod attachments;
 mod create;
 mod diagnostics;
 mod draw;
+pub(crate) mod drawable;
 mod editing;
 mod facts;
 mod part_input;

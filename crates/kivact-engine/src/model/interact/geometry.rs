@@ -360,7 +360,7 @@ impl Model {
     ///
     /// The depth order of a 3D rendering context (§7.3, §8.4) is not derived
     /// yet: its nodes are hit flat, in the order of their siblings.
-    fn hit_node(&self, id: NodeId, p: Point) -> Option<NodeId> {
+    pub(crate) fn hit_node(&self, id: NodeId, p: Point) -> Option<NodeId> {
         let n = self.tree.get(id)?;
         if !self.tree.shown(id) || !n.hit_testable() {
             return None;
@@ -392,13 +392,27 @@ impl Model {
         if self.scrollbar_at(id, p).is_some() {
             return Some(id);
         }
+        // Drawables drawn over the children are hit first (§10.4).
+        if let Some(h) = self.drawable_hit(id, 1, p) {
+            return Some(h);
+        }
         for c in self.stacked(n).rev() {
-            if self.tree.get(c).is_none_or(|cn| cn.is_layer()) {
+            if self
+                .tree
+                .get(c)
+                .is_none_or(|cn| cn.is_layer() || cn.properties.drawable.is_some())
+            {
                 continue;
             }
             if let Some(h) = self.hit_node(c, p) {
                 return Some(h);
             }
+        }
+        if let Some(h) = self
+            .drawable_hit(id, 0, p)
+            .or_else(|| self.exported_hit(id, p))
+        {
+            return Some(h);
         }
         inside.then_some(id)
     }

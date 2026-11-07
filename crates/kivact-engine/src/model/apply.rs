@@ -55,6 +55,7 @@ impl Model {
         self.confine_focus();
         self.revalidate_hover();
         self.reveal_moved_focus();
+        self.reconcile_drawables();
         let revision = Revision(self.applied().0 + 1);
         self.events.commit(revision);
         revision

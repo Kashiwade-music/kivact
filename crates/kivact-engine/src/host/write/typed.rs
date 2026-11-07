@@ -31,7 +31,9 @@
 //!   alone only redraws.
 
 use super::Writer;
-use crate::contract::{EditingData, ImeSessionProps, LeafMeasure, NodeKind, NodeProperties};
+use crate::contract::{
+    DrawableRole, EditingData, ImeSessionProps, LeafMeasure, NodeKind, NodeProperties,
+};
 use crate::model::Model;
 use crate::mutation::Mutation as Mut;
 use kivact_types::{
@@ -354,6 +356,10 @@ props! {
             _ => None,
         }),
         mut = Mut::STYLE.and(Mut::PLACED).and(Mut::RESTACK);
+    /// Replace the drawable role of the node (the root of a drawable).
+    Drawable: set_drawable(v: Option<DrawableRole>)
+        => field(v, |p| Some(&mut p.drawable)),
+        mut = Mut::RESTACK, then = after_drawable;
     /// Replace the node's intrinsic when its value differs.
     Intrinsic: set_intrinsic(v: IntrinsicSize)
         => field(Some(v), |p| match &mut p.kind {
@@ -403,6 +409,11 @@ impl Writer {
     }
 
     /// A node got disabled: a capture it holds ends.
+    /// A drawable role changed: the model reconciles the drawable at the commit.
+    fn after_drawable(&self, id: NodeId) {
+        self.model.borrow_mut().drawables.note(id);
+    }
+
     fn after_disabled(&self, id: NodeId) {
         let mut model = self.model.borrow_mut();
         if model.node(id).is_some_and(|n| n.disabled()) {

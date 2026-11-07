@@ -51,6 +51,8 @@ pub(crate) struct Model {
     /// The imports and drops of shared textures to carry out after the
     /// turn, in the order written.
     pub(crate) external_writes: Vec<ExternalWrite>,
+    /// The drawable roots and what the app asked of each export.
+    pub(crate) drawables: super::drawables::Drawables,
     #[cfg(debug_assertions)]
     pub(crate) lint: crate::check::lint::state::Lint,
 }
@@ -99,6 +101,7 @@ impl Model {
             effects: vec![],
             snapshots: Vec::new(),
             external_writes: Vec::new(),
+            drawables: Default::default(),
             #[cfg(debug_assertions)]
             lint: Default::default(),
         }

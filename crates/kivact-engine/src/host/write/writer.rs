@@ -282,6 +282,16 @@ impl Writer {
         }
     }
 
+    /// Record what a drawable's export asks of the window
+    /// (`HostRequest::DrawableExport`, `SetDrawableGeometry`). Nothing is
+    /// reported back: the window's answers come as drawable events.
+    pub fn drawable_request(&self, request: HostRequest) {
+        let mut guard = self.model.borrow_mut();
+        let m = &mut *guard;
+        m.writes.command(None);
+        crate::model::drawables::apply_request(m, request);
+    }
+
     /// Ask the platform for `effect`; the result is reported with
     /// `request` (`HostEvent::EffectResult`). A font is registered at
     /// once (the next layout measures with it); the other effects are
@@ -306,6 +316,10 @@ impl Writer {
             }
             HostRequest::Platform(effect) => {
                 m.effects.push((request, DeferredRequest::Platform(effect)))
+            }
+            drawable @ (HostRequest::DrawableExport { .. }
+            | HostRequest::SetDrawableGeometry { .. }) => {
+                crate::model::drawables::apply_request(m, drawable)
             }
             HostRequest::ReducedMotion(value) => m
                 .effects

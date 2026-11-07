@@ -137,6 +137,17 @@ fn dispatch_host(rt: &Runtime, host_event: &HostEvent) {
         HostEvent::TurnsCut { turns } => diagnostics::turns_cut(rt, *turns),
         HostEvent::ExternalImported { image, result } => gpu::external_imported(rt, *image, result),
         HostEvent::GpuAdapterChanged(adapter) => gpu::adapter_changed(rt, adapter.as_ref()),
+        HostEvent::DrawableFrame(frame) => crate::view::drawable::frame(frame),
+        HostEvent::DrawableResized { id } => crate::view::drawable::resized(*id),
+        HostEvent::DrawableTextures {
+            id,
+            generation,
+            result,
+        } => crate::view::drawable::textures(*id, *generation, result),
+        HostEvent::DrawableExportLost(loss) => {
+            crate::view::drawable::lost(loss.sink, loss.generation)
+        }
+        HostEvent::GpuExportAvailable => crate::view::drawable::gpu_available(),
         HostEvent::PresenceChanged { .. }
         | HostEvent::Pointer(_)
         | HostEvent::Wheel(_)
