@@ -417,6 +417,7 @@ pub(crate) fn draw(
             let Some(x0) = x0 else { continue };
             let mut glyph_run = glyph_run(&run, glyphs, fonts);
             glyph_run.color = color;
+            glyph_run.stroke = span_style.and_then(|s| s.stroke);
             segments.push(Segment {
                 line: i,
                 span,
@@ -476,6 +477,7 @@ fn glyph_run(
         font_index: run.font().index,
         font_size: f64::from(run.font_size()),
         color: ComputedTextStyle::default().color,
+        stroke: None,
         normalized_coords: run
             .normalized_coords()
             .iter()

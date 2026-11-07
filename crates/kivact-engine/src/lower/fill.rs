@@ -41,13 +41,14 @@ use super::context::Context;
 use crate::lower::effects::Tint;
 use crate::lower::shape::BoxShape;
 use kivact_types::render::RenderCmd as D;
-use kivact_types::{BlendMode, ColorInterpolation, Len, Rgba, Size, SpaceColor, interpolate};
 use kivact_types::{
-    CoordinateGradient, CoordinateShape, Fill, FillImage, FillLayer, FillSize, Gradient,
-    GradientKind, RadialExtent,
+    BackgroundClip, BackgroundOrigin, CoordinateGradient, CoordinateShape, Fill, FillImage,
+    FillLayer, FillSize, Gradient, GradientKind, RadialExtent,
 };
+use kivact_types::{BlendMode, ColorInterpolation, Len, Rgba, Size, SpaceColor, interpolate};
 
 use kivact_types::render::{GradientShape, Group, Pattern, PatternSource};
+use kivact_types::scene::Shape;
 use kivact_types::{Extend, Point, Rect};
 
 /// Copies of a gradient tile drawn one by one; more are a pattern.
@@ -92,7 +93,59 @@ impl BoxShape {
     }
 }
 
-/// Where the copies of a layer's tile lie in an area.
+/// The boxes of one painted box: a background layer is placed in its origin
+/// box and clipped to its clip box (§9.3, §9.4).
+pub(crate) struct Boxes {
+    /// The border box.
+    pub(crate) border: BoxShape,
+    /// The padding box: the border box inset by the border widths.
+    pub(crate) padding: BoxShape,
+    /// The content box: the border box inset by the border widths and the
+    /// padding, as layout resolved them.
+    pub(crate) content: BoxShape,
+    /// The glyph outlines of the node's text (for a background clipped to
+    /// the text); `None` when the node has no text to clip to.
+    pub(crate) glyphs: Option<Shape>,
+    /// The frame each background layer shows (by layer index, in the fill's
+    /// order); a layer without one shows frame 0.
+    pub(crate) frames: Vec<u32>,
+}
+
+impl Boxes {
+    /// The boxes of a canvas shape: every box is the shape itself.
+    pub(crate) fn uniform(shape: BoxShape) -> Boxes {
+        Boxes {
+            padding: shape.clone(),
+            content: shape.clone(),
+            border: shape,
+            glyphs: None,
+            frames: Vec::new(),
+        }
+    }
+
+    /// The box a layer is placed in: its origin (`None`: the padding box).
+    fn origin(&self, origin: Option<BackgroundOrigin>) -> &BoxShape {
+        match origin.unwrap_or_default() {
+            BackgroundOrigin::BorderBox => &self.border,
+            BackgroundOrigin::PaddingBox => &self.padding,
+            BackgroundOrigin::ContentBox => &self.content,
+        }
+    }
+
+    /// The outline a layer is clipped to (`None`: not drawn). A text clip is
+    /// the border box, drawn through the glyph outlines (`glyphs`).
+    pub(crate) fn clip(&self, clip: BackgroundClip) -> Option<&BoxShape> {
+        match clip {
+            BackgroundClip::BorderBox => Some(&self.border),
+            BackgroundClip::PaddingBox => Some(&self.padding),
+            BackgroundClip::ContentBox => Some(&self.content),
+            BackgroundClip::Text => self.glyphs.as_ref().map(|_| &self.border),
+        }
+    }
+}
+
+/// Where the copies of a layer's tile lie in an origin box, repeated over the
+/// clip box.
 struct Tiles {
     /// The first copy.
     first: Rect,
@@ -103,13 +156,13 @@ struct Tiles {
 impl Tiles {
     /// The copies of a `size` tile at `position` (resolved against the
     /// area less the tile, as CSS does), repeated as `layer` says.
-    fn of(layer: &FillLayer, area: Rect, size: (f64, f64)) -> Option<Tiles> {
+    fn of(layer: &FillLayer, origin: Rect, cover: Rect, size: (f64, f64)) -> Option<Tiles> {
         let (tw, th) = size;
         if !(tw.is_finite() && th.is_finite() && tw > 0.0 && th > 0.0) {
             return None;
         }
-        let ox = area.x + layer.position[0].of(area.width - tw);
-        let oy = area.y + layer.position[1].of(area.height - th);
+        let ox = origin.x + layer.position[0].of(origin.width - tw);
+        let oy = origin.y + layer.position[1].of(origin.height - th);
         if !(ox.is_finite() && oy.is_finite()) {
             return None;
         }
@@ -124,8 +177,8 @@ impl Tiles {
                 (o, 1)
             }
         };
-        let (x, nx) = axis(ox, tw, area.x, area.width, layer.repeat_x);
-        let (y, ny) = axis(oy, th, area.y, area.height, layer.repeat_y);
+        let (x, nx) = axis(ox, tw, cover.x, cover.width, layer.repeat_x);
+        let (y, ny) = axis(oy, th, cover.y, cover.height, layer.repeat_y);
         Some(Tiles {
             first: Rect {
                 x,
@@ -173,20 +226,20 @@ impl Tiles {
 }
 
 impl Context<'_> {
-    /// Fill `shape` with `fill` through `tint` (see the module invariants);
+    /// Fill `boxes` with `fill` through `tint` (see the module invariants);
     /// `origin` is what coordinate gradients' points are against.
     pub(crate) fn fill(
         &self,
         out: &mut crate::lower::SceneOut,
-        shape: &BoxShape,
+        boxes: &Boxes,
         fill: &Fill,
         tint: &Tint,
         origin: Point,
     ) {
         match fill {
-            Fill::Solid(color) => {
-                shape.fill(out, kivact_types::render::Paint::Solid(tint.color(*color)))
-            }
+            Fill::Solid(color) => boxes
+                .border
+                .fill(out, kivact_types::render::Paint::Solid(tint.color(*color))),
             Fill::Layers(layers) => {
                 // Layers that blend with what is beneath them draw as a group
                 // of their own, all of them within one group (CSS
@@ -195,12 +248,13 @@ impl Context<'_> {
                 if blended {
                     out.push(D::PushGroup(blend_group(BlendMode::Normal)));
                 }
-                for layer in layers.iter().rev() {
+                for (index, layer) in layers.iter().enumerate().rev() {
+                    let frame = boxes.frames.get(index).copied().unwrap_or(0);
                     if layer.blend == BlendMode::Normal {
-                        self.fill_layer(out, shape, layer, tint, origin);
+                        self.fill_layer(out, boxes, layer, tint, origin, frame);
                     } else {
                         out.push(D::PushGroup(blend_group(layer.blend)));
-                        self.fill_layer(out, shape, layer, tint, origin);
+                        self.fill_layer(out, boxes, layer, tint, origin, frame);
                         out.push(D::PopGroup);
                     }
                 }
@@ -265,39 +319,67 @@ impl Context<'_> {
         })
     }
 
-    /// One background layer over `shape`.
+    /// One background layer of `boxes`: placed in its origin box, repeated
+    /// over and clipped to its clip box. A layer clipped to the text is drawn
+    /// inside the group clipped to the glyph outlines (§9.4).
     fn fill_layer(
         &self,
         out: &mut crate::lower::SceneOut,
-        shape: &BoxShape,
+        boxes: &Boxes,
         layer: &FillLayer,
         tint: &Tint,
         origin: Point,
+        frame: u32,
     ) {
+        match &boxes.glyphs {
+            Some(glyphs) if layer.clip == BackgroundClip::Text => {
+                out.push(crate::lower::effects::clip_group(glyphs.clone()));
+                self.paint_layer(out, boxes, layer, tint, origin, frame);
+                out.push(D::PopGroup);
+            }
+            _ => self.paint_layer(out, boxes, layer, tint, origin, frame),
+        }
+    }
+
+    /// The paint of one background layer within its clip box (see
+    /// [`Context::fill_layer`]).
+    fn paint_layer(
+        &self,
+        out: &mut crate::lower::SceneOut,
+        boxes: &Boxes,
+        layer: &FillLayer,
+        tint: &Tint,
+        origin: Point,
+        frame: u32,
+    ) {
+        let Some(shape) = boxes.clip(layer.clip) else {
+            return;
+        };
         if let FillImage::Coordinate(g) = &layer.image {
             if let Some(paint) = coordinate(g, origin) {
                 shape.fill(out, tint.paint(paint));
             }
             return;
         }
-        let area = shape.rect();
-        let Some(size) = self.tile_size(layer, area) else {
+        let placed = boxes.origin(layer.origin);
+        let (place, cover) = (placed.rect(), shape.rect());
+        let Some(size) = self.tile_size(layer, place) else {
             return;
         };
-        let Some(tiles) = Tiles::of(layer, area, size) else {
+        let Some(tiles) = Tiles::of(layer, place, cover, size) else {
             return;
         };
         match &layer.image {
             FillImage::Solid(color) => {
                 let paint = kivact_types::render::Paint::Solid(tint.color(*color));
-                if tiles.covers(area) || (layer.repeat_x && layer.repeat_y) {
+                if tiles.covers(cover) || (layer.repeat_x && layer.repeat_y) {
                     self.put(out, shape, paint);
                 } else {
                     self.fill_copies(out, shape, &tiles, |_| Some(paint.clone()));
                 }
             }
             FillImage::Gradient(g) => {
-                if tiles.covers(area) {
+                if tiles.covers(cover) {
                     if let Some(paint) = gradient(g, tiles.first) {
                         self.put(out, shape, tint.paint(paint));
                     }
@@ -330,7 +412,7 @@ impl Context<'_> {
                     },
                     self.raster.get(),
                 );
-                let pixels = self.pixels(source, device);
+                let pixels = self.pixels(source, device, frame);
                 if let Some((image, _)) = pixels {
                     let paint = tiles.pattern(layer, PatternSource::Image { image });
                     self.put(out, shape, tint.paint(paint));
@@ -372,7 +454,7 @@ impl Context<'_> {
             return coordinate(g, origin);
         }
         let size = self.tile_size(layer, area)?;
-        let tiles = Tiles::of(layer, area, size)?;
+        let tiles = Tiles::of(layer, area, area, size)?;
         match &layer.image {
             FillImage::Solid(color) => {
                 let paint =
@@ -417,7 +499,7 @@ impl Context<'_> {
                     },
                     self.raster.get(),
                 );
-                let (image, _) = self.pixels(asset, device)?;
+                let (image, _) = self.pixels(asset, device, 0)?;
                 Some(tiles.pattern(layer, PatternSource::Image { image }))
             }
         }

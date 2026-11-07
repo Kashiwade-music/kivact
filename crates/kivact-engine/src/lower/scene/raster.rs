@@ -90,7 +90,7 @@ impl Context<'_> {
         );
         if !sanitize::drawable(&D::PushClip(r)) {
             self.drop_command();
-        } else if let Some((image, _)) = self.pixels(source, device) {
+        } else if let Some((image, _)) = self.pixels(source, device, 0) {
             state.out.push(D::Image {
                 image,
                 rect: r,
@@ -131,7 +131,7 @@ impl Context<'_> {
             },
         };
         let size = arvane::asset::PixelSize::of(drawn, self.raster.get());
-        let pixels = self.pixels(source, size);
+        let pixels = self.pixels(source, size, 0);
         if let Some((image, _)) = pixels {
             let source = crop.map(|crop| {
                 let n = natural.unwrap_or(Size {

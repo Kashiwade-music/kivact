@@ -29,6 +29,7 @@
 //! - A smooth scroll allocates its state only while it animates; reduced
 //!   motion makes it a jump. It uses the requested easing over 240 ms; touch flings decay per platform settings.
 
+mod clocks;
 mod scroll_snap;
 pub(crate) mod state;
 mod ticks;

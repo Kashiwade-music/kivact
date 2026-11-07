@@ -344,6 +344,15 @@ props! {
     ImageFit: set_image_fit(v: ImageFit)
         => field(Some(v), |p| Some(&mut image(p)?.fit)),
         mut = Mut::NONE;
+    /// Replace the node's playing when its value differs (an animated image
+    /// plays while it is true).
+    ImagePlaying: set_image_playing(v: bool)
+        => field(Some(v), |p| Some(&mut image(p)?.playing)),
+        mut = Mut::NONE;
+    /// Replace the node's shared-layout id when its value differs.
+    LayoutId: set_layout_id(v: Option<std::sync::Arc<str>>)
+        => field(v, |p| Some(&mut p.layout_id)),
+        mut = Mut::NONE;
     /// Replace the node's monochrome when its value differs.
     Monochrome: set_monochrome(v: bool)
         => field(Some(v), |p| Some(&mut image(p)?.monochrome)),

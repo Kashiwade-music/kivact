@@ -199,6 +199,13 @@ pub enum HostEvent {
         rule: LayoutRule,
         amount: f64,
     },
+    /// The shared-layout id `id` is on two live nodes; `node` is the later
+    /// of them (the one that takes the record of a departed node). Sent once
+    /// per id (`layout_id`, §12.11).
+    DuplicateLayoutId {
+        node: NodeId,
+        id: std::sync::Arc<str>,
+    },
     CloseRequested,
     /// The window carried out `Writer::import_external` of `image` (after
     /// the turn that wrote it).

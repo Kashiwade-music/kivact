@@ -1,5 +1,6 @@
 //! Role: Layout interpolation through visual transforms.
 
+mod mailbox;
 mod shared;
 pub(crate) mod state;
 mod steps;

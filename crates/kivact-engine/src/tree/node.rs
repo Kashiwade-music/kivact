@@ -314,6 +314,9 @@ impl HostNode {
     pub(crate) fn layout(&self) -> Option<&LayoutProps> {
         self.properties.layout.as_deref()
     }
+    pub(crate) fn layout_id(&self) -> Option<&std::sync::Arc<str>> {
+        self.properties.layout_id.as_ref()
+    }
     pub(crate) fn paint(&self) -> Option<&PaintProps> {
         self.properties.paint.as_deref()
     }

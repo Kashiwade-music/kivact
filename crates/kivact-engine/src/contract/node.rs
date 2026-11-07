@@ -53,6 +53,9 @@ pub struct NodeProperties {
     pub semantics: Option<Box<kivact_types::Semantics<FocusTarget>>>,
     /// The drawable this node is the root of, if any (its id and mode).
     pub drawable: Option<DrawableRole>,
+    /// The shared-layout id: a node that gets its first box with the id of
+    /// a departed node animates from that node's last box (`layout_id`).
+    pub layout_id: Option<std::sync::Arc<str>>,
 }
 
 /// The root node of a drawable: which drawable it is and how it is shown.
@@ -209,6 +212,7 @@ impl NodeProperties {
             input: Default::default(),
             semantics: None,
             drawable: None,
+            layout_id: None,
         }
     }
 }

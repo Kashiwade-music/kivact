@@ -19,6 +19,11 @@ pub fn compile_span_style(style: &SpanStyle, theme: &Theme) -> CompiledSpanStyle
         unsupported += lost;
         features
     });
+    let variations = style.variations.as_deref().map(|list| {
+        let (list, bad) = crate::text::wire_variations(list);
+        unsupported += bad;
+        list
+    });
     let decorated = style.decoration_line.is_some()
         || style.decoration_color.is_some()
         || style.decoration_thickness.is_some()
@@ -42,9 +47,12 @@ pub fn compile_span_style(style: &SpanStyle, theme: &Theme) -> CompiledSpanStyle
                 theme,
             )
         }),
-        stroke: None,
-        variations: None,
-        font_width: None,
+        stroke: style.stroke.map(|(width, color)| p::TextStroke {
+            width: width.to_wire(),
+            color: color.resolve(theme),
+        }),
+        variations,
+        font_width: style.font_width,
         background: style.background.as_ref().map(|paint| match paint.solid() {
             Some(c) => p::Fill::Solid(c.resolve(theme)),
             None => p::Fill::Layers(vec![fill_layer(paint, theme)]),

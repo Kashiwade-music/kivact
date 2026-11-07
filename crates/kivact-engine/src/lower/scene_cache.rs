@@ -79,6 +79,7 @@ pub(crate) enum Dependency {
         device: PixelSize,
         region: Region,
         tint: Option<Rgba>,
+        frame: u32,
         width: u32,
         height: u32,
         pixels: Weak<[u8]>,

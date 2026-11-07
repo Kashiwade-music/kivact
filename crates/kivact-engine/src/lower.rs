@@ -22,7 +22,7 @@ pub(crate) mod context;
 pub(crate) mod conversion;
 pub(crate) mod drawables;
 pub(crate) mod effects;
-mod fill;
+pub(crate) mod fill;
 pub(crate) mod glyphs;
 pub(crate) mod path;
 pub(crate) mod sanitize;

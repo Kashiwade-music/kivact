@@ -69,6 +69,9 @@ pub(crate) fn spans(
                     features: s.features.clone(),
                     variations: s.variations.clone(),
                     font_width: s.font_width,
+                    stroke: s
+                        .stroke
+                        .map(|stroke| (finite(stroke.width.px(size)).max(0.0), tint(stroke.color))),
                     decoration: s.decoration.map(|d| {
                         let color = d.color.map(&tint);
                         kivact_types::TextDecoration { color, ..d }

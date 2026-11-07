@@ -33,6 +33,8 @@ pub struct SpanStyle {
     pub variations: Option<Vec<FontVariation>>,
     /// CSS font-width (font-stretch) in percent (replacing the paragraph's).
     pub font_width: Option<f64>,
+    /// Outline of its glyphs (replacing the paragraph's): width in px and color.
+    pub stroke: Option<(f64, Rgba)>,
     /// Its band (one rect per line it is on) is reported in
     /// [`crate::render::ShapedText::highlights`], for the host to fill behind the
     /// glyphs (a `<mark>`).

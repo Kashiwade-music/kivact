@@ -117,7 +117,7 @@ fn resolve(source: &FillImage, area: Rect, ctx: &Context<'_>) -> Option<(Source,
                 return None;
             }
             let device = PixelSize::of(natural, ctx.raster.get());
-            let (pixels, _) = ctx.pixels(asset, device)?;
+            let (pixels, _) = ctx.pixels(asset, device, 0)?;
             let scale = pixels.width as f64 / natural.width;
             let size = (natural.width, natural.height);
             Some((Source::Image { pixels, scale }, size))

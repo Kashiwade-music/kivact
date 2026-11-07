@@ -5,7 +5,9 @@
 //! - A color filter becomes a layer color matrix, in order; `blur` and
 //!   `drop-shadow` become layer filters; a filter graph takes its images as
 //!   pixels at their natural size (§11.2.1); a filter shader is a shader use.
-//! - A shader's images are their natural pixels and its time is 0 (§6.8).
+//! - A shader's images are their natural pixels and its time is its clock's
+//!   (§11.3.5; still shaders, and non-essential ones under reduced motion,
+//!   are at 0).
 //!   A shader whose images are not ready draws its fallback in place.
 //! - A mask is the scene of its fill over its area. A shader mask is not
 //!   supported and is left out.
@@ -17,7 +19,9 @@ use std::sync::Arc;
 
 use arvane::asset::PixelSize;
 use kivact_types::effect::ShaderUse;
-use kivact_types::paint::{Fill, FillImage, FillLayer, FilterOp, MaskLayer, ShaderSpec};
+use kivact_types::paint::{
+    Fill, FillImage, FillLayer, FilterOp, MaskLayer, ShaderClock, ShaderSpec,
+};
 use kivact_types::pixel::ColorMatrix;
 use kivact_types::render::{
     LayerFilter, LayerItem, Paint, RenderBackdrop, RenderCmd as D, RenderMask, RenderScene,
@@ -29,7 +33,7 @@ use kivact_types::{Asset, Pixels, Point, Rect, Rgba};
 use crate::lower::SceneOut;
 use crate::lower::context::Context;
 use crate::lower::effects::Tint;
-use crate::lower::shape::BoxShape;
+use crate::lower::fill::Boxes;
 
 /// A CSS blur radius as a standard deviation, sanitized.
 fn blur_px(px: f64) -> f64 {
@@ -135,49 +139,52 @@ impl Context<'_> {
         })
     }
 
-    /// Fill `shape` with `fill` as [`Context::fill`] does, except that each
+    /// Fill `boxes` with `fill` as [`Context::fill`] does, except that each
     /// shader layer is an item of its own, in the layers' order.
     pub(crate) fn fill_items(
         &self,
         out: &mut SceneOut,
-        shape: &BoxShape,
+        boxes: &Boxes,
         fill: &Fill,
         tint: &Tint,
         origin: Point,
     ) {
         let Fill::Layers(layers) = fill else {
-            return self.fill(out, shape, fill, tint, origin);
+            return self.fill(out, boxes, fill, tint, origin);
         };
         if !has_shader(fill) {
-            return self.fill(out, shape, fill, tint, origin);
+            return self.fill(out, boxes, fill, tint, origin);
         }
         for layer in layers.iter().rev() {
             match &layer.image {
-                FillImage::Shader(spec) => self.shader_item(out, shape, layer, spec, tint, origin),
-                _ => self.fill(out, shape, &Fill::Layers(vec![layer.clone()]), tint, origin),
+                FillImage::Shader(spec) => self.shader_item(out, boxes, layer, spec, tint, origin),
+                _ => self.fill(out, boxes, &Fill::Layers(vec![layer.clone()]), tint, origin),
             }
         }
     }
 
-    /// One shader layer over `shape` as a shader item, its coverage and its
-    /// fallback in the item's space; the fallback alone while the shader's
-    /// images are not ready.
+    /// One shader layer over its clip box as a shader item, its coverage and
+    /// its fallback in the item's space; the fallback alone while the
+    /// shader's images are not ready.
     fn shader_item(
         &self,
         out: &mut SceneOut,
-        shape: &BoxShape,
+        boxes: &Boxes,
         layer: &FillLayer,
         spec: &ShaderSpec,
         tint: &Tint,
         origin: Point,
     ) {
+        let Some(shape) = boxes.clip(layer.clip) else {
+            return;
+        };
         let fallback = scene_of(|tmp| {
             if let Some(image) = &spec.fallback {
                 let as_layer = FillLayer {
                     image: image.clone(),
                     ..layer.clone()
                 };
-                self.fill(tmp, shape, &Fill::Layers(vec![as_layer]), tint, origin);
+                self.fill(tmp, boxes, &Fill::Layers(vec![as_layer]), tint, origin);
             }
         });
         let Some(shader) = self.shader_use(spec) else {
@@ -206,8 +213,9 @@ impl Context<'_> {
         out.item(LayerItem::Shader(item));
     }
 
-    /// The shader use of `spec` at time 0 with its images at their natural
-    /// pixels (`None` while an image is not ready).
+    /// The shader use of `spec` at its clock's time with its images at their
+    /// natural pixels (`None` while an image is not ready). A still clock, or
+    /// reduced motion for a shader that is not essential, is at time 0.
     pub(crate) fn shader_use(&self, spec: &ShaderSpec) -> Option<ShaderUse> {
         let mut images = [None, None, None, None];
         for (slot, asset) in spec.images.iter().enumerate() {
@@ -215,11 +223,16 @@ impl Context<'_> {
                 images[slot] = Some(self.natural_pixels(asset)?);
             }
         }
+        let time = match spec.clock {
+            ShaderClock::Still => 0.0,
+            _ if self.time.reduced && !spec.essential => 0.0,
+            _ => self.time.seconds,
+        };
         Some(ShaderUse {
             program: spec.program.clone(),
             params: spec.params.clone(),
             images,
-            time: 0.0,
+            time,
             margin: spec.margin,
         })
     }
@@ -227,7 +240,7 @@ impl Context<'_> {
     /// The pixels of `asset` at its natural size (`None` while not ready).
     fn natural_pixels(&self, asset: &Asset) -> Option<Pixels> {
         let size = self.natural(asset)?;
-        self.pixels(asset, PixelSize::of(size, 1.0))
+        self.pixels(asset, PixelSize::of(size, 1.0), 0)
             .map(|(pixels, _)| pixels)
     }
 
