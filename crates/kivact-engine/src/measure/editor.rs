@@ -22,7 +22,7 @@ pub(crate) struct EditorNode {
     /// composition ends.
     pub(crate) controlled: ControlledValue,
     /// Last session sent to the selection listener.
-    pub(crate) reported_session: Option<kivact_editing::TextSession>,
+    pub(crate) reported_session: kivact_types::cell::Sent<kivact_editing::TextSession>,
     /// Horizontal text scroll, independent of container scrolling.
     pub(crate) scroll_x: f64,
     /// Vertical scroll of an automatically sized or wrapped field.
@@ -35,7 +35,7 @@ impl EditorNode {
             lines: RefCell::default(),
             measure_lines: RefCell::default(),
             controlled: ControlledValue::InSync { at: 0 },
-            reported_session: None,
+            reported_session: kivact_types::cell::Sent::new(),
             scroll_x: 0.0,
             scroll_y: 0.0,
         }

@@ -38,7 +38,7 @@
 //!   event loop through the host's waker when it finishes; the next turn
 //!   applies its work.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use crate::lower::AssetEvent;
 use arvane::asset::{AssetStore, FamilyChoice, ImageState, PixelSize, Region, load_font};
@@ -56,7 +56,7 @@ pub(crate) struct ArvaneAssets {
     /// The last failed asset reported for each `Image` node.
     reported_images: HashMap<NodeId, Asset>,
     /// Missing families already reported (lowercase).
-    reported_families: HashSet<String>,
+    reported_families: kivact_types::cell::ReportOnceSet<String>,
     /// Reports found during a layout pass (missing families).
     pending: Vec<AssetEvent>,
 }
@@ -70,7 +70,7 @@ impl ArvaneAssets {
             revision: 0,
             registered: Vec::new(),
             reported_images: HashMap::new(),
-            reported_families: HashSet::new(),
+            reported_families: kivact_types::cell::ReportOnceSet::new(),
             pending: Vec::new(),
         }
     }
@@ -102,7 +102,6 @@ impl ArvaneAssets {
         self.store.release_caches();
         self.registered.shrink_to_fit();
         self.reported_images.shrink_to_fit();
-        self.reported_families.shrink_to_fit();
         self.pending.shrink_to_fit();
     }
 
@@ -250,7 +249,8 @@ impl ArvaneAssets {
                 ));
             }
         };
-        if let Err(e) = engine.register_font(file.bytes().to_shared()) {
+        let bytes = file.bytes().to_shared();
+        if let Err(e) = engine.register_font(bytes.clone()) {
             return PlatformResult::Failed(kivact_types::Failure::new(
                 kivact_types::FailureKind::Resource,
                 format!(
@@ -259,6 +259,7 @@ impl ArvaneAssets {
                 ),
             ));
         }
+        self.store.register_font(bytes);
         for family in file.families() {
             if !self.registered.contains(family) {
                 self.registered.push(family.clone());
@@ -281,7 +282,7 @@ impl ArvaneAssets {
             return;
         };
         let (_, missing) = resolve(engine, name);
-        if missing && self.reported_families.insert(name.to_lowercase()) {
+        if missing && self.reported_families.note(name.to_lowercase()) {
             let registered = match self.registered.as_slice() {
                 [] => "none".to_owned(),
                 r => r.join(", "),

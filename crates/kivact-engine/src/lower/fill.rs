@@ -15,7 +15,10 @@
 //!   repeats the tile).
 //! - Gradient stops are placed as CSS places them (missing positions
 //!   spread evenly, a position before an earlier one moved up to it); a
-//!   repeating gradient repeats from its first stop to its last.
+//!   repeating gradient repeats from its first stop to its last. Colors
+//!   are interpolated in the gradient's space and mapped to sRGB, with
+//!   stops added where that drifts from the sRGB ramp; color hints are
+//!   honored that way (`expand_gradient`).
 //!   A repeating radial gradient repeats its stops shifted by the phase of
 //!   its first stop. A conic gradient's angles are CSS's (0° up, turned to
 //!   Arvane's 0° right); a non-repeating one is one whole turn drawn with
@@ -38,17 +41,20 @@ use super::context::Context;
 use crate::lower::effects::Tint;
 use crate::lower::shape::BoxShape;
 use kivact_types::render::RenderCmd as D;
+use kivact_types::{BlendMode, ColorInterpolation, Len, Rgba, Size, SpaceColor, interpolate};
 use kivact_types::{
     CoordinateGradient, CoordinateShape, Fill, FillImage, FillLayer, FillSize, Gradient,
     GradientKind, RadialExtent,
 };
-use kivact_types::{Rgba, Size};
 
-use kivact_types::render::{GradientShape, Pattern, PatternSource};
+use kivact_types::render::{GradientShape, Group, Pattern, PatternSource};
 use kivact_types::{Extend, Point, Rect};
 
 /// Copies of a gradient tile drawn one by one; more are a pattern.
 const FEW: u32 = 4;
+
+/// The deepest bisection of a gradient interval (at most 4096 pieces).
+const MAX_DEPTH: u32 = 12;
 
 impl BoxShape {
     /// Fill the outline with `paint`.
@@ -182,8 +188,24 @@ impl Context<'_> {
                 shape.fill(out, kivact_types::render::Paint::Solid(tint.color(*color)))
             }
             Fill::Layers(layers) => {
+                // Layers that blend with what is beneath them draw as a group
+                // of their own, all of them within one group (CSS
+                // background-blend-mode).
+                let blended = layers.iter().any(|l| l.blend != BlendMode::Normal);
+                if blended {
+                    out.push(D::PushGroup(blend_group(BlendMode::Normal)));
+                }
                 for layer in layers.iter().rev() {
-                    self.fill_layer(out, shape, layer, tint, origin);
+                    if layer.blend == BlendMode::Normal {
+                        self.fill_layer(out, shape, layer, tint, origin);
+                    } else {
+                        out.push(D::PushGroup(blend_group(layer.blend)));
+                        self.fill_layer(out, shape, layer, tint, origin);
+                        out.push(D::PopGroup);
+                    }
+                }
+                if blended {
+                    out.push(D::PopGroup);
                 }
             }
         }
@@ -402,23 +424,26 @@ impl Context<'_> {
     }
 }
 
-/// The stops of `g` as fractions of its line (CSS color stop fixup):
-/// `length` is the line's length in px (a conic gradient's: 360°).
+/// A position `l` as a fraction of a line `length` px long (a conic
+/// gradient's: 360°); a non-finite one is zero.
+fn fraction(l: Len, length: f64) -> f64 {
+    let t = if length > 0.0 {
+        l.px / length + l.pct / 100.0
+    } else {
+        l.pct / 100.0
+    };
+    if t.is_finite() { t } else { 0.0 }
+}
+
+/// The stops of `g` as fractions of its line (CSS color stop fixup), with
+/// its color hints expanded (see [`expand_gradient`]): `length` is the
+/// line's length in px (a conic gradient's: 360°).
 fn stops(g: &Gradient, length: f64) -> Vec<(f64, Rgba)> {
     let n = g.stops.len();
     let mut at: Vec<Option<f64>> = g
         .stops
         .iter()
-        .map(|s| {
-            s.at.map(|l| {
-                let t = if length > 0.0 {
-                    l.px / length + l.pct / 100.0
-                } else {
-                    l.pct / 100.0
-                };
-                if t.is_finite() { t } else { 0.0 }
-            })
-        })
+        .map(|s| s.at.map(|l| fraction(l, length)))
         .collect();
     if n == 0 {
         return Vec::new();
@@ -451,11 +476,129 @@ fn stops(g: &Gradient, length: f64) -> Vec<(f64, Rgba)> {
         }
         i = end;
     }
-    g.stops
+    let resolved: Vec<(f64, SpaceColor)> = g
+        .stops
         .iter()
         .zip(at)
-        .map(|(s, t)| (t.unwrap_or(0.0), s.color.to_srgb().sanitize()))
-        .collect()
+        .map(|(s, t)| (t.unwrap_or(0.0), s.color))
+        .collect();
+    let hints: Vec<Option<f64>> = g
+        .hints
+        .iter()
+        .map(|h| h.map(|l| fraction(l, length)))
+        .collect();
+    expand_gradient(&resolved, &hints, g.interpolation)
+}
+
+/// The sRGB stops of a gradient whose authored stops are `stops` (offsets
+/// in order) with color `hints` between them (`hints[i]` between stop i and
+/// i + 1, an absolute offset; a missing hint is the midpoint). The colors
+/// are interpolated in `how` and mapped to sRGB; where that ramp drifts from
+/// the sRGB line between its stops, stops are added (§9.6). Two stops at one
+/// offset make a hard edge.
+pub(crate) fn expand_gradient(
+    stops: &[(f64, SpaceColor)],
+    hints: &[Option<f64>],
+    how: ColorInterpolation,
+) -> Vec<(f64, Rgba)> {
+    let Some((p, c)) = stops.first().copied() else {
+        return Vec::new();
+    };
+    let mut out = vec![(p, c.to_srgb().sanitize())];
+    for (i, pair) in stops.windows(2).enumerate() {
+        let hint = hints.get(i).copied().flatten();
+        expand_interval(&mut out, pair[0], pair[1], hint, how);
+    }
+    out
+}
+
+/// Append the stops of the interval from `a` to `b` (both authored), ending
+/// at `b`; `hint` is its color hint's absolute offset.
+fn expand_interval(
+    out: &mut Vec<(f64, Rgba)>,
+    a: (f64, SpaceColor),
+    b: (f64, SpaceColor),
+    hint: Option<f64>,
+    how: ColorInterpolation,
+) {
+    let ((p0, c0), (p1, c1)) = (a, b);
+    let end = c1.to_srgb().sanitize();
+    let span = p1 - p0;
+    if !(span > 0.0) {
+        out.push((p1, end));
+        return;
+    }
+    let h = hint.map_or(0.5, |h| (h - p0) / span);
+    if h == 0.0 {
+        // The hint is at the start: the second color at once.
+        out.push((p0, end));
+        out.push((p1, end));
+        return;
+    }
+    if h == 1.0 {
+        // The hint is at the end: the first color to the end.
+        out.push((p1, c0.to_srgb().sanitize()));
+        out.push((p1, end));
+        return;
+    }
+    let h = if h.is_nan() {
+        0.5
+    } else {
+        h.clamp(0.001, 0.999)
+    };
+    // CSS's hint: the weight of the second color is t^(ln 0.5 / ln h), so
+    // it is one half at the hint.
+    let exponent = 0.5f64.ln() / h.ln();
+    let ramp = |t: f64| {
+        interpolate(c0, c1, t.powf(exponent), how)
+            .to_srgb()
+            .sanitize()
+    };
+    let (f_hint, f_end) = (ramp(h), ramp(1.0));
+    let place = (p0, span);
+    refine(out, &ramp, place, (0.0, ramp(0.0)), (h, f_hint), 0);
+    refine(out, &ramp, place, (h, f_hint), (1.0, f_end), 0);
+}
+
+/// Bisect the ramp between `a` and `b` (offsets within the interval) until
+/// its midpoint is within half a sRGB step of the premultiplied mix of the
+/// ends, pushing each piece's end at its place `(start, length)` on the line.
+fn refine(
+    out: &mut Vec<(f64, Rgba)>,
+    ramp: &impl Fn(f64) -> Rgba,
+    place: (f64, f64),
+    a: (f64, Rgba),
+    b: (f64, Rgba),
+    depth: u32,
+) {
+    let m = (a.0 + b.0) / 2.0;
+    let mid = ramp(m);
+    let linear = color_at(&[(0.0, a.1), (1.0, b.1)], 0.5);
+    if depth >= MAX_DEPTH || within_step(mid, linear) {
+        out.push((place.0 + b.0 * place.1, b.1));
+        return;
+    }
+    refine(out, ramp, place, a, (m, mid), depth + 1);
+    refine(out, ramp, place, (m, mid), b, depth + 1);
+}
+
+/// Whether every channel of `a` and `b` differs by at most half a step of
+/// an 8-bit channel.
+fn within_step(a: Rgba, b: Rgba) -> bool {
+    const TOLERANCE: f64 = 0.5 / 255.0;
+    [(a.r, b.r), (a.g, b.g), (a.b, b.b), (a.a, b.a)]
+        .iter()
+        .all(|(x, y)| (x - y).abs() <= TOLERANCE)
+}
+
+/// The render group that blends its commands with `blend`.
+fn blend_group(blend: BlendMode) -> Group {
+    Group {
+        clip: None,
+        opacity: 1.0,
+        blend,
+        blur: None,
+    }
 }
 
 /// Stops spanning `[lo, hi]` mapped onto `[0, 1]`.
@@ -621,11 +764,7 @@ pub(crate) fn coordinate(
         x: origin.x + p.x,
         y: origin.y + p.y,
     };
-    let stops = g
-        .stops
-        .iter()
-        .map(|(t, c)| (*t, c.to_srgb().sanitize()))
-        .collect();
+    let stops = expand_gradient(&g.stops, &[], g.interpolation);
     let (shape, extend) = match g.shape {
         CoordinateShape::Linear { start, end } => (
             GradientShape::Linear {
