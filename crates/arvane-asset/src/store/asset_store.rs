@@ -1,7 +1,7 @@
 //! Role: AssetStore: schedules asset jobs and answers images and pixels from its cache.
 
 use super::entry::{Entry, Recheck, Residency, Stamp, State, Variant, VariantKey};
-use super::image_state::ImageState;
+use super::image_state::{AnimationInfo, ImageState};
 use super::job::{Done, Job, Loaded};
 use super::worker::Worker;
 use crate::error::AssetError;
@@ -9,10 +9,12 @@ use crate::fit::Region;
 use crate::limits::ENTRY_BYTES;
 use crate::limits::MAX_SVG_RASTER_EDGE;
 use crate::pixels::{self, AssetImage, PixelSize, Tint};
-use crate::svg::Svg;
+use crate::raster::Decoded;
+use crate::svg::{FontDb, Svg};
 use kivact_types::Asset;
 use kivact_types::Pixels;
 use kivact_types::{Rgba, Size};
+use resvg::usvg;
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::num::NonZeroU64;
@@ -39,6 +41,9 @@ pub(super) enum Runner {
 /// invariants).
 pub struct AssetStore {
     pub(super) runner: Runner,
+    /// The fonts SVG `<text>` is shaped with: the system fonts and the
+    /// registered ones (`register_font`).
+    pub(super) fonts: FontDb,
     pub(super) entries: HashMap<Asset, Entry>,
     /// The host's current frame (`begin_frame`, counted from 1); `None`
     /// before the first: nothing is protected.
@@ -71,8 +76,11 @@ impl AssetStore {
     }
 
     fn with_runner(runner: Runner) -> AssetStore {
+        let mut fonts = usvg::fontdb::Database::new();
+        fonts.load_system_fonts();
         AssetStore {
             runner,
+            fonts: Arc::new(fonts),
             entries: HashMap::new(),
             frame: None,
             tick: 0,
@@ -125,21 +133,75 @@ impl AssetStore {
             .map_or(ImageState::Pending, Entry::state)
     }
 
+    /// The timing of the animated image `asset` (each frame's delay and how
+    /// often it repeats), starting its load when it is not in the cache.
+    /// `None` while it is not ready, or when it is not an animation.
+    pub fn animation(&mut self, asset: &Asset) -> Option<AnimationInfo> {
+        if !matches!(self.image(asset), ImageState::Ready { .. }) {
+            return None;
+        }
+        let asset = key(asset);
+        match &self.entries.get(asset.as_ref())?.state {
+            State::Raster { animation, .. } => animation.clone(),
+            _ => None,
+        }
+    }
+
+    /// Registers the font `bytes` for SVG `<text>`. Every SVG that is pending
+    /// or parsed is parsed again with the new fonts (its rasters are dropped,
+    /// and the results of the parses of the old fonts are dropped when they
+    /// land).
+    pub fn register_font(&mut self, bytes: Arc<[u8]>) {
+        Arc::make_mut(&mut self.fonts).load_font_data(bytes.to_vec());
+        let stale: Vec<Asset> = self
+            .entries
+            .iter()
+            .filter(|(_, entry)| matches!(entry.state, State::Pending | State::Vector { .. }))
+            .map(|(asset, _)| asset.clone())
+            .collect();
+        for asset in &stale {
+            self.reparse(asset);
+        }
+    }
+
+    /// Drops the rasters and the state of `asset`'s entry and loads it again
+    /// under a new generation (so an older job's result is dropped).
+    fn reparse(&mut self, asset: &Asset) {
+        let Some(entry) = self.entries.get_mut(asset) else {
+            return;
+        };
+        self.bytes -= entry.bytes_held();
+        for variant in entry.variants.values() {
+            if let Variant::Ready { pixels, .. } = variant {
+                self.evicted.push(pixels.id());
+            }
+        }
+        entry.variants.clear();
+        entry.state = State::Pending;
+        entry.generation = self.next_generation;
+        self.next_generation += 1;
+        self.bytes += entry.bytes_held();
+        self.start_reload(asset);
+    }
+
     /// The pixels to draw for `asset`: a raster image's own pixels, or an
     /// SVG rasterized at `device` (within the raster limits), tinted with
     /// `tint` when given. `None` while nothing of this asset can be drawn
     /// (pending, failed, empty size, evicted pixels loading again).
     ///
-    /// While the SVG raster at `device` is pending, the asset's most recent
-    /// whole raster is returned (with the same tint when cached, else
-    /// tinted now); the host scales it to the rect.
+    /// `frame` is the frame of an animation (0 for a still image and an
+    /// SVG); a frame past the last one is the last. While the SVG raster at
+    /// `device` is pending, the asset's most recent whole raster is returned
+    /// (with the same tint when cached, else tinted now); the host scales it
+    /// to the rect.
     pub fn pixels(
         &mut self,
         asset: &Asset,
         device: PixelSize,
         tint: Option<Rgba>,
+        frame: u32,
     ) -> Option<AssetImage> {
-        self.draw(asset, device, Region::WHOLE, tint, true)
+        self.draw(asset, device, Region::WHOLE, tint, true, frame)
             .map(|(pixels, _)| pixels)
     }
 
@@ -150,7 +212,7 @@ impl AssetStore {
     /// ([`Region::place`]). An SVG is rasterized for the visible part only,
     /// at device resolution; a raster image gives all its pixels. While
     /// the raster is pending, the asset's most recent raster of any part
-    /// is returned with its own region.
+    /// is returned with its own region. `frame` is as for `pixels`.
     ///
     /// The raster of an SVG is at most `MAX_SVG_RASTER_EDGE` per edge and a
     /// quarter of the budget; past that it is made smaller and drawn scaled
@@ -161,8 +223,9 @@ impl AssetStore {
         device: PixelSize,
         visible: Region,
         tint: Option<Rgba>,
+        frame: u32,
     ) -> Option<(AssetImage, Region)> {
-        self.draw(asset, device, visible, tint, false)
+        self.draw(asset, device, visible, tint, false, frame)
     }
 
     /// `pixels` and `pixels_in`; `whole` limits fallbacks to whole rasters.
@@ -173,6 +236,7 @@ impl AssetStore {
         visible: Region,
         tint: Option<Rgba>,
         whole: bool,
+        frame: u32,
     ) -> Option<(AssetImage, Region)> {
         let asset = key(asset);
         let asset = asset.as_ref();
@@ -193,17 +257,12 @@ impl AssetStore {
                     }
                     Residency::Reloading => {}
                 }
-                let source = match &self.entries.get(asset)?.state {
-                    State::Raster {
-                        residency: Residency::Resident { pixels, .. },
-                        ..
-                    } => pixels.clone(),
-                    _ => return None,
-                };
+                let (index, source) = self.resident_frame(asset, frame)?;
                 let base = VariantKey {
                     size: None,
                     crop: None,
                     tint: None,
+                    frame: index,
                 };
                 self.tinted(asset, base, source, tint)
                     .map(|p| (p, Region::WHOLE))
@@ -216,6 +275,7 @@ impl AssetStore {
                     size: Some(size),
                     crop,
                     tint: None,
+                    frame: 0,
                 };
                 match entry.variants.get_mut(&key) {
                     None => self.start_raster(asset, svg, key, now),
@@ -296,11 +356,12 @@ impl AssetStore {
             generation,
             budget: self.budget,
             retained: ENTRY_BYTES + retained,
+            fonts: Arc::clone(&self.fonts),
         });
     }
 
     /// Loads the evicted pixels of the raster source `asset` again (its
-    /// state stays ready meanwhile).
+    /// state stays ready meanwhile); also loads a reparsed SVG.
     fn start_reload(&mut self, asset: &Asset) {
         let Some(entry) = self.entries.get(asset) else {
             return;
@@ -310,6 +371,7 @@ impl AssetStore {
             generation: entry.generation,
             budget: self.budget,
             retained: ENTRY_BYTES + entry.retained,
+            fonts: Arc::clone(&self.fonts),
         };
         self.submit(job);
     }
@@ -331,6 +393,7 @@ impl AssetStore {
             generation: entry.generation,
             version,
             budget: self.budget,
+            fonts: Arc::clone(&self.fonts),
         };
         self.submit(job);
     }
@@ -366,7 +429,18 @@ impl AssetStore {
                     return false;
                 }
                 let loaded = match result {
-                    Ok(Loaded::Raster(bitmap)) => self.admit_source(&asset, bitmap),
+                    Ok(Loaded::Raster(Decoded::Still(bitmap))) => {
+                        self.admit_frames(&asset, vec![bitmap], None)
+                    }
+                    Ok(Loaded::Raster(Decoded::Animated(animation))) => {
+                        let (frames, delays): (Vec<Pixels>, Vec<u32>) =
+                            animation.frames.into_iter().unzip();
+                        let timing = AnimationInfo {
+                            delays_ms: delays.into(),
+                            repeat: animation.repeat,
+                        };
+                        self.admit_frames(&asset, frames, Some(timing))
+                    }
                     Ok(Loaded::Vector(svg)) => {
                         self.make_room(svg.bytes());
                         let natural = svg.natural();
@@ -420,38 +494,54 @@ impl AssetStore {
                     size: Some(size),
                     crop,
                     tint: None,
+                    frame: 0,
                 };
                 self.land_raster(&asset, key, bitmap)
             }
         }
     }
 
-    /// The state for a decoded raster source (first load or reload): ready
-    /// when it fits the budget (making room for it), else a `TooLarge`
-    /// failure. The pixels count as drawn now: they were asked for.
-    fn admit_source(&mut self, asset: &Asset, bitmap: Pixels) -> Result<State, AssetError> {
+    /// The state for the decoded frames of a raster source (first load or
+    /// reload; one frame for a still image, `timing` for an animation): ready
+    /// when they fit the budget (making room for them), else a `TooLarge`
+    /// failure. The frames count as drawn now: they were asked for.
+    fn admit_frames(
+        &mut self,
+        asset: &Asset,
+        frames: Vec<Pixels>,
+        timing: Option<AnimationInfo>,
+    ) -> Result<State, AssetError> {
         let retained = self.entries.get(asset).map_or(0, |e| e.retained);
-        if ENTRY_BYTES + retained + bitmap.rgba.len() > self.budget {
+        let pixels: usize = frames.iter().map(|f| f.rgba.len()).sum();
+        let timing_bytes = timing
+            .as_ref()
+            .map_or(0, |t| t.delays_ms.len() * std::mem::size_of::<u32>());
+        let first = frames
+            .first()
+            .expect("invariant: a decoded raster source has a frame");
+        if ENTRY_BYTES + retained + pixels + timing_bytes > self.budget {
             return Err(super::job::over_budget(
                 asset,
-                bitmap.width,
-                bitmap.height,
-                bitmap.rgba.len() as u64,
+                first.width,
+                first.height,
+                pixels as u64,
                 self.budget,
             ));
         }
-        self.make_room(bitmap.rgba.len());
+        self.make_room(pixels + timing_bytes);
         let natural = Size {
-            width: bitmap.width as f64,
-            height: bitmap.height as f64,
+            width: f64::from(first.width),
+            height: f64::from(first.height),
         };
         let drawn = self.stamp();
+        let frames = frames
+            .into_iter()
+            .map(|bitmap| self.new_pixels(bitmap))
+            .collect();
         Ok(State::Raster {
             natural,
-            residency: Residency::Resident {
-                pixels: self.new_pixels(bitmap),
-                drawn,
-            },
+            residency: Residency::Resident { frames, drawn },
+            animation: timing,
         })
     }
 
@@ -518,6 +608,21 @@ impl AssetStore {
         let id = self.next_id;
         self.next_id += 1;
         AssetImage::new(id, bitmap)
+    }
+
+    /// Frame `frame` of the resident raster source `asset` and its index
+    /// (the last frame when `frame` is past the end); `None` when its
+    /// pixels are not resident.
+    fn resident_frame(&self, asset: &Asset, frame: u32) -> Option<(u32, AssetImage)> {
+        let State::Raster {
+            residency: Residency::Resident { frames, .. },
+            ..
+        } = &self.entries.get(asset)?.state
+        else {
+            return None;
+        };
+        let index = (frame as usize).min(frames.len().checked_sub(1)?);
+        Some((u32::try_from(index).ok()?, frames[index].clone()))
     }
 
     /// The ready variant `key` of `asset`, marked used now.
