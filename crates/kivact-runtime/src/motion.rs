@@ -41,7 +41,7 @@
 //! `@starting-style`, Framer Motion's `initial`) is the paint a node starts
 //! from when it is first attached, and `Style::exit` the paint it moves to
 //! when it is removed; both are `StateStyles` deltas (`enter`, `exit`)
-//! moved by the node's `TransitionProp::Paint` transition (only the
+//! moved by the node's `TransitionProp::All` transition (only the
 //! properties that transition interpolates move). The engine keeps a
 //! removed subtree with an exit as leaving (drawn, but out of hit testing,
 //! focus, accessibility, modal scope and layout observation) until it
