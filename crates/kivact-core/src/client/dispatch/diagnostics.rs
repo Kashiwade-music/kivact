@@ -1,10 +1,23 @@
-//! Role: Diagnostic reports of the engine: layout warnings, dropped draw
-//! commands, cut turns. None of them is an error of a node's owner chain.
+//! Role: Diagnostic reports of the engine and of duplicate layout ids.
+//!
+//! Layout warnings, dropped draw commands and cut turns are notices of the
+//! default sink. A duplicate layout id is an error of the later node's owner.
 
 use kivact_runtime::{ErrorKind, Runtime, UiError};
 use kivact_types::{DrawableId, LayoutRule, NodeId};
 
+use super::common::node_owner;
 use crate::view::state::ViewState;
+
+/// Two live nodes carry the layout id `id`; the engine names the later node
+/// and sends this once per id. The error goes to that node's owner.
+pub(super) fn duplicate_layout_id(rt: &Runtime, node: NodeId, id: &str) {
+    let at = ViewState::tree(rt).get(node).and_then(|n| n.at);
+    rt.report(
+        node_owner(rt, node),
+        UiError::new(ErrorKind::Message, format!("duplicate layout_id {id}"), at),
+    );
+}
 
 pub(super) fn layout_warning(rt: &Runtime, node: NodeId, rule: LayoutRule, amount: f64) {
     // A lint of debug builds: where the node was created and what

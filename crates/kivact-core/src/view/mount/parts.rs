@@ -29,6 +29,8 @@ impl Common {
             intrinsic,
             image_fit,
             monochrome,
+            image_playing,
+            layout_id,
             at
         );
         self.part_modal |= later.part_modal;
