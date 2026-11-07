@@ -201,6 +201,14 @@ impl Node {
         self
     }
 
+    /// Play an animated GIF, WebP or PNG (default true). Reduced motion shows
+    /// the first frame. Image nodes only: on another node it is reported once
+    /// at mount (`ErrorKind::Unsupported`).
+    pub fn playing(mut self, playing: impl IntoValue<bool>) -> Self {
+        self.common.image_playing = Some(playing.into_prop());
+        self
+    }
+
     /// Paint an image with its alpha only, in the node's text color
     /// (`style().color(..)`, inherited, and the hover, pressed and disabled
     /// state styles), like an icon drawn in `currentColor`. Image nodes
@@ -298,6 +306,9 @@ fn drop_misused(
     }
     if kind != NodeType::Image && common.monochrome.take().is_some() {
         misused.push("monochrome");
+    }
+    if kind != NodeType::Image && common.image_playing.take().is_some() {
+        misused.push("playing");
     }
     if kind != NodeType::Image && common.handlers.image_error.take().is_some() {
         misused.push("on_image_error");

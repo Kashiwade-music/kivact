@@ -1,4 +1,4 @@
-//! Role: Mounting a drawable: its root holds the content; the engine learns its role.
+//! Role: Mounts a drawable's root: its content, its role and its binding.
 //!
 //! The root is an absolutely positioned child at (0, 0) of the node that
 //! mounts it (`Node::drawable`, `Viewport::drawable`). The binding is
@@ -11,12 +11,12 @@ use kivact_engine::api::PropValue;
 use kivact_engine::contract::{DrawableMode, DrawableRole};
 use kivact_style::{Position, style};
 
+use super::handle::Drawable;
 use crate::view::descriptor::{Mcx, ViewFn, mount, view_fn};
-use crate::view::drawable::Drawable;
 use crate::view::element_data::Node;
 use crate::view::elements::builders::node;
 use crate::view::state::ViewState;
-use crate::view::{IntoView, IntoViewFn, View};
+use crate::view::{IntoView, IntoViewFn, View, Viewport};
 
 impl Node {
     /// Mount `content` as a drawable of this node: an absolutely positioned
@@ -35,8 +35,28 @@ impl Node {
     }
 }
 
+impl Viewport {
+    /// Mount `content` as an exported drawable: laid out like `Node::drawable`,
+    /// never drawn on screen, rendered for `Drawable::share`.
+    #[track_caller]
+    pub fn drawable<V: IntoView>(
+        mut self,
+        drawable: Drawable,
+        content: impl IntoViewFn<V>,
+    ) -> Self {
+        let at = Location::caller();
+        self.root = self.root.child(root_view(
+            drawable,
+            content.into_view_fn(),
+            DrawableMode::Export,
+            at,
+        ));
+        self
+    }
+}
+
 /// The view that mounts `content` as the root of `drawable`, shown in `mode`.
-pub(crate) fn root_view(
+fn root_view(
     drawable: Drawable,
     content: ViewFn<()>,
     mode: DrawableMode,

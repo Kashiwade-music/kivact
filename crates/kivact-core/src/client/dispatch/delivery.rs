@@ -80,8 +80,9 @@ pub(crate) fn dispatch(rt: &Runtime, host_event: &HostEvent) {
 
 fn dispatch_host(rt: &Runtime, host_event: &HostEvent) {
     match host_event {
-        // Reported as a UiError by the core's diagnostics (R21).
-        HostEvent::DuplicateLayoutId { .. } => {}
+        HostEvent::DuplicateLayoutId { node, id } => {
+            diagnostics::duplicate_layout_id(rt, *node, id)
+        }
         HostEvent::EnvChanged {
             environment,
             surface_active,
@@ -164,17 +165,17 @@ fn dispatch_export_host(rt: &Runtime, host_event: &HostEvent) {
     match host_event {
         HostEvent::ExternalImported { image, result } => gpu::external_imported(rt, *image, result),
         HostEvent::GpuAdapterChanged(adapter) => gpu::adapter_changed(rt, adapter.as_ref()),
-        HostEvent::DrawableFrame(frame) => crate::view::drawable::frame(frame),
-        HostEvent::DrawableResized { id } => crate::view::drawable::resized(*id),
+        HostEvent::DrawableFrame(frame) => crate::view::drawable::events::frame(frame),
+        HostEvent::DrawableResized { id } => crate::view::drawable::events::resized(*id),
         HostEvent::DrawableTextures {
             id,
             generation,
             result,
-        } => crate::view::drawable::textures(*id, *generation, result),
+        } => crate::view::drawable::events::textures(*id, *generation, result),
         HostEvent::DrawableExportLost(loss) => {
-            crate::view::drawable::lost(loss.sink, loss.generation)
+            crate::view::drawable::events::lost(loss.sink, loss.generation)
         }
-        HostEvent::GpuExportAvailable => crate::view::drawable::gpu_available(),
+        HostEvent::GpuExportAvailable => crate::view::drawable::events::gpu_available(),
         _ => unreachable!("invariant: only export events are routed here"),
     }
 }

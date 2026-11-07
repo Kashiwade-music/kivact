@@ -37,6 +37,13 @@ impl Node {
         NodeBuilder::node_ref(self, r)
     }
 
+    /// Animate from the last box of the node that had the same id (Framer
+    /// Motion `layoutId`). Uses this node's layout transition; without one
+    /// nothing animates. A node's id is an attribute, not a style property.
+    pub fn layout_id(self, id: impl Into<String>) -> Self {
+        NodeBuilder::layout_id(self, id)
+    }
+
     /// Add a style layer, constant or reactive. Layers merge in
     /// call order: a property set by a later layer wins, the
     /// properties it leaves unset keep their earlier values. A

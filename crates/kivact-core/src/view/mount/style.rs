@@ -181,6 +181,8 @@ struct StyleReports {
     text: kivact_types::cell::ReportOnce,
     states: kivact_types::cell::ReportOnce,
     leaf_paint: kivact_types::cell::ReportOnce,
+    /// The compile reports already shown for this node, by message.
+    compiled: kivact_types::cell::ReportOnceSet<String>,
 }
 impl StyleReports {
     fn report(
@@ -235,6 +237,14 @@ impl StyleReports {
                     Some(at),
                 ),
             );
+        }
+        // Each compile report goes to the owner once, by its message: a
+        // recompilation that repeats one stays silent.
+        for error in &resolved.reports {
+            if self.compiled.note(error.message().to_string()) {
+                let kind = error.kind().clone();
+                rt.report(Some(owner), UiError::new(kind, error.message(), Some(at)));
+            }
         }
     }
 }
