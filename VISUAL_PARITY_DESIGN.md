@@ -4684,3 +4684,24 @@ fn present_with(
 | A-6 | 画素の試験が CPU と GPU、あるいは Windows と Linux で許容差を超えて揺れる | §3.3 の三段のどれに当たるかを確かめる。compositor の Op の差なら実装を直す。Vello の raster の段なら、その段の既存の差の範囲かを確かめる。どちらでもなければ A-2 と同じく止めて報告する |
 | A-7 | 別の unit が担当する crate が、自分の変更で compile できなくなる | 意味を変えない最小の修正（import、型の追従）だけをし、PR 説明に書く |
 | A-8 | 1 関数 80 行、1 file 1000 行の上限を超える | 意味のある helper または module に分ける。line packing はしない |
+
+## 付録 B. 再開時の裁定（2026-11-07、オーケストレータ）
+
+wave R1 で A-2 により止まった項目について、ユーザーの指示（判断はオーケストレータに委ねる）により、オーケストレータが次のように決めた。本文と食い違う場合は、この付録が優先する。
+
+| 番号 | 対象（unit、節） | 裁定 |
+|---|---|---|
+| B-1 | R11 項目 2、§8.2、§8.8.5、§11.3.4 | filter shader は `Op::Filter`（`LayerFilter::Shader`）だけで実行する。入力 target を `content` とし、`kivact_context.size` は layer の bounds とする（`Op::Filter::bounds`）。`ShaderOp` は paint shader 専用とし、`ShaderOp::input` を削除する。`coverage` と `fallback` は `ChunkKey` のまま（paint shader には必ずある）。GPU の `ShaderOp::input` を bind する経路も削除する |
+| B-2 | R11 項目 6、§8.1、§8.6 | `Retained` の payload は、`retain` と同じく pointer の寿命を保つためだけに持つ。`Retained` の enum にも `#[expect(dead_code, reason = "held so the hashed pointers stay valid (§8.6)")]` を付ける |
+| B-3 | R11 項目 6、§8.2 | `ChunkTask::index` を削除する。chunk の index は `Plan::chunk_records` の記録だけが運ぶ（記録に index が無ければ、記録へ移す） |
+| B-4 | R11 項目 6、§8.2、§8.11 | `Source::Pixels` を削除する。§8.11 の「`cpu` を `Source::Pixels` として描く」は、「`Source::External` の `cpu` の画素を描く」と読み替える |
+| B-5 | R11、R12、§8.2 | GPU の executor だけが読む plan の field（`ShaderOp` の `shader`、`map`、`size`、`px_per_unit`、`Op::Filter::bounds` など）には `#[cfg_attr(not(feature = "gpu"), expect(dead_code, reason = "read only by the GPU executor"))]` を付ける |
+| B-6 | R16 項目 3、§11.3.1、§0.3 | kivact-style の `paint::layer`↔`shader` の循環は依存の向きで解く。shader の program の data（program、param、clock など）は `Paint` を名指ししない shader の leaf に置く。`ShaderPaint`（`fallback: Option<Paint>` を持つ）は `Paint` と `PaintImage` の側（paint）に置く。`ShaderPaint` を作る builder は、paint に依存する別の shader の leaf に置く。`shader.rs` は宣言と再公開だけにし、公開の path は変えない |
+| B-7 | R15 項目 2、§7.3、§6.4 | （ユーザー承認の案 (a)）layer の分類を kivact-engine の leaf `layer` に置く。`layer` は `Model` を名指ししない。分類の関数は、tree と必要な事実を引数で受け取る。`Model` の包み関数は model の側に置く。policy は `layer` の key（最小の uses）と、`model` の uses への `layer` の追加 |
+| B-8 | R14 項目 2、§9.3 | content box は `kivact_layout::NodeLayout::content_box`（公開済み）を使う。padding box は border box を computed の border 幅だけ縮めたもの。新しい layout の API は作らない |
+| B-9 | R14 項目 3、§9.4 | box の描画は、node 自身の `ShapedText` を、text の描画と同じ cache から取る（未 shape なら先に shape する）。描画の順（背景が先、text が後）は変えない |
+| B-10 | R14 項目 8、R21、§12.11 | engine は、id の重複を見つけたとき `HostEvent::DuplicateLayoutId { node, id }` を一度出す。kivact-core の dispatch（R21）が、node の owner に `UiError(ErrorKind::Message, "duplicate layout_id {id}")` を一度報告する |
+| B-11 | R15、§12.11 | `kivact_types::LayoutProps::layout_id` を削除する（§12.11「LayoutProps には加えない」） |
+| B-12 | R11、R12、§8.1、§4.4 | turbulence と色の表のように CPU と GPU の両方が使う表は、`cpu` でも `gpu` でもない leaf（`crate::tables`）に置く。policy の `cpu` と `gpu` の uses に `tables` を加える。`gpu` は `cpu` を参照しない |
+| B-13 | R12、§8.1 | `gpu/mask.rs`（mask と clip の pass、§8.9）を §8.1 の module の一覧に加える |
+| B-14 | R11、§8.1、§0.3 | `GpuReport` の alias と `GPU_BUILT` は leaf に置き、`lib.rs` は宣言と再公開だけにする（§0.3 が §8.1 の code block に優先する） |
