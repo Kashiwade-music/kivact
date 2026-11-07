@@ -1,4 +1,4 @@
-//! Role: The public `Svg` exporter: records a drawing and writes it as one SVG 1.1 document.
+//! Role: The public `Svg` exporter: records a drawing as one SVG document.
 //!
 //! The drawing is recorded exactly as `Offscreen` records it, so one paint
 //! closure serves both. The text baseline is measured with the same text
@@ -6,7 +6,7 @@
 //! Fonts that the document names are not embedded: the viewer needs them
 //! installed under the same family names.
 
-use super::emit::Emitter;
+use super::emitter::Emitter;
 use crate::geometry::Size;
 use crate::{Result, UiError};
 use kivact_runtime::ErrorKind;

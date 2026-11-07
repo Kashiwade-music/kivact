@@ -1,4 +1,4 @@
-//! Role: The plot's data model: shared number arrays, series, axes, legend and view ranges.
+//! Role: The plot's data: number arrays, series, axes, legend and ranges.
 
 use std::sync::Arc;
 

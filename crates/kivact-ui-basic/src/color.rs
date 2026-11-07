@@ -1,7 +1,8 @@
 //! Role: The basic kit's own colors as values a style or a draw call accepts.
 
+use crate::plot::PlotColor;
 use crate::tokens::Tokens;
-use kivact::style::{Theme, ThemeColor};
+use kivact::style::{Color, Theme, ThemeColor, rgb};
 
 /// A color of the Basic kit's [`Tokens`], read from the theme it is painted in.
 ///
@@ -139,5 +140,13 @@ impl ThemeColor for ColorName {
             ColorName::CodeLifetime => p.code.lifetime,
             ColorName::CodeAttribute => p.code.attribute,
         }
+    }
+}
+
+/// The color of a plot series: a chart color of `tokens`, or a fixed RGB value.
+pub(crate) fn series_color(color: PlotColor, tokens: &Tokens) -> Color {
+    match color {
+        PlotColor::Palette(i) => tokens.chart[i as usize % tokens.chart.len()],
+        PlotColor::Rgb(value) => rgb(value),
     }
 }

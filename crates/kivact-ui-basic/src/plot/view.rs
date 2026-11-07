@@ -1,4 +1,4 @@
-//! Role: The plot builder: a canvas with drag, wheel and double-click zoom and pan, and its region.
+//! Role: The plot builder: a zoomable and pannable canvas and its region.
 
 use super::decimate::Bounds;
 use super::input::{pan, zoom};
@@ -9,7 +9,9 @@ use kivact::custom::{Part, PartState, part};
 use kivact::draw::RegionId;
 use kivact::geometry::{Rect, Size};
 use kivact::i18n::message_with;
-use kivact::state::{Binding, Callback, IntoBinding, IntoText, IntoValue, Value, callback, signal};
+use kivact::state::{
+    Binding, Callback, IntoBinding, IntoText, IntoValue, Signal, Value, callback, signal,
+};
 use kivact::style::{Length, pct, style};
 use kivact::task::{sleep, spawn};
 use kivact::view::{
@@ -110,6 +112,103 @@ impl NodeBuilder for Plot {
     }
 }
 
+/// The pointer handler of a plot: a primary drag pans the live range, and a
+/// double click returns to auto. `current` reads the range a gesture starts
+/// from and `commit` ends a gesture.
+fn pointer_handler(
+    drag: Rc<Cell<Option<(f64, f64)>>>,
+    hover: Signal<Option<(f64, f64)>>,
+    live: Signal<Option<PlotView>>,
+    size: Rc<Cell<Size>>,
+    model: Value<PlotModel>,
+    current: impl Fn() -> PlotView + Copy + 'static,
+    commit: impl Fn(PlotRange) + Copy + 'static,
+) -> impl Fn(PointerEvent) + 'static {
+    move |event: PointerEvent| {
+        let at = event.pos();
+        match event.phase() {
+            PointerPhase::Down(press) => {
+                if press.button != MouseButton::Primary {
+                    return;
+                }
+                if press.clicks >= 2 {
+                    drag.set(None);
+                    commit(PlotRange::Auto);
+                    return;
+                }
+                event.capture();
+                drag.set(Some((at.x, at.y)));
+            }
+            PointerPhase::Move => {
+                hover.set(Some((at.x, at.y)));
+                if let Some((last_x, last_y)) = drag.get() {
+                    drag.set(Some((at.x, at.y)));
+                    let (dx, dy) = (at.x - last_x, at.y - last_y);
+                    let base = current();
+                    let next =
+                        model.with_untracked(|m| pan(m, base, layout(size.get(), m), dx, dy));
+                    live.set(Some(next));
+                }
+            }
+            PointerPhase::Up(_) => {
+                if drag.take().is_some() {
+                    commit(PlotRange::Manual(current()));
+                }
+            }
+            PointerPhase::Cancel => {
+                hover.set(None);
+                if drag.take().is_some() {
+                    commit(PlotRange::Manual(current()));
+                }
+            }
+            PointerPhase::Enter => hover.set(Some((at.x, at.y))),
+            PointerPhase::Leave => hover.set(None),
+        }
+    }
+}
+
+/// The wheel handler of a plot: it zooms about the pointer (Shift pans x),
+/// and commits the range once the wheel has rested for `WHEEL_SETTLE`.
+fn wheel_handler(
+    live: Signal<Option<PlotView>>,
+    hover: Signal<Option<(f64, f64)>>,
+    model: Value<PlotModel>,
+    size: Rc<Cell<Size>>,
+    wheel_steps: Rc<Cell<u64>>,
+    current: impl Fn() -> PlotView + Copy + 'static,
+    commit: impl Fn(PlotRange) + Copy + 'static,
+) -> impl Fn(WheelEvent) -> Handled + 'static {
+    move |event: WheelEvent| {
+        let delta = event.delta();
+        let at = event.pos();
+        let modifiers = event.modifiers();
+        let base = current();
+        let next = model.with_untracked(|m| {
+            let area = layout(size.get(), m);
+            if modifiers.shift {
+                pan(m, base, area, delta.y, 0.0)
+            } else {
+                let factor = WHEEL_BASE.powf(delta.y / WHEEL_UNIT);
+                zoom(m, base, area, (at.x, at.y), modifiers.ctrl, factor)
+            }
+        });
+        live.set(Some(next));
+        hover.set(Some((at.x, at.y)));
+        let step = wheel_steps.get() + 1;
+        wheel_steps.set(step);
+        let steps = wheel_steps.clone();
+        spawn(async move {
+            sleep(WHEEL_SETTLE).await;
+            if steps.get() == step
+                && let Some(view) = live.get_untracked()
+            {
+                commit(PlotRange::Manual(view));
+            }
+        });
+        Handled::Yes
+    }
+}
+
 impl IntoView for Plot {
     fn into_view(self) -> View {
         let Plot {
@@ -150,14 +249,21 @@ impl IntoView for Plot {
             }
         };
 
-        let draw_size = size.clone();
-        let drag_size = size.clone();
-        let wheel_size = size;
+        let on_pointer = pointer_handler(drag, hover, live, size.clone(), model, current, commit);
+        let on_wheel = wheel_handler(
+            live,
+            hover,
+            model,
+            size.clone(),
+            wheel_steps,
+            current,
+            commit,
+        );
         let root = root
             .name(label)
             .region(REGION, region)
             .draw(move |d, canvas| {
-                draw_size.set(canvas);
+                size.set(canvas);
                 let view = live
                     .get()
                     .unwrap_or_else(|| model.with(|m| resolve(m, range.get())));
@@ -167,80 +273,8 @@ impl IntoView for Plot {
                     d.region(REGION, plot_rect(layout(canvas, m)));
                 });
             })
-            .on_pointer({
-                let drag = drag.clone();
-                move |event: PointerEvent| {
-                    let at = event.pos();
-                    match event.phase() {
-                        PointerPhase::Down(press) => {
-                            if press.button != MouseButton::Primary {
-                                return;
-                            }
-                            if press.clicks >= 2 {
-                                drag.set(None);
-                                commit(PlotRange::Auto);
-                                return;
-                            }
-                            event.capture();
-                            drag.set(Some((at.x, at.y)));
-                        }
-                        PointerPhase::Move => {
-                            hover.set(Some((at.x, at.y)));
-                            if let Some((last_x, last_y)) = drag.get() {
-                                drag.set(Some((at.x, at.y)));
-                                let (dx, dy) = (at.x - last_x, at.y - last_y);
-                                let base = current();
-                                let next = model.with_untracked(|m| {
-                                    pan(m, base, layout(drag_size.get(), m), dx, dy)
-                                });
-                                live.set(Some(next));
-                            }
-                        }
-                        PointerPhase::Up(_) => {
-                            if drag.take().is_some() {
-                                commit(PlotRange::Manual(current()));
-                            }
-                        }
-                        PointerPhase::Cancel => {
-                            hover.set(None);
-                            if drag.take().is_some() {
-                                commit(PlotRange::Manual(current()));
-                            }
-                        }
-                        PointerPhase::Enter => hover.set(Some((at.x, at.y))),
-                        PointerPhase::Leave => hover.set(None),
-                    }
-                }
-            })
-            .on_wheel(move |event: WheelEvent| {
-                let delta = event.delta();
-                let at = event.pos();
-                let modifiers = event.modifiers();
-                let base = current();
-                let next = model.with_untracked(|m| {
-                    let area = layout(wheel_size.get(), m);
-                    if modifiers.shift {
-                        pan(m, base, area, delta.y, 0.0)
-                    } else {
-                        let factor = WHEEL_BASE.powf(delta.y / WHEEL_UNIT);
-                        zoom(m, base, area, (at.x, at.y), modifiers.ctrl, factor)
-                    }
-                });
-                live.set(Some(next));
-                hover.set(Some((at.x, at.y)));
-                let step = wheel_steps.get() + 1;
-                wheel_steps.set(step);
-                let steps = wheel_steps.clone();
-                spawn(async move {
-                    sleep(WHEEL_SETTLE).await;
-                    if steps.get() == step
-                        && let Some(view) = live.get_untracked()
-                    {
-                        commit(PlotRange::Manual(view));
-                    }
-                });
-                Handled::Yes
-            });
+            .on_pointer(on_pointer)
+            .on_wheel(on_wheel);
         root.into_view()
     }
 }

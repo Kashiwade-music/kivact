@@ -5,8 +5,8 @@
 //! the text sits where a window draws it. Font features and text
 //! decorations have no SVG 1.1 form and are not supported.
 
-use super::emit::{Emitter, hex, opacity_attribute};
-use super::encode::{escape, number};
+use super::emitter::Emitter;
+use super::encode::{escape, hex, number, opacity_attribute};
 use crate::Result;
 use kivact_types::TextRun;
 

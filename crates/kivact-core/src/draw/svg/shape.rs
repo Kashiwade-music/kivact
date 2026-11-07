@@ -5,7 +5,7 @@
 //! arcs of a path become SVG `A` commands; the arcs of a `PathCmd::Arc` are
 //! cut into pieces of at most a quarter turn, so a full turn is exact.
 
-use super::emit::Emitter;
+use super::emitter::Emitter;
 use super::encode::number;
 use crate::{Result, UiError};
 use kivact_runtime::ErrorKind;
@@ -177,8 +177,14 @@ fn bounds_of(cmds: &[PathCmd]) -> Rect {
                 start_deg,
                 sweep_deg,
             } => {
+                let arc = Ellipse {
+                    center: *center,
+                    rx: *rx,
+                    ry: *ry,
+                    rotation_deg: *x_rotation_deg,
+                };
                 for piece in arc_pieces(*start_deg, *sweep_deg) {
-                    points.push(arc_point(*center, *rx, *ry, *x_rotation_deg, piece));
+                    points.push(arc.point(piece));
                 }
             }
             PathCmd::Close => {}
@@ -216,15 +222,26 @@ fn arc_pieces(start: f64, sweep: f64) -> Vec<f64> {
     (0..=count).map(|k| start + step * k as f64).collect()
 }
 
-/// The point of an ellipse at the parametric angle `deg`.
-fn arc_point(center: Point, rx: f64, ry: f64, rotation_deg: f64, deg: f64) -> Point {
-    let (sin_a, cos_a) = deg.to_radians().sin_cos();
-    let (sin_r, cos_r) = rotation_deg.to_radians().sin_cos();
-    let x = rx * cos_a;
-    let y = ry * sin_a;
-    Point {
-        x: center.x + x * cos_r - y * sin_r,
-        y: center.y + x * sin_r + y * cos_r,
+/// An ellipse of radii `rx` × `ry` at `center`, turned by `rotation_deg`.
+#[derive(Clone, Copy)]
+struct Ellipse {
+    center: Point,
+    rx: f64,
+    ry: f64,
+    rotation_deg: f64,
+}
+
+impl Ellipse {
+    /// The point of the ellipse at the parametric angle `deg`.
+    fn point(self, deg: f64) -> Point {
+        let (sin_a, cos_a) = deg.to_radians().sin_cos();
+        let (sin_r, cos_r) = self.rotation_deg.to_radians().sin_cos();
+        let x = self.rx * cos_a;
+        let y = self.ry * sin_a;
+        Point {
+            x: self.center.x + x * cos_r - y * sin_r,
+            y: self.center.y + x * sin_r + y * cos_r,
+        }
     }
 }
 
@@ -260,18 +277,16 @@ pub(super) fn path_data(cmds: &[PathCmd], at: &'static Location<'static>) -> Res
                 sweep,
                 to,
             } => {
-                push_segment(
-                    &mut out,
-                    format!(
-                        "A{} {} {} {} {} {}",
-                        number(rx),
-                        number(ry),
-                        number(x_rotation_deg),
-                        flag(large_arc),
-                        flag(sweep),
-                        xy(to)
-                    ),
+                let segment = format!(
+                    "A{} {} {} {} {} {}",
+                    number(rx),
+                    number(ry),
+                    number(x_rotation_deg),
+                    flag(large_arc),
+                    flag(sweep),
+                    xy(to)
                 );
+                push_segment(&mut out, segment);
                 current = Some(to);
             }
             PathCmd::Arc {
@@ -282,34 +297,16 @@ pub(super) fn path_data(cmds: &[PathCmd], at: &'static Location<'static>) -> Res
                 start_deg,
                 sweep_deg,
             } => {
-                let angles = arc_pieces(start_deg, sweep_deg);
-                let first = arc_point(center, rx, ry, x_rotation_deg, angles[0]);
-                // A line joins the current point to the arc's start; the arc
-                // begins a contour only when there is no current point.
-                let joins = if current.is_some() { "L" } else { "M" };
-                push_segment(&mut out, format!("{joins}{}", xy(first)));
-                let sweep_flag = flag(sweep_deg > 0.0);
-                for &angle in &angles[1..] {
-                    let to = arc_point(center, rx, ry, x_rotation_deg, angle);
-                    // Pieces of at most a quarter turn never need the large arc.
-                    push_segment(
-                        &mut out,
-                        format!(
-                            "A{} {} {} 0 {sweep_flag} {}",
-                            number(rx),
-                            number(ry),
-                            number(x_rotation_deg),
-                            xy(to)
-                        ),
-                    );
-                }
-                current = Some(arc_point(
+                let arc = Ellipse {
                     center,
                     rx,
                     ry,
-                    x_rotation_deg,
-                    angles[angles.len() - 1],
-                ));
+                    rotation_deg: x_rotation_deg,
+                };
+                // A line joins the current point to the arc's start; the arc
+                // begins a contour only when there is no current point.
+                let joins = if current.is_some() { "L" } else { "M" };
+                current = Some(push_arc(&mut out, joins, arc, start_deg, sweep_deg));
             }
             PathCmd::Close => {
                 push_segment(&mut out, "Z".to_owned());
@@ -326,6 +323,27 @@ pub(super) fn path_data(cmds: &[PathCmd], at: &'static Location<'static>) -> Res
         ));
     }
     Ok(out)
+}
+
+/// Writes an arc as a move or line (`joins`) to its start, then one `A`
+/// segment per piece. Returns the end point of the arc.
+fn push_arc(out: &mut String, joins: &str, arc: Ellipse, start_deg: f64, sweep_deg: f64) -> Point {
+    let angles = arc_pieces(start_deg, sweep_deg);
+    push_segment(out, format!("{joins}{}", xy(arc.point(angles[0]))));
+    let sweep_flag = flag(sweep_deg > 0.0);
+    for &angle in &angles[1..] {
+        // Pieces of at most a quarter turn never need the large arc.
+        let to = arc.point(angle);
+        let segment = format!(
+            "A{} {} {} 0 {sweep_flag} {}",
+            number(arc.rx),
+            number(arc.ry),
+            number(arc.rotation_deg),
+            xy(to)
+        );
+        push_segment(out, segment);
+    }
+    arc.point(angles[angles.len() - 1])
 }
 
 /// Append one path segment, separated from the previous one by a space.

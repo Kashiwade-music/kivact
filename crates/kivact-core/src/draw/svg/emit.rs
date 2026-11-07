@@ -1,91 +1,20 @@
-//! Role: Turns each recorded draw command into SVG markup, collecting the shared definitions.
+//! Role: Turns each recorded draw command into SVG markup, in order.
 //!
 //! Every push opens a `<g>` and every pop closes one, so the markup nests
 //! exactly as the recorded stack does. Definitions (clip paths and
 //! gradients) go to one `<defs>` block, numbered in the order they are
 //! written.
 
-use super::encode::number;
+use super::emitter::Emitter;
+use super::encode::{hex, number, opacity_attribute};
 use super::fill::paint_attributes;
 use crate::{Result, UiError};
 use kivact_runtime::ErrorKind;
 use kivact_types::{
-    BlendMode, ComputedTextStyle, DrawCmd, DrawingLayer, Fill, Rect, Rgba, ShapePaint, Stroke,
-    Transform,
+    BlendMode, DrawCmd, DrawingLayer, Fill, Point, Rect, Rgba, ShapePaint, Stroke, Transform,
 };
-use std::panic::Location;
 
-/// The state of one export: the body, the definitions and the open groups.
-pub(super) struct Emitter<'a> {
-    pub(super) body: String,
-    pub(super) defs: String,
-    pub(super) next_id: u32,
-    pub(super) depth: usize,
-    pub(super) engine: &'a mut kivact_engine::api::OffscreenRenderer,
-    pub(super) measurer: &'a kivact_engine::api::TextMeasurer,
-    pub(super) inherited: &'a ComputedTextStyle,
-    pub(super) at: &'static Location<'static>,
-}
-
-impl<'a> Emitter<'a> {
-    pub(super) fn new(
-        engine: &'a mut kivact_engine::api::OffscreenRenderer,
-        measurer: &'a kivact_engine::api::TextMeasurer,
-        inherited: &'a ComputedTextStyle,
-        at: &'static Location<'static>,
-    ) -> Self {
-        Self {
-            body: String::new(),
-            defs: String::new(),
-            next_id: 0,
-            depth: 0,
-            engine,
-            measurer,
-            inherited,
-            at,
-        }
-    }
-
-    /// An error for a command or value SVG cannot express, located at the call.
-    pub(super) fn unsupported(&self, what: &str) -> UiError {
-        UiError::new(
-            ErrorKind::Unsupported,
-            format!("SVG cannot express {what}"),
-            Some(self.at),
-        )
-    }
-
-    /// A fresh identifier for a definition (`prefix` plus a counter).
-    pub(super) fn id(&mut self, prefix: &str) -> String {
-        self.next_id += 1;
-        format!("{prefix}{}", self.next_id)
-    }
-
-    /// The whole document: the root element, the definitions and the body.
-    pub(super) fn finish(self, width: f64, height: f64) -> Result<String> {
-        if self.depth != 0 {
-            return Err(UiError::new(
-                ErrorKind::Message,
-                "the drawing leaves a layer, clip or transform open",
-                Some(self.at),
-            ));
-        }
-        let (w, h) = (number(width), number(height));
-        let mut out = String::new();
-        out.push_str("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
-        out.push_str(&format!(
-            "<svg xmlns=\"http://www.w3.org/2000/svg\" version=\"1.1\" width=\"{w}\" height=\"{h}\" viewBox=\"0 0 {w} {h}\">\n"
-        ));
-        if !self.defs.is_empty() {
-            out.push_str("<defs>\n");
-            out.push_str(&self.defs);
-            out.push_str("</defs>\n");
-        }
-        out.push_str(&self.body);
-        out.push_str("</svg>\n");
-        Ok(out)
-    }
-
+impl Emitter<'_> {
     pub(super) fn command(&mut self, cmd: &DrawCmd) -> Result<()> {
         match cmd {
             DrawCmd::Rect { rect, fill } => self.rect(*rect, None, fill),
@@ -96,13 +25,7 @@ impl<'a> Emitter<'a> {
                 color,
                 radius,
             } => {
-                let rect_attrs = rect_attributes(*rect, Some(*radius));
-                self.body.push_str(&format!(
-                    "<rect {rect_attrs} fill=\"none\" stroke=\"{}\"{} stroke-width=\"{}\"/>\n",
-                    hex(*color),
-                    opacity_attribute("stroke", *color),
-                    number(*width)
-                ));
+                self.stroke_rect(*rect, *width, *color, *radius);
                 Ok(())
             }
             DrawCmd::Line {
@@ -111,16 +34,7 @@ impl<'a> Emitter<'a> {
                 width,
                 color,
             } => {
-                self.body.push_str(&format!(
-                    "<line x1=\"{}\" y1=\"{}\" x2=\"{}\" y2=\"{}\" stroke=\"{}\"{} stroke-width=\"{}\" stroke-linecap=\"butt\"/>\n",
-                    number(from.x),
-                    number(from.y),
-                    number(to.x),
-                    number(to.y),
-                    hex(*color),
-                    opacity_attribute("stroke", *color),
-                    number(*width)
-                ));
+                self.line(*from, *to, *width, *color);
                 Ok(())
             }
             DrawCmd::Shape(shape) => self.shape(shape),
@@ -138,12 +52,7 @@ impl<'a> Emitter<'a> {
             DrawCmd::Image { source, rect } => self.drawn_image(
                 DrawCmd::Image {
                     source: source.clone(),
-                    rect: Rect {
-                        x: 0.0,
-                        y: 0.0,
-                        width: rect.width,
-                        height: rect.height,
-                    },
+                    rect: at_origin(*rect),
                 },
                 *rect,
             ),
@@ -156,12 +65,7 @@ impl<'a> Emitter<'a> {
             } => self.drawn_image(
                 DrawCmd::ImagePart {
                     source: source.clone(),
-                    rect: Rect {
-                        x: 0.0,
-                        y: 0.0,
-                        width: rect.width,
-                        height: rect.height,
-                    },
+                    rect: at_origin(*rect),
                     crop: *crop,
                     opacity: *opacity,
                     pixelated: *pixelated,
@@ -176,12 +80,7 @@ impl<'a> Emitter<'a> {
                 Ok(())
             }
             DrawCmd::PushClip(rect) => {
-                let id = self.id("clip");
-                self.defs.push_str(&format!(
-                    "<clipPath id=\"{id}\"><rect {}/></clipPath>\n",
-                    rect_attributes(*rect, None)
-                ));
-                self.push(&format!(" clip-path=\"url(#{id})\""));
+                self.push_clip(*rect);
                 Ok(())
             }
         }
@@ -204,6 +103,39 @@ impl<'a> Emitter<'a> {
         self.depth -= 1;
         self.body.push_str("</g>\n");
         Ok(())
+    }
+
+    /// A clip to `rect`, as a clip path defined once and opened as a group.
+    fn push_clip(&mut self, rect: Rect) {
+        let id = self.id("clip");
+        self.defs.push_str(&format!(
+            "<clipPath id=\"{id}\"><rect {}/></clipPath>\n",
+            rect_attributes(rect, None)
+        ));
+        self.push(&format!(" clip-path=\"url(#{id})\""));
+    }
+
+    fn stroke_rect(&mut self, rect: Rect, width: f64, color: Rgba, radius: f64) {
+        self.body.push_str(&format!(
+            "<rect {} fill=\"none\" stroke=\"{}\"{} stroke-width=\"{}\"/>\n",
+            rect_attributes(rect, Some(radius)),
+            hex(color),
+            opacity_attribute("stroke", color),
+            number(width)
+        ));
+    }
+
+    fn line(&mut self, from: Point, to: Point, width: f64, color: Rgba) {
+        self.body.push_str(&format!(
+            "<line x1=\"{}\" y1=\"{}\" x2=\"{}\" y2=\"{}\" stroke=\"{}\"{} stroke-width=\"{}\" stroke-linecap=\"butt\"/>\n",
+            number(from.x),
+            number(from.y),
+            number(to.x),
+            number(to.y),
+            hex(color),
+            opacity_attribute("stroke", color),
+            number(width)
+        ));
     }
 
     fn push_layer(&mut self, layer: &DrawingLayer) -> Result<()> {
@@ -273,6 +205,16 @@ impl<'a> Emitter<'a> {
     }
 }
 
+/// `rect` moved to the origin, keeping its size: where an asset is drawn.
+fn at_origin(rect: Rect) -> Rect {
+    Rect {
+        x: 0.0,
+        y: 0.0,
+        width: rect.width,
+        height: rect.height,
+    }
+}
+
 /// `x y width height` and the corner radius, if any.
 fn rect_attributes(rect: Rect, radius: Option<f64>) -> String {
     let mut out = format!(
@@ -314,27 +256,6 @@ pub(super) fn stroke_attributes(stroke: &Stroke) -> String {
         ));
     }
     out
-}
-
-/// `stroke-opacity="…"` (or `fill-opacity`) for a color that is not opaque.
-pub(super) fn opacity_attribute(kind: &str, color: Rgba) -> String {
-    let alpha = (color.a.clamp(0.0, 1.0) * 255.0).round() / 255.0;
-    if alpha == 1.0 {
-        String::new()
-    } else {
-        format!(" {kind}-opacity=\"{}\"", number(alpha))
-    }
-}
-
-/// `#rrggbb` of a color (its alpha is an opacity attribute).
-pub(super) fn hex(color: Rgba) -> String {
-    let channel = |v: f64| (v.clamp(0.0, 1.0) * 255.0).round() as u8;
-    format!(
-        "#{:02x}{:02x}{:02x}",
-        channel(color.r),
-        channel(color.g),
-        channel(color.b)
-    )
 }
 
 /// `matrix(a b c d e f)` of a transform.

@@ -232,6 +232,8 @@ fn ascending(values: &[f64]) -> bool {
 
 #[cfg(test)]
 mod tests {
+    //! Role: Tests for zoom, pan and readout arithmetic.
+
     use super::*;
     use crate::plot::model::{
         LegendPosition, LineDash, PlotAxis, PlotColor, PlotData, PlotSeries, TickFormat,

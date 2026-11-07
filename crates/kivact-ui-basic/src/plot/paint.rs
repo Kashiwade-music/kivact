@@ -4,15 +4,14 @@ use super::decimate::{Bounds, runs};
 use super::heatmap::{Cells, paint as paint_heatmap};
 use super::input::{maps, readout};
 use super::model::AxisScale;
-use super::model::{
-    LegendPosition, LineDash, PlotColor, PlotModel, PlotSeries, PlotSeriesKind, PlotView,
-};
+use super::model::{LegendPosition, LineDash, PlotModel, PlotSeries, PlotSeriesKind, PlotView};
 use super::scale::Map;
 use super::ticks::{LogTick, format_value, linear_ticks, log_ticks};
+use crate::color::series_color;
 use crate::tokens::Tokens;
 use kivact::draw::{Draw, Layer, LineCap, Stroke, TextBaseline, TextFormat};
 use kivact::geometry::{Point, Rect, Size};
-use kivact::style::{Color, TextAlign, rgb};
+use kivact::style::{Color, TextAlign};
 
 /// The space the axes and title take around the plot, in logical px.
 const LEFT: f64 = 64.0;
@@ -251,14 +250,6 @@ fn paint_axes(
     }
 }
 
-/// The color of a series: a chart color, or a fixed RGB value.
-fn series_color(color: PlotColor, tokens: &Tokens) -> Color {
-    match color {
-        PlotColor::Palette(i) => tokens.chart[i as usize % tokens.chart.len()],
-        PlotColor::Rgb(value) => rgb(value),
-    }
-}
-
 /// The stroke of a line or stem: its width, its dash pattern and caps.
 fn stroke_of(series: &PlotSeries) -> Stroke {
     let base = Stroke::new(series.width);
@@ -330,23 +321,15 @@ fn paint_series(
             }
         }
         PlotSeriesKind::Steps { edges, values } => {
-            let (edges, values) = (edges.as_slice(), values.as_slice());
-            for (i, height) in values.iter().enumerate() {
-                let (Some(a), Some(b), Some(top)) = (
-                    edges.get(i).and_then(|e| mx.px(*e)),
-                    edges.get(i + 1).and_then(|e| mx.px(*e)),
-                    my.px(*height),
-                ) else {
-                    continue;
-                };
-                let rect = Rect::new(
-                    a.min(b),
-                    top.min(base_y),
-                    (a - b).abs(),
-                    (base_y - top).abs(),
-                );
-                draw.fill_rect(rect, color);
-            }
+            paint_steps(
+                draw,
+                edges.as_slice(),
+                values.as_slice(),
+                mx,
+                my,
+                base_y,
+                color,
+            );
         }
         PlotSeriesKind::Heatmap {
             x_edges,
@@ -374,6 +357,35 @@ fn paint_series(
             );
             paint_heatmap(draw, rect, mx, my, &cells, stops);
         }
+    }
+}
+
+/// The bars of a step series: each value is a bar between the edges around it,
+/// standing on `base_y`.
+fn paint_steps(
+    draw: &mut Draw,
+    edges: &[f64],
+    values: &[f64],
+    mx: &Map,
+    my: &Map,
+    base_y: f64,
+    color: Color,
+) {
+    for (i, height) in values.iter().enumerate() {
+        let (Some(a), Some(b), Some(top)) = (
+            edges.get(i).and_then(|e| mx.px(*e)),
+            edges.get(i + 1).and_then(|e| mx.px(*e)),
+            my.px(*height),
+        ) else {
+            continue;
+        };
+        let rect = Rect::new(
+            a.min(b),
+            top.min(base_y),
+            (a - b).abs(),
+            (base_y - top).abs(),
+        );
+        draw.fill_rect(rect, color);
     }
 }
 

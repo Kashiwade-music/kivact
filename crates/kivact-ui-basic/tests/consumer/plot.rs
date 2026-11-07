@@ -1,4 +1,4 @@
-//! Role: Plot tests: the named region, the reset by double click, and the ranges committed by wheel and drag.
+//! Role: Plot tests: the named region, double-click reset, wheel and drag.
 
 use kivact::geometry::Point;
 use kivact::prelude::*;

@@ -5,8 +5,8 @@
 //! (a canvas linear or two-circle radial gradient). A layer that is sized or
 //! placed, a repeating or conic gradient, and an image are not supported.
 
-use super::emit::{Emitter, hex, opacity_attribute};
-use super::encode::number;
+use super::emitter::Emitter;
+use super::encode::{hex, number, opacity_attribute};
 use crate::Result;
 use kivact_types::{
     CoordinateGradient, CoordinateShape, Extend, Fill, FillImage, FillLayer, FillSize, Gradient,
