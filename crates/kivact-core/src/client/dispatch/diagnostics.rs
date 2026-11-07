@@ -2,7 +2,7 @@
 //! commands, cut turns. None of them is an error of a node's owner chain.
 
 use kivact_runtime::{ErrorKind, Runtime, UiError};
-use kivact_types::{LayoutRule, NodeId};
+use kivact_types::{DrawableId, LayoutRule, NodeId};
 
 use crate::view::state::ViewState;
 
@@ -17,6 +17,20 @@ pub(super) fn layout_warning(rt: &Runtime, node: NodeId, rule: LayoutRule, amoun
     crate::client::notice::warn_layout(
         rt,
         format!("layout: {rule:?} by {amount:.1}px, text {content:?}{at}"),
+    );
+}
+
+/// A `Draw::drawable` in a node that does not host the drawable: the
+/// drawing is skipped and the region reports it once.
+pub(super) fn drawable_not_hosted(rt: &Runtime, node: NodeId, drawable: DrawableId) {
+    let at = ViewState::tree(rt).get(node).and_then(|n| n.at);
+    rt.report(
+        None,
+        UiError::new(
+            ErrorKind::Unsupported,
+            format!("drawable {} is not hosted by this node", drawable.0),
+            at,
+        ),
     );
 }
 

@@ -44,6 +44,7 @@
 //!   lines it was shaped with, in its color, at its origin; one with an
 //!   origin that is not finite is dropped.
 
+mod drawable;
 mod geometry;
 mod layer_effects;
 mod layers;

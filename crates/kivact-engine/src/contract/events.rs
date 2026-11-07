@@ -1,7 +1,8 @@
 //! Role: Engine client events contracts.
 use kivact_types::{
-    A11yRequest, Environment, ExternalImport, ImeInput, LayoutRule, LifecycleEvent, Modifiers,
-    MotionClock, NodeId, PlatformResult, Point, Rect, RegionId, RequestId, Revision, Size,
+    A11yRequest, DrawableId, Environment, ExternalImport, ImeInput, LayoutRule, LifecycleEvent,
+    Modifiers, MotionClock, NodeId, PlatformResult, Point, Rect, RegionId, RequestId, Revision,
+    Size,
 };
 
 /// What the engine tells the client. Every kind goes into one ordered
@@ -182,6 +183,13 @@ pub enum HostEvent {
     DrawDropped {
         node: NodeId,
         count: u32,
+    },
+    /// `node` draws the canvas drawable `drawable`, which its host does not
+    /// mount: the drawing is skipped. Sent once per node and drawable
+    /// (`Draw::drawable` placed in another node, §10.2).
+    DrawableNotHosted {
+        node: NodeId,
+        drawable: DrawableId,
     },
     /// The text `node` has a layout defect (debug builds only; sent once
     /// per node and rule, again when its content or box changes). Not an

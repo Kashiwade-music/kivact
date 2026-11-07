@@ -27,6 +27,34 @@ const MARGIN: f64 = 2.0;
 /// Containers with at least this many children keep a [`ChildIndex`].
 const INDEXED: usize = 32;
 
+/// Whether the content `cull` (in layer space) of a layer mapped by `matrix`
+/// shows in `clip`, decided from its projected corners. A corner that is not
+/// finite or lies behind the eye leaves the question open: it shows.
+fn projected_overlaps(matrix: &Matrix4, cull: Rect, clip: Rect) -> bool {
+    let (x1, y1) = (cull.x + cull.width, cull.y + cull.height);
+    let corners = [(cull.x, cull.y), (x1, cull.y), (cull.x, y1), (x1, y1)];
+    let mut bounds = Rect {
+        x: f64::INFINITY,
+        y: f64::INFINITY,
+        width: 0.0,
+        height: 0.0,
+    };
+    let (mut max_x, mut max_y) = (f64::NEG_INFINITY, f64::NEG_INFINITY);
+    for (x, y) in corners {
+        let [px, py, _, pw] = matrix.transform_point([x, y, 0.0, 1.0]);
+        if !(pw > 0.0 && pw.is_finite() && px.is_finite() && py.is_finite()) {
+            return true;
+        }
+        bounds.x = bounds.x.min(px / pw);
+        bounds.y = bounds.y.min(py / pw);
+        max_x = max_x.max(px / pw);
+        max_y = max_y.max(py / pw);
+    }
+    bounds.width = max_x - bounds.x;
+    bounds.height = max_y - bounds.y;
+    overlaps(bounds, clip)
+}
+
 /// Whether the listed `step` of node `n` needs a `Close` after its
 /// descendants: it opens something (a layer, a transform, a group or a
 /// clip), draws its `DrawOver` scene, or draws its scrollbars.
@@ -101,7 +129,8 @@ impl Walk<'_> {
         let perspective = parent_perspective.filter(|_| local.is_some());
         let plan = self.plan(id, n, &layout, &look, origin, perspective);
         let visible = match &plan {
-            Some(LayerPlan { affine: None, .. }) => true,
+            // A layer with a non-affine map is culled by its projected content (§6.2).
+            Some(p) if p.affine.is_none() => projected_overlaps(&p.matrix, p.cull, clip),
             _ => overlaps(placed(local.as_ref(), own, origin), clip),
         };
         if !visible {

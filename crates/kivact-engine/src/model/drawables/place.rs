@@ -79,13 +79,11 @@ struct LayerFrame {
 /// The placements of the drawables of `scenes` (slot 0 and slot 1).
 pub(crate) fn drawable_placements(scenes: [Option<&DrawList>; 2]) -> Placements {
     let mut out = Placements::default();
-    let mut order = 0u32;
     for (slot, scene) in scenes.into_iter().enumerate() {
         let Some(scene) = scene else { continue };
         let mut frames: Vec<Frame> = Vec::new();
-        for cmd in &scene.cmds {
-            order += 1;
-            walk_cmd(cmd, slot as u8, order, &mut frames, &mut out);
+        for (index, cmd) in scene.cmds.iter().enumerate() {
+            walk_cmd(cmd, slot as u8, index as u32, &mut frames, &mut out);
         }
     }
     out

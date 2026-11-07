@@ -98,6 +98,10 @@ impl Context<'_> {
         let mut state = State::new(inherited, engine, out, origin, *tint);
         for (index, cmd) in scene.cmds.iter().enumerate() {
             let rest = &scene.cmds[index + 1..];
+            if let kivact_types::DrawCmd::Drawable { id, at } = cmd {
+                self.paint_drawable(*id, *at, index as u32, &mut state);
+                continue;
+            }
             let _ = self.paint_raster(cmd, &mut state)
                 || self.paint_layers(cmd, rest, &mut state)
                 || self.paint_geometry(cmd, &mut state)

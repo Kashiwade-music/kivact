@@ -19,7 +19,7 @@ use kivact_types::render::{
     RenderCmd as D, RenderScene,
 };
 use kivact_types::scene::Shape;
-use kivact_types::{BlendMode, NodeId, Rect, Size, Transform};
+use kivact_types::{BlendMode, NodeId, Point, Rect, Size, Transform};
 
 /// A group or clip a chunk has open, with what opens it again.
 #[derive(Clone, Debug, PartialEq)]
@@ -118,6 +118,18 @@ enum Piece {
     Item(Box<LayerItem>),
     /// A child layer.
     Layer(Box<Layer>),
+    /// A canvas drawable's composed layers, placed at its command.
+    Drawable(Box<DrawablePiece>),
+}
+
+/// A canvas drawable's composed layers: the root layer first, with layer
+/// indices local to `layers`. Placed under the open transforms, it is
+/// clipped by the clips open at its command (§10.4).
+#[derive(Debug)]
+struct DrawablePiece {
+    layers: Vec<CompositeLayer>,
+    transform: Matrix4,
+    clips: Vec<Shape>,
 }
 
 /// A layer under construction: its properties, the clips its parent
@@ -358,6 +370,23 @@ impl SceneOut {
         top.pieces.push(Piece::Item(Box::new(item)));
     }
 
+    /// Place a canvas drawable's composed `layers` at `at` in the innermost
+    /// layer's space, under its open transforms and clipped by its open
+    /// clips (§10.3, §10.4). The root layer takes the drawable's transform.
+    pub(crate) fn drawable(&mut self, layers: Vec<CompositeLayer>, at: Point) {
+        let top = self.top();
+        let clips = top.clips();
+        let space = top.space;
+        top.split(true);
+        let transform = Matrix4::translate(at.x, at.y, 0.0).then(Matrix4::from_affine(space));
+        let piece = DrawablePiece {
+            layers,
+            transform,
+            clips,
+        };
+        top.pieces.push(Piece::Drawable(Box::new(piece)));
+    }
+
     /// `scene` (in the chunk's space) inside the groups and clips open now:
     /// the coverage or the fallback of an item.
     pub(crate) fn within_open(&self, scene: RenderScene) -> RenderScene {
@@ -413,6 +442,32 @@ impl SceneOut {
     }
 }
 
+/// Append a drawable's layers to `layers` (its root first, its indices
+/// moved past the ones already there) and return the item that shows it.
+fn adopt(drawable: DrawablePiece, layers: &mut Vec<CompositeLayer>) -> LayerItem {
+    let DrawablePiece {
+        layers: mut sub,
+        transform,
+        clips,
+    } = drawable;
+    let offset = layers.len() as u32;
+    for layer in &mut sub {
+        for item in &mut layer.items {
+            if let LayerItem::Layer { index, .. } = item {
+                *index += offset;
+            }
+        }
+    }
+    if let Some(root) = sub.first_mut() {
+        root.transform = transform;
+    }
+    layers.extend(sub);
+    LayerItem::Layer {
+        index: offset,
+        clips,
+    }
+}
+
 /// Number the layers below `pieces` into `layers` (a parent before its
 /// children) and return the items of `pieces` in order.
 fn flatten(pieces: Vec<Piece>, layers: &mut Vec<CompositeLayer>) -> Vec<LayerItem> {
@@ -421,6 +476,7 @@ fn flatten(pieces: Vec<Piece>, layers: &mut Vec<CompositeLayer>) -> Vec<LayerIte
         .map(|piece| match piece {
             Piece::Raster(scene) => LayerItem::Raster(scene),
             Piece::Item(item) => *item,
+            Piece::Drawable(drawable) => adopt(*drawable, layers),
             Piece::Layer(child) => {
                 let Layer {
                     props,
