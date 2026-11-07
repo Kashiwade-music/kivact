@@ -14,11 +14,15 @@ use crate::support::{
     show_composition,
 };
 
-/// Black and white vertical stripes, 2 px each, over `width` × `height`.
-fn stripes(width: f64, height: f64) -> Vec<RenderCmd> {
-    (0..(width / 4.0) as u32)
-        .map(|i| fill(4.0 * i as f64, 0.0, 2.0, height, 0x000000))
-        .collect()
+/// An opaque white page of `width` × `height` with black vertical stripes,
+/// 2 px each. The page is the backdrop's content: a backdrop reads what is
+/// painted, and a transparent root would blur to black (design §8.9).
+fn page(width: f64, height: f64) -> Vec<RenderCmd> {
+    let mut commands = vec![fill(0.0, 0.0, width, height, WHITE)];
+    commands.extend(
+        (0..(width / 4.0) as u32).map(|i| fill(4.0 * i as f64, 0.0, 2.0, height, 0x000000)),
+    );
+    commands
 }
 
 #[test]
@@ -42,7 +46,7 @@ fn a_backdrop_blurs_what_is_behind_its_shape_and_nothing_else() {
             root_layer(
                 size,
                 vec![
-                    raster(stripes(200.0, 100.0)),
+                    raster(page(200.0, 100.0)),
                     LayerItem::Layer {
                         index: 1,
                         clips: Vec::new(),
