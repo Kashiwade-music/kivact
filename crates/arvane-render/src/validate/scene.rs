@@ -324,8 +324,8 @@ fn validate_primitive(command: &RenderCmd) -> Result<bool, RenderError> {
         } => {
             rect(*bounds)
                 && radii.iter().all(|radius| stroke(*radius))
-                && std_dev.is_finite()
                 && *std_dev > 0.0
+                && blur(*std_dev)
                 && color(*paint)
         }
         RenderCmd::Line {
