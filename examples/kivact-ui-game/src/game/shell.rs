@@ -2,6 +2,7 @@
 use super::common::{line, meta};
 use super::controls::{buttons, inputs, navigation, selection};
 use super::data::{display, records, table};
+use super::effects::effects;
 use super::foundations::foundations;
 use super::state::Demo;
 use super::system::{create_dialog, delete_dialog, drawer_body, feedback, layout, overlays};
@@ -147,7 +148,7 @@ pub fn catalog() -> impl IntoView {
         rows: signal(records()),
         selected: signal(Vec::new()),
     };
-    let sections: Rc<Vec<NodeRef>> = Rc::new((0..10).map(|_| node_ref()).collect());
+    let sections: Rc<Vec<NodeRef>> = Rc::new((0..11).map(|_| node_ref()).collect());
     let rects: Rc<Vec<Value<Option<Rect>>>> = Rc::new(sections.iter().map(NodeRef::rect).collect());
     let scroll_node = node_ref();
     let offset = scroll_node.scroll_offset();
@@ -168,7 +169,7 @@ pub fn catalog() -> impl IntoView {
     })
 }
 
-fn section_names() -> [(&'static str, &'static str, &'static str); 10] {
+fn section_names() -> [(&'static str, &'static str, &'static str); 11] {
     [
         (
             "基礎トークン",
@@ -203,6 +204,11 @@ fn section_names() -> [(&'static str, &'static str, &'static str); 10] {
             "ネイティブレイアウト",
             "Native Layout",
             "ウィンドウ・ツリー・インスペクタ・ステータスバー",
+        ),
+        (
+            "エフェクト",
+            "Effects",
+            "3D・フィルター・shader・タイムライン・スクロール連動",
         ),
     ]
 }
@@ -346,7 +352,7 @@ fn palette_commands() -> Vec<Command<PaletteCommand>> {
             Command::new(PaletteCommand::Section(i), *label).with_hint(
                 [
                     "TOKENS", "BUTTON", "INPUT", "SELECT", "NAV", "DISPLAY", "TABLE", "FEEDBACK",
-                    "OVERLAY", "LAYOUT",
+                    "OVERLAY", "LAYOUT", "EFFECTS",
                 ][i],
             )
         })
@@ -416,6 +422,7 @@ fn catalog_content(
         section(7, sections[7], feedback(scene)),
         section(8, sections[8], overlays(scene)),
         section(9, sections[9], layout()),
+        section(10, sections[10], effects()),
     ))
 }
 
@@ -560,7 +567,7 @@ fn sidebar_button_label(
         g::mono(
             [
                 "TOKENS", "BUTTON", "INPUT", "SELECT", "NAV", "DISPLAY", "TABLE", "FEEDBACK",
-                "OVERLAY", "LAYOUT",
+                "OVERLAY", "LAYOUT", "EFFECTS",
             ][i],
         )
         .style(move || {
@@ -599,7 +606,8 @@ fn sidebar_button(
                 "table",
                 "feedback",
                 "overlays",
-                "layout"
+                "layout",
+                "effects"
             ][i]
         ))
         .on_press(move || {
