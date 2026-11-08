@@ -856,11 +856,9 @@ fn retry_stops_when_content_returns() {
 /// interval grows to 100 ms; the release of the oldest frame then brings the
 /// latest content C within 200 ms, with no other UI change.
 ///
-/// Not asserted yet: the §17.2 bound of the retries (2 to 20 presentations in
-/// one second). `Screen` offers no presentation count (`frame_ticks` counts
-/// motion ticks); only the last frame's stats are visible.
+/// While the slot stays unreleased the clock moves one second in steps and the
+/// screen settles at each step: a retry that spun would fail the settle (B-26).
 #[test]
-#[ignore = "pending: kivact-test has no presentation counter; the §17.2 retry bound (2 to 20 presentations a second) cannot be measured"]
 fn released_slot_delivers_latest_without_other_updates() {
     let Some(app) = gpu_app("released_slot_delivers_latest_without_other_updates") else {
         return;
@@ -878,7 +876,13 @@ fn released_slot_delivers_latest_without_other_updates() {
     after = hold_next(&app.screen, &share, &mut consumer, after);
     app.color.set(GREEN);
     shows_clock(&app, 1);
-    app.screen.advance(Duration::from_secs(1));
+    // B-26: the exact 100 ms interval is not counted, because kivact-test
+    // exposes no presentation count.
+    let mut waited = Duration::ZERO;
+    while waited < Duration::from_secs(1) {
+        app.screen.advance(STEP);
+        waited += STEP;
+    }
     assert!(
         matches!(
             share.wait(after, Duration::from_millis(10)),
