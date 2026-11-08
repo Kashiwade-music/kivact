@@ -167,6 +167,15 @@ fn css_color_parsing() {
         Color::css("RED").expect("a name"),
         Color::css("red").expect("a name")
     );
+    // rgb() channels, and hsl() and hwb() saturation, lightness, whiteness
+    // and blackness, are clamped to their ranges when parsed (CSS Color 4
+    // §4.2.1, §7.1, §8.1). The color() spaces are not clamped.
+    let css = |s: &str| Color::css(s).expect(s);
+    assert_eq!(css("rgb(300 -20 128)"), css("rgb(255 0 128)"));
+    assert_eq!(css("rgb(150% -5% 50%)"), css("rgb(100% 0% 50%)"));
+    assert_eq!(css("hsl(120 150% -10%)"), css("hsl(120 100% 0%)"));
+    assert_eq!(css("hwb(0 120% 0%)"), css("hwb(0 100% 0%)"));
+    assert_ne!(css("color(srgb 1.2 -0.1 0.5)"), css("color(srgb 1 0 0.5)"));
     // These are errors (§11.4.1 does not use them).
     for input in [
         "none",

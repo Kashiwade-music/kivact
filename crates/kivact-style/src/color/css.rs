@@ -207,17 +207,19 @@ fn color_function(name: &str, values: &[String], text: &str) -> Result<Color, St
     let v = |i: usize| component(values, i, text);
     match name {
         "rgb" | "rgba" => rgb_color(values, text),
+        // Saturation and lightness (hsl), and whiteness and blackness (hwb),
+        // are clamped to 0..=100% (CSS Color 4 §7.1 and §8.1).
         "hsl" | "hsla" => Ok(Color::from_space(
             ColorSpace::Hsl,
             v(0)?.angle_deg()?,
-            v(1)?.fraction(100.0)?,
-            v(2)?.fraction(100.0)?,
+            v(1)?.fraction(100.0)?.clamp(0.0, 1.0),
+            v(2)?.fraction(100.0)?.clamp(0.0, 1.0),
         )),
         "hwb" => Ok(Color::from_space(
             ColorSpace::Hwb,
             v(0)?.angle_deg()?,
-            v(1)?.fraction(100.0)?,
-            v(2)?.fraction(100.0)?,
+            v(1)?.fraction(100.0)?.clamp(0.0, 1.0),
+            v(2)?.fraction(100.0)?.clamp(0.0, 1.0),
         )),
         "lab" => Ok(Color::from_space(
             ColorSpace::Lab,
@@ -249,14 +251,17 @@ fn color_function(name: &str, values: &[String], text: &str) -> Result<Color, St
 }
 
 /// The `rgb()` and `rgba()` color: percentages are of full scale, numbers
-/// are 0..=255.
+/// are 0..=255. Each channel is clamped to its range at parse time, as
+/// CSS Color 4 §4.2.1 does for the legacy and modern forms; the `color()`
+/// spaces are not clamped.
 fn rgb_color(values: &[String], text: &str) -> Result<Color, String> {
     let ch = |i: usize| -> Result<f64, String> {
         let x = component(values, i, text)?;
-        Ok(match x.unit {
+        let fraction = match x.unit {
             Unit::Percent => x.value / 100.0,
             _ => x.value / 255.0,
-        })
+        };
+        Ok(fraction.clamp(0.0, 1.0))
     };
     Ok(Color::from_rgba_f64(ch(0)?, ch(1)?, ch(2)?, 1.0))
 }
