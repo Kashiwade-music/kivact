@@ -21,6 +21,7 @@ use super::super::animated::shift;
 use super::super::state::{Anim, LoopMotion, MotionState};
 use super::super::transition::Kind;
 use super::super::values::Animatable;
+use super::calls::{Move, Reps};
 use super::curve::{seg_value, spring_rest_ms};
 use super::plan::{Plan, TrackSlot, TrackState, build_plan, span_of};
 use super::segment::{SegmentDef, SegmentKind};
@@ -617,11 +618,13 @@ impl TimelineCell {
 
     /// Report a label that is not defined; the caller then uses a fallback.
     fn report_missing_label(&self, name: &str, at: &'static Location<'static>) {
-        self.owner.report(UiError::new(
-            ErrorKind::Message,
-            format!("timeline label `{name}` is not defined"),
-            Some(at),
-        ));
+        self.report_at(format!("timeline label `{name}` is not defined"), at);
+    }
+
+    /// Report a misuse of a playback control at `at`; the control does nothing.
+    fn report_at(&self, message: impl Into<String>, at: &'static Location<'static>) {
+        self.owner
+            .report(UiError::new(ErrorKind::Message, message, Some(at)));
     }
 
     /// Add a segment placed by `at`; returns its index.
@@ -720,28 +723,23 @@ impl TimelineCell {
         }
     }
 
-    /// Queue the calls that a move from `from` to `to` crosses. A forward move
-    /// fires the calls in `[from, to)` (in `[from, to]` when it reached the
-    /// end); a backward move the mirror of that.
+    /// Queue the calls that a move from `from` to `to` crosses, in each
+    /// repetition it reaches.
     fn fire_calls(&self, from: f64, to: f64, reached: bool) {
+        let mirror = self.alternate.get() == PlayDirection::Alternate;
+        let reps = Reps::new(self.duration(), self.repeat.get(), mirror);
         let forward = self.playback.get().direction == Direction::Forward;
-        let mut due = Vec::new();
-        for (index, seg) in self.segments.borrow().iter().enumerate() {
-            if !matches!(seg.kind, SegmentKind::Call(_)) {
-                continue;
-            }
-            let c = seg.start;
-            let hit = if forward {
-                from <= c && if reached { c <= to } else { c < to }
-            } else {
-                c <= from && if reached { c >= to } else { c > to }
-            };
-            if hit {
-                due.push(Event::Call(index));
-            }
-        }
+        let mv = Move {
+            from,
+            to,
+            forward,
+            reached,
+        };
+        let due = reps.crossed(&self.segments.borrow(), &mv);
         if !due.is_empty() {
-            self.pending.borrow_mut().extend(due);
+            self.pending
+                .borrow_mut()
+                .extend(due.into_iter().map(Event::Call));
             self.events.update(|n| *n += 1);
         }
     }
@@ -910,12 +908,7 @@ impl TimelineCell {
             return;
         }
         if !ms.is_finite() {
-            self.owner.report(UiError::new(
-                ErrorKind::Message,
-                "timeline seek needs a finite time",
-                Some(at),
-            ));
-            return;
+            return self.report_at("timeline seek needs a finite time", at);
         }
         let time = ms.clamp(0.0, self.total());
         let next = match self.phase.get_untracked() {
@@ -936,12 +929,7 @@ impl TimelineCell {
 
     fn set_rate(&self, rate: f64, at: &'static Location<'static>) {
         if !(rate.is_finite() && rate > 0.0) {
-            self.owner.report(UiError::new(
-                ErrorKind::Message,
-                "timeline rate must be a positive number",
-                Some(at),
-            ));
-            return;
+            return self.report_at("timeline rate must be a positive number", at);
         }
         let time = self.current_time();
         let mut playback = self.playback.get();
@@ -960,12 +948,7 @@ impl TimelineCell {
     /// progress is reported and ignored.
     fn drive_to(&self, p: f64, at: &'static Location<'static>) {
         if !p.is_finite() {
-            self.owner.report(UiError::new(
-                ErrorKind::Message,
-                "timeline progress must be a finite number",
-                Some(at),
-            ));
-            return;
+            return self.report_at("timeline progress must be a finite number", at);
         }
         self.apply(p.clamp(0.0, 1.0) * self.duration());
     }

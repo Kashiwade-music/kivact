@@ -2,6 +2,7 @@
 //! repeats and playback controls (design §12.6).
 
 mod api;
+mod calls;
 mod curve;
 mod plan;
 mod segment;
