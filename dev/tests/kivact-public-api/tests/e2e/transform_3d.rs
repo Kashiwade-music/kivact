@@ -9,6 +9,7 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
+use kivact::draw::Transform;
 use kivact::geometry::Rect;
 use kivact::prelude::*;
 use kivact::style::{BackfaceVisibility, TransformStyle};
@@ -95,6 +96,22 @@ fn perspective_makes_the_far_edge_shorter() {
     // about 172 px near the top edge and 240 px near the bottom.
     near(top as f64, 172.0, 4.0, "width near the top edge");
     near(bottom as f64, 240.0, 4.0, "width near the bottom edge");
+}
+
+/// A `perspective()` that is the first function of the transform is valid:
+/// it is not reported as a function the form cannot keep.
+#[test]
+fn perspective_first_in_a_transform_is_not_reported() {
+    let screen = render(|| {
+        canvas_of(
+            node().style(
+                at(100, 100, 200, 200)
+                    .background(rgb(RED))
+                    .transform(Transform::new().perspective(800.0).rotate_y(30.0)),
+            ),
+        )
+    });
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 
 #[test]
