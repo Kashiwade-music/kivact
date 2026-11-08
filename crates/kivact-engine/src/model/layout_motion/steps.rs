@@ -114,6 +114,7 @@ impl Model {
         if old == new {
             return;
         }
+        self.repaint_corrected_below(id);
         let mut from = Vec::new();
         old.to_components(&mut from);
         let mut to = Vec::new();
@@ -159,6 +160,7 @@ impl Model {
         for id in moving {
             self.repaint(id);
             self.a11y.subtree(id);
+            self.repaint_corrected_below(id);
         }
         let tree = &self.tree;
         self.layout_motion.runs.retain(|id, a| {
@@ -241,16 +243,56 @@ impl Model {
 
     /// The layout motion of `id` as a transform of its box (about its
     /// top-left corner): the window map of its run, with the motion of the
-    /// nearest moving ancestor cancelled. `None` when it has no run.
+    /// nearest moving ancestor cancelled. A node with a layout transition
+    /// but no run of its own still cancels that ancestor's motion, so its
+    /// window box is neither moved nor scaled by it. `None` when there is
+    /// nothing to cancel.
     pub(crate) fn layout_motion_transform(&self, id: NodeId) -> Option<Transform> {
-        let run = self.layout_motion.runs.get(&id)?;
-        let goal = Rect::from_components(&run.to);
-        let outer = self.moving_ancestor_map(id).unwrap_or(Transform::IDENTITY);
-        let own = run_map(run).then(outer.invert()?);
+        let (goal, own, outer) = match self.layout_motion.runs.get(&id) {
+            Some(run) => (
+                Rect::from_components(&run.to),
+                run_map(run),
+                self.moving_ancestor_map(id).unwrap_or(Transform::IDENTITY),
+            ),
+            None if self.has_layout_transition(id) => (
+                self.window_layout_rect(id)?,
+                Transform::IDENTITY,
+                self.moving_ancestor_map(id)?,
+            ),
+            None => return None,
+        };
+        let own = own.then(outer.invert()?);
         Some(
             Transform::translate(goal.x, goal.y)
                 .then(own)
                 .then(Transform::translate(-goal.x, -goal.y)),
         )
+    }
+
+    /// Redraw the nodes below `id` in its layer that have a layout
+    /// transition: their corrections cancel `id`'s motion, so their inks
+    /// and layers change with it.
+    fn repaint_corrected_below(&mut self, id: NodeId) {
+        let mut stack: Vec<NodeId> = self.tree.flat_children(id).collect();
+        while let Some(child) = stack.pop() {
+            let Some(n) = self.tree.get(child) else {
+                continue;
+            };
+            if n.is_layer() {
+                continue;
+            }
+            if self.has_layout_transition(child) {
+                self.repaint(child);
+            }
+            stack.extend(self.tree.flat_children(child));
+        }
+    }
+
+    /// Whether `id` has a layout transition (its layout motion may run).
+    fn has_layout_transition(&self, id: NodeId) -> bool {
+        self.tree
+            .get(id)
+            .and_then(|n| n.layout())
+            .is_some_and(|l| l.layout_transition.is_some())
     }
 }

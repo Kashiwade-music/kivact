@@ -68,7 +68,7 @@ mod values;
 
 pub use animated::{Animated, animated};
 pub use frame_loop::{FrameLoop, frame_loop};
-pub use kivact_types::motion::{Easing, Repeat, Retarget, Spring, StepPosition};
+pub use kivact_types::motion::{Easing, Keyframe, Repeat, Retarget, Spring, StepPosition};
 pub use stagger::{Stagger, StaggerFrom};
 pub use state::{MotionEnv, MotionState, MotionStats};
 pub use timeline::{At, Segment, Timeline, TimelineTrack, timeline};

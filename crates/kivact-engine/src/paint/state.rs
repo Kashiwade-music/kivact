@@ -62,6 +62,8 @@ pub(crate) struct PaintState {
     pub(crate) drawables: RefCell<crate::lower::drawables::DrawablePlan>,
     /// The misplaced drawables already reported, by node.
     pub(super) misplaced_reported: RefCell<BTreeSet<(NodeId, kivact_types::DrawableId)>>,
+    /// The drawables drawn twice (in both slots) already reported, by node.
+    pub(super) twice_reported: RefCell<BTreeSet<(NodeId, kivact_types::DrawableId)>>,
     pub(super) list: PaintList,
     pub(super) redraw: Redraw,
 }
@@ -78,6 +80,7 @@ impl PaintState {
             dropped_draws: RefCell::default(),
             drawables: RefCell::default(),
             misplaced_reported: RefCell::default(),
+            twice_reported: RefCell::default(),
             list: PaintList::new(),
             redraw: Redraw::Needed,
         }

@@ -131,8 +131,8 @@ fn dispatch_host(rt: &Runtime, host_event: &HostEvent) {
             diagnostics::layout_warning(rt, *node, *rule, *amount)
         }
         HostEvent::DrawDropped { node, count } => diagnostics::draw_dropped(rt, *node, *count),
-        HostEvent::DrawableNotHosted { node, drawable } => {
-            diagnostics::drawable_not_hosted(rt, *node, *drawable)
+        HostEvent::DrawableNotHosted { .. } | HostEvent::DrawableDrawnTwice { .. } => {
+            dispatch_drawable_report(rt, host_event)
         }
         HostEvent::TurnsCut { turns } => diagnostics::turns_cut(rt, *turns),
         HostEvent::ExternalImported { .. }
@@ -158,6 +158,20 @@ fn dispatch_host(rt: &Runtime, host_event: &HostEvent) {
         | HostEvent::ExitComplete { .. }
         | HostEvent::FocusResult { .. }
         | HostEvent::A11y { .. } => unreachable!("invariant: input event already dispatched"),
+    }
+}
+
+/// Report a drawable the engine could not place: a drawing in a node that
+/// does not host it, or a drawable drawn in both slots (design §10.2, §10.3).
+fn dispatch_drawable_report(rt: &Runtime, host_event: &HostEvent) {
+    match host_event {
+        HostEvent::DrawableNotHosted { node, drawable } => {
+            diagnostics::drawable_not_hosted(rt, *node, *drawable)
+        }
+        HostEvent::DrawableDrawnTwice { node, drawable } => {
+            diagnostics::drawable_drawn_twice(rt, *node, *drawable)
+        }
+        _ => unreachable!("invariant: only drawable reports are routed here"),
     }
 }
 

@@ -47,6 +47,21 @@ pub(super) fn drawable_not_hosted(rt: &Runtime, node: NodeId, drawable: Drawable
     );
 }
 
+/// A drawable drawn in both slots of one node: the first drawing places it,
+/// the second is skipped. Reported like the drawing's own recording error
+/// (the canvas's owner, once per node and drawable).
+pub(super) fn drawable_drawn_twice(rt: &Runtime, node: NodeId, drawable: DrawableId) {
+    let at = ViewState::tree(rt).get(node).and_then(|n| n.at);
+    rt.report(
+        node_owner(rt, node),
+        UiError::new(
+            ErrorKind::Message,
+            format!("drawable {} drawn twice", drawable.0),
+            at,
+        ),
+    );
+}
+
 pub(super) fn draw_dropped(rt: &Runtime, node: NodeId, count: u32) {
     // The engine sends this once per drawing. Like an asset failure
     // it is a diagnostic of the default sink: the rest of the

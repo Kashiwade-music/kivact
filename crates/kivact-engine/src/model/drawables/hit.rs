@@ -10,7 +10,7 @@
 //! - A drawable is hit only by its own host (the parent of its root).
 //! - A hidden back face and an unplaced or ungeometried drawable are never hit.
 
-use kivact_types::{DrawableId, NodeId, Point, Rect};
+use kivact_types::{DrawableId, Matrix4, NodeId, Point, Rect};
 
 use crate::contract::{DrawableMode, SceneLayer};
 use crate::model::Model;
@@ -31,7 +31,48 @@ impl Model {
         drawn.sort_by_key(|(_, placed)| std::cmp::Reverse(placed.order));
         drawn
             .iter()
-            .find_map(|(id, placed)| self.hit_placed(*id, placed, canvas))
+            .find_map(|(id, placed)| self.hit_placed(*id, placed, canvas, p))
+    }
+
+    /// The placement of canvas drawable `drawable` by `host`'s two scenes:
+    /// its first drawing (slot 0 before slot 1, then command order).
+    pub(crate) fn host_placement(
+        &self,
+        host: NodeId,
+        drawable: DrawableId,
+    ) -> Option<DrawnPlacement> {
+        let n = self.tree.get(host)?;
+        let scenes = [
+            n.scene(SceneLayer::Draw).map(|s| &**s),
+            n.scene(SceneLayer::DrawOver).map(|s| &**s),
+        ];
+        drawable_placements(scenes).by_id.remove(&drawable)
+    }
+
+    /// The box of the canvas drawable `drawable` mapped into `host`'s border
+    /// box, where the host's drawing places it. `None` when no drawing does,
+    /// or the back of the drawing is hidden (§10.4).
+    pub(crate) fn drawn_matrix(&self, host: NodeId, drawable: DrawableId) -> Option<Matrix4> {
+        let placed = self.host_placement(host, drawable)?;
+        if placed.back_hidden {
+            return None;
+        }
+        let n = self.tree.get(host)?;
+        let size = self.computed_layout(host)?.size;
+        let paint = n.paint().cloned().unwrap_or_default();
+        let padding = visual::padding_box(
+            Rect {
+                x: 0.0,
+                y: 0.0,
+                width: size.width,
+                height: size.height,
+            },
+            &paint,
+        );
+        Some(
+            Matrix4::from_projective(placed.map)
+                .then(Matrix4::translate(padding.x, padding.y, 0.0)),
+        )
     }
 
     /// The exported drawable of `host` under `p` (`p` in `host`'s box space),
@@ -102,18 +143,25 @@ impl Model {
         self.tree.parent_id(n)
     }
 
-    /// Hit a placed drawable at the canvas point `canvas`.
-    fn hit_placed(&self, id: DrawableId, placed: &DrawnPlacement, canvas: Point) -> Option<NodeId> {
+    /// Hit a placed drawable: `canvas` is the point in the host's padding box
+    /// and `at` the same point in its border box, where the root's own map
+    /// (`to_parent`) takes it into the drawable's box.
+    fn hit_placed(
+        &self,
+        id: DrawableId,
+        placed: &DrawnPlacement,
+        canvas: Point,
+        at: Point,
+    ) -> Option<NodeId> {
         if placed.back_hidden {
             return None;
         }
         for (map, shape) in &placed.clips {
-            let at = map.apply(canvas)?;
-            if !shape.contains(at) {
+            let inside = map.apply(canvas)?;
+            if !shape.contains(inside) {
                 return None;
             }
         }
-        let at = placed.map.invert()?.apply(canvas)?;
         let root = self.drawables.get(id)?.root;
         self.hit_node(root, at)
     }

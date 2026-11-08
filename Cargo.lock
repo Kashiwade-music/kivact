@@ -2412,11 +2412,13 @@ dependencies = [
  "gpu-interop-producer",
  "image",
  "kivact",
+ "kivact-gpu-share",
  "kivact-ui-basic",
  "kivact-ui-creative",
  "kivact-ui-game",
  "kivact-ui-pop",
  "kivact-ui-soft",
+ "wgpu",
  "windows",
  "windows-sys 0.52.0",
 ]

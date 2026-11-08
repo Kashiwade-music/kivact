@@ -87,7 +87,8 @@ impl Model {
     }
 
     /// Queue one report per node and drawable for the drawings of drawables
-    /// that their hosts do not mount (§10.2).
+    /// that their hosts do not mount (§10.2), and for the second drawings of
+    /// a drawable its host draws in both slots (§10.3).
     pub(super) fn report_misplaced(&mut self) {
         let misplaced = std::mem::take(&mut self.paint.drawables.get_mut().misplaced);
         for (node, drawable) in misplaced {
@@ -98,6 +99,12 @@ impl Model {
                 .insert((node, drawable))
             {
                 self.push(HostEvent::DrawableNotHosted { node, drawable });
+            }
+        }
+        let twice = std::mem::take(&mut self.paint.drawables.get_mut().twice);
+        for (node, drawable) in twice {
+            if self.paint.twice_reported.get_mut().insert((node, drawable)) {
+                self.push(HostEvent::DrawableDrawnTwice { node, drawable });
             }
         }
     }
