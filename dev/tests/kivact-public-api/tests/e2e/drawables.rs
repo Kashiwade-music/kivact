@@ -581,8 +581,11 @@ fn pixels_frames_of_old_generation_are_dropped() {
     let share = card.share();
     share.set_scale(1.0);
     share.request_pixels();
+    let first = next_frame(&screen, &share, 0);
+    let older = first.generation();
     share.request_pixels();
-    let mut after = 0;
+    share.request_pixels();
+    let mut after = first.number();
     let mut generation = None;
     for round in 0..3 {
         if round > 0 {
@@ -598,6 +601,13 @@ fn pixels_frames_of_old_generation_are_dropped() {
         );
         after = frame.number();
     }
+    // Each request starts the next generation (drawable_share.rs), so the
+    // second request's generation is the newest one, two after the first.
+    assert_eq!(
+        generation,
+        Some(older + 2),
+        "the newest request's generation survives"
+    );
     let latest = share.latest().expect("a frame of the newest generation");
     assert_eq!(Some(latest.generation()), generation);
 }
