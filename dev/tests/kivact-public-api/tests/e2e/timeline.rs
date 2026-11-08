@@ -1,4 +1,4 @@
-//! Role: Timeline playback: segment timing, playback phases, calls, reduced motion and stagger.
+//! Role: Timeline playback: segments, phases, calls, reduced motion, stagger.
 
 use std::cell::Cell;
 use std::rc::Rc;
