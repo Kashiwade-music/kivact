@@ -12,7 +12,7 @@ const DRAW_WGSL: &str = concat!(
     include_str!("wgsl/blend.wgsl"),
     include_str!("wgsl/draw.wgsl")
 );
-/// The graph shader: the filter graph's primitives (design §8.8.4).
+/// The graph shader: the filter graph's primitives.
 const GRAPH_WGSL: &str = concat!(
     include_str!("wgsl/common.wgsl"),
     include_str!("wgsl/blend.wgsl"),
@@ -121,7 +121,7 @@ pub(crate) fn composite_slot(composite: Composite) -> usize {
     }
 }
 
-/// The source and destination factors of a Porter–Duff operator (design §8.7).
+/// The source and destination factors of a Porter–Duff operator.
 fn factors(composite: Composite) -> (wgpu::BlendFactor, wgpu::BlendFactor) {
     use wgpu::BlendFactor as F;
     match composite {

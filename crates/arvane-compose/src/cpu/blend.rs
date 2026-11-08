@@ -1,4 +1,4 @@
-//! Role: Blend modes and Porter–Duff operators on premultiplied colors (§8.7).
+//! Role: Blend modes and Porter–Duff operators on premultiplied colors.
 
 use kivact_types::pixel::BlendMode;
 use kivact_types::render::Composite;
@@ -14,7 +14,7 @@ pub(crate) fn combine(src: Premul, dst: Premul, blend: BlendMode, op: Composite)
     }
 }
 
-/// `result = Fa·src + Fb·dst` for the operator, with the factors of design §8.7.
+/// `result = Fa·src + Fb·dst` for the operator, with its Porter–Duff factors.
 fn porter_duff(src: Premul, dst: Premul, op: Composite) -> Premul {
     let (as_, ab) = (src[3], dst[3]);
     let (fa, fb) = match op {
@@ -71,7 +71,7 @@ fn blend_color(mode: BlendMode, cb: [f32; 3], cs: [f32; 3]) -> [f32; 3] {
     }
 }
 
-/// The separable blend functions of design §8.7 for one channel.
+/// The separable W3C blend functions for one channel.
 fn separable(mode: BlendMode, cb: f32, cs: f32) -> f32 {
     match mode {
         BlendMode::Multiply => cb * cs,

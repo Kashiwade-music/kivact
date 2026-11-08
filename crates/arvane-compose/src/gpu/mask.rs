@@ -1,4 +1,4 @@
-//! Role: Records the masks and clips of a target (design §8.9).
+//! Role: Records the masks and clips of a target.
 //!
 //! Mask values are folded into an accumulator and multiplied into the target;
 //! clips multiply the target by their coverage.
@@ -12,7 +12,7 @@ use crate::cache::ChunkKey;
 use kivact_types::paint::{MaskComposite, MaskMode};
 
 impl GpuContext {
-    /// Multiply `target` by the combined value of `masks` (the bottom layer last, design §8.9).
+    /// Multiply `target` by the combined value of `masks` (the bottom layer last).
     pub(super) fn record_mask(
         &self,
         encoder: &mut wgpu::CommandEncoder,
@@ -44,7 +44,7 @@ impl GpuContext {
         self.apply_to(encoder, texture, &acc_view, &self.pipelines.apply_acc)
     }
 
-    /// Multiply `target` by the alpha of the coverage chunk `coverage` (design §8.9).
+    /// Multiply `target` by the alpha of the coverage chunk `coverage`.
     pub(super) fn record_clip(
         &self,
         encoder: &mut wgpu::CommandEncoder,

@@ -1,5 +1,5 @@
 
-// Mask passes (design §8.9): each mask chunk's value, accumulated from the
+// Mask passes: each mask chunk's value, accumulated from the
 // bottom layer upwards into an R32 accumulator.
 
 struct MaskParams {

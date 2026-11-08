@@ -26,7 +26,7 @@ pub(super) struct ExportPool {
     pub(super) pool: Pool,
 }
 
-/// What a sink last received, by which the compositor decides whether to send another frame (design §8.12).
+/// What a sink last received, by which the compositor decides whether to send another frame.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(super) struct ExportRecord {
     /// The request answered.

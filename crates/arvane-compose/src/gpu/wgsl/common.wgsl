@@ -1,5 +1,5 @@
 // Shared helpers of the compositor's shaders. Every texture is premultiplied
-// RGBA; reads outside a texture give zero (the CPU executor's rule, design §8.7).
+// RGBA; reads outside a texture give zero (the CPU executor's rule).
 
 // Fullscreen triangle covering the viewport.
 @vertex

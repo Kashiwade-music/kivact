@@ -1,7 +1,7 @@
 
 // One DrawOp: a source sampled through the map, clipped to the polygon's
 // edges (anti-aliased outside split edges, top-left rule on them), scaled by
-// opacity and the coverage chunk, then composited (design §8.7).
+// opacity and the coverage chunk, then composited.
 
 struct Params {
     m0: vec4<f32>,

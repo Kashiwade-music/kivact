@@ -1,5 +1,5 @@
 
-// Filter passes (design §8.8): resampling for the blur, the blur itself,
+// Filter passes: resampling for the blur, the blur itself,
 // the drop shadow's colour and composite, and the colour matrix.
 
 struct FilterParams {
@@ -30,7 +30,7 @@ fn fs_filter(@builtin(position) frag: vec4<f32>) -> @location(0) vec4<f32> {
             return texel(fsrc, size, x);
         }
         case 1u: {
-            // Halve the width: the mean of two texels (design §8.8.1).
+            // Halve the width: the mean of two texels.
             let base = x * vec2<i32>(2, 1);
             return (texel(fsrc, size, base) + texel(fsrc, size, base + vec2<i32>(1, 0))) * 0.5;
         }
@@ -40,7 +40,7 @@ fn fs_filter(@builtin(position) frag: vec4<f32>) -> @location(0) vec4<f32> {
             return (texel(fsrc, size, base) + texel(fsrc, size, base + vec2<i32>(0, 1))) * 0.5;
         }
         case 7u: {
-            // Double the width: linear between the two halved texels around the centre (design §8.8.1).
+            // Double the width: linear between the two halved texels around the centre.
             let u = (xf.x + 0.5) / 2.0 - 0.5;
             let i0 = floor(u);
             let t = u - i0;

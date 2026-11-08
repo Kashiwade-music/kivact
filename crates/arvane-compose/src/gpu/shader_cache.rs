@@ -13,7 +13,7 @@ pub(super) const IMAGE_SLOTS: usize = 4;
 
 /// The user shaders' pipelines and what their draws share.
 pub(crate) struct Shaders {
-    /// The layout of the bindings 0..=9 (design §11.3.3).
+    /// The layout of the bindings 0..=9.
     pub(super) layout: wgpu::BindGroupLayout,
     /// The linear, clamp-to-edge sampler.
     pub(super) sampler: wgpu::Sampler,
@@ -128,7 +128,7 @@ fn pixel_texture(device: &wgpu::Device, queue: &wgpu::Queue, pixel: [u8; 4]) -> 
     texture.create_view(&wgpu::TextureViewDescriptor::default())
 }
 
-/// The pipeline of `program` on `device`, or the failure message the device reported (driver errors, design §8.10).
+/// The pipeline of `program` on `device`, or the failure message the device reported (driver errors).
 pub(super) fn make_pipeline(
     device: &wgpu::Device,
     layout: &wgpu::BindGroupLayout,

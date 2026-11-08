@@ -1,4 +1,4 @@
-//! Role: Records the layer filters of a plan (design §8.8).
+//! Role: Records the layer filters of a plan.
 //!
 //! The gaussian blur, the drop shadow, the colour matrix and the filter shader.
 
@@ -231,7 +231,7 @@ impl GpuContext {
         Ok(shadow)
     }
 
-    /// The drop shadow of `input` over its `shadow`, shifted by `offset` px, into `out` (design §8.8.2).
+    /// The drop shadow of `input` over its `shadow`, shifted by `offset` px, into `out`.
     pub(super) fn shadow_over(
         &self,
         encoder: &mut wgpu::CommandEncoder,
@@ -248,7 +248,7 @@ impl GpuContext {
         self.filter_pass(encoder, out, input, Some(shadow), args)
     }
 
-    /// The colour matrix of `src` into `out` (design §8.8.3).
+    /// The colour matrix of `src` into `out`.
     pub(super) fn color_matrix_into(
         &self,
         encoder: &mut wgpu::CommandEncoder,
@@ -268,7 +268,7 @@ impl GpuContext {
         self.filter_pass(encoder, out, src, None, args)
     }
 
-    /// The gaussian blur of `src` with the standard deviations `sigma_x` and `sigma_y` px, in a new texture (design §8.8.1).
+    /// The gaussian blur of `src` with the standard deviations `sigma_x` and `sigma_y` px, in a new texture.
     /// Each axis is halved on its own, as the CPU does.
     pub(super) fn blur_axes(
         &self,

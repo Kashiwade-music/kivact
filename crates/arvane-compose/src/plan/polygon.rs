@@ -1,12 +1,12 @@
 //! Role: Convex polygons in 3D: projecting rectangles, planes and splitting.
 //!
 //! A polygon keeps, per vertex, whether the edge leaving it is a split made
-//! by a plane (those edges are drawn without antialiasing, see §8.4).
+//! by a plane (those edges are drawn without antialiasing).
 
 use kivact_types::geometry::Rect;
 use kivact_types::geometry3d::{Matrix4, W_EPS};
 
-/// Distances within this tolerance count as on a plane (design §8.4).
+/// Distances within this tolerance count as on a plane.
 const EPS: f64 = 1e-4;
 
 /// A plane `n · p + d = 0` with a unit normal `n`.

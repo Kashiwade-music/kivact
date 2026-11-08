@@ -1,4 +1,4 @@
-// The W3C blend modes of the compositor (design §8.7), shared by the draw and graph shaders.
+// The W3C blend modes of the compositor, shared by the draw and graph shaders.
 
 // W3C Compositing 1: co = cs(1 - ab) + cb(1 - as) + as·ab·B(Cb, Cs).
 fn blend_over(cs: vec4<f32>, cb: vec4<f32>, mode: u32) -> vec4<f32> {

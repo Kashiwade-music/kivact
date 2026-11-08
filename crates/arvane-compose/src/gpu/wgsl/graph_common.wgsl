@@ -1,4 +1,4 @@
-// The filter graph primitives (design §8.8.4). One render pass computes one
+// The filter graph primitives. One render pass computes one
 // primitive: `mode` selects the operation, `a` and `b` are its input textures
 // (premultiplied RGBA8, the region's size), and the tables hold the
 // conversions and the transfer, kernel and turbulence data the CPU built.

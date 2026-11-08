@@ -1,4 +1,4 @@
-//! Role: Records user shader draws and filter shaders (design §8.10, §8.8.5).
+//! Role: Records user shader draws and filter shaders.
 //!
 //! A shader's pipeline comes from the context's shader cache; a program whose
 //! pipeline failed draws its fallback chunk (paint) or passes its input through
@@ -105,7 +105,7 @@ struct Draw<'a> {
 }
 
 impl GpuContext {
-    /// Record one shader draw of a plan: the shader over its polygon, or its fallback chunk when the pipeline failed (design §8.10).
+    /// Record one shader draw of a plan: the shader over its polygon, or its fallback chunk when the pipeline failed.
     pub(super) fn record_shader(
         &mut self,
         encoder: &mut wgpu::CommandEncoder,
@@ -136,7 +136,7 @@ impl GpuContext {
         self.draw_shader(encoder, key, &vertices, target, draw)
     }
 
-    /// Record a filter shader of a layer: `dest` is `source` filtered (design §8.8.5). Its pipeline failed: the input passes through.
+    /// Record a filter shader of a layer: `dest` is `source` filtered. Its pipeline failed: the input passes through.
     pub(super) fn record_filter_shader(
         &mut self,
         encoder: &mut wgpu::CommandEncoder,

@@ -198,7 +198,7 @@ impl<'a> Builder<'a> {
         self.caching = Caching::Uncached;
         for export in &comp.exports {
             let target = self.new_temp(export.size);
-            // The exported layer's own transform is ignored: it is drawn at the export's scale alone (§8.12).
+            // The exported layer's own transform is ignored: it is drawn at the export's scale alone.
             let to = Matrix4::scale(export.scale, export.scale, 1.0);
             let dest = Dest {
                 target,

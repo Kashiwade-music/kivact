@@ -375,7 +375,7 @@ fn exec(
         Op::Clip { target, coverage } => {
             mask::clip(&mut targets[*target as usize], chunk(chunks, coverage)?);
         }
-        // The CPU draws the shader's fallback chunk in place of the shader (design §8.3, §11.3.6).
+        // The CPU draws the shader's fallback chunk in place of the shader.
         Op::Shader(shader) => {
             let fallback = DrawOp {
                 target: shader.target,
@@ -409,7 +409,7 @@ struct ExportOutcome {
     pending: Vec<DrawableId>,
 }
 
-/// Decides and builds the export frames of the frame (design §8.12, the CPU part).
+/// Decides and builds the export frames of the frame (the CPU part).
 fn export_frames(
     composition: &Composition,
     exports: &[plan::PlannedExport],

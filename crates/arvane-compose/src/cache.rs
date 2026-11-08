@@ -42,7 +42,7 @@ pub(crate) struct ChunkKey {
 /// A shared allocation a cached record must keep alive, so that the
 /// address folded into its hash is not reused for other contents.
 #[derive(Clone, Debug)]
-#[expect(dead_code, reason = "held so the hashed pointers stay valid (§8.6)")]
+#[expect(dead_code, reason = "held so the hashed pointers stay valid")]
 pub(crate) enum Retained {
     /// Pixel or byte storage.
     Bytes(AssetBytes),
@@ -64,7 +64,7 @@ pub(crate) struct ChunkRecord {
     /// The frame that last used the record.
     pub(crate) frame: u64,
     /// Allocations the index hashes by address.
-    #[expect(dead_code, reason = "held so the hashed pointers stay valid (§8.6)")]
+    #[expect(dead_code, reason = "held so the hashed pointers stay valid")]
     pub(crate) retain: Vec<Retained>,
 }
 
@@ -80,7 +80,7 @@ pub(crate) struct LayerRecord {
     /// The frame that last used the record.
     pub(crate) frame: u64,
     /// Allocations the signature hashes by address (images, shader and filter pixels).
-    #[expect(dead_code, reason = "held so the hashed pointers stay valid (§8.6)")]
+    #[expect(dead_code, reason = "held so the hashed pointers stay valid")]
     pub(crate) retain: Vec<Retained>,
 }
 

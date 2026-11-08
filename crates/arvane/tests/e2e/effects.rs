@@ -16,7 +16,7 @@ use crate::support::{
 
 /// An opaque white page of `width` × `height` with black vertical stripes,
 /// 2 px each. The page is the backdrop's content: a backdrop reads what is
-/// painted, and a transparent root would blur to black (design §8.9).
+/// painted, and a transparent root would blur to black.
 fn page(width: f64, height: f64) -> Vec<RenderCmd> {
     let mut commands = vec![fill(0.0, 0.0, width, height, WHITE)];
     commands.extend(

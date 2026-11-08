@@ -22,7 +22,7 @@ pub(crate) type TargetId = u32;
 /// The output target (the window's pixmap or the swapchain).
 pub(crate) const OUTPUT: TargetId = 0;
 
-/// Targets above which the largest layers are drawn into their parent instead of a surface (design §8.14).
+/// Targets above which the largest layers are drawn into their parent instead of a surface.
 pub(crate) const INLINE_TARGET_LIMIT: usize = 1024;
 
 /// A plan that cannot be made; the executor reports it as an invalid composition.

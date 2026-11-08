@@ -1,4 +1,4 @@
-//! Role: Filter graphs on the CPU: the evaluator and its primitives (§8.8.4).
+//! Role: Filter graphs on the CPU: the evaluator and its primitives.
 
 mod apply;
 mod component_transfer;

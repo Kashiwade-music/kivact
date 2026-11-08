@@ -3,15 +3,15 @@
 // The primitive driver, the color space conversions and the sRGB tables are
 // resvg's. Changes: the graph is kivact's FilterGraph (indices instead of
 // names, no usvg types); the region is the whole target; GaussianBlur and
-// DropShadow use design §8.8.1 and §8.8.2 instead of resvg's box and IIR
-// blurs; the pixel type is the compositor's premultiplied pixmap; Tile samples
-// the tile rectangle with nearest filtering; Image stretches its pixels into
-// its rectangle.
+// DropShadow use this crate's own gaussian blur (by repeated halving) and
+// drop shadow instead of resvg's box and IIR blurs; the pixel type is the
+// compositor's premultiplied pixmap; Tile samples the tile rectangle with
+// nearest filtering; Image stretches its pixels into its rectangle.
 // The resvg files component_transfer.rs, composite.rs, convolve_matrix.rs,
 // displacement_map.rs, lighting.rs, morphology.rs and turbulence.rs are
 // ported under graph/ with their own headers.
 
-//! Role: Runs a filter graph of SVG primitives on the CPU (design §8.8.4).
+//! Role: Runs a filter graph of SVG primitives on the CPU.
 
 use std::rc::Rc;
 

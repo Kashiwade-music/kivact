@@ -1,4 +1,4 @@
-//! Role: Clip coverage and mask layers applied to a surface (design §8.9).
+//! Role: Clip coverage and mask layers applied to a surface.
 
 use kivact_types::paint::{MaskComposite, MaskMode};
 
