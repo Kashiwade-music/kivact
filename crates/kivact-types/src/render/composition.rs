@@ -10,7 +10,7 @@ use crate::paint::{BackfaceVisibility, MaskComposite, MaskMode};
 use crate::pixel::{ColorMatrix, Pixels};
 use crate::scene::Shape;
 
-/// The most 3D context planes one context may hold (§8.14). Above it the
+/// The most 3D context planes one context may hold. Above it the
 /// engine and the compositor draw the planes flat, in tree order.
 pub const MAX_CONTEXT_PLANES: usize = 256;
 
@@ -59,7 +59,7 @@ pub struct CompositeLayer {
     pub plane: Plane,
     /// Whether the back face of the layer is drawn.
     pub backface: BackfaceVisibility,
-    /// Where the surface's pixel grid sits (§8.3 step 3).
+    /// Where the surface's pixel grid sits.
     pub grid: RasterGrid,
     /// Opacity, blending, filters, clip, masks and backdrop.
     pub effects: LayerEffects,
@@ -169,8 +169,8 @@ pub enum LayerFilter {
     },
     /// A color matrix over the surface.
     ColorMatrix(ColorMatrix),
-    /// Images resolved to pixels by the engine (§11.2.1).
-    // xtask-allow(api-shape): Shared immutable payload, cloned without copying its data; the design keeps one allocation.
+    /// Images resolved to pixels by the engine.
+    // xtask-allow(api-shape): Shared immutable payload, cloned without copying its data; one allocation is shared by all clones.
     Graph(std::sync::Arc<FilterGraph<Pixels>>),
     /// A filter shader.
     Shader(ShaderUse),
@@ -254,7 +254,7 @@ pub struct ShaderItem {
 }
 
 /// Draw `layers[layer]` into the export sink of `sink` at `size` device px
-/// (`scale` device px per logical px), answering request `generation` (§8.12, §10.5).
+/// (`scale` device px per logical px), answering request `generation`.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Export {
     /// The layer to draw.
@@ -293,7 +293,7 @@ pub enum ExportMode {
     Gpu,
 }
 
-/// An exported drawable frame (§8.12); the generation travels in ExportedFrame.
+/// An exported drawable frame; the generation travels in ExportedFrame.
 #[derive(Clone, Debug, PartialEq)]
 pub enum ExportFrame {
     /// The frame as pixels.
@@ -319,7 +319,7 @@ pub struct ExportedFrame {
     pub frame: ExportFrame,
 }
 
-/// A GPU export pool lost with the device (§8.12), of the request `generation`.
+/// A GPU export pool lost with the device, of the request `generation`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ExportLoss {
     /// The drawable whose pool was lost.
@@ -328,7 +328,7 @@ pub struct ExportLoss {
     pub generation: u64,
 }
 
-/// What a presented frame produced besides pixels (§10.6).
+/// What a presented frame produced besides pixels.
 #[derive(Clone, Debug, PartialEq, Default)]
 pub struct FrameReport {
     /// Exported frames of this presentation.
@@ -337,13 +337,13 @@ pub struct FrameReport {
     pub missed: Vec<ExternalFrame>,
     /// (program hash, message) of shader pipelines that failed, once each.
     pub shader_failures: Vec<(u64, String)>,
-    /// Exports skipped this frame because no slot was released (§8.12).
+    /// Exports skipped this frame because no slot was released.
     pub pending_exports: Vec<DrawableId>,
     /// Work counts of this frame.
     pub stats: FrameStats,
 }
 
-/// Work a frame did (statistics, S-9), for diagnostics and tests (§8.15).
+/// Work a frame did (statistics, S-9), for diagnostics and tests.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub struct FrameStats {
     /// Chunks rastered by Vello.

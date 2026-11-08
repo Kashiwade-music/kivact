@@ -94,7 +94,7 @@ impl BoxShape {
 }
 
 /// The boxes of one painted box: a background layer is placed in its origin
-/// box and clipped to its clip box (§9.3, §9.4).
+/// box and clipped to its clip box.
 pub(crate) struct Boxes {
     /// The border box.
     pub(crate) border: BoxShape,
@@ -321,7 +321,7 @@ impl Context<'_> {
 
     /// One background layer of `boxes`: placed in its origin box, repeated
     /// over and clipped to its clip box. A layer clipped to the text is drawn
-    /// inside the group clipped to the glyph outlines (§9.4).
+    /// inside the group clipped to the glyph outlines.
     fn fill_layer(
         &self,
         out: &mut crate::lower::SceneOut,
@@ -576,7 +576,7 @@ fn stops(g: &Gradient, length: f64) -> Vec<(f64, Rgba)> {
 /// in order) with color `hints` between them (`hints[i]` between stop i and
 /// i + 1, an absolute offset; a missing hint is the midpoint). The colors
 /// are interpolated in `how` and mapped to sRGB; where that ramp drifts from
-/// the sRGB line between its stops, stops are added (§9.6). Two stops at one
+/// the sRGB line between its stops, stops are added. Two stops at one
 /// offset make a hard edge.
 pub(crate) fn expand_gradient(
     stops: &[(f64, SpaceColor)],

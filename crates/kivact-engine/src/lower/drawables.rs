@@ -6,10 +6,10 @@
 //!
 //! Invariants:
 //! - A drawable is placed by its first drawing in its host (slot 0 before
-//!   slot 1, then command order, §10.3). Its composed layers are taken once,
+//!   slot 1, then command order). Its composed layers are taken once,
 //!   by that drawing.
 //! - A drawing in a node other than the drawable's host is not placed and
-//!   is recorded in `misplaced` (§10.2).
+//!   is recorded in `misplaced`.
 
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -29,7 +29,7 @@ pub(crate) struct DrawablePlan {
     /// The drawings of drawables in nodes that do not host them, not reported yet.
     pub(crate) misplaced: Vec<(NodeId, DrawableId)>,
     /// The second drawings of a drawable its host already draws in the other
-    /// slot (the first drawing places it), not reported yet (§10.3).
+    /// slot (the first drawing places it), not reported yet.
     pub(crate) twice: Vec<(NodeId, DrawableId)>,
 }
 

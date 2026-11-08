@@ -89,7 +89,7 @@ impl Model {
             self.a11y.node(id);
         }
         // A canvas drawable's placement is read from its host's scenes, so
-        // its accessibility subtree follows them (design §10.4).
+        // its accessibility subtree follows them.
         let roots: Vec<NodeId> = self.tree.get(id).map_or_else(Vec::new, |n| {
             self.tree
                 .children_ids(n)

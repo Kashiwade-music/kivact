@@ -164,7 +164,7 @@ impl Model {
 
     /// Derive the place of `id` again and return the one it had. The only
     /// caller of `NodeTree::update_place`, so `Place::transformed` has one
-    /// writer (§7.6). `moving` is [`Model::motion_moves`] as the caller
+    /// writer. `moving` is [`Model::motion_moves`] as the caller
     /// sees it. A node whose parent has a perspective, or whose own
     /// perspective moves its children, keeps them in step.
     pub(crate) fn refresh_place(&mut self, id: NodeId, moving: bool) -> Place {
@@ -305,7 +305,7 @@ impl Model {
         regular.then_some(Step { matrix, up })
     }
 
-    /// The step of the root `id` of the canvas drawable `drawable` (§10.4): its
+    /// The step of the root `id` of the canvas drawable `drawable`: its
     /// box into its host's border box, where the host's drawing places it.
     /// `None` while no drawing places it or its back is hidden.
     fn canvas_step(&self, id: NodeId, drawable: DrawableId) -> Option<Step> {
@@ -321,7 +321,7 @@ impl Model {
         })
     }
 
-    /// The step of the root `id` of the exported drawable `drawable` (§10.5):
+    /// The step of the root `id` of the exported drawable `drawable`:
     /// its box into its host's border box, through the geometry the app set
     /// for it. `None` without geometry, the way a canvas root without a
     /// drawing has none.
@@ -343,7 +343,7 @@ impl Model {
 
     /// The perspective that the children of `parent` are in, when the parent's
     /// box origin is at `origin` in the walk's space: `T(q) P(d) T(-q)` with
-    /// `q` the perspective origin in that space (§6.2). `None` without one.
+    /// `q` the perspective origin in that space. `None` without one.
     pub(crate) fn perspective_at(&self, parent: NodeId, origin: Point) -> Option<Matrix4> {
         let perspective = self.effective_paint(parent).perspective?;
         Some(
@@ -383,7 +383,7 @@ impl Model {
     }
 
     /// [`Model::map_between`] in content space: no step leaves its parent's
-    /// scroll in, so the boxes are where their layouts put them (§7.4).
+    /// scroll in, so the boxes are where their layouts put them.
     pub(crate) fn content_map_between(&self, id: NodeId, upto: NodeId) -> Option<Projective> {
         self.map_walk(id, Some(upto), false)
     }

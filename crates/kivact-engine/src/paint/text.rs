@@ -81,7 +81,7 @@ impl Model {
 
 impl Model {
     /// The shaped paragraph of text node `id` in its content box `area`,
-    /// wrapped at its width. Box paint clips to the same shaping (§9.4): the
+    /// wrapped at its width. Box paint clips to the same shaping: the
     /// arvane cache serves both.
     pub(super) fn shape_node_text(
         &self,

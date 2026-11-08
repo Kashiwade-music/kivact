@@ -186,14 +186,14 @@ pub enum HostEvent {
     },
     /// `node` draws the canvas drawable `drawable`, which its host does not
     /// mount: the drawing is skipped. Sent once per node and drawable
-    /// (`Draw::drawable` placed in another node, §10.2).
+    /// (`Draw::drawable` placed in another node).
     DrawableNotHosted {
         node: NodeId,
         drawable: DrawableId,
     },
     /// `node` draws the canvas drawable `drawable` in both slots: the first
     /// drawing places it and the second is skipped. Sent once per node and
-    /// drawable (§10.3).
+    /// drawable.
     DrawableDrawnTwice {
         node: NodeId,
         drawable: DrawableId,
@@ -208,7 +208,7 @@ pub enum HostEvent {
     },
     /// The shared-layout id `id` is on two live nodes; `node` is the later
     /// of them (the one that takes the record of a departed node). Sent once
-    /// per id (`layout_id`, §12.11).
+    /// per id (`layout_id`).
     DuplicateLayoutId {
         node: NodeId,
         id: std::sync::Arc<str>,

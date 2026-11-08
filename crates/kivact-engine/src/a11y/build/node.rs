@@ -182,7 +182,7 @@ impl Model {
     ) -> Vec<kivact_types::render::SemanticsNode> {
         let hidden = output.semantics.hidden;
         let disabled = output.semantics.disabled;
-        // A region's space starts at the padding box, where its scene is drawn (§7.5).
+        // A region's space starts at the padding box, where its scene is drawn.
         // A node without a position has no region position either.
         let canvas = output.bounds.map(|bounds| {
             let paint = crate::model::interact::visual::paint(self, id);
@@ -256,8 +256,8 @@ impl Model {
             .is_some_and(|map| map.as_affine().is_some())
     }
 
-    /// The bounds and the transform the accessibility node of `id` carries
-    /// (§7.4). Where its map and its parent's are affine, the transform is
+    /// The bounds and the transform the accessibility node of `id` carries.
+    /// Where its map and its parent's are affine, the transform is
     /// relative to the parent (`a11y_transform`). Otherwise the
     /// bounds are the projected box in the coordinates of the nearest
     /// ancestor with an affine map, and the transform is the identity. A
@@ -302,7 +302,7 @@ impl Model {
         )
     }
 
-    /// The transform of a drawable's root (§10.4, §10.5): its drawn map to
+    /// The transform of a drawable's root: its drawn map to
     /// its host, about the origin of its bounds, so its children keep their
     /// bounds in its own box. `None` for any other node, and for a root that
     /// has no drawn map (no drawing places it, or the app set no geometry).

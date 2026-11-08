@@ -75,7 +75,7 @@ struct LayerPlan {
     /// The content bounds in layer space (before its effects).
     bounds: Rect,
     /// The content in layer space with its own effects' reach: what the
-    /// subtree is culled within when the map is not affine (§6.2).
+    /// subtree is culled within when the map is not affine.
     cull: Rect,
     plane: Plane,
     backface: BackfaceVisibility,
@@ -125,11 +125,11 @@ impl Walk<'_> {
         let local = local_transform(host, id, n, &layout);
         let own = reach(host, id, n, &layout, &look);
         // A parent's perspective moves only a node that has a transform of
-        // its own (§6.2); the others stay in the plane of their parent.
+        // its own; the others stay in the plane of their parent.
         let perspective = parent_perspective.filter(|_| local.is_some());
         let plan = self.plan(id, n, &layout, &look, origin, perspective);
         let visible = match &plan {
-            // A layer with a non-affine map is culled by its projected content (§6.2).
+            // A layer with a non-affine map is culled by its projected content.
             Some(p) if p.affine.is_none() => projected_overlaps(&p.matrix, p.cull, clip),
             _ => overlaps(placed(local.as_ref(), own, origin), clip),
         };
@@ -236,7 +236,7 @@ impl Walk<'_> {
         let own = host
             .local_matrix(id, layout.size)
             .unwrap_or(Matrix4::IDENTITY);
-        // M = Mn · T(o) · Pp: the parent's perspective after the placement (§6.2).
+        // M = Mn · T(o) · Pp: the parent's perspective after the placement.
         let matrix = own
             .then(Matrix4::translate(origin.x, origin.y, 0.0))
             .then(parent_perspective.unwrap_or(Matrix4::IDENTITY));

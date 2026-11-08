@@ -139,7 +139,7 @@ impl Reader {
     ) -> Option<kivact_types::Rect> {
         let model = self.model.borrow();
         let bounds = model.rect(id)?;
-        // Node-local bounds are relative to the padding box, where the scene is drawn (§7.5).
+        // Node-local bounds are relative to the padding box, where the scene is drawn.
         let paint = crate::model::interact::visual::paint(&model, id);
         let canvas = crate::model::interact::visual::padding_box(bounds, &paint);
         let own = kivact_types::Rect {

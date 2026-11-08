@@ -165,7 +165,7 @@ impl HostNode {
     /// Derive the place from the props. `moving` says a running state
     /// motion has a current transform that is not none; `under_perspective`
     /// says the parent has a perspective, which moves a node whose transform
-    /// is not 2D. The only writer of `Place::transformed` (§7.6).
+    /// is not 2D. The only writer of `Place::transformed`.
     pub(crate) fn update_place(&mut self, moving: bool, under_perspective: bool) {
         if self.is_transparent() {
             self.place = Place::default();

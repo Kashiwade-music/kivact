@@ -56,12 +56,12 @@ pub(crate) struct Frame {
     /// The environment as the client last saw it: the one source of the
     /// display period, reduced motion and drawability.
     pub(super) env: Environment,
-    /// The painted nodes with a shader clock (§11.3.5), as of the last paint
+    /// The painted nodes with a shader clock, as of the last paint
     /// list; each needs frames while it is painted.
     pub(super) shader_clocks: BTreeMap<NodeId, ClockNeed>,
 }
 
-/// What a shader clock needs from the frames (§11.3.5).
+/// What a shader clock needs from the frames.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) enum ClockNeed {
     /// A frame at every display tick.

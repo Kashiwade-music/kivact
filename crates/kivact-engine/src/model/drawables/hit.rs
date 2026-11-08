@@ -1,4 +1,4 @@
-//! Role: Hit tests of drawables: canvas drawables and exports, in §10.4 order.
+//! Role: Hit tests of drawables: canvas drawables and exports, in hit order.
 //!
 //! A host asks at two points of its walk: a slot-1 (`draw_over`) drawable
 //! comes before the host's children, a slot-0 (`draw`) drawable and an
@@ -51,7 +51,7 @@ impl Model {
 
     /// The box of the canvas drawable `drawable` mapped into `host`'s border
     /// box, where the host's drawing places it. `None` when no drawing does,
-    /// or the back of the drawing is hidden (§10.4).
+    /// or the back of the drawing is hidden.
     pub(crate) fn drawn_matrix(&self, host: NodeId, drawable: DrawableId) -> Option<Matrix4> {
         let placed = self.host_placement(host, drawable)?;
         if placed.back_hidden {

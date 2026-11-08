@@ -4,7 +4,7 @@
 //! - Only the drawing that places a drawable (its host's first drawing, see
 //!   `lower::drawables`) adopts its layers; the others draw nothing.
 //! - A drawing in a node that is not the drawable's host draws nothing and is
-//!   recorded for one report (§10.2).
+//!   recorded for one report.
 
 use super::state::State;
 use crate::lower::context::Context;

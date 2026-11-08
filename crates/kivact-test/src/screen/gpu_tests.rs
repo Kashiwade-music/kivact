@@ -440,8 +440,9 @@ fn canvas_vocabulary() -> impl IntoView {
 )]
 fn assert_close(cpu: &Screenshot, gpu: &Screenshot, name: &str) {
     assert_eq!((gpu.width, gpu.height), (cpu.width, cpu.height));
-    // Raster pixels (§3.3, the third tier: the rasterizers' blurred shadows,
-    // glyph edges and gradients differ slightly), judged by the shared tolerance.
+    // Raster pixels (the rasterization tier of a chunk, which has no fixed bound:
+    // the rasterizers' blurred shadows, glyph edges and gradients differ slightly),
+    // judged by the shared tolerance.
     let diff = cpu.raster_difference(gpu);
     println!(
         "{name}: GPU vs CPU frame: mean channel difference {:.3}, {:.3}% of pixels off by more than 64, {:.2}% within 8",

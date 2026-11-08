@@ -153,8 +153,8 @@ pub enum FillImage {
     /// A gradient placed by coordinates, not by the area it fills (the
     /// layer's size, position and repeat do not apply to it).
     Coordinate(CoordinateGradient),
-    /// A paint shader (§11.3).
-    // xtask-allow(api-shape): Shared immutable payload, cloned without copying its data; the design keeps one allocation.
+    /// A paint shader.
+    // xtask-allow(api-shape): Shared immutable payload, cloned without copying its data; one allocation is shared by all clones.
     Shader(std::sync::Arc<ShaderSpec>),
 }
 
@@ -469,11 +469,11 @@ pub enum FilterOp {
         /// Color of the shadow.
         color: Rgba,
     },
-    /// CSS `url(#filter)`: an SVG filter graph (§5.9), images as assets.
-    // xtask-allow(api-shape): Shared immutable payload, cloned without copying its data; the design keeps one allocation.
+    /// CSS `url(#filter)`: an SVG filter graph, images as assets.
+    // xtask-allow(api-shape): Shared immutable payload, cloned without copying its data; one allocation is shared by all clones.
     Graph(std::sync::Arc<FilterGraph<Asset>>),
-    /// A filter shader (§11.3).
-    // xtask-allow(api-shape): Shared immutable payload, cloned without copying its data; the design keeps one allocation.
+    /// A filter shader.
+    // xtask-allow(api-shape): Shared immutable payload, cloned without copying its data; one allocation is shared by all clones.
     Shader(std::sync::Arc<ShaderSpec>),
 }
 
@@ -573,14 +573,14 @@ pub enum BorderImageRepeat {
 /// CSS border-image (also the nine-slice of `Draw::border_image`).
 #[derive(Clone, Debug, PartialEq)]
 pub struct BorderImage {
-    /// Image, gradient or solid color (§9.2).
+    /// Image, gradient or solid color.
     pub source: FillImage,
     /// Insets into the source: px are source pixels (for gradients and
     /// solid colors, px of the border image area), pct of the source size.
     pub slice: Edges<Len>,
     /// Paint the middle of the slices.
     pub fill: bool,
-    /// None: the border widths. pct is of the border image area (§9.2).
+    /// None: the border widths. pct is of the border image area.
     pub width: Option<Edges<Len>>,
     /// How far the border image extends beyond the border box.
     pub outset: Edges<f64>,
@@ -615,7 +615,7 @@ impl Effects {
     }
 }
 
-/// How a shader's `time` advances (§11.3.5).
+/// How a shader's `time` advances.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub enum ShaderClock {
     /// Time does not advance.
@@ -632,10 +632,10 @@ pub enum ShaderClock {
 #[derive(Clone, Debug, PartialEq)]
 pub struct ShaderSpec {
     /// The validated program.
-    // xtask-allow(api-shape): Shared immutable payload, cloned without copying its data; the design keeps one allocation.
+    // xtask-allow(api-shape): Shared immutable payload, cloned without copying its data; one allocation is shared by all clones.
     pub program: std::sync::Arc<crate::effect::ShaderProgram>,
     /// The parameter bytes, laid out by the program's parameter slots.
-    // xtask-allow(api-shape): Shared immutable payload, cloned without copying its data; the design keeps one allocation.
+    // xtask-allow(api-shape): Shared immutable payload, cloned without copying its data; one allocation is shared by all clones.
     pub params: std::sync::Arc<[u8]>,
     /// Slots 0..=3 of the WGSL `image(slot, uv)` helper.
     pub images: [Option<Asset>; 4],
@@ -814,7 +814,7 @@ pub struct Shadow {
 #[derive(Clone, Debug, PartialEq)]
 pub struct PaintProps {
     /// Per-property paint transitions, absent on ordinary nodes.
-    // xtask-allow(api-shape): Shared immutable payload, cloned without copying its data; the design keeps one allocation.
+    // xtask-allow(api-shape): Shared immutable payload, cloned without copying its data; one allocation is shared by all clones.
     pub transitions: Option<std::sync::Arc<[(TransitionProp, Transition)]>>,
     /// The background fill.
     pub background: Option<Fill>,

@@ -1,4 +1,4 @@
-//! Role: Compositor layers (§6.1): a node's look and the facts that decide them.
+//! Role: Compositor layers: a node's look and the facts that decide them.
 //!
 //! Invariants:
 //! - A node is a layer for its own reasons: it is a 3D or a flat preserve-3d
@@ -8,7 +8,7 @@
 //! - An inline group that holds a layer or an item is a layer; so is a
 //!   backdrop root that holds a backdrop filter, and an isolated node that
 //!   holds a blend mode and a layer. The inline groups it replaces never
-//!   span an item (§6.3).
+//!   span an item.
 //! - The facts come from one bottom-up pass before the walk, from the looks
 //!   the walk uses, so no node's layer depends on its layout location.
 //! - The paint list and the hit test read the same facts, so a 3D context
@@ -91,7 +91,7 @@ pub(crate) struct Look {
 }
 
 // xtask-allow(state-fields): A pure derived record of independent presence facts about one subtree, rebuilt with the paint list and never a lifecycle (S-9).
-/// What a subtree holds that decides its layers (§6.1): whether the node
+/// What a subtree holds that decides its layers: whether the node
 /// itself is a layer, and what its subtree contains.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub(crate) struct SubtreeFacts {
@@ -237,8 +237,9 @@ pub(crate) fn subtree_facts(
     facts
 }
 
-/// Whether `id` is a layer for its own reasons (R1 to R5 and R7 of
-/// §6.1), given its parent's look.
+/// Whether `id` is a layer for its own reasons, given its parent's look: an
+/// overlay or fixed box, a filter, a mask or a backdrop filter, a `will-change`,
+/// a motion, or a part of a 3D rendering context.
 fn own_layer(view: &impl LayerView, id: NodeId, look: &Look, parent: Option<&Look>) -> bool {
     let parent_plane_3d = parent.is_some_and(Look::plane_3d);
     let parent_perspective = parent.is_some_and(|p| p.perspective);
@@ -257,7 +258,8 @@ fn own_layer(view: &impl LayerView, id: NodeId, look: &Look, parent: Option<&Loo
 }
 
 /// Whether the node with `look` is promoted to a layer by what its inner
-/// subtree holds (P1 to P3 of §6.1).
+/// subtree holds: a group over a layer or an item, a backdrop root over a
+/// backdrop filter, or an isolated node over a blend mode and a layer.
 fn promoted(look: &Look, inner: &SubtreeFacts) -> bool {
     let group = look.opacity < 1.0 || look.grouped;
     let backdrop_root =
