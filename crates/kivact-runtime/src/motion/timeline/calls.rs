@@ -13,13 +13,21 @@ pub(super) struct Reps {
     mirror: bool,
 }
 
+/// Whether a move reached the end of the playback.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(super) enum Reach {
+    /// Stopped short of the end.
+    Within,
+    /// Reached the end, which then counts as crossed.
+    End,
+}
+
 /// A move of the playback from `from` to `to` (ms of playback time).
 pub(super) struct Move {
     pub(super) from: f64,
     pub(super) to: f64,
     pub(super) forward: bool,
-    /// Whether the move reached the end, which then counts as crossed.
-    pub(super) reached: bool,
+    pub(super) reach: Reach,
 }
 
 impl Move {
@@ -27,20 +35,11 @@ impl Move {
     /// times in `[from, to)` (in `[from, to]` when it reached the end), a
     /// backward move the mirror of that.
     fn crosses(&self, at: f64) -> bool {
+        let end = self.reach == Reach::End;
         if self.forward {
-            self.from <= at
-                && if self.reached {
-                    at <= self.to
-                } else {
-                    at < self.to
-                }
+            self.from <= at && if end { at <= self.to } else { at < self.to }
         } else {
-            at <= self.from
-                && if self.reached {
-                    at >= self.to
-                } else {
-                    at > self.to
-                }
+            at <= self.from && if end { at >= self.to } else { at > self.to }
         }
     }
 }

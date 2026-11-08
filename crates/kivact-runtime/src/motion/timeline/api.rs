@@ -21,7 +21,7 @@ use super::super::animated::shift;
 use super::super::state::{Anim, LoopMotion, MotionState};
 use super::super::transition::Kind;
 use super::super::values::Animatable;
-use super::calls::{Move, Reps};
+use super::calls::{Move, Reach, Reps};
 use super::curve::{seg_value, spring_rest_ms};
 use super::plan::{Plan, TrackSlot, TrackState, build_plan, span_of};
 use super::segment::{SegmentDef, SegmentKind};
@@ -729,11 +729,12 @@ impl TimelineCell {
         let mirror = self.alternate.get() == PlayDirection::Alternate;
         let reps = Reps::new(self.duration(), self.repeat.get(), mirror);
         let forward = self.playback.get().direction == Direction::Forward;
+        let reach = if reached { Reach::End } else { Reach::Within };
         let mv = Move {
             from,
             to,
             forward,
-            reached,
+            reach,
         };
         let due = reps.crossed(&self.segments.borrow(), &mv);
         if !due.is_empty() {
