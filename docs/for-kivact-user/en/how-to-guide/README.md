@@ -27,6 +27,7 @@ to Kivact.
 | [Validate a form before saving](forms.md) | Drafts, validation, `field` errors, every input type and submit on Enter |
 | [Show lists, selectable lists and tables](lists-and-tables.md) | `for_each`, `for_index`, `virtual_list`, `list` and `data_table`, and writing back from a row |
 | [Show a dialog, menu, tooltip or toast](overlays.md) | Modal dialogs, popovers, menus, context menus, tooltips and notifications |
+| [Open multiple windows](windows.md) | A second OS window: opening and closing it, modes and placement, contexts, focus and testing |
 | [Compose content lists, trees and static tables](collections.md) | Nonselectable items, hierarchy, markers and table semantics |
 | [Add navigation](navigation.md) | Breadcrumbs, page controls, steps and navigation menus |
 | [Choose keyed suggestions](keyed-suggestions.md) | Combobox search, selected keys and touch presentation |

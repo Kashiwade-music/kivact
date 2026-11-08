@@ -89,7 +89,7 @@ fn floating_window_drags_collapses_and_restores_opener_focus() {
             (),
             column((
                 kivact::ui::button("Another opener").variant(kivact::ui::ButtonVariant::Secondary),
-                ui::window_button("Render Settings", ui::WindowOptions::default(), |_| {
+                ui::tool_window_button("Render Settings", ui::ToolWindowOptions::default(), |_| {
                     column((
                         text("Retained settings"),
                         kivact::ui::text_input("Window text", signal(String::new()))

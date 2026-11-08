@@ -9,7 +9,6 @@ use kivact::state::Callback;
 use kivact::state::IntoText;
 use kivact::state::IntoValue;
 use kivact::state::Value;
-use kivact::state::signal;
 use kivact::style::Align;
 use kivact::style::Cursor;
 use kivact::style::Direction;
@@ -246,12 +245,15 @@ fn thumbnail_media(
                 .color(p.colors.icon_secondary)
         }));
     if let Some(source) = source {
-        let failed = signal(false);
+        let photo_ref = node_ref();
+        let status = photo_ref.image_status();
+        let failed = move || status.get() == kivact::view::ImageStatus::Failed;
         let mut photo = image(source)
             .fit(ImageFit::Cover)
+            .node_ref(photo_ref)
             .style(fill())
             .hidden(failed)
-            .on_image_error(move |_| failed.set(true));
+            .on_image_error(|_| ());
         if let Some(alt) = alt {
             photo = photo.name(alt);
         }

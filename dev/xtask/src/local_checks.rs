@@ -56,6 +56,7 @@ pub(crate) fn check(root: &Path, policy: &Path, options: &Options) -> Result<Vec
                 &builders,
                 &enums,
                 &surface,
+                options.report,
                 &mut errors,
             );
         }
@@ -75,6 +76,7 @@ fn validate_policy(policy: &toml::Table) -> Result<(), String> {
                 if !matches!(
                     key.as_str(),
                     "role_suffixes"
+                        | "named_helpers"
                         | "record_types"
                         | "value_modules"
                         | "allowed_files"
@@ -132,6 +134,10 @@ fn model_types(
     (builders, enums)
 }
 
+#[allow(
+    clippy::too_many_arguments,
+    reason = "one shared dispatcher passes the policy, model sets and report flag to every rule"
+)]
 fn run_rule(
     rule: &str,
     source: &crate::check_source::Source,
@@ -139,11 +145,12 @@ fn run_rule(
     builders: &BTreeSet<String>,
     enums: &BTreeSet<String>,
     surface: &crate::public_surface::Surface,
+    report: bool,
     errors: &mut Vec<String>,
 ) {
     match rule {
         "state-fields" => {
-            crate::state_fields::check(source, settings, builders, enums, surface, errors)
+            crate::state_fields::check(source, settings, builders, enums, surface, report, errors)
         }
         "effect-writes" => crate::effect_writes::check(source, errors),
         "api-shape" => crate::api_shape::check(source, surface, errors),

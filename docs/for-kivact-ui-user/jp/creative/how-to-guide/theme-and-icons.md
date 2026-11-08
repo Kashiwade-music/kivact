@@ -151,7 +151,7 @@ fn main() -> kivact::Result<()> {
 }
 ```
 
-名前は、キットの部品の引数にも現れます。`DockTab::icon("palette")`、`TreeItem::new(.., "box")`、`PickerItem::icon(..)`、`PieEntry`、`WindowOptions::icon(..)` などです。どれも、画像のような `kivact::style::Icon` も受け取るので、登録せずに画像を直接渡すこともできます。求めた名前がないテーマでは、何も描かず、診断を報告します。テーマを切り替えるときは、キットのテーマを保つか、その名前を追加してください。
+名前は、キットの部品の引数にも現れます。`DockTab::icon("palette")`、`TreeItem::new(.., "box")`、`PickerItem::icon(..)`、`PieEntry`、`ToolWindowOptions::icon(..)` などです。どれも、画像のような `kivact::style::Icon` も受け取るので、登録せずに画像を直接渡すこともできます。求めた名前がないテーマでは、何も描かず、診断を報告します。テーマを切り替えるときは、キットのテーマを保つか、その名前を追加してください。
 
 `ui::KeyGlyph`（`Diamond`・`Square`・`Circle`・`HalfDiamond`）は、キーフレームの印の形です。`Keyframe::glyph(..)` でキーごとに設定します。`ui::LabelTone`（`Normal`・`Muted`・`Accent`・`Warning`・`Error`・`Custom(color)`）は、テーマに追従する文字色の名前で、`TreeItem::tone(..)` が使います。
 

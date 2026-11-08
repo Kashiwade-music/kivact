@@ -28,11 +28,13 @@ use kivact::interaction::MenuEntry;
 use kivact::state::Binding;
 use kivact::state::IntoText;
 use kivact::state::IntoValue;
-use kivact::state::Signal;
+use kivact::state::Machine;
+use kivact::state::MachineHandle;
+use kivact::state::Step;
 use kivact::state::Value;
 use kivact::state::effect_on;
+use kivact::state::machine;
 use kivact::state::memo;
-use kivact::state::signal;
 use kivact::state::try_use_context;
 use kivact::style::Align;
 use kivact::style::Color;
@@ -347,14 +349,38 @@ struct FocusMember {
     disabled: Value<bool>,
 }
 
-// xtask-allow(state-fields): One roving cursor fact plus actual read-only focus, selection and disabled projections; there is no second mutable lifecycle field.
+/// The keyboard tab stop inside the strip; it lasts only while focus stays inside.
+#[derive(Clone, Copy, PartialEq)]
+enum TabCursor {
+    /// The selected, or else the first enabled, member is the tab stop.
+    Resting,
+    /// An arrow, Home or End key moved the tab stop to this member.
+    At(usize),
+}
+enum CursorEvent {
+    /// A navigation key moved focus to this member.
+    Move(usize),
+    /// Keyboard focus is now inside (`true`) or outside (`false`) the strip.
+    Within(bool),
+}
+struct TabRoving;
+impl Machine for TabRoving {
+    type State = TabCursor;
+    type Event = CursorEvent;
+    type Effect = ();
+    fn transition(&self, _: &TabCursor, event: CursorEvent) -> Step<TabCursor, CursorEvent, ()> {
+        match event {
+            CursorEvent::Move(index) => Step::to(TabCursor::At(index)),
+            CursorEvent::Within(true) => Step::stay(),
+            CursorEvent::Within(false) => Step::to(TabCursor::Resting),
+        }
+    }
+}
+
 #[derive(Clone)]
 struct FocusTrack {
-    // xtask-allow(state-fields): Mounted NodeRef registry with actual read-only selection and disabled projections.
     members: Rc<[FocusMember]>,
-    // xtask-allow(state-fields): Actual NodeRef focus-within projection, not an independently writable lifecycle fact.
-    focused_within: Value<bool>,
-    roving: Signal<Option<usize>>,
+    cursor: MachineHandle<TabRoving>,
 }
 
 impl FocusTrack {
@@ -362,10 +388,10 @@ impl FocusTrack {
         if self.members[index].disabled.get() {
             return false;
         }
-        let preferred = self
-            .roving
-            .get()
-            .filter(|index| self.focused_within.get() && !self.members[*index].disabled.get());
+        let preferred = match self.cursor.get() {
+            TabCursor::At(roved) if !self.members[roved].disabled.get() => Some(roved),
+            TabCursor::At(_) | TabCursor::Resting => None,
+        };
         preferred
             .or_else(|| {
                 self.members
@@ -414,7 +440,7 @@ impl FocusTrack {
                 .find(|i| !self.members[*i].disabled.get()),
         };
         if let Some(next) = next {
-            self.roving.set(Some(next));
+            self.cursor.send(CursorEvent::Move(next));
             self.members[next].reference.focus();
         }
         Handled::Yes
@@ -826,10 +852,11 @@ fn focus_track<K: ItemKey>(
             }
         })
         .collect::<Vec<_>>();
+    let cursor = machine(TabCursor::Resting, || TabRoving, |_, ()| {});
+    cursor.feed(strip_ref.focus_within(), CursorEvent::Within);
     FocusTrack {
         members: members.into(),
-        focused_within: strip_ref.focus_within(),
-        roving: signal(None),
+        cursor,
     }
 }
 

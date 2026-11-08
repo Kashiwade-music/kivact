@@ -14,7 +14,6 @@ use kivact::interaction::text_edit_policy;
 use kivact::state::Binding;
 use kivact::state::Machine;
 use kivact::state::MachineHandle;
-use kivact::state::Signal;
 use kivact::state::Step;
 use kivact::state::Value;
 use kivact::state::Var;
@@ -54,19 +53,15 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 #[derive(Clone, Copy)]
-struct Editor {
+pub(super) struct Editor {
     source: Binding<String>,
     document: Value<Document>,
     state: MachineHandle<BlockMachine>,
     references: Var<HashMap<usize, NodeRef>>,
 }
 
-pub(super) fn edit_blocks(
-    label: Value<String>,
-    source: Binding<String>,
-    target: Signal<Option<NodeRef>>,
-    composing: Signal<bool>,
-) -> Node {
+/// Create the block-editing owner once per editor; it outlives switches to Write and Preview.
+pub(super) fn block_editor(source: Binding<String>) -> Editor {
     let references = var(HashMap::<usize, NodeRef>::new());
     let state = machine(
         BlockSnapshot {
@@ -77,31 +72,25 @@ pub(super) fn edit_blocks(
             source: source.get_untracked(),
             references: references.with(Clone::clone),
         },
-        move |_, snapshot| {
-            let markdown = snapshot.document.markdown();
+        move |_, markdown: String| {
             if source.get_untracked() != markdown {
                 source.set(markdown);
             }
-            let (next_target, next_composing) = match snapshot.phase {
-                BlockEditPhase::Focused {
-                    target,
-                    composition,
-                    ..
-                } => (Some(target), composition == BlockComposition::Composing),
-                BlockEditPhase::Idle | BlockEditPhase::AwaitingMount { .. } => (None, false),
-            };
-            target.set(next_target);
-            composing.set(next_composing);
         },
     );
     state.feed(move || source.get(), |_| BlockEvent::Source);
     let document = memo(move || state.get().document);
-    let editor = Editor {
+    Editor {
         source,
         document,
         state,
         references,
-    };
+    }
+}
+
+/// Render the editable blocks of an existing block-editing owner.
+pub(super) fn edit_blocks(label: Value<String>, editor: Editor) -> Node {
+    let document = editor.document;
     let blocks = for_each(
         move || document.with(|doc| doc.blocks.clone()),
         |block| block.id,
@@ -124,6 +113,21 @@ enum Command {
 }
 
 impl Editor {
+    /// The block field the toolbar formats, read from this owner's phase.
+    pub(super) fn target(self) -> crate::rich_text::EditTarget {
+        match self.state.get().phase {
+            BlockEditPhase::Focused {
+                target,
+                composition: BlockComposition::Composing,
+                ..
+            } => crate::rich_text::EditTarget::Composing(target),
+            BlockEditPhase::Focused { target, .. } => crate::rich_text::EditTarget::Ready(target),
+            BlockEditPhase::Idle | BlockEditPhase::AwaitingMount { .. } => {
+                crate::rich_text::EditTarget::Detached
+            }
+        }
+    }
+
     fn whole(self) -> bool {
         matches!(
             self.state.get().phase,
@@ -558,12 +562,12 @@ struct BlockMachine {
 impl Machine for BlockMachine {
     type State = BlockSnapshot;
     type Event = BlockEvent;
-    type Effect = BlockSnapshot;
+    type Effect = String;
     fn transition(
         &self,
         state: &BlockSnapshot,
         event: BlockEvent,
-    ) -> Step<BlockSnapshot, BlockEvent, BlockSnapshot> {
+    ) -> Step<BlockSnapshot, BlockEvent, String> {
         let mut next = state.clone();
         match event {
             BlockEvent::Source => {
@@ -641,6 +645,7 @@ impl Machine for BlockMachine {
                 }
             }
         }
-        Step::to(next.clone()).with(next)
+        let markdown = next.document.markdown();
+        Step::to(next).with(markdown)
     }
 }

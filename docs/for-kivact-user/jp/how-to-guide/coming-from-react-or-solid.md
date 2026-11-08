@@ -69,6 +69,7 @@ mod tests {
 | 再描画を起こさない可変の値 | `useRef` | 通常の変数 | `var(value)` |
 | 要素の参照 | DOM ノードへの `useRef` | `ref` | `node_ref()` と `.node_ref(r)`。`r.focus()` |
 | context | `createContext`、`useContext` | `createContext`、`useContext` | `provide(value, \|\| child)` と `use_context::<T>()` |
+| Portal | `createPortal(child, el)`。新しいウィンドウは `window.open` と portal | `<Portal>` | 同じウィンドウの中は `overlay(..)`、OS のウィンドウは `window(title, open)` |
 | 条件 | `cond && <A/>` | `<Show when>` | `show(cond, \|\| a)`、`show_some(option, \|v\| a)` |
 | 複数の分岐 | 三項演算子や `switch` | `<Switch>` | `dynamic(source, \|v\| match v { .. })` |
 | 一覧 | `key` 付きの `items.map(..)` | `<For>` | `for_each(items, \|item\| item.id, \|key, item\| view)` |
@@ -434,7 +435,7 @@ fn count_slider(count: Signal<i32>) -> impl IntoView {
 
 ### 7. prelude の名前を変数で隠さない
 
-Rust は名前に最も近い束縛を使います。`let text = signal(String::new())` の後では、`text("Hello")` はそのシグナルを呼び出そうとし、E0618（expected function）になります。変数には `label`、`rows`、`choices`、`name_field`、`save_action` のようにデータを表す名前を付け、`text`、`row`、`list`、`field`、`message` は prelude の関数として使えるように残します。行の callback の引数も `row` ではなく `item`、`todo` など、データの意味で名付けます。import した `Action` のような型も同じで、別の item に同じ名前を使わないようにします。名前を残す必要があるときは、`kivact::view::text("Hello")`、`kivact::ui::field("Name", input)`、`kivact::task::Action` のように path を付けて書きます。
+Rust は名前に最も近い束縛を使います。`let text = signal(String::new())` の後では、`text("Hello")` はそのシグナルを呼び出そうとし、E0618（expected function）になります。変数には `label`、`rows`、`choices`、`name_field`、`save_action` のようにデータを表す名前を付け、`text`、`row`、`list`、`field`、`message`、`window` は prelude の関数として使えるように残します。`window` は `let window = …` のようにローカル変数の名前としてよくあるので、`settings_window` のように呼びます。行の callback の引数も `row` ではなく `item`、`todo` など、データの意味で名付けます。import した `Action` のような型も同じで、別の item に同じ名前を使わないようにします。名前を残す必要があるときは、`kivact::view::text("Hello")`、`kivact::ui::field("Name", input)`、`kivact::task::Action` のように path を付けて書きます。
 
 ```rust,no_run
 use kivact::prelude::*;

@@ -2,6 +2,7 @@
 
 use super::geometry::DropTarget;
 use super::model::{DockLayout, DockTabs};
+use kivact::custom::Generation;
 use kivact::geometry::Rect;
 use kivact::interaction::InlineEditApi;
 use kivact::state::{Binding, Callback, Signal, Value, Var};
@@ -18,13 +19,13 @@ pub(super) struct TabDrag<K> {
     pub(super) target: Option<DropTarget<K>>,
 }
 
-/// Registered tab rectangles with the token of their registering row.
-pub(super) type TabRects<K> = RefCell<HashMap<K, (u64, Value<Option<Rect>>)>>;
+/// Registered tab rectangles with the generation of their registering row.
+pub(super) type TabRects<K> = RefCell<HashMap<K, (Generation, Value<Option<Rect>>)>>;
 
-// xtask-allow(state-fields): Retained row-rectangle registry and immutable callbacks/texts; the counter is only a registration generation, not interaction phase.
+// xtask-allow(state-fields): Retained row-rectangle registry keyed by a named Generation token, and immutable callbacks/texts; no interaction phase.
 pub(super) struct Shared<K: kivact::state::ItemKey> {
     pub(super) rects: TabRects<K>,
-    pub(super) next_rect: Cell<u64>,
+    pub(super) next_rect: Cell<Generation>,
     pub(super) menu: MenuBuilder<K>,
     pub(super) on_close: Option<Callback<K>>,
     pub(super) texts: Texts,

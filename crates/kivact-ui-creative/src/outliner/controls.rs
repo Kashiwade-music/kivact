@@ -2,6 +2,7 @@
 
 use crate::editors::shared::model::EditorEvent;
 use crate::outliner_data::{Restriction, RestrictionFlag, TreeItem};
+use kivact::custom::Generation;
 use kivact::geometry::Rect;
 use kivact::i18n::message;
 use kivact::interaction::EditSession;
@@ -20,7 +21,7 @@ use std::rc::Rc;
 pub(super) struct Mounted {
     pub node: NodeRef,
     pub rect: Value<Option<Rect>>,
-    pub generation: u64,
+    pub generation: Generation,
 }
 pub(super) type Rows = Rc<RefCell<HashMap<u64, Mounted>>>;
 

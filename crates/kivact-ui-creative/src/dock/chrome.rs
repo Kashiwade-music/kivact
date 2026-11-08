@@ -518,13 +518,12 @@ fn tab_drag<K: kivact::state::ItemKey>(
     renaming: impl Fn() -> bool + Copy + 'static,
 ) -> kivact::interaction::DragApi<()> {
     use_drag::<()>(DragCoordinates::Window)
+        // The drag (and its pointer capture) starts once the pointer has
+        // moved past the threshold; DragApi's Pending state owns that.
+        .slop(DRAG_THRESHOLD)
         .disabled(renaming)
         .on_update(move |update: DragUpdate<()>| {
             let id = key.get();
-            let started = cx.drag.with(Option::is_some);
-            if !started && update.delta.x.hypot(update.delta.y) < DRAG_THRESHOLD {
-                return;
-            }
             let target = cx.root.get().and_then(|root| {
                 cx.current.with(|layout| {
                     drop_target(layout, root, update.pos, &id, |tab| cx.tab_rect(tab))

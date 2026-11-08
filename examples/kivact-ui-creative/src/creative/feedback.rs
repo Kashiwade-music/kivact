@@ -59,8 +59,8 @@ pub(super) fn dialogs(status: Signal<String>) -> impl IntoView {
     ))
 }
 
-fn window_options(title: &str, width: f64) -> ui::WindowOptions {
-    ui::WindowOptions::default()
+fn window_options(title: &str, width: f64) -> ui::ToolWindowOptions {
+    ui::ToolWindowOptions::default()
         .title(title)
         .width(width)
         .frame_padding(0.0)
@@ -84,7 +84,7 @@ fn window_footer(content: impl IntoView) -> impl kivact::view::Component {
 }
 
 fn render_settings(status: Signal<String>) -> impl kivact::view::Component {
-    ui::window_button(
+    ui::tool_window_button(
         "Render Settings…",
         window_options("Render Settings", 340.0)
             .icon("settings")
@@ -144,7 +144,7 @@ fn render_settings(status: Signal<String>) -> impl kivact::view::Component {
 }
 
 fn close_project(status: Signal<String>) -> impl kivact::view::Component {
-    ui::window_button(
+    ui::tool_window_button(
         "Close Project…",
         window_options("Close Project", 440.0).modal(true).backdrop_blur(6.0),
         move |close| {

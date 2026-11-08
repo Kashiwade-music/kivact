@@ -60,35 +60,33 @@ struct MobileContext {
     drawer: NodeRef,
     auto_toggle: bool,
 }
-#[derive(Clone, PartialEq)]
+#[derive(Clone, Copy, PartialEq)]
 enum AppShellMobileState {
     Desktop,
-    Mobile { nav: MobileNavState },
+    Mobile,
 }
-#[derive(Clone, PartialEq)]
-enum MobileNavState {
-    Closed,
-    Open,
-}
-enum MobileMachine {
-    Desktop { nav: MobileNavState },
-    Mobile { nav: MobileNavState },
+/// Readonly snapshot read for each viewport-width event.
+struct MobileMachine {
+    /// Whether the drawer binding is open when the width event arrives.
+    open: bool,
 }
 impl Machine for MobileMachine {
     type State = AppShellMobileState;
-    type Event = ();
+    /// Whether the viewport is below the mobile breakpoint.
+    type Event = bool;
+    /// Close the drawer binding.
     type Effect = ();
-    fn transition(&self, _: &AppShellMobileState, (): ()) -> Step<AppShellMobileState, (), ()> {
-        match self {
-            Self::Mobile { nav } => Step::to(AppShellMobileState::Mobile { nav: nav.clone() }),
-            Self::Desktop { nav } => {
-                let step = Step::to(AppShellMobileState::Desktop);
-                if *nav == MobileNavState::Open {
-                    step.with(())
-                } else {
-                    step
-                }
+    fn transition(
+        &self,
+        state: &AppShellMobileState,
+        below: bool,
+    ) -> Step<AppShellMobileState, bool, ()> {
+        match (state, below) {
+            (_, true) => Step::to(AppShellMobileState::Mobile),
+            (AppShellMobileState::Mobile, false) if self.open => {
+                Step::to(AppShellMobileState::Desktop).with(())
             }
+            (_, false) => Step::to(AppShellMobileState::Desktop),
         }
     }
 }
@@ -107,27 +105,19 @@ impl AppShellMobile {
         let Some(open) = open else {
             return Self::default();
         };
+        let initial = if mobile.is_some_and(|mobile| mobile.get_untracked()) {
+            AppShellMobileState::Mobile
+        } else {
+            AppShellMobileState::Desktop
+        };
         let state = machine(
-            AppShellMobileState::Desktop,
-            move || {
-                let nav = if open.get() {
-                    MobileNavState::Open
-                } else {
-                    MobileNavState::Closed
-                };
-                if mobile.is_some_and(|mobile| mobile.get()) {
-                    MobileMachine::Mobile { nav }
-                } else {
-                    MobileMachine::Desktop { nav }
-                }
-            },
+            initial,
+            move || MobileMachine { open: open.get() },
             move |_, ()| open.set(false),
         );
-        state.feed(
-            move || (mobile.is_some_and(|mobile| mobile.get()), open.get()),
-            |_| (),
-        );
-        state.send(());
+        if let Some(mobile) = mobile {
+            state.feed(mobile, |below| below);
+        }
         Self {
             context: Some(MobileContext {
                 state,
@@ -140,19 +130,13 @@ impl AppShellMobile {
     }
     /// Return whether the configured shell currently uses its mobile layout.
     pub fn is_mobile(self) -> bool {
-        self.context.is_some_and(|context| {
-            matches!(context.state.get(), AppShellMobileState::Mobile { .. })
-        })
+        self.context
+            .is_some_and(|context| context.state.get() == AppShellMobileState::Mobile)
     }
     /// Return whether the mobile-layout drawer is currently open.
     pub fn is_open(self) -> bool {
         self.context.is_some_and(|context| {
-            matches!(
-                context.state.get(),
-                AppShellMobileState::Mobile {
-                    nav: MobileNavState::Open
-                }
-            )
+            context.state.get() == AppShellMobileState::Mobile && context.open.get()
         })
     }
     /// Return whether an app shell provided mobile navigation controls.
@@ -167,9 +151,11 @@ impl AppShellMobile {
     pub fn drawer_ref(self) -> Option<NodeRef> {
         self.context.map(|context| context.drawer)
     }
-    /// Request that the configured drawer open; do nothing outside a shell.
+    /// Request that the configured drawer open; do nothing outside a shell or in the desktop layout.
     pub fn open(self) {
-        if let Some(context) = self.context {
+        if let Some(context) = self.context
+            && self.is_mobile()
+        {
             context.open.set(true);
         }
     }
@@ -179,9 +165,11 @@ impl AppShellMobile {
             context.open.set(false);
         }
     }
-    /// Invert the configured drawer's open binding; do nothing outside a shell.
+    /// Invert the configured drawer's open binding; do nothing outside a shell or in the desktop layout.
     pub fn toggle(self) {
-        if let Some(context) = self.context {
+        if let Some(context) = self.context
+            && self.is_mobile()
+        {
             context.open.set(!context.open.get());
         }
     }

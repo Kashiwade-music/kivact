@@ -1,1 +1,56 @@
-//! Role: Wire vocabulary of the Kivact DevTools: JSON-RPC methods, notifications and values.
+//! Role: Wire vocabulary of the Kivact DevTools: methods, notifications and values.
+
+mod a11y;
+mod app;
+mod call;
+pub mod code;
+mod common;
+mod config;
+mod console;
+mod discovery;
+mod emulation;
+mod input;
+mod layout;
+mod motion;
+mod node;
+mod notify;
+mod overlay;
+mod perf;
+mod query;
+mod review;
+mod review_markdown;
+mod rpc;
+mod scripts;
+mod style;
+mod tasks;
+mod time;
+mod trace;
+mod tree;
+mod updates;
+
+pub use a11y::*;
+pub use app::*;
+pub use call::*;
+pub use common::*;
+pub use config::*;
+pub use console::*;
+pub use discovery::*;
+pub use emulation::*;
+pub use input::*;
+pub use layout::*;
+pub use motion::*;
+pub use node::*;
+pub use notify::*;
+pub use overlay::*;
+pub use perf::*;
+pub use query::*;
+pub use review::*;
+pub use review_markdown::*;
+pub use rpc::*;
+pub use scripts::*;
+pub use style::*;
+pub use tasks::*;
+pub use time::*;
+pub use trace::*;
+pub use tree::*;
+pub use updates::*;

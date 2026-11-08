@@ -6,6 +6,7 @@
 //! package selectors include declared and autodiscovered binary roots.
 
 use quote::ToTokens;
+use std::cell::RefCell;
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 use syn::spanned::Spanned;
@@ -21,6 +22,10 @@ pub(crate) struct Source {
     pub(crate) text: String,
     pub(crate) items: Vec<syn::Item>,
     pub(crate) attrs: Vec<syn::Attribute>,
+    start_line: usize,
+    end_line: usize,
+    excluded: Vec<(usize, usize)>,
+    used_allows: RefCell<BTreeSet<usize>>,
 }
 
 impl Source {
@@ -39,7 +44,7 @@ impl Source {
             self.module
         )
     }
-    pub(crate) fn allows(&self, rule: &str, span: proc_macro2::Span) -> bool {
+    fn marker_before(&self, rule: &str, span: proc_macro2::Span) -> Option<(usize, bool)> {
         let lines: Vec<_> = self.text.lines().collect();
         let mut index = span.start().line.saturating_sub(1);
         while index > 0 {
@@ -47,7 +52,7 @@ impl Source {
             let line = lines.get(index).copied().unwrap_or("").trim();
             let marker = format!("// xtask-allow({rule}):");
             if let Some(reason) = line.strip_prefix(&marker) {
-                return !reason.trim().is_empty();
+                return Some((index + 1, !reason.trim().is_empty()));
             }
             if !((line.starts_with("#[") && line.ends_with(']'))
                 || line.starts_with("///")
@@ -56,7 +61,35 @@ impl Source {
                 break;
             }
         }
-        false
+        None
+    }
+    pub(crate) fn allows(&self, rule: &str, span: proc_macro2::Span) -> bool {
+        self.allow_line(rule, span).is_some()
+    }
+    /// The line of the explained marker directly before `span`, without recording its use.
+    pub(crate) fn allow_line(&self, rule: &str, span: proc_macro2::Span) -> Option<usize> {
+        self.marker_before(rule, span)
+            .and_then(|(line, explained)| explained.then_some(line))
+    }
+    /// The line of the marker directly before `span`, even when its reason is empty.
+    pub(crate) fn marker_line(&self, rule: &str, span: proc_macro2::Span) -> Option<usize> {
+        self.marker_before(rule, span).map(|(line, _)| line)
+    }
+    /// Record that the marker on `line` explained a counted field or static.
+    pub(crate) fn use_allow(&self, line: usize) {
+        self.used_allows.borrow_mut().insert(line);
+    }
+    pub(crate) fn used_allows(&self) -> BTreeSet<usize> {
+        self.used_allows.borrow().clone()
+    }
+    /// Whether `line` belongs to this module rather than an inline child or another module.
+    pub(crate) fn owns_line(&self, line: usize) -> bool {
+        self.start_line <= line
+            && line <= self.end_line
+            && !self
+                .excluded
+                .iter()
+                .any(|(start, end)| *start <= line && line <= *end)
     }
     pub(crate) fn internal_contract(
         &self,
@@ -84,6 +117,31 @@ impl Source {
         if !self.allows(rule, span) && !item_allowed {
             errors.push(format!("{rule}: {}: {detail}", self.location(span)));
         }
+    }
+    /// Push an error without consulting any marker.
+    pub(crate) fn error_at(
+        &self,
+        rule: &str,
+        span: proc_macro2::Span,
+        detail: &str,
+        errors: &mut Vec<String>,
+    ) {
+        errors.push(format!("{rule}: {}: {detail}", self.location(span)));
+    }
+    /// Push an error at a source line that has no parsed span, such as a comment.
+    pub(crate) fn error_at_line(
+        &self,
+        rule: &str,
+        line: usize,
+        detail: &str,
+        errors: &mut Vec<String>,
+    ) {
+        errors.push(format!(
+            "{rule}: {}:{line} ({}::{}): {detail}",
+            self.path.display(),
+            self.package,
+            self.module
+        ));
     }
 }
 
@@ -246,6 +304,8 @@ fn walk_file(
         &directory,
         parent,
         public,
+        1,
+        text.lines().count(),
         seen,
         sources,
     )?;
@@ -253,6 +313,21 @@ fn walk_file(
         source.attrs = parsed.attrs;
     }
     Ok(())
+}
+
+fn inline_module_extents(items: &[syn::Item]) -> Vec<(usize, usize)> {
+    items
+        .iter()
+        .filter_map(|item| {
+            let syn::Item::Mod(child) = item else {
+                return None;
+            };
+            child.content.as_ref().map(|_| {
+                let span = child.span();
+                (span.start().line, span.end().line)
+            })
+        })
+        .collect()
 }
 
 #[allow(
@@ -268,9 +343,12 @@ fn walk_items(
     directory: &Path,
     attribute_directory: &Path,
     public: bool,
+    start_line: usize,
+    end_line: usize,
     seen: &mut BTreeSet<(PathBuf, String)>,
     sources: &mut Vec<Source>,
 ) -> Result<(), String> {
+    let excluded = inline_module_extents(&items);
     for item in &items {
         let syn::Item::Mod(child) = item else {
             continue;
@@ -282,6 +360,7 @@ fn walk_items(
         };
         let child_public = public && matches!(child.vis, syn::Visibility::Public(_));
         if let Some((_, content)) = &child.content {
+            let span = child.span();
             walk_items(
                 package,
                 &name,
@@ -291,6 +370,8 @@ fn walk_items(
                 &directory.join(child.ident.to_string()),
                 &directory.join(child.ident.to_string()),
                 child_public,
+                span.start().line,
+                span.end().line,
                 seen,
                 sources,
             )?;
@@ -333,6 +414,10 @@ fn walk_items(
         text: text.to_owned(),
         items,
         attrs: Vec::new(),
+        start_line,
+        end_line,
+        excluded,
+        used_allows: RefCell::new(BTreeSet::new()),
     });
     Ok(())
 }
@@ -354,6 +439,7 @@ pub(crate) fn type_names(ty: &syn::Type) -> BTreeSet<String> {
 #[cfg(test)]
 // An official kit identity keeps kit-only rules active in checker fixtures.
 pub(crate) fn fixture(text: &str) -> Source {
+    let parsed = syn::parse_file(text).unwrap();
     Source {
         package: "kivact-ui-soft".into(),
         target: None,
@@ -361,8 +447,12 @@ pub(crate) fn fixture(text: &str) -> Source {
         module: "widgets".into(),
         path: "crates/kivact-ui-soft/src/widgets.rs".into(),
         text: text.into(),
-        items: syn::parse_file(text).unwrap().items,
-        attrs: syn::parse_file(text).unwrap().attrs,
+        excluded: inline_module_extents(&parsed.items),
+        items: parsed.items,
+        attrs: parsed.attrs,
+        start_line: 1,
+        end_line: text.lines().count(),
+        used_allows: RefCell::new(BTreeSet::new()),
     }
 }
 

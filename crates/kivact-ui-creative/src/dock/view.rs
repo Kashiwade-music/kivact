@@ -154,7 +154,7 @@ impl<K: kivact::state::ItemKey> IntoView for Dock<K> {
             root: reference.rect(),
             shared: var(Rc::new(Shared {
                 rects: RefCell::new(HashMap::new()),
-                next_rect: Cell::new(0),
+                next_rect: Cell::new(kivact::custom::Generation::new()),
                 menu,
                 on_close,
                 texts: Texts::new(),

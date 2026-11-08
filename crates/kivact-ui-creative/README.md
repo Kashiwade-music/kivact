@@ -61,7 +61,7 @@ inherited text color. The kit's theme has `click`, `adjustments-horizontal`,
 `record`, `redo`, `repeat`, `rotate`, `scale`, `scissors`, `search`,
 `settings`, `sidebar`, `start`, `step-back`, `step-forward`, `stop`, `trash`,
 `undo`, `volume`, `warning` and `wave`. The kit's components (`DockTab::icon`, `TreeItem`, `PieEntry`, `PickerItem::icon`,
-`WindowOptions::icon`) take such a name or any `kivact::style::Icon`, so they
+`ToolWindowOptions::icon`) take such a name or any `kivact::style::Icon`, so they
 draw under the kit's theme; another theme draws a name it lacks as nothing
 and reports it. An application adds its own images to the theme's set under a
 name, or passes an image:
@@ -203,11 +203,11 @@ dialog: they are the core `dialog` parts (`DialogKind::Popover` and
 `DialogKind::Modal`) drawn in Creative's look, named like the button, with the
 title as a heading, a Close button under the content, and Escape, outside
 press and assistive technology's Dismiss closing them.
-`window_button(label, options, content)` provides a draggable, collapsible
+`tool_window_button(label, options, content)` provides a draggable, collapsible
 window whose title remains recoverable inside the viewport. Escape and Close
 restore its opener focus; outside dismissal preserves the newly focused
-control. `WindowOptions` sets a separate title, width, center or top-right
-placement, modal containment and chrome spacing (`WindowOptions::default()` is
+control. `ToolWindowOptions` sets a separate title, width, center or top-right
+placement, modal containment and chrome spacing (`ToolWindowOptions::default()` is
 a 520-pixel nonmodal centered window). Its content factory receives a
 `ToolWindowApi` whose `close()` closes the window and restores opener focus. Collapsing retains edited content; reopening mounts
 the factory again. Modal backdrop presses keep the confirmation open,
@@ -218,15 +218,15 @@ use kivact::prelude::*;
 use kivact_ui_creative as ui;
 
 fn tool_window() -> impl IntoView {
-    ui::window_button("Settings…",
-        ui::WindowOptions::default().title("Settings").width(340.0)
+    ui::tool_window_button("Settings…",
+        ui::ToolWindowOptions::default().title("Settings").width(340.0)
             .position(ui::WindowPosition::TopRight { right: 40.0, top: 120.0 }),
         |window: ui::ToolWindowApi| kivact::ui::button("Apply").on_press(move || window.close()))
 }
 ```
 
-`window(anchor, open, options).content(content)` is the same window that the
-application opens and closes through a `Binding<bool>`; `window_button` is
+`tool_window(anchor, open, options).content(content)` is the same window that the
+application opens and closes through a `Binding<bool>`; `tool_window_button` is
 a button and a state of its own on top of it. Every way to close it (the close
 button, Escape, Dismiss, `ToolWindowApi::close`, an outside press on a
 nonmodal window, unmounting) writes `false`. A nonmodal window gives the focus
@@ -290,7 +290,7 @@ press on an end or on the movable interval drags it, and the keys edit what
 was pressed, selected or moved last. Context menus are
 `kivact::ui::menu(label, entries, choose).attach_context(target)`.
 
-`arrangement(clips, tracks, state).length(beats)` defaults to 16 beats. `split_button(label, primary, entries).on_select(choose)` keeps the primary action required. `window(anchor, open, options).content(factory)` rebuilds content on opening and defaults to empty content. Document-tab close/reorder callbacks default to no action. Mixer inserts/routes and pie-menu entries accept reactive read-only lists. Segmented radio groups use the standard item slot.
+`arrangement(clips, tracks, state).length(beats)` defaults to 16 beats. `split_button(label, primary, entries).on_select(choose)` keeps the primary action required. `tool_window(anchor, open, options).content(factory)` rebuilds content on opening and defaults to empty content. Document-tab close/reorder callbacks default to no action. Mixer inserts/routes and pie-menu entries accept reactive read-only lists. Segmented radio groups use the standard item slot.
 
 ## Migrating from the previous release
 
@@ -313,7 +313,7 @@ names and their replacements:
 | `theme(mode).accent(a).density(d)` (`ThemeOptions` trait) | `creative::theme_with(mode, creative::ThemeOptions { accent, density })` (`ThemeOptions` is a struct) |
 | `kivact::interaction::Toaster` | `kivact::interaction::ToasterApi`, the handle `toaster()` returns |
 | `ToolWindow` (the handle given to content) | `creative::ToolWindowApi` (`.close()`) |
-| `ToolWindowBuilder` (returned by `window(..)`) | `creative::ToolWindow` (`window(anchor, open, options).content(\|w: ToolWindowApi\| ..)`) |
+| `ToolWindowBuilder` (returned by `tool_window(..)`) | `creative::ToolWindow` (`tool_window(anchor, open, options).content(\|w: ToolWindowApi\| ..)`) |
 | `viewport_surface(image)`, `ViewportSurface` | `kivact::view::viewport(pixels)` (takes `Pixels`, not `Option<Pixels>`), with `.fit(..)`, `.pixelated(..)` and `.on_resize(..)`; `.transform(binding)` -> `.transform(kivact::interaction::use_zoom_pan(binding))`; `.on_edit(..)` -> `use_zoom_pan(..).on_edit(..)`; `.overlay(..)` -> `.with_node(\|n\| n.draw_over(..))` with `zoom.to_view(..)` |
 
 The theme fills these `UiRecipes` entries:

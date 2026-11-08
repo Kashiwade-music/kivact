@@ -249,14 +249,12 @@ impl IntoView for AppShell {
             mobile,
         } = self;
         kivact::view::component(move || {
-            let (mobile, config, custom, auto_toggle, enabled) =
+            let (mobile, config, custom) =
                 configure_mobile(mobile, top.is_some() || side.is_some());
             let presentation = ShellPresentation {
                 mobile,
                 height,
                 variant,
-                auto_toggle,
-                enabled,
                 has_top: top.is_some(),
                 has_side: side.is_some(),
                 has_banner: banner.is_some(),
@@ -334,10 +332,6 @@ struct ShellPresentation {
     mobile: AppShellMobile,
     height: Value<ShellHeight>,
     variant: Value<ShellVariant>,
-    // xtask-allow(state-fields): Readonly fact derived from the configured mobile navigation policy.
-    auto_toggle: bool,
-    // xtask-allow(state-fields): Readonly construction fact indicating configured navigation content.
-    enabled: bool,
     // xtask-allow(state-fields): Readonly presence of the actual top-navigation slot.
     has_top: bool,
     // xtask-allow(state-fields): Readonly presence of the actual side-navigation slot.
@@ -348,7 +342,7 @@ struct ShellPresentation {
 fn configure_mobile(
     mobile: MobileNavMode,
     has_nav: bool,
-) -> (AppShellMobile, MobileNavConfig, Option<ViewFn>, bool, bool) {
+) -> (AppShellMobile, MobileNavConfig, Option<ViewFn>) {
     let configured = !matches!(mobile, MobileNavMode::Disabled);
     let automatic = matches!(mobile, MobileNavMode::Auto(_));
     let (config, custom) = match mobile {
@@ -380,7 +374,7 @@ fn configure_mobile(
     };
     let auto_toggle = automatic && config.has_toggle;
     let mobile = AppShellMobile::configured(mobile_width, open, auto_toggle);
-    (mobile, config, custom, auto_toggle, enabled)
+    (mobile, config, custom)
 }
 fn skip_link() -> (Node, kivact::view::NodeRef, Value<bool>) {
     let main_ref = node_ref();
@@ -479,8 +473,6 @@ impl ShellPresentation {
             variant,
             has_top,
             has_banner,
-            auto_toggle,
-            enabled,
             ..
         } = self;
         let desktop_top = top.clone();
@@ -493,14 +485,25 @@ impl ShellPresentation {
                 move || desktop_top.as_ref().map(|slot| slot.call(())),
             ),
             show(
-                move || mobile.is_mobile() && (has_top || auto_toggle && enabled),
-                move || mobile_bar(mobile_top.clone(), bar_side.clone(), auto_toggle),
+                move || {
+                    mobile.is_mobile()
+                        && (has_top || mobile.has_auto_toggle() && mobile.is_enabled())
+                },
+                move || {
+                    mobile_bar(
+                        mobile_top.clone(),
+                        bar_side.clone(),
+                        mobile.has_auto_toggle(),
+                    )
+                },
             ),
         ))
         .node_ref(header_ref)
         .style(move || {
             let t = kivact::style::use_tokens::<crate::Tokens>();
-            let visible = has_banner || has_top || (mobile.is_mobile() && auto_toggle && enabled);
+            let visible = has_banner
+                || has_top
+                || (mobile.is_mobile() && mobile.has_auto_toggle() && mobile.is_enabled());
             let mut base = style()
                 .shrink(0)
                 .background(shell_background(variant.get()));
@@ -639,11 +642,9 @@ impl ShellPresentation {
         top: Option<ViewFn>,
         side: Option<ViewFn>,
     ) -> impl IntoView {
-        let Self {
-            mobile, enabled, ..
-        } = self;
+        let Self { mobile, .. } = self;
         show(
-            move || enabled && mobile.is_mobile(),
+            move || mobile.is_enabled() && mobile.is_mobile(),
             move || {
                 if let Some(custom) = &custom {
                     return custom.call(());

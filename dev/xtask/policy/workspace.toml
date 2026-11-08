@@ -327,7 +327,6 @@ options_structs = [
     "arvane-virtual::VirtualOptions",
     "arvane::ShellSetup",
     "arvane-shell::ChildHooks",
-    "arvane-shell::ShellOptions",
     "kivact-test::RenderOptions",
     "kivact-engine::api::HostOptions",
     "kivact-engine::testing::TestHostOptions",
@@ -343,7 +342,7 @@ options_structs = [
     "kivact-types::env::PointerSettings",
     "kivact-types::platform::FileDialog",
     "kivact-ui-basic::ChartConfig",
-    "kivact-ui-creative::WindowOptions",
+    "kivact-ui-creative::ToolWindowOptions",
 ]
 
 
@@ -440,6 +439,7 @@ reason = "Glue: the binary entry only wires xtask-core's run to this workspace's
 [state_fields]
 role_suffixes = ["Options", "Event", "Phase", "Reason", "Input", "Report", "Tokens", "Recipes"]
 record_types = ["SemanticNode", "LayoutViolation", "ListItem", "MenuEntry", "Command", "TreeNode", "DataColumn", "ToastOptions", "CalendarOptions", "StepperItem"]
+named_helpers = ["Generation", "Sent", "ReportOnce", "ReportOnceSet", "Mailbox", "LocalMailbox", "Registry"]
 # Mobile input purposes and launch restoration snapshots remain passive transport values.
 value_modules = ["kivact-engine::contract", "kivact-types::semantics", "kivact-types::env", "kivact-types::scroll", "kivact-types::layout", "kivact-types::paint", "kivact-types::text", "kivact-types::scene", "kivact-types::render", "kivact-types::input", "kivact-types::platform", "kivact-types::embed", "kivact-types::check", "kivact-devtools-protocol", "kivact-types::window"]
 

@@ -368,3 +368,27 @@ fn assert_splitter_pointer_changes(screen: &Screen, probe: &Probe, splitter: &El
     screen.mouse_up(MouseButton::Primary);
     assert_eq!(probe.layout.get_untracked(), moved);
 }
+
+#[test]
+fn a_tab_press_that_stays_inside_the_threshold_neither_drags_nor_captures() {
+    let (screen, probe) = mount_dock();
+    let before = probe.layout.get_untracked();
+    let at = screen
+        .get_by_role(Role::Tab, "Text")
+        .rect()
+        .expect("laid out")
+        .center();
+    screen.mouse_move(at.x, at.y);
+    screen.mouse_down(MouseButton::Primary);
+    screen.mouse_move(at.x + 3.0, at.y);
+    screen.mouse_up(MouseButton::Primary);
+    assert_eq!(
+        probe.layout.get_untracked(),
+        before,
+        "no move inside the slop"
+    );
+    // Never captured: a later move past the threshold is an ordinary hover.
+    screen.mouse_move(at.x + 60.0, at.y);
+    assert_eq!(probe.layout.get_untracked(), before);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}

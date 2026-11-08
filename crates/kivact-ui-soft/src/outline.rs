@@ -228,13 +228,27 @@ enum OutlineFocus {
     Unset,
     At(String),
 }
+enum FocusEvent {
+    /// A navigation key moved focus to this heading link.
+    Move(String),
+    /// Keyboard focus is now inside (`true`) or outside (`false`) the list.
+    Within(bool),
+}
 struct FocusMachine;
 impl Machine for FocusMachine {
     type State = OutlineFocus;
-    type Event = String;
+    type Event = FocusEvent;
     type Effect = ();
-    fn transition(&self, _: &OutlineFocus, id: String) -> Step<OutlineFocus, String, ()> {
-        Step::to(OutlineFocus::At(id))
+    fn transition(
+        &self,
+        _: &OutlineFocus,
+        event: FocusEvent,
+    ) -> Step<OutlineFocus, FocusEvent, ()> {
+        match event {
+            FocusEvent::Move(id) => Step::to(OutlineFocus::At(id)),
+            FocusEvent::Within(true) => Step::stay(),
+            FocusEvent::Within(false) => Step::to(OutlineFocus::Unset),
+        }
     }
 }
 
@@ -363,6 +377,7 @@ fn outline_list(
     let list = node_ref();
     let focused = list.focus_within();
     let roving = machine(OutlineFocus::Unset, || FocusMachine, |_, ()| {});
+    roving.feed(focused, FocusEvent::Within);
     let items = Rc::new(items);
     let refs = Rc::new(items.iter().map(|_| node_ref()).collect::<Vec<_>>());
     let active_items = items.clone();
@@ -389,9 +404,7 @@ fn outline_list(
             let level = item.level;
             let selected = memo(move || active.get().as_deref() == Some(selected_id.as_str()));
             let focusable = move || {
-                if focused.get()
-                    && let OutlineFocus::At(roving) = roving.get()
-                {
+                if let OutlineFocus::At(roving) = roving.get() {
                     return roving == roving_id;
                 }
                 selected.get() || active.get().is_none() && index == 0
@@ -573,7 +586,7 @@ fn outline_key(
         Key::End => items.len() - 1,
         _ => return Handled::No,
     };
-    roving.send(items[next].id.clone());
+    roving.send(FocusEvent::Move(items[next].id.clone()));
     refs[next].focus();
     Handled::Yes
 }

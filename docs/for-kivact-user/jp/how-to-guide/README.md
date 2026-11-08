@@ -22,6 +22,7 @@ React や SolidJS を知っているなら、最初のガイドから始めて�
 | [キー付き候補から選ぶ](keyed-suggestions.md) | combobox、複数選択、検索、独自の選択面 |
 | [一覧、選択できる一覧、表を表示する](lists-and-tables.md) | `for_each`、`for_index`、`virtual_list`、`list`、`data_table`、行からの書き戻し |
 | [ダイアログ、メニュー、ツールチップ、トーストを表示する](overlays.md) | モーダルダイアログ、ポップオーバー、メニュー、コンテキストメニュー、ツールチップ、通知 |
+| [複数のウィンドウを開く](windows.md) | 2 つ目以降の OS ウィンドウ。開閉、モードと配置、context、フォーカス、テスト |
 | [開閉する内容とプレビューを作る](disclosure-and-previews.md) | disclosure、hover card、selection field の表示と寿命 |
 | [画面の状態を伝える](feedback.md) | alert、空の状態、閉じる操作 |
 | [表示用の指標を選ぶ](indicators.md) | badge、avatar、progress、skeleton、spinner |

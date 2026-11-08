@@ -42,10 +42,7 @@ pub fn timer() -> Timer {
     }));
     let input = settings.clone();
     let clock = machine(
-        ElapsedTimer::Running {
-            start: SystemTime::now(),
-            next: Duration::ZERO,
-        },
+        ElapsedTimer::Unstarted,
         move || ElapsedClock {
             format: input.borrow().format.get(),
             now: SystemTime::now(),
@@ -53,9 +50,11 @@ pub fn timer() -> Timer {
         |_, ()| {},
     );
     let format = settings.clone();
-    let display = memo(move || {
-        let ElapsedTimer::Running { start, next } = clock.get();
-        presentation(start, start + next, format.borrow().format.get()).0
+    let display = memo(move || match clock.get() {
+        ElapsedTimer::Unstarted => String::new(),
+        ElapsedTimer::Running { start, next } => {
+            presentation(start, start + next, format.borrow().format.get()).0
+        }
     });
     Timer {
         text: styled_text(display)
@@ -170,7 +169,12 @@ fn presentation(start: SystemTime, now: SystemTime, format: TimerFormat) -> (Str
 
 #[derive(Clone, PartialEq)]
 enum ElapsedTimer {
-    Running { start: SystemTime, next: Duration },
+    /// Built but not mounted; `into_view` sends the first `Start`.
+    Unstarted,
+    Running {
+        start: SystemTime,
+        next: Duration,
+    },
 }
 enum ElapsedEvent {
     Start(SystemTime),
@@ -189,10 +193,10 @@ impl Machine for ElapsedClock {
         state: &ElapsedTimer,
         event: ElapsedEvent,
     ) -> Step<ElapsedTimer, ElapsedEvent, ()> {
-        let ElapsedTimer::Running { start, .. } = *state;
-        let start = match event {
-            ElapsedEvent::Start(start) => start,
-            ElapsedEvent::Tick => start,
+        let start = match (state, event) {
+            (_, ElapsedEvent::Start(start)) => start,
+            (ElapsedTimer::Running { start, .. }, ElapsedEvent::Tick) => *start,
+            (ElapsedTimer::Unstarted, ElapsedEvent::Tick) => return Step::stay(),
         };
         let next = self.now.duration_since(start).unwrap_or_default();
         let delay = presentation(start, self.now, self.format).1;
