@@ -9,10 +9,10 @@
 
 use kivact_types::FontKerning;
 use kivact_types::render::TextSpan;
-use kivact_types::{ComputedTextStyle, FontFeature, TextWrap};
+use kivact_types::{ComputedTextStyle, FontFeature, FontVariation, TextWrap};
 use parley::{
-    FontContext, FontFamily, FontFamilyName, FontStyle, FontWeight, GenericFamily, LayoutContext,
-    LineHeight, StyleProperty,
+    FontContext, FontFamily, FontFamilyName, FontStyle, FontWeight, FontWidth, GenericFamily,
+    LayoutContext, LineHeight, StyleProperty,
 };
 
 /// Shapes `text` (not empty, converted already) with `spans` (valid,
@@ -44,6 +44,14 @@ pub(crate) fn shape_inline_layout(
     builder.push_default(StyleProperty::FontWeight(FontWeight::new(f32::from(
         style.weight,
     ))));
+    builder.push_default(StyleProperty::FontVariations(
+        axis_settings(&style.variations, style.optical_sizing, style.font_size)
+            .as_slice()
+            .into(),
+    ));
+    builder.push_default(StyleProperty::FontWidth(FontWidth::from_percentage(
+        style.font_width as f32,
+    )));
     if style.italic {
         builder.push_default(StyleProperty::FontStyle(FontStyle::Italic));
     }
@@ -143,6 +151,25 @@ fn apply_spans(
                 range.clone(),
             );
         }
+        // Axis settings depend on the font size (optical sizing), so a span
+        // that sets either is shaped with its own.
+        if s.variations.is_some() || s.font_size.is_some() {
+            let axes = axis_settings(
+                s.variations.as_deref().unwrap_or(&style.variations),
+                style.optical_sizing,
+                s.font_size.unwrap_or(style.font_size),
+            );
+            builder.push(
+                StyleProperty::FontVariations(axes.as_slice().into()),
+                range.clone(),
+            );
+        }
+        if let Some(width) = s.font_width {
+            builder.push(
+                StyleProperty::FontWidth(FontWidth::from_percentage(width as f32)),
+                range.clone(),
+            );
+        }
         if let Some(family) = &s.family {
             builder.push(
                 StyleProperty::FontFamily(families(Some(family), emoji)),
@@ -150,6 +177,27 @@ fn apply_spans(
             );
         }
     }
+}
+
+/// The variable-font axis settings a run is shaped with: its `variations`
+/// in order, then, with `optical_sizing` and no `opsz` among them, an
+/// `opsz` axis at `font_size` in pixels.
+fn axis_settings(
+    variations: &[FontVariation],
+    optical_sizing: bool,
+    font_size: f64,
+) -> Vec<parley::FontVariation> {
+    let mut axes: Vec<parley::FontVariation> = variations
+        .iter()
+        .map(|v| parley::FontVariation::new(parley::setting::Tag::new(&v.tag), v.value as f32))
+        .collect();
+    if optical_sizing && !variations.iter().any(|v| v.tag == *b"opsz") {
+        axes.push(parley::FontVariation::new(
+            parley::setting::Tag::new(b"opsz"),
+            font_size as f32,
+        ));
+    }
+    axes
 }
 
 /// Whether `spans` may shape `text`: sorted, not overlapping, within the

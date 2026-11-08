@@ -15,6 +15,9 @@ targets = "lib-bin"
 
 [visible_to]
 
+# ----- Shader validation: naga is confined to kivact-shader, which style (kivact-style) and the compositor (arvane-compose) use.
+kivact-shader = ["kivact-style", "arvane-compose"]
+
 # ----- Kivact の内部 crate: host を知らない反応の核は kivact-core だけが使う。アプリと部品は
 # kivact facade だけに依存する。
 kivact-runtime = ["kivact-style", "kivact-i18n", "kivact-core", "kivact-test"]
@@ -50,7 +53,9 @@ arvane-native = ["kivact-engine", "arvane-virtual", "arvane", "kivact"]
 # Engine testing owns the stepped Script/Probe bridge; core uses its public test host.
 arvane-virtual = ["kivact-engine", "arvane", "kivact-test"]
 arvane-text = ["arvane"]
-arvane-render = ["arvane", "kivact"]
+arvane-render = ["arvane", "arvane-compose", "kivact"]
+# The compositor plan: Composition to draw operations, owned by the window (arvane) and the facade (kivact).
+arvane-compose = ["arvane", "kivact"]
 arvane-asset = ["arvane"]
 # 試験だけの engine（自前の device で frame を描いて共有する）。Arvane の契約の試験と、公開 API の試験・
 # viewport の GPU frame の試験（dev-dependency）だけが使う。
@@ -109,7 +114,8 @@ geometry = []
 task = []
 motion = []
 style = []
-view = ["task", "motion", "style", "state", "geometry"]
+sync = []
+view = ["task", "motion", "style", "state", "geometry", "sync"]
 draw = ["task", "motion", "style"]
 # env・service の要求・`why`・GPU の取り込みは、公開 module が実装を持つ（view の state と requests の上に立つ）。
 platform = ["task", "motion", "style", "view"]
@@ -117,7 +123,7 @@ platform = ["task", "motion", "style", "view"]
 embed = ["state", "view", "launch", "app"]
 diagnostics = ["task", "motion", "style", "view"]
 # 実験 feature `gpu-interop`。per-App の状態は client が runtime の extension に入れる。
-gpu_interop = ["task", "motion", "style", "view"]
+gpu_interop = ["task", "motion", "style", "view", "sync"]
 client = ["task", "motion", "style", "view", "platform", "gpu_interop", "diagnostics"]
 # Launch owns client construction; App and embedding consume that shared boundary.
 launch = ["state", "view", "platform", "diagnostics", "gpu_interop", "client"]
@@ -154,10 +160,11 @@ path = ["geometry", "transform"]
 grid = ["length"]
 icon = ["asset"]
 theme = ["color", "icon"]
-effect = ["color", "geometry", "length", "path", "theme"]
-paint = ["asset", "color", "geometry", "length", "theme"]
+effect = ["asset", "color", "geometry", "length", "path", "shader", "theme"]
+paint = ["asset", "color", "geometry", "length", "shader", "theme"]
+shader = ["asset", "color", "geometry", "paint", "theme"]
 text = ["color", "effect", "paint", "theme"]
-draw = ["asset", "color", "effect", "geometry", "paint", "path", "text", "theme", "transform"]
+draw = ["asset", "color", "effect", "geometry", "paint", "path", "shader", "text", "theme", "transform"]
 sheet = ["color", "draw", "effect", "geometry", "grid", "length", "paint", "text", "theme", "transform"]
 resolve = [
     "color", "draw", "effect", "geometry", "grid", "length", "paint", "sheet", "text", "theme",
@@ -216,14 +223,19 @@ target = []
 
 # B7: topology below measurement, Model processing, presentation,
 # diagnostics and host. model::interact belongs to the Model processing tier.
+[module_rules.arvane-compose.uses]
+cache = []
+plan = ["cache"]
+tables = []
+cpu = ["plan", "cache", "tables"]
+gpu = ["plan", "cache", "tables"]
+
 [module_rules.kivact-engine]
 except = [
     # Model owns passive state; these leaves import no Model or processing code.
     "model::aggregate -> paint::state",
     "model::aggregate -> a11y::state",
     "model::aggregate -> check::lint::state",
-    # Sync derives Look values directly and calls PaintState's narrow invalidator.
-    "model::interact::sync -> paint::state",
 ]
 [module_rules.kivact-engine.uses]
 lower = []
@@ -233,9 +245,10 @@ tree = ["lower", "contract"]
 mutation = ["contract", "tree"]
 frame_log = ["contract"]
 measure = ["text_input", "lower", "contract", "tree"]
-model = ["text_input", "lower", "contract", "tree", "measure", "mutation"]
+layer = ["lower"]
+model = ["text_input", "lower", "contract", "tree", "measure", "mutation", "layer"]
 text_measure = ["lower", "contract", "tree", "measure", "model"]
-paint = ["lower", "contract", "tree", "measure", "mutation", "model", "text_measure", "offscreen"]
+paint = ["lower", "contract", "tree", "measure", "mutation", "model", "text_measure", "offscreen", "layer"]
 a11y = ["contract", "tree", "measure", "mutation", "model"]
 check = ["lower", "contract", "tree", "measure", "mutation", "model", "paint", "a11y"]
 host = ["text_input", "contract", "tree", "measure", "mutation", "model", "paint", "a11y", "check", "text_measure", "frame_log", "offscreen"]
@@ -249,6 +262,8 @@ testing = ["contract", "host", "offscreen", "api"]
 # Closure-owning contracts stay in the engine; backend implementations stay outside types.
 [module_rules.kivact-types.uses]
 animatable = ["geometry"]
+color_space = ["color"]
+effect = ["asset", "color", "geometry", "pixel"]
 asset = []
 cell = []
 check = ["geometry", "ids", "semantics"]
@@ -257,19 +272,22 @@ defaults = ["geometry"]
 embed = ["defaults", "geometry", "gpu"]
 env = ["cell", "defaults", "geometry"]
 geometry = []
+geometry3d = ["geometry"]
 gpu = []
 ids = []
 input = ["geometry"]
 layout = ["geometry", "ids", "motion", "semantics"]
 motion = ["animatable", "geometry"]
-paint = ["asset", "color", "geometry", "layout", "motion", "scene"]
+paint = ["asset", "color", "color_space", "effect", "geometry", "geometry3d", "layout", "motion", "pixel", "scene"]
 platform = ["asset", "geometry"]
 process = []
-render = ["asset", "check", "color", "env", "geometry", "gpu", "ids", "input", "layout", "motion", "paint", "platform", "scene", "semantics", "semantics_text", "text", "text_shaping"]
-scene = ["asset", "color", "geometry", "gpu", "ids", "paint", "render", "semantics", "text"]
+pixel = ["asset", "color"]
+prop_interp = ["color", "color_space", "geometry", "motion", "paint"]
+render =["asset", "check", "color", "color_space", "effect", "env", "geometry", "geometry3d", "gpu", "pixel", "ids", "input", "layout", "motion", "paint", "platform", "scene", "semantics", "semantics_text", "text", "text_shaping"]
+scene = ["asset", "color", "effect", "geometry", "geometry3d", "gpu", "ids", "paint", "pixel", "render", "semantics", "text"]
 semantics = ["geometry", "ids", "semantics_text"]
 semantics_text = ["geometry", "ids"]
-text = ["color", "geometry", "paint"]
+text =["color", "color_space", "geometry", "paint"]
 text_shaping = ["render", "scene", "text"]
 text_utf = []
 
@@ -417,12 +435,12 @@ value_modules = ["kivact-engine::contract", "kivact-types::semantics", "kivact-t
 allowed_files = ["tokens.rs", "theme.rs", "color.rs"]
 
 [os_branch]
-allowed_paths = ["crates/arvane-native/", "crates/kivact-gpu-share/", "crates/arvane-render/src/gpu/", "crates/kivact-types/src/gpu.rs", "crates/arvane-asset/", "crates/arvane-text/"]
+allowed_paths = ["crates/arvane-native/", "crates/kivact-gpu-share/", "crates/arvane-render/src/gpu/", "crates/arvane-compose/src/gpu/", "crates/kivact-types/src/gpu.rs", "crates/arvane-asset/", "crates/arvane-text/"]
 
 [structural_options]
 # Passive data values and collection records do not configure mounted UI structure.
 # Path geometry contracts: contains/stroke_contains, canvas arc_to, SVG svg_arc_to/parse_svg.
-record_types = ["Generation", "Rgba", "Insets", "InspectorPanel", "CalendarDate", "SortOrder", "ColumnDef", "DataColumn", "Path", "Style", "Span"]
+record_types = ["Generation", "Rgba", "Insets", "InspectorPanel", "CalendarDate", "SortOrder", "ColumnDef", "DataColumn", "Path", "Style", "Span", "BorderImage", "Mask", "MaskLayer", "ShaderPaint", "ShaderFilter", "FilterGraph"]
 list = [
     "Dialog::mode", "Disclosure::keep_mounted", "Tabs::keep_mounted",
     "ComboboxApi::mode", "Combobox::mode", "CarouselApi::mode", "Carousel::mode",
@@ -440,6 +458,8 @@ list = [
     "Step::indicator", "Skeleton::index",
     "List::selection", "Tree::selection", "DataTable::selection",
     "Transition::alternate", "variant",
+    "Timeline::alternate", "Timeline::essential", "FrameLoop::essential", "ShaderPaint::essential",
+    "ShaderFilter::essential",
 ]
 
 [module_rules.arvane-virtual.uses]

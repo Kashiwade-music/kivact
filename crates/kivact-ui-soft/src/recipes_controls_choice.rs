@@ -215,13 +215,13 @@ pub(super) fn switch_track(theme: &Theme, s: &Look<CheckableState>) -> Style {
     };
     if touch {
         let transition = if kivact::platform::is_motion_reduced().get() {
-            kivact::motion::Transition::tween(200, t.motion.ease_standard).essential()
+            kivact::motion::Transition::tween(200, t.motion.ease_standard.clone()).essential()
         } else if on {
             spring(85.377, 18.480)
         } else {
             spring(246.740, 31.416)
         };
-        base.transition(kivact::style::TransitionProp::Paint, transition)
+        base.transition(kivact::style::TransitionProp::All, transition)
     } else {
         fast(&t, base)
     }
@@ -281,7 +281,7 @@ pub(super) fn switch_thumb(theme: &Theme, s: &Look<CheckableState>) -> Style {
         } else {
             spring(746.3, 30.05)
         };
-        base.transition(kivact::style::TransitionProp::Paint, transition)
+        base.transition(kivact::style::TransitionProp::All, transition)
     } else {
         fast(&t, base)
     }
@@ -292,6 +292,7 @@ fn spring(stiffness: f64, damping: f64) -> kivact::motion::Transition {
         stiffness,
         damping,
         mass: 1.0,
+        rest: 1e-3,
     })
 }
 

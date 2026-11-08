@@ -18,8 +18,8 @@ pub use crate::view::Component;
 pub use crate::view::{
     CheckedState, EditPhase, Handled, InputPurpose, IntoView, Key, KeyEvent, Modifiers, Node,
     NodeBuilder, NodeRef, Orientation, Placement, PointerEvent, Role, RowHeight, ScrollAxes, View,
-    canvas, column, component, dynamic, error_boundary, for_each, for_index, grid, icon, image,
-    node, node_ref, row, scroll, show, show_some, spacer, stack, text, virtual_list,
+    canvas, column, component, drawable, dynamic, error_boundary, for_each, for_index, grid, icon,
+    image, node, node_ref, row, scroll, show, show_some, spacer, stack, text, virtual_list,
 };
 
 pub use crate::style::{
@@ -28,6 +28,10 @@ pub use crate::style::{
 };
 
 pub use crate::style::{use_theme, use_tokens};
+
+pub use crate::motion::{Easing, Spring, Transition, animated, frame_loop, timeline};
+
+pub use crate::draw::Transform;
 
 pub use crate::task::ActionMode;
 

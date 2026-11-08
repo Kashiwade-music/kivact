@@ -121,11 +121,12 @@ fn week_motion(swipe: super::navigation::Swipe, entering: f64) -> kivact_core::s
         return base;
     }
     base.enter(style().translate_x(entering)).transition(
-        kivact_core::style::TransitionProp::Paint,
+        kivact_core::style::TransitionProp::All,
         kivact_core::motion::Transition::spring(kivact_core::motion::Spring {
             stiffness: 246.7,
             damping: 31.4,
             mass: 1.0,
+            rest: 1e-3,
         }),
     )
 }

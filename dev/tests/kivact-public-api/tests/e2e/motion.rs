@@ -4,14 +4,16 @@ use std::cell::Cell;
 use std::rc::Rc;
 use std::time::Duration;
 
+use super::paint::{BLACK, BLUE, RED, WHITE, distance};
 use crate::support::{mount, mount_with};
+use kivact::draw::{Filter, Shadow};
 use kivact::motion::FrameRate;
 use kivact::motion::{
     Animated, Easing, FrameInfo, FrameLoop, Repeat, Spring, Transition, animated, frame_loop,
 };
 use kivact::prelude::*;
-use kivact::style::TransitionProp;
-use kivact::test::{RenderOptions, Screen};
+use kivact::style::{TransitionProp, rgba};
+use kivact::test::{RenderOptions, Screen, Screenshot};
 
 fn ms(n: u64) -> Duration {
     Duration::from_millis(n)
@@ -29,7 +31,7 @@ fn popped_exit_releases_layout_and_finishes_after_the_last_descendant() {
             let finished = kivact::state::callback(move |()| count.set(count.get() + 1));
             let exit = |duration| {
                 style().exit(style().opacity(0.0)).transition(
-                    TransitionProp::Paint,
+                    TransitionProp::All,
                     Transition::tween(duration, Easing::Linear),
                 )
             };
@@ -112,7 +114,7 @@ fn exit_completion_fires_for_instant_removal_and_skips_a_disposed_callback() {
                 (
                     node().on_exit_complete(finished).style(
                         style().exit(style().opacity(0.0)).transition(
-                            TransitionProp::Paint,
+                            TransitionProp::All,
                             Transition::tween(400, Easing::Linear),
                         ),
                     ),
@@ -193,6 +195,48 @@ fn interrupted_tween_continues_from_the_current_value() {
     screen.get_by_text("7.0");
 }
 
+/// A paused run that sat through a stop of the frame clock goes on from the
+/// value it paused at: the stop does not count as paused time.
+#[test]
+fn paused_run_across_a_clock_stop_resumes_where_it_paused() {
+    let (screen, (target, shown, ctl)) = mount_with(fast_display(), || {
+        let target = signal(0.0f64);
+        let shown = animated(target, Transition::tween(1000, Easing::Linear));
+        let ctl = kivact::state::callback(move |pause: bool| {
+            if pause {
+                shown.pause();
+            } else {
+                shown.resume();
+            }
+        });
+        (
+            (target, shown, ctl),
+            text(move || format!("{:.1}", shown.get())),
+        )
+    });
+    target.set(100.0);
+    screen.run_until_idle();
+    screen.advance(ms(100));
+    ctl.call(true);
+    screen.run_until_idle();
+    screen.advance(ms(100));
+    screen.suspend(false);
+    screen.advance(ms(100));
+    screen.resume();
+    screen.advance(ms(100));
+    ctl.call(false);
+    screen.run_until_idle();
+    let at_resume = shown.get_untracked();
+    assert!(
+        (at_resume - 10.0).abs() < 0.2,
+        "paused at 100 ms of 1000 (10): resumed at {at_resume}"
+    );
+    screen.advance(ms(50));
+    let later = shown.get_untracked();
+    assert!((later - 15.0).abs() < 0.2, "50 ms on: {later}");
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
 #[test]
 fn reduced_motion_completes_decorative_transitions_only() {
     let (screen, (target, decorative)) = animated_app(Transition::tween(100, Easing::EaseOut));
@@ -211,12 +255,12 @@ fn reduced_motion_completes_decorative_transitions_only() {
         v > 0.0 && v < 10.0,
         "informational animation still runs: {v}"
     );
-    // frame loops are never stopped by reduced motion
+    // A decorative frame loop is held under reduced motion.
     let (screen3, (fl, ticks)) = counter_app();
     screen3.set_reduced_motion(true);
     fl.start(FrameRate::Hz(30.0));
     screen3.advance(Duration::from_secs(1));
-    assert_eq!(ticks.get(), 30);
+    assert_eq!(ticks.get(), 0);
 }
 
 #[test]
@@ -242,7 +286,8 @@ fn keyframes_delay_and_repeat() {
     let v = shown.get_untracked();
     assert!(v > 30.0 && v < 70.0, "{v}");
     screen.advance(ms(200));
-    assert_eq!(shown.get_untracked(), 100.0);
+    // Two alternating iterations end where they began.
+    assert_eq!(shown.get_untracked(), 0.0);
 }
 
 /// `on_complete` runs when a run reaches its target, never for a run that a new target or a
@@ -340,10 +385,11 @@ fn reactive_text_color_transitions_on_inheriting_children() {
         (
             switched,
             row((child, explicit)).style(move || {
-                style().font_size(48).weight(700).color(ink()).transition(
-                    TransitionProp::Paint,
-                    Transition::tween(200, Easing::Linear),
-                )
+                style()
+                    .font_size(48)
+                    .weight(700)
+                    .color(ink())
+                    .transition(TransitionProp::All, Transition::tween(200, Easing::Linear))
             }),
         )
     });
@@ -453,13 +499,13 @@ fn proportional_retarget_shortens_the_remaining_time() {
                 style()
                     .size(20, 20)
                     .translate_x(target.get())
-                    .transition(TransitionProp::Paint, paint_proportional.clone())
+                    .transition(TransitionProp::All, paint_proportional.clone())
             }),
             node().test_id("restart-paint").style(move || {
                 style()
                     .size(20, 20)
                     .translate_x(target.get())
-                    .transition(TransitionProp::Paint, paint_restart.clone())
+                    .transition(TransitionProp::All, paint_restart.clone())
             }),
         ));
         ((target, proportional, restart), content)
@@ -507,5 +553,460 @@ fn proportional_retarget_shortens_the_remaining_time() {
     );
     screen.advance(ms(900));
     assert!(!restart.is_running());
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+const YELLOW: u32 = 0xffff00;
+
+/// A white square panel of `size` px with `pad` px around `subject`.
+fn white_panel(size: f64, pad: f64, subject: Node) -> Node {
+    node()
+        .style(style().size(size, size).padding(pad).background(rgb(WHITE)))
+        .child(subject)
+}
+
+/// A 100 × 100 white panel holding `subject` at (20, 20).
+fn panel(subject: Node) -> Node {
+    white_panel(100.0, 20.0, subject)
+}
+
+/// The panel's pixels, at the window origin so crops line up across screens.
+fn panel_shot(screen: &Screen) -> Screenshot {
+    screen.screenshot().crop(0, 0, 100, 100)
+}
+
+/// Tier 2: a compositor result matches within ±2/255 per channel.
+fn assert_compositor_close(got: &Screenshot, want: &Screenshot) {
+    assert_eq!((got.width, got.height), (want.width, want.height));
+    let worst = got
+        .pixels
+        .iter()
+        .zip(&want.pixels)
+        .map(|(a, b)| distance(*a, *b))
+        .max()
+        .unwrap_or(0);
+    assert!(
+        worst <= 2,
+        "largest channel difference {worst}/255 is over 2"
+    );
+}
+
+/// Tier 3: a raster (box shadow) within the raster tolerance.
+fn assert_raster_close(got: &Screenshot, want: &Screenshot) {
+    let diff = got.raster_difference(want);
+    assert!(diff.within_raster_tolerance(), "{diff:?}");
+}
+
+/// The centre pixel of the element `test_id` (0xRRGGBB).
+fn center_pixel(screen: &Screen, test_id: &str) -> u32 {
+    let rect = screen
+        .get_by_test_id(test_id)
+        .rect()
+        .expect("the element is laid out");
+    screen
+        .screenshot()
+        .pixel(
+            (rect.x + rect.width / 2.0) as u32,
+            (rect.y + rect.height / 2.0) as u32,
+        )
+        .expect("in the frame")
+}
+
+/// A panel whose subject is `subject`'s filter `from` until the signal turns true, then `to`.
+/// The change is a 100 ms linear transition of the filter.
+fn filter_scene(fill: u32, from: Filter, to: Filter) -> (Screen, Signal<bool>) {
+    mount_with(fast_display(), move || {
+        let on = signal(false);
+        let subject = node().test_id("subject").style(move || {
+            let filter = if on.get() { to.clone() } else { from.clone() };
+            style()
+                .size(40, 40)
+                .background(rgb(fill))
+                .filter(filter)
+                .transition(
+                    TransitionProp::Filter,
+                    Transition::tween(100, Easing::Linear),
+                )
+        });
+        (on, panel(subject))
+    })
+}
+
+/// The reference: a panel whose subject has `filter` as its static style.
+fn still_panel(fill: u32, filter: Filter) -> Screenshot {
+    let (screen, ()) = mount(move || {
+        let subject = node().style(style().size(40, 40).background(rgb(fill)).filter(filter));
+        ((), panel(subject))
+    });
+    panel_shot(&screen)
+}
+
+/// The per-property transition: the colour changes at once, the opacity takes 100 ms.
+/// Tier 2: the opacity is a compositor op, checked against its blend with white.
+#[test]
+fn per_property_transition() {
+    let (screen, on) = mount_with(fast_display(), || {
+        let on = signal(false);
+        let subject = node().test_id("subject").style(move || {
+            let on = on.get();
+            style()
+                .size(60, 60)
+                .background(rgb(if on { BLUE } else { RED }))
+                .opacity(if on { 0.0 } else { 1.0 })
+                .transition(
+                    TransitionProp::Opacity,
+                    Transition::tween(100, Easing::Linear),
+                )
+        });
+        (on, panel(subject))
+    });
+    assert!(distance(center_pixel(&screen, "subject"), RED) <= 2);
+    on.set(true);
+    screen.run_until_idle();
+    let at_once = center_pixel(&screen, "subject");
+    assert!(
+        distance(at_once, BLUE) <= 2,
+        "the colour changed at once: {at_once:06x}"
+    );
+    screen.advance(ms(50));
+    // Blue at half opacity over white (0.5 × 0x0000ff + 0.5 × 0xffffff).
+    let half = center_pixel(&screen, "subject");
+    assert!(distance(half, 0x8080ff) <= 2, "half opacity: {half:06x}");
+    screen.advance(ms(100));
+    let gone = center_pixel(&screen, "subject");
+    assert!(distance(gone, WHITE) <= 2, "no opacity left: {gone:06x}");
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+/// A blur to none, and a brightness to none, at 50 % with linear easing (CSS initial
+/// values: blur 0, brightness 1). Tier 2: filters are compositor ops.
+#[test]
+fn filter_to_none_interpolates() {
+    const FILL: u32 = 0x404040;
+    let (screen, on) = filter_scene(FILL, Filter::new().blur(4), Filter::new());
+    on.set(true);
+    screen.run_until_idle();
+    screen.advance(ms(50));
+    assert_compositor_close(
+        &panel_shot(&screen),
+        &still_panel(FILL, Filter::new().blur(2)),
+    );
+    screen.advance(ms(100));
+    assert_compositor_close(&panel_shot(&screen), &still_panel(FILL, Filter::new()));
+
+    let (screen, on) = filter_scene(FILL, Filter::new().brightness(2), Filter::new());
+    on.set(true);
+    screen.run_until_idle();
+    screen.advance(ms(50));
+    assert_compositor_close(
+        &panel_shot(&screen),
+        &still_panel(FILL, Filter::new().brightness(1.5)),
+    );
+    screen.advance(ms(100));
+    assert_compositor_close(&panel_shot(&screen), &still_panel(FILL, Filter::new()));
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+/// None to grayscale(1) at 50 % is grayscale(0.5) (the initial value is 0).
+/// Tier 2: a filter is a compositor op.
+#[test]
+fn filter_identity_values() {
+    const FILL: u32 = 0x2060c0;
+    let (screen, on) = filter_scene(FILL, Filter::new(), Filter::new().grayscale(1));
+    on.set(true);
+    screen.run_until_idle();
+    screen.advance(ms(50));
+    assert_compositor_close(
+        &panel_shot(&screen),
+        &still_panel(FILL, Filter::new().grayscale(0.5)),
+    );
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+/// An outer shadow with an inset one, to the outer shadow alone: at 50 % the inset is
+/// black at half alpha, still inset. Tier 3: box shadows are Vello rasters.
+#[test]
+fn shadow_list_shortening_interpolates() {
+    fn outer() -> Shadow {
+        Shadow::new(0, 0, 0, rgb(BLUE)).spread(8)
+    }
+    fn inset(alpha: f64) -> Shadow {
+        Shadow::new(0, 0, 0, rgba(BLACK, alpha)).spread(6).inset()
+    }
+    // Halfway to the padding (spread 0, transparent): spread 3 at alpha 0.5.
+    fn half_inset() -> Shadow {
+        Shadow::new(0, 0, 0, rgba(BLACK, 0.5)).spread(3).inset()
+    }
+    fn subject_with(shadows: Vec<Shadow>) -> Node {
+        let mut s = style().size(60, 60).background(rgb(WHITE));
+        for shadow in shadows {
+            s = s.shadow(shadow);
+        }
+        node().test_id("subject").style(s)
+    }
+    let (screen, on) = mount_with(fast_display(), move || {
+        let on = signal(false);
+        let subject = node().test_id("subject").style(move || {
+            let s = style().size(60, 60).background(rgb(WHITE)).shadow(outer());
+            let s = if on.get() { s } else { s.shadow(inset(1.0)) };
+            s.transition(
+                TransitionProp::Shadow,
+                Transition::tween(100, Easing::Linear),
+            )
+        });
+        (on, panel(subject))
+    });
+    on.set(true);
+    screen.run_until_idle();
+    screen.advance(ms(50));
+    let still = mount(move || ((), panel(subject_with(vec![outer(), half_inset()]))));
+    assert_raster_close(&panel_shot(&screen), &panel_shot(&still.0));
+    screen.advance(ms(100));
+    let end = mount(move || ((), panel(subject_with(vec![outer()]))));
+    assert_raster_close(&panel_shot(&screen), &panel_shot(&end.0));
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+/// The blur edge probe (5 px outside the left edge of a black box): a larger value is darker.
+fn blur_probe(reverse: bool) -> Vec<u32> {
+    let (screen, on) = mount_with(fast_display(), || {
+        let on = signal(false);
+        let subject = node().test_id("subject").style(move || {
+            let blur = if on.get() { 10.0 } else { 0.0 };
+            style()
+                .size(60, 60)
+                .background(rgb(BLACK))
+                .filter(Filter::new().blur(blur))
+                .transition(TransitionProp::Filter, Transition::spring(Spring::STIFF))
+        });
+        (on, white_panel(200.0, 70.0, subject))
+    });
+    let darkness = |screen: &Screen| {
+        let rect = screen
+            .get_by_test_id("subject")
+            .rect()
+            .expect("the subject is laid out");
+        let shot = screen.screenshot();
+        let x = (rect.x - 5.0) as u32;
+        let y = (rect.y + rect.height / 2.0) as u32;
+        255 - ((shot.pixel(x, y).expect("the pixel is inside the shot") >> 16) & 255)
+    };
+    on.set(true);
+    screen.run_until_idle();
+    screen.advance(ms(100));
+    if reverse {
+        on.set(false);
+        screen.run_until_idle();
+    }
+    let mut samples = vec![darkness(&screen)];
+    for _ in 0..4 {
+        screen.advance(ms(1));
+        samples.push(darkness(&screen));
+    }
+    samples
+}
+
+/// A spring blur reversed at about 5 px: the first frames after the reversal keep the
+/// velocity of the uninterrupted spring (the same spring, unreversed, is the control).
+/// Tier 2: a blur is a compositor op, read as the dark level of one pixel.
+#[test]
+fn reversed_blur_keeps_its_velocity() {
+    let control = blur_probe(false);
+    let reversed = blur_probe(true);
+    assert_eq!(control[0], reversed[0], "identical until the reversal");
+    assert!(
+        control[4] >= control[0] + 2,
+        "the probe moves with the spring: {control:?}"
+    );
+    for k in 1..=4 {
+        let gap = (control[k] as i32 - reversed[k] as i32).abs();
+        assert!(
+            gap <= 2,
+            "frame {k} after the reversal departs from the velocity: {control:?} vs {reversed:?}"
+        );
+    }
+    assert!(
+        reversed[4] >= reversed[0] + 2,
+        "the blur keeps growing after the reversal: {reversed:?}"
+    );
+}
+
+/// The black band left of the subject, in px: black is R 0, and red, yellow and white are R 255,
+/// so the band's width is the sum of the black coverage of the pixels 1 to 45 px out.
+fn black_band(screen: &Screen) -> f64 {
+    let rect = screen
+        .get_by_test_id("subject")
+        .rect()
+        .expect("the subject is laid out");
+    let shot = screen.screenshot();
+    let y = (rect.y + rect.height / 2.0) as u32;
+    let x0 = rect.x as u32;
+    (1..=45)
+        .map(|k| {
+            f64::from(
+                255 - ((shot.pixel(x0 - k, y).expect("the pixel is inside the shot") >> 16) & 255),
+            ) / 255.0
+        })
+        .sum()
+}
+
+/// The pixel `px` outside the subject's left edge.
+fn outside_pixel(screen: &Screen, px: u32) -> u32 {
+    let rect = screen
+        .get_by_test_id("subject")
+        .rect()
+        .expect("the subject is laid out");
+    let y = (rect.y + rect.height / 2.0) as u32;
+    screen
+        .screenshot()
+        .pixel(rect.x as u32 - px, y)
+        .expect("in the frame")
+}
+
+/// One black shadow of 0 → 20 px, then two more shadows (red 30, yellow 40) to the list:
+/// the black band goes on from its shown width and no shadow jumps to its target.
+/// Tier: band widths are shape measures (±1 px); the frame stays exact in its colours.
+#[test]
+fn retarget_across_shadow_counts_starts_from_shown() {
+    fn band(color: u32, spread: f64) -> Shadow {
+        Shadow::new(0, 0, 0, rgb(color)).spread(spread)
+    }
+    let (screen, stage) = mount_with(fast_display(), || {
+        let stage = signal(0u8);
+        let subject = node().test_id("subject").style(move || {
+            let s = style().size(60, 60).background(rgb(WHITE)).transition(
+                TransitionProp::Shadow,
+                Transition::tween(200, Easing::Linear),
+            );
+            match stage.get() {
+                0 => s.shadow(band(BLACK, 0.0)),
+                1 => s.shadow(band(BLACK, 20.0)).shadow(band(RED, 30.0)),
+                _ => s
+                    .shadow(band(BLACK, 20.0))
+                    .shadow(band(RED, 30.0))
+                    .shadow(band(YELLOW, 40.0)),
+            }
+        });
+        (stage, white_panel(200.0, 70.0, subject))
+    });
+    stage.set(1);
+    screen.run_until_idle();
+    screen.advance(ms(100));
+    let before = black_band(&screen);
+    assert!((before - 10.0).abs() <= 1.0, "halfway to 20 px: {before}");
+
+    stage.set(2);
+    screen.run_until_idle();
+    screen.advance(ms(1));
+    let after = black_band(&screen);
+    assert!(
+        (after - before).abs() <= 1.0,
+        "the band continues from {before} px: {after}"
+    );
+    let far = outside_pixel(&screen, 25);
+    assert!(
+        distance(far, WHITE) <= 2,
+        "no new shadow jumped to its target 25 px out: {far:06x}"
+    );
+
+    screen.advance(ms(300));
+    assert!((black_band(&screen) - 20.0).abs() <= 1.0);
+    let yellow = outside_pixel(&screen, 35);
+    assert!(
+        distance(yellow, YELLOW) <= 2,
+        "the new shadow ends at 40 px: {yellow:06x}"
+    );
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+/// A transition interrupted by leaving the hover keeps the shown value: the next frame moves
+/// by one frame, and a spring keeps moving forward with its velocity.
+/// Tier 1: positions are layout rectangles.
+#[test]
+fn interrupted_transition_continues_from_shown() {
+    let x_of = |screen: &Screen| {
+        screen
+            .get_by_test_id("subject")
+            .rect()
+            .expect("the subject is laid out")
+            .x
+    };
+
+    // Tween: 200 ms linear. Halfway through, the value is about 25; after leaving, one frame
+    // later it has moved about 0.5 px, not back to a restart at the origin.
+    let (screen, ()) = mount_with(fast_display(), || {
+        let subject = node().test_id("subject").style(
+            style()
+                .size(300, 40)
+                .background(rgb(RED))
+                .hover(style().translate_x(100.0))
+                .transition(
+                    TransitionProp::Transform,
+                    Transition::tween(200, Easing::Linear),
+                ),
+        );
+        ((), subject)
+    });
+    screen.get_by_test_id("subject").hover();
+    screen.advance(ms(50));
+    let shown = x_of(&screen);
+    screen.advance(ms(1));
+    let before_leave = x_of(&screen);
+    screen.mouse_leave();
+    screen.advance(ms(1));
+    let after_leave = x_of(&screen);
+    assert!(
+        (after_leave - before_leave).abs() <= 1.0 && after_leave > shown - 2.0,
+        "tween: {shown} then {before_leave} then {after_leave}"
+    );
+
+    // Spring: the velocity carries the next frame in the same direction.
+    let (screen, ()) = mount_with(fast_display(), || {
+        let subject = node().test_id("subject").style(
+            style()
+                .size(300, 40)
+                .background(rgb(RED))
+                .hover(style().translate_x(100.0))
+                .transition(TransitionProp::Transform, Transition::spring(Spring::STIFF)),
+        );
+        ((), subject)
+    });
+    screen.get_by_test_id("subject").hover();
+    screen.advance(ms(100));
+    let a = x_of(&screen);
+    screen.advance(ms(1));
+    let b = x_of(&screen);
+    screen.mouse_leave();
+    screen.advance(ms(1));
+    let c = x_of(&screen);
+    assert!(b > a, "the spring is moving toward the hover: {a} {b}");
+    assert!(
+        c > b && ((c - b) - (b - a)).abs() <= 0.5,
+        "the spring keeps its velocity after leaving: {a} {b} {c}"
+    );
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+/// Reduced motion holds a decorative frame loop and keeps an essential one running.
+#[test]
+fn frame_loop_pauses_under_reduced_motion() {
+    let decorative_ticks = Rc::new(Cell::new(0u64));
+    let essential_ticks = Rc::new(Cell::new(0u64));
+    let (d, e) = (decorative_ticks.clone(), essential_ticks.clone());
+    let (screen, (decorative, essential)) = mount_with(fast_display(), move || {
+        let decorative = frame_loop(move |_f: FrameInfo| d.set(d.get() + 1));
+        let essential = frame_loop(move |_f: FrameInfo| e.set(e.get() + 1)).essential();
+        ((decorative, essential), text("frames"))
+    });
+    screen.set_reduced_motion(true);
+    decorative.start(FrameRate::Hz(30.0));
+    essential.start(FrameRate::Hz(30.0));
+    screen.advance(Duration::from_secs(1));
+    assert_eq!(decorative_ticks.get(), 0, "the decorative loop is held");
+    assert_eq!(
+        essential_ticks.get(),
+        30,
+        "the essential loop runs at 30 Hz"
+    );
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }

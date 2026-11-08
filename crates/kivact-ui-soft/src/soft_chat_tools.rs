@@ -332,8 +332,8 @@ fn tool_chevron(open: impl IntoValue<bool>) -> Node {
             .color(p.colors.icon_secondary)
             .rotate(if open.get() { 180 } else { 0 })
             .transition(
-                kivact::style::TransitionProp::Paint,
-                kivact::motion::Transition::tween(125.0, p.motion.ease_standard),
+                kivact::style::TransitionProp::All,
+                kivact::motion::Transition::tween(125.0, p.motion.ease_standard.clone()),
             )
     })
 }
@@ -689,7 +689,7 @@ fn tool_group_items(
     title: Value<String>,
     detail: Option<ToolDetails>,
 ) -> impl IntoView {
-    let motion = kivact::style::use_tokens::<crate::Tokens>().motion;
+    let motion = kivact::style::use_tokens::<crate::Tokens>().motion.clone();
     show(disclosure.is_open(), move || {
         let detail = detail.clone();
         let items = for_each(
@@ -711,7 +711,7 @@ fn tool_group_items(
                 .exit_size(kivact::view::Orientation::Vertical)
                 .transition(
                     TransitionProp::Size,
-                    Transition::tween(motion.medium as f64, motion.ease_standard),
+                    Transition::tween(motion.medium as f64, motion.ease_standard.clone()),
                 ),
         )
     })

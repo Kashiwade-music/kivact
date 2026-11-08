@@ -145,6 +145,8 @@ impl Model {
         self.changes.restack |= self.motion.is_active();
         let sizes = self.step_sizes(stamp, self.frame.reduced_motion());
         let layout = self.step_layout_motion(stamp, self.frame.reduced_motion());
+        self.step_playback(stamp);
+        self.step_shader_clocks(stamp);
         if self.step_states(stamp, self.frame.reduced_motion()) || sizes || layout {
             self.frame.frames.0.insert(stamp.saturating_add(period));
         }
@@ -165,16 +167,17 @@ impl Model {
                 if let SmoothScroll::Fling { velocity, last_ns } = scroll {
                     return self.tick_fling(*id, velocity, last_ns, stamp);
                 }
-                let (start, target, began, easing) = match *scroll {
+                let (start, target, began, easing) = match &*scroll {
                     SmoothScroll::Scheduled {
                         start,
                         target,
                         easing,
                     } => {
+                        let (start, target, easing) = (*start, *target, easing.clone());
                         *scroll = SmoothScroll::Running {
                             start,
                             target,
-                            easing,
+                            easing: easing.clone(),
                             began_ns: stamp,
                         };
                         (start, target, stamp, easing)
@@ -185,7 +188,7 @@ impl Model {
                         target,
                         easing,
                         began_ns,
-                    } => (start, target, began_ns, easing),
+                    } => (*start, *target, *began_ns, easing.clone()),
                 };
                 let t = if self.frame.reduced_motion() {
                     1.0

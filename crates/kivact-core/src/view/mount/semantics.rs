@@ -121,6 +121,8 @@ pub(super) struct SemanticProps {
     pub(super) patches: Vec<SemanticsPatch>,
     pub(super) image_fit: Option<InputProp<ImageFit>>,
     pub(super) monochrome: Option<InputProp<bool>>,
+    pub(super) image_playing: Option<InputProp<bool>>,
+    pub(super) layout_id: Option<std::sync::Arc<str>>,
     pub(super) focus_on_press: Option<NodeRef>,
 }
 
@@ -136,6 +138,14 @@ pub(super) fn bind_props(
     }
     if let Some(source) = props.monochrome {
         cx.bind(id, source, PropValue::Monochrome, at);
+    }
+    if let Some(source) = props.image_playing {
+        cx.bind(id, source, PropValue::ImagePlaying, at);
+    }
+    if let Some(layout_id) = props.layout_id {
+        // Written once at mount: the id is an attribute of the node.
+        let writer = cx.rt.running_effect();
+        ViewState::tree_mut(cx.rt).update(id, PropValue::LayoutId(Some(layout_id)), writer);
     }
     if let Some(destination) = props.focus_on_press {
         let weak = cx.weak();

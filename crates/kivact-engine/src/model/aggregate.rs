@@ -21,6 +21,7 @@ pub(crate) struct Model {
     pub(crate) tree: NodeTree,
     pub(crate) layout: kivact_layout::Layout,
     pub(crate) layout_motion: super::layout_motion::state::LayoutMotion,
+    pub(crate) playback: super::playback::state::Playback,
     pub(crate) measure: crate::measure::state::MeasureColumns,
     pub(crate) editors: Vec<Option<Box<crate::measure::editor::EditorNode>>>,
     pub(crate) events: super::events::EventQueue,
@@ -50,6 +51,8 @@ pub(crate) struct Model {
     /// The imports and drops of shared textures to carry out after the
     /// turn, in the order written.
     pub(crate) external_writes: Vec<ExternalWrite>,
+    /// The drawable roots and what the app asked of each export.
+    pub(crate) drawables: super::drawables::state::Drawables,
     #[cfg(debug_assertions)]
     pub(crate) lint: crate::check::lint::state::Lint,
 }
@@ -71,6 +74,7 @@ impl Model {
             tree: NodeTree::default(),
             layout: Default::default(),
             layout_motion: Default::default(),
+            playback: Default::default(),
             measure: Default::default(),
             editors: Vec::new(),
             events: super::events::EventQueue::default(),
@@ -97,6 +101,7 @@ impl Model {
             effects: vec![],
             snapshots: Vec::new(),
             external_writes: Vec::new(),
+            drawables: Default::default(),
             #[cfg(debug_assertions)]
             lint: Default::default(),
         }

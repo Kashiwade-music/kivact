@@ -16,7 +16,7 @@ pub(super) fn carousel_root(_: &Theme, _: &crate::carousel_values::CarouselSurfa
 }
 pub(super) fn carousel_track(t: &Theme, _: &crate::carousel_values::CarouselSurfaceState) -> Style {
     style().gap(carousel_gap(t)).transition(
-        kivact_core::style::TransitionProp::Paint,
+        kivact_core::style::TransitionProp::All,
         kivact_core::motion::Transition::tween(300, kivact_core::motion::Easing::EaseOut),
     )
 }

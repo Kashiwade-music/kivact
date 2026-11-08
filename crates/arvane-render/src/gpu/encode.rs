@@ -1,4 +1,4 @@
-//! Role: Encoding of Arvane scenes into vello_hybrid scenes for the GPU renderer.
+//! Role: Encoding of Arvane scenes into vello_hybrid scenes for the GPU rasterizer.
 //!
 //! Arvane scenes as vello_hybrid scenes: the shared drawing (`draw.rs`)
 //! into the GPU renderer's scene.
@@ -6,13 +6,14 @@
 //! Glyphs: drawn from vello_hybrid's glyph atlas (glifo's cache: each glyph
 //! is rasterized once per size, hinting, emboldening and quarter-pixel
 //! position into an atlas page and copied from there; pages of
-//! [`GLYPH_PAGE`] pixels are added as needed and unused glyphs are evicted
+//! `GLYPH_PAGE` (in `raster.rs`) pixels are added as needed and unused glyphs are evicted
 //! after 64 frames), so a frame of text costs one textured rectangle per
-//! glyph rather than its outline's strips. Glyphs under a rotation, skew
-//! or non-uniform scale are drawn from their outlines.
+//! glyph rather than its outline's strips. Only solid glyph fills use the
+//! atlas; glyph outline strokes, gradient or pattern fills, and glyphs under
+//! a rotation, skew or non-uniform scale are drawn from their outlines.
 //!
 //! Images: each image gets its own texture (premultiplied RGBA8), made
-//! once while consecutive frames draw it (the CPU renderer's image cache
+//! once while consecutive frames draw it (the CPU rasterizer's image cache
 //! rules, `images.rs`) and dropped after the first frame that does not
 //! draw it. An image larger than the device's texture limit is shrunk to
 //! fit first (by averaging blocks of pixels). A texture repeats its last
@@ -30,8 +31,8 @@
 //! vello_hybrid panics when its pages (64 at most) run out; a pattern
 //! beyond that, and a larger tile, is drawn as one textured rectangle per
 //! visible copy (few, as they are large; at most `MAX_TILES`, 4096, are
-//! drawn). Atlas uploads and clears are
-//! submitted apart, before the frame is drawn.
+//! drawn). Atlas uploads and clears are submitted apart, before the frame
+//! is drawn.
 //!
 //! Limits:
 //! - The glyph atlas is a feature vello_hybrid calls experimental (its
@@ -40,43 +41,28 @@
 //! - In a frame that draws new glyphs into the atlas, vello_hybrid 0.2
 //!   draws the atlas page (512 px) in a submission of its own and makes
 //!   its depth texture again whenever the size it draws at changes: twice
-//!   in a frame that goes between the atlas and the window. That is inside
+//!   in a frame that goes between the atlas and the target. That is inside
 //!   vello_hybrid and left as it is.
 //! - An image beyond the device's texture limit (16,384 px on most) is
 //!   shrunk, so it is coarser on the GPU than on the CPU.
-//! - External frames (textures an application's render engine shares,
-//!   `external.rs`) are sampled from the engine's own texture, which has
-//!   no repeated last column and row: bilinear sampling of a scaled frame
-//!   blends the last texel with the one before it within its last half
-//!   texel (vello_hybrid clamps first), where an image samples the last
-//!   texel alone. Drawn at its own size, a frame's pixels are exact.
 
-use super::external::Frame;
-use super::state::{AtlasImage, GpuContext, GpuImage, Images};
+use super::images::{AtlasImage, GpuImage, Images};
+use super::raster::GpuRaster;
 use crate::draw;
-use crate::error::RenderError;
 use crate::paint::PatternFill;
-use crate::validate;
-use crate::validate::SceneInfo;
+use kivact_types::pixel::Pixels;
 use kivact_types::render::RenderScene;
-use kivact_types::scene::Pixels;
-use kivact_types::{ExternalFrame, Size};
 use std::sync::Arc;
 use vello_common::filter_effects::Filter;
 use vello_common::geometry::RectU16;
 use vello_common::paint::ImageId;
 use vello_cpu::color::PremulRgba8;
-use vello_cpu::color::palette::css::WHITE;
 use vello_cpu::kurbo::{Affine, BezPath, Rect, Shape, Stroke};
 use vello_cpu::peniko::{
     self, BlendMode, Blob, Extend, ImageAlphaType, ImageFormat, ImageQuality, ImageSampler,
 };
 use vello_cpu::{Glyph, Image, ImageSource, PaintType, Pixmap};
 use vello_hybrid::{Renderer, Resources, SampleRect, TextureBindings, TextureId};
-
-/// The side of a glyph atlas page, in pixels (1 MiB each): a page holds
-/// about a thousand glyphs of body text.
-pub(crate) const GLYPH_PAGE: u32 = 512;
 
 /// The longest side, in device pixels, of a pattern tile repeated from the
 /// image atlas (a larger one is drawn copy by copy).
@@ -89,168 +75,47 @@ const MAX_TILES: usize = 4096;
 /// glyphs' too, and vello_hybrid panics when its pages run out.
 const MAX_ATLAS_PATTERNS: usize = 64;
 
-impl GpuContext {
-    /// Record `source` into the renderer's scene for a `width` × `height`
-    /// frame at `scale` device pixels per logical pixel, on white when
-    /// `opaque` (as CPU frames are shown).
-    pub(crate) fn encode(
+impl GpuRaster {
+    /// Record `source` into the renderer's scene for a `size` pixel target
+    /// under `frame`.
+    pub(super) fn record(
         &mut self,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
         source: &RenderScene,
-        scale: f64,
-        size: (u32, u32),
-        info: &SceneInfo,
-        opaque: bool,
-        external: &Frame,
+        frame: &draw::Frame,
+        (width, height): (u16, u16),
     ) {
-        let Self {
+        let GpuRaster {
+            scene,
+            resources,
+            renderer,
+            images,
+            caches,
+        } = self;
+        if (scene.width(), scene.height()) == (width, height) {
+            scene.reset();
+        } else {
+            scene.reset_and_resize(width, height);
+        }
+        images.cache.begin_frame();
+        images.bindings = TextureBindings::new();
+        let mut canvas = HybridCanvas {
             scene,
             resources,
             renderer,
             device,
             queue,
             images,
-            caches,
-            ..
-        } = self;
-        record(
-            Recorder {
-                scene,
-                resources,
-                renderer,
-                device,
-                queue,
-                images,
-                caches,
-                external,
-            },
-            source,
-            scale,
-            size,
-            info,
-            opaque,
-        );
-    }
-
-    /// [`GpuContext::encode`], while a scoped thread runs `alongside` with
-    /// the device and the adapter (driver work that would otherwise wait
-    /// for the recording, or the recording for it); returns what it
-    /// returned.
-    pub(crate) fn encode_alongside<R: Send>(
-        &mut self,
-        source: &RenderScene,
-        scale: f64,
-        size: (u32, u32),
-        info: &SceneInfo,
-        external: &Frame,
-        alongside: impl FnOnce(&wgpu::Device, &wgpu::Adapter) -> R + Send,
-    ) -> R {
-        let Self {
-            scene,
-            resources,
-            renderer,
-            device,
-            queue,
-            images,
-            caches,
-            adapter,
-            ..
-        } = self;
-        let (device, adapter) = (&*device, &*adapter);
-        std::thread::scope(|scope| {
-            let side = scope.spawn(move || alongside(device, adapter));
-            record(
-                Recorder {
-                    scene,
-                    resources,
-                    renderer,
-                    device,
-                    queue,
-                    images,
-                    caches,
-                    external,
-                },
-                source,
-                scale,
-                size,
-                info,
-                true,
-            );
-            side.join()
-                .unwrap_or_else(|panic| std::panic::resume_unwind(panic))
-        })
-    }
-}
-
-/// The context's parts a recording uses, borrowed apart.
-struct Recorder<'a> {
-    scene: &'a mut vello_hybrid::Scene,
-    resources: &'a mut Resources,
-    renderer: &'a mut Renderer,
-    device: &'a wgpu::Device,
-    queue: &'a wgpu::Queue,
-    images: &'a mut Images,
-    caches: &'a mut draw::Caches,
-    external: &'a Frame,
-}
-
-/// Record `source` into the scene (see [`GpuContext::encode`]).
-fn record(
-    parts: Recorder<'_>,
-    source: &RenderScene,
-    scale: f64,
-    (width, height): (u32, u32),
-    info: &SceneInfo,
-    opaque: bool,
-) {
-    let Recorder {
-        scene,
-        resources,
-        renderer,
-        device,
-        queue,
-        images,
-        caches,
-        external,
-    } = parts;
-    let (width, height) = (
-        u16::try_from(width).expect("invariant: validated frame width"),
-        u16::try_from(height).expect("invariant: validated frame height"),
-    );
-    if (scene.width(), scene.height()) == (width, height) {
-        scene.reset();
-    } else {
-        scene.reset_and_resize(width, height);
-    }
-    if opaque {
-        scene.set_paint(PaintType::Solid(WHITE));
-        scene.fill_rect(&Rect::new(0.0, 0.0, f64::from(width), f64::from(height)));
-    }
-    images.cache.begin_frame();
-    images.bindings = TextureBindings::new();
-    let mut canvas = HybridCanvas {
-        scene,
-        resources,
-        renderer,
-        device,
-        queue,
-        images,
-        external,
-        uploads: None,
-    };
-    let frame = draw::Frame {
-        scale,
-        size: Size {
-            width: f64::from(width) / scale,
-            height: f64::from(height) / scale,
-        },
-        backdrops: info.backdrops,
-    };
-    draw::draw(&mut canvas, caches, source, &frame);
-    // Dropping an image's view frees its texture once the GPU is done.
-    canvas.images.cache.end_frame();
-    canvas.free_stale_patterns();
-    if let Some(uploads) = canvas.uploads.take() {
-        queue.submit([uploads.finish()]);
+            uploads: None,
+        };
+        draw::draw(&mut canvas, caches, source, frame);
+        // Dropping an image's view frees its texture once the GPU is done.
+        canvas.images.cache.end_frame();
+        canvas.free_stale_patterns();
+        if let Some(uploads) = canvas.uploads.take() {
+            queue.submit([uploads.finish()]);
+        }
     }
 }
 
@@ -262,8 +127,6 @@ struct HybridCanvas<'a> {
     device: &'a wgpu::Device,
     queue: &'a wgpu::Queue,
     images: &'a mut Images,
-    /// The external frames ready for this frame.
-    external: &'a Frame,
     /// Atlas uploads and clears of this recording, submitted before the
     /// frame is drawn.
     uploads: Option<wgpu::CommandEncoder>,
@@ -439,6 +302,16 @@ impl draw::Canvas for HybridCanvas<'_> {
             .fill_glyphs(glyphs);
     }
 
+    fn stroke_glyphs(
+        &mut self,
+        run: draw::GlyphRun<'_>,
+        glyphs: impl Iterator<Item = Glyph> + Clone,
+    ) {
+        run.apply(self.scene.glyph_run(self.resources, run.font))
+            .atlas_cache(false)
+            .stroke_glyphs(glyphs);
+    }
+
     fn draw_image(&mut self, image: &Pixels, rect: Rect, pixelated: bool) {
         let texture = self.texture(image);
         // The texture's extra column and row (see `upload`) are sampled
@@ -457,39 +330,6 @@ impl draw::Canvas for HybridCanvas<'_> {
                     * Affine::scale_non_uniform(
                         rect.width() / f64::from(texture.width),
                         rect.height() / f64::from(texture.height),
-                    ),
-            }],
-        );
-        self.scene.pop_clip_path();
-    }
-
-    fn external_size(&self, frame: &ExternalFrame) -> Option<(u32, u32)> {
-        self.external
-            .bound(frame)
-            .map(|bound| (u32::from(bound.width), u32::from(bound.height)))
-    }
-
-    fn draw_external(&mut self, frame: &ExternalFrame, rect: Rect, pixelated: bool) {
-        let Some(bound) = self.external.bound(frame) else {
-            return;
-        };
-        self.images.bindings.insert(bound.id, bound.view.clone());
-        self.scene.push_clip_path(&rect.to_path(0.1));
-        // The whole texture: it has no repeated last column and row (see
-        // the module's limits).
-        self.scene.draw_texture_rects(
-            bound.id,
-            if pixelated {
-                ImageQuality::Low
-            } else {
-                ImageQuality::Medium
-            },
-            [SampleRect {
-                source_region: RectU16::new(0, 0, bound.width, bound.height),
-                transform: Affine::translate((rect.x0, rect.y0))
-                    * Affine::scale_non_uniform(
-                        rect.width() / f64::from(bound.width),
-                        rect.height() / f64::from(bound.height),
                     ),
             }],
         );
@@ -668,56 +508,4 @@ fn shrink(pixmap: Arc<Pixmap>, limit: u16) -> Arc<Pixmap> {
         }
     }
     Arc::new(Pixmap::from_parts(out, to_width, to_height))
-}
-
-impl GpuContext {
-    /// Validate `scene` and the frame size against the renderer's budget
-    /// and the device's texture limit, returning the pixel dimensions and
-    /// what drawing the scene needs to know.
-    pub(crate) fn dimensions(
-        &mut self,
-        scene: &RenderScene,
-        size: Size,
-        scale: f64,
-    ) -> Result<((u32, u32), validate::SceneInfo), RenderError> {
-        let (width, height) = validate::dimensions(size, scale)?;
-        let info = validate::scene(scene, &mut self.caches.validation)?;
-        let (width, height) = (u32::from(width), u32::from(height));
-        let max = self.device.limits().max_texture_dimension_2d;
-        if width > max || height > max {
-            return Err(RenderError::InvalidSize);
-        }
-        self.check()?;
-        Ok(((width, height), info))
-    }
-
-    /// Draw the recorded scene into `view` (a `width` × `height` texture
-    /// in [`FORMAT`]) with `encoder`.
-    pub(crate) fn draw(
-        &mut self,
-        encoder: &mut wgpu::CommandEncoder,
-        (width, height): (u32, u32),
-        view: &wgpu::TextureView,
-    ) -> Result<(), RenderError> {
-        self.renderer
-            .render(
-                &self.scene,
-                &mut self.resources,
-                &self.device,
-                &self.queue,
-                encoder,
-                &vello_hybrid::RenderSize { width, height },
-                view,
-                &self.images.bindings,
-            )
-            .map_err(|e| match e {
-                // What the scene asks of the renderer's atlases and
-                // textures, not a device failure.
-                vello_hybrid::RenderError::AtlasError(_)
-                | vello_hybrid::RenderError::MissingTextureBinding(_)
-                | vello_hybrid::RenderError::IntermediateTexture(_) => {
-                    RenderError::GpuLimit(e.to_string())
-                }
-            })
-    }
 }

@@ -56,6 +56,18 @@ pub(crate) struct Frame {
     /// The environment as the client last saw it: the one source of the
     /// display period, reduced motion and drawability.
     pub(super) env: Environment,
+    /// The painted nodes with a shader clock, as of the last paint
+    /// list; each needs frames while it is painted.
+    pub(super) shader_clocks: BTreeMap<NodeId, ClockNeed>,
+}
+
+/// What a shader clock needs from the frames.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) enum ClockNeed {
+    /// A frame at every display tick.
+    Display,
+    /// Frames at this rate in hertz.
+    Hz(f64),
 }
 
 impl Default for Frame {
@@ -68,6 +80,7 @@ impl Default for Frame {
             smooth_scrolls: BTreeMap::new(),
             last_frame: TickHistory::NeverTicked,
             env: Environment::default(),
+            shader_clocks: BTreeMap::new(),
         }
     }
 }
@@ -93,6 +106,11 @@ impl Frame {
     /// The theme the client sees.
     pub(crate) fn theme_hint(&self) -> ThemeHint {
         self.env.theme_hint
+    }
+
+    /// The host clock (ns) of the event or turn being handled.
+    pub(crate) fn now(&self) -> u64 {
+        self.now
     }
 
     /// The display's frame period.

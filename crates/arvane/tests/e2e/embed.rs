@@ -57,11 +57,13 @@ impl Handler for Host {
             seen.timer = true;
         }
         if event == ShellEvent::Redraw {
-            let scene =
-                crate::support::scene(vec![crate::support::fill(0., 0., 320., 240., 0xffffff)]);
             let plan = window.frame_plan();
+            let composition = crate::support::commands_composition(
+                vec![crate::support::fill(0., 0., 320., 240., 0xffffff)],
+                plan.size,
+            );
             window
-                .present(&scene, plan)
+                .present(&composition, plan)
                 .expect("embedded CPU frame presents");
         }
         seen.events.push(event);

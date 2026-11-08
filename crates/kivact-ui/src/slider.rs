@@ -501,7 +501,7 @@ fn thumb_views(
                             position
                                 .scale(if lifted { lifted_scale } else { 1.0 })
                                 .transition(
-                                    TransitionProp::Paint,
+                                    TransitionProp::All,
                                     Transition::spring(if lifted { lift } else { drop }),
                                 )
                         }

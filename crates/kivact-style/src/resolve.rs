@@ -17,7 +17,7 @@
 //!   border, radius, shadow, ring, effects, transform, z-index), so a state
 //!   that sets only `border_color` keeps the base width, and one that sets
 //!   only `scale` keeps the base rotation.
-//! - A paint transition (`TransitionProp::Paint`) works the same for a
+//! - A transition over the paint properties (`TransitionProp::All`) works the same for a
 //!   signal or style change and for the host's hover, pressed and focus
 //!   switches: it interpolates the opacity, a solid background, each
 //!   border color, the canonical transform and its origin, the first two
@@ -27,15 +27,16 @@
 //!   that drops a text property writes `None`, through the typed setter, so
 //!   the node goes back to what it inherits.
 
+use kivact_runtime::{Transition, UiError};
 use kivact_types as p;
 use kivact_types::{
     Border, Corners, Edges, Effects, ElementTransform, Fill, LayoutProps, PaintDelta, PaintProps,
-    Ring, ScrollAxes, StateStyles, TextStyle,
+    Perspective, Repeat, Ring, ScrollAxes, StateStyles, TextStyle,
 };
 
 use super::color::ColorToken;
 use super::draw::{Draw, LocalPaint, Size};
-use super::effect::{Shadow, clip_shape, filter_ops};
+use super::effect::{Shadow, clip_shape, filter_ops, filter_problems};
 use super::geometry::corner;
 use super::length::{Length, pct};
 use super::paint::{Background, fill_layer};
@@ -81,6 +82,11 @@ pub struct CompiledStyle {
     /// `state.property` (`"hover.width"`, `"disabled.hover.font_size"`):
     /// ignored and reported as `Unsupported`.
     pub unsupported_in_states: Vec<String>,
+    /// Problems the style reports on compilation: spring transitions that
+    /// cannot run, a layout transition that repeats, shader values and
+    /// filter graphs that do not validate, transform functions the form
+    /// cannot keep.
+    pub reports: Vec<UiError>,
 }
 
 fn dim(l: Option<Length>, default: p::Dimension) -> p::Dimension {
@@ -312,7 +318,8 @@ pub fn compile_style(s: &Style, theme: &Theme, state: Interactive) -> CompiledSt
         t
     });
     let mut paint = paint(&s, theme);
-    paint.transition = super::paint_transition(&s).map(|t| std::sync::Arc::new(t.clone()));
+    paint.transitions = paint_transitions(&s);
+    let reports = reports(&s, theme);
     CompiledStyle {
         retained_paint,
         layout: layout(&s),
@@ -323,6 +330,7 @@ pub fn compile_style(s: &Style, theme: &Theme, state: Interactive) -> CompiledSt
         misplaced_content: misplaced_content(&s),
         unsupported_text,
         unsupported_in_states,
+        reports,
     }
 }
 
@@ -364,6 +372,14 @@ const DELTA: &[&str] = &[
     "scale",
     "transform",
     "transform_origin",
+    "translate_z",
+    "rotate_x",
+    "rotate_y",
+    "transform_origin_z",
+    "perspective",
+    "perspective_origin",
+    "transform_style",
+    "backface_visibility",
     "z_index",
     "scrollbar",
     "cursor",
@@ -375,25 +391,46 @@ const DELTA: &[&str] = &[
     "color",
 ];
 
-/// The properties `s` sets, by the name of the setter that sets them. Every
-/// field of `Style` is named in the destructure, so a new field must be
-/// classified here.
+/// Declares `set_properties`, which lists the properties `s` sets by the
+/// name of the setter that sets them, and one classifier per group. Every
+/// field of `Style` is named in the exhaustive pattern of `set_properties`,
+/// so a new field must be classified in one of the groups below.
 macro_rules! classify_properties {
-    ($s:expr, $($field:ident => $set:expr, $name:literal;)* @ignored $($ignored:ident),*) => {{
-        let Style { $($field,)* $($ignored: _,)* } = $s;
-        [$(($set, $name),)*].into_iter().filter_map(|(set, name)| set.then_some(name)).collect()
-    }};
+    (
+        $(
+            fn $group:ident {
+                $($field:ident => $set:expr, $name:literal;)*
+            }
+        )*
+        @ignored $($ignored:ident),*
+    ) => {
+        fn set_properties(s: &Style) -> Vec<&'static str> {
+            let Style { $($($field: _,)*)* $($ignored: _,)* } = s;
+            let mut out = Vec::new();
+            $(out.extend($group(s));)*
+            out
+        }
+
+        $(
+            fn $group(s: &Style) -> Vec<&'static str> {
+                let Style { $($field,)* .. } = s;
+                [$(($set, $name),)*]
+                    .into_iter()
+                    .filter_map(|(set, name)| set.then_some(name))
+                    .collect()
+            }
+        )*
+    };
 }
 
-fn set_properties(s: &Style) -> Vec<&'static str> {
-    let sides = Sides::default();
-    classify_properties!(s,
+classify_properties! {
+    fn layout_properties {
         enter_size => enter_size.is_some(), "enter_size";
         exit_size => exit_size.is_some(), "exit_size";
         local_paint => local_paint.is_some(), "paint";
-        padding => *padding != sides, "padding";
-        margin => *margin != sides, "margin";
-        inset => *inset != sides, "inset";
+        padding => *padding != Sides::default(), "padding";
+        margin => *margin != Sides::default(), "margin";
+        inset => *inset != Sides::default(), "inset";
         row_gap => row_gap.is_some(), "row_gap";
         column_gap => column_gap.is_some(), "column_gap";
         width => width.is_some(), "width";
@@ -415,32 +452,51 @@ fn set_properties(s: &Style) -> Vec<&'static str> {
         visibility => visibility.is_some(), "visibility";
         grid => grid.is_some(), "grid";
         wrap => wrap.is_some(), "wrap";
+    }
+    fn position_properties {
         position => position.is_some(), "position";
         overflow => overflow.is_some(), "overflow";
         scroll_snap => scroll_snap.is_some(), "scroll_snap";
         scroll_axes => scroll_axes.is_some(), "with_scroll_axes";
-        background => background.is_some(), "background";
-        border_width => border_width.iter().any(Option::is_some), "border_width";
-        border_color => border_color.iter().any(Option::is_some), "border_color";
-        border_style => border_style.is_some(), "border_style";
-        ring => ring.is_some(), "ring";
-        radius => radius.iter().any(Option::is_some), "radius";
-        shadows => shadows.is_some(), "shadow";
-        opacity => opacity.is_some(), "opacity";
-        translate => translate.iter().any(Option::is_some), "translate";
-        rotate => rotate.is_some(), "rotate";
-        scale => scale.is_some(), "scale";
-        transform => transform.is_some(), "transform";
-        transform_origin => transform_origin.is_some(), "transform_origin";
         scrollbar => scrollbar.is_some(), "scrollbar";
         cursor => cursor.is_some(), "cursor";
         z_index => z_index.is_some(), "z_index";
         clip => clip.is_some(), "clip";
+    }
+    fn paint_properties {
+        background => background.is_some(), "background";
+        border_width => border_width.iter().any(Option::is_some), "border_width";
+        border_color => border_color.iter().any(Option::is_some), "border_color";
+        border_style => border_style.iter().any(Option::is_some), "border_style";
+        ring => ring.is_some(), "ring";
+        radius => radius.iter().any(Option::is_some), "radius";
+        shadows => shadows.is_some(), "shadow";
+        opacity => opacity.is_some(), "opacity";
+        border_image => border_image.is_some(), "border_image";
+        isolation => isolation.is_some(), "isolation";
         filter => filter.is_some(), "filter";
         backdrop_filter => backdrop_filter.is_some(), "backdrop_filter";
         blend => blend.is_some(), "blend";
         mask => mask.is_some(), "mask";
         clip_path => clip_path.is_some(), "clip_path";
+    }
+    fn transform_properties {
+        translate => translate.iter().any(Option::is_some), "translate";
+        rotate => rotate.is_some(), "rotate";
+        scale => scale.is_some(), "scale";
+        transform => transform.is_some(), "transform";
+        transform_origin => transform_origin.is_some(), "transform_origin";
+        translate_z => translate_z.is_some(), "translate_z";
+        rotate_x => rotate_x.is_some(), "rotate_x";
+        rotate_y => rotate_y.is_some(), "rotate_y";
+        transform_origin_z => transform_origin_z.is_some(), "transform_origin_z";
+        perspective => perspective.is_some(), "perspective";
+        perspective_origin => perspective_origin.is_some(), "perspective_origin";
+        transform_style => transform_style.is_some(), "transform_style";
+        backface => backface.is_some(), "backface_visibility";
+        will_change => will_change.is_some(), "will_change";
+    }
+    fn text_properties {
         font_size => font_size.is_some(), "font_size";
         weight => weight.is_some(), "weight";
         color => color.is_some(), "color";
@@ -450,6 +506,8 @@ fn set_properties(s: &Style) -> Vec<&'static str> {
         font_family => font_family.is_some(), "font_family";
         italic => italic.is_some(), "italic";
         text => text.is_some(), "text";
+    }
+    fn state_properties {
         hover => hover.is_some(), "hover";
         group => *group, "group";
         group_hover => group_hover.is_some(), "group_hover";
@@ -463,8 +521,8 @@ fn set_properties(s: &Style) -> Vec<&'static str> {
         exit => exit.is_some(), "exit";
         transitions => !transitions.is_empty(), "transition";
         layout_transition => layout_transition.is_some(), "layout_transition";
-        @ignored duplicates
-    )
+    }
+    @ignored duplicates
 }
 
 /// Push `prefix` + `state.property` for every property the delta states
@@ -546,7 +604,7 @@ fn border_widths(s: &Style) -> Edges<f64> {
 fn border(s: &Style, theme: &Theme) -> Option<Border> {
     let set = s.border_width.iter().any(Option::is_some)
         || s.border_color.iter().any(Option::is_some)
-        || s.border_style.is_some();
+        || s.border_style.iter().any(Option::is_some);
     set.then(|| {
         let c = |i: usize| {
             s.border_color[i]
@@ -561,7 +619,12 @@ fn border(s: &Style, theme: &Theme) -> Option<Border> {
                 bottom: c(2),
                 left: c(3),
             },
-            style: s.border_style.unwrap_or_default(),
+            styles: p::Edges {
+                top: s.border_style[0].unwrap_or_default(),
+                right: s.border_style[1].unwrap_or_default(),
+                bottom: s.border_style[2].unwrap_or_default(),
+                left: s.border_style[3].unwrap_or_default(),
+            },
         }
     })
 }
@@ -606,24 +669,30 @@ fn effects(s: &Style, theme: &Theme) -> Option<Box<Effects>> {
                 .map(|f| filter_ops(f, theme))
                 .unwrap_or_default(),
             blend: s.blend.unwrap_or_default(),
-            mask: s.mask.as_ref().map(|m| fill_layer(m, theme)),
+            masks: s.mask.as_ref().map(|m| m.wire(theme)).unwrap_or_default(),
             clip_path: s.clip_path.as_ref().map(|c| clip_shape(&c.0)),
         })
     })
 }
 
-/// The transform properties of `s` as one element transform: CSS's
-/// `translate`, `rotate` and `scale`, then `transform`, about
-/// `transform-origin` (the centre by default).
-fn element_transform(s: &Style) -> ElementTransform {
+/// The transform properties of `s` as one transform: CSS's `translate`
+/// (x, y, z), then `rotate` (z, then y, then x), then `scale`, then
+/// `transform`, about `transform-origin` (the centre by default).
+fn transform_of(s: &Style) -> Transform {
     let mut t = Transform::new();
-    if s.translate.iter().any(Option::is_some) {
+    if s.translate.iter().any(Option::is_some) || s.translate_z.is_some() {
         // An axis left unset does not move the node.
         let [x, y] = s.translate.map(|axis| axis.unwrap_or(Length::Px(0.0)));
-        t = t.translate(x, y);
+        t = t.translate_3d(x, y, s.translate_z.unwrap_or(0.0));
     }
     if let Some(deg) = s.rotate {
-        t = t.rotate(deg);
+        t = t.rotate_z(deg);
+    }
+    if let Some(deg) = s.rotate_y {
+        t = t.rotate_y(deg);
+    }
+    if let Some(deg) = s.rotate_x {
+        t = t.rotate_x(deg);
     }
     if let Some((x, y)) = s.scale {
         t = t.scale_xy(x, y);
@@ -631,26 +700,52 @@ fn element_transform(s: &Style) -> ElementTransform {
     if let Some(list) = &s.transform {
         t = t.then(list);
     }
+    t
+}
+
+/// The transform properties of `s` as one element transform, about
+/// `transform-origin` (the centre by default) and its z.
+fn element_transform(s: &Style) -> ElementTransform {
     let (x, y) = s.transform_origin.unwrap_or((pct(50), pct(50)));
     // `auto` is the default centre.
-    t.to_wire([x, y].map(|l| match l {
-        Length::Auto => p::Len::pct(50.0),
-        l => l.to_len(),
-    }))
+    transform_of(s).to_wire(
+        [x, y].map(|l| match l {
+            Length::Auto => p::Len::pct(50.0),
+            l => l.to_len(),
+        }),
+        s.transform_origin_z.unwrap_or(0.0),
+    )
 }
 
 /// Whether `s` sets a transform property.
 fn sets_transform(s: &Style) -> bool {
     s.translate.iter().any(Option::is_some)
+        || s.translate_z.is_some()
         || s.rotate.is_some()
+        || s.rotate_x.is_some()
+        || s.rotate_y.is_some()
         || s.scale.is_some()
         || s.transform.is_some()
         || s.transform_origin.is_some()
+        || s.transform_origin_z.is_some()
+}
+
+/// The perspective of the node's children: the distance, about the
+/// `perspective-origin` (the centre by default).
+fn perspective(s: &Style) -> Option<Perspective> {
+    s.perspective.map(|distance| Perspective {
+        distance,
+        origin: s
+            .perspective_origin
+            .map_or([p::Len::pct(50.0), p::Len::pct(50.0)], |(x, y)| {
+                [x.to_len(), y.to_len()]
+            }),
+    })
 }
 
 fn paint(s: &Style, theme: &Theme) -> PaintProps {
     PaintProps {
-        transition: None,
+        transitions: None,
         background: s.background.as_ref().map(|b| fill(b, theme)),
         border: border(s, theme),
         ring: s.ring.map(|(width, offset, c)| Ring {
@@ -667,6 +762,12 @@ fn paint(s: &Style, theme: &Theme) -> PaintProps {
             .collect(),
         opacity: s.opacity.unwrap_or(1.0),
         transform: element_transform(s),
+        perspective: perspective(s),
+        transform_style: s.transform_style.unwrap_or_default(),
+        backface: s.backface.unwrap_or_default(),
+        will_change: s.will_change.unwrap_or_default(),
+        isolation: s.isolation.unwrap_or_default(),
+        border_image: s.border_image.as_ref().map(|b| Box::new(b.wire(theme))),
         z_index: s.z_index.unwrap_or(0),
         scrollbar: scrollbar(s, theme),
         cursor: s.cursor.unwrap_or_default(),
@@ -677,6 +778,72 @@ fn paint(s: &Style, theme: &Theme) -> PaintProps {
     }
 }
 
+/// The paint transitions of `s`: every property but the size, which the
+/// layout takes.
+fn paint_transitions(
+    s: &Style,
+) -> Option<std::sync::Arc<[(super::sheet::TransitionProp, Transition)]>> {
+    let list: Vec<_> = s
+        .transitions
+        .iter()
+        .filter(|(prop, _)| *prop != super::sheet::TransitionProp::Size)
+        .cloned()
+        .collect();
+    (!list.is_empty()).then(|| list.into())
+}
+
+/// What `compile_style` reports about the style itself (see
+/// [`CompiledStyle::reports`]).
+fn reports(s: &Style, theme: &Theme) -> Vec<UiError> {
+    let mut out = Vec::new();
+    let mut report = |error: UiError| out.push(error);
+    let springs = s
+        .transitions
+        .iter()
+        .map(|(_, t)| t)
+        .chain(s.layout_transition.iter());
+    for t in springs {
+        if let p::Kind::Spring(spring) = &t.kind
+            && let Some(problem) = spring.problem()
+        {
+            report(UiError::msg(format!("spring: {problem}")));
+        }
+    }
+    if let Some(t) = &s.layout_transition
+        && (t.repeat != Repeat::Times(1) || t.direction != p::PlayDirection::Normal)
+    {
+        report(UiError::msg(
+            "layout_transition ignores repeat and alternate",
+        ));
+    }
+    if let Some(background) = &s.background {
+        for paint in &background.0 {
+            for problem in paint.shader_problems() {
+                report(problem);
+            }
+        }
+    }
+    if let Some(mask) = &s.mask {
+        for layer in &mask.0 {
+            for problem in layer.paint().shader_problems() {
+                report(problem);
+            }
+        }
+    }
+    for filter in [&s.filter, &s.backdrop_filter].into_iter().flatten() {
+        for problem in filter_problems(filter, theme) {
+            report(problem);
+        }
+    }
+    let dropped = transform_of(s).unsupported();
+    if dropped > 0 {
+        report(UiError::msg(format!(
+            "transform: {dropped} function(s) the form cannot keep"
+        )));
+    }
+    out
+}
+
 /// The paint a state style `st` changes over the node's style `base`:
 /// each group it sets, resolved over the base (a state that sets only a
 /// border color keeps the base's widths).
@@ -685,7 +852,7 @@ fn paint_delta(base: &Style, st: &Style, theme: &Theme) -> PaintDelta {
     let full = paint(&merged, theme);
     let sets_border = st.border_width.iter().any(Option::is_some)
         || st.border_color.iter().any(Option::is_some)
-        || st.border_style.is_some();
+        || st.border_style.iter().any(Option::is_some);
     let sets_effects = st.filter.is_some()
         || st.backdrop_filter.is_some()
         || st.blend.is_some()
@@ -699,6 +866,10 @@ fn paint_delta(base: &Style, st: &Style, theme: &Theme) -> PaintDelta {
         opacity: st.opacity,
         shadows: st.shadows.as_ref().map(|_| full.shadows),
         transform: sets_transform(st).then_some(full.transform),
+        perspective: (st.perspective.is_some() || st.perspective_origin.is_some())
+            .then_some(full.perspective),
+        transform_style: st.transform_style.map(|_| full.transform_style),
+        backface: st.backface.map(|_| full.backface),
         z_index: st.z_index,
         scrollbar: st
             .scrollbar

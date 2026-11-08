@@ -290,6 +290,66 @@ mod tests {
 - テーマが知らない名前は何も描かれません。デバッグビルドでは 1 回だけ報告されます。
 - アイコンを受け取るコンポーネント(`MenuEntry::icon`、`ListItem::icon`)も、同じ名前か、画像の `Asset` を受け取ります。ファイルのままのアイコンは[画像とフォント](images-and-fonts.md)を参照してください。
 
+## 別の色空間で色を選ぶ
+
+色は 16 進数や `rgb` だけでなく、CSS の色空間でも書けます。`oklch`、`oklab`、`lab`、`lch`、`hwb`、`hsl`、`rgba` の関数は `kivact::style` にあり、それぞれがその空間の数値を取ります。明るさの揃ったパレットを作るなら `oklch(l, c, h)` が適しています。`l` は 0 から 1、`c`（彩度）は 0 から、`h` は度数の色相です。`lab` と `lch` では `l` が 0 から 100 です。`hwb` は色相、白み、黒みの順で、白みと黒みは 0 から 1 です。
+
+`Color::css(text)` は、CSS の書き方の色を解釈します。例は `oklch(70% 0.15 250)`、`hsl(210 60% 40%)`、`#2563eb` です。解釈できない文字列はエラーになるので、設定やファイルから来る値は、セットアップで一度確かめてください。
+
+```rust,no_run
+use kivact::prelude::*;
+use kivact::style::{Color, hwb, oklch};
+
+fn swatches(brand_text: &str) -> impl IntoView {
+    // 設定から来た色。解釈できない値は既定の色に戻す。
+    let brand = Color::css(brand_text).unwrap_or(oklch(0.62, 0.19, 255.0));
+    row((
+        text("ブランド").style(
+            style()
+                .padding(8)
+                .background(brand)
+                .color(oklch(0.98, 0.0, 0.0)),
+        ),
+        text("準備完了").style(
+            style()
+                .padding(8)
+                .background(hwb(150.0, 0.12, 0.25))
+                .color(oklch(0.98, 0.0, 0.0)),
+        ),
+    ))
+    .style(style().gap(8).padding(12))
+}
+# fn main() -> kivact::Result<()> { App::new("Swatches").run(|| swatches("oklch(70% 0.15 250)")) }
+```
+
+これらの空間の色は、色を受け付ける場所ならどこでも使えます。スタイル、枠線、影、グラデーションの色止め、キャンバスの描画などです。画面が表示できない色は、描くときに画面の範囲へ写されます。
+
+## グラデーションの補間と hint を決める
+
+グラデーションは、既定では色止めを Oklab の中で混ぜます。`.interpolate(space)` は別の空間で混ぜます。CSS の `linear-gradient(in oklch, ..)` と同じです。極座標の空間（`Oklch`、`Lch`、`Hsl`、`Hwb`）では、`.hue(..)` で色相環の回り方を選びます。`HueInterpolation::Shorter`（既定）、`Longer`、`Increasing`、`Decreasing` があります。
+
+`.hint(at)` は、色止めとその次の色止めのあいだの中点を動かします。色止めの直後に呼びます。2 つの色のちょうど中間になる位置が、中央ではなく `at` になります。CSS の色のヒントと同じです。
+
+```rust,no_run
+use kivact::draw::linear_gradient;
+use kivact::prelude::*;
+use kivact::style::{ColorSpace, HueInterpolation, oklch};
+
+fn dusk() -> impl IntoView {
+    // oklch の中で色相を長い方向に回し、最初の組の中点を暖かい側へ寄せる。
+    let sky = linear_gradient(180)
+        .interpolate(ColorSpace::Oklch)
+        .hue(HueInterpolation::Longer)
+        .stop(oklch(0.45, 0.16, 280.0), pct(0))
+        .hint(pct(70))
+        .stop(oklch(0.78, 0.17, 45.0), pct(100));
+
+    text("夕暮れ")
+        .style(style().padding(24).height(120).background(sky).color(oklch(0.98, 0.0, 0.0)))
+}
+# fn main() -> kivact::Result<()> { App::new("Dusk").run(dusk) }
+```
+
 ## 自分のトークンを加える
 
 自分の色やサイズをテーマ経由で共有するには、`ThemeExtension` を実装した型を定義します。

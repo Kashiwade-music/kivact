@@ -154,12 +154,15 @@ fn node(source: &SemanticsNode, root: SemanticsId) -> accesskit::Node {
         let own = accesskit::Affine::new([t.a, t.b, t.c, t.d, t.e, t.f].map(f64::from));
         node.set_transform(own * accesskit::Affine::translate((-sx, -sy)));
     }
-    node.set_bounds(accesskit::Rect {
-        x0: source.bounds.x + sx,
-        y0: source.bounds.y + sy,
-        x1: source.bounds.x + source.bounds.width + sx,
-        y1: source.bounds.y + source.bounds.height + sy,
-    });
+    // A node without bounds has no position, so AccessKit gets none either.
+    if let Some(bounds) = source.bounds {
+        node.set_bounds(accesskit::Rect {
+            x0: bounds.x + sx,
+            y0: bounds.y + sy,
+            x1: bounds.x + bounds.width + sx,
+            y1: bounds.y + bounds.height + sy,
+        });
+    }
     set_states(&mut node, source);
     set_relations(&mut node, source);
     set_collection_properties(&mut node, source);

@@ -77,6 +77,7 @@ fn toggle_label(
             }
         },
     )
+    .into_view()
 }
 
 // xtask-allow(state-fields): Independent builder labels, enabled/busy inputs and optional edit callback; checked value belongs to the caller binding.

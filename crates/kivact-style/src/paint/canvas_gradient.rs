@@ -22,6 +22,7 @@
 //!   transparent.
 use crate::geometry::Point;
 use crate::{Color, ThemeColor};
+use kivact_types::{ColorInterpolation, ColorSpace, HueInterpolation};
 
 /// What a [`CanvasGradient`] paints beyond its offsets 0 and 1.
 #[doc(inline)]
@@ -90,6 +91,7 @@ pub struct CanvasGradient {
     pub(crate) shape: CanvasShape,
     pub(crate) stops: Vec<(f64, Color)>,
     pub(crate) extend: GradientExtend,
+    pub(crate) interpolation: ColorInterpolation,
 }
 
 impl CanvasGradient {
@@ -98,7 +100,20 @@ impl CanvasGradient {
             shape,
             stops: Vec::new(),
             extend: GradientExtend::Pad,
+            interpolation: ColorInterpolation::SRGB,
         }
+    }
+
+    /// The color space the stops are interpolated in (canvas default: sRGB).
+    pub fn interpolate(mut self, space: ColorSpace) -> Self {
+        self.interpolation.space = space;
+        self
+    }
+
+    /// How hues are interpolated in a polar space.
+    pub fn hue(mut self, hue: HueInterpolation) -> Self {
+        self.interpolation.hue = hue;
+        self
     }
 
     /// Offset 0 at `p0` and offset 1 at `p1`, constant across the line

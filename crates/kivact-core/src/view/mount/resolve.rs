@@ -257,6 +257,8 @@ fn finish_resolve(
         intrinsic,
         image_fit,
         monochrome,
+        image_playing,
+        layout_id,
         at: _,
     } = common;
     let (early, late) = if semantics.iter().any(|p| p.text) {
@@ -283,6 +285,8 @@ fn finish_resolve(
             patches: early,
             image_fit,
             monochrome,
+            image_playing,
+            layout_id,
             focus_on_press,
         },
         disabled,

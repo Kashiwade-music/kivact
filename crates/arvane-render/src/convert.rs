@@ -42,26 +42,23 @@ pub(crate) fn color(color: Rgba) -> AlphaColor<Srgb> {
     AlphaColor::new([color.r, color.g, color.b, color.a].map(|value| value as f32))
 }
 
-/// Path of a stroked line. Drawn at `scale` device pixels per unit (no
-/// other transform; `None` under one), a horizontal or vertical line whose
+/// Path of a stroked line. Drawn at `scale` device pixels per unit from the
+/// logical point `origin` (the frame's top left corner; no other transform;
+/// `None` under one), a horizontal or vertical line whose
 /// width is a whole number of device pixels moves across its axis onto the
 /// pixel grid (pixel centers for odd widths, pixel edges for even ones), so
 /// a 1 px line covers one row or column at full coverage rather than two at
 /// half. Other lines keep their exact geometry.
-pub(crate) fn line(from: Point, to: Point, width: f64, scale: Option<f64>) -> BezPath {
+pub(crate) fn line(from: Point, to: Point, width: f64, snap_to: Option<(f64, Point)>) -> BezPath {
     let (mut from, mut to) = (from, to);
-    let Some(scale) = scale else {
-        let mut path = BezPath::new();
-        path.move_to(point(from));
-        path.line_to(point(to));
-        return path;
-    };
-    if from.x == to.x && from.y != to.y {
-        from.x = snap(from.x, width, scale);
-        to.x = from.x;
-    } else if from.y == to.y && from.x != to.x {
-        from.y = snap(from.y, width, scale);
-        to.y = from.y;
+    if let Some((scale, origin)) = snap_to {
+        if from.x == to.x && from.y != to.y {
+            from.x = snap(from.x, width, scale, origin.x);
+            to.x = from.x;
+        } else if from.y == to.y && from.x != to.x {
+            from.y = snap(from.y, width, scale, origin.y);
+            to.y = from.y;
+        }
     }
     let mut path = BezPath::new();
     path.move_to(point(from));
@@ -69,20 +66,21 @@ pub(crate) fn line(from: Point, to: Point, width: f64, scale: Option<f64>) -> Be
     path
 }
 
-/// The stroke center of a whole-pixel `width` nearest to `center`, in logical units.
-fn snap(center: f64, width: f64, scale: f64) -> f64 {
+/// The stroke center of a whole-pixel `width` nearest to `center`, in
+/// logical units, for a frame whose device pixels start at `origin`.
+fn snap(center: f64, width: f64, scale: f64, origin: f64) -> f64 {
     let device = width * scale;
     let pixels = device.round();
     if pixels < 1.0 || (device - pixels).abs() > 0.01 {
         return center;
     }
-    let at = center * scale;
+    let at = (center - origin) * scale;
     let snapped = if pixels % 2.0 == 1.0 {
         at.floor() + 0.5
     } else {
         at.round()
     };
-    snapped / scale
+    snapped / scale + origin
 }
 
 /// The blur parameter of vello's and vello_cpu's blurred rounded
@@ -280,7 +278,7 @@ pub(crate) fn blend(mode: BlendMode) -> Option<peniko::BlendMode> {
 }
 
 /// Removing what it covers from what is beneath (Porter-Duff destination
-/// out): masks and inset shadows.
+/// out): inset and knockout shadows.
 pub(crate) fn dest_out() -> peniko::BlendMode {
     peniko::BlendMode::new(Mix::Normal, Compose::DestOut)
 }

@@ -119,10 +119,28 @@ impl From<f64> for Stroke {
 }
 
 /// How a border's line is drawn.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default, Hash)]
 pub enum BorderStyle {
+    /// One continuous line of the border's width.
     #[default]
     Solid,
+    /// Dashes three border widths long, with gaps of the same length.
     Dashed,
+    /// Round dots one border width across, spaced one width apart.
     Dotted,
+    /// Two parallel solid lines, each a third of the width, with a gap of a
+    /// third between them. A width below 3 draws as `Solid`.
+    Double,
+    /// A solid groove: on the top and left sides the outer half is dark and
+    /// the inner half light; on the bottom and right sides the reverse.
+    Groove,
+    /// A solid ridge: on the top and left sides the outer half is light and
+    /// the inner half dark; on the bottom and right sides the reverse.
+    Ridge,
+    /// A solid inset: the top and left sides are dark, the bottom and right
+    /// sides light.
+    Inset,
+    /// A solid outset: the top and left sides are light, the bottom and right
+    /// sides dark.
+    Outset,
 }

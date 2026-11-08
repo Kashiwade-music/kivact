@@ -54,20 +54,69 @@ around from where it is: an interrupted animation never jumps.
 
 `Transition::tween(milliseconds, easing)` moves over a fixed time. The easing is
 `Linear`, `EaseIn`, `EaseOut`, `EaseInOut`, `CubicBezier(x1, y1, x2, y2)` (the
-same numbers as CSS) or `Easing::steps_end(n)` / `steps_start(n)`.
+same numbers as CSS) or `Easing::steps(n, StepPosition::JumpEnd)` / `Easing::steps(n, StepPosition::JumpStart)`.
+`Easing::Ease` is the CSS `ease` curve. `BackIn`, `BackOut` and `BackInOut` go past
+the target and come back, `ElasticIn`, `ElasticOut` and `ElasticInOut` wobble around
+it, and `BounceIn`, `BounceOut` and `BounceInOut` bounce on the way. For a curve
+drawn from points (CSS `linear()`), use `Easing::linear_points([...])` with
+`(Some(input), output)` or `(None, output)` points, where a point without an input
+is spread between its neighbours.
 `Transition::spring(Spring::DEFAULT)` moves with a physical spring instead.
 There is no fixed duration: it settles when it settles, and an interrupted spring
 keeps its velocity. `Spring::GENTLE`, `WOBBLY` and `STIFF` are presets, and you
-can set `stiffness`, `damping` and `mass` yourself. Every transition accepts
+can set `stiffness`, `damping` and `mass` yourself. `Spring::with_duration(ms, bounce)`
+builds a spring that comes to rest in about `ms` milliseconds, which a timeline
+needs to plan its length (see [Run timelines, scroll-linked motion and shared layout](timelines-and-scroll.md)).
+Every transition accepts
 `.delay(ms)`, `.repeat(Repeat::Times(3))` (`Repeat::Forever` repeats until the
 target changes) and `.alternate()` (every other iteration plays backwards); a
 spring's iteration ends when it settles.
 `Transition::keyframes([(0.0, 0.0), (0.6, 1.2), (1.0, 1.0)], 400)` passes
-through values at offsets between 0 and 1 and ends at the target.
+through values at offsets between 0 and 1 and ends at the target. Each pair is a
+keyframe with a linear segment after it. To give a segment its own easing, pass
+`Keyframe` values instead (see "Ease each keyframe segment" below).
 
 With `.retarget(kivact::motion::Retarget::Proportional)`, an interrupted timed transition scales its new duration by the remaining component distance to preserve its intended speed. `Restart` is the default. Springs keep their physical timing.
 
 Use `style().layout_transition(Transition::tween(250, Easing::EaseOut))` to animate position and size changes caused by layout. Layout runs once; paint, pointer hit testing and accessibility share the interpolated visual transform. Decorative layout transitions also respect reduced motion.
+
+### Ease each keyframe segment
+
+A keyframe is a value at an offset, and it starts the segment that runs to the
+next keyframe. `Keyframe::new(offset, value)` makes one with a linear segment,
+which is what a pair `(offset, value)` gives. `.easing(easing)` sets the easing
+of the segment that starts at that keyframe, so each segment of one run can move
+along its own curve. A segment reads its progress from 0 to 1 between its two
+offsets and shapes it with its easing. The easing of the last keyframe is not
+used, since no segment starts there.
+
+```rust,no_run
+use kivact::motion::{Easing, Keyframe, Transition, animated};
+use kivact::prelude::*;
+
+fn lift_card() -> impl IntoView {
+    let target = signal(0.0_f64);
+    let lift = animated(
+        target,
+        // The value is 1.2 at offset 0.6, so it overshoots and comes back.
+        Transition::keyframes(
+            [
+                Keyframe::new(0.0, 0.0_f64).easing(Easing::EaseIn),
+                Keyframe::new(0.6, 1.2).easing(Easing::EaseOut),
+                Keyframe::new(1.0, 1.0),
+            ],
+            400,
+        ),
+    );
+
+    column((
+        button("Lift").on_press(move || target.set(1.0)),
+        text(move || format!("{:.2}", lift.get())),
+    ))
+    .style(style().gap(8).padding(12))
+}
+# fn main() -> kivact::Result<()> { App::new("Lift").run(lift_card) }
+```
 
 ### Use the value in a style
 
@@ -107,17 +156,24 @@ to run on every frame. Prefer a transform when you have the choice.
 - `Animated::from(start, target, transition)` also animates the first
   appearance, from `start`. Plain `animated` starts at the target.
 - `jump_to(value)` sets the value at once and cancels the run.
+- `set_velocity(v)` gives the value a velocity in units per second, per component,
+  so a value released from a drag keeps its momentum. A running or paused spring
+  keeps its target and goes on with the velocity. An idle or finished value starts
+  a run from where it is toward its target, once and without delay. It applies to
+  springs only: on a tween it is reported and ignored.
 - `pause()` and `resume()` stop and continue without counting the paused time.
 - `is_running()` is a tracked read that tells whether it is moving.
 - `.on_complete(|| …)`, registered in setup, runs once when a run finishes
   naturally. It does not run for a superseded target, a `jump_to` or an
   infinite repeat. A target equal to the current value starts no run, so it
   does not run then either.
-- The value type can be `f32`, `f64`, a tuple of up to four of them,
-  `Point`, `Size` or `Rect`. Implement `Animatable` to animate your own
-  type (it converts to and from a few `f64` components). A color is not
-  animatable here: animate a number from 0 to 1 and mix the colors yourself, or
-  use a style transition, below.
+- The value type can be `f32`, `f64`, a tuple of up to four of them, `Point`,
+  `Size`, `Rect`, `Color` or `Transform`. A color moves through the Oklab space,
+  so an in-between color stays close to what the eye expects. Implement
+  `Animatable` to animate your own type (it converts to and from a few `f64`
+  components).
+- `animated(color, transition)` is the same as a style transition, but the
+  value is available in your code: use it to draw a color that follows a target.
 
 ## Animate an element's appearance
 
@@ -137,7 +193,7 @@ fn hover_card() -> impl IntoView {
                 .padding(24)
                 .background(ColorToken::Surface)
                 .hover(style().background(ColorToken::SurfaceAlt).translate_y(-2))
-                .transition(TransitionProp::Paint, Transition::tween(150, Easing::EaseOut)),
+                .transition(TransitionProp::All, Transition::tween(150, Easing::EaseOut)),
         )
 }
 # fn main() -> kivact::Result<()> { App::new("Hover").run(hover_card) }
@@ -146,10 +202,41 @@ fn hover_card() -> impl IntoView {
 The host runs these transitions itself; your code writes only the target style
 and does no work per frame.
 
+### Give each property its own transition
+
+`TransitionProp::All` covers every property, as CSS `transition: all` does. Add a
+transition for one property and it takes over from `All` for that property, so
+the rest can use another timing:
+
+```rust,no_run
+use kivact::motion::{Easing, Spring, Transition};
+use kivact::prelude::*;
+use kivact::style::TransitionProp;
+
+fn chip() -> impl IntoView {
+    text("Pinned")
+        .style(
+            style()
+                .padding(8)
+                .background(ColorToken::Surface)
+                .hover(style().background(ColorToken::SurfaceAlt).translate_y(-2).opacity(0.9))
+                // Colors and opacity in 150 ms; the lift on a spring.
+                .transition(TransitionProp::All, Transition::tween(150, Easing::EaseOut))
+                .transition(TransitionProp::Transform, Transition::spring(Spring::STIFF)),
+        )
+}
+# fn main() -> kivact::Result<()> { App::new("Chip").run(chip) }
+```
+
+The properties are `All`, `Opacity`, `Transform`, `Background`, `BorderColor`,
+`BorderWidth`, `Radius`, `TextColor`, `Shadow`, `Filter`, `BackdropFilter` and
+`Size` (the sizes of an element entering or leaving, see `enter_size` and
+`exit_size`). A property with no transition changes at once.
+
 ## Animate elements entering and leaving
 
 `enter` is the look an element starts from when it is added, and `exit` is the
-look it moves to when it is removed. Both use the style's `Paint` transition.
+look it moves to when it is removed. Both use the style's `TransitionProp::All` transition.
 Pair them with `show`, `show_some`, a list or any other way elements come and
 go.
 
@@ -167,7 +254,7 @@ fn notice(shown: Signal<bool>) -> impl IntoView {
                 // Slide in from the right and fade in; leave the same way.
                 .enter(style().translate_x(40).opacity(0.0))
                 .exit(style().translate_x(40).opacity(0.0))
-                .transition(TransitionProp::Paint, Transition::tween(260, Easing::EaseOut)),
+                .transition(TransitionProp::All, Transition::tween(260, Easing::EaseOut)),
         )
     })
 }
@@ -190,7 +277,7 @@ What to know about a leaving element:
   tree, so it cannot be activated twice or announced after it is "gone".
 - It keeps its place in the layout until it finishes, so what follows moves up
   at the end. To avoid that, give the element `style().position(Position::Absolute)` (`kivact::style::Position`).
-- Without a `Paint` transition, an element appears and disappears at once.
+- Without a `TransitionProp::All` transition, an element appears and disappears at once.
 
 The standard toast, dialog, popup and tooltip components use this too: a
 theme's recipe for them can return a style with `enter` and `exit`.
@@ -262,27 +349,32 @@ acts on it for you in most cases:
   at once: `animated` jumps to its target, and `enter`/`exit` apply immediately.
 - Mark motion that carries meaning, such as a spinner that says "working", with
   `Transition::tween(…).essential()`. It keeps moving.
-- `frame_loop` is **not** stopped by reduced motion, because it may be a game or
-  a simulation. If your loop only decorates, read `kivact::platform::is_motion_reduced().get()`
-  (a tracked read) and skip or slow it:
+- A frame loop is **decorative** by default. Under reduced motion it requests no
+  frame and runs no callback, and when reduced motion is switched off it counts
+  again from that moment, with no burst of catch-up ticks.
+- A loop that carries meaning, such as a game or a simulation, keeps running:
+  mark it with `.essential()` in setup. Its callback runs at its rate as before,
+  so keep the work light and follow the reduced-motion setting in what it draws
+  if that matters to the user:
 
 ```rust,no_run
-# use kivact::motion::{FrameInfo, FrameRate, frame_loop};
-# use kivact::prelude::*;
-fn drifting_background() -> impl IntoView {
+use kivact::motion::{FrameInfo, FrameRate, frame_loop};
+use kivact::prelude::*;
+
+fn starfield() -> impl IntoView {
     let shift = signal(0.0_f64);
-    let frames = frame_loop(move |frame: FrameInfo| shift.set(frame.now.as_secs_f64() * 12.0));
-    effect(move || {
-        if kivact::platform::is_motion_reduced().get() {
-            frames.stop();
-        } else {
-            frames.start(FrameRate::Hz(30.0));
-        }
-    });
+    // A simulation keeps moving under reduced motion.
+    let frames = frame_loop(move |frame: FrameInfo| shift.set(frame.now.as_secs_f64() * 12.0))
+        .essential();
+    on_mount(move || frames.start(FrameRate::Hz(30.0)));
     text(move || format!("{:.0}", shift.get()))
 }
-# fn main() -> kivact::Result<()> { App::new("Reduced").run(drifting_background) }
+# fn main() -> kivact::Result<()> { App::new("Starfield").run(starfield) }
 ```
+
+A decorative loop that stops leaves the view showing the last frame it drew. If
+you want a fixed picture instead, read `kivact::platform::is_motion_reduced().get()`
+(a tracked read) in the view and draw that picture.
 
 ## Test animations
 
@@ -336,6 +428,7 @@ mod tests {
 ## See also
 
 - [Draw with a canvas](canvas.md): read animated values and frame-loop state in a drawing.
+- [Run timelines, scroll-linked motion and shared layout](timelines-and-scroll.md): steps in order, stagger, scroll progress and `layout_id`.
 - [Run async work from a component](async-and-tasks.md): timers and background work.
 - [Test your app](testing.md): the virtual clock and `RenderOptions`.
 - API reference: `cargo doc -p kivact --open`, then `kivact::motion` and `kivact::style::Style`.

@@ -13,6 +13,7 @@ use crate::view::tree::ScrollState;
 /// only the readers of the fields that differ run again.
 pub(super) fn env_changed(rt: &Runtime, env: &Environment, surface_active: bool) {
     let state = ViewState::of(rt).env();
+    let was_reduced = state.reduced_motion();
     // Only the env signal is written here: no owner applies.
     rt.enter(|| {
         state.set(env.clone());
@@ -21,9 +22,12 @@ pub(super) fn env_changed(rt: &Runtime, env: &Environment, surface_active: bool)
         ViewState::of(rt).fonts_value.set(families);
     });
     // Reduced motion ends the running decorative values in this turn, not
-    // at the next tick: nothing needs another frame to see it.
+    // at the next tick: nothing needs another frame to see it. Turning it
+    // off counts the decorative loops from now, as a resumed surface does.
     if env.reduced_motion {
         MotionState::of(rt).reduce_motion(rt);
+    } else if was_reduced {
+        MotionState::of(rt).restore_motion(rt);
     }
 }
 

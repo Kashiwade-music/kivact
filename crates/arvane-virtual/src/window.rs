@@ -4,9 +4,11 @@
 //! policy; CPU frames and native GPU targets cross the ordinary shell SPI.
 
 use crate::surface::TestSurface;
-use arvane_shell::{Accessibility, AccessibilityError, ShellError, ShellImeText, ShellWindow};
+use arvane_shell::{
+    Accessibility, AccessibilityError, BufferAge, ShellError, ShellImeText, ShellWindow,
+};
 use kivact_types::Environment;
-use kivact_types::render::{SemanticsTree, SemanticsUpdate};
+use kivact_types::render::{PixelRect, SemanticsTree, SemanticsUpdate};
 use kivact_types::{Capabilities, Cursor, Rect, Size};
 use std::cell::{Cell, RefCell};
 use std::collections::VecDeque;
@@ -341,7 +343,8 @@ impl ShellWindow for VirtualShell {
         &mut self,
         width: u32,
         height: u32,
-        draw: &mut dyn FnMut(&mut [u32]) -> bool,
+        damage: Option<&[PixelRect]>,
+        draw: &mut dyn FnMut(&mut [u32], BufferAge) -> bool,
     ) -> Result<bool, ShellError> {
         if self.occluded {
             return Ok(false);
@@ -356,8 +359,21 @@ impl ShellWindow for VirtualShell {
         if (width, height) != self.physical_size() {
             return Err(ShellError::new("frame size differs from window surface"));
         }
-        let mut pixels = vec![0; width as usize * height as usize];
-        if !draw(&mut pixels) {
+        // With damage, the buffer starts as the CPU frame presented last time, of the same size.
+        // A GPU frame kept for the device-loss fallback is not that frame.
+        let previous = self
+            .frame
+            .as_ref()
+            .filter(|(w, h, _)| (*w, *h) == (width, height))
+            .map(|(_, _, pixels)| pixels.to_vec());
+        let (mut pixels, age) = match (damage, previous) {
+            (Some(_), Some(previous)) if self.cpu_frame.get() => (previous, BufferAge::Previous),
+            _ => (
+                vec![0; width as usize * height as usize],
+                BufferAge::Unknown,
+            ),
+        };
+        if !draw(&mut pixels, age) {
             return Ok(false);
         }
         let pixels: Arc<[u32]> = pixels.into();

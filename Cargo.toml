@@ -31,11 +31,13 @@ members = [
     "examples/kivact-ui-soft",
     "crates/arvane",
     "crates/kivact-types",
+    "crates/kivact-shader",
     "crates/arvane-native",
     "crates/arvane-shell",
     "crates/arvane-virtual",
     "crates/arvane-text",
     "crates/arvane-render",
+    "crates/arvane-compose",
     "crates/arvane-asset",
     "crates/kivact-gpu-share",
     "dev/tests/gpu-interop-producer",
@@ -58,6 +60,7 @@ ash = "0.38"
 async-channel = "2.5.0"
 fontique = { version = "0.11.1", default-features = false, features = ["fontconfig-dlopen"] }
 kurbo = "=0.13.1"
+naga = { version = "=29.0.4", default-features = false, features = ["wgsl-in"] }
 parley = { version = "0.11.1", features = ["complex-scripts"] }
 png = "0.18.1"
 pollster = "0.4.0"
@@ -75,6 +78,7 @@ wgpu = { version = "=29.0.4", default-features = false, features = ["std", "wgsl
 windows = { version = "0.62", features = ["Win32_Foundation", "Win32_Graphics_Direct3D12", "Win32_Graphics_Dxgi", "Win32_Graphics_Dxgi_Common"] }
 windows-sys = { version = "0.52", features = ["Win32_Foundation", "Win32_Graphics_Gdi", "Win32_UI_Input_Ime", "Win32_UI_Input_KeyboardAndMouse", "Win32_UI_Input_Pointer", "Win32_UI_Shell", "Win32_UI_WindowsAndMessaging"] }
 winit = { version = "0.30.13", default-features = false, features = ["rwh_06", "x11", "wayland", "wayland-dlopen"] }
+zbus = { version = "5.19.0", default-features = false, features = ["blocking-api", "async-io"] }
 
 # Every member opts in with `[lints] workspace = true` (CONTRIBUTING.md).
 [workspace.lints.rust]
@@ -144,6 +148,8 @@ opt-level = 3
 opt-level = 3
 [profile.dev.package.kivact-types]
 opt-level = 3
+[profile.dev.package.kivact-shader]
+opt-level = 3
 [profile.dev.package.arvane]
 opt-level = 3
 [profile.dev.package.arvane-asset]
@@ -151,6 +157,8 @@ opt-level = 3
 [profile.dev.package.kivact-gpu-share]
 opt-level = 3
 [profile.dev.package.arvane-render]
+opt-level = 3
+[profile.dev.package.arvane-compose]
 opt-level = 3
 [profile.dev.package.arvane-text]
 opt-level = 3

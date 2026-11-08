@@ -33,6 +33,10 @@
 | 2026-11-04 | SCOPE-01 | OS の SPI があれば各 backend も作るか | Windows/Linux と virtual の境界を整備し、macOS/Android/iOS/Web は追加しない | 実機・検証環境・保守者のない対応を表明しないため |
 | 2026-11-04 | SCOPE-02 | Path boolean 演算は Canvas/Path2D 対応の不足か | 不足ではなく追加しない。addPath 相当は既存 Path.append | Canvas/Path2D 自体に boolean 演算はなく、必要とする要求もないため |
 | 2026-11-04 | SCOPE-03 | touch wheel のため rotateX を足すか | 追加しない。既存 2D affine による円筒近似を使う | 差は台形の遠近表現であり、操作・支援技術・behavior の欠落ではないため |
+| 2026-11-07 | SCOPE-04 | 3D transform（rotateX 等）を足すか（SCOPE-03 を置き換える） | CSS Transforms 2 の 3D（perspective、preserve-3d、backface）を CPU と GPU で一致させて実装する | ゲーム風の UI と Web と同等の表現を目標にしたため |
+| 2026-11-07 | SCOPE-05 | user shader をどう提供するか | WGSL をそのまま書く fragment shader（paint と filter）。GPU だけで実行し、CPU は宣言された代わりの見た目を描く | 表現の自由度と、Kivact が抱えるもの（CPU の解釈器）の少なさを優先した。描画以外（hit、a11y）には影響しない |
+| 2026-11-07 | SCOPE-06 | 色空間をどこまで扱うか | CSS Color 4 の空間で指定・補間し、gamut mapping して sRGB で出力する | UI library として必要十分であり、ブラウザの UI の扱いと同じ |
+| 2026-11-07 | SCOPE-07 | `matrix3d` の遠近の行を扱うか | 扱わない（最下行が (0, 0, 0, 1) のものだけ）。遠近は perspective() と perspective property で表す | 正準形で補間でき、遠近の利用はこの二つで足りるため |
 
 ## 実装の決定
 
@@ -140,6 +144,8 @@
 | 2026-11-05 | BOUNDARY-03 | editor drag と domain selection を混ぜるか | editor は zero slop。pointer/origin/payload は Drag、選択意図は domain、numeric payload は一度だけ保持 | 入力経路と選択の意味が異なるため |
 | 2026-11-05 | BOUNDARY-04 | authored text decoration に backend 型を出すか | Color/TextLength を入口とし Rgba/TextLen は内部解決値。Draw と呼び Canvas alias は置かない | API の値と backend 表現を分け一つの名前にするため |
 | 2026-11-05 | BOUNDARY-05 | Contents と a11y の論理構造をどう両立するか | layout/paint/input の透過走査を共有しつつ、意味のある論理 hierarchy を a11y で保ち、bounds は実 children の合併にする | 透明 layout を理由に親子の意味や正確な bounds を失わないため |
+| 2026-11-07 | BOUNDARY-COMPOSE | 合成をどこに置くか | `arvane-compose` を新設し、Vello は layer の 2D ラスタライズだけにする | 3D、cache、shader、外部 texture は、Vello の外で一つの合成として扱うほうが単純であるため（Chrome の Skia と cc の分担と同じ） |
+| 2026-11-07 | BOUNDARY-SHADER | WGSL の検証をどこに置くか | `kivact-shader`（naga だけに依存） | style が構築時に検証して UiError を返せ、style に wgpu を持ち込まないため |
 | 2026-11-05 | API8-01 | immutable bytes と shaping の共有を利用者へ露出するか | AssetBytes、ShapedTextSnapshot、GlyphRunSnapshot、SemanticsTextRuns で private Arc を隠す。owned Vec/iterator と参照 query を普通の入口にし、実 backend の shared allocation は理由付き hidden bridge で再利用 | allocation identity/caching/cheap clone を維持しながら ordinary API の Arc をなくすため。Vec 変換の allocation 不要は保証しない |
 | 2026-11-05 | API8-02 | Draw の measurer をアプリが install するか | set_text_measurer は doc(hidden) と precise internal-contract を付す自動 mount/offscreen bridge | 普通の Draw 利用に手動 install の順序を要求するのは不適切であり、実際の呼出者は内部二経路だけのため |
 | 2026-11-05 | API8-03 | 診断とRust Errorの情報まで同義wrapperで隠すか | UiError/ErrorKindとdiagnosticsのsource Location、UiError.from_boxedの標準Error interopは定義上の理由付き例外にする。普通の部品には広げない | 診断の出所と標準Errorの相互運用は実際の境界であり、同義wrapperを増やすと意味と使いやすさを失うため |
@@ -155,6 +161,17 @@
 | 2026-11-05 | CONTRACT-05 | 非同期 action の結果をどう表すか | ActionOutcome は Clone の Succeeded(T)/Failed(UiError) とし、完了だけを通知する。キャンセル時の通知は増やさない | 完了の結果と取消を混ぜず、既存の完了の契約を保つため |
 | 2026-11-05 | CONTRACT-06 | Pagination の総数をどう渡すか | pagination の総数は pages と items のどちらか一方で受け、内部の PageCount で排他にする。Stepper の collapsed は geometry から導く値とする | 二つの総数の不整合と、導ける値の別保存を避けるため |
 | 2026-11-05 | CONTRACT-07 | 失敗の分類をどこまで増やすか | FailureKind は Content/Resource/Backend/Surface/Unavailable とし、任意の新分類を足さない。render/text adapter の error は Failure へ分類し、core の利用者向け診断は source location を持つ別の意味として保つ | 分類を増やしても境界は増えず、診断の出所を失わないため |
+| 2026-11-07 | CONTRACT-ISOLATION | blend の isolated group | CSS と同じ。stacking context（z-index による分離を除く）が isolated group になる | CSS の利用者の期待と一致させるため |
+| 2026-11-07 | CONTRACT-FILTER-SURFACE | 色の filter を各色に掛ける最適化（Tint）を残すか | 残さない。filter はすべて合成後の layer の surface に掛ける | clamp を含む色の行列は合成と交換できず、CSS と結果が変わるため。経路を一つにして内部も単純になる |
+| 2026-11-07 | CONTRACT-COLOR | 広色域の色をどこまで元の空間のまま運ぶか | gradient の stop（engine が CSS の補間と gamut mapping で展開する）、style の `Color::mix`、`Animated<Color>` は元の色を保ち、最後に一度だけ CSS の gamut mapping で sRGB へ写す。engine の state transition だけは、sRGB に写した端点から Oklab で補間する | wire の `PaintProps` の色の型をすべて変える複雑さを避けるため。広色域の出力を行わない範囲での制限である |
+| 2026-11-07 | CONTRACT-SPRING-DURATION | `Spring::with_duration` の duration の意味 | 静止するまでの時間。振幅 500 以下では振幅によらない（静止の判定は、位置と速度/ω0 に同じ相対の閾値 `rest` を使い、振幅を 500 で頭打ちにする）。step は解析解 | Framer Motion の利用者の期待と一致させ、duration と frame の間隔によらず契約を守り、最後に跳ぶ量を 0.5 以下に抑え、すべての係数で安定させるため。振幅 500 を超えると静止が少し遅れる |
+| 2026-11-07 | CONTRACT-LAYOUT-REPEAT | layout motion に反復の transition を与えたとき | 反復と往復を使わず、一回で goal へ動く（報告する） | layout motion は box を goal へ運ぶ動きであり、往復して元の位置で終わると layout と描画が食い違うため |
+| 2026-11-07 | CONTRACT-RASTER-GRID | 動く layer の raster の格子 | 動く layer（`will_change(Transform)` の layer、または opacity・transform が動いている layer）は layer 空間に固定した格子で raster し、小数 px の位置は最後の合成で bilinear にする。止まっている layer は target の px に snap する | 動きの間に raster をやり直さないため（Chrome の合成 layer と同じ）。動いている間だけ、小数 px の位置で輪郭がわずかにぼける |
+| 2026-11-07 | CONTRACT-GRADIENT-PRECISION | gradient の画素の精度 | engine の展開は式と 0.5/255 以内。最終の画素は Vello の LUT（最大 4096 項目）の量子化を含む | 独自の gradient の rasterizer を持たず、CPU と GPU で同じ Vello の経路を使うため |
+| 2026-11-07 | CONTRACT-REPEAT-END | 反復した run の終わりの値 | 最後の反復の終わりの値（alternate で偶数回なら from）。`Animated`、state transition、Timeline で共通 | CSS の animation と Framer Motion と同じにし、経路で終わりの値が違わないようにするため |
+| 2026-11-07 | CONTRACT-3D-CROWD | 参加面の多い 3D コンテキスト | 参加面が 256 を超えたら、描画も hit も DOM 順の平坦な重なりにする（engine と compositor が同じ定数で判定する） | 描画と hit の食い違いを作らずに、BSP の分割の量を有限にするため |
+| 2026-11-07 | CONTRACT-EXPORT-ACK | GPU の export の開始 | consumer の import が共有の release fence を `SHARED_PREPARED`（1）に signal するまで、window は fresh な slot に書かない（frame の値は 2 から）。それまでの export と、slot が無いときの export は、backoff（上限 100 ms）で再試行する。公開 API に ACK も unsafe も持たない | 既存の `SharedTextures` の hand-off の契約を、確かめられない自己申告ではなく GPU の fence で守るため。import の完了を知らせる処理は kivact-gpu-share の safe な `Import::new` の中にあり、利用者は import するだけでよい。止まった consumer で window も CPU も止めない |
+| 2026-11-07 | CONTRACT-BACKDROP-ROOT | backdrop が読む範囲 | CSS の Backdrop Root（effects を持つ layer）または root。effects が既定の layer（overlay、fixed、cache、3D、drawable）は透過として、その中身を重ねて読む | 実画素を読む合成で、CSS の Backdrop Root と同じ見え方にするため |
 | 2026-11-05 | IME-01 | IME の選択範囲の offset を何で数えるか | 直前の surrounding-text snapshot に対する UTF-8 byte で数える。native は snapshot で UTF-16 から変換し、engine は excerpt の origin を全文の editor へ加える。custom session は全文を供給する | native と engine で同じ文字境界を使い、snapshot に重複した全文 offset を持たないため |
 | 2026-11-05 | INPUT-01 | 遅延配送する key 入力は何か | 遅延配送するのは KeyPhase::Down だけとし、release は保留中の入力を先に送る | release まで遅らせると入力の順序と中間値が変わるため |
 | 2026-11-05 | SEM-01 | Semantics の等価性をどう定めるか | Semantics<R> は PartialEq/Hash を実装し Eq は実装しない。text snapshot の Hash は符号付きゼロを正規化し、PartialEq と NaN の扱いは変えない | 宣言値と計算値の両方を持ち浮動小数の幾何を含むため Eq を満たせず、等価性を変えずに hash を使うため |
@@ -173,7 +190,7 @@
 
 | 日付 | ID | 問い | 決定 | 理由 |
 |---|---|---|---|---|
-| 2026-11-05 | EXT-01 | 拡張時の変更箇所 | text styleの公開語彙は所有するstyle crateの明示facade一覧で一元化し、Coreはその限定した一覧だけを転送する。virtualは既知serviceを処理し未知requestはUnsupported、capabilityは構築時の値と実GPU/native事実から投影する。 | 新しい型やserviceごとにCoreの重複一覧やvirtualの網羅matchを修正する第四のcrateを不要にし、型付きAPIと正直な未対応の契約を維持するため |
+| 2026-11-05 | EXT-01 | 拡張時の変更箇所 | text styleの公開語彙は所有するstyle crateの明示facade一覧で一元化し、Coreはその限定した一覧だけを転送する。virtualは既知serviceを処理し未知requestはUnsupported、capabilityは構築時の値と実GPU/native事実から投影する | 新しい型やserviceごとにCoreの重複一覧やvirtualの網羅matchを修正する第四のcrateを不要にし、型付きAPIと正直な未対応の契約を維持するため |
 
 ## ADR: term の参照と gauge の範囲
 

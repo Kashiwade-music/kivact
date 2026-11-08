@@ -28,7 +28,7 @@ pub(crate) struct Env {
     /// the host prefers.
     pub(crate) renderer: Option<Renderer>,
     /// How GPU devices are made.
-    pub(crate) gpu: arvane_render::GpuEnv,
+    pub(crate) gpu: arvane_compose::GpuEnv,
 }
 
 impl Env {
@@ -41,7 +41,7 @@ impl Env {
                 Ok("gpu") => Some(Renderer::Gpu),
                 _ => None,
             },
-            gpu: arvane_render::GpuEnv::from_env(preference),
+            gpu: arvane_compose::GpuEnv::from_env(preference),
         }
     }
 }

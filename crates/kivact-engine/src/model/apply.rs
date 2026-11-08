@@ -28,7 +28,7 @@
 
 use std::sync::Arc;
 
-use crate::contract::{HostEvent, NodeKind, NodeProperties, NodeType, SceneLayer};
+use crate::contract::{DrawableMode, HostEvent, NodeKind, NodeProperties, NodeType, SceneLayer};
 use crate::mutation::Mutation;
 use crate::tree::node::{LeavingRole, NodePresence, Notify};
 use kivact_types::{DrawList, ElementTransform, NodeId, Point, RequestId, Revision};
@@ -55,6 +55,7 @@ impl Model {
         self.confine_focus();
         self.revalidate_hover();
         self.reveal_moved_focus();
+        self.reconcile_drawables();
         let revision = Revision(self.applied().0 + 1);
         self.events.commit(revision);
         revision
@@ -86,6 +87,22 @@ impl Model {
             n.scenes[layer_index(layer)] = Some(scene);
             self.changes.mark(id, Dirty::WRITTEN);
             self.a11y.node(id);
+        }
+        // A canvas drawable's placement is read from its host's scenes, so
+        // its accessibility subtree follows them.
+        let roots: Vec<NodeId> = self.tree.get(id).map_or_else(Vec::new, |n| {
+            self.tree
+                .children_ids(n)
+                .filter(|child| {
+                    self.tree
+                        .get(*child)
+                        .and_then(|c| c.properties.drawable)
+                        .is_some_and(|role| role.mode == DrawableMode::Canvas)
+                })
+                .collect()
+        });
+        for root in roots {
+            self.a11y.subtree(root);
         }
         if let Some(focus) = self
             .focused()
@@ -290,7 +307,8 @@ impl Model {
             return;
         };
         let parent = self.tree.nodes.links(index).parent;
-        let old_place = self.tree.update_place(index);
+        let moving = self.motion_moves(id);
+        let old_place = self.refresh_place(id, moving);
         let n = self.tree.nodes.at(index);
         // Where it lists among its siblings and whether it moves: only a
         // change of these (and of its paint's stacking facts, `derive`)
@@ -473,6 +491,8 @@ impl Model {
             Notify::Silent
         };
         if !self.begin_exit(id, pop_layout, notify) {
+            let subtree = self.tree.subtree(id);
+            self.record_departures(&subtree);
             self.transition_presence(id, NodePresence::Leaving(LeavingRole::Root { notify }));
             self.remove_now(id);
         }
@@ -507,14 +527,12 @@ impl Model {
             .subtree(id)
             .into_iter()
             .filter(|gone| {
-                self.tree.get(*gone).is_some_and(|node| {
-                    matches!(
-                        node.presence,
-                        NodePresence::Leaving(LeavingRole::Root {
-                            notify: Notify::OnComplete
-                        })
-                    )
-                })
+                matches!(
+                    self.tree.presence_of(*gone),
+                    NodePresence::Leaving(LeavingRole::Root {
+                        notify: Notify::OnComplete
+                    })
+                )
             })
             .collect();
         for gone in self.tree.subtree(id) {

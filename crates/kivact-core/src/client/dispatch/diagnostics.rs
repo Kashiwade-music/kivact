@@ -1,10 +1,23 @@
-//! Role: Diagnostic reports of the engine: layout warnings, dropped draw
-//! commands, cut turns. None of them is an error of a node's owner chain.
+//! Role: Diagnostic reports of the engine and of duplicate layout ids.
+//!
+//! Layout warnings, dropped draw commands and cut turns are notices of the
+//! default sink. A duplicate layout id is an error of the later node's owner.
 
 use kivact_runtime::{ErrorKind, Runtime, UiError};
-use kivact_types::{LayoutRule, NodeId};
+use kivact_types::{DrawableId, LayoutRule, NodeId};
 
+use super::common::node_owner;
 use crate::view::state::ViewState;
+
+/// Two live nodes carry the layout id `id`; the engine names the later node
+/// and sends this once per id. The error goes to that node's owner.
+pub(super) fn duplicate_layout_id(rt: &Runtime, node: NodeId, id: &str) {
+    let at = ViewState::tree(rt).get(node).and_then(|n| n.at);
+    rt.report(
+        node_owner(rt, node),
+        UiError::new(ErrorKind::Message, format!("duplicate layout_id {id}"), at),
+    );
+}
 
 pub(super) fn layout_warning(rt: &Runtime, node: NodeId, rule: LayoutRule, amount: f64) {
     // A lint of debug builds: where the node was created and what
@@ -17,6 +30,35 @@ pub(super) fn layout_warning(rt: &Runtime, node: NodeId, rule: LayoutRule, amoun
     crate::client::notice::warn_layout(
         rt,
         format!("layout: {rule:?} by {amount:.1}px, text {content:?}{at}"),
+    );
+}
+
+/// A `Draw::drawable` in a node that does not host the drawable: the
+/// drawing is skipped and the region reports it once.
+pub(super) fn drawable_not_hosted(rt: &Runtime, node: NodeId, drawable: DrawableId) {
+    let at = ViewState::tree(rt).get(node).and_then(|n| n.at);
+    rt.report(
+        None,
+        UiError::new(
+            ErrorKind::Unsupported,
+            format!("drawable {} is not hosted by this node", drawable.0),
+            at,
+        ),
+    );
+}
+
+/// A drawable drawn in both slots of one node: the first drawing places it,
+/// the second is skipped. Reported like the drawing's own recording error
+/// (the canvas's owner, once per node and drawable).
+pub(super) fn drawable_drawn_twice(rt: &Runtime, node: NodeId, drawable: DrawableId) {
+    let at = ViewState::tree(rt).get(node).and_then(|n| n.at);
+    rt.report(
+        node_owner(rt, node),
+        UiError::new(
+            ErrorKind::Message,
+            format!("drawable {} drawn twice", drawable.0),
+            at,
+        ),
     );
 }
 

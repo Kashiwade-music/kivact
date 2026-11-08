@@ -108,8 +108,8 @@ pub fn reveal_content(
         let base = style()
             .opacity(if visible.get() { 1.0 } else { 0.0 })
             .transition(
-                TransitionProp::Paint,
-                Transition::tween(t.motion.fast as f64, t.motion.ease_standard),
+                TransitionProp::All,
+                Transition::tween(t.motion.fast as f64, t.motion.ease_standard.clone()),
             );
         if !visible.get()
             && !in_flow.is_open().get()

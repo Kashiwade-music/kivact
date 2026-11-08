@@ -6,11 +6,17 @@
 #[doc(inline)]
 pub use crate::Align;
 #[doc(inline)]
+pub use crate::paint::{BorderImage, BorderImageRepeat};
+#[doc(inline)]
+pub use crate::text::{FontVariation, PaintOrder};
+#[doc(inline)]
 pub use crate::{
-    Background, BorderStyle, Color, ColorToken, Cursor, Direction, Display, FontFeature,
-    FontKerning, GridAutoFlow, GridPlacement, Icon, IconSet, Justify, Length, LineHeight, Overflow,
-    Position, ScrollSnap, ScrollbarWidth, Style, StyledRange, TextAlign, TextDecoration,
-    TextDecorationLine, TextDecorationStyle, TextLength, TextOverflow, TextTransform, Theme,
-    ThemeColor, ThemeExtension, ThemeMode, ThemeRef, Track, TransitionProp, Visibility, auto, em,
-    hsl, pct, rgb, rgba, style, use_theme, use_tokens,
+    BackfaceVisibility, Background, BorderStyle, Color, ColorSpace, ColorToken, Cursor, Direction,
+    Display, FontFeature, FontKerning, GridAutoFlow, GridPlacement, HueInterpolation, Icon,
+    IconSet, Isolation, Justify, Length, LineHeight, Overflow, Position, ScrollSnap,
+    ScrollbarWidth, Style, StyledRange, TextAlign, TextDecoration, TextDecorationLine,
+    TextDecorationStyle, TextLength, TextOverflow, TextTransform, Theme, ThemeColor,
+    ThemeExtension, ThemeMode, ThemeRef, Track, TransformStyle, TransitionProp, Visibility,
+    WillChange, auto, em, hsl, hwb, lab, lch, oklab, oklch, pct, rgb, rgba, style, use_theme,
+    use_tokens,
 };

@@ -22,7 +22,7 @@ impl Model {
     fn report_hover(&mut self) {
         let target = self.pointer.state.tracks.values().find_map(|track| {
             let node = track.chain().first().copied()?;
-            let local = self.to_local(node, track.at());
+            let local = self.pointer_local(node, track.at());
             Some(FocusTarget {
                 node,
                 region: self.node(node).and_then(|n| n.region_at(local)),
@@ -53,7 +53,7 @@ impl Model {
         modifiers: Modifiers,
         at: Point,
     ) -> crate::contract::Routed<PointerSample> {
-        let pos = self.to_local(node, at);
+        let pos = self.pointer_local(node, at);
         let region = self.node(node).and_then(|n| n.region_at(pos));
         let source = *self.pointer.state.track(pointer).source();
         crate::contract::Routed {

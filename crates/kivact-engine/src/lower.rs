@@ -17,10 +17,12 @@
 
 pub(crate) mod assets;
 pub(crate) mod border;
+pub(crate) mod border_image;
 pub(crate) mod context;
 pub(crate) mod conversion;
+pub(crate) mod drawables;
 pub(crate) mod effects;
-mod fill;
+pub(crate) mod fill;
 pub(crate) mod glyphs;
 pub(crate) mod path;
 pub(crate) mod sanitize;
@@ -28,7 +30,7 @@ pub(crate) mod scene;
 mod scene_cache;
 mod scene_out;
 pub(crate) use scene_cache::SceneCache;
-pub(crate) use scene_out::SceneOut;
+pub(crate) use scene_out::{LayerProps, SceneOut};
 pub(crate) mod scene_shape;
 pub(crate) mod shape;
 

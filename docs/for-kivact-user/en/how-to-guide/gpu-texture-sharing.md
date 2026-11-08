@@ -146,7 +146,8 @@ the old one.
 use std::time::Duration;
 
 use kivact_gpu_share::{FrameReady, PoolConfig, wgpu as share};
-use kivact::gpu_interop::{ShareError, ShareLink, ShareMode, ShareRequest};
+use kivact::gpu_interop::{ShareLink, ShareMode, ShareRequest};
+use kivact::view::ShareError;
 
 struct Engine {
     request: ShareRequest,
@@ -194,7 +195,8 @@ size, and hands the pool to the window:
 ```rust,no_run
 # use std::time::Duration;
 # use kivact_gpu_share::{FrameReady, PoolConfig, wgpu as share};
-# use kivact::gpu_interop::{ShareError, ShareLink, ShareMode, ShareRequest};
+# use kivact::gpu_interop::{ShareLink, ShareMode, ShareRequest};
+# use kivact::view::ShareError;
 # struct Engine {
 #     request: ShareRequest,
 #     pool: share::Pool,

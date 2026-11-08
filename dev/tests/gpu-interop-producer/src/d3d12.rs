@@ -16,8 +16,10 @@
 use crate::engine::{Engine, POOL, WAIT};
 use kivact_gpu_share::d3d12::{self as interop, Pool};
 use kivact_gpu_share::{FrameReady, PoolConfig};
-use kivact_types::{GpuAdapter, GpuBackend, SharedTextures};
+use kivact_types::{GpuAdapter, GpuBackend, SHARED_PREPARED, SharedHandle, SharedTextures};
+use std::os::windows::io::{AsHandle, AsRawHandle};
 use std::time::Duration;
+use windows::Win32::Foundation::HANDLE;
 use windows::Win32::Graphics::Direct3D::D3D_FEATURE_LEVEL_11_0;
 use windows::Win32::Graphics::Direct3D12::{
     CLSID_D3D12DeviceFactory, D3D12_COMMAND_LIST_TYPE_DIRECT, D3D12_COMMAND_QUEUE_DESC,
@@ -28,7 +30,7 @@ use windows::Win32::Graphics::Direct3D12::{
     D3D12_TEXTURE_COPY_LOCATION_0, D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT,
     D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX, D3D12_TEXTURE_DATA_PITCH_ALIGNMENT,
     D3D12_TEXTURE_LAYOUT_ROW_MAJOR, D3D12CreateDevice, D3D12GetInterface, ID3D12CommandAllocator,
-    ID3D12CommandList, ID3D12CommandQueue, ID3D12Device, ID3D12DeviceFactory,
+    ID3D12CommandList, ID3D12CommandQueue, ID3D12Device, ID3D12DeviceFactory, ID3D12Fence,
     ID3D12GraphicsCommandList, ID3D12Resource,
 };
 use windows::Win32::Graphics::Dxgi::Common::{DXGI_FORMAT_UNKNOWN, DXGI_SAMPLE_DESC};
@@ -124,6 +126,20 @@ fn device(adapter: &GpuAdapter) -> Result<ID3D12Device, String> {
             .map_err(failed("D3D12CreateDevice"))?;
     }
     device.ok_or_else(|| "no device".into())
+}
+
+/// The preparation signal on the pool's `release` fence, sent as an
+/// importing window sends it: the fence is opened on `device` (opening
+/// does not take the handle) and signaled to [`SHARED_PREPARED`].
+pub(crate) fn prepare(device: &ID3D12Device, release: &SharedHandle) -> Result<(), String> {
+    let mut fence: Option<ID3D12Fence> = None;
+    // SAFETY: the NT handle of the pool's `release` fence, live for the
+    // call; opening does not take it.
+    unsafe { device.OpenSharedHandle(HANDLE(release.as_handle().as_raw_handle()), &mut fence) }
+        .map_err(failed("OpenSharedHandle"))?;
+    let fence = fence.ok_or("OpenSharedHandle gave nothing")?;
+    // SAFETY: a live fence of the engine's device, signaled on the CPU.
+    unsafe { fence.Signal(SHARED_PREPARED) }.map_err(failed("Signal"))
 }
 
 /// This machine's hardware DXGI adapters, as a window reports them.
@@ -299,6 +315,10 @@ impl Engine for D3d12 {
         // SAFETY: the engine's direct queue of the pool's device; the
         // caller's window does not use the texture.
         unsafe { self.pool.read_back(&self.queue, slot, WAIT) }.map_err(|e| e.to_string())
+    }
+
+    fn prepare(&self, release: &SharedHandle) -> Result<(), String> {
+        prepare(&self.device, release)
     }
 }
 

@@ -10,8 +10,11 @@
 //!   the entry: `ENTRY_BYTES`, the encoded bytes the key keeps alive, the
 //!   state's bytes (source pixels or the parsed tree's estimate) and every
 //!   ready variant.
-//! - A raster source whose pixels were evicted keeps its natural size, so
-//!   layout never waits for a reload; the pixels come back when drawn.
+//! - A raster source whose pixels were evicted keeps its natural size and
+//!   its animation timing, so layout never waits for a reload; the pixels
+//!   come back when drawn.
+//! - An animation's frames are one source: they are evicted and loaded
+//!   again together, and a frame of a variant is keyed by its index.
 //! - A raster source's evicted pixels are loaded again by its next draw;
 //!   that load always lands, so an entry never stays `Reloading`. A reload
 //!   that fails (the file changed or went) turns the entry `Failed` and
@@ -31,7 +34,7 @@ use crate::pixels::{AssetImage, Crop, PixelSize, Tint};
 use crate::read::FileVersion;
 use crate::svg::Svg;
 
-use super::image_state::ImageState;
+use super::image_state::{AnimationInfo, ImageState};
 use crate::limits::ENTRY_BYTES;
 
 /// When an item was last used: the frame (`None`: before the host's first
@@ -56,10 +59,12 @@ pub(crate) struct Entry {
 pub(crate) enum State {
     /// The first load is in flight.
     Pending,
-    /// A raster image: its natural size, and where its pixels are.
+    /// A raster image: its natural size, where its pixels are, and its
+    /// animation timing when it is an animation.
     Raster {
         natural: Size,
         residency: Residency,
+        animation: Option<AnimationInfo>,
     },
     Vector {
         svg: Arc<Svg>,
@@ -74,8 +79,12 @@ pub(crate) enum State {
 
 /// Where a raster source's pixels are.
 pub(crate) enum Residency {
-    /// In the cache; `drawn` is their last use.
-    Resident { pixels: AssetImage, drawn: Stamp },
+    /// In the cache: its frames (one for a still image, never none), and
+    /// `drawn` is their last use.
+    Resident {
+        frames: Vec<AssetImage>,
+        drawn: Stamp,
+    },
     /// Evicted; the next draw loads them again.
     Evicted,
     /// A load brings them back. It always lands: the worker answers every
@@ -111,9 +120,9 @@ impl Recheck {
     }
 }
 
-// xtask-allow(state-fields): Immutable image variant cache key; size and rendering options are independent request properties.
+// xtask-allow(state-fields): Immutable image variant cache key; size, frame and rendering options are independent request properties.
 /// A derived raster: an SVG at a device size (or the part `crop` of it),
-/// and/or a tinted copy.
+/// and/or a tinted copy, of one frame of a raster source.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub(crate) struct VariantKey {
     /// The device size (SVG rasters only).
@@ -121,6 +130,8 @@ pub(crate) struct VariantKey {
     /// The part of that size rasterized (SVG rasters of a visible part).
     pub(crate) crop: Option<Crop>,
     pub(crate) tint: Option<Tint>,
+    /// The frame of an animation a tinted copy is of (0 for stills and SVGs).
+    pub(crate) frame: u32,
 }
 
 impl VariantKey {
@@ -147,17 +158,33 @@ pub(crate) enum Variant {
 }
 
 impl State {
-    /// Bytes the state holds in the budget.
+    /// Bytes the state holds in the budget: its resident frames and its
+    /// animation timing (which stays while the frames are evicted).
     pub(crate) fn bytes(&self) -> usize {
         match self {
             State::Raster {
-                residency: Residency::Resident { pixels, .. },
+                residency,
+                animation,
                 ..
-            } => pixels.bytes(),
+            } => {
+                let frames = match residency {
+                    Residency::Resident { frames, .. } => frames_bytes(frames),
+                    Residency::Evicted | Residency::Reloading => 0,
+                };
+                let timing = animation
+                    .as_ref()
+                    .map_or(0, |a| a.delays_ms.len() * std::mem::size_of::<u32>());
+                frames + timing
+            }
             State::Vector { svg, .. } => svg.bytes(),
-            State::Raster { .. } | State::Pending | State::Failed { .. } => 0,
+            State::Pending | State::Failed { .. } => 0,
         }
     }
+}
+
+/// Bytes the resident frames of a raster source take.
+pub(crate) fn frames_bytes(frames: &[AssetImage]) -> usize {
+    frames.iter().map(AssetImage::bytes).sum()
 }
 
 impl Entry {

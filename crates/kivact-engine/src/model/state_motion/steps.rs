@@ -1,9 +1,202 @@
 //! Role: Prepare, retarget, step and shift the transitions of state styles.
 
-use super::state::{ColorChannels, StateAnimPhase, StateAnimation};
+use std::sync::Arc;
+
+use super::state::{ColorChannels, PropTrack, StateAnimation, TrackPhase};
 use crate::model::Model;
-use kivact_types::motion::SpringRun;
-use kivact_types::{NodeId, PaintProps, PaintVec};
+use kivact_types::motion::{SpringRun, Transition, TransitionProp};
+use kivact_types::{NodeId, PaintProps, Rgba, apply_components, prop_interp};
+
+/// The properties a state animation moves, one track each.
+const PROPS: [TransitionProp; 10] = [
+    TransitionProp::Opacity,
+    TransitionProp::Transform,
+    TransitionProp::Background,
+    TransitionProp::BorderColor,
+    TransitionProp::BorderWidth,
+    TransitionProp::Radius,
+    TransitionProp::TextColor,
+    TransitionProp::Shadow,
+    TransitionProp::Filter,
+    TransitionProp::BackdropFilter,
+];
+
+/// The transition of `prop` in `paint`: its own entry, else the `All` entry.
+fn transition_for(paint: &PaintProps, prop: TransitionProp) -> Option<Arc<Transition>> {
+    let list = paint.transitions.as_ref()?;
+    let find = |p: TransitionProp| {
+        list.iter()
+            .find(|(q, _)| *q == p)
+            .map(|(_, t)| Arc::new(t.clone()))
+    };
+    find(prop).or_else(|| find(TransitionProp::All))
+}
+
+/// A captured track of `prop` showing `paint` as it is, if it has a
+/// transition and can be interpolated.
+fn captured_track(prop: TransitionProp, paint: &PaintProps, text: Rgba) -> Option<PropTrack> {
+    let transition = transition_for(paint, prop)?;
+    let interp = prop_interp(prop, paint, paint, (text, text))?;
+    Some(PropTrack {
+        prop,
+        transition,
+        phase: TrackPhase::Captured {
+            shown: interp.to.clone(),
+            interp,
+            spring: SpringRun::default(),
+        },
+    })
+}
+
+impl StateAnimation {
+    /// Capture what is shown before a state changes: every track becomes
+    /// `Captured` at its drawn value (a running track keeps its velocity),
+    /// and a property that has none yet gets one at the target.
+    fn capture(&mut self) {
+        let (target, text) = (&self.target, self.target_text);
+        for track in &mut self.tracks {
+            track.phase = match std::mem::replace(&mut track.phase, TrackPhase::Settled) {
+                TrackPhase::Running {
+                    interp,
+                    current,
+                    spring,
+                    ..
+                } => TrackPhase::Captured {
+                    interp,
+                    shown: current,
+                    spring,
+                },
+                TrackPhase::Held { interp, value } => TrackPhase::Captured {
+                    interp,
+                    shown: value,
+                    spring: SpringRun::default(),
+                },
+                TrackPhase::Settled => match captured_track(track.prop, target, text) {
+                    Some(PropTrack { phase, .. }) => phase,
+                    None => TrackPhase::Settled,
+                },
+                captured @ TrackPhase::Captured { .. } => captured,
+            };
+        }
+        for prop in PROPS {
+            if self.tracks.iter().all(|t| t.prop != prop)
+                && let Some(track) = captured_track(prop, target, text)
+            {
+                self.tracks.push(track);
+            }
+        }
+    }
+
+    /// Start the captured tracks toward `target` (and its text color
+    /// `text`) at `now`; a track that cannot move, has nothing to move or
+    /// is decorative under reduced motion is settled.
+    fn retarget(&mut self, target: PaintProps, text: Rgba, now: u64, reduced: bool) {
+        for track in &mut self.tracks {
+            if !matches!(track.phase, TrackPhase::Captured { .. }) {
+                continue;
+            }
+            let TrackPhase::Captured {
+                interp: old,
+                shown,
+                mut spring,
+            } = std::mem::replace(&mut track.phase, TrackPhase::Settled)
+            else {
+                unreachable!("invariant: the track is captured");
+            };
+            let Some(transition) = transition_for(&target, track.prop) else {
+                continue;
+            };
+            if reduced && transition.decorative {
+                continue;
+            }
+            // The shown value, written over the old target.
+            let mut displayed = self.target.clone();
+            let mut displayed_text = self.target_text;
+            apply_components(&old.basis, &shown, &mut displayed, &mut displayed_text);
+            let Some(new) = prop_interp(track.prop, &displayed, &target, (displayed_text, text))
+            else {
+                continue;
+            };
+            if new.to == new.from {
+                continue;
+            }
+            let timing = if old.basis.same_shape(&new.basis) {
+                transition.retargeted(&old.from, &old.to, &new.from, &new.to)
+            } else {
+                // The components do not correspond: a new run, at rest.
+                spring.velocity.clear();
+                Transition::clone(&transition)
+            };
+            // A zero-length run starts no motion (CSS): its end lands now.
+            let instant = matches!(timing.duration_ms(), Some(ms) if ms <= 0.0);
+            spring.start(now, &timing, &new.from, &new.to);
+            track.transition = Arc::new(timing);
+            track.phase = TrackPhase::Running {
+                current: new.from.clone(),
+                interp: new,
+                start: now,
+                spring,
+            };
+            if instant {
+                step_track(track, now, reduced);
+            }
+        }
+        self.target = target;
+        self.target_text = text;
+    }
+
+    /// Step the running tracks to `now`; one that ends at its target is
+    /// settled, one that ends elsewhere (alternate, even count) is held.
+    fn step(&mut self, now: u64, reduced: bool) {
+        for track in &mut self.tracks {
+            step_track(track, now, reduced);
+        }
+    }
+}
+
+/// Step one track to `now`: a running track that ends at its target is
+/// settled, one that ends elsewhere (alternate, even count) is held.
+fn step_track(track: &mut PropTrack, now: u64, reduced: bool) {
+    let phase = std::mem::replace(&mut track.phase, TrackPhase::Settled);
+    track.phase = match phase {
+        TrackPhase::Running {
+            interp,
+            mut current,
+            start,
+            mut spring,
+        } => {
+            let done = if reduced && track.transition.decorative {
+                current.clone_from(&interp.to);
+                true
+            } else {
+                track.transition.step(
+                    &interp.from,
+                    &interp.to,
+                    start,
+                    now,
+                    &mut current,
+                    &mut spring,
+                )
+            };
+            if !done {
+                TrackPhase::Running {
+                    interp,
+                    current,
+                    start,
+                    spring,
+                }
+            } else if current == interp.to {
+                TrackPhase::Settled
+            } else {
+                TrackPhase::Held {
+                    interp,
+                    value: current,
+                }
+            }
+        }
+        other => other,
+    };
+}
 
 impl Model {
     /// Capture the displayed value before the host changes a state.
@@ -18,57 +211,37 @@ impl Model {
 
     fn capture_state_motion(&mut self, id: NodeId, entering: bool) {
         if let Some(a) = self.motion.0.get_mut(&id) {
-            if let StateAnimPhase::Running { from, to, .. } = &a.phase {
-                a.phase = StateAnimPhase::Captured {
-                    from: from.clone(),
-                    to: to.clone(),
-                };
-            }
+            a.capture();
             return;
         }
-        let Some(transition) = self
-            .tree
-            .get(id)
-            .and_then(|n| n.paint())
-            .and_then(|p| p.transition.clone())
-        else {
-            return;
+        let (paint, text) = if entering {
+            (self.enter_paint(id), self.enter_text_color(id))
+        } else {
+            (self.target_paint(id), self.text_color(id))
         };
+        let tracks: Vec<PropTrack> = PROPS
+            .into_iter()
+            .filter_map(|prop| captured_track(prop, &paint, text))
+            .collect();
+        if tracks.is_empty() {
+            return;
+        }
         let colors_text = self
             .tree
             .get(id)
             .and_then(|n| n.states())
             .is_some_and(|s| s.deltas().any(|d| d.text_color.is_some()));
-        let paint = if entering {
-            self.enter_paint(id)
-        } else {
-            self.target_paint(id)
-        };
-        let c = if entering {
-            self.enter_text_color(id)
-        } else {
-            self.text_color(id)
-        };
-        let mut current = PaintVec::of(&paint).components().to_vec();
-        current.extend_from_slice(&[c.r, c.g, c.b, c.a]);
-        let len = current.len();
         let mut colors = ColorChannels::default();
         colors.set(ColorChannels::TEXT, colors_text);
-        let a = StateAnimation {
-            transition,
-            target: paint,
-            current: current.clone(),
-            spring: SpringRun {
-                velocity: vec![0.0; len],
-                ..SpringRun::default()
+        self.motion.0.insert(
+            id,
+            StateAnimation {
+                target: paint,
+                target_text: text,
+                tracks,
+                colors,
             },
-            colors,
-            phase: StateAnimPhase::Captured {
-                from: current.clone(),
-                to: current,
-            },
-        };
-        self.motion.0.insert(id, a);
+        );
     }
 
     /// Retarget pending captures after input or a prop commit, not every frame.
@@ -81,53 +254,26 @@ impl Model {
             if self.tree.get(*id).is_none() {
                 return false;
             }
-            let StateAnimPhase::Captured {
-                from: previous_from,
-                to: previous_to,
-            } = &a.phase
-            else {
+            if !a.captured() {
                 return true;
-            };
+            }
             let target = self.target_paint(*id);
-            let Some(timing) = target.transition.clone() else {
-                return false;
-            };
-            a.transition = timing;
+            let c = self.text_color(*id);
             let colors_text = a.colors.contains(ColorChannels::TEXT)
                 || self
                     .tree
                     .get(*id)
                     .and_then(|n| n.states())
                     .is_some_and(|s| s.deltas().any(|d| d.text_color.is_some()));
-            let c = self.text_color(*id);
             a.colors.set(ColorChannels::TEXT, colors_text);
             a.colors.set(
                 ColorChannels::BASE_TEXT,
                 !colors_text && c != a.current_color(),
             );
-            let mut to = PaintVec::of(&target).components().to_vec();
-            to.extend_from_slice(&[c.r, c.g, c.b, c.a]);
-            if to == a.current || (reduced && a.transition.decorative) {
-                return false;
-            }
-            a.transition = std::sync::Arc::new(a.transition.retargeted(
-                previous_from,
-                previous_to,
-                &a.current,
-                &to,
-            ));
-            a.target = target;
-            if let Some(n) = self.tree.get_mut(*id) {
-                n.place.transformed |=
-                    !a.current_paint().transform.is_none() || !a.target.transform.is_none();
-            }
-            a.spring.restart(now);
-            a.phase = StateAnimPhase::Running {
-                from: a.current.clone(),
-                to,
-                start: now,
-            };
-            true
+            a.retarget(target, c, now, reduced);
+            let moving = !a.current_paint().transform.is_none();
+            self.refresh_place(*id, moving);
+            !a.settled()
         });
         let active = !animations.is_empty();
         self.motion.0 = animations;
@@ -143,24 +289,14 @@ impl Model {
             if self.tree.get(*id).is_none() {
                 return false;
             }
-            let StateAnimation {
-                transition,
-                target,
-                current,
-                spring,
-                phase,
-                ..
-            } = a;
-            let StateAnimPhase::Running { from, to, start } = phase else {
+            if !a.running() {
                 return true;
-            };
-            let done = if reduced && transition.decorative {
-                true
-            } else {
-                transition.step(from, to, *start, now, current, spring)
-            };
+            }
+            a.step(now, reduced);
+            let moving = !a.current_paint().transform.is_none();
+            self.refresh_place(*id, moving);
             self.repaint(*id);
-            if target.transform != PaintProps::default().transform
+            if a.target.transform != PaintProps::default().transform
                 || self.tree.get(*id).is_some_and(|n| n.place.transformed)
             {
                 self.a11y.subtree(*id);
@@ -169,27 +305,24 @@ impl Model {
                     .insert(crate::model::changes::LayoutReasons::PASS);
                 self.changes.moved();
             }
-            if done && let Some(n) = self.tree.get_mut(*id) {
-                n.place.transformed = !target.transform.is_none();
-            }
-            !done
+            !a.settled()
         });
-        let active = animations
-            .values()
-            .any(|a| matches!(a.phase, StateAnimPhase::Running { .. }));
+        let active = animations.values().any(StateAnimation::running);
         self.motion.0 = animations;
         active
     }
 
     pub(crate) fn shift_state_times(&mut self, paused: u64, now: u64) {
         for a in self.motion.0.values_mut() {
-            if let StateAnimPhase::Running { start, .. } = &mut a.phase {
-                *start = if *start <= paused {
-                    start.saturating_add(now.saturating_sub(paused))
-                } else {
-                    now
-                };
-                a.spring.last_ns = now;
+            for track in &mut a.tracks {
+                if let TrackPhase::Running { start, spring, .. } = &mut track.phase {
+                    *start = if *start <= paused {
+                        start.saturating_add(now.saturating_sub(paused))
+                    } else {
+                        now
+                    };
+                    spring.last_ns = now;
+                }
             }
         }
     }

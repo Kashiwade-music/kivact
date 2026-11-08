@@ -33,13 +33,18 @@
 //! centers and stops, corner radii, clip paths, masks).
 
 mod background;
+mod border_image;
 pub(super) mod canvas_gradient;
 mod fill_layer;
 mod gradient;
 mod layer;
+mod mask;
 
 pub use background::Background;
+pub use border_image::{BorderImage, BorderImageSource};
 pub use canvas_gradient::{CanvasGradient, GradientExtend};
 pub(crate) use fill_layer::fill_layer;
 pub use gradient::{Gradient, RadialExtent, conic_gradient, linear_gradient, radial_gradient};
-pub use layer::Paint;
+pub use kivact_types::{BackgroundClip, BackgroundOrigin, BlendMode, BorderImageRepeat};
+pub use layer::{Paint, ShaderPaint};
+pub use mask::{Mask, MaskComposite, MaskLayer, MaskMode};

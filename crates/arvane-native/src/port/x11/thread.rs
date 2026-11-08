@@ -162,6 +162,7 @@ fn run(
         waker(&backend),
     )?;
     let session = window.session.clone();
+    let _watch = crate::port::linux_settings::watch(waker(&backend));
     session.start(make, &mut window, waker(&backend));
     session.opened();
     let result = if let Some(error) = shared.failure() {
@@ -191,6 +192,33 @@ fn closed(window: &Window) -> bool {
     window.shared.stopped() || !window.native.exists.is_alive()
 }
 
+/// Deliver the wake of this turn: the reasons taken with the commands, a due
+/// session deadline, and a changed environment (announced before the wake).
+/// Returns whether the window closed meanwhile.
+fn deliver_wake(
+    session: &Session,
+    window: &mut Window,
+    mut reasons: arvane_shell::WakeReasons,
+) -> bool {
+    let due = session
+        .deadline()
+        .is_some_and(|deadline| deadline <= window.now_ns());
+    if due {
+        reasons.insert(arvane_shell::WakeReasons::CLIENT);
+    }
+    if reasons.is_empty() {
+        return false;
+    }
+    if reasons.contains(arvane_shell::WakeReasons::ENVIRONMENT) {
+        session.deliver(ShellEvent::EnvironmentChanged, window);
+        if closed(window) {
+            return true;
+        }
+    }
+    session.deliver(ShellEvent::Wake(reasons), window);
+    closed(window)
+}
+
 fn event_loop(
     session: &Session,
     window: &mut Window,
@@ -209,7 +237,7 @@ fn event_loop(
         // Take wake reasons together with the eventfd drain: `request` signals
         // only when the reasons go from empty to set, so reasons left set after
         // the drain would swallow the signal of a later command.
-        let mut reasons = deliver_commands(session, window)?;
+        let reasons = deliver_commands(session, window)?;
         if closed(window) {
             return Ok(());
         }
@@ -220,17 +248,8 @@ fn event_loop(
                 return Ok(());
             }
         }
-        let due = session
-            .deadline()
-            .is_some_and(|deadline| deadline <= window.now_ns());
-        if due {
-            reasons.insert(arvane_shell::WakeReasons::CLIENT);
-        }
-        if !reasons.is_empty() {
-            session.deliver(ShellEvent::Wake(reasons), window);
-            if closed(window) {
-                return Ok(());
-            }
+        if deliver_wake(session, window, reasons) {
+            return Ok(());
         }
         if window.redraw.replace(ChildRedraw::Clean) == ChildRedraw::Needed {
             session.deliver(ShellEvent::Redraw, window);

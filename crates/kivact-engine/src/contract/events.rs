@@ -1,7 +1,8 @@
 //! Role: Engine client events contracts.
 use kivact_types::{
-    A11yRequest, Environment, ExternalImport, ImeInput, LayoutRule, LifecycleEvent, Modifiers,
-    MotionClock, NodeId, PlatformResult, Point, Rect, RegionId, RequestId, Revision, Size,
+    A11yRequest, DrawableId, Environment, ExternalImport, ImeInput, LayoutRule, LifecycleEvent,
+    Modifiers, MotionClock, NodeId, PlatformResult, Point, Rect, RegionId, RequestId, Revision,
+    Size,
 };
 
 /// What the engine tells the client. Every kind goes into one ordered
@@ -99,6 +100,9 @@ pub enum HostEvent {
         size: Size,
         /// A native ellipsis or line clamp cut this node's text.
         text_truncated: bool,
+        /// The window layout box without the node's own transform (`None`
+        /// when it has no layout).
+        layout: Option<Rect>,
     },
     /// A request for an offered action: from assistive technology, or a
     /// `Dismiss(OutsidePress)` when a pointer press lands outside a shown
@@ -180,6 +184,20 @@ pub enum HostEvent {
         node: NodeId,
         count: u32,
     },
+    /// `node` draws the canvas drawable `drawable`, which its host does not
+    /// mount: the drawing is skipped. Sent once per node and drawable
+    /// (`Draw::drawable` placed in another node).
+    DrawableNotHosted {
+        node: NodeId,
+        drawable: DrawableId,
+    },
+    /// `node` draws the canvas drawable `drawable` in both slots: the first
+    /// drawing places it and the second is skipped. Sent once per node and
+    /// drawable.
+    DrawableDrawnTwice {
+        node: NodeId,
+        drawable: DrawableId,
+    },
     /// The text `node` has a layout defect (debug builds only; sent once
     /// per node and rule, again when its content or box changes). Not an
     /// error: the check is a lint (`LayoutCheck`).
@@ -187,6 +205,13 @@ pub enum HostEvent {
         node: NodeId,
         rule: LayoutRule,
         amount: f64,
+    },
+    /// The shared-layout id `id` is on two live nodes; `node` is the later
+    /// of them (the one that takes the record of a departed node). Sent once
+    /// per id (`layout_id`).
+    DuplicateLayoutId {
+        node: NodeId,
+        id: std::sync::Arc<str>,
     },
     CloseRequested,
     /// The window carried out `Writer::import_external` of `image` (after
@@ -202,4 +227,51 @@ pub enum HostEvent {
     /// starts with `None`; the host sends the first adapter when the
     /// device is ready.
     GpuAdapterChanged(Option<kivact_types::GpuAdapter>),
+    /// An exported frame of a drawable; its generation travels with it.
+    DrawableFrame(kivact_types::render::ExportedFrame),
+    /// The drawable was resized while its GPU export runs: it needs a new pool.
+    DrawableResized {
+        id: kivact_types::DrawableId,
+    },
+    /// The window's answer to the textures request of `generation` of `id`.
+    DrawableTextures {
+        id: kivact_types::DrawableId,
+        generation: u64,
+        result: Result<DrawableTexturesHandle, kivact_types::Failure>,
+    },
+    /// A GPU export pool was lost with the device (of the request `generation`).
+    DrawableExportLost(kivact_types::render::ExportLoss),
+    /// The window can export to the GPU again: waiting requests are made anew.
+    GpuExportAvailable,
+}
+
+/// Shared textures a window made for a drawable's export. The textures hold
+/// OS handles, so the event cannot copy them: the receiver takes them once.
+#[derive(Clone)]
+pub struct DrawableTexturesHandle(
+    std::sync::Arc<std::sync::Mutex<Option<kivact_types::SharedTextures>>>,
+);
+
+impl DrawableTexturesHandle {
+    /// Wrap the textures the window made.
+    pub fn new(textures: kivact_types::SharedTextures) -> Self {
+        Self(std::sync::Arc::new(std::sync::Mutex::new(Some(textures))))
+    }
+
+    /// Take the textures; `None` once taken.
+    pub fn take(&self) -> Option<kivact_types::SharedTextures> {
+        self.0.lock().ok().and_then(|mut slot| slot.take())
+    }
+}
+
+impl std::fmt::Debug for DrawableTexturesHandle {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("DrawableTexturesHandle")
+    }
+}
+
+impl PartialEq for DrawableTexturesHandle {
+    fn eq(&self, other: &Self) -> bool {
+        std::sync::Arc::ptr_eq(&self.0, &other.0)
+    }
 }

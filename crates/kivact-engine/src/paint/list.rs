@@ -14,7 +14,7 @@
 //!   write of a paint, a text style or state styles asks for a rebuild
 //!   only when what the steps are made of changed: the node's `Place`
 //!   (transform, z-index, sticky, fixed), its paint's [`Look::stacking`]
-//!   facts (opacity, layers, color matrix, items, rounding, overflow,
+//!   facts (opacity, group, items, rounding, overflow,
 //!   border, filter reach, clip) or, for a text, how far it paints out of
 //!   its box.
 //! - A node is left out when everything it can draw (its reach) lies
@@ -59,15 +59,14 @@
 //! - The layers (`Model::layers`: the fixed boxes outside every overlay,
 //!   then each overlay in attach order followed by the fixed boxes inside
 //!   it) each start afresh after the root's tree at their window origin,
-//!   with the window as their clip, full opacity and no color matrix: they
-//!   take none of their ancestors' scrolls, clips, transforms, opacity or
-//!   color filters, and are not in their parent's ink or child index.
-//! - A node is composited in layers of its own only when it needs them: a
-//!   layer filter, a clip path, a mask or a blend mode, or an opacity
+//!   with the window as their clip and full opacity: they
+//!   take none of their ancestors' scrolls, clips, transforms or opacity, and are not in their parent's ink or child index.
+//! - A node is composited in a group of its own only when it needs one: a
+//!   clip path or a blend mode, or an opacity
 //!   below 1 over more than one thing it draws (children, a scene, or two
 //!   of its background, border, shadows, ring and content), which is CSS's
 //!   group opacity; a lone background or text is faded by its colors'
-//!   alpha instead. Such a node is listed (to open and close its layers)
+//!   alpha instead. Such a node is listed (to open and close its group)
 //!   even when only its descendants show. Its subtree is drawn inside
 //!   them at full alpha.
 //! - A layer filter (blur, drop shadow) grows the node's reach and ink by
@@ -75,8 +74,6 @@
 //!   blurred pixel from outside the window still reaches it; a backdrop
 //!   filter grows the whole viewport by its blur's reach (the largest
 //!   seen), as it reads what lies around its box.
-//! - Color filters compose down the tree into one matrix per node
-//!   ([`PaintList::matrices`]); a node draws its colors through its own.
 //! - A rebuild is proportional to the nodes it lists, not to the tree: a
 //!   container with many children keeps a child index ([`ChildIndex`]):
 //!   each child's ink (in the container's unscrolled content space) sorted

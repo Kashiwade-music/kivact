@@ -9,44 +9,35 @@ use kivact_types::{Dimension, Edges, NodeId, Position};
 impl Model {
     /// Update authoritative presence and its scheduling indexes together.
     pub(crate) fn transition_presence(&mut self, id: NodeId, presence: NodePresence) {
-        self.forget_presence(id);
-        if let Some(node) = self.tree.get_mut(id) {
-            let presence = match (node.presence, presence) {
-                (
-                    NodePresence::Leaving(LeavingRole::Root {
-                        notify: Notify::OnComplete,
-                    }),
-                    NodePresence::Leaving(LeavingRole::Root { .. }),
-                ) => NodePresence::Leaving(LeavingRole::Root {
+        if self.tree.get(id).is_none() {
+            return;
+        }
+        let before = self.tree.presence_of(id);
+        let presence = match (before, presence) {
+            (
+                NodePresence::Leaving(LeavingRole::Root {
                     notify: Notify::OnComplete,
                 }),
-                (_, presence) => presence,
-            };
-            let previous = kivact_types::Presence::from(node.presence);
-            node.presence = presence;
-            let current = kivact_types::Presence::from(presence);
-            if previous != current {
-                self.events.push(HostEvent::PresenceChanged {
-                    node: id,
-                    presence: current,
-                });
-            }
-            match presence {
-                NodePresence::Arriving(_) => {
-                    self.presence.arriving.insert(id);
-                }
-                NodePresence::Leaving(LeavingRole::Root { .. }) => {
-                    self.presence.leaving.insert(id);
-                }
-                NodePresence::Mounted | NodePresence::Leaving(LeavingRole::Descendant) => {}
-            }
+                NodePresence::Leaving(LeavingRole::Root { .. }),
+            ) => NodePresence::Leaving(LeavingRole::Root {
+                notify: Notify::OnComplete,
+            }),
+            (_, presence) => presence,
+        };
+        self.tree.set_presence(id, presence);
+        let previous = kivact_types::Presence::from(before);
+        let current = kivact_types::Presence::from(presence);
+        if previous != current {
+            self.events.push(HostEvent::PresenceChanged {
+                node: id,
+                presence: current,
+            });
         }
     }
 
-    /// Remove scheduling indexes when a node is physically destroyed.
+    /// Forget the presence of a node that is physically destroyed.
     pub(crate) fn forget_presence(&mut self, id: NodeId) {
-        self.presence.arriving.remove(&id);
-        self.presence.leaving.remove(&id);
+        self.tree.forget_presence(id);
     }
 
     /// `id` was created: it enters at the first commit that finds it
@@ -58,18 +49,15 @@ impl Model {
     /// Capture the nodes attached since the last commit at their enter
     /// paint, so the next retarget moves them to their paint.
     pub(crate) fn start_entrances(&mut self) {
-        if self.presence.arriving.is_empty() {
-            return;
-        }
         let arriving: Vec<_> = self
-            .presence
-            .arriving
-            .iter()
-            .copied()
+            .tree
+            .presence_ids(|p| matches!(p, NodePresence::Arriving(_)))
+            .into_iter()
             .filter(|id| {
-                self.tree.get(*id).is_some_and(|node| {
-                    matches!(node.presence, NodePresence::Arriving(ArrivalPhase::Pending))
-                })
+                matches!(
+                    self.tree.presence_of(*id),
+                    NodePresence::Arriving(ArrivalPhase::Pending)
+                )
             })
             .collect();
         for id in arriving {
@@ -102,17 +90,14 @@ impl Model {
     /// Complete attached entrances once their captured motion settles.
     pub(crate) fn finish_entrances(&mut self) {
         let done: Vec<_> = self
-            .presence
-            .arriving
-            .iter()
-            .copied()
+            .tree
+            .presence_ids(|p| matches!(p, NodePresence::Arriving(_)))
+            .into_iter()
             .filter(|id| {
-                self.tree.get(*id).is_some_and(|node| {
-                    matches!(
-                        node.presence,
-                        NodePresence::Arriving(ArrivalPhase::Animating)
-                    )
-                }) && self.motion.get(*id).is_none()
+                matches!(
+                    self.tree.presence_of(*id),
+                    NodePresence::Arriving(ArrivalPhase::Animating)
+                ) && !self.motion.in_flight(*id)
                     && !self.presence.sizes.contains_key(id)
             })
             .collect();
@@ -133,8 +118,11 @@ impl Model {
         };
         let moves = n
             .paint()
-            .and_then(|p| p.transition.as_ref())
-            .is_some_and(|t| !(self.frame.reduced_motion() && t.decorative));
+            .and_then(|p| p.transitions.as_ref())
+            .is_some_and(|list| {
+                list.iter()
+                    .any(|(_, t)| !(self.frame.reduced_motion() && t.decorative))
+            });
         moves && n.states().is_some_and(has)
     }
 
@@ -151,10 +139,7 @@ impl Model {
             .filter(|x| {
                 self.transition_shown(*x, |s| s.exit.is_some())
                     || (!pop_layout && self.size_shown(*x, false))
-                    || self
-                        .tree
-                        .get(*x)
-                        .is_some_and(|n| matches!(n.presence, NodePresence::Leaving(_)))
+                    || self.tree.leaving(*x)
             })
             .collect();
         if exits.is_empty() {
@@ -163,11 +148,7 @@ impl Model {
         let size_starts: Vec<_> = exits
             .iter()
             .copied()
-            .filter(|x| {
-                self.tree
-                    .get(*x)
-                    .is_some_and(|n| !matches!(n.presence, NodePresence::Leaving(_)))
-            })
+            .filter(|x| !self.tree.leaving(*x))
             .collect();
         let focus_lost = self
             .focused()
@@ -181,12 +162,13 @@ impl Model {
         for x in &exits {
             self.prepare_state_motion(*x);
         }
+        self.record_departures(&subtree);
         for x in &subtree {
             self.tree.set_observed(*x, false);
             let role = if *x == id {
                 LeavingRole::Root { notify }
-            } else if let Some(NodePresence::Leaving(role @ LeavingRole::Root { .. })) =
-                self.tree.get(*x).map(|n| n.presence)
+            } else if let NodePresence::Leaving(role @ LeavingRole::Root { .. }) =
+                self.tree.presence_of(*x)
             {
                 role
             } else {
@@ -277,14 +259,10 @@ impl Model {
 
     /// Remove the leaving subtrees in which nothing moves any more.
     pub(crate) fn finish_exits(&mut self) {
-        if self.presence.leaving.is_empty() {
-            return;
-        }
         let done: Vec<NodeId> = self
-            .presence
-            .leaving
-            .iter()
-            .copied()
+            .tree
+            .presence_ids(|p| matches!(p, NodePresence::Leaving(LeavingRole::Root { .. })))
+            .into_iter()
             .filter(|root| {
                 !self.tree.contains(*root)
                     || (!self

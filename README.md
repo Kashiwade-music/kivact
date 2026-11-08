@@ -110,12 +110,14 @@ flowchart TD
     Engine --> Geometry[kivact-layout / kivact-editing]
     Engine --> Host[arvane]
     Host --> Adapters[arvane-shell / arvane-text / arvane-render / arvane-asset]
+    Host --> Compose[arvane-compose]
     Engine --> Native[arvane-native]
     Engine --> Virtual[arvane-virtual]
     Facade -. test feature .-> Test[kivact-test]
     Test --> Core
     Test --> Virtual
     Runtime --> Types[kivact-types]
+    Runtime --> Shader[kivact-shader]
     Engine --> Types
 ```
 
@@ -128,6 +130,7 @@ flowchart TD
 | `kivact-runtime` | `crates/kivact-runtime` | Reactive owners, signals, Machines, tasks and motion. |
 | `kivact-i18n` | `crates/kivact-i18n` | Locales, messages and date/number formatting. |
 | `kivact-style` | `crates/kivact-style` | Styles, themes, tokens and drawing vocabulary. |
+| `kivact-shader` | `crates/kivact-shader` | Validates user WGSL shaders and assembles the complete shader modules. |
 | `kivact-interaction` | `crates/kivact-interaction` | Headless behavior, semantics and input controllers. |
 | `kivact-ui` | `crates/kivact-ui` | Canonical standard components and recipe contracts. |
 | `kivact-ui-basic` | `crates/kivact-ui-basic` | Neutral general-purpose kit inspired by shadcn/ui Lyra. |
@@ -156,7 +159,8 @@ flowchart TD
 | `arvane-shell` | `crates/arvane-shell` | Backend SPI and portable window/input vocabulary. |
 | `arvane-virtual` | `crates/arvane-virtual` | Scripted backend using the same rendering driver, with optional mirrors. |
 | `arvane-text` | `crates/arvane-text` | Font discovery and text shaping adapter. |
-| `arvane-render` | `crates/arvane-render` | CPU/GPU renderer adapters. |
+| `arvane-render` | `crates/arvane-render` | Vello 2D rasterization of render scenes. |
+| `arvane-compose` | `crates/arvane-compose` | Composition plans and their CPU and GPU compositing; 3D, caches, shaders and external textures are composed outside Vello. |
 | `arvane-asset` | `crates/arvane-asset` | Image/font loading, decoding and asset caches. |
 | `kivact-gpu-share` | `crates/kivact-gpu-share` | GPU texture-sharing contracts and native helpers (experimental). |
 | `gpu-interop-producer` | `dev/tests/gpu-interop-producer` | Independent renderer used by GPU-sharing tests. |

@@ -2,7 +2,7 @@
 
 [English](../../en/how-to-guide/images-and-fonts.md)
 
-PNG、JPEG、SVG は `image(source)` で表示し、支援技術が説明できるよう名前を付け、スタイルで大きさを決めます。独自のフォントは `App::font` で登録します。このガイドでは、実行時に読み込む画像や、アイコンとして使う SVG ファイルも扱います。
+PNG、JPEG、SVG は `image(source)` で表示し、支援技術が説明できるよう名前を付け、スタイルで大きさを決めます。独自のフォントは `App::font` で登録します。このガイドでは、実行時に読み込む画像、動くアニメーション画像、アイコンとして使う SVG ファイル、自分で文字や画像を含む SVG、可変フォントの軸も扱います。
 
 ## 最短で動く画像
 
@@ -44,7 +44,7 @@ mod tests {
 }
 ```
 
-`image(source)` は内容から形式を判断します。PNG、JPEG、GIF と WebP(最初のフレーム)、SVG と SVGZ に対応します。スタイルに大きさがなければ本来の大きさになり、片方の辺だけ指定すると、もう一方は縦横比に従って決まります。この例の column が `align_items(Align::Start)` を指定しているのは、既定の `Stretch` だと、どの画像も column と同じ幅に伸びてしまうからです。
+`image(source)` は内容から形式を判断します。PNG（アニメーション PNG を含む）、JPEG、GIF、WebP、SVG と SVGZ に対応します。アニメーションする GIF、WebP、PNG は再生されます（[アニメーション画像を再生する](#アニメーション画像を再生する)を参照）。スタイルに大きさがなければ本来の大きさになり、片方の辺だけ指定すると、もう一方は縦横比に従って決まります。この例の column が `align_items(Align::Start)` を指定しているのは、既定の `Stretch` だと、どの画像も column と同じ幅に伸びてしまうからです。
 
 ## 画像の取得元
 
@@ -131,6 +131,31 @@ fn main() -> kivact::Result<()> {
 - 縦横比を保つには、片方の辺だけ指定します。`style().height(160)` です。
 - `style().radius(8)` は角を丸め、`style().clip(true)` は子を切り取り、`style().opacity(..)` は画像を薄くします。
 
+## アニメーション画像を再生する
+
+アニメーションする GIF、WebP、PNG は、自分で再生されます。`.playing(..)` で制御します。`bool` かシグナルを渡し、`false` にするとアニメーションは今のフレームで止まります。動きを減らす設定がオンのときは、アニメーション画像は最初のフレームを表示し、`playing` の値にかかわらず再生されません。
+
+```rust,no_run
+use kivact::prelude::*;
+
+fn loading(busy: Signal<bool>) -> impl IntoView {
+    column((
+        image("assets/spinner.gif")
+            .name("読み込み中")
+            .playing(busy)
+            .style(style().size(32, 32)),
+        text(move || String::from(if busy.get() { "読み込み中" } else { "完了" })),
+    ))
+    .style(style().gap(8).padding(16).align_items(Align::Start))
+}
+
+fn main() -> kivact::Result<()> {
+    App::new("Spinner").run(|| loading(signal(true)))
+}
+```
+
+動きが何かを伝える画像（「読み込み中」と言うスピナーなど）には名前を付けてください。動きが飾りだけの画像には、名前を付けないでください。
+
 ## 画像を説明する
 
 画像は、名前を付けたときだけ支援技術に公開されます。
@@ -164,6 +189,66 @@ fn main() -> kivact::Result<()> {
 ```
 
 `.monochrome(true)` は画像のアルファを保ち、node のテキスト色で塗ります。同じアイコンを名前でどこからでも使い(テーマで置き換えられるように)たいときは、テーマに登録して `icon("star")` で描きます。[テーマ](theming.md)の「アイコン」の節を参照してください。
+
+## SVG の中に文字と画像を入れる
+
+SVG は自分の `<text>` と埋め込みの画像を持てます。どちらも描かれます。
+
+- `<text>` の要素は、アプリのフォントで描かれます。フォントの family 名は、登録したときの名前で書きます（[独自のフォントを登録する](#独自のフォントを登録する)を参照）。文字は、そのフォントの字形と寸法で描かれます。フォントは、最初の画面より前に登録してください。
+- `href` が PNG、JPEG、GIF、WebP の `data:` URL である `<image>` は描かれます。ファイルへのリンク（`href="logo.png"`）は読まれません。その画像は描かれないまま SVG が描かれるので、バイト列を埋め込むか、画像は `image(..)` で隣に表示してください。
+- テキストと埋め込みの画像のために多くのメモリが必要な SVG は、受け付けられず、ほかの読めない素材と同じく asset のエラーとして報告されます。
+
+```rust,no_run
+use kivact::prelude::*;
+
+static BADGE: &[u8] = br##"<svg xmlns="http://www.w3.org/2000/svg" width="120" height="32" viewBox="0 0 120 32"><rect width="120" height="32" rx="6" fill="#1e3a8a"/><text x="12" y="21" font-family="Inter" font-size="14" fill="#ffffff">Online</text></svg>"##;
+
+fn status() -> impl IntoView {
+    image(BADGE).name("状態: オンライン")
+}
+
+fn main() -> kivact::Result<()> {
+    let regular = std::fs::read("assets/Inter-Regular.ttf").expect("font file");
+    App::new("Status").font(regular).run(status)
+}
+```
+
+## 可変フォントの軸を調整する
+
+可変フォントには、太さや幅などの軸があり、フォントの範囲の中の任意の値に設定できます。`font_variation_settings` で書きます。四文字のタグと値の組の一覧です。ほかの設定も、フォントが持つ軸に沿って字形を調整します。
+
+- `font_variation_settings([("wght", 650.0)])` は、タグで軸を設定します。太さは `wght`、幅は `wdth`、傾きは `slnt`、光学サイズは `opsz` など。
+- `font_width(75.0)`（CSS の `font-stretch`）は、標準の幅に対する百分率で幅を設定します。50 から 200 です。
+- `font_optical_sizing(false)` は、光学サイズの軸を止めます。既定では文字の大きさに従うので、見出しと注釈が同じ字形になります。
+
+```rust,no_run
+use kivact::prelude::*;
+
+fn headlines() -> impl IntoView {
+    column((
+        text("可変の太さ").style(
+            style()
+                .font_family("Inter")
+                .font_variation_settings([("wght", 650.0)]),
+        ),
+        text("詰まった幅").style(style().font_family("Inter").font_width(75.0)),
+        text("どの大きさでも同じ字形").style(
+            style()
+                .font_family("Inter")
+                .font_size(48)
+                .font_optical_sizing(false),
+        ),
+    ))
+    .style(style().gap(8).padding(16))
+}
+
+fn main() -> kivact::Result<()> {
+    let inter = std::fs::read("assets/Inter-Variable.ttf").expect("font file");
+    App::new("Headlines").font(inter).run(headlines)
+}
+```
+
+フォントが持たない軸への設定は何もしません。`font_feature_settings([("tnum", 1)])` は OpenType の機能を同じように入り切りし、`tabular_nums()` は `tnum` の機能の短い書き方です。
 
 ## 独自のフォントを登録する
 

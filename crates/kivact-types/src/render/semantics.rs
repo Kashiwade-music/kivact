@@ -23,8 +23,9 @@ pub struct SemanticsNode {
     /// Canonical accessible identity, state, relations and text properties.
     pub semantics: Semantics<SemanticsId>,
     /// Logical bounds in the window as laid out before the scroll offsets
-    /// of its ancestors (see the module documentation).
-    pub bounds: Rect,
+    /// of its ancestors (see the module documentation). `None` means the
+    /// node has no position.
+    pub bounds: Option<Rect>,
     /// How far this node scrolls its content: its descendants are shown
     /// moved back by it. Zero for a node that does not scroll.
     pub scroll: Point,
@@ -50,10 +51,11 @@ impl SemanticsTree {
     /// Where node `id` is shown in the window, as platforms report it: the
     /// axis-aligned bounds of its content-space `bounds` mapped by its own
     /// transform, then by each ancestor's scroll (moved back) and
-    /// transform, nearest first. `None` when `id` is not in the tree.
+    /// transform, nearest first. `None` when `id` is not in the tree or has
+    /// no bounds.
     pub fn window_bounds(&self, id: SemanticsId) -> Option<Rect> {
         let node = self.nodes.iter().find(|n| n.id == id)?;
-        self.window_rect(id, node.bounds)
+        self.window_rect(id, node.bounds?)
     }
 
     /// Map a rectangle from `id`'s content space to logical window bounds,

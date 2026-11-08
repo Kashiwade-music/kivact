@@ -1,21 +1,22 @@
-//! Role: CPU image output independent of windows, using the window rasterizer.
+//! Role: CPU image output independent of windows, using the compositor.
 use crate::Failure;
 use kivact_types::Size;
-use kivact_types::render::{CpuFrame, RenderScene};
+use kivact_types::render::{Composition, CpuFrame};
 
 /// Reusable CPU rasterizer for fixed-resolution, transparent image output.
 /// Its caches belong to this value and are released when it is dropped.
 #[derive(Default)]
 pub struct Rasterizer {
-    renderer: arvane_render::CpuRenderer,
+    compositor: arvane_compose::CpuCompositor,
 }
 
 impl Rasterizer {
     /// Release rebuildable validation metadata; returned images remain owned by callers.
     pub fn release_caches(&mut self) {
-        self.renderer.release_caches();
+        self.compositor.release_caches();
     }
 
+    /// A rasterizer with no image yet.
     pub fn new() -> Self {
         Self::default()
     }
@@ -31,18 +32,19 @@ impl Rasterizer {
             .map_err(crate::error::render)
     }
 
-    /// Render `scene` into exactly `width` × `height` pixels at scale 1,
+    /// Render `composition` into exactly `width` × `height` pixels at scale 1,
     /// without compositing over a background. Returns premultiplied sRGB
-    /// RGBA8; an invalid size or scene is an error. An error leaves the
+    /// RGBA8; an invalid size or composition is an error. An error leaves the
     /// rasterizer usable for the next call.
     pub fn render(
         &mut self,
-        scene: &RenderScene,
+        composition: &Composition,
         width: u32,
         height: u32,
     ) -> Result<CpuFrame, Failure> {
-        self.renderer
-            .render(scene, size(width, height), 1.0)
+        self.compositor
+            .render(composition, (width, height), 1.0)
+            .map(|rendered| rendered.image)
             .map_err(crate::error::render)
     }
 }

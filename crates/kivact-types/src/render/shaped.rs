@@ -36,6 +36,8 @@ pub struct GlyphRun {
     pub glyphs: Vec<Glyph>,
     /// Straight-alpha text color.
     pub color: Rgba,
+    /// The span's outline, when its span sets one: width in px and color.
+    pub stroke: Option<(f64, Rgba)>,
     /// Normalized font variation coordinates.
     pub normalized_coords: Vec<f64>,
 }

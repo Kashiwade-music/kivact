@@ -1,19 +1,20 @@
 //! Role: Records a scene's commands in order through a Canvas, tracking open groups.
 
 use super::canvas::{Canvas, GlyphRun};
-use crate::backdrop::Index;
+use crate::convert;
 use crate::derived::Derived;
-use crate::gradient;
+use crate::outline::glyph_outline;
 use crate::paint::{self, Brush, PatternFill};
-use crate::{convert, text};
+use crate::text;
+use crate::validate::Fonts;
 use kivact_types::geometry::Transform;
-use kivact_types::render::{ColorMatrix, Mask, Paint, RenderCmd, RenderScene};
+use kivact_types::render::{GlyphStroke, Group, Paint, RenderCmd, RenderScene};
 use kivact_types::scene::Shape;
-use kivact_types::{Rect as LogicalRect, Rgba, Size};
+use kivact_types::{PaintOrder, Point, Rect as LogicalRect};
 use std::collections::HashMap;
 use std::sync::Arc;
 use vello_common::filter_effects::{EdgeMode, Filter, FilterPrimitive};
-use vello_cpu::kurbo::{self, Affine, BezPath, Rect, RoundedRect, Shape as _, Stroke};
+use vello_cpu::kurbo::{self, Affine, BezPath, Rect, Shape as _, Stroke};
 use vello_cpu::peniko::{self, Blob, FontData};
 use vello_cpu::{Glyph, PaintType};
 
@@ -36,7 +37,7 @@ macro_rules! path_commands {
 }
 macro_rules! image_commands {
     () => {
-        RenderCmd::Image { .. } | RenderCmd::ImageSampled { .. } | RenderCmd::External { .. }
+        RenderCmd::Image { .. } | RenderCmd::ImageSampled { .. }
     };
 }
 macro_rules! group_commands {
@@ -44,22 +45,21 @@ macro_rules! group_commands {
         RenderCmd::FillShape { .. }
             | RenderCmd::StrokeShape { .. }
             | RenderCmd::BoxShadow(_)
-            | RenderCmd::Backdrop(_)
             | RenderCmd::PushClip(_)
             | RenderCmd::PushTransform(_)
-            | RenderCmd::PushLayer(_)
+            | RenderCmd::PushGroup(_)
             | RenderCmd::PopClip
             | RenderCmd::PopTransform
-            | RenderCmd::PopLayer
+            | RenderCmd::PopGroup
     };
 }
 
 /// Fonts by the address of their bytes and face index; the `FontData`
 /// keeps the bytes' `Arc`, so the address is not reused while it lives.
 #[derive(Default)]
-pub(crate) struct Fonts(HashMap<(usize, u32), FontData>);
+pub(crate) struct FontCache(HashMap<(usize, u32), FontData>);
 
-impl Fonts {
+impl FontCache {
     fn get(&mut self, font: &Arc<[u8]>, index: u32) -> &FontData {
         self.0
             .entry((font.as_ptr() as usize, index))
@@ -67,22 +67,25 @@ impl Fonts {
     }
 }
 
-/// What a renderer keeps for [`draw`] from frame to frame.
+/// What a rasterizer keeps for [`draw`] from frame to frame.
 #[derive(Default)]
 pub(crate) struct Caches {
-    pub(crate) validation: crate::validate::Fonts,
-    pub(crate) fonts: Fonts,
+    /// Font validation metadata (`validate`).
+    pub(crate) validation: Fonts,
+    /// Font data handed to the rasterizer.
+    pub(crate) fonts: FontCache,
+    /// Pixels derived from the scene's values.
     pub(crate) derived: Derived,
 }
 
 /// The frame a scene is drawn into.
 pub(crate) struct Frame {
-    /// Device pixels per logical pixel (the canvas's root transform).
+    /// Device pixels per logical pixel.
     pub(crate) scale: f64,
-    /// Logical extent.
-    pub(crate) size: Size,
-    /// Whether the scene has a backdrop (`validate::scene` tells).
-    pub(crate) backdrops: bool,
+    /// The logical point drawn at the frame's top left corner.
+    pub(crate) origin: kivact_types::Point,
+    /// The logical rectangle the frame shows, from `origin`.
+    pub(crate) visible: LogicalRect,
 }
 
 /// Record `scene`'s commands into `canvas` for `frame`.
@@ -92,47 +95,41 @@ pub(crate) fn draw(
     scene: &RenderScene,
     frame: &Frame,
 ) {
-    let index = frame.backdrops.then(|| Index::new(scene));
     caches.derived.begin_frame();
-    canvas.set_transform(Affine::scale(frame.scale));
+    let root = root_transform(frame);
+    canvas.set_transform(root);
     let mut painter = Painter {
         canvas,
         fonts: &mut caches.fonts,
         derived: &mut caches.derived,
-        scene,
-        index: index.as_ref(),
+        root,
         scale: frame.scale,
-        frame: LogicalRect {
-            x: 0.0,
-            y: 0.0,
-            width: frame.size.width,
-            height: frame.size.height,
-        },
+        origin: frame.origin,
+        visible: frame.visible,
         transform: Transform::IDENTITY,
         device_scale: frame.scale,
         stack: Vec::new(),
         hidden: 0,
-        mode: Mode::Drawing,
     };
-    for (i, command) in scene.commands.iter().enumerate() {
-        painter.command(i, command);
+    for command in &scene.commands {
+        painter.command(command);
     }
     caches.derived.end_frame();
 }
 
+/// The map from the scene's logical coordinates to device pixels.
+pub(crate) fn root_transform(frame: &Frame) -> Affine {
+    Affine::scale(frame.scale) * Affine::translate((-frame.origin.x, -frame.origin.y))
+}
+
 /// An open group.
-pub(super) enum Group {
+pub(super) enum Open {
+    /// A clip layer (`PushClip`).
     Clip,
     /// The transform before it.
     Transform(Transform),
-    /// How many canvas layers it pushed, and the mask applied at its pop.
-    Layer {
-        pops: u8,
-        mask: Option<Box<Mask>>,
-    },
-    /// Opened before a backdrop's replay began: its push is not drawn
-    /// again, and its pop is not replayed.
-    Ancestor,
+    /// How many canvas layers a group pushed.
+    Group { pops: u8 },
     /// Opened while drawing nothing.
     Hidden,
 }
@@ -143,86 +140,64 @@ pub(super) enum Area<'a> {
     Path(&'a BezPath),
 }
 
-/// What a painter is drawing.
-#[derive(Clone, Copy)]
-pub(super) enum Mode {
-    /// The scene's commands, in order.
-    Drawing,
-    /// The commands before a backdrop again (`effects.rs`): backdrops are
-    /// not drawn again, and colors go through `matrix`.
-    Replaying { matrix: Option<ColorMatrix> },
-}
-
-impl Mode {
-    /// The replay's color matrix, if any.
-    pub(super) fn matrix(&self) -> Option<&ColorMatrix> {
-        match self {
-            Self::Replaying { matrix } => matrix.as_ref(),
-            Self::Drawing => None,
-        }
-    }
-}
-
 pub(super) struct Painter<'a, C: Canvas> {
     pub(super) canvas: &'a mut C,
-    pub(super) fonts: &'a mut Fonts,
+    pub(super) fonts: &'a mut FontCache,
     pub(super) derived: &'a mut Derived,
-    pub(super) scene: &'a RenderScene,
-    pub(super) index: Option<&'a Index>,
+    /// The map from logical root coordinates to device pixels.
+    pub(super) root: Affine,
+    /// Device pixels per logical pixel.
     pub(super) scale: f64,
+    /// The logical point at the frame's top left corner.
+    pub(super) origin: Point,
     /// The frame in root logical coordinates.
-    pub(super) frame: LogicalRect,
+    pub(super) visible: LogicalRect,
     /// From the current coordinates to the root's (logical pixels).
     pub(super) transform: Transform,
     /// Device pixels per unit of the current coordinates (at most).
     pub(super) device_scale: f64,
-    pub(super) stack: Vec<Group>,
+    pub(super) stack: Vec<Open>,
     /// Groups open since drawing stopped (0: drawing).
     pub(super) hidden: usize,
-    /// Drawing, or replaying for a backdrop.
-    pub(super) mode: Mode,
 }
 
 impl<C: Canvas> Painter<'_, C> {
     /// Make the current transform the canvas's.
     pub(super) fn set_transform(&mut self) {
         self.canvas
-            .set_transform(Affine::scale(self.scale) * convert::affine(self.transform));
+            .set_transform(self.root * convert::affine(self.transform));
         self.device_scale = self.scale * self.transform.max_scale();
-    }
-
-    /// `color` through the replay's matrix, as the rasterizer takes it.
-    fn color(&self, color: Rgba) -> vello_cpu::color::AlphaColor<vello_cpu::color::Srgb> {
-        convert::color(gradient::color(color, self.mode.matrix()))
     }
 
     /// Hide everything up to the pop of a group being opened.
     fn hide(&mut self) {
-        self.stack.push(Group::Hidden);
+        self.stack.push(Open::Hidden);
         self.hidden = 1;
     }
 
-    pub(super) fn command(&mut self, i: usize, command: &RenderCmd) {
+    /// Replay one command.
+    pub(super) fn command(&mut self, command: &RenderCmd) {
         if self.hidden > 0 {
             self.hidden_command(command);
             return;
         }
         match command {
-            primitive_commands!() => self.primitive(i, command),
-            path_commands!() => self.path_command(i, command),
-            image_commands!() => self.image_command(i, command),
-            group_commands!() => self.group_command(i, command),
+            primitive_commands!() => self.primitive(command),
+            path_commands!() => self.path_command(command),
+            image_commands!() => self.image_command(command),
+            group_commands!() => self.group_command(command),
         }
     }
 
     /// Replay primitive drawing operations.
-    fn primitive(&mut self, _i: usize, command: &RenderCmd) {
+    fn primitive(&mut self, command: &RenderCmd) {
         match command {
             RenderCmd::Rect { rect, fill } => {
                 self.fill(fill, *rect, Area::Rect(convert::rect(*rect)));
             }
             RenderCmd::RoundedRect { rect, radius, fill } => {
-                let path = RoundedRect::from_rect(convert::rect(*rect), *radius).to_path(0.1);
+                let path =
+                    kurbo::RoundedRect::from_rect(convert::rect(*rect), *radius).to_path(0.1);
                 self.fill(fill, *rect, Area::Path(&path));
             }
             RenderCmd::RoundedRectCorners { rect, radii, fill } => {
@@ -235,10 +210,11 @@ impl<C: Canvas> Painter<'_, C> {
                 color,
                 radius,
             } => {
-                self.canvas.set_paint(PaintType::Solid(self.color(*color)));
+                self.canvas
+                    .set_paint(PaintType::Solid(convert::color(*color)));
                 self.canvas.set_stroke(Stroke::new(*width));
                 self.canvas.stroke_path(
-                    &RoundedRect::from_rect(convert::rect(*rect), *radius).to_path(0.1),
+                    &kurbo::RoundedRect::from_rect(convert::rect(*rect), *radius).to_path(0.1),
                 );
             }
             RenderCmd::StrokeRoundedRectCorners {
@@ -247,7 +223,8 @@ impl<C: Canvas> Painter<'_, C> {
                 width,
                 color,
             } => {
-                self.canvas.set_paint(PaintType::Solid(self.color(*color)));
+                self.canvas
+                    .set_paint(PaintType::Solid(convert::color(*color)));
                 self.canvas.set_stroke(Stroke::new(*width));
                 self.canvas
                     .stroke_path(&convert::rounded_rect(*rect, *radii).to_path(0.1));
@@ -259,9 +236,13 @@ impl<C: Canvas> Painter<'_, C> {
                 color,
             } => {
                 // Snapping to the pixel grid assumes the root transform.
-                let snap = self.transform.is_identity().then_some(self.scale);
+                let snap = self
+                    .transform
+                    .is_identity()
+                    .then_some((self.scale, self.origin));
                 let path = convert::line(*from, *to, *width, snap);
-                self.canvas.set_paint(PaintType::Solid(self.color(*color)));
+                self.canvas
+                    .set_paint(PaintType::Solid(convert::color(*color)));
                 self.canvas.set_stroke(Stroke::new(*width));
                 self.canvas.stroke_path(&path);
             }
@@ -272,7 +253,7 @@ impl<C: Canvas> Painter<'_, C> {
     }
 
     /// Replay path command drawing operations.
-    fn path_command(&mut self, _i: usize, command: &RenderCmd) {
+    fn path_command(&mut self, command: &RenderCmd) {
         match command {
             RenderCmd::Shadow {
                 rect,
@@ -280,7 +261,8 @@ impl<C: Canvas> Painter<'_, C> {
                 std_dev,
                 color,
             } => {
-                self.canvas.set_paint(PaintType::Solid(self.color(*color)));
+                self.canvas
+                    .set_paint(PaintType::Solid(convert::color(*color)));
                 let whole = convert::rect(*rect);
                 let blur = convert::blur_param(*std_dev);
                 match convert::shadow_quarters(*rect, *radii, *std_dev) {
@@ -299,16 +281,24 @@ impl<C: Canvas> Painter<'_, C> {
             RenderCmd::Path { cmds, fill, stroke } => {
                 let path = convert::path(cmds);
                 if let Some(color) = fill {
-                    self.canvas.set_paint(PaintType::Solid(self.color(*color)));
+                    self.canvas
+                        .set_paint(PaintType::Solid(convert::color(*color)));
                     self.canvas.fill_path(&path);
                 }
                 if let Some((width, color)) = stroke {
-                    self.canvas.set_paint(PaintType::Solid(self.color(*color)));
+                    self.canvas
+                        .set_paint(PaintType::Solid(convert::color(*color)));
                     self.canvas.set_stroke(Stroke::new(*width));
                     self.canvas.stroke_path(&path);
                 }
             }
-            RenderCmd::Glyphs { run, origin, color } => self.glyphs(run, *origin, *color),
+            RenderCmd::Glyphs {
+                run,
+                origin,
+                fill,
+                stroke,
+                order,
+            } => self.glyphs(run, *origin, fill.as_ref(), stroke.as_ref(), *order),
             primitive_commands!() | image_commands!() | group_commands!() => {
                 unreachable!("invariant: the dispatch selects path commands")
             }
@@ -316,53 +306,23 @@ impl<C: Canvas> Painter<'_, C> {
     }
 
     /// Replay image command drawing operations.
-    fn image_command(&mut self, _i: usize, command: &RenderCmd) {
+    fn image_command(&mut self, command: &RenderCmd) {
         match command {
             RenderCmd::Image {
                 image,
                 rect,
                 opacity,
-                color_matrix,
-            }
-            | RenderCmd::ImageSampled {
-                image,
-                rect,
-                opacity,
-                color_matrix,
-                ..
             } => {
-                let (source, pixelated) = match command {
-                    RenderCmd::ImageSampled {
-                        source, pixelated, ..
-                    } => (*source, *pixelated),
-                    _ => (None, false),
-                };
-                if rect.width == 0.0
-                    || rect.height == 0.0
-                    || *opacity == 0.0
-                    || source.is_some_and(|r| r.width <= 0.0 || r.height <= 0.0)
-                {
+                if rect.width == 0.0 || rect.height == 0.0 || *opacity == 0.0 {
                     return;
                 }
-                let matrix = match (*color_matrix, self.mode.matrix().copied()) {
-                    (Some(own), Some(replay)) => Some(own.then(replay)),
-                    (own, replay) => own.or(replay),
-                };
-                let filtered;
-                let image = match matrix {
-                    Some(m) => {
-                        filtered = self.derived.filtered(image, &m);
-                        &filtered
-                    }
-                    None => image,
-                };
                 let size = (image.width, image.height);
-                self.sampled(*rect, source, *opacity, size, |canvas, placed| {
-                    canvas.draw_image(image, placed, pixelated);
+                self.sampled(*rect, None, *opacity, size, |canvas, placed| {
+                    canvas.draw_image(image, placed, false);
                 });
             }
-            RenderCmd::External {
-                frame,
+            RenderCmd::ImageSampled {
+                image,
                 rect,
                 source,
                 opacity,
@@ -375,12 +335,9 @@ impl<C: Canvas> Painter<'_, C> {
                 {
                     return;
                 }
-                // Drawn only where the renderer has the frame ready.
-                let Some(size) = self.canvas.external_size(frame) else {
-                    return;
-                };
+                let size = (image.width, image.height);
                 self.sampled(*rect, *source, *opacity, size, |canvas, placed| {
-                    canvas.draw_external(frame, placed, *pixelated);
+                    canvas.draw_image(image, placed, *pixelated);
                 });
             }
             primitive_commands!() | path_commands!() | group_commands!() => {
@@ -390,12 +347,12 @@ impl<C: Canvas> Painter<'_, C> {
     }
 
     /// Replay group command drawing operations.
-    fn group_command(&mut self, i: usize, command: &RenderCmd) {
+    fn group_command(&mut self, command: &RenderCmd) {
         match command {
             RenderCmd::PushClip(rect) => {
                 self.canvas
                     .push_clip_layer(&convert::rect(*rect).to_path(0.1));
-                self.stack.push(Group::Clip);
+                self.stack.push(Open::Clip);
             }
             RenderCmd::FillShape { shape, paint } => {
                 if let Shape::Rect(r) = shape {
@@ -427,43 +384,40 @@ impl<C: Canvas> Painter<'_, C> {
                     self.hide();
                     return;
                 }
-                self.stack.push(Group::Transform(outer));
+                self.stack.push(Open::Transform(outer));
                 self.transform = inner;
                 self.set_transform();
             }
-            RenderCmd::PushLayer(layer) => self.push_render_layer(layer),
-            RenderCmd::Backdrop(backdrop) => {
-                if matches!(self.mode, Mode::Drawing) {
-                    self.backdrop(i, backdrop);
-                }
-            }
-            RenderCmd::PopClip | RenderCmd::PopTransform | RenderCmd::PopLayer => self.pop(),
+            RenderCmd::PushGroup(group) => self.push_group(group),
+            RenderCmd::PopClip | RenderCmd::PopTransform | RenderCmd::PopGroup => self.pop(),
             primitive_commands!() | path_commands!() | image_commands!() => {
                 unreachable!("invariant: the dispatch selects group commands")
             }
         }
     }
 
-    /// Apply clipping, blend, opacity, and filter in the established layer order.
-    fn push_render_layer(&mut self, layer: &kivact_types::render::Layer) {
-        if layer.opacity == 0.0 {
+    /// Open a group: its clip, opacity and blend on one layer, and its
+    /// blur on a filter layer inside it (the filtered content is clipped,
+    /// as CSS orders filter, clip-path and opacity).
+    fn push_group(&mut self, group: &Group) {
+        if group.opacity == 0.0 {
             self.hide();
             return;
         }
-        let clip = layer
+        let clip = group
             .clip
             .as_ref()
             .map(|shape| (convert::shape(shape), shape.rule()));
-        let blend = convert::blend(layer.blend);
-        let opacity = (layer.opacity < 1.0).then_some(layer.opacity);
-        let filter = layer.filter.map(|f| self.filter(f));
+        let blend = convert::blend(group.blend);
+        let opacity = (group.opacity < 1.0).then_some(group.opacity);
+        let filter = group.blur.map(|std_dev| {
+            Filter::from_primitive(FilterPrimitive::GaussianBlur {
+                std_deviation: std_dev as f32,
+                edge_mode: EdgeMode::None,
+            })
+        });
         let mut pops = 0;
-        if clip.is_some()
-            || blend.is_some()
-            || opacity.is_some()
-            || layer.mask.is_some()
-            || filter.is_none()
-        {
+        if clip.is_some() || blend.is_some() || opacity.is_some() || filter.is_none() {
             let odd = clip
                 .as_ref()
                 .is_some_and(|c| c.1 != kivact_types::FillRule::NonZero);
@@ -478,22 +432,16 @@ impl<C: Canvas> Painter<'_, C> {
             pops += 1;
         }
         if let Some(filter) = filter {
-            // Inside the clip: the filtered result is clipped, as CSS
-            // orders filter, clip-path, mask and opacity.
             self.canvas.push_layer(None, None, None, Some(filter));
             pops += 1;
         }
-        self.stack.push(Group::Layer {
-            pops,
-            mask: layer.mask.clone().map(Box::new),
-        });
+        self.stack.push(Open::Group { pops });
     }
 
-    /// A command while drawing nothing: only the groups are followed.
-    /// Draw a `width` × `height` pixel source (an image, an external
-    /// frame) into `rect`: its `source` region (`None`: all of it) scaled
-    /// onto `rect`, faded by `opacity`. `draw` draws the whole source
-    /// stretched over the rectangle it is given.
+    /// Draw a `width` × `height` pixel source (an image) into `rect`: its
+    /// `source` region (`None`: all of it) scaled onto `rect`, faded by
+    /// `opacity`. `draw` draws the whole source stretched over the
+    /// rectangle it is given.
     fn sampled(
         &mut self,
         rect: LogicalRect,
@@ -530,12 +478,13 @@ impl<C: Canvas> Painter<'_, C> {
         }
     }
 
+    /// A command while drawing nothing: only the groups are followed.
     fn hidden_command(&mut self, command: &RenderCmd) {
         match command {
-            RenderCmd::PushClip(_) | RenderCmd::PushTransform(_) | RenderCmd::PushLayer(_) => {
+            RenderCmd::PushClip(_) | RenderCmd::PushTransform(_) | RenderCmd::PushGroup(_) => {
                 self.hidden += 1;
             }
-            RenderCmd::PopClip | RenderCmd::PopTransform | RenderCmd::PopLayer => {
+            RenderCmd::PopClip | RenderCmd::PopTransform | RenderCmd::PopGroup => {
                 self.hidden -= 1;
                 if self.hidden == 0 {
                     self.pop();
@@ -548,60 +497,31 @@ impl<C: Canvas> Painter<'_, C> {
     /// Close the innermost group.
     fn pop(&mut self) {
         match self.stack.pop() {
-            Some(Group::Clip) => self.canvas.pop_layer(),
-            Some(Group::Transform(outer)) => {
+            Some(Open::Clip) => self.canvas.pop_layer(),
+            Some(Open::Transform(outer)) => {
                 self.transform = outer;
                 self.set_transform();
             }
-            Some(Group::Layer { mut pops, mask }) => {
-                if let Some(mask) = mask {
-                    if pops == 2 {
-                        // The filter's layer first: the mask applies to the
-                        // filtered content.
-                        self.canvas.pop_layer();
-                        pops = 1;
-                    }
-                    self.mask(&mask);
-                }
+            Some(Open::Group { pops }) => {
                 for _ in 0..pops {
                     self.canvas.pop_layer();
                 }
             }
-            Some(Group::Hidden | Group::Ancestor) | None => {}
+            Some(Open::Hidden) | None => {}
         }
     }
 
-    /// The raster filter of a layer's.
-    fn filter(&self, filter: kivact_types::render::LayerFilter) -> Filter {
-        Filter::from_primitive(match filter {
-            kivact_types::render::LayerFilter::Blur { std_dev } => FilterPrimitive::GaussianBlur {
-                std_deviation: std_dev as f32,
-                edge_mode: EdgeMode::None,
-            },
-            kivact_types::render::LayerFilter::DropShadow {
-                offset,
-                std_dev,
-                color,
-            } => FilterPrimitive::DropShadow {
-                dx: offset.x as f32,
-                dy: offset.y as f32,
-                std_deviation: std_dev as f32,
-                color: self.color(color),
-                edge_mode: EdgeMode::None,
-            },
-        })
+    /// The frame in the current coordinates (bounds of it).
+    pub(super) fn local_frame(&self) -> LogicalRect {
+        match self.transform.invert() {
+            Some(inverse) => inverse.bounds(self.visible),
+            None => LogicalRect::default(),
+        }
     }
 
     /// Fill `area` (with `bounds`) with `paint`.
     pub(super) fn fill(&mut self, paint: &Paint, bounds: LogicalRect, area: Area<'_>) {
-        let device_scale = self.device_scale;
-        match paint::brush(
-            paint,
-            bounds,
-            self.mode.matrix(),
-            self.derived,
-            device_scale,
-        ) {
+        match paint::brush(paint, self.derived, self.device_scale) {
             Brush::Paint(brush, transform) => {
                 self.canvas.set_paint(brush);
                 if let Some(t) = transform {
@@ -653,59 +573,155 @@ impl<C: Canvas> Painter<'_, C> {
         self.canvas.pop_clip_path();
     }
 
+    /// Stroke a shape's outline with `paint`.
     fn stroke(&mut self, shape: &Shape, stroke: &kivact_types::Stroke, paint: &Paint) {
         let mut path = convert::shape(shape);
         if stroke.cap != kivact_types::LineCap::Butt {
             path = convert::dots(path);
         }
         let style = convert::stroke(stroke);
-        let bounds = shape.bounds();
-        if let Paint::Pattern(_) = paint {
-            // The stroke's outline filled with the pattern.
-            let outline = kurbo::stroke(
-                path.iter(),
-                &style,
-                &kurbo::StrokeOpts::default(),
-                0.1 / self.device_scale.max(1.0),
-            );
-            let w = stroke.width * stroke.miter_limit.max(1.5);
-            self.fill(paint, bounds.inflate(w, w), Area::Path(&outline));
-            return;
-        }
-        let device_scale = self.device_scale;
-        let Brush::Paint(brush, transform) = paint::brush(
-            paint,
-            bounds,
-            self.mode.matrix(),
-            self.derived,
-            device_scale,
-        ) else {
-            unreachable!("invariant: only patterns make pattern brushes");
-        };
-        self.canvas.set_paint(brush);
-        if let Some(t) = transform {
-            self.canvas.set_paint_transform(t);
-        }
-        self.canvas.set_stroke(style);
-        self.canvas.stroke_path(&path);
-        if transform.is_some() {
-            self.canvas.reset_paint_transform();
+        let grow = stroke.width * stroke.miter_limit.max(1.5);
+        match paint::brush(paint, self.derived, self.device_scale) {
+            Brush::Pattern(pattern) => {
+                // The stroke's outline filled with the pattern.
+                let outline = self.outline_of(&path, &style);
+                let bounds = logical(path.bounding_box()).inflate(grow, grow);
+                self.fill_pattern(&outline, bounds, &pattern);
+            }
+            Brush::Paint(brush, transform) => {
+                self.canvas.set_paint(brush);
+                if let Some(t) = transform {
+                    self.canvas.set_paint_transform(t);
+                }
+                self.canvas.set_stroke(style);
+                self.canvas.stroke_path(&path);
+                if transform.is_some() {
+                    self.canvas.reset_paint_transform();
+                }
+            }
         }
     }
 
+    /// The outline of `path` stroked with `style`, as a filled path.
+    fn outline_of(&self, path: &BezPath, style: &Stroke) -> BezPath {
+        kurbo::stroke(
+            path.iter(),
+            style,
+            &kurbo::StrokeOpts::default(),
+            0.1 / self.device_scale.max(1.0),
+        )
+    }
+
+    /// The outlines of `run`'s glyphs at `origin`, in the current coordinates.
+    fn glyph_path(&self, run: &kivact_types::render::GlyphRun, origin: Point) -> BezPath {
+        let mut path = convert::path(&glyph_outline(run));
+        path.apply_affine(Affine::translate((origin.x, origin.y)));
+        path
+    }
+
+    /// Replay a glyph run: its fill, and its outline stroke, in `order`.
     fn glyphs(
         &mut self,
         run: &kivact_types::render::GlyphRun,
-        origin: kivact_types::Point,
-        color: Option<kivact_types::Rgba>,
+        origin: Point,
+        fill: Option<&Paint>,
+        outline: Option<&GlyphStroke>,
+        order: PaintOrder,
     ) {
-        let coords: Vec<i16> = run
-            .normalized_coords
-            .iter()
-            .map(|v| (*v * 16384.0).round() as i16)
-            .collect();
-        let color = self.color(color.unwrap_or(run.color));
-        self.canvas.set_paint(PaintType::Solid(color));
+        let shaped = Paint::Solid(run.color);
+        let fill = fill.unwrap_or(&shaped);
+        match order {
+            PaintOrder::FillStroke => {
+                self.glyph_fill(run, origin, fill);
+                if let Some(stroke) = outline {
+                    self.glyph_stroke(run, origin, stroke);
+                }
+            }
+            PaintOrder::StrokeFill => {
+                if let Some(stroke) = outline {
+                    self.glyph_stroke(run, origin, stroke);
+                }
+                self.glyph_fill(run, origin, fill);
+            }
+        }
+    }
+
+    /// Fill a glyph run with `paint`.
+    fn glyph_fill(&mut self, run: &kivact_types::render::GlyphRun, origin: Point, paint: &Paint) {
+        match paint::brush(paint, self.derived, self.device_scale) {
+            Brush::Pattern(pattern) => {
+                let path = self.glyph_path(run, origin);
+                let bounds = logical(path.bounding_box());
+                self.fill_pattern(&path, bounds, &pattern);
+            }
+            Brush::Paint(brush, transform) => {
+                let solid = matches!(paint, Paint::Solid(_));
+                self.canvas.set_paint(brush);
+                if let Some(t) = transform {
+                    self.canvas.set_paint_transform(t);
+                }
+                self.fill_glyphs(run, origin, solid);
+                if transform.is_some() {
+                    self.canvas.reset_paint_transform();
+                }
+            }
+        }
+    }
+
+    /// Stroke a glyph run's outlines with `stroke`.
+    fn glyph_stroke(
+        &mut self,
+        run: &kivact_types::render::GlyphRun,
+        origin: Point,
+        stroke: &GlyphStroke,
+    ) {
+        let style = convert::stroke(&stroke.stroke);
+        match paint::brush(&stroke.paint, self.derived, self.device_scale) {
+            Brush::Pattern(pattern) => {
+                let path = self.glyph_path(run, origin);
+                let outline = self.outline_of(&path, &style);
+                let grow = stroke.stroke.width * stroke.stroke.miter_limit.max(1.5);
+                let bounds = logical(path.bounding_box()).inflate(grow, grow);
+                self.fill_pattern(&outline, bounds, &pattern);
+            }
+            Brush::Paint(brush, transform) => {
+                self.canvas.set_paint(brush);
+                if let Some(t) = transform {
+                    self.canvas.set_paint_transform(t);
+                }
+                self.canvas.set_stroke(style);
+                let coords = glyph_coords(run);
+                let font = self.fonts.get(run.font.as_shared(), run.font_index);
+                // Outlines are stroked as they are: unhinted, no darkening,
+                // never from the atlas.
+                self.canvas.stroke_glyphs(
+                    GlyphRun {
+                        font,
+                        font_size: run.font_size,
+                        coords: &coords,
+                        embolden: glifo::FontEmbolden::new(vello_cpu::kurbo::Diagonal2::new(
+                            0.0, 0.0,
+                        )),
+                        hint: false,
+                        cached: false,
+                    },
+                    run.glyphs.iter().map(|g| Glyph {
+                        id: g.id,
+                        x: (g.x + origin.x) as f32,
+                        y: (g.y + origin.y) as f32,
+                    }),
+                );
+                if transform.is_some() {
+                    self.canvas.reset_paint_transform();
+                }
+            }
+        }
+    }
+
+    /// Fill a glyph run with the current paint, placed as the transform says
+    /// (`solid`: the glyphs may come from the atlas).
+    fn fill_glyphs(&mut self, run: &kivact_types::render::GlyphRun, origin: Point, solid: bool) {
+        let coords = glyph_coords(run);
         let font = self.fonts.get(run.font.as_shared(), run.font_index);
         let scale = self.scale;
         let t = self.transform;
@@ -717,7 +733,7 @@ impl<C: Canvas> Painter<'_, C> {
                     coords: &coords,
                     embolden: glifo::FontEmbolden::new(text::darkening(run.font_size * scale)),
                     hint: true,
-                    cached: true,
+                    cached: solid,
                 },
                 run.glyphs.iter().map(|g| Glyph {
                     id: g.id,
@@ -734,7 +750,7 @@ impl<C: Canvas> Painter<'_, C> {
                     coords: &coords,
                     embolden: glifo::FontEmbolden::new(text::darkening(run.font_size * scale * s)),
                     hint: true,
-                    cached: true,
+                    cached: solid,
                 },
                 run.glyphs.iter().map(|g| Glyph {
                     id: g.id,
@@ -762,5 +778,23 @@ impl<C: Canvas> Painter<'_, C> {
                 }),
             );
         }
+    }
+}
+
+/// A run's normalized variation coordinates in the rasterizers' 2.14 fixed point.
+fn glyph_coords(run: &kivact_types::render::GlyphRun) -> Vec<i16> {
+    run.normalized_coords
+        .iter()
+        .map(|v| (*v * 16384.0).round() as i16)
+        .collect()
+}
+
+/// A raster rectangle as a logical one.
+fn logical(rect: Rect) -> LogicalRect {
+    LogicalRect {
+        x: rect.x0,
+        y: rect.y0,
+        width: rect.width(),
+        height: rect.height(),
     }
 }

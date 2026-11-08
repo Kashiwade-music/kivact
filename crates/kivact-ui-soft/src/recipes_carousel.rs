@@ -52,8 +52,8 @@ fn control(theme: &Theme, s: &Look<CarouselSurfaceState>, next: bool) -> Style {
         .background(t.colors.bg_popover)
         .disabled(style().opacity(0.0))
         .transition(
-            TransitionProp::Paint,
-            Transition::tween(t.motion.fast as f64, t.motion.ease_standard),
+            TransitionProp::All,
+            Transition::tween(t.motion.fast as f64, t.motion.ease_standard.clone()),
         );
     let base = if s.orientation == Orientation::Vertical {
         let base = base.left(pct(50) - size / 2.0);

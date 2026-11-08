@@ -165,15 +165,11 @@ impl Model {
         self.report_sessions();
     }
 
-    /// Keep the base paint metrics and backdrop reach derived from `id`'s props.
+    /// Keep the base paint metrics derived from `id`'s props.
     fn derive(&mut self, id: NodeId) {
         let Some(n) = self.tree.get(id) else {
             return;
         };
-        if let Some(p) = n.paint() {
-            self.paint
-                .note_backdrop(crate::lower::effects::backdrop_reach(p));
-        }
         let look = n.paint().map_or_else(
             || crate::paint::state::Look::of(&kivact_types::PaintProps::default()),
             crate::paint::state::Look::of,

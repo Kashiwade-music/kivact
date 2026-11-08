@@ -2,7 +2,7 @@
 use super::state::State;
 use crate::lower::context::Context;
 use crate::lower::sanitize;
-use kivact_types::render::RenderCmd as D;
+use kivact_types::render::{ExternalItem, LayerItem, RenderCmd as D};
 use kivact_types::{DrawCmd, Rect, Size};
 impl Context<'_> {
     pub(super) fn paint_raster(&self, cmd: &DrawCmd, state: &mut State<'_>) -> bool {
@@ -23,7 +23,7 @@ impl Context<'_> {
                 pixelated,
             } => {
                 state.out.push(D::ImageSampled {
-                    image: kivact_types::scene::Pixels {
+                    image: kivact_types::Pixels {
                         width: image.width,
                         height: image.height,
                         rgba: image.rgba.clone(),
@@ -31,7 +31,6 @@ impl Context<'_> {
                     rect: rect(*r),
                     source: *source,
                     opacity: opacity.clamp(0.0, 1.0) * tint.alpha,
-                    color_matrix: tint.matrix,
                     pixelated: *pixelated,
                 });
                 true
@@ -43,32 +42,21 @@ impl Context<'_> {
                 source,
                 opacity,
                 pixelated,
+                ..
             } => {
-                if self.purpose == crate::lower::context::Purpose::Cpu
-                    && let Some(image) = cpu_pixels
-                {
-                    state.out.push(D::ImageSampled {
-                        image: image.clone(),
-                        rect: rect(*r),
-                        source: *source,
-                        opacity: opacity.clamp(0.0, 1.0) * tint.alpha,
-                        color_matrix: tint.matrix,
-                        pixelated: *pixelated,
-                    });
-                    return true;
-                }
-                let command = D::External {
+                // A frame of an external engine is a layer item; the CPU
+                // compositor draws its `cpu` pixels when it has them.
+                let item = ExternalItem {
                     frame: *frame,
                     rect: rect(*r),
                     source: *source,
+                    transform: state.out.space(),
+                    clips: state.out.clips(),
                     opacity: opacity.clamp(0.0, 1.0) * tint.alpha,
                     pixelated: *pixelated,
+                    cpu: cpu_pixels.clone(),
                 };
-                if sanitize::drawable(&command) {
-                    state.out.push(command);
-                } else {
-                    self.drop_command();
-                }
+                state.out.item(LayerItem::External(item));
                 true
             }
             DrawCmd::ImagePart { .. } => {
@@ -102,12 +90,11 @@ impl Context<'_> {
         );
         if !sanitize::drawable(&D::PushClip(r)) {
             self.drop_command();
-        } else if let Some((image, _)) = self.pixels(source, device) {
+        } else if let Some((image, _)) = self.pixels(source, device, 0) {
             state.out.push(D::Image {
                 image,
                 rect: r,
                 opacity: tint.alpha,
-                color_matrix: tint.matrix,
             });
         }
     }
@@ -144,7 +131,7 @@ impl Context<'_> {
             },
         };
         let size = arvane::asset::PixelSize::of(drawn, self.raster.get());
-        let pixels = self.pixels(source, size);
+        let pixels = self.pixels(source, size, 0);
         if let Some((image, _)) = pixels {
             let source = crop.map(|crop| {
                 let n = natural.unwrap_or(Size {
@@ -163,7 +150,6 @@ impl Context<'_> {
                 rect: rect(*r),
                 source,
                 opacity: opacity.clamp(0.0, 1.0) * tint.alpha,
-                color_matrix: tint.matrix,
                 pixelated: *pixelated,
             });
         }

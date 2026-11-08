@@ -16,7 +16,7 @@ pub(super) struct Demo {
     pub(super) selected: Signal<Vec<String>>,
 }
 
-/// One work order of the table specimen.
+/// One production order of the table specimen.
 #[derive(Clone, PartialEq)]
 pub(super) struct Record {
     pub(super) id: String,

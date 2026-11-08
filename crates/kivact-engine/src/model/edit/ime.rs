@@ -120,7 +120,7 @@ impl Model {
         let now = self.focused_input().and_then(|id| {
             let n = self.node(id)?;
             let area = crate::model::interact::text_geometry::text_line(self, id, engine);
-            let transform = self.transform_between(id, None);
+            let transform = self.window_map(id);
             let editor = self.editors[n.index.0].as_deref()?;
             Some(InputSource {
                 node: id,

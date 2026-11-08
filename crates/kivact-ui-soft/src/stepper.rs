@@ -278,8 +278,8 @@ fn progress(theme: &Theme, s: &Look<StepperItemState>) -> Style {
         .top(0)
         .radius(t.radius.full)
         .transition(
-            kivact::style::TransitionProp::Paint,
-            kivact::motion::Transition::tween(t.motion.fast as f64, t.motion.ease_standard),
+            kivact::style::TransitionProp::All,
+            kivact::motion::Transition::tween(t.motion.fast as f64, t.motion.ease_standard.clone()),
         )
         .background(if s.index <= s.current {
             t.colors.accent

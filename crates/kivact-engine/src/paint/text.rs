@@ -1,42 +1,37 @@
 //! Role: Model-aware fill, scene and text painting orchestration.
 
-use crate::lower::context::{Context, Purpose};
+use super::state::PaintPass;
+use crate::lower::context::{Context, ShaderTime};
 use crate::lower::effects::Tint;
+use crate::lower::fill::Boxes;
 use crate::lower::glyphs::{Colors, push_text};
 use crate::lower::shape::BoxShape;
 use crate::model::Model;
-use kivact_types::{DrawList, Fill, FillLayer, NodeId, Point, Rect};
+use kivact_types::{DrawList, Fill, NodeId, Point, Rect};
 
 impl Model {
-    /// The window's painting context: its assets and raster scale. A
-    /// window drops the failures the context keeps.
-    fn painting(&self) -> Context<'_> {
-        Context::new(&self.assets, &self.paint.raster, &self.paint.scene_cache)
+    /// The painting context of `pass`: its assets, raster scale and shader clock.
+    pub(super) fn painting(&self, pass: PaintPass) -> Context<'_> {
+        let time = ShaderTime {
+            seconds: self.frame.now() as f64 / 1e9,
+            reduced: self.frame.reduced_motion(),
+        };
+        Context::new(&self.assets, pass.scale, &self.paint.scene_cache).timed(time)
     }
 
+    /// Fill `boxes` with `fill` at `origin`; a shader layer is an item.
     pub(crate) fn fill(
         &self,
         out: &mut crate::lower::SceneOut,
-        shape: &BoxShape,
+        boxes: &Boxes,
         fill: &Fill,
         tint: &Tint,
         origin: Point,
+        pass: PaintPass,
     ) {
-        let context = self.painting();
-        context.fill(out, shape, fill, tint, origin);
+        let context = self.painting(pass);
+        context.fill_items(out, boxes, fill, tint, origin);
         context.finish();
-    }
-
-    pub(crate) fn layer_paint(
-        &self,
-        layer: &FillLayer,
-        area: Rect,
-        origin: Point,
-    ) -> Option<kivact_types::render::Paint> {
-        let context = self.painting();
-        let paint = context.layer_paint(layer, area, origin);
-        context.finish();
-        paint
     }
 
     /// Paint `scene`, the draw `layer` (0: draw, 1: draw-over) of node `id`,
@@ -53,17 +48,26 @@ impl Model {
         tint: &Tint,
         engine: &mut arvane::Engine,
         out: &mut crate::lower::SceneOut,
-        purpose: Purpose,
+        pass: PaintPass,
     ) {
         let inherited = scene
             .cmds
             .iter()
             .any(|cmd| matches!(cmd, kivact_types::DrawCmd::Text(run) if crate::lower::glyphs::inherits(run)))
             .then(|| self.text_props(id));
-        let mut context = self.painting();
-        context.purpose = purpose;
+        let context = self
+            .painting(pass)
+            .hosting(&self.paint.drawables, id, layer);
+        out.scope(id, layer);
         context.paint_scene(scene, inherited.as_deref(), origin, tint, engine, out);
         let dropped = context.finish().dropped;
+        self.note_dropped(id, layer, dropped);
+    }
+
+    /// Queue one report of `dropped` commands of `id`'s `layer` (its draw
+    /// is 0, its draw-over is 1, its own layer effects 2), until a frame
+    /// draws it cleanly.
+    pub(super) fn note_dropped(&self, id: NodeId, layer: u8, dropped: u32) {
         if dropped == 0 {
             self.paint
                 .dropped_reported
@@ -76,19 +80,17 @@ impl Model {
 }
 
 impl Model {
-    /// The text node `id`'s paragraph in its content box `area`, wrapped
-    /// at its width.
-    pub(crate) fn paint_text(
+    /// The shaped paragraph of text node `id` in its content box `area`,
+    /// wrapped at its width. Box paint clips to the same shaping: the
+    /// arvane cache serves both.
+    pub(super) fn shape_node_text(
         &self,
         id: NodeId,
         area: Rect,
         tint: &Tint,
         engine: &mut arvane::Engine,
-        out: &mut crate::lower::SceneOut,
-    ) {
-        let Some(n) = self.node(id) else {
-            return;
-        };
+    ) -> Option<kivact_types::ShapedTextSnapshot> {
+        let n = self.node(id)?;
         let props = self.text_props(id);
         let color = tint.color(self.text_color(id));
         let mut style = crate::lower::assets::text_style(engine, &props);
@@ -97,19 +99,11 @@ impl Model {
         // One pixel of slack over the laid-out width keeps a pixel-rounded
         // box from wrapping its measured lines.
         let width = Some(area.width.max(0.0) + 1.0);
-        let (shaped, colors) = if spans.is_empty() {
+        let shaped = if spans.is_empty() {
             // Shaped without a color: a color change (a hover) reuses it.
             style.color = kivact_types::ComputedTextStyle::default().color;
-            let deco = match props.decoration.color {
-                Some(own) => tint.color(own),
-                None => color,
-            };
             style.decoration.color = None;
-            let colors = Colors {
-                glyphs: Some(color),
-                decorations: Some(deco),
-            };
-            (engine.shape_glyphs(content, &style, width), colors)
+            engine.shape_glyphs(content, &style, width)
         } else {
             style.color = color;
             style.decoration.color = props.decoration.color.map(|c| tint.color(c));
@@ -123,15 +117,45 @@ impl Model {
                 text: content,
                 spans: &rich,
             };
-            let colors = Colors {
-                glyphs: None,
-                decorations: None,
-            };
-            (engine.shape_glyphs(text, &style, width), colors)
+            engine.shape_glyphs(text, &style, width)
         };
-        // A missing font leaves the text undrawn.
-        let Ok(shaped) = shaped else {
+        shaped.ok()
+    }
+
+    /// The text node `id`'s paragraph in its content box `area`, wrapped
+    /// at its width.
+    pub(crate) fn paint_text(
+        &self,
+        id: NodeId,
+        area: Rect,
+        tint: &Tint,
+        pass: PaintPass,
+        engine: &mut arvane::Engine,
+        out: &mut crate::lower::SceneOut,
+    ) {
+        let Some(n) = self.node(id) else {
             return;
+        };
+        let spans = n.spans();
+        let props = self.text_props(id);
+        let color = tint.color(self.text_color(id));
+        // A missing font leaves the text undrawn.
+        let Some(shaped) = self.shape_node_text(id, area, tint, engine) else {
+            return;
+        };
+        let colors = if n.spans().is_empty() {
+            let deco = match props.decoration.color {
+                Some(own) => tint.color(own),
+                None => color,
+            };
+            Colors {
+                glyphs: Some(kivact_types::render::Paint::Solid(color)),
+                decorations: Some(deco),
+                ..Default::default()
+            }
+            .outlined(&props, tint)
+        } else {
+            Colors::default().outlined(&props, tint)
         };
         let origin = Point {
             x: area.x,
@@ -149,13 +173,14 @@ impl Model {
                 };
                 self.fill(
                     out,
-                    &BoxShape::Rect(rect),
+                    &Boxes::uniform(BoxShape::Rect(rect)),
                     fill,
                     tint,
                     Point {
                         x: rect.x,
                         y: rect.y,
                     },
+                    pass,
                 );
             }
         }
@@ -166,7 +191,7 @@ impl Model {
             &colors,
             &props.shadows,
             tint,
-            self.paint.raster.get(),
+            pass.scale,
         );
     }
 }

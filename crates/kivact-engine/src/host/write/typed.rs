@@ -31,7 +31,9 @@
 //!   alone only redraws.
 
 use super::Writer;
-use crate::contract::{EditingData, ImeSessionProps, LeafMeasure, NodeKind, NodeProperties};
+use crate::contract::{
+    DrawableRole, EditingData, ImeSessionProps, LeafMeasure, NodeKind, NodeProperties,
+};
 use crate::model::Model;
 use crate::mutation::Mutation as Mut;
 use kivact_types::{
@@ -342,6 +344,15 @@ props! {
     ImageFit: set_image_fit(v: ImageFit)
         => field(Some(v), |p| Some(&mut image(p)?.fit)),
         mut = Mut::NONE;
+    /// Replace the node's playing when its value differs (an animated image
+    /// plays while it is true).
+    ImagePlaying: set_image_playing(v: bool)
+        => field(Some(v), |p| Some(&mut image(p)?.playing)),
+        mut = Mut::NONE;
+    /// Replace the node's shared-layout id when its value differs.
+    LayoutId: set_layout_id(v: Option<std::sync::Arc<str>>)
+        => field(v, |p| Some(&mut p.layout_id)),
+        mut = Mut::NONE;
     /// Replace the node's monochrome when its value differs.
     Monochrome: set_monochrome(v: bool)
         => field(Some(v), |p| Some(&mut image(p)?.monochrome)),
@@ -354,6 +365,10 @@ props! {
             _ => None,
         }),
         mut = Mut::STYLE.and(Mut::PLACED).and(Mut::RESTACK);
+    /// Replace the drawable role of the node (the root of a drawable).
+    Drawable: set_drawable(v: Option<DrawableRole>)
+        => field(v, |p| Some(&mut p.drawable)),
+        mut = Mut::RESTACK, then = after_drawable;
     /// Replace the node's intrinsic when its value differs.
     Intrinsic: set_intrinsic(v: IntrinsicSize)
         => field(Some(v), |p| match &mut p.kind {
@@ -400,6 +415,11 @@ impl Writer {
             model.writes.field(id);
         }
         changed
+    }
+
+    /// A drawable role changed: the model reconciles the drawable at the commit.
+    fn after_drawable(&self, id: NodeId) {
+        self.model.borrow_mut().drawables.note(id);
     }
 
     /// A node got disabled: a capture it holds ends.

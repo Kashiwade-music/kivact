@@ -10,13 +10,14 @@
 //!   `.style(..)` closures and of `provide_theme`, without remounting.
 //! - `Color::components_in(theme)` and `mix_in(other, amount, theme)`
 //!   resolve tokens in the given theme; `components` and `mix` use the
-//!   default theme. Mixing interpolates alpha-premultiplied sRGB.
+//!   default theme. Mixing interpolates alpha-premultiplied Oklab, and the
+//!   result stays in its space until it is painted.
 
 use super::{Palette, Radii, Spacing, Typography};
 use crate::color::{Color, ColorToken, Repr, rgb, rgba};
 use crate::icon::IconSet;
 use kivact_runtime::{Owner, Value};
-use kivact_types::{LineHeight, Rgba};
+use kivact_types::{ColorInterpolation, ColorSpace, LineHeight, Rgba, SpaceColor, interpolate};
 use std::any::{Any, TypeId};
 use std::fmt;
 use std::sync::{Arc, Mutex};
@@ -593,10 +594,12 @@ fn themed_value(index: u32) -> &'static dyn Themed {
 
 impl Color {
     /// The color as the engine paints it: a literal as it is, a token looked
-    /// up in `theme`, with the color's alpha applied.
+    /// up in `theme`, with the color's alpha applied. A color in a CSS color
+    /// space is gamut mapped into sRGB here, once.
     pub fn resolve(self, theme: &Theme) -> Rgba {
         match self.0 {
             Repr::Rgba(r, g, b, a) => Rgba { r, g, b, a },
+            Repr::Space(c) => c.to_srgb(),
             Repr::Token(t, a) => theme.colors.get(t).resolve_concrete().with_alpha_mul(a),
             Repr::Themed(i, a) => themed_value(i)
                 .resolve(theme)
@@ -605,15 +608,49 @@ impl Color {
         }
     }
 
+    /// The color in the space it was authored in (before gamut mapping), as
+    /// gradient stops and interpolation take it.
+    pub fn resolve_space(self, theme: &Theme) -> SpaceColor {
+        match self.0 {
+            Repr::Rgba(r, g, b, a) => SpaceColor::from_rgba(Rgba { r, g, b, a }),
+            Repr::Space(c) => c,
+            Repr::Token(t, a) => {
+                let mut c = theme.colors.get(t).resolve_space_concrete();
+                c.alpha *= a;
+                c
+            }
+            Repr::Themed(i, a) => {
+                let mut c = themed_value(i).resolve(theme).resolve_space(theme);
+                c.alpha *= a;
+                c
+            }
+        }
+    }
+
     fn resolve_concrete(self) -> Rgba {
         match self.0 {
             Repr::Rgba(r, g, b, a) => Rgba { r, g, b, a },
+            Repr::Space(c) => c.to_srgb(),
             Repr::Token(..) | Repr::Themed(..) => Rgba {
                 r: 0.0,
                 g: 0.0,
                 b: 0.0,
                 a: 1.0,
             },
+        }
+    }
+
+    /// A palette entry without a theme: a literal, or opaque black.
+    fn resolve_space_concrete(self) -> SpaceColor {
+        match self.0 {
+            Repr::Rgba(r, g, b, a) => SpaceColor::from_rgba(Rgba { r, g, b, a }),
+            Repr::Space(c) => c,
+            Repr::Token(..) | Repr::Themed(..) => SpaceColor::from_rgba(Rgba {
+                r: 0.0,
+                g: 0.0,
+                b: 0.0,
+                a: 1.0,
+            }),
         }
     }
 
@@ -641,8 +678,9 @@ impl Color {
         [c.r, c.g, c.b, c.a]
     }
 
-    /// Mix in premultiplied sRGB; `amount = 0` is self, `1` is other.
+    /// Mix in Oklab (premultiplied); `amount = 0` is self, `1` is other.
     /// Theme tokens resolve against the default theme. Use `mix_in` in a theme style.
+    /// The result keeps its space: gamut mapping happens when it is painted.
     pub fn mix(self, other: Color, amount: impl Into<f64>) -> Color {
         self.mix_in(other, amount, &Theme::default())
     }
@@ -650,28 +688,41 @@ impl Color {
     /// Mix after resolving both colors against the supplied theme.
     pub fn mix_in(self, other: Color, amount: impl Into<f64>, theme: &Theme) -> Color {
         let t = (amount.into()).clamp(0.0, 1.0);
-        let a = self.components_in(theme);
-        let b = other.components_in(theme);
-        let alpha = a[3] + (b[3] - a[3]) * t;
-        let component = |i| {
-            if alpha > 0.0 {
-                (a[i] * a[3] * (1.0 - t) + b[i] * b[3] * t) / alpha
-            } else {
-                0.0
-            }
-        };
-        Color::from_rgba_f64(component(0), component(1), component(2), alpha)
+        let a = self.resolve_space(theme);
+        let b = other.resolve_space(theme);
+        Color(Repr::Space(interpolate(
+            a,
+            b,
+            t,
+            ColorInterpolation::DEFAULT,
+        )))
     }
+}
+
+/// The Oklab premultiplied components of a color (L·α, a·α, b·α, α) that
+/// animation interpolates.
+fn premultiplied_oklab(c: SpaceColor) -> [f64; 4] {
+    let ok = c.convert(ColorSpace::Oklab);
+    let [l, a, b] = ok.channels;
+    let alpha = ok.alpha;
+    [l * alpha, a * alpha, b * alpha, alpha]
 }
 
 impl kivact_runtime::Animatable for Color {
     const COMPONENTS: usize = 4;
     fn to_components(&self, out: &mut Vec<f64>) {
-        out.extend_from_slice(&self.components());
+        let c = self.resolve_space(&Theme::default());
+        out.extend_from_slice(&premultiplied_oklab(c));
     }
     fn from_components(c: &[f64]) -> Self {
         let g = |i: usize| c.get(i).copied().unwrap_or_default();
-        Color::from_rgba_f64(g(0), g(1), g(2), g(3))
+        let alpha = g(3).clamp(0.0, 1.0);
+        let unpre = |v: f64| if alpha > 0.0 { v / alpha } else { 0.0 };
+        Color(Repr::Space(SpaceColor::new(
+            ColorSpace::Oklab,
+            [unpre(g(0)), unpre(g(1)), unpre(g(2))],
+            alpha,
+        )))
     }
 }
 

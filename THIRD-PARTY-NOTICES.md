@@ -15,7 +15,7 @@ Kivact is Copyright (c) 2026 Kashiwade <kashiwade@outlook.com> and is licensed u
 
 Test fixture and font references across packages are test inputs, not permission to expose internal crates through the public facade. License and provenance records must move with assets.
 
-This inventory covers material in this repository. Licenses of Cargo dependencies are declared in their own packages and are not repeated here.
+This inventory covers material in this repository. Licenses of other Cargo dependencies are declared in their own packages and are not repeated here; the crates listed under the next heading are recorded because this release adds them or makes them direct.
 
 The internal `kivact-test` harness uses the same bundled Tuffy test font and upstream font notices as `kivact-engine`; this move adds no third-party assets.
 
@@ -28,3 +28,18 @@ Geist Mono and Noto Sans JP retain their original family OFL notices, combined
 [SHA-256 records](examples/shared-assets/fonts/SHA256SUMS.txt). No font was upgraded.
 Pop's Barlow, Game's Barlow Condensed and JetBrains Mono, and Soft's Figtree
 remain beside their original notices in their catalog asset directories.
+
+## resvg 0.46.0 filter port
+
+`crates/arvane-compose/src/cpu/graph/` ports the filter driver, the color space conversions, the sRGB tables and the primitive filters of resvg 0.46.0 (`src/filter/`, Copyright 2018 the Resvg Authors), dual licensed under `MIT OR Apache-2.0`. The ported files keep their attribution headers. The gaussian blur and the drop shadow are Kivact's own and do not come from resvg.
+
+## Cargo dependencies added or made direct in this release
+
+The identifiers come from each crate's `license` field in the locked version (Cargo.lock). The full license texts ship in each crate package (`LICENSE`, or `LICENSE-MIT` and `LICENSE-APACHE`), and the copyright lines below are taken from those files.
+
+| Crate (version) | License | Copyright and provenance |
+|---|---|---|
+| `naga` (29.0.4) | MIT OR Apache-2.0 | Copyright (c) 2025 The gfx-rs developers. Made a direct dependency of `kivact-shader` (WGSL validation, `wgsl-in` only). Full texts: `LICENSE.MIT` and `LICENSE.APACHE` |
+| `zbus` (5.19.0) | MIT | Copyright (c) 2024 Zeeshan Ali Khan & zbus contributors. Already used by `arvane-native`; this work fixes its features (`blocking-api`, `async-io`). Full text: `LICENSE` |
+| `fontdb` (0.23.0) | MIT | Copyright (c) 2020 Yevhenii Reizner. Comes with `usvg` (resvg's `text` feature); `arvane-asset` adds it directly with the `fs` and `memmap` features for system fonts. Full text: `LICENSE` |
+| `rustybuzz` (0.20.1) | MIT | Copyright (c) HarfBuzz developers; Copyright (c) 2020 Yevhenii Reizner. Comes with `usvg` (resvg's `text` feature). Full text: `LICENSE` |

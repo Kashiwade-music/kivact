@@ -15,6 +15,7 @@ use std::rc::Rc;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use x11rb::connection::Connection;
+use x11rb::protocol::randr::ConnectionExt as _;
 use x11rb::protocol::xproto::{ConfigureWindowAux, ConnectionExt};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -30,6 +31,8 @@ pub(super) struct Window {
     pub(super) width: u32,
     pub(super) height: u32,
     pub(super) scale: f64,
+    /// The frame period (ns) of the display the window's center is on.
+    frame_period_ns: u64,
     on_resize_request: Option<Arc<dyn Fn(u32, u32) -> bool + Send + Sync>>,
     pub(super) redraw: Cell<ChildRedraw>,
     started: Instant,
@@ -58,6 +61,7 @@ impl Window {
         shared.update(width, height, scale);
         let ime = super::ime::Ime::new(&native);
         let dnd = super::dnd::Dnd::new(&native)?;
+        let frame_period_ns = randr_frame_period(&native, (width, height));
         Ok(Self {
             native,
             session: Rc::new(Session::new(shared.clone())),
@@ -66,6 +70,7 @@ impl Window {
             width,
             height,
             scale,
+            frame_period_ns,
             on_resize_request,
             redraw: Cell::new(ChildRedraw::Needed),
             started: Instant::now(),
@@ -83,6 +88,13 @@ impl Window {
         self.height = height;
         self.shared.update(width, height, self.scale);
         self.redraw.set(ChildRedraw::Needed);
+    }
+    /// Read the frame period again after a configure; `true` when it changed.
+    pub(super) fn refresh_frame_period(&mut self) -> bool {
+        let period = randr_frame_period(&self.native, (self.width, self.height));
+        let changed = period != self.frame_period_ns;
+        self.frame_period_ns = period;
+        changed
     }
     pub(super) fn resize(&self, width: u32, height: u32) -> Result<(), ShellError> {
         debug_assert!(width > 0 && height > 0 && width <= MAX_DIMENSION && height <= MAX_DIMENSION);
@@ -225,13 +237,15 @@ impl ShellWindow for Window {
     fn set_title(&self, _: &str) {}
     fn set_min_size(&self, _: Option<Size>) {}
     fn reduced_motion(&self) -> bool {
-        false
+        crate::native_input::reduced_motion()
     }
     fn environment(&self) -> Environment {
         Environment {
             scale_factor: self.scale,
             window_size: self.size(),
             locale: sys_locale::get_locale(),
+            frame_period_ns: self.frame_period_ns,
+            reduced_motion: self.reduced_motion(),
             ..Environment::default()
         }
     }
@@ -282,13 +296,14 @@ impl ShellWindow for Window {
         );
     }
     fn frame_period_ns(&self) -> u64 {
-        kivact_types::defaults::FRAME_PERIOD_NS
+        self.frame_period_ns
     }
     fn present_with(
         &mut self,
         width: u32,
         height: u32,
-        draw: &mut dyn FnMut(&mut [u32]) -> bool,
+        damage: Option<&[kivact_types::render::PixelRect]>,
+        draw: &mut dyn FnMut(&mut [u32], arvane_shell::BufferAge) -> bool,
     ) -> Result<bool, ShellError> {
         let (Some(w), Some(h)) = (NonZeroU32::new(width), NonZeroU32::new(height)) else {
             return Ok(false);
@@ -299,9 +314,9 @@ impl ShellWindow for Window {
             ));
         }
         let native = self.native.clone();
-        let presented = self
-            .cpu
-            .present(w, h, || crate::present::surface(&native), draw)?;
+        let presented =
+            self.cpu
+                .present(w, h, || crate::present::surface(&native), damage, draw)?;
         if presented {
             // softbuffer queues XCB image requests on this shared connection. Send
             // them now; the host event loop may otherwise wait without another request.
@@ -328,4 +343,50 @@ impl Drop for Window {
     fn drop(&mut self) {
         self.cursors.release(&self.native);
     }
+}
+
+/// The frame period of the RandR CRTC that holds the center of the window, or the default period
+/// where RandR cannot tell (no RandR, no CRTC, mode or rate).
+fn randr_frame_period(native: &Native, size: (u32, u32)) -> u64 {
+    read_randr_period(native, size).unwrap_or(kivact_types::defaults::FRAME_PERIOD_NS)
+}
+
+fn read_randr_period(native: &Native, (width, height): (u32, u32)) -> Option<u64> {
+    let connection = &native.connection;
+    let root = connection.setup().roots.get(native.screen as usize)?.root;
+    let origin = connection
+        .translate_coordinates(native.id.get(), root, 0, 0)
+        .ok()?
+        .reply()
+        .ok()?;
+    let center_x = i32::from(origin.dst_x) + (width / 2) as i32;
+    let center_y = i32::from(origin.dst_y) + (height / 2) as i32;
+    let resources = connection
+        .randr_get_screen_resources_current(root)
+        .ok()?
+        .reply()
+        .ok()?;
+    for crtc in &resources.crtcs {
+        let info = connection
+            .randr_get_crtc_info(*crtc, resources.config_timestamp)
+            .ok()?
+            .reply()
+            .ok()?;
+        let (left, top) = (i32::from(info.x), i32::from(info.y));
+        let inside = info.mode != 0
+            && (left..left + i32::from(info.width)).contains(&center_x)
+            && (top..top + i32::from(info.height)).contains(&center_y);
+        if !inside {
+            continue;
+        }
+        let mode = resources.modes.iter().find(|mode| mode.id == info.mode)?;
+        // A frame lasts htotal * vtotal dot clocks: the period is that over the dot clock.
+        let dots = u64::from(mode.htotal) * u64::from(mode.vtotal);
+        let dot_clock = u64::from(mode.dot_clock);
+        if dots == 0 || dot_clock == 0 {
+            return None;
+        }
+        return Some((dots * 1_000_000_000 + dot_clock / 2) / dot_clock);
+    }
+    None
 }

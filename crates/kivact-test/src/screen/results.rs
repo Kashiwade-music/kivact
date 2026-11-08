@@ -55,12 +55,71 @@ impl Screenshot {
         }
     }
 
+    /// How far this screenshot's pixels are from `other`'s. Each pixel counts
+    /// its largest channel difference.
+    ///
+    /// # Panics
+    ///
+    /// If the two screenshots differ in size.
+    pub fn raster_difference(&self, other: &Screenshot) -> RasterDifference {
+        assert_eq!(
+            (other.width, other.height),
+            (self.width, self.height),
+            "raster difference of screenshots of different sizes"
+        );
+        let channels = |p: u32| [(p >> 16) as u8, (p >> 8) as u8, p as u8];
+        let diffs: Vec<u8> = self
+            .pixels
+            .iter()
+            .zip(&other.pixels)
+            .map(|(a, b)| {
+                let (a, b) = (channels(*a), channels(*b));
+                (0..3).map(|i| a[i].abs_diff(b[i])).max().unwrap_or(0)
+            })
+            .collect();
+        let count = diffs.len() as f64;
+        let share =
+            |matches: fn(u8) -> bool| diffs.iter().filter(|d| matches(**d)).count() as f64 / count;
+        RasterDifference {
+            mean: diffs.iter().map(|d| f64::from(*d)).sum::<f64>() / count,
+            far: share(|d| d > 64),
+            close: share(|d| d <= 8),
+        }
+    }
+
     fn frame(&self) -> TestFrame {
         TestFrame {
             width: self.width,
             height: self.height,
             pixels: self.pixels.clone().into(),
         }
+    }
+}
+
+/// The largest mean channel difference (of 255) within the raster tolerance.
+const RASTER_MEAN_MAX: f64 = 1.0;
+/// The largest share of pixels more than 64 apart within the raster tolerance.
+const RASTER_FAR_MAX: f64 = 0.005;
+/// The least share of pixels within 8 apart within the raster tolerance.
+const RASTER_CLOSE_MIN: f64 = 0.99;
+
+/// How two raster frames differ: the statistics of [`Screenshot::raster_difference`].
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct RasterDifference {
+    /// The mean of each pixel's largest channel difference (0 to 255).
+    pub mean: f64,
+    /// The share of pixels more than 64 apart, 0 to 1.
+    pub far: f64,
+    /// The share of pixels within 8 apart, 0 to 1.
+    pub close: f64,
+}
+
+impl RasterDifference {
+    /// Whether the difference is within the raster tolerance: the mean is at
+    /// most 1.0, at most 0.5% of the pixels are more than 64 apart, and at
+    /// least 99% are within 8. Raster tests check pixels only through this.
+    pub fn within_raster_tolerance(&self) -> bool {
+        self.mean <= RASTER_MEAN_MAX && self.far <= RASTER_FAR_MAX && self.close >= RASTER_CLOSE_MIN
     }
 }
 

@@ -56,6 +56,19 @@ pub enum RendererChange {
         /// The frame.
         frame: ExternalFrame,
     },
+    /// A user shader's pipeline failed to build; its fallback is drawn from
+    /// now on. Noted once per program (`renderer=gpu shader_failed ...`).
+    ShaderFailed {
+        /// The driver's message.
+        message: String,
+    },
+    /// A frame went beyond the GPU renderer's limits or the compositor's
+    /// fixed bounds (`renderer=gpu limit_exceeded what=...`). Noted once per
+    /// kind of limit and window.
+    LimitExceeded {
+        /// Which limit was exceeded.
+        what: String,
+    },
 }
 
 impl fmt::Display for RendererChange {
@@ -82,6 +95,8 @@ impl fmt::Display for RendererChange {
                 "renderer=gpu external_frame_missed image={} slot={} value={}",
                 frame.image.0, frame.slot, frame.value
             ),
+            Self::ShaderFailed { message } => write!(f, "renderer=gpu shader_failed {message}"),
+            Self::LimitExceeded { what } => write!(f, "renderer=gpu limit_exceeded what={what}"),
         }
     }
 }

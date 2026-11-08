@@ -202,14 +202,10 @@ impl Model {
             else {
                 continue;
             };
-            if self.editors[n.index.0]
-                .as_ref()
-                .and_then(|node| node.reported_session.as_ref())
-                != Some(&session)
-            {
-                if let Some(node) = &mut self.editors[n.index.0] {
-                    node.reported_session = Some(session.clone());
-                }
+            let changed = self.editors[n.index.0]
+                .as_mut()
+                .is_some_and(|node| node.reported_session.update(session.clone()).is_some());
+            if changed {
                 events.push(HostEvent::SelectionChanged { node: id, session });
             }
         }

@@ -182,7 +182,7 @@ impl Model {
             region: node.and_then(|f| f.region),
             local: pointer
                 .zip(node.map(|f| f.node))
-                .map(|(point, node)| self.to_local(node, point))
+                .map(|(point, node)| self.pointer_local(node, point))
                 .unwrap_or_default(),
             captured: false,
             activation: None,
@@ -413,7 +413,7 @@ impl Model {
             region: self.focused().and_then(|f| f.region),
             local: pointer
                 .zip(self.focused().map(|f| f.node))
-                .map(|(point, node)| self.to_local(node, point))
+                .map(|(point, node)| self.pointer_local(node, point))
                 .unwrap_or_default(),
             captured: false,
             activation: None,

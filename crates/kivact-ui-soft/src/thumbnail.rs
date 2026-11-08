@@ -359,8 +359,8 @@ fn thumbnail_open(
             .style(|| {
                 let p = kivact::style::use_tokens::<crate::Tokens>();
                 style().size(SIDE, SIDE).cursor(Cursor::Pointer).transition(
-                    TransitionProp::Paint,
-                    Transition::tween(p.motion.fast as f64, p.motion.ease_standard),
+                    TransitionProp::All,
+                    Transition::tween(p.motion.fast as f64, p.motion.ease_standard.clone()),
                 )
             })
             .child(media)
@@ -375,8 +375,8 @@ fn thumbnail_open(
                     kivact::style::Color::TRANSPARENT
                 };
                 fill().background(color).transition(
-                    TransitionProp::Paint,
-                    Transition::tween(p.motion.fast as f64, p.motion.ease_standard),
+                    TransitionProp::All,
+                    Transition::tween(p.motion.fast as f64, p.motion.ease_standard.clone()),
                 )
             }))
     } else {
@@ -416,8 +416,8 @@ fn thumbnail_remove(
                         },
                     )
                     .transition(
-                        TransitionProp::Paint,
-                        Transition::tween(p.motion.fast as f64, p.motion.ease_standard),
+                        TransitionProp::All,
+                        Transition::tween(p.motion.fast as f64, p.motion.ease_standard.clone()),
                     );
                 if rtl {
                     look.left(p.spacing.s1)

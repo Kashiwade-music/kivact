@@ -19,6 +19,9 @@ gpu-interop = ["gpu", "kivact/gpu-interop"]
 [dev-dependencies]
 async-channel = { workspace = true }
 kivact = { path = "../../../crates/kivact", default-features = false, features = ["test"] }
+# Encodes the GIF, APNG and WebP fixtures of the image tests
+# (tests/e2e/images_animated.rs).
+image = { version = "0.25.10", default-features = false, features = ["png", "gif", "webp"] }
 # The standard components are drawn like a kit's own once the kit's theme is
 # installed (tests/e2e/ui_standard.rs).
 kivact-ui-basic = { path = "../../../crates/kivact-ui-basic" }
@@ -31,6 +34,11 @@ kivact-ui-soft = { path = "../../../crates/kivact-ui-soft" }
 # sharing tests (tests/e2e/gpu_interop.rs).
 [target.'cfg(any(windows, target_os = "linux"))'.dev-dependencies]
 gpu-interop-producer = { path = "../gpu-interop-producer", features = ["wgpu"] }
+# The consumer of a drawable's export on its own thread (tests/e2e/
+# drawable_export_gpu.rs): a device on the window's adapter and
+# `Import`, which the consumer names through wgpu.
+kivact-gpu-share = { path = "../../../crates/kivact-gpu-share", features = ["import", "wgpu"] }
+wgpu = { workspace = true }
 
 [target.'cfg(windows)'.dev-dependencies]
 windows = { workspace = true, features = ["Win32_System_Com", "Win32_System_Ole", "Win32_System_Variant", "Win32_UI_Accessibility"] }

@@ -20,11 +20,23 @@ use std::collections::HashMap;
 
 use kivact_types::render::SpanStyle;
 use kivact_types::render::TextSpan;
-use kivact_types::{ComputedTextStyle, FontFeature, TextWrap};
+use kivact_types::{ComputedTextStyle, FontFeature, FontVariation, TextWrap};
 use kivact_types::{FontKerning, TextTransform};
 
 /// Layouts per generation.
 const ENTRIES: usize = 256;
+
+/// A variable-font axis setting as bits: its tag and its value's bit
+/// pattern.
+pub(crate) type VariationBits = ([u8; 4], u64);
+
+/// The axis settings `variations` as bits, in order.
+pub(crate) fn variation_bits(variations: &[FontVariation]) -> Vec<VariationBits> {
+    variations
+        .iter()
+        .map(|v| (v.tag, v.value.to_bits()))
+        .collect()
+}
 
 // xtask-allow(state-fields): Immutable paragraph cache key; optional span overrides are independent style properties.
 /// What a span sets that shaping reads; floats compare by bit pattern.
@@ -40,6 +52,8 @@ struct SpanKey {
     word_spacing: Option<u64>,
     kerning: Option<FontKerning>,
     features: Option<Vec<FontFeature>>,
+    variations: Option<Vec<VariationBits>>,
+    font_width: Option<u64>,
 }
 
 impl SpanKey {
@@ -53,6 +67,8 @@ impl SpanKey {
             word_spacing,
             kerning,
             features,
+            variations,
+            font_width,
             ..
         } = &span.style;
         Self {
@@ -66,6 +82,8 @@ impl SpanKey {
             word_spacing: word_spacing.map(f64::to_bits),
             kerning: *kerning,
             features: features.clone(),
+            variations: variations.as_deref().map(variation_bits),
+            font_width: font_width.map(f64::to_bits),
         }
     }
 }
@@ -96,6 +114,9 @@ pub(crate) struct Key {
     wrap: bool,
     family: Option<String>,
     italic: bool,
+    variations: Vec<VariationBits>,
+    font_width: u64,
+    optical_sizing: bool,
     rich: Option<Box<RichKey>>,
 }
 
@@ -122,6 +143,9 @@ impl Key {
             wrap: style.wrap == TextWrap::Wrap,
             family: style.family.clone(),
             italic: style.italic,
+            variations: variation_bits(&style.variations),
+            font_width: style.font_width.to_bits(),
+            optical_sizing: style.optical_sizing,
             rich: (!plain).then(|| {
                 Box::new(RichKey {
                     letter_spacing: style.resolve(style.letter_spacing).to_bits(),

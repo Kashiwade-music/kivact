@@ -14,13 +14,18 @@ pub(crate) fn pointer_settings(scale: f64) -> kivact_types::PointerSettings {
 }
 
 /// Whether the system asks to reduce motion (Windows: the "animation
-/// effects" setting is off); `false` where the shell cannot tell.
+/// effects" setting is off; Linux: the settings portal); `false` where the
+/// shell cannot tell.
 pub(crate) fn reduced_motion() -> bool {
     #[cfg(windows)]
     {
         super::windows::reduced_motion().unwrap_or(false)
     }
-    #[cfg(not(windows))]
+    #[cfg(target_os = "linux")]
+    {
+        crate::port::linux_settings::reduced_motion()
+    }
+    #[cfg(not(any(windows, target_os = "linux")))]
     {
         false
     }

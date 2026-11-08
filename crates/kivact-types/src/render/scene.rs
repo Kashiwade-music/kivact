@@ -1,15 +1,15 @@
 //! Role: Portable display lists, CPU frames and external GPU frames.
 //! Frame bytes are premultiplied RGBA8.
 
-use super::color::ColorMatrix;
-use super::effect::{Backdrop, BoxShadow, Layer};
+use super::effect::BoxShadow;
 use super::paint::Paint;
 use super::shaped::GlyphRunSnapshot;
+use crate::PaintOrder;
 use crate::color::Rgba;
 use crate::geometry::Transform;
 use crate::geometry::{Point, Rect};
-use crate::gpu::ExternalFrame;
-use crate::scene::Pixels;
+use crate::pixel::BlendMode;
+use crate::pixel::Pixels;
 use crate::scene::Stroke;
 use crate::scene::{PathCmd, Shape};
 
@@ -17,7 +17,7 @@ use crate::scene::{PathCmd, Shape};
 ///
 /// Coordinates are logical pixels, mapped by the open transforms. Groups
 /// nest: [`RenderCmd::PushClip`], [`RenderCmd::PushTransform`] and
-/// [`RenderCmd::PushLayer`] each open a group that the next pop of the
+/// [`RenderCmd::PushGroup`] each open a group that the next pop of the
 /// same kind closes, and every pop must close the innermost open group (at
 /// most 256 open at once); groups that cross are an invalid scene.
 /// `arvane-render`'s `draw.rs` gives every command its meaning, the same on
@@ -25,9 +25,9 @@ use crate::scene::{PathCmd, Shape};
 ///
 /// A pushed transform applies inside the enclosing ones and maps
 /// everything up to its pop: rectangles, paths, glyphs, images, clips,
-/// shadows, layers and the paints' own coordinates. Under a transform that
+/// shadows, groups and the paints' own coordinates. Under a transform that
 /// flattens everything to a line or a point (determinant 0), and inside a
-/// layer of opacity 0, nothing is drawn up to the matching pop. Every
+/// group of opacity 0, nothing is drawn up to the matching pop. Every
 /// value is Arvane's own type: no rasterizer vocabulary (vello, peniko,
 /// kurbo) appears here.
 #[derive(Clone, Debug, PartialEq)]
@@ -39,27 +39,6 @@ pub enum RenderCmd {
         /// Destination.
         rect: Rect,
         /// Source pixels; None draws the whole image.
-        source: Option<Rect>,
-        /// Group opacity.
-        opacity: f64,
-        /// Pixel color transform.
-        color_matrix: Option<ColorMatrix>,
-        /// Disable smoothing.
-        pixelated: bool,
-    },
-    /// A frame of an image an external render engine shares with the
-    /// window ([`crate::SharedTextures`]), drawn as
-    /// [`RenderCmd::ImageSampled`] draws its pixels (no color matrix:
-    /// the frame is already premultiplied RGBA8). Only the GPU renderer
-    /// draws it, and only in the window the image was imported into, once
-    /// the frame is ready; otherwise nothing is drawn, and the scene is
-    /// still valid (the CPU renderer never draws it).
-    External {
-        /// The frame.
-        frame: ExternalFrame,
-        /// Destination.
-        rect: Rect,
-        /// Source pixels of the frame; None draws the whole frame.
         source: Option<Rect>,
         /// Group opacity.
         opacity: f64,
@@ -155,8 +134,12 @@ pub enum RenderCmd {
         run: GlyphRunSnapshot,
         /// Logical translation before the active scene transform.
         origin: Point,
-        /// Override the shaped color; `None` preserves it.
-        color: Option<Rgba>,
+        /// Fill paint; `None` fills with the shaped run's color.
+        fill: Option<Paint>,
+        /// Outline stroke drawn with the fill (CSS `-webkit-text-stroke`).
+        stroke: Option<GlyphStroke>,
+        /// Which of fill and stroke is drawn first.
+        order: PaintOrder,
     },
     /// An image stretched to bounds.
     Image {
@@ -166,11 +149,6 @@ pub enum RenderCmd {
         rect: Rect,
         /// Alpha multiplier in `[0, 1]`, applied by the renderer.
         opacity: f64,
-        /// Color matrix applied to the pixels (CSS `filter: grayscale(1)`
-        /// on an image); the renderer converts the pixels once and keeps
-        /// the result while frames draw the same image with the same
-        /// matrix.
-        color_matrix: Option<ColorMatrix>,
     },
     /// Intersect current clip with these bounds.
     PushClip(Rect),
@@ -203,15 +181,37 @@ pub enum RenderCmd {
     PushTransform(Transform),
     /// Close the innermost transform.
     PopTransform,
-    /// Draw the commands up to the matching [`RenderCmd::PopLayer`] as
-    /// one group: filtered, clipped, masked, faded and blended as the
-    /// [`Layer`] says.
-    PushLayer(Layer),
-    /// Close the innermost layer.
-    PopLayer,
-    /// What the commands before this one drew behind a shape, blurred and
-    /// color-filtered (CSS `backdrop-filter`); see [`Backdrop`].
-    Backdrop(Backdrop),
+    /// Draw the commands up to the matching [`RenderCmd::PopGroup`] as one
+    /// group: clipped, faded and blended as the [`Group`] says. Effects that
+    /// need the group's pixels are compositor layers instead.
+    PushGroup(Group),
+    /// Close the innermost group.
+    PopGroup,
+}
+
+/// A group of commands composited as one inside a chunk: clipped, faded and
+/// blended, as a Vello layer. Effects that need the group's pixels (filters,
+/// masks, backdrops, Porter–Duff operators, 3D) are compositor layers instead.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Group {
+    /// Shape the group is clipped to.
+    pub clip: Option<Shape>,
+    /// Group opacity.
+    pub opacity: f64,
+    /// Blend with what is beneath.
+    pub blend: BlendMode,
+    /// Gaussian blur of the group (std_dev in group space). Only text and
+    /// box shadows use it; the `filter` property never lowers to it.
+    pub blur: Option<f64>,
+}
+
+/// The outline stroke of a glyph run.
+#[derive(Clone, Debug, PartialEq)]
+pub struct GlyphStroke {
+    /// Line style of the outline.
+    pub stroke: Stroke,
+    /// Paint of the outline.
+    pub paint: Paint,
 }
 
 /// How many standard deviations beyond its rect a [`RenderCmd::Shadow`]

@@ -23,6 +23,9 @@ pub(crate) struct NodeTree {
     pub(crate) images: BTreeSet<NodeId>,
     pub(crate) sticky: BTreeSet<NodeId>,
     pub(crate) fixed: BTreeSet<NodeId>,
+    /// Each node that is not mounted, with its presence. The only record
+    /// of it: a node without an entry is mounted.
+    presence: BTreeMap<NodeId, NodePresence>,
 }
 
 /// Whether state paint can transform or reorder a node.
@@ -131,6 +134,7 @@ impl NodeTree {
     }
 
     /// Pre-order traversal from the root (overlays where they are attached).
+    #[cfg(feature = "testing")]
     pub(crate) fn preorder(&self) -> Vec<NodeId> {
         let mut out = Vec::with_capacity(self.nodes.len());
         let mut stack: Vec<NodeId> = self.root.into_iter().collect();
@@ -227,20 +231,53 @@ impl NodeTree {
     /// leaving: what takes part in hit testing, focus, accessibility and
     /// the modal scope.
     pub(crate) fn shown(&self, id: NodeId) -> bool {
-        self.attached_where(id, |n| {
-            !n.hidden() && !n.visibility_hidden() && !matches!(n.presence, NodePresence::Leaving(_))
+        self.attached_where(id, |id, n| {
+            !n.hidden() && !n.visibility_hidden() && !self.leaving(id)
         })
     }
 
     /// Attached to the root, and neither `id` nor an ancestor is hidden:
     /// what is drawn (a leaving subtree is drawn until its exit ends).
     pub(crate) fn drawn(&self, id: NodeId) -> bool {
-        self.attached_where(id, |n| !n.hidden() && !n.visibility_hidden())
+        self.attached_where(id, |_, n| !n.hidden() && !n.visibility_hidden())
     }
 
     /// Attached to the root, hidden or not.
     pub(crate) fn attached(&self, id: NodeId) -> bool {
-        self.attached_where(id, |_| true)
+        self.attached_where(id, |_, _| true)
+    }
+
+    /// The presence of `id`: mounted unless it has an entry.
+    pub(crate) fn presence_of(&self, id: NodeId) -> NodePresence {
+        self.presence.get(&id).copied().unwrap_or_default()
+    }
+
+    /// Whether `id` is leaving (removed by kivact, kept until its exit ends).
+    pub(crate) fn leaving(&self, id: NodeId) -> bool {
+        matches!(self.presence_of(id), NodePresence::Leaving(_))
+    }
+
+    /// Record the presence of `id`; a mounted node has no entry.
+    pub(crate) fn set_presence(&mut self, id: NodeId, presence: NodePresence) {
+        if presence == NodePresence::Mounted {
+            self.presence.remove(&id);
+        } else {
+            self.presence.insert(id, presence);
+        }
+    }
+
+    /// Drop the presence of `id` (it is destroyed).
+    pub(crate) fn forget_presence(&mut self, id: NodeId) {
+        self.presence.remove(&id);
+    }
+
+    /// The nodes whose presence satisfies `keep`, in id order.
+    pub(crate) fn presence_ids(&self, keep: impl Fn(NodePresence) -> bool) -> Vec<NodeId> {
+        self.presence
+            .iter()
+            .filter(|(_, presence)| keep(**presence))
+            .map(|(id, _)| *id)
+            .collect()
     }
 
     /// `id` and every node below it, in pre-order.
@@ -260,17 +297,15 @@ impl NodeTree {
     /// A node of the tree that is not leaving: what the pointer, the focus
     /// and the reports may still hold.
     pub(crate) fn live(&self, id: NodeId) -> bool {
-        self.nodes
-            .get(&id)
-            .is_some_and(|n| !matches!(n.presence, NodePresence::Leaving(_)))
+        self.nodes.contains_key(&id) && !self.leaving(id)
     }
 
-    fn attached_where(&self, mut id: NodeId, keep: impl Fn(&HostNode) -> bool) -> bool {
+    fn attached_where(&self, mut id: NodeId, keep: impl Fn(NodeId, &HostNode) -> bool) -> bool {
         loop {
             let Some(n) = self.nodes.get(&id) else {
                 return false;
             };
-            if !keep(n) {
+            if !keep(id, n) {
                 return false;
             }
             match self.parent_id(n) {
@@ -300,16 +335,38 @@ impl NodeTree {
     }
 
     /// Derive the place of the node at `index` again from its props, keeping the
-    /// sticky, fixed and scroller indexes with it; the place it had.
-    pub(crate) fn update_place(&mut self, index: NodeIndex) -> Place {
+    /// sticky, fixed and scroller indexes with it; the place it had. `moving`
+    /// says a running state motion has a transform now, and
+    /// `under_perspective` that its parent has a perspective.
+    pub(crate) fn update_place(
+        &mut self,
+        index: NodeIndex,
+        moving: bool,
+        under_perspective: bool,
+    ) -> Place {
         let id = self.nodes.id_at(index);
         let n = self.nodes.at_mut(index);
         let old = n.place;
-        n.update_place();
+        n.update_place(moving, under_perspective);
         let (place, scrolls) = (n.place, n.scroll_axes() != (false, false));
         self.track_scroller(id, scrolls);
         self.track_position(id, place.sticky, place.fixed);
         old
+    }
+
+    /// Mark `id` as transformed when it has a transform that is not 2D and
+    /// its parent has a perspective: the place's `transformed` is only ever
+    /// raised here, and cleared by its own [`NodeTree::update_place`].
+    /// Returns whether its place changed.
+    pub(crate) fn raise_under_perspective(&mut self, id: NodeId) -> bool {
+        let Some(n) = self.nodes.get_mut(&id) else {
+            return false;
+        };
+        if n.place.transformed || !n.has_spatial_transform() {
+            return false;
+        }
+        n.place.transformed = true;
+        true
     }
 
     /// Note whether `id` is sticky or fixed.

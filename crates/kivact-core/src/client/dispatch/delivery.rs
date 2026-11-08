@@ -1,5 +1,6 @@
 //! Role: Deliver prepared host events to the handlers of their kind.
 use super::{a11y, common, diagnostics, env, gpu, ime, key, platform, pointer, text};
+use crate::view::drawable::events;
 use kivact_engine::contract::HostEvent;
 use kivact_runtime::Runtime;
 
@@ -80,6 +81,9 @@ pub(crate) fn dispatch(rt: &Runtime, host_event: &HostEvent) {
 
 fn dispatch_host(rt: &Runtime, host_event: &HostEvent) {
     match host_event {
+        HostEvent::DuplicateLayoutId { node, id } => {
+            diagnostics::duplicate_layout_id(rt, *node, id)
+        }
         HostEvent::EnvChanged {
             environment,
             surface_active,
@@ -100,7 +104,11 @@ fn dispatch_host(rt: &Runtime, host_event: &HostEvent) {
             rect,
             size,
             text_truncated,
-        } => env::layout_changed(rt, *node, *rect, *size, *text_truncated),
+            layout,
+        } => {
+            set_layout_rect(rt, *node, *layout);
+            env::layout_changed(rt, *node, *rect, *size, *text_truncated)
+        }
         HostEvent::CloseRequested => env::close_requested(rt),
         HostEvent::EffectResult { request, result } => {
             platform::effect_result(rt, *request, result)
@@ -108,14 +116,7 @@ fn dispatch_host(rt: &Runtime, host_event: &HostEvent) {
         HostEvent::SnapshotResult { request, result } => {
             crate::view::snapshots::resolve(rt, *request, result)
         }
-        HostEvent::ImageStatusChanged { node, status } => {
-            let observation = crate::view::state::ViewState::tree(rt)
-                .get(*node)
-                .and_then(|node| node.observation);
-            if let Some(observation) = observation {
-                observation.image_status.set(*status);
-            }
-        }
+        HostEvent::ImageStatusChanged { node, status } => set_image_status(rt, *node, *status),
         HostEvent::AssetFailed { node, message } => platform::asset_failed(rt, *node, message),
         HostEvent::HostFailure { revision, reason } => {
             platform::host_failure(rt, *revision, reason)
@@ -130,9 +131,17 @@ fn dispatch_host(rt: &Runtime, host_event: &HostEvent) {
             diagnostics::layout_warning(rt, *node, *rule, *amount)
         }
         HostEvent::DrawDropped { node, count } => diagnostics::draw_dropped(rt, *node, *count),
+        HostEvent::DrawableNotHosted { .. } | HostEvent::DrawableDrawnTwice { .. } => {
+            dispatch_drawable_report(rt, host_event)
+        }
         HostEvent::TurnsCut { turns } => diagnostics::turns_cut(rt, *turns),
-        HostEvent::ExternalImported { image, result } => gpu::external_imported(rt, *image, result),
-        HostEvent::GpuAdapterChanged(adapter) => gpu::adapter_changed(rt, adapter.as_ref()),
+        HostEvent::ExternalImported { .. }
+        | HostEvent::GpuAdapterChanged(_)
+        | HostEvent::DrawableFrame(_)
+        | HostEvent::DrawableResized { .. }
+        | HostEvent::DrawableTextures { .. }
+        | HostEvent::DrawableExportLost(_)
+        | HostEvent::GpuExportAvailable => dispatch_export_host(rt, host_event),
         HostEvent::PresenceChanged { .. }
         | HostEvent::Pointer(_)
         | HostEvent::Wheel(_)
@@ -149,6 +158,59 @@ fn dispatch_host(rt: &Runtime, host_event: &HostEvent) {
         | HostEvent::ExitComplete { .. }
         | HostEvent::FocusResult { .. }
         | HostEvent::A11y { .. } => unreachable!("invariant: input event already dispatched"),
+    }
+}
+
+/// Report a drawable the engine could not place: a drawing in a node that
+/// does not host it, or a drawable drawn in both slots.
+fn dispatch_drawable_report(rt: &Runtime, host_event: &HostEvent) {
+    match host_event {
+        HostEvent::DrawableNotHosted { node, drawable } => {
+            diagnostics::drawable_not_hosted(rt, *node, *drawable)
+        }
+        HostEvent::DrawableDrawnTwice { node, drawable } => {
+            diagnostics::drawable_drawn_twice(rt, *node, *drawable)
+        }
+        _ => unreachable!("invariant: only drawable reports are routed here"),
+    }
+}
+
+/// Deliver the GPU and drawable export events of the host.
+fn dispatch_export_host(rt: &Runtime, host_event: &HostEvent) {
+    match host_event {
+        HostEvent::ExternalImported { image, result } => gpu::external_imported(rt, *image, result),
+        HostEvent::GpuAdapterChanged(adapter) => gpu::adapter_changed(rt, adapter.as_ref()),
+        HostEvent::DrawableFrame(frame) => events::frame(frame),
+        HostEvent::DrawableResized { id } => events::resized(*id),
+        HostEvent::DrawableTextures {
+            id,
+            generation,
+            result,
+        } => events::textures(*id, *generation, result),
+        HostEvent::DrawableExportLost(loss) => events::lost(loss.sink, loss.generation),
+        HostEvent::GpuExportAvailable => events::gpu_available(),
+        _ => unreachable!("invariant: only export events are routed here"),
+    }
+}
+
+/// Record the image status of an observed node for the views that read it.
+fn set_image_status(rt: &Runtime, node: kivact_types::NodeId, status: kivact_types::ImageStatus) {
+    let observation = crate::view::state::ViewState::tree(rt)
+        .get(node)
+        .and_then(|node| node.observation);
+    if let Some(observation) = observation {
+        observation.image_status.set(status);
+    }
+}
+
+/// Record the window layout box of an observed node for the scroll-driven
+/// progress values that read it.
+fn set_layout_rect(rt: &Runtime, node: kivact_types::NodeId, layout: Option<kivact_types::Rect>) {
+    let observation = crate::view::state::ViewState::tree(rt)
+        .get(node)
+        .and_then(|node| node.observation);
+    if let Some(observation) = observation {
+        observation.layout_rect.set(layout);
     }
 }
 

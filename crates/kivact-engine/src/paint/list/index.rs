@@ -100,7 +100,7 @@ impl ChildIndex {
         let layouts = host;
         let entries = children
             .filter_map(|c| Some((c, host.node(c)?)))
-            .filter(|(_, n)| !n.is_layer())
+            .filter(|(_, n)| !n.is_layer() && n.properties.drawable.is_none())
             .enumerate()
             .map(|(order, (c, n))| {
                 Indexed::new(

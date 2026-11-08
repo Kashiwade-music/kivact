@@ -191,6 +191,11 @@ impl std::os::fd::AsFd for SharedHandle {
     }
 }
 
+/// The value the `release` fence reaches once the shared textures are
+/// prepared for the hand-off; the producer writes a texture for the first
+/// time only after `release` has reached it. Frame values start above it.
+pub const SHARED_PREPARED: u64 = 1;
+
 /// A pool of textures an external render engine draws into, and its two
 /// timeline fences, handed to a window to import. The window takes the
 /// handles: on Windows it closes them once opened, on Linux a successful
@@ -255,8 +260,9 @@ impl std::os::fd::AsFd for SharedHandle {
 ///
 /// Order: the engine hands over textures it has not written yet (what a
 /// texture holds before the engine's first frame in it is undefined), and
-/// writes a texture for the first time only after the import returned
-/// `Ok` (Arvane prepares them first). Between Arvane and the engine a
+/// writes a texture for the first time only after `release` reached
+/// [`SHARED_PREPARED`] (1): the importer signals it once the textures are
+/// prepared for the hand-off. Between Arvane and the engine a
 /// texture is in `D3D12_RESOURCE_STATE_COMMON` (Direct3D 12), or in
 /// `VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL` and owned by
 /// `VK_QUEUE_FAMILY_EXTERNAL` (Vulkan): the engine's first barrier of a
@@ -265,7 +271,8 @@ impl std::os::fd::AsFd for SharedHandle {
 ///
 /// Frames: when the engine has drawn a texture, it signals `ready` to a
 /// value `v`, larger for each frame of the image, and names the frame
-/// `ExternalFrame { slot, value: v }`.
+/// `ExternalFrame { slot, value: v }`. Frame values start at 2 (1 is the
+/// preparation signal, [`SHARED_PREPARED`]).
 ///
 /// Release: `release` ≥ `v` means Arvane never reads a frame of value `v`
 /// or less again. Before it writes a texture again, the engine makes sure

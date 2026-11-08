@@ -13,31 +13,18 @@ vello_cpu = { workspace = true }
 # The glyph settings type vello_cpu takes but does not re-export (the
 # version vello_cpu uses).
 glifo = { version = "0.3.0", default-features = false }
-# The filter types (blur, drop shadow) vello_cpu takes but does not
-# re-export, and the texture rectangle type vello_hybrid takes (the version
-# both use).
+# The filter types (blur) vello_cpu takes but does not re-export, and the
+# texture rectangle type vello_hybrid takes (the version both use).
 vello_common = { workspace = true }
 skrifa = { workspace = true, default-features = true }
-# Views the softbuffer pixels as the bytes the CPU rasterizer writes.
-bytemuck = "1.25.2"
 # The GPU renderer: vello_cpu's sparse strips, drawn by ordinary render
 # pipelines (the vello_common and glifo versions vello_cpu uses).
 vello_hybrid = { workspace = true, optional = true }
 # The version vello_hybrid uses, with the platforms' primary backends.
 wgpu = { workspace = true, optional = true }
-pollster = { workspace = true, optional = true }
-# The window a GPU surface presents to (the version winit's rwh_06 uses).
-raw-window-handle = { workspace = true }
-# GPU texture sharing (feature `gpu-interop`): Arvane's unsafe GPU code
-# lives in this crate, not here.
-kivact-gpu-share = { path = "../kivact-gpu-share", version = "0.1.0", optional = true, features = ["import"] }
 
 [features]
-gpu = ["dep:vello_hybrid", "dep:wgpu", "dep:pollster"]
-# Drawing textures an application's render engine shares
-# (`DrawCommand::External`): Direct3D 12 and Vulkan on Windows, Vulkan on
-# Linux; elsewhere nothing is imported.
-gpu-interop = ["gpu", "dep:kivact-gpu-share"]
+gpu = ["dep:vello_hybrid", "dep:wgpu"]
 
 [lints]
 workspace = true

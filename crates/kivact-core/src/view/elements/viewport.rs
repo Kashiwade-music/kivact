@@ -31,7 +31,7 @@ pub struct SurfaceSize {
 // xtask-allow(state-fields): Immutable NodeBuilder inputs select independent display and attachment capabilities; the attached zoom/pan machine owns all interaction phases.
 /// Application pixels painted by a canvas with standard node modifiers.
 pub struct Viewport {
-    root: Node,
+    pub(crate) root: Node,
     pixels: Value<Pixels>,
     fit: Value<ImageFit>,
     transform: Option<(Value<ViewTransform>, Attach)>,

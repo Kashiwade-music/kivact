@@ -1,6 +1,7 @@
 //! Role: Ink bounds: how far a node, its text and its scene paint beyond its box.
 
 use crate::contract::NodeType;
+use crate::model::EVERYWHERE;
 use crate::model::Model;
 use crate::model::transform::map_rect;
 use crate::paint::state::{Ink, Look};
@@ -9,11 +10,9 @@ use kivact_layout::NodeLayout;
 use kivact_types::cell::Generation;
 use kivact_types::{DrawCmd, DrawList, NodeId, Point, Rect};
 
-/// The extent of what reaches everywhere (finite, so unions keep it).
-pub(super) const EVERYWHERE: f64 = f64::MAX / 4.0;
-
-/// Everything one node itself can draw on (see the module invariants),
-/// untransformed, relative to its layout box's top-left corner.
+/// Everything one node itself can draw on, with its own filter reach
+/// (see the module invariants), untransformed, relative to its layout
+/// box's top-left corner.
 pub(super) fn reach(
     host: &Model,
     id: NodeId,
@@ -21,6 +20,12 @@ pub(super) fn reach(
     layout: &NodeLayout,
     look: &Look,
 ) -> Rect {
+    grow(reach_local(host, id, n, layout, look), look.fx)
+}
+
+/// Everything one node itself can draw on, before its own filters (the
+/// box, its content, shadows, glyphs and canvas scenes).
+fn reach_local(host: &Model, id: NodeId, n: &HostNode, layout: &NodeLayout, look: &Look) -> Rect {
     let bounds = Rect {
         x: 0.0,
         y: 0.0,
@@ -52,7 +57,7 @@ pub(super) fn reach(
             rect = rect.union(r);
         }
     }
-    grow(rect, look.fx)
+    rect
 }
 
 /// `r` (relative to a box's top-left corner) mapped by the box's transform
@@ -86,30 +91,9 @@ pub(super) fn ink(
     }
     let rect = host.tree().drawn(id).then(|| {
         let look = Look::now(host, id, n);
-        let mut rect = reach(host, id, n, layout, &look);
-        if !n.clips() {
-            let scroll = n.scroll();
-            for child in host.tree().flat_children(host.tree().nodes.id_at(n.index)) {
-                let Some(c) = host.node(child).filter(|c| !c.is_layer()) else {
-                    continue;
-                };
-                let l = host.computed_layout(child).unwrap_or_default();
-                if let Some(r) = ink(host, child, c, &l, generation) {
-                    let mut at = Rect {
-                        x: r.x - scroll.x + l.location.x,
-                        y: r.y - scroll.y + l.location.y,
-                        ..r
-                    };
-                    if c.place.sticky {
-                        // Wherever its scrollport may stick it.
-                        at = sticky_reach(n, layout, &l, at);
-                    }
-                    // Blurred with the node.
-                    rect = rect.union(grow(at, look.fx));
-                }
-            }
-        }
-        map_rect(local_transform(host, id, n, layout).as_ref(), rect)
+        // Blurred by the node's own filters, then transformed by it.
+        let local = grow(ink_local(host, id, n, layout, generation), look.fx);
+        map_rect(local_transform(host, id, n, layout).as_ref(), local)
     });
     host.paint.ink[n.index.0].set(Some(Ink {
         rect,
@@ -117,6 +101,45 @@ pub(super) fn ink(
         content: layout.content_size,
         generation,
     }));
+    rect
+}
+
+/// The ink of `id` before its own filters and transform: its own reach
+/// and, unless it clips, its children's inks at their scrolled locations
+/// (each with its own effects and transform).
+pub(super) fn ink_local(
+    host: &Model,
+    id: NodeId,
+    n: &HostNode,
+    layout: &NodeLayout,
+    generation: Generation,
+) -> Rect {
+    let look = Look::now(host, id, n);
+    let mut rect = reach_local(host, id, n, layout, &look);
+    if !n.clips() {
+        let scroll = n.scroll();
+        for child in host.tree().flat_children(host.tree().nodes.id_at(n.index)) {
+            let Some(c) = host
+                .node(child)
+                .filter(|c| !c.is_layer() && c.properties.drawable.is_none())
+            else {
+                continue;
+            };
+            let l = host.computed_layout(child).unwrap_or_default();
+            if let Some(r) = ink(host, child, c, &l, generation) {
+                let mut at = Rect {
+                    x: r.x - scroll.x + l.location.x,
+                    y: r.y - scroll.y + l.location.y,
+                    ..r
+                };
+                if c.place.sticky {
+                    // Wherever its scrollport may stick it.
+                    at = sticky_reach(n, layout, &l, at);
+                }
+                rect = rect.union(at);
+            }
+        }
+    }
     rect
 }
 
@@ -261,6 +284,17 @@ fn plain_scene_reach(cmds: &[DrawCmd], canvas: Rect) -> Option<Rect> {
                     .as_ref()
                     .map_or(0.0, |s| s.width.abs() * s.miter_limit.max(1.0)),
             )),
+            DrawCmd::BorderImage { rect, image } => {
+                let o = image.outset;
+                add(at(Rect {
+                    x: rect.x - o.left,
+                    y: rect.y - o.top,
+                    width: rect.width + o.left + o.right,
+                    height: rect.height + o.top + o.bottom,
+                }));
+            }
+            // A drawable's extent is its subtree's; the paint model does not draw it.
+            DrawCmd::Drawable { .. } => {}
             DrawCmd::PushLayer(_) | DrawCmd::PopLayer => {}
             DrawCmd::PushClip(_)
             | DrawCmd::PopClip

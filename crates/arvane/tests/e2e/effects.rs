@@ -1,33 +1,64 @@
 //! Role: Effect rendering contract tests.
 //!
 //! Box shadows (outer with elliptical corners and a knockout, inset) and
-//! backdrops (what lies behind a shape, blurred and color-filtered, drawn
-//! again without reading pixels back).
+//! backdrops (what lies behind a shape, blurred, drawn again without reading
+//! pixels back). A backdrop is a compositor layer's effect.
 
-use kivact_types::render::{Backdrop, RenderCmd};
+use kivact_types::render::{
+    Composition, LayerEffects, LayerFilter, LayerItem, RenderBackdrop, RenderCmd,
+};
 use kivact_types::scene::{RoundedRect, Shape};
 
-use crate::support::{RED, WHITE, fill, gray, open, pixel, rect, show};
+use crate::support::{
+    RED, WHITE, fill, gray, layer, node_key, open, pixel, raster, rect, root_layer,
+    show_composition,
+};
 
-/// Black and white vertical stripes, 2 px each, over `width` × `height`.
-fn stripes(width: f64, height: f64) -> Vec<RenderCmd> {
-    (0..(width / 4.0) as u32)
-        .map(|i| fill(4.0 * i as f64, 0.0, 2.0, height, 0x000000))
-        .collect()
+/// An opaque white page of `width` × `height` with black vertical stripes,
+/// 2 px each. The page is the backdrop's content: a backdrop reads what is
+/// painted, and a transparent root would blur to black.
+fn page(width: f64, height: f64) -> Vec<RenderCmd> {
+    let mut commands = vec![fill(0.0, 0.0, width, height, WHITE)];
+    commands.extend(
+        (0..(width / 4.0) as u32).map(|i| fill(4.0 * i as f64, 0.0, 2.0, height, 0x000000)),
+    );
+    commands
 }
 
 #[test]
 fn a_backdrop_blurs_what_is_behind_its_shape_and_nothing_else() {
     let mut window = open(200.0, 100.0);
-    let mut commands = stripes(200.0, 100.0);
-    commands.push(RenderCmd::Backdrop(Backdrop {
-        shape: Shape::RoundedRect(RoundedRect::new(rect(50.0, 20.0, 100.0, 60.0), 10.0)),
-        std_dev: 4.0,
-        color_matrix: None,
-    }));
-    // Drawn after the backdrop: not in it.
-    commands.push(fill(0.0, 90.0, 200.0, 10.0, RED));
-    show(&mut window, commands);
+    let shape = Shape::RoundedRect(RoundedRect::new(rect(50.0, 20.0, 100.0, 60.0), 10.0));
+    let backdrop_layer = layer(
+        node_key(1),
+        rect(50.0, 20.0, 100.0, 60.0),
+        LayerEffects {
+            backdrop: Some(RenderBackdrop {
+                shape,
+                filters: vec![LayerFilter::Blur { std_dev: 4.0 }],
+            }),
+            ..LayerEffects::default()
+        },
+        Vec::new(),
+    );
+    show_composition(&mut window, move |size| Composition {
+        layers: vec![
+            root_layer(
+                size,
+                vec![
+                    raster(page(200.0, 100.0)),
+                    LayerItem::Layer {
+                        index: 1,
+                        clips: Vec::new(),
+                    },
+                    // Drawn after the backdrop: not in it.
+                    raster(vec![fill(0.0, 90.0, 200.0, 10.0, RED)]),
+                ],
+            ),
+            backdrop_layer,
+        ],
+        exports: Vec::new(),
+    });
     for (x, y) in [(60, 50), (100, 30), (101, 50), (140, 70)] {
         let g = gray(pixel(&window, x, y));
         assert!(

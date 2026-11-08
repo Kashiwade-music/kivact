@@ -41,7 +41,7 @@
 //! `@starting-style`, Framer Motion's `initial`) is the paint a node starts
 //! from when it is first attached, and `Style::exit` the paint it moves to
 //! when it is removed; both are `StateStyles` deltas (`enter`, `exit`)
-//! moved by the node's `TransitionProp::Paint` transition (only the
+//! moved by the node's `TransitionProp::All` transition (only the
 //! properties that transition interpolates move). The engine keeps a
 //! removed subtree with an exit as leaving (drawn, but out of hit testing,
 //! focus, accessibility, modal scope and layout observation) until it
@@ -60,13 +60,17 @@
 
 mod animated;
 mod frame_loop;
+mod stagger;
 mod state;
+mod timeline;
 mod transition;
 mod values;
 
 pub use animated::{Animated, animated};
 pub use frame_loop::{FrameLoop, frame_loop};
-pub use kivact_types::motion::{Easing, Repeat, Retarget, Spring};
+pub use kivact_types::motion::{Easing, Keyframe, Repeat, Retarget, Spring, StepPosition};
+pub use stagger::{Stagger, StaggerFrom};
 pub use state::{MotionEnv, MotionState, MotionStats};
+pub use timeline::{At, Segment, Timeline, TimelineTrack, timeline};
 pub use transition::Transition;
 pub use values::{Animatable, FrameInfo, FrameRate};

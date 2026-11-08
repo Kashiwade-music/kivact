@@ -325,7 +325,7 @@ impl<R: 'static, K: kivact_core::state::ItemKey> Grid<R, K> {
                 base.right(pct(100))
             };
             if let Some(transition) = paint.shadow_transition.clone() {
-                base.transition(TransitionProp::Paint, transition)
+                base.transition(TransitionProp::All, transition)
             } else {
                 base
             }
@@ -606,6 +606,7 @@ where
         dynamic(tree.is_parent(id.clone()), move |branch| {
             body_row(&grid, id.clone(), item, branch)
         })
+        .into_view()
     } else {
         body_row(grid, id, item, false)
     }

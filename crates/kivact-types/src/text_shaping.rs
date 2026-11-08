@@ -1,5 +1,6 @@
 //! Role: Backend-neutral text shaping and measurement queries.
-use crate::{InlineBox, ShapedInlineText, ShapedTextSnapshot, TextMetrics, TextRun};
+use crate::render::GlyphRun;
+use crate::{InlineBox, PathCmd, ShapedInlineText, ShapedTextSnapshot, TextMetrics, TextRun};
 
 /// What a host measures and shapes text with, for a callback that has no
 /// engine of its own: a scene's text run as it would be drawn in the node
@@ -25,4 +26,9 @@ pub trait TextShaper {
     ) -> Option<ShapedInlineText> {
         None
     }
+
+    /// The outline of `run`'s glyphs as path commands, in the run's own
+    /// coordinates (the same space as its glyph positions); empty when the
+    /// run has no outlines.
+    fn outline(&self, run: &GlyphRun) -> Vec<PathCmd>;
 }

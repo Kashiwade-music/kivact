@@ -345,6 +345,84 @@ mod tests {
   same names or an image `Asset`. See [Images and fonts](images-and-fonts.md) for
   icons that are plain files.
 
+## Choose colors in other color spaces
+
+A color can be written in the CSS color spaces, not only as hex or `rgb`. The
+functions `oklch`, `oklab`, `lab`, `lch`, `hwb`, `hsl` and `rgba` are in
+`kivact::style`, and each takes the numbers its space uses. `oklch(l, c, h)` is
+the one to reach for when a palette needs steps that look equally bright: `l`
+runs from 0 to 1, `c` (chroma) starts at 0, and `h` is the hue in degrees. In
+`lab` and `lch`, `l` runs from 0 to 100. `hwb` takes the hue, then whiteness and
+blackness from 0 to 1.
+
+`Color::css(text)` parses a color written as CSS, such as `oklch(70% 0.15 250)`,
+`hsl(210 60% 40%)` or `#2563eb`. It returns an error for text it does not
+understand, so check it once in setup, when the text comes from a file or a
+setting.
+
+```rust,no_run
+use kivact::prelude::*;
+use kivact::style::{Color, hwb, oklch};
+
+fn swatches(brand_text: &str) -> impl IntoView {
+    // A color from a setting: a value that does not parse falls back to the default.
+    let brand = Color::css(brand_text).unwrap_or(oklch(0.62, 0.19, 255.0));
+    row((
+        text("Brand").style(
+            style()
+                .padding(8)
+                .background(brand)
+                .color(oklch(0.98, 0.0, 0.0)),
+        ),
+        text("Ready").style(
+            style()
+                .padding(8)
+                .background(hwb(150.0, 0.12, 0.25))
+                .color(oklch(0.98, 0.0, 0.0)),
+        ),
+    ))
+    .style(style().gap(8).padding(12))
+}
+# fn main() -> kivact::Result<()> { App::new("Swatches").run(|| swatches("oklch(70% 0.15 250)")) }
+```
+
+Colors from these spaces work everywhere a color is accepted: a style, a border,
+a shadow, a gradient stop or a canvas drawing. A color that the screen cannot show
+is mapped into the screen's range when it is drawn.
+
+## Blend gradients and place their hints
+
+A gradient mixes its stops in Oklab by default. `.interpolate(space)` mixes them
+in another space, the way CSS `linear-gradient(in oklch, ..)` does, and for the
+polar spaces (`Oklch`, `Lch`, `Hsl`, `Hwb`) `.hue(..)` chooses the way round the
+hue wheel: `HueInterpolation::Shorter` (the default), `Longer`, `Increasing`
+or `Decreasing`.
+
+`.hint(at)` moves the midpoint between a stop and the next one. Call it right
+after the stop: where the color is halfway between the two is then at `at`, not
+at the middle of the two stops, as CSS color hints do.
+
+```rust,no_run
+use kivact::draw::linear_gradient;
+use kivact::prelude::*;
+use kivact::style::{ColorSpace, HueInterpolation, oklch};
+
+fn dusk() -> impl IntoView {
+    // Sweep through the hues in oklch, the long way round, with the
+    // midpoint of the first pair moved towards the warm end.
+    let sky = linear_gradient(180)
+        .interpolate(ColorSpace::Oklch)
+        .hue(HueInterpolation::Longer)
+        .stop(oklch(0.45, 0.16, 280.0), pct(0))
+        .hint(pct(70))
+        .stop(oklch(0.78, 0.17, 45.0), pct(100));
+
+    text("Dusk")
+        .style(style().padding(24).height(120).background(sky).color(oklch(0.98, 0.0, 0.0)))
+}
+# fn main() -> kivact::Result<()> { App::new("Dusk").run(dusk) }
+```
+
 ## Add your own tokens
 
 Share your own colors and sizes through the theme by defining a type that

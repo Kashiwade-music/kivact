@@ -104,6 +104,11 @@ impl EnvState {
         self.env.set(env);
     }
 
+    /// Whether the environment last reported asks for reduced motion.
+    pub(crate) fn reduced_motion(&self) -> bool {
+        self.env.with_untracked(|env| env.reduced_motion)
+    }
+
     /// A memo of the field `f` reads, shared by every call with the same
     /// `name`: it re-runs its readers only when that field changed. Made
     /// on first use, whatever context asks (a memo, an effect, a handler).

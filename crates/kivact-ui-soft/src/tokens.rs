@@ -410,7 +410,7 @@ impl Sizes {
 const STANDARD: Easing = Easing::CubicBezier(0.24, 1.0, 0.4, 1.0);
 
 /// Neutral motion durations in milliseconds and easing curves.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct MotionTokens {
     /// Shortest fast-transition duration in milliseconds; defaults to 95.
     pub fast_min: u64,

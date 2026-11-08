@@ -1,8 +1,8 @@
 //! Role: Tests for async state and resource handling.
 //!
 //! Async state against a model: Action request → cancel → retry and
-//! Resource source change / refetch / cancel, driven by random probes (from
-//! the adversarial design survey) and each checked against a model.
+//! Resource source change / refetch / cancel, driven by adversarial random
+//! probes and each checked against a model.
 
 #![allow(
     clippy::type_complexity,

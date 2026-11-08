@@ -69,6 +69,50 @@ use super::effect::Shadow;
 use super::paint::Paint;
 use super::theme::value::Theme;
 
+pub use kivact_types::PaintOrder;
+
+/// One OpenType variation axis setting (CSS `font-variation-settings`): a
+/// four-letter tag and its value.
+///
+/// ```
+/// use kivact::prelude::*;
+/// use kivact::style::FontVariation;
+/// let s = style().font_variation_settings([FontVariation::new("wght", 650.0)]);
+/// # let _ = s;
+/// ```
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct FontVariation {
+    /// The axis tag; None when the text was not four ASCII characters (it is
+    /// counted as unsupported).
+    pub(crate) tag: Option<[u8; 4]>,
+    pub(crate) value: f64,
+}
+
+impl FontVariation {
+    /// A setting of the axis `tag` to `value`.
+    pub fn new(tag: &str, value: impl Into<f64>) -> FontVariation {
+        let bytes = tag.as_bytes();
+        let tag = (bytes.len() == 4 && bytes.iter().all(u8::is_ascii))
+            .then(|| [bytes[0], bytes[1], bytes[2], bytes[3]]);
+        FontVariation {
+            tag,
+            value: value.into(),
+        }
+    }
+}
+
+impl From<(&str, f64)> for FontVariation {
+    fn from((tag, value): (&str, f64)) -> Self {
+        FontVariation::new(tag, value)
+    }
+}
+
+impl From<(&str, i32)> for FontVariation {
+    fn from((tag, value): (&str, i32)) -> Self {
+        FontVariation::new(tag, value as f64)
+    }
+}
+
 /// A text length: px (a number: `letter_spacing(1)`) or a multiple of the
 /// font size of the text it applies to ([`em`]: CSS `0.08em` is
 /// `em(0.08)`).
@@ -234,6 +278,11 @@ pub(crate) struct TextExtras {
     pub(crate) caret_color: Option<Color>,
     pub(crate) selection_color: Option<Color>,
     pub(crate) placeholder_color: Option<Color>,
+    pub(crate) stroke: Option<(TextLength, Color)>,
+    pub(crate) paint_order: Option<PaintOrder>,
+    pub(crate) variations: Option<Vec<FontVariation>>,
+    pub(crate) optical_sizing: Option<bool>,
+    pub(crate) font_width: Option<f64>,
 }
 
 impl TextExtras {
@@ -264,7 +313,12 @@ impl TextExtras {
             shadows,
             caret_color,
             selection_color,
-            placeholder_color
+            placeholder_color,
+            stroke,
+            paint_order,
+            variations,
+            optical_sizing,
+            font_width
         );
     }
 }
@@ -305,6 +359,26 @@ pub(crate) fn decoration(
     }
 }
 
+/// The wire variation settings of `list`, and how many were dropped (a tag
+/// that is not four ASCII characters).
+pub(crate) fn wire_variations(list: &[FontVariation]) -> (Vec<p::FontVariation>, u32) {
+    let mut dropped = 0;
+    let out = list
+        .iter()
+        .filter_map(|v| match v.tag {
+            Some(tag) => Some(p::FontVariation {
+                tag,
+                value: v.value,
+            }),
+            None => {
+                dropped += 1;
+                None
+            }
+        })
+        .collect();
+    (out, dropped)
+}
+
 /// Fill `t` (the engine's text props of a style) with the extras `x` it
 /// sets, and return how many values were dropped (a feature tag that is
 /// not four ASCII characters, a text shadow's spread or inset).
@@ -332,6 +406,19 @@ pub(crate) fn resolve_extras(t: &mut p::TextStyle, x: &TextExtras, theme: &Theme
             .collect()
     });
     let color = |c: Option<Color>| c.map(|c| c.resolve(theme));
+    let variations = x.variations.as_deref().map(|list| {
+        let (list, bad) = wire_variations(list);
+        dropped += bad;
+        list
+    });
+    t.stroke = x.stroke.map(|(width, c)| p::TextStroke {
+        width: width.to_wire(),
+        color: c.resolve(theme),
+    });
+    t.paint_order = x.paint_order;
+    t.variations = variations;
+    t.optical_sizing = x.optical_sizing;
+    t.font_width = x.font_width;
     t.letter_spacing = x.letter_spacing.map(TextLength::to_wire);
     t.word_spacing = x.word_spacing.map(TextLength::to_wire);
     t.kerning = x.kerning;
@@ -390,6 +477,12 @@ pub struct SpanStyle {
     pub underline_offset: Option<TextLength>,
     /// A band behind the glyphs on each line the span is on.
     pub background: Option<Paint>,
+    /// OpenType variation axis settings replacing the paragraph's.
+    pub variations: Option<Vec<FontVariation>>,
+    /// CSS font-width (font-stretch) in percent, 50 to 200.
+    pub font_width: Option<f64>,
+    /// Outline of its glyphs (CSS `-webkit-text-stroke`): width and color.
+    pub stroke: Option<(TextLength, Color)>,
 }
 
 /// A [`SpanStyle`] in the engine's form, made by [`crate::internal::compile_span_style`].

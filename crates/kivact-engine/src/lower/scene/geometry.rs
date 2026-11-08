@@ -1,10 +1,12 @@
 //! Role: Lowering of local scene geometry commands.
 use super::state::State;
+use crate::lower::border_image::lower_border_image;
 use crate::lower::context::Context;
+use crate::lower::fill::Boxes;
 use crate::lower::sanitize;
 use crate::lower::shape::BoxShape;
 use kivact_types::render::RenderCmd as D;
-use kivact_types::{DrawCmd, DrawingShape, Fill, Point, Rect};
+use kivact_types::{DrawCmd, DrawingShape, Edges, Fill, Point, Rect};
 impl Context<'_> {
     pub(super) fn paint_geometry(&self, cmd: &DrawCmd, state: &mut State<'_>) -> bool {
         let origin = state.origin;
@@ -14,10 +16,6 @@ impl Context<'_> {
             width: r.width,
             height: r.height,
         };
-        let origin_point = Point {
-            x: origin.x,
-            y: origin.y,
-        };
         let tint = &state.current_tint;
         let command = match cmd {
             DrawCmd::Shape(_) => {
@@ -25,18 +23,7 @@ impl Context<'_> {
                 return true;
             }
             DrawCmd::Rect { rect: r, fill } => {
-                let r = rect(*r);
-                if !sanitize::drawable(&D::PushClip(r)) {
-                    self.drop_command();
-                } else if let Fill::Solid(color) = fill {
-                    // As before fills had layers.
-                    state.out.push(D::Rect {
-                        rect: r,
-                        fill: kivact_types::render::Paint::Solid(tint.color(*color)),
-                    });
-                } else {
-                    self.fill(state.out, &BoxShape::Rect(r), fill, tint, origin_point);
-                }
+                self.paint_rect(rect(*r), fill, state);
                 return true;
             }
             DrawCmd::RoundedRect {
@@ -44,18 +31,7 @@ impl Context<'_> {
                 radius,
                 fill,
             } => {
-                let r = rect(*r);
-                if sanitize::drawable(&D::PushClip(r)) && radius.is_finite() && *radius >= 0.0 {
-                    self.fill(
-                        state.out,
-                        &BoxShape::Circular(r, [*radius; 4]),
-                        fill,
-                        tint,
-                        origin_point,
-                    );
-                } else {
-                    self.drop_command();
-                }
+                self.paint_rounded_rect(rect(*r), *radius, fill, state);
                 return true;
             }
             DrawCmd::StrokeRect {
@@ -81,6 +57,11 @@ impl Context<'_> {
                 color: tint.color(*color),
             },
 
+            DrawCmd::BorderImage { rect: r, image } => {
+                lower_border_image(state.out, image, rect(*r), Edges::all(0.0), self);
+                return true;
+            }
+
             _ => return false,
         };
         if sanitize::drawable(&command) {
@@ -90,6 +71,35 @@ impl Context<'_> {
         }
         true
     }
+
+    /// Paint the filled rectangle `r`, already in scene space, with `fill`.
+    fn paint_rect(&self, r: Rect, fill: &Fill, state: &mut State<'_>) {
+        let tint = &state.current_tint;
+        if !sanitize::drawable(&D::PushClip(r)) {
+            self.drop_command();
+        } else if let Fill::Solid(color) = fill {
+            // As before fills had layers.
+            state.out.push(D::Rect {
+                rect: r,
+                fill: kivact_types::render::Paint::Solid(tint.color(*color)),
+            });
+        } else {
+            let boxes = Boxes::uniform(BoxShape::Rect(r));
+            self.fill_items(state.out, &boxes, fill, tint, origin_point_of(state.origin));
+        }
+    }
+
+    /// Paint the rounded rectangle `r`, already in scene space, with corners of `radius` and `fill`.
+    fn paint_rounded_rect(&self, r: Rect, radius: f64, fill: &Fill, state: &mut State<'_>) {
+        let tint = &state.current_tint;
+        if sanitize::drawable(&D::PushClip(r)) && radius.is_finite() && radius >= 0.0 {
+            let boxes = Boxes::uniform(BoxShape::Circular(r, [radius; 4]));
+            self.fill_items(state.out, &boxes, fill, tint, origin_point_of(state.origin));
+        } else {
+            self.drop_command();
+        }
+    }
+
     fn paint_shape(&self, cmd: &DrawCmd, state: &mut State<'_>) {
         let DrawCmd::Shape(painted) = cmd else {
             unreachable!("invariant: matching command family");
@@ -173,5 +183,13 @@ fn shifted_point(p: Point, origin: Rect) -> Point {
     Point {
         x: origin.x + p.x,
         y: origin.y + p.y,
+    }
+}
+
+/// The origin of a layer as a point.
+fn origin_point_of(origin: Rect) -> Point {
+    Point {
+        x: origin.x,
+        y: origin.y,
     }
 }

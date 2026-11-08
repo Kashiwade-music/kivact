@@ -29,19 +29,33 @@ pub fn dimensions(size: Size, scale: f64) -> Result<(u16, u16), RenderError> {
     Ok((width as u16, height as u16))
 }
 
+/// Checks that a `(width, height)` pixel frame is within the budget.
+pub(crate) fn target((width, height): (u16, u16)) -> Result<(), RenderError> {
+    let (w, h) = (f64::from(width), f64::from(height));
+    if width == 0 || height == 0 || w > MAX_SIDE || h > MAX_SIDE || w * h > MAX_PIXELS {
+        return Err(RenderError::InvalidSize);
+    }
+    Ok(())
+}
+
 /// The logical extent and the physical scale to rasterize a `width` ×
 /// `height` physical-pixel window at, whose display scale is `scale`: the
 /// extent never rasterizes beyond the window, and a window beyond the
 /// frame budget is drawn at a reduced scale (the frame is enlarged to the
-/// window).
+/// window). A display scale that is not a positive number is taken as 1.
 pub fn raster_plan(width: u32, height: u32, scale: f64) -> (Size, f64) {
+    let scale = if scale.is_finite() && scale > 0.0 {
+        scale
+    } else {
+        1.0
+    };
     let size = raster_size(width, height, scale);
     let fits = |scale: f64| {
         let width = (size.width * scale).ceil();
         let height = (size.height * scale).ceil();
         width <= MAX_SIDE && height <= MAX_SIDE && width * height <= MAX_PIXELS
     };
-    if !scale.is_finite() || scale <= 0.0 || fits(scale) {
+    if fits(scale) {
         return (size, scale);
     }
     let (w, h) = (width as f64, height as f64);

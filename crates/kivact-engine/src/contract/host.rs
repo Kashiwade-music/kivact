@@ -64,6 +64,33 @@ pub enum HostRequest {
     RegisterFont(Asset),
     /// Override reduced motion, or follow the system preference.
     ReducedMotion(Option<bool>),
+    /// What a drawable's export asks of the window: its frames of
+    /// `generation`, as `mode`, at `scale` device px per logical px. `None`
+    /// follows the window's scale.
+    DrawableExport {
+        id: kivact_types::DrawableId,
+        generation: u64,
+        mode: ExportRequestMode,
+        scale: Option<f64>,
+    },
+    /// Where the app shows a drawable (drawable box → the viewport's local
+    /// logical px), for the request of `generation`; `None` hides it.
+    SetDrawableGeometry {
+        id: kivact_types::DrawableId,
+        generation: u64,
+        geometry: Option<kivact_types::geometry3d::Matrix4>,
+    },
+}
+
+/// The export a drawable asks of the window (`HostRequest::DrawableExport`).
+#[derive(Clone, Debug, PartialEq)]
+pub enum ExportRequestMode {
+    /// Nothing is exported (or the window cannot export yet).
+    None,
+    /// Frames are read back as pixels.
+    Pixels,
+    /// Frames are shared as textures on this window's GPU adapter.
+    Gpu(kivact_types::GpuAdapter),
 }
 
 /// The settled host's answer to a subtree CPU capture request.

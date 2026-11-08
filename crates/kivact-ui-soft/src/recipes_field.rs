@@ -65,8 +65,11 @@ pub(super) fn frame(tokens: &Tokens, input: &PartState, invalid: bool) -> Style 
         })
         .focus(focus)
         .transition(
-            TransitionProp::Paint,
-            Transition::tween(tokens.motion.fast as f64, tokens.motion.ease_standard),
+            TransitionProp::All,
+            Transition::tween(
+                tokens.motion.fast as f64,
+                tokens.motion.ease_standard.clone(),
+            ),
         )
 }
 

@@ -72,6 +72,35 @@ pub struct TextShadow {
     pub color: Rgba,
 }
 
+/// An outline drawn around glyphs (CSS `-webkit-text-stroke`).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct TextStroke {
+    /// The outline width, centered on the glyph edge.
+    pub width: TextLen,
+    /// The outline color.
+    pub color: Rgba,
+}
+
+/// Whether the fill or the stroke of glyphs is painted first (CSS
+/// `paint-order`).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub enum PaintOrder {
+    /// The fill is painted first, then the stroke over it.
+    #[default]
+    FillStroke,
+    /// The stroke is painted first, then the fill over it.
+    StrokeFill,
+}
+
+/// A variable-font axis setting (CSS `font-variation-settings`).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct FontVariation {
+    /// The four-byte OpenType axis tag, such as `*b"wght"`.
+    pub tag: [u8; 4],
+    /// The axis value.
+    pub value: f64,
+}
+
 /// Declared typography; each absent property inherits from the parent.
 /// Capsize is local to this node and does not inherit.
 #[derive(Clone, Debug, PartialEq, Default)]
@@ -103,6 +132,17 @@ pub struct TextStyle {
     pub caret_color: Option<Rgba>,
     pub selection_color: Option<Rgba>,
     pub placeholder_color: Option<Rgba>,
+    /// An outline around glyphs.
+    pub stroke: Option<TextStroke>,
+    /// Whether the fill or the stroke is painted first.
+    pub paint_order: Option<PaintOrder>,
+    /// Variable-font axis settings.
+    pub variations: Option<Vec<FontVariation>>,
+    /// Whether the optical-size axis follows the font size (CSS
+    /// `font-optical-sizing`).
+    pub optical_sizing: Option<bool>,
+    /// CSS font-width (font-stretch) in percent, 50..=200.
+    pub font_width: Option<f64>,
 }
 
 /// What a span of rich text sets over its node's text style (`None`: the
@@ -121,6 +161,12 @@ pub struct SpanProps {
     pub decoration: Option<TextDecoration>,
     /// Filled behind the span's glyphs, one band per line (a `<mark>`).
     pub background: Option<Fill>,
+    /// An outline around the span's glyphs.
+    pub stroke: Option<TextStroke>,
+    /// Variable-font axis settings of the span.
+    pub variations: Option<Vec<FontVariation>>,
+    /// CSS font-width (font-stretch) in percent, 50..=200.
+    pub font_width: Option<f64>,
 }
 
 /// A byte range of a rich text's `Content` and its style.

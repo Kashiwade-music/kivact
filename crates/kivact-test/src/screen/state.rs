@@ -8,6 +8,7 @@ use std::panic::Location;
 
 use kivact_engine::contract::SceneLayer;
 use kivact_types::NodeId;
+use kivact_types::render::FrameStats;
 
 use super::model::Screen;
 use super::results::SemanticNode;
@@ -35,6 +36,14 @@ impl Screen {
         let mut stats = self.inspect().stats();
         stats.core_ns = self.record.core_ns.get();
         stats
+    }
+
+    /// The work counts of the last frame the window presented (chunks
+    /// rastered, pixels rastered, damage). Panics before any frame is
+    /// presented.
+    pub fn frame_stats(&self) -> FrameStats {
+        let stats = self.host.borrow().frame_stats();
+        stats.expect("no frame has been presented yet")
     }
 
     /// Semantic tree of the whole screen.

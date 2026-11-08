@@ -35,13 +35,16 @@ pub(crate) struct HostNode {
     /// How far a sticky box is moved from its laid out position by the
     /// scroll of its scrollport (`model::interact::sticky`; zero otherwise).
     pub(crate) shift: Point,
-    /// Whether it shows its enter or exit paint (`model::presence`).
-    pub(crate) presence: NodePresence,
 }
 
-/// The last published geometry and text clipping observation.
+/// The last published geometry, text clipping and window layout box observation.
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub(crate) struct LayoutReport(pub(crate) Rect, pub(crate) Size, pub(crate) Clipping);
+pub(crate) struct LayoutReport(
+    pub(crate) Rect,
+    pub(crate) Size,
+    pub(crate) Clipping,
+    pub(crate) Option<Rect>,
+);
 /// The last published scroll offset, viewport, content extents and enabled axes.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) struct ScrollReport(
@@ -154,13 +157,16 @@ impl HostNode {
             sent_image: Default::default(),
             place: Place::default(),
             shift: Point::default(),
-            presence: NodePresence::Mounted,
         };
-        node.update_place();
+        node.update_place(false, false);
         node
     }
 
-    pub(crate) fn update_place(&mut self) {
+    /// Derive the place from the props. `moving` says a running state
+    /// motion has a current transform that is not none; `under_perspective`
+    /// says the parent has a perspective, which moves a node whose transform
+    /// is not 2D. The only writer of `Place::transformed`.
+    pub(crate) fn update_place(&mut self, moving: bool, under_perspective: bool) {
         if self.is_transparent() {
             self.place = Place::default();
             return;
@@ -172,8 +178,10 @@ impl HostNode {
             moved |= delta.transform.is_some_and(|t| !t.is_none());
             z_states |= delta.z_index.is_some();
         }
+        let base_moves = base.is_some_and(|p| !p.transform.is_none());
+        let spatial = self.has_spatial_transform();
         self.place = Place {
-            transformed: moved || base.is_some_and(|p| !p.transform.is_none()),
+            transformed: moved || base_moves || moving || (under_perspective && spatial),
             z: base.map_or(0, |p| p.z_index),
             z_states,
             ..self.place
@@ -181,6 +189,16 @@ impl HostNode {
         let position = self.layout().map(|l| l.position);
         self.place.sticky = position == Some(Position::Sticky);
         self.place.fixed = position == Some(Position::Fixed);
+    }
+
+    /// Whether its base paint or one of its state styles sets a transform
+    /// that is not 2D (one a parent's perspective moves).
+    pub(crate) fn has_spatial_transform(&self) -> bool {
+        let spatial = |t: kivact_types::ElementTransform| !t.is_none() && !t.is_2d();
+        self.paint().is_some_and(|p| spatial(p.transform))
+            || self
+                .states()
+                .is_some_and(|s| s.deltas().any(|d| d.transform.is_some_and(spatial)))
     }
 
     pub(crate) fn is_transparent(&self) -> bool {
@@ -295,6 +313,9 @@ impl HostNode {
     }
     pub(crate) fn layout(&self) -> Option<&LayoutProps> {
         self.properties.layout.as_deref()
+    }
+    pub(crate) fn layout_id(&self) -> Option<&std::sync::Arc<str>> {
+        self.properties.layout_id.as_ref()
     }
     pub(crate) fn paint(&self) -> Option<&PaintProps> {
         self.properties.paint.as_deref()
@@ -443,7 +464,9 @@ impl HostNode {
                 let Some(inverse) = r.transform.invert() else {
                     return false;
                 };
-                let point = inverse.apply(local);
+                let Some(point) = inverse.apply(local) else {
+                    return false;
+                };
                 match &r.shape {
                     Some(shape) => crate::lower::scene_shape::shape(shape).contains(point),
                     None => r.local_rect.contains(point),

@@ -74,8 +74,8 @@ fn surface(theme: &Theme, _: &Look<PopupState>) -> Style {
                 .scale(ENTER_SCALE),
         )
         .transition(
-            TransitionProp::Paint,
-            Transition::tween(t.motion.fast_max as f64, t.motion.ease_entrance),
+            TransitionProp::All,
+            Transition::tween(t.motion.fast_max as f64, t.motion.ease_entrance.clone()),
         );
     // The popup keeps the standard below-anchor placement and key behavior.
     t.shadows.low.iter().copied().fold(base, Style::shadow)
@@ -141,7 +141,7 @@ fn indicator(theme: &Theme, s: &Look<PopupState>) -> Style {
         .color(t.colors.icon_secondary)
         .rotate(if s.open { 180 } else { 0 })
         .transition(
-            TransitionProp::Paint,
-            Transition::tween(t.motion.fast as f64, t.motion.ease_standard).essential(),
+            TransitionProp::All,
+            Transition::tween(t.motion.fast as f64, t.motion.ease_standard.clone()).essential(),
         )
 }

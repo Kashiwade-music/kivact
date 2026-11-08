@@ -8,8 +8,8 @@ pub use primitives::{
     TextTransform, TextWrap,
 };
 pub use properties::{
-    SpanProps, TextData, TextDecoration, TextDecorationStyle, TextLen, TextShadow, TextSpan,
-    TextStyle,
+    FontVariation, PaintOrder, SpanProps, TextData, TextDecoration, TextDecorationStyle, TextLen,
+    TextShadow, TextSpan, TextStroke, TextStyle,
 };
 
 pub use computed::ComputedTextStyle;

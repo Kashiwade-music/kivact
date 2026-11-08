@@ -594,7 +594,7 @@ fn idle_tree() -> SemanticsTree {
         nodes: vec![SemanticsNode {
             id: root,
             children: Vec::new(),
-            bounds: Rect::default(),
+            bounds: Some(Rect::default()),
             scroll: Point::default(),
             transform: Transform::IDENTITY,
             semantics: kivact_types::Semantics {

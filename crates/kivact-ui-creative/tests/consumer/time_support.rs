@@ -101,7 +101,7 @@ pub(crate) fn app_timeline(
     state: ui::TimeState,
 ) -> ui::Timeline {
     let items = items.into_binding();
-    ui::timeline(items, state).on_edit(time_edits(items, apply_clips, |_| {}))
+    ui::timeline_editor(items, state).on_edit(time_edits(items, apply_clips, |_| {}))
 }
 
 pub(crate) fn app_dope_sheet(

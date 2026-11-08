@@ -129,11 +129,13 @@ fn interaction_policy(tokens: &Tokens) -> InteractionPolicy {
                     stiffness: 854.0,
                     damping: 35.07,
                     mass: 1.0,
+                    rest: 1e-3,
                 },
                 drop: Spring {
                     stiffness: 157.9,
                     damping: 17.59,
                     mass: 1.0,
+                    rest: 1e-3,
                 },
             },
         },
@@ -145,7 +147,7 @@ fn interaction_policy(tokens: &Tokens) -> InteractionPolicy {
                 edge: Edge::Bottom,
                 transition: Transition::tween(
                     tokens.motion.fast as f64,
-                    tokens.motion.ease_standard,
+                    tokens.motion.ease_standard.clone(),
                 ),
             },
             ..Default::default()
@@ -161,7 +163,7 @@ fn indicators_tokens(tokens: &Tokens) -> kivact::ui::IndicatorTokens {
         reduced_period_ms: Some(3000),
         skeleton_transition: Some(Transition::tween(
             400,
-            kivact::motion::Easing::steps_end(10),
+            kivact::motion::Easing::steps(10, kivact::motion::StepPosition::JumpEnd),
         )),
         delay_ms: 1000.0,
         stagger_ms: 100.0,
@@ -208,6 +210,7 @@ fn disclosure_tokens() -> kivact::ui::DisclosureTokens {
                 stiffness: 157.91,
                 damping: 25.13,
                 mass: 1.0,
+                rest: 1e-3,
             })),
             ..Default::default()
         },
@@ -219,7 +222,7 @@ fn progress_tokens(tokens: &Tokens) -> ProgressTokens {
         motion: ProgressMotion {
             animate_initial: false,
             determinate_ms: tokens.motion.medium,
-            determinate_easing: tokens.motion.ease_standard,
+            determinate_easing: tokens.motion.ease_standard.clone(),
             period_ms: 1500,
             reduced_period_ms: Some(4000),
         },
@@ -231,7 +234,7 @@ fn toast_tokens(tokens: &Tokens) -> ToastTokens {
         row_motion: ToastRowMotion {
             transition: Some(Transition::tween(
                 tokens.motion.fast as f64,
-                tokens.motion.ease_standard,
+                tokens.motion.ease_standard.clone(),
             )),
             gap: tokens.spacing.s2,
         },
@@ -259,11 +262,11 @@ fn data_table_tokens(tokens: &Tokens, mode: ThemeMode) -> DataTableTokens {
             shadow_width: 6.0,
             shadow_transition: Some(kivact::motion::Transition::tween(
                 150,
-                tokens.motion.ease_standard,
+                tokens.motion.ease_standard.clone(),
             )),
             overlay_transition: Some(kivact::motion::Transition::tween(
                 125,
-                tokens.motion.ease_standard,
+                tokens.motion.ease_standard.clone(),
             )),
         },
         row_status: kivact::ui::DataTableRowStatusPaint {

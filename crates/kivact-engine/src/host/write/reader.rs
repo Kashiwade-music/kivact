@@ -48,11 +48,11 @@ impl Reader {
 
     /// The current display lifetime phase; missing nodes have left.
     pub fn presence(&self, id: NodeId) -> kivact_types::Presence {
-        self.model
-            .borrow()
-            .tree()
-            .get(id)
-            .map_or(kivact_types::Presence::Leaving, |node| node.presence.into())
+        let model = self.model.borrow();
+        let tree = model.tree();
+        tree.get(id).map_or(kivact_types::Presence::Leaving, |_| {
+            tree.presence_of(id).into()
+        })
     }
 
     /// The logical parent, including transparent containers.
@@ -128,7 +128,7 @@ impl Reader {
 
     /// A window point in a node's untransformed local coordinates.
     pub fn local_point(&self, id: NodeId, point: Point) -> Point {
-        self.model.borrow().to_local(id, point)
+        self.model.borrow().pointer_local(id, point)
     }
 
     /// Map node-local region bounds into logical window coordinates.
@@ -139,13 +139,15 @@ impl Reader {
     ) -> Option<kivact_types::Rect> {
         let model = self.model.borrow();
         let bounds = model.rect(id)?;
+        // Node-local bounds are relative to the padding box, where the scene is drawn.
+        let paint = crate::model::interact::visual::paint(&model, id);
+        let canvas = crate::model::interact::visual::padding_box(bounds, &paint);
         let own = kivact_types::Rect {
-            x: bounds.x + rect.x,
-            y: bounds.y + rect.y,
+            x: canvas.x + rect.x,
+            y: canvas.y + rect.y,
             ..rect
         };
-        let transform = model.transform_between(id, None);
-        Some(crate::model::transform::map_rect(transform.as_ref(), own))
+        Some(model.drawn_rect(id, own))
     }
 
     /// Whether the frontmost hit belongs to this subtree.

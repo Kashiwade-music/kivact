@@ -21,7 +21,6 @@
 use super::state::{ImeGiven, SessionSource};
 use crate::contract::{HostEvent, ImeSessionProps};
 use crate::model::Model;
-use crate::model::transform::map_rect;
 use kivact_types::{ImeInput, NodeId, Rect};
 
 impl Model {
@@ -68,9 +67,8 @@ impl Model {
     /// `rect` in the node's own coordinates, in the window as drawn.
     fn session_rect(&self, id: NodeId, rect: Rect) -> Rect {
         let at = self.rect(id).unwrap_or_default();
-        let t = self.transform_between(id, None);
-        map_rect(
-            t.as_ref(),
+        self.drawn_rect(
+            id,
             Rect {
                 x: at.x + rect.x,
                 y: at.y + rect.y,
@@ -122,7 +120,7 @@ impl Model {
     /// since the last time given (`Model::ime_changed` calls it).
     pub(super) fn session_ime_changed(&mut self, id: NodeId) -> Option<arvane::ShellImeText> {
         let session = self.session(id)?.clone();
-        let t = self.transform_between(id, None);
+        let t = self.window_map(id);
         let source = SessionSource {
             node: id,
             session: session.clone(),
@@ -135,7 +133,7 @@ impl Model {
         self.edits.given = ImeGiven::Session(source);
         let caret = self.session_rect(id, session.caret);
         let area = self.rect(id).unwrap_or_default();
-        let area = map_rect(self.transform_between(id, None).as_ref(), area);
+        let area = self.drawn_rect(id, area);
         let text = if session.purpose == kivact_types::InputPurpose::Password {
             arvane::ShellImeText {
                 password: true,

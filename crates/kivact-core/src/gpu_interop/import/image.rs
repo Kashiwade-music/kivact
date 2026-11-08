@@ -1,7 +1,7 @@
 //! Role: Import an external image: its handle, status, frames and frame publisher.
 
-use super::inbox::Inbox;
 use super::registry::{ImportPhase, ImportStatus, State};
+use crate::sync::Inbox;
 use crate::view::state::ViewState;
 use kivact_runtime::Signal;
 use kivact_runtime::spawn_in;

@@ -6,11 +6,13 @@ pub(super) fn fingerprint(n: &SemanticsNode) -> u64 {
     n.id.hash(&mut h);
     n.children.hash(&mut h);
     n.semantics.hash(&mut h);
+    n.bounds.is_some().hash(&mut h);
+    let bounds = n.bounds.unwrap_or_default();
     [
-        n.bounds.x,
-        n.bounds.y,
-        n.bounds.width,
-        n.bounds.height,
+        bounds.x,
+        bounds.y,
+        bounds.width,
+        bounds.height,
         n.scroll.x,
         n.scroll.y,
         n.transform.a,

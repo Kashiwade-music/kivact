@@ -229,6 +229,14 @@ pub trait NodeBuilder: Sized {
         self
     }
 
+    /// Animate from the last box of the node that had the same id (Framer
+    /// Motion `layoutId`). Uses this node's `layout_transition`; without one
+    /// nothing animates.
+    fn layout_id(mut self, id: impl Into<String>) -> Self {
+        self.node_mut().common.layout_id = Some(std::sync::Arc::from(id.into()));
+        self
+    }
+
     /// Add a style layer, constant or reactive. Layers merge in
     /// call order: a property set by a later layer wins, the
     /// properties it leaves unset keep their earlier values. A
@@ -549,6 +557,11 @@ pub(crate) struct Common {
     pub image_fit: Option<InputProp<ImageFit>>,
     /// Paint an image in the text color (image nodes only).
     pub monochrome: Option<InputProp<bool>>,
+    /// Whether an animated image plays (image nodes only; default true).
+    pub image_playing: Option<InputProp<bool>>,
+    /// The shared-layout id: a node that departs with it leaves its box for
+    /// the next node of the same id to animate from.
+    pub layout_id: Option<std::sync::Arc<str>>,
     /// Creation location set by `.located_at_caller()`; replaces the builder's call site
     /// for every node the builder creates.
     pub at: Option<&'static Location<'static>>,

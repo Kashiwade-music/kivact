@@ -14,6 +14,8 @@
 
 pub(crate) mod boundary;
 pub(crate) mod descriptor;
+pub(crate) mod drawable;
+mod drawable_share;
 pub(crate) mod element_data;
 mod exit_layout;
 pub(crate) mod flow;
@@ -36,7 +38,9 @@ pub(crate) mod part_data;
 pub(crate) mod ref_data;
 pub(crate) mod requests;
 pub(crate) mod root;
+pub(crate) mod scroll_timeline;
 pub(crate) mod semantics_data;
+mod share_error;
 pub(crate) mod snapshots;
 pub(crate) mod span;
 pub(crate) mod state;
@@ -46,13 +50,20 @@ pub(crate) mod tree;
 
 #[doc(inline)]
 pub use crate::view::flow::{
-    ErrorBoundary, ListSource, RowHeight, Show, ShowSome, VirtualList, dynamic, error_boundary,
-    for_each, for_index, show, show_some, virtual_list,
+    Dynamic, ErrorBoundary, ListSource, PresenceMode, RowHeight, Show, ShowSome, VirtualList,
+    dynamic, error_boundary, for_each, for_index, show, show_some, virtual_list,
 };
 #[doc(inline)]
 pub use boundary::{ReadingDirection, component, provide_direction, use_direction};
 #[doc(inline)]
 pub use descriptor::{IntoView, IntoViewFn, View, ViewFn};
+#[doc(inline)]
+pub use drawable::{Drawable, drawable};
+#[cfg(feature = "gpu-interop")]
+#[doc(inline)]
+pub use drawable_share::DrawableTextures;
+#[doc(inline)]
+pub use drawable_share::{DrawableFrame, DrawableShare, ShareUpdate};
 pub use element_data::Component;
 #[doc(inline)]
 pub use hover::pointer_position;
@@ -67,6 +78,10 @@ pub use kivact_runtime::HandlerResult;
 pub use kivact_types::Presence;
 #[doc(inline)]
 pub use modifier_keys::modifiers;
+#[doc(inline)]
+pub use scroll_timeline::{ViewRange, scroll_progress, view_progress};
+#[doc(inline)]
+pub use share_error::ShareError;
 
 #[doc(inline)]
 pub use exit_layout::ExitLayout;

@@ -30,11 +30,15 @@ use std::ops::Range;
 use std::rc::Rc;
 use std::sync::Arc;
 
-use kivact_types::{self as p, DrawCmd, TextLine};
+use kivact_types::{self as p, DrawCmd, Fill, Stroke, TextLine};
 
 use super::TextFormat;
 use super::recorder::Draw;
+use super::text_run::outline_runs;
 use crate::geometry::{Point, Rect, Size};
+use crate::paint::Paint;
+use crate::path::Path;
+use crate::transform::Transform;
 
 /// A shaped paragraph with positions for measured in-flow objects.
 ///
@@ -332,19 +336,44 @@ impl Draw {
         Some(InlineParagraph::from_shaped(text, shaped, max_width))
     }
 
-    /// Draw `paragraph` with its top left at `origin`, in `color`: the glyphs
-    /// and decoration lines it was shaped with, not shaped again.
-    pub fn paragraph(
-        &mut self,
-        paragraph: &TextParagraph,
-        origin: Point,
-        color: impl crate::theme::value::ThemeColor,
-    ) {
-        let color = self.color(color.resolve(&self.theme));
+    /// Draw `paragraph` with its top left at `origin`, filled with `fill`
+    /// (any paint): the glyphs and decoration lines it was shaped with, not
+    /// shaped again.
+    pub fn paragraph(&mut self, paragraph: &TextParagraph, origin: Point, fill: impl Into<Paint>) {
+        let fill = self.fill_of(&fill.into());
         self.cmds.push(DrawCmd::Paragraph {
             shaped: paragraph.shaped(),
             origin,
-            color,
+            fill,
+            stroke: None,
         });
+    }
+
+    /// Draw `paragraph` at `origin` with its glyph outlines stroked by
+    /// `stroke` in `paint` (over or under the fill, by the text's paint order).
+    pub fn stroke_paragraph(
+        &mut self,
+        paragraph: &TextParagraph,
+        origin: Point,
+        stroke: &Stroke,
+        paint: impl Into<Paint>,
+    ) {
+        let stroke_fill = self.fill_of(&paint.into());
+        self.cmds.push(DrawCmd::Paragraph {
+            shaped: paragraph.shaped(),
+            origin,
+            fill: Fill::Solid(p::Rgba::TRANSPARENT),
+            stroke: Some((stroke.clone(), stroke_fill)),
+        });
+    }
+
+    /// The outline of `paragraph` at `origin` as a path (Canvas has none;
+    /// SVG does): its glyphs, shaped as drawn.
+    pub fn paragraph_path(&self, paragraph: &TextParagraph, origin: Point) -> Path {
+        let Some(m) = &self.measurer else {
+            return Path::new();
+        };
+        let cmds = outline_runs(m.as_ref(), &paragraph.shaped());
+        Path::from_cmds(cmds).transformed(Transform::new().translate(origin.x, origin.y))
     }
 }

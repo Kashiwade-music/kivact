@@ -152,7 +152,7 @@ pub(crate) fn dialog_surface(t: &Theme, s: &Look<DialogState>) -> Style {
                     _ => 0.,
                 },
             ))
-            .transition(TransitionProp::Paint, Transition::tween(240, ease)),
+            .transition(TransitionProp::All, Transition::tween(240, ease)),
         Popover => style()
             .width(280)
             .padding(14)
@@ -167,7 +167,7 @@ pub(crate) fn dialog_surface(t: &Theme, s: &Look<DialogState>) -> Style {
             .border(1, t.ext::<Tokens>().line_strong)
             .shadow(Shadow::new(0, 14, 36, t.colors().shadow))
             .enter(style().opacity(0.).scale(0.985).translate(0, 10))
-            .transition(TransitionProp::Paint, Transition::tween(220, ease)),
+            .transition(TransitionProp::All, Transition::tween(220, ease)),
     }
 }
 
@@ -483,10 +483,7 @@ pub(crate) fn toast_card(t: &Theme, state: &Look<ToastState>) -> Style {
     style()
         .enter(style().translate_x(40))
         .exit(style().translate_x(40).opacity(0.))
-        .transition(
-            TransitionProp::Paint,
-            Transition::tween(260, Easing::EaseOut),
-        )
+        .transition(TransitionProp::All, Transition::tween(260, Easing::EaseOut))
         .direction(Direction::Row)
         .width(360)
         .padding_left(14)

@@ -15,7 +15,7 @@
 //!   or gradient stop, ...) is dropped and counted, never skipped silently:
 //!   a window reports the count to the client, image output returns it as
 //!   an error.
-//! - What is counted: a `PopClip`, `PopTransform` or `PopLayer` that does not
+//! - What is counted: a `PopClip`, `PopTransform` or `PopGroup` that does not
 //!   close the innermost group its scene opened; a non-finite coordinate; a size, radius or stroke
 //!   width that is non-finite or negative; a path whose points or arcs are not finite (or
 //!   that draws before it moves), a text run whose origin or size is not
@@ -34,33 +34,41 @@
 //!   `HostEvent::DrawDropped { node, count }`, and the layer reports again
 //!   only after it painted once without dropping one.
 
-use kivact_types::Size;
+use kivact_types::{NodeId, Size};
 use std::cell::{Cell, RefCell};
 
 use crate::lower::assets::ArvaneAssets;
+use crate::lower::drawables::{DrawablePlan, DrawableSite};
 use crate::lower::scene_cache::{Dependency, SceneCache};
 use std::sync::Arc;
 
-/// The destination of one independent lowering operation.
-#[derive(Clone, Copy, PartialEq, Eq)]
-pub(crate) enum Purpose {
-    Window,
-    Cpu,
-}
-
+// xtask-allow(state-fields): One lowering operation's own borrows, counters and site; it is not retained state, and the drawables field borrows the frame's plan.
 /// A UI-local, non-reentrant lowering operation borrowing resources and scale.
 /// Callers must not hold an overlapping resource borrow while invoking it.
 /// It records failures and drops; publishing them remains the caller's policy.
 pub(crate) struct Context<'a> {
-    pub(crate) purpose: Purpose,
     pub(crate) assets: &'a RefCell<ArvaneAssets>,
     /// Device pixels per logical pixel of what is painted now.
-    pub(crate) raster: &'a Cell<f64>,
+    pub(crate) raster: Cell<f64>,
     pub(crate) scene_cache: &'a RefCell<SceneCache>,
     /// Every resource resolved so far, in order; a scene lowering keeps the ones it resolved.
     pub(crate) dependencies: RefCell<Vec<Dependency>>,
+    /// The shader clock of what is painted.
+    pub(crate) time: ShaderTime,
     dropped: Cell<u32>,
     failures: RefCell<Vec<kivact_types::Failure>>,
+    /// The canvas drawables of the host scene being lowered, if it is one.
+    pub(crate) drawables: Option<DrawableSite<'a>>,
+}
+
+/// The shader clock of a paint: the motion clock in seconds, and whether
+/// reduced motion stops the shaders that are not essential.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub(crate) struct ShaderTime {
+    /// Seconds of the motion clock.
+    pub(crate) seconds: f64,
+    /// Reduced motion is on.
+    pub(crate) reduced: bool,
 }
 
 /// The completed lowering operation.
@@ -77,26 +85,45 @@ pub(crate) struct Checkpoint {
 }
 
 impl<'a> Context<'a> {
-    /// Borrow resources, device scale and the host-owned retained scene cache.
+    /// Borrow resources, take the device scale and the host-owned retained scene cache.
     /// Resource revisions invalidate cached payloads before this operation.
     /// The context and its operations cannot outlive either borrowed value.
     pub(crate) fn new(
         assets: &'a RefCell<ArvaneAssets>,
-        raster: &'a Cell<f64>,
+        raster: f64,
         scene_cache: &'a RefCell<SceneCache>,
     ) -> Self {
         scene_cache
             .borrow_mut()
             .revision(assets.borrow().revision());
         Self {
-            purpose: Purpose::Window,
             assets,
-            raster,
+            raster: Cell::new(raster),
             scene_cache,
             dependencies: RefCell::new(Vec::new()),
+            time: ShaderTime::default(),
             dropped: Cell::new(0),
             failures: RefCell::new(Vec::new()),
+            drawables: None,
         }
+    }
+
+    /// Lower the scene of `host`'s slot `slot` with the frame's canvas
+    /// drawables `plan` (its `Draw::drawable` commands place them).
+    pub(crate) fn hosting(
+        mut self,
+        plan: &'a RefCell<DrawablePlan>,
+        host: NodeId,
+        slot: u8,
+    ) -> Self {
+        self.drawables = Some(DrawableSite { plan, host, slot });
+        self
+    }
+
+    /// The same context with the shader clock of the paint being made.
+    pub(crate) fn timed(mut self, time: ShaderTime) -> Self {
+        self.time = time;
+        self
     }
 
     pub(crate) fn checkpoint(&self) -> Checkpoint {
@@ -170,14 +197,15 @@ impl<'a> Context<'a> {
         size
     }
 
-    /// The pixels of the whole of `asset` at `size` (`None`: nothing to
-    /// draw; a failure is kept unless `size` is empty).
+    /// The pixels of the whole of `asset` at `size`, at animation `frame`
+    /// (`None`: nothing to draw; a failure is kept unless `size` is empty).
     pub(crate) fn pixels(
         &self,
         asset: &kivact_types::Asset,
         size: arvane::asset::PixelSize,
-    ) -> Option<(kivact_types::scene::Pixels, arvane::asset::Region)> {
-        self.pixels_in(asset, size, arvane::asset::Region::WHOLE, None)
+        frame: u32,
+    ) -> Option<(kivact_types::Pixels, arvane::asset::Region)> {
+        self.pixels_in(asset, size, arvane::asset::Region::WHOLE, None, frame)
     }
 
     fn pixels_in(
@@ -186,17 +214,22 @@ impl<'a> Context<'a> {
         size: arvane::asset::PixelSize,
         region: arvane::asset::Region,
         tint: Option<kivact_types::Rgba>,
-    ) -> Option<(kivact_types::scene::Pixels, arvane::asset::Region)> {
+        frame: u32,
+    ) -> Option<(kivact_types::Pixels, arvane::asset::Region)> {
         if size.is_empty() {
             return None;
         }
-        let pixels = self.assets.borrow_mut().pixels(asset, size, region, tint);
+        let pixels = self
+            .assets
+            .borrow_mut()
+            .pixels(asset, size, region, tint, frame);
         if let Some((image, _)) = &pixels {
             self.record(Dependency::Pixels {
                 asset: asset.clone(),
                 device: size,
                 region,
                 tint,
+                frame,
                 width: image.width,
                 height: image.height,
                 pixels: Arc::downgrade(image.rgba.as_shared()),
@@ -215,11 +248,12 @@ impl<'a> Context<'a> {
                 device,
                 region,
                 tint,
+                frame,
                 width,
                 height,
                 pixels,
             } => self
-                .pixels_in(asset, *device, *region, *tint)
+                .pixels_in(asset, *device, *region, *tint, *frame)
                 .is_some_and(|(image, _)| {
                     image.width == *width
                         && image.height == *height

@@ -3,6 +3,8 @@
 use crate::error::{Failure, FailureKind};
 use crate::presentation::Renderer;
 use kivact_types::Size;
+use kivact_types::ids::DrawableId;
+use kivact_types::render::{ExportedFrame, FrameStats};
 use std::time::Duration;
 
 /// A frame's logical extent and the physical scale it is rasterized at:
@@ -44,6 +46,13 @@ pub enum Presented {
         raster: Duration,
         /// Waiting for the window's buffer and handing the frame over.
         present: Duration,
+        /// The drawable frames this presentation exported.
+        exports: Vec<ExportedFrame>,
+        /// The drawables whose export waits for a free slot; their frames
+        /// come on a later frame.
+        pending_exports: Vec<DrawableId>,
+        /// The work counts of the frame.
+        stats: FrameStats,
     },
     /// Presentation is temporarily unavailable (no buffer, occlusion, or
     /// GPU surface configuration): nothing new was shown. Draw again at

@@ -30,12 +30,12 @@ use kivact::draw::ImageOptions;
 use kivact::geometry::Rect;
 use kivact::gpu_interop::{
     self, AdapterMatch, ExternalImage, FramePublisher, GpuAdapter, GpuBackend, GpuPreference,
-    ImportStatus, ShareError, ShareLink, ShareMode, ShareRequest, ShareStatus, SharedHandle,
-    SharedImage, SharedTextureFormat, SharedTextures,
+    ImportStatus, ShareLink, ShareMode, ShareRequest, ShareStatus, SharedHandle, SharedImage,
+    SharedTextureFormat, SharedTextures,
 };
 use kivact::prelude::*;
 use kivact::test::{MirrorMode, RenderOptions, Screen, gpu_unavailable};
-use kivact::view::canvas;
+use kivact::view::{ShareError, canvas};
 
 use super::support::mount_with;
 

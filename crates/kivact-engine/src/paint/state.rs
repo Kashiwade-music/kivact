@@ -14,8 +14,23 @@ use std::cell::{Cell, RefCell};
 use std::collections::{BTreeSet, HashMap};
 
 use kivact_types::cell::Generation;
-use kivact_types::render::ColorMatrix;
-use kivact_types::{Edges, NodeId, Point, Rect, Size};
+use kivact_types::geometry3d::Matrix4;
+use kivact_types::paint::BackfaceVisibility;
+use kivact_types::render::{Plane, RasterGrid};
+use kivact_types::{NodeId, Point, Rect, Size};
+
+pub(crate) use crate::model::{Look, SubtreeFacts};
+
+/// The parameters of one walk over a paint list; nothing in [`PaintState`]
+/// is changed for its duration (it replaces temporary scale and list swaps).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) struct PaintPass {
+    /// Device pixels per logical pixel the walk draws at (inside a
+    /// transform, enlarged by its zoom).
+    pub(crate) scale: f64,
+    /// The logical size of the root layer.
+    pub(crate) size: Size,
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum Redraw {
@@ -40,10 +55,15 @@ pub(crate) struct PaintState {
     pub(crate) ink: Vec<Cell<Option<Ink>>>,
     pub(crate) look: Vec<Option<Look>>,
     pub(super) scale: f64,
-    pub(super) raster: Cell<f64>,
     pub(crate) scene_cache: RefCell<crate::lower::SceneCache>,
     pub(super) dropped_reported: RefCell<BTreeSet<(NodeId, u8)>>,
     pub(super) dropped_draws: RefCell<Vec<(NodeId, u32)>>,
+    /// The canvas drawables of the frame being composed (`canvas.rs`).
+    pub(crate) drawables: RefCell<crate::lower::drawables::DrawablePlan>,
+    /// The misplaced drawables already reported, by node.
+    pub(super) misplaced_reported: RefCell<BTreeSet<(NodeId, kivact_types::DrawableId)>>,
+    /// The drawables drawn twice (in both slots) already reported, by node.
+    pub(super) twice_reported: RefCell<BTreeSet<(NodeId, kivact_types::DrawableId)>>,
     pub(super) list: PaintList,
     pub(super) redraw: Redraw,
 }
@@ -55,10 +75,12 @@ impl PaintState {
             ink: Vec::new(),
             look: Vec::new(),
             scale: 1.0,
-            raster: Cell::new(1.0),
             scene_cache: RefCell::default(),
             dropped_reported: RefCell::default(),
             dropped_draws: RefCell::default(),
+            drawables: RefCell::default(),
+            misplaced_reported: RefCell::default(),
+            twice_reported: RefCell::default(),
             list: PaintList::new(),
             redraw: Redraw::Needed,
         }
@@ -67,6 +89,16 @@ impl PaintState {
     /// The window's scale factor the next frame is drawn at.
     pub(crate) fn set_scale(&mut self, scale: f64) {
         self.scale = scale;
+    }
+
+    /// The window's scale factor the next frame is drawn at, as last set.
+    pub(crate) fn scale(&self) -> f64 {
+        self.scale
+    }
+
+    /// Ask for the next frame to be drawn (a skipped export is due).
+    pub(crate) fn request_redraw(&mut self) {
+        self.redraw = Redraw::Needed;
     }
 
     /// Whether the next frame must be drawn.
@@ -83,38 +115,6 @@ impl PaintState {
     pub(crate) fn forget_missing(&mut self, live: impl Fn(NodeId) -> bool) {
         self.dropped_reported.get_mut().retain(|(id, _)| live(*id));
     }
-
-    /// A node's paint reads around its box by `reach` (backdrop filters).
-    pub(crate) fn note_backdrop(&mut self, reach: f64) {
-        self.list.note_backdrop(reach);
-    }
-}
-
-// xtask-allow(state-fields): Normalized paint cache stores independent optional color and geometric drawing facts (S-9).
-/// What a node's paint says about where it draws, sanitized like
-/// `paint::sanitize_paint` (read in place: most nodes have no state
-/// styles, and their paint is not copied).
-#[derive(Clone, Copy, Debug)]
-pub(crate) struct Look {
-    pub(super) opacity: f64,
-    /// How far its outer shadows and focus ring reach outside its box.
-    pub(super) overflow: f64,
-    /// The widths of its visible border sides (canvas scenes start inside
-    /// them).
-    pub(super) border: Edges<f64>,
-    /// How far its layer filters draw beyond what they filter.
-    pub(super) fx: f64,
-    /// The layers its effects need (layer filters, clip path, mask,
-    /// blend), whatever its opacity: 0 or at least 1.
-    pub(super) layers: u8,
-    /// Its color filters as one matrix (`None`: it has none).
-    pub(super) recolor: Option<ColorMatrix>,
-    /// It clips its children to its padding box.
-    pub(super) clip: bool,
-    /// How many of a background, a border, shadows and a ring it draws.
-    pub(super) items: u8,
-    /// Its corners are rounded.
-    pub(super) rounded: bool,
 }
 
 /// Everything a node's subtree can draw on, relative to its layout
@@ -129,6 +129,35 @@ pub(crate) struct Ink {
     pub(super) generation: Generation,
 }
 
+/// The compositor layer one listed node is drawn in.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) struct LayerSpec {
+    /// Layer space (the node's box at its origin) → the parent's space.
+    pub(super) matrix: Matrix4,
+    /// Its content bounds in layer space.
+    pub(super) bounds: Rect,
+    pub(super) plane: Plane,
+    pub(super) backface: BackfaceVisibility,
+    pub(super) grid: RasterGrid,
+}
+
+/// One thing a listed node opens, in the order it is opened.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Opening {
+    /// Its compositor layer.
+    Layer,
+    /// Its transform (inline, not a layer).
+    Transform,
+    /// Its group (opacity, clip path, blend; inline, not a layer).
+    Group,
+    /// Its presence clip.
+    Presence,
+    /// Its padding box as a rect clip.
+    Clip,
+    /// Its padding box as a rounded group.
+    ClipGroup,
+}
+
 // xtask-allow(state-fields): Immutable paint-list record stores independent drawing and clipping facts, not a lifecycle.
 /// How one listed node is drawn.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -136,43 +165,71 @@ pub(crate) struct Step {
     pub(super) id: NodeId,
     /// Its untransformed layout box's origin, in the space of the
     /// transforms pushed around it (its own and its ancestors'
-    /// translations below them applied).
+    /// translations below them applied). A layer's origin is its own box.
     pub(super) origin: Point,
     /// The transform it is drawn through (an index into
     /// [`PaintList::transforms`]).
     pub(super) transform: Option<u32>,
     /// The alpha its colors are faded by (outside a group: its opacity
-    /// times its ancestors').
+    /// times its ancestors'; inside a layer: its ancestors' only).
     pub(super) alpha: f64,
     pub(super) clips: bool,
     pub(super) presence_clip: Option<Rect>,
     /// Its corners are rounded (a clip is a layer clipped to its rounded
     /// padding box, not a rect clip).
     pub(super) rounded: bool,
-    /// It draws itself (else it is listed for its layers only).
+    /// It draws itself (else it is listed for its group only).
     pub(super) own: bool,
-    /// The layers it is composited in (0: none).
-    pub(super) layers: u8,
-    /// Its opacity is a group's (applied by its outer layer).
+    /// It is composited in a group.
+    pub(super) grouped: bool,
+    /// Its opacity is the group's (applied by its group).
     pub(super) group: bool,
-    /// Its colors' matrix and its parent's (indices into
-    /// [`PaintList::matrices`]).
-    pub(super) matrix: Option<u32>,
-    pub(super) parent_matrix: Option<u32>,
     /// The area its ancestors let it draw in (grown by the culling
     /// margin), in the space of its origin: a text input draws only the
     /// lines that reach it.
     pub(super) clip: Rect,
+    /// Its compositor layer (an index into [`PaintList::layers`]).
+    pub(super) layer: Option<u32>,
+}
+
+impl Step {
+    /// What opening this step pushes, in order. Its layer comes
+    /// first; its transform and group are not opened inside a layer,
+    /// whose transform and effects are its own.
+    pub(crate) fn opened(&self) -> Vec<Opening> {
+        let mut out = Vec::with_capacity(5);
+        if self.layer.is_some() {
+            out.push(Opening::Layer);
+        } else {
+            if self.transform.is_some() {
+                out.push(Opening::Transform);
+            }
+            if self.grouped {
+                out.push(Opening::Group);
+            }
+        }
+        if self.presence_clip.is_some() {
+            out.push(Opening::Presence);
+        }
+        if self.clips {
+            out.push(if self.rounded {
+                Opening::ClipGroup
+            } else {
+                Opening::Clip
+            });
+        }
+        out
+    }
 }
 
 /// One step of the paint list.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) enum Entry {
-    /// Open the node's layers, draw its box, then (inside its clip when it
+    /// Open the node's group, draw its box, then (inside its clip when it
     /// clips) its canvas scene and its content.
     Open(Step),
     /// After its descendants: its `DrawOver` scene, then pop its clip and
-    /// its layers.
+    /// its group.
     Close(Step),
 }
 
@@ -180,14 +237,14 @@ pub(crate) enum Entry {
 #[derive(Clone, Debug, Default)]
 pub(crate) struct PaintList {
     pub(super) entries: Vec<Entry>,
-    /// The color matrices of the listed nodes with color filters.
-    pub(super) matrices: Vec<ColorMatrix>,
     /// The transforms of the listed transformed nodes, each in the space
     /// of the transforms around it.
     pub(super) transforms: Vec<kivact_types::Transform>,
-    /// How far the farthest-reaching backdrop filter seen reads around its
-    /// box (the viewport grows by it).
-    pub(super) backdrop_reach: f64,
+    /// The compositor layers of the listed layer nodes.
+    pub(super) layers: Vec<LayerSpec>,
+    /// What each subtree holds that decides its layers (only the nodes
+    /// with something to say are kept).
+    pub(super) facts: HashMap<NodeId, SubtreeFacts>,
     /// Whether the list is reusable for its window size and raster scale.
     pub(super) state: ListState,
     /// The child indices of the containers with many children.

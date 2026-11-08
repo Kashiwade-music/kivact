@@ -115,12 +115,12 @@ impl Model {
         let node = structural(
             types::NodeId(id),
             Vec::new(),
-            kivact_types::Rect {
+            Some(kivact_types::Rect {
                 x: 0.0,
                 y: 0.0,
                 width: self.viewport.width,
                 height: self.viewport.height,
-            },
+            }),
             kivact_types::Point::default(),
             kivact_types::Transform::IDENTITY,
             false,

@@ -1,5 +1,6 @@
 //! Role: Extract and CPU rasterize a mounted subtree using the window paint pipeline.
 
+use super::state::PaintPass;
 use crate::contract::SnapshotResult;
 use crate::model::Model;
 use crate::offscreen::{OffscreenError, OffscreenImage, OffscreenRenderer};
@@ -43,13 +44,9 @@ impl Model {
             },
         );
         // The retained window list and raster scale remain the window's.
-        let previous = std::mem::replace(&mut self.paint.list, list);
-        let scale = self.paint.scale;
-        self.paint.scale = 1.0;
-        let scene = self.paint_scene_list(engine, crate::lower::context::Purpose::Cpu);
-        self.paint.scale = scale;
-        self.paint.raster.set(scale);
-        self.paint.list = previous;
-        Some(OffscreenRenderer::new().render_scene(&scene, (width, height)))
+        let pass = PaintPass { scale: 1.0, size };
+        let composition = self.compose_list(engine, &list, pass);
+        self.report_dropped_draws();
+        Some(OffscreenRenderer::new().render_composition(&composition, (width, height)))
     }
 }

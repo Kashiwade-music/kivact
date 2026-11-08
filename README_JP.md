@@ -95,12 +95,14 @@ flowchart TD
     Engine --> Geometry[kivact-layout / kivact-editing]
     Engine --> Host[arvane]
     Host --> Adapters[arvane-shell / arvane-text / arvane-render / arvane-asset]
+    Host --> Compose[arvane-compose]
     Engine --> Native[arvane-native]
     Engine --> Virtual[arvane-virtual]
     Facade -. test feature .-> Test[kivact-test]
     Test --> Core
     Test --> Virtual
     Runtime --> Types[kivact-types]
+    Runtime --> Shader[kivact-shader]
     Engine --> Types
 ```
 
@@ -113,6 +115,7 @@ flowchart TD
 | `kivact-runtime` | `crates/kivact-runtime` | reactive owner、signal、Machine、task、motion。 |
 | `kivact-i18n` | `crates/kivact-i18n` | locale、message、日付・数値の書式。 |
 | `kivact-style` | `crates/kivact-style` | style、theme、token、描画の語彙。 |
+| `kivact-shader` | `crates/kivact-shader` | ユーザーの WGSL の検証と shader module の組み立て。 |
 | `kivact-interaction` | `crates/kivact-interaction` | 表示を持たない振る舞い、semantics、入力 controller。 |
 | `kivact-ui` | `crates/kivact-ui` | 標準部品と recipe の契約。 |
 | `kivact-ui-basic` | `crates/kivact-ui-basic` | shadcn/ui Lyra 風の中立的な汎用キット。 |
@@ -141,7 +144,8 @@ flowchart TD
 | `arvane-shell` | `crates/arvane-shell` | backend SPI と移植可能な window・入力の語彙。 |
 | `arvane-virtual` | `crates/arvane-virtual` | 共通描画 driver を使う台本 backend と任意の実窓 mirror。 |
 | `arvane-text` | `crates/arvane-text` | font の探索と text shaping adapter。 |
-| `arvane-render` | `crates/arvane-render` | CPU・GPU renderer adapter。 |
+| `arvane-render` | `crates/arvane-render` | RenderScene のラスタライズ（Vello）。 |
+| `arvane-compose` | `crates/arvane-compose` | Composition の plan と、その CPU・GPU の合成。3D、cache、shader、外部 texture を Vello の外で合成する。 |
 | `arvane-asset` | `crates/arvane-asset` | 画像・font の読込、decode、asset cache。 |
 | `kivact-gpu-share` | `crates/kivact-gpu-share` | GPU texture 共有の契約と native helper（実験的）。 |
 | `gpu-interop-producer` | `dev/tests/gpu-interop-producer` | GPU 共有の試験で使う独立 renderer。 |

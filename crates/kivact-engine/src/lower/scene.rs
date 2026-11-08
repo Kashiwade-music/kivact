@@ -19,9 +19,10 @@
 //!   canvas's size) is pushed as Arvane's `PushTransform` about the canvas
 //!   origin, never flattened here, so it applies alike to text, images,
 //!   clips, fills, strokes and shadows; under it images are rasterized for
-//!   its zoom too (`raster_zoom`). A layer opens as the node's own do
-//!   (`effects`: clip, mask, opacity, blend, filters); its color filter
-//!   tints what it holds.
+//!   its zoom too (`raster_zoom`). A layer opens a group (clip, opacity,
+//!   blend) unless it needs a compositor layer (a 3D transform, a filter, a
+//!   mask, a Porter–Duff operator, or an item inside it): then it opens a
+//!   child layer of the composition (`layers`, `layer_effects`).
 //! - A rect clip (`DrawCmd::PushClip`, kivact's `Layer::clip_rect`) opens
 //!   no group: it is Arvane's `PushClip`. A layer's clip shape (kivact's
 //!   `Layer::clip(&Shape)`, placed in its area) is the clip of the layer's
@@ -33,14 +34,9 @@
 //!   much the source rect is (an SVG stays sharp, within the store's cache
 //!   limit); both are drawn at their opacity, sampled nearest-neighbour
 //!   when pixelated.
-//! - An external frame (`DrawCmd::External`) is Arvane's
-//!   `RenderCmd::External` at its rect and opacity: drawn only by the GPU
-//!   of the window its image was imported into (an Arvane built without
-//!   texture sharing draws nothing, and no command counts as dropped).
-//!   A layer's
-//!   color filter does not reach it (Arvane draws it without a color
-//!   matrix); one with a rect or source that is not finite, or an opacity
-//!   that is not, is dropped.
+//! - An external frame (`DrawCmd::External`) is a compositor layer item,
+//!   carrying its CPU pixels, which the CPU compositor draws where it has
+//!   them. A shader fill is a layer item too (`layer_effects`).
 //! - A scene passes its neutral asset sources directly to the asset store.
 //! - A text run with a size or origin that is not finite, or a negative
 //!   size, is dropped; one of size 0 draws nothing.
@@ -48,11 +44,14 @@
 //!   lines it was shaped with, in its color, at its origin; one with an
 //!   origin that is not finite is dropped.
 
+mod drawable;
 mod geometry;
+mod layer_effects;
 mod layers;
 mod paint;
 mod raster;
 mod state;
 mod text;
 
+pub(crate) use layers::scene_layers;
 pub(crate) use raster::raster_zoom;

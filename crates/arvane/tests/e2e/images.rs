@@ -1,44 +1,46 @@
 //! Role: Image rendering contract tests.
 //!
-//! Images through a color matrix, and raw pixels a host changes every
-//! frame (on the CPU and the GPU); and the GPU's frames of the whole
-//! drawing vocabulary against the CPU's.
+//! The GPU's frames of the whole drawing vocabulary against the CPU's:
+//! commands, layers with their effects (clips, blends, masks, filters, a
+//! backdrop), images through a color matrix (a layer filter), strokes,
+//! shadows and patterns.
 
-use kivact_types::AssetBytes;
 use std::sync::Arc;
 
+use kivact_types::AssetBytes;
+use kivact_types::paint::{MaskComposite, MaskMode};
 use kivact_types::render::{
-    Backdrop, BoxShadow, ColorMatrix, Gradient, GradientShape, Layer, LayerFilter, Mask, Paint,
-    Pattern, PatternSource, RenderCmd,
+    BoxShadow, CompositeLayer, Composition, Gradient, GradientShape, LayerEffects, LayerFilter,
+    LayerItem, Paint, Pattern, PatternSource, RenderBackdrop, RenderCmd, RenderMask, RenderScene,
 };
 use kivact_types::scene::{PathCmd, Radius, RoundedRect, Shape};
-use kivact_types::{BlendMode, Extend, FillRule, LineCap, Stroke};
-use kivact_types::{Pixels, Transform};
-
-use crate::support::{
-    BLUE, RED, WHITE, color, color_alpha, fill, gpu_against_cpu, pt, rect, solid, text_runs,
+use kivact_types::{
+    BlendMode, ColorMatrix, Extend, FillRule, LineCap, Pixels, Rect, Size, Stroke, Transform,
 };
 
-fn image(rect: kivact_types::Rect, image: Pixels, color_matrix: Option<ColorMatrix>) -> RenderCmd {
+use crate::support::{
+    BLUE, RED, WHITE, color, color_alpha, fill, gpu_against_cpu, layer, node_key, pt, raster, rect,
+    root_layer, solid, text_runs,
+};
+
+/// The size of the vocabulary's window (logical px).
+const SIZE: Size = Size {
+    width: 240.0,
+    height: 200.0,
+};
+
+/// An image of `rect` with no color change.
+fn image(rect: Rect, image: Pixels) -> RenderCmd {
     RenderCmd::Image {
         image,
         rect,
         opacity: 1.0,
-        color_matrix,
     }
 }
 
-/// A scene of every new command: transforms with text, layers with clips,
-/// blends, filters and masks, gradients, patterns, strokes, shadows, a
-/// backdrop and a filtered image.
-fn vocabulary() -> Vec<RenderCmd> {
-    let black = color(0x000000);
-    let mut stripes: Vec<RenderCmd> = (0..60)
-        .map(|i| fill(4.0 * i as f64, 0.0, 2.0, 200.0, 0x203040))
-        .collect();
-    stripes.insert(0, fill(0.0, 0.0, 240.0, 200.0, 0xf0e0d0));
-    let mut commands = stripes;
-    let checker = Pixels {
+/// A checkerboard of 2 × 2 pixels.
+fn checker() -> Pixels {
+    Pixels {
         width: 2,
         height: 2,
         rgba: AssetBytes::from_shared(Arc::from(
@@ -46,24 +48,213 @@ fn vocabulary() -> Vec<RenderCmd> {
                 255u8, 0, 0, 255, 0, 0, 255, 255, 0, 0, 255, 255, 255, 0, 0, 255,
             ][..],
         )),
-    };
-    commands.extend(transformed_scene());
-    commands.extend(layer_scene(black));
-    commands.extend(stroke_scene(checker.clone()));
-    commands.extend(shadow_scene(checker.clone()));
-    commands.extend(filtered_scene(checker));
-    commands
+    }
+}
+
+/// A frame of every new kind of drawing: the root layer draws the commands
+/// and the layers in its order; each layer is a group with its effects.
+fn vocabulary() -> Composition {
+    let checker = checker();
+    let mut layers = vec![vocabulary_root(&checker)];
+    layers.push(masked_group());
+    layers.push(shadow_group());
+    layers.push(blur_group());
+    layers.push(backdrop_group());
+    layers.push(color_matrix_group(checker));
+    Composition {
+        layers,
+        exports: Vec::new(),
+    }
+}
+
+/// The root layer: the stripes, the scenes of strokes, shadows and tiles, and layers 1 to 5 in that order.
+fn vocabulary_root(checker: &Pixels) -> CompositeLayer {
+    let mut stripes: Vec<RenderCmd> = (0..60)
+        .map(|i| fill(4.0 * i as f64, 0.0, 2.0, 200.0, 0x203040))
+        .collect();
+    stripes.insert(0, fill(0.0, 0.0, 240.0, 200.0, 0xf0e0d0));
+    stripes.extend(transformed_scene());
+    root_layer(
+        SIZE,
+        vec![
+            raster(stripes),
+            LayerItem::Layer {
+                index: 1,
+                clips: Vec::new(),
+            },
+            LayerItem::Layer {
+                index: 2,
+                clips: Vec::new(),
+            },
+            LayerItem::Layer {
+                index: 3,
+                clips: Vec::new(),
+            },
+            raster(stroke_scene(checker.clone())),
+            raster(shadow_scene(checker.clone())),
+            LayerItem::Layer {
+                index: 4,
+                clips: Vec::new(),
+            },
+            raster(vec![RenderCmd::FillShape {
+                shape: Shape::RoundedRect(RoundedRect::new(rect(10.0, 150.0, 70.0, 40.0), 12.0)),
+                paint: Paint::Solid(color_alpha(WHITE, 0.3)),
+            }]),
+            LayerItem::Layer {
+                index: 5,
+                clips: Vec::new(),
+            },
+            raster(tiled_scene(checker.clone())),
+        ],
+    )
+}
+
+/// Layer 1: a group clipped, faded and blended, and masked by a gradient.
+fn masked_group() -> CompositeLayer {
+    let black = color(0x000000);
+    let whole = rect(0.0, 0.0, SIZE.width, SIZE.height);
+    layer(
+        node_key(1),
+        whole,
+        LayerEffects {
+            opacity: 0.8,
+            blend: BlendMode::Multiply,
+            clip: Some(Shape::Polygon {
+                points: vec![
+                    pt(160.0, 10.0),
+                    pt(230.0, 10.0),
+                    pt(230.0, 50.0),
+                    pt(170.0, 60.0),
+                ],
+                rule: FillRule::NonZero,
+            }),
+            masks: vec![RenderMask {
+                scene: RenderScene {
+                    commands: vec![RenderCmd::FillShape {
+                        shape: Shape::Rect(rect(160.0, 10.0, 70.0, 50.0)),
+                        paint: Paint::Gradient(Gradient {
+                            shape: GradientShape::Linear {
+                                start: pt(160.0, 35.0),
+                                end: pt(230.0, 35.0),
+                            },
+                            stops: vec![(0.0, black), (1.0, color_alpha(0x000000, 0.0))],
+                            extend: Extend::Pad,
+                        }),
+                    }],
+                },
+                mode: MaskMode::Alpha,
+                composite: MaskComposite::Intersect,
+            }],
+            ..LayerEffects::default()
+        },
+        vec![raster(vec![fill(150.0, 0.0, 90.0, 70.0, 0x40c080)])],
+    )
+}
+
+/// Layer 2: a radial gradient under a drop shadow.
+fn shadow_group() -> CompositeLayer {
+    let whole = rect(0.0, 0.0, SIZE.width, SIZE.height);
+    layer(
+        node_key(2),
+        whole,
+        LayerEffects {
+            filters: vec![LayerFilter::DropShadow {
+                offset: pt(4.0, 4.0),
+                std_dev: 3.0,
+                color: color_alpha(0x000000, 0.6),
+            }],
+            ..LayerEffects::default()
+        },
+        vec![raster(vec![RenderCmd::FillShape {
+            shape: Shape::Rect(rect(10.0, 80.0, 50.0, 30.0)),
+            paint: Paint::Gradient(Gradient {
+                shape: GradientShape::Radial {
+                    center: pt(35.0, 95.0),
+                    radius_x: 25.0,
+                    radius_y: 15.0,
+                },
+                stops: vec![(0.0, color(RED)), (0.5, color(0x00ff00)), (1.0, color(RED))],
+                extend: Extend::Pad,
+            }),
+        }])],
+    )
+}
+
+/// Layer 3: a square blurred.
+fn blur_group() -> CompositeLayer {
+    let whole = rect(0.0, 0.0, SIZE.width, SIZE.height);
+    layer(
+        node_key(3),
+        whole,
+        LayerEffects {
+            filters: vec![LayerFilter::Blur { std_dev: 2.0 }],
+            ..LayerEffects::default()
+        },
+        vec![raster(vec![fill(80.0, 80.0, 30.0, 30.0, 0x8020a0)])],
+    )
+}
+
+/// Layer 4: the backdrop: what lies behind the rounded rect, blurred and saturated.
+fn backdrop_group() -> CompositeLayer {
+    layer(
+        node_key(4),
+        rect(10.0, 150.0, 70.0, 40.0),
+        LayerEffects {
+            backdrop: Some(RenderBackdrop {
+                shape: Shape::RoundedRect(RoundedRect::new(rect(10.0, 150.0, 70.0, 40.0), 12.0)),
+                filters: vec![
+                    LayerFilter::Blur { std_dev: 4.0 },
+                    LayerFilter::ColorMatrix(ColorMatrix::saturate(1.6)),
+                ],
+            }),
+            ..LayerEffects::default()
+        },
+        Vec::new(),
+    )
+}
+
+/// Layer 5: an image through a color matrix: the matrix is the layer's filter.
+fn color_matrix_group(checker: Pixels) -> CompositeLayer {
+    layer(
+        node_key(5),
+        rect(200.0, 150.0, 30.0, 30.0),
+        LayerEffects {
+            filters: vec![LayerFilter::ColorMatrix(ColorMatrix::sepia(1.0))],
+            ..LayerEffects::default()
+        },
+        vec![raster(vec![image(rect(200.0, 150.0, 30.0, 30.0), checker)])],
+    )
 }
 
 /// [`vocabulary`] scaled down about the middle: tiles, glyphs and blurs at
-/// other device sizes.
-fn scaled_vocabulary() -> Vec<RenderCmd> {
-    let mut commands = vec![RenderCmd::PushTransform(
+/// other device sizes. The root keeps the identity transform,
+/// so the vocabulary is a child layer of the root that is scaled instead.
+fn scaled_vocabulary() -> Composition {
+    let mut layers = vocabulary().layers;
+    let mut vocab = layers.remove(0);
+    // Layers 1 to 5 move to 2 to 6, and the scaled child takes index 1.
+    for item in &mut vocab.items {
+        if let LayerItem::Layer { index, .. } = item {
+            *index += 1;
+        }
+    }
+    vocab.key = node_key(6);
+    vocab.transform = kivact_types::geometry3d::Matrix4::from_affine(
         Transform::scale(0.75).about(pt(120.0, 100.0)),
-    )];
-    commands.extend(vocabulary());
-    commands.push(RenderCmd::PopTransform);
-    commands
+    );
+    let root = root_layer(
+        SIZE,
+        vec![LayerItem::Layer {
+            index: 1,
+            clips: Vec::new(),
+        }],
+    );
+    let mut all = vec![root, vocab];
+    all.extend(layers);
+    Composition {
+        layers: all,
+        exports: Vec::new(),
+    }
 }
 
 #[test]
@@ -122,58 +313,19 @@ fn transformed_scene() -> Vec<RenderCmd> {
     commands
 }
 
-fn layer_scene(black: kivact_types::Rgba) -> Vec<RenderCmd> {
+/// Patterns: an image tile, and a tile larger than the atlas takes.
+fn tiled_scene(checker: Pixels) -> Vec<RenderCmd> {
     vec![
-        RenderCmd::PushLayer(Layer {
-            clip: Some(Shape::Polygon {
-                points: vec![
-                    pt(160.0, 10.0),
-                    pt(230.0, 10.0),
-                    pt(230.0, 50.0),
-                    pt(170.0, 60.0),
-                ],
-                rule: FillRule::NonZero,
-            }),
-            opacity: 0.8,
-            blend: BlendMode::Multiply,
-            filter: None,
-            mask: Some(Mask {
-                rect: rect(160.0, 10.0, 70.0, 50.0),
-                paint: Paint::LinearGradient {
-                    angle_deg: 90.0,
-                    stops: vec![(0.0, black), (1.0, color_alpha(0x000000, 0.0))],
-                },
-            }),
-        }),
-        fill(150.0, 0.0, 90.0, 70.0, 0x40c080),
-        RenderCmd::PopLayer,
-        RenderCmd::PushLayer(Layer {
-            filter: Some(LayerFilter::DropShadow {
-                offset: pt(4.0, 4.0),
-                std_dev: 3.0,
-                color: color_alpha(0x000000, 0.6),
-            }),
-            ..Layer::default()
-        }),
+        // A tile larger than the atlas takes: drawn copy by copy.
         RenderCmd::FillShape {
-            shape: Shape::Rect(rect(10.0, 80.0, 50.0, 30.0)),
-            paint: Paint::Gradient(Gradient {
-                shape: GradientShape::Conic {
-                    center: pt(35.0, 95.0),
-                    start_deg: -90.0,
-                    end_deg: 270.0,
-                },
-                stops: vec![(0.0, color(RED)), (0.5, color(0x00ff00)), (1.0, color(RED))],
-                extend: Extend::Pad,
+            shape: Shape::Rect(rect(90.0, 180.0, 150.0, 20.0)),
+            paint: Paint::Pattern(Pattern {
+                source: PatternSource::Image { image: checker },
+                tile: rect(0.0, 0.0, 300.0, 300.0),
+                repeat_x: true,
+                repeat_y: true,
             }),
         },
-        RenderCmd::PopLayer,
-        RenderCmd::PushLayer(Layer {
-            filter: Some(LayerFilter::Blur { std_dev: 2.0 }),
-            ..Layer::default()
-        }),
-        fill(80.0, 80.0, 30.0, 30.0, 0x8020a0),
-        RenderCmd::PopLayer,
     ]
 }
 
@@ -184,7 +336,6 @@ fn stroke_scene(checker: Pixels) -> Vec<RenderCmd> {
             paint: Paint::Pattern(Pattern {
                 source: PatternSource::Image {
                     image: checker.clone(),
-                    color_matrix: None,
                 },
                 tile: rect(120.0, 80.0, 6.0, 6.0),
                 repeat_x: true,
@@ -256,10 +407,14 @@ fn shadow_scene(checker: Pixels) -> Vec<RenderCmd> {
                 rule: FillRule::NonZero,
             },
             stroke: Stroke::new(5.0),
-            paint: Paint::LinearGradient {
-                angle_deg: 0.0,
+            paint: Paint::Gradient(Gradient {
+                shape: GradientShape::Linear {
+                    start: pt(150.0, 66.0),
+                    end: pt(230.0, 66.0),
+                },
                 stops: vec![(0.0, color(RED)), (1.0, color(BLUE))],
-            },
+                extend: Extend::Pad,
+            }),
         },
         RenderCmd::StrokeShape {
             shape: Shape::Path {
@@ -274,10 +429,7 @@ fn shadow_scene(checker: Pixels) -> Vec<RenderCmd> {
                 ..Stroke::new(5.0)
             },
             paint: Paint::Pattern(Pattern {
-                source: PatternSource::Image {
-                    image: checker.clone(),
-                    color_matrix: None,
-                },
+                source: PatternSource::Image { image: checker },
                 tile: rect(0.0, 0.0, 4.0, 4.0),
                 repeat_x: true,
                 repeat_y: true,
@@ -292,37 +444,5 @@ fn shadow_scene(checker: Pixels) -> Vec<RenderCmd> {
             inset: false,
             knockout: true,
         }),
-    ]
-}
-
-fn filtered_scene(checker: Pixels) -> Vec<RenderCmd> {
-    vec![
-        RenderCmd::Backdrop(Backdrop {
-            shape: Shape::RoundedRect(RoundedRect::new(rect(10.0, 150.0, 70.0, 40.0), 12.0)),
-            std_dev: 4.0,
-            color_matrix: Some(ColorMatrix::saturate(1.6)),
-        }),
-        RenderCmd::FillShape {
-            shape: Shape::RoundedRect(RoundedRect::new(rect(10.0, 150.0, 70.0, 40.0), 12.0)),
-            paint: Paint::Solid(color_alpha(WHITE, 0.3)),
-        },
-        image(
-            rect(200.0, 150.0, 30.0, 30.0),
-            checker.clone(),
-            Some(ColorMatrix::sepia(1.0)),
-        ),
-        // A tile larger than the atlas takes: drawn copy by copy.
-        RenderCmd::FillShape {
-            shape: Shape::Rect(rect(90.0, 180.0, 150.0, 20.0)),
-            paint: Paint::Pattern(Pattern {
-                source: PatternSource::Image {
-                    image: checker,
-                    color_matrix: None,
-                },
-                tile: rect(0.0, 0.0, 300.0, 300.0),
-                repeat_x: true,
-                repeat_y: true,
-            }),
-        },
     ]
 }

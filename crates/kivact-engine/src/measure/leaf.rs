@@ -446,4 +446,8 @@ impl kivact_types::TextShaper for LeafText<'_> {
             boxes,
         )
     }
+
+    fn outline(&self, run: &kivact_types::render::GlyphRun) -> Vec<kivact_types::PathCmd> {
+        arvane::glyph_outline(run)
+    }
 }

@@ -38,10 +38,10 @@
 //!   event loop through the host's waker when it finishes; the next turn
 //!   applies its work.
 
-use std::collections::{HashMap, HashSet};
-
 use crate::lower::AssetEvent;
-use arvane::asset::{AssetStore, FamilyChoice, ImageState, PixelSize, Region, load_font};
+use arvane::asset::{
+    AnimationInfo, AssetStore, FamilyChoice, ImageState, PixelSize, Region, load_font,
+};
 use kivact_types::{Asset, ComputedTextStyle, NodeId, PlatformResult, Rgba, Size};
 
 /// UI-thread resource owner with image and font diagnostic deduplication.
@@ -53,10 +53,11 @@ pub(crate) struct ArvaneAssets {
     /// Families of the registered font files, in registration order (for
     /// the missing-family diagnostic).
     registered: Vec<String>,
-    /// The last failed asset reported for each `Image` node.
-    reported_images: HashMap<NodeId, Asset>,
+    /// The (`Image` node, failed asset) pairs already reported. Pairs of
+    /// removed nodes are pruned at each commit.
+    reported_images: kivact_types::cell::ReportOnceSet<(NodeId, Asset)>,
     /// Missing families already reported (lowercase).
-    reported_families: HashSet<String>,
+    reported_families: kivact_types::cell::ReportOnceSet<String>,
     /// Reports found during a layout pass (missing families).
     pending: Vec<AssetEvent>,
 }
@@ -69,8 +70,8 @@ impl ArvaneAssets {
             store,
             revision: 0,
             registered: Vec::new(),
-            reported_images: HashMap::new(),
-            reported_families: HashSet::new(),
+            reported_images: kivact_types::cell::ReportOnceSet::new(),
+            reported_families: kivact_types::cell::ReportOnceSet::new(),
             pending: Vec::new(),
         }
     }
@@ -101,8 +102,6 @@ impl ArvaneAssets {
     pub(crate) fn release_caches(&mut self) {
         self.store.release_caches();
         self.registered.shrink_to_fit();
-        self.reported_images.shrink_to_fit();
-        self.reported_families.shrink_to_fit();
         self.pending.shrink_to_fit();
     }
 
@@ -163,24 +162,32 @@ impl ArvaneAssets {
         }
     }
 
+    /// The timing of the animated `asset` (`None` while it is not ready or
+    /// is not an animation).
+    pub(crate) fn animation(&mut self, asset: &kivact_types::Asset) -> Option<AnimationInfo> {
+        self.store.animation(asset)
+    }
+
     /// The image to draw for the part `visible` of `asset` drawn at
-    /// `device` pixels, in `tint` when given, and the part of the image it
-    /// covers (`None`: nothing to draw yet). Shares the store's pixels.
+    /// `device` pixels, in `tint` when given, at animation frame `frame`
+    /// (0 for a still image), and the part of the image it covers (`None`:
+    /// nothing to draw yet). Shares the store's pixels.
     pub(crate) fn pixels(
         &mut self,
         asset: &kivact_types::Asset,
         device: PixelSize,
         visible: Region,
         tint: Option<Rgba>,
-    ) -> Option<(kivact_types::scene::Pixels, Region)> {
+        frame: u32,
+    ) -> Option<(kivact_types::Pixels, Region)> {
         if device.is_empty() {
             return None;
         }
-        let drawn = self.store.pixels_in(asset, device, visible, tint);
+        let drawn = self.store.pixels_in(asset, device, visible, tint, frame);
         // Arvane keeps no device textures: evicted pixels need no work.
         self.store.take_evicted();
         let (pixels, region) = drawn?;
-        let image = kivact_types::scene::Pixels {
+        let image = kivact_types::Pixels {
             width: pixels.width(),
             height: pixels.height(),
             rgba: kivact_types::AssetBytes::from_shared(std::sync::Arc::clone(pixels.rgba())),
@@ -205,31 +212,26 @@ impl ArvaneAssets {
     /// The report for `Image` node `id` showing `asset` (the source in the
     /// store) when it failed and was not reported for this node yet.
     pub(crate) fn check_image(&mut self, id: NodeId, asset: &Asset) -> Option<AssetEvent> {
-        if self
-            .reported_images
-            .get(&id)
-            .is_some_and(|reported| reported != asset)
-        {
-            self.reported_images.remove(&id);
+        // The node shows `asset` now: a report for any other asset of the
+        // node is forgotten, so showing that asset again reports again.
+        self.reported_images
+            .retain(|(node, reported)| *node != id || reported == asset);
+        let Some(ImageState::Failed(e)) = self.store.peek(asset) else {
+            return None;
+        };
+        if !self.reported_images.note((id, asset.clone())) {
+            return None;
         }
-        match self.store.peek(asset) {
-            Some(ImageState::Failed(e)) if self.reported_images.get(&id) != Some(asset) => {
-                self.reported_images.insert(id, asset.clone());
-                Some(AssetEvent::AssetFailed {
-                    node: id,
-                    message: e.message().to_owned(),
-                })
-            }
-            _ => None,
-        }
+        Some(AssetEvent::AssetFailed {
+            node: id,
+            message: e.message().to_owned(),
+        })
     }
 
     /// Forget the image reports of nodes that no longer exist (at a
     /// commit: removed nodes must not keep their assets' bytes alive).
     pub(crate) fn prune_reports(&mut self, exists: impl Fn(NodeId) -> bool) {
-        if !self.reported_images.is_empty() {
-            self.reported_images.retain(|id, _| exists(*id));
-        }
+        self.reported_images.retain(|(id, _)| exists(*id));
     }
 
     // ----- fonts ------------------------------------------------------------
@@ -250,7 +252,8 @@ impl ArvaneAssets {
                 ));
             }
         };
-        if let Err(e) = engine.register_font(file.bytes().to_shared()) {
+        let bytes = file.bytes().to_shared();
+        if let Err(e) = engine.register_font(bytes.clone()) {
             return PlatformResult::Failed(kivact_types::Failure::new(
                 kivact_types::FailureKind::Resource,
                 format!(
@@ -259,6 +262,7 @@ impl ArvaneAssets {
                 ),
             ));
         }
+        self.store.register_font(bytes);
         for family in file.families() {
             if !self.registered.contains(family) {
                 self.registered.push(family.clone());
@@ -281,7 +285,7 @@ impl ArvaneAssets {
             return;
         };
         let (_, missing) = resolve(engine, name);
-        if missing && self.reported_families.insert(name.to_lowercase()) {
+        if missing && self.reported_families.note(name.to_lowercase()) {
             let registered = match self.registered.as_slice() {
                 [] => "none".to_owned(),
                 r => r.join(", "),

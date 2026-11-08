@@ -15,7 +15,10 @@
 //!   repeats the tile).
 //! - Gradient stops are placed as CSS places them (missing positions
 //!   spread evenly, a position before an earlier one moved up to it); a
-//!   repeating gradient repeats from its first stop to its last.
+//!   repeating gradient repeats from its first stop to its last. Colors
+//!   are interpolated in the gradient's space and mapped to sRGB, with
+//!   stops added where that drifts from the sRGB ramp; color hints are
+//!   honored that way (`expand_gradient`).
 //!   A repeating radial gradient repeats its stops shifted by the phase of
 //!   its first stop. A conic gradient's angles are CSS's (0° up, turned to
 //!   Arvane's 0° right); a non-repeating one is one whole turn drawn with
@@ -39,16 +42,20 @@ use crate::lower::effects::Tint;
 use crate::lower::shape::BoxShape;
 use kivact_types::render::RenderCmd as D;
 use kivact_types::{
-    CoordinateGradient, CoordinateShape, Fill, FillImage, FillLayer, FillSize, Gradient,
-    GradientKind, RadialExtent,
+    BackgroundClip, BackgroundOrigin, CoordinateGradient, CoordinateShape, Fill, FillImage,
+    FillLayer, FillSize, Gradient, GradientKind, RadialExtent,
 };
-use kivact_types::{Rgba, Size};
+use kivact_types::{BlendMode, ColorInterpolation, Len, Rgba, Size, SpaceColor, interpolate};
 
-use kivact_types::render::{GradientShape, Pattern, PatternSource};
+use kivact_types::render::{GradientShape, Group, Pattern, PatternSource};
+use kivact_types::scene::Shape;
 use kivact_types::{Extend, Point, Rect};
 
 /// Copies of a gradient tile drawn one by one; more are a pattern.
 const FEW: u32 = 4;
+
+/// The deepest bisection of a gradient interval (at most 4096 pieces).
+const MAX_DEPTH: u32 = 12;
 
 impl BoxShape {
     /// Fill the outline with `paint`.
@@ -86,7 +93,59 @@ impl BoxShape {
     }
 }
 
-/// Where the copies of a layer's tile lie in an area.
+/// The boxes of one painted box: a background layer is placed in its origin
+/// box and clipped to its clip box.
+pub(crate) struct Boxes {
+    /// The border box.
+    pub(crate) border: BoxShape,
+    /// The padding box: the border box inset by the border widths.
+    pub(crate) padding: BoxShape,
+    /// The content box: the border box inset by the border widths and the
+    /// padding, as layout resolved them.
+    pub(crate) content: BoxShape,
+    /// The glyph outlines of the node's text (for a background clipped to
+    /// the text); `None` when the node has no text to clip to.
+    pub(crate) glyphs: Option<Shape>,
+    /// The frame each background layer shows (by layer index, in the fill's
+    /// order); a layer without one shows frame 0.
+    pub(crate) frames: Vec<u32>,
+}
+
+impl Boxes {
+    /// The boxes of a canvas shape: every box is the shape itself.
+    pub(crate) fn uniform(shape: BoxShape) -> Boxes {
+        Boxes {
+            padding: shape,
+            content: shape,
+            border: shape,
+            glyphs: None,
+            frames: Vec::new(),
+        }
+    }
+
+    /// The box a layer is placed in: its origin (`None`: the padding box).
+    fn origin(&self, origin: Option<BackgroundOrigin>) -> &BoxShape {
+        match origin.unwrap_or_default() {
+            BackgroundOrigin::BorderBox => &self.border,
+            BackgroundOrigin::PaddingBox => &self.padding,
+            BackgroundOrigin::ContentBox => &self.content,
+        }
+    }
+
+    /// The outline a layer is clipped to (`None`: not drawn). A text clip is
+    /// the border box, drawn through the glyph outlines (`glyphs`).
+    pub(crate) fn clip(&self, clip: BackgroundClip) -> Option<&BoxShape> {
+        match clip {
+            BackgroundClip::BorderBox => Some(&self.border),
+            BackgroundClip::PaddingBox => Some(&self.padding),
+            BackgroundClip::ContentBox => Some(&self.content),
+            BackgroundClip::Text => self.glyphs.as_ref().map(|_| &self.border),
+        }
+    }
+}
+
+/// Where the copies of a layer's tile lie in an origin box, repeated over the
+/// clip box.
 struct Tiles {
     /// The first copy.
     first: Rect,
@@ -97,13 +156,13 @@ struct Tiles {
 impl Tiles {
     /// The copies of a `size` tile at `position` (resolved against the
     /// area less the tile, as CSS does), repeated as `layer` says.
-    fn of(layer: &FillLayer, area: Rect, size: (f64, f64)) -> Option<Tiles> {
+    fn of(layer: &FillLayer, origin: Rect, cover: Rect, size: (f64, f64)) -> Option<Tiles> {
         let (tw, th) = size;
         if !(tw.is_finite() && th.is_finite() && tw > 0.0 && th > 0.0) {
             return None;
         }
-        let ox = area.x + layer.position[0].of(area.width - tw);
-        let oy = area.y + layer.position[1].of(area.height - th);
+        let ox = origin.x + layer.position[0].of(origin.width - tw);
+        let oy = origin.y + layer.position[1].of(origin.height - th);
         if !(ox.is_finite() && oy.is_finite()) {
             return None;
         }
@@ -118,8 +177,8 @@ impl Tiles {
                 (o, 1)
             }
         };
-        let (x, nx) = axis(ox, tw, area.x, area.width, layer.repeat_x);
-        let (y, ny) = axis(oy, th, area.y, area.height, layer.repeat_y);
+        let (x, nx) = axis(ox, tw, cover.x, cover.width, layer.repeat_x);
+        let (y, ny) = axis(oy, th, cover.y, cover.height, layer.repeat_y);
         Some(Tiles {
             first: Rect {
                 x,
@@ -167,23 +226,40 @@ impl Tiles {
 }
 
 impl Context<'_> {
-    /// Fill `shape` with `fill` through `tint` (see the module invariants);
+    /// Fill `boxes` with `fill` through `tint` (see the module invariants);
     /// `origin` is what coordinate gradients' points are against.
     pub(crate) fn fill(
         &self,
         out: &mut crate::lower::SceneOut,
-        shape: &BoxShape,
+        boxes: &Boxes,
         fill: &Fill,
         tint: &Tint,
         origin: Point,
     ) {
         match fill {
-            Fill::Solid(color) => {
-                shape.fill(out, kivact_types::render::Paint::Solid(tint.color(*color)))
-            }
+            Fill::Solid(color) => boxes
+                .border
+                .fill(out, kivact_types::render::Paint::Solid(tint.color(*color))),
             Fill::Layers(layers) => {
-                for layer in layers.iter().rev() {
-                    self.fill_layer(out, shape, layer, tint, origin);
+                // Layers that blend with what is beneath them draw as a group
+                // of their own, all of them within one group (CSS
+                // background-blend-mode).
+                let blended = layers.iter().any(|l| l.blend != BlendMode::Normal);
+                if blended {
+                    out.push(D::PushGroup(blend_group(BlendMode::Normal)));
+                }
+                for (index, layer) in layers.iter().enumerate().rev() {
+                    let frame = boxes.frames.get(index).copied().unwrap_or(0);
+                    if layer.blend == BlendMode::Normal {
+                        self.fill_layer(out, boxes, layer, tint, origin, frame);
+                    } else {
+                        out.push(D::PushGroup(blend_group(layer.blend)));
+                        self.fill_layer(out, boxes, layer, tint, origin, frame);
+                        out.push(D::PopGroup);
+                    }
+                }
+                if blended {
+                    out.push(D::PopGroup);
                 }
             }
         }
@@ -243,39 +319,67 @@ impl Context<'_> {
         })
     }
 
-    /// One background layer over `shape`.
+    /// One background layer of `boxes`: placed in its origin box, repeated
+    /// over and clipped to its clip box. A layer clipped to the text is drawn
+    /// inside the group clipped to the glyph outlines.
     fn fill_layer(
         &self,
         out: &mut crate::lower::SceneOut,
-        shape: &BoxShape,
+        boxes: &Boxes,
         layer: &FillLayer,
         tint: &Tint,
         origin: Point,
+        frame: u32,
     ) {
+        match &boxes.glyphs {
+            Some(glyphs) if layer.clip == BackgroundClip::Text => {
+                out.push(crate::lower::effects::clip_group(glyphs.clone()));
+                self.paint_layer(out, boxes, layer, tint, origin, frame);
+                out.push(D::PopGroup);
+            }
+            _ => self.paint_layer(out, boxes, layer, tint, origin, frame),
+        }
+    }
+
+    /// The paint of one background layer within its clip box (see
+    /// [`Context::fill_layer`]).
+    fn paint_layer(
+        &self,
+        out: &mut crate::lower::SceneOut,
+        boxes: &Boxes,
+        layer: &FillLayer,
+        tint: &Tint,
+        origin: Point,
+        frame: u32,
+    ) {
+        let Some(shape) = boxes.clip(layer.clip) else {
+            return;
+        };
         if let FillImage::Coordinate(g) = &layer.image {
             if let Some(paint) = coordinate(g, origin) {
                 shape.fill(out, tint.paint(paint));
             }
             return;
         }
-        let area = shape.rect();
-        let Some(size) = self.tile_size(layer, area) else {
+        let placed = boxes.origin(layer.origin);
+        let (place, cover) = (placed.rect(), shape.rect());
+        let Some(size) = self.tile_size(layer, place) else {
             return;
         };
-        let Some(tiles) = Tiles::of(layer, area, size) else {
+        let Some(tiles) = Tiles::of(layer, place, cover, size) else {
             return;
         };
         match &layer.image {
             FillImage::Solid(color) => {
                 let paint = kivact_types::render::Paint::Solid(tint.color(*color));
-                if tiles.covers(area) || (layer.repeat_x && layer.repeat_y) {
+                if tiles.covers(cover) || (layer.repeat_x && layer.repeat_y) {
                     self.put(out, shape, paint);
                 } else {
                     self.fill_copies(out, shape, &tiles, |_| Some(paint.clone()));
                 }
             }
             FillImage::Gradient(g) => {
-                if tiles.covers(area) {
+                if tiles.covers(cover) {
                     if let Some(paint) = gradient(g, tiles.first) {
                         self.put(out, shape, tint.paint(paint));
                     }
@@ -297,6 +401,8 @@ impl Context<'_> {
             }
             // Placed above, by coordinates.
             FillImage::Coordinate(_) => {}
+            // A shader paint is a compositor layer item; this model has none.
+            FillImage::Shader(_) => {}
             FillImage::Image(asset) => {
                 let source = asset;
                 let device = arvane::asset::PixelSize::of(
@@ -306,15 +412,9 @@ impl Context<'_> {
                     },
                     self.raster.get(),
                 );
-                let pixels = self.pixels(source, device);
+                let pixels = self.pixels(source, device, frame);
                 if let Some((image, _)) = pixels {
-                    let paint = tiles.pattern(
-                        layer,
-                        PatternSource::Image {
-                            image,
-                            color_matrix: None,
-                        },
-                    );
+                    let paint = tiles.pattern(layer, PatternSource::Image { image });
                     self.put(out, shape, tint.paint(paint));
                 }
             }
@@ -354,7 +454,7 @@ impl Context<'_> {
             return coordinate(g, origin);
         }
         let size = self.tile_size(layer, area)?;
-        let tiles = Tiles::of(layer, area, size)?;
+        let tiles = Tiles::of(layer, area, area, size)?;
         match &layer.image {
             FillImage::Solid(color) => {
                 let paint =
@@ -390,7 +490,7 @@ impl Context<'_> {
                     other => Some(other),
                 }
             }
-            FillImage::Coordinate(_) => None,
+            FillImage::Coordinate(_) | FillImage::Shader(_) => None,
             FillImage::Image(asset) => {
                 let device = arvane::asset::PixelSize::of(
                     Size {
@@ -399,36 +499,33 @@ impl Context<'_> {
                     },
                     self.raster.get(),
                 );
-                let (image, _) = self.pixels(asset, device)?;
-                Some(tiles.pattern(
-                    layer,
-                    PatternSource::Image {
-                        image,
-                        color_matrix: None,
-                    },
-                ))
+                let (image, _) = self.pixels(asset, device, 0)?;
+                Some(tiles.pattern(layer, PatternSource::Image { image }))
             }
         }
     }
 }
 
-/// The stops of `g` as fractions of its line (CSS color stop fixup):
-/// `length` is the line's length in px (a conic gradient's: 360°).
+/// A position `l` as a fraction of a line `length` px long (a conic
+/// gradient's: 360°); a non-finite one is zero.
+fn fraction(l: Len, length: f64) -> f64 {
+    let t = if length > 0.0 {
+        l.px / length + l.pct / 100.0
+    } else {
+        l.pct / 100.0
+    };
+    if t.is_finite() { t } else { 0.0 }
+}
+
+/// The stops of `g` as fractions of its line (CSS color stop fixup), with
+/// its color hints expanded (see [`expand_gradient`]): `length` is the
+/// line's length in px (a conic gradient's: 360°).
 fn stops(g: &Gradient, length: f64) -> Vec<(f64, Rgba)> {
     let n = g.stops.len();
     let mut at: Vec<Option<f64>> = g
         .stops
         .iter()
-        .map(|s| {
-            s.at.map(|l| {
-                let t = if length > 0.0 {
-                    l.px / length + l.pct / 100.0
-                } else {
-                    l.pct / 100.0
-                };
-                if t.is_finite() { t } else { 0.0 }
-            })
-        })
+        .map(|s| s.at.map(|l| fraction(l, length)))
         .collect();
     if n == 0 {
         return Vec::new();
@@ -461,11 +558,129 @@ fn stops(g: &Gradient, length: f64) -> Vec<(f64, Rgba)> {
         }
         i = end;
     }
-    g.stops
+    let resolved: Vec<(f64, SpaceColor)> = g
+        .stops
         .iter()
         .zip(at)
-        .map(|(s, t)| (t.unwrap_or(0.0), kivact_types::Rgba::sanitize(s.color)))
-        .collect()
+        .map(|(s, t)| (t.unwrap_or(0.0), s.color))
+        .collect();
+    let hints: Vec<Option<f64>> = g
+        .hints
+        .iter()
+        .map(|h| h.map(|l| fraction(l, length)))
+        .collect();
+    expand_gradient(&resolved, &hints, g.interpolation)
+}
+
+/// The sRGB stops of a gradient whose authored stops are `stops` (offsets
+/// in order) with color `hints` between them (`hints[i]` between stop i and
+/// i + 1, an absolute offset; a missing hint is the midpoint). The colors
+/// are interpolated in `how` and mapped to sRGB; where that ramp drifts from
+/// the sRGB line between its stops, stops are added. Two stops at one
+/// offset make a hard edge.
+pub(crate) fn expand_gradient(
+    stops: &[(f64, SpaceColor)],
+    hints: &[Option<f64>],
+    how: ColorInterpolation,
+) -> Vec<(f64, Rgba)> {
+    let Some((p, c)) = stops.first().copied() else {
+        return Vec::new();
+    };
+    let mut out = vec![(p, c.to_srgb().sanitize())];
+    for (i, pair) in stops.windows(2).enumerate() {
+        let hint = hints.get(i).copied().flatten();
+        expand_interval(&mut out, pair[0], pair[1], hint, how);
+    }
+    out
+}
+
+/// Append the stops of the interval from `a` to `b` (both authored), ending
+/// at `b`; `hint` is its color hint's absolute offset.
+fn expand_interval(
+    out: &mut Vec<(f64, Rgba)>,
+    a: (f64, SpaceColor),
+    b: (f64, SpaceColor),
+    hint: Option<f64>,
+    how: ColorInterpolation,
+) {
+    let ((p0, c0), (p1, c1)) = (a, b);
+    let end = c1.to_srgb().sanitize();
+    let span = p1 - p0;
+    if span.is_nan() || span <= 0.0 {
+        out.push((p1, end));
+        return;
+    }
+    let h = hint.map_or(0.5, |h| (h - p0) / span);
+    if h == 0.0 {
+        // The hint is at the start: the second color at once.
+        out.push((p0, end));
+        out.push((p1, end));
+        return;
+    }
+    if h == 1.0 {
+        // The hint is at the end: the first color to the end.
+        out.push((p1, c0.to_srgb().sanitize()));
+        out.push((p1, end));
+        return;
+    }
+    let h = if h.is_nan() {
+        0.5
+    } else {
+        h.clamp(0.001, 0.999)
+    };
+    // CSS's hint: the weight of the second color is t^(ln 0.5 / ln h), so
+    // it is one half at the hint.
+    let exponent = 0.5f64.ln() / h.ln();
+    let ramp = |t: f64| {
+        interpolate(c0, c1, t.powf(exponent), how)
+            .to_srgb()
+            .sanitize()
+    };
+    let (f_hint, f_end) = (ramp(h), ramp(1.0));
+    let place = (p0, span);
+    refine(out, &ramp, place, (0.0, ramp(0.0)), (h, f_hint), 0);
+    refine(out, &ramp, place, (h, f_hint), (1.0, f_end), 0);
+}
+
+/// Bisect the ramp between `a` and `b` (offsets within the interval) until
+/// its midpoint is within half a sRGB step of the premultiplied mix of the
+/// ends, pushing each piece's end at its place `(start, length)` on the line.
+fn refine(
+    out: &mut Vec<(f64, Rgba)>,
+    ramp: &impl Fn(f64) -> Rgba,
+    place: (f64, f64),
+    a: (f64, Rgba),
+    b: (f64, Rgba),
+    depth: u32,
+) {
+    let m = (a.0 + b.0) / 2.0;
+    let mid = ramp(m);
+    let linear = color_at(&[(0.0, a.1), (1.0, b.1)], 0.5);
+    if depth >= MAX_DEPTH || within_step(mid, linear) {
+        out.push((place.0 + b.0 * place.1, b.1));
+        return;
+    }
+    refine(out, ramp, place, a, (m, mid), depth + 1);
+    refine(out, ramp, place, (m, mid), b, depth + 1);
+}
+
+/// Whether every channel of `a` and `b` differs by at most half a step of
+/// an 8-bit channel.
+fn within_step(a: Rgba, b: Rgba) -> bool {
+    const TOLERANCE: f64 = 0.5 / 255.0;
+    [(a.r, b.r), (a.g, b.g), (a.b, b.b), (a.a, b.a)]
+        .iter()
+        .all(|(x, y)| (x - y).abs() <= TOLERANCE)
+}
+
+/// The render group that blends its commands with `blend`.
+fn blend_group(blend: BlendMode) -> Group {
+    Group {
+        clip: None,
+        opacity: 1.0,
+        blend,
+        blur: None,
+    }
 }
 
 /// Stops spanning `[lo, hi]` mapped onto `[0, 1]`.
@@ -631,11 +846,7 @@ pub(crate) fn coordinate(
         x: origin.x + p.x,
         y: origin.y + p.y,
     };
-    let stops = g
-        .stops
-        .iter()
-        .map(|(t, c)| (*t, kivact_types::Rgba::sanitize(*c)))
-        .collect();
+    let stops = expand_gradient(&g.stops, &[], g.interpolation);
     let (shape, extend) = match g.shape {
         CoordinateShape::Linear { start, end } => (
             GradientShape::Linear {

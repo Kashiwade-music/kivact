@@ -86,6 +86,10 @@ pub enum ErrorKind {
     /// image, a family once per family. Images drawn on a canvas with
     /// `Draw::image` are never reported.
     Asset,
+    /// A shader that did not validate, or a shader parameter that does not
+    /// match the shader's `Params`. The message starts with
+    /// `"line L, column C: "` when it has a position in the source.
+    Shader,
 }
 
 // xtask-allow(state-fields): Caller location and underlying Rust error are independent optional diagnostic facts.

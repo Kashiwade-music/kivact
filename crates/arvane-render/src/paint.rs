@@ -9,13 +9,13 @@
 //! command count does not depend on how many tiles they cover. An image
 //! tile of at most `RESAMPLE_MAX` (2048) device pixels a side is resampled
 //! once (bilinear, edges clamped) to its device size and cached
-//! (`derived.rs`), so both renderers repeat it pixel for pixel: the CPU as
-//! a repeating image paint, the GPU from its image atlas or as one
+//! (`derived.rs`), so both rasterizers repeat it pixel for pixel: the CPU
+//! as a repeating image paint, the GPU from its image atlas or as one
 //! textured rectangle per visible copy (`gpu/encode.rs`). A gradient tile
 //! (2D: dots, checks) is rasterized on the CPU at its device size, at most
 //! [`TILE_MAX`] a side, and repeated as an image; a 1D period is a
 //! repeating gradient. Along an axis a pattern does not repeat along, it
-//! is clipped to the band of its tile (`draw.rs`).
+//! is clipped to the band of its tile (`draw/painter.rs`).
 //!
 //! Limits: a tile larger than `RESAMPLE_MAX` device pixels is drawn from
 //! the image as it is, so the CPU (the whole image repeated with bilinear
@@ -24,13 +24,12 @@
 
 use crate::convert;
 use crate::derived::Derived;
-use crate::gradient::{color, gradient, stops_of};
+use crate::gradient::gradient;
 use kivact_types::Rect;
-use kivact_types::render::{ColorMatrix, Paint, PatternSource};
-use kivact_types::scene::Pixels;
+use kivact_types::pixel::Pixels;
+use kivact_types::render::{Paint, PatternSource};
 use vello_cpu::PaintType;
 use vello_cpu::kurbo::Affine;
-use vello_cpu::peniko::Gradient as RasterGradient;
 
 /// A paint ready to fill with.
 pub(crate) enum Brush {
@@ -62,61 +61,32 @@ pub(crate) struct PatternFill {
     pub(crate) device_tile: (f64, f64),
 }
 
-/// The brush of `paint` over an area of `bounds`, with every color through
-/// `matrix`; `device_scale` is the device pixels per unit of the current
-/// coordinates (gradient tiles are rasterized at it).
-pub(crate) fn brush(
-    paint: &Paint,
-    bounds: Rect,
-    matrix: Option<&ColorMatrix>,
-    derived: &mut Derived,
-    device_scale: f64,
-) -> Brush {
+/// The brush of `paint`; `device_scale` is the device pixels per unit of
+/// the current coordinates (gradient tiles are rasterized at it).
+pub(crate) fn brush(paint: &Paint, derived: &mut Derived, device_scale: f64) -> Brush {
     match paint {
-        Paint::Solid(c) => Brush::Paint(PaintType::Solid(convert::color(color(*c, matrix))), None),
-        Paint::LinearGradient { angle_deg, stops } => Brush::Paint(
-            PaintType::Gradient(
-                linear_angle(*angle_deg, bounds)
-                    .with_stops(stops_of(stops, matrix, true).as_slice()),
-            ),
-            None,
-        ),
+        Paint::Solid(c) => Brush::Paint(PaintType::Solid(convert::color(*c)), None),
         Paint::Gradient(g) => {
-            let (paint, transform) = gradient(g, matrix);
+            let (paint, transform) = gradient(g);
             Brush::Paint(paint, transform)
         }
         Paint::Pattern(p) => {
             let device_tile = (p.tile.width * device_scale, p.tile.height * device_scale);
             let image = match &p.source {
-                PatternSource::Image {
-                    image,
-                    color_matrix,
-                } => {
-                    let m = match (color_matrix, matrix) {
-                        (Some(own), Some(m)) => Some(own.then(*m)),
-                        (own, m) => own.or(m.copied()),
-                    };
-                    let image = match m {
-                        Some(m) => derived.filtered(image, &m),
-                        None => image.clone(),
-                    };
+                PatternSource::Image { image } => {
                     // Repeated at its device size, pixel for pixel, the
                     // same on the CPU and the GPU (which samples each copy
                     // apart, clamped at its edges, as CSS does).
                     if device_tile.0 <= RESAMPLE_MAX && device_tile.1 <= RESAMPLE_MAX {
                         let size = |v: f64| v.round().max(1.0) as u16;
-                        derived.resampled(&image, (size(device_tile.0), size(device_tile.1)))
+                        derived.resampled(image, (size(device_tile.0), size(device_tile.1)))
                     } else {
-                        image
+                        image.clone()
                     }
                 }
                 PatternSource::Gradient(g) => {
-                    let g = match matrix {
-                        Some(m) => g.filtered(m),
-                        None => g.clone(),
-                    };
                     let size = |v: f64| v.round().clamp(1.0, f64::from(TILE_MAX)) as u16;
-                    derived.gradient_tile(&g, p.tile, (size(device_tile.0), size(device_tile.1)))
+                    derived.gradient_tile(g, p.tile, (size(device_tile.0), size(device_tile.1)))
                 }
             };
             Brush::Pattern(PatternFill {
@@ -133,20 +103,6 @@ pub(crate) fn brush(
             })
         }
     }
-}
-
-/// The gradient line of [`Paint::LinearGradient`] (as
-/// [`GradientShape::linear_angle`], in double precision).
-fn linear_angle(angle_deg: f64, rect: Rect) -> RasterGradient {
-    let angle = angle_deg.to_radians();
-    let (dy, dx) = angle.sin_cos();
-    let span = rect.width * dx.abs() + rect.height * dy.abs();
-    let cx = rect.x + rect.width / 2.0;
-    let cy = rect.y + rect.height / 2.0;
-    RasterGradient::new_linear(
-        (cx - dx * span / 2.0, cy - dy * span / 2.0),
-        (cx + dx * span / 2.0, cy + dy * span / 2.0),
-    )
 }
 
 /// The longest side a gradient tile is rasterized at, in device pixels.

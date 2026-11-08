@@ -7,7 +7,9 @@
 //!   and the padding box, each side's color in its trapezoid (the corners
 //!   split on the diagonal, as CSS draws them). Dashed and dotted borders
 //!   stroke the middle of each side's band with dashes three widths long
-//!   or round dots one width wide.
+//!   or round dots one width wide. Double, groove, ridge, inset and outset
+//!   sides are solid bands drawn inside their side's trapezoid, in the
+//!   shades of their color that CSS gives them.
 //! - Box shadows follow the box's outline (elliptical corners too): outer
 //!   ones beneath the background, cut out of the box when the background
 //!   is not opaque (CSS); inset ones above the background. The first
@@ -16,13 +18,13 @@
 //!   CSS's formula, so sharp corners stay sharp), moved by the offset,
 //!   blurred by a gaussian of standard deviation blur / 2 (a blur of 0 is a
 //!   hard edge); an inset one lies inside the box. A background is opaque
-//!   only as one opaque color with no fade and no color filter; a shadow
+//!   only as one opaque color with no fade; a shadow
 //!   whose color is transparent is left out.
 //! - The focus ring is a band outside the border box, following its
 //!   corners with an optional gap. With zero offset, a clip path
 //!   supplies the outline.
 
-use crate::lower::effects::Tint;
+use crate::lower::effects::{Tint, clip_group};
 use crate::lower::shape::BoxShape;
 use kivact_types::render::RenderCmd as D;
 use kivact_types::{Border, BorderStyle, Edges, Fill, Ring, Shadow};
@@ -119,7 +121,14 @@ fn stroke_band(
     }
     let middle = shape.inset(Edges::all(width / 2.0));
     let stroke = match style {
-        BorderStyle::Solid => Stroke::new(width),
+        // The multi-band styles reach here only through `stroke_side`, which
+        // passes each band as Solid; they draw one solid band if they do.
+        BorderStyle::Solid
+        | BorderStyle::Double
+        | BorderStyle::Groove
+        | BorderStyle::Ridge
+        | BorderStyle::Inset
+        | BorderStyle::Outset => Stroke::new(width),
         BorderStyle::Dashed => Stroke {
             dash: vec![3.0 * width, 3.0 * width],
             ..Stroke::new(width)
@@ -137,6 +146,104 @@ fn stroke_band(
     });
 }
 
+/// A solid band of `shape` between the distances `from` and `to` inside its
+/// outline.
+fn solid_band(out: &mut crate::lower::SceneOut, shape: &BoxShape, from: f64, to: f64, color: Rgba) {
+    stroke_band(
+        out,
+        &shape.inset(Edges::all(from)),
+        to - from,
+        BorderStyle::Solid,
+        color,
+    );
+}
+
+/// The dark and light shades of `c` that the groove, ridge, inset and
+/// outset styles use, as (dark, light). A black color gets gray as its light
+/// shade, so the shades still differ.
+fn shades(c: Rgba) -> (Rgba, Rgba) {
+    if c.r.max(c.g).max(c.b) >= 0.01 {
+        let dark = Rgba {
+            r: c.r * 2.0 / 3.0,
+            g: c.g * 2.0 / 3.0,
+            b: c.b * 2.0 / 3.0,
+            a: c.a,
+        };
+        (dark, c)
+    } else {
+        (
+            Rgba {
+                r: 0.0,
+                g: 0.0,
+                b: 0.0,
+                a: c.a,
+            },
+            Rgba {
+                r: 0.5,
+                g: 0.5,
+                b: 0.5,
+                a: c.a,
+            },
+        )
+    }
+}
+
+/// Draw side `i` (top, right, bottom, left) of `width` inside `shape` in
+/// `style`, with its color `color` (tinted). Dashed and dotted sides are one
+/// stroke; the other styles are solid bands:
+/// the double style has two bands a third of the width each at the edges, and
+/// the groove, ridge, inset and outset styles shade the top and left sides
+/// one way and the bottom and right sides the other way. The caller has
+/// already turned a double side under 3 wide into a solid one.
+fn stroke_side(
+    out: &mut crate::lower::SceneOut,
+    shape: &BoxShape,
+    i: usize,
+    width: f64,
+    style: BorderStyle,
+    color: Rgba,
+) {
+    let top_left = i == 0 || i == 3;
+    let half = width / 2.0;
+    match style {
+        BorderStyle::Solid | BorderStyle::Dashed | BorderStyle::Dotted => {
+            stroke_band(out, shape, width, style, color);
+        }
+        BorderStyle::Double => {
+            solid_band(out, shape, 0.0, width / 3.0, color);
+            solid_band(out, shape, 2.0 * width / 3.0, width, color);
+        }
+        BorderStyle::Groove | BorderStyle::Ridge => {
+            let (dark, light) = shades(color);
+            // Groove: the outer half of a top or left side is dark.
+            // Ridge: it is light.
+            let outer_dark = if style == BorderStyle::Groove {
+                top_left
+            } else {
+                !top_left
+            };
+            let (outer, inner) = if outer_dark {
+                (dark, light)
+            } else {
+                (light, dark)
+            };
+            solid_band(out, shape, 0.0, half, outer);
+            solid_band(out, shape, half, width, inner);
+        }
+        BorderStyle::Inset | BorderStyle::Outset => {
+            let (dark, light) = shades(color);
+            // Inset: a top or left side is dark. Outset: it is light.
+            let dark_side = if style == BorderStyle::Inset {
+                top_left
+            } else {
+                !top_left
+            };
+            let shade = if dark_side { dark } else { light };
+            solid_band(out, shape, 0.0, width, shade);
+        }
+    }
+}
+
 /// Draw `border` inside `shape` (see the module invariants).
 pub(crate) fn border(
     out: &mut crate::lower::SceneOut,
@@ -152,18 +259,32 @@ pub(crate) fn border(
     let colors = sides(&border.colors);
     let shown: Vec<usize> = (0..4).filter(|i| w[*i] > 0.0).collect();
     let one_color = shown.iter().all(|i| colors[*i] == colors[shown[0]]);
+    // A double line under 3 wide is drawn as a solid one (CSS).
+    let raw_styles = sides(&border.styles);
+    let styles = std::array::from_fn::<BorderStyle, 4, _>(|i| {
+        if raw_styles[i] == BorderStyle::Double && w[i] < 3.0 {
+            BorderStyle::Solid
+        } else {
+            raw_styles[i]
+        }
+    });
+    let one_style = shown.iter().all(|i| styles[*i] == styles[shown[0]]);
+    let all_solid = shown.iter().all(|i| styles[*i] == BorderStyle::Solid);
     let color = |i: usize| tint.color(colors[i]);
-    if one_color && w.iter().all(|x| *x == w[0]) {
-        // The same band all around.
+    if one_color && one_style && w.iter().all(|x| *x == w[0]) {
+        // The same band all around, for the styles one stroke draws.
         let solid_corners = !matches!(shape, BoxShape::Rounded(_));
-        if border.style != BorderStyle::Solid || solid_corners {
-            stroke_band(out, shape, w[0], border.style, color(0));
+        let style = styles[shown[0]];
+        let one_stroke = matches!(style, BorderStyle::Dashed | BorderStyle::Dotted)
+            || (style == BorderStyle::Solid && solid_corners);
+        if one_stroke {
+            stroke_band(out, shape, w[0], style, color(0));
             return;
         }
     }
     let inner = shape.inset(widths);
     let (o, p) = (shape.rect(), inner.rect());
-    if border.style == BorderStyle::Solid {
+    if all_solid {
         let band = ring(shape, &inner);
         if one_color {
             out.push(D::FillShape {
@@ -173,32 +294,26 @@ pub(crate) fn border(
             return;
         }
         for i in shown {
-            out.push(D::PushLayer(kivact_types::render::Layer {
-                clip: Some(trapezoid(i, o, p)),
-                ..kivact_types::render::Layer::default()
-            }));
+            out.push(clip_group(trapezoid(i, o, p)));
             out.push(D::FillShape {
                 shape: band.clone(),
                 paint: kivact_types::render::Paint::Solid(color(i)),
             });
-            out.push(D::PopLayer);
+            out.push(D::PopGroup);
         }
         return;
     }
-    // Dashed or dotted sides of their own widths.
+    // Sides of their own widths and styles.
     for i in shown {
-        out.push(D::PushLayer(kivact_types::render::Layer {
-            clip: Some(trapezoid(i, o, p)),
-            ..kivact_types::render::Layer::default()
-        }));
-        stroke_band(out, shape, w[i], border.style, color(i));
-        out.push(D::PopLayer);
+        out.push(clip_group(trapezoid(i, o, p)));
+        stroke_side(out, shape, i, w[i], styles[i], color(i));
+        out.push(D::PopGroup);
     }
 }
 
 /// Whether `fill` hides everything beneath the box (one opaque color).
 pub(crate) fn opaque(fill: Option<&Fill>, tint: &Tint) -> bool {
-    matches!(fill, Some(Fill::Solid(c)) if c.a >= 1.0) && tint.alpha >= 1.0 && tint.matrix.is_none()
+    matches!(fill, Some(Fill::Solid(c)) if c.a >= 1.0) && tint.alpha >= 1.0
 }
 
 /// The box shadows of `shadows` that are (`inset`) or are not inset, the

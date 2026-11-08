@@ -33,7 +33,8 @@
 | React・SolidJS 開発者（Rust 経験を問わない） | 主対象 | 既存の UI 知識を移せることが採用の入口になる。所有権・型・非同期で止まる箇所を教材と API で減らす |
 | モバイル | 設計と実機検証の対象 | ライフサイクル・タッチ・ソフトウェアキーボード・状態復元を設計から外さない。正式対応は保守能力で判断する |
 | 企業の独自プラットフォーム | 長期の設計協力先 | SDK・実機・契約・保守主体がそろったときだけ正式対応を判断する |
-| Web 中心の SaaS、ゲーム内 UI、大規模 Qt 移植、認証が必要な組込み | 対象外 | Web 資産・即時モード・既存資産の利益を覆す根拠が必要 |
+| ゲーム風のアプリ UI（HUD、3D の表現、shader を使う操作画面） | 対象 | ゲームの見た目を持つアプリを、同じ公開 API と操作・意味の規則で作る。ゲームエンジンの中の描画は含まない |
+| Web 中心の SaaS、ゲームエンジン（Unity・Unreal Engine 等）に組み込むゲーム内 UI、大規模 Qt 移植、認証が必要な組込み | 対象外 | Web 資産・即時モード・既存資産の利益を覆す根拠が必要 |
 
 API の使いやすさは、Rust 未経験の React・SolidJS 開発者を基準に判断する。JSX・Hooks の規則・DOM 互換は約束しないが、対応表と差分の説明を必ず用意する。
 
@@ -79,8 +80,8 @@ API の使いやすさは、Rust 未経験の React・SolidJS 開発者を基準
 | 特定アプリの画面と語彙 | アプリ | 分野固有の icon・色の役割・画面構成。kit は Path やテーマの token を渡せる拡張口を用意する |
 | アクセシビリティ | 中核 | 役割・名前・状態・操作を AccessKit 経由で OS へ出す。振る舞いの層と標準部品が既定で正しい意味を持ち、独自部品と Canvas の中の操作対象にも同じ口を開く |
 | 多言語対応 | 中核とアプリ | 中核は shaping・双方向テキスト・IME と App の locale を持つ。地域ごとの書式は中核の担当として予定する。部品は既定の文言を持ってよいが、すべて差し替えられるようにする。翻訳の資源と言語の切替はアプリが持つ |
-| 2D 描画 | 中核 | style・局所の draw layer・Canvas が同じ描画語彙を持つ。HTML Canvas と Path2D に対応させる |
-| アプリが描いた絵の表示 | 中核とアプリ | 3D viewport・合成プレビュー・scope はアプリの renderer が描く。中核は絵の表示・DPI・サイズ変更・再描画、worker からの frame の受渡し、拡大・pan・座標変換・pointer capture・重ね描き・支援技術の region を持つ。構造化データ（timeline・graph・node editor・color wheel）は kit が描き、アプリのエンジンの出力を模倣しない |
+| 描画（CSS の 2D と 3D transform、filter、mask、WGSL の shader（GPU のみ）、HTML-in-Canvas に相当する drawable） | 中核 | style・局所の draw layer・Canvas が同じ描画語彙を持つ。HTML Canvas と Path2D に対応させる |
+| アプリが描いた絵の表示 | 中核とアプリ | 3D viewport・合成プレビュー・scope はアプリの renderer が描く。中核は絵の表示・DPI・サイズ変更・再描画、worker からの frame の受渡し、drawable（view の部分木）の export（pixels と共有 texture）、拡大・pan・座標変換・pointer capture・重ね描き・支援技術の region を持つ。構造化データ（timeline・graph・node editor・color wheel）は kit が描き、アプリのエンジンの出力を模倣しない |
 | 画像の書き出し | 中核 | window なしの RGBA8 描画（OffscreenCanvas に相当）。HDR や浮動小数点の出力はアプリが持つ |
 | テキスト編集の拡張口 | 中核（段階的に） | 行単位の配置結果、独自部品の IME セッション、テキストのアクセシビリティ。到達目標は「`text_field` を公開 API だけで作り直せること」で、コードエディタを作れる水準とする |
 | アニメーション | 中核 | 目標値への補間と、利用者の毎フレームの計算。任意の正の fps を指定でき、60 fps の上限を置かない。作品の時間（タイムライン、再生位置、シーク）はアプリが持つ |

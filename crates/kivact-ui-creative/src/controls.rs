@@ -34,7 +34,7 @@ pub(crate) fn button_style(t: &Theme) -> Style {
                 .border(1, p.accent.with_alpha(0.35)),
         )
         .transition(
-            TransitionProp::Paint,
+            TransitionProp::All,
             Transition::tween(150.0, Easing::CubicBezier(0.2, 0.8, 0.2, 1.0)),
         )
 }

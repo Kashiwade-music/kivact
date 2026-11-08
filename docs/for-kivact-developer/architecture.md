@@ -4,7 +4,7 @@
 
 ## crate の境界
 
-workspace は 40 package からなる。アプリと公式 kit は `kivact` facade を利用する。内部 crate を直接使わせることで公開 API の不足を埋めない。依存の許可と module の向きは `dev/xtask/policy/workspace.toml` が機械的に検査する。
+workspace は 42 package からなる。アプリと公式 kit は `kivact` facade を利用する。内部 crate を直接使わせることで公開 API の不足を埋めない。依存の許可と module の向きは `dev/xtask/policy/workspace.toml` が機械的に検査する。
 
 | package | 担当と境界の理由 |
 |---|---|
@@ -13,6 +13,7 @@ workspace は 40 package からなる。アプリと公式 kit は `kivact` faca
 | `kivact-runtime` | reactive、task、motion、Machine、turn の状態と wake。これらは同じ owner と実行順に依存するため一つに置く |
 | `kivact-i18n` | Locale、messages、ICU4X による地域書式・日付計算。reactive context の所有は core |
 | `kivact-style` | authored Style、Theme、Draw、Path と値の解決。外部描画 library の型を公開契約に出さない |
+| `kivact-shader` | ユーザーの WGSL の検証と shader module の組み立て。naga だけに依存し、style が構築時に検証して `UiError` を返せるようにする |
 | `kivact-editing` | buffer、journal、editing session。window、描画、OS を知らない |
 | `kivact-layout` | layout の計算と一つの Layout owner。Taffy は内部実装 |
 | `kivact-core` | App、view、mount、context、入力配送、overlay、platform、diagnostics、embed、offscreen。turn 全体の順序を所有する |
@@ -25,7 +26,8 @@ workspace は 40 package からなる。アプリと公式 kit は `kivact` faca
 | `arvane-native` | Windows/Linux の実 window、OS port、入力 mapping、present、支援技術、services、embed、mirror |
 | `arvane-virtual` | 台本、仮想 clock、window、surface と SteppedBackend。native mirror を任意に接続する |
 | `arvane-text` | text shaping と計測。Parley を内部に閉じる |
-| `arvane-render` | CPU/GPU の render。Vello、wgpu を内部に閉じる |
+| `arvane-render` | RenderScene のラスタライズ（Vello）。Vello と wgpu を内部に閉じる |
+| `arvane-compose` | Composition の plan と、その CPU・GPU の合成。3D、cache、shader、外部 texture を Vello の外で一つの合成として扱う（Chrome の Skia と cc の分担と同じ） |
 | `arvane-asset` | image、SVG、font の読み込みと decode |
 | `kivact-gpu-share` | UI に依存しない GPU texture の import/export 契約 |
 | `kivact-ui-basic` / `kivact-ui-pop` / `kivact-ui-game` / `kivact-ui-creative` / `kivact-ui-soft` | 五つの公式 kit。theme、recipes と固有 domain の部品。共通 behavior を複製しない |
@@ -37,7 +39,7 @@ workspace は 40 package からなる。アプリと公式 kit は `kivact` faca
 | `gpu-interop-producer` | GPU 共有を検証する別の描画 producer |
 | `xtask` | 依存、API、状態、style と図の検査 |
 
-library は 25、雛形・小例・catalog は 11、試験・道具は 4 package。検査用 package も workspace の数に含める。旧 wire、reactive、task、motion、text、lower の独立 crate は復活させない。
+library は 27、雛形・小例・catalog は 11、試験・道具は 4 package。検査用 package も workspace の数に含める。旧 wire、reactive、task、motion、text、lower の独立 crate は復活させない。
 
 ### 境界を作る規則（B）
 
@@ -61,6 +63,7 @@ library は 25、雛形・小例・catalog は 11、試験・道具は 4 package
 | shell | `events → types`、`pipeline → events/types/ime`、`window → events/ime/types/services/a11y/target`。正規化は backend から独立 |
 | native | port が present/a11y/services/display を使い、mirror が port/present/a11y を使う。OS 固有の入口から engine へ逆依存しない |
 | virtual | clock を script が使い、window が clock/script/surface を使い、backend と mirror がそれを組み立てる |
+| compose | cache が基底。plan は cache を使い、cpu と gpu は plan・cache・tables を使う。cpu と gpu は互いを参照しない |
 
 ## 一つの語彙（VOC）
 
@@ -242,6 +245,8 @@ mount と report の安定化、入力ごとの dispatch、async settle（最大
 
 時間の正本は runtime clock 一つ。Sleep は deadline heap と cancel queue を使い、due/next deadline の確認前に取消を処理し、Drop で取り消す。FrameTick は同期に frame callback を呼ぶ。next_frame future の task に置換すると入力 batch の順序が変わるため行わない。FrameClock の request と last tick は一つの phase に保つ。Animated は一つの AnimPhase を持ち is_running は投影、自然完了の通知は安定化中の InternalWatcher が handler を呼ぶ。同じ安定化内の完了・再開では誤った完了通知をしない。
 
+Timeline は Playing の間だけ MotionState の Anim として登録し、毎 tick で track の値を publish する。drive された Timeline は progress を時間として扱い、clock には従わない。
+
 reactive の frame kind（Handler/Setup/Computation）と pure/tracking/owner/writer は別の事実であり、untrack/callback/pure が元の kind を消さない。Watcher の最初の評価は依存と queue を初期化するだけで通知しない。以後の callback は untracked で呼び、値の PartialEq 比較を勝手に加えない。
 
 ## 検証と保守の単位
@@ -263,7 +268,7 @@ NodeRef::snapshotはpoll時のnodeをHostのrequest/replyへ送り、layout/pain
 | 支援技術の性質（例 key_shortcuts） | types の Semantics、core の Node setter、native の変換の 3 crate。relation は node/region identity も検証 |
 | Role | types の Role と native の role mapping の 2 crate |
 | text style（例 text_wrap_style） | types の宣言・computed 値・継承、style builder、arvane-text の 3 crate。relative unit/current color と native 精度を保つ |
-| layout/paint の性質 | types の一つの値、style の入口、layout または engine::lower の計算・描画の 3 crate。削除済み lower crate を再設置しない |
+| layout/paint の性質 | types の一つの値、style の入口、layout または engine::lower の計算・描画の 3 crate。削除済み lower crate を再設置しない。画素が要る効果は compositor の LayerEffects |
 | OS service（例 beep） | types の request/result/capability、native の window.perform、core/platform の 3 crate。virtual は台本の応答を登録するだけ |
 | Environment field | types、native の事実、core の readonly query の 3 crate。別の environment model を作らない |
 | OS backend | native/port に入口、shell の共有 pipeline を利用。core に外部 backend 注入 API を増やさない。virtual が常時第二の SPI 実装 |

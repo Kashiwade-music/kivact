@@ -2,7 +2,7 @@
 
 use super::idle::IDLE;
 use crate::common::Error;
-use kivact_types::{SharedTextureFormat, SharedTextures};
+use kivact_types::{SHARED_PREPARED, SharedTextureFormat, SharedTextures};
 use std::time::Duration;
 
 /// The backend half of an import: its fences and the raw work around
@@ -107,6 +107,9 @@ impl Import {
         for slot in 0..import.holders.len() {
             import.release(slot)?;
         }
+        // The textures are prepared for the hand-off: the producer may write
+        // its first frames (kivact_types::SHARED_PREPARED).
+        import.signal(SHARED_PREPARED)?;
         if !import.raw.idle(IDLE) {
             return Err(Error::Timeout("shared texture preparation"));
         }

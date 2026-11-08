@@ -3,7 +3,7 @@
 use crate::lower::effects::Tint;
 use crate::lower::input_paint::{InputPaintColor, InputPaintOp};
 use crate::model::Model;
-use kivact_types::render::RenderCmd as D;
+use kivact_types::render::{Paint, RenderCmd as D};
 use kivact_types::{NodeId, Rect, Rgba};
 
 impl Model {
@@ -65,10 +65,12 @@ fn paint_op(op: InputPaintOp, tint: &Tint, out: &mut crate::lower::SceneOut) {
                 out.push(D::Glyphs {
                     run: run.clone(),
                     origin,
-                    color: Some(match color {
+                    fill: Some(Paint::Solid(match color {
                         Some(color) => tint.color(color),
                         None => tint.arvane(run.color),
-                    }),
+                    })),
+                    stroke: None,
+                    order: kivact_types::PaintOrder::default(),
                 });
             }
         }
@@ -82,7 +84,6 @@ fn paint_decoration(
     color: Rgba,
 ) {
     use kivact_editing::RangeDecorationKind;
-    use kivact_types::render::Paint;
     let fill = Paint::Solid(color);
     match kind {
         RangeDecorationKind::Background => out.push(D::Rect { rect, fill }),

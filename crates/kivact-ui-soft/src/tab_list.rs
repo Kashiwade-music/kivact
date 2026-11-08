@@ -520,8 +520,8 @@ fn tab_style(look: Look, selected: bool, disabled: bool) -> kivact::style::Style
         .text_wrap(false)
         .focus_visible(crate::recipe_style::ring(&t, t.colors.accent))
         .transition(
-            TransitionProp::Paint,
-            Transition::tween(t.motion.fast as f64, t.motion.ease_standard),
+            TransitionProp::All,
+            Transition::tween(t.motion.fast as f64, t.motion.ease_standard.clone()),
         );
     let base = if look.layout == TabLayout::Fill {
         base.grow(1).basis(0).min_width(0)
@@ -612,8 +612,8 @@ fn indicator(look: Look, selected: Value<bool>, menu: bool) -> Node {
                 t.colors.accent
             })
             .transition(
-                TransitionProp::Paint,
-                Transition::tween(t.motion.fast as f64, t.motion.ease_standard),
+                TransitionProp::All,
+                Transition::tween(t.motion.fast as f64, t.motion.ease_standard.clone()),
             )
     })
 }

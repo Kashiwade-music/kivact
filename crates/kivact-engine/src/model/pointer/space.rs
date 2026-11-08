@@ -26,7 +26,7 @@ impl<'a> PointerSpace<'a> {
     /// untransformed border box ([`Model::rect`]), mapped back through
     /// its transforms (`Model::to_local`).
     pub(crate) fn local(&self, model: &Model, node: NodeId) -> Point {
-        model.to_local(node, self.at)
+        model.pointer_local(node, self.at)
     }
 
     /// The pointer position in the window.

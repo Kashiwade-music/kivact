@@ -22,6 +22,16 @@ pub use kivact_style::draw::{
     TextFormat, TextMetrics, TextParagraph, TextRun, text_run,
 };
 
+/// The filter graph's value types, as SVG names them.
+#[doc(inline)]
+pub use kivact_style::draw::filter;
+#[doc(inline)]
+pub use kivact_style::draw::{
+    BackgroundClip, BackgroundOrigin, BorderImage, BorderImageRepeat, Composite, FilterGraph,
+    FilterInput, FilterShader, Mask, MaskComposite, MaskLayer, MaskMode, PaintShader, ShaderFilter,
+    ShaderPaint, ShaderValue,
+};
+
 mod offscreen;
 #[doc(inline)]
 pub use offscreen::Offscreen;

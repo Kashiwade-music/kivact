@@ -22,7 +22,7 @@
 //! - Fixed boxes and overlays are layers over the root's tree
 //!   ([`Model::layers`]): a layer leaves its parent's hit testing, and
 //!   takes none of its
-//!   ancestors' scroll or transforms (`rect` and `transform_between` stop
+//!   ancestors' scroll or transforms (`rect` and `window_map` stop
 //!   at it). They are hit top first, before the root's tree; scrolling
 //!   into view stops at a fixed box.
 //! - A scroll offset stays within `[0, content - viewport]` on a scrolling
@@ -41,12 +41,97 @@
 //!   `ScrollChanged`, then every changed observed node's `LayoutChanged`.
 
 use crate::contract::{HostEvent, NodeType};
+use kivact_types::geometry3d::Matrix4;
 use kivact_types::{NodeId, OverlayAt, Point, Rect};
+use std::collections::{HashMap, HashSet};
 
+use crate::layer::{self, Look, SubtreeFacts};
+use crate::lower::scene::scene_layers;
 use crate::measure::leaf::Measure;
 use crate::model::Model;
+use crate::tree::node::HostNode;
+use kivact_types::PaintProps;
+
+/// One plane of a 3D rendering context: its node and the map from its box
+/// space to the box space of the context root's parent.
+struct ContextPlane {
+    id: NodeId,
+    map: Matrix4,
+}
+
+impl Look {
+    /// The look of `id` now: its base paint's, or with state styles its
+    /// paint's with the active deltas.
+    pub(crate) fn now(host: &Model, id: NodeId, n: &HostNode) -> Self {
+        if n.states().is_some() || host.motion.get(id).is_some() {
+            Look::of(&host.effective_paint(id))
+        } else {
+            host.paint.look[n.index.0].unwrap_or_else(|| {
+                n.paint()
+                    .map_or_else(|| Look::of(&PaintProps::default()), Look::of)
+            })
+        }
+    }
+}
+
+impl layer::LayerView for Model {
+    fn drawn_look(&self, id: NodeId) -> Option<Look> {
+        let n = self.node(id)?;
+        self.tree().drawn(id).then(|| Look::now(self, id, n))
+    }
+
+    fn flat_children(&self, id: NodeId) -> Vec<NodeId> {
+        self.tree().flat_children(id).collect()
+    }
+
+    fn is_layer_node(&self, id: NodeId) -> bool {
+        self.node(id).is_some_and(|n| n.is_layer())
+    }
+
+    fn scene_facts(&self, id: NodeId) -> (bool, bool) {
+        let Some(n) = self.node(id) else {
+            return (false, false);
+        };
+        n.scenes()
+            .iter()
+            .flatten()
+            .fold((false, false), |(layer, item), scene| {
+                let (l, i) = scene_layers(scene);
+                (layer || l, item || i)
+            })
+    }
+
+    fn moves_layer(&self, id: NodeId) -> bool {
+        self.motion.moves_layer(id) || self.layout_motion_transform(id).is_some()
+    }
+
+    fn layer_roots(&self) -> Vec<NodeId> {
+        self.tree()
+            .root()
+            .into_iter()
+            .chain(self.layers().into_iter().map(|(id, _)| id))
+            .collect()
+    }
+}
 
 impl Model {
+    /// The facts of every drawn subtree of the layer roots, see
+    /// [`layer::layer_facts`].
+    pub(crate) fn layer_facts(&self) -> HashMap<NodeId, SubtreeFacts> {
+        layer::layer_facts(self)
+    }
+
+    /// The facts of the subtree at `id` (its parent's look is `parent`),
+    /// recorded in `out`, see [`layer::subtree_facts`].
+    pub(crate) fn subtree_facts(
+        &self,
+        id: NodeId,
+        parent: Option<&Look>,
+        out: &mut HashMap<NodeId, SubtreeFacts>,
+    ) -> SubtreeFacts {
+        layer::subtree_facts(self, id, parent, out)
+    }
+
     /// Lay the tree out if anything changed since the last pass, scroll
     /// pending nodes into view and queue the geometry reports. Returns
     /// whether a pass ran. Taffy computes only when the layout tree was
@@ -338,42 +423,66 @@ impl Model {
     /// be hit; everything else is an inert backdrop.
     pub(crate) fn hit(&self, p: Point) -> Option<NodeId> {
         let modal = self.modal();
-        for (o, origin) in self.layers().into_iter().rev() {
+        for (o, _) in self.layers().into_iter().rev() {
             if modal.is_some_and(|m| !self.tree.is_in_subtree(o, m)) {
                 continue;
             }
-            if let Some(h) = self.hit_node(o, origin, p) {
+            if let Some(h) = self.hit_node(o, p) {
                 return Some(h);
             }
         }
         if modal.is_some() {
             return None;
         }
-        self.hit_node(self.tree.root?, Point::default(), p)
+        self.hit_node(self.tree.root?, p)
     }
 
-    /// The deepest node under `p` in `id`'s subtree; `origin` is its
-    /// untransformed box's origin and `p` the point, both in its parent's
-    /// own space.
-    fn hit_node(&self, id: NodeId, origin: Point, p: Point) -> Option<NodeId> {
+    /// The deepest node under `p` in `id`'s subtree. `p` is in the box space
+    /// of `id`'s parent (the window for a root or a layer), where
+    /// [`Model::to_parent`] maps the box of `id`. A node whose map is not
+    /// invertible, or puts the point behind the viewer, is not hit; nor is
+    /// a back face that is hidden. A 3D rendering context is hit by
+    /// depth ([`Model::hit_context`]).
+    pub(crate) fn hit_node(&self, id: NodeId, p: Point) -> Option<NodeId> {
+        self.hit_in(id, p, None)
+    }
+
+    /// [`Model::hit_node`], with the nodes in `skip` left out: the planes of
+    /// an enclosing 3D context, which are hit in its depth order instead.
+    fn hit_in(&self, id: NodeId, p: Point, skip: Option<&HashSet<NodeId>>) -> Option<NodeId> {
         let n = self.tree.get(id)?;
         if !self.tree.shown(id) || !n.hit_testable() {
             return None;
         }
+        let map = self.to_parent(id)?;
+        if self.backface_hidden_at(id, &map) {
+            return None;
+        }
+        if Look::now(self, id, n).plane_3d() {
+            return self.hit_context(id, map, p);
+        }
+        // Into its own box space.
+        let p = map.flatten().invert()?.apply(p)?;
+        self.hit_box(id, p, skip)
+    }
+
+    /// Whether the node `id`, under `map` (its box space to its parent's),
+    /// shows a back face that is hidden.
+    fn backface_hidden_at(&self, id: NodeId, map: &Matrix4) -> bool {
+        map.shows_back()
+            && self.effective_paint(id).backface == kivact_types::paint::BackfaceVisibility::Hidden
+    }
+
+    /// The deepest node under `p` (in `id`'s box space) among `id` and its
+    /// subtree, leaving out the children in `skip`.
+    fn hit_box(&self, id: NodeId, p: Point, skip: Option<&HashSet<NodeId>>) -> Option<NodeId> {
+        let n = self.tree.get(id)?;
         let size = self.computed_layout(id)?.size;
         let r = Rect {
-            x: origin.x,
-            y: origin.y,
+            x: 0.0,
+            y: 0.0,
             width: size.width,
             height: size.height,
-        };
-        // Into its own space (a flattening transform hits nothing).
-        let p = match n.place.transformed || self.layout_motion_transform(id).is_some() {
-            true => match self.transform_at(id, r) {
-                Some(t) => t.invert()?.apply(p),
-                None => p,
-            },
-            false => p,
         };
         let paint = n.paint();
         // A clip path clips the node and its subtree.
@@ -384,32 +493,122 @@ impl Model {
         if n.clips() && !crate::lower::shape::in_child_clip(paint, r, p) {
             return inside.then_some(id);
         }
-        if self
-            .scrollbar_at(
-                id,
-                Point {
-                    x: p.x - origin.x,
-                    y: p.y - origin.y,
-                },
-            )
-            .is_some()
-        {
+        if self.scrollbar_at(id, p).is_some() {
             return Some(id);
         }
+        // Drawables drawn over the children are hit first.
+        if let Some(h) = self.drawable_hit(id, 1, p) {
+            return Some(h);
+        }
         for c in self.stacked(n).rev() {
-            let Some(cn) = self.tree.get(c).filter(|cn| !cn.is_layer()) else {
+            if skip.is_some_and(|skip| skip.contains(&c)) {
                 continue;
-            };
-            let loc = self.location(cn);
-            let o = Point {
-                x: origin.x - n.scroll.x + loc.x,
-                y: origin.y - n.scroll.y + loc.y,
-            };
-            if let Some(h) = self.hit_node(c, o, p) {
+            }
+            if self
+                .tree
+                .get(c)
+                .is_none_or(|cn| cn.is_layer() || cn.properties.drawable.is_some())
+            {
+                continue;
+            }
+            if let Some(h) = self.hit_in(c, p, skip) {
                 return Some(h);
             }
         }
+        if let Some(h) = self
+            .drawable_hit(id, 0, p)
+            .or_else(|| self.exported_hit(id, p))
+        {
+            return Some(h);
+        }
         inside.then_some(id)
+    }
+
+    /// The deepest node under `p` (in the box space of the root `root`'s
+    /// parent) of the 3D rendering context rooted at `root`, whose map is
+    /// `root_map`. Its planes are hit in depth order, nearer first
+    /// (ties: the later one in paint order first). Past
+    /// `MAX_CONTEXT_PLANES` planes, the context is hit flat: the later plane
+    /// in paint order first, without depth.
+    fn hit_context(&self, root: NodeId, root_map: Matrix4, p: Point) -> Option<NodeId> {
+        let root_look = Look::now(self, root, self.tree.get(root)?);
+        let mut planes = vec![ContextPlane {
+            id: root,
+            map: root_map,
+        }];
+        self.collect_planes(root, root_map, &root_look, &mut planes);
+        let skip: HashSet<NodeId> = planes.iter().map(|plane| plane.id).collect();
+        let flat = planes.len() > kivact_types::render::MAX_CONTEXT_PLANES;
+        let mut hits: Vec<(usize, f64, Point)> = planes
+            .iter()
+            .enumerate()
+            .filter_map(|(order, plane)| {
+                let (depth, local) = self.plane_point(plane, p)?;
+                Some((order, depth, local))
+            })
+            .collect();
+        if flat {
+            hits.sort_by_key(|hit| std::cmp::Reverse(hit.0));
+        } else {
+            hits.sort_by(|a, b| b.1.total_cmp(&a.1).then(b.0.cmp(&a.0)));
+        }
+        hits.into_iter()
+            .find_map(|(order, _, local)| self.hit_box(planes[order].id, local, Some(&skip)))
+    }
+
+    /// The planes of a 3D context below `parent`, whose map to the context
+    /// root's parent is `parent_map`: each layer child of
+    /// `parent` (a child with a clip is not one, since the clip flattens it, and neither is
+    /// a fixed box or an overlay), in paint order, and the layers under the
+    /// ones that preserve 3D. Each plane is listed before its own children.
+    fn collect_planes(
+        &self,
+        parent: NodeId,
+        parent_map: Matrix4,
+        parent_look: &Look,
+        out: &mut Vec<ContextPlane>,
+    ) {
+        let Some(pn) = self.tree.get(parent) else {
+            return;
+        };
+        for child in self.stacked(pn) {
+            let Some(cn) = self.tree.get(child) else {
+                continue;
+            };
+            if cn.is_layer() || !self.tree.shown(child) || !cn.hit_testable() {
+                continue;
+            }
+            let mut facts = HashMap::new();
+            if !self
+                .subtree_facts(child, Some(parent_look), &mut facts)
+                .layer
+            {
+                continue;
+            }
+            let Some(step) = self.to_parent(child) else {
+                continue;
+            };
+            let map = step.then(parent_map);
+            out.push(ContextPlane { id: child, map });
+            let look = Look::now(self, child, cn);
+            if look.plane_3d() {
+                self.collect_planes(child, map, &look, out);
+            }
+        }
+    }
+
+    /// The point `p` (in the root's parent's box space) in the plane's box
+    /// space, and the plane's depth at it, or `None` when the plane is not
+    /// hit there: it does not invert, the point is behind the viewer, or it
+    /// shows a hidden back face.
+    fn plane_point(&self, plane: &ContextPlane, p: Point) -> Option<(f64, Point)> {
+        if self.backface_hidden_at(plane.id, &plane.map) {
+            return None;
+        }
+        let local = plane.map.flatten().invert()?.apply(p)?;
+        let q = plane.map.transform_point([local.x, local.y, 0.0, 1.0]);
+        let depth = q[2] / q[3];
+        depth.is_finite().then_some((depth, local))
     }
 
     /// Set the scroll offset of `id` (clamped). Returns whether it moved.
@@ -515,16 +714,13 @@ impl Model {
                 && let Some(view) = self.rect(p)
                 && let Some(target) = self.rect(id)
             {
+                // The target as drawn in the container's own space.
+                let target = self.drawn_within(id, p, target, view);
                 // Respect the container's padding when revealing a target.
                 // Its gutter stays available for focus rings and scrollbars.
                 let view = self.computed_layout(p).map_or(view, |l| {
                     crate::model::interact::visual::content_at(view, l.content_box)
                 });
-                // The target as drawn in the container's own space.
-                let target = crate::model::transform::map_rect(
-                    self.transform_between(id, Some(p)).as_ref(),
-                    target,
-                );
                 let mut s = n.scroll;
                 if axes.1 {
                     s.y += reveal(target.y, target.height, view.y, view.height);
@@ -575,6 +771,7 @@ impl Model {
                 continue;
             };
             let size = l.size;
+            let layout = self.window_layout_rect(id);
             let text_truncated = super::text_geometry::text_truncated(self, engine, id);
             if let Some(n) = self.tree.get_mut(id)
                 && n.sent_layout
@@ -586,6 +783,7 @@ impl Model {
                         } else {
                             crate::tree::node::Clipping::No
                         },
+                        layout,
                     ))
                     .is_some()
             {
@@ -594,6 +792,7 @@ impl Model {
                     rect,
                     size,
                     text_truncated,
+                    layout,
                 });
             }
         }

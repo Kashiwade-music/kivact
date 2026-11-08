@@ -1,15 +1,14 @@
 //! Role: Pixels derived from a scene's values and kept from one frame to the next.
 //!
 //! Pixels the renderer makes from a scene's values, kept from one frame to
-//! the next: images through a color matrix, gradient tiles rasterized at a
-//! device size, and pattern images resampled to their tile's device size. Both renderers draw them as ordinary images (their
-//! own caches key them by these pixels' identity).
+//! the next: gradient tiles rasterized at a device size, and pattern images
+//! resampled to their tile's device size. Both rasterizers draw them as
+//! ordinary images (their own caches key them by these pixels' identity).
 //!
 //! Invariants (the frame cache rules of `images.rs`):
-//! - A filtered or resampled image is keyed by its source's pixel identity
-//!   (the `Arc` address, kept alive by the entry), dimensions and the
-//!   matrix or new size; a tile by the gradient's values, the tile's size
-//!   and its pixel size.
+//! - A resampled image is keyed by its source's pixel identity (the `Arc`
+//!   address, kept alive by the entry), dimensions and new size; a tile by
+//!   the gradient's values, the tile's size and its pixel size.
 //! - An entry not used in a frame is dropped when that frame ends; at most
 //!   `MAX_BYTES` of pixels are kept (beyond that a result is made for its
 //!   frame and not kept).
@@ -18,8 +17,8 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use kivact_types::render::{ColorMatrix, Gradient, GradientShape};
-use kivact_types::scene::Pixels;
+use kivact_types::pixel::Pixels;
+use kivact_types::render::{Gradient, GradientShape};
 use kivact_types::{Extend, Rect};
 use vello_cpu::kurbo::{Affine, Rect as RasterRect};
 use vello_cpu::peniko::{self, Blob, ImageAlphaType, ImageFormat, ImageQuality, ImageSampler};
@@ -30,9 +29,6 @@ use crate::gradient;
 /// The derived pixels kept at most (64 MiB).
 const MAX_BYTES: usize = 64 * 1024 * 1024;
 
-/// A filtered image: source address and size, and the matrix's bits.
-type FilterKey = (usize, u32, u32, [u64; 20]);
-
 /// A gradient tile: the gradient's and the tile's values as bits, and the
 /// pixel size.
 type TileKey = (Vec<u64>, u16, u16);
@@ -41,7 +37,7 @@ type TileKey = (Vec<u64>, u16, u16);
 type ResampleKey = (usize, u32, u32, u16, u16);
 
 struct Entry {
-    /// Keeps a filtered image's source address from being reused.
+    /// Keeps a resampled image's source address from being reused.
     _source: Option<Arc<[u8]>>,
     image: Pixels,
     frame: u64,
@@ -50,7 +46,6 @@ struct Entry {
 /// Derived pixels by what they are made from (see the module invariants).
 #[derive(Default)]
 pub(crate) struct Derived {
-    filtered: HashMap<FilterKey, Entry>,
     tiles: HashMap<TileKey, Entry>,
     resampled: HashMap<ResampleKey, Entry>,
     /// The rasterizer of gradient tiles, made on first use.
@@ -76,46 +71,10 @@ impl Derived {
             }
             keep
         };
-        self.filtered.retain(|_, e| keep(e));
         self.tiles.retain(|_, e| keep(e));
         self.resampled.retain(|_, e| keep(e));
         self.bytes -= freed;
     }
-
-    /// `image`'s pixels through `matrix` (straight alpha).
-    pub(crate) fn filtered(&mut self, image: &Pixels, matrix: &ColorMatrix) -> Pixels {
-        let key = (
-            Arc::as_ptr(image.rgba.as_shared()).cast::<u8>() as usize,
-            image.width,
-            image.height,
-            matrix.0.map(f64::to_bits),
-        );
-        if let Some(entry) = self.filtered.get_mut(&key) {
-            entry.frame = self.frame;
-            return entry.image.clone();
-        }
-        let mut rgba = Vec::with_capacity(image.rgba.len());
-        for px in image.rgba.as_chunks::<4>().0 {
-            let c = px.map(|v| f64::from(v) / 255.0);
-            rgba.extend(matrix.apply_array(c).map(|v| (v * 255.0).round() as u8));
-        }
-        let out = Pixels {
-            width: image.width,
-            height: image.height,
-            rgba: rgba.into(),
-        };
-        let source = Some(Arc::clone(image.rgba.as_shared()));
-        Self::keep(
-            &mut self.filtered,
-            &mut self.bytes,
-            self.frame,
-            key,
-            source,
-            &out,
-        );
-        out
-    }
-
     /// `gradient` over a tile of `tile`'s size, rasterized at `size` pixels
     /// (straight alpha).
     pub(crate) fn gradient_tile(
@@ -134,7 +93,7 @@ impl Derived {
                 f64::from(width) / tile.width,
                 f64::from(height) / tile.height,
             ));
-            let (brush, transform) = gradient::gradient(gradient, None);
+            let (brush, transform) = gradient::gradient(gradient);
             context.set_paint(brush);
             if let Some(transform) = transform {
                 context.set_paint_transform(transform);

@@ -1,16 +1,16 @@
-//! Role: Track scheduling indexes for node entrance and exit transitions.
+//! Role: Track the size motion of node entrance and exit transitions.
+//!
+//! A node's presence itself is kept by the node tree (`NodeTree::presence_of`);
+//! the nodes awaiting attachment and the leaving roots are read from it.
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 
 use kivact_types::NodeId;
 
-/// The nodes awaiting attachment or completing entrance motion, and
-/// the roots of the leaving subtrees.
+/// The scalar size motion of entrances and exits, by node.
 #[derive(Default)]
 pub(crate) struct Presences {
     pub(crate) sizes: BTreeMap<NodeId, SizeMotion>,
-    pub(super) arriving: BTreeSet<NodeId>,
-    pub(super) leaving: BTreeSet<NodeId>,
 }
 
 /// The scalar motion of one presence axis.

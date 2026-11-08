@@ -66,6 +66,14 @@ impl NodeRef {
 }
 
 impl NodeRef {
+    /// The shared observation of the bound node. Reading it in a memo also
+    /// follows a rebinding of the reference.
+    pub(crate) fn tracked_observation(&self) -> Option<crate::view::tree::NodeObservation> {
+        let state = self.state.find()?;
+        let target = state.bound.try_get().and_then(RefState::bound)?.target();
+        observation(self.app, target)
+    }
+
     pub(crate) fn observed_status<T>(
         &self,
         read: impl FnOnce(crate::view::tree::NodeObservation) -> T,
@@ -798,7 +806,7 @@ pub(crate) fn node_value(r: &NodeRef, at: &'static Location<'static>) -> Option<
 }
 
 /// How a requested scroll reaches its target.
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub enum ScrollBehavior {
     /// Apply immediately.
     #[default]

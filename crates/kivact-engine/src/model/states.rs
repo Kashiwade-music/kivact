@@ -39,7 +39,6 @@ use kivact_types::{ComputedTextStyle, NodeId, PaintDelta, PaintProps, Rgba, Stat
 
 use crate::model::Model;
 use crate::mutation::Mutation;
-use crate::tree::node::NodePresence;
 
 fn merge(p: &mut PaintProps, d: &PaintDelta) {
     if let Some(b) = &d.background {
@@ -117,9 +116,7 @@ impl Model {
             s.hover.as_ref().filter(|_| self.is_hovered(id)),
             s.pressed.as_ref().filter(|_| self.is_pressed(id)),
             s.enter.as_ref().filter(|_| entering),
-            s.exit
-                .as_ref()
-                .filter(|_| matches!(node.presence, NodePresence::Leaving(_))),
+            s.exit.as_ref().filter(|_| self.tree.leaving(id)),
         ]
         .into_iter()
         .flatten()
@@ -195,10 +192,17 @@ impl Model {
         p
     }
 
+    /// The paint `id` is drawn with now: its state motion's current paint, and
+    /// its corner radii kept on screen while its layout run scales the box.
     pub(crate) fn effective_paint(&self, id: NodeId) -> PaintProps {
-        self.motion
+        let mut paint = self
+            .motion
             .get(id)
-            .map_or_else(|| self.target_paint(id), |a| a.current_paint())
+            .map_or_else(|| self.target_paint(id), |a| a.current_paint());
+        if let Some((sx, sy)) = self.layout_motion_scale(id) {
+            paint.radius = crate::model::layout_motion::unscaled_corners(paint.radius, sx, sy);
+        }
+        paint
     }
 
     /// The text style of `id`: the inherited `Text` prop, colored by the

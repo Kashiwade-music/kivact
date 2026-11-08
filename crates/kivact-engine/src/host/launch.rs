@@ -68,6 +68,7 @@ pub(crate) fn new(
 
 pub(super) enum AssetMode {
     Worker,
+    #[cfg(feature = "testing")]
     Inline,
 }
 pub(crate) struct LaunchArgs {
@@ -91,6 +92,7 @@ impl Launch {
         }
         self
     }
+    #[cfg(feature = "testing")]
     pub(super) fn host(&self) -> &Host {
         match self {
             Self::Running(host) => host,
@@ -117,6 +119,7 @@ impl arvane::Handler for Launch {
         };
         let args = *args;
         let store = match args.assets {
+            #[cfg(feature = "testing")]
             AssetMode::Inline => arvane::asset::AssetStore::inline(),
             AssetMode::Worker => {
                 let wake = waker.clone();
@@ -144,6 +147,7 @@ impl arvane::Handler for Launch {
             frame_log: args.frame_log.clone(),
             accessibility_noted: kivact_types::cell::ReportOnce::new(),
             adapter: kivact_types::cell::Sent::new(),
+            last_stats: None,
         };
         let result = host.begin(
             window,
