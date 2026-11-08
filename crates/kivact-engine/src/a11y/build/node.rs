@@ -311,9 +311,7 @@ impl Model {
         id: types::NodeId,
         bounds: types::Rect,
     ) -> Option<kivact_types::Transform> {
-        if self.node(id)?.properties.drawable.is_none() {
-            return None;
-        }
+        self.node(id)?.properties.drawable.as_ref()?;
         let map = self.to_parent(id)?.flatten().as_affine()?;
         let at = types::Point {
             x: bounds.x,
