@@ -3,17 +3,19 @@
 use arvane::spi::{Step, StepOutcome};
 use arvane::{Engine, Presented};
 use arvane::{
-    Handler, Shell, ShellControl, ShellError, ShellEvent, ShellSetup, ShellWaker, SteppedShell,
-    Window, test_font,
+    EventTarget, Handler, Shell, ShellControl, ShellError, ShellEvent, ShellSetup, ShellWaker,
+    SteppedShell, Window, Windows, test_font,
 };
-use arvane_virtual::{GpuMode, Probe, Script, VirtualBackend, VirtualOptions};
+use arvane_virtual::{
+    GpuMode, Probe, Script, VirtualBackend, VirtualOptions, WindowProbe, WindowScript,
+};
 use kivact_types::geometry3d::Matrix4;
 use kivact_types::paint::BackfaceVisibility;
 use kivact_types::render::{
     CompositeLayer, Composition, LayerEffects, LayerItem, LayerKey, Paint, Plane, RasterGrid,
     RenderCmd, RenderScene,
 };
-use kivact_types::{PaintOrder, Rect, Rgba, Size};
+use kivact_types::{PaintOrder, Rect, Rgba, Size, WindowId, WindowRequest};
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -29,11 +31,13 @@ pub(crate) const BLUE: u32 = 0x0000_00ff;
 /// after the test.
 pub(crate) fn options(width: f64, height: f64) -> VirtualOptions {
     VirtualOptions {
-        title: std::thread::current()
-            .name()
-            .unwrap_or("arvane e2e")
-            .to_owned(),
-        size: Size { width, height },
+        main: WindowRequest::main(
+            std::thread::current()
+                .name()
+                .unwrap_or("arvane e2e")
+                .to_owned(),
+            Size { width, height },
+        ),
         frame_period_ns: PERIOD,
         ..Default::default()
     }
@@ -322,7 +326,7 @@ pub(crate) fn text_runs(text: &str, size: f64, origin: kivact_types::Point) -> V
         .collect()
 }
 
-type Action = Box<dyn FnOnce(&mut Window<'_>)>;
+type Action = Box<dyn FnOnce(&mut Windows<'_>)>;
 #[derive(Default)]
 struct Shared {
     action: Option<Action>,
@@ -332,24 +336,26 @@ struct Shared {
 }
 struct Host(Rc<RefCell<Shared>>);
 impl Handler for Host {
-    fn start(&mut self, _: &mut Window<'_>, _: ShellWaker) -> Result<ShellControl, ShellError> {
+    fn start(&mut self, _: &mut Windows<'_>, _: ShellWaker) -> Result<ShellControl, ShellError> {
         Ok(ShellControl::Wait)
     }
     fn event(
         &mut self,
+        _: EventTarget,
         event: ShellEvent,
-        window: &mut Window<'_>,
+        windows: &mut Windows<'_>,
     ) -> Result<ShellControl, ShellError> {
         if matches!(event, ShellEvent::Wake(_)) {
             let action = self.0.borrow_mut().action.take();
             if let Some(action) = action {
-                action(window);
+                action(windows);
             }
         } else {
             self.0.borrow_mut().events.push(event);
         }
         Ok(ShellControl::Wait)
     }
+    fn close(&mut self, _: &mut Windows<'_>) {}
 }
 /// Contract tests exercise application operations inside the ordinary driver.
 pub(crate) struct Harness {
@@ -373,14 +379,17 @@ impl Harness {
         let probe = backend.probe();
         let shared = Rc::new(RefCell::new(Shared::default()));
         let observed = Rc::clone(&shared);
+        let observer: arvane::Observer = Rc::new(RefCell::new(
+            move |_window: WindowId, change: &arvane::RendererChange| {
+                observed.borrow_mut().changes.push(change.clone())
+            },
+        ));
         let shell = Shell::start_stepped(
             Box::new(backend),
             ShellSetup {
                 prefer_gpu: gpu,
                 gpu_preference: preference,
-                observer: Some(Box::new(move |change| {
-                    observed.borrow_mut().changes.push(change.clone())
-                })),
+                observer: Some(observer),
             },
             Host(Rc::clone(&shared)),
         )?;
@@ -413,10 +422,18 @@ impl Harness {
         }
         Ok(harness)
     }
-    pub(crate) fn script(&self) -> Script {
+    pub(crate) fn script(&self) -> WindowScript {
+        self.script.window(WindowId::MAIN)
+    }
+    pub(crate) fn platform_script(&self) -> Script {
         self.script.clone()
     }
-    pub(crate) fn probe(&self) -> Probe {
+    pub(crate) fn probe(&self) -> WindowProbe {
+        self.probe
+            .window(WindowId::MAIN)
+            .expect("invariant: the main window is open")
+    }
+    pub(crate) fn platform_probe(&self) -> Probe {
         self.probe.clone()
     }
     pub(crate) fn step(&mut self, step: Step) {
@@ -429,8 +446,11 @@ impl Harness {
         self.step(Step::Input);
         let result = Rc::new(RefCell::new(None));
         let output = Rc::clone(&result);
-        self.shared.borrow_mut().action = Some(Box::new(move |w| {
-            *output.borrow_mut() = Some(f(w));
+        self.shared.borrow_mut().action = Some(Box::new(move |windows| {
+            let mut window = windows
+                .get(WindowId::MAIN)
+                .expect("invariant: the main window is open");
+            *output.borrow_mut() = Some(f(&mut window));
         }));
         self.step(Step::Wake);
         Rc::try_unwrap(result)

@@ -64,7 +64,7 @@ fn presses_count_into_double_and_triple_clicks_within_time_and_distance() {
     let mut at = 0;
     let mut click = |window: &mut Harness, after_ms: u64, x: f64, y: f64, button: MouseButton| {
         at += after_ms * MS;
-        window.script().set_now(at);
+        window.platform_script().set_now(at);
         mouse_event(window, PointerPhase::Move, Some(Point { x, y }));
         let down = clicks(&press(window, button));
         let up = clicks(&release(window, button));
@@ -91,7 +91,7 @@ fn presses_count_into_double_and_triple_clicks_within_time_and_distance() {
         position: kivact_types::Point::default(),
         modifiers: kivact_types::Modifiers::default(),
     });
-    window.script().input(wheel.clone());
+    window.platform_script().input(wheel.clone());
     assert_eq!(window.events(), [wheel]);
 }
 
@@ -213,7 +213,7 @@ fn keys_and_the_ime_pass_through_in_order() {
         ShellEvent::Ime(kivact_types::ImeInput::End),
     ];
     for event in events.iter().cloned() {
-        window.script().input(event);
+        window.platform_script().input(event);
     }
     let delivered = window.events();
     assert_eq!(delivered, events);

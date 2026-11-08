@@ -1,7 +1,7 @@
 //! Role: Backend contracts for platform integrations.
 pub use arvane_shell::{
     Backend, ChildHooks, CpuFormat, MakeHandler, ShellChild, ShellError, ShellEvent, ShellHandler,
-    ShellWindow, Step, StepOutcome, SteppedBackend, SteppedLoop,
+    ShellLoop, ShellWindow, Step, StepOutcome, SteppedBackend, SteppedLoop,
 };
 
 /// Make the window's GPU device lost, as a device failure does: the

@@ -59,8 +59,8 @@ mod window;
 pub mod asset;
 pub use arvane_render::{MAX_SCENE_DEPTH, glyph_ink_bounds, glyph_outline};
 pub use arvane_shell::{
-    Accessibility, AccessibilityError, FileDialog, ShellControl, ShellError, ShellEvent,
-    ShellImeText, ShellOptions, ShellWaker, WakeReasons,
+    Accessibility, AccessibilityError, EventTarget, FileDialog, InjectedInput, ShellControl,
+    ShellError, ShellEvent, ShellImeText, ShellWaker, WakeReasons,
 };
 pub use engine::Engine;
 pub use error::{Failure, FailureKind};
@@ -71,4 +71,4 @@ pub use rasterizer::Rasterizer;
 pub use availability::gpu_unavailable;
 pub use presentation::Observer;
 pub use test_font::test_font;
-pub use window::{Handler, Shell, ShellSetup, SteppedShell, Window};
+pub use window::{Handler, Shell, ShellSetup, SteppedShell, Window, Windows};

@@ -7,14 +7,18 @@ use crate::{
     ShellEvent, ShellImeText, ShellWaker,
 };
 use arvane_shell::{
-    Backend, ShellHandler, ShellWindow, Step, StepOutcome, SteppedBackend, SteppedLoop,
+    Backend, EventTarget, InjectedInput, ShellHandler, ShellLoop, ShellWindow, Step, StepOutcome,
+    SteppedBackend, SteppedLoop, WakeReasons,
 };
 use kivact_types::Environment;
 use kivact_types::GpuPreference;
 use kivact_types::ids::DrawableId;
 use kivact_types::render::{Composition, SemanticsTree, SemanticsUpdate};
-use kivact_types::{Capabilities, Cursor, Rect, Size};
+use kivact_types::{Capabilities, Cursor, Rect, RequestId, Size, WindowId, WindowRequest};
 use kivact_types::{ExternalImageId, GpuAdapter, SharedTextures};
+use std::cell::RefCell;
+use std::collections::BTreeMap;
+use std::rc::Rc;
 
 /// The native window of a running [`Shell`], handed to the [`Handler`]'s
 /// callbacks.
@@ -163,18 +167,94 @@ impl Window<'_> {
 
 /// Callbacks of a [`Shell`], confined to the thread running it.
 pub trait Handler {
-    /// Initialize retained state once the native window exists.
+    /// Initialize retained state once the main window exists.
     fn start(
         &mut self,
-        window: &mut Window<'_>,
+        windows: &mut Windows<'_>,
         waker: ShellWaker,
     ) -> Result<ShellControl, ShellError>;
     /// Handle one event and choose the next wake deadline.
     fn event(
         &mut self,
+        target: EventTarget,
         event: ShellEvent,
-        window: &mut Window<'_>,
+        windows: &mut Windows<'_>,
     ) -> Result<ShellControl, ShellError>;
+    /// Release what the handler holds; the windows are still open.
+    fn close(&mut self, windows: &mut Windows<'_>);
+}
+
+/// The open windows with their presenters, during one callback.
+pub struct Windows<'a> {
+    shell: &'a mut dyn ShellLoop,
+    presenters: &'a mut BTreeMap<WindowId, Presenter>,
+    env: crate::env::Env,
+    /// The windows start the GPU renderer.
+    gpu: bool,
+    // xtask-allow(state-fields): construction option - the renderer observer from ShellSetup, cloned into every presenter's Notes
+    /// The renderer observer, cloned into the notes of every presenter.
+    observer: Option<Observer>,
+}
+
+impl<'a> Windows<'a> {
+    /// The window `id` with its presenter, or `None` once it is closed.
+    pub fn get(&mut self, id: WindowId) -> Option<Window<'_>> {
+        let presenter = self.presenters.get_mut(&id)?;
+        let shell = self.shell.window(id)?;
+        Some(Window { shell, presenter })
+    }
+
+    /// The open windows, ascending by id.
+    pub fn ids(&self) -> Vec<WindowId> {
+        self.presenters.keys().copied().collect()
+    }
+
+    /// Make a presenter (and start its GPU when preferred), then open the
+    /// shell window.
+    pub fn open(&mut self, request: WindowRequest) -> Result<(), ShellError> {
+        let id = request.id;
+        let mut presenter = Presenter::new(Notes::new(self.observer.clone(), id), &self.env);
+        presenter.note(RendererChange::Start { gpu: self.gpu });
+        if self.gpu {
+            presenter.start_gpu(self.shell.waker());
+        }
+        self.presenters.insert(id, presenter);
+        if let Err(error) = self.shell.open_window(request) {
+            self.presenters.remove(&id);
+            return Err(error);
+        }
+        Ok(())
+    }
+
+    /// Shut the presenter down, then close the shell window.
+    pub fn close(&mut self, id: WindowId) {
+        if let Some(window) = self.shell.window(id)
+            && let Some(presenter) = self.presenters.get_mut(&id)
+        {
+            presenter.shutdown(window);
+        }
+        self.presenters.remove(&id);
+        self.shell.close_window(id);
+    }
+
+    /// Queue input for `id`; see [`ShellLoop::inject`].
+    pub fn inject(&mut self, id: WindowId, inputs: Vec<InjectedInput>, request: RequestId) {
+        self.shell.inject(id, inputs, request);
+    }
+
+    /// The loop clock, comparable to [`ShellControl::WakeAt`].
+    pub fn now_ns(&self) -> u64 {
+        self.shell.now_ns()
+    }
+
+    /// What the loop can do (`multi_window`, `window_placement`, ...), with
+    /// the GPU that Arvane adds to every window.
+    pub fn capabilities(&self) -> Capabilities {
+        Capabilities {
+            gpu: arvane_compose::GPU_BUILT,
+            ..self.shell.capabilities()
+        }
+    }
 }
 
 // xtask-allow(state-fields): Construction options: GPU preference and optional observer are independent caller choices, not lifecycle state.
@@ -220,11 +300,14 @@ impl Shell {
     }
 
     /// Call `observer` on the window's thread with every change of the
-    /// renderer drawing the window's frames, as it happens, starting with
-    /// the renderer the window starts with ([`RendererChange::Start`],
+    /// renderer drawing a window's frames, as it happens, starting with the
+    /// renderer the main window starts with ([`RendererChange::Start`],
     /// when [`Shell::run`] starts).
-    pub fn on_renderer_change(mut self, observer: impl FnMut(&RendererChange) + 'static) -> Self {
-        self.observer = Some(Box::new(observer));
+    pub fn on_renderer_change(
+        mut self,
+        observer: impl FnMut(WindowId, &RendererChange) + 'static,
+    ) -> Self {
+        self.observer = Some(Rc::new(RefCell::new(observer)));
         self
     }
 
@@ -276,7 +359,7 @@ impl Shell {
     }
 }
 
-/// Assemble the presenter and handler on the window's UI thread.
+/// Assemble the handler and the renderers on the window's UI thread.
 pub(crate) fn driver<H: Handler>(
     handler: H,
     prefer_gpu: bool,
@@ -285,66 +368,102 @@ pub(crate) fn driver<H: Handler>(
 ) -> Driver<H> {
     let env = crate::env::Env::read(gpu_preference);
     let gpu = crate::env::starts_gpu(env.renderer, prefer_gpu);
-    let mut presenter = Presenter::new(Notes::new(observer), &env);
-    presenter.note(RendererChange::Start { gpu });
     Driver {
         handler,
-        presenter,
+        presenters: BTreeMap::new(),
         gpu,
+        env,
+        observer,
     }
 }
 
-/// The shell's handler: the host's [`Handler`] and the window's presenter.
+/// The shell's handler: the host's [`Handler`] and every window's presenter.
 pub(crate) struct Driver<H> {
     handler: H,
-    presenter: Presenter,
-    /// The window starts the GPU renderer.
+    presenters: BTreeMap<WindowId, Presenter>,
+    /// The windows start the GPU renderer.
     gpu: bool,
+    /// The renderers' environment, read once per loop.
+    env: crate::env::Env,
+    // xtask-allow(state-fields): construction option - the renderer observer from ShellSetup, cloned into every presenter's Notes
+    /// The renderer observer, cloned into the notes of every presenter.
+    observer: Option<Observer>,
 }
 
 impl<H: Handler> ShellHandler for Driver<H> {
-    fn close(&mut self, window: &mut dyn ShellWindow) {
-        self.presenter.shutdown(window);
+    fn close(&mut self, shell: &mut dyn ShellLoop) {
+        let mut windows = Windows {
+            shell,
+            presenters: &mut self.presenters,
+            env: self.env,
+            gpu: self.gpu,
+            observer: self.observer.clone(),
+        };
+        self.handler.close(&mut windows);
+        drop(windows);
+        for (id, mut presenter) in std::mem::take(&mut self.presenters) {
+            if let Some(window) = shell.window(id) {
+                presenter.shutdown(window);
+            }
+        }
     }
 
     fn start(
         &mut self,
-        window: &mut dyn ShellWindow,
+        shell: &mut dyn ShellLoop,
         waker: ShellWaker,
     ) -> Result<ShellControl, ShellError> {
         // On a worker thread: the first frames are drawn on the CPU.
+        let mut presenter =
+            Presenter::new(Notes::new(self.observer.clone(), WindowId::MAIN), &self.env);
+        presenter.note(RendererChange::Start { gpu: self.gpu });
         if self.gpu {
-            self.presenter.start_gpu(waker.clone());
+            presenter.start_gpu(waker.clone());
         }
-        let mut window = Window {
-            shell: window,
-            presenter: &mut self.presenter,
+        self.presenters.insert(WindowId::MAIN, presenter);
+        let mut windows = Windows {
+            shell,
+            presenters: &mut self.presenters,
+            env: self.env,
+            gpu: self.gpu,
+            observer: self.observer.clone(),
         };
-        self.handler.start(&mut window, waker)
+        self.handler.start(&mut windows, waker)
     }
 
     fn event(
         &mut self,
+        target: EventTarget,
         event: ShellEvent,
-        window: &mut dyn ShellWindow,
+        shell: &mut dyn ShellLoop,
     ) -> Result<ShellControl, ShellError> {
-        // A GPU start step finished: once the GPU can draw the window,
-        // draw a frame now, while nothing else happens.
-        if matches!(event, ShellEvent::Wake(reasons) if reasons.contains(arvane_shell::WakeReasons::GPU_STEP))
-            && window.surface_generation().is_some()
-            && self.presenter.prepare(window)
+        // A GPU start step finished: once the GPU can draw a window, draw a
+        // frame now, while nothing else happens.
+        if matches!(event, ShellEvent::Wake(reasons) if reasons.contains(WakeReasons::GPU_STEP)) {
+            for (id, presenter) in &mut self.presenters {
+                let Some(window) = shell.window(*id) else {
+                    continue;
+                };
+                if window.surface_generation().is_some() && presenter.prepare(window) {
+                    window.request_redraw();
+                }
+            }
+        }
+        // The platform destroyed a window's surface: the GPU's goes with it
+        // (the next frame after `SurfaceCreated` makes a new one).
+        if event == ShellEvent::SurfaceDestroyed
+            && let EventTarget::Window(id) = target
+            && let Some(presenter) = self.presenters.get_mut(&id)
         {
-            window.request_redraw();
+            presenter.surface_destroyed();
         }
-        // The platform destroyed the window's surface: the GPU's goes with
-        // it (the next frame after `SurfaceCreated` makes a new one).
-        if event == ShellEvent::SurfaceDestroyed {
-            self.presenter.surface_destroyed();
-        }
-        let mut window = Window {
-            shell: window,
-            presenter: &mut self.presenter,
+        let mut windows = Windows {
+            shell,
+            presenters: &mut self.presenters,
+            env: self.env,
+            gpu: self.gpu,
+            observer: self.observer.clone(),
         };
-        self.handler.event(event, &mut window)
+        self.handler.event(target, event, &mut windows)
     }
 }
