@@ -237,7 +237,7 @@ impl ShellWindow for Window {
     fn set_title(&self, _: &str) {}
     fn set_min_size(&self, _: Option<Size>) {}
     fn reduced_motion(&self) -> bool {
-        false
+        crate::native_input::reduced_motion()
     }
     fn environment(&self) -> Environment {
         Environment {
@@ -245,6 +245,7 @@ impl ShellWindow for Window {
             window_size: self.size(),
             locale: sys_locale::get_locale(),
             frame_period_ns: self.frame_period_ns,
+            reduced_motion: self.reduced_motion(),
             ..Environment::default()
         }
     }

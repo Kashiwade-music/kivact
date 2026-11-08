@@ -756,6 +756,16 @@ impl ApplicationHandler<()> for Runner<'_> {
                 self.input(el, event);
             }
         }
+        // A wake for the environment (the Linux settings portal) carries the new preference
+        // into the window before the change is announced.
+        if reasons.contains(arvane_shell::WakeReasons::ENVIRONMENT)
+            && let Some(window) = self.run.live_ref()
+        {
+            window
+                .input
+                .reduced_motion
+                .set(crate::native_input::reduced_motion());
+        }
         let changed = self
             .run
             .live_ref()

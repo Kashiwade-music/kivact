@@ -162,6 +162,7 @@ fn run(
         waker(&backend),
     )?;
     let session = window.session.clone();
+    crate::port::linux_settings::watch(waker(&backend));
     session.start(make, &mut window, waker(&backend));
     session.opened();
     let result = if let Some(error) = shared.failure() {
@@ -227,6 +228,12 @@ fn event_loop(
             reasons.insert(arvane_shell::WakeReasons::CLIENT);
         }
         if !reasons.is_empty() {
+            if reasons.contains(arvane_shell::WakeReasons::ENVIRONMENT) {
+                session.deliver(ShellEvent::EnvironmentChanged, window);
+                if closed(window) {
+                    return Ok(());
+                }
+            }
             session.deliver(ShellEvent::Wake(reasons), window);
             if closed(window) {
                 return Ok(());
