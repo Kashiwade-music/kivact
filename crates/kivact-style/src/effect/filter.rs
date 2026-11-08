@@ -2,6 +2,7 @@
 
 use std::sync::Arc;
 
+use kivact_runtime::UiError;
 use kivact_types::FilterOp;
 
 use crate::color::Color;
@@ -133,11 +134,13 @@ impl Filter {
 }
 
 /// The problems the filter's graphs and shaders have, for reporting.
-pub(crate) fn filter_problems(f: &Filter, theme: &Theme) -> Vec<String> {
+pub(crate) fn filter_problems(f: &Filter, theme: &Theme) -> Vec<UiError> {
     f.ops
         .iter()
         .filter_map(|op| match op {
-            FilterFn::Graph(g) => g.problem(theme).map(|e| format!("filter graph: {e}")),
+            FilterFn::Graph(g) => g
+                .problem(theme)
+                .map(|e| UiError::msg(format!("filter graph: {e}"))),
             FilterFn::Shader(s) => s.problems().first().cloned(),
             _ => None,
         })

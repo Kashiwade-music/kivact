@@ -2,7 +2,7 @@
 
 use std::sync::Arc;
 
-use kivact_runtime::FrameRate;
+use kivact_runtime::{ErrorKind, FrameRate, UiError};
 use kivact_types::{ParamType, ShaderClock, ShaderProgram};
 
 use crate::asset::Asset;
@@ -20,7 +20,7 @@ pub(crate) struct ShaderData {
     pub(crate) images: [Option<Asset>; 4],
     pub(crate) clock: ShaderClock,
     pub(crate) essential: bool,
-    pub(crate) problems: Vec<String>,
+    pub(crate) problems: Vec<UiError>,
 }
 
 impl ShaderData {
@@ -40,7 +40,7 @@ impl ShaderData {
     /// have, or a value of the wrong type, is dropped and reported.
     pub(crate) fn set_param(&mut self, name: &str, value: ShaderValue) {
         match param_problem(&self.program, name, &value) {
-            Some(problem) => self.problems.push(problem),
+            Some(problem) => self.problems.push(shader_problem(problem)),
             None => {
                 self.params.retain(|(n, _)| n != name);
                 self.params.push((name.to_string(), value));
@@ -54,7 +54,7 @@ impl ShaderData {
             Some(cell) => *cell = Some(image),
             None => self
                 .problems
-                .push(format!("image slot {slot} is not in 0..=3")),
+                .push(shader_problem(format!("image slot {slot} is not in 0..=3"))),
         }
     }
 
@@ -62,6 +62,12 @@ impl ShaderData {
     pub(crate) fn set_clock(&mut self, rate: FrameRate) {
         self.clock = clock_of(rate);
     }
+}
+
+/// A problem with the values set on a shader, reported as a shader error
+/// (its position is the node's, given when the style is reported).
+fn shader_problem(message: String) -> UiError {
+    UiError::new(ErrorKind::Shader, message, None)
 }
 
 /// The parameter type a value must have for a slot of type `ty`, and whether
