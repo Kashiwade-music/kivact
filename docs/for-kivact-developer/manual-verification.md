@@ -36,3 +36,12 @@ Windows と、利用可能な Linux Wayland／X11 の各環境を区別して記
 |---|---|---|
 | 利用可能な Windows／Wayland／X11 で、`KIVACT_TEST_MIRROR=required` の台本 E2E を観察する。frame 更新、resize、scale、focus・選択の変化を見る。 | mirror は同じ App の実際の frame と a11y tree を表示する。別の見本画面や古い frame に固定されず、仮想時計で進めた結果に追従する。 | [virtual mirror](../../crates/arvane-virtual/src/mirror.rs)、[native mirror](../../crates/arvane-native/src/mirror.rs) |
 | mirror に物理 mouse／key や reader の action を送り、その後に台本の入力を続ける。別途、通常起動した native アプリを同じ物理入力で操作する。 | mirror の OS 入力・支援技術 action は台本へ混入しない。通常の native アプリでは入力を受け、二重配送せずに同じ操作を行える。mirror の観察成功と native 入力の確認成功を別々に記録する。 | [mirror の入力契約](../../crates/arvane-native/src/mirror.rs)、[native event](../../crates/arvane-native/src/port/x11/event.rs)、[共通入力](../../crates/arvane-shell/src/pipeline/ime.rs) |
+
+## 描画と動きの設定
+
+| 対象・環境 | 操作 | 期待する結果 | 変更経路の参照 |
+|---|---|---|---|
+| shader の見た目：Windows の GPU 描画と CPU 指定、Linux の GPU 描画 | Catalog の Effects にある scanline 背景（`PaintShader` と `fallback`）を GPU と CPU で表示し、時間の経過を見る。pipeline の作成に失敗する構成で fallback の見た目を確かめる。 | GPU では WGSL の結果が時間とともに動き、CPU と fallback では宣言した代わりの見た目が描かれる。色は theme の token の値を保つ。 | [shader の検証](../../crates/kivact-shader/src/lib.rs)、[paint shader](../../crates/kivact-style/src/shader/paint_shader.rs)、[GPU の compositor](../../crates/arvane-compose/src/gpu.rs) |
+| Linux の reduced motion：GNOME と KDE | 各デスクトップの「アニメーションを減らす」設定を切り替え、Effects の boot sequence と parallax HUD の動きを見る。 | 設定が reduced motion として反映され、装飾の動きは止まる。essential と指定した動きは続く。設定を読めない環境では既定の動きのまま、理由を「未確認」として記録する。 | [Linux の設定](../../crates/arvane-native/src/port/linux_settings.rs) |
+| X11 の refresh rate：Linux X11 の 60 Hz と 120 Hz 以上の display | Effects の scanline 背景（`FrameRate::Display`）の frame 間隔を見る。display を別の refresh rate へ移す。 | `FrameRate::Display` は表示の refresh rate に合い、`FrameRate::Hz` の指定は指定した値に近い。移動後も追従する。 | [X11 window](../../crates/arvane-native/src/port/x11/window.rs) |
+| drawable の GPU export：Windows の D3D12・Vulkan、Linux の Vulkan | Effects の 3D 設定パネル（drawable）を `Viewport::drawable` で export し、外部 renderer の共有 texture に表示したまま、回転、resize、pool の交換、owner の破棄を行う。 | export の画像は drawable の表示と一致する。consumer が import の fence を signal するまで slot を書き換えず、close 後は producer が終了を観測する。対応しない import は理由を返す。 | [drawable の share](../../crates/kivact-core/src/view/drawable_share.rs)、[drawable の mount](../../crates/kivact-core/src/view/drawable/mount.rs) |
