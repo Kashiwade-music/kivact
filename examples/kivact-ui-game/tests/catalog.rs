@@ -240,3 +240,14 @@ fn game_table_sort_filter_bulk_and_drawer_preserve_record_keys() {
     assert!(screen.query_by_role(Role::Dialog, "案件詳細").is_none());
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
+
+#[test]
+fn game_effects_page_mounts_its_samples_with_main_roles() {
+    let screen = mount();
+    chapter(&screen, "effects");
+    screen.get_by_role(Role::Heading, "EFFECTS");
+    screen.get_by_role(Role::Button, "カードを裏返す");
+    screen.get_by_role(Role::Button, "パネルを回す");
+    screen.get_by_role(Role::Button, "再生し直す");
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}

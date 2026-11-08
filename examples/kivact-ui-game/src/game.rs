@@ -3,6 +3,7 @@
 mod common;
 mod controls;
 mod data;
+mod effects;
 mod feature;
 mod foundations;
 mod frame;
