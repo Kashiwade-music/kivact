@@ -137,6 +137,7 @@ impl ShellWindow for WinitWindow {
             PlatformRequest::RevealPath(path) => {
                 crate::open::reveal_path(&path).map(|()| PlatformResult::Done)
             }
+            PlatformRequest::FocusWindow => return PlatformResult::Unsupported,
             PlatformRequest::RequestWindowSize(size) => {
                 let _ = self
                     .window
@@ -306,6 +307,8 @@ impl ShellWindow for WinitWindow {
             ime_reconversion: self.subclassed(),
             native_accessibility: !mobile,
             gpu: false,
+            multi_window: false,
+            window_placement: false,
         }
     }
     /// The generation of the window's presentation surface: the count of

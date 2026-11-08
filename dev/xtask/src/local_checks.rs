@@ -40,6 +40,16 @@ pub(crate) fn check(root: &Path, policy: &Path, options: &Options) -> Result<Vec
         if !options.selected(rule) {
             continue;
         }
+        if rule == "devtools-codegen" {
+            if options
+                .package
+                .as_deref()
+                .is_none_or(|package| package == "kivact-devtools-protocol")
+            {
+                errors.extend(crate::devtools_codegen::check(root));
+            }
+            continue;
+        }
         let key = rule.replace('-', "_");
         let settings = policy
             .get(&key)
@@ -159,6 +169,7 @@ fn run_rule(
         "kit-literal-color" => crate::kit_literal_color::check(source, settings, errors),
         "os-branch" => crate::os_branch::check(source, settings, errors),
         "structural-options" => crate::structural_options::check(source, settings, surface, errors),
+        "devtools-codegen" => {}
         _ => unreachable!("invariant: RULES contains only implemented checks"),
     }
 }

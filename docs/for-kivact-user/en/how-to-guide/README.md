@@ -72,6 +72,7 @@ to Kivact.
 | --- | --- |
 | [Test your app](testing.md) | Render a screen, find elements as a screen reader would and click and type in tests |
 | [Find out why something failed or updated](diagnostics.md) | Find, read and report errors, warnings and unexpected updates |
+| [Use DevTools](devtools.md) | Inspect and edit a running app: elements, styles, turns and frames, review export, MCP and Python |
 
 ## Extend Kivact
 

@@ -468,7 +468,9 @@ impl PopupApi {
                     // binding. Its surface is still mounted during this same handler
                     // chain, so the reason's focus policy still applies.
                     self.finish_close(match reason {
-                        DismissReason::Escape => PopupCloseReason::Escape,
+                        DismissReason::Escape | DismissReason::WindowClose => {
+                            PopupCloseReason::Escape
+                        }
                         DismissReason::OutsidePress => PopupCloseReason::OutsidePress,
                         DismissReason::Accessibility => PopupCloseReason::Accessibility,
                         DismissReason::Timeout => PopupCloseReason::Programmatic,

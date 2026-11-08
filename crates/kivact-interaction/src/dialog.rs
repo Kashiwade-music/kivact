@@ -288,7 +288,7 @@ impl DialogApi {
     #[track_caller]
     pub fn content(self) -> Part<PopupState> {
         let allowed = move |reason: DismissReason| match reason {
-            DismissReason::Escape => self.rules().escape,
+            DismissReason::Escape | DismissReason::WindowClose => self.rules().escape,
             DismissReason::OutsidePress => {
                 // An outside press keeps the pressed destination, accepted or
                 // not: for the rest of this opening a popover returns the

@@ -32,6 +32,7 @@ pub mod semantics_text;
 pub mod text;
 pub mod text_shaping;
 pub mod text_utf;
+pub mod window;
 
 pub use asset::{Asset, AssetBytes};
 pub use check::{LayoutCheck, LayoutFinding, LayoutLimit, LayoutRule};
@@ -74,7 +75,7 @@ pub use layout::{
 };
 pub use motion::{
     Easing, Keyframe, Kind, MotionClock, PlayDirection, Repeat, Retarget, Spring, SpringRun,
-    StepPosition, Transition, TransitionProp, lerp,
+    StepPosition, TimeScale, Transition, TransitionProp, lerp,
 };
 pub use paint::{
     BackfaceVisibility, BackgroundClip, BackgroundOrigin, Border, BorderImage, BorderImageRepeat,
@@ -109,6 +110,7 @@ pub use text::{
     TextWrap,
 };
 pub use text_shaping::TextShaper;
+pub use window::{WindowId, WindowMode, WindowPlacement, WindowRequest};
 
 pub mod animatable;
 pub use animatable::Animatable;

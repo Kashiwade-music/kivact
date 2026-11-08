@@ -145,6 +145,7 @@ impl ShellWindow for Window {
             PlatformRequest::RevealPath(path) => {
                 crate::open::reveal_path(&path).map(|()| PlatformResult::Done)
             }
+            PlatformRequest::FocusWindow => return PlatformResult::Unsupported,
             PlatformRequest::RequestWindowSize(size) => {
                 debug_assert!(!self.session.opening());
                 negotiate(
