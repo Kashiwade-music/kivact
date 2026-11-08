@@ -596,38 +596,7 @@ fn validate_op_rest<I>(i: usize, op: &PrimitiveOp<I>) -> Result<(), String> {
             check_input(i, *input)?;
             check_convolve(i, *order, kernel, *divisor, *bias, *target)
         }
-        P::DiffuseLighting {
-            input,
-            surface_scale,
-            diffuse_constant,
-            color,
-            light,
-        } => {
-            check_input(i, *input)?;
-            check_finite(i, &[*surface_scale])?;
-            check_non_negative(i, &[*diffuse_constant])?;
-            check_color(i, *color)?;
-            check_light(i, light)
-        }
-        P::SpecularLighting {
-            input,
-            surface_scale,
-            specular_constant,
-            specular_exponent,
-            color,
-            light,
-        } => {
-            check_input(i, *input)?;
-            check_finite(i, &[*surface_scale])?;
-            check_non_negative(i, &[*specular_constant])?;
-            check_color(i, *color)?;
-            check_light(i, light)?;
-            if (1.0..=128.0).contains(specular_exponent) {
-                Ok(())
-            } else {
-                Err(format!("primitive {i}: specular_exponent must be 1 to 128"))
-            }
-        }
+        P::DiffuseLighting { .. } | P::SpecularLighting { .. } => validate_lighting(i, op),
         P::DisplacementMap {
             input, map, scale, ..
         } => {
@@ -662,6 +631,46 @@ fn validate_op_rest<I>(i: usize, op: &PrimitiveOp<I>) -> Result<(), String> {
         | P::Merge { .. } => {
             unreachable!("validate_op dispatches these variants before validate_op_rest")
         }
+    }
+}
+
+/// Validates the lighting primitives. `validate_op_rest` dispatches only these.
+fn validate_lighting<I>(i: usize, op: &PrimitiveOp<I>) -> Result<(), String> {
+    use PrimitiveOp as P;
+    match op {
+        P::DiffuseLighting {
+            input,
+            surface_scale,
+            diffuse_constant,
+            color,
+            light,
+        } => {
+            check_input(i, *input)?;
+            check_finite(i, &[*surface_scale])?;
+            check_non_negative(i, &[*diffuse_constant])?;
+            check_color(i, *color)?;
+            check_light(i, light)
+        }
+        P::SpecularLighting {
+            input,
+            surface_scale,
+            specular_constant,
+            specular_exponent,
+            color,
+            light,
+        } => {
+            check_input(i, *input)?;
+            check_finite(i, &[*surface_scale])?;
+            check_non_negative(i, &[*specular_constant])?;
+            check_color(i, *color)?;
+            check_light(i, light)?;
+            if (1.0..=128.0).contains(specular_exponent) {
+                Ok(())
+            } else {
+                Err(format!("primitive {i}: specular_exponent must be 1 to 128"))
+            }
+        }
+        _ => unreachable!("validate_op_rest dispatches only the lighting variants here"),
     }
 }
 
