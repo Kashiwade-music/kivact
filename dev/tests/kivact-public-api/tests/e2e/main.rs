@@ -29,6 +29,8 @@ mod custom_text_field;
 mod diagnostics;
 mod disposal;
 #[cfg(all(feature = "gpu-interop", any(windows, target_os = "linux")))]
+mod drawable_export_gpu;
+mod drawables;
 mod environment;
 mod flows;
 mod focus;
@@ -84,6 +86,7 @@ mod relations;
 mod runtime;
 mod scroll_timeline;
 mod setup_functions;
+mod shared_layout;
 mod style_paint;
 mod task;
 mod text_editing;
