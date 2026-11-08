@@ -58,10 +58,10 @@ pub(crate) fn parse(bytes: &[u8], fonts: &FontDb, budget: usize) -> Result<Svg, 
 }
 
 /// The memory a parsed tree holds, estimated: each node's struct, each
-/// path's points and verbs, each embedded raster image's decoded pixels
-/// and each text character's outlines (shared resources such as gradients
-/// and clip paths count as one node each). Walks the tree with an explicit
-/// stack.
+/// path's points and verbs, each embedded raster image's decoded pixels,
+/// each embedded SVG's own tree and each text character's outlines (shared
+/// resources such as gradients and clip paths count as one node each). Walks
+/// the tree with an explicit stack.
 fn estimate(tree: &usvg::Tree) -> usize {
     let node = std::mem::size_of::<usvg::Path>().max(std::mem::size_of::<usvg::Group>());
     let shared = tree.clip_paths().len()
@@ -81,7 +81,7 @@ fn estimate(tree: &usvg::Tree) -> usize {
                     let data = p.data();
                     bytes += node + data.points().len() * 8 + data.verbs().len();
                 }
-                usvg::Node::Image(image) => bytes += node + decoded_bytes(image.kind()),
+                usvg::Node::Image(image) => bytes += node + image_bytes(image.kind()),
                 usvg::Node::Text(text) => {
                     let chars: usize = text
                         .chunks()
@@ -96,16 +96,17 @@ fn estimate(tree: &usvg::Tree) -> usize {
     bytes
 }
 
-/// The RGBA8 bytes an embedded raster image decodes to, from its header's
-/// size; zero for nested SVG data and for data whose size cannot be read
-/// (usvg draws nothing for those either).
-fn decoded_bytes(kind: &usvg::ImageKind) -> usize {
+/// The memory an embedded image holds: an embedded SVG's parsed tree (usvg
+/// parses `data:image/svg+xml` into a nested tree), or the RGBA8 bytes a
+/// raster image decodes to, from its header's size; zero for data whose size
+/// cannot be read (usvg draws nothing for those either).
+fn image_bytes(kind: &usvg::ImageKind) -> usize {
     let data = match kind {
         usvg::ImageKind::JPEG(data)
         | usvg::ImageKind::PNG(data)
         | usvg::ImageKind::GIF(data)
         | usvg::ImageKind::WEBP(data) => data,
-        usvg::ImageKind::SVG(_) => return 0,
+        usvg::ImageKind::SVG(tree) => return estimate(tree),
     };
     image::ImageReader::new(Cursor::new(data.as_slice()))
         .with_guessed_format()
