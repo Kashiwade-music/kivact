@@ -42,7 +42,8 @@ fn main() -> kivact::Result<()> {
 
 目標には、シグナル、クロージャ（`move || if open.get() { 240.0 } else { 0.0 }`）、定数のどれでも渡せます。満たす途中で「空にする」を押すと、値は今の位置から折り返します。途中で止められたアニメーションが飛ぶことはありません。
 
-`Transition::tween(ミリ秒, easing)` は、決まった時間で動きます。イージングは `Linear`・`EaseIn`・`EaseOut`・`EaseInOut`・`CubicBezier(x1, y1, x2, y2)`（CSS と同じ数値）、または `Easing::steps(n, StepPosition::JumpEnd)` / `Easing::steps(n, StepPosition::JumpStart)` です。`Transition::spring(Spring::DEFAULT)` は、物理的なバネのように動きます。時間は決まっておらず、収まったときに終わります。途中で止められたバネは速度を引き継ぎます。`Spring::GENTLE`・`WOBBLY`・`STIFF` はプリセットで、`stiffness`・`damping`・`mass` を自分で指定することもできます。どのトランジションにも `.delay(ms)`、`.repeat(Repeat::Times(3))`（`Repeat::Forever` なら目標が変わるまで繰り返し）、`.alternate()`（1 回おきに逆再生）を付けられます。バネの 1 回分は、収まったところで終わります。`Transition::keyframes([(0.0, 0.0), (0.6, 1.2), (1.0, 1.0)], 400)` は、0 から 1 までのオフセットで指定した値を通り、目標で終わります。
+`Transition::tween(ミリ秒, easing)` は、決まった時間で動きます。イージングは `Linear`・`EaseIn`・`EaseOut`・`EaseInOut`・`CubicBezier(x1, y1, x2, y2)`（CSS と同じ数値）、または `Easing::steps(n, StepPosition::JumpEnd)` / `Easing::steps(n, StepPosition::JumpStart)` です。`Easing::Ease` は CSS の `ease` の曲線です。`BackIn`・`BackOut`・`BackInOut` は目標を行き過ぎて戻り、`ElasticIn`・`ElasticOut`・`ElasticInOut` は目標のまわりで揺れ、`BounceIn`・`BounceOut`・`BounceInOut` は途中で跳ねます。点から描く曲線（CSS の `linear()`）には `Easing::linear_points([...])` を使います。点は `(Some(入力), 出力)` か `(None, 出力)` で、入力のない点は両隣のあいだに等間隔で置かれます。
+`Transition::spring(Spring::DEFAULT)` は、物理的なバネのように動きます。時間は決まっておらず、収まったときに終わります。途中で止められたバネは速度を引き継ぎます。`Spring::GENTLE`・`WOBBLY`・`STIFF` はプリセットで、`stiffness`・`damping`・`mass` を自分で指定することもできます。`Spring::with_duration(ms, bounce)` は、約 `ms` ミリ秒で静止するバネを作ります。timeline は長さを前もって決める必要があるので、この形を使います（[タイムライン、スクロールに連動する動き、共有レイアウト](timelines-and-scroll.md)を参照）。どのトランジションにも `.delay(ms)`、`.repeat(Repeat::Times(3))`（`Repeat::Forever` なら目標が変わるまで繰り返し）、`.alternate()`（1 回おきに逆再生）を付けられます。バネの 1 回分は、収まったところで終わります。`Transition::keyframes([(0.0, 0.0), (0.6, 1.2), (1.0, 1.0)], 400)` は、0 から 1 までのオフセットで指定した値を通り、目標で終わります。各組は、そこから始まる区間が直線になるキーフレームです。
 
 `.retarget(kivact::motion::Retarget::Proportional)` を指定すると、時間指定の transition の途中で目標が変わったとき、残りの成分距離に比例して新しい所要時間を短縮・延長し、意図した速度を保ちます。既定は `Restart` です。spring は物理モデルの時間で動きます。
 
@@ -83,10 +84,12 @@ fn drawer() -> impl IntoView {
 
 - `Animated::from(start, target, transition)` は、最初の表示も `start` からアニメーションさせます。通常の `animated` は目標の値から始まります。
 - `jump_to(value)` は、値をすぐに設定し、実行中のアニメーションを取り消します。
+- `set_velocity(v)` は、値に毎秒の速度（成分ごと）を与えます。ドラッグで離した値が勢いを保てます。実行中か一時停止中のバネは目標を保ったまま速度を引き継ぎます。止まっているか終わった値は、今の位置から目標へ、遅れなしで一度だけ実行を始めます。バネにだけ使えます。tween に指定すると報告されて無視されます。
 - `pause()` と `resume()` は、停止と再開です。止まっていた時間は数えません。
 - `is_running()` は、動いているかどうかを返す追跡付きの読み取りです。
 - セットアップで登録する `.on_complete(|| …)` は、1 回の実行が自然に終わったときに一度だけ呼ばれます。目標が置き換えられたとき、`jump_to` したとき、無限に繰り返しているときは呼ばれません。現在の値と同じ目標では実行が始まらないので、そのときも呼ばれません。
-- 値の型には、`f32`、`f64`、それらの最大 4 要素のタプル、`Point`・`Size`・`Rect` が使えます。独自の型は `Animatable` を実装するとアニメーションできます（いくつかの `f64` の成分との相互変換を書きます）。色はここではアニメーションできません。0 から 1 の数値をアニメーションさせて自分で色を混ぜるか、次のスタイルのトランジションを使ってください。
+- 値の型には、`f32`、`f64`、それらの最大 4 要素のタプル、`Point`・`Size`・`Rect`・`Color`・`Transform` が使えます。色は Oklab の空間で動くので、途中の色は目に自然な色に近くなります。独自の型は `Animatable` を実装するとアニメーションできます（いくつかの `f64` の成分との相互変換を書きます）。
+- `animated(color, transition)` は、スタイルのトランジションと同じ動きですが、値をコードの中で読めます。目標に追従する色を描きたいときに使います。
 
 ## 要素の見た目をアニメーションさせる
 
@@ -111,6 +114,32 @@ fn hover_card() -> impl IntoView {
 ```
 
 これらのトランジションはホスト側で動かします。コードが書くのは目標のスタイルだけで、フレームごとの処理はありません。
+
+### プロパティごとにトランジションを決める
+
+`TransitionProp::All` は、すべてのプロパティを対象にします（CSS の `transition: all` と同じ）。1 つのプロパティにだけ transition を付けると、そのプロパティは `All` より優先され、残りは別の時間の取り方を使えます。
+
+```rust,no_run
+use kivact::motion::{Easing, Spring, Transition};
+use kivact::prelude::*;
+use kivact::style::TransitionProp;
+
+fn chip() -> impl IntoView {
+    text("固定")
+        .style(
+            style()
+                .padding(8)
+                .background(ColorToken::Surface)
+                .hover(style().background(ColorToken::SurfaceAlt).translate_y(-2).opacity(0.9))
+                // 色と不透明度は 150 ミリ秒、持ち上がりはバネで動かす。
+                .transition(TransitionProp::All, Transition::tween(150, Easing::EaseOut))
+                .transition(TransitionProp::Transform, Transition::spring(Spring::STIFF)),
+        )
+}
+# fn main() -> kivact::Result<()> { App::new("Chip").run(chip) }
+```
+
+プロパティは、`All`、`Opacity`、`Transform`、`Background`、`BorderColor`、`BorderWidth`、`Radius`、`TextColor`、`Shadow`、`Filter`、`BackdropFilter`、`Size`（登場・退場する要素の大きさ。`enter_size` と `exit_size` を参照）です。transition の無いプロパティは、すぐに変わります。
 
 ## 要素の登場と退場をアニメーションさせる
 
@@ -203,25 +232,25 @@ fn clock_hand() -> impl IntoView {
 
 - トランジションは、既定で*装飾的*です。動きを減らす設定がオンのときは、すぐに終わります。`animated` は目標へ即座に移り、`enter`/`exit` も即座に適用されます。
 - 「処理中」を伝えるスピナーなど、意味を持つ動きには `Transition::tween(…).essential()` を付けます。このトランジションは動き続けます。
-- `frame_loop` は、動きを減らす設定では**止まりません**。ゲームやシミュレーションかもしれないからです。装飾だけのループなら、`kivact::platform::is_motion_reduced().get()`（追跡付きの読み取り）を読んで、止めるか遅くしてください。
+- フレームループは既定で*装飾的*です。動きを減らす設定がオンのあいだは、フレームを要求せず、コールバックも呼びません。動きを減らす設定がオフに戻ると、その時点から数え直します。溜まったティックを一度に出すことはありません。
+- ゲームやシミュレーションのように、動き続けることに意味があるループは、セットアップで `.essential()` を付けて指定します。コールバックはこれまでどおりレートで動くので、処理は軽く保ち、描く内容で動きを減らす設定に従うかどうかを決めてください。
 
 ```rust,no_run
-# use kivact::motion::{FrameInfo, FrameRate, frame_loop};
-# use kivact::prelude::*;
-fn drifting_background() -> impl IntoView {
+use kivact::motion::{FrameInfo, FrameRate, frame_loop};
+use kivact::prelude::*;
+
+fn starfield() -> impl IntoView {
     let shift = signal(0.0_f64);
-    let frames = frame_loop(move |frame: FrameInfo| shift.set(frame.now.as_secs_f64() * 12.0));
-    effect(move || {
-        if kivact::platform::is_motion_reduced().get() {
-            frames.stop();
-        } else {
-            frames.start(FrameRate::Hz(30.0));
-        }
-    });
+    // シミュレーションは、動きを減らす設定の中でも動き続ける。
+    let frames = frame_loop(move |frame: FrameInfo| shift.set(frame.now.as_secs_f64() * 12.0))
+        .essential();
+    on_mount(move || frames.start(FrameRate::Hz(30.0)));
     text(move || format!("{:.0}", shift.get()))
 }
-# fn main() -> kivact::Result<()> { App::new("Reduced").run(drifting_background) }
+# fn main() -> kivact::Result<()> { App::new("Starfield").run(starfield) }
 ```
+
+装飾のループが止まると、ビューには最後に描いたフレームが残ります。代わりに固定の絵を出したいときは、ビューの中で `kivact::platform::is_motion_reduced().get()`（追跡付きの読み取り）を読み、その絵を描いてください。
 
 ## アニメーションをテストする
 
@@ -273,6 +302,7 @@ mod tests {
 ## 関連項目
 
 - [キャンバスで描く](canvas.md): アニメーションする値やフレームループの状態を描画で読みます。
+- [タイムライン、スクロールに連動する動き、共有レイアウト](timelines-and-scroll.md): 順番に進む段階、stagger、スクロールの進み具合、`layout_id`。
 - [コンポーネントから非同期処理を実行する](async-and-tasks.md): タイマーとバックグラウンド処理。
 - [アプリをテストする](testing.md): 仮想時計と `RenderOptions`。
 - API リファレンス: `cargo doc -p kivact --open` を実行し、`kivact::motion` と `kivact::style::Style` を開いてください。

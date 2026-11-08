@@ -436,6 +436,75 @@ mod tests {
 
 成功するテストで同じ情報を見たいときは、`screen.accessibility_tree()`（スクリーンリーダーに見えるもの）や `screen.debug()`（保持しているツリー）を出力するか、`screen.screenshot().save_png("frame.png")` で保存します。各ステップで要求されたフレームを描きます。`KIVACT_TEST_HOLD_MS=3000` は、テストの終了時にウィンドウを 3 秒間開いたままにします。
 
+## シェーダーを GPU と CPU の両方でテストする
+
+シェーダーは 2 つのレーンで描かれ、テストは両方を対象にできます。**CPU のレーン**（既定）では、シェーダーは実行されず、CPU が `ShaderPaint::fallback` で与えた paint を描きます。そのため絵は代わりの塗りになりますが、テストは実際の画面を描いて要素を探せます。**GPU のレーン**では、ウィンドウが WGSL をグラフィックスカードで実行し、絵はシェーダーの出力になります。GPU のレーンには、グラフィックスアダプターとネイティブのウィンドウが必要です。どちらかが無い環境では、テストは飛ばされます（[CI で実行する](#ci-で実行する)を参照）。
+
+GPU のテストは、`RenderOptions::from_env().gpu()` でレーンを要求し、`.mirror(MirrorMode::Required)` でネイティブのウィンドウを必須にし、`gpu_unavailable()` が理由を返したら早く戻ります。`from_env()` は `KIVACT_TEST_GPU=1` も読むので、`.gpu()` を省いたテストは、CI のジョブがその変数を設定した、グラフィックスカードのあるマシンでだけ GPU のレーンで動きます。飛ばされた GPU のテストは、シェーダーをコンパイルしません。そのため、下の例のように、どのマシンでも WGSL をコンパイルする CPU のテストも一緒に書いてください。
+
+```rust,test_harness
+use kivact::draw::PaintShader;
+use kivact::geometry::Rect;
+use kivact::prelude::*;
+use kivact::view::canvas;
+
+const WAVE: &str = r#"
+struct Params { speed: f32, tint: vec4<f32> }
+
+fn paint(position: vec2<f32>, context: Context, params: Params) -> vec4<f32> {
+    let uv = position / context.size;
+    let wave = 0.5 + 0.5 * sin(uv.x * 12.0 + context.time * params.speed);
+    return vec4<f32>(params.tint.rgb * wave, 1.0);
+}
+"#;
+
+fn wave() -> impl IntoView {
+    let shader = PaintShader::wgsl(WAVE).expect("the shader is valid WGSL");
+    canvas(move |draw, size| {
+        // CPU のレーンでは、シェーダーの代わりに単色の fallback を描く。
+        let paint = shader
+            .paint()
+            .param("speed", 2.0)
+            .param("tint", rgb(0x3b82f6))
+            .fallback(rgb(0x1e3a8a));
+        draw.fill_rect(Rect::new(0.0, 0.0, size.width, size.height), paint);
+    })
+    .style(style().size(120, 60))
+    .test_id("wave")
+}
+
+fn main() -> kivact::Result<()> {
+    App::new("Wave").run(wave)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use kivact::test::{MirrorMode, RenderOptions, gpu_unavailable, render, render_with};
+
+    #[test]
+    fn the_wave_renders_on_the_cpu_lane() {
+        let screen = render(wave);
+        screen.get_by_test_id("wave");
+        assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+    }
+
+    #[test]
+    fn the_wave_renders_on_the_gpu_lane() {
+        if let Some(reason) = gpu_unavailable() {
+            eprintln!("skipped: {reason}");
+            return;
+        }
+        let options = RenderOptions::from_env().gpu().mirror(MirrorMode::Required);
+        let screen = render_with(options, wave);
+        screen.get_by_test_id("wave");
+        assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+    }
+}
+```
+
+両方のレーンで画面は同じなので、構造や文字を確かめるテストはレーンを選びません。画素を比べるテストは、どちらのレーンで動くかを明示してください。2 つのレーンは違う絵を描くためです。
+
 ## CI で実行する
 
 テストは通常の `cargo test` で動きます。CPU の検証にはデスクトップが不要です。実ウィンドウへの写しを使うときだけ、ウィンドウを開ける環境を用意します。

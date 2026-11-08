@@ -78,6 +78,16 @@ mod tests {
 | エラー境界 | `ErrorBoundary` | `ErrorBoundary` | `error_boundary(..)` |
 | データの取得 | ライブラリーや `useEffect` | `createResource` | `resource(source, fetch)`、ユーザー操作には `action(..)` |
 | 状態機械 | `useReducer` と effect、timer | reducer と effect、timer | `Machine` の `transition` が `Step` を返し、runner が副作用を実行する |
+| 同じ要素の、場所をまたぐ共有（Framer Motion の `layoutId`） | `layoutId`（Framer Motion） | ライブラリ | 両方のノードに `.layout_id("id")`。新しいノードは、スタイルの layout transition を使って古い箱から滑る |
+| 古い内容の退場を待ってから新しい内容を入れる（`AnimatePresence mode="wait"`） | `AnimatePresence mode="wait"` | ライブラリ | `show(cond, \|\| a).fallback(\|\| b).presence(PresenceMode::Wait)`。他のモードは `Sync` と `PopLayout` |
+| スクロールに従う値（`useScroll`） | `useScroll` | スクロールのリスナー | `scroll_progress(scroller, Orientation::Vertical)`。1 つの要素なら `view_progress(target, scroller, axis, ViewRange::Entry)` |
+| 1 つの時計で進む一連の動き（GSAP の `timeline`） | `gsap.timeline()` | ライブラリ | `timeline()`、`track(..)`、`to(track, target, transition).at(At::AfterPrevious(ms))`、`play()` |
+| リストの項目ごとの遅延（GSAP の `stagger`） | `stagger` | ライブラリ | `Stagger::new(ms).from(StaggerFrom::Center)` と `stagger.delay(index, count)` |
+| CSS の `transform: perspective(..) rotateX(..)` | `style={{ transform }}` | `style={{ transform }}` | `style().transform(Transform::new().perspective(..).rotate_x(..))` |
+| CSS の `filter: blur(4px)` | `style={{ filter }}` | `style={{ filter }}` | `style().filter(Filter::new().blur(4))`（`kivact::draw`） |
+| CSS の `mask`、`clip-path`、`mix-blend-mode` | `style={{ mask }}` など | 同じ | `style().mask(..)`、`.clip_path(shape)`、`.mix_blend_mode(BlendMode::Multiply)` |
+| CSS の `font-variation-settings`、`font-stretch` | `style={{ fontVariationSettings }}` | 同じ | `style().font_variation_settings([("wght", 650.0)])`、`.font_width(75.0)` |
+| CSS の `-webkit-text-stroke`、`paint-order` | `style={{ WebkitTextStroke }}` | 同じ | `style().text_stroke(width, color)`、`.paint_order(..)` |
 
 上の表の名前は `use kivact::prelude::*;` で使えます。`callback` と `effect_on` は状態の操作、`error_boundary` と `component` は view の組み立てに使いますが、利用のたびに個別の import を足す必要はありません。任意の context を調べる `try_use_context` は `kivact::state` から、builder の option に使う enum はそれぞれの module から import します。
 
