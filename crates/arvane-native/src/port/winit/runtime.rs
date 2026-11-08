@@ -1055,9 +1055,7 @@ impl Backend for NativeBackend {
             }
         });
         #[cfg(target_os = "linux")]
-        {
-            crate::port::linux_settings::watch(waker.clone());
-        }
+        let _watch = crate::port::linux_settings::watch(waker.clone());
         let mut app = Runner {
             handler,
             options: self.options,

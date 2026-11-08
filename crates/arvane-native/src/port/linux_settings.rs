@@ -2,13 +2,13 @@
 //!
 //! Invariants: one watcher thread, started by the first [`watch`], reads
 //! `org.freedesktop.portal.Settings` and keeps [`reduced_motion`] current. A change
-//! wakes every event loop that registered with [`watch`] (`WakeReasons::ENVIRONMENT`),
-//! which each turns into `ShellEvent::EnvironmentChanged`. Without a session bus or
-//! portal the preference stays off.
+//! wakes every event loop whose [`Watch`] is alive (`WakeReasons::ENVIRONMENT`),
+//! which each turns into `ShellEvent::EnvironmentChanged`; dropping the `Watch` when
+//! the loop ends unregisters it. Without a session bus or portal the preference stays off.
 
 use arvane_shell::{ShellWaker, WakeReasons};
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Mutex, OnceLock, PoisonError};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::{Mutex, PoisonError};
 use zbus::blocking::{Connection, Proxy};
 use zbus::zvariant::OwnedValue;
 
@@ -21,32 +21,50 @@ const KDE_NAMESPACE: &str = "org.kde.kdeglobals.KDE";
 /// The reduced-motion preference last read from the portal.
 static REDUCED_MOTION: AtomicBool = AtomicBool::new(false);
 
-/// The wakers of the event loops that show the environment. A waker of a closed loop is a no-op.
-static WAKERS: Mutex<Vec<ShellWaker>> = Mutex::new(Vec::new());
+/// The wakers of the event loops that show the environment, by registration.
+static WAKERS: Mutex<Vec<(u64, ShellWaker)>> = Mutex::new(Vec::new());
 
-/// Set once the watcher thread is started, so that every loop shares one thread.
-static STARTED: OnceLock<()> = OnceLock::new();
+/// The next registration number.
+static NEXT: AtomicU64 = AtomicU64::new(0);
+
+/// Set when the watcher thread is started, so that every loop shares one thread.
+static STARTED: AtomicBool = AtomicBool::new(false);
 
 /// Whether the desktop asks to reduce motion, as last read from the portal.
 pub(crate) fn reduced_motion() -> bool {
     REDUCED_MOTION.load(Ordering::Acquire)
 }
 
-/// Register `waker` to be woken when the preference changes, and start the watcher thread
-/// on the first call.
-pub(crate) fn watch(waker: ShellWaker) {
+/// An event loop's registration for preference changes; dropping it unregisters the loop.
+#[must_use = "the loop is woken only while the registration is held"]
+pub(crate) struct Watch(u64);
+
+impl Drop for Watch {
+    fn drop(&mut self) {
+        WAKERS
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .retain(|(id, _)| *id != self.0);
+    }
+}
+
+/// Register `waker` to be woken when the preference changes, for as long as the returned
+/// [`Watch`] is held, and start the watcher thread on the first call.
+pub(crate) fn watch(waker: ShellWaker) -> Watch {
+    let id = NEXT.fetch_add(1, Ordering::Relaxed);
     WAKERS
         .lock()
         .unwrap_or_else(PoisonError::into_inner)
-        .push(waker);
-    STARTED.get_or_init(|| {
+        .push((id, waker));
+    if !STARTED.swap(true, Ordering::AcqRel) {
         let spawned = std::thread::Builder::new()
             .name("arvane-settings".into())
             .spawn(run);
         if let Err(error) = spawned {
             tracing::debug!(%error, "settings watcher thread not started");
         }
-    });
+    }
+    Watch(id)
 }
 
 fn run() {
@@ -75,7 +93,7 @@ fn refresh(proxy: &Proxy<'_>) {
     let reduced = read_reduced_motion(proxy);
     if REDUCED_MOTION.swap(reduced, Ordering::AcqRel) != reduced {
         let wakers = WAKERS.lock().unwrap_or_else(PoisonError::into_inner);
-        for waker in wakers.iter() {
+        for (_, waker) in wakers.iter() {
             waker.wake(WakeReasons::ENVIRONMENT);
         }
     }
