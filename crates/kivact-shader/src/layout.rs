@@ -33,8 +33,9 @@ pub(crate) fn check_members(
 }
 
 /// The parameters of the `Params` struct with their offsets, and the size of
-/// the uniform block in bytes (a multiple of 16). The members must already
-/// have passed `check_members`.
+/// the uniform block in bytes (a multiple of 16). The offsets are the ones
+/// naga gave the members, so `@align` and `@size` are honoured. The members
+/// must already have passed `check_members`.
 pub(crate) fn param_slots(
     module: &Module,
     params: Handle<Type>,
@@ -47,21 +48,17 @@ pub(crate) fn param_slots(
     layouter.update(module.to_ctx()).map_err(|error| {
         place.internal(format!("the layout of the shader types failed: {error}"))
     })?;
-    let mut end: u32 = 0;
     let mut slots = Vec::with_capacity(members.len());
     for member in members {
         let ty = param_type(module, member.ty)
             .ok_or_else(|| place.internal("a `Params` member type was not checked"))?;
-        let layout = &layouter[member.ty];
-        let member_offset = layout.alignment.round_up(end);
-        end = member_offset + layout.size;
         slots.push(ParamSlot {
             name: member.name.clone().unwrap_or_default(),
             ty,
-            offset: member_offset,
+            offset: member.offset,
         });
     }
-    let size = end.max(layouter[params].size).div_ceil(16) * 16;
+    let size = layouter[params].size.div_ceil(16) * 16;
     Ok((slots, size))
 }
 
