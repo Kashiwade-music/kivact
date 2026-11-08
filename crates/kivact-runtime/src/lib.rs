@@ -16,9 +16,9 @@ mod task;
 pub use host::RuntimeConfig;
 pub use machine::{Machine, MachineCx, MachineHandle, Step, machine};
 pub use motion::{
-    Animatable, Animated, At, Easing, FrameInfo, FrameLoop, FrameRate, MotionEnv, MotionState,
-    MotionStats, Repeat, Retarget, Segment, Spring, Stagger, StaggerFrom, StepPosition, Timeline,
-    TimelineTrack, Transition, animated, frame_loop, timeline,
+    Animatable, Animated, At, Easing, FrameInfo, FrameLoop, FrameRate, Keyframe, MotionEnv,
+    MotionState, MotionStats, Repeat, Retarget, Segment, Spring, Stagger, StaggerFrom,
+    StepPosition, Timeline, TimelineTrack, Transition, animated, frame_loop, timeline,
 };
 pub use reactive::{
     AppId, Binding, Callback, EffectKind, ErrorKind, ExitState, Extensions, Handled, Handler,
