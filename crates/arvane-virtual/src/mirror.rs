@@ -4,6 +4,7 @@ use crate::window::{GpuMode, MirrorMode, VirtualOptions};
 use crate::window::{Mirror, physical};
 use arvane_native::mirror::{MirrorStats, MirrorWindow, MirrorWindowOptions, TestDisplay};
 use arvane_shell::{Accessibility, GpuTarget, ShellError};
+use kivact_types::WindowRequest;
 use std::sync::Arc;
 
 struct Adapter {
@@ -33,14 +34,17 @@ impl Mirror for Adapter {
     }
 }
 impl VirtualOptions {
-    pub(crate) fn open_mirror(&self) -> Result<Option<Box<dyn Mirror>>, ShellError> {
+    pub(crate) fn open_mirror(
+        &self,
+        request: &WindowRequest,
+    ) -> Result<Option<Box<dyn Mirror>>, ShellError> {
         if self.mirror == MirrorMode::Off {
             return Ok(None);
         }
-        let (width, height) = physical(self.size, self.scale);
+        let (width, height) = physical(request.size, self.scale);
         match TestDisplay::global().and_then(|display| {
             display.open(MirrorWindowOptions {
-                title: self.title.clone(),
+                title: request.title.clone(),
                 width,
                 height,
                 scale: self.scale,

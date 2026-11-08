@@ -1,18 +1,22 @@
 //! Role: Start and advance the virtual backend and expose owned observations.
 
-use crate::script::{Input, Item, Script};
+use crate::clock::Clock;
+use crate::script::{Item, Script, VirtualInput, VirtualWindowInput, WindowItem};
 use crate::surface::TestSurface;
-use crate::window::VirtualShell;
+use crate::window::{Display, VirtualPlatform, VirtualWindow};
 pub use crate::window::{GpuMode, MirrorMode, VirtualOptions};
 use arvane_shell::{
-    Accessibility, ShellControl, ShellError, ShellEvent, ShellHandler, ShellImeText, ShellWaker,
-    ShellWindow, Step, StepOutcome, SteppedBackend, SteppedLoop, WakeReasons,
+    Accessibility, InjectedInput, ShellControl, ShellError, ShellEvent, ShellHandler, ShellImeText,
+    ShellLoop, ShellWaker, ShellWindow, Step, StepOutcome, SteppedBackend, SteppedLoop,
+    WakeReasons,
 };
 use kivact_types::render::SemanticsTree;
-use kivact_types::{Capabilities, Cursor, Environment, Modifiers, Point, Rect, Size, ThemeHint};
-use std::cell::{Cell, RefCell};
-use std::collections::VecDeque;
-use std::num::NonZeroU64;
+use kivact_types::{
+    Capabilities, Cursor, Environment, Modifiers, Point, Rect, RequestId, Size, ThemeHint,
+    WindowId, WindowRequest,
+};
+use std::cell::RefCell;
+use std::collections::{BTreeMap, VecDeque};
 use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
@@ -20,61 +24,34 @@ use std::sync::{Arc, Mutex};
 /// Backend whose input and clock are advanced explicitly.
 pub struct VirtualBackend {
     options: VirtualOptions,
-    shell: Rc<RefCell<VirtualShell>>,
-    input: Rc<RefCell<Input>>,
+    platform: Rc<VirtualPlatform>,
+    windows: Rc<RefCell<BTreeMap<WindowId, VirtualWindow>>>,
+    input: Rc<RefCell<VirtualInput>>,
     woken: Arc<WakePending>,
 }
 impl VirtualBackend {
     pub fn new(options: VirtualOptions) -> Self {
-        let input = Rc::new(RefCell::new(Input::default()));
-        *input.borrow().saved_state.borrow_mut() = options.restored_state.clone();
-        let shell = VirtualShell {
-            saved_state: input.borrow().saved_state.clone(),
-            ime_purpose: Cell::new(kivact_types::InputPurpose::Text),
-            responders: Vec::new(),
-            capabilities: options.capabilities,
-            now: 0,
-            env: RefCell::new(Environment {
-                window_size: options.size,
-                scale_factor: options.scale,
-                frame_period_ns: options.frame_period_ns.max(1),
-                reduced_motion: options.reduced_motion,
-                theme_hint: if options.dark {
-                    ThemeHint::Dark
-                } else {
-                    ThemeHint::Light
-                },
-                locale: options.locale.clone(),
-                restored_state: options.restored_state.clone(),
-                ..Environment::default()
-            }),
-            requested_sizes: Vec::new(),
-            clipboard: String::new(),
-            dialogs: VecDeque::new(),
-            opened: Vec::new(),
-            revealed: Vec::new(),
-            fail_next: None,
-            redraw: Cell::new(false),
-            title: RefCell::new(options.title.clone()),
-            min_size: Cell::new(None),
-            ime: Cell::new(None),
-            ime_text: RefCell::new(None),
-            cursor: Cell::new(Cursor::Default),
-            soft_keyboard: (Cell::new(false), Cell::new(0)),
-            frame: None,
-            gpu: options.gpu == GpuMode::Required,
-            real: None,
-            headless: Accessibility::new(),
-            occluded: false,
-            failing: 0,
-            surface: TestSurface::Live {
-                generation: NonZeroU64::MIN,
-            },
-            cpu_frame: Cell::new(false),
+        let input = Rc::new(RefCell::new(VirtualInput::default()));
+        let saved_state = {
+            let input = input.borrow();
+            *input.saved_state.borrow_mut() = options.restored_state.clone();
+            Rc::clone(&input.saved_state)
         };
+        let platform = Rc::new(VirtualPlatform {
+            saved_state,
+            responders: RefCell::new(Vec::new()),
+            now: Clock::default(),
+            capabilities: options.capabilities,
+            clipboard: RefCell::new(String::new()),
+            dialogs: RefCell::new(VecDeque::new()),
+            opened: RefCell::new(Vec::new()),
+            revealed: RefCell::new(Vec::new()),
+            fail_next: RefCell::new(None),
+        });
         Self {
             options,
-            shell: Rc::new(RefCell::new(shell)),
+            platform,
+            windows: Rc::new(RefCell::new(BTreeMap::new())),
             input,
             woken: Arc::new(WakePending::default()),
         }
@@ -84,51 +61,76 @@ impl VirtualBackend {
     }
     pub fn probe(&self) -> Probe {
         Probe {
-            shell: Rc::clone(&self.shell),
+            platform: Rc::clone(&self.platform),
+            windows: Rc::clone(&self.windows),
             input: Rc::clone(&self.input),
             woken: Arc::clone(&self.woken),
         }
     }
+}
+/// Decide where `request`'s window goes, opening its native mirror when asked.
+fn open_display(options: &VirtualOptions, request: &WindowRequest) -> Result<Display, ShellError> {
+    if options.gpu == GpuMode::Required && options.mirror == MirrorMode::Off {
+        return Err(ShellError::unsupported(
+            "GPU presentation requires a mirror window",
+        ));
+    }
+    #[cfg(feature = "mirror")]
+    let mirror = options.open_mirror(request)?;
+    #[cfg(not(feature = "mirror"))]
+    let mirror: Option<Box<dyn crate::window::Mirror>> = {
+        let _ = request;
+        if options.mirror == MirrorMode::Required || options.gpu == GpuMode::Required {
+            return Err(ShellError::unsupported("mirror support is not built in"));
+        }
+        None
+    };
+    if options.gpu == GpuMode::Required && mirror.is_none() {
+        return Err(ShellError::unsupported(
+            "GPU presentation requires a native mirror",
+        ));
+    }
+    Ok(match mirror {
+        Some(mirror) => Display::Mirrored(mirror),
+        None => Display::Headless(Accessibility::new()),
+    })
 }
 impl SteppedBackend for VirtualBackend {
     fn start(
         self: Box<Self>,
         handler: Box<dyn ShellHandler>,
     ) -> Result<Box<dyn SteppedLoop>, ShellError> {
-        if self.options.gpu == GpuMode::Required && self.options.mirror == MirrorMode::Off {
-            return Err(ShellError::unsupported(
-                "GPU presentation requires a mirror window",
-            ));
-        }
-        #[cfg(feature = "mirror")]
-        {
-            self.shell.borrow_mut().real = self.options.open_mirror()?;
-        }
-        #[cfg(not(feature = "mirror"))]
-        if self.options.mirror == MirrorMode::Required || self.options.gpu == GpuMode::Required {
-            return Err(ShellError::unsupported("mirror support is not built in"));
-        }
-        if self.options.gpu == GpuMode::Required && self.shell.borrow().real.is_none() {
-            return Err(ShellError::unsupported(
-                "GPU presentation requires a native mirror",
-            ));
-        }
+        let Self {
+            options,
+            platform,
+            windows,
+            input,
+            woken,
+        } = *self;
+        let request = options.main.clone();
+        let display = open_display(&options, &request)?;
+        let main = VirtualWindow::new(&platform, &options, &request, display);
+        windows.borrow_mut().insert(request.id, main);
+        input
+            .borrow_mut()
+            .windows
+            .insert(request.id, VirtualWindowInput::default());
+        let waker = ShellWaker::new({
+            let wake = Arc::clone(&woken);
+            move |reasons| wake.request(reasons)
+        });
         let mut running = Running {
-            shell: self.shell,
-            input: self.input,
+            options,
+            platform,
+            windows,
+            input,
             handler,
             control: ShellControl::Wait,
             state: State::Live,
-            woken: self.woken,
+            woken,
+            waker,
         };
-        let wake = Arc::clone(&running.woken);
-        let result = running.handler.start(
-            &mut *running.shell.borrow_mut(),
-            ShellWaker::new(move |reasons| {
-                wake.request(reasons);
-            }),
-        );
-        match result {
+        match running.start_handler() {
             Ok(control) => {
                 running.control = control;
                 if control == ShellControl::Exit {
@@ -140,7 +142,10 @@ impl SteppedBackend for VirtualBackend {
                 return Err(error);
             }
         }
-        running.deliver(ShellEvent::AccessibilityActivated);
+        running.deliver(
+            arvane_shell::EventTarget::Window(request.id),
+            ShellEvent::AccessibilityActivated,
+        );
         Ok(Box::new(running))
     }
 }
@@ -175,26 +180,62 @@ enum State {
     Exited,
     Failed(ShellError),
 }
+/// The running loop: the handler, the shared window table and the input queue.
 struct Running {
-    shell: Rc<RefCell<VirtualShell>>,
-    input: Rc<RefCell<Input>>,
+    options: VirtualOptions,
+    platform: Rc<VirtualPlatform>,
+    windows: Rc<RefCell<BTreeMap<WindowId, VirtualWindow>>>,
+    input: Rc<RefCell<VirtualInput>>,
     handler: Box<dyn ShellHandler>,
     control: ShellControl,
     state: State,
     woken: Arc<WakePending>,
+    waker: ShellWaker,
 }
 impl Running {
     fn finish(&mut self, state: State) {
         if matches!(self.state, State::Live) {
-            self.handler.close(&mut *self.shell.borrow_mut());
+            let mut windows = self.windows.borrow_mut();
+            let mut input = self.input.borrow_mut();
+            let mut shell = VirtualLoop {
+                options: &self.options,
+                platform: &self.platform,
+                windows: &mut windows,
+                input: &mut input,
+                waker: &self.waker,
+            };
+            self.handler.close(&mut shell);
         }
         self.state = state;
     }
-    fn deliver(&mut self, event: ShellEvent) {
+    fn start_handler(&mut self) -> Result<ShellControl, ShellError> {
+        let mut windows = self.windows.borrow_mut();
+        let mut input = self.input.borrow_mut();
+        let mut shell = VirtualLoop {
+            options: &self.options,
+            platform: &self.platform,
+            windows: &mut windows,
+            input: &mut input,
+            waker: &self.waker,
+        };
+        self.handler.start(&mut shell, self.waker.clone())
+    }
+    fn deliver(&mut self, target: arvane_shell::EventTarget, event: ShellEvent) {
         if !matches!(self.state, State::Live) {
             return;
         }
-        let result = self.handler.event(event, &mut *self.shell.borrow_mut());
+        let result = {
+            let mut windows = self.windows.borrow_mut();
+            let mut input = self.input.borrow_mut();
+            let mut shell = VirtualLoop {
+                options: &self.options,
+                platform: &self.platform,
+                windows: &mut windows,
+                input: &mut input,
+                waker: &self.waker,
+            };
+            self.handler.event(target, event, &mut shell)
+        };
         match result {
             Ok(ShellControl::Exit) => self.finish(State::Exited),
             Ok(control) => self.control = control,
@@ -212,16 +253,22 @@ impl Drop for Running {
 impl SteppedLoop for Running {
     fn step(&mut self, step: Step) -> StepOutcome {
         if matches!(self.state, State::Live) {
-            self.shell.borrow_mut().now = self.input.borrow().clock.now();
+            self.platform.now.set(self.input.borrow().clock.now());
             match step {
                 Step::Input => loop {
                     let item = self.input.borrow_mut().queue.pop_front();
                     let Some(item) = item else {
                         break;
                     };
-                    let event = apply(&mut self.shell.borrow_mut(), item);
-                    if let Some(event) = event {
-                        self.deliver(event);
+                    let events = {
+                        let mut windows = self.windows.borrow_mut();
+                        apply(&self.platform, &mut windows, item)
+                    };
+                    for (target, event) in events {
+                        self.deliver(target, event);
+                        if !matches!(self.state, State::Live) {
+                            break;
+                        }
                     }
                     if !matches!(self.state, State::Live) {
                         break;
@@ -232,12 +279,21 @@ impl SteppedLoop for Running {
                     if reasons.is_empty() {
                         reasons.insert(WakeReasons::CLIENT);
                     }
-                    self.deliver(ShellEvent::Wake(reasons));
+                    self.deliver(arvane_shell::EventTarget::Loop, ShellEvent::Wake(reasons));
                 }
                 Step::Redraw => {
-                    let redraw = self.shell.borrow().redraw.replace(false);
-                    if redraw {
-                        self.deliver(ShellEvent::Redraw);
+                    let ids = {
+                        let mut windows = self.windows.borrow_mut();
+                        let mut ids = Vec::new();
+                        for (id, window) in windows.iter_mut() {
+                            if window.redraw.replace(false) {
+                                ids.push(*id);
+                            }
+                        }
+                        ids
+                    };
+                    for id in ids {
+                        self.deliver(arvane_shell::EventTarget::Window(id), ShellEvent::Redraw);
                     }
                 }
             }
@@ -245,7 +301,11 @@ impl SteppedLoop for Running {
         match &self.state {
             State::Live => StepOutcome::Idle {
                 next_deadline: self.control.deadline(),
-                redraw_requested: self.shell.borrow().redraw.get(),
+                redraw_requested: self
+                    .windows
+                    .borrow()
+                    .values()
+                    .any(|window| window.redraw.get()),
                 woken: self.woken.pending(),
             },
             State::Exited => StepOutcome::Exited,
@@ -253,82 +313,188 @@ impl SteppedLoop for Running {
         }
     }
 }
-fn apply(shell: &mut VirtualShell, item: Item) -> Option<ShellEvent> {
+/// The loop as the handler sees it during one callback.
+struct VirtualLoop<'a> {
+    options: &'a VirtualOptions,
+    platform: &'a Rc<VirtualPlatform>,
+    windows: &'a mut BTreeMap<WindowId, VirtualWindow>,
+    input: &'a mut VirtualInput,
+    waker: &'a ShellWaker,
+}
+impl ShellLoop for VirtualLoop<'_> {
+    fn window(&mut self, id: WindowId) -> Option<&mut dyn ShellWindow> {
+        self.windows
+            .get_mut(&id)
+            .map(|window| window as &mut dyn ShellWindow)
+    }
+    fn windows(&self) -> Vec<WindowId> {
+        self.windows.keys().copied().collect()
+    }
+    fn open_window(&mut self, request: WindowRequest) -> Result<(), ShellError> {
+        if !self.platform.capabilities.multi_window {
+            return Err(ShellError::unsupported(
+                "this platform opens no window beyond the first",
+            ));
+        }
+        let display = open_display(self.options, &request)?;
+        let window = VirtualWindow::new(self.platform, self.options, &request, display);
+        self.windows.insert(request.id, window);
+        self.input
+            .windows
+            .insert(request.id, VirtualWindowInput::default());
+        self.input.queue.push_back(Item::Window(
+            request.id,
+            WindowItem::Event(ShellEvent::AccessibilityActivated),
+        ));
+        Ok(())
+    }
+    fn close_window(&mut self, id: WindowId) {
+        self.windows.remove(&id);
+        self.input.windows.remove(&id);
+        self.input
+            .queue
+            .retain(|item| !matches!(item, Item::Window(window, _) if *window == id));
+    }
+    fn inject(&mut self, id: WindowId, inputs: Vec<InjectedInput>, request: RequestId) {
+        let Some(window) = self.windows.get(&id) else {
+            return;
+        };
+        let now = self.input.clock.now();
+        let double_click = kivact_types::defaults::DOUBLE_CLICK;
+        let mut events: Vec<ShellEvent> = Vec::new();
+        {
+            let Some(state) = self.input.windows.get_mut(&id) else {
+                return;
+            };
+            for input in inputs {
+                match input {
+                    InjectedInput::Accessibility { node, request } => {
+                        if let Some(event) = window.accessibility().request_action(node, request) {
+                            events.push(event);
+                        }
+                    }
+                    input => events.extend(state.input.normalize(
+                        input,
+                        now,
+                        double_click,
+                        &mut state.ime,
+                    )),
+                }
+            }
+        }
+        for event in events {
+            self.input
+                .queue
+                .push_back(Item::Window(id, WindowItem::Event(event)));
+        }
+        self.input.queue.push_back(Item::Window(
+            id,
+            WindowItem::Event(ShellEvent::Injected { request }),
+        ));
+    }
+    fn now_ns(&self) -> u64 {
+        self.platform.now.now()
+    }
+    fn waker(&self) -> ShellWaker {
+        self.waker.clone()
+    }
+    fn capabilities(&self) -> Capabilities {
+        match self.windows.get(&self.options.main.id) {
+            Some(main) => main.capabilities(),
+            None => Capabilities {
+                gpu: self.options.gpu == GpuMode::Required,
+                ..self.options.capabilities
+            },
+        }
+    }
+}
+/// Apply one queued item, returning the events and their targets in delivery order.
+fn apply(
+    platform: &VirtualPlatform,
+    windows: &mut BTreeMap<WindowId, VirtualWindow>,
+    item: Item,
+) -> Vec<(arvane_shell::EventTarget, ShellEvent)> {
+    let mut delivered = Vec::new();
+    match item {
+        Item::Respond(responder) => platform.responders.borrow_mut().push(responder),
+        Item::Time(ns) => platform.now.set(ns),
+        Item::Clipboard(text) => *platform.clipboard.borrow_mut() = text,
+        Item::Dialog(paths) => platform.dialogs.borrow_mut().push_back(paths),
+        Item::FailEffect(error) => *platform.fail_next.borrow_mut() = Some(error),
+        Item::LoopEvent(event) => delivered.push((arvane_shell::EventTarget::Loop, event)),
+        Item::Pointer(settings) => {
+            for (id, window) in windows.iter_mut() {
+                window.env.get_mut().pointer = settings;
+                delivered.push((
+                    arvane_shell::EventTarget::Window(*id),
+                    ShellEvent::EnvironmentChanged,
+                ));
+            }
+        }
+        Item::Window(id, item) => {
+            let Some(window) = windows.get_mut(&id) else {
+                return delivered;
+            };
+            if let Some(event) = apply_window(window, item) {
+                delivered.push((arvane_shell::EventTarget::Window(id), event));
+            }
+        }
+    }
+    delivered
+}
+/// Apply one queued window item and return its boundary event, if any.
+fn apply_window(window: &mut VirtualWindow, item: WindowItem) -> Option<ShellEvent> {
     let event = match item {
-        Item::Event(event) => {
+        WindowItem::Event(event) => {
             if let ShellEvent::KeyboardInset(insets) = &event {
-                shell.env.get_mut().keyboard_inset = insets.sanitize();
+                window.env.get_mut().keyboard_inset = insets.sanitize();
             }
             Some(event)
         }
-        Item::Time(ns) => {
-            shell.now = ns;
-            None
-        }
-        Item::Resize(size) => {
-            shell.env.get_mut().window_size = size;
+        WindowItem::Resize(size) => {
+            window.env.get_mut().window_size = size;
             Some(ShellEvent::Resized)
         }
-        Item::Scale(scale) => {
-            shell.env.get_mut().scale_factor = scale;
+        WindowItem::Scale(scale) => {
+            window.env.get_mut().scale_factor = scale;
             Some(ShellEvent::Resized)
         }
-        Item::Period(ns) => {
-            shell.env.get_mut().frame_period_ns = ns;
+        WindowItem::Period(ns) => {
+            window.env.get_mut().frame_period_ns = ns;
             Some(ShellEvent::EnvironmentChanged)
         }
-        Item::Reduced(value) => {
-            shell.env.get_mut().reduced_motion = value;
+        WindowItem::Reduced(value) => {
+            window.env.get_mut().reduced_motion = value;
             Some(ShellEvent::EnvironmentChanged)
         }
-        Item::Pointer(settings) => {
-            shell.env.get_mut().pointer = settings;
+        WindowItem::Dark(value) => {
+            window.env.get_mut().theme_hint = theme_hint(value);
             Some(ShellEvent::EnvironmentChanged)
         }
-        Item::Dark(value) => {
-            shell.env.get_mut().theme_hint = theme_hint(value);
+        WindowItem::Locale(locale) => {
+            window.env.get_mut().locale = locale;
             Some(ShellEvent::EnvironmentChanged)
         }
-        Item::Locale(locale) => {
-            shell.env.get_mut().locale = locale;
+        WindowItem::SafeArea(insets) => {
+            window.env.get_mut().safe_area = insets;
             Some(ShellEvent::EnvironmentChanged)
         }
-        Item::SafeArea(insets) => {
-            shell.env.get_mut().safe_area = insets;
-            Some(ShellEvent::EnvironmentChanged)
-        }
-        Item::Surface(live) => surface_event(shell, live),
-        Item::Occluded(value) => {
-            shell.occluded = value;
+        WindowItem::Surface(live) => surface_event(window, live),
+        WindowItem::Occluded(value) => {
+            window.occluded = value;
             None
         }
-        Item::FailPresents(count) => {
-            shell.failing = count;
+        WindowItem::FailPresents(count) => {
+            window.failing = count;
             None
         }
-        Item::Clipboard(text) => {
-            shell.clipboard = text;
-            None
-        }
-        Item::Dialog(paths) => {
-            shell.dialogs.push_back(paths);
-            None
-        }
-        Item::Respond(responder) => {
-            shell.responders.push(responder);
-            None
-        }
-        Item::FailEffect(error) => {
-            shell.fail_next = Some(error);
-            None
-        }
-        Item::Action(node, request) => shell.accessibility().request_action(node, request),
+        WindowItem::Action(node, request) => window.accessibility().request_action(node, request),
     };
     if matches!(event, Some(ShellEvent::Resized))
-        && let Some(real) = &shell.real
+        && let Display::Mirrored(real) = &window.display
     {
-        let (w, h) = shell.physical_size();
-        real.resize(w, h, shell.scale());
+        let (width, height) = window.physical_size();
+        real.resize(width, height, window.scale());
     }
     event
 }
@@ -341,10 +507,10 @@ fn theme_hint(dark: bool) -> ThemeHint {
     }
 }
 /// Change the scripted surface lifecycle and return its boundary event.
-fn surface_event(shell: &mut VirtualShell, live: bool) -> Option<ShellEvent> {
-    match (live, shell.surface) {
+fn surface_event(window: &mut VirtualWindow, live: bool) -> Option<ShellEvent> {
+    match (live, window.surface) {
         (true, TestSurface::Destroyed { last }) => {
-            shell.surface = TestSurface::Live {
+            window.surface = TestSurface::Live {
                 generation: last
                     .checked_add(1)
                     .expect("invariant: surface generations fit u64"),
@@ -352,7 +518,7 @@ fn surface_event(shell: &mut VirtualShell, live: bool) -> Option<ShellEvent> {
             Some(ShellEvent::SurfaceCreated)
         }
         (false, TestSurface::Live { generation }) => {
-            shell.surface = TestSurface::Destroyed { last: generation };
+            window.surface = TestSurface::Destroyed { last: generation };
             Some(ShellEvent::SurfaceDestroyed)
         }
         _ => None,
@@ -361,13 +527,27 @@ fn surface_event(shell: &mut VirtualShell, live: bool) -> Option<ShellEvent> {
 /// Cloneable read-only observations. Values never borrow backend state.
 #[derive(Clone)]
 pub struct Probe {
-    shell: Rc<RefCell<VirtualShell>>,
-    input: Rc<RefCell<Input>>,
+    platform: Rc<VirtualPlatform>,
+    windows: Rc<RefCell<BTreeMap<WindowId, VirtualWindow>>>,
+    input: Rc<RefCell<VirtualInput>>,
     woken: Arc<WakePending>,
 }
 impl Probe {
-    pub fn ime_purpose(&self) -> kivact_types::InputPurpose {
-        self.shell.borrow().ime_purpose.get()
+    /// The open window `id`, or `None` before start and after it closed.
+    pub fn window(&self, id: WindowId) -> Option<WindowProbe> {
+        if self.windows.borrow().contains_key(&id) {
+            Some(WindowProbe {
+                windows: Rc::clone(&self.windows),
+                input: Rc::clone(&self.input),
+                window: id,
+            })
+        } else {
+            None
+        }
+    }
+    /// The open windows, ascending by id.
+    pub fn windows(&self) -> Vec<WindowId> {
+        self.windows.borrow().keys().copied().collect()
     }
     /// Whether a worker has requested a wake since the last wake step.
     pub fn woken(&self) -> bool {
@@ -376,73 +556,110 @@ impl Probe {
     pub fn now_ns(&self) -> u64 {
         self.input.borrow().clock.now()
     }
-    pub fn mouse_position(&self) -> Option<Point> {
-        self.input.borrow().mouse.window_position()
-    }
-    pub fn modifiers(&self) -> Modifiers {
-        self.input.borrow().modifiers
-    }
-    pub fn redraw_requested(&self) -> bool {
-        self.shell.borrow().redraw.get()
-    }
-    pub fn frame(&self) -> Option<(u32, u32, Arc<[u32]>)> {
-        self.shell.borrow().frame.clone()
-    }
-    pub fn accessibility(&self) -> Option<SemanticsTree> {
-        self.shell.borrow().accessibility().tree()
-    }
     pub fn clipboard(&self) -> String {
-        self.shell.borrow().clipboard.clone()
+        self.platform.clipboard.borrow().clone()
     }
     pub fn opened_paths(&self) -> Vec<PathBuf> {
-        self.shell.borrow().opened.clone()
+        self.platform.opened.borrow().clone()
     }
     pub fn revealed_paths(&self) -> Vec<PathBuf> {
-        self.shell.borrow().revealed.clone()
+        self.platform.revealed.borrow().clone()
+    }
+}
+/// Cloneable read-only observations of one virtual window.
+#[derive(Clone)]
+pub struct WindowProbe {
+    windows: Rc<RefCell<BTreeMap<WindowId, VirtualWindow>>>,
+    input: Rc<RefCell<VirtualInput>>,
+    window: WindowId,
+}
+impl WindowProbe {
+    fn with<R>(&self, f: impl FnOnce(&VirtualWindow) -> R) -> R {
+        let windows = self.windows.borrow();
+        let window = windows
+            .get(&self.window)
+            .expect("invariant: a WindowProbe names an open window");
+        f(window)
+    }
+    fn input_with<R>(&self, f: impl FnOnce(&VirtualWindowInput) -> R) -> R {
+        let input = self.input.borrow();
+        let state = input
+            .windows
+            .get(&self.window)
+            .expect("invariant: an open window has input state");
+        f(state)
+    }
+    pub fn ime_purpose(&self) -> kivact_types::InputPurpose {
+        self.with(|window| window.ime_purpose.get())
+    }
+    pub fn mouse_position(&self) -> Option<Point> {
+        self.input_with(|state| state.input.mouse_position())
+    }
+    pub fn modifiers(&self) -> Modifiers {
+        self.input_with(|state| state.input.modifiers())
+    }
+    pub fn redraw_requested(&self) -> bool {
+        self.with(|window| window.redraw.get())
+    }
+    pub fn frame(&self) -> Option<(u32, u32, Arc<[u32]>)> {
+        self.with(|window| match &window.shown {
+            crate::window::Shown::OnCpuSurface(kept) | crate::window::Shown::Kept(kept) => {
+                Some((kept.width, kept.height, kept.pixels.clone()))
+            }
+            crate::window::Shown::Nothing => None,
+        })
+    }
+    pub fn accessibility(&self) -> Option<SemanticsTree> {
+        self.with(|window| window.accessibility().tree())
     }
     pub fn title(&self) -> String {
-        self.shell.borrow().title.borrow().clone()
+        self.with(|window| window.title.borrow().clone())
     }
     pub fn requested_sizes(&self) -> Vec<Size> {
-        self.shell.borrow().requested_sizes.clone()
+        self.with(|window| window.requested_sizes.clone())
     }
     pub fn min_size(&self) -> Option<Size> {
-        self.shell.borrow().min_size.get()
+        self.with(|window| window.min_size.get())
     }
     pub fn ime_area(&self) -> Option<Rect> {
-        self.shell.borrow().ime.get()
+        self.with(|window| window.ime.get())
     }
     pub fn cursor(&self) -> Cursor {
-        self.shell.borrow().cursor.get()
+        self.with(|window| window.cursor.get())
     }
     pub fn soft_keyboard(&self) -> (bool, u32) {
-        let shell = self.shell.borrow();
-        (shell.soft_keyboard.0.get(), shell.soft_keyboard.1.get())
+        self.with(|window| (window.soft_keyboard.0.get(), window.soft_keyboard.1.get()))
     }
     pub fn ime_text(&self) -> Option<ShellImeText> {
-        self.shell.borrow().ime_text.borrow().clone()
+        self.with(|window| window.ime_text.borrow().clone())
     }
     pub fn surface_generation(&self) -> Option<u64> {
-        self.shell.borrow().surface.generation()
+        self.with(|window| window.surface.generation())
     }
+    /// Whether this window is mirrored into a real native window.
     pub fn has_window(&self) -> bool {
-        self.shell.borrow().real.is_some()
+        self.with(|window| matches!(window.display, Display::Mirrored(_)))
     }
     pub fn environment(&self) -> Environment {
-        self.shell.borrow().environment()
+        self.with(|window| window.environment())
     }
     pub fn size(&self) -> Size {
-        self.shell.borrow().size()
+        self.with(|window| window.size())
     }
     pub fn scale(&self) -> f64 {
-        self.shell.borrow().scale()
+        self.with(|window| window.scale())
     }
     pub fn capabilities(&self) -> Capabilities {
-        self.shell.borrow().capabilities()
+        self.with(|window| window.capabilities())
     }
     pub fn sync_mirror(&self) {
-        if let Some(real) = &self.shell.borrow().real {
-            real.sync();
-        }
+        self.with(|window| {
+            if let Display::Mirrored(real) = &window.display {
+                real.sync();
+            }
+        });
+    }
+    pub fn focus_requests(&self) -> u32 {
+        self.with(|window| window.focus_requests.get())
     }
 }

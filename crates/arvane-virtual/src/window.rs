@@ -3,16 +3,19 @@
 //! This backend owns no renderer. The facade alone owns Presenter and capture
 //! policy; CPU frames and native GPU targets cross the ordinary shell SPI.
 
+use crate::clock::Clock;
+use crate::script::Responder;
 use crate::surface::TestSurface;
 use arvane_shell::{
     Accessibility, AccessibilityError, BufferAge, ShellError, ShellImeText, ShellWindow,
 };
 use kivact_types::Environment;
 use kivact_types::render::{PixelRect, SemanticsTree, SemanticsUpdate};
-use kivact_types::{Capabilities, Cursor, Rect, Size};
+use kivact_types::{Capabilities, Cursor, InputPurpose, Rect, Size, WindowRequest};
 use std::cell::{Cell, RefCell};
-use std::collections::VecDeque;
+use std::collections::{BTreeMap, VecDeque};
 use std::path::PathBuf;
+use std::rc::Rc;
 use std::sync::Arc;
 
 /// GPU presentation policy for a virtual window.
@@ -33,8 +36,8 @@ pub enum MirrorMode {
 /// Initial virtual platform environment.
 #[derive(Clone, Debug)]
 pub struct VirtualOptions {
-    pub title: String,
-    pub size: Size,
+    /// The request of the main window (`WindowId::MAIN`).
+    pub main: WindowRequest,
     pub scale: f64,
     pub frame_period_ns: u64,
     pub reduced_motion: bool,
@@ -47,16 +50,18 @@ pub struct VirtualOptions {
     /// accessibility are always reported from the actual backend, overriding these flags.
     pub capabilities: Capabilities,
     /// Restoration snapshot for this launch.
-    pub restored_state: std::collections::BTreeMap<String, Vec<u8>>,
+    pub restored_state: BTreeMap<String, Vec<u8>>,
 }
 impl Default for VirtualOptions {
     fn default() -> Self {
         Self {
-            title: String::new(),
-            size: Size {
-                width: 800.0,
-                height: 600.0,
-            },
+            main: WindowRequest::main(
+                String::new(),
+                Size {
+                    width: 800.0,
+                    height: 600.0,
+                },
+            ),
             scale: 1.0,
             frame_period_ns: kivact_types::defaults::FRAME_PERIOD_NS,
             reduced_motion: false,
@@ -78,70 +83,165 @@ impl Default for VirtualOptions {
                 safe_area: true,
                 memory_warnings: true,
                 ime_reconversion: true,
+                multi_window: true,
+                window_placement: true,
                 ..Capabilities::default()
             },
             restored_state: Default::default(),
         }
     }
 }
-// xtask-allow(state-fields): Scripted backend facts and service mailboxes are independently controllable test inputs; surface lifecycle is modeled separately by TestSurface.
-pub(crate) struct VirtualShell {
-    pub(crate) saved_state: std::rc::Rc<RefCell<std::collections::BTreeMap<String, Vec<u8>>>>,
-    pub(crate) ime_purpose: Cell<kivact_types::InputPurpose>,
-    pub(crate) responders: Vec<crate::script::Responder>,
-    pub(crate) now: u64,
+
+/// A frame the window keeps: physical size and XRGB pixels.
+pub(crate) struct Kept {
+    pub(crate) width: u32,
+    pub(crate) height: u32,
+    pub(crate) pixels: Arc<[u32]>,
+}
+
+/// What the window shows of the frames presented to it.
+pub(crate) enum Shown {
+    Nothing,
+    /// The last CPU presentation, still on the CPU surface: a damaged presentation starts from it.
+    OnCpuSurface(Kept),
+    /// A kept frame: a GPU frame read back, or the last CPU frame after the CPU surface was released.
+    Kept(Kept),
+}
+
+/// Where the window's accessibility tree and frames go.
+pub(crate) enum Display {
+    Headless(Accessibility),
+    Mirrored(Box<dyn Mirror>),
+}
+
+/// The state of the whole virtual loop: the services every window shares.
+pub(crate) struct VirtualPlatform {
+    /// Saved application bytes, shared with the script that supplies them.
+    pub(crate) saved_state: Rc<RefCell<BTreeMap<String, Vec<u8>>>>,
+    /// Scripted service overrides; the newest responder returning a result wins.
+    pub(crate) responders: RefCell<Vec<Responder>>,
+    /// The loop clock, synced from the script clock at each step.
+    pub(crate) now: Clock,
     /// Immutable advertised service configuration supplied at construction.
     pub(crate) capabilities: Capabilities,
+    /// Clipboard text set through a service request.
+    pub(crate) clipboard: RefCell<String>,
+    pub(crate) dialogs: RefCell<VecDeque<Option<Vec<PathBuf>>>>,
+    /// Paths asked to be opened, in order.
+    pub(crate) opened: RefCell<Vec<PathBuf>>,
+    /// Paths asked to be revealed, in order.
+    pub(crate) revealed: RefCell<Vec<PathBuf>>,
+    // xtask-allow(state-fields): mailbox - the service failure the test fills and the window drains
+    /// The service failure the next effect consumes.
+    pub(crate) fail_next: RefCell<Option<ShellError>>,
+}
+
+/// One virtual window: the state of a single window of the loop.
+pub(crate) struct VirtualWindow {
+    /// The loop state this window's requests go to.
+    pub(crate) platform: Rc<VirtualPlatform>,
     /// The single snapshot of the window's environment and preferences.
     pub(crate) env: RefCell<Environment>,
     pub(crate) requested_sizes: Vec<Size>,
-    pub(crate) clipboard: String,
-    pub(crate) dialogs: VecDeque<Option<Vec<PathBuf>>>,
-    /// Paths asked to be opened, in order.
-    pub(crate) opened: Vec<PathBuf>,
-    /// Paths asked to be revealed, in order.
-    pub(crate) revealed: Vec<PathBuf>,
-    pub(crate) fail_next: Option<ShellError>,
+    // xtask-allow(state-fields): independent fact - a scripted backend fact the test controls (a test input, not a lifecycle)
+    /// A redraw was requested and not delivered yet.
     pub(crate) redraw: Cell<bool>,
     pub(crate) title: RefCell<String>,
+    // xtask-allow(state-fields): independent fact - a scripted backend fact the test controls (a test input, not a lifecycle)
+    /// The minimum content size the application set.
     pub(crate) min_size: Cell<Option<Size>>,
+    /// The content purpose the focused text input set.
+    pub(crate) ime_purpose: Cell<InputPurpose>,
+    // xtask-allow(state-fields): independent fact - a scripted backend fact the test controls (a test input, not a lifecycle)
     /// The IME caret area while a text input has the focus.
     pub(crate) ime: Cell<Option<Rect>>,
+    // xtask-allow(state-fields): independent fact - a scripted backend fact the test controls (a test input, not a lifecycle)
     /// What the focused text input shows the IME.
     pub(crate) ime_text: RefCell<Option<ShellImeText>>,
     /// The cursor shown over the content.
     pub(crate) cursor: Cell<Cursor>,
+    // xtask-allow(state-fields): independent fact - a scripted backend fact the test controls (a test input, not a lifecycle)
     /// The software keyboard is shown; how often it was shown or hidden.
     pub(crate) soft_keyboard: (Cell<bool>, Cell<u32>),
-    pub(crate) frame: Option<(u32, u32, Arc<[u32]>)>,
+    /// What the window shows of the frames presented to it.
+    pub(crate) shown: Shown,
+    // xtask-allow(state-fields): independent fact - a scripted backend fact the test controls (a test input, not a lifecycle)
     /// Frames are drawn on the GPU.
     pub(crate) gpu: bool,
-    pub(crate) real: Option<Box<dyn Mirror>>,
-    /// The accessibility tree without a real window.
-    pub(crate) headless: Accessibility,
+    /// Where the window's accessibility tree and frames go.
+    pub(crate) display: Display,
+    // xtask-allow(state-fields): independent fact - a scripted backend fact the test controls (a test input, not a lifecycle)
     /// The platform hides the window: it has no buffer for frames.
     pub(crate) occluded: bool,
     /// Presentations that are to fail as a lost surface does.
     pub(crate) failing: u32,
     /// The window's surface.
     pub(crate) surface: TestSurface,
-    pub(crate) cpu_frame: Cell<bool>,
+    // xtask-allow(state-fields): independent fact - a scripted backend fact the test controls (a test input, not a lifecycle)
+    /// How often the application asked to bring this window to the front.
+    pub(crate) focus_requests: Cell<u32>,
 }
 
-impl VirtualShell {
+impl VirtualWindow {
+    /// Build the window `request` describes, with `display` already decided.
+    pub(crate) fn new(
+        platform: &Rc<VirtualPlatform>,
+        options: &VirtualOptions,
+        request: &WindowRequest,
+        display: Display,
+    ) -> VirtualWindow {
+        VirtualWindow {
+            platform: Rc::clone(platform),
+            env: RefCell::new(Environment {
+                window_size: request.size,
+                scale_factor: options.scale,
+                frame_period_ns: options.frame_period_ns.max(1),
+                reduced_motion: options.reduced_motion,
+                theme_hint: if options.dark {
+                    kivact_types::ThemeHint::Dark
+                } else {
+                    kivact_types::ThemeHint::Light
+                },
+                locale: options.locale.clone(),
+                restored_state: options.restored_state.clone(),
+                ..Environment::default()
+            }),
+            requested_sizes: Vec::new(),
+            redraw: Cell::new(false),
+            title: RefCell::new(request.title.clone()),
+            min_size: Cell::new(request.min_size),
+            ime_purpose: Cell::new(InputPurpose::Text),
+            ime: Cell::new(None),
+            ime_text: RefCell::new(None),
+            cursor: Cell::new(Cursor::Default),
+            soft_keyboard: (Cell::new(false), Cell::new(0)),
+            shown: Shown::Nothing,
+            gpu: options.gpu == GpuMode::Required,
+            display,
+            occluded: false,
+            failing: 0,
+            surface: TestSurface::Live {
+                generation: std::num::NonZeroU64::MIN,
+            },
+            focus_requests: Cell::new(0),
+        }
+    }
+
     /// Consume a scripted service failure through the service's Result,
     /// just as a native service reports an OS failure.
-    fn effect_result(&mut self) -> Result<(), ShellError> {
-        match self.fail_next.take() {
+    fn effect_result(&self) -> Result<(), ShellError> {
+        match self.platform.fail_next.borrow_mut().take() {
             Some(error) => Err(error),
             None => Ok(()),
         }
     }
+
     /// The accessibility tree: the real window's, else the headless one.
     pub(crate) fn accessibility(&self) -> &Accessibility {
-        self.real
-            .as_ref()
-            .map_or(&self.headless, |real| real.accessibility())
+        match &self.display {
+            Display::Headless(tree) => tree,
+            Display::Mirrored(real) => real.accessibility(),
+        }
     }
 }
 
@@ -159,10 +259,10 @@ pub(crate) trait Mirror {
     fn gpu_presents(&self);
 }
 
-impl ShellWindow for VirtualShell {
+impl ShellWindow for VirtualWindow {
     fn perform(&mut self, request: kivact_types::PlatformRequest) -> kivact_types::PlatformResult {
         use kivact_types::{PlatformRequest, PlatformResult};
-        for responder in self.responders.iter_mut().rev() {
+        for responder in self.platform.responders.borrow_mut().iter_mut().rev() {
             if let Some(result) = responder(&request) {
                 return result;
             }
@@ -176,37 +276,50 @@ impl ShellWindow for VirtualShell {
             };
         }
         if let PlatformRequest::SaveState { key, bytes } = request {
-            self.saved_state.borrow_mut().insert(key.to_string(), bytes);
+            self.platform
+                .saved_state
+                .borrow_mut()
+                .insert(key.to_string(), bytes);
             return PlatformResult::Done;
         }
         if let PlatformRequest::CopyText(text) = request {
-            self.clipboard = text;
+            *self.platform.clipboard.borrow_mut() = text;
             return PlatformResult::Done;
         }
         if let PlatformRequest::ReadText = request {
-            return PlatformResult::Text(self.clipboard.clone());
+            return PlatformResult::Text(self.platform.clipboard.borrow().clone());
         }
         if let PlatformRequest::PickFile(_)
         | PlatformRequest::SaveFile(_)
         | PlatformRequest::PickFolder(_) = request
         {
             return PlatformResult::Path(
-                self.dialogs
+                self.platform
+                    .dialogs
+                    .borrow_mut()
                     .pop_front()
                     .flatten()
                     .and_then(|paths| paths.into_iter().next()),
             );
         }
         if let PlatformRequest::PickFiles(_) = request {
-            return PlatformResult::Paths(self.dialogs.pop_front().flatten());
+            return PlatformResult::Paths(self.platform.dialogs.borrow_mut().pop_front().flatten());
         }
         if let PlatformRequest::OpenPath(path) = request {
-            self.opened.push(path);
+            self.platform.opened.borrow_mut().push(path);
             return PlatformResult::Done;
         }
         if let PlatformRequest::RevealPath(path) = request {
-            self.revealed.push(path);
+            self.platform.revealed.borrow_mut().push(path);
             return PlatformResult::Done;
+        }
+        if let PlatformRequest::FocusWindow = request {
+            return self.focus().map(|()| PlatformResult::Done).unwrap_or_else(
+                |error| match error {
+                    ShellError::Unsupported(_) => PlatformResult::Unsupported,
+                    ShellError::Failed(failure) => PlatformResult::Failed(failure),
+                },
+            );
         }
         if let PlatformRequest::RequestWindowSize(size) = request {
             self.requested_sizes.push(size);
@@ -219,6 +332,11 @@ impl ShellWindow for VirtualShell {
         PlatformResult::Unsupported
     }
 
+    fn focus(&mut self) -> Result<(), ShellError> {
+        self.focus_requests.set(self.focus_requests.get() + 1);
+        Ok(())
+    }
+
     fn cpu_format(&self) -> arvane_shell::CpuFormat {
         arvane_shell::CpuFormat::Xrgb8888
     }
@@ -227,7 +345,11 @@ impl ShellWindow for VirtualShell {
         true
     }
     fn keep_frame(&mut self, frame: kivact_types::render::CpuFrame) {
-        self.frame = Some((frame.width, frame.height, frame.to_softbuffer().into()));
+        self.shown = Shown::Kept(Kept {
+            width: frame.width,
+            height: frame.height,
+            pixels: frame.to_softbuffer().into(),
+        });
     }
 
     fn wait_until(&mut self, done: &mut dyn FnMut() -> bool, limit: std::time::Duration) -> bool {
@@ -254,13 +376,13 @@ impl ShellWindow for VirtualShell {
         self.env.borrow().scale_factor
     }
     fn now_ns(&self) -> u64 {
-        self.now
+        self.platform.now.now()
     }
     fn capabilities(&self) -> Capabilities {
         Capabilities {
-            native_accessibility: self.real.is_some(),
+            native_accessibility: matches!(self.display, Display::Mirrored(_)),
             gpu: self.gpu,
-            ..self.capabilities
+            ..self.platform.capabilities
         }
     }
     fn surface_generation(&self) -> Option<u64> {
@@ -271,7 +393,7 @@ impl ShellWindow for VirtualShell {
     }
     fn set_title(&self, title: &str) {
         title.clone_into(&mut self.title.borrow_mut());
-        if let Some(real) = &self.real {
+        if let Display::Mirrored(real) = &self.display {
             real.set_title(title);
         }
     }
@@ -288,7 +410,7 @@ impl ShellWindow for VirtualShell {
     fn set_cursor(&self, cursor: Cursor) {
         self.cursor.set(cursor);
     }
-    fn set_ime_purpose(&self, purpose: kivact_types::InputPurpose) {
+    fn set_ime_purpose(&self, purpose: InputPurpose) {
         self.ime_purpose.set(purpose);
     }
     fn set_ime_allowed(&self, allowed: bool) {
@@ -320,11 +442,14 @@ impl ShellWindow for VirtualShell {
         Ok(())
     }
     fn shows_cpu_frame(&self) -> bool {
-        self.cpu_frame.get()
+        matches!(self.shown, Shown::OnCpuSurface(_))
     }
     fn release_cpu_surface(&mut self) {
-        self.cpu_frame.set(false);
-        if let Some(real) = &self.real {
+        self.shown = match std::mem::replace(&mut self.shown, Shown::Nothing) {
+            Shown::OnCpuSurface(kept) | Shown::Kept(kept) => Shown::Kept(kept),
+            Shown::Nothing => Shown::Nothing,
+        };
+        if let Display::Mirrored(real) = &self.display {
             real.gpu_presents();
         }
     }
@@ -332,9 +457,9 @@ impl ShellWindow for VirtualShell {
         &self,
         make: Box<dyn FnOnce(arvane_shell::GpuTarget) + Send>,
     ) -> Result<(), ShellError> {
-        match &self.real {
-            Some(real) => real.with_gpu_target(make),
-            None => Err(ShellError::unsupported(
+        match &self.display {
+            Display::Mirrored(real) => real.with_gpu_target(make),
+            Display::Headless(_) => Err(ShellError::unsupported(
                 "the headless shell has no native GPU target",
             )),
         }
@@ -361,13 +486,14 @@ impl ShellWindow for VirtualShell {
         }
         // With damage, the buffer starts as the CPU frame presented last time, of the same size.
         // A GPU frame kept for the device-loss fallback is not that frame.
-        let previous = self
-            .frame
-            .as_ref()
-            .filter(|(w, h, _)| (*w, *h) == (width, height))
-            .map(|(_, _, pixels)| pixels.to_vec());
+        let previous = match &self.shown {
+            Shown::OnCpuSurface(kept) if (kept.width, kept.height) == (width, height) => {
+                Some(kept.pixels.to_vec())
+            }
+            _ => None,
+        };
         let (mut pixels, age) = match (damage, previous) {
-            (Some(_), Some(previous)) if self.cpu_frame.get() => (previous, BufferAge::Previous),
+            (Some(_), Some(previous)) => (previous, BufferAge::Previous),
             _ => (
                 vec![0; width as usize * height as usize],
                 BufferAge::Unknown,
@@ -377,11 +503,14 @@ impl ShellWindow for VirtualShell {
             return Ok(false);
         }
         let pixels: Arc<[u32]> = pixels.into();
-        if let Some(real) = &self.real {
+        if let Display::Mirrored(real) = &self.display {
             real.present(width, height, pixels.clone());
         }
-        self.frame = Some((width, height, pixels));
-        self.cpu_frame.set(true);
+        self.shown = Shown::OnCpuSurface(Kept {
+            width,
+            height,
+            pixels,
+        });
         Ok(true)
     }
 }
