@@ -283,7 +283,7 @@ impl Model {
             .flat_parent(n)
             .is_none_or(|parent| self.affine_map(parent));
         if self.affine_map(id) && parent_affine {
-            if let Some(own) = self.canvas_root_transform(id, bounds) {
+            if let Some(own) = self.drawable_root_transform(id, bounds) {
                 return (Some(bounds), own);
             }
             let own = if n.place.transformed {
@@ -302,17 +302,16 @@ impl Model {
         )
     }
 
-    /// The transform of a canvas drawable's root (§10.4): its drawn map to
+    /// The transform of a drawable's root (§10.4, §10.5): its drawn map to
     /// its host, about the origin of its bounds, so its children keep their
     /// bounds in its own box. `None` for any other node, and for a root that
-    /// no drawing places (its map is then absent).
-    fn canvas_root_transform(
+    /// has no drawn map (no drawing places it, or the app set no geometry).
+    fn drawable_root_transform(
         &self,
         id: types::NodeId,
         bounds: types::Rect,
     ) -> Option<kivact_types::Transform> {
-        let role = self.node(id)?.properties.drawable?;
-        if role.mode != crate::contract::DrawableMode::Canvas {
+        if self.node(id)?.properties.drawable.is_none() {
             return None;
         }
         let map = self.to_parent(id)?.flatten().as_affine()?;
@@ -351,7 +350,7 @@ impl Model {
         };
         let r = self.rect(ancestor)?;
         let above = self.scroll_above(ancestor);
-        let inside = self.map_between(id, Some(ancestor))?.bounds(own)?;
+        let inside = self.content_map_between(id, ancestor)?.bounds(own)?;
         Some(types::Rect {
             x: r.x + above.x + inside.x,
             y: r.y + above.y + inside.y,
