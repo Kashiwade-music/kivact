@@ -5,8 +5,9 @@
 //! effects and frames out over Arvane's windows.
 
 use super::client::{Boundary, Client};
+use super::devtools::{DevtoolsHost, append_overlay_layer, effective_scale};
 use super::window::{HostWindow, ImeAllowed, LastPresent, SoftKeyboard, Surface};
-use crate::contract::{DrawableTexturesHandle, HostEvent};
+use crate::contract::{DrawableTexturesHandle, FrameRecord, HostEvent};
 use crate::model::edit::state::ImeUpdate;
 use crate::model::{AppModel, DeferredRequest};
 use crate::{FrameLog, FrameTimes};
@@ -68,6 +69,8 @@ pub(crate) struct Host {
     pub(super) windows: std::collections::BTreeMap<WindowId, HostWindow>,
     /// The App motion input last reported to the client.
     pub(super) app_motion: Sent<(bool, u64)>,
+    /// The DevTools' overlays, pick, keys and emulation.
+    pub(super) devtools: DevtoolsHost,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -158,6 +161,27 @@ impl Host {
                     DeferredRequest::ReducedMotion(override_value) => {
                         self.reduced_motion_override = override_value;
                         self.apply_reduced_motion();
+                        PlatformResult::Done
+                    }
+                    DeferredRequest::Inject(inputs) => {
+                        if windows.get(id).is_some() {
+                            windows.inject(id, inputs, request);
+                        }
+                        continue;
+                    }
+                    DeferredRequest::Emulate(emulation) => {
+                        self.apply_emulation(emulation, windows);
+                        PlatformResult::Done
+                    }
+                    DeferredRequest::TimeScale(scale) => {
+                        if scale.is_finite() {
+                            let now = windows.now_ns();
+                            for id in self.window_ids() {
+                                if let Some(model) = self.app.borrow_mut().model_mut(id) {
+                                    model.set_time_scale(now, scale);
+                                }
+                            }
+                        }
                         PlatformResult::Done
                     }
                 };
@@ -267,6 +291,7 @@ impl Host {
             .get(id)
             .expect("invariant: a presented window is open");
         let plan = window.frame_plan();
+        let scale = effective_scale(plan.scale, self.devtools.emulation.scale);
         self.export_pools(id, &mut window);
         {
             let mut app = self.app.borrow_mut();
@@ -275,20 +300,33 @@ impl Host {
                 .expect("invariant: a presented window has a model");
             model.scroll_inputs(&mut self.engine.borrow_mut());
             // Images are rasterized for the scale the frame is drawn at.
-            model.paint.set_scale(plan.scale);
+            model.paint.set_scale(scale);
         }
         let t_scene = Instant::now();
+        let overlay = self.devtools.overlays.get(&id).cloned();
         let composition = {
             let mut app = self.app.borrow_mut();
             let model = app
                 .model_mut(id)
                 .expect("invariant: a presented window has a model");
-            model.composition(&mut self.engine.borrow_mut())
+            let size = model.window();
+            let mut composition = model.composition(&mut self.engine.borrow_mut());
+            if let Some(overlay) = &overlay {
+                append_overlay_layer(
+                    overlay,
+                    &mut composition,
+                    &mut self.engine.borrow_mut(),
+                    size,
+                );
+            }
+            composition
         };
         let t_raster = Instant::now();
         let presented = window.present(&composition, plan)?;
-        self.export_presented(id, &presented, window.now_ns());
+        let end_ns = window.now_ns();
+        self.export_presented(id, &presented, end_ns);
         if let Presented::Shown {
+            renderer,
             raster,
             present,
             stats,
@@ -299,21 +337,56 @@ impl Host {
                 .get_mut(&id)
                 .expect("invariant: a presented window has host state")
                 .last_stats = Some(*stats);
-            let mut frame_log = self.frame_log.borrow_mut();
-            if frame_log.enabled() {
-                let end = Instant::now();
-                frame_log.frame(
-                    FrameTimes {
-                        work: end - started,
-                        scene: t_raster - t_scene,
-                        raster: *raster,
-                        present: *present,
-                    },
-                    stats,
-                );
+            let logging =
+                self.frame_log.borrow().enabled() || self.app.borrow().log.frames_recording();
+            if logging {
+                let times = FrameTimes {
+                    work: Instant::now() - started,
+                    scene: t_raster - t_scene,
+                    raster: *raster,
+                    present: *present,
+                };
+                self.record_frame(id, end_ns, times, stats, *renderer);
             }
         }
         Ok(presented)
+    }
+
+    /// Record one shown frame in the frame log and the DevTools' ring.
+    fn record_frame(
+        &self,
+        id: WindowId,
+        end_ns: u64,
+        times: FrameTimes,
+        stats: &kivact_types::render::FrameStats,
+        renderer: arvane::Renderer,
+    ) {
+        let log = self.app.borrow().log.clone();
+        let mut frame_log = self.frame_log.borrow_mut();
+        if frame_log.enabled() {
+            frame_log.frame(times, stats);
+        }
+        drop(frame_log);
+        if !log.frames_recording() {
+            return;
+        }
+        let (revision, frame_period_ns) = {
+            let app = self.app.borrow();
+            let period = app.model(id).map_or(0, |model| model.frame.period_ns());
+            (app.events().applied(), period)
+        };
+        log.frame(|| FrameRecord {
+            window: id,
+            revision,
+            end_ns,
+            work_ns: times.work.as_nanos() as u64,
+            scene_ns: times.scene.as_nanos() as u64,
+            raster_ns: times.raster.as_nanos() as u64,
+            present_ns: times.present.as_nanos() as u64,
+            stats: *stats,
+            gpu: matches!(renderer, arvane::Renderer::Gpu),
+            frame_period_ns,
+        });
     }
 
     /// One client turn: it writes the tree (each write applied at once),
@@ -346,6 +419,7 @@ impl Host {
             self.phase = HostPhase::Exiting;
         }
         self.apply_window_changes(windows);
+        self.apply_devtools_changes();
         self.effects(windows);
         if self.phase == HostPhase::Closed {
             return Ok(());

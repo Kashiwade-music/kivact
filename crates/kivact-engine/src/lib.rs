@@ -58,7 +58,6 @@ pub mod embed;
 
 mod a11y;
 pub mod api;
-#[cfg(any(debug_assertions, feature = "testing"))]
 mod check;
 pub mod contract;
 mod frame_log;

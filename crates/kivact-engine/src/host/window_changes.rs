@@ -5,6 +5,7 @@
 //! starts each new window's model from the window it opened, and finishes
 //! every window after the turns.
 
+use super::devtools::{apply_emulation, effective_scale, emulated_viewport};
 use super::pump::Host;
 use super::window::{HostWindow, surface_of};
 use crate::contract::HostEvent;
@@ -46,6 +47,10 @@ impl Host {
                         windows.close(id);
                         self.app.borrow_mut().remove_window(id);
                     }
+                    self.devtools.overlays.remove(&id);
+                    if self.devtools.pick == Some(id) {
+                        self.devtools.pick = None;
+                    }
                 }
             }
         }
@@ -67,6 +72,9 @@ impl Host {
         let scale = window.scale();
         let fullscreen = window.fullscreen();
         let now = window.now_ns();
+        let emulation = self.devtools.emulation;
+        let viewport = emulated_viewport(size, scale, emulation.scale);
+        let paint_scale = effective_scale(scale, emulation.scale);
         let surface = surface_of(&window);
         self.windows
             .get_mut(&id)
@@ -89,19 +97,20 @@ impl Host {
             let model = app
                 .model_mut(id)
                 .expect("invariant: a started window has a model");
-            model.set_viewport(size);
+            model.set_viewport(viewport);
             model.frame.set_now(now);
             let mut env = native;
-            env.scale_factor = scale;
+            env.scale_factor = paint_scale;
             env.window_size = size;
             env.fullscreen = fullscreen;
             env.theme_hint = theme;
             env.reduced_motion = self.reduced_motion_override.unwrap_or(env.reduced_motion);
+            apply_emulation(emulation, &mut env);
             model.start_env(env.clone(), drawable);
             env
         };
         if let Some(model) = self.app.borrow_mut().model_mut(id) {
-            model.paint.set_scale(scale);
+            model.paint.set_scale(paint_scale);
         }
         (env, drawable)
     }
@@ -131,6 +140,7 @@ impl Host {
         };
         if let Some(model) = self.app.borrow_mut().model_mut(id) {
             let reduced_motion_override = self.reduced_motion_override;
+            let emulation = self.devtools.emulation;
             model.update_env(|env, _| {
                 if now.theme_hint != before.theme_hint {
                     env.theme_hint = now.theme_hint;
@@ -142,6 +152,7 @@ impl Host {
                 env.locale = now.locale.clone();
                 env.pointer = now.pointer;
                 env.keyboard_inset = now.keyboard_inset;
+                apply_emulation(emulation, env);
             });
         }
         let period = {

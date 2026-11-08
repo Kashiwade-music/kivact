@@ -5,7 +5,9 @@
 //! shared; each window keeps its own model.
 
 use super::reader::Reader;
-use crate::contract::{HostEvent, HostRequest, NodeKind, SceneLayer};
+use crate::contract::{
+    DevtoolsKeys, DevtoolsOverlay, HostEvent, HostRequest, NodeKind, SceneLayer,
+};
 use crate::model::{AppModel, DeferredRequest};
 use crate::mutation::WriteStats;
 use kivact_types::{
@@ -436,17 +438,61 @@ impl Writer {
                 }
             }
             HostRequest::ReducedMotion(value) => {
+                queue_main(&mut app, request, DeferredRequest::ReducedMotion(value))
+            }
+            HostRequest::Inject { window, inputs } => {
                 let AppModel {
                     windows, writes, ..
                 } = &mut *app;
-                if let Some(model) = windows.get_mut(&WindowId::MAIN) {
+                if let Some(model) = windows.get_mut(&window) {
                     writes.command(None);
                     model
                         .effects
-                        .push((request, DeferredRequest::ReducedMotion(value)));
+                        .push((request, DeferredRequest::Inject(inputs)));
                 }
             }
+            HostRequest::Emulate(emulation) => {
+                queue_main(&mut app, request, DeferredRequest::Emulate(emulation))
+            }
+            HostRequest::TimeScale(scale) => {
+                queue_main(&mut app, request, DeferredRequest::TimeScale(scale))
+            }
         }
+    }
+
+    // xtask-allow(internal-contract): the core's DevTools draws its overlay over a window
+    #[doc(hidden)]
+    /// Set the DevTools overlay of `window`; the host applies it after the
+    /// turn.
+    pub fn set_devtools_overlay(&self, window: WindowId, overlay: DevtoolsOverlay) {
+        self.app
+            .borrow_mut()
+            .push_devtools_change(crate::contract::DevtoolsChange::Overlay(window, overlay));
+    }
+
+    // xtask-allow(internal-contract): the core's DevTools owns pick mode
+    #[doc(hidden)]
+    /// Set the window in pick mode (`None` leaves it).
+    pub fn set_pick(&self, pick: Option<WindowId>) {
+        self.app
+            .borrow_mut()
+            .push_devtools_change(crate::contract::DevtoolsChange::Pick(pick));
+    }
+
+    // xtask-allow(internal-contract): the core's DevTools configures the engine keys
+    #[doc(hidden)]
+    /// Set the keys that open the DevTools and those that open it in pick mode.
+    pub fn set_devtools_keys(&self, keys: DevtoolsKeys) {
+        self.app
+            .borrow_mut()
+            .push_devtools_change(crate::contract::DevtoolsChange::Keys(keys));
+    }
+
+    // xtask-allow(internal-contract): the core's DevTools turns the engine records on
+    #[doc(hidden)]
+    /// Turn the engine's sync and frame records on or off.
+    pub fn set_engine_recording(&self, syncs: bool, frames: bool) {
+        self.app.borrow().log.set(syncs, frames);
     }
 
     /// Set window `window`'s title and minimum size (after the turn).
@@ -525,6 +571,17 @@ impl Writer {
     /// The window whose model mounts drawable `id`, or the main window.
     fn drawable_window(&self, id: kivact_types::DrawableId) -> WindowId {
         drawable_window(&self.app.borrow(), id)
+    }
+}
+
+/// Queue `effect` for the main window's model.
+fn queue_main(app: &mut AppModel, request: RequestId, effect: DeferredRequest) {
+    let AppModel {
+        windows, writes, ..
+    } = app;
+    if let Some(model) = windows.get_mut(&WindowId::MAIN) {
+        writes.command(None);
+        model.effects.push((request, effect));
     }
 }
 

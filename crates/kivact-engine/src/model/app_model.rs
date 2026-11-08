@@ -4,10 +4,10 @@
 //! one motion clock; each window owns its own `Model`. A node's window is
 //! derived from the model whose tree holds it (no second table).
 
-use crate::contract::HostEvent;
+use crate::contract::{DevtoolsChange, HostEvent};
 use crate::lower::assets::ArvaneAssets;
 use crate::model::Model;
-use crate::model::events::{EventSink, Shared};
+use crate::model::events::{EngineLog, EventSink, Shared};
 use crate::model::frame::state::FrameRequests;
 use crate::mutation::Writes;
 use kivact_types::{DrawCmd, MotionClock, NodeId, Size, WindowId, WindowRequest};
@@ -50,6 +50,10 @@ pub(crate) struct AppModel {
     pub(crate) client_frames: FrameRequests,
     /// The window the OS gives the keyboard focus (`WindowInfo.focused`).
     pub(crate) focused_window: Option<WindowId>,
+    /// The DevTools changes the host applies after the turn, in write order.
+    pub(crate) devtools_changes: Vec<DevtoolsChange>,
+    /// What the DevTools records, shared by every model and the host.
+    pub(crate) log: EngineLog,
 }
 
 impl AppModel {
@@ -68,6 +72,8 @@ impl AppModel {
             clock: AppClock::Running,
             client_frames: FrameRequests::default(),
             focused_window: None,
+            devtools_changes: Vec::new(),
+            log: shared.log,
         }
     }
 
@@ -127,6 +133,7 @@ impl AppModel {
         let shared = Shared {
             events: self.events.clone(),
             assets: Rc::clone(&self.assets),
+            log: self.log.clone(),
         };
         let model = Model::new(request.id, viewport, &shared);
         self.windows.insert(request.id, model);
@@ -141,6 +148,16 @@ impl AppModel {
     /// The window changes since the last call, in order.
     pub(crate) fn take_window_changes(&mut self) -> Vec<WindowChange> {
         std::mem::take(&mut self.window_changes)
+    }
+
+    /// The DevTools changes since the last call, in write order.
+    pub(crate) fn take_devtools_changes(&mut self) -> Vec<DevtoolsChange> {
+        std::mem::take(&mut self.devtools_changes)
+    }
+
+    /// Queue a DevTools change the host applies after the turn.
+    pub(crate) fn push_devtools_change(&mut self, change: DevtoolsChange) {
+        self.devtools_changes.push(change);
     }
 
     /// Remove the model of `id`; the focus becomes none when it was there.

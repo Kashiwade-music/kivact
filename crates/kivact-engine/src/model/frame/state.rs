@@ -2,7 +2,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use kivact_types::{Environment, NodeId, Point, ThemeHint};
+use kivact_types::{Environment, NodeId, Point, ThemeHint, TimeScale};
 
 /// One active programmatic scroll; allocated only while animating.
 pub(super) enum SmoothScroll {
@@ -57,6 +57,8 @@ pub(crate) struct Frame {
     /// The painted nodes with a shader clock, as of the last paint
     /// list; each needs frames while it is painted.
     pub(super) shader_clocks: BTreeMap<NodeId, ClockNeed>,
+    /// The DevTools' time scale for the motion clock.
+    pub(super) time_scale: TimeScale,
 }
 
 /// What a shader clock needs from the frames.
@@ -78,6 +80,7 @@ impl Default for Frame {
             last_frame: TickHistory::NeverTicked,
             env: Environment::default(),
             shader_clocks: BTreeMap::new(),
+            time_scale: TimeScale::default(),
         }
     }
 }

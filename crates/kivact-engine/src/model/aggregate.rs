@@ -1,7 +1,8 @@
 //! Role: The Model aggregate: every passive state group, its creation and reads.
 
 use crate::a11y::state::A11yState;
-use crate::contract::HostEvent;
+use crate::contract::{EngineEmulation, HostEvent};
+use crate::model::events::EngineLog;
 use crate::paint::state::PaintState;
 use crate::tree::NodeTree;
 use crate::tree::node::HostNode;
@@ -13,6 +14,9 @@ use std::rc::Rc;
 pub(crate) enum DeferredRequest {
     Platform(PlatformRequest),
     ReducedMotion(Option<bool>),
+    Inject(Vec<arvane::InjectedInput>),
+    Emulate(EngineEmulation),
+    TimeScale(f64),
 }
 
 /// The engine's state: the node tree and one field per state group.
@@ -39,6 +43,8 @@ pub(crate) struct Model {
     pub(crate) motion: super::state_motion::state::StateMotion,
     pub(crate) presence: super::presence::state::Presences,
     pub(crate) assets: Rc<RefCell<crate::lower::assets::ArvaneAssets>>,
+    /// What the DevTools records, shared by every model and the host.
+    pub(crate) log: EngineLog,
     pub(crate) paint: PaintState,
     pub(crate) a11y: A11yState,
     pub(crate) frame: super::frame::state::Frame,
@@ -93,6 +99,7 @@ impl Model {
             motion: super::state_motion::state::StateMotion::default(),
             presence: super::presence::state::Presences::default(),
             assets: Rc::clone(&shared.assets),
+            log: shared.log.clone(),
             paint: PaintState::new(),
             a11y: A11yState::default(),
             frame: super::frame::state::Frame::default(),

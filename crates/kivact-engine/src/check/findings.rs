@@ -2,7 +2,6 @@
 
 use super::boxes::{Axes, ancestors, clips, padding_box, reach, visual_parent};
 use super::shaped_lines::shape;
-#[cfg(feature = "testing")]
 use crate::contract::NodeType;
 use crate::model::Model;
 use crate::model::interact::visual;
@@ -20,7 +19,6 @@ const PIXEL_ROUNDING: f64 = 0.5;
 /// The findings of the texts in the subtree of `scope` (the whole tree
 /// without one), in tree order; `ink`: the vertical extent of a line is
 /// that of its glyphs' outlines, else of its metrics.
-#[cfg(feature = "testing")]
 pub(crate) fn layout_findings(
     host: &Model,
     engine: &mut arvane::Engine,
@@ -54,7 +52,6 @@ pub(crate) fn layout_findings(
 }
 
 /// Whether `id` or an ancestor has a test id the check ignores.
-#[cfg(feature = "testing")]
 fn ignored_above(host: &Model, id: NodeId, check: &LayoutCheck) -> bool {
     !check.ignore_test_ids.is_empty()
         && host
@@ -64,7 +61,6 @@ fn ignored_above(host: &Model, id: NodeId, check: &LayoutCheck) -> bool {
             .any(|a| host.node(a).is_some_and(|n| ignores(n, check)))
 }
 
-#[cfg(feature = "testing")]
 fn ignores(n: &HostNode, check: &LayoutCheck) -> bool {
     n.semantics()
         .and_then(|s| s.test_id.as_ref())

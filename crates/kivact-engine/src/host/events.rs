@@ -28,6 +28,7 @@
 //! - A window with an open modal child drops Pointer, Wheel, Key, Ime, File
 //!   and Accessibility input before it reaches the parent's model.
 //! - The window losing the focus cancels every pointer of that window.
+use super::devtools::{apply_emulation, effective_scale, emulated_viewport};
 use super::pump::{AppPresence, Host, HostPhase};
 use super::window::LastPresent;
 use crate::KeyResult;
@@ -194,6 +195,10 @@ impl Host {
             // Deferred turns leave edits laid out lazily; hit test current geometry.
             self.settle_window(id);
         }
+        // The DevTools start keys and pick mode take input before the modal.
+        if self.intercept_devtools(id, &event) {
+            return Ok(self.defer(id, windows));
+        }
         // A modal child owns its parent's input while it is open.
         if self.discards_for_modal_parent(id, &event) {
             return Ok(self.defer(id, windows));
@@ -346,13 +351,18 @@ impl Host {
         let size = window.size();
         let scale = window.scale();
         let fullscreen = window.fullscreen();
+        let emulation = self.devtools.emulation;
+        let viewport = emulated_viewport(size, scale, emulation.scale);
+        let paint_scale = effective_scale(scale, emulation.scale);
         if let Some(model) = self.app.borrow_mut().model_mut(id) {
-            model.set_viewport(size);
+            model.set_viewport(viewport);
+            model.paint.set_scale(paint_scale);
             model.invalidate_paint();
             model.update_env(|env, surface_active| {
-                env.scale_factor = scale;
+                env.scale_factor = paint_scale;
                 env.window_size = size;
                 env.fullscreen = fullscreen;
+                apply_emulation(emulation, env);
                 *surface_active = drawable;
             });
         }
@@ -601,7 +611,7 @@ fn hit_tests(event: &ShellEvent) -> bool {
     }
 }
 
-fn physical_letter(code: kivact_types::KeyCode) -> Option<char> {
+pub(super) fn physical_letter(code: kivact_types::KeyCode) -> Option<char> {
     match code {
         kivact_types::KeyCode::KeyA => Some('a'),
         kivact_types::KeyCode::KeyB => Some('b'),

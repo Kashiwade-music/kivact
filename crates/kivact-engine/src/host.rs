@@ -77,6 +77,7 @@
 //!   frames the window could not draw are noted with the renderer's other
 //!   changes (`RendererChange::ExternalFrameMissed`, in the frame log).
 mod client;
+mod devtools;
 mod events;
 mod launch;
 pub(crate) mod options;

@@ -2367,6 +2367,7 @@ version = "0.1.0"
 dependencies = [
  "arvane",
  "arvane-native",
+ "arvane-shell",
  "arvane-virtual",
  "kivact-editing",
  "kivact-layout",

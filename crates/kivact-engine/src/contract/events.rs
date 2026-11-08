@@ -243,6 +243,17 @@ pub enum HostEvent {
         window: WindowId,
         request: RequestId,
     },
+    /// Pick mode of a window hovered, selected or cancelled on a node.
+    DevtoolsPick {
+        window: WindowId,
+        node: Option<kivact_types::NodeId>,
+        phase: super::devtools::PickPhase,
+    },
+    /// A key that opens the DevTools (or opens it in pick mode) went down.
+    DevtoolsKey {
+        window: WindowId,
+        pick: bool,
+    },
     /// The App's motion clock input changed: whether any window can draw and
     /// the tick source's frame period.
     AppMotion {

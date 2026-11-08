@@ -30,7 +30,7 @@
 //!   records the geometry it changed in `Changes`, runs the debug layout
 //!   lint, then syncs again to dispatch that geometry.
 
-use crate::contract::{HostEvent, NodeType};
+use crate::contract::{HostEvent, NodeType, SyncRecord};
 use crate::lower::AssetEvent;
 use crate::model::Model;
 use crate::model::changes::{Dirty, Geometry};
@@ -94,6 +94,7 @@ impl Model {
 
     /// Dispatch pending writes and input changes into derived work once.
     pub(crate) fn sync(&mut self) {
+        let reasons = self.changes.layout.bits();
         self.retarget_frame();
         self.finish_entrances();
         self.finish_exits();
@@ -153,6 +154,8 @@ impl Model {
         touched.sort_unstable();
         self.report_images(&touched);
         let changes = self.changes.dispatch();
+        let redrawn: Vec<NodeId> = changes.marked(Dirty::REDRAW).collect();
+        self.record_sync(reasons, redrawn);
         let moved = changes.geometry != Geometry::Kept;
         let redraw = changes.paint
             || changes.fonts
@@ -165,6 +168,21 @@ impl Model {
         self.paint
             .outdate_paint(&self.tree, &changes, redraw, changes.fonts, restack);
         self.report_sessions();
+    }
+
+    /// Keep one sync record for the DevTools when the sync dispatched work.
+    fn record_sync(&self, reasons: u8, redrawn: Vec<NodeId>) {
+        if reasons == 0 && redrawn.is_empty() {
+            return;
+        }
+        self.log.sync(|| SyncRecord {
+            window: self.window,
+            revision: self.events.applied(),
+            reasons,
+            measured: Vec::new(),
+            laid_out: Vec::new(),
+            redrawn,
+        });
     }
 
     /// Keep the base paint metrics derived from `id`'s props.

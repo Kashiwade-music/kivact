@@ -131,6 +131,7 @@ impl Handler for Launch {
         let shared = Shared {
             events: EventSink::default(),
             assets: Rc::new(RefCell::new(crate::lower::assets::ArvaneAssets::new(store))),
+            log: Default::default(),
         };
         let mut model = Model::new(WindowId::MAIN, args.window_size, &shared);
         model.frame.start_theme(args.theme);
@@ -151,6 +152,7 @@ impl Handler for Launch {
             accessibility_noted: kivact_types::cell::ReportOnce::new(),
             windows: host_windows,
             app_motion: Sent::new(),
+            devtools: Default::default(),
         };
         let result = host.begin(
             windows,

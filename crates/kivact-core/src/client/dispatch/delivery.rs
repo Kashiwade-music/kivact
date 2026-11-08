@@ -172,6 +172,7 @@ fn dispatch_host(rt: &Runtime, host_event: &HostEvent) {
             dispatch_drawable_report(rt, host_event)
         }
         HostEvent::TurnsCut { turns } => diagnostics::turns_cut(rt, *turns),
+        HostEvent::DevtoolsPick { .. } | HostEvent::DevtoolsKey { .. } => {}
         _ => unreachable!("invariant: input and routed events are dispatched before host events"),
     }
 }

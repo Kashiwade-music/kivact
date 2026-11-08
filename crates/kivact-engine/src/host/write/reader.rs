@@ -1,8 +1,13 @@
 //! Role: `Reader`: the turn's read API over the engine's trees and layout.
 
-use crate::contract::{HostEvent, NodeProperties, SceneLayer};
+use crate::contract::{
+    BoxModelRects, EngineRecords, HostEvent, ImeStateInfo, NodeProperties, SceneLayer,
+};
 use crate::model::AppModel;
-use kivact_types::{DrawList, FocusTarget, NodeId, Point, WindowId};
+use kivact_types::{
+    ComputedTextStyle, DrawList, FocusTarget, InputPurpose, LayoutCheck, LayoutFinding,
+    LayoutProps, NodeId, PaintProps, Point, Rect, WindowId,
+};
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -274,6 +279,179 @@ impl Reader {
             .borrow()
             .model(window)
             .is_none_or(|model| model.admit_input(event))
+    }
+
+    // xtask-allow(internal-contract): the core's DevTools reads the recorded syncs and frames
+    #[doc(hidden)]
+    /// Take the sync and frame records collected since the last call.
+    pub fn take_engine_records(&self) -> EngineRecords {
+        self.app.borrow().log.take()
+    }
+
+    // xtask-allow(internal-contract): the core's DevTools shows the box model of a node
+    #[doc(hidden)]
+    /// The margin, border, padding and content rectangles of `id` in window
+    /// coordinates.
+    pub fn box_model(&self, id: NodeId) -> Option<BoxModelRects> {
+        let app = self.app.borrow();
+        let model = app.model(app.window_of(id)?)?;
+        let layout = model.computed_layout(id)?;
+        let border = model.rect(id)?;
+        let padding = Rect {
+            x: border.x + layout.border.left,
+            y: border.y + layout.border.top,
+            width: border.width - layout.border.left - layout.border.right,
+            height: border.height - layout.border.top - layout.border.bottom,
+        };
+        let content = Rect {
+            x: border.x + layout.content_box.x,
+            y: border.y + layout.content_box.y,
+            width: layout.content_box.width,
+            height: layout.content_box.height,
+        };
+        Some(BoxModelRects {
+            margin: Rect {
+                x: border.x - layout.margin.left,
+                y: border.y - layout.margin.top,
+                width: border.width + layout.margin.left + layout.margin.right,
+                height: border.height + layout.margin.top + layout.margin.bottom,
+            },
+            border,
+            padding,
+            content,
+        })
+    }
+
+    // xtask-allow(internal-contract): the core's DevTools reads a node's effective paint
+    #[doc(hidden)]
+    /// The paint of `id` with its state styles applied.
+    pub fn effective_paint(&self, id: NodeId) -> PaintProps {
+        self.with_model(id, |model| model.effective_paint(id))
+            .unwrap_or_default()
+    }
+
+    // xtask-allow(internal-contract): the core's DevTools reads a node's computed text
+    #[doc(hidden)]
+    /// The computed text style of `id`.
+    pub fn computed_text(&self, id: NodeId) -> ComputedTextStyle {
+        self.with_model(id, |model| model.text_props(id).as_ref().clone())
+            .unwrap_or_default()
+    }
+
+    // xtask-allow(internal-contract): the core's DevTools reads a node's layout props
+    #[doc(hidden)]
+    /// The layout props of `id`.
+    pub fn layout_props(&self, id: NodeId) -> LayoutProps {
+        self.with_model(id, |model| {
+            model.node(id).and_then(|node| node.layout().cloned())
+        })
+        .flatten()
+        .unwrap_or_default()
+    }
+
+    // xtask-allow(internal-contract): the core's DevTools picks a node under a point without the modal
+    #[doc(hidden)]
+    /// The node under `point` in `window`, ignoring modals.
+    pub fn hit_any(&self, window: WindowId, point: Point) -> Option<NodeId> {
+        self.app
+            .borrow()
+            .model(window)
+            .and_then(|model| model.hit_any(point))
+    }
+
+    // xtask-allow(internal-contract): the core's DevTools reports the focused node of a window
+    #[doc(hidden)]
+    /// The focused target of `window`.
+    pub fn focused(&self, window: WindowId) -> Option<FocusTarget> {
+        self.app
+            .borrow()
+            .model(window)
+            .and_then(|model| model.focused())
+    }
+
+    // xtask-allow(internal-contract): the core's DevTools reports the Tab order of a window
+    #[doc(hidden)]
+    /// The Tab order of `window`.
+    pub fn tab_order(&self, window: WindowId) -> Vec<FocusTarget> {
+        self.app
+            .borrow()
+            .model(window)
+            .map(|model| model.tab_stops())
+            .unwrap_or_default()
+    }
+
+    // xtask-allow(internal-contract): the core's DevTools reports hover and press of a node
+    #[doc(hidden)]
+    /// Whether `id` is hovered and whether it is pressed.
+    pub fn pointer_state(&self, id: NodeId) -> (bool, bool) {
+        self.with_model(id, |model| (model.is_hovered(id), model.is_pressed(id)))
+            .unwrap_or_default()
+    }
+
+    // xtask-allow(internal-contract): the core's DevTools lists a window's layout findings
+    #[doc(hidden)]
+    /// The layout defects of the texts of `window`.
+    pub fn layout_findings(&self, window: WindowId, check: &LayoutCheck) -> Vec<LayoutFinding> {
+        let app = self.app.borrow();
+        let Some(model) = app.model(window) else {
+            return Vec::new();
+        };
+        let mut engine = self.engine.borrow_mut();
+        crate::check::layout_findings(model, &mut engine, check, None, false)
+    }
+
+    // xtask-allow(internal-contract): the core's DevTools reports the IME state of a window
+    #[doc(hidden)]
+    /// The IME state of `window`.
+    pub fn ime_state(&self, window: WindowId) -> ImeStateInfo {
+        use crate::model::edit::state::ImeTarget;
+        let app = self.app.borrow();
+        let Some(model) = app.model(window) else {
+            return ImeStateInfo {
+                node: None,
+                composing: false,
+                preedit: None,
+                cursor_area: None,
+                purpose: InputPurpose::Text,
+            };
+        };
+        let purpose = model.ime_purpose();
+        let (node, composing, preedit) = match model.edits.target {
+            ImeTarget::None => (None, false, None),
+            ImeTarget::Native(slot) => {
+                let id = model.tree.nodes.id_at(slot.0);
+                let Some(editor) = model.editors[slot.0.0].as_deref() else {
+                    return ImeStateInfo {
+                        node: Some(id),
+                        composing: false,
+                        preedit: None,
+                        cursor_area: None,
+                        purpose,
+                    };
+                };
+                let state = editor.editor.state();
+                let preedit = state.marked().map(|range| state.value()[range].to_owned());
+                (Some(id), state.is_composing(), preedit)
+            }
+            ImeTarget::Session(id) => (Some(id), false, None),
+        };
+        let cursor_area = match node {
+            Some(id) if matches!(model.edits.target, ImeTarget::Native(_)) => {
+                let mut engine = self.engine.borrow_mut();
+                let caret =
+                    crate::model::interact::text_geometry::caret_rect(model, id, &mut engine);
+                Some(model.drawn_rect(id, caret))
+            }
+            Some(_) => model.session_area(),
+            None => None,
+        };
+        ImeStateInfo {
+            node,
+            composing,
+            preedit,
+            cursor_area,
+            purpose,
+        }
     }
 
     /// Borrow a node's typed values for one read callback.

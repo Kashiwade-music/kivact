@@ -106,6 +106,9 @@ impl LayoutReasons {
         self.0 &= !reason.0;
         contained
     }
+    pub(crate) fn bits(self) -> u8 {
+        self.0
+    }
 }
 
 /// How far boxes may have moved since the last sync.

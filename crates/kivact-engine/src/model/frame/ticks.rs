@@ -12,6 +12,12 @@ pub(crate) struct FrameStamp {
 }
 
 impl Model {
+    /// Continue the motion clock from `now_ns` at `scale` (the DevTools'
+    /// time scale).
+    pub(crate) fn set_time_scale(&mut self, now_ns: u64, scale: f64) {
+        self.frame.time_scale = self.frame.time_scale.rescaled(now_ns, scale);
+    }
+
     /// Scroll `id` from `start` to `target` over the next frames (at once
     /// with reduced motion or unless `smooth`).
     pub(crate) fn scroll_smoothly(
@@ -138,6 +144,7 @@ impl Model {
         now: u64,
         client: Option<&mut FrameRequests>,
     ) -> Option<FrameStamp> {
+        let now = self.frame.time_scale.motion_ns(now);
         self.frame.now = now;
         let source = client.is_some();
         let due = self
