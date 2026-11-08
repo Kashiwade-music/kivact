@@ -199,7 +199,7 @@ fn copy_commands(
 #[cfg(feature = "gpu-interop")]
 #[allow(
     unsafe_code,
-    reason = "the user-approved export hand-off: publishing a frame into a drawable export pool slot needs kivact-gpu-share's Target::submit, which is unsafe because it submits raw on wgpu's queue"
+    reason = "publishing a frame into a drawable export pool slot calls kivact-gpu-share's unsafe Target::submit, which submits raw on wgpu's queue"
 )]
 fn hand_off(
     target: kivact_gpu_share::wgpu::Target<'_>,
