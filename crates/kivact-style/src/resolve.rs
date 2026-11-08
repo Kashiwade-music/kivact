@@ -796,7 +796,7 @@ fn paint_transitions(
 /// [`CompiledStyle::reports`]).
 fn reports(s: &Style, theme: &Theme) -> Vec<UiError> {
     let mut out = Vec::new();
-    let mut message = |text: String| out.push(UiError::msg(text));
+    let mut report = |error: UiError| out.push(error);
     let springs = s
         .transitions
         .iter()
@@ -806,38 +806,40 @@ fn reports(s: &Style, theme: &Theme) -> Vec<UiError> {
         if let p::Kind::Spring(spring) = &t.kind
             && let Some(problem) = spring.problem()
         {
-            message(format!("spring: {problem}"));
+            report(UiError::msg(format!("spring: {problem}")));
         }
     }
     if let Some(t) = &s.layout_transition
         && (t.repeat != Repeat::Times(1) || t.direction != p::PlayDirection::Normal)
     {
-        message("layout_transition ignores repeat and alternate".to_string());
+        report(UiError::msg(
+            "layout_transition ignores repeat and alternate",
+        ));
     }
     if let Some(background) = &s.background {
         for paint in &background.0 {
             for problem in paint.shader_problems() {
-                message(problem);
+                report(problem);
             }
         }
     }
     if let Some(mask) = &s.mask {
         for layer in &mask.0 {
             for problem in layer.paint().shader_problems() {
-                message(problem);
+                report(problem);
             }
         }
     }
     for filter in [&s.filter, &s.backdrop_filter].into_iter().flatten() {
         for problem in filter_problems(filter, theme) {
-            message(problem);
+            report(problem);
         }
     }
     let dropped = transform_of(s).unsupported();
     if dropped > 0 {
-        message(format!(
+        report(UiError::msg(format!(
             "transform: {dropped} function(s) the form cannot keep"
-        ));
+        )));
     }
     out
 }

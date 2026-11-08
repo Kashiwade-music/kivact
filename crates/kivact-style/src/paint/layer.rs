@@ -7,6 +7,7 @@ use crate::color::Color;
 use crate::length::Length;
 use crate::shader::data::ShaderData;
 use crate::theme::value::ThemeColor;
+use kivact_runtime::UiError;
 use kivact_types::{BackgroundClip, BackgroundOrigin, BlendMode};
 
 // xtask-allow(state-fields): A paint layer independently authors its image, size, position, repeat, clip, origin and blend (CSS background longhands).
@@ -99,7 +100,7 @@ impl Paint {
     }
 
     /// The problems of the shader values this paint sets (for reporting).
-    pub(crate) fn shader_problems(&self) -> Vec<String> {
+    pub(crate) fn shader_problems(&self) -> Vec<UiError> {
         match &self.image {
             PaintImage::Shader(s) => s.problems().to_vec(),
             _ => Vec::new(),

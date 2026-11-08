@@ -67,7 +67,7 @@ impl ShaderPaint {
     }
 
     /// The problems with the values set so far (for reporting).
-    pub(crate) fn problems(&self) -> &[String] {
+    pub(crate) fn problems(&self) -> &[UiError] {
         &self.data.problems
     }
 }
