@@ -172,12 +172,16 @@ impl Host {
                 // The window had no buffer (timed out, occluded):
                 // the picture is drawn again when Arvane says.
                 Ok(Presented::Skipped { retry_at_ns }) => {
-                    self.model.borrow_mut().paint.drawn();
+                    let mut model = self.model.borrow_mut();
+                    model.paint.drawn();
+                    model.drawables.skipped(retry_at_ns);
                     self.last_present = LastPresent::Skipped { retry_at_ns };
                 }
                 // Content cannot render; the next change redraws.
                 Ok(Presented::Dropped(_)) => {
-                    self.model.borrow_mut().paint.drawn();
+                    let mut model = self.model.borrow_mut();
+                    model.paint.drawn();
+                    model.drawables.dropped();
                     self.last_present = LastPresent::Settled;
                 }
                 // The window made its surface again: report the
