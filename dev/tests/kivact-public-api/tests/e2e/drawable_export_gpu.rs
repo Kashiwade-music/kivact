@@ -144,7 +144,11 @@ fn next_update(screen: &Screen, share: &DrawableShare, after: u64) -> Update {
 
 /// The colour the clock takes for `ticks` (see `App::mount`).
 fn clock_colour_for(ticks: u32) -> u32 {
-    if ticks % 2 == 0 { 0x00ff00 } else { BLUE }
+    if ticks.is_multiple_of(2) {
+        0x00ff00
+    } else {
+        BLUE
+    }
 }
 
 /// The colour the export shows after the test changes the content to a third

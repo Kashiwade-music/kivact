@@ -289,7 +289,7 @@ fn crossing(samples: &[f64]) -> Option<f64> {
 
 /// The crossings of the first `LINES` rows, then of the first `LINES` columns.
 fn corner_crossings(shot: &Screenshot) -> Vec<Option<f64>> {
-    let at = |x: u32, y: u32| coverage(shot.pixel(x, y).unwrap());
+    let at = |x: u32, y: u32| coverage(shot.pixel(x, y).expect("the pixel is inside the shot"));
     let rows = (0..LINES).map(|y| crossing(&(0..CORNER).map(|x| at(x, y)).collect::<Vec<_>>()));
     let columns = (0..LINES).map(|x| crossing(&(0..CORNER).map(|y| at(x, y)).collect::<Vec<_>>()));
     rows.chain(columns).collect()

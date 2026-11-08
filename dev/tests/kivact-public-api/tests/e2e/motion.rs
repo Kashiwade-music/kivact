@@ -740,11 +740,14 @@ fn blur_probe(reverse: bool) -> Vec<u32> {
         (on, white_panel(200.0, 70.0, subject))
     });
     let darkness = |screen: &Screen| {
-        let rect = screen.get_by_test_id("subject").rect().unwrap();
+        let rect = screen
+            .get_by_test_id("subject")
+            .rect()
+            .expect("the subject is laid out");
         let shot = screen.screenshot();
         let x = (rect.x - 5.0) as u32;
         let y = (rect.y + rect.height / 2.0) as u32;
-        255 - ((shot.pixel(x, y).unwrap() >> 16) & 255)
+        255 - ((shot.pixel(x, y).expect("the pixel is inside the shot") >> 16) & 255)
     };
     on.set(true);
     screen.run_until_idle();
@@ -789,18 +792,28 @@ fn reversed_blur_keeps_its_velocity() {
 /// The black band left of the subject, in px: black is R 0, and red, yellow and white are R 255,
 /// so the band's width is the sum of the black coverage of the pixels 1 to 45 px out.
 fn black_band(screen: &Screen) -> f64 {
-    let rect = screen.get_by_test_id("subject").rect().unwrap();
+    let rect = screen
+        .get_by_test_id("subject")
+        .rect()
+        .expect("the subject is laid out");
     let shot = screen.screenshot();
     let y = (rect.y + rect.height / 2.0) as u32;
     let x0 = rect.x as u32;
     (1..=45)
-        .map(|k| f64::from(255 - ((shot.pixel(x0 - k, y).unwrap() >> 16) & 255)) / 255.0)
+        .map(|k| {
+            f64::from(
+                255 - ((shot.pixel(x0 - k, y).expect("the pixel is inside the shot") >> 16) & 255),
+            ) / 255.0
+        })
         .sum()
 }
 
 /// The pixel `px` outside the subject's left edge.
 fn outside_pixel(screen: &Screen, px: u32) -> u32 {
-    let rect = screen.get_by_test_id("subject").rect().unwrap();
+    let rect = screen
+        .get_by_test_id("subject")
+        .rect()
+        .expect("the subject is laid out");
     let y = (rect.y + rect.height / 2.0) as u32;
     screen
         .screenshot()
@@ -869,7 +882,13 @@ fn retarget_across_shadow_counts_starts_from_shown() {
 /// Tier 1 (design §3.3): positions are layout rectangles.
 #[test]
 fn interrupted_transition_continues_from_shown() {
-    let x_of = |screen: &Screen| screen.get_by_test_id("subject").rect().unwrap().x;
+    let x_of = |screen: &Screen| {
+        screen
+            .get_by_test_id("subject")
+            .rect()
+            .expect("the subject is laid out")
+            .x
+    };
 
     // Tween: 200 ms linear. Halfway through, the value is about 25; after leaving, one frame
     // later it has moved about 0.5 px, not back to a restart at the origin.

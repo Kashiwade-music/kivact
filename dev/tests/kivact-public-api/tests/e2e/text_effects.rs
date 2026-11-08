@@ -177,12 +177,15 @@ fn optical_sizing_changes_large_text() {
     );
 }
 
+/// The bounds of the text path, and the box the text metrics allow.
+type Measured = (Option<Rect>, Rect);
+
 #[test]
 fn draw_text_with_gradient_and_path() {
     // Tier 3 (glyph raster): the gradient is laid over the text's bounds,
     // so the left of the text is red and the right is blue. The outline
     // path of the text lies inside the text's metrics (§9.7).
-    let found: Rc<RefCell<Option<(Option<Rect>, Rect)>>> = Rc::default();
+    let found: Rc<RefCell<Option<Measured>>> = Rc::default();
     let out = found.clone();
     let screen = render_with(inter(), move || {
         let out = out.clone();
@@ -204,7 +207,7 @@ fn draw_text_with_gradient_and_path() {
         .style(style().size(400, 120).background(rgb(WHITE)))
     });
     let shot = screen.screenshot();
-    let (bounds, inside) = found.borrow().clone().expect("the canvas drew the text");
+    let (bounds, inside) = (*found.borrow()).expect("the canvas drew the text");
     let bounds = bounds.expect("the text has an outline");
     assert!(
         bounds.x >= inside.x
