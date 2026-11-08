@@ -323,6 +323,99 @@ fn calls_fire_on_playback_not_seek() {
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 
+/// A non-finite seek is reported and ignored: the playback goes on from where
+/// it was, and does not wedge at a NaN time.
+#[test]
+fn non_finite_seek_is_reported_and_ignored() {
+    let (screen, (x, ctl)) = mount_with(exact_frames(), || {
+        let tl = timeline();
+        let x = tl.track(0.0f64);
+        tl.to(x, 100.0, Transition::tween(1000, Easing::Linear));
+        ((x, control(tl)), text("nan seek"))
+    });
+    ctl.call(Op::Seek(250.0));
+    screen.run_until_idle();
+    ctl.call(Op::Seek(f64::NAN));
+    ctl.call(Op::Play);
+    screen.run_until_idle();
+    screen.advance(ms(100));
+    assert_value(x.get_untracked(), 35.0, "play goes on from 250 ms");
+    assert_eq!(screen.errors().len(), 1, "{:?}", screen.errors());
+}
+
+/// A call fires once in every repetition, and an odd repetition of an
+/// alternate playback runs it mirrored, as the tracks run.
+#[test]
+fn calls_fire_in_every_repetition() {
+    let normal = Rc::new(Cell::new(0));
+    let mirrored = Rc::new(Cell::new(0));
+    let endless = Rc::new(Cell::new(0));
+    let (n2, m2, e2) = (normal.clone(), mirrored.clone(), endless.clone());
+    let (screen, (ctl_n, ctl_m, ctl_e)) = mount_with(exact_frames(), move || {
+        let tl_n = timeline();
+        let x = tl_n.track(0.0f64);
+        tl_n.to(x, 100.0, Transition::tween(100, Easing::Linear));
+        let counter = n2.clone();
+        tl_n.call(
+            At::Time(50.0),
+            kivact::state::callback(move |()| counter.set(counter.get() + 1)),
+        );
+        let tl_n = tl_n.repeat(Repeat::Times(2));
+
+        let tl_m = timeline();
+        let y = tl_m.track(0.0f64);
+        tl_m.to(y, 100.0, Transition::tween(100, Easing::Linear));
+        let counter = m2.clone();
+        tl_m.call(
+            At::Time(30.0),
+            kivact::state::callback(move |()| counter.set(counter.get() + 1)),
+        );
+        let tl_m = tl_m.repeat(Repeat::Times(2)).alternate();
+
+        let tl_e = timeline();
+        let z = tl_e.track(0.0f64);
+        tl_e.to(z, 100.0, Transition::tween(100, Easing::Linear));
+        let counter = e2.clone();
+        tl_e.call(
+            At::Time(50.0),
+            kivact::state::callback(move |()| counter.set(counter.get() + 1)),
+        );
+        let tl_e = tl_e.repeat(Repeat::Forever);
+        (
+            (control(tl_n), control(tl_m), control(tl_e)),
+            text("rep calls"),
+        )
+    });
+    ctl_n.call(Op::Play);
+    ctl_m.call(Op::Play);
+    ctl_e.call(Op::Play);
+    screen.run_until_idle();
+    // Normal: 50 ms in the first repetition. Alternate: 30 ms in the first,
+    // and the mirrored call of the second at 100 + (100 - 30) = 170 ms.
+    screen.advance(ms(40));
+    assert_eq!(normal.get(), 0, "the call at 50 ms is not due yet");
+    assert_eq!(mirrored.get(), 1, "the call at 30 ms fired");
+    screen.advance(ms(60));
+    assert_eq!(normal.get(), 1, "the first repetition at 50 ms");
+    assert_eq!(mirrored.get(), 1, "the mirrored call is not due at 100 ms");
+    // 200 ms: the second repetition's call at 150 ms; the endless playback
+    // has also fired at 50 and 150 ms.
+    screen.advance(ms(100));
+    assert_eq!(normal.get(), 2, "the second repetition at 150 ms");
+    assert_eq!(
+        mirrored.get(),
+        2,
+        "the mirrored second repetition at 170 ms"
+    );
+    assert_eq!(endless.get(), 2, "endless: 50 and 150 ms");
+    // 260 ms: the endless playback's third call at 250 ms; the others stop.
+    screen.advance(ms(60));
+    assert_eq!(normal.get(), 2, "a two-time repeat does not play a third");
+    assert_eq!(mirrored.get(), 2, "the alternate playback ends at 200 ms");
+    assert_eq!(endless.get(), 3, "endless: 250 ms");
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
 /// The track follows the progress value of a driven timeline.
 #[test]
 fn drive_by_progress() {

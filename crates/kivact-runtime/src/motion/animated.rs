@@ -256,11 +256,7 @@ impl<T: Animatable> Anim for AnimCell<T> {
                 at_ns,
                 run,
             } => {
-                let at_ns = if at_ns <= now {
-                    at_ns.max(paused).saturating_add(now.saturating_sub(paused))
-                } else {
-                    at_ns
-                };
+                let at_ns = shift(at_ns, paused, now);
                 run.shift_last(paused, now);
                 self.phase.set(AnimPhase::Paused {
                     start_ns: shift(start_ns, paused, now),

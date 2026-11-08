@@ -99,10 +99,17 @@ impl Paint {
         Paint::of(PaintImage::Shader(shader))
     }
 
-    /// The problems of the shader values this paint sets (for reporting).
+    /// The problems of the shader values this paint sets, and of the shaders
+    /// in its fallback (for reporting).
     pub(crate) fn shader_problems(&self) -> Vec<UiError> {
         match &self.image {
-            PaintImage::Shader(s) => s.problems().to_vec(),
+            PaintImage::Shader(s) => {
+                let mut out = s.problems().to_vec();
+                if let Some(fallback) = &s.fallback {
+                    out.extend(fallback.shader_problems());
+                }
+                out
+            }
             _ => Vec::new(),
         }
     }

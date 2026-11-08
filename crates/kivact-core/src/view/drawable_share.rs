@@ -110,7 +110,7 @@ pub(crate) struct ExportOpen {
     pub(crate) geometry: Mailbox<Option<Matrix4>>,
     // xtask-allow(state-fields): The app's configured scale; a setting, not derived from the window.
     pub(crate) scale: Option<f64>,
-    // xtask-allow(state-fields): Delivery record: the newest frame handed over to the app (S-9).
+    // xtask-allow(state-fields): Delivery record: the newest frame handed over to the app.
     pub(crate) latest: Option<DrawableFrame>,
     // xtask-allow(state-fields): ID allocator: the last generation issued.
     pub(crate) next_generation: u64,

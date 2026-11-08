@@ -436,12 +436,17 @@ impl Transform {
 
     /// `self` followed by the functions of `next` (CSS lists `self next`).
     pub(crate) fn then(self, next: &Transform) -> Self {
+        let had_functions = self.started;
         let mut out = self.moved(next.translate, next.per_size);
         out.begin();
         out = out.then_matrix(next.linear());
         out.unsupported += next.unsupported;
         if next.perspective_inverse > 0.0 {
-            out = out.perspective(1.0 / next.perspective_inverse);
+            // Not first when functions of `self` come before it.
+            if had_functions {
+                out.unsupported += 1;
+            }
+            out.perspective_inverse = next.perspective_inverse;
         }
         out
     }

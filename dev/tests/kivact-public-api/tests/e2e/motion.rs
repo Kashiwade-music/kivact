@@ -195,6 +195,48 @@ fn interrupted_tween_continues_from_the_current_value() {
     screen.get_by_text("7.0");
 }
 
+/// A paused run that sat through a stop of the frame clock goes on from the
+/// value it paused at: the stop does not count as paused time.
+#[test]
+fn paused_run_across_a_clock_stop_resumes_where_it_paused() {
+    let (screen, (target, shown, ctl)) = mount_with(fast_display(), || {
+        let target = signal(0.0f64);
+        let shown = animated(target, Transition::tween(1000, Easing::Linear));
+        let ctl = kivact::state::callback(move |pause: bool| {
+            if pause {
+                shown.pause();
+            } else {
+                shown.resume();
+            }
+        });
+        (
+            (target, shown, ctl),
+            text(move || format!("{:.1}", shown.get())),
+        )
+    });
+    target.set(100.0);
+    screen.run_until_idle();
+    screen.advance(ms(100));
+    ctl.call(true);
+    screen.run_until_idle();
+    screen.advance(ms(100));
+    screen.suspend(false);
+    screen.advance(ms(100));
+    screen.resume();
+    screen.advance(ms(100));
+    ctl.call(false);
+    screen.run_until_idle();
+    let at_resume = shown.get_untracked();
+    assert!(
+        (at_resume - 10.0).abs() < 0.2,
+        "paused at 100 ms of 1000 (10): resumed at {at_resume}"
+    );
+    screen.advance(ms(50));
+    let later = shown.get_untracked();
+    assert!((later - 15.0).abs() < 0.2, "50 ms on: {later}");
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
 #[test]
 fn reduced_motion_completes_decorative_transitions_only() {
     let (screen, (target, decorative)) = animated_app(Transition::tween(100, Easing::EaseOut));

@@ -132,6 +132,26 @@ fn param_type_mismatch_is_reported() {
     assert_eq!(errors.len(), 1, "{errors:?}");
 }
 
+/// A dropped parameter of a fallback shader is reported like one of the
+/// primary shader.
+#[test]
+fn fallback_shader_problems_are_reported() {
+    let source = "struct Params { speed: f32 }\nfn paint(position: vec2<f32>, context: Context, params: Params) -> vec4<f32> {\n    return vec4<f32>(params.speed, 0.0, 0.0, 1.0);\n}\n";
+    let fallback = PaintShader::wgsl(source).expect("a valid paint shader");
+    let primary = PaintShader::wgsl(PAINT).expect("a valid paint shader");
+    let screen = render(move || {
+        node().style(
+            style().size(100, 100).background(Paint::from(
+                primary
+                    .paint()
+                    .fallback(fallback.paint().param("missing", 1.0)),
+            )),
+        )
+    });
+    let errors = shader_errors(&screen);
+    assert_eq!(errors.len(), 1, "{errors:?}");
+}
+
 #[test]
 fn gpu_paint_shader_output() {
     // GPU, tier 2 (the paint of a shader in the compositor, ±2/255): the
