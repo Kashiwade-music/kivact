@@ -294,10 +294,14 @@ impl<'a> Builder<'a> {
                     })
                     .collect();
                 for op in &mut self.ops {
-                    if let Op::Draw(draw) = op
-                        && draw.target == OUTPUT
-                    {
-                        draw.scissor = Scissor::Rects(rects.clone());
+                    match op {
+                        Op::Draw(draw) if draw.target == OUTPUT => {
+                            draw.scissor = Scissor::Rects(rects.clone());
+                        }
+                        Op::Shader(shader) if shader.target == OUTPUT => {
+                            shader.scissor = Scissor::Rects(rects.clone());
+                        }
+                        _ => {}
                     }
                 }
                 clears.append(&mut self.ops);

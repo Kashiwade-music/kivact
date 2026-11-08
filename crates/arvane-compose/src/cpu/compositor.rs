@@ -19,9 +19,7 @@ use super::mask;
 use super::surface::Pixmap;
 use crate::ComposeError;
 use crate::cache::{CacheIndex, ChunkKey, ChunkRecord, LayerRecord};
-use crate::plan::{
-    self, ChunkTask, Damage, DrawOp, Op, Redraw, Sampling, Scissor, Source, TargetKind,
-};
+use crate::plan::{self, ChunkTask, Damage, DrawOp, Op, Redraw, Sampling, Source, TargetKind};
 
 /// The output of one window frame.
 pub struct CpuOutput<'a> {
@@ -383,7 +381,7 @@ fn exec(
                 composite: Composite::SourceOver,
                 sampling: Sampling::Smooth,
                 coverage: Some(shader.coverage),
-                scissor: Scissor::Off,
+                scissor: shader.scissor.clone(),
             };
             draw::draw(&fallback, targets, chunks, missed)?;
         }

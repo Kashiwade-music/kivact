@@ -156,6 +156,7 @@ impl<'a> Builder<'a> {
             fallback,
             fallback_map,
             opacity: shader.opacity,
+            scissor: Scissor::Off,
         }));
         Ok(())
     }

@@ -246,6 +246,8 @@ pub(crate) struct ShaderOp<'a> {
     pub(crate) fallback_map: Projective,
     /// Alpha multiplier.
     pub(crate) opacity: f64,
+    /// Pixels of the target outside these rectangles stay as they are (window damage).
+    pub(crate) scissor: Scissor,
 }
 
 /// One operation of the frame, executed in order.
