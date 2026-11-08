@@ -65,6 +65,7 @@ fn settings_card() -> impl IntoView {
 ```rust,no_run
 use std::time::Duration;
 use kivact::draw::Pixels;
+use kivact::geometry::Matrix4;
 use kivact::prelude::*;
 use kivact::view::{DrawableFrame, ShareError, ShareUpdate, drawable, viewport};
 
@@ -72,6 +73,8 @@ fn engine_panel() -> impl IntoView {
     let panel = drawable();
     let share = panel.share();
     share.request_pixels();
+    // エンジンは、パネルを viewport の右へ 40 px、下へ 24 px ずらした位置に表示します。
+    share.set_geometry(Some(Matrix4::translate(40.0, 24.0, 0.0)));
 
     std::thread::spawn(move || {
         let mut seen = 0;
@@ -104,6 +107,10 @@ fn engine_panel() -> impl IntoView {
 - フレームは、ストレートアルファの RGBA8 で、デバイスピクセル単位です。既定ではウィンドウの scale に従い、share の `set_scale(..)` で変えられます。
 - `is_closed()` は、drawable が破棄されたかどうかを返します。上のループは、`Closed` を受け取ったときにも終わります。
 - GPU のテクスチャとしてデバイスと共有するには、`gpu-interop` の機能を使い、ウィンドウのアダプターで `request_gpu(adapter)` を呼びます。取り込みによってテクスチャがウィンドウへ返される仕組みは、[自前の GPU レンダラーのテクスチャを表示する](gpu-texture-sharing.md)を参照してください。
+
+- `set_geometry(Some(matrix))` は、エンジンがパネルをどこに描いたかをビューへ伝えます。matrix は、drawable の箱（左上を原点とする論理ピクセル）を、それをホストする viewport の論理ピクセルへ写します。エンジンが使うのは matrix の x・y・w の部分だけで、z は無視されます。そのため 3D の変換は、パネルの平面へ先に適用し、その結果の 2D の写像を渡してください。具体的には、`m` の行 0・1・3 と列 0・1・3 の成分です。こうすると、3D ビュー上のパネルのクリックが、パネルのボタンに届きます。
+- `set_geometry(None)` は、パネルをヒット判定から外します。フレームは届き続けますが、クリックは内容に届かなくなります。
+- 位置は、現在の要求に属します。`request_pixels()` と `request_gpu(..)` は、位置のない新しい要求を始めるので、その後で `set_geometry` を呼び直してください。
 
 ## 注意点
 

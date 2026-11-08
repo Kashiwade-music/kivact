@@ -43,11 +43,43 @@ fn main() -> kivact::Result<()> {
 目標には、シグナル、クロージャ（`move || if open.get() { 240.0 } else { 0.0 }`）、定数のどれでも渡せます。満たす途中で「空にする」を押すと、値は今の位置から折り返します。途中で止められたアニメーションが飛ぶことはありません。
 
 `Transition::tween(ミリ秒, easing)` は、決まった時間で動きます。イージングは `Linear`・`EaseIn`・`EaseOut`・`EaseInOut`・`CubicBezier(x1, y1, x2, y2)`（CSS と同じ数値）、または `Easing::steps(n, StepPosition::JumpEnd)` / `Easing::steps(n, StepPosition::JumpStart)` です。`Easing::Ease` は CSS の `ease` の曲線です。`BackIn`・`BackOut`・`BackInOut` は目標を行き過ぎて戻り、`ElasticIn`・`ElasticOut`・`ElasticInOut` は目標のまわりで揺れ、`BounceIn`・`BounceOut`・`BounceInOut` は途中で跳ねます。点から描く曲線（CSS の `linear()`）には `Easing::linear_points([...])` を使います。点は `(Some(入力), 出力)` か `(None, 出力)` で、入力のない点は両隣のあいだに等間隔で置かれます。
-`Transition::spring(Spring::DEFAULT)` は、物理的なバネのように動きます。時間は決まっておらず、収まったときに終わります。途中で止められたバネは速度を引き継ぎます。`Spring::GENTLE`・`WOBBLY`・`STIFF` はプリセットで、`stiffness`・`damping`・`mass` を自分で指定することもできます。`Spring::with_duration(ms, bounce)` は、約 `ms` ミリ秒で静止するバネを作ります。timeline は長さを前もって決める必要があるので、この形を使います（[タイムライン、スクロールに連動する動き、共有レイアウト](timelines-and-scroll.md)を参照）。どのトランジションにも `.delay(ms)`、`.repeat(Repeat::Times(3))`（`Repeat::Forever` なら目標が変わるまで繰り返し）、`.alternate()`（1 回おきに逆再生）を付けられます。バネの 1 回分は、収まったところで終わります。`Transition::keyframes([(0.0, 0.0), (0.6, 1.2), (1.0, 1.0)], 400)` は、0 から 1 までのオフセットで指定した値を通り、目標で終わります。各組は、そこから始まる区間が直線になるキーフレームです。
+`Transition::spring(Spring::DEFAULT)` は、物理的なバネのように動きます。時間は決まっておらず、収まったときに終わります。途中で止められたバネは速度を引き継ぎます。`Spring::GENTLE`・`WOBBLY`・`STIFF` はプリセットで、`stiffness`・`damping`・`mass` を自分で指定することもできます。`Spring::with_duration(ms, bounce)` は、約 `ms` ミリ秒で静止するバネを作ります。timeline は長さを前もって決める必要があるので、この形を使います（[タイムライン、スクロールに連動する動き、共有レイアウト](timelines-and-scroll.md)を参照）。どのトランジションにも `.delay(ms)`、`.repeat(Repeat::Times(3))`（`Repeat::Forever` なら目標が変わるまで繰り返し）、`.alternate()`（1 回おきに逆再生）を付けられます。バネの 1 回分は、収まったところで終わります。`Transition::keyframes([(0.0, 0.0), (0.6, 1.2), (1.0, 1.0)], 400)` は、0 から 1 までのオフセットで指定した値を通り、目標で終わります。各組は、そこから始まる区間が直線になるキーフレームです。区間ごとに別のイージングを付けるには、組の代わりに `Keyframe` を渡します（後の「キーフレームの区間ごとにイージングを付ける」を参照）。
 
 `.retarget(kivact::motion::Retarget::Proportional)` を指定すると、時間指定の transition の途中で目標が変わったとき、残りの成分距離に比例して新しい所要時間を短縮・延長し、意図した速度を保ちます。既定は `Restart` です。spring は物理モデルの時間で動きます。
 
 `style().layout_transition(Transition::tween(250, Easing::EaseOut))` は、レイアウトによる位置・大きさの変化を補間します。レイアウト計算は一度だけ行い、描画・ポインターの当たり判定・支援技術が同じ視覚変換を使います。装飾用のレイアウト transition は動きを減らす設定に従います。
+
+### キーフレームの区間ごとにイージングを付ける
+
+キーフレームは、ある位置の値であり、次のキーフレームまでの区間を始めます。`Keyframe::new(オフセット, 値)` は、後ろが直線の区間になるキーフレームを作ります。組 `(オフセット, 値)` は、これと同じです。`.easing(イージング)` は、そのキーフレームから始まる区間のイージングを設定するので、一つの動きの中で区間ごとに別の曲線をたどれます。区間は、二つのオフセットのあいだで 0 から 1 までの進み具合を求め、そのイージングで形を変えます。最後のキーフレームのイージングは使われません。そこから始まる区間がないからです。
+
+```rust,no_run
+use kivact::motion::{Easing, Keyframe, Transition, animated};
+use kivact::prelude::*;
+
+fn lift_card() -> impl IntoView {
+    let target = signal(0.0_f64);
+    let lift = animated(
+        target,
+        // オフセット 0.6 で値が 1.2 になるので、値は行き過ぎてから戻ります。
+        Transition::keyframes(
+            [
+                Keyframe::new(0.0, 0.0_f64).easing(Easing::EaseIn),
+                Keyframe::new(0.6, 1.2).easing(Easing::EaseOut),
+                Keyframe::new(1.0, 1.0),
+            ],
+            400,
+        ),
+    );
+
+    column((
+        button("持ち上げる").on_press(move || target.set(1.0)),
+        text(move || format!("{:.2}", lift.get())),
+    ))
+    .style(style().gap(8).padding(12))
+}
+# fn main() -> kivact::Result<()> { App::new("持ち上げ").run(lift_card) }
+```
 
 ### 値をスタイルで使う
 

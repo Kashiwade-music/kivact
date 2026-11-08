@@ -73,11 +73,50 @@ target changes) and `.alternate()` (every other iteration plays backwards); a
 spring's iteration ends when it settles.
 `Transition::keyframes([(0.0, 0.0), (0.6, 1.2), (1.0, 1.0)], 400)` passes
 through values at offsets between 0 and 1 and ends at the target. Each pair is a
-keyframe with a linear segment after it.
+keyframe with a linear segment after it. To give a segment its own easing, pass
+`Keyframe` values instead (see "Ease each keyframe segment" below).
 
 With `.retarget(kivact::motion::Retarget::Proportional)`, an interrupted timed transition scales its new duration by the remaining component distance to preserve its intended speed. `Restart` is the default. Springs keep their physical timing.
 
 Use `style().layout_transition(Transition::tween(250, Easing::EaseOut))` to animate position and size changes caused by layout. Layout runs once; paint, pointer hit testing and accessibility share the interpolated visual transform. Decorative layout transitions also respect reduced motion.
+
+### Ease each keyframe segment
+
+A keyframe is a value at an offset, and it starts the segment that runs to the
+next keyframe. `Keyframe::new(offset, value)` makes one with a linear segment,
+which is what a pair `(offset, value)` gives. `.easing(easing)` sets the easing
+of the segment that starts at that keyframe, so each segment of one run can move
+along its own curve. A segment reads its progress from 0 to 1 between its two
+offsets and shapes it with its easing. The easing of the last keyframe is not
+used, since no segment starts there.
+
+```rust,no_run
+use kivact::motion::{Easing, Keyframe, Transition, animated};
+use kivact::prelude::*;
+
+fn lift_card() -> impl IntoView {
+    let target = signal(0.0_f64);
+    let lift = animated(
+        target,
+        // The value is 1.2 at offset 0.6, so it overshoots and comes back.
+        Transition::keyframes(
+            [
+                Keyframe::new(0.0, 0.0_f64).easing(Easing::EaseIn),
+                Keyframe::new(0.6, 1.2).easing(Easing::EaseOut),
+                Keyframe::new(1.0, 1.0),
+            ],
+            400,
+        ),
+    );
+
+    column((
+        button("Lift").on_press(move || target.set(1.0)),
+        text(move || format!("{:.2}", lift.get())),
+    ))
+    .style(style().gap(8).padding(12))
+}
+# fn main() -> kivact::Result<()> { App::new("Lift").run(lift_card) }
+```
 
 ### Use the value in a style
 

@@ -92,6 +92,7 @@ frames.
 ```rust,no_run
 use std::time::Duration;
 use kivact::draw::Pixels;
+use kivact::geometry::Matrix4;
 use kivact::prelude::*;
 use kivact::view::{DrawableFrame, ShareError, ShareUpdate, drawable, viewport};
 
@@ -99,6 +100,8 @@ fn engine_panel() -> impl IntoView {
     let panel = drawable();
     let share = panel.share();
     share.request_pixels();
+    // The engine shows the panel 40 px right and 24 px down in the viewport.
+    share.set_geometry(Some(Matrix4::translate(40.0, 24.0, 0.0)));
 
     std::thread::spawn(move || {
         let mut seen = 0;
@@ -141,6 +144,19 @@ fn engine_panel() -> impl IntoView {
   with the window's adapter, which needs the `gpu-interop` feature. See
   [Show textures from your own GPU renderer](gpu-texture-sharing.md) for how the import
   hands a texture back to the window.
+
+- `set_geometry(Some(matrix))` tells the view where your engine draws the panel.
+  The matrix maps the drawable's box, in its logical pixels from its top-left
+  corner, to the logical pixels of the viewport that hosts it. The engine uses
+  the x, y and w parts of the matrix and ignores z. A 3D transform therefore has
+  to be applied to the panel's plane first, and you pass the 2D map that
+  results: the entries of `m` in rows 0, 1 and 3 and columns 0, 1 and 3. With
+  it, a click on the panel in your 3D view reaches the panel's buttons.
+- `set_geometry(None)` hides the panel from hit testing. Frames keep coming,
+  but clicks no longer reach its content.
+- The geometry belongs to the current request. `request_pixels()` and
+  `request_gpu(..)` start a new one with no geometry, so call `set_geometry`
+  again after them.
 
 ## Things to know
 
