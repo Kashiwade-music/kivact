@@ -17,7 +17,7 @@ use kivact_types::scene::Shape;
 use super::bounds::{mapped_bounds, points_bounds};
 use super::builder::Builder;
 use super::frame::{
-    Dest, ItemCtx, coverage_scene, filter_reach, full_polygon, inline_candidate, px_map,
+    Dest, ItemCtx, ceil_px, coverage_scene, filter_reach, full_polygon, inline_candidate, px_map,
     subtree_has_backdrop,
 };
 use super::hash::{self, Fnv};
@@ -28,6 +28,8 @@ use crate::cache::{ChunkKey, ChunkRole, LayerRecord, Retained};
 const MAX_SURFACE_PX: f64 = 8192.0;
 /// The smallest raster scale a surface takes.
 const MIN_SCALE: f64 = 1.0 / 16.0;
+/// The reciprocal of the step an axis-parallel raster scale is rounded to (one part in 10⁹).
+const SCALE_SNAP: f64 = 1e9;
 /// The largest raster scale a surface takes.
 const MAX_SCALE: f64 = 16.0;
 /// The cell, in px, that a `RasterGrid::Layer` surface's bounds snap to (design §8.3 step 2).
@@ -93,7 +95,9 @@ fn quantize(raw: f64, axis_parallel: bool) -> f64 {
         1.0
     };
     let scale = if axis_parallel {
-        raw
+        // The map's rounding (a scale of 1 + 1 ulp for a translation) must not
+        // change the chunk grid from frame to frame.
+        (raw * SCALE_SNAP).round() / SCALE_SNAP
     } else {
         2f64.powf((2.0 * raw.log2()).ceil() / 2.0)
     };
@@ -207,8 +211,8 @@ impl<'a> Builder<'a> {
             origin_px = Some((p, t));
         }
         let size = loop {
-            let w = (rect.width * scale).ceil();
-            let hh = (rect.height * scale).ceil();
+            let w = ceil_px(rect.width * scale);
+            let hh = ceil_px(rect.height * scale);
             if !(w.is_finite() && hh.is_finite()) || w <= 0.0 || hh <= 0.0 {
                 return None;
             }

@@ -27,6 +27,20 @@ pub(super) struct Dest {
     pub(super) cover: Option<ChunkKey>,
 }
 
+/// Rounds a px quantity up to a whole px, ignoring the rounding error of the
+/// maps that produced it: a scale of 1 + 1 ulp must not add a px.
+pub(crate) fn ceil_px(v: f64) -> f64 {
+    (v - PX_EPSILON).ceil()
+}
+
+/// Rounds a px quantity down to a whole px, ignoring the rounding error of the maps that produced it.
+pub(crate) fn floor_px(v: f64) -> f64 {
+    (v + PX_EPSILON).floor()
+}
+
+/// The error the px rounding forgives (far below any visible px).
+const PX_EPSILON: f64 = 1e-6;
+
 /// The layer and items being drawn.
 pub(super) struct ItemCtx<'a> {
     /// The layer that owns the items.

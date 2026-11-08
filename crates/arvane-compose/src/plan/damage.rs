@@ -9,7 +9,7 @@ use kivact_types::render::{PixelRect, RenderScene};
 
 use super::bounds::{mapped_bounds, scene_bounds};
 use super::builder::Builder;
-use super::frame::area;
+use super::frame::{area, ceil_px, floor_px};
 use super::hash;
 use super::ops::{ChunkTask, Damage, Grid, PlanError, Redraw};
 use crate::cache::{ChunkKey, ChunkRecord, LayerRecord, Retained};
@@ -24,10 +24,10 @@ const FULL_AT: usize = 17;
 /// The px rectangle of `r` in a grid of px, clipped to `size`; None when nothing is left.
 fn clip_px(r: Rect, origin: Point, scale: f64, size: (u32, u32)) -> Option<PixelRect> {
     let (w, h) = (f64::from(size.0), f64::from(size.1));
-    let x0 = ((r.x - origin.x) * scale).floor().max(0.0);
-    let y0 = ((r.y - origin.y) * scale).floor().max(0.0);
-    let x1 = ((r.right() - origin.x) * scale).ceil().min(w);
-    let y1 = ((r.bottom() - origin.y) * scale).ceil().min(h);
+    let x0 = floor_px((r.x - origin.x) * scale).max(0.0);
+    let y0 = floor_px((r.y - origin.y) * scale).max(0.0);
+    let x1 = ceil_px((r.right() - origin.x) * scale).min(w);
+    let y1 = ceil_px((r.bottom() - origin.y) * scale).min(h);
     if !(x1 > x0 && y1 > y0) {
         return None;
     }
