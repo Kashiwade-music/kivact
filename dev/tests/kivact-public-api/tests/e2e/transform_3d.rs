@@ -114,6 +114,40 @@ fn perspective_first_in_a_transform_is_not_reported() {
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 
+/// A perspective that follows other functions is counted once, whether those
+/// functions come from the node's own properties or from the transform list.
+#[test]
+fn late_perspective_is_reported_once() {
+    // `rotate` comes first; the list's perspective is then not first.
+    let screen = render(|| {
+        canvas_of(
+            node().style(
+                at(100, 100, 200, 200)
+                    .background(rgb(RED))
+                    .rotate(10)
+                    .transform(Transform::new().rotate_x(5).perspective(800.0)),
+            ),
+        )
+    });
+    assert_eq!(screen.errors().len(), 1, "{:?}", screen.errors());
+    assert!(
+        format!("{:?}", screen.errors()).contains("transform: 1 function(s)"),
+        "{:?}",
+        screen.errors()
+    );
+    // Only the list's functions: the perspective is late in the list.
+    let screen = render(|| {
+        canvas_of(
+            node().style(
+                at(100, 100, 200, 200)
+                    .background(rgb(RED))
+                    .transform(Transform::new().rotate_x(5).perspective(800.0)),
+            ),
+        )
+    });
+    assert_eq!(screen.errors().len(), 1, "{:?}", screen.errors());
+}
+
 #[test]
 fn hit_test_follows_the_projection() {
     // Geometry tier: a click is decided by the projected quad.

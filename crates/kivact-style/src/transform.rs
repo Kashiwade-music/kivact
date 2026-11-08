@@ -41,6 +41,17 @@ use kivact_types::{ElementTransform, Len, Matrix4};
 use super::length::Length;
 use crate::geometry::Size;
 
+/// Where a transform's `perspective()` function sits among its functions.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum PerspectivePlace {
+    /// No perspective function.
+    Absent,
+    /// The perspective is the first function (it is valid there).
+    First,
+    /// The perspective follows other functions (counted as unsupported).
+    Late,
+}
+
 /// A 3D transform written like CSS `transform`: the functions in call
 /// order, `Transform::new().skew_x(-12).translate_y(2)` being CSS
 /// `transform: skewX(-12deg) translateY(2px)`. Angles are in degrees
@@ -90,6 +101,8 @@ pub struct Transform {
     /// At least one function was given (`perspective()` is valid only as
     /// the first one).
     started: bool,
+    /// Where the perspective function sits, so a merge counts it once.
+    perspective_place: PerspectivePlace,
     /// Functions CSS allows that this form cannot keep, counted as
     /// unsupported by the style or drawing that uses the transform.
     unsupported: u32,
@@ -146,6 +159,7 @@ impl Transform {
             perspective_inverse: 0.0,
             stage: 0,
             started: false,
+            perspective_place: PerspectivePlace::Absent,
             unsupported: 0,
         }
     }
@@ -425,9 +439,13 @@ impl Transform {
     /// if it were first.
     pub fn perspective(mut self, d: impl Into<f64>) -> Self {
         let d = d.into();
-        if !self.begin() {
+        let first = self.begin();
+        self.perspective_place = if first {
+            PerspectivePlace::First
+        } else {
             self.unsupported += 1;
-        }
+            PerspectivePlace::Late
+        };
         if d.is_finite() && d > 0.0 {
             self.perspective_inverse = 1.0 / d;
         }
@@ -435,6 +453,8 @@ impl Transform {
     }
 
     /// `self` followed by the functions of `next` (CSS lists `self next`).
+    /// A perspective of `next` is counted once: `next` already counted it
+    /// when it was not first there.
     pub(crate) fn then(self, next: &Transform) -> Self {
         let had_functions = self.started;
         let mut out = self.moved(next.translate, next.per_size);
@@ -442,10 +462,15 @@ impl Transform {
         out = out.then_matrix(next.linear());
         out.unsupported += next.unsupported;
         if next.perspective_inverse > 0.0 {
-            // Not first when functions of `self` come before it.
-            if had_functions {
+            let first_in_next = next.perspective_place == PerspectivePlace::First;
+            if first_in_next && had_functions {
                 out.unsupported += 1;
             }
+            out.perspective_place = if first_in_next && !had_functions {
+                PerspectivePlace::First
+            } else {
+                PerspectivePlace::Late
+            };
             out.perspective_inverse = next.perspective_inverse;
         }
         out
@@ -521,6 +546,11 @@ impl Transform {
             perspective_inverse: c[16],
             stage: STAGE_SCALE,
             started: true,
+            perspective_place: if c[16] > 0.0 {
+                PerspectivePlace::First
+            } else {
+                PerspectivePlace::Absent
+            },
             unsupported: 0,
         }
     }
