@@ -12,10 +12,10 @@ use std::rc::Rc;
 use std::time::Duration;
 
 use kivact::draw::RegionId;
-use kivact::draw::{BlendMode, Composite, Filter, Layer, Transform};
+use kivact::draw::{BlendMode, Composite, Filter, Layer, PaintShader, Transform};
 use kivact::geometry::{Point, Rect};
 use kivact::prelude::*;
-use kivact::style::{Isolation, TransformStyle, WillChange};
+use kivact::style::{Isolation, TransformStyle, WillChange, rgba};
 use kivact::test::{RenderOptions, Screenshot, render, render_with};
 use kivact::view::canvas;
 
@@ -489,5 +489,47 @@ fn crowded_3d_context_hits_what_is_drawn() {
         *log.borrow(),
         ["b299"],
         "the last button in DOM order is hit"
+    );
+}
+
+/// A paint shader that returns blue, for the translucent fallback test.
+const SHADER: &str = "fn paint(position: vec2<f32>, context: Context) -> vec4<f32> {\n    return vec4<f32>(0.0, 0.0, 1.0, 1.0);\n}\n";
+
+/// A translucent red shader fallback in the root's top-left corner, and a box beside it.
+fn shader_beside_box(colour: Signal<u32>) -> impl IntoView {
+    let shader = PaintShader::wgsl(SHADER).expect("a valid paint shader");
+    canvas_of((
+        canvas(move |d, _| {
+            d.fill_rect(
+                Rect::new(0.0, 0.0, 100.0, 100.0),
+                shader.paint().fallback(rgba(RED, 0.5)),
+            );
+        })
+        .style(at(0, 0, 100, 100)),
+        node().style(move || at(300, 300, 60, 60).background(rgb(colour.get()))),
+    ))
+}
+
+#[test]
+fn root_shader_fallback_is_not_blended_again_outside_the_damage() {
+    // The shader's fallback is drawn only where the window is damaged: frames that
+    // change the box keep the pixels under the shader, which is blended once (§8.6).
+    let (screen, colour) = mount(|| {
+        let colour = signal(BLUE);
+        (colour, shader_beside_box(colour))
+    });
+    screen.screenshot();
+    colour.set(RED);
+    screen.screenshot();
+    colour.set(GREEN);
+    screen.screenshot();
+    colour.set(RED);
+    let changed = screen.screenshot();
+    let fresh = render(|| shader_beside_box(signal(RED))).screenshot();
+    assert_same_pixels(
+        &changed,
+        &fresh,
+        2,
+        "the shader fallback after partial frames",
     );
 }
