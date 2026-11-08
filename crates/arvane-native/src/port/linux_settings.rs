@@ -18,17 +18,19 @@ const INTERFACE: &str = "org.freedesktop.portal.Settings";
 const GNOME_NAMESPACE: &str = "org.gnome.desktop.interface";
 const KDE_NAMESPACE: &str = "org.kde.kdeglobals.KDE";
 
+// xtask-allow(state-fields): measurement - the reduced-motion preference last read from the portal
 /// The reduced-motion preference last read from the portal.
 static REDUCED_MOTION: AtomicBool = AtomicBool::new(false);
 
 /// The wakers of the event loops that show the environment, by registration.
 static WAKERS: Mutex<Vec<(u64, ShellWaker)>> = Mutex::new(Vec::new());
 
+// xtask-allow(state-fields): S-8 ID - the next waker registration number
 /// The next registration number.
 static NEXT: AtomicU64 = AtomicU64::new(0);
 
-/// Set when the watcher thread is started, so that every loop shares one thread.
-static STARTED: AtomicBool = AtomicBool::new(false);
+/// Starts the one watcher thread every loop shares.
+static WATCHER: std::sync::Once = std::sync::Once::new();
 
 /// Whether the desktop asks to reduce motion, as last read from the portal.
 pub(crate) fn reduced_motion() -> bool {
@@ -56,14 +58,14 @@ pub(crate) fn watch(waker: ShellWaker) -> Watch {
         .lock()
         .unwrap_or_else(PoisonError::into_inner)
         .push((id, waker));
-    if !STARTED.swap(true, Ordering::AcqRel) {
+    WATCHER.call_once(|| {
         let spawned = std::thread::Builder::new()
             .name("arvane-settings".into())
             .spawn(run);
         if let Err(error) = spawned {
             tracing::debug!(%error, "settings watcher thread not started");
         }
-    }
+    });
     Watch(id)
 }
 

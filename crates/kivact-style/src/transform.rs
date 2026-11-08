@@ -97,7 +97,7 @@ pub struct Transform {
     perspective_inverse: f64,
     /// The canonical stage of the last function that set a part: a
     /// function of an earlier stage is composed by decomposition.
-    stage: u8,
+    stage: Stage,
     /// At least one function was given (`perspective()` is valid only as
     /// the first one).
     started: bool,
@@ -125,13 +125,18 @@ impl Default for Transform {
     }
 }
 
-/// Canonical stages: a function of a later stage follows the earlier ones
-/// in the form.
-const STAGE_RZ: u8 = 2;
-const STAGE_RY: u8 = 3;
-const STAGE_RX: u8 = 4;
-const STAGE_SKEW: u8 = 5;
-const STAGE_SCALE: u8 = 6;
+/// Canonical stages, in the order of the canonical form: a function of a later
+/// stage follows the earlier ones.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+enum Stage {
+    /// No function set a part yet.
+    None,
+    RotateZ,
+    RotateY,
+    RotateX,
+    Skew,
+    Scale,
+}
 
 /// `tan` of `deg` degrees (exact at 0).
 fn tan_deg(deg: f64) -> f64 {
@@ -157,7 +162,7 @@ impl Transform {
             skew: [0.0; 3],
             scale: [1.0; 3],
             perspective_inverse: 0.0,
-            stage: 0,
+            stage: Stage::None,
             started: false,
             perspective_place: PerspectivePlace::Absent,
             unsupported: 0,
@@ -189,12 +194,12 @@ impl Transform {
                 self.scale = [m.m[0][0], m.m[1][1], m.m[2][2]];
             }
         }
-        self.stage = STAGE_SCALE;
+        self.stage = Stage::Scale;
     }
 
     /// Whether a function of `stage` extends the canonical form directly
     /// (it is not before the stage already set).
-    fn in_order(&self, stage: u8) -> bool {
+    fn in_order(&self, stage: Stage) -> bool {
         stage >= self.stage
     }
 
@@ -277,9 +282,9 @@ impl Transform {
     pub fn rotate_z(mut self, deg: impl Into<f64>) -> Self {
         let deg = deg.into();
         self.begin();
-        if self.in_order(STAGE_RZ) {
+        if self.in_order(Stage::RotateZ) {
             self.rotate[2] += deg;
-            self.stage = STAGE_RZ;
+            self.stage = Stage::RotateZ;
             return self;
         }
         self.then_matrix(Matrix4::rotate_z(deg))
@@ -289,9 +294,9 @@ impl Transform {
     pub fn rotate_y(mut self, deg: impl Into<f64>) -> Self {
         let deg = deg.into();
         self.begin();
-        if self.in_order(STAGE_RY) {
+        if self.in_order(Stage::RotateY) {
             self.rotate[1] += deg;
-            self.stage = STAGE_RY;
+            self.stage = Stage::RotateY;
             return self;
         }
         self.then_matrix(Matrix4::rotate_y(deg))
@@ -301,9 +306,9 @@ impl Transform {
     pub fn rotate_x(mut self, deg: impl Into<f64>) -> Self {
         let deg = deg.into();
         self.begin();
-        if self.in_order(STAGE_RX) {
+        if self.in_order(Stage::RotateX) {
             self.rotate[0] += deg;
-            self.stage = STAGE_RX;
+            self.stage = Stage::RotateX;
             return self;
         }
         self.then_matrix(Matrix4::rotate_x(deg))
@@ -352,9 +357,9 @@ impl Transform {
     pub fn scale_3d(mut self, x: impl Into<f64>, y: impl Into<f64>, z: impl Into<f64>) -> Self {
         let (x, y, z) = (x.into(), y.into(), z.into());
         self.begin();
-        if self.in_order(STAGE_SCALE) {
+        if self.in_order(Stage::Scale) {
             self.scale = [self.scale[0] * x, self.scale[1] * y, self.scale[2] * z];
-            self.stage = STAGE_SCALE;
+            self.stage = Stage::Scale;
             return self;
         }
         self.then_matrix(Matrix4::scale(x, y, z))
@@ -364,9 +369,9 @@ impl Transform {
     pub fn skew_x(mut self, deg: impl Into<f64>) -> Self {
         let deg = deg.into();
         self.begin();
-        if self.in_order(STAGE_SKEW) {
+        if self.in_order(Stage::Skew) {
             self.skew[0] = (tan_deg(self.skew[0]) + tan_deg(deg)).atan().to_degrees();
-            self.stage = STAGE_SKEW;
+            self.stage = Stage::Skew;
             return self;
         }
         self.then_matrix(Matrix4::skew(deg, 0.0, 0.0))
@@ -544,7 +549,7 @@ impl Transform {
             skew: [c[10], c[11], c[12]],
             scale: [c[13], c[14], c[15]],
             perspective_inverse: c[16],
-            stage: STAGE_SCALE,
+            stage: Stage::Scale,
             started: true,
             perspective_place: if c[16] > 0.0 {
                 PerspectivePlace::First

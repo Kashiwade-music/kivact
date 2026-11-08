@@ -64,7 +64,7 @@ impl Window {
         let frame_period_ns = randr_frame_period(&native, (width, height));
         Ok(Self {
             native,
-            session: Rc::new(Session::new(shared.clone())),
+            session: Rc::new(Session::new(shared.clone(), waker.clone())),
             shared,
             backend,
             width,
@@ -145,7 +145,7 @@ impl ShellWindow for Window {
             PlatformRequest::RevealPath(path) => {
                 crate::open::reveal_path(&path).map(|()| PlatformResult::Done)
             }
-            PlatformRequest::FocusWindow => return PlatformResult::Unsupported,
+            PlatformRequest::FocusWindow => self.focus().map(|()| PlatformResult::Done),
             PlatformRequest::RequestWindowSize(size) => {
                 debug_assert!(!self.session.opening());
                 negotiate(
@@ -167,6 +167,13 @@ impl ShellWindow for Window {
     }
     fn cpu_format(&self) -> arvane_shell::CpuFormat {
         arvane_shell::CpuFormat::Xrgb8888
+    }
+
+    /// An embedded editor's window cannot be raised.
+    fn focus(&mut self) -> Result<(), ShellError> {
+        Err(ShellError::unsupported(
+            "focus_window in an embedded editor",
+        ))
     }
 
     fn keeps_frames(&self) -> bool {

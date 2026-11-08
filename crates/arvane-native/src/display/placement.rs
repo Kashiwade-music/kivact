@@ -1,4 +1,6 @@
-//! Role: Chooses the first window's monitor and centers the window in its work area.
+//! Role: Chooses window positions on monitors and centers windows in their work areas.
+
+use kivact_types::{Point, Rect, Size, WindowPlacement};
 
 /// Physical desktop bounds of a monitor's usable work area.
 pub(super) type WorkArea = (i32, i32, u32, u32);
@@ -27,16 +29,17 @@ fn centered_window_origin(work: WorkArea, logical: (f64, f64), scale: f64) -> (i
 fn target_monitor_area(
     event_loop: &winit::event_loop::ActiveEventLoop,
 ) -> Option<(winit::monitor::MonitorHandle, WorkArea)> {
-    #[cfg(target_os = "linux")]
-    {
-        use winit::platform::wayland::ActiveEventLoopExtWayland;
-        if event_loop.is_wayland() {
-            return None;
-        }
+    if !placement_supported(event_loop) {
+        return None;
     }
     let monitor = event_loop
         .primary_monitor()
         .or_else(|| event_loop.available_monitors().next())?;
+    Some(area_of(monitor))
+}
+
+/// The monitor's usable area, in physical pixels, for a monitor.
+fn area_of(monitor: winit::monitor::MonitorHandle) -> (winit::monitor::MonitorHandle, WorkArea) {
     let position = monitor.position();
     let size = monitor.size();
     let bounds = (position.x, position.y, size.width, size.height);
@@ -46,7 +49,66 @@ fn target_monitor_area(
     let work = super::x11::work_area(bounds).unwrap_or(bounds);
     #[cfg(not(any(windows, target_os = "linux")))]
     let work = bounds;
-    Some((monitor, work))
+    (monitor, work)
+}
+
+/// The monitor's usable area in physical pixels.
+pub(crate) fn work_area_of(monitor: &winit::monitor::MonitorHandle) -> Rect {
+    let (_, (x, y, width, height)) = area_of(monitor.clone());
+    Rect {
+        x: f64::from(x),
+        y: f64::from(y),
+        width: f64::from(width),
+        height: f64::from(height),
+    }
+}
+
+/// Whether the platform honours explicit window placement (Wayland does not).
+pub(crate) fn placement_supported(event_loop: &winit::event_loop::ActiveEventLoop) -> bool {
+    #[cfg(target_os = "linux")]
+    {
+        use winit::platform::wayland::ActiveEventLoopExtWayland;
+        !event_loop.is_wayland()
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        let _ = event_loop;
+        true
+    }
+}
+
+/// Where a new window opens next to its parent, in physical pixels: centered
+/// over it, or to its right, or to its left when the right side has no room.
+/// `None` leaves placement to the platform.
+pub(crate) fn place_relative(
+    parent_outer: Rect,
+    size: Size,
+    work_area: Rect,
+    placement: WindowPlacement,
+) -> Option<Point> {
+    match placement {
+        WindowPlacement::Auto => None,
+        WindowPlacement::CenterOnParent => Some(Point {
+            x: parent_outer.x + (parent_outer.width - size.width) / 2.0,
+            y: parent_outer.y + (parent_outer.height - size.height) / 2.0,
+        }),
+        WindowPlacement::NextToParent => {
+            let right = parent_outer.right();
+            if right + size.width <= work_area.right() {
+                Some(Point {
+                    x: right,
+                    y: parent_outer.y,
+                })
+            } else if parent_outer.x - size.width >= work_area.x {
+                Some(Point {
+                    x: parent_outer.x - size.width,
+                    y: parent_outer.y,
+                })
+            } else {
+                None
+            }
+        }
+    }
 }
 
 /// Choose a creation position on the target monitor so its DPI resolves the size.

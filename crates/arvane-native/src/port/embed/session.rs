@@ -1,8 +1,10 @@
 //! Role: Own the embedded UI lifecycle, handler and module-retention sentinel.
 use super::child::{Command, Shared};
 use arvane_shell::{
-    MakeHandler, ShellControl, ShellError, ShellEvent, ShellHandler, ShellWaker, ShellWindow,
+    EventTarget, InjectedInput, MakeHandler, ShellControl, ShellError, ShellEvent, ShellHandler,
+    ShellLoop, ShellWaker, ShellWindow,
 };
+use kivact_types::{Capabilities, RequestId, WindowId, WindowRequest};
 use std::cell::RefCell;
 use std::sync::Arc;
 
@@ -22,7 +24,58 @@ enum ChildLifecycle {
 pub(in crate::port) struct Session {
     state: RefCell<ChildLifecycle>,
     shared: Arc<Shared>,
+    waker: ShellWaker,
     retention: ModuleRetention,
+}
+
+/// The embedded editor's loop: one window, no more.
+pub(in crate::port) struct EmbedLoop<'a> {
+    window: &'a mut dyn ShellWindow,
+    waker: ShellWaker,
+    /// The inject requests answered with `Injected` after the callback returns.
+    injected: Vec<RequestId>,
+}
+
+impl ShellLoop for EmbedLoop<'_> {
+    fn window(&mut self, id: WindowId) -> Option<&mut dyn ShellWindow> {
+        if id == WindowId::MAIN {
+            Some(&mut *self.window)
+        } else {
+            None
+        }
+    }
+
+    fn windows(&self) -> Vec<WindowId> {
+        vec![WindowId::MAIN]
+    }
+
+    fn open_window(&mut self, _: WindowRequest) -> Result<(), ShellError> {
+        Err(ShellError::unsupported(
+            "windows beyond the embedded editor",
+        ))
+    }
+
+    fn close_window(&mut self, _: WindowId) {}
+
+    fn inject(&mut self, _: WindowId, _: Vec<InjectedInput>, request: RequestId) {
+        self.injected.push(request);
+    }
+
+    fn now_ns(&self) -> u64 {
+        self.window.now_ns()
+    }
+
+    fn waker(&self) -> ShellWaker {
+        self.waker.clone()
+    }
+
+    fn capabilities(&self) -> Capabilities {
+        Capabilities {
+            multi_window: false,
+            window_placement: false,
+            ..self.window.capabilities()
+        }
+    }
 }
 // Temporarily lend the handler to a callback while leaving its lifecycle observable on reentry.
 struct Callback<'a> {
@@ -41,12 +94,16 @@ impl Drop for Callback<'_> {
     }
 }
 impl Session {
-    pub(in crate::port) fn new(shared: Arc<Shared>) -> Self {
+    pub(in crate::port) fn new(shared: Arc<Shared>, waker: ShellWaker) -> Self {
         Self {
             state: RefCell::new(ChildLifecycle::Opening(HandlerSlot::Unstarted)),
             shared,
+            waker,
             retention: ModuleRetention,
         }
+    }
+    pub(in crate::port) fn waker(&self) -> ShellWaker {
+        self.waker.clone()
     }
     pub(in crate::port) fn opening(&self) -> bool {
         matches!(*self.state.borrow(), ChildLifecycle::Opening(_))
@@ -81,12 +138,7 @@ impl Session {
             ChildLifecycle::Disposed | ChildLifecycle::Leaked => None,
         }
     }
-    pub(in crate::port) fn start(
-        &self,
-        make: MakeHandler,
-        window: &mut dyn ShellWindow,
-        waker: ShellWaker,
-    ) {
+    pub(in crate::port) fn start(&self, make: MakeHandler, window: &mut dyn ShellWindow) {
         if self.shared.stopped() {
             return;
         }
@@ -98,14 +150,22 @@ impl Session {
             handler: make(),
             control: ShellControl::Wait,
         };
-        let HandlerSlot::Running { handler, .. } = &mut callback.slot else {
-            unreachable!("invariant: handler just installed");
+        let mut lp = EmbedLoop {
+            window,
+            waker: self.waker.clone(),
+            injected: Vec::new(),
         };
-        let result = if self.shared.stopped() {
-            Ok(ShellControl::Wait)
-        } else {
-            handler.start(window, waker)
+        let result = {
+            let HandlerSlot::Running { handler, .. } = &mut callback.slot else {
+                unreachable!("invariant: handler just installed");
+            };
+            if self.shared.stopped() {
+                Ok(ShellControl::Wait)
+            } else {
+                handler.start(&mut lp, self.waker.clone())
+            }
         };
+        self.deliver_injected(&mut callback.slot, &mut lp);
         self.accept(&mut callback.slot, result);
     }
     pub(in crate::port) fn deliver(&self, event: ShellEvent, window: &mut dyn ShellWindow) {
@@ -118,8 +178,35 @@ impl Session {
         let HandlerSlot::Running { handler, .. } = &mut callback.slot else {
             return;
         };
-        let result = handler.event(event, window);
+        let target = EventTarget::of(&event, WindowId::MAIN);
+        let mut lp = EmbedLoop {
+            window,
+            waker: self.waker.clone(),
+            injected: Vec::new(),
+        };
+        let result = handler.event(target, event, &mut lp);
+        self.deliver_injected(&mut callback.slot, &mut lp);
         self.accept(&mut callback.slot, result);
+    }
+    /// Deliver the `Injected` events of the requests the callback queued.
+    fn deliver_injected(&self, slot: &mut HandlerSlot, lp: &mut EmbedLoop<'_>) {
+        while !lp.injected.is_empty() && !self.shared.stopped() {
+            let requests = std::mem::take(&mut lp.injected);
+            for request in requests {
+                let HandlerSlot::Running { handler, .. } = slot else {
+                    return;
+                };
+                let result = handler.event(
+                    EventTarget::Window(WindowId::MAIN),
+                    ShellEvent::Injected { request },
+                    lp,
+                );
+                self.accept(slot, result);
+                if self.shared.stopped() {
+                    return;
+                }
+            }
+        }
     }
     fn accept(&self, slot: &mut HandlerSlot, result: Result<ShellControl, ShellError>) {
         match result {
@@ -160,7 +247,12 @@ impl Session {
                 std::mem::forget(handler);
                 return false;
             }
-            handler.close(window);
+            let mut lp = EmbedLoop {
+                window,
+                waker: self.waker.clone(),
+                injected: Vec::new(),
+            };
+            handler.close(&mut lp);
             drop(handler);
             self.retention.retain();
         }

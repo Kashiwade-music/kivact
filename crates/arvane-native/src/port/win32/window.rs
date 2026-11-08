@@ -72,6 +72,22 @@ fn frame_period(hwnd: isize) -> u64 {
         kivact_types::defaults::FRAME_PERIOD_NS
     }
 }
+/// A wake handle for the child's UI thread.
+fn wake_handle(shared: &Arc<Shared>, native: &Arc<Native>) -> ShellWaker {
+    let shared = Arc::downgrade(shared);
+    let native = Arc::downgrade(native);
+    ShellWaker::new(move |reasons| {
+        let (Some(shared), Some(native)) = (shared.upgrade(), native.upgrade()) else {
+            return;
+        };
+        if shared.alive() && native.wake_pending.request(reasons) {
+            // SAFETY: posting uses only the opaque HWND and never accesses UI state.
+            if unsafe { PostMessageW(native.hwnd(), super::native::WAKE, 0, 0) } == 0 {
+                let _ = native.wake_pending.take();
+            }
+        }
+    })
+}
 impl ShellWindow for Window {
     fn perform(&mut self, request: PlatformRequest) -> PlatformResult {
         match request {
@@ -114,7 +130,7 @@ impl ShellWindow for Window {
             PlatformRequest::RevealPath(path) => {
                 crate::open::reveal_path(&path).map(|()| PlatformResult::Done)
             }
-            PlatformRequest::FocusWindow => return PlatformResult::Unsupported,
+            PlatformRequest::FocusWindow => self.focus().map(|()| PlatformResult::Done),
             PlatformRequest::RequestWindowSize(size) => {
                 debug_assert!(!self.0.session.opening());
                 debug_assert_eq!(std::thread::current().id(), self.0.native.ui_thread);
@@ -137,6 +153,13 @@ impl ShellWindow for Window {
     }
     fn cpu_format(&self) -> arvane_shell::CpuFormat {
         arvane_shell::CpuFormat::Xrgb8888
+    }
+
+    /// An embedded editor's window cannot be raised.
+    fn focus(&mut self) -> Result<(), ShellError> {
+        Err(ShellError::unsupported(
+            "focus_window in an embedded editor",
+        ))
     }
 
     fn keeps_frames(&self) -> bool {
@@ -329,6 +352,7 @@ impl State {
         scale_source: ScaleSource,
         on_resize_request: Option<Arc<dyn Fn(u32, u32) -> bool + Send + Sync>>,
     ) -> Self {
+        let waker = wake_handle(&shared, &native);
         Self {
             a11y: PlatformTree::new(shared.scale()),
             uia: RefCell::new(super::state::Uia::Inactive),
@@ -349,7 +373,7 @@ impl State {
                 native: native.clone(),
                 shared: shared.clone(),
             }),
-            session: Session::new(shared.clone()),
+            session: Session::new(shared.clone(), waker),
             shared,
             native,
             on_resize_request,
@@ -373,19 +397,7 @@ impl State {
         self.started.elapsed().as_nanos().min(u128::from(u64::MAX)) as u64
     }
     pub(super) fn waker(&self) -> ShellWaker {
-        let shared = Arc::downgrade(&self.shared);
-        let native = Arc::downgrade(&self.native);
-        ShellWaker::new(move |reasons| {
-            let (Some(shared), Some(native)) = (shared.upgrade(), native.upgrade()) else {
-                return;
-            };
-            if shared.alive() && native.wake_pending.request(reasons) {
-                // SAFETY: posting uses only the opaque HWND and never accesses UI state.
-                if unsafe { PostMessageW(native.hwnd(), super::native::WAKE, 0, 0) } == 0 {
-                    let _ = native.wake_pending.take();
-                }
-            }
-        })
+        self.session.waker()
     }
     pub(super) fn start(self: &Rc<Self>, make: MakeHandler) {
         {
@@ -393,8 +405,7 @@ impl State {
                 .in_callback
                 .enter()
                 .expect("invariant: open runs no App callback before start");
-            self.session
-                .start(make, &mut Window(self.clone()), self.waker());
+            self.session.start(make, &mut Window(self.clone()));
         }
         if self.shared.stopped() {
             self.stop();
