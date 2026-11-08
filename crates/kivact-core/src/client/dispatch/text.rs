@@ -66,12 +66,14 @@ pub(super) fn selection_changed(
 
 pub(super) fn focus_changed(
     rt: &Runtime,
+    window: kivact_types::WindowId,
     node: Option<NodeId>,
     region: Option<RegionId>,
     visible: bool,
 ) {
     crate::view::focus::set_focused(
         rt,
+        window,
         node.map(|node| kivact_types::FocusTarget { node, region }),
         visible,
     );

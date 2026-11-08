@@ -13,20 +13,23 @@ use kivact_types::NodeId;
 
 use crate::view::state::ViewState;
 use kivact_style::Theme;
+use kivact_types::WindowId;
 
-/// Mount context: the runtime and the owner new nodes belong to.
+/// Mount context: the runtime, the owner new nodes belong to and their window.
 pub(crate) struct Mcx<'a> {
     /// The runtime of the App.
     pub rt: &'a Rc<Runtime>,
     /// The owner new nodes and effects belong to.
     pub owner: Owner,
+    /// The window new nodes belong to.
+    pub window: WindowId,
 }
 
 impl Mcx<'_> {
     /// A new fragment node.
     pub(crate) fn fragment(&self) -> NodeId {
         let mut nodes = ViewState::tree_mut(self.rt);
-        let id = nodes.create(NodeType::Box, self.owner);
+        let id = nodes.create(NodeType::Box, self.owner, self.window);
         nodes.update(
             id,
             PropValue::Layout(kivact_types::LayoutProps {
@@ -42,7 +45,7 @@ impl Mcx<'_> {
 
     /// A new host node of `kind`.
     pub(crate) fn host(&self, kind: NodeType) -> NodeId {
-        ViewState::tree_mut(self.rt).create(kind, self.owner)
+        ViewState::tree_mut(self.rt).create(kind, self.owner, self.window)
     }
 
     /// Append `child` to `parent`.

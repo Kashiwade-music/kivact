@@ -8,7 +8,7 @@ use std::panic::Location;
 
 use std::rc::Rc;
 
-use crate::view::state::{EnvState, ViewState};
+use crate::view::state::{EnvState, ViewState, current_window};
 use kivact_runtime::Value;
 use kivact_style::draw::Size;
 #[doc(inline)]
@@ -17,12 +17,15 @@ pub use kivact_types::{
 };
 use kivact_types::{Environment, Insets};
 
-/// The App's environment as seen from the nearest owner at the call (`api`
-/// names the caller in misuse diagnostics).
+/// The environment of the calling owner's window (`api` names the caller in
+/// misuse diagnostics).
 fn state(api: &'static str, at: &'static Location<'static>) -> Rc<EnvState> {
     let rt = kivact_runtime::Runtime::current()
         .unwrap_or_else(|| panic!("`{api}` needs a running App at {at}"));
-    ViewState::of(&rt).env()
+    let window = current_window(kivact_runtime::Owner::ambient(api, at));
+    ViewState::of(&rt)
+        .env(window)
+        .unwrap_or_else(|| panic!("`{api}` needs an open window at {at}"))
 }
 
 /// What one field of the host environment is now, tracked: the reader is
@@ -60,9 +63,10 @@ pub fn font_families() -> Value<Vec<String>> {
     ViewState::of(&rt).fonts_value.into()
 }
 
-/// Whether the window is borderless fullscreen, tracked. Like every read
-/// of this module it resolves the nearest owner (setup, handler, task or
-/// effect) at the call; a located `SetupOnly` misuse outside every owner.
+/// Whether the window of the calling owner is borderless fullscreen,
+/// tracked. Like every read of this module it resolves the nearest owner
+/// (setup, handler, task or effect) at the call; a located `SetupOnly`
+/// misuse outside every owner.
 #[track_caller]
 pub fn is_fullscreen() -> Value<bool> {
     env_field("is_fullscreen", |e| e.fullscreen)
@@ -75,13 +79,14 @@ pub fn is_motion_reduced() -> Value<bool> {
     env_field("is_motion_reduced", |e| e.reduced_motion)
 }
 
-/// The display scale factor, tracked.
+/// The display scale factor of the window of the calling owner, tracked.
 #[track_caller]
 pub fn scale_factor() -> Value<f64> {
     env_field("scale_factor", |e| e.scale_factor)
 }
 
-/// Whether the window surface is visible and active, tracked.
+/// Whether the window of the calling owner has a visible, active surface,
+/// tracked.
 #[track_caller]
 pub fn is_surface_active() -> Value<bool> {
     state("surface_active", Location::caller())
@@ -115,15 +120,18 @@ pub fn safe_area() -> Value<Insets> {
             "safe_area at {at}: the platform reports no safe area; it stays zero"
         ));
     }
-    let env = state.env();
+    let window = current_window(kivact_runtime::Owner::ambient("safe_area", at));
+    let env = state
+        .env(window)
+        .expect("invariant: the calling owner's window is open");
     drop(rt);
     env.field("safe_area", |e| e.safe_area)
 }
 
-/// The window's size in logical pixels (its content area: what the
-/// root fills), tracked: a style or view that reads it follows every
-/// resize and scale change. The responsive breakpoints of CSS
-/// (`@media (max-width: 860px)`) and its viewport units (`vw`, `vh`)
+/// The size of the window of the calling owner in logical pixels (its
+/// content area: what the root fills), tracked: a style or view that reads
+/// it follows every resize and scale change. The responsive breakpoints of
+/// CSS (`@media (max-width: 860px)`) and its viewport units (`vw`, `vh`)
 /// are reads of it.
 ///
 /// ```
@@ -145,12 +153,13 @@ pub fn window_size() -> Value<Size> {
     env_field("window_size", |e| e.window_size)
 }
 
-/// What the platform the App runs on can do (fixed for the App's
-/// life; not tracked): whether touch and pens arrive as such, a
-/// software keyboard comes up, the safe area and memory warnings are
-/// reported, the IME can reconvert, a screen reader reads the App and
-/// frames can be drawn on the GPU. What is missing is logged
-/// (`tracing`) at start; relying on it ([`safe_area`]) is noted in
+/// What the platform the App runs on can do (fixed for the App's life,
+/// except while DevTools emulates touch; not tracked): whether touch and
+/// pens arrive as such, a software keyboard comes up, the safe area and
+/// memory warnings are reported, the IME can reconvert, a screen reader
+/// reads the App, frames can be drawn on the GPU, more windows than the
+/// first can be opened and `WindowPlacement` is honoured. What is missing is
+/// logged (`tracing`) at start; relying on it ([`safe_area`]) is noted in
 /// the turn trace.
 ///
 /// ```ignore
@@ -162,7 +171,7 @@ pub fn window_size() -> Value<Size> {
 pub fn capabilities() -> Value<Capabilities> {
     let rt =
         kivact_runtime::Runtime::current().expect("invariant: capabilities requires a running App");
-    ViewState::of(&rt).capabilities_value
+    ViewState::of(&rt).capabilities
 }
 
 /// The names of the capabilities `c` lacks, for diagnostics.
@@ -183,18 +192,19 @@ pub(crate) fn missing_capabilities(c: &Capabilities) -> Vec<&'static str> {
     .collect()
 }
 
-/// The system pointer preferences.
+/// The system pointer preferences of the window of the calling owner.
 #[track_caller]
 pub fn pointer_settings() -> Value<kivact_types::PointerSettings> {
     env_field("pointer_settings", |e| e.pointer)
 }
-/// Insets occupied by the software keyboard.
+/// Insets of the window of the calling owner occupied by the software keyboard.
 #[track_caller]
 pub fn keyboard_inset() -> Value<Insets> {
     env_field("keyboard_inset", |e| e.keyboard_inset)
 }
 
-/// The host's preferred light or dark appearance.
+/// The host's preferred light or dark appearance for the window of the
+/// calling owner.
 #[track_caller]
 pub fn theme_hint() -> Value<ThemeHint> {
     env_field("theme_hint", |e| e.theme_hint)

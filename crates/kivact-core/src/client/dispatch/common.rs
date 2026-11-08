@@ -32,7 +32,7 @@ pub(super) fn track_modifiers(rt: &Runtime, host_event: &HostEvent) {
         HostEvent::Key(route) => route.input.modifiers,
         HostEvent::Wheel(route) => route.input.modifiers,
         HostEvent::Pointer(route) => route.input.modifiers,
-        HostEvent::ModifiersChanged(modifiers) => *modifiers,
+        HostEvent::ModifiersChanged { modifiers, .. } => *modifiers,
         _ => return,
     };
     ViewState::of(rt).set_modifiers(modifiers);

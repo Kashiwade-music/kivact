@@ -176,7 +176,11 @@ impl Registry {
     fn adopt(self: &Rc<Self>, rt: &Rc<Runtime>, entry: &Entry) -> Rc<Adopted> {
         let owner = entry.item_owner.child(self.at);
         owner.with_setup(|| {
-            let cx = Mcx { rt, owner };
+            let cx = Mcx {
+                rt,
+                owner,
+                window: crate::view::state::current_window(entry.item_owner),
+            };
             let mut common = region_template::instantiate(&entry.template);
             if std::mem::take(&mut common.part_modal) {
                 parts::report_modal_unsupported(&cx, self.at);
@@ -237,7 +241,6 @@ impl Registry {
                 owner,
                 common,
                 target,
-                generation,
                 binding: Cell::new(RegionBinding::Unbound),
             });
             if self.phase.get() == RegistryPhase::Mounted {
@@ -248,9 +251,6 @@ impl Registry {
     }
 
     fn bind_adopted(&self, rt: &Rc<Runtime>, adopted: &Adopted) {
-        debug_assert!(
-            matches!(adopted.target.id, TargetId::Region { generation, .. } if generation == adopted.generation)
-        );
         let Some(region) = adopted.target.region() else {
             return;
         };

@@ -236,7 +236,6 @@ fn finish_resolve(
         exit_complete,
         node_ref,
         style,
-        base_styles: _,
         semantics,
         focusable_when_disabled,
         roving_focus,

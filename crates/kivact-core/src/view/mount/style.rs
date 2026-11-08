@@ -19,7 +19,7 @@ use crate::view::state::ViewState;
 pub(crate) fn merge_layers(layers: &[StyleLayer]) -> Style {
     layers
         .iter()
-        .fold(Style::default(), |s, layer| s.merge(&layer()))
+        .fold(Style::default(), |s, layer| s.merge(&(layer.f)()))
 }
 
 // xtask-allow(state-fields): Independent disabled and selected readers feed style compilation without owning their state.
@@ -125,6 +125,7 @@ pub(crate) fn bind_style(
                     disabled: disabled.as_ref().is_some_and(|f| f()),
                     selected: selected.as_ref().is_some_and(|f| f()),
                     root: kind == NodeType::Root,
+                    forced: kivact_style::internal::ForcedStates::default(),
                 };
                 kivact_style::internal::compile_style(&s, theme, state)
             })

@@ -52,6 +52,7 @@ impl Node {
     /// reads [`use_theme`](crate::style::use_theme) is
     /// recomputed when the theme visible at the node changes:
     /// `.style(move || { let t = &use_theme(); style().padding(t.space().md) })`.
+    #[track_caller]
     pub fn style(self, s: impl IntoValue<Style>) -> Self {
         NodeBuilder::style(self, s)
     }
@@ -289,8 +290,23 @@ impl Node {
     /// let root = node().style(style().height(30)).base_style(style().height(22).width(80));
     /// # let _ = root;
     /// ```
+    #[track_caller]
     pub fn base_style(mut self, s: impl IntoValue<Style>) -> Self {
-        self.common.prepend_style(s.into_prop());
+        self.common.prepend_style(s.into_prop(), Location::caller());
+        self
+    }
+
+    /// Add a kit recipe's base style layer (DevTools shows its name).
+    // xtask-allow(internal-contract): kit recipes tag their style layers with the recipe's name for DevTools
+    #[doc(hidden)]
+    #[track_caller]
+    pub fn base_recipe_style(
+        mut self,
+        name: crate::view::RecipeName,
+        s: impl IntoValue<Style>,
+    ) -> Self {
+        self.common
+            .prepend_recipe_style(name, s.into_prop(), Location::caller());
         self
     }
 

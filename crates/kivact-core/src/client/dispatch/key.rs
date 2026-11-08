@@ -19,9 +19,10 @@ pub(super) fn key(rt: &Runtime, host_event: &HostEvent) {
     };
     let node = routed.target;
     let region = routed.region;
+    let window = routed.window;
     let phase = &routed.input.phase;
     let released = matches!(phase, KeyPhase::Up);
-    let route = overlays::key_route(rt, node);
+    let route = overlays::key_route(rt, window, node);
     let target = route.target;
     if ViewState::tree(rt).get(target).is_none() {
         return stale(rt, "key", target);
@@ -93,7 +94,7 @@ pub(super) fn key(rt: &Runtime, host_event: &HostEvent) {
     }
     if default
         && !released
-        && let Some(o) = overlays::escape_dismisses(rt, &e)
+        && let Some(o) = overlays::escape_dismisses(rt, window, &e)
     {
         // Nobody handled Escape: dismiss the topmost overlay.
         run_a11y(rt, o, None, A11yRequest::Dismiss(DismissReason::Escape));

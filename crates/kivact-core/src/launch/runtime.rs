@@ -6,17 +6,20 @@ use std::rc::Rc;
 
 use kivact_engine::api::{Boundary, Client, HostWaker, Writer};
 use kivact_engine::contract::{HostEvent, HostInfo, TurnOutput};
+use kivact_types::{WindowId, WindowMode};
 
 use crate::client::state::HostState;
 
 use crate::view::View;
 use crate::view::requests;
-use crate::view::state::ViewState;
+use crate::view::state::{
+    EnvState, FocusKeys, PointerObservation, ViewState, WindowRecord, WindowScope,
+};
 use crate::view::text_edits::TextEditsAhead;
 use kivact_runtime::TaskState;
 use kivact_runtime::{
-    ErrorKind, ExitState, Extensions, Runtime, RuntimeConfig, Stage, ThreadWaker, TurnGuard,
-    TurnReport, UiError,
+    ErrorKind, ExitState, Extensions, IntoBinding, IntoValue, Runtime, RuntimeConfig, Stage,
+    ThreadWaker, TurnGuard, TurnReport, UiError,
 };
 
 /// Rounds of `on_mount` callbacks and user effects one turn runs before
@@ -109,6 +112,10 @@ impl Launch {
             LaunchState::Waiting { options, root } => (options, root),
             LaunchState::Started(_) => unreachable!("invariant: host starts an App once"),
         };
+        let trace_name = match &self.mode {
+            ClientMode::Test { name, .. } => Some(name.clone()),
+            _ => None,
+        };
         let ready = waker.clone();
         let rt = Runtime::new(
             Rc::new(ClientHost(waker)),
@@ -119,30 +126,13 @@ impl Launch {
                 at: self.at,
             },
             |_rt, root| {
-                let env = Rc::new(crate::view::state::EnvState::new(
-                    root,
-                    info.env.clone(),
-                    info.surface_active,
-                    self.at,
-                ));
-                let motion_env = kivact_runtime::MotionEnv {
-                    reduced_motion: env.field("is_motion_reduced", |e| e.reduced_motion),
-                    surface_active: kivact_runtime::Value::from(env.surface_active),
-                    frame_period_ns: env.field("frame_period_ns", |e| e.frame_period_ns),
-                };
-                let view = ViewState::new(
-                    root,
-                    info,
-                    writer.clone(),
-                    env,
-                    options.settings.min_window_size,
-                    self.at,
-                );
+                let view = ViewState::new(root, info, writer.clone(), self.at);
+                let motion_env = install_main_window(&view, root, info, options, self.at);
                 let extensions = Extensions::new().with(view).with(motion_env);
                 let extensions = extensions.with(crate::gpu_interop::State::new(root, self.at));
                 #[cfg(debug_assertions)]
                 let extensions = {
-                    let trace = crate::client::trace::Trace::default();
+                    let trace = crate::client::trace::Trace::new(trace_name.as_deref());
                     extensions.with(trace)
                 };
                 extensions
@@ -152,9 +142,11 @@ impl Launch {
         );
         let setup = rt.begin_setup();
         let root_owner = rt.root();
+        root_owner.provide(WindowScope(WindowId::MAIN));
         #[cfg(debug_assertions)]
         crate::client::trace::event(&rt, format_args!("host_events start {info:?}"));
         writer.set_window(
+            WindowId::MAIN,
             std::mem::take(&mut options.settings.title),
             options.settings.min_window_size,
         );
@@ -170,7 +162,13 @@ impl Launch {
             LaunchState::Waiting { options, root } => (*options, root),
             LaunchState::Started(_) => unreachable!("invariant: host starts an App once"),
         };
-        crate::view::root::mount_root(&rt, root_owner, options.into_view_settings(), root, self.at);
+        crate::view::root::install_app_contexts(
+            &rt,
+            root_owner,
+            options.into_view_settings(),
+            self.at,
+        );
+        crate::view::root::mount_window_root(&rt, WindowId::MAIN, root_owner, root, self.at);
         // What the platform cannot do is diagnosed, not silently ignored:
         // `tracing` says it at start, and the turn trace when the App
         // relies on it (`platform::safe_area`).
@@ -214,6 +212,9 @@ impl Launch {
         stats.turns += 1;
         host.stats.set(stats);
         let turn = rt.begin_turn(events.len());
+        if events.is_empty() && boundaries.last().is_some_and(|b| rt.mounts_due(b.revision)) {
+            turn.cause_with(kivact_runtime::CauseTag::Mount, "mounts".into());
+        }
         ViewState::of(&rt).initial_render.set(false);
         turn.run_mounts(kivact_types::Revision(before));
         turn.deliver_reports();
@@ -236,7 +237,7 @@ impl Launch {
             #[cfg(debug_assertions)]
             crate::client::trace::event(&rt, format_args!("host_events receive {event:?}"));
             edits.deliver(event);
-            turn.cause(describe(event));
+            turn.cause_with(kivact_runtime::CauseTag::Input, describe(event));
             crate::client::dispatch::dispatch(&rt, event);
             if crate::client::dispatch::run_requested_activations(&rt) {
                 turn.stabilize();
@@ -260,6 +261,47 @@ impl Launch {
         output
     }
 }
+/// Install the main window's record and build the App motion clock from it.
+fn install_main_window(
+    view: &ViewState,
+    root: kivact_runtime::Owner,
+    info: &HostInfo,
+    options: &AppOptions,
+    at: &'static Location<'static>,
+) -> kivact_runtime::MotionEnv {
+    let env = Rc::new(EnvState::new(
+        root,
+        info.env.clone(),
+        info.surface_active,
+        at,
+    ));
+    let title = root.signal(options.settings.title.clone(), at).into_value();
+    let open = root.signal(true, at).into_binding();
+    let mouse = root.signal(None, at);
+    view.install_window(
+        WindowId::MAIN,
+        WindowRecord {
+            declared_in: root,
+            env: env.clone(),
+            focus: FocusKeys::new(root, at),
+            hover: std::cell::Cell::new(PointerObservation::Plain(None)),
+            mouse: std::cell::Cell::new(PointerObservation::Reactive(mouse)),
+            title,
+            min_size: options.settings.min_window_size,
+            dismiss: None,
+            open,
+            mode: WindowMode::Normal,
+        },
+    );
+    let app_motion = view.app_motion;
+    kivact_runtime::MotionEnv {
+        reduced_motion: env.field("is_motion_reduced", |e| e.reduced_motion),
+        surface_active: root.with_setup(|| kivact_runtime::memo(move || app_motion.get().drawable)),
+        frame_period_ns: root
+            .with_setup(|| kivact_runtime::memo(move || app_motion.get().frame_period_ns)),
+    }
+}
+
 fn settle_user_effects(
     turn: &TurnGuard<'_>,
     rt: &Runtime,
@@ -385,15 +427,16 @@ fn describe(e: &kivact_engine::contract::HostEvent) -> String {
             node,
             region,
             visible,
+            ..
         } => format!(
             "FocusChanged {:?} region {:?} visible {visible}",
             node.map(|n| n.0),
             region.map(|r| r.0)
         ),
-        E::HoverChanged { target } => {
+        E::HoverChanged { target, .. } => {
             format!("HoverChanged {:?}", target.map(|t| (t.node.0, t.region)))
         }
-        E::MousePosition(position) => format!("MousePosition {position:?}"),
+        E::MousePosition { position, .. } => format!("MousePosition {position:?}"),
         E::TextChanged { node, .. } => format!("TextChanged n{}", node.0),
         E::SelectionChanged { node, .. } => format!("SelectionChanged n{}", node.0),
         E::Ime { node, .. } => format!("Ime n{}", node.0),
@@ -448,7 +491,12 @@ fn commit(turn: &TurnGuard<'_>, rt: &Runtime, writer: &Writer) -> usize {
 pub enum ClientMode {
     Window,
     Embedded(kivact_engine::contract::CloseSignal),
-    Test(TestTiming),
+    /// A test launch: its timing reporter and the test's name (the trace
+    /// file is named after it).
+    Test {
+        timing: TestTiming,
+        name: String,
+    },
 }
 /// Reports the duration of each core turn to the test harness.
 pub struct TestTiming(pub Rc<dyn Fn(u64)>);

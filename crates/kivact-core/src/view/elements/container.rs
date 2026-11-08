@@ -126,14 +126,14 @@ impl IntoView for Scroll {
                 kivact_style::internal::with_scroll_axes(style().direction(direction), axes)
             }));
             // The first layer derives scrolling while caller style layers retain precedence.
-            root.common.prepend_style(base);
+            let at = root.at.expect("invariant: `scroll` locates its root");
+            root.common.prepend_style(base, at);
             let caller = root
                 .common
                 .semantics
                 .iter()
                 .rev()
                 .find_map(|patch| patch.orientation.clone());
-            let at = root.at.expect("invariant: `scroll` locates its root");
             let weak = cx.weak();
             let owner = cx.owner;
             let reported = kivact_types::cell::ReportOnce::new();

@@ -151,14 +151,19 @@ mod window_size_tests {
 
     use super::App;
     use crate::Result;
-    use crate::launch::check_window_sizes;
+    use crate::geometry::check_window_sizes;
     use kivact_runtime::ErrorKind;
     use kivact_types::Size;
     use std::panic::Location;
 
     fn check(window: Option<(f64, f64)>, min: Option<(f64, f64)>) -> Result<()> {
         let size = |(w, h): (f64, f64)| Size::new(w, h);
-        check_window_sizes(window.map(size), min.map(size), Location::caller())
+        check_window_sizes(
+            window.map(size),
+            min.map(size),
+            ("App::window_size", "App::min_window_size"),
+            Location::caller(),
+        )
     }
 
     #[test]

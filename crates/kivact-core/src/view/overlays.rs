@@ -440,7 +440,7 @@ impl IntoView for Overlay {
             let c = mount(child, cx);
             cx.append(id, c);
             if modal {
-                restore_focus_on_unmount(cx.rt, cx.owner, id);
+                restore_focus_on_unmount(cx.rt, cx.window, cx.owner, id);
             }
             id
         })
@@ -454,13 +454,21 @@ impl IntoView for Overlay {
 /// modal that stays open, gets no request and no error, and a
 /// `NodeRef::focus` the App asks for in the same turn wins
 /// (`requests::flush_focus`, `Reader::can_take_focus`).
-fn restore_focus_on_unmount(rt: &Rc<Runtime>, owner: Owner, id: NodeId) {
-    let Some(opener) = focus::focused(rt) else {
+fn restore_focus_on_unmount(
+    rt: &Rc<Runtime>,
+    window: kivact_types::WindowId,
+    owner: Owner,
+    id: NodeId,
+) {
+    let Some(opener) = focus::focused(rt, window) else {
         return;
     };
-    let visible = ViewState::of(rt).focus_keys().visible.get_untracked();
+    let visible = ViewState::of(rt)
+        .focus_keys(window)
+        .is_some_and(|keys| keys.visible.get_untracked());
     let scope = ModalScope {
         rt: Rc::downgrade(rt),
+        window,
         opener,
         id,
         visible,
@@ -469,6 +477,7 @@ fn restore_focus_on_unmount(rt: &Rc<Runtime>, owner: Owner, id: NodeId) {
 }
 struct ModalScope {
     rt: std::rc::Weak<Runtime>,
+    window: kivact_types::WindowId,
     opener: kivact_types::FocusTarget,
     id: NodeId,
     visible: bool,
@@ -477,11 +486,12 @@ impl Drop for ModalScope {
     fn drop(&mut self) {
         let Self {
             rt: weak,
+            window,
             opener,
             id,
             visible,
         } = self;
-        let (opener, id, visible) = (*opener, *id, *visible);
+        let (window, opener, id, visible) = (*window, *opener, *id, *visible);
         let Some(rt) = weak.upgrade() else { return };
         let back = {
             let tree = ViewState::tree(&rt);
@@ -491,7 +501,7 @@ impl Drop for ModalScope {
                 !tree.contains(f)
                     || std::iter::successors(Some(f), |n| tree.reader().parent(*n)).any(|n| n == id)
             };
-            tree.contains(opener.node) && focus::focused(&rt).is_none_or(inside)
+            tree.contains(opener.node) && focus::focused(&rt, window).is_none_or(inside)
         };
         if back {
             requests::request_restore_focus(&rt, opener, None, visible);
@@ -513,35 +523,44 @@ pub(crate) struct KeyRoute {
     pub activates: bool,
 }
 
-/// The route of a key the host aimed at `named`: that node, else the
-/// focused node, else the topmost open modal, else the App's view (so
+/// The route of a key the host aimed at `named` in `window`: that node, else
+/// the focused node, else the topmost open modal, else the App's view (so
 /// window-level shortcuts on it see keys while nothing has the focus),
 /// else the root; a target outside the open modal is replaced by the
 /// modal, and the chain stops at the modal.
-pub(crate) fn key_route(rt: &Runtime, named: Option<NodeId>) -> KeyRoute {
-    let focused = focus::focused(rt).map(|f| f.node);
+pub(crate) fn key_route(
+    rt: &Runtime,
+    window: kivact_types::WindowId,
+    named: Option<NodeId>,
+) -> KeyRoute {
+    let focused = focus::focused(rt, window).map(|f| f.node);
     let tree = ViewState::tree(rt);
-    let modal = tree.reader().active_modal();
+    let modal = tree.reader().active_modal(window);
     let target = named
         .or(focused)
         .filter(|t| modal.is_none_or(|m| tree.is_within(*t, m)))
         .or(modal);
+    let root = tree.root(window).unwrap_or(NodeId(1));
     KeyRoute {
         activates: target.is_some(),
         target: target
-            .or_else(|| tree.reader().children(tree.root).first().copied())
-            .unwrap_or(tree.root),
+            .or_else(|| tree.reader().children(root).first().copied())
+            .unwrap_or(root),
         stop: modal,
     }
 }
 
-/// The overlay a key no handler returned `Handled::Yes` for dismisses: an
-/// Escape without modifiers that is not a repeat goes to the topmost shown
-/// overlay offering `Dismiss` (inside the modal when one is shown), as the
-/// engine decides.
-pub(crate) fn escape_dismisses(rt: &Runtime, e: &KeyEvent) -> Option<NodeId> {
+/// The overlay a key in `window` no handler returned `Handled::Yes` for
+/// dismisses: an Escape without modifiers that is not a repeat goes to the
+/// topmost shown overlay offering `Dismiss` (inside the modal when one is
+/// shown), as the engine decides.
+pub(crate) fn escape_dismisses(
+    rt: &Runtime,
+    window: kivact_types::WindowId,
+    e: &KeyEvent,
+) -> Option<NodeId> {
     if e.repeat() || e.key() != Key::Escape || e.modifiers() != Modifiers::default() {
         return None;
     }
-    ViewState::tree(rt).reader().dismiss_target()
+    ViewState::tree(rt).reader().dismiss_target(window)
 }

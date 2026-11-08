@@ -15,8 +15,10 @@ impl NodeRef {
         let _ = self.rect();
         let node = *self;
         memo(move || {
-            node.observed_status(|observation| observation.scroll_state.get())
-                .unwrap_or_default()
+            node.observed_status(|observation| {
+                super::tree::classify_scroll(observation.scroll_geometry.get())
+            })
+            .unwrap_or_default()
         })
     }
 

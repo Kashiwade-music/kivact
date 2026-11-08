@@ -6,7 +6,7 @@ use std::panic::Location;
 use std::sync::Arc;
 
 use kivact_runtime::{Notifier, Owner, Runtime, Signal};
-use kivact_types::cell::Generation;
+use kivact_types::cell::Sent;
 use kivact_types::{GpuAdapter, SharedTextures};
 
 use super::link::{LinkState, Phase, ShareLink, ShareMode, ShareRequest, ShareStatus, Work};
@@ -15,36 +15,6 @@ use crate::gpu_interop::import::{ExternalImage, ImportStatus, import_in};
 use crate::sync::Inbox;
 use kivact_runtime::spawn_in;
 use kivact_style::draw::{GpuFrame, Pixels};
-
-type Size = (u32, u32);
-
-enum Issue {
-    NotIssued,
-    Issued {
-        mode: ShareMode,
-        size: Size,
-        generation: Generation,
-    },
-}
-
-impl Issue {
-    fn issue(&mut self, mode: ShareMode, size: Size) {
-        let mut generation = match self {
-            Self::NotIssued => Generation::new(),
-            Self::Issued { generation, .. } => *generation,
-        };
-        generation.next();
-        *self = Self::Issued {
-            mode,
-            size,
-            generation,
-        };
-    }
-
-    fn matches(&self, mode: &ShareMode, size: Size) -> bool {
-        matches!(self, Self::Issued { mode: issued, size: issued_size, .. } if issued == mode && *issued_size == size)
-    }
-}
 
 // xtask-allow(state-fields): GPU import and the last CPU image are independently retained outputs; CPU pixels remain available across GPU renewal.
 /// An image an engine on another thread shares with the UI
@@ -120,19 +90,18 @@ pub fn shared_image(width: u32, height: u32) -> SharedImage {
     };
     // A new request when what the last one was made of changes, or its
     // import was lost.
-    let mut issue = Issue::NotIssued;
-    issue.issue(mode, size);
-    let issued = RefCell::new(issue);
+    let mut sent = Sent::new();
+    let _ = sent.update((mode, size));
+    let issued = RefCell::new(sent);
     let renewing = image.clone();
     kivact_runtime::effect(move || {
         let mode = mode_of(adapter());
         let size = renewing.size.get();
         let lost = renewing.import_lost();
-        if !lost && issued.borrow().matches(&mode, size) {
-            return;
+        let changed = issued.borrow_mut().update((mode.clone(), size)).is_some();
+        if changed || lost {
+            renewing.renew(mode, size);
         }
-        issued.borrow_mut().issue(mode.clone(), size);
-        renewing.renew(mode, size);
     });
     let receiving = image.clone();
     spawn_in(owner, receiving.receive(owner, at), at);

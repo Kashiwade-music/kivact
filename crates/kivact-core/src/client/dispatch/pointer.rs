@@ -193,6 +193,10 @@ pub(super) fn activate_event(
     activate(rt, node, region);
 }
 
-pub(super) fn hover_changed(rt: &Runtime, node: Option<kivact_types::FocusTarget>) {
-    crate::view::hover::set_hovered(rt, node);
+pub(super) fn hover_changed(
+    rt: &Runtime,
+    window: kivact_types::WindowId,
+    node: Option<kivact_types::FocusTarget>,
+) {
+    crate::view::hover::set_hovered(rt, window, node);
 }

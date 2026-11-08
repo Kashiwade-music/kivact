@@ -26,6 +26,7 @@ pub(crate) mod input;
 pub(crate) mod modifier_keys;
 pub(crate) mod modifiers;
 pub(crate) mod mount;
+mod mounted;
 mod node_draw;
 mod node_modifiers;
 pub(crate) mod node_ref;
@@ -47,6 +48,7 @@ pub(crate) mod state;
 pub(crate) mod sync_hook;
 pub(crate) mod text_edits;
 pub(crate) mod tree;
+mod window_view;
 
 #[doc(inline)]
 pub use crate::view::flow::{
@@ -79,6 +81,8 @@ pub use kivact_types::Presence;
 #[doc(inline)]
 pub use modifier_keys::modifiers;
 #[doc(inline)]
+pub use mounted::is_mounted;
+#[doc(inline)]
 pub use scroll_timeline::{ViewRange, scroll_progress, view_progress};
 #[doc(inline)]
 pub use share_error::ShareError;
@@ -89,7 +93,7 @@ pub use kivact_types::ImageStatus;
 #[doc(inline)]
 pub use kivact_types::{
     A11yAction, A11yRequest, CheckedState, CurrentItem, LiveRegion, Orientation, PopupKind, Role,
-    SortDirection,
+    SortDirection, WindowMode, WindowPlacement,
 };
 #[doc(inline)]
 pub use node_ref::{NodeRef, ScrollBehavior, node_ref};
@@ -98,6 +102,8 @@ pub use node_status_data::ScrollState;
 pub use overlays::{Overlay, OverlayAlign, Placement, overlay, overlay_at};
 
 pub(crate) use part::Part;
+#[doc(inline)]
+pub use window_view::{Window, window};
 
 pub(crate) mod editing_data;
 pub(crate) mod ime_session;
@@ -114,6 +120,8 @@ pub use elements::{
 };
 pub use kivact_style::asset::{Asset, AssetBytes};
 
+#[doc(hidden)]
+pub use element_data::RecipeName;
 #[doc(hidden)]
 pub use flow::ListInput;
 

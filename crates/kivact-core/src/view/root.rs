@@ -7,8 +7,9 @@
 //! Invariants:
 //! - Started once per App, when the host starts: the client creates the
 //!   root owner (recorded in the runtime so that it disposes it first at
-//!   shutdown), runtime construction installs the complete view state, then
-//!   [`mount_root`] mounts the App's view below it.
+//!   shutdown), runtime construction installs the complete view state,
+//!   [`install_app_contexts`] installs the App-wide contexts and
+//!   [`mount_window_root`] mounts each window's view below its root.
 //! - The root node resolves its style on the one style path of every node
 //!   (`mount::bind_style`): it fills the window with the theme's
 //!   surface and carries the theme's text defaults.
@@ -21,6 +22,7 @@ use std::rc::Rc;
 use crate::i18n::{Locale, Messages};
 use kivact_engine::contract::NodeType;
 use kivact_runtime::{IntoValue, Owner, Runtime, Signal, Value};
+use kivact_types::WindowId;
 
 use crate::view::boundary::mount_in;
 use crate::view::descriptor::Mcx;
@@ -30,11 +32,9 @@ use crate::view::state::ViewState;
 
 /// Fill the root owner `owner` of `rt`'s App with the `settings` (theme,
 /// locale and messages, each a signal the root provides; the locale is the
-/// host's, `en-US` if it names none, unless the App sets one), style the
-/// root node and mount the view `build` returns below it (set up in the
-/// root owner). `at` is where the App was started: diagnostics name the
-/// root owner by it.
-pub(crate) fn mount_root(
+/// host's, `en-US` if it names none, unless the App sets one). `at` is where
+/// the App was started: diagnostics name the root owner by it.
+pub(crate) fn install_app_contexts(
     rt: &Rc<Runtime>,
     owner: Owner,
     settings: (
@@ -42,11 +42,12 @@ pub(crate) fn mount_root(
         Option<Locale>,
         Messages,
     ),
-    build: Box<dyn FnOnce() -> View>,
     at: &'static Location<'static>,
 ) {
     let (theme, app_locale, app_messages) = settings;
-    let env = ViewState::of(rt).env();
+    let env = ViewState::of(rt)
+        .env(WindowId::MAIN)
+        .expect("invariant: the main window record exists before mounting");
     // The App's own locale is a constant; without one the locale is the
     // host's, which follows `Environment::locale`.
     let locale: Value<Locale> = match app_locale {
@@ -69,18 +70,37 @@ pub(crate) fn mount_root(
     crate::view::boundary::install_locale(owner, locale);
     let messages: Signal<Messages> = owner.signal(app_messages, at);
     crate::view::boundary::install_messages(owner, messages.into_value());
-    let root = ViewState::tree(rt).root;
+}
+
+/// Style the root node of `window` and mount the view `build` returns below
+/// it (set up in `owner`). Returns the window's root node.
+pub(crate) fn mount_window_root(
+    rt: &Rc<Runtime>,
+    window: WindowId,
+    owner: Owner,
+    build: Box<dyn FnOnce() -> View>,
+    at: &'static Location<'static>,
+) -> kivact_types::NodeId {
+    let root = match ViewState::tree(rt).root(window) {
+        Some(root) => root,
+        None => ViewState::tree_mut(rt).create_root(window, owner),
+    };
     let style = NodeStyle {
-        layers: vec![Rc::new(|| {
-            kivact_style::style()
-                .size(kivact_style::pct(100), kivact_style::pct(100))
-                .background(kivact_style::ColorToken::Surface)
-        })],
+        layers: vec![crate::view::element_data::StyleLayer {
+            f: Rc::new(|| {
+                kivact_style::style()
+                    .size(kivact_style::pct(100), kivact_style::pct(100))
+                    .background(kivact_style::ColorToken::Surface)
+            }),
+            at: Some(at),
+            origin: crate::view::element_data::LayerOrigin::Base,
+        }],
         ..NodeStyle::default()
     };
-    bind_style(&Mcx { rt, owner }, root, NodeType::Root, style, at);
-    let child = mount_in(rt, owner, build);
+    bind_style(&Mcx { rt, owner, window }, root, NodeType::Root, style, at);
+    let child = mount_in(rt, owner, window, build);
     ViewState::tree(rt).engine().insert(root, child, None);
+    root
 }
 
 /// The locale the host reports (`en-US` when it names none).

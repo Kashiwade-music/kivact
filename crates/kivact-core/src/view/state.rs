@@ -8,15 +8,18 @@
 
 use std::any::Any;
 use std::cell::{Cell, Ref, RefCell, RefMut};
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::panic::Location;
 use std::rc::Rc;
 
 use kivact_runtime::Selector;
-use kivact_runtime::{ErrorKind, UiError};
+use kivact_runtime::{Binding, ErrorKind, Handler, UiError};
 use kivact_runtime::{Owner, Runtime};
 use kivact_runtime::{Signal, Value};
-use kivact_types::{Environment, FocusTarget, Modifiers, NodeId, PlatformResult};
+use kivact_types::{
+    DismissReason, Environment, FocusTarget, Modifiers, NodeId, PlatformResult, WindowId,
+    WindowMode,
+};
 
 use super::tree::ViewNodes;
 use kivact_runtime::Completion;
@@ -109,6 +112,16 @@ impl EnvState {
         self.env.with_untracked(|env| env.reduced_motion)
     }
 
+    /// The environment last reported.
+    pub(crate) fn environment(&self) -> Environment {
+        self.env.get_untracked()
+    }
+
+    /// Whether the last reported surface was active.
+    pub(crate) fn surface_active(&self) -> bool {
+        self.surface_active.get_untracked()
+    }
+
     /// A memo of the field `f` reads, shared by every call with the same
     /// `name`: it re-runs its readers only when that field changed. Made
     /// on first use, whatever context asks (a memo, an effect, a handler).
@@ -192,7 +205,6 @@ impl Requests {
     }
 }
 
-// xtask-allow(state-fields): Initial render is an independent host fact; optional minimum size is construction configuration and requests own their lifecycles.
 /// Everything the view layer keeps per App. Fields drop in declaration
 /// order.
 pub(crate) struct ViewState {
@@ -200,22 +212,25 @@ pub(crate) struct ViewState {
     pub(super) tree: RefCell<ViewNodes>,
     /// Removed node ids awaiting host revision cleanup.
     pub(crate) removed: RefCell<Vec<NodeId>>,
-    /// The host environment.
-    pub(super) env: Rc<EnvState>,
-    /// What the host's platform can do (fixed for the App's life).
-    pub(super) capabilities: Capabilities,
-    pub(crate) capabilities_value: Value<Capabilities>,
+    /// The open windows' records.
+    pub(super) windows: RefCell<BTreeMap<WindowId, WindowRecord>>,
+    // xtask-allow(state-fields): S-8 ID - the next window id
+    /// The last window id handed out (`WindowId::MAIN` is 1).
+    next_window: Cell<u64>,
+    /// What the host's platform can do (host events alone write it).
+    #[allow(
+        dead_code,
+        reason = "the capabilities memo is the only reader until DevTools wraps it"
+    )]
+    pub(super) host_capabilities: Signal<Capabilities>,
+    pub(crate) capabilities: Value<Capabilities>,
     pub(crate) fonts_value: Signal<Vec<String>>,
+    // xtask-allow(state-fields): independent fact - the App has not drawn yet
     pub(crate) initial_render: Signal<bool>,
-    /// The keyboard focus source.
-    pub(super) focus: FocusKeys,
-    /// The window's minimum size (`None`: no minimum).
-    pub(super) min_window_size: Option<kivact_types::Size>,
+    /// The App-wide motion clock input.
+    pub(crate) app_motion: Signal<AppMotion>,
     /// Missing capabilities the App relied on and that were noted.
     noted_missing: kivact_types::cell::ReportOnceSet<&'static str>,
-    /// The node the host reported under the pointer last.
-    hover: Cell<PointerObservation<kivact_types::FocusTarget>>,
-    pub(crate) mouse: Cell<PointerObservation<crate::geometry::Point>>,
     /// Whether the last key or pointer press the App got was a pointer press
     /// (`NodeRef::focus` then asks for a focus without a visible indicator).
     pointer_modality: Cell<Modality>,
@@ -225,33 +240,123 @@ pub(crate) struct ViewState {
     pub(super) requests: RefCell<Requests>,
 }
 
+/// One window's view record: the owner that declared it, its environment,
+/// focus source, pointer observations and open state.
+#[derive(Clone)]
+pub(crate) struct WindowRecord {
+    /// The owner that declared the window (the root owner for the main one).
+    pub(crate) declared_in: Owner,
+    pub(crate) env: Rc<EnvState>,
+    pub(crate) focus: FocusKeys,
+    pub(crate) hover: Cell<PointerObservation<FocusTarget>>,
+    pub(crate) mouse: Cell<PointerObservation<crate::geometry::Point>>,
+    #[allow(
+        dead_code,
+        reason = "the record keeps the window's title for DevTools and diagnostics"
+    )]
+    pub(crate) title: Value<String>,
+    // xtask-allow(state-fields): construction option - Window::min_size
+    pub(crate) min_size: Option<kivact_types::Size>,
+    pub(crate) dismiss: Option<Handler<DismissReason>>,
+    pub(crate) open: Binding<bool>,
+    #[allow(
+        dead_code,
+        reason = "the record keeps the window's mode for later input routing diagnostics"
+    )]
+    pub(crate) mode: WindowMode,
+}
+
+/// The window a subtree belongs to.
+#[derive(Clone, Copy)]
+pub(crate) struct WindowScope(pub(crate) WindowId);
+
+/// The window of `owner`'s subtree, or `WindowId::MAIN` outside one.
+pub(crate) fn current_window(owner: Owner) -> WindowId {
+    owner
+        .context::<WindowScope>()
+        .map_or(WindowId::MAIN, |scope| scope.0)
+}
+
+/// The App's motion clock input: whether any window can draw and the tick
+/// source's frame period.
+#[derive(Clone, Copy, PartialEq)]
+pub(crate) struct AppMotion {
+    pub(crate) drawable: bool,
+    pub(crate) frame_period_ns: u64,
+}
+
 impl ViewState {
     /// Construct the complete state before mounting any application code.
     pub(crate) fn new(
         owner: Owner,
         info: &kivact_engine::contract::HostInfo,
         engine: kivact_engine::api::Writer,
-        env: Rc<EnvState>,
-        min_window_size: Option<kivact_types::Size>,
         at: &'static Location<'static>,
     ) -> Self {
+        let host_capabilities = owner.signal(info.capabilities, at);
+        let capabilities =
+            owner.with_setup(|| kivact_runtime::memo(move || host_capabilities.get()));
         Self {
             tree: RefCell::new(ViewNodes::new(engine, owner)),
             removed: RefCell::new(Vec::new()),
-            env,
-            capabilities: info.capabilities,
-            capabilities_value: owner.constant(info.capabilities, at),
+            windows: RefCell::new(BTreeMap::new()),
+            next_window: Cell::new(1),
+            host_capabilities,
+            capabilities,
             fonts_value: owner.signal(Vec::new(), at),
             initial_render: owner.signal(true, at),
-            focus: FocusKeys::new(owner, at),
-            min_window_size,
+            app_motion: owner.signal(
+                AppMotion {
+                    drawable: info.surface_active,
+                    frame_period_ns: info.env.frame_period_ns,
+                },
+                at,
+            ),
             noted_missing: Default::default(),
-            hover: Cell::new(PointerObservation::Plain(None)),
-            mouse: Cell::new(PointerObservation::Reactive(owner.signal(None, at))),
             pointer_modality: Cell::new(Modality::Keyboard),
             modifiers: owner.signal(Modifiers::default(), at),
             requests: RefCell::new(Requests::default()),
         }
+    }
+
+    /// Insert the record of `window`.
+    pub(crate) fn install_window(&self, window: WindowId, record: WindowRecord) {
+        self.windows.borrow_mut().insert(window, record);
+    }
+
+    /// Remove and return the record of `window`.
+    pub(crate) fn remove_window(&self, window: WindowId) -> Option<WindowRecord> {
+        self.windows.borrow_mut().remove(&window)
+    }
+
+    /// The next window id (`WindowId::MAIN` is 1 and never reused).
+    pub(crate) fn next_window(&self) -> WindowId {
+        let raw = self.next_window.get() + 1;
+        self.next_window.set(raw);
+        WindowId::new(raw).expect("invariant: window ids start at one")
+    }
+
+    /// A copy of `window`'s record.
+    pub(crate) fn window_record(&self, window: WindowId) -> Option<WindowRecord> {
+        self.windows.borrow().get(&window).cloned()
+    }
+
+    /// Run `f` with `window`'s record.
+    pub(crate) fn with_window<R>(
+        &self,
+        window: WindowId,
+        f: impl FnOnce(&WindowRecord) -> R,
+    ) -> Option<R> {
+        self.windows.borrow().get(&window).map(f)
+    }
+
+    /// Run `f` with `window`'s record for change.
+    pub(crate) fn with_window_mut<R>(
+        &self,
+        window: WindowId,
+        f: impl FnOnce(&mut WindowRecord) -> R,
+    ) -> Option<R> {
+        self.windows.borrow_mut().get_mut(&window).map(f)
     }
 
     /// Release spare request/tree capacity. Environment memos and live
@@ -285,15 +390,20 @@ impl ViewState {
         Self::of(rt).tree.borrow_mut()
     }
 
-    /// The host environment.
+    /// The environment of `window`.
     #[inline]
-    pub(crate) fn env(&self) -> Rc<EnvState> {
-        self.env.clone()
+    pub(crate) fn env(&self, window: WindowId) -> Option<Rc<EnvState>> {
+        self.with_window(window, |record| record.env.clone())
+    }
+
+    /// The window's minimum size (`None`: no minimum).
+    pub(crate) fn min_window_size(&self, window: WindowId) -> Option<kivact_types::Size> {
+        self.with_window(window, |record| record.min_size).flatten()
     }
 
     /// What the host's platform can do.
     pub(crate) fn capabilities(&self) -> Capabilities {
-        self.capabilities
+        self.capabilities.get_untracked()
     }
 
     /// Whether the missing capability `name` has not been noted yet (it
@@ -302,15 +412,10 @@ impl ViewState {
         self.noted_missing.note(name)
     }
 
-    /// The keyboard focus source.
+    /// The keyboard focus source of `window`.
     #[inline]
-    pub(crate) fn focus_keys(&self) -> FocusKeys {
-        self.focus
-    }
-
-    /// The window's minimum size (`None`: no minimum).
-    pub(crate) fn min_window_size(&self) -> Option<kivact_types::Size> {
-        self.min_window_size
+    pub(crate) fn focus_keys(&self, window: WindowId) -> Option<FocusKeys> {
+        self.with_window(window, |record| record.focus)
     }
 
     /// Whether the last key or pointer press was a pointer press.
@@ -337,14 +442,30 @@ impl ViewState {
         self.modifiers.set(modifiers);
     }
 
-    /// The node the host reported under the pointer last.
-    pub(crate) fn hover(&self) -> PointerObservation<kivact_types::FocusTarget> {
-        self.hover.get()
+    /// The node the host reported under the pointer last in `window`.
+    pub(crate) fn hover(&self, window: WindowId) -> PointerObservation<FocusTarget> {
+        self.with_window(window, |record| record.hover.get())
+            .unwrap_or(PointerObservation::Plain(None))
     }
 
-    /// Replace the hover record (a report, or the first `NodeRef::hovered`).
-    pub(crate) fn set_hover(&self, hover: PointerObservation<kivact_types::FocusTarget>) {
-        self.hover.set(hover);
+    /// Replace `window`'s hover record (a report, or the first `NodeRef::hovered`).
+    pub(crate) fn set_hover(&self, window: WindowId, hover: PointerObservation<FocusTarget>) {
+        self.with_window_mut(window, |record| record.hover.set(hover));
+    }
+
+    /// The mouse position of `window`.
+    pub(crate) fn mouse(&self, window: WindowId) -> PointerObservation<crate::geometry::Point> {
+        self.with_window(window, |record| record.mouse.get())
+            .unwrap_or(PointerObservation::Plain(None))
+    }
+
+    /// Replace `window`'s mouse record.
+    pub(crate) fn set_mouse(
+        &self,
+        window: WindowId,
+        mouse: PointerObservation<crate::geometry::Point>,
+    ) {
+        self.with_window_mut(window, |record| record.mouse.set(mouse));
     }
 }
 
@@ -355,8 +476,8 @@ enum Modality {
 }
 
 impl FocusKeys {
-    /// Create the focus source and its selector under the root `owner`.
-    fn new(owner: Owner, at: &'static Location<'static>) -> FocusKeys {
+    /// Create the focus source and its selector under the window's `owner`.
+    pub(crate) fn new(owner: Owner, at: &'static Location<'static>) -> FocusKeys {
         let node: Signal<Option<FocusTarget>> = owner.signal(None::<FocusTarget>, at);
         // `selector` registers under the setup owner.
         let selector = owner.with_setup(|| kivact_runtime::selector(node));

@@ -10,16 +10,14 @@ use std::rc::Rc;
 
 use kivact_runtime::{Callback, HandlerResult, Owner, Runtime};
 pub use kivact_types::LifecycleEvent;
-use kivact_types::cell::{Generation, Registry};
+use kivact_types::cell::Registry;
 
 #[derive(Default)]
 pub(crate) struct LifecycleState {
-    generation: RefCell<Generation>,
     registrations: RefCell<Registry<Registration>>,
 }
 
 struct Registration {
-    _id: Generation,
     owner: Owner,
     callback: Callback<LifecycleEvent>,
 }
@@ -37,9 +35,7 @@ pub fn on_lifecycle<R: HandlerResult>(f: impl Fn(LifecycleEvent) -> R + 'static)
     let owner = Owner::current("on_lifecycle", Location::caller());
     let rt = owner.runtime();
     let state = rt.ext::<LifecycleState>();
-    let id = state.generation.borrow_mut().next();
     let registration = Rc::new(Registration {
-        _id: id,
         owner,
         callback: kivact_runtime::callback(f),
     });
