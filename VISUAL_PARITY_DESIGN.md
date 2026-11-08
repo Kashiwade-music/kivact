@@ -4712,3 +4712,5 @@ wave R1 で A-2 により止まった項目について、ユーザーの指示�
 | B-19 | U93、U94、§10.5 | `DrawableShare::set_geometry(Option<Matrix4>)` を利用者が呼べるよう、`kivact_core::geometry`（facade の `kivact::geometry`）で `Matrix4` を再公開する |
 | B-20 | U93、U95、§12.4、§16.1 | 区間ごとの easing（§12.4）を利用者が書けるよう、`kivact::motion` で `Keyframe` を再公開する（U93 の `fix(kivact-core)`）。U95 が A-2 で止めた `animation.md` の keyframe の easing と、U94 が書かなかった `drawables.md` の `set_geometry`（B-19）は、wave 9 の merge の後に文書の修正の unit で書き足す |
 | B-21 | U91、§17.2、CONTRACT-BACKDROP-ROOT | `backdrop_drop_shadow_is_applied` は、不透明な backdrop が自身の drop shadow を隠す（CSS と同じ）ため、透明な背景の Backdrop Root（effects を持つ layer）の中に小さな不透明の図形を置き、図形を (dx, dy) ずらした位置の画素が shadow の色になることを確かめる |
+| B-22 | U93、§10.5、CONTRACT-EXPORT-ACK | `drawable_export_gpu.rs` の consumer は、§10.5 の文書どおり `kivact-gpu-share` の `Import`（`Import::new`、`Import::release`）を使う。試験の crate は `kivact-gpu-share`（import と wgpu の feature）を dev-dependency に加えてよい。facade に consumer の API を足さない |
+| B-23 | U93、§17.2 | `invalid_spring_is_reported` の「即座に target」は、報告の後の最初の frame で target になることとする。`presence_modes` の試験は、exit 中の node が test id の query に出ないため、新しい腕と兄弟の位置で確かめる |
