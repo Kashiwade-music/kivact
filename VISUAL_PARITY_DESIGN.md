@@ -4714,3 +4714,4 @@ wave R1 で A-2 により止まった項目について、ユーザーの指示�
 | B-21 | U91、§17.2、CONTRACT-BACKDROP-ROOT | `backdrop_drop_shadow_is_applied` は、不透明な backdrop が自身の drop shadow を隠す（CSS と同じ）ため、透明な背景の Backdrop Root（effects を持つ layer）の中に小さな不透明の図形を置き、図形を (dx, dy) ずらした位置の画素が shadow の色になることを確かめる |
 | B-22 | U93、§10.5、CONTRACT-EXPORT-ACK | `drawable_export_gpu.rs` の consumer は、§10.5 の文書どおり `kivact-gpu-share` の `Import`（`Import::new`、`Import::release`）を使う。試験の crate は `kivact-gpu-share`（import と wgpu の feature）を dev-dependency に加えてよい。facade に consumer の API を足さない |
 | B-23 | U93、§17.2 | `invalid_spring_is_reported` の「即座に target」は、報告の後の最初の frame で target になることとする。`presence_modes` の試験は、exit 中の node が test id の query に出ないため、新しい腕と兄弟の位置で確かめる |
+| B-24 | U93、§17.2、§12.9.3 | `retarget_across_shadow_counts_starts_from_shown` の「2 個目以降は透明から始まる」は、§12.9.3 の retarget（new.from は表示中の paint を新しい basis で表したもの）に従い、「表示中の shadow は表示中の値から続き、新しく加わる shadow（3 個目）は透明から始まる」と読む |
