@@ -38,12 +38,40 @@ fn oklab_lerp_at(a: V3, b: V3, t: f64) -> u32 {
 
 #[test]
 fn color_conversion_fixtures() {
+    // The reference formulas first: they must give the design's known values
+    // (±1e-4), since the expected pixels below are computed from them.
+    let close = |got: V3, want: V3, what: &str| {
+        for i in 0..3 {
+            assert!(
+                (got[i] - want[i]).abs() < 1e-4,
+                "{what}: {got:?}, want {want:?}"
+            );
+        }
+    };
+    close(
+        reference::encoded_to_oklab([1.0, 0.0, 0.0]),
+        [0.627955, 0.224863, 0.125846],
+        "reference oklab of sRGB red",
+    );
+    close(
+        reference::encoded_to_oklab([1.0, 1.0, 1.0]),
+        [1.0, 0.0, 0.0],
+        "reference oklab of white",
+    );
+    close(
+        reference::encoded_to_lab([1.0, 0.0, 0.0]),
+        [54.2905, 80.8049, 69.8910],
+        "reference lab (D50) of sRGB red",
+    );
+    close(
+        reference::p3_to_srgb([1.0, 0.0, 0.0]),
+        [1.093066, -0.226742, -0.150135],
+        "reference unclipped sRGB of display-p3 red",
+    );
+
     // Tier 2 (the paint of a color, ±1/255 for the known sRGB values and
-    // ±2/255 for the gamut mapped display-p3 value). The forward conversions
-    // (sRGB to Oklab, to Lab) and the unclipped sRGB of display-p3 red
-    // (1.093066, −0.226742, −0.150135, ±1e-4) are internal values that the
-    // public API does not expose; they are checked only through what is
-    // painted here.
+    // ±2/255 for the gamut mapped display-p3 value). The public API does not
+    // expose the converted values, so they are checked through the paint.
     let red = one_box(40, 40, oklab(0.627955, 0.224863, 0.125846));
     expect(&red.screenshot(), 20, 20, RED, 1, "oklab of sRGB red");
     let white = one_box(40, 40, oklab(1.0, 0.0, 0.0));
@@ -212,7 +240,6 @@ fn gradient_hint_moves_the_midpoint() {
             "hint {hint}%: midpoint {p} at x {at_hint}"
         );
         let row: Vec<u32> = (0..width).map(|x| pixel(&shot, x, 20) & 255).collect();
-        assert_eq!(row.len(), width as usize);
         assert!(
             row.windows(2).all(|w| w[0] <= w[1]),
             "hint {hint}%: the row decreases"
