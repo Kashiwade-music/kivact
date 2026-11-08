@@ -417,12 +417,12 @@ impl Writer {
         changed
     }
 
-    /// A node got disabled: a capture it holds ends.
     /// A drawable role changed: the model reconciles the drawable at the commit.
     fn after_drawable(&self, id: NodeId) {
         self.model.borrow_mut().drawables.note(id);
     }
 
+    /// A node got disabled: a capture it holds ends.
     fn after_disabled(&self, id: NodeId) {
         let mut model = self.model.borrow_mut();
         if model.node(id).is_some_and(|n| n.disabled()) {
