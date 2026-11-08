@@ -1,4 +1,4 @@
-//! Role: Where the discovery files of the DevTools agents live (pure: the caller passes the environment).
+//! Role: Where the DevTools discovery files live; the caller passes the environment.
 
 use std::ffi::OsString;
 use std::path::PathBuf;

@@ -1,4 +1,4 @@
-//! Role: The DevTools notifications, declared once: the `Notification` enum and its topics.
+//! Role: The DevTools notifications: the `Notification` enum and its topics.
 
 use serde::{Deserialize, Serialize};
 

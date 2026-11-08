@@ -1,4 +1,4 @@
-//! Role: The review of one session: items, comments, images and the files written on every change.
+//! Role: The review of one session: items, comments, images and saved files.
 
 use std::collections::BTreeMap;
 use std::path::PathBuf;

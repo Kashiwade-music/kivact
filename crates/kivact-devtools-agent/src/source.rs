@@ -1,4 +1,4 @@
-//! Role: Read a source line to find the name a signal was bound to (`let count = signal(0)` -> `count`).
+//! Role: Read a source line to find the name a signal was bound to.
 
 use std::path::{Path, PathBuf};
 use std::rc::Rc;

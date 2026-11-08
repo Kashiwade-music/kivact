@@ -3,20 +3,9 @@
 use std::net::TcpListener;
 use std::sync::{Arc, mpsc};
 
-use kivact_devtools_protocol::{AppInfo, DevtoolsConfig};
-
 use crate::connection;
 use crate::incoming::Incoming;
-use crate::session::{ConnectionId, Peers};
-
-/// What every connection thread reads and nobody changes after start.
-pub(crate) struct Shared {
-    pub(crate) token: String,
-    pub(crate) app: AppInfo,
-    pub(crate) config: DevtoolsConfig,
-    pub(crate) peers: Peers,
-    pub(crate) wake: Box<dyn Fn() + Send + Sync>,
-}
+use crate::session::{ConnectionId, Shared};
 
 /// Accept until `stop` has a value or is disconnected. `Agent::drop` sends `()` and then
 /// connects once, so `accept` returns.

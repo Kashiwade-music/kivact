@@ -254,17 +254,15 @@ fn parse_methods(tokens: proc_macro2::TokenStream) -> syn::Result<Vec<MethodDecl
             let variant: syn::Ident = input.parse()?;
             input.parse::<syn::Token![=>]>()?;
             let wire: syn::LitStr = input.parse()?;
-            let params;
-            syn::parenthesized!(params in input);
-            let params: syn::Type = params.parse()?;
+            let params: syn::Type = input.parse()?;
             input.parse::<syn::Token![->]>()?;
             let result: syn::Type = input.parse()?;
             input.parse::<syn::Token![;]>()?;
             out.push(MethodDecl {
                 variant: variant.to_string(),
                 wire: wire.value(),
-                params: type_name(&params)?,
-                result: type_name(&result)?,
+                params: type_name(&unparen(params))?,
+                result: type_name(&unparen(result))?,
                 doc: doc_text(&attrs),
             });
         }
@@ -281,16 +279,14 @@ fn parse_notifications(tokens: proc_macro2::TokenStream) -> syn::Result<Vec<Noti
             let variant: syn::Ident = input.parse()?;
             input.parse::<syn::Token![=>]>()?;
             let wire: syn::LitStr = input.parse()?;
-            let params;
-            syn::parenthesized!(params in input);
-            let params: syn::Type = params.parse()?;
+            let params: syn::Type = input.parse()?;
             input.parse::<syn::Token![in]>()?;
             let topic: syn::Ident = input.parse()?;
             input.parse::<syn::Token![;]>()?;
             out.push(NotificationDecl {
                 variant: variant.to_string(),
                 wire: wire.value(),
-                params: type_name(&params)?,
+                params: type_name(&unparen(params))?,
                 topic: topic.to_string(),
                 doc: doc_text(&attrs),
             });
@@ -298,6 +294,13 @@ fn parse_notifications(tokens: proc_macro2::TokenStream) -> syn::Result<Vec<Noti
         Ok(out)
     };
     syn::parse::Parser::parse2(parser, tokens)
+}
+
+fn unparen(ty: syn::Type) -> syn::Type {
+    match ty {
+        syn::Type::Paren(paren) => unparen(*paren.elem),
+        other => other,
+    }
 }
 
 fn type_name(ty: &syn::Type) -> syn::Result<String> {

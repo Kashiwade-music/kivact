@@ -1,6 +1,6 @@
 //! Role: Edit source-preserving Markdown blocks using native wrapped text fields.
 use crate::markdown;
-use crate::rich_block_doc::{Block, Document, Kind};
+use crate::rich_block_doc::{Block, Document, EditTarget, Kind};
 use kivact::custom::EditContext;
 use kivact::custom::EditLineLayout;
 use kivact::custom::EditOutcome;
@@ -114,17 +114,15 @@ enum Command {
 
 impl Editor {
     /// The block field the toolbar formats, read from this owner's phase.
-    pub(super) fn target(self) -> crate::rich_text::EditTarget {
+    pub(super) fn target(self) -> EditTarget {
         match self.state.get().phase {
             BlockEditPhase::Focused {
                 target,
                 composition: BlockComposition::Composing,
                 ..
-            } => crate::rich_text::EditTarget::Composing(target),
-            BlockEditPhase::Focused { target, .. } => crate::rich_text::EditTarget::Ready(target),
-            BlockEditPhase::Idle | BlockEditPhase::AwaitingMount { .. } => {
-                crate::rich_text::EditTarget::Detached
-            }
+            } => EditTarget::Composing(target),
+            BlockEditPhase::Focused { target, .. } => EditTarget::Ready(target),
+            BlockEditPhase::Idle | BlockEditPhase::AwaitingMount { .. } => EditTarget::Detached,
         }
     }
 

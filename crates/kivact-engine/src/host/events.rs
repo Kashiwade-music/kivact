@@ -59,6 +59,10 @@ impl Host {
             env,
             surface_active: drawable,
         };
+        // The client's `ViewState` starts its App motion input from these
+        // values; only a later change is an `AppMotion` event.
+        self.app_motion
+            .update((info.surface_active, info.env.frame_period_ns));
         let tree = super::write::Writer::new(&self.app, &self.engine);
         self.client.start(&info, waker, tree);
         if self.observe_close() {

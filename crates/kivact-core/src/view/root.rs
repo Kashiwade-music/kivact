@@ -81,7 +81,8 @@ pub(crate) fn mount_window_root(
     build: Box<dyn FnOnce() -> View>,
     at: &'static Location<'static>,
 ) -> kivact_types::NodeId {
-    let root = match ViewState::tree(rt).root(window) {
+    let existing = ViewState::tree(rt).root(window);
+    let root = match existing {
         Some(root) => root,
         None => ViewState::tree_mut(rt).create_root(window, owner),
     };

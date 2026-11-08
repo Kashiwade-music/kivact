@@ -1,4 +1,4 @@
-//! Role: The MCP tool list: the protocol methods plus the local target tools, with resolved input schemas.
+//! Role: The MCP tools: protocol methods and local targets, with resolved input schemas.
 
 use serde_json::{Map, Value, json};
 

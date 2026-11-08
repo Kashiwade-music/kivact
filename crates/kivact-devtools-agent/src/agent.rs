@@ -15,8 +15,8 @@ use crate::files;
 use crate::incoming::Incoming;
 use crate::launcher;
 use crate::review_store::ReviewStore;
-use crate::server::{self, Shared};
-use crate::session::{Peers, write_line};
+use crate::server;
+use crate::session::{Peers, Shared, write_line};
 use crate::source::SourceCache;
 
 /// What the core passes to `Agent::start`. `app.workspace_root` is passed empty; the agent finds

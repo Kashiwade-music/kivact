@@ -112,7 +112,7 @@ fn form() -> impl IntoView {
 fn app() -> impl IntoView {
     let settings_open = signal(false);
     let dirty = signal(true);
-    provide(Draft { dirty }, || {
+    provide(Draft { dirty }, move || {
         column((
             button("設定").on_press(move || settings_open.set(true)),
             window("設定", settings_open).content(|| form()),
@@ -246,13 +246,15 @@ mod tests {
         let screen = kivact::test::render(app);
         screen.get_by_role(Role::Button, "設定").click();
 
-        let titles: Vec<String> = screen.windows().iter().map(|window| window.title()).collect();
-        assert_eq!(titles, ["Editor", "設定"]);
+        let windows = screen.windows();
+        assert_eq!(windows.len(), 2);
+        assert_eq!(windows[0].title(), screen.title());
+        assert_eq!(windows[1].title(), "設定");
     }
 
     #[test]
     fn an_environment_with_one_window_reports_unsupported() {
-        let screen = render_with(RenderOptions::single_window(), app);
+        let screen = render_with(RenderOptions::default().single_window(), app);
         screen.get_by_role(Role::Button, "設定").click();
 
         assert!(screen.query_by_text("設定はここに表示されます").is_none());
@@ -266,7 +268,7 @@ mod tests {
 - `screen.window(..)` の戻り値は一時値です。`Element` を取る前にハンドルを `let` に入れてください。`let save = screen.window("設定").get_by_role(..);` はコンパイルできません（E0716）。ハンドルがウィンドウを生かします。
 - `is_open()` はウィンドウがまだ開いているかを返します。`request_close()` はタイトルバーと同じ閉じる要求なので、`on_dismiss` が実行されます。閉じたハンドルでウィンドウ向けの method を呼ぶと、「window <id> is closed」で失敗します。
 - 同じ title のウィンドウが 2 つ開いていると、`window(title)` は曖昧な `get_by_*` と同じように失敗します。
-- `RenderOptions::single_window()` は、追加のウィンドウを開けない環境を表します。どの `window` も `ErrorKind::Unsupported` を報告して開きません。ウィンドウを開けない経路をテストするときに使います。
+- `RenderOptions::default().single_window()` は、追加のウィンドウを開けない環境を表します。どの `window` も `ErrorKind::Unsupported` を報告して開きません。ウィンドウを開けない経路をテストするときに使います。
 
 ## ウィンドウが使えない環境
 

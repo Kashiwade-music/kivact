@@ -1,4 +1,4 @@
-//! Role: One window's input normalization, shared by the native port, the virtual backend and injected input.
+//! Role: One window's input normalization, shared by native, virtual and injected input.
 
 use crate::clicks::ClickCounter;
 use crate::contacts::Contacts;

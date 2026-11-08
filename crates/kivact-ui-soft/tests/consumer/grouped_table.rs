@@ -99,9 +99,10 @@ fn group_disclosure_preserves_selection_and_pages_and_skips_collapsed_rows() {
     assert_eq!(engineering.is_expanded(), Some(false));
     assert!(engineering.is_focused());
 
-    gamma.focus();
-    screen.press_key(Key::ArrowUp);
-    assert!(alpha.is_focused());
+    // The selected Beta row is gone, so Alpha is the list's tab stop; move down to Gamma.
+    alpha.focus();
+    screen.press_key(Key::ArrowDown);
+    assert!(gamma.is_focused());
     assert_eq!(selected.get_untracked(), [2]);
 
     page.set(1);

@@ -1,4 +1,4 @@
-//! Role: Run `cargo xtask devtools-codegen`, or check the committed artifacts with `--check`.
+//! Role: Run the code generator, or compare the committed artifacts with `--check`.
 
 use std::io::Write;
 use std::path::{Path, PathBuf};

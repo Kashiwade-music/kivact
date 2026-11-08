@@ -624,6 +624,7 @@ pub(crate) enum LayerOrigin {
 
 /// The name of a kit recipe, for DevTools; call it only to show it.
 #[doc(hidden)]
+// xtask-allow(api-shape): hidden internal contract - kit recipes tag their style layers with a recipe name for DevTools
 pub type RecipeName = Rc<dyn Fn() -> &'static str>;
 
 impl Common {

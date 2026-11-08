@@ -1,4 +1,4 @@
-//! Role: One connection: the handshake, the calls it forwards to the UI thread and its cleanup.
+//! Role: One connection: its handshake, forwarded calls and cleanup.
 
 use std::io::{BufRead, BufReader, Read};
 use std::net::TcpStream;
@@ -13,8 +13,7 @@ use kivact_devtools_protocol::{
 };
 
 use crate::incoming::{Incoming, Responder};
-use crate::server::Shared;
-use crate::session::{ConnectionId, Peer, Session, Writer, shutdown};
+use crate::session::{ConnectionId, Peer, Session, Shared, Writer, shutdown};
 
 const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(10);
 const WRITE_TIMEOUT: Duration = Duration::from_secs(5);

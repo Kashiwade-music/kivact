@@ -261,7 +261,7 @@ text_measure = ["lower", "contract", "tree", "measure", "model"]
 paint = ["lower", "contract", "tree", "measure", "mutation", "model", "text_measure", "offscreen", "layer"]
 a11y = ["contract", "tree", "measure", "mutation", "model"]
 check = ["lower", "contract", "tree", "measure", "mutation", "model", "paint", "a11y"]
-host = ["text_input", "contract", "tree", "measure", "mutation", "model", "paint", "a11y", "check", "text_measure", "frame_log", "offscreen"]
+host = ["text_input", "contract", "tree", "measure", "mutation", "model", "paint", "a11y", "check", "text_measure", "frame_log", "offscreen", "lower"]
 offscreen = ["lower", "contract", "text_measure"]
 # The facade exposes the immutable WriteStats DTO from this passive leaf.
 api = ["contract", "host", "offscreen", "text_measure", "mutation"]
@@ -438,6 +438,18 @@ rule = "non-leaf-implementation"
 path = "dev/xtask/src/main.rs"
 item = "main"
 reason = "Glue: the binary entry only wires xtask-core's run to this workspace's module-rule and impl-model checks."
+
+[[style.exceptions]]
+rule = "non-leaf-implementation"
+path = "crates/kivact-devtools-mcp/src/main.rs"
+item = "main"
+reason = "Glue: the MCP binary entry only reads the embedded schema and starts the stdio server."
+
+[[style.exceptions]]
+rule = "non-leaf-implementation"
+path = "crates/kivact-devtools/src/main.rs"
+item = "main"
+reason = "Glue: the DevTools binary entry only parses arguments and runs the app root."
 
 [state_fields]
 role_suffixes = ["Options", "Event", "Phase", "Reason", "Input", "Report", "Tokens", "Recipes"]

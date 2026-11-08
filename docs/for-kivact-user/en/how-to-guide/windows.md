@@ -145,7 +145,7 @@ fn form() -> impl IntoView {
 fn app() -> impl IntoView {
     let settings_open = signal(false);
     let dirty = signal(true);
-    provide(Draft { dirty }, || {
+    provide(Draft { dirty }, move || {
         column((
             button("Settings").on_press(move || settings_open.set(true)),
             window("Settings", settings_open).content(|| form()),
@@ -302,13 +302,15 @@ mod tests {
         let screen = kivact::test::render(app);
         screen.get_by_role(Role::Button, "Settings").click();
 
-        let titles: Vec<String> = screen.windows().iter().map(|window| window.title()).collect();
-        assert_eq!(titles, ["Editor", "Settings"]);
+        let windows = screen.windows();
+        assert_eq!(windows.len(), 2);
+        assert_eq!(windows[0].title(), screen.title());
+        assert_eq!(windows[1].title(), "Settings");
     }
 
     #[test]
     fn an_environment_with_one_window_reports_unsupported() {
-        let screen = render_with(RenderOptions::single_window(), app);
+        let screen = render_with(RenderOptions::default().single_window(), app);
         screen.get_by_role(Role::Button, "Settings").click();
 
         assert!(screen.query_by_text("Settings go here").is_none());
@@ -328,9 +330,9 @@ A few rules:
   handle, the window methods fail with "window <id> is closed".
 - Two open windows with the same title make `window(title)` fail, like an
   ambiguous `get_by_*`.
-- `RenderOptions::single_window()` models an environment that cannot open more
-  windows: every `window` reports `ErrorKind::Unsupported` and stays closed.
-  Use it to test the path where no window can open.
+- `RenderOptions::default().single_window()` models an environment that cannot
+  open more windows: every `window` reports `ErrorKind::Unsupported` and stays
+  closed. Use it to test the path where no window can open.
 
 ## Where windows are not available
 

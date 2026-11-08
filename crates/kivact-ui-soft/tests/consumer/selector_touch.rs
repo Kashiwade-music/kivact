@@ -166,14 +166,8 @@ fn selection_field_reopened_through_the_caller_binding_takes_a_fresh_surface() {
             )
         },
     );
-    // The drawer reaches the bottom of the 700 px window; the popup sits under the trigger.
-    let drawer_shown = || {
-        let rect = screen
-            .get_by_role(Role::Dialog, "Workspace")
-            .rect()
-            .expect("dialog laid out");
-        rect.y + rect.height >= 699.0
-    };
+    // Only a drawer carries the drag-to-close handle; the popup opens without one.
+    let drawer_shown = || screen.query_by_role(Role::Group, "Drag to close").is_some();
     let trigger = screen.get_by_role(Role::Button, "Workspace");
     let rect = trigger.rect().unwrap();
     let touch = screen.contact_down(

@@ -372,6 +372,9 @@ fn assert_splitter_pointer_changes(screen: &Screen, probe: &Probe, splitter: &El
 #[test]
 fn a_tab_press_that_stays_inside_the_threshold_neither_drags_nor_captures() {
     let (screen, probe) = mount_dock();
+    // A click on a tab activates it; activate Text first so the press below
+    // tests only that a press inside the slop neither drags nor captures.
+    screen.get_by_role(Role::Tab, "Text").click();
     let before = probe.layout.get_untracked();
     let at = screen
         .get_by_role(Role::Tab, "Text")

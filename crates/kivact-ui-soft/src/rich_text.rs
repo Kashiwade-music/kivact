@@ -1,5 +1,6 @@
 //! Role: Source-preserving Markdown editing and a formatted read-only preview.
 use crate::markdown::markdown;
+pub(crate) use crate::rich_block_doc::EditTarget;
 use kivact::custom::NodeRefExt;
 use kivact::custom::TextSession;
 use kivact::i18n::message;
@@ -53,17 +54,6 @@ impl RichDoc {
     pub fn into_markdown(self) -> String {
         self.markdown
     }
-}
-
-/// The editor that the formatting commands act on.
-#[derive(Clone, Copy, PartialEq)]
-pub(crate) enum EditTarget {
-    /// No editor accepts commands.
-    Detached,
-    /// This editor accepts formatting.
-    Ready(NodeRef),
-    /// This editor is composing input; formatting waits.
-    Composing(NodeRef),
 }
 
 #[derive(Clone, Copy, PartialEq)]

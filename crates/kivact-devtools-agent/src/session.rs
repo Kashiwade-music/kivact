@@ -1,11 +1,11 @@
-//! Role: What the UI thread and the connection threads share: who is connected and what they follow.
+//! Role: Who is connected, what they follow, and what every connection thread reads.
 
 use std::collections::BTreeMap;
 use std::io::Write;
 use std::net::{Shutdown, TcpStream};
 use std::sync::{Arc, Mutex, MutexGuard};
 
-use kivact_devtools_protocol::{ClientInfo, ClientKind, Topic};
+use kivact_devtools_protocol::{AppInfo, ClientInfo, ClientKind, DevtoolsConfig, Topic};
 
 pub(crate) type ConnectionId = u64;
 /// The write half of a connection; a writer holds the lock for one whole line.
@@ -82,6 +82,15 @@ impl Peers {
             shutdown(&writer);
         }
     }
+}
+
+/// What every connection thread reads and nobody changes after start.
+pub(crate) struct Shared {
+    pub(crate) token: String,
+    pub(crate) app: AppInfo,
+    pub(crate) config: DevtoolsConfig,
+    pub(crate) peers: Peers,
+    pub(crate) wake: Box<dyn Fn() + Send + Sync>,
 }
 
 /// Write one line and `\n`. A failed write shuts the stream down, so its reader thread ends and cleans up.

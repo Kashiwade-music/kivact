@@ -1,4 +1,4 @@
-//! Role: The DevTools methods, declared once: the `Call` and `Reply` enums, wire names and typed markers.
+//! Role: The DevTools methods: the `Call` and `Reply` enums and typed markers.
 
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};

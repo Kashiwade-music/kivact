@@ -2,6 +2,18 @@
 use crate::markdown_parser::{
     begins_block, fence, heading, is_rule, list_marker, quote, reference, table_separator, task,
 };
+use kivact::view::NodeRef;
+
+/// The editor that the formatting commands act on.
+#[derive(Clone, Copy, PartialEq)]
+pub(super) enum EditTarget {
+    /// No editor accepts commands.
+    Detached,
+    /// This editor accepts formatting.
+    Ready(NodeRef),
+    /// This editor is composing input; formatting waits.
+    Composing(NodeRef),
+}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) enum Kind {

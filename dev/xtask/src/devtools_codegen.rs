@@ -1,4 +1,4 @@
-//! Role: Generate the DevTools protocol JSON Schema and Python types from the protocol crate.
+//! Role: Generate the DevTools protocol schemas and Python types.
 
 mod check;
 mod cli;

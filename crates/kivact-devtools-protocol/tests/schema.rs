@@ -1,4 +1,4 @@
-//! Role: The generated schema lists the same methods, version and error codes as the Rust protocol.
+//! Role: The generated schema matches the protocol's methods, version and error codes.
 
 use kivact_devtools_protocol::{METHOD_NAMES, PROTOCOL_VERSION, SCHEMA_JSON, code};
 
