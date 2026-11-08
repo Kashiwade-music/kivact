@@ -525,7 +525,12 @@ fn root_shader_fallback_is_not_blended_again_outside_the_damage() {
     screen.screenshot();
     colour.set(RED);
     let changed = screen.screenshot();
-    let fresh = render(|| shader_beside_box(signal(RED))).screenshot();
+    // The reference is mounted on the same lane: on the GPU the shader paints itself.
+    let (fresh_screen, _) = mount(|| {
+        let colour = signal(RED);
+        (colour, shader_beside_box(colour))
+    });
+    let fresh = fresh_screen.screenshot();
     assert_same_pixels(
         &changed,
         &fresh,
