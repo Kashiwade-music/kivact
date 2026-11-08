@@ -85,7 +85,7 @@ fn flip_card() -> impl IntoView {
 
 - `Preserve3d` は、表と裏を持つ要素に付けます。その子が 3D 空間に置かれるので、裏の `rotate_y(180)` によって裏が反対向きになります。
 - `perspective` は、そのコンテナの親に付けます。よく使われる CSS の書き方と同じです。コンテナ自身の回転が遠近で見え、中の表と裏は同じ 3D 空間を共有します。
-- グループは preserve-3d の空間を壊し、子を一つの平面に平らにします。次のものを持つ要素はグループになります: 1 未満の `opacity`、`filter`、`mask`、`clip_path`、`backdrop_filter`、`isolation(Isolation::Isolate)`。空間を共有させたい表と裏には、これらを付けないでください。
+- グループは preserve-3d の空間を壊し、子を一つの平面に平らにします。次のものを持つ要素はグループになります: 1 未満の `opacity`、`filter`、`mask`、`clip_path`、`backdrop_filter`、`Normal` 以外の `mix_blend_mode`、`isolation(Isolation::Isolate)`。空間を共有させたい表と裏には、これらを付けないでください。
 
 ## 裏面を隠す
 

@@ -179,7 +179,8 @@ fn keyframe_segment_easing() {
     let rows = read_at(&screen, target, &values, 50.0, &[250, 700, 750, 800, 1000]);
     // Segment 0 to 0.5 is linear: 0 to 100 over the first half.
     assert_value(rows[0][0], 50.0, "first segment, linear at 25%");
-    // Segment 0.5 to 1 jumps at the end of each half: 100 until 0.6, 75 after.
+    // Segment 0.5 to 1 jumps at its midpoint (progress 0.5, t = 750 ms):
+    // 100 until 750 ms, 75 after.
     assert_value(rows[1][0], 100.0, "second segment, before its jump");
     assert_value(rows[2][0], 75.0, "second segment, step 1 at 75%");
     assert_value(rows[3][0], 75.0, "second segment, step 1 at 80%");
@@ -317,7 +318,24 @@ fn alternate_even_count_ends_at_from() {
     screen.run_until_idle();
     let state_before = screen.get_by_test_id("state").rect().unwrap().x;
     screen.get_by_test_id("play").click();
-    screen.advance(ms(400));
+    // The first pass runs from 0 to 100 in 100 ms. A motion that never starts
+    // stays at 0 here, so the peak is sampled before the end.
+    screen.advance(ms(100));
+    assert!(
+        (shown.get_untracked() - 100.0).abs() <= 1.0,
+        "animated value peaks at to: {}",
+        shown.get_untracked()
+    );
+    assert!(
+        (track.get_untracked() - 100.0).abs() <= 1.0,
+        "timeline track peaks at to: {}",
+        track.get_untracked()
+    );
+    assert!(
+        (screen.get_by_test_id("state").rect().unwrap().x - state_before - 100.0).abs() <= 1.0,
+        "style transition peaks at to"
+    );
+    screen.advance(ms(300));
     assert_eq!(shown.get_untracked(), 0.0, "animated value ends at from");
     assert!(!shown.is_running());
     assert_eq!(track.get_untracked(), 0.0, "timeline track ends at from");
@@ -397,6 +415,11 @@ fn invalid_spring_is_reported() {
     // The value jumps on the first frame (1 ms here), with no interpolation.
     screen.advance(ms(1));
     assert_eq!(shown.get_untracked(), 10.0, "the animated value jumps");
+    assert_eq!(
+        screen.get_by_test_id("moved").rect().unwrap().x,
+        10.0,
+        "the style transition jumps"
+    );
     let errors = screen.errors();
     assert_eq!(
         errors.len(),

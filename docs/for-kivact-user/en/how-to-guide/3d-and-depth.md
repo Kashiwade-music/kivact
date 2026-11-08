@@ -112,7 +112,8 @@ fn flip_card() -> impl IntoView {
   faces inside share its 3D space.
 - A group breaks a preserve-3d space and flattens its children into one plane.
   The following make an element a group: an `opacity` below 1, a `filter`, a
-  `mask`, a `clip_path`, a `backdrop_filter`, and `isolation(Isolation::Isolate)`.
+  `mask`, a `clip_path`, a `backdrop_filter`, a `mix_blend_mode` other than
+  `Normal`, and `isolation(Isolation::Isolate)`.
   Keep the faces free of these when they must share the space.
 
 ## Hide the back of a face

@@ -115,6 +115,42 @@ pub(crate) fn oklch_to_oklab(l: f64, c: f64, h: f64) -> V3 {
     [l, c * cos, c * sin]
 }
 
+pub(crate) const D65_TO_D50: [[f64; 3]; 3] = [
+    [
+        1.0479298208405488,
+        0.022946793341019088,
+        -0.05019222954313557,
+    ],
+    [
+        0.029627815688159344,
+        0.990434484573249,
+        -0.01707382502938514,
+    ],
+    [
+        -0.009243058152591178,
+        0.015055144896577895,
+        0.7518742899580008,
+    ],
+];
+pub(crate) const D50_WHITE: V3 = [0.9642956764295677, 1.0, 0.8251046025104602];
+const LAB_KAPPA: f64 = 24389.0 / 27.0;
+const LAB_EPSILON: f64 = 216.0 / 24389.0;
+
+fn lab_f(v: f64) -> f64 {
+    if v > LAB_EPSILON {
+        v.cbrt()
+    } else {
+        (LAB_KAPPA * v + 16.0) / 116.0
+    }
+}
+
+/// CIE Lab (D50, Bradford adapted) of sRGB values (encoded).
+pub(crate) fn encoded_to_lab(enc: V3) -> V3 {
+    let xyz = mul(&D65_TO_D50, mul(&SRGB_TO_XYZ, enc.map(to_linear)));
+    let [f0, f1, f2] = [0, 1, 2].map(|i| lab_f(xyz[i] / D50_WHITE[i]));
+    [116.0 * f1 - 16.0, 500.0 * (f0 - f1), 200.0 * (f1 - f2)]
+}
+
 pub(crate) fn oklab_to_oklch(lab: V3) -> V3 {
     let c = (lab[1] * lab[1] + lab[2] * lab[2]).sqrt();
     let h = lab[2].atan2(lab[1]).to_degrees().rem_euclid(360.0);

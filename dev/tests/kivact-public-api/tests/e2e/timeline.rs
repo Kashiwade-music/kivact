@@ -254,8 +254,8 @@ fn seek_reverse_and_rate() {
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 
-/// Half the time at rate 2 and a repeat (Normal, then alternate, which runs the
-/// second iteration backwards).
+/// Two timelines with a repeat: one Normal, one alternate, which runs the
+/// second iteration backwards.
 #[test]
 fn repeat_and_alternate() {
     let (screen, (x, y, ctl_x, ctl_y)) = mount_with(exact_frames(), || {

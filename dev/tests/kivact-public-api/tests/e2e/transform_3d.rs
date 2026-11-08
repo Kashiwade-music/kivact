@@ -247,6 +247,9 @@ fn a11y_bounds_of_3d_nodes_are_projected() {
     );
 }
 
+/// The caret (the IME cursor area) of a focused 3D text input lies inside the
+/// projected quad. The focus ring is not measured here: the test's row in
+/// design §17.2 names only the caret.
 #[test]
 fn focus_ring_and_caret_follow_3d() {
     // Geometry tier: the IME cursor area (the caret) lies inside the
