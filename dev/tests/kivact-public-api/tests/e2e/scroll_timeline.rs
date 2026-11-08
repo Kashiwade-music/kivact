@@ -1,4 +1,4 @@
-//! Role: Scroll-driven progress: a scroller's offset and a node's view progress.
+//! Role: Scroll-driven progress: a scroller's offset and a view's progress.
 
 use crate::support::mount;
 use kivact::geometry::Point;
@@ -59,7 +59,7 @@ fn scroll_progress_tracks_offset() {
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 
-/// The four view ranges of §12.8, for a target of T = 40 px in a viewport
+/// The four view ranges, for a target of T = 40 px in a viewport
 /// V = 100 px (T ≤ V): `r` is the target's start relative to the viewport's
 /// start, `r = 200 - offset`. Expected values are the table's formulas
 /// evaluated at each `r`, clamped to 0..=1.

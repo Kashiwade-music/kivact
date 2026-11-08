@@ -410,16 +410,16 @@ fn counter_example_end_to_end() {
 }
 
 // ---------------------------------------------------------------------------
-// Regression (design survey): a rejected edit of a bound text field is not reverted on the host.
+// Regression: a rejected edit of a bound text field is not reverted on the host.
 
 // ---------------------------------------------------------------------------
-// Regression (design survey): NodeRef::rect keeps the last rect after the node is unmounted.
+// Regression: NodeRef::rect keeps the last rect after the node is unmounted.
 
 // ---------------------------------------------------------------------------
-// Regression (design survey): virtual_list host child order does not follow item order.
+// Regression: virtual_list host child order does not follow item order.
 
 // ---------------------------------------------------------------------------
-// Regression (design survey): on_mount of a component without host nodes waits for an unrelated batch.
+// Regression: on_mount of a component without host nodes waits for an unrelated batch.
 
 #[test]
 fn closure_child_updates_text() {

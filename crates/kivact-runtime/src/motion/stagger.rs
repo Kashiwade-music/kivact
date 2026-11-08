@@ -1,5 +1,4 @@
-//! Role: `Stagger`: the delay of each item of a list, measured from an origin
-//! (design §12.7).
+//! Role: `Stagger`: the delay of each item of a list, measured from an origin.
 
 use super::Easing;
 

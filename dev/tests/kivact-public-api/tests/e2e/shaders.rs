@@ -2,7 +2,7 @@
 //!
 //! The CPU lane (no GPU) checks validation of the user's WGSL and the
 //! fallback a CPU draws. The GPU lane runs where the window has a GPU and
-//! is skipped, saying why, where it has none (§11.3).
+//! is skipped, saying why, where it has none.
 #![allow(
     clippy::print_stderr,
     reason = "report unavailable optional hardware explicitly"

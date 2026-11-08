@@ -1,7 +1,7 @@
 //! Role: Tests for border styles, border images and background layers.
 //!
-//! The bands of the border styles follow §9.1 (dark is two thirds of the
-//! colour, light is the colour itself). The border image follows the nine
+//! The bands of the border styles: dark is two thirds of the colour, light is
+//! the colour itself. The border image follows the nine
 //! slices of CSS Backgrounds 3 §6. Flat fills have crisp edges, so their
 //! pixels are checked within ±4/255 (tier 2); the image pixels are
 //! sampled at tile centres (tier 2).

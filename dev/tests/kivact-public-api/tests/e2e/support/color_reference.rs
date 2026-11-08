@@ -1,6 +1,6 @@
 //! Role: CSS Color 4 formulas the color tests compute expected values with.
 //! The formulas of CSS Color 4 that the expected values are computed with.
-//! The matrices are §5.4.1's (CSS Color 4 §18); nothing here calls the
+//! The matrices are those of CSS Color 4 §18; nothing here calls the
 //! implementation under test.
 
 pub(crate) const SRGB_TO_XYZ: [[f64; 3]; 3] = [
@@ -175,8 +175,7 @@ fn clip(enc: V3) -> V3 {
     enc.map(|v| v.clamp(0.0, 1.0))
 }
 
-/// CSS Color 4 §13.2.2 gamut mapping of an unclipped sRGB color
-/// (encoded), as the design's §5.4.4 states it.
+/// CSS Color 4 §13.2.2 gamut mapping of an unclipped sRGB color (encoded).
 pub(crate) fn gamut_map(enc: V3) -> V3 {
     if in_srgb(enc) {
         return enc;

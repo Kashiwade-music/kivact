@@ -1,8 +1,9 @@
 //! Role: Tests for 3D transforms: projection, hit testing and depth order.
 //!
-//! The projection of a node is the one §5.2 gives: the drawn pixels, the
+//! The projection of a node is perspective, clipped at the near plane: the
+//! drawn pixels, the
 //! hit test, `NodeRef::rect` and the accessibility bounds follow it. Each
-//! test says which tier of §3.3 its pixels are checked against: geometry
+//! test says which tier its pixels are checked against: geometry
 //! (position within ±1 device px), compositor ops (±2/255 per channel).
 //! Checked on real windows at scale 1.
 
@@ -175,7 +176,7 @@ fn hit_test_follows_the_projection() {
 
 #[test]
 fn rect_is_the_projected_bounds() {
-    // Geometry tier (±0.5 px). The §5.2 bounds of the child's corners
+    // Geometry tier (±0.5 px). The projected bounds of the child's corners
     // (±100, ±100) under rotate_x(45) and the parent's perspective 400,
     // about the centre (200, 200): x 200 ± 121.474, y from 200 − 60.088 to
     // 200 + 85.895.
@@ -233,7 +234,7 @@ fn preserve_3d_orders_by_depth() {
 #[test]
 fn nested_hidden_backface_hides_its_own_content() {
     // A Preserve3d child turned to show its back draws none of its own content
-    // inside its parent's 3D context (§8.4, §8.5). The visible back is the control.
+    // inside its parent's 3D context. The visible back is the control.
     let shot = |backface: BackfaceVisibility| {
         render(move || {
             canvas_of(
@@ -339,8 +340,8 @@ fn a11y_bounds_of_3d_nodes_are_projected() {
 }
 
 /// The caret (the IME cursor area) of a focused 3D text input lies inside the
-/// projected quad. The focus ring is not measured here: the test's row in
-/// design §17.2 names only the caret.
+/// projected quad. The focus ring is not measured here: this test checks
+/// only the caret.
 #[test]
 fn focus_ring_and_caret_follow_3d() {
     // Geometry tier: the IME cursor area (the caret) lies inside the

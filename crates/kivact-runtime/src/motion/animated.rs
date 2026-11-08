@@ -1,4 +1,4 @@
-//! Role: `Animated<T>`: a value that follows a target `Value<T>` with a `Transition`.
+//! Role: `Animated<T>`: a value that follows a `Value<T>` by a `Transition`.
 //! Its current value is a graph source, so memos and effects
 //! track it like any signal.
 
@@ -111,7 +111,7 @@ fn comps<T: Animatable>(v: &T) -> Vec<f64> {
     c
 }
 
-/// The value a finished run settles on: the end of its last iteration (§12.3).
+/// The value a finished run settles on: the end of its last iteration.
 fn settled(run: &Run) -> Vec<f64> {
     if settles_at_start(&run.timing) {
         run.from.clone()

@@ -1,7 +1,7 @@
 //! Role: Tests for text stroke, paint order, font axes and text paths.
 //!
 //! The glyph checks read the element's own pixels, on a white window. Each
-//! comparison is tier 3 of §3.3 (the glyph raster): either
+//! comparison is tier 3 (the glyph raster): either
 //! `Screenshot::raster_difference` between two frames, or a color class
 //! check (stroke, fill, gradient) that a glyph's edge anti-aliasing leaves
 //! unchanged.
@@ -184,7 +184,7 @@ type Measured = (Option<Rect>, Rect);
 fn draw_text_with_gradient_and_path() {
     // Tier 3 (glyph raster): the gradient is laid over the text's bounds,
     // so the left of the text is red and the right is blue. The outline
-    // path of the text lies inside the text's metrics (§9.7).
+    // path of the text lies inside the text's metrics.
     let found: Rc<RefCell<Option<Measured>>> = Rc::default();
     let out = found.clone();
     let screen = render_with(inter(), move || {

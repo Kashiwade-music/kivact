@@ -35,7 +35,7 @@ kivact-ui-soft = { path = "../../../crates/kivact-ui-soft" }
 [target.'cfg(any(windows, target_os = "linux"))'.dev-dependencies]
 gpu-interop-producer = { path = "../gpu-interop-producer", features = ["wgpu"] }
 # The consumer of a drawable's export on its own thread (tests/e2e/
-# drawable_export_gpu.rs, design §10.5): a device on the window's adapter and
+# drawable_export_gpu.rs): a device on the window's adapter and
 # `Import`, which the consumer names through wgpu.
 kivact-gpu-share = { path = "../../../crates/kivact-gpu-share", features = ["import", "wgpu"] }
 wgpu = { workspace = true }

@@ -206,7 +206,7 @@ fn text_color_transitions_with_paint() {
     screen.advance(Duration::from_millis(100));
     assert!(
         ink.screenshot().pixels.iter().any(|pixel| {
-            // Oklab (§5.4.2) keeps some green mid-transition, so require a
+            // Oklab keeps some green mid-transition, so require a
             // pixel that mixes both ends, not an end or the background.
             let (r, b) = ((pixel >> 16) & 255, pixel & 255);
             r > 25 && b > 25 && r < 230 && b < 230

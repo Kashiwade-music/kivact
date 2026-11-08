@@ -1,12 +1,12 @@
-//! Role: Drawable export on the GPU: shared textures, generations and device loss.
+//! Role: GPU drawable export: shared textures, generations and device loss.
 //!
 //! The window makes the textures of a drawable's GPU export. The consumer is
-//! the test's own device, as an app's is (design §10.5): each
+//! the test's own device, as an app's is: each
 //! `ShareUpdate::Textures` is imported with `kivact_gpu_share::import::Import`
 //! (`Import::new` tells the window the textures are ready), and the frames are
-//! drawn or read back on that device. The documented loop (design §10.5) runs
-//! on a thread of its own. The tests advance the virtual clock while they wait,
-//! so the export's retries run (design §10.5, step 6). GPU tests skip, saying
+//! drawn or read back on that device. The consumer loop runs on a thread of
+//! its own. The tests advance the virtual clock while they wait,
+//! so the export's retries run. GPU tests skip, saying
 //! why, when the window has no GPU device that exports shared textures (as
 //! `gpu_interop.rs`).
 #![allow(
@@ -173,8 +173,8 @@ fn fs(in: Out) -> @location(0) vec4<f32> {
 }
 ";
 
-/// The consumer of an export that a test runs itself, as an app does (design
-/// §10.5): a wgpu device on the window's adapter and the pool imported with
+/// The consumer of an export that a test runs itself, as an app does: a wgpu
+/// device on the window's adapter and the pool imported with
 /// `Import::new`. A frame can be held (acquired and not released); the
 /// oldest held frame is released first, as the release fence requires.
 struct Consumer {
@@ -410,7 +410,7 @@ fn sample(
     target
 }
 
-/// The consumer loop of design §10.5, as written, on a thread of its own: each
+/// The consumer loop an app writes, on a thread of its own: each
 /// new set of textures is imported, and the width of each frame's pool is
 /// sent to the UI thread.
 fn documented_consumer(share: DrawableShare, adapter: GpuAdapter, widths: mpsc::Sender<u32>) {
@@ -668,7 +668,7 @@ fn export_generation_rejects_stale_frames() {
     assert!(app.screen.errors().is_empty(), "{:?}", app.screen.errors());
 }
 
-/// The documented consumer loop (design §10.5), run as written on a thread of
+/// A consumer loop as an app writes it, run on a thread of
 /// its own with its own import: the first frame arrives, and after the
 /// drawable is resized twice, a frame of each new size arrives.
 #[test]
@@ -792,8 +792,8 @@ fn gpu_export_recovers_after_device_loss() {
 }
 
 /// Whether the window's last frame is one with no damage. A presentation of
-/// a skipped export is such a frame (design §10.5, step 6: the export alone
-/// is composed), so after a frame that changed the clock (which has damage),
+/// a skipped export is such a frame (the export alone is composed), so after
+/// a frame that changed the clock (which has damage),
 /// this is true exactly when a retry presented since.
 fn presented_retry(screen: &Screen) -> bool {
     screen.frame_stats().damage_pixels == 0
@@ -802,7 +802,7 @@ fn presented_retry(screen: &Screen) -> bool {
 /// Three frames are held (A, B, A: the last one sent is A), so every slot of
 /// the pool is held and unreleased. Content C then cannot be sent: the export
 /// retries while C waits. Back to A, the content last sent, the retry stops
-/// and no presentation is asked for (design §10.5, step 6).
+/// and no presentation is asked for.
 #[test]
 fn retry_stops_when_content_returns() {
     let Some(app) = gpu_app("retry_stops_when_content_returns") else {

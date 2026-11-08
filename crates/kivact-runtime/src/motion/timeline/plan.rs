@@ -1,6 +1,6 @@
 //! Role: The segments of a timeline and their per-track plan: each track's
-//! segments in start order, and the value each one starts from (design
-//! §12.6, the track value rule).
+//! segments in start order, and the value each one starts from: the track's
+//! value at its start, as set by the segments before it.
 
 use std::cell::RefCell;
 
@@ -53,8 +53,8 @@ pub(super) fn span_of(seg: &SegmentDef) -> (f64, f64) {
     (seg.start, seg.start + seg.len)
 }
 
-/// The per-track order and starting values of the segments (§12.6, the
-/// track value rule).
+/// The per-track order and starting values of the segments: a segment starts
+/// from the track's value as set by the segments before it.
 pub(super) fn build_plan(segments: &[SegmentDef], tracks: &[Box<dyn TrackSlot>]) -> Plan {
     let mut order: Vec<Vec<usize>> = vec![Vec::new(); tracks.len()];
     for (index, seg) in segments.iter().enumerate() {

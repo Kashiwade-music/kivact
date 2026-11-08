@@ -2,7 +2,7 @@
 //!
 //! Filters act on the composite of their element (CSS, in sRGB), masks
 //! on its alpha. Pixels of a filter or mask op are compared within ±2/255
-//! per channel (§3.3, tier 2); a test that compares against a gradient
+//! per channel (tier 2); a test that compares against a gradient
 //! also allows the gradient's own rounding and says so.
 
 use kivact::draw::filter::{Channel, CompositeOp, Light};
@@ -184,8 +184,8 @@ fn filter_graph_rejects_handles_of_other_graphs() {
 
 #[test]
 fn backdrop_drop_shadow_is_applied() {
-    // A Backdrop Root (CONTRACT-BACKDROP-ROOT: a layer with an effect; here
-    // opacity 0.999, which is invisible in the output) with a transparent
+    // A backdrop root (a layer with an effect; here opacity 0.999, which is
+    // invisible in the output) with a transparent
     // background. Its child, the glass, reads that root's content: the red
     // box, and nothing where the box is not. The drop shadow (offset 10 px
     // right, blue) therefore shows right of the box. Tier 2.
@@ -257,8 +257,8 @@ fn mask_composite_subtract() {
 
 #[test]
 fn linear_flood_clamps_a_channel_above_one() {
-    // A flood colour with a channel above 1 is clamped before the linear lookup
-    // (§8.8), so the flood draws full red. Tier 2.
+    // A flood colour with a channel above 1 is clamped before the linear lookup,
+    // so the flood draws full red. Tier 2.
     let over = Color::from_rgba_f64(1.5, 0.0, 0.0, 1.0);
     let screen = render(move || {
         let mut graph = FilterGraph::new();

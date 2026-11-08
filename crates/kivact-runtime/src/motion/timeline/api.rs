@@ -1,4 +1,4 @@
-//! Role: The `Timeline` value, its tracks, segments and playback cell (design §12.6).
+//! Role: The `Timeline` value, its tracks, segments and playback cell.
 //!
 //! Invariants:
 //! - A segment's start is fixed when it is added (or moved with

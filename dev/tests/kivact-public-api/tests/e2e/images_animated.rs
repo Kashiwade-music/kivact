@@ -4,7 +4,7 @@
 //! APNG and an animated WebP assembled from the still PNG and lossless
 //! WebP the same crate encodes (its APNG and animated WebP encoders are not
 //! in the crate). Each frame is a solid color, so a pixel of the frame
-//! names the frame. Pixels are compared at tier 2 of §3.3 (an image blit of
+//! names the frame. Pixels are compared at tier 2 (an image blit of
 //! a solid color, ±2/255).
 
 use std::time::Duration;
