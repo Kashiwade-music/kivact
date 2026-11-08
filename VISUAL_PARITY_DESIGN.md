@@ -4711,3 +4711,4 @@ wave R1 で A-2 により止まった項目について、ユーザーの指示�
 | B-18 | U92、§17.2 | `oklch_out_of_gamut_maps_like_css` の H の許容差は ±1.0°とする（8 bit の画素からは 0.02° を分解できない）。L は設計どおり ±0.02 |
 | B-19 | U93、U94、§10.5 | `DrawableShare::set_geometry(Option<Matrix4>)` を利用者が呼べるよう、`kivact_core::geometry`（facade の `kivact::geometry`）で `Matrix4` を再公開する |
 | B-20 | U93、U95、§12.4、§16.1 | 区間ごとの easing（§12.4）を利用者が書けるよう、`kivact::motion` で `Keyframe` を再公開する（U93 の `fix(kivact-core)`）。U95 が A-2 で止めた `animation.md` の keyframe の easing と、U94 が書かなかった `drawables.md` の `set_geometry`（B-19）は、wave 9 の merge の後に文書の修正の unit で書き足す |
+| B-21 | U91、§17.2、CONTRACT-BACKDROP-ROOT | `backdrop_drop_shadow_is_applied` は、不透明な backdrop が自身の drop shadow を隠す（CSS と同じ）ため、透明な背景の Backdrop Root（effects を持つ layer）の中に小さな不透明の図形を置き、図形を (dx, dy) ずらした位置の画素が shadow の色になることを確かめる |
