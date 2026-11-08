@@ -669,8 +669,9 @@ fn exported_drawable_geometry_enables_hits() {
 }
 
 /// Tier 1 (geometry): an exported drawable's hit and accessibility bounds
-/// follow the geometry the app set, mapped into the host's padding box. The
-/// root's layout place (16 px in, the padding) is not applied a second time.
+/// follow the geometry the app set. The geometry maps the drawable's box into
+/// the host's padding box (its origin inside the border), and nothing else
+/// moves it: without geometry the button has no bounds at all.
 #[test]
 fn exported_drawable_hit_and_bounds_follow_its_geometry() {
     let (screen, (pressed, card)) = mount(|| {
@@ -698,14 +699,14 @@ fn exported_drawable_hit_and_bounds_follow_its_geometry() {
         .accessibility_bounds()
         .expect("the drawn button has bounds");
     for (got, want) in [
-        (bounds.x - ox, 46.0),
-        (bounds.y - oy, 26.0),
+        (bounds.x - ox, 30.0),
+        (bounds.y - oy, 10.0),
         (bounds.width, 80.0),
         (bounds.height, 30.0),
     ] {
         assert!(
             (got - want).abs() <= 1.0,
-            "bounds {bounds:?}, want x 46 y 26 w 80 h 30 in the window"
+            "bounds {bounds:?}, want x 30 y 10 w 80 h 30 in the window"
         );
     }
     screen.click_at(ox + 50.0, oy + 30.0);
@@ -732,7 +733,10 @@ fn preserve_3d_drawable_is_placed_through_its_context() {
             });
         })
         .drawable(card, move || {
-            red_button(move || presses.set(presses.get_untracked() + 1))
+            node()
+                .role(Role::Generic)
+                .style(style().size(40, 20).background(rgb(RED)))
+                .on_press(move || presses.set(presses.get_untracked() + 1))
         });
         (presses, view)
     });
