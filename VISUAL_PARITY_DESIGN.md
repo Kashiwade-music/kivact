@@ -4707,3 +4707,6 @@ wave R1 で A-2 により止まった項目について、ユーザーの指示�
 | B-14 | R11、§8.1、§0.3 | `GpuReport` の alias と `GPU_BUILT` は leaf に置き、`lib.rs` は宣言と再公開だけにする（§0.3 が §8.1 の code block に優先する） |
 | B-15 | CP8、§12.5、§17.2 | reduced motion の間、decorative な frame loop は tick しない（§12.5）。既存の試験 `motion::reduced_motion_completes_decorative_transitions_only` が、decorative な loop が回り続けることを期待していた部分は、設計の決定で意味が変わったものとして期待値を更新する。作業指示書 §10 CP8 の「期待値を更新してよいもの」に加える |
 | B-16 | CP8、§0.3、§8.1 | 特定の feature（例: `testing`）のときだけ使う item は、その feature のときだけ存在させる（`#[cfg(feature = …)]`）。feature の組み合わせによって未使用になる item に `allow` を付けない |
+| B-17 | U92、§17.2 | `color_conversion_fixtures` の変換関数は内部にあり公開 API から値を読めない。既知の Oklab と Lab（D50）の値が sRGB の赤・白として描かれること（±1/255）と、`color(display-p3 1 0 0)` が CSS の gamut mapping の値で描かれること（二段目）を画素で確かめる。±1e-4 の数値の照合は公開 API で観測できないので行わない（試験のための公開 API を足さない） |
+| B-18 | U92、§17.2 | `oklch_out_of_gamut_maps_like_css` の H の許容差は ±1.0°とする（8 bit の画素からは 0.02° を分解できない）。L は設計どおり ±0.02 |
+| B-19 | U93、U94、§10.5 | `DrawableShare::set_geometry(Option<Matrix4>)` を利用者が呼べるよう、`kivact_core::geometry`（facade の `kivact::geometry`）で `Matrix4` を再公開する |
