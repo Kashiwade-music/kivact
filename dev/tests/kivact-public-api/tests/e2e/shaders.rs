@@ -211,3 +211,37 @@ fn gpu_shader_time_advances() {
     assert_ne!(before, after, "the shader's time did not advance");
     assert!(shader_errors(&screen).is_empty(), "{:?}", screen.errors());
 }
+
+#[test]
+fn gpu_params_follow_member_attributes() {
+    // GPU: `@align(16)` puts `tint` at byte 16 of `Params`, so the host must
+    // write it there. Written at the natural offset (4), it would read as 0.
+    if !gpu_lane("gpu_params_follow_member_attributes") {
+        return;
+    }
+    let source = "struct Params { speed: f32, @align(16) tint: f32 }\nfn paint(position: vec2<f32>, context: Context, params: Params) -> vec4<f32> {\n    return vec4<f32>(params.speed, params.tint, 0.0, 1.0);\n}\n";
+    let shader = PaintShader::wgsl(source).expect("a valid paint shader");
+    let screen = render_with(gpu_options(), move || {
+        canvas_of(
+            canvas(move |d, _| {
+                d.fill_rect(
+                    Rect::new(0.0, 0.0, 100.0, 100.0),
+                    shader
+                        .paint()
+                        .param("speed", 0.25_f64)
+                        .param("tint", 0.5_f64),
+                );
+            })
+            .style(at(0, 0, 100, 100)),
+        )
+    });
+    expect(
+        &screen.screenshot(),
+        50,
+        50,
+        0x408000,
+        2,
+        "the members at their attribute offsets",
+    );
+    assert!(shader_errors(&screen).is_empty(), "{:?}", screen.errors());
+}
