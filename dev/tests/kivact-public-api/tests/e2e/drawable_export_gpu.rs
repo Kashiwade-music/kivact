@@ -10,10 +10,6 @@
 //! why, when the window has no GPU device that exports shared textures (as
 //! `gpu_interop.rs`).
 #![allow(
-    unsafe_code,
-    reason = "importing shared textures is an unsafe fn: the test consumer keeps its contract"
-)]
-#![allow(
     clippy::print_stderr,
     reason = "report unavailable optional hardware explicitly"
 )]
@@ -860,8 +856,10 @@ fn retry_stops_when_content_returns() {
 /// interval grows to 100 ms; the release of the oldest frame then brings the
 /// latest content C within 200 ms, with no other UI change.
 ///
-/// While the slot stays unreleased the clock moves one second in steps and the
-/// screen settles at each step: a retry that spun would fail the settle (B-26).
+/// While the slot stays unreleased the clock moves one second in steps. The
+/// steps return, so the screen settles at each one. The test does not count
+/// the presentations: kivact-test exposes no count, so a retry that spun
+/// faster than 100 ms would not fail here.
 #[test]
 fn released_slot_delivers_latest_without_other_updates() {
     let Some(app) = gpu_app("released_slot_delivers_latest_without_other_updates") else {
@@ -880,8 +878,6 @@ fn released_slot_delivers_latest_without_other_updates() {
     after = hold_next(&app.screen, &share, &mut consumer, after);
     app.color.set(GREEN);
     shows_clock(&app, 1);
-    // B-26: the exact 100 ms interval is not counted, because kivact-test
-    // exposes no presentation count.
     let mut waited = Duration::ZERO;
     while waited < Duration::from_secs(1) {
         app.screen.advance(STEP);
@@ -902,5 +898,14 @@ fn released_slot_delivers_latest_without_other_updates() {
     let frame = frame_within(&app.screen, &share, after, 200)
         .expect("the latest content C arrives within 200 ms of the release");
     assert!(frame.number() > after, "a new frame of C");
+    let DrawableFrame::Gpu { slot, value, .. } = frame else {
+        panic!("a GPU export gave {frame:?}");
+    };
+    let bytes = consumer.read(slot, value);
+    let centre = ((H as usize / 2) * W as usize + W as usize / 2) * 4;
+    let colour = (u32::from(bytes[centre]) << 16)
+        | (u32::from(bytes[centre + 1]) << 8)
+        | u32::from(bytes[centre + 2]);
+    assert_eq!(colour, GREEN, "the frame is content C");
     assert!(app.screen.errors().is_empty(), "{:?}", app.screen.errors());
 }
