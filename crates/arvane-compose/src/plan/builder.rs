@@ -6,7 +6,7 @@ use kivact_types::Matrix4;
 use kivact_types::geometry::{Point, Rect};
 use kivact_types::render::{Composition, FrameStats, LayerKey, Plane};
 
-use super::frame::{Dest, ItemCtx, area, inline_candidate};
+use super::frame::{Behind, Dest, ItemCtx, area, inline_candidate};
 use super::ops::{
     Caching, ChunkTask, Damage, Grid, INLINE_TARGET_LIMIT, OUTPUT, Op, Plan, PlanError,
     PlannedExport, Scissor, TargetId, TargetKind, TargetSpec,
@@ -80,6 +80,8 @@ pub(crate) struct Builder<'a> {
     pub(crate) damage: Vec<Rect>,
     /// Window bounds of the backdrop layers, which redraw when what they cover changes.
     pub(crate) backdrops: Vec<Rect>,
+    /// The content being drawn into, outermost first: what a backdrop reads (CONTRACT-BACKDROP-ROOT).
+    pub(crate) behind: Vec<Behind>,
     /// Surfaces reused this frame.
     pub(crate) reused_surfaces: u32,
     /// Memoised signatures by layer: (hash of the matrix and size, signature).
@@ -118,6 +120,7 @@ impl<'a> Builder<'a> {
             reused_chunks: HashSet::new(),
             damage: Vec::new(),
             backdrops: Vec::new(),
+            behind: Vec::new(),
             reused_surfaces: 0,
             signatures: HashMap::new(),
         }
@@ -217,6 +220,12 @@ impl<'a> Builder<'a> {
     /// Plan the whole frame.
     fn run(mut self) -> Result<Plan<'a>, PlanError> {
         let root_to = Matrix4::scale(self.scale, self.scale, 1.0);
+        self.behind.push(Behind {
+            target: OUTPUT,
+            to: root_to,
+            to_win: root_to,
+            root: true,
+        });
         if self.layer(0)?.plane == Plane::Preserve3d {
             let dest = Dest {
                 target: OUTPUT,
@@ -228,6 +237,7 @@ impl<'a> Builder<'a> {
         } else {
             self.emit_root(root_to)?;
         }
+        self.behind.pop();
         let exports = self.emit_exports()?;
         Ok(self.finish(exports))
     }

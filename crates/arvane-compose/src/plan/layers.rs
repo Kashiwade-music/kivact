@@ -17,8 +17,8 @@ use kivact_types::scene::Shape;
 use super::bounds::{mapped_bounds, points_bounds};
 use super::builder::Builder;
 use super::frame::{
-    Dest, ItemCtx, coverage_scene, filter_reach, full_polygon, inline_candidate, px_map,
-    subtree_has_backdrop,
+    Behind, Dest, ItemCtx, ceil_px, coverage_scene, filter_reach, full_polygon, inline_candidate,
+    px_map, subtree_has_backdrop,
 };
 use super::hash::{self, Fnv};
 use super::ops::{DrawOp, Grid, Op, PlanError, Sampling, Scissor, Source, TargetId, TargetKind};
@@ -28,6 +28,8 @@ use crate::cache::{ChunkKey, ChunkRole, LayerRecord, Retained};
 const MAX_SURFACE_PX: f64 = 8192.0;
 /// The smallest raster scale a surface takes.
 const MIN_SCALE: f64 = 1.0 / 16.0;
+/// The reciprocal of the step an axis-parallel raster scale is rounded to (one part in 10⁹).
+const SCALE_SNAP: f64 = 1e9;
 /// The largest raster scale a surface takes.
 const MAX_SCALE: f64 = 16.0;
 /// The cell, in px, that a `RasterGrid::Layer` surface's bounds snap to (design §8.3 step 2).
@@ -93,7 +95,9 @@ fn quantize(raw: f64, axis_parallel: bool) -> f64 {
         1.0
     };
     let scale = if axis_parallel {
-        raw
+        // The map's rounding (a scale of 1 + 1 ulp for a translation) must not
+        // change the chunk grid from frame to frame.
+        (raw * SCALE_SNAP).round() / SCALE_SNAP
     } else {
         2f64.powf((2.0 * raw.log2()).ceil() / 2.0)
     };
@@ -207,8 +211,8 @@ impl<'a> Builder<'a> {
             origin_px = Some((p, t));
         }
         let size = loop {
-            let w = (rect.width * scale).ceil();
-            let hh = (rect.height * scale).ceil();
+            let w = ceil_px(rect.width * scale);
+            let hh = ceil_px(rect.height * scale);
             if !(w.is_finite() && hh.is_finite()) || w <= 0.0 || hh <= 0.0 {
                 return None;
             }
@@ -356,7 +360,7 @@ impl<'a> Builder<'a> {
             };
             self.emit_items(&cx)?;
         } else {
-            let src = self.build_surface(index, layer, &geo, dest, &to_win, sig)?;
+            let src = self.build_surface(index, layer, &geo, &to_win, sig)?;
             self.draw_surface(layer, &geo, src, t, cover);
         }
         self.expand_effects(layer, &geo, mark, &to_win);
@@ -371,7 +375,6 @@ impl<'a> Builder<'a> {
         index: u32,
         layer: &'a CompositeLayer,
         geo: &Geo,
-        dest: Dest,
         to_win: &Matrix4,
         sig: u64,
     ) -> Result<Source<'a>, PlanError> {
@@ -419,7 +422,7 @@ impl<'a> Builder<'a> {
             self.new_temp(geo.size)
         };
         if let Some(backdrop) = &layer.effects.backdrop {
-            self.emit_backdrop(layer, backdrop, geo, content, dest, to_win)?;
+            self.emit_backdrop(layer, backdrop, geo, content, to_win)?;
         }
         let cx = ItemCtx {
             layer,
@@ -435,44 +438,58 @@ impl<'a> Builder<'a> {
             to_win: *to_win,
             cache_chunks: true,
         };
-        self.emit_items(&cx)?;
+        self.behind.push(Behind {
+            target: content,
+            to: geo.ms,
+            to_win: *to_win,
+            root: layer.effects != LayerEffects::default(),
+        });
+        let emitted = self.emit_items(&cx);
+        self.behind.pop();
+        emitted?;
         self.emit_effects(layer, geo, content, surface, to_win)?;
         Ok(Source::Target(surface))
     }
 
     /// Draw what lies behind a backdrop layer, filter it, and draw it into the surface under the backdrop's shape.
+    ///
+    /// What lies behind is the content of the backdrop root and of the
+    /// transparent layers between it and this layer, drawn outermost first
+    /// (CONTRACT-BACKDROP-ROOT), each through its own map into this layer's px.
     fn emit_backdrop(
         &mut self,
         layer: &'a CompositeLayer,
         backdrop: &'a RenderBackdrop,
         geo: &Geo,
         content: TargetId,
-        dest: Dest,
         to_win: &Matrix4,
     ) -> Result<(), PlanError> {
-        let Dest {
-            target: t,
-            to: to_t,
-            ..
-        } = dest;
         let size = geo.size;
-        let Some(map) = px_map(&geo.ms, &to_t) else {
-            return Ok(());
-        };
         let behind = self.new_temp(size);
-        self.ops.push(Op::Draw(DrawOp {
-            target: behind,
-            source: Source::Target(t),
-            polygon: full_polygon(size),
-            split_edges: Vec::new(),
-            map,
-            opacity: 1.0,
-            blend: BlendMode::Normal,
-            composite: Composite::SourceOver,
-            sampling: Sampling::Smooth,
-            coverage: None,
-            scissor: Scissor::Off,
-        }));
+        let start = self.behind.iter().rposition(|b| b.root).unwrap_or(0);
+        let chain: Vec<Behind> = self.behind[start..].to_vec();
+        for entry in chain {
+            // A draw's map runs from the destination px to the source px.
+            let Some(map) = px_map(&geo.ms, to_win)
+                .zip(px_map(&entry.to_win, &entry.to))
+                .map(|(to_window, from_window)| to_window.then(from_window))
+            else {
+                continue;
+            };
+            self.ops.push(Op::Draw(DrawOp {
+                target: behind,
+                source: Source::Target(entry.target),
+                polygon: full_polygon(size),
+                split_edges: Vec::new(),
+                map,
+                opacity: 1.0,
+                blend: BlendMode::Normal,
+                composite: Composite::SourceOver,
+                sampling: Sampling::Smooth,
+                coverage: None,
+                scissor: Scissor::Off,
+            }));
+        }
         let mut cur = behind;
         for filter in &backdrop.filters {
             let out = self.new_temp(size);
