@@ -407,33 +407,45 @@ impl Writer {
         self.record(id, |model| model.replace_edit_session(id, session))
     }
 
-    /// Apply one write to the model and count it when it changed something.
+    /// Apply one write to the model that holds `id` and count it when it
+    /// changed something.
     fn record(&self, id: NodeId, write: impl FnOnce(&mut Model) -> bool) -> bool {
-        let mut model = self.model.borrow_mut();
-        let changed = write(&mut model);
-        if changed {
-            model.writes.field(id);
-        }
-        changed
+        self.app
+            .borrow_mut()
+            .with_node(id, |model, writes| {
+                let changed = write(model);
+                if changed {
+                    writes.field(id);
+                }
+                changed
+            })
+            .unwrap_or(false)
     }
 
     /// A drawable role changed: the model reconciles the drawable at the commit.
     fn after_drawable(&self, id: NodeId) {
-        self.model.borrow_mut().drawables.note(id);
+        self.app.borrow_mut().with_node(id, |model, _| {
+            model.drawables.note(id);
+        });
     }
 
     /// A node got disabled: a capture it holds ends.
     fn after_disabled(&self, id: NodeId) {
-        let mut model = self.model.borrow_mut();
-        if model.node(id).is_some_and(|n| n.disabled()) {
-            model.cancel_disabled_capture();
-        }
+        self.app.borrow_mut().with_node(id, |model, _| {
+            if model.node(id).is_some_and(|n| n.disabled()) {
+                model.cancel_disabled_capture();
+            }
+        });
     }
 
     fn after_editing(&self, id: NodeId) {
         // Cached line state may own user destructors. Complete the model
         // update first, then destroy the old editor before this setter returns.
-        let previous = { self.model.borrow_mut().editing_changed(id) };
+        let previous = self
+            .app
+            .borrow_mut()
+            .with_node(id, |model, _| model.editing_changed(id))
+            .flatten();
         drop(previous);
     }
 
@@ -442,6 +454,7 @@ impl Writer {
     }
 
     fn write_input_value(&self, id: NodeId, value: std::rc::Rc<str>, _: Mut) -> bool {
-        self.record(id, |model| model.controlled_value(id, value))
+        let created = self.app.borrow().writes.created(id);
+        self.record(id, |model| model.controlled_value(id, value, created))
     }
 }

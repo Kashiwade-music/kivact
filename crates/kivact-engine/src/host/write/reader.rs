@@ -1,27 +1,53 @@
-//! Role: `Reader`: the turn's read API over the engine's tree and layout.
+//! Role: `Reader`: the turn's read API over the engine's trees and layout.
 
 use crate::contract::{HostEvent, NodeProperties, SceneLayer};
-use crate::model::Model;
-use kivact_types::{DrawList, FocusTarget, NodeId, Point};
+use crate::model::AppModel;
+use kivact_types::{DrawList, FocusTarget, NodeId, Point, WindowId};
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
 
-/// Read access to the engine's tree (kivact's view of the props and
-/// scenes it wrote): the engine's tree is the one store of node props, so
-/// kivact asks it for a prop's current value instead of keeping a copy.
-/// Reading while a write is applied is a bug (the model is borrowed for
-/// each write only, never across a call into kivact).
+/// Read access to the engine's trees (kivact's view of the props and
+/// scenes it wrote): each window's tree is the one store of its node props,
+/// so kivact asks it for a prop's current value instead of keeping a copy.
+/// Reading while a write is applied is a bug (a model is borrowed for each
+/// write only, never across a call into kivact).
 #[derive(Clone)]
 pub struct Reader {
-    pub(super) model: Rc<RefCell<Model>>,
+    pub(super) app: Rc<RefCell<AppModel>>,
     pub(super) engine: Rc<RefCell<arvane::Engine>>,
 }
 
 impl Reader {
+    /// The open windows, ascending by id.
+    pub fn windows(&self) -> Vec<WindowId> {
+        self.app.borrow().windows()
+    }
+
+    /// The window whose model holds `id`.
+    pub fn window_of(&self, id: NodeId) -> Option<WindowId> {
+        self.app.borrow().window_of(id)
+    }
+
+    /// The root node of `window`.
+    pub fn root(&self, window: WindowId) -> Option<NodeId> {
+        self.app
+            .borrow()
+            .model(window)
+            .and_then(|model| model.tree().root())
+    }
+
+    /// The window the OS focuses.
+    pub fn focused_window(&self) -> Option<WindowId> {
+        self.app.borrow().focused_window()
+    }
+
     /// The current image asset result; absent and non-image nodes are loading.
     pub fn image_status(&self, id: NodeId) -> kivact_types::ImageStatus {
-        let model = self.model.borrow();
+        let app = self.app.borrow();
+        let Some(model) = app.model(required_window(&app, id)) else {
+            return kivact_types::ImageStatus::Loading;
+        };
         let Some(asset) = model.tree().get(id).and_then(|node| node.image()) else {
             return kivact_types::ImageStatus::Loading;
         };
@@ -30,17 +56,24 @@ impl Reader {
 
     /// The listener retaining this pointer, if its gesture holds capture.
     pub fn pointer_capture(&self, pointer: kivact_types::PointerId) -> Option<NodeId> {
-        self.model.borrow().pointer_capture(pointer)
+        let app = self.app.borrow();
+        app.windows
+            .values()
+            .find_map(|model| model.pointer_capture(pointer))
     }
 
     /// Client mutation totals and the last committed revision.
     pub fn stats(&self) -> crate::mutation::WriteStats {
-        let model = self.model.borrow();
-        let stats = model.writes.stats;
+        let app = self.app.borrow();
+        let stats = app.writes.stats;
         #[cfg(feature = "testing")]
         let stats = crate::mutation::WriteStats {
-            a11y_constructed: model.a11y.constructed,
-            a11y_published: model.a11y.published,
+            a11y_constructed: app
+                .windows
+                .values()
+                .map(|model| model.a11y.constructed)
+                .sum(),
+            a11y_published: app.windows.values().map(|model| model.a11y.published).sum(),
             ..stats
         };
         stats
@@ -48,30 +81,36 @@ impl Reader {
 
     /// The current display lifetime phase; missing nodes have left.
     pub fn presence(&self, id: NodeId) -> kivact_types::Presence {
-        let model = self.model.borrow();
-        let tree = model.tree();
-        tree.get(id).map_or(kivact_types::Presence::Leaving, |_| {
-            tree.presence_of(id).into()
+        self.with_model(id, |model| {
+            let tree = model.tree();
+            tree.get(id).map_or(kivact_types::Presence::Leaving, |_| {
+                tree.presence_of(id).into()
+            })
         })
+        .unwrap_or(kivact_types::Presence::Leaving)
     }
 
     /// The logical parent, including transparent containers.
     pub fn parent(&self, id: NodeId) -> Option<NodeId> {
-        let model = self.model.borrow();
-        model
-            .tree()
-            .get(id)
-            .and_then(|node| model.tree().parent_id(node))
+        self.with_model(id, |model| {
+            model
+                .tree()
+                .get(id)
+                .and_then(|node| model.tree().parent_id(node))
+        })
+        .flatten()
     }
 
     /// Logical children, excluding nodes already removed by the client.
     pub fn children(&self, id: NodeId) -> Vec<NodeId> {
-        self.model.borrow().tree().logical_children(id)
+        self.with_model(id, |model| model.tree().logical_children(id))
+            .unwrap_or_default()
     }
 
     /// Clone the one canonical semantics value stored for this node.
     pub fn semantics(&self, id: NodeId) -> Option<kivact_types::Semantics<FocusTarget>> {
-        self.model.borrow().tree().get(id)?.semantics().cloned()
+        self.with_model(id, |model| model.tree().get(id)?.semantics().cloned())
+            .flatten()
     }
 
     /// Registered and system font family names, sorted and unique, preserving case.
@@ -82,12 +121,14 @@ impl Reader {
     /// A copy of the editing state of the text input `id` (its text
     /// included), recording the changes made to it from here.
     pub fn edit_state(&self, id: NodeId) -> Option<kivact_editing::EditState> {
-        Some(self.model.borrow().editor_node(id)?.editor.snapshot())
+        self.with_model(id, |model| Some(model.editor_node(id)?.editor.snapshot()))
+            .flatten()
     }
 
     /// The editing session of the text input `id`, without its text.
     pub fn edit_session(&self, id: NodeId) -> Option<kivact_editing::TextSession> {
-        self.model.borrow().edit_session(id)
+        self.with_model(id, |model| model.edit_session(id))
+            .flatten()
     }
 
     /// The geometry of the lines `lines` of the text input `id` (only
@@ -97,9 +138,10 @@ impl Reader {
         id: NodeId,
         lines: std::ops::Range<usize>,
     ) -> Option<kivact_editing::TextLayout> {
-        let model = self.model.borrow();
+        let app = self.app.borrow();
+        let model = app.model(required_window(&app, id))?;
         crate::model::interact::text_geometry::text_layout(
-            &model,
+            model,
             id,
             lines,
             &mut self.engine.borrow_mut(),
@@ -108,8 +150,10 @@ impl Reader {
 
     /// Editing geometry in the node's untransformed canvas coordinates.
     pub fn editing_canvas_layout(&self, id: NodeId) -> Option<kivact_editing::TextLayout> {
+        let app = self.app.borrow();
+        let model = app.model(required_window(&app, id))?;
         crate::model::interact::text_geometry::layout_snapshot(
-            &self.model.borrow(),
+            model,
             id,
             0..usize::MAX,
             &mut self.engine.borrow_mut(),
@@ -121,14 +165,17 @@ impl Reader {
     /// password). A text input publishes no accessible value (only its text
     /// runs), so this is where its value is read.
     pub fn edit_value(&self, id: NodeId) -> Option<String> {
-        let model = self.model.borrow();
-        let n = model.node(id)?;
-        (!n.password()).then(|| model.edit(id).map(|e| e.value().to_owned()))?
+        self.with_model(id, |model| {
+            let n = model.node(id)?;
+            (!n.password()).then(|| model.edit(id).map(|e| e.value().to_owned()))?
+        })
+        .flatten()
     }
 
     /// A window point in a node's untransformed local coordinates.
     pub fn local_point(&self, id: NodeId, point: Point) -> Point {
-        self.model.borrow().pointer_local(id, point)
+        self.with_model(id, |model| model.pointer_local(id, point))
+            .unwrap_or_default()
     }
 
     /// Map node-local region bounds into logical window coordinates.
@@ -137,42 +184,53 @@ impl Reader {
         id: NodeId,
         rect: kivact_types::Rect,
     ) -> Option<kivact_types::Rect> {
-        let model = self.model.borrow();
-        let bounds = model.rect(id)?;
-        // Node-local bounds are relative to the padding box, where the scene is drawn.
-        let paint = crate::model::interact::visual::paint(&model, id);
-        let canvas = crate::model::interact::visual::padding_box(bounds, &paint);
-        let own = kivact_types::Rect {
-            x: canvas.x + rect.x,
-            y: canvas.y + rect.y,
-            ..rect
-        };
-        Some(model.drawn_rect(id, own))
+        self.with_model(id, |model| {
+            let bounds = model.rect(id)?;
+            // Node-local bounds are relative to the padding box, where the scene is drawn.
+            let paint = crate::model::interact::visual::paint(model, id);
+            let canvas = crate::model::interact::visual::padding_box(bounds, &paint);
+            let own = kivact_types::Rect {
+                x: canvas.x + rect.x,
+                y: canvas.y + rect.y,
+                ..rect
+            };
+            Some(model.drawn_rect(id, own))
+        })
+        .flatten()
     }
 
     /// Whether the frontmost hit belongs to this subtree.
     pub fn hit_test(&self, id: NodeId, point: Point) -> bool {
-        let m = self.model.borrow();
-        m.hit(point)
-            .is_some_and(|hit| m.tree().is_in_subtree(hit, id))
+        self.with_model(id, |m| {
+            m.hit(point)
+                .is_some_and(|hit| m.tree().is_in_subtree(hit, id))
+        })
+        .unwrap_or(false)
     }
 
-    /// The topmost shown modal overlay, if one is shown: input, Tab order
-    /// and focus are confined to its subtree.
-    pub fn active_modal(&self) -> Option<NodeId> {
-        self.model.borrow().modal()
+    /// The topmost shown modal overlay of `window`, if one is shown: input,
+    /// Tab order and focus are confined to its subtree.
+    pub fn active_modal(&self, window: WindowId) -> Option<NodeId> {
+        self.app
+            .borrow()
+            .model(window)
+            .and_then(|model| model.modal())
     }
 
     /// Whether input may reach `id`: no modal overlay is shown, or `id` lies
     /// in the topmost one (overlays nested in it included).
     pub fn in_modal_scope(&self, id: NodeId) -> bool {
-        self.model.borrow().in_scope(id)
+        self.with_model(id, |model| model.in_scope(id))
+            .unwrap_or(true)
     }
 
-    /// The topmost shown overlay that offers `Dismiss`, inside the active
-    /// modal when one is shown: where an Escape no key handler took goes.
-    pub fn dismiss_target(&self) -> Option<NodeId> {
-        self.model.borrow().dismiss_target()
+    /// The topmost shown overlay of `window` that offers `Dismiss`, inside the
+    /// active modal when one is shown: where an Escape no key handler took goes.
+    pub fn dismiss_target(&self, window: WindowId) -> Option<NodeId> {
+        self.app
+            .borrow()
+            .model(window)
+            .and_then(|model| model.dismiss_target())
     }
 
     /// Whether `target` may take the focus now, with the props written so
@@ -181,12 +239,14 @@ impl Reader {
     /// in the modal that stays open. The one rule every focus restore is
     /// checked by before it is sent.
     pub fn can_take_focus(&self, target: FocusTarget) -> bool {
-        self.model.borrow().can_take_focus(target)
+        self.with_model(target.node, |model| model.can_take_focus(target))
+            .unwrap_or(false)
     }
 
     /// Eligible focus targets for an arrow key inside a roving group.
     pub fn roving_targets(&self, root: NodeId) -> Vec<FocusTarget> {
-        self.model.borrow().roving_targets(root)
+        self.with_model(root, |model| model.roving_targets(root))
+            .unwrap_or_default()
     }
 
     /// Whether `event` may be dispatched while overlays are shown. Ask once
@@ -195,13 +255,44 @@ impl Reader {
     /// records the pointer drags it admits. An event not aimed at a node
     /// passes. The model is borrowed for the call only.
     pub fn admit_input(&self, event: &HostEvent) -> bool {
-        self.model.borrow().admit_input(event)
+        let window = match event {
+            HostEvent::Pointer(routed) => Some(routed.window),
+            HostEvent::Wheel(routed) => Some(routed.window),
+            HostEvent::File(routed) => Some(routed.window),
+            HostEvent::Key(routed) => Some(routed.window),
+            HostEvent::Activate { node, .. }
+            | HostEvent::TextChanged { node, .. }
+            | HostEvent::SelectionChanged { node, .. }
+            | HostEvent::Ime { node, .. }
+            | HostEvent::A11y { node, .. } => self.app.borrow().window_of(*node),
+            _ => None,
+        };
+        let Some(window) = window else {
+            return true;
+        };
+        self.app
+            .borrow()
+            .model(window)
+            .is_none_or(|model| model.admit_input(event))
     }
 
     /// Borrow a node's typed values for one read callback.
     pub fn with_node<R>(&self, id: NodeId, f: impl FnOnce(Option<&NodeProperties>) -> R) -> R {
-        let model = self.model.borrow();
+        let app = self.app.borrow();
+        let Some(window) = app.window_of(id) else {
+            return f(None);
+        };
+        let Some(model) = app.model(window) else {
+            return f(None);
+        };
         f(model.node(id).map(|node| &node.properties))
+    }
+
+    /// Run `f` on the model that holds `id`.
+    fn with_model<R>(&self, id: NodeId, f: impl FnOnce(&crate::model::Model) -> R) -> Option<R> {
+        let app = self.app.borrow();
+        let window = app.window_of(id)?;
+        app.model(window).map(f)
     }
 
     /// CPU pixels of the current subtree; absent when the node has no layout.
@@ -209,15 +300,18 @@ impl Reader {
         &self,
         id: NodeId,
     ) -> Option<Result<crate::offscreen::OffscreenImage, crate::offscreen::OffscreenError>> {
-        self.model
-            .borrow_mut()
+        let window = self.window_of(id)?;
+        let mut app = self.app.borrow_mut();
+        app.model_mut(window)?
             .snapshot(id, &mut self.engine.borrow_mut())
     }
 
     /// The scene of node `id`'s draw `layer`, if it has one.
     pub fn scene(&self, id: NodeId, layer: SceneLayer) -> Option<Arc<DrawList>> {
-        let model = self.model.borrow();
-        model.node(id).and_then(|n| n.scene(layer)).cloned()
+        self.with_model(id, |model| {
+            model.node(id).and_then(|node| node.scene(layer)).cloned()
+        })
+        .flatten()
     }
 
     /// A text measurer independent of a mounted node, using caller-supplied
@@ -231,16 +325,21 @@ impl Reader {
 
     /// The measurer for a draw callback of node `id`'s scene: runs without
     /// a family or a line height take the node's inherited ones. Called in
-    /// kivact's turn, never while the engine holds the model.
+    /// kivact's turn, never while the engine holds a model.
     pub fn text_measurer(&self, id: NodeId) -> crate::text_measure::TextMeasurer {
         let inherited = {
-            let model = self.model.try_borrow().expect(
-                "invariant: draw callbacks run in kivact's turn, never while the engine holds the model",
-            );
+            let app = self.app.borrow();
+            let model = app
+                .model(required_window(&app, id))
+                .expect("invariant: a drawn node belongs to an open window");
             kivact_types::ComputedTextStyle::clone(&model.text_props(id))
         };
         crate::text_measure::TextMeasurer::new(Rc::clone(&self.engine), inherited)
     }
+}
+
+fn required_window(app: &AppModel, node: NodeId) -> WindowId {
+    app.window_of(node).unwrap_or(WindowId::MAIN)
 }
 
 impl std::fmt::Debug for Reader {

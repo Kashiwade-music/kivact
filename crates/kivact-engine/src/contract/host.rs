@@ -59,7 +59,10 @@ impl std::error::Error for HostError {}
 pub enum HostRequest {
     /// Capture CPU pixels after the current turn's layout and draw have settled.
     Snapshot(kivact_types::NodeId),
-    Platform(PlatformRequest),
+    Platform {
+        window: kivact_types::WindowId,
+        request: PlatformRequest,
+    },
     /// Register a font before the next layout measures text.
     RegisterFont(Asset),
     /// Override reduced motion, or follow the system preference.

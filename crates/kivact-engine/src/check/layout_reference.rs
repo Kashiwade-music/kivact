@@ -12,13 +12,17 @@ impl Model {
             *extents.borrow_mut() = None;
         }
         let editors = self.editors.clone();
-        let mut measure = Measure::new(engine, self.assets.get_mut(), &cache, &editors);
-        let mut leaves = EngineMeasure {
-            tree: &fresh,
-            measure: &mut measure,
+        let mut differences = {
+            let mut assets = self.assets.borrow_mut();
+            let mut measure = Measure::new(engine, &mut assets, &cache, &editors);
+            let mut leaves = EngineMeasure {
+                tree: &fresh,
+                measure: &mut measure,
+            };
+            let differences = self.layout.compare_measurements(&self.tree, &mut leaves);
+            columns.compute(&fresh, self.viewport, &mut leaves);
+            differences
         };
-        let mut differences = self.layout.compare_measurements(&self.tree, &mut leaves);
-        columns.compute(&fresh, self.viewport, &mut leaves);
         // Placement reads anchor bounds from the model. Give it the fresh
         // geometry during the second pass, then restore the retained owners.
         std::mem::swap(&mut self.layout, &mut columns);

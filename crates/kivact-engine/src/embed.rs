@@ -64,7 +64,7 @@ pub fn embed_native(
         let frame_log = Rc::new(RefCell::new(FrameLog::from_env()));
         let log = frame_log.clone();
         let host = host::new(client, size, arvane::Engine::new(), frame_log).with_close(ui_closing);
-        Embedder::new(host).on_renderer_change(move |change| {
+        Embedder::new(host).on_renderer_change(move |_window, change| {
             let mut log = log.borrow_mut();
             match change {
                 arvane::RendererChange::Start { .. } => log.note(&format!("host=arvane {change}")),

@@ -2,7 +2,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use kivact_types::{Environment, MotionClock, NodeId, Point, ThemeHint};
+use kivact_types::{Environment, NodeId, Point, ThemeHint};
 
 /// One active programmatic scroll; allocated only while animating.
 pub(super) enum SmoothScroll {
@@ -24,7 +24,7 @@ pub(super) enum SmoothScroll {
 }
 
 #[derive(Default)]
-pub(super) struct FrameRequests(pub(super) BTreeSet<u64>);
+pub(crate) struct FrameRequests(pub(crate) BTreeSet<u64>);
 
 #[derive(Clone, Copy)]
 pub(super) enum TickHistory {
@@ -48,8 +48,6 @@ pub(crate) struct Frame {
     /// Whether the frame clock runs; written only by `Model::start_env` and
     /// `Model::update_env`.
     pub(super) clock: Clock,
-    /// The stops that ended, as the client sees them in each tick.
-    pub(super) motion: MotionClock,
     pub(super) frames: FrameRequests,
     pub(super) smooth_scrolls: BTreeMap<NodeId, SmoothScroll>,
     pub(super) last_frame: TickHistory,
@@ -75,7 +73,6 @@ impl Default for Frame {
         Self {
             now: 0,
             clock: Clock::Running,
-            motion: MotionClock::default(),
             frames: FrameRequests::default(),
             smooth_scrolls: BTreeMap::new(),
             last_frame: TickHistory::NeverTicked,

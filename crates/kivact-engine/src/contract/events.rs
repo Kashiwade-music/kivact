@@ -2,7 +2,7 @@
 use kivact_types::{
     A11yRequest, DrawableId, Environment, ExternalImport, ImeInput, LayoutRule, LifecycleEvent,
     Modifiers, MotionClock, NodeId, PlatformResult, Point, Rect, RegionId, RequestId, Revision,
-    Size,
+    Size, WindowId,
 };
 
 /// What the engine tells the client. Every kind goes into one ordered
@@ -37,7 +37,10 @@ pub enum HostEvent {
     /// down or up, or the window lost the keyboard (none are held). Sent
     /// only when they differ from the last ones; key, pointer and wheel
     /// events also carry the modifiers held for them.
-    ModifiersChanged(Modifiers),
+    ModifiersChanged {
+        window: WindowId,
+        modifiers: Modifiers,
+    },
     /// Default action by pointer click (a tap included) or assistive
     /// technology (UI Automation's Invoke) only. Enter/Space arrive as
     /// `Key` and are turned into activation by the core.
@@ -50,6 +53,7 @@ pub enum HostEvent {
         pointer: Option<super::Routed<kivact_types::PointerSample>>,
     },
     FocusChanged {
+        window: WindowId,
         node: Option<NodeId>,
         region: Option<RegionId>,
         visible: bool,
@@ -60,10 +64,14 @@ pub enum HostEvent {
     /// window, a cancelled pointer, a hit removed, hidden or outside the
     /// shown modal).
     HoverChanged {
+        window: WindowId,
         target: Option<kivact_types::FocusTarget>,
     },
     /// Passive mouse location in logical window pixels, even without a hit.
-    MousePosition(Option<Point>),
+    MousePosition {
+        window: WindowId,
+        position: Option<Point>,
+    },
     /// Host-side edit of a TextInput: the changes of its text in order
     /// (byte ranges, each in the text the previous one left), its session
     /// after them, and its whole text when its `ReportText` prop is set.
@@ -113,6 +121,7 @@ pub enum HostEvent {
         request: A11yRequest,
     },
     FrameTick {
+        window: WindowId,
         now_ns: u64,
         estimated_present_ns: u64,
         /// The engine's motion clock at this tick.
@@ -143,11 +152,13 @@ pub enum HostEvent {
     /// suspended in the background, `surface_active`), one event for any
     /// of them.
     EnvChanged {
+        window: WindowId,
         environment: Environment,
         surface_active: bool,
     },
     /// A physical failure applying `revision`, reported as a diagnostic.
     HostFailure {
+        window: WindowId,
         revision: Revision,
         reason: String,
     },
@@ -213,7 +224,31 @@ pub enum HostEvent {
         node: NodeId,
         id: std::sync::Arc<str>,
     },
-    CloseRequested,
+    CloseRequested {
+        window: WindowId,
+    },
+    /// A window opened (after the turn that wrote `Writer::open_window`).
+    WindowOpened {
+        window: WindowId,
+        environment: Environment,
+        surface_active: bool,
+    },
+    /// The platform refused to open a window the app asked for.
+    WindowFailed {
+        window: WindowId,
+        reason: String,
+    },
+    /// Everything injected with `request` was delivered to the window.
+    InjectDelivered {
+        window: WindowId,
+        request: RequestId,
+    },
+    /// The App's motion clock input changed: whether any window can draw and
+    /// the tick source's frame period.
+    AppMotion {
+        drawable: bool,
+        frame_period_ns: u64,
+    },
     /// The window carried out `Writer::import_external` of `image` (after
     /// the turn that wrote it).
     ExternalImported {
@@ -226,7 +261,10 @@ pub enum HostEvent {
     /// before is gone) or the window draws on the CPU (`None`). The client
     /// starts with `None`; the host sends the first adapter when the
     /// device is ready.
-    GpuAdapterChanged(Option<kivact_types::GpuAdapter>),
+    GpuAdapterChanged {
+        window: WindowId,
+        adapter: Option<kivact_types::GpuAdapter>,
+    },
     /// An exported frame of a drawable; its generation travels with it.
     DrawableFrame(kivact_types::render::ExportedFrame),
     /// The drawable was resized while its GPU export runs: it needs a new pool.

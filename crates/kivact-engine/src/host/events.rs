@@ -1,24 +1,22 @@
 //! Role: Convert shell events and start client callbacks on the UI thread.
 //!
-//! Input goes to the model (`model::pointer::shell`, `model::keys`,
-//! `model::edit`), which owns what it means; the clipboard work a key
-//! leaves (copy, paste) is done here, with the window's clipboard.
+//! Input goes to the target window's model (`model::pointer::shell`,
+//! `model::keys`, `model::edit`), which owns what it means; the clipboard
+//! work a key leaves (copy, paste) is done here, with the window's
+//! clipboard.
 //!
 //! Invariants:
-//! - What the client sees of the window's environment is one `Environment`,
-//!   kept by the model's frame group. At start the window's environment
+//! - What the client sees of one window's environment is one `Environment`,
+//!   kept by that window's model. At start each window's environment
 //!   (`Window::environment`: scale, refresh period, reduced motion, theme,
-//!   safe area, mouse settings, locale), its size and fullscreen state, its
-//!   capabilities (`Window::capabilities`) and whether frames can be drawn
-//!   (`Environment::surface_active`) are reported in `HostInfo`.
+//!   safe area, mouse settings, locale), its size and fullscreen state, the
+//!   loop's capabilities (`Windows::capabilities`) and whether frames can be
+//!   drawn (`Environment::surface_active`) are reported in `HostInfo`.
 //!   The theme is reported light at start and follows the system's from
 //!   its first change.
 //! - Every change goes through `Model::update_env`, which sends one
 //!   `EnvChanged` (the whole value) only when the value differs from the
-//!   last one sent. `ShellEvent::EnvironmentChanged` reads the environment
-//!   again (theme, reduced motion, refresh period, safe area, locale); the
-//!   mouse settings are Arvane's (it counts clicks and scales wheels). A
-//!   new scale, size or fullscreen state arrives as `Resized`.
+//!   last one sent.
 //! - The host's locale (`Environment::locale`, a BCP 47 tag or `None`) is
 //!   `Environment::locale`; when it is read again is Arvane's.
 //! - Frames are drawn only while the application is resumed
@@ -27,97 +25,154 @@
 //!   and is not empty (`Environment::surface_active`). In between no redraw is
 //!   asked for and no frame tick is sent (the client's frame clock stops);
 //!   a resume and a new surface draw again.
-//! - A press and a release carry the click count Arvane counted
-//!   (the `ButtonPress` of the phase; a release has its press's), and a
-//!   wheel the amount Arvane made logical pixels; the model is given them
-//!   as they are. A wheel's native scroll runs the layout pass at once, so
-//!   `ScrollChanged` is reported without waiting for the next frame.
-//! - A touch or pen contact (`ShellEvent::Pointer`) is given to the model
-//!   as its pointer's primary-button press, move and release
-//!   (`Model::contact`), with Arvane's tap count; what a contact does is
-//!   the model's. The window losing the focus cancels every pointer.
-//! - `MemoryWarning` releases unused asset and text engine caches
-//!   (`Engine::release_caches`: registered fonts and owned runs already
-//!   returned are kept) and is reported to the client.
-use super::pump::{AppPresence, Host, HostPhase, LastPresent, Surface, Unavailable};
+//! - A window with an open modal child drops Pointer, Wheel, Key, Ime, File
+//!   and Accessibility input before it reaches the parent's model.
+//! - The window losing the focus cancels every pointer of that window.
+use super::pump::{AppPresence, Host, HostPhase};
+use super::window::LastPresent;
 use crate::KeyResult;
 use crate::contract::{HostEvent, HostInfo};
 use crate::host::HostWaker;
-use arvane::Window;
-use arvane::{Presented, ShellControl, ShellError, ShellEvent};
+use arvane::{EventTarget, ShellControl, ShellError, ShellEvent, Window, Windows};
 use kivact_types::{
     KeyInput, KeyPhase, LifecycleEvent, PlatformRequest, PlatformResult, PointerKind, PointerPhase,
+    WindowId, WindowMode,
 };
 impl Host {
-    /// Start the client in `window`, loading images with `store`: the
-    /// shell's start, and the test driver's.
+    /// Start the client in the main window, loading images with the App's
+    /// store: the shell's start, and the test driver's.
     pub(super) fn begin(
         &mut self,
-        window: &mut Window<'_>,
+        windows: &mut Windows<'_>,
         waker: HostWaker,
     ) -> Result<ShellControl, ShellError> {
         if self.observe_close() {
             return Ok(ShellControl::Wait);
         }
-        let native = window.environment();
-        self.environment.update(native.clone());
-        self.refresh_surface(window);
-        let drawable = self.drawable();
-        let env = {
-            let mut model = self.model.borrow_mut();
-            model.set_viewport(window.size());
-            model.frame.set_now(window.now_ns());
-            let mut env = native;
-            env.scale_factor = window.scale();
-            env.window_size = window.size();
-            env.fullscreen = window.fullscreen();
-            env.theme_hint = model.frame.theme_hint();
-
-            model.start_env(env.clone(), drawable);
-            env
-        };
+        let (env, drawable) = self.start_window(WindowId::MAIN, windows);
         self.frame_log
             .borrow_mut()
             .note(&format!("frame_period_ns={}", env.frame_period_ns));
         let info = HostInfo {
-            capabilities: window.capabilities(),
-            now_ns: window.now_ns(),
+            capabilities: windows.capabilities(),
+            now_ns: windows.now_ns(),
             env,
             surface_active: drawable,
         };
-        {
-            let mut model = self.model.borrow_mut();
-            model.paint.set_scale(window.scale());
-        }
-        let tree = super::write::Writer::new(&self.model, &self.engine);
+        let tree = super::write::Writer::new(&self.app, &self.engine);
         self.client.start(&info, waker, tree);
         if self.observe_close() {
             return Ok(ShellControl::Wait);
         }
-        self.externals(window);
+        self.apply_window_changes(windows);
+        if self.observe_close() {
+            return Ok(ShellControl::Wait);
+        }
+        self.externals(windows);
         self.settle();
-        self.pump(window)
+        self.pump(windows)
     }
-    /// Handle one shell event in `window`: the shell's events, and the
-    /// ones the test driver injects.
+
+    /// Handle one shell event: a loop event once, or one window's event in
+    /// that window.
     pub(super) fn handle(
         &mut self,
+        target: EventTarget,
         event: ShellEvent,
-        window: &mut Window<'_>,
+        windows: &mut Windows<'_>,
     ) -> Result<ShellControl, ShellError> {
         if self.observe_close() {
             return Ok(ShellControl::Wait);
         }
-        self.enter(window);
+        match target {
+            EventTarget::Loop => self.handle_loop(event, windows),
+            EventTarget::Window(id) => self.handle_window(id, event, windows),
+        }
+    }
+
+    /// Handle an event about the loop as a whole once.
+    fn handle_loop(
+        &mut self,
+        event: ShellEvent,
+        windows: &mut Windows<'_>,
+    ) -> Result<ShellControl, ShellError> {
+        self.enter(windows);
         if self.phase == HostPhase::Closed {
             return Ok(ShellControl::Wait);
         }
-        self.model.borrow_mut().frame.set_now(window.now_ns());
-        if stops_smooth_scrolls(&event) {
-            self.model.borrow_mut().frame.stop_smooth_scrolls();
+        match event {
+            ShellEvent::SaveState => self
+                .app
+                .borrow()
+                .push_event(HostEvent::Lifecycle(LifecycleEvent::SaveState)),
+            ShellEvent::Wake(_) => self.wake(windows)?,
+            ShellEvent::Suspended => {
+                if self.presence == AppPresence::Foreground {
+                    self.presence = AppPresence::Suspended;
+                    self.cancel_pointers();
+                    self.report_drawable_all(windows);
+                    self.app
+                        .borrow()
+                        .push_event(HostEvent::Lifecycle(LifecycleEvent::Suspended));
+                }
+            }
+            ShellEvent::Resumed => {
+                if self.presence == AppPresence::Suspended {
+                    self.presence = AppPresence::Foreground;
+                    self.report_drawable_all(windows);
+                    self.app
+                        .borrow()
+                        .push_event(HostEvent::Lifecycle(LifecycleEvent::Resumed));
+                    self.invalidate_paint_all();
+                }
+            }
+            // Rebuildable host caches are released before application callbacks.
+            ShellEvent::MemoryWarning => {
+                for id in self.window_ids() {
+                    if let Some(mut window) = windows.get(id) {
+                        window.release_caches();
+                    }
+                }
+                self.engine.borrow_mut().release_caches();
+                for id in self.window_ids() {
+                    if let Some(model) = self.app.borrow_mut().model_mut(id) {
+                        model.paint.scene_cache.borrow_mut().clear();
+                    }
+                }
+                self.app.borrow().assets.borrow_mut().release_caches();
+                self.frame_log.borrow_mut().note("memory_warning");
+                self.app
+                    .borrow()
+                    .push_event(HostEvent::Lifecycle(LifecycleEvent::MemoryWarning));
+            }
+            _ => unreachable!("invariant: matching loop event family"),
+        }
+        self.pump(windows)
+    }
+
+    /// Handle one window's event in that window.
+    fn handle_window(
+        &mut self,
+        id: WindowId,
+        event: ShellEvent,
+        windows: &mut Windows<'_>,
+    ) -> Result<ShellControl, ShellError> {
+        if !self.windows.contains_key(&id) {
+            return Ok(ShellControl::Wait);
+        }
+        self.enter(windows);
+        if self.phase == HostPhase::Closed {
+            return Ok(ShellControl::Wait);
+        }
+        let now = windows.now_ns();
+        if let Some(model) = self.app.borrow_mut().model_mut(id) {
+            model.frame.set_now(now);
+            if stops_smooth_scrolls(&event) {
+                model.frame.stop_smooth_scrolls();
+            }
         }
         if matches!(event, ShellEvent::File(_)) {
-            self.settle();
+            self.settle_window(id);
         }
         // Key releases remain turn boundaries so pending edits reach the client.
         let input = matches!(
@@ -133,243 +188,327 @@ impl Host {
         );
         if hit_tests(&event) {
             // Deferred turns leave edits laid out lazily; hit test current geometry.
-            self.settle();
+            self.settle_window(id);
+        }
+        // A modal child owns its parent's input while it is open.
+        if self.discards_for_modal_parent(id, &event) {
+            return Ok(self.defer(id, windows));
         }
         match event {
-            ShellEvent::Redraw => self.redraw(window)?,
-            ShellEvent::Wake(_) => self.wake(window)?,
-            ShellEvent::Resized => self.resized(window),
+            ShellEvent::Redraw => self.redraw(id, windows)?,
+            ShellEvent::Resized => self.resized(id, windows),
             event @ (ShellEvent::Pointer(_)
             | ShellEvent::Wheel(_)
             | ShellEvent::Modifiers(_)
             | ShellEvent::File(_)
             | ShellEvent::Key(_)
-            | ShellEvent::Ime(_)) => self.input_event(event, window),
+            | ShellEvent::Ime(_)) => self.input_event(event, id, windows),
             event @ (ShellEvent::EnvironmentChanged
             | ShellEvent::AccessibilityActivated
             | ShellEvent::AccessibilityDeactivated
-            | ShellEvent::Accessibility { .. }) => self.accessibility_event(event, window),
-            event => self.lifecycle_event(event, window),
+            | ShellEvent::Accessibility { .. }) => self.accessibility_event(event, id, windows),
+            event => self.lifecycle_event(event, id, windows),
         }
         if self.phase == HostPhase::Closed {
             return Ok(ShellControl::Wait);
         }
         if input {
-            return Ok(self.defer(window));
+            return Ok(self.defer(id, windows));
         }
-        self.pump(window)
+        self.pump(windows)
     }
-    fn redraw(&mut self, window: &mut Window<'_>) -> Result<(), ShellError> {
-        let surface_active = self.drawable();
-        if surface_active {
+
+    /// Whether `id` has an open modal child that owns the input in `event`.
+    fn discards_for_modal_parent(&self, id: WindowId, event: &ShellEvent) -> bool {
+        let modal_child = self
+            .windows
+            .values()
+            .any(|window| window.mode == WindowMode::Modal && window.parent == Some(id));
+        modal_child
+            && matches!(
+                event,
+                ShellEvent::Pointer(_)
+                    | ShellEvent::Wheel(_)
+                    | ShellEvent::Key(_)
+                    | ShellEvent::Ime(_)
+                    | ShellEvent::File(_)
+                    | ShellEvent::Accessibility { .. }
+            )
+    }
+
+    fn redraw(&mut self, id: WindowId, windows: &mut Windows<'_>) -> Result<(), ShellError> {
+        if self.drawable(id) {
             let started = std::time::Instant::now();
-            self.settle();
-            match self.present(window, started) {
-                Ok(Presented::Shown { .. }) => {
-                    self.model.borrow_mut().paint.drawn();
-                    self.last_present = LastPresent::Settled;
+            self.settle_window(id);
+            match self.present(id, windows, started) {
+                Ok(arvane::Presented::Shown { .. }) => {
+                    if let Some(model) = self.app.borrow_mut().model_mut(id) {
+                        model.paint.drawn();
+                    }
+                    self.windows
+                        .get_mut(&id)
+                        .expect("invariant: a drawn window has host state")
+                        .last_present = LastPresent::Settled;
                 }
                 // The window had no buffer (timed out, occluded):
                 // the picture is drawn again when Arvane says.
-                Ok(Presented::Skipped { retry_at_ns }) => {
-                    let mut model = self.model.borrow_mut();
-                    model.paint.drawn();
-                    model.drawables.skipped(retry_at_ns);
-                    self.last_present = LastPresent::Skipped { retry_at_ns };
+                Ok(arvane::Presented::Skipped { retry_at_ns }) => {
+                    if let Some(model) = self.app.borrow_mut().model_mut(id) {
+                        model.paint.drawn();
+                        model.drawables.skipped(retry_at_ns);
+                    }
+                    self.windows
+                        .get_mut(&id)
+                        .expect("invariant: a drawn window has host state")
+                        .last_present = LastPresent::Skipped { retry_at_ns };
                 }
                 // Content cannot render; the next change redraws.
-                Ok(Presented::Dropped(_)) => {
-                    let mut model = self.model.borrow_mut();
-                    model.paint.drawn();
-                    model.drawables.dropped();
-                    self.last_present = LastPresent::Settled;
+                Ok(arvane::Presented::Dropped(_)) => {
+                    if let Some(model) = self.app.borrow_mut().model_mut(id) {
+                        model.paint.drawn();
+                        model.drawables.dropped();
+                    }
+                    self.windows
+                        .get_mut(&id)
+                        .expect("invariant: a drawn window has host state")
+                        .last_present = LastPresent::Settled;
                 }
                 // The window made its surface again: report the
                 // loss and draw again.
-                Ok(Presented::SurfaceLost(error)) => {
-                    {
-                        let mut model = self.model.borrow_mut();
-                        let revision = model.applied();
-                        model.push(HostEvent::HostFailure {
-                            revision,
-                            reason: error.to_string(),
-                        });
+                Ok(arvane::Presented::SurfaceLost(error)) => {
+                    let revision = self.app.borrow().events().applied();
+                    self.app.borrow().push_event(HostEvent::HostFailure {
+                        window: id,
+                        revision,
+                        reason: error.to_string(),
+                    });
+                    if let Some(model) = self.app.borrow_mut().model_mut(id) {
                         model.invalidate_paint();
                     }
-                    self.last_present = LastPresent::Settled;
+                    self.windows
+                        .get_mut(&id)
+                        .expect("invariant: a drawn window has host state")
+                        .last_present = LastPresent::Settled;
                 }
                 Err(error) => return Err(ShellError::Failed(error)),
             }
         }
         Ok(())
     }
-    fn wake(&mut self, window: &mut Window<'_>) -> Result<(), ShellError> {
-        if let LastPresent::Skipped { retry_at_ns } = self.last_present
-            && retry_at_ns <= window.now_ns()
-        {
-            self.last_present = LastPresent::Settled;
-            self.model.borrow_mut().invalidate_paint();
+
+    fn wake(&mut self, windows: &mut Windows<'_>) -> Result<(), ShellError> {
+        let now = windows.now_ns();
+        for id in self.windows.keys().copied().collect::<Vec<_>>() {
+            let retry_due = self.windows.get(&id).is_some_and(|window| {
+                matches!(
+                    window.last_present,
+                    LastPresent::Skipped { retry_at_ns } if retry_at_ns <= now
+                )
+            });
+            if retry_due {
+                self.windows
+                    .get_mut(&id)
+                    .expect("invariant: the retried window has host state")
+                    .last_present = LastPresent::Settled;
+                if let Some(model) = self.app.borrow_mut().model_mut(id) {
+                    model.invalidate_paint();
+                }
+            }
         }
-        let events = {
-            let mut model = self.model.borrow_mut();
-            model.tick(window.now_ns());
-            // The asset store's worker wakes the shell too; its
-            // reports are events, delivered by the pump below.
-            model.poll_assets();
-            model.has_events()
-        };
+        self.tick_windows(now);
+        let mut events = false;
+        for id in self.window_ids() {
+            if let Some(model) = self.app.borrow_mut().model_mut(id) {
+                // The asset store's worker wakes the shell too; its
+                // reports are events, delivered by the pump below.
+                model.poll_assets();
+                model.settle(&mut self.engine.borrow_mut());
+            }
+            events |= self.app.borrow().events().has_events();
+        }
         // A due wake without events still gives the client its turn.
         if !events && self.phase != HostPhase::Exiting {
-            self.turn(&[], &[], window)?;
+            self.turn(&[], &[], windows)?;
         }
         Ok(())
     }
-    fn resized(&mut self, window: &Window<'_>) {
+
+    fn resized(&mut self, id: WindowId, windows: &mut Windows<'_>) {
+        let Some(window) = windows.get(id) else {
+            return;
+        };
+        self.refresh_surface(id, &window);
+        let drawable = self.drawable(id);
         let size = window.size();
-        self.refresh_surface(window);
-        let drawable = self.drawable();
-        let mut model = self.model.borrow_mut();
-        model.set_viewport(size);
-        model.invalidate_paint();
-        model.update_env(|env, surface_active| {
-            env.scale_factor = window.scale();
-            env.window_size = size;
-            env.fullscreen = window.fullscreen();
-            *surface_active = drawable;
-        });
-        drop(model);
-        self.settle();
+        let scale = window.scale();
+        let fullscreen = window.fullscreen();
+        if let Some(model) = self.app.borrow_mut().model_mut(id) {
+            model.set_viewport(size);
+            model.invalidate_paint();
+            model.update_env(|env, surface_active| {
+                env.scale_factor = scale;
+                env.window_size = size;
+                env.fullscreen = fullscreen;
+                *surface_active = drawable;
+            });
+        }
+        self.settle_window(id);
     }
-    fn lifecycle_event(&mut self, event: ShellEvent, window: &mut Window<'_>) {
+
+    fn lifecycle_event(&mut self, event: ShellEvent, id: WindowId, windows: &mut Windows<'_>) {
         match event {
-            ShellEvent::SaveState => self
-                .model
-                .borrow_mut()
-                .push(HostEvent::Lifecycle(LifecycleEvent::SaveState)),
-            ShellEvent::KeyboardInset(insets) => self
-                .model
-                .borrow_mut()
-                .update_env(|env, _| env.keyboard_inset = insets.sanitize()),
-            ShellEvent::CloseRequested => self.model.borrow_mut().push(HostEvent::CloseRequested),
+            ShellEvent::KeyboardInset(insets) => {
+                if let Some(model) = self.app.borrow_mut().model_mut(id) {
+                    model.update_env(|env, _| env.keyboard_inset = insets.sanitize());
+                }
+            }
+            ShellEvent::CloseRequested => self
+                .app
+                .borrow()
+                .push_event(HostEvent::CloseRequested { window: id }),
             ShellEvent::Focused(false) => {
-                let mut model = self.model.borrow_mut();
-                model.key_down_targets.0.clear();
-                model.cancel_pointer(&mut self.engine.borrow_mut());
+                let mut app = self.app.borrow_mut();
+                if app.focused_window() == Some(id) {
+                    app.focused_window = None;
+                }
+                if let Some(model) = app.model_mut(id) {
+                    model.key_down_targets.0.clear();
+                    model.cancel_pointer(&mut self.engine.borrow_mut());
+                }
             }
             ShellEvent::Focused(true) => {
+                self.app.borrow_mut().focused_window = Some(id);
                 // A window coming back (after skipped frames) draws at once.
-                if let LastPresent::Skipped { .. } = self.last_present {
-                    self.last_present = LastPresent::Settled;
-                    self.model.borrow_mut().invalidate_paint();
+                let skipped = self.windows.get(&id).is_some_and(|window| {
+                    matches!(window.last_present, LastPresent::Skipped { .. })
+                });
+                if skipped {
+                    self.windows
+                        .get_mut(&id)
+                        .expect("invariant: a focused window has host state")
+                        .last_present = LastPresent::Settled;
+                    if let Some(model) = self.app.borrow_mut().model_mut(id) {
+                        model.invalidate_paint();
+                    }
                 }
             }
-            ShellEvent::Suspended => {
-                if self.presence == AppPresence::Foreground {
-                    self.presence = AppPresence::Suspended;
-                    self.model
-                        .borrow_mut()
-                        .cancel_pointer(&mut self.engine.borrow_mut());
-                    self.report_drawable(window);
-                    self.model
-                        .borrow_mut()
-                        .push(HostEvent::Lifecycle(LifecycleEvent::Suspended));
-                }
-            }
-            ShellEvent::Resumed => {
-                if self.presence == AppPresence::Suspended {
-                    self.presence = AppPresence::Foreground;
-                    self.report_drawable(window);
-                    self.model
-                        .borrow_mut()
-                        .push(HostEvent::Lifecycle(LifecycleEvent::Resumed));
-                    self.model.borrow_mut().invalidate_paint();
-                }
-            }
-            ShellEvent::SurfaceDestroyed => self.report_drawable(window),
+            ShellEvent::SurfaceDestroyed => self.report_drawable(id, windows),
             ShellEvent::SurfaceCreated => {
-                self.report_drawable(window);
-                self.model.borrow_mut().invalidate_paint();
+                self.report_drawable(id, windows);
+                if let Some(model) = self.app.borrow_mut().model_mut(id) {
+                    model.invalidate_paint();
+                }
             }
-            // Rebuildable host caches are released before application callbacks.
-            ShellEvent::MemoryWarning => {
-                window.release_caches();
-                self.engine.borrow_mut().release_caches();
-                self.model.borrow().paint.scene_cache.borrow_mut().clear();
-                self.model.borrow().assets.borrow_mut().release_caches();
-                self.frame_log.borrow_mut().note("memory_warning");
-                self.model
-                    .borrow_mut()
-                    .push(HostEvent::Lifecycle(LifecycleEvent::MemoryWarning));
+            ShellEvent::Injected { request } => {
+                self.app.borrow().push_event(HostEvent::InjectDelivered {
+                    window: id,
+                    request,
+                })
             }
             _ => unreachable!("invariant: matching shell event family"),
         }
     }
-    fn input_event(&mut self, event: ShellEvent, window: &mut Window<'_>) {
+
+    fn input_event(&mut self, event: ShellEvent, id: WindowId, windows: &mut Windows<'_>) {
         match event {
-            ShellEvent::Pointer(input) => self
-                .model
-                .borrow_mut()
-                .pointer_input(input, &mut self.engine.borrow_mut()),
+            ShellEvent::Pointer(input) => {
+                if let Some(model) = self.app.borrow_mut().model_mut(id) {
+                    model.pointer_input(input, &mut self.engine.borrow_mut());
+                }
+            }
             ShellEvent::Wheel(input) => {
-                self.model
-                    .borrow_mut()
-                    .wheel(input, &mut self.engine.borrow_mut());
+                if let Some(model) = self.app.borrow_mut().model_mut(id) {
+                    model.wheel(input, &mut self.engine.borrow_mut());
+                }
                 // A native scroll is reported (`ScrollChanged`) by the
                 // layout pass: run it now, so the client's turn is due at
                 // once instead of waiting for the next paint.
-                self.settle();
+                self.settle_window(id);
             }
             ShellEvent::Modifiers(m) => {
-                let mut model = self.model.borrow_mut();
-                model.report_modifiers(m);
+                if let Some(model) = self.app.borrow_mut().model_mut(id) {
+                    model.report_modifiers(m);
+                }
             }
             ShellEvent::File(input) => {
-                self.model
-                    .borrow_mut()
-                    .file(input.phase, input.files, input.position)
-            }
-            ShellEvent::Key(input) => {
-                let mut model = self.model.borrow_mut();
-                let physical = physical_letter(input.code);
-                let result = model.key(input, physical, &mut self.engine.borrow_mut());
-                drop(model);
-                match result {
-                    // A cut already removed the text.
-                    KeyResult::Copy(text) => {
-                        let _ = window.perform(PlatformRequest::CopyText(text));
-                    }
-                    KeyResult::Paste(id) => {
-                        if let PlatformResult::Text(text) =
-                            window.perform(PlatformRequest::ReadText)
-                        {
-                            self.model
-                                .borrow_mut()
-                                .paste(id, &text, &mut self.engine.borrow_mut());
-                        }
-                    }
-                    KeyResult::Reported | KeyResult::Consumed | KeyResult::Text(_) => {}
+                if let Some(model) = self.app.borrow_mut().model_mut(id) {
+                    model.file(input.phase, input.files, input.position);
                 }
             }
-            ShellEvent::Ime(input) => match input {
-                kivact_types::ImeInput::Preedit { text, selection } => self
-                    .model
-                    .borrow_mut()
-                    .preedit(&text, selection.map(|r| (r.start, r.end))),
-                kivact_types::ImeInput::Commit(text) => self.model.borrow_mut().commit(&text),
-                kivact_types::ImeInput::Selection(range) => {
-                    self.model.borrow_mut().ime_select(range.start, range.end)
-                }
-                kivact_types::ImeInput::End => self.model.borrow_mut().ime_disabled(),
-            },
+            ShellEvent::Key(input) => self.key_event(input, id, windows),
+            ShellEvent::Ime(input) => self.ime_event(input, id),
             _ => unreachable!("invariant: matching shell event family"),
         }
     }
-    fn accessibility_event(&mut self, event: ShellEvent, window: &mut Window<'_>) {
+
+    fn key_event(
+        &mut self,
+        input: kivact_types::KeyInput,
+        id: WindowId,
+        windows: &mut Windows<'_>,
+    ) {
+        let result = match self.app.borrow_mut().model_mut(id) {
+            Some(model) => {
+                let physical = physical_letter(input.code);
+                model.key(input, physical, &mut self.engine.borrow_mut())
+            }
+            None => return,
+        };
+        match result {
+            // A cut already removed the text.
+            KeyResult::Copy(text) => {
+                if let Some(mut window) = windows.get(id) {
+                    let _ = window.perform(PlatformRequest::CopyText(text));
+                }
+            }
+            KeyResult::Paste(node) => {
+                if let Some(mut window) = windows.get(id)
+                    && let PlatformResult::Text(text) = window.perform(PlatformRequest::ReadText)
+                    && let Some(model) = self.app.borrow_mut().model_mut(id)
+                {
+                    model.paste(node, &text, &mut self.engine.borrow_mut());
+                }
+            }
+            KeyResult::Reported | KeyResult::Consumed | KeyResult::Text(_) => {}
+        }
+    }
+
+    fn ime_event(&mut self, input: kivact_types::ImeInput, id: WindowId) {
+        match input {
+            kivact_types::ImeInput::Preedit { text, selection } => {
+                if let Some(model) = self.app.borrow_mut().model_mut(id) {
+                    model.preedit(&text, selection.map(|r| (r.start, r.end)));
+                }
+            }
+            kivact_types::ImeInput::Commit(text) => {
+                if let Some(model) = self.app.borrow_mut().model_mut(id) {
+                    model.commit(&text);
+                }
+            }
+            kivact_types::ImeInput::Selection(range) => {
+                if let Some(model) = self.app.borrow_mut().model_mut(id) {
+                    model.ime_select(range.start, range.end);
+                }
+            }
+            kivact_types::ImeInput::End => {
+                if let Some(model) = self.app.borrow_mut().model_mut(id) {
+                    model.ime_disabled();
+                }
+            }
+        }
+    }
+
+    fn accessibility_event(&mut self, event: ShellEvent, id: WindowId, windows: &mut Windows<'_>) {
         match event {
-            ShellEvent::EnvironmentChanged => self.environment_changed(window),
+            ShellEvent::EnvironmentChanged => {
+                if let Some(window) = windows.get(id) {
+                    self.environment_changed(id, &window);
+                }
+            }
             ShellEvent::AccessibilityActivated => {
-                let mut model = self.model.borrow_mut();
-                if model.a11y.publish == crate::a11y::state::A11yPublish::Inactive {
+                if let Some(model) = self.app.borrow_mut().model_mut(id)
+                    && model.a11y.publish == crate::a11y::state::A11yPublish::Inactive
+                {
                     model.a11y.publish = crate::a11y::state::A11yPublish::AwaitingFirstTree;
                     model.a11y.invalidate();
                     if self.accessibility_noted.note() {
@@ -378,67 +517,57 @@ impl Host {
                 }
             }
             ShellEvent::AccessibilityDeactivated => {
-                self.model.borrow_mut().a11y.publish = crate::a11y::state::A11yPublish::Inactive;
+                if let Some(model) = self.app.borrow_mut().model_mut(id) {
+                    model.a11y.publish = crate::a11y::state::A11yPublish::Inactive;
+                }
             }
             ShellEvent::Accessibility { node, request } => {
-                self.model.borrow_mut().accessibility_action(node, request)
+                if let Some(model) = self.app.borrow_mut().model_mut(id) {
+                    model.accessibility_action(node, request);
+                }
             }
             _ => unreachable!("invariant: matching shell event family"),
         }
     }
-    /// Whether frames can be drawn (`Environment::surface_active`; no frame
-    /// ticks otherwise): the application is in the foreground, the window
-    /// has a surface and is not empty (minimized).
-    fn refresh_surface(&mut self, window: &Window<'_>) {
-        let size = window.size();
-        self.surface = match window.surface_generation() {
-            None => Surface::Unavailable(Unavailable::NoSurface),
-            Some(_) if size.width <= 0.0 || size.height <= 0.0 => {
-                Surface::Unavailable(Unavailable::ZeroSize)
-            }
-            Some(generation) => Surface::Drawable { generation },
-        };
+
+    /// Refresh window `id`'s surface state from the window.
+    fn refresh_surface(&mut self, id: WindowId, window: &Window<'_>) {
+        let surface = super::window::surface_of(window);
+        if let Some(host_window) = self.windows.get_mut(&id) {
+            host_window.surface = surface;
+        }
     }
-    /// Report whether frames can be drawn, when that changed.
-    fn report_drawable(&mut self, window: &Window<'_>) {
-        self.refresh_surface(window);
-        let drawable = self.drawable();
-        self.model.borrow_mut().set_surface(drawable);
+
+    /// Report whether window `id` can draw, when that changed.
+    fn report_drawable(&mut self, id: WindowId, windows: &mut Windows<'_>) {
+        if let Some(window) = windows.get(id) {
+            self.refresh_surface(id, &window);
+        }
+        let drawable = self.drawable(id);
+        if let Some(model) = self.app.borrow_mut().model_mut(id) {
+            model.set_surface(drawable);
+        }
     }
-    /// The window's environment may have changed: what the client sees of
-    /// it (theme, reduced motion, the refresh period frames are paced at,
-    /// the safe area, the locale) is reported in one `EnvChanged` when any
-    /// of it did. The mouse settings are Arvane's own (it counts clicks and
-    /// scales wheels).
-    fn environment_changed(&mut self, window: &Window<'_>) {
-        let mut now = window.environment();
-        let before = self
-            .environment
-            .get()
-            .expect("invariant: environment is set at start")
-            .clone();
-        now.fonts = self.model.borrow().assets.borrow().fonts();
-        self.environment.update(now.clone());
-        let mut model = self.model.borrow_mut();
-        let period_before = model.frame.period_ns();
-        model.update_env(|env, _| {
-            if now.theme_hint != before.theme_hint {
-                env.theme_hint = now.theme_hint;
+
+    fn report_drawable_all(&mut self, windows: &mut Windows<'_>) {
+        for id in self.windows.keys().copied().collect::<Vec<_>>() {
+            self.report_drawable(id, windows);
+        }
+    }
+
+    fn cancel_pointers(&mut self) {
+        for id in self.window_ids() {
+            if let Some(model) = self.app.borrow_mut().model_mut(id) {
+                model.cancel_pointer(&mut self.engine.borrow_mut());
             }
-            env.reduced_motion = self.reduced_motion_override.unwrap_or(now.reduced_motion);
-            // Another monitor: the frame period follows its refresh rate.
-            env.frame_period_ns = now.frame_period_ns;
-            env.safe_area = now.safe_area.sanitize();
-            env.locale = now.locale.clone();
-            env.pointer = now.pointer;
-            env.keyboard_inset = now.keyboard_inset;
-        });
-        let period = model.frame.period_ns();
-        drop(model);
-        if period != period_before {
-            self.frame_log
-                .borrow_mut()
-                .note(&format!("frame_period_ns={period}"));
+        }
+    }
+
+    fn invalidate_paint_all(&mut self) {
+        for id in self.window_ids() {
+            if let Some(model) = self.app.borrow_mut().model_mut(id) {
+                model.invalidate_paint();
+            }
         }
     }
 }

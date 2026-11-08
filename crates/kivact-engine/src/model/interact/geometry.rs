@@ -142,15 +142,16 @@ impl Model {
             return false;
         };
         let previous = self.capture_layout_motion();
-        let mut measure = Measure::new(engine, self.assets.get_mut(), &self.measure, &self.editors);
-        for id in remeasure {
-            if measure.measures_same(&self.tree, &self.layout, id) {
-                continue;
-            }
-            self.layout.invalidate_chain(&self.tree, id);
-        }
-        // Scrolls alone keep the main layout, but may change a tooltip's available room.
         let computed = {
+            let mut assets = self.assets.borrow_mut();
+            let mut measure = Measure::new(engine, &mut assets, &self.measure, &self.editors);
+            for id in remeasure {
+                if measure.measures_same(&self.tree, &self.layout, id) {
+                    continue;
+                }
+                self.layout.invalidate_chain(&self.tree, id);
+            }
+            // Scrolls alone keep the main layout, but may change a tooltip's available room.
             let mut leaves = crate::measure::leaf::EngineMeasure {
                 tree: &self.tree,
                 measure: &mut measure,
@@ -227,7 +228,8 @@ impl Model {
         id: NodeId,
         limit: Option<kivact_types::Size>,
     ) {
-        let mut measure = Measure::new(engine, self.assets.get_mut(), &self.measure, &self.editors);
+        let mut assets = self.assets.borrow_mut();
+        let mut measure = Measure::new(engine, &mut assets, &self.measure, &self.editors);
         let mut leaves = crate::measure::leaf::EngineMeasure {
             tree: &self.tree,
             measure: &mut measure,

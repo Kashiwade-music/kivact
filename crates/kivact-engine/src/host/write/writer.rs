@@ -1,28 +1,33 @@
-//! Role: `Writer`: the turn's write API onto the engine's tree.
+//! Role: `Writer`: the turn's write API onto the engine's models.
+//!
+//! A write names the window it targets, or the engine derives the window
+//! from the node it touches. The App's writes, event queue and revision are
+//! shared; each window keeps its own model.
 
 use super::reader::Reader;
 use crate::contract::{HostEvent, HostRequest, NodeKind, SceneLayer};
-use crate::model::{DeferredRequest, Model};
+use crate::model::{AppModel, DeferredRequest};
 use crate::mutation::WriteStats;
 use kivact_types::{
     DrawList, NodeId, PlatformResult, Point, PointerId, RegionId, RequestId, Revision, Size,
+    WindowId,
 };
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
 
-/// Owned, cloneable write access to the engine's tree, given to kivact for
+/// Owned, cloneable write access to the engine's models, given to kivact for
 /// startup. Every write applies at once; [`Writer::commit`] ends a revision.
 #[derive(Clone)]
 pub struct Writer {
-    pub(super) model: Rc<RefCell<Model>>,
+    pub(super) app: Rc<RefCell<AppModel>>,
     pub(super) engine: Rc<RefCell<arvane::Engine>>,
 }
 
 impl Writer {
-    pub(crate) fn new(model: &Rc<RefCell<Model>>, engine: &Rc<RefCell<arvane::Engine>>) -> Self {
+    pub(crate) fn new(app: &Rc<RefCell<AppModel>>, engine: &Rc<RefCell<arvane::Engine>>) -> Self {
         Writer {
-            model: Rc::clone(model),
+            app: Rc::clone(app),
             engine: Rc::clone(engine),
         }
     }
@@ -31,17 +36,37 @@ impl Writer {
     /// long as kivact keeps it.
     pub fn reader(&self) -> Reader {
         Reader {
-            model: Rc::clone(&self.model),
+            app: Rc::clone(&self.app),
             engine: Rc::clone(&self.engine),
         }
     }
 
-    /// Create a detached node whose payload owns its kind-specific values.
-    pub fn create(&self, id: NodeId, kind: NodeKind) {
-        let mut model = self.model.borrow_mut();
+    /// Open a window for `request`; its model exists from this write on, so
+    /// the same turn may create its nodes. The host opens the platform
+    /// window after the turn (`WindowChange::Open`).
+    pub fn open_window(&self, request: kivact_types::WindowRequest) {
+        let viewport = request.size;
+        self.app.borrow_mut().open_window(request, viewport);
+    }
+
+    /// Close window `id` after the turn (`WindowChange::Close`).
+    pub fn close_window(&self, id: WindowId) {
+        self.app.borrow_mut().close_window(id);
+    }
+
+    /// Create a detached node of `window` whose payload owns its
+    /// kind-specific values.
+    pub fn create(&self, window: WindowId, id: NodeId, kind: NodeKind) {
+        let mut app = self.app.borrow_mut();
+        let AppModel {
+            windows, writes, ..
+        } = &mut *app;
+        let Some(model) = windows.get_mut(&window) else {
+            return;
+        };
         debug_assert!(!model.tree.contains(id), "node ids are unique");
         model.create(id, kind);
-        model.writes.create(id);
+        writes.create(id);
     }
 
     /// Prepare one event immediately before dispatch, after earlier callbacks.
@@ -53,12 +78,12 @@ impl Writer {
             pointer: Some(route),
         } = event
         {
-            route.activation = Some(crate::contract::Activation(
-                self.model
-                    .borrow()
+            let adopted = self.app.borrow_mut().with_node(*node, |model, _| {
+                model
                     .admission
-                    .take_adoption(route.input.id, *node, *region),
-            ));
+                    .take_adoption(route.input.id, *node, *region)
+            });
+            route.activation = Some(crate::contract::Activation(adopted.unwrap_or(false)));
         }
     }
 
@@ -74,49 +99,75 @@ impl Writer {
 
     /// Adopt a primary gesture on a node or one of its canvas regions.
     pub fn adopt_pointer_target(&self, node: NodeId, region: Option<RegionId>, pointer: PointerId) {
-        self.model.borrow().admission.adopt(pointer, node, region);
+        self.app.borrow_mut().with_node(node, |model, _| {
+            model.admission.adopt(pointer, node, region);
+        });
     }
 
-    /// End the adoption of `pointer` (its gesture ended another way than a
-    /// release or a `Cancel` of the engine's).
+    /// End the adoption of `pointer` in every window (its gesture ended
+    /// another way than a release or a `Cancel` of the engine's).
     pub fn forget_adopted_pointer(&self, pointer: PointerId) {
-        self.model.borrow().admission.forget_adoption(pointer);
+        let app = self.app.borrow();
+        for model in app.windows.values() {
+            model.admission.forget_adoption(pointer);
+        }
     }
 
     /// Set or release capture for an admitted, enabled pointer listener.
     pub fn set_pointer_capture(&self, node: NodeId, pointer: PointerId, capture: bool) {
-        self.model
-            .borrow_mut()
-            .set_pointer_capture(node, pointer, capture);
+        self.app.borrow_mut().with_node(node, |model, _| {
+            model.set_pointer_capture(node, pointer, capture);
+        });
     }
 
     /// Keep an active touch contact routed to its initial control.
     pub fn reserve_touch_gesture(&self, pointer: PointerId) {
-        self.model.borrow_mut().reserve_touch_gesture(pointer);
+        let mut app = self.app.borrow_mut();
+        for model in app.windows.values_mut() {
+            model.reserve_touch_gesture(pointer);
+        }
     }
 
     /// Totals of the client's mutations and the last committed revision.
     pub fn stats(&self) -> WriteStats {
-        let model = self.model.borrow();
-        let stats = model.writes.stats;
+        let app = self.app.borrow();
+        let stats = app.writes().stats;
         #[cfg(feature = "testing")]
         let stats = WriteStats {
-            a11y_constructed: model.a11y.constructed,
-            a11y_published: model.a11y.published,
+            a11y_constructed: app
+                .windows
+                .values()
+                .map(|model| model.a11y.constructed)
+                .sum(),
+            a11y_published: app.windows.values().map(|model| model.a11y.published).sum(),
             ..stats
         };
         stats
     }
+
     /// Operations awaiting a revision, grouped by changed node.
     pub fn pending_writes(&self) -> usize {
-        self.model.borrow().writes.pending()
+        self.app.borrow().writes().pending()
     }
 
     /// Attach or reparent node `id` under `parent`, before `before`
-    /// (append if `None`).
+    /// (append if `None`). Both must live in the same window.
     pub fn insert(&self, parent: NodeId, id: NodeId, before: Option<NodeId>) {
-        let mut guard = self.model.borrow_mut();
-        let m = &mut *guard;
+        let mut app = self.app.borrow_mut();
+        let parent_window = app.window_of(parent);
+        let id_window = app.window_of(id);
+        let window = id_window.expect("invariant: a node and its parent live in the same window");
+        assert_eq!(
+            parent_window,
+            Some(window),
+            "invariant: a node and its parent live in the same window"
+        );
+        let AppModel {
+            windows, writes, ..
+        } = &mut *app;
+        let Some(m) = windows.get_mut(&window) else {
+            return;
+        };
         debug_assert!(m.tree.contains(parent) && m.tree.contains(id));
         debug_assert!(!m.tree.is_in_subtree(parent, id));
         debug_assert!(before.is_none_or(|before| {
@@ -128,15 +179,15 @@ impl Writer {
             return;
         }
         m.insert(parent, id, before, true);
-        m.writes.structural(id);
+        writes.structural(id);
     }
 
     /// Move the attached node `id` before a sibling (append if `None`).
     pub fn move_before(&self, id: NodeId, before: Option<NodeId>) {
-        let mut guard = self.model.borrow_mut();
-        let m = &mut *guard;
-        m.move_before(id, before);
-        m.writes.structural(id);
+        self.app.borrow_mut().with_node(id, |model, writes| {
+            model.move_before(id, before);
+            writes.structural(id);
+        });
     }
 
     /// Remove and destroy `id` and its whole subtree.
@@ -147,44 +198,61 @@ impl Writer {
     /// Remove a subtree and return its logical IDs in pre-order, including exits.
     /// Optionally free layout slots and report completion of physical removal.
     pub fn remove_with_exit(&self, id: NodeId, pop_layout: bool, notify: bool) -> Vec<NodeId> {
-        let mut guard = self.model.borrow_mut();
-        let m = &mut *guard;
-        let removed = m.tree().subtree(id);
-        m.remove(id, pop_layout, notify);
-        m.writes.structural(id);
-        removed
+        self.app
+            .borrow_mut()
+            .with_node(id, |model, writes| {
+                let removed = model.tree().subtree(id);
+                model.remove(id, pop_layout, notify);
+                writes.structural(id);
+                removed
+            })
+            .unwrap_or_default()
     }
 
     /// Set the scene of one draw layer of the `Box` `id`.
     pub fn set_scene(&self, id: NodeId, layer: SceneLayer, scene: Arc<DrawList>) {
-        let mut guard = self.model.borrow_mut();
-        let m = &mut *guard;
-
-        if m.node(id)
-            .and_then(|n| n.scene(layer))
-            .is_some_and(|old| old.as_ref() == scene.as_ref())
-        {
-            return;
-        }
-        m.set_scene(id, layer, scene);
-        m.writes.scene(id);
+        self.app.borrow_mut().with_node(id, |model, writes| {
+            if model
+                .node(id)
+                .and_then(|n| n.scene(layer))
+                .is_some_and(|old| old.as_ref() == scene.as_ref())
+            {
+                return;
+            }
+            model.set_scene(id, layer, scene);
+            writes.scene(id);
+        });
     }
 
     /// Focus `id`; the result is reported with `request`
     /// (`HostEvent::FocusResult`).
     pub fn focus(&self, id: kivact_types::FocusTarget, request: RequestId, visible: bool) {
-        let mut guard = self.model.borrow_mut();
-        let m = &mut *guard;
-        m.writes.command(Some(id.node));
-        m.focus_request(id, request, visible);
+        let window = self
+            .app
+            .borrow()
+            .window_of(id.node)
+            .unwrap_or(WindowId::MAIN);
+        let mut app = self.app.borrow_mut();
+        let AppModel {
+            windows, writes, ..
+        } = &mut *app;
+        let Some(model) = windows.get_mut(&window) else {
+            return;
+        };
+        writes.command(Some(id.node));
+        model.focus_request(id, request, visible);
     }
 
-    /// Take the keyboard focus away.
-    pub fn blur(&self) {
-        let mut guard = self.model.borrow_mut();
-        let m = &mut *guard;
-        m.writes.command(None);
-        m.set_focus(None);
+    /// Take the keyboard focus of `window` away.
+    pub fn blur(&self, window: WindowId) {
+        let mut app = self.app.borrow_mut();
+        let AppModel {
+            windows, writes, ..
+        } = &mut *app;
+        if let Some(model) = windows.get_mut(&window) {
+            writes.command(None);
+            model.set_focus(None);
+        }
     }
 
     /// Scroll one container with optional smooth interpolation.
@@ -195,61 +263,65 @@ impl Writer {
         relative: bool,
         easing: Option<kivact_types::Easing>,
     ) {
-        let mut m = self.model.borrow_mut();
-        m.writes.command(Some(id));
-        let Some(n) = m.node(id) else { return };
-        let start = n.scroll();
-        let target = if relative {
-            Point {
-                x: start.x + point.x,
-                y: start.y + point.y,
+        self.app.borrow_mut().with_node(id, |m, writes| {
+            writes.command(Some(id));
+            let Some(n) = m.node(id) else { return };
+            let start = n.scroll();
+            let target = if relative {
+                Point {
+                    x: start.x + point.x,
+                    y: start.y + point.y,
+                }
+            } else {
+                point
+            };
+            if !target.x.is_finite() || !target.y.is_finite() {
+                return;
             }
-        } else {
-            point
-        };
-        if !target.x.is_finite() || !target.y.is_finite() {
-            return;
-        }
-        let axes = n.scroll_axes();
-        let Some(layout) = m.computed_layout(id) else {
-            return;
-        };
-        let target = Point {
-            x: if axes.0 {
-                target.x.clamp(
-                    0.0,
-                    (layout.content_size.width - layout.size.width).max(0.0),
-                )
-            } else {
-                0.0
-            },
-            y: if axes.1 {
-                target.y.clamp(
-                    0.0,
-                    (layout.content_size.height - layout.size.height).max(0.0),
-                )
-            } else {
-                0.0
-            },
-        };
-        m.scroll_smoothly(id, start, target, easing);
-    }
-    /// Select every character of a text input.
-    pub fn select_all(&self, id: NodeId) {
-        let mut model = self.model.borrow_mut();
-        model.writes.command(Some(id));
-        model.edit_input(id, |e| {
-            e.move_to(0, false);
-            e.move_to(e.value().len(), true);
-            false
+            let axes = n.scroll_axes();
+            let Some(layout) = m.computed_layout(id) else {
+                return;
+            };
+            let target = Point {
+                x: if axes.0 {
+                    target.x.clamp(
+                        0.0,
+                        (layout.content_size.width - layout.size.width).max(0.0),
+                    )
+                } else {
+                    0.0
+                },
+                y: if axes.1 {
+                    target.y.clamp(
+                        0.0,
+                        (layout.content_size.height - layout.size.height).max(0.0),
+                    )
+                } else {
+                    0.0
+                },
+            };
+            m.scroll_smoothly(id, start, target, easing);
         });
     }
+
+    /// Select every character of a text input.
+    pub fn select_all(&self, id: NodeId) {
+        self.app.borrow_mut().with_node(id, |model, writes| {
+            writes.command(Some(id));
+            model.edit_input(id, |e| {
+                e.move_to(0, false);
+                e.move_to(e.value().len(), true);
+                false
+            });
+        });
+    }
+
     /// Scroll the container `id` to `offset`.
     pub fn scroll_to(&self, id: NodeId, offset: Point) {
-        let mut guard = self.model.borrow_mut();
-        let m = &mut *guard;
-        m.writes.command(Some(id));
-        m.scroll_to(id, offset);
+        self.app.borrow_mut().with_node(id, |model, writes| {
+            writes.command(Some(id));
+            model.scroll_to(id, offset);
+        });
     }
 
     /// The default action of an unhandled wheel event: scroll the nearest
@@ -258,38 +330,48 @@ impl Writer {
     /// above a wheel-listening node on its own; kivact answers each
     /// `Wheel` no handler handled with this write.
     pub fn scroll_by(&self, id: NodeId, delta: Point) {
-        let mut guard = self.model.borrow_mut();
-        let m = &mut *guard;
-        m.writes.command(Some(id));
-        m.scroll_from(id, delta, None);
+        self.app.borrow_mut().with_node(id, |model, writes| {
+            writes.command(Some(id));
+            model.scroll_from(id, delta, None);
+        });
     }
 
     /// Scroll every scrollable ancestor of `id` so that it is visible.
     pub fn scroll_into_view(&self, id: NodeId) {
-        let mut guard = self.model.borrow_mut();
-        let m = &mut *guard;
-        m.writes.command(Some(id));
-        m.reveal(id);
+        self.app.borrow_mut().with_node(id, |model, writes| {
+            writes.command(Some(id));
+            model.reveal(id);
+        });
     }
 
     /// Report `LayoutChanged` for `id` while `on`. Asking again for what
     /// is already so changes nothing and counts no write.
     pub fn observe_layout(&self, id: NodeId, on: bool) {
-        let mut guard = self.model.borrow_mut();
-        let m = &mut *guard;
-        if m.observe_layout(id, on) {
-            m.writes.command(Some(id));
-        }
+        self.app.borrow_mut().with_node(id, |model, writes| {
+            if model.observe_layout(id, on) {
+                writes.command(Some(id));
+            }
+        });
     }
 
     /// Record what a drawable's export asks of the window
     /// (`HostRequest::DrawableExport`, `SetDrawableGeometry`). Nothing is
     /// reported back: the window's answers come as drawable events.
     pub fn drawable_request(&self, request: HostRequest) {
-        let mut guard = self.model.borrow_mut();
-        let m = &mut *guard;
-        m.writes.command(None);
-        crate::model::drawables::apply_request(m, request);
+        let id = match &request {
+            HostRequest::DrawableExport { id, .. }
+            | HostRequest::SetDrawableGeometry { id, .. } => *id,
+            _ => return,
+        };
+        let window = self.drawable_window(id);
+        let mut app = self.app.borrow_mut();
+        let AppModel {
+            windows, writes, ..
+        } = &mut *app;
+        if let Some(model) = windows.get_mut(&window) {
+            writes.command(None);
+            crate::model::drawables::apply_request(model, request);
+        }
     }
 
     /// Ask the platform for `effect`; the result is reported with
@@ -297,87 +379,160 @@ impl Writer {
     /// once (the next layout measures with it); the other effects are
     /// carried out by the window after the turn.
     pub fn effect(&self, request: RequestId, effect: HostRequest) {
-        let mut guard = self.model.borrow_mut();
-        let m = &mut *guard;
-        m.writes.command(None);
+        let mut app = self.app.borrow_mut();
         match effect {
-            HostRequest::Snapshot(node) => m.snapshots.push((request, node)),
+            HostRequest::Snapshot(node) => {
+                let window = app.window_of(node).unwrap_or(WindowId::MAIN);
+                let AppModel {
+                    windows, writes, ..
+                } = &mut *app;
+                if let Some(model) = windows.get_mut(&window) {
+                    writes.command(None);
+                    model.snapshots.push((request, node));
+                }
+            }
             HostRequest::RegisterFont(font) => {
-                let result = m
+                let result = app
                     .assets
                     .borrow_mut()
                     .register_font(&mut self.engine.borrow_mut(), &font);
                 if matches!(result, PlatformResult::Fonts(_)) {
-                    m.fonts_added();
-                    let fonts = m.assets.borrow().fonts();
-                    m.update_env(|env, _| env.fonts = fonts);
+                    let fonts = app.assets.borrow().fonts();
+                    for model in app.windows.values_mut() {
+                        model.fonts_added();
+                        model.update_env(|env, _| env.fonts = fonts);
+                    }
                 }
-                m.push(HostEvent::EffectResult { request, result });
+                app.events.push(HostEvent::EffectResult { request, result });
             }
-            HostRequest::Platform(effect) => {
-                m.effects.push((request, DeferredRequest::Platform(effect)))
+            HostRequest::Platform {
+                window,
+                request: platform,
+            } => {
+                let AppModel {
+                    windows, writes, ..
+                } = &mut *app;
+                if let Some(model) = windows.get_mut(&window) {
+                    writes.command(None);
+                    model
+                        .effects
+                        .push((request, DeferredRequest::Platform(platform)));
+                }
             }
             drawable @ (HostRequest::DrawableExport { .. }
             | HostRequest::SetDrawableGeometry { .. }) => {
-                crate::model::drawables::apply_request(m, drawable)
+                let id = match &drawable {
+                    HostRequest::DrawableExport { id, .. }
+                    | HostRequest::SetDrawableGeometry { id, .. } => *id,
+                    _ => unreachable!("invariant: matching drawable request"),
+                };
+                let window = drawable_window(&app, id);
+                let AppModel {
+                    windows, writes, ..
+                } = &mut *app;
+                if let Some(model) = windows.get_mut(&window) {
+                    writes.command(None);
+                    crate::model::drawables::apply_request(model, drawable);
+                }
             }
-            HostRequest::ReducedMotion(value) => m
-                .effects
-                .push((request, DeferredRequest::ReducedMotion(value))),
+            HostRequest::ReducedMotion(value) => {
+                let AppModel {
+                    windows, writes, ..
+                } = &mut *app;
+                if let Some(model) = windows.get_mut(&WindowId::MAIN) {
+                    writes.command(None);
+                    model
+                        .effects
+                        .push((request, DeferredRequest::ReducedMotion(value)));
+                }
+            }
         }
     }
 
-    /// Set the window's title and minimum size (after the turn).
-    pub fn set_window(&self, title: String, min_size: Option<Size>) {
-        let mut guard = self.model.borrow_mut();
-        let m = &mut *guard;
-        m.writes.command(None);
-        m.window_request = Some((title, min_size));
+    /// Set window `window`'s title and minimum size (after the turn).
+    pub fn set_window(&self, window: WindowId, title: String, min_size: Option<Size>) {
+        let mut app = self.app.borrow_mut();
+        let AppModel {
+            windows, writes, ..
+        } = &mut *app;
+        if let Some(model) = windows.get_mut(&window) {
+            writes.command(None);
+            model.window_request = Some((title, min_size));
+        }
     }
 
     /// Import the textures an external render engine shares as the image
-    /// `image` of the window (`Window::import_external_image`), after the
-    /// turn; the answer is `HostEvent::ExternalImported`. The client names
-    /// each image once.
+    /// `image` (`Window::import_external_image`), after the turn; the answer
+    /// is `HostEvent::ExternalImported`. The client names each image once.
     pub fn import_external(
         &self,
         image: kivact_types::ExternalImageId,
         textures: kivact_types::SharedTextures,
     ) {
-        let mut guard = self.model.borrow_mut();
-        let m = &mut *guard;
-        m.writes.command(None);
-        m.external_writes
-            .push(crate::model::ExternalWrite::Import(image, textures));
+        let mut app = self.app.borrow_mut();
+        let window = app.window_using_image(image).unwrap_or(WindowId::MAIN);
+        let AppModel {
+            windows, writes, ..
+        } = &mut *app;
+        if let Some(model) = windows.get_mut(&window) {
+            writes.command(None);
+            model
+                .external_writes
+                .push(crate::model::ExternalWrite::Import(image, textures));
+        }
     }
 
-    /// Drop the image `image` of the window
-    /// (`Window::drop_external_image`), after the turn; nothing when it is
-    /// not imported.
+    /// Drop the image `image` of its window (`Window::drop_external_image`),
+    /// after the turn; nothing when it is not imported.
     pub fn drop_external(&self, image: kivact_types::ExternalImageId) {
-        let mut guard = self.model.borrow_mut();
-        let m = &mut *guard;
-        m.writes.command(None);
-        m.external_writes
-            .push(crate::model::ExternalWrite::Drop(image));
+        let mut app = self.app.borrow_mut();
+        let window = app.window_using_image(image).unwrap_or(WindowId::MAIN);
+        let AppModel {
+            windows, writes, ..
+        } = &mut *app;
+        if let Some(model) = windows.get_mut(&window) {
+            writes.command(None);
+            model
+                .external_writes
+                .push(crate::model::ExternalWrite::Drop(image));
+        }
     }
 
     /// Ask for a `FrameTick` at or after `at_ns` (host clock).
     pub fn request_frame(&self, at_ns: u64) {
-        let mut guard = self.model.borrow_mut();
-        let m = &mut *guard;
-        m.writes.command(None);
-        m.frame.request(at_ns);
+        let mut app = self.app.borrow_mut();
+        app.writes.command(None);
+        app.client_frames.0.insert(at_ns);
     }
 
-    /// End the writes of one revision and return it: the focus is checked
-    /// once and its private post-layout boundary recorded.
+    /// End the writes of one revision and return it: every window prepares
+    /// its commit, one revision is committed for the whole App, and every
+    /// window syncs.
     pub fn commit(&self) -> Revision {
-        let mut guard = self.model.borrow_mut();
-        let m = &mut *guard;
-        let revision = m.commit_revision();
-        m.writes.commit(revision);
-        m.sync();
+        let mut app = self.app.borrow_mut();
+        for model in app.windows.values_mut() {
+            model.prepare_commit();
+        }
+        let revision = Revision(app.events.applied().0 + 1);
+        app.events.commit(revision);
+        app.writes_mut().commit(revision);
+        for model in app.windows.values_mut() {
+            model.sync();
+        }
         revision
     }
+
+    /// The window whose model mounts drawable `id`, or the main window.
+    fn drawable_window(&self, id: kivact_types::DrawableId) -> WindowId {
+        drawable_window(&self.app.borrow(), id)
+    }
+}
+
+/// The window whose model mounts drawable `id`, or the main window.
+fn drawable_window(app: &AppModel, id: kivact_types::DrawableId) -> WindowId {
+    app.windows
+        .iter()
+        .find(|(_, model)| model.drawables.get(id).is_some())
+        .map(|(id, _)| *id)
+        .unwrap_or(WindowId::MAIN)
 }

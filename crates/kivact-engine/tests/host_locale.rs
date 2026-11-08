@@ -8,6 +8,7 @@ use std::rc::Rc;
 
 use kivact_engine::api::Client;
 use kivact_engine::testing::{ArvaneTestHost, MirrorMode, TestHostOptions};
+use kivact_types::WindowId;
 
 use kivact_engine::contract::{HostEvent, TurnOutput};
 
@@ -68,16 +69,16 @@ fn the_windows_locale_is_in_host_info_at_start() {
 #[test]
 fn a_change_of_the_locale_is_reported_once_and_only_when_it_changed() {
     let (mut host, told) = start(Some("en-US"));
-    host.set_locale(Some("fr-FR"));
+    host.set_locale(WindowId::MAIN, Some("fr-FR"));
     host.wake();
     assert_eq!(told.borrow().changes, [Some("fr-FR".to_owned())]);
 
     // The same locale again changes nothing.
-    host.set_locale(Some("fr-FR"));
+    host.set_locale(WindowId::MAIN, Some("fr-FR"));
     host.wake();
     assert_eq!(told.borrow().changes.len(), 1);
 
-    host.set_locale(None);
+    host.set_locale(WindowId::MAIN, None);
     host.wake();
     assert_eq!(told.borrow().changes, [Some("fr-FR".to_owned()), None]);
 }

@@ -13,7 +13,10 @@ impl ArvaneTestHost {
         }
         let launch = self.host.borrow();
         let host = launch.host();
-        let mut model = host.model.borrow_mut();
+        let mut app = host.app.borrow_mut();
+        let model = app
+            .model_mut(kivact_types::WindowId::MAIN)
+            .expect("invariant: the main window is open");
         let mut engine = host.engine.borrow_mut();
         let mut errors = model.layout_self_check(&mut engine);
         errors.extend(model.paint_self_check());
@@ -43,7 +46,10 @@ impl ArvaneTestHost {
         if model.a11y.publication_pending() {
             return errors;
         }
-        let published = self.probe.accessibility();
+        let published = self
+            .probe
+            .window(kivact_types::WindowId::MAIN)
+            .and_then(|probe| probe.accessibility());
         // The independent build works on copies; the originals are put back after it.
         let independent = model.a11y.clone();
         let state = std::mem::replace(&mut model.a11y, independent);

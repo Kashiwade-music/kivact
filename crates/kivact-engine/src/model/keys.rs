@@ -113,7 +113,10 @@ impl Model {
     /// Send the shell's modifier snapshot once per change.
     pub(crate) fn report_modifiers(&mut self, modifiers: Modifiers) {
         if self.modifiers.update(modifiers).is_some() {
-            self.push(HostEvent::ModifiersChanged(modifiers));
+            self.push(HostEvent::ModifiersChanged {
+                window: self.window,
+                modifiers,
+            });
         }
     }
 
@@ -178,6 +181,7 @@ impl Model {
             .filter(|target| code != KeyCode::Unidentified && self.tree.contains(target.node))
             .or_else(|| self.focused());
         self.push(HostEvent::Key(crate::contract::Routed {
+            window: self.window,
             target: node.map(|f| f.node),
             region: node.and_then(|f| f.region),
             local: pointer
@@ -409,6 +413,7 @@ impl Model {
             self.key_down_targets.0.entry(code).or_insert(target);
         }
         self.push(HostEvent::Key(crate::contract::Routed {
+            window: self.window,
             target: self.focused().map(|f| f.node),
             region: self.focused().and_then(|f| f.region),
             local: pointer

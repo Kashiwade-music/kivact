@@ -49,7 +49,7 @@ use kivact_types::{Asset, ComputedTextStyle, NodeId, PlatformResult, Rgba, Size}
 pub(crate) struct ArvaneAssets {
     fonts: kivact_types::cell::Generation,
     store: AssetStore,
-    revision: u64,
+    revision: kivact_types::cell::Generation,
     /// Families of the registered font files, in registration order (for
     /// the missing-family diagnostic).
     registered: Vec<String>,
@@ -68,7 +68,7 @@ impl ArvaneAssets {
         ArvaneAssets {
             fonts: kivact_types::cell::Generation::default(),
             store,
-            revision: 0,
+            revision: kivact_types::cell::Generation::new(),
             registered: Vec::new(),
             reported_images: kivact_types::cell::ReportOnceSet::new(),
             reported_families: kivact_types::cell::ReportOnceSet::new(),
@@ -80,15 +80,12 @@ impl ArvaneAssets {
         self.fonts
     }
 
-    pub(crate) fn revision(&self) -> u64 {
+    pub(crate) fn revision(&self) -> kivact_types::cell::Generation {
         self.revision
     }
 
     fn changed(&mut self) {
-        self.revision = self
-            .revision
-            .checked_add(1)
-            .expect("invariant: resource revision fits u64");
+        self.revision.next();
     }
 
     /// Start one image-use frame, updating only the store's recency clock.
