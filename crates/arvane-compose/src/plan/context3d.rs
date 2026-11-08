@@ -10,7 +10,7 @@ use kivact_types::scene::Shape;
 use super::bounds::mapped_bounds;
 use super::builder::Builder;
 use super::frame::{Dest, ItemCtx, px_map};
-use super::ops::{DrawOp, Op, PlanError, Sampling, Scissor, Source, TargetId};
+use super::ops::{DrawOp, Op, PlanError, Sampling, Scissor, Source};
 use super::polygon::{Plane, Poly, Split, plane_of, project_rect, split};
 
 /// One participant of a context: a run of the root's own items, or a flat child layer.
@@ -99,7 +99,7 @@ impl<'a> Builder<'a> {
         let mut polys: Vec<Poly> = Vec::new();
         let mut bounds: Option<Rect> = None;
         for part in parts {
-            let planned = self.plan_part(&part, t, tsize)?;
+            let planned = self.plan_part(&part, tsize)?;
             let Some((draw, pts, win)) = planned else {
                 continue;
             };
@@ -159,14 +159,13 @@ impl<'a> Builder<'a> {
     fn plan_part(
         &mut self,
         part: &Part,
-        t: TargetId,
         tsize: (u32, u32),
     ) -> Result<Option<PlannedPart<'a>>, PlanError> {
         match part.kind {
             PartKind::Fragment { layer, start, end } => {
                 self.fragment_part(part, layer, start, end, tsize)
             }
-            PartKind::Flat { layer } => self.flat_part(part, layer, t, tsize),
+            PartKind::Flat { layer } => self.flat_part(part, layer, tsize),
         }
     }
 
@@ -222,7 +221,6 @@ impl<'a> Builder<'a> {
         &mut self,
         part: &Part,
         index: u32,
-        t: TargetId,
         tsize: (u32, u32),
     ) -> Result<Option<PlannedPart<'a>>, PlanError> {
         let owner = self.layer(index)?;
@@ -236,13 +234,7 @@ impl<'a> Builder<'a> {
         };
         let sig = self.signature(index, &part.to_t, tsize)?;
         let mark = self.damage.len();
-        let dest = Dest {
-            target: t,
-            to: part.to_t,
-            size: tsize,
-            cover: None,
-        };
-        let source = self.build_surface(index, owner, &geo, dest, &part.to_win, sig)?;
+        let source = self.build_surface(index, owner, &geo, &part.to_win, sig)?;
         self.expand_effects(owner, &geo, mark, &part.to_win);
         let win = mapped_bounds(&part.to_win, geo.rect);
         self.record(owner, win, sig, &part.to_win, &[], false);
