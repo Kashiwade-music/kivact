@@ -278,10 +278,24 @@ impl<I> FilterGraph<I> {
         if self.primitives.len() > 64 {
             return Err("filter graph has more than 64 primitives".into());
         }
+        if let Some(m) = self.margin {
+            check_margin(m)?;
+        }
         for (i, p) in self.primitives.iter().enumerate() {
             validate_op(i, &p.op)?;
         }
         Ok(())
+    }
+}
+
+fn check_margin(m: Insets) -> Result<(), String> {
+    if [m.top, m.right, m.bottom, m.left]
+        .iter()
+        .all(|v| v.is_finite())
+    {
+        Ok(())
+    } else {
+        Err("filter graph margin: a number is not finite".into())
     }
 }
 
@@ -471,15 +485,56 @@ fn check_non_negative(i: usize, values: &[f64]) -> Result<(), String> {
     }
 }
 
+fn check_color(i: usize, c: Rgba) -> Result<(), String> {
+    check_finite(i, &[c.r, c.g, c.b, c.a])
+}
+
+fn check_light(i: usize, light: &Light) -> Result<(), String> {
+    match light {
+        Light::Distant {
+            azimuth_deg,
+            elevation_deg,
+        } => check_finite(i, &[*azimuth_deg, *elevation_deg]),
+        Light::Point { position } => check_finite(i, position),
+        Light::Spot {
+            position,
+            points_at,
+            exponent,
+            cone_deg,
+        } => {
+            check_finite(i, position)?;
+            check_finite(i, points_at)?;
+            check_finite(i, &[*exponent])?;
+            match cone_deg {
+                Some(cone) => check_finite(i, &[*cone]),
+                None => Ok(()),
+            }
+        }
+    }
+}
+
 fn validate_op<I>(i: usize, op: &PrimitiveOp<I>) -> Result<(), String> {
     use PrimitiveOp as P;
     match op {
-        P::Blend { top, bottom, .. } | P::Composite { top, bottom, .. } => {
+        P::Blend { top, bottom, .. } => {
             check_input(i, *top)?;
             check_input(i, *bottom)
         }
-        P::ColorMatrix { input, .. } => check_input(i, *input),
-        P::Flood { .. } => Ok(()),
+        P::Composite { top, bottom, op } => {
+            check_input(i, *top)?;
+            check_input(i, *bottom)?;
+            match op {
+                CompositeOp::Arithmetic { k1, k2, k3, k4 } => {
+                    check_finite(i, &[*k1, *k2, *k3, *k4])
+                }
+                _ => Ok(()),
+            }
+        }
+        P::ColorMatrix { input, matrix } => {
+            check_input(i, *input)?;
+            check_finite(i, &matrix.0)
+        }
+        P::Flood { color } => check_color(i, *color),
         P::Offset { input, offset } => {
             check_input(i, *input)?;
             check_finite(i, &[offset.x, offset.y])
@@ -497,11 +552,12 @@ fn validate_op<I>(i: usize, op: &PrimitiveOp<I>) -> Result<(), String> {
             input,
             offset,
             std_dev,
-            ..
+            color,
         } => {
             check_input(i, *input)?;
             check_finite(i, &[offset.x, offset.y])?;
-            check_non_negative(i, &[std_dev.0, std_dev.1])
+            check_non_negative(i, &[std_dev.0, std_dev.1])?;
+            check_color(i, *color)
         }
         P::GaussianBlur { input, std_dev, .. } => {
             check_input(i, *input)?;
@@ -533,32 +589,39 @@ fn validate_op_rest<I>(i: usize, op: &PrimitiveOp<I>) -> Result<(), String> {
             order,
             kernel,
             divisor,
+            bias,
             target,
             ..
         } => {
             check_input(i, *input)?;
-            check_convolve(i, *order, kernel, *divisor, *target)
+            check_convolve(i, *order, kernel, *divisor, *bias, *target)
         }
         P::DiffuseLighting {
             input,
             surface_scale,
             diffuse_constant,
-            ..
+            color,
+            light,
         } => {
             check_input(i, *input)?;
             check_finite(i, &[*surface_scale])?;
-            check_non_negative(i, &[*diffuse_constant])
+            check_non_negative(i, &[*diffuse_constant])?;
+            check_color(i, *color)?;
+            check_light(i, light)
         }
         P::SpecularLighting {
             input,
             surface_scale,
             specular_constant,
             specular_exponent,
-            ..
+            color,
+            light,
         } => {
             check_input(i, *input)?;
             check_finite(i, &[*surface_scale])?;
             check_non_negative(i, &[*specular_constant])?;
+            check_color(i, *color)?;
+            check_light(i, light)?;
             if (1.0..=128.0).contains(specular_exponent) {
                 Ok(())
             } else {
@@ -612,7 +675,13 @@ fn check_transfer(i: usize, t: &TransferFn) -> Result<(), String> {
             }
             check_finite(i, v)
         }
-        _ => Ok(()),
+        TransferFn::Linear { slope, intercept } => check_finite(i, &[*slope, *intercept]),
+        TransferFn::Gamma {
+            amplitude,
+            exponent,
+            offset,
+        } => check_finite(i, &[*amplitude, *exponent, *offset]),
+        TransferFn::Identity => Ok(()),
     }
 }
 
@@ -621,6 +690,7 @@ fn check_convolve(
     order: (u32, u32),
     kernel: &[f64],
     divisor: f64,
+    bias: f64,
     target: (u32, u32),
 ) -> Result<(), String> {
     let valid_order = (1..=16).contains(&order.0) && (1..=16).contains(&order.1);
@@ -638,5 +708,5 @@ fn check_convolve(
         return Err(format!("primitive {i}: target must lie inside the order"));
     }
     check_finite(i, kernel)?;
-    check_finite(i, &[divisor])
+    check_finite(i, &[divisor, bias])
 }

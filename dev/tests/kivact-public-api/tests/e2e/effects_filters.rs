@@ -5,7 +5,7 @@
 //! per channel (§3.3, tier 2); a test that compares against a gradient
 //! also allows the gradient's own rounding and says so.
 
-use kivact::draw::filter::Channel;
+use kivact::draw::filter::{Channel, CompositeOp, Light};
 use kivact::draw::linear_gradient;
 use kivact::draw::{Filter, FilterGraph, FilterInput, MaskComposite, MaskLayer, MaskMode};
 use kivact::prelude::*;
@@ -107,6 +107,55 @@ fn filter_graph_displaces_the_source() {
         second.hash(),
         "the same input gives the same output"
     );
+}
+
+/// Builds one graph into a filter on a box and counts the errors reported.
+fn graph_errors(build: fn(&mut FilterGraph)) -> usize {
+    let screen = render(move || {
+        let mut graph = FilterGraph::new();
+        build(&mut graph);
+        canvas_of(node().style(at(0, 0, 40, 40).filter(Filter::new().graph(graph))))
+    });
+    screen.errors().len()
+}
+
+#[test]
+fn filter_graph_rejects_non_finite_numbers() {
+    // CPU: a NaN in an arithmetic composite, a colour matrix or a point
+    // light is reported once: the same limits hold on the GPU, where a NaN
+    // would give a result that depends on the rasterizer.
+    let arithmetic: fn(&mut FilterGraph) = |g| {
+        let red = g.flood(rgb(RED));
+        g.composite(
+            red,
+            FilterInput::SOURCE,
+            CompositeOp::Arithmetic {
+                k1: f64::NAN,
+                k2: 0.0,
+                k3: 0.0,
+                k4: 0.0,
+            },
+        );
+    };
+    let matrix: fn(&mut FilterGraph) = |g| {
+        g.color_matrix(FilterInput::SOURCE, [f64::NAN; 20]);
+    };
+    let light: fn(&mut FilterGraph) = |g| {
+        g.diffuse_lighting(
+            FilterInput::SOURCE,
+            Light::Point {
+                position: [f64::NAN, 0.0, 10.0],
+            },
+            rgb(WHITE),
+        );
+    };
+    for (name, build) in [
+        ("the arithmetic composite", arithmetic),
+        ("the colour matrix", matrix),
+        ("the point light", light),
+    ] {
+        assert_eq!(graph_errors(build), 1, "{name} with a NaN is reported");
+    }
 }
 
 #[test]
