@@ -1,21 +1,21 @@
 //! Role: Raw platform input vocabulary for shared normalization.
 use kivact_types::{Key, KeyCode, Point};
 use std::path::PathBuf;
-#[derive(Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum RawInput {
     Key(RawKey),
     Ime(RawIme),
     Drop(RawDrop),
 }
 // xtask-allow(state-fields): Raw key records carry independent input facts, not retained state.
-#[derive(Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct RawKey {
     pub key: PlatformKey,
     pub pressed: bool,
     pub repeat: Option<bool>,
     pub text: Option<String>,
 }
-#[derive(Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum PlatformKey {
     Vk {
         vk: u16,
@@ -32,7 +32,7 @@ pub enum PlatformKey {
         code: KeyCode,
     },
 }
-#[derive(Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum RawIme {
     Preedit {
         text: String,
@@ -44,7 +44,7 @@ pub enum RawIme {
         selection: (usize, usize),
     },
 }
-#[derive(Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum RawDrop {
     Hover {
         files: Vec<PathBuf>,

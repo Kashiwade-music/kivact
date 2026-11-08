@@ -38,25 +38,6 @@ impl fmt::Display for ShellError {
 }
 impl std::error::Error for ShellError {}
 
-/// Initial window options in logical pixels.
-#[derive(Clone, Debug)]
-pub struct ShellOptions {
-    /// Initial title.
-    pub title: String,
-    /// Initial content width.
-    pub width: f64,
-    /// Initial content height.
-    pub height: f64,
-}
-impl Default for ShellOptions {
-    fn default() -> Self {
-        Self {
-            title: "Arvane".into(),
-            width: kivact_types::defaults::DEFAULT_WINDOW_SIZE.width,
-            height: kivact_types::defaults::DEFAULT_WINDOW_SIZE.height,
-        }
-    }
-}
 /// What the event loop does after a callback.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ShellControl {

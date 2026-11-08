@@ -1,6 +1,6 @@
 //! Role: Platform-independent input vocabulary; pointer coordinates are logical pixels.
 
-use kivact_types::{FileDrop, ImeInput, KeyInput, Modifiers, PointerSample, WheelInput};
+use kivact_types::{FileDrop, ImeInput, KeyInput, Modifiers, PointerSample, RequestId, WheelInput};
 
 /// Ordered shell events delivered on the UI thread.
 #[derive(Clone, Debug, PartialEq)]
@@ -71,5 +71,10 @@ pub enum ShellEvent {
         /// The request; a native click arrives as `Activate` and is resolved
         /// against the node's declared actions by the receiver.
         request: kivact_types::A11yRequest,
+    },
+    /// Everything injected with this request was delivered to the window.
+    Injected {
+        /// The request of the effect that asked for the delivery.
+        request: RequestId,
     },
 }

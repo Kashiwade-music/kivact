@@ -16,24 +16,26 @@ mod task;
 pub use host::RuntimeConfig;
 pub use machine::{Machine, MachineCx, MachineHandle, Step, machine};
 pub use motion::{
-    Animatable, Animated, At, Easing, FrameInfo, FrameLoop, FrameRate, Keyframe, MotionEnv,
-    MotionState, MotionStats, Repeat, Retarget, Segment, Spring, Stagger, StaggerFrom,
-    StepPosition, Timeline, TimelineTrack, Transition, animated, frame_loop, timeline,
+    AnimInfo, AnimKind, Animatable, Animated, At, Easing, FrameInfo, FrameLoop, FrameRate,
+    Keyframe, MotionEnv, MotionState, MotionStats, Repeat, Retarget, Segment, Spring, Stagger,
+    StaggerFrom, StepPosition, Timeline, TimelineTrack, Transition, animated, frame_loop, timeline,
 };
 pub use reactive::{
-    AppId, Binding, Callback, EffectKind, ErrorKind, ExitState, Extensions, Handled, Handler,
-    HandlerResult, Host, IntoBinding, IntoReactive, IntoText, IntoValue, ItemKey, Kind, LiveCounts,
-    NodeId, NodeInfo, Notifier, Owned, Owner, OwnerId, Pending, Prop, PropValue, Reactive, Result,
-    Runtime, Selector, Signal, Stage, ThreadWaker, TraceRun, TraceWrite, Turn, TurnGuard,
-    TurnRecord, TurnReport, UiError, UiThreadOnly, Value, Var, binding, callback, clock_now,
-    effect, effect_on, memo, notifier, on_cleanup, on_mount, pure, raise, require_effectful,
-    require_setup, selector, signal, try_use_context, untrack, use_context, var,
+    AppId, Binding, Callback, CauseEntry, CauseTag, DetailEdge, DetailRun, DetailWrite, EffectKind,
+    ErrorKind, ExitState, Extensions, Handled, Handler, HandlerResult, Host, IntoBinding,
+    IntoReactive, IntoText, IntoValue, ItemKey, Kind, LiveCounts, LiveObject, LiveOwner,
+    LiveSnapshot, NodeId, NodeInfo, Notifier, Owned, Owner, OwnerId, OwnerInfo, Pending, Prop,
+    PropValue, Reactive, Reported, Result, Runtime, Selector, Signal, Stage, StageSpan,
+    ThreadWaker, TraceRun, TraceWrite, Turn, TurnDetail, TurnGuard, TurnRecord, TurnReport,
+    UiError, UiThreadOnly, Value, Var, binding, callback, clock_now, effect, effect_on, memo,
+    notifier, on_cleanup, on_mount, pure, raise, require_effectful, require_setup, selector,
+    signal, try_use_context, untrack, use_context, var,
 };
 pub use reactive::{handler, keyed};
 pub use task::{
     Action, ActionFn, ActionMode, ActionOutcome, AsyncState, BlockingWork, CancelToken, Completion,
-    DEFAULT_DRAIN_NS, Resource, Task, TaskState, TaskStats, action, blocking, resource, sleep,
-    spawn, spawn_in, timeout,
+    DEFAULT_DRAIN_NS, Resource, Task, TaskEntry, TaskState, TaskStats, action, blocking, resource,
+    sleep, spawn, spawn_in, timeout,
 };
 
 #[cfg(feature = "tokio")]

@@ -123,8 +123,8 @@ impl Runtime {
     pub fn stabilize(&self) {
         let mut runs: usize = 0;
         let limit = CYCLE_LIMIT * (self.graph.borrow().len() + 1);
-        let epoch = self.stab_epoch.get() + 1;
-        self.stab_epoch.set(epoch);
+        // Runs of each effect in this pass (the per-effect cycle limit).
+        let mut own_runs: std::collections::HashMap<Key, usize> = std::collections::HashMap::new();
         loop {
             let next = self
                 .sched
@@ -132,13 +132,9 @@ impl Runtime {
                 .pop_render(&mut self.graph.borrow_mut());
             let Some(key) = next else { break };
             runs += 1;
-            let own_runs = match self.graph.borrow_mut().get_mut(key).map(|n| &mut n.data) {
-                Some(NodeData::Effect(e) | NodeData::Watcher(e)) => {
-                    e.pass_runs.note_run(epoch).is_err()
-                }
-                _ => false,
-            };
-            if own_runs || runs > limit {
+            let own = own_runs.entry(key).or_insert(0);
+            *own += 1;
+            if *own > CYCLE_LIMIT || runs > limit {
                 self.abandon_render_effects(key);
                 let at = self.graph.borrow().get(key).map(|n| n.at);
                 self.default_sink(new_error(

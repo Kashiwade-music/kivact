@@ -18,7 +18,7 @@ use kivact_types::motion::{PlayDirection, Transition};
 
 use super::super::Repeat;
 use super::super::animated::shift;
-use super::super::state::{Anim, LoopMotion, MotionState};
+use super::super::state::{Anim, AnimInfo, AnimKind, LoopMotion, MotionState, motion_now};
 use super::super::transition::Kind;
 use super::super::values::Animatable;
 use super::calls::{Move, Reach, Reps};
@@ -26,7 +26,7 @@ use super::curve::{seg_value, spring_rest_ms};
 use super::plan::{Plan, TrackSlot, TrackState, build_plan, span_of};
 use super::segment::{SegmentDef, SegmentKind};
 use crate::{
-    Callback, EffectKind, ErrorKind, IntoValue, Owned, Owner, Signal, UiError, Value,
+    Callback, EffectKind, ErrorKind, IntoValue, Notifier, Owned, Owner, Signal, UiError, Value,
     require_effectful, require_setup,
 };
 
@@ -50,7 +50,7 @@ pub fn timeline() -> Timeline {
     let events = cell.events;
     let weak = Rc::downgrade(&cell);
     crate::reactive::watch(
-        move || events.get(),
+        move || events.track(),
         EffectKind::Internal,
         move |_| {
             if let Some(cell) = weak.upgrade() {
@@ -486,8 +486,8 @@ pub(crate) struct TimelineCell {
     phase: Signal<TimelinePhase>,
     /// The time last published (ms).
     time: Signal<f64>,
-    /// Counts the events the watcher must run.
-    events: Signal<u64>,
+    /// Wakes the watcher that runs `pending`.
+    events: Notifier,
     playback: Cell<Playback>,
     repeat: Cell<Repeat>,
     alternate: Cell<PlayDirection>,
@@ -506,7 +506,7 @@ impl TimelineCell {
             owner,
             phase: owner.signal(TimelinePhase::Idle { time: 0.0 }, at),
             time: owner.signal(0.0, at),
-            events: owner.signal(0, at),
+            events: owner.notifier(at),
             playback: Cell::new(Playback {
                 rate: 1.0,
                 direction: Direction::Forward,
@@ -524,7 +524,7 @@ impl TimelineCell {
     }
 
     fn now(&self) -> u64 {
-        self.owner.runtime().now_ns()
+        motion_now(&self.owner.runtime())
     }
 
     fn reduced(&self) -> bool {
@@ -647,7 +647,7 @@ impl TimelineCell {
     /// Queue an event for the watcher and wake it.
     fn announce(&self, event: Event) {
         self.pending.borrow_mut().push(event);
-        self.events.update(|n| *n += 1);
+        self.events.notify();
     }
 
     /// Run the queued events, outside every frame step.
@@ -741,7 +741,7 @@ impl TimelineCell {
             self.pending
                 .borrow_mut()
                 .extend(due.into_iter().map(Event::Call));
-            self.events.update(|n| *n += 1);
+            self.events.notify();
         }
     }
 
@@ -958,6 +958,17 @@ impl TimelineCell {
 impl Anim for TimelineCell {
     fn is_running(&self) -> bool {
         matches!(self.phase.get_untracked(), TimelinePhase::Playing { .. })
+    }
+
+    fn info(&self) -> AnimInfo {
+        AnimInfo {
+            kind: AnimKind::Timeline,
+            created_at: super::super::state::owner_source(self.owner),
+            owner: self.owner.id(),
+            running: self.is_running(),
+            paused: matches!(self.phase.get_untracked(), TimelinePhase::Paused { .. }),
+            decorative: self.motion.get() == LoopMotion::Decorative,
+        }
     }
 
     fn finish_decorative(&self) {

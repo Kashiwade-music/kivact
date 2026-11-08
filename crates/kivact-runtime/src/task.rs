@@ -50,7 +50,7 @@ pub use completion::Completion;
 pub use drain::DEFAULT_DRAIN_NS;
 pub use resource::{Resource, resource};
 pub use spawn::{Task, spawn, spawn_in};
-pub use state::{TaskState, TaskStats};
+pub use state::{TaskEntry, TaskState, TaskStats};
 pub use time::{sleep, timeout};
 
 pub use async_publication::Retry;

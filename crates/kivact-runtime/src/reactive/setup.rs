@@ -55,7 +55,7 @@ pub fn signal<T: 'static>(value: T) -> Signal<T> {
 pub fn var<T: 'static>(value: T) -> Var<T> {
     let at = Location::caller();
     let (rt, owner) = setup_scope("var", at);
-    let key = rt.insert_object(owner, Rc::new(RefCell::new(value)), None, at);
+    let key = rt.insert_object(owner, Rc::new(RefCell::new(value)), "Var", None, at);
     Var::from_key(rt.id(), key)
 }
 
@@ -107,7 +107,7 @@ pub fn callback<E: 'static, R: HandlerResult>(f: impl Fn(E) -> R + 'static) -> C
         owner,
         f: Box::new(move |e| f(e).into_outcome().map(|_| ())),
     });
-    Callback::from_key(rt.id(), rt.insert_object(owner, cb, None, at))
+    Callback::from_key(rt.id(), rt.insert_object(owner, cb, "Callback", None, at))
 }
 
 /// A cached derived value (Solid `createMemo`); readers are notified only

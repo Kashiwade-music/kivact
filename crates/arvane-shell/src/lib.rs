@@ -3,7 +3,7 @@
 //!
 //! Backends deliver ordered [`ShellEvent`] values on their UI thread, using
 //! logical window pixels for input coordinates and nanoseconds for deadlines.
-//! [`ShellOptions`] configures a window; [`ShellControl`] says whether the loop
+//! [`kivact_types::WindowRequest`] describes a window; [`ShellControl`] says whether the loop
 //! waits, wakes at a deadline or exits, and [`ShellWaker`] lets workers notify its event loop. [`ShellError`] separates
 //! unsupported platform services from failures of an available service.
 //!
@@ -32,6 +32,7 @@ mod clicks;
 mod contacts;
 mod events;
 mod ime;
+mod input;
 mod modifiers;
 mod mouse;
 pub mod pipeline;
@@ -39,6 +40,7 @@ mod services;
 mod target;
 mod types;
 mod window;
+mod window_input;
 
 pub use a11y::Accessibility;
 pub use a11y::error::AccessibilityError;
@@ -48,17 +50,19 @@ pub use clicks::ClickCounter;
 pub use contacts::Contacts;
 pub use events::ShellEvent;
 pub use ime::ShellImeText;
+pub use input::InjectedInput;
 pub use kivact_types::render::CpuFrame;
 pub use modifiers::ModifierState;
 pub use mouse::Mouse;
 pub use services::FileDialog;
-pub use types::{ShellControl, ShellError, ShellOptions, ShellWaker, WakeReasons};
+pub use types::{ShellControl, ShellError, ShellWaker, WakeReasons};
 
 pub use target::{GpuTarget, GpuWindow};
 pub use window::{
-    Backend, BufferAge, CpuFormat, ShellHandler, ShellWindow, Step, StepOutcome, SteppedBackend,
-    SteppedLoop,
+    Backend, BufferAge, CpuFormat, EventTarget, ShellHandler, ShellLoop, ShellWindow, Step,
+    StepOutcome, SteppedBackend, SteppedLoop,
 };
+pub use window_input::WindowInput;
 
 pub use child::{ChildHooks, MakeHandler, PanicSlot, ShellChild};
 pub use kivact_types::EmbedOptions;

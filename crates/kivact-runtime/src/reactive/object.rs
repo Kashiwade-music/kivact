@@ -29,6 +29,7 @@ impl Runtime {
         &self,
         owner: Key,
         data: Rc<dyn Any>,
+        name: &'static str,
         on_dispose: Option<Box<dyn FnOnce(&Runtime)>>,
         at: &'static Location<'static>,
     ) -> Key {
@@ -36,6 +37,7 @@ impl Runtime {
             owner,
             owner_index: 0,
             data,
+            name,
             on_dispose,
             created_at: at,
         });

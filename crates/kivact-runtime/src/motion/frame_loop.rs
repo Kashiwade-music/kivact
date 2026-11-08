@@ -7,7 +7,7 @@ use std::cell::Cell;
 use std::panic::Location;
 use std::rc::Rc;
 
-use super::state::{LoopCell, LoopGate, LoopMotion, LoopRun, LoopState, MotionState};
+use super::state::{LoopCell, LoopGate, LoopMotion, LoopRun, LoopState, MotionState, motion_now};
 use super::values::{FrameInfo, FrameRate};
 
 use crate::{ErrorKind, HandlerResult, Owned, Owner, Runtime, UiError, Value, require_effectful};
@@ -106,7 +106,7 @@ impl FrameLoop {
         if current.is_some_and(|r| r.rate == rate) {
             return;
         }
-        let now = rt.now_ns();
+        let now = motion_now(&rt);
         // A new rate counts from now; the time of the last callback stays
         // (`FrameInfo::delta`).
         cell.set_run(Some(LoopRun {

@@ -8,6 +8,7 @@
 use kivact_types::cell::Registry;
 use std::cell::RefCell;
 use std::collections::BTreeMap;
+use std::panic::Location;
 use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
@@ -15,7 +16,7 @@ use std::task::Waker;
 
 use super::executor::Executor;
 use crate::task::worker_pool::{self, Pool};
-use crate::{ErrorKind, UiError};
+use crate::{ErrorKind, OwnerId, UiError};
 use crate::{Owned, Runtime};
 
 /// Arrival identity of a registered timer.
@@ -33,10 +34,17 @@ impl CancelQueue {
     }
 }
 
+/// One registered host-clock timer.
+pub(crate) struct Timer {
+    pub(crate) waker: Waker,
+    pub(crate) created_at: &'static Location<'static>,
+    pub(crate) owner: Option<OwnerId>,
+}
+
 /// Pending host-clock timers ordered by deadline and arrival.
 #[derive(Default)]
 pub(crate) struct Scheduler {
-    pub(crate) timers: BTreeMap<(u64, TimerId), Waker>,
+    pub(crate) timers: BTreeMap<(u64, TimerId), Timer>,
     pub(crate) next_id: u64,
     pub(crate) cancel: Rc<CancelQueue>,
 }
@@ -70,6 +78,7 @@ impl Scheduler {
             .collect();
         due.into_iter()
             .filter_map(|k| self.timers.remove(&k))
+            .map(|timer| timer.waker)
             .collect()
     }
 }
@@ -169,6 +178,20 @@ impl TaskState {
             timers: self.time.borrow_mut().len(),
             outstanding_blocking: self.pool.borrow().outstanding(),
         }
+    }
+
+    /// The pending timers, earliest deadline first.
+    pub fn list(&self) -> Vec<TaskEntry> {
+        let mut time = self.time.borrow_mut();
+        time.drain_cancel();
+        time.timers
+            .iter()
+            .map(|((deadline, _), timer)| TaskEntry {
+                created_at: timer.created_at,
+                owner: timer.owner,
+                deadline_ns: *deadline,
+            })
+            .collect()
     }
 
     /// Stop the blocking pool, waiting up to two seconds per worker.
@@ -282,6 +305,17 @@ pub struct TaskStats {
     pub timers: usize,
     /// Blocking jobs submitted and not yet finished.
     pub outstanding_blocking: usize,
+}
+
+/// One pending timer, as [`TaskState::list`] reports it.
+pub struct TaskEntry {
+    /// Where the timer was created.
+    // xtask-allow(api-shape): diagnostic source positions retain Rust caller locations.
+    pub created_at: &'static Location<'static>,
+    /// The owner that created it.
+    pub owner: Option<OwnerId>,
+    /// The host-clock deadline (ns).
+    pub deadline_ns: u64,
 }
 
 /// Lifecycle of the App's lazily constructed blocking pool.

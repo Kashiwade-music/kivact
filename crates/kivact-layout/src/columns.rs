@@ -3,7 +3,7 @@
 use crate::calcs::Calcs;
 use crate::pass_state::Epoch;
 use crate::style::node::NodeStyle;
-use kivact_types::{LeafSize, MeasureRequest, Orientation, Point, Rect, Size};
+use kivact_types::{Insets, LeafSize, MeasureRequest, Orientation, Point, Rect, Size};
 use std::cell::Cell;
 
 /// The computed layout of one node.
@@ -19,6 +19,12 @@ pub struct NodeLayout {
     pub content_size: Size,
     /// The content box (inside border and padding), relative to the node.
     pub content_box: Rect,
+    /// Padding between the border and the content box.
+    pub padding: Insets,
+    /// Border widths around the padding box.
+    pub border: Insets,
+    /// Margins outside the border box.
+    pub margin: Insets,
 }
 
 /// What a leaf measured to, by request: the last 16 requests (`sizes`);

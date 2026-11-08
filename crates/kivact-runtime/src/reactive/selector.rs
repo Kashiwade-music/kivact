@@ -105,7 +105,7 @@ pub(crate) fn create_selector<K: crate::ItemKey>(
         effect,
         cache,
     });
-    let key = rt.insert_object(owner, state, None, at);
+    let key = rt.insert_object(owner, state, "Selector", None, at);
     Selector {
         app,
         key,

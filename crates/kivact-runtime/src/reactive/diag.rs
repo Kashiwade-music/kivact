@@ -20,10 +20,23 @@ use std::panic::Location;
 
 use crate::reactive::data::{Diag, Runtime};
 use crate::reactive::data::{TraceRun, TraceWrite, Turn, TurnRecord};
+use crate::reactive::detail::{CauseTag, TurnDetail};
 use crate::reactive::error::UiError;
+use crate::reactive::host_types::Stage;
 
 const RING: usize = 256;
 const PER_TURN: usize = 64;
+
+/// One error or diagnostic in report order, as the DevTools reads them.
+pub struct Reported {
+    /// The report sequence number (the rings share one counter).
+    pub seq: u64,
+    // xtask-allow(state-fields): passive record - one reported error for DevTools; seq and handled are independent facts of it.
+    /// Whether an error handler handled it (`false` when it reached the default sink).
+    pub handled: bool,
+    /// The error.
+    pub error: UiError,
+}
 
 impl std::fmt::Display for Turn {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -62,7 +75,9 @@ impl Diag {
         if self.errors.len() == RING {
             self.errors.pop_front();
         }
-        self.errors.push_back(err);
+        self.next_seq += 1;
+        let seq = self.next_seq;
+        self.errors.push_back((seq, err));
     }
 
     /// A non-fatal diagnostic (write after dispose, ...).
@@ -77,7 +92,9 @@ impl Diag {
         if self.diagnostics.len() == RING {
             self.diagnostics.pop_front();
         }
-        self.diagnostics.push_back(err);
+        self.next_seq += 1;
+        let seq = self.next_seq;
+        self.diagnostics.push_back((seq, err));
     }
 
     /// A free-form note of the current turn.
@@ -152,15 +169,19 @@ impl Diag {
     pub(crate) fn begin_turn(&mut self, events: usize) {
         self.finish_setup_notes();
         self.current.events = events;
+        if let Turn::Number(n) = self.current.turn {
+            self.detail.begin(n);
+        }
     }
 
     /// Finish the current turn and push it into the ring.
-    pub(crate) fn end_turn(&mut self, ops: usize, duration_ns: u64) {
+    pub(crate) fn end_turn(&mut self, ops: usize, duration_ns: u64, base_ns: u64) {
         let Turn::Number(n) = self.current.turn else {
             unreachable!("invariant: begin_turn sealed the setup record")
         };
         self.current.ops = ops;
         self.current.duration_ns = duration_ns;
+        self.detail.end_turn(base_ns, duration_ns);
         let c = &self.current;
         tracing::trace!(
             target: "kivact",
@@ -194,8 +215,19 @@ impl Runtime {
     }
 
     /// Record what started work in the current turn (`"timer"`, an event, ...).
-    pub(crate) fn record_cause(&self, c: String) {
-        self.diag.borrow_mut().cause(c);
+    pub(crate) fn record_cause_with(&self, tag: CauseTag, label: String) {
+        let mut diag = self.diag.borrow_mut();
+        diag.cause(label.clone());
+        diag.detail.cause(tag, label);
+    }
+
+    /// Record the elapsed time of the active turn stage in the detailed trace.
+    pub(crate) fn record_stage(&self, stage: Stage, elapsed: std::time::Duration) {
+        self.diag.borrow_mut().detail.stage(
+            stage,
+            self.now_ns(),
+            u64::try_from(elapsed.as_nanos()).unwrap_or(u64::MAX),
+        );
     }
 
     /// Publish setup notes without creating a host turn.
@@ -210,12 +242,51 @@ impl Runtime {
 
     /// Finish the turn record with the number of writes committed and its duration.
     pub(crate) fn end_turn(&self, ops: usize, duration_ns: u64) {
-        self.diag.borrow_mut().end_turn(ops, duration_ns);
+        self.diag
+            .borrow_mut()
+            .end_turn(ops, duration_ns, self.now_ns());
+    }
+
+    /// Turn the detailed turn trace on or off; the DevTools reads it.
+    pub fn set_detailed_trace(&self, on: bool) {
+        if on {
+            self.diag.borrow_mut().detail.start();
+        } else {
+            self.diag.borrow_mut().detail.stop();
+        }
+    }
+
+    /// Take the finished turns' detailed records, oldest first; the DevTools reads them.
+    pub fn take_turn_details(&self) -> Vec<TurnDetail> {
+        self.diag.borrow_mut().detail.take()
     }
 
     /// Errors that reached the default sink, oldest first (bounded ring).
     pub fn errors(&self) -> Vec<UiError> {
-        self.diag.borrow().errors.iter().cloned().collect()
+        self.diag
+            .borrow()
+            .errors
+            .iter()
+            .map(|(_, error)| error.clone())
+            .collect()
+    }
+
+    /// Errors and diagnostics in the order they were reported (bounded rings).
+    pub fn reported(&self) -> Vec<Reported> {
+        let diag = self.diag.borrow();
+        let mut reported = Vec::with_capacity(diag.errors.len() + diag.diagnostics.len());
+        reported.extend(diag.errors.iter().map(|(seq, error)| Reported {
+            seq: *seq,
+            handled: false,
+            error: error.clone(),
+        }));
+        reported.extend(diag.diagnostics.iter().map(|(seq, error)| Reported {
+            seq: *seq,
+            handled: true,
+            error: error.clone(),
+        }));
+        reported.sort_by_key(|entry| entry.seq);
+        reported
     }
 
     /// The current setup or host turn.

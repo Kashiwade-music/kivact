@@ -10,11 +10,17 @@ use std::task::{Context, Poll};
 use std::time::Duration;
 
 use crate::Runtime;
-use crate::{ErrorKind, UiError, raise};
+use crate::{ErrorKind, OwnerId, UiError, raise};
 
 enum SleepState {
-    Unregistered { deadline: u64 },
-    Registered { id: super::state::TimerId },
+    Unregistered {
+        deadline: u64,
+        created_at: &'static Location<'static>,
+        owner: Option<OwnerId>,
+    },
+    Registered {
+        id: super::state::TimerId,
+    },
     Fired,
 }
 
@@ -37,8 +43,12 @@ impl Future for Sleep {
             return Poll::Ready(());
         };
         let mut scheduler = super::TaskState::of(&rt).time.borrow_mut();
-        let key = match self.state {
-            SleepState::Unregistered { deadline } => {
+        let (key, created_at, owner) = match self.state {
+            SleepState::Unregistered {
+                deadline,
+                created_at,
+                owner,
+            } => {
                 if rt.now_ns() >= deadline {
                     self.state = SleepState::Fired;
                     return Poll::Ready(());
@@ -46,7 +56,7 @@ impl Future for Sleep {
                 scheduler.next_id += 1;
                 let id = scheduler.next_id;
                 self.state = SleepState::Registered { id };
-                (deadline, id)
+                ((deadline, id), created_at, owner)
             }
             SleepState::Registered { id } => {
                 let key = scheduler
@@ -65,11 +75,25 @@ impl Future for Sleep {
                     drop(fired);
                     return Poll::Ready(());
                 }
-                key
+                let old = scheduler
+                    .timers
+                    .get_mut(&key)
+                    .map(|timer| std::mem::replace(&mut timer.waker, cx.waker().clone()));
+                drop(scheduler);
+                drop(old);
+                rt.request_turn();
+                return Poll::Pending;
             }
             SleepState::Fired => return Poll::Ready(()),
         };
-        let old = scheduler.timers.insert(key, cx.waker().clone());
+        let old = scheduler.timers.insert(
+            key,
+            super::state::Timer {
+                waker: cx.waker().clone(),
+                created_at,
+                owner,
+            },
+        );
         drop(scheduler);
         drop(old);
         rt.request_turn();
@@ -85,11 +109,18 @@ impl Drop for Sleep {
     }
 }
 
-pub(crate) fn sleep_ns(rt: &Rc<Runtime>, ns: u64) -> Sleep {
+pub(crate) fn sleep_ns(
+    rt: &Rc<Runtime>,
+    ns: u64,
+    created_at: &'static Location<'static>,
+    owner: Option<OwnerId>,
+) -> Sleep {
     Sleep {
         rt: Rc::downgrade(rt),
         state: SleepState::Unregistered {
             deadline: rt.now_ns().saturating_add(ns),
+            created_at,
+            owner,
         },
         cancel: super::TaskState::of(rt).time.borrow().cancel.clone(),
     }
@@ -99,8 +130,11 @@ pub(crate) fn sleep_ns(rt: &Rc<Runtime>, ns: u64) -> Sleep {
 /// Must be created in a running App's frame; otherwise raises a located `WrongApp`.
 #[track_caller]
 pub fn sleep(d: Duration) -> impl Future<Output = ()> {
+    let at = Location::caller();
+    let rt = timer_runtime("sleep", at);
     let ns = d.as_nanos().min(u64::MAX as u128) as u64;
-    sleep_ns(&timer_runtime("sleep", Location::caller()), ns)
+    let owner = rt.current_owner().map(OwnerId);
+    sleep_ns(&rt, ns, at, owner)
 }
 
 fn timer_runtime(api: &'static str, at: &'static Location<'static>) -> Rc<Runtime> {
@@ -138,8 +172,11 @@ impl<F: Future> Future for Timeout<F> {
 /// Must be created in a running App's frame; otherwise raises a located `WrongApp`.
 #[track_caller]
 pub fn timeout<F: Future>(d: Duration, fut: F) -> impl Future<Output = Result<F::Output, UiError>> {
+    let at = Location::caller();
+    let rt = timer_runtime("timeout", at);
     let ns = d.as_nanos().min(u64::MAX as u128) as u64;
-    let sleep = sleep_ns(&timer_runtime("timeout", Location::caller()), ns);
+    let owner = rt.current_owner().map(OwnerId);
+    let sleep = sleep_ns(&rt, ns, at, owner);
     Timeout {
         fut: Box::pin(fut),
         sleep: Box::pin(sleep),

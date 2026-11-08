@@ -27,6 +27,7 @@
 mod arena;
 mod clock;
 mod data;
+mod detail;
 mod diag;
 mod error;
 mod execution;
@@ -59,6 +60,8 @@ pub use data::{
     Binding, Callback, EffectKind, Extensions, Kind, LiveCounts, NodeInfo, Runtime, Signal,
     TraceRun, TraceWrite, Turn, TurnGuard, TurnRecord, UiThreadOnly, Value, Var,
 };
+pub use detail::{CauseEntry, CauseTag, DetailEdge, DetailRun, DetailWrite, StageSpan, TurnDetail};
+pub use diag::Reported;
 pub use error::{ErrorKind, Result, UiError, raise};
 pub use frame::{pure, require_effectful, require_setup, untrack};
 pub(crate) use graph::watch;
@@ -68,6 +71,7 @@ pub use host_types::{ExitState, Host, Pending, Stage, ThreadWaker, TurnReport};
 pub use identity::{AppId, NodeId, OwnerId};
 pub use owner_handle::{Owned, Owner};
 pub use props::{IntoReactive, IntoText, IntoValue, ItemKey, Prop, PropValue, Reactive};
+pub use runtime::{LiveObject, LiveOwner, LiveSnapshot, OwnerInfo};
 pub use selector::{Selector, selector};
 pub use setup::{
     binding, callback, effect, effect_on, memo, notifier, on_cleanup, on_mount, signal,

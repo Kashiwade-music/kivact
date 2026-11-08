@@ -224,8 +224,11 @@ mouse = []
 ime = []
 services = []
 # The window SPI uses the neutral vocabulary and the GPU target leaf.
-window = ["events", "ime", "types", "services", "a11y", "target"]
+window = ["events", "ime", "types", "services", "a11y", "target", "input"]
 target = []
+# Injected input is pipeline vocabulary; one window's normalization joins its parts.
+input = ["pipeline"]
+window_input = ["events", "types", "ime", "pipeline", "mouse", "clicks", "contacts", "input"]
 
 
 # B7: topology below measurement, Model processing, presentation,
