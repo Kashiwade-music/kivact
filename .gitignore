@@ -25,3 +25,12 @@ target
 # Local Claude Code settings, agents and worktrees
 /.claude/
 /CLAUDE.md
+
+# DevTools and Python artifacts
+__pycache__/
+*.pyc
+.venv/
+*.egg-info/
+python/kivact-devtools/build/
+.kivact/review/
+.kivact/traces/

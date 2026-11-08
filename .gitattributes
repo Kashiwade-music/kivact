@@ -11,3 +11,5 @@ architecture/** linguist-documentation
 # Canonical catalog fonts retain upstream notice and checksum bytes.
 examples/shared-assets/fonts/**/OFL.txt text eol=lf whitespace=-blank-at-eol
 examples/shared-assets/fonts/SHA256SUMS.txt text eol=lf
+crates/kivact-devtools-protocol/schema/*.json text eol=lf
+python/kivact-devtools/src/kivact_devtools/_generated.py text eol=lf

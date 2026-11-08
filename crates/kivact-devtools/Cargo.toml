@@ -1,0 +1,24 @@
+[package]
+name = "kivact-devtools"
+publish = false
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "The Kivact DevTools app."
+
+[features]
+default = ["gpu"]
+gpu = ["kivact/gpu"]
+
+[dependencies]
+kivact = { path = "../kivact", version = "0.1.0", default-features = false }
+kivact-ui-basic = { path = "../kivact-ui-basic", version = "0.1.0" }
+kivact-devtools-client = { path = "../kivact-devtools-client", version = "0.1.0" }
+kivact-devtools-protocol = { path = "../kivact-devtools-protocol", version = "0.1.0" }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+kivact = { path = "../kivact", version = "0.1.0", default-features = false, features = ["test"] }
+
+[lints]
+workspace = true

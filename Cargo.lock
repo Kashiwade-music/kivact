@@ -2288,6 +2288,53 @@ dependencies = [
 ]
 
 [[package]]
+name = "kivact-devtools"
+version = "0.1.0"
+dependencies = [
+ "kivact",
+ "kivact-devtools-client",
+ "kivact-devtools-protocol",
+ "kivact-ui-basic",
+ "serde_json",
+]
+
+[[package]]
+name = "kivact-devtools-agent"
+version = "0.1.0"
+dependencies = [
+ "kivact-devtools-client",
+ "kivact-devtools-protocol",
+ "png 0.18.1",
+ "serde_json",
+ "tracing",
+]
+
+[[package]]
+name = "kivact-devtools-client"
+version = "0.1.0"
+dependencies = [
+ "kivact-devtools-protocol",
+ "serde_json",
+]
+
+[[package]]
+name = "kivact-devtools-mcp"
+version = "0.1.0"
+dependencies = [
+ "kivact-devtools-client",
+ "kivact-devtools-protocol",
+ "serde_json",
+]
+
+[[package]]
+name = "kivact-devtools-protocol"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "kivact-docs"
 version = "0.1.0"
 dependencies = [
