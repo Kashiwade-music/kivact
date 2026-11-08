@@ -123,7 +123,6 @@ fn layout_motion_maps_boxes_exactly() {
 /// A child with its own layout transition keeps its size while the parent
 /// scales: its window rect is not distorted by the parent's scale.
 #[test]
-#[ignore = "pending: layout-transition child is scaled (width 14.2, not 20) while its parent scales (design 12.12)"]
 fn nested_layout_motion_keeps_children_steady() {
     let (screen, big) = mount(|| {
         let big = signal(false);
@@ -234,7 +233,7 @@ fn layout_id_exit_records_once() {
 /// Corner of a box while it scales: the corner pixels match a static box of
 /// the same size and radius (tier 3, raster tolerance: anti-aliased corners).
 #[test]
-#[ignore = "pending: corner raster differs from a static reference (close 0.92 < 0.99); the radius correction of design 12.12 is the suspect"]
+#[ignore = "pending: a layer scaled unequally is bilinear-resampled along x (design 8.3: s = max scale); uniform scale is exact"]
 fn radius_is_corrected_while_scaling() {
     const RADIUS: f64 = 20.0;
     let (screen, big) = mount(|| {
