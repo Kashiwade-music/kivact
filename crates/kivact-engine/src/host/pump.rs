@@ -288,10 +288,6 @@ impl Host {
         let drawable = self.drawable();
         self.model.borrow_mut().set_surface(drawable);
         self.model.borrow_mut().frame.set_now(window.now_ns());
-        // A skipped export due now draws a frame, even with nothing else changed.
-        if self.model.borrow().drawables.retry_due(window.now_ns()) {
-            self.model.borrow_mut().paint.request_redraw();
-        }
         let output = self.client.turn(events, boundaries, window.now_ns());
         if self.observe_close() {
             return Ok(());
@@ -372,6 +368,12 @@ impl Host {
         }
         self.synchronize_ime(window);
         self.show_cursor(window);
+        // A skipped export due now draws a frame, even with nothing else
+        // changed (design §10.5, step 6). The turns above may not have run
+        // (no event was queued), so the check is here, not in `turn`.
+        if self.model.borrow().drawables.retry_due(window.now_ns()) {
+            self.model.borrow_mut().paint.request_redraw();
+        }
         // Without a surface (minimized) a redraw draws nothing and leaves
         // the paint dirty, so asking for one would spin; the restore asks.
         if self.paint_due() {
@@ -564,7 +566,12 @@ impl Host {
                 self.next_wake,
                 frame_deadline,
                 self.retry_at(),
-                model.drawables.retry_deadline(),
+                // A retry that is due was asked for by the redraw of `pump`,
+                // which runs the export; only a later retry is a wake.
+                model
+                    .drawables
+                    .retry_deadline()
+                    .filter(|at| *at > window.now_ns()),
             ]
             .into_iter()
             .flatten()
