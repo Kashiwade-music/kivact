@@ -34,6 +34,7 @@ use crate::lower::SceneOut;
 use crate::lower::context::Context;
 use crate::lower::effects::Tint;
 use crate::lower::fill::Boxes;
+use crate::lower::sanitize;
 
 /// A CSS blur radius as a standard deviation, sanitized.
 fn blur_px(px: f64) -> f64 {
@@ -87,7 +88,10 @@ impl Context<'_> {
                 blur,
                 color,
             } => LayerFilter::DropShadow {
-                offset: *offset,
+                offset: Point {
+                    x: sanitize::offset(offset.x),
+                    y: sanitize::offset(offset.y),
+                },
                 std_dev: blur_px(*blur) / 2.0,
                 color: *color,
             },
