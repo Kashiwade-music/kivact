@@ -134,6 +134,9 @@ fn dispatch_host(rt: &Runtime, host_event: &HostEvent) {
         HostEvent::DrawableNotHosted { node, drawable } => {
             diagnostics::drawable_not_hosted(rt, *node, *drawable)
         }
+        HostEvent::DrawableDrawnTwice { node, drawable } => {
+            diagnostics::drawable_drawn_twice(rt, *node, *drawable)
+        }
         HostEvent::TurnsCut { turns } => diagnostics::turns_cut(rt, *turns),
         HostEvent::ExternalImported { .. }
         | HostEvent::GpuAdapterChanged(_)

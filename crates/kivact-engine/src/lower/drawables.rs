@@ -28,6 +28,9 @@ pub(crate) struct DrawablePlan {
     pub(crate) layers: HashMap<DrawableId, Vec<CompositeLayer>>,
     /// The drawings of drawables in nodes that do not host them, not reported yet.
     pub(crate) misplaced: Vec<(NodeId, DrawableId)>,
+    /// The second drawings of a drawable its host already draws in the other
+    /// slot (the first drawing places it), not reported yet (§10.3).
+    pub(crate) twice: Vec<(NodeId, DrawableId)>,
 }
 
 /// Where a host scene's commands are lowered: the frame's plan, the node

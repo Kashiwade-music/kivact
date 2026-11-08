@@ -191,6 +191,13 @@ pub enum HostEvent {
         node: NodeId,
         drawable: DrawableId,
     },
+    /// `node` draws the canvas drawable `drawable` in both slots: the first
+    /// drawing places it and the second is skipped. Sent once per node and
+    /// drawable (§10.3).
+    DrawableDrawnTwice {
+        node: NodeId,
+        drawable: DrawableId,
+    },
     /// The text `node` has a layout defect (debug builds only; sent once
     /// per node and rule, again when its content or box changes). Not an
     /// error: the check is a lint (`LayoutCheck`).

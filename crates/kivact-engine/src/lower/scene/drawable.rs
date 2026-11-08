@@ -29,6 +29,9 @@ impl Context<'_> {
             return;
         }
         if plan.winners.get(&id) != Some(&(site.slot, index)) {
+            if plan.winners.contains_key(&id) {
+                plan.twice.push((site.host, id));
+            }
             return;
         }
         let Some(layers) = plan.layers.remove(&id) else {
