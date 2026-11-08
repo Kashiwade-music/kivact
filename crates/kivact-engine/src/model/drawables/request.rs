@@ -16,14 +16,19 @@ pub(crate) fn apply_request(m: &mut Model, request: HostRequest) {
             generation,
             mode,
             scale,
-        } => m.drawables.ask(
-            id,
-            ExportAsk {
-                generation,
-                mode,
-                scale,
-            },
-        ),
+        } => {
+            m.drawables.ask(
+                id,
+                ExportAsk {
+                    generation,
+                    mode,
+                    scale,
+                },
+            );
+            // The export is composed by a frame; nothing else may be
+            // changing, so the frame that starts it is asked for here.
+            m.paint.request_redraw();
+        }
         HostRequest::SetDrawableGeometry {
             id,
             generation,

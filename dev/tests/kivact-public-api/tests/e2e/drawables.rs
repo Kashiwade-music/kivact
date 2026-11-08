@@ -184,14 +184,18 @@ fn rgba_at(pixels: &Pixels, x: u32, y: u32) -> [u8; 4] {
     [bytes[i], bytes[i + 1], bytes[i + 2], bytes[i + 3]]
 }
 
-/// A viewport that exports `red_box` as its drawable (scale 1 once asked).
-fn export_app() -> (Screen, Drawable) {
+/// A viewport that exports its drawable: a box of 40 × 20 in `colour`
+/// (scale 1 once asked). The colour is the test's handle on the content.
+fn export_app() -> (Screen, (Drawable, Signal<u32>)) {
     mount(|| {
         let card = drawable();
+        let colour = signal(RED);
         let view = viewport(Pixels::new(1, 1, vec![0, 0, 0, 0]))
-            .drawable(card, red_box)
+            .drawable(card, move || {
+                node().style(move || style().size(40, 20).background(rgb(colour.get())))
+            })
             .style(style().size(120, 80));
-        (card, view)
+        ((card, colour), view)
     })
 }
 
@@ -276,7 +280,6 @@ fn drawable_content_is_focusable_and_findable() {
 /// Tier 1 (geometry): the accessibility box is the projection of the drawn
 /// box: x and width halve under `rotate_y(60)`, the box at z = 0.
 #[test]
-#[ignore = "pending: a11y bounds read 0,0,80x30 where the projected drawn box (10,10,40x30) was expected; cause not isolated"]
 fn drawable_a11y_bounds_are_projected() {
     let (screen, ()) = mount(|| {
         let card = drawable();
@@ -370,7 +373,6 @@ fn drawing_a_drawable_twice_reports() {
 /// A drawable that no canvas draws is not hit; its node stays in the
 /// accessibility tree with no bounds.
 #[test]
-#[ignore = "pending: an undrawn drawable still reports an a11y bounds rect (design 10.4 says none)"]
 fn unplaced_drawable_is_not_hit() {
     let (screen, pressed) = mount(|| {
         let card = drawable();
@@ -423,7 +425,6 @@ fn draw_over_update_keeps_draw_placement() {
 /// The same drawable in `draw` and `draw_over`: only the `draw` position is
 /// painted and hit, and the second is reported once.
 #[test]
-#[ignore = "pending: drawable drawn in both draw and draw_over reported 0 times, expected once; cause not isolated"]
 fn drawable_twice_across_slots_uses_the_first() {
     let (screen, presses) = mount(|| {
         let card = drawable();
@@ -571,18 +572,23 @@ fn nested_flat_backface_matches_compositor() {
 }
 
 /// Two requests in a row: every frame that comes after has the newer
-/// generation, and `latest` holds only that generation.
+/// generation, and `latest` holds only that generation. A frame is sent
+/// only when its value changed (design §8.12), so the content is recoloured
+/// before each later frame is awaited.
 #[test]
-#[ignore = "pending: no pixel frame after request_pixels within the wait; cause not isolated"]
 fn pixels_frames_of_old_generation_are_dropped() {
-    let (screen, card) = export_app();
+    let (screen, (card, colour)) = export_app();
     let share = card.share();
     share.set_scale(1.0);
     share.request_pixels();
     share.request_pixels();
     let mut after = 0;
     let mut generation = None;
-    for _ in 0..3 {
+    for round in 0..3 {
+        if round > 0 {
+            colour.set(RED + round);
+            screen.run_until_idle();
+        }
         let frame = next_frame(&screen, &share, after);
         let expected = *generation.get_or_insert(frame.generation());
         assert_eq!(
@@ -599,9 +605,8 @@ fn pixels_frames_of_old_generation_are_dropped() {
 /// A waiter whose cursor is the old generation's frame number gets the new
 /// generation's frame without a timeout, and the numbers keep growing.
 #[test]
-#[ignore = "pending: no frame after the generation change (Timeout); same cause as pixels_frames_of_old_generation_are_dropped"]
 fn wait_cursor_survives_generation_change() {
-    let (screen, card) = export_app();
+    let (screen, (card, _)) = export_app();
     let share = card.share();
     share.set_scale(1.0);
     share.request_pixels();
@@ -619,9 +624,8 @@ fn wait_cursor_survives_generation_change() {
 /// Tier 2 (solid fill): the frame the export makes of the drawable reaches a
 /// thread of its own, with the red box at its place.
 #[test]
-#[ignore = "pending: no pixel frame reaches the waiting thread (Timeout); cause not isolated"]
 fn exported_drawable_pixels_reach_another_thread() {
-    let (screen, card) = export_app();
+    let (screen, (card, _)) = export_app();
     let share = card.share();
     share.set_scale(1.0);
     share.request_pixels();

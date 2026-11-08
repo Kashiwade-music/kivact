@@ -318,6 +318,10 @@ impl Host {
             return Ok(ShellControl::Wait);
         }
         self.adapter_changed(window);
+        // The window's export notices (GPU available or lost) can come from
+        // a wake that queues no event: they are events here, so the turn that
+        // answers them runs (design §10.5, §8.12).
+        self.export_notices(window);
         self.model.borrow_mut().tick(window.now_ns());
         let mut turns = 0;
         loop {

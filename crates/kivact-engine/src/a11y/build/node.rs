@@ -283,6 +283,9 @@ impl Model {
             .flat_parent(n)
             .is_none_or(|parent| self.affine_map(parent));
         if self.affine_map(id) && parent_affine {
+            if let Some(own) = self.canvas_root_transform(id, bounds) {
+                return (Some(bounds), own);
+            }
             let own = if n.place.transformed {
                 self.a11y_transform(id, false, bounds, offset)
             } else {
@@ -296,6 +299,31 @@ impl Model {
         (
             self.affine_frame_bounds(id),
             kivact_types::Transform::IDENTITY,
+        )
+    }
+
+    /// The transform of a canvas drawable's root (§10.4): its drawn map to
+    /// its host, about the origin of its bounds, so its children keep their
+    /// bounds in its own box. `None` for any other node, and for a root that
+    /// no drawing places (its map is then absent).
+    fn canvas_root_transform(
+        &self,
+        id: types::NodeId,
+        bounds: types::Rect,
+    ) -> Option<kivact_types::Transform> {
+        let role = self.node(id)?.properties.drawable?;
+        if role.mode != crate::contract::DrawableMode::Canvas {
+            return None;
+        }
+        let map = self.to_parent(id)?.flatten().as_affine()?;
+        let at = types::Point {
+            x: bounds.x,
+            y: bounds.y,
+        };
+        Some(
+            kivact_types::Transform::translate(-at.x, -at.y)
+                .then(map)
+                .then(kivact_types::Transform::translate(at.x, at.y)),
         )
     }
 

@@ -54,10 +54,11 @@
 //! clip path, as every node is.
 
 use kivact_types::{
-    ElementTransform, Matrix4, NodeId, Perspective, Point, Projective, Rect, Size, TransformStyle,
+    DrawableId, ElementTransform, Matrix4, NodeId, Perspective, Point, Projective, Rect, Size,
+    TransformStyle,
 };
 
-use crate::contract::NodeType;
+use crate::contract::{DrawableMode, NodeType};
 use crate::model::Model;
 use crate::tree::node::{HostNode, Place};
 
@@ -249,6 +250,13 @@ impl Model {
         if n.is_transparent() {
             return None;
         }
+        if let Some(role) = n
+            .properties
+            .drawable
+            .filter(|r| r.mode == DrawableMode::Canvas)
+        {
+            return self.canvas_step(id, role.id);
+        }
         let size = self.computed_layout(id)?.size;
         let parent = if n.is_layer() {
             None
@@ -286,6 +294,22 @@ impl Model {
         }
         let regular = matrix.is_finite() && matrix.determinant().abs() >= SINGULAR;
         regular.then_some(Step { matrix, up })
+    }
+
+    /// The step of the root `id` of the canvas drawable `drawable` (§10.4): its
+    /// box into its host's border box, where the host's drawing places it.
+    /// `None` while no drawing places it or its back is hidden.
+    fn canvas_step(&self, id: NodeId, drawable: DrawableId) -> Option<Step> {
+        let host = self.tree.parent_id(self.tree.get(id)?)?;
+        let matrix = self.drawn_matrix(host, drawable)?;
+        let regular = matrix.is_finite() && matrix.determinant().abs() >= SINGULAR;
+        regular.then_some(Step {
+            matrix,
+            up: Up::Parent {
+                parent: host,
+                preserves_3d: false,
+            },
+        })
     }
 
     /// The perspective that the children of `parent` are in, when the parent's

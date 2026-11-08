@@ -28,7 +28,7 @@
 
 use std::sync::Arc;
 
-use crate::contract::{HostEvent, NodeKind, NodeProperties, NodeType, SceneLayer};
+use crate::contract::{DrawableMode, HostEvent, NodeKind, NodeProperties, NodeType, SceneLayer};
 use crate::mutation::Mutation;
 use crate::tree::node::{LeavingRole, NodePresence, Notify};
 use kivact_types::{DrawList, ElementTransform, NodeId, Point, RequestId, Revision};
@@ -87,6 +87,22 @@ impl Model {
             n.scenes[layer_index(layer)] = Some(scene);
             self.changes.mark(id, Dirty::WRITTEN);
             self.a11y.node(id);
+        }
+        // A canvas drawable's placement is read from its host's scenes, so
+        // its accessibility subtree follows them (design §10.4).
+        let roots: Vec<NodeId> = self.tree.get(id).map_or_else(Vec::new, |n| {
+            self.tree
+                .children_ids(n)
+                .filter(|child| {
+                    self.tree
+                        .get(*child)
+                        .and_then(|c| c.properties.drawable)
+                        .is_some_and(|role| role.mode == DrawableMode::Canvas)
+                })
+                .collect()
+        });
+        for root in roots {
+            self.a11y.subtree(root);
         }
         if let Some(focus) = self
             .focused()
