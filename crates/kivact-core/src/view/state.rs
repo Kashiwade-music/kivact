@@ -237,7 +237,7 @@ pub(crate) struct ViewState {
     /// The modifier keys the host reported last (`view::modifiers`).
     modifiers: Signal<Modifiers>,
     /// Focus / platform requests waiting for the host.
-    pub(super) requests: RefCell<Requests>,
+    pub(crate) requests: RefCell<Requests>,
 }
 
 /// One window's view record: the owner that declared it, its environment,

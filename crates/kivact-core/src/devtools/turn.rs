@@ -52,18 +52,6 @@ fn reset(rt: &Runtime) {
     updates::stop(rt);
 }
 
-/// Write the recording settings to the runtime and the engine.
-pub(crate) fn apply_recording(rt: &Runtime) {
-    let i = DevtoolsState::inspector(rt);
-    let recording = i.hooks.recording.borrow().clone();
-    let overlays = i.session.overlays.borrow().clone();
-    rt.set_detailed_trace(recording.updates);
-    ViewState::tree(rt).engine().set_engine_recording(
-        recording.updates || overlays.paint_flashing,
-        recording.updates || recording.frames,
-    );
-}
-
 /// The work of a turn after `turn.finish` fixed its records.
 pub(crate) fn after_turn(rt: &Runtime) {
     let DevtoolsState::Running(i) = DevtoolsState::of(rt) else {

@@ -150,6 +150,10 @@ pub(crate) fn rect(rect: Rect) -> p::Rect {
 }
 
 /// The wire kind of a host node type.
+#[allow(
+    dead_code,
+    reason = "the DevTools tree conversion (devtools::tree) maps engine kinds inline; this shared conversion has no caller among T12.1's files"
+)]
 pub(crate) fn node_kind(kind: NodeType) -> p::NodeKind {
     match kind {
         NodeType::Root => p::NodeKind::Root,

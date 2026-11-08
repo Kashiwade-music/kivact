@@ -5,6 +5,7 @@ mod console;
 mod convert;
 mod emulation;
 mod input;
+mod lifecycle;
 mod motion;
 mod node;
 mod overlay;
