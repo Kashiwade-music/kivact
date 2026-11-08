@@ -123,7 +123,6 @@ fn layout_motion_maps_boxes_exactly() {
 /// A child with its own layout transition keeps its size while the parent
 /// scales: its window rect is not distorted by the parent's scale.
 #[test]
-#[ignore = "pending: layout-transition child is scaled (width 14.2, not 20) while its parent scales (design 12.12)"]
 fn nested_layout_motion_keeps_children_steady() {
     let (screen, big) = mount(|| {
         let big = signal(false);
@@ -231,10 +230,11 @@ fn layout_id_exit_records_once() {
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 
-/// Corner of a box while it scales: the corner pixels match a static box of
-/// the same size and radius (tier 3, raster tolerance: anti-aliased corners).
+/// Corner shape of a box while it scales (tier 1, geometry: ±1 device px, B-25).
+/// The 50% coverage crossings of the corner's rows and columns match a static
+/// box of the same size and radius. Without the radius correction the arc of
+/// radius 20 is stretched by 0.708 in x and moves by 1.7 to 3 px in the top rows.
 #[test]
-#[ignore = "pending: corner raster differs from a static reference (close 0.92 < 0.99); the radius correction of design 12.12 is the suspect"]
 fn radius_is_corrected_while_scaling() {
     const RADIUS: f64 = 20.0;
     let (screen, big) = mount(|| {
@@ -254,11 +254,45 @@ fn radius_is_corrected_while_scaling() {
     let rect = screen.get_by_test_id("moving").rect().unwrap();
     let corner = screen
         .screenshot()
-        .crop(rect.x as u32, rect.y as u32, 12, 12);
+        .crop(rect.x as u32, rect.y as u32, CORNER, CORNER);
     let reference = reference_corner(rect.width, RADIUS);
-    let diff = corner.raster_difference(&reference);
-    assert!(diff.within_raster_tolerance(), "corner differs: {diff:?}");
+    let moving = corner_crossings(&corner);
+    let fixed = corner_crossings(&reference);
+    for (index, (m, r)) in moving.iter().zip(&fixed).enumerate() {
+        let (Some(m), Some(r)) = (m, r) else {
+            panic!("line {index}: no 50% crossing (moving {m:?}, reference {r:?})");
+        };
+        assert!(
+            (m - r).abs() <= 1.0,
+            "line {index}: the edge is at {m:.2} px, the reference at {r:.2} px"
+        );
+    }
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+/// Corner shot size and the rows and columns compared (the arc spans 20 px).
+const CORNER: u32 = 20;
+const LINES: u32 = 12;
+
+/// Coverage of the red box in a pixel: 0 on the white background, 1 inside.
+fn coverage(pixel: u32) -> f64 {
+    f64::from(255 - ((pixel >> 8) & 255)) / 255.0
+}
+
+/// Where `samples` (pixel centres at i + 0.5) first cross 50% going inward,
+/// interpolated between the two pixels around the crossing.
+fn crossing(samples: &[f64]) -> Option<f64> {
+    samples.windows(2).enumerate().find_map(|(i, w)| {
+        (w[0] < 0.5 && w[1] >= 0.5).then(|| i as f64 + 0.5 + (0.5 - w[0]) / (w[1] - w[0]))
+    })
+}
+
+/// The crossings of the first `LINES` rows, then of the first `LINES` columns.
+fn corner_crossings(shot: &Screenshot) -> Vec<Option<f64>> {
+    let at = |x: u32, y: u32| coverage(shot.pixel(x, y).unwrap());
+    let rows = (0..LINES).map(|y| crossing(&(0..CORNER).map(|x| at(x, y)).collect::<Vec<_>>()));
+    let columns = (0..LINES).map(|x| crossing(&(0..CORNER).map(|y| at(x, y)).collect::<Vec<_>>()));
+    rows.chain(columns).collect()
 }
 
 /// A static box of `width` x 100 with the radius, its top-left corner.
@@ -274,5 +308,5 @@ fn reference_corner(width: f64, radius: f64) -> Screenshot {
             ),
         )
     });
-    screen.screenshot().crop(0, 0, 12, 12)
+    screen.screenshot().crop(0, 0, CORNER, CORNER)
 }
