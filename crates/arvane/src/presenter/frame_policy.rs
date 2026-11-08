@@ -222,6 +222,11 @@ impl Presenter {
         composition: &Composition,
         plan: FramePlan,
     ) -> Result<Presented, Failure> {
+        // Every frame that was drawn notes its report, including one drawn
+        // after a surface loss on the CPU.
+        if let Ok(drawn) = &drawn {
+            self.note_report(&drawn.report);
+        }
         // A frame that was not shown leaves the compositor's records ahead
         // of what the window holds: the next frame redraws everything.
         if !matches!(&drawn, Ok(drawn) if drawn.shown) {
@@ -284,9 +289,6 @@ impl Presenter {
     ) -> Result<Presented, Failure> {
         let was_ready = self.gpu.ready();
         let drawn = self.draw_native(window, composition, plan);
-        if let Ok(drawn) = &drawn {
-            self.note_report(&drawn.report);
-        }
         let (now, period) = (window.now_ns(), window.frame_period_ns());
         let renderer = if self.gpu.ready() {
             Renderer::Gpu
@@ -391,6 +393,9 @@ impl Presenter {
                 let raster = started.elapsed();
                 match self.gpu.present_pixels(&make, &pixels, physical) {
                     Some(Ok((presentation, present))) => {
+                        // The window's CPU surface holds an older frame; the next CPU frame
+                        // must not be damage-merged onto it.
+                        window.release_cpu_surface();
                         if presentation == Presentation::Shown {
                             self.keep_shown_frame(window);
                         }
