@@ -294,14 +294,14 @@ impl Timeline {
         let cell = self.cell(at);
         let source = progress.into_prop();
         cell.phase.set(TimelinePhase::Driven);
-        cell.drive_to(crate::untrack(|| source.get()));
+        cell.drive_to(crate::untrack(|| source.get()), at);
         let weak = Rc::downgrade(&cell);
         crate::reactive::watch(
             move || source.get(),
             EffectKind::Internal,
             move |p: &f64| {
                 if let Some(cell) = weak.upgrade() {
-                    cell.drive_to(*p);
+                    cell.drive_to(*p, at);
                 }
             },
         );
@@ -909,6 +909,14 @@ impl TimelineCell {
         if self.refuse_driven("Timeline::seek", at) {
             return;
         }
+        if !ms.is_finite() {
+            self.owner.report(UiError::new(
+                ErrorKind::Message,
+                "timeline seek needs a finite time",
+                Some(at),
+            ));
+            return;
+        }
         let time = ms.clamp(0.0, self.total());
         let next = match self.phase.get_untracked() {
             TimelinePhase::Idle { .. } => TimelinePhase::Idle { time },
@@ -948,8 +956,17 @@ impl TimelineCell {
         self.wake();
     }
 
-    /// Show the progress `p` (0..=1) of a driven timeline.
-    fn drive_to(&self, p: f64) {
+    /// Show the progress `p` (0..=1) of a driven timeline; a non-finite
+    /// progress is reported and ignored.
+    fn drive_to(&self, p: f64, at: &'static Location<'static>) {
+        if !p.is_finite() {
+            self.owner.report(UiError::new(
+                ErrorKind::Message,
+                "timeline progress must be a finite number",
+                Some(at),
+            ));
+            return;
+        }
         self.apply(p.clamp(0.0, 1.0) * self.duration());
     }
 }
