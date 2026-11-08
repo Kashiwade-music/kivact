@@ -97,7 +97,7 @@ impl Model {
                 matches!(
                     self.tree.presence_of(*id),
                     NodePresence::Arriving(ArrivalPhase::Animating)
-                ) && self.motion.get(*id).is_none()
+                ) && !self.motion.in_flight(*id)
                     && !self.presence.sizes.contains_key(id)
             })
             .collect();
