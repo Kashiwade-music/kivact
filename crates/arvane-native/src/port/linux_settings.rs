@@ -1,13 +1,14 @@
 //! Role: The Linux desktop's reduced-motion preference, read from the settings portal.
 //!
-//! Invariants: one watcher thread reads `org.freedesktop.portal.Settings` and keeps
-//! [`reduced_motion`] current; a change wakes the event loop with
-//! `WakeReasons::ENVIRONMENT`, which the runner turns into
-//! `ShellEvent::EnvironmentChanged`. Without a session bus or portal the
-//! preference stays off.
+//! Invariants: one watcher thread, started by the first [`watch`], reads
+//! `org.freedesktop.portal.Settings` and keeps [`reduced_motion`] current. A change
+//! wakes every event loop that registered with [`watch`] (`WakeReasons::ENVIRONMENT`),
+//! which each turns into `ShellEvent::EnvironmentChanged`. Without a session bus or
+//! portal the preference stays off.
 
 use arvane_shell::{ShellWaker, WakeReasons};
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Mutex, OnceLock, PoisonError};
 use zbus::blocking::{Connection, Proxy};
 use zbus::zvariant::OwnedValue;
 
@@ -20,22 +21,35 @@ const KDE_NAMESPACE: &str = "org.kde.kdeglobals.KDE";
 /// The reduced-motion preference last read from the portal.
 static REDUCED_MOTION: AtomicBool = AtomicBool::new(false);
 
+/// The wakers of the event loops that show the environment. A waker of a closed loop is a no-op.
+static WAKERS: Mutex<Vec<ShellWaker>> = Mutex::new(Vec::new());
+
+/// Set once the watcher thread is started, so that every loop shares one thread.
+static STARTED: OnceLock<()> = OnceLock::new();
+
 /// Whether the desktop asks to reduce motion, as last read from the portal.
 pub(crate) fn reduced_motion() -> bool {
     REDUCED_MOTION.load(Ordering::Acquire)
 }
 
-/// Start the watcher thread. `waker` wakes the event loop when the preference changes.
+/// Register `waker` to be woken when the preference changes, and start the watcher thread
+/// on the first call.
 pub(crate) fn watch(waker: ShellWaker) {
-    let spawned = std::thread::Builder::new()
-        .name("arvane-settings".into())
-        .spawn(move || run(&waker));
-    if let Err(error) = spawned {
-        tracing::debug!(%error, "settings watcher thread not started");
-    }
+    WAKERS
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner)
+        .push(waker);
+    STARTED.get_or_init(|| {
+        let spawned = std::thread::Builder::new()
+            .name("arvane-settings".into())
+            .spawn(run);
+        if let Err(error) = spawned {
+            tracing::debug!(%error, "settings watcher thread not started");
+        }
+    });
 }
 
-fn run(waker: &ShellWaker) {
+fn run() {
     let Ok(connection) = Connection::session() else {
         tracing::debug!("no session bus; reduced motion stays off");
         return;
@@ -47,20 +61,23 @@ fn run(waker: &ShellWaker) {
     // Subscribe before the first read so that no change in between is missed.
     let Ok(changes) = proxy.receive_signal("SettingChanged") else {
         tracing::debug!("settings portal sends no change signal; reduced motion is read once");
-        refresh(&proxy, waker);
+        refresh(&proxy);
         return;
     };
-    refresh(&proxy, waker);
+    refresh(&proxy);
     for _ in changes {
-        refresh(&proxy, waker);
+        refresh(&proxy);
     }
 }
 
-/// Read the preference again and wake the event loop when it changed.
-fn refresh(proxy: &Proxy<'_>, waker: &ShellWaker) {
+/// Read the preference again and wake the event loops when it changed.
+fn refresh(proxy: &Proxy<'_>) {
     let reduced = read_reduced_motion(proxy);
     if REDUCED_MOTION.swap(reduced, Ordering::AcqRel) != reduced {
-        waker.wake(WakeReasons::ENVIRONMENT);
+        let wakers = WAKERS.lock().unwrap_or_else(PoisonError::into_inner);
+        for waker in wakers.iter() {
+            waker.wake(WakeReasons::ENVIRONMENT);
+        }
     }
 }
 

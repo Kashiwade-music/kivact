@@ -359,14 +359,15 @@ impl ShellWindow for VirtualShell {
         if (width, height) != self.physical_size() {
             return Err(ShellError::new("frame size differs from window surface"));
         }
-        // With damage, the buffer starts as the frame presented last time, of the same size.
+        // With damage, the buffer starts as the CPU frame presented last time, of the same size.
+        // A GPU frame kept for the device-loss fallback is not that frame.
         let previous = self
             .frame
             .as_ref()
             .filter(|(w, h, _)| (*w, *h) == (width, height))
             .map(|(_, _, pixels)| pixels.to_vec());
         let (mut pixels, age) = match (damage, previous) {
-            (Some(_), Some(previous)) => (previous, BufferAge::Previous),
+            (Some(_), Some(previous)) if self.cpu_frame.get() => (previous, BufferAge::Previous),
             _ => (
                 vec![0; width as usize * height as usize],
                 BufferAge::Unknown,
