@@ -5,15 +5,23 @@
 //! effects and frames out over Arvane's windows.
 
 use super::client::{Boundary, Client};
-use super::devtools::{DevtoolsHost, append_overlay_layer, effective_scale};
+use super::devtools::{
+    DevtoolsHost, append_overlay_layer, apply_emulation, chord_matches, effective_scale,
+    emulated_viewport,
+};
 use super::window::{HostWindow, ImeAllowed, LastPresent, SoftKeyboard, Surface};
-use crate::contract::{DrawableTexturesHandle, FrameRecord, HostEvent};
+use crate::contract::{
+    DevtoolsChange, DrawableTexturesHandle, EngineEmulation, FrameRecord, HostEvent, PickPhase,
+};
 use crate::model::edit::state::ImeUpdate;
 use crate::model::{AppModel, DeferredRequest};
 use crate::{FrameLog, FrameTimes};
-use arvane::{ExportNotice, Presented, ShellControl, ShellError, Window, Windows};
+use arvane::{ExportNotice, Presented, ShellControl, ShellError, ShellEvent, Window, Windows};
 use kivact_types::cell::{ReportOnce, Sent};
-use kivact_types::{DrawableId, PlatformRequest, PlatformResult, WindowId};
+use kivact_types::{
+    DrawableId, Key, KeyInput, KeyPhase, MouseButton, NodeId, PlatformRequest, PlatformResult,
+    Point, PointerPhase, WindowId,
+};
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::time::Instant;
@@ -798,6 +806,124 @@ impl Host {
             ShellControl::Exit
         } else {
             next.map_or(ShellControl::Wait, ShellControl::WakeAt)
+        }
+    }
+}
+
+impl Host {
+    /// Drop `event` for the DevTools when it is a start key or while `id`
+    /// is picking; the DevTools event is queued instead.
+    pub(super) fn intercept_devtools(&mut self, id: WindowId, event: &ShellEvent) -> bool {
+        if let ShellEvent::Key(input) = event
+            && matches!(input.phase, KeyPhase::Down { .. })
+            && let Some(pick) = self.start_key(input)
+        {
+            self.app
+                .borrow()
+                .push_event(HostEvent::DevtoolsKey { window: id, pick });
+            return true;
+        }
+        if self.devtools.pick != Some(id) {
+            return false;
+        }
+        match event {
+            ShellEvent::Pointer(input) => {
+                let node = self.pick_node(id, input.position);
+                let phase = match input.phase {
+                    PointerPhase::Move => PickPhase::Hover,
+                    PointerPhase::Down(press) if press.button == MouseButton::Primary => {
+                        PickPhase::Select
+                    }
+                    _ => return false,
+                };
+                self.app.borrow().push_event(HostEvent::DevtoolsPick {
+                    window: id,
+                    node,
+                    phase,
+                });
+                true
+            }
+            ShellEvent::Wheel(_) => true,
+            ShellEvent::Key(input)
+                if input.key == Key::Escape && matches!(input.phase, KeyPhase::Down { .. }) =>
+            {
+                self.app.borrow().push_event(HostEvent::DevtoolsPick {
+                    window: id,
+                    node: None,
+                    phase: PickPhase::Cancel,
+                });
+                true
+            }
+            _ => false,
+        }
+    }
+
+    /// Whether the press `input` is a start key; `Some(true)` for a pick key.
+    fn start_key(&self, input: &KeyInput) -> Option<bool> {
+        let pick = self
+            .devtools
+            .keys
+            .pick
+            .iter()
+            .any(|chord| chord_matches(chord, input));
+        if pick {
+            return Some(true);
+        }
+        self.devtools
+            .keys
+            .open
+            .iter()
+            .any(|chord| chord_matches(chord, input))
+            .then_some(false)
+    }
+
+    /// The node under `point` for pick mode, ignoring modals.
+    fn pick_node(&self, id: WindowId, point: Point) -> Option<NodeId> {
+        self.app
+            .borrow()
+            .model(id)
+            .and_then(|model| model.hit_any(point))
+    }
+
+    /// Apply the DevTools changes of the turn to `DevtoolsHost`.
+    pub(super) fn apply_devtools_changes(&mut self) {
+        let changes = self.app.borrow_mut().take_devtools_changes();
+        for change in changes {
+            match change {
+                DevtoolsChange::Overlay(window, overlay) => {
+                    self.devtools.overlays.insert(window, overlay);
+                    if let Some(model) = self.app.borrow_mut().model_mut(window) {
+                        model.paint.request_redraw();
+                    }
+                }
+                DevtoolsChange::Pick(pick) => self.devtools.pick = pick,
+                DevtoolsChange::Keys(keys) => self.devtools.keys = keys,
+            }
+        }
+    }
+
+    /// Apply the emulation to every window after `DeferredRequest::Emulate`.
+    pub(super) fn apply_emulation(
+        &mut self,
+        emulation: EngineEmulation,
+        windows: &mut Windows<'_>,
+    ) {
+        self.devtools.emulation = emulation;
+        let ids = self.window_ids();
+        let mut sizes = Vec::new();
+        for id in ids {
+            if let Some(window) = windows.get(id) {
+                sizes.push((id, window.size(), window.scale()));
+            }
+        }
+        for (id, size, native_scale) in sizes {
+            let viewport = emulated_viewport(size, native_scale, emulation.scale);
+            let scale = effective_scale(native_scale, emulation.scale);
+            if let Some(model) = self.app.borrow_mut().model_mut(id) {
+                model.set_viewport(viewport);
+                model.paint.set_scale(scale);
+                model.update_env(|env, _| apply_emulation(emulation, env));
+            }
         }
     }
 }

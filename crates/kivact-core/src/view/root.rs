@@ -59,6 +59,7 @@ pub(crate) fn install_app_contexts(
             })
         }
     };
+    let locale = crate::view::devtools_hooks::wrap_locale(owner, locale);
     // The root publishes a theme source even for a fixed startup value, so
     // style dependencies retain the same theme identity in diagnostics.
     // Reactive inputs keep their existing source and update semantics.
@@ -66,6 +67,7 @@ pub(crate) fn install_app_contexts(
         Some(theme) => owner.signal(theme, at).into_value(),
         None => owner.with_setup(|| theme.into_value(owner, at)),
     };
+    let theme = crate::view::devtools_hooks::wrap_theme(owner, theme);
     kivact_style::internal::install_theme(owner, theme);
     crate::view::boundary::install_locale(owner, locale);
     let messages: Signal<Messages> = owner.signal(app_messages, at);

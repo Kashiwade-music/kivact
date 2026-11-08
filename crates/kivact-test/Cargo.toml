@@ -19,6 +19,7 @@ kivact-i18n = { path = "../kivact-i18n", version = "0.1.0" }
 [features]
 embed = ["kivact-core/embed"]
 gpu-interop = ["kivact-core/gpu-interop"]
+devtools = ["kivact-core/devtools"]
 
 [lints]
 workspace = true

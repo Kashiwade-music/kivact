@@ -45,6 +45,18 @@ impl Inspect<'_> {
     pub fn turns(&self) -> Vec<kivact_runtime::TurnRecord> {
         self.rt().turns()
     }
+
+    /// The discovery file of the running DevTools agent, if it runs.
+    #[cfg(feature = "devtools")]
+    pub fn devtools_target(&self) -> Option<std::path::PathBuf> {
+        let crate::view::devtools_state::DevtoolsState::Running(inspector) =
+            crate::view::devtools_state::DevtoolsState::of(self.rt())
+        else {
+            return None;
+        };
+        let path = inspector.agent.borrow().discovery_path().to_owned();
+        Some(path)
+    }
 }
 
 impl Inspect<'_> {

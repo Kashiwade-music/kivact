@@ -14,6 +14,11 @@
 
 pub(crate) mod boundary;
 pub(crate) mod descriptor;
+#[cfg(feature = "devtools")]
+pub(crate) mod devtools_apply;
+pub(crate) mod devtools_hooks;
+#[cfg(feature = "devtools")]
+pub(crate) mod devtools_state;
 pub(crate) mod drawable;
 mod drawable_share;
 pub(crate) mod element_data;
@@ -45,6 +50,7 @@ mod share_error;
 pub(crate) mod snapshots;
 pub(crate) mod span;
 pub(crate) mod state;
+mod style_layer;
 pub(crate) mod sync_hook;
 pub(crate) mod text_edits;
 pub(crate) mod tree;
@@ -121,9 +127,9 @@ pub use elements::{
 pub use kivact_style::asset::{Asset, AssetBytes};
 
 #[doc(hidden)]
-pub use element_data::RecipeName;
-#[doc(hidden)]
 pub use flow::ListInput;
+#[doc(hidden)]
+pub use style_layer::RecipeName;
 
 #[doc(hidden)]
 pub use elements::ViewportTransform;

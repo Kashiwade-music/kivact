@@ -28,7 +28,7 @@
 //! - A window with an open modal child drops Pointer, Wheel, Key, Ime, File
 //!   and Accessibility input before it reaches the parent's model.
 //! - The window losing the focus cancels every pointer of that window.
-use super::devtools::{apply_emulation, effective_scale, emulated_viewport};
+use super::devtools::{apply_emulation, effective_scale, emulated_viewport, physical_letter};
 use super::pump::{AppPresence, Host, HostPhase};
 use super::window::LastPresent;
 use crate::KeyResult;
@@ -608,37 +608,5 @@ fn hit_tests(event: &ShellEvent) -> bool {
                 || !matches!(input.phase, PointerPhase::Leave | PointerPhase::Cancel)
         }
         _ => false,
-    }
-}
-
-pub(super) fn physical_letter(code: kivact_types::KeyCode) -> Option<char> {
-    match code {
-        kivact_types::KeyCode::KeyA => Some('a'),
-        kivact_types::KeyCode::KeyB => Some('b'),
-        kivact_types::KeyCode::KeyC => Some('c'),
-        kivact_types::KeyCode::KeyD => Some('d'),
-        kivact_types::KeyCode::KeyE => Some('e'),
-        kivact_types::KeyCode::KeyF => Some('f'),
-        kivact_types::KeyCode::KeyG => Some('g'),
-        kivact_types::KeyCode::KeyH => Some('h'),
-        kivact_types::KeyCode::KeyI => Some('i'),
-        kivact_types::KeyCode::KeyJ => Some('j'),
-        kivact_types::KeyCode::KeyK => Some('k'),
-        kivact_types::KeyCode::KeyL => Some('l'),
-        kivact_types::KeyCode::KeyM => Some('m'),
-        kivact_types::KeyCode::KeyN => Some('n'),
-        kivact_types::KeyCode::KeyO => Some('o'),
-        kivact_types::KeyCode::KeyP => Some('p'),
-        kivact_types::KeyCode::KeyQ => Some('q'),
-        kivact_types::KeyCode::KeyR => Some('r'),
-        kivact_types::KeyCode::KeyS => Some('s'),
-        kivact_types::KeyCode::KeyT => Some('t'),
-        kivact_types::KeyCode::KeyU => Some('u'),
-        kivact_types::KeyCode::KeyV => Some('v'),
-        kivact_types::KeyCode::KeyW => Some('w'),
-        kivact_types::KeyCode::KeyX => Some('x'),
-        kivact_types::KeyCode::KeyY => Some('y'),
-        kivact_types::KeyCode::KeyZ => Some('z'),
-        _ => None,
     }
 }

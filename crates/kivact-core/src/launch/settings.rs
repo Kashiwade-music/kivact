@@ -29,6 +29,9 @@ pub(crate) struct AppSettings {
     pub(super) fonts: Vec<(Asset, &'static Location<'static>)>,
     /// How the window's GPU device is made (`gpu_preference`).
     pub(super) gpu_preference: kivact_types::GpuPreference,
+    // xtask-allow(state-fields): setting - an independent opt-in a test sets to start the DevTools agent
+    #[cfg(feature = "devtools")]
+    pub(super) devtools_in_tests: bool,
 }
 
 impl AppOptions {
@@ -45,6 +48,8 @@ impl AppOptions {
                 blocking_threads: None,
                 fonts: Vec::new(),
                 gpu_preference: kivact_types::GpuPreference::default(),
+                #[cfg(feature = "devtools")]
+                devtools_in_tests: false,
             },
         }
     }
@@ -133,6 +138,14 @@ impl AppOptions {
     /// Size of the blocking pool (default `min(4, CPUs)`).
     pub fn blocking_threads(mut self, n: usize) -> Self {
         self.settings.blocking_threads = Some(n.max(1));
+        self
+    }
+
+    // xtask-allow(internal-contract): kivact::test starts the DevTools agent for a test App
+    #[cfg(feature = "devtools")]
+    #[doc(hidden)]
+    pub fn devtools_in_tests(mut self) -> Self {
+        self.settings.devtools_in_tests = true;
         self
     }
 

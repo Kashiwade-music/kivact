@@ -4,7 +4,7 @@ use crate::view::drawable::events;
 use crate::view::state::ViewState;
 use kivact_engine::contract::HostEvent;
 use kivact_runtime::Runtime;
-use kivact_types::WindowId;
+use kivact_types::{FocusTarget, WindowId};
 
 pub(crate) fn dispatch(rt: &Runtime, host_event: &HostEvent) {
     // An event that names a window already closed has no record to apply to.
@@ -17,6 +17,32 @@ pub(crate) fn dispatch(rt: &Runtime, host_event: &HostEvent) {
     let host_event = prepared.as_ref().unwrap_or(host_event);
     common::track_modality(rt, host_event);
     common::track_modifiers(rt, host_event);
+    record_input(rt, host_event);
+    if focus_event(rt, host_event) {
+        return;
+    }
+    deliver(rt, host_event);
+}
+
+/// Record a pointer, wheel, key, IME or file event for the DevTools input log.
+fn record_input(rt: &Runtime, host_event: &HostEvent) {
+    let window = match host_event {
+        HostEvent::Pointer(route) => route.window,
+        HostEvent::Wheel(route) => route.window,
+        HostEvent::File(route) => route.window,
+        HostEvent::Key(route) => route.window,
+        HostEvent::Ime { node, .. } => {
+            let Some(window) = ViewState::tree(rt).reader().window_of(*node) else {
+                return;
+            };
+            window
+        }
+        _ => return,
+    };
+    crate::view::devtools_hooks::input_event(rt, host_event, window);
+}
+
+fn deliver(rt: &Runtime, host_event: &HostEvent) {
     match host_event {
         HostEvent::PresenceChanged { node, presence } => {
             let source = crate::view::state::ViewState::tree(rt)
@@ -62,12 +88,6 @@ pub(crate) fn dispatch(rt: &Runtime, host_event: &HostEvent) {
             text::selection_changed(rt, host_event, *node, session)
         }
         HostEvent::Ime { node, event } => ime::ime(rt, host_event, *node, event),
-        HostEvent::FocusChanged {
-            window,
-            node,
-            region,
-            visible,
-        } => text::focus_changed(rt, *window, *node, *region, *visible),
         HostEvent::ExitComplete { node } => {
             let callback = crate::view::state::ViewState::tree_mut(rt).take_exit_callback(*node);
             if let Some(callback) = callback
@@ -76,9 +96,6 @@ pub(crate) fn dispatch(rt: &Runtime, host_event: &HostEvent) {
                 rt.report(None, error);
             }
         }
-        HostEvent::FocusResult { request, result } => {
-            text::focus_result(rt, *request, result.clone())
-        }
         HostEvent::A11y {
             node,
             region,
@@ -86,6 +103,35 @@ pub(crate) fn dispatch(rt: &Runtime, host_event: &HostEvent) {
         } => a11y::a11y(rt, host_event, *node, *region, request),
         _ => dispatch_host(rt, host_event),
     }
+}
+
+/// Deliver a focus change or result; `false` for every other event.
+fn focus_event(rt: &Runtime, host_event: &HostEvent) -> bool {
+    match host_event {
+        HostEvent::FocusChanged {
+            window,
+            node,
+            region,
+            visible,
+        } => {
+            text::focus_changed(rt, *window, *node, *region, *visible);
+            crate::view::devtools_hooks::focus_changed(
+                rt,
+                *window,
+                node.map(|node| FocusTarget {
+                    node,
+                    region: *region,
+                }),
+                *visible,
+            );
+        }
+        HostEvent::FocusResult { request, result } => {
+            text::focus_result(rt, *request, result.clone());
+            crate::view::devtools_hooks::focus_result(rt);
+        }
+        _ => return false,
+    }
+    true
 }
 
 /// The window an event applies to, when it names one.
@@ -172,7 +218,9 @@ fn dispatch_host(rt: &Runtime, host_event: &HostEvent) {
             dispatch_drawable_report(rt, host_event)
         }
         HostEvent::TurnsCut { turns } => diagnostics::turns_cut(rt, *turns),
-        HostEvent::DevtoolsPick { .. } | HostEvent::DevtoolsKey { .. } => {}
+        HostEvent::DevtoolsPick { .. } | HostEvent::DevtoolsKey { .. } => {
+            crate::view::devtools_hooks::host_event(rt, host_event)
+        }
         _ => unreachable!("invariant: input and routed events are dispatched before host events"),
     }
 }
@@ -187,7 +235,9 @@ fn dispatch_window_host(rt: &Runtime, host_event: &HostEvent) -> bool {
             surface_active,
         } => env::window_opened(rt, *window, environment, *surface_active),
         HostEvent::WindowFailed { window, reason } => env::window_failed(rt, *window, reason),
-        HostEvent::InjectDelivered { .. } => {}
+        HostEvent::InjectDelivered { .. } => {
+            crate::view::devtools_hooks::host_event(rt, host_event)
+        }
         HostEvent::AppMotion {
             drawable,
             frame_period_ns,

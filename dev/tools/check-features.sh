@@ -30,6 +30,7 @@ entries=(
   kivact-core/tokio
   kivact-runtime/tokio
   kivact/test
+  kivact-test/devtools
   arvane-render/gpu
   arvane-compose/gpu
   arvane-compose/gpu-interop

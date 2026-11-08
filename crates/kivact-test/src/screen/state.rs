@@ -29,6 +29,12 @@ impl Screen {
         self.inspect().turns()
     }
 
+    /// The discovery file of the running DevTools agent, if there is one.
+    #[cfg(feature = "devtools")]
+    pub fn devtools_target(&self) -> Option<std::path::PathBuf> {
+        self.inspect().devtools_target()
+    }
+
     /// The App's counters ([`Stats`] says how to read them): `batches` and
     /// `ops` count the revisions the client committed and their writes, and
     /// `core_ns` the time in the core's turns, `on_mount` work included.

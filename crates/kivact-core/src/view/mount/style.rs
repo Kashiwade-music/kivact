@@ -109,6 +109,11 @@ pub(crate) fn bind_style(
         local_paint,
     } = style;
     let owner = cx.owner;
+    #[cfg(feature = "devtools")]
+    if crate::view::devtools_hooks::is_running(cx.rt) {
+        crate::view::state::ViewState::tree_mut(cx.rt).set_style_layers(id, layers.clone());
+    }
+    let hook = crate::view::devtools_hooks::StyleHook::new(cx.rt, cx.owner, id, at);
     let reports = StyleReports::default();
     let theme = cx.theme();
     let weak = cx.weak();
@@ -119,13 +124,13 @@ pub(crate) fn bind_style(
         // an Internal effect feeding a paint transition.
         let resolved = kivact_runtime::pure(|| {
             theme_sig.with(|theme| {
-                let s = merge_layers(&layers);
+                let s = hook.apply(merge_layers(&layers));
                 let state = Interactive {
                     focusable,
                     disabled: disabled.as_ref().is_some_and(|f| f()),
                     selected: selected.as_ref().is_some_and(|f| f()),
                     root: kind == NodeType::Root,
-                    forced: kivact_style::internal::ForcedStates::default(),
+                    forced: hook.forced(),
                 };
                 kivact_style::internal::compile_style(&s, theme, state)
             })

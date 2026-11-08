@@ -108,6 +108,7 @@ pub fn provide_theme<V: IntoView>(
     view_fn(move |cx| {
         let owner = cx.owner.child(at);
         let value = theme.into_value(owner, at);
+        let value = crate::view::devtools_hooks::wrap_theme(owner, value);
         kivact_style::internal::install_theme(owner, value);
         let fragment = cx.fragment();
         let child = mount_in(cx.rt, owner, cx.window, move || child().into_view());
@@ -338,7 +339,11 @@ pub fn use_locale() -> Value<Locale> {
 pub fn message(key: &'static str, default: &'static str) -> Value<String> {
     let owner = Owner::current("message", Location::caller());
     let messages = messages_value(owner);
-    memo(move || messages.with(|m| m.get(key).unwrap_or(default).to_owned()))
+    memo(move || {
+        crate::view::devtools_hooks::pseudo(
+            messages.with(|m| m.get(key).unwrap_or(default).to_owned()),
+        )
+    })
 }
 
 /// Like [`message`], for a text with values in it: every `{name}` in the
@@ -390,6 +395,6 @@ pub fn message_with<A: IntoIterator<Item = (&'static str, String)>>(
                 .to_owned()
         });
         let args: Vec<(&str, &str)> = args.iter().map(|(k, v)| (*k, v.as_str())).collect();
-        interpolate(&template, &args)
+        crate::view::devtools_hooks::pseudo(interpolate(&template, &args))
     })
 }

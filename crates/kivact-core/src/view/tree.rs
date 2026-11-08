@@ -307,6 +307,9 @@ pub(crate) struct CoreNode {
     /// The effect that last set each dynamic prop (diagnostics::why).
     pub(crate) origins: Vec<(Prop, EffectId)>,
     pub(crate) semantic_origins: Vec<&'static Location<'static>>,
+    /// The style layers the node was mounted with, for the DevTools.
+    #[cfg(feature = "devtools")]
+    pub(crate) style_layers: Vec<crate::view::style_layer::StyleLayer>,
 }
 
 impl CoreNode {
@@ -323,6 +326,8 @@ impl CoreNode {
             presence: None,
             origins: Vec::new(),
             semantic_origins: Vec::new(),
+            #[cfg(feature = "devtools")]
+            style_layers: Vec::new(),
         }
     }
 }
@@ -650,6 +655,7 @@ impl ViewNodes {
         if tracks_live && changed && was_live != self.is_live_region(id) {
             self.live_region_revision.notify_from_render();
         }
+        crate::view::devtools_hooks::prop_written(id, prop, writer, changed);
         changed
     }
 
@@ -664,6 +670,18 @@ impl ViewNodes {
         self.engine().set_scene(id, layer, Arc::new(scene));
         if let Some(observation) = self.get(id).and_then(|node| node.observation) {
             observation.scene_revision.notify_from_render();
+        }
+    }
+
+    /// Keep the style layers of `id` for the DevTools style inspector.
+    #[cfg(feature = "devtools")]
+    pub(crate) fn set_style_layers(
+        &mut self,
+        id: NodeId,
+        layers: Vec<crate::view::style_layer::StyleLayer>,
+    ) {
+        if let Some(node) = self.nodes.0.get_mut(&id) {
+            node.style_layers = layers;
         }
     }
 

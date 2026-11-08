@@ -181,6 +181,7 @@ pub(crate) fn flush_focus(rt: &Runtime) {
                 .requests
                 .insert(id, request);
             ViewState::tree(rt).engine().focus(target, id, visible);
+            crate::view::devtools_hooks::focus_requested(rt, target);
         } else {
             resolve_focus_reply(
                 rt,

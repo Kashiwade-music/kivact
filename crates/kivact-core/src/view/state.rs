@@ -220,7 +220,7 @@ pub(crate) struct ViewState {
     /// What the host's platform can do (host events alone write it).
     #[allow(
         dead_code,
-        reason = "the capabilities memo is the only reader until DevTools wraps it"
+        reason = "the capabilities memo is the only reader until a host event writes it"
     )]
     pub(super) host_capabilities: Signal<Capabilities>,
     pub(crate) capabilities: Value<Capabilities>,
@@ -294,8 +294,7 @@ impl ViewState {
         at: &'static Location<'static>,
     ) -> Self {
         let host_capabilities = owner.signal(info.capabilities, at);
-        let capabilities =
-            owner.with_setup(|| kivact_runtime::memo(move || host_capabilities.get()));
+        let capabilities = crate::view::devtools_hooks::wrap_capabilities(owner, host_capabilities);
         Self {
             tree: RefCell::new(ViewNodes::new(engine, owner)),
             removed: RefCell::new(Vec::new()),

@@ -152,6 +152,12 @@ impl RenderOptions {
         self.single_window = true;
         self
     }
+    /// Start the DevTools agent for this test App.
+    #[cfg(feature = "devtools")]
+    pub fn devtools(mut self) -> Self {
+        self.app = self.app.devtools_in_tests();
+        self
+    }
 }
 
 impl RenderOptions {

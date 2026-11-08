@@ -17,7 +17,8 @@ pub(super) fn activate(rt: &Runtime, id: NodeId, region: Option<RegionId>) -> bo
     let Some(h) = handler(rt, id, |h| h.activate.clone()) else {
         return false;
     };
-    run_handler(rt, node_owner(rt, id), || h.call(region));
+    let outcome = run_handler(rt, node_owner(rt, id), || h.call(region));
+    crate::view::devtools_hooks::handler_ran(rt, id, "on_press", outcome);
     true
 }
 
@@ -72,6 +73,7 @@ pub(super) fn pointer(
             ))
     {
         let handled = run_handler(rt, node_owner(rt, id), || h.deliver(e));
+        crate::view::devtools_hooks::handler_ran(rt, id, "on_pointer", handled);
         requests::clear_pointer_releases(rt);
         if handled != Some(Handled::No) {
             return;
@@ -123,8 +125,9 @@ pub(super) fn wheel(
         if let Some(h) = h
             && !is_disabled(rt, id)
         {
-            handled = handled
-                .and(run_handler(rt, node_owner(rt, id), || h.deliver(e)).unwrap_or(Handled::Yes));
+            let outcome = run_handler(rt, node_owner(rt, id), || h.deliver(e));
+            crate::view::devtools_hooks::handler_ran(rt, id, "on_wheel", outcome);
+            handled = handled.and(outcome.unwrap_or(Handled::Yes));
             if handled == Handled::Yes {
                 break;
             }
