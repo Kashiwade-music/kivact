@@ -230,10 +230,12 @@ fn layout_id_exit_records_once() {
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 
-/// Corner shape of a box while it scales (tier 1, geometry: ±1 device px, B-25).
-/// The 50% coverage crossings of the corner's rows and columns match a static
-/// box of the same size and radius. Without the radius correction the arc of
-/// radius 20 is stretched by 0.708 in x and moves by 1.7 to 3 px in the top rows.
+/// Corner shape of a box while it scales (tier 1, geometry: ±1 device px).
+/// The anti-aliased pixels of a layer that scales unevenly are resampled, so
+/// they are not compared. The 50% coverage crossings of the corner's rows and
+/// columns match a static box of the same size and radius. Without the radius
+/// correction the arc of radius 20 is stretched by 0.708 in x and moves by
+/// 1.7 to 3 px in the top rows.
 #[test]
 fn radius_is_corrected_while_scaling() {
     const RADIUS: f64 = 20.0;

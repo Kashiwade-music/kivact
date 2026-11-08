@@ -167,7 +167,7 @@ fn segment_delay_and_repeat_match_transition() {
 }
 
 /// Playback keeps its rate and direction across play, pause, reverse and
-/// finish (§12.6, the transition table).
+/// finish.
 #[test]
 fn playback_settings_persist_across_phases() {
     let (screen, (a, b, c, ctl_a, ctl_b, ctl_c)) = mount_with(exact_frames(), || {

@@ -1,5 +1,5 @@
 //! Role: `Timeline`: tracks that move along one clock, with labels, calls,
-//! repeats and playback controls (design §12.6).
+//! repeats and playback controls.
 
 mod api;
 mod calls;

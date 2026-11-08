@@ -2,10 +2,9 @@
 //!
 //! Colors as the public API paints them. A pixel is compared with a value
 //! the test computes from the formulas of CSS Color 4 (written out below,
-//! in `reference`), or with a known number of the design. The tier of each
-//! comparison (§3.3) is named where it is made: tier 2 is ±2/255 per channel
-//! (the compositor), tier 3 is the raster tolerance of
-//! `Screenshot::raster_difference` (Vello's gradient lookup table).
+//! in `reference`), or with a known number listed in the test. The tier of
+//! each comparison is named where it is made; the tiers are defined in
+//! `support`.
 
 use super::paint::{BLACK, BLUE, RED, WHITE, at, canvas_of, expect, pixel};
 use kivact::draw::linear_gradient;
@@ -38,7 +37,7 @@ fn oklab_lerp_at(a: V3, b: V3, t: f64) -> u32 {
 
 #[test]
 fn color_conversion_fixtures() {
-    // The reference formulas first: they must give the design's known values
+    // The reference formulas first: they must give the known values
     // (±1e-4), since the expected pixels below are computed from them.
     let close = |got: V3, want: V3, what: &str| {
         for i in 0..3 {
@@ -87,7 +86,8 @@ fn color_conversion_fixtures() {
     );
 
     // `color(display-p3 1 0 0)` is out of sRGB; it paints the CSS gamut
-    // mapping of its unclipped sRGB, computed here from the §5.4.1 matrices.
+    // mapping of its unclipped sRGB, computed here from the CSS Color 4 §18
+    // matrices.
     let p3 = Color::css("color(display-p3 1 0 0)").expect("a color() value");
     let p3_red = one_box(40, 40, p3);
     let unclipped = reference::p3_to_srgb([1.0, 0.0, 0.0]);
@@ -99,7 +99,7 @@ fn color_conversion_fixtures() {
 fn oklch_out_of_gamut_maps_like_css() {
     // Tier 2 for the value. The lightness and hue are read back from the
     // pixel: L within ±0.02; hue within ±1.0° (8-bit pixels cannot resolve
-    // 0.02°, a ruling of B-18); chroma below the source's.
+    // 0.02°); chroma below the source's.
     let screen = one_box(40, 40, oklch(0.7, 0.4, 30.0));
     let p = center(&screen, 40, 40);
     let enc = reference::pixel_encoded(p);
@@ -113,7 +113,7 @@ fn oklch_out_of_gamut_maps_like_css() {
     assert!(back[1] < 0.4, "chroma reduced: {}", back[1]);
     let hue_error = (back[2] - 30.0).abs();
     assert!(hue_error <= 1.0, "hue {} vs 30 (±{hue_error})", back[2]);
-    // The CSS gamut mapping of the same color, as §5.4.4 states it.
+    // The CSS gamut mapping of the same color (CSS Color 4 §13.2.2).
     let want = reference::packed(gamut_map(oklab_to_encoded(reference::oklch_to_oklab(
         0.7, 0.4, 30.0,
     ))));
@@ -124,7 +124,7 @@ fn oklch_out_of_gamut_maps_like_css() {
 fn wide_gamut_gradient_interpolates_source_colors() {
     // Tier 3: a gradient of Display P3 green to oklch(0.6 0.3 300). The
     // expected value interpolates the two source colors' Oklab values
-    // unclipped, then gamut maps the result (§9.6).
+    // unclipped, then gamut maps the result.
     let width: i32 = 200;
     let screen = render(move || {
         canvas_of(
@@ -153,7 +153,7 @@ fn wide_gamut_gradient_interpolates_source_colors() {
 
 #[test]
 fn css_color_parsing() {
-    // The examples of §11.4.1 parse to the colors they name.
+    // The examples of the supported forms parse to the colors they name.
     assert_eq!(
         Color::css("hsl(120deg 50% 25% / 0.5)").expect("hsl"),
         Color::from_space(ColorSpace::Hsl, 120.0, 0.5, 0.25).with_alpha(0.5)
@@ -169,14 +169,14 @@ fn css_color_parsing() {
     );
     // rgb() channels, and hsl() and hwb() saturation, lightness, whiteness
     // and blackness, are clamped to their ranges when parsed (CSS Color 4
-    // §4.2.1, §7.1, §8.1). The color() spaces are not clamped.
+    // §4.2.1, §7.1 and §8.1). The color() spaces are not clamped.
     let css = |s: &str| Color::css(s).expect(s);
     assert_eq!(css("rgb(300 -20 128)"), css("rgb(255 0 128)"));
     assert_eq!(css("rgb(150% -5% 50%)"), css("rgb(100% 0% 50%)"));
     assert_eq!(css("hsl(120 150% -10%)"), css("hsl(120 100% 0%)"));
     assert_eq!(css("hwb(0 120% 0%)"), css("hwb(0 100% 0%)"));
     assert_ne!(css("color(srgb 1.2 -0.1 0.5)"), css("color(srgb 1 0 0.5)"));
-    // These are errors (§11.4.1 does not use them).
+    // These are errors: the forms are not supported.
     for input in [
         "none",
         "calc(255) 0 0",
@@ -189,7 +189,7 @@ fn css_color_parsing() {
 
 #[test]
 fn gradient_interpolation_spaces() {
-    // Tier 3: the known values of §5.4.1 for the midpoint of red and blue
+    // Tier 3: the known values for the midpoint of red and blue
     // (the window is 201 px wide so x = 100 has t = 0.5). Srgb: (128, 0,
     // 128) ±2; Oklab: (140, 83, 162) ±3.
     for (space, want, tolerance) in [
@@ -220,7 +220,8 @@ fn gradient_interpolation_spaces() {
 
 #[test]
 fn gradient_hint_moves_the_midpoint() {
-    // Tier 3: the LUT of §9.6 allows a few levels; the hint's midpoint is
+    // Tier 3: the gradient lookup table allows a few levels; the hint's
+    // midpoint is
     // 128 ±2, the row never decreases, and near the end the values are the
     // formula's (about 49 at x = 3990, about 234 at x = 3999). The hint sits
     // between the black and the white stop (a hint after the last stop has

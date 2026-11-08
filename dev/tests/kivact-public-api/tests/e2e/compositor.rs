@@ -3,9 +3,8 @@
 //! The frame is composed from layers. These tests check that partial
 //! redraws, cached layers, backdrops, layer composites and the cull and
 //! inline rules draw what a fresh mount draws. Pixels of compositor ops
-//! are compared within ±2/255 per channel (§3.3, tier 2) unless a test
-//! says otherwise; the frame statistics come from `Screen::frame_stats`
-//! (§8.15).
+//! are compared within ±2/255 per channel (tier 2) unless a test says
+//! otherwise; the frame statistics come from `Screen::frame_stats`.
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -243,8 +242,8 @@ fn backdrop_sees_backdrop() {
 #[test]
 fn backdrop_in_overlay_sees_the_app() {
     // The panel in the overlay is the same glass as a plain panel at the
-    // same place (the overlay adds only its layer, transparent for the
-    // backdrop by CONTRACT-BACKDROP-ROOT): the pixels inside the panel are
+    // same place (the overlay adds only its layer, which does not change the
+    // backdrop): the pixels inside the panel are
     // the blurred stripes in both. Tier 2 for the blur.
     let plain = render(|| {
         canvas_of((
@@ -513,7 +512,7 @@ fn shader_beside_box(colour: Signal<u32>) -> impl IntoView {
 #[test]
 fn root_shader_fallback_is_not_blended_again_outside_the_damage() {
     // The shader's fallback is drawn only where the window is damaged: frames that
-    // change the box keep the pixels under the shader, which is blended once (§8.6).
+    // change the box keep the pixels under the shader, which is blended once.
     let (screen, colour) = mount(|| {
         let colour = signal(BLUE);
         (colour, shader_beside_box(colour))

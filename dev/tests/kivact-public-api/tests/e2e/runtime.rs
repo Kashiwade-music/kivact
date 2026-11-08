@@ -258,17 +258,17 @@ fn small_handles_trigger_var_binding_callback_value() {
 }
 
 // ---------------------------------------------------------------------------
-// Regression (design survey): Selector prunes key nodes that the running computation just read.
+// Regression: Selector prunes key nodes that the running computation just read.
 
 // ---------------------------------------------------------------------------
-// Regression (design survey): re-reading a memo inside its own `with` after invalidating it panics
+// Regression: re-reading a memo inside its own `with` after invalidating it panics
 // with a raw RefCell error and leaves the memo stale.
 
 // ---------------------------------------------------------------------------
-// Regression (design survey): Selector::is is stale within the turn that changed its source.
+// Regression: Selector::is is stale within the turn that changed its source.
 
 // ---------------------------------------------------------------------------
-// Regression (design survey): the stabilisation cycle limit scales with the graph size
+// Regression: the stabilisation cycle limit scales with the graph size
 // (100 × live nodes), so an Internal-effect cycle in a large App spins for
 // hundreds of thousands of mounts before `Cycle` is reported (intended: a
 // fixed limit of 100 runs per effect).

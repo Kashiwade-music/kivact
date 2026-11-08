@@ -1,6 +1,6 @@
 //! Role: The value of a timeline's track segment at a time: a timed
-//! transition through the shared stepper, a spring by the closed form of
-//! design §12.6.1, and the rest time of a spring.
+//! transition through the shared stepper, a spring by its closed form, and
+//! the rest time of a spring.
 
 use kivact_types::motion::{PlayDirection, Spring, SpringRun, Transition, lerp};
 
@@ -52,7 +52,7 @@ pub(super) fn seg_value(seg: &SegmentDef, from: &[f64], t_ms: f64) -> Vec<f64> {
 }
 
 /// The progress (0 at the start, 1 at the target) of a spring segment
-/// `t_ms` after its start, with iterations of `one_ms` (§12.6.1).
+/// `t_ms` after its start, with iterations of `one_ms`.
 fn spring_fraction(spring: &Spring, timing: &Transition, one_ms: f64, t_ms: f64) -> f64 {
     let t = t_ms - timing.delay_ms;
     if t < 0.0 {
@@ -78,9 +78,8 @@ fn spring_fraction(spring: &Spring, timing: &Transition, one_ms: f64, t_ms: f64)
     }
 }
 
-/// The step response of `spring` (from rest, 0 to 1) at `t` seconds: the
-/// closed form of §12.6.1. A spring with a problem reads as already at its
-/// target.
+/// The step response of `spring` (from rest, 0 to 1) at `t` seconds, in
+/// closed form. A spring with a problem reads as already at its target.
 fn spring_progress(spring: &Spring, t: f64) -> f64 {
     if spring.problem().is_some() {
         return 1.0;

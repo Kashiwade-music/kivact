@@ -255,7 +255,7 @@ fn reduced_motion_completes_decorative_transitions_only() {
         v > 0.0 && v < 10.0,
         "informational animation still runs: {v}"
     );
-    // A decorative frame loop is held under reduced motion (§12.5, §17.2).
+    // A decorative frame loop is held under reduced motion.
     let (screen3, (fl, ticks)) = counter_app();
     screen3.set_reduced_motion(true);
     fl.start(FrameRate::Hz(30.0));
@@ -286,7 +286,7 @@ fn keyframes_delay_and_repeat() {
     let v = shown.get_untracked();
     assert!(v > 30.0 && v < 70.0, "{v}");
     screen.advance(ms(200));
-    // Two alternating iterations end where they began (§12.3).
+    // Two alternating iterations end where they began.
     assert_eq!(shown.get_untracked(), 0.0);
 }
 
@@ -575,7 +575,7 @@ fn panel_shot(screen: &Screen) -> Screenshot {
     screen.screenshot().crop(0, 0, 100, 100)
 }
 
-/// Tier 2 (design §3.3): a compositor result matches within ±2/255 per channel.
+/// Tier 2: a compositor result matches within ±2/255 per channel.
 fn assert_compositor_close(got: &Screenshot, want: &Screenshot) {
     assert_eq!((got.width, got.height), (want.width, want.height));
     let worst = got
@@ -591,7 +591,7 @@ fn assert_compositor_close(got: &Screenshot, want: &Screenshot) {
     );
 }
 
-/// Tier 3 (design §3.3): a raster (box shadow) within the raster tolerance.
+/// Tier 3: a raster (box shadow) within the raster tolerance.
 fn assert_raster_close(got: &Screenshot, want: &Screenshot) {
     let diff = got.raster_difference(want);
     assert!(diff.within_raster_tolerance(), "{diff:?}");
@@ -642,7 +642,7 @@ fn still_panel(fill: u32, filter: Filter) -> Screenshot {
 }
 
 /// The per-property transition: the colour changes at once, the opacity takes 100 ms.
-/// Tier 2 (design §3.3): the opacity is a compositor op, checked against its blend with white.
+/// Tier 2: the opacity is a compositor op, checked against its blend with white.
 #[test]
 fn per_property_transition() {
     let (screen, on) = mount_with(fast_display(), || {
@@ -679,7 +679,7 @@ fn per_property_transition() {
 }
 
 /// A blur to none, and a brightness to none, at 50 % with linear easing (CSS initial
-/// values: blur 0, brightness 1). Tier 2 (design §3.3): filters are compositor ops.
+/// values: blur 0, brightness 1). Tier 2: filters are compositor ops.
 #[test]
 fn filter_to_none_interpolates() {
     const FILL: u32 = 0x404040;
@@ -707,8 +707,8 @@ fn filter_to_none_interpolates() {
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 
-/// None to grayscale(1) at 50 % is grayscale(0.5) (the initial value 0 of §12.9.2).
-/// Tier 2 (design §3.3): a filter is a compositor op.
+/// None to grayscale(1) at 50 % is grayscale(0.5) (the initial value is 0).
+/// Tier 2: a filter is a compositor op.
 #[test]
 fn filter_identity_values() {
     const FILL: u32 = 0x2060c0;
@@ -724,7 +724,7 @@ fn filter_identity_values() {
 }
 
 /// An outer shadow with an inset one, to the outer shadow alone: at 50 % the inset is
-/// black at half alpha, still inset. Tier 3 (design §3.3): box shadows are Vello rasters.
+/// black at half alpha, still inset. Tier 3: box shadows are Vello rasters.
 #[test]
 fn shadow_list_shortening_interpolates() {
     fn outer() -> Shadow {
@@ -733,7 +733,7 @@ fn shadow_list_shortening_interpolates() {
     fn inset(alpha: f64) -> Shadow {
         Shadow::new(0, 0, 0, rgba(BLACK, alpha)).spread(6).inset()
     }
-    // Halfway to the padding (spread 0, transparent): spread 3 at alpha 0.5 (§12.9.2).
+    // Halfway to the padding (spread 0, transparent): spread 3 at alpha 0.5.
     fn half_inset() -> Shadow {
         Shadow::new(0, 0, 0, rgba(BLACK, 0.5)).spread(3).inset()
     }
@@ -808,7 +808,7 @@ fn blur_probe(reverse: bool) -> Vec<u32> {
 
 /// A spring blur reversed at about 5 px: the first frames after the reversal keep the
 /// velocity of the uninterrupted spring (the same spring, unreversed, is the control).
-/// Tier 2 (design §3.3): a blur is a compositor op, read as the dark level of one pixel.
+/// Tier 2: a blur is a compositor op, read as the dark level of one pixel.
 #[test]
 fn reversed_blur_keeps_its_velocity() {
     let control = blur_probe(false);
@@ -921,7 +921,7 @@ fn retarget_across_shadow_counts_starts_from_shown() {
 
 /// A transition interrupted by leaving the hover keeps the shown value: the next frame moves
 /// by one frame, and a spring keeps moving forward with its velocity.
-/// Tier 1 (design §3.3): positions are layout rectangles.
+/// Tier 1: positions are layout rectangles.
 #[test]
 fn interrupted_transition_continues_from_shown() {
     let x_of = |screen: &Screen| {

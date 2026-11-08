@@ -1,4 +1,4 @@
-//! Role: The calls a playback move crosses, in every repetition (§12.6).
+//! Role: The calls a playback move crosses, in every repetition.
 
 use super::super::Repeat;
 use super::segment::{SegmentDef, SegmentKind};

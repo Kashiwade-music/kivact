@@ -137,7 +137,7 @@ fn linear_points_and_steps() {
     assert_value(rows[1][4], 250.0, "jump-end at 30%");
 }
 
-/// Each named curve of §12.1 at 50%: the formulas give these known values.
+/// Each named curve at 50%: the formulas give these known values.
 #[test]
 fn back_elastic_bounce_shapes() {
     let shapes = [

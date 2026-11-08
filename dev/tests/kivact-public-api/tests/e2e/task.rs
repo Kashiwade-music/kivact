@@ -1,4 +1,4 @@
-//! Role: Async: executor, blocking pool, resource, action, queue, time, platform.
+//! Role: Async: executor, pool, resource, action, queue, time, platform.
 
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
@@ -372,21 +372,21 @@ fn a_spawned_task_error_reaches_on_error() {
 }
 
 // ---------------------------------------------------------------------------
-// Regression (design survey): registrations made by effect cleanups during
+// Regression: registrations made by effect cleanups during
 // disposal leak. The disposal releases them.
 
 // ---------------------------------------------------------------------------
-// Regression (design survey): side-effecting methods called from a pure context change internal
+// Regression: side-effecting methods called from a pure context change internal
 // state before the write is rejected (stuck states).
 
 // ---------------------------------------------------------------------------
-// Regression (design survey): on_done registered by a child on a parent's action is not released
+// Regression: on_done registered by a child on a parent's action is not released
 // when the child is disposed.
 
 // ---------------------------------------------------------------------------
-// Regression (design survey): a synchronous panic in an action / resource closure leaves the state
+// Regression: a synchronous panic in an action / resource closure leaves the state
 // Pending / Loading forever.
 
 // ---------------------------------------------------------------------------
-// Regression (design survey): a synchronous panic in a queue closure escapes the turn (it
+// Regression: a synchronous panic in a queue closure escapes the turn (it
 // could cross a host's platform FFI boundary and abort the process).

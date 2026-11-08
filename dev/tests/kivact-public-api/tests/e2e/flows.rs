@@ -247,7 +247,7 @@ fn error_boundary_fallback_replaces_the_child_and_reset_remounts() {
 }
 
 // ---------------------------------------------------------------------------
-// Regression (design survey): errors raised inside an error_boundary's fallback are swallowed.
+// Regression: errors raised inside an error_boundary's fallback are swallowed.
 
 /// A virtual list of focusable rows "row N" (24 px high, no overscan, a
 /// 120 px viewport) and what drives it.

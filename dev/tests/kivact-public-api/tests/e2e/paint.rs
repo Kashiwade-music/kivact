@@ -64,7 +64,7 @@ fn gradients_place_their_stops_as_css_does() {
     let shot = screen.screenshot();
     expect(&shot, 0, 10, RED, 4, "linear start");
     expect(&shot, 199, 10, BLUE, 4, "linear end");
-    // The default interpolation is Oklab (§5.4.2), not the sRGB mix.
+    // The default interpolation is Oklab, not the sRGB mix.
     expect(&shot, 100, 10, 0x8c53a2, 6, "linear middle");
     expect(&shot, 98, 40, RED, 0, "hard stop, left");
     expect(&shot, 101, 40, BLUE, 0, "hard stop, right");
@@ -78,7 +78,7 @@ fn gradients_place_their_stops_as_css_does() {
     ] {
         expect(&shot, x, 65, want, 0, "repeating period");
     }
-    // Oklab (§5.4.2): the ends of the ramp are a little off red and blue.
+    // Oklab: the ends of the ramp are a little off red and blue.
     expect(&shot, 310, 1, 0xfc1016, 6, "to bottom: red on top");
     expect(&shot, 310, 98, 0x080ffc, 6, "to bottom: blue below");
     expect(&shot, 30, 130, RED, 0, "radial center");

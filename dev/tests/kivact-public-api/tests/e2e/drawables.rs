@@ -1,6 +1,6 @@
-//! Role: Drawables: a canvas draws a view subtree; its hits, focus, a11y and export.
+//! Role: Drawables: a canvas draws a view subtree; its hits, focus and export.
 //!
-//! Pixel tiers (design §17.1, §3.3), named again beside each test: a position
+//! Pixel tiers (defined in `support`), named again beside each test: a position
 //! or a bound is compared within ±1 device px (tier 1); a solid fill's colour
 //! within ±2/255 per channel (tier 2). Expected values come from the transform
 //! written in each test: `rotate_y(60)` maps x to x·cos 60° = x / 2 on z = 0,
@@ -525,7 +525,7 @@ fn backface_hidden_drawable_is_not_hit() {
     assert_eq!(presses.get_untracked(), 1, "the control hits");
 }
 
-/// Tier 1 (geometry) and the compositor's rule for backface (§8.5): the
+/// Tier 1 (geometry) and the compositor's rule for backface: the
 /// inner rotation alone shows its back in a flat parent, so the drawable is
 /// neither drawn nor hit. Inside a Preserve3d parent the two rotations
 /// accumulate to the identity, so it is drawn and hit at its own box.
@@ -575,7 +575,7 @@ fn nested_flat_backface_matches_compositor() {
 
 /// Two requests in a row: every frame that comes after has the newer
 /// generation, and `latest` holds only that generation. A frame is sent
-/// only when its value changed (design §8.12), so the content is recoloured
+/// only when its value changed, so the content is recoloured
 /// before each later frame is awaited.
 #[test]
 fn pixels_frames_of_old_generation_are_dropped() {

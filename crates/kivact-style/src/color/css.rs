@@ -424,7 +424,7 @@ impl Value {
 }
 
 impl Color {
-    /// Parse a CSS color (§11.4.1): names, hex, `rgb()`, `hsl()`, `hwb()`,
+    /// Parse a CSS color: names, hex, `rgb()`, `hsl()`, `hwb()`,
     /// `lab()`, `lch()`, `oklab()`, `oklch()` and `color()`. Errors are
     /// `ErrorKind::Message` naming the problem.
     #[track_caller]
