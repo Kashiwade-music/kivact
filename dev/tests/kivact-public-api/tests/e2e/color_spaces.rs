@@ -371,7 +371,9 @@ fn gradient_interpolation_spaces() {
 fn gradient_hint_moves_the_midpoint() {
     // Tier 3: the LUT of §9.6 allows a few levels; the hint's midpoint is
     // 128 ±2, the row never decreases, and near the end the values are the
-    // formula's (about 49 at x = 3990, about 234 at x = 3999).
+    // formula's (about 49 at x = 3990, about 234 at x = 3999). The hint sits
+    // between the black and the white stop (a hint after the last stop has
+    // no interval to act on).
     let width: u32 = 4000;
     for hint in [25.0, 0.5] {
         let screen = render_with(
@@ -380,8 +382,9 @@ fn gradient_hint_moves_the_midpoint() {
                 node().style(
                     style().size(width as i32, 40).background(
                         linear_gradient(90)
-                            .colors([BLACK, WHITE].map(rgb))
+                            .colors([rgb(BLACK)])
                             .hint(pct(hint))
+                            .colors([rgb(WHITE)])
                             .interpolate(ColorSpace::Srgb),
                     ),
                 )
@@ -407,8 +410,9 @@ fn gradient_hint_moves_the_midpoint() {
             node().style(
                 style().size(width as i32, 40).background(
                     linear_gradient(90)
-                        .colors([BLACK, WHITE].map(rgb))
+                        .colors([rgb(BLACK)])
                         .hint(pct(99.9))
+                        .colors([rgb(WHITE)])
                         .interpolate(ColorSpace::Srgb),
                 ),
             )
@@ -475,17 +479,21 @@ fn wide_gamut_to_white_gradient_maps_each_point() {
 fn transition_interpolates_in_oklab() {
     // Tier 2: a background transition is a paint of one color at each
     // time; at 50 ms of a 100 ms linear tween it is the Oklab midpoint of
-    // red and blue (CSS's default for transitions).
-    let (screen, color) = crate::support::mount(|| {
-        let color = signal(rgb(RED));
-        let view = canvas_of(node().test_id("box").style(move || {
-            at(0, 0, 100, 100).background(color.get()).transition(
-                TransitionProp::Background,
-                Transition::tween(100, Easing::Linear),
-            )
-        }));
-        (color, view)
-    });
+    // red and blue (CSS's default for transitions is not linear, so the
+    // tween names its easing). The state is drawn at frame ticks, so the
+    // frames are 1 ms apart: at the 60 Hz default the last frame before
+    // 50 ms is at 33.3 ms, which is progress 1/3 and not the midpoint.
+    let (screen, color) =
+        crate::support::mount_with(RenderOptions::from_env().frame_period_ns(1_000_000), || {
+            let color = signal(rgb(RED));
+            let view = canvas_of(node().test_id("box").style(move || {
+                at(0, 0, 100, 100).background(color.get()).transition(
+                    TransitionProp::Background,
+                    Transition::tween(100, Easing::Linear),
+                )
+            }));
+            (color, view)
+        });
     color.set(rgb(BLUE));
     screen.run_until_idle();
     screen.advance(std::time::Duration::from_millis(50));
