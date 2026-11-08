@@ -92,6 +92,8 @@ struct Executed {
     frame: u64,
     /// The chunk records to store.
     chunk_records: Vec<(ChunkKey, ChunkRecord)>,
+    /// The chunks whose old records to drop.
+    chunk_forgets: Vec<ChunkKey>,
     /// The layer records to store.
     layer_records: Vec<(LayerKey, LayerRecord)>,
 }
@@ -173,8 +175,12 @@ impl CpuCompositor {
                 return Err(error);
             }
         };
-        self.cache
-            .store(done.frame, done.chunk_records, done.layer_records);
+        self.cache.store(
+            done.frame,
+            done.chunk_records,
+            done.layer_records,
+            &done.chunk_forgets,
+        );
         self.stores.prune(&self.cache, composition);
         self.output = done.output;
         Ok(CpuOutput {
@@ -253,6 +259,7 @@ fn run(
         },
         frame: plan.frame,
         chunk_records: plan.chunk_records,
+        chunk_forgets: plan.chunk_forgets,
         layer_records: plan.layer_records,
     })
 }

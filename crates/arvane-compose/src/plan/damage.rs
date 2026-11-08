@@ -204,6 +204,8 @@ impl<'a> Builder<'a> {
                     retain,
                 },
             ));
+        } else {
+            self.forgets.push(key);
         }
         Ok(())
     }
@@ -211,6 +213,10 @@ impl<'a> Builder<'a> {
     /// The output's damage this frame, from the records and the changes of the frame.
     pub(super) fn finish_damage(&mut self) -> Damage {
         let cache = self.cache;
+        // After a resize, `invalidate()` or a failed frame, the whole output is redrawn (§8.6).
+        if cache.invalidated {
+            return Damage::Full;
+        }
         // A layer recorded last frame and not this frame vanished: its old place changes.
         for (key, prev) in &cache.layers {
             if !self.seen.contains(key) {
