@@ -6,7 +6,7 @@ use kivact_engine::testing::ShellEvent;
 impl Screen {
     /// Normalize raw platform input through the production shell pipeline.
     pub fn raw_input(&self, input: crate::raw::RawInput) {
-        self.host.borrow_mut().raw_input(input);
+        self.host_mut().raw_input(self.window, input);
         self.run_until_idle();
     }
 

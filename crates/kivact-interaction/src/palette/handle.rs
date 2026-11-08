@@ -18,8 +18,6 @@
 //! `close_on`. The search field, the empty result, the headings, the footer,
 //! the scroll height and the look are the caller's drawing.
 
-use super::machine;
-
 use crate::Selection;
 use kivact_core::custom::Reactive;
 use kivact_core::view::HandlerResult;
@@ -333,16 +331,12 @@ pub fn use_command_palette<K: kivact_core::state::ItemKey>(
                 .is_some_and(|command| filter.with(|filter| filter(query, command)))
         })
     });
-    let session = kivact_core::state::machine(
-        machine::State::Open,
-        || machine::Machine,
-        move |_, ()| combobox.reset(),
-    );
-    session.feed(open.into_value(), |open| {
-        if open {
-            machine::Event::Open
-        } else {
-            machine::Event::Close
+    // The caller's `open` is the only open state. Each change to closed
+    // resets the query and the highlight; a notification whose value the
+    // binding no longer holds is ignored.
+    kivact_core::state::effect_on(open, move |&shown| {
+        if !shown && !open.get_untracked() {
+            combobox.reset();
         }
     });
     let visible = combobox.visible();

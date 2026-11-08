@@ -8,10 +8,12 @@ use std::panic::Location;
 
 use kivact_engine::contract::SceneLayer;
 use kivact_types::NodeId;
+use kivact_types::WindowId;
 use kivact_types::render::FrameStats;
 
-use super::model::Screen;
+use super::model::{Screen, TestApp};
 use super::results::SemanticNode;
+use crate::facts::Facts;
 use kivact_core::diagnostics::Stats;
 use kivact_runtime::TurnRecord;
 use kivact_runtime::UiError;
@@ -34,7 +36,7 @@ impl Screen {
     /// they add no turn.
     pub fn stats(&self) -> Stats {
         let mut stats = self.inspect().stats();
-        stats.core_ns = self.record.core_ns.get();
+        stats.core_ns = self.app.record.core_ns.get();
         stats
     }
 
@@ -42,21 +44,41 @@ impl Screen {
     /// rastered, pixels rastered, damage). Panics before any frame is
     /// presented.
     pub fn frame_stats(&self) -> FrameStats {
-        let stats = self.host.borrow().frame_stats();
+        let stats = self.host().frame_stats(self.window);
         stats.expect("no frame has been presented yet")
     }
 
-    /// Semantic tree of the whole screen.
+    /// Semantic tree of the whole window.
     pub fn snapshot(&self) -> SemanticNode {
-        let root = self.facts().root;
-        self.semantic(root, None)
+        self.check_open();
+        self.app.snapshot(self.window)
     }
 
-    /// The semantic node of `id`; `parent_at` is the location of its nearest
-    /// located ancestor.
-    fn semantic(&self, id: NodeId, parent_at: Option<&'static Location<'static>>) -> SemanticNode {
-        let tree = self.facts();
-        let focused = self.host.borrow().focused()
+    /// Indented tree dump: role, name, value, `#test_id`, `@location` (see
+    /// [`SemanticNode::at`]) and focus.
+    pub fn debug(&self) -> String {
+        self.check_open();
+        self.app.debug_tree(self.window)
+    }
+}
+
+impl TestApp {
+    /// Semantic tree of window `window`.
+    fn snapshot(&self, window: WindowId) -> SemanticNode {
+        let root = Facts::new(self.inspect(), window).root;
+        self.semantic(window, root, None)
+    }
+
+    /// The semantic node of `id`; `parent_at` is the location of its
+    /// nearest located ancestor.
+    fn semantic(
+        &self,
+        window: WindowId,
+        id: NodeId,
+        parent_at: Option<&'static Location<'static>>,
+    ) -> SemanticNode {
+        let tree = Facts::new(self.inspect(), window);
+        let focused = self.host.borrow().focused(window)
             == Some(kivact_types::FocusTarget {
                 node: id,
                 region: None,
@@ -94,7 +116,7 @@ impl Screen {
                         name: r.semantics.name.clone().unwrap_or_default(),
                         value: r.semantics.value_text.clone(),
                         test_id: None,
-                        focused: self.host.borrow().focused()
+                        focused: self.host.borrow().focused(window)
                             == Some(kivact_types::FocusTarget {
                                 node: id,
                                 region: Some(r.id),
@@ -111,14 +133,13 @@ impl Screen {
         }
         drop(tree);
         for k in kids {
-            node.children.push(self.semantic(k, node.at));
+            node.children.push(self.semantic(window, k, node.at));
         }
         node
     }
 
-    /// Indented tree dump: role, name, value, `#test_id`, `@location` (see
-    /// [`SemanticNode::at`]) and focus.
-    pub fn debug(&self) -> String {
+    /// Indented dump of window `window`'s retained semantic tree.
+    pub(super) fn debug_tree(&self, window: WindowId) -> String {
         fn walk(s: &mut String, n: &SemanticNode, depth: usize) {
             let _ = writeln!(
                 s,
@@ -142,7 +163,7 @@ impl Screen {
             }
         }
         let mut s = String::new();
-        walk(&mut s, &self.snapshot(), 0);
+        walk(&mut s, &self.snapshot(window), 0);
         s
     }
 }

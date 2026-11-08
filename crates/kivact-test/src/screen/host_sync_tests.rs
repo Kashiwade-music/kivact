@@ -3,7 +3,7 @@
 use std::cell::Cell;
 use std::rc::Rc;
 
-use kivact_types::NodeId;
+use kivact_types::{NodeId, WindowId};
 
 use super::model::Screen;
 use super::support::button_box;
@@ -64,11 +64,10 @@ fn rejected_pointer_down_cannot_retain_an_ended_region_gesture() {
         clicks: 1,
     };
     let sample = |id, phase| gesture_sample(node, id, phase);
+    let host = &screen.app.host;
     let dispatch = |id, phase| {
-        screen
-            .host
-            .borrow_mut()
-            .inject(HostEvent::Pointer(sample(id, phase)));
+        host.borrow_mut()
+            .inject(HostEvent::Pointer(sample(id, phase)))
     };
     let (down, up) = (PointerPhase::Down(press), PointerPhase::Up(press));
     dispatch(11, down);
@@ -76,7 +75,7 @@ fn rejected_pointer_down_cannot_retain_an_ended_region_gesture() {
     assert_eq!(downs.get(), 2, "each pointer has a capture of its own");
     dispatch(11, up);
     dispatch(22, up);
-    screen.host.borrow_mut().inject(HostEvent::Activate {
+    host.borrow_mut().inject(HostEvent::Activate {
         node,
         region: Some(kivact_types::RegionId(1)),
         pointer: Some(sample(22, up)),
@@ -89,7 +88,7 @@ fn rejected_pointer_down_cannot_retain_an_ended_region_gesture() {
     screen.run_until_idle();
     disabled.set(false);
     screen.run_until_idle();
-    screen.host.borrow_mut().inject(HostEvent::Activate {
+    host.borrow_mut().inject(HostEvent::Activate {
         node,
         region: Some(kivact_types::RegionId(1)),
         pointer: Some(sample(33, up)),
@@ -151,9 +150,11 @@ fn a_primary_down_of_the_gesture_pointer_releases_a_gesture_whose_up_was_lost() 
     };
     // The mouse (pointer 1) starts a gesture whose Up never arrives.
     screen
+        .app
         .host
         .borrow_mut()
         .inject(HostEvent::Pointer(kivact_engine::contract::Routed {
+            window: WindowId::MAIN,
             target: Some(node),
             local: Point::new(20., 20.),
             captured: false,
@@ -412,6 +413,7 @@ fn gesture_sample(
     use kivact_types::{Modifiers, MouseButton, PointerKind, PointerPhase, PointerSample};
     let is_primary = id != 22;
     kivact_engine::contract::Routed {
+        window: WindowId::MAIN,
         target: Some(node),
         local: Point::new(20., 20.),
         captured: false,

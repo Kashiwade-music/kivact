@@ -9,31 +9,42 @@ pub(super) enum State<K> {
     Closed,
     Open {
         opened_by: Opened,
-        levels: Vec<SessionLevel<K>>,
+        levels: Levels<K>,
         want: Option<Want<K>>,
         typeahead: Typeahead,
     },
 }
+/// The open levels of one menu and its one highlighted item. Level `d + 1`
+/// is the submenu of the item `submenus[d].key` of level `d`; every level
+/// has its own submenu timer.
 #[derive(Clone, PartialEq)]
-pub(super) struct SessionLevel<K> {
-    // xtask-allow(state-fields): the key of the item that opened this level identifies the level, independent of its highlight.
-    parent: Option<K>,
-    highlight: Option<K>,
-    submenu: Submenu<K>,
+pub(super) struct Levels<K> {
+    /// The submenu timer of the top level.
+    top: SubmenuTimer<K>,
+    /// The open submenus, outermost first.
+    submenus: Vec<OpenSubmenu<K>>,
+    /// The highlighted item of all levels: its depth (an open level) and key.
+    focus: Option<(usize, K)>,
 }
+/// An open submenu: the key of the item that opened it and the submenu
+/// timer of its own level.
 #[derive(Clone, PartialEq)]
-pub(super) enum Submenu<K> {
-    None,
+struct OpenSubmenu<K> {
+    key: K,
+    timer: SubmenuTimer<K>,
+}
+/// The pending submenu timer of one level. The level's open submenu is
+/// `Levels::child`; the timer does not store it again.
+#[derive(Clone, PartialEq)]
+enum SubmenuTimer<K> {
+    Idle,
+    /// The submenu of `key` opens after the delay because the pointer rests on it.
     Opening {
         key: K,
     },
-    Open {
-        key: K,
-    },
-    /// The submenu `key` closes after the delay because the pointer rests
+    /// The open submenu closes after the delay because the pointer rests
     /// on the plain item `by`; only leaving `by` keeps it open.
     Closing {
-        key: K,
         by: K,
     },
 }
@@ -41,21 +52,110 @@ impl<K: Clone> State<K> {
     pub(super) fn path(&self) -> Vec<K> {
         match self {
             Self::Closed => Vec::new(),
-            Self::Open { levels, .. } => levels
-                .iter()
-                .skip(1)
-                .filter_map(|level| level.parent.clone())
-                .collect(),
+            Self::Open { levels, .. } => levels.path(),
         }
     }
     pub(super) fn focus(&self) -> Option<(usize, K)> {
         match self {
             Self::Closed => None,
-            Self::Open { levels, .. } => levels
-                .iter()
-                .enumerate()
-                .find_map(|(depth, level)| level.highlight.clone().map(|key| (depth, key))),
+            Self::Open { levels, .. } => levels.focus.clone(),
         }
+    }
+}
+impl<K: Clone> Levels<K> {
+    fn new() -> Self {
+        Self {
+            top: SubmenuTimer::Idle,
+            submenus: Vec::new(),
+            focus: None,
+        }
+    }
+    /// How many levels are open, the top level included.
+    fn len(&self) -> usize {
+        self.submenus.len() + 1
+    }
+    /// The keys of the submenu items that are open, outermost first.
+    fn path(&self) -> Vec<K> {
+        self.submenus
+            .iter()
+            .map(|submenu| submenu.key.clone())
+            .collect()
+    }
+    /// The key of the item of level `depth` whose submenu is open.
+    fn child(&self, depth: usize) -> Option<&K> {
+        self.submenus.get(depth).map(|submenu| &submenu.key)
+    }
+    fn timer(&self, depth: usize) -> Option<&SubmenuTimer<K>> {
+        match depth {
+            0 => Some(&self.top),
+            _ => self.submenus.get(depth - 1).map(|submenu| &submenu.timer),
+        }
+    }
+    fn timer_mut(&mut self, depth: usize) -> Option<&mut SubmenuTimer<K>> {
+        match depth {
+            0 => Some(&mut self.top),
+            _ => self
+                .submenus
+                .get_mut(depth - 1)
+                .map(|submenu| &mut submenu.timer),
+        }
+    }
+    /// Highlight `key` of the level at `depth`, or nothing.
+    fn set_focus(&mut self, depth: usize, key: Option<K>) {
+        self.focus = if depth < self.len() {
+            key.map(|key| (depth, key))
+        } else {
+            None
+        };
+    }
+    /// Keep the levels up to `depth` and stop the submenu timer of level `depth`.
+    fn truncate(&mut self, depth: usize) {
+        self.submenus.truncate(depth);
+        if self.focus.as_ref().is_some_and(|(at, _)| *at > depth) {
+            self.focus = None;
+        }
+        if let Some(timer) = self.timer_mut(depth) {
+            *timer = SubmenuTimer::Idle;
+        }
+    }
+}
+impl<K: Clone + PartialEq> Levels<K> {
+    /// Open the submenu of `key`, an item of level `depth`, as the deepest level.
+    fn open(&mut self, depth: usize, key: K) {
+        if depth >= self.len() {
+            return;
+        }
+        if self.len() == depth + 2 && self.child(depth) == Some(&key) {
+            return;
+        }
+        self.truncate(depth);
+        self.submenus.push(OpenSubmenu {
+            key,
+            timer: SubmenuTimer::Idle,
+        });
+    }
+    /// The pointer rests on (`over`) or leaves the item `key` of level
+    /// `depth`; `opens` when it is a submenu item. Returns the timer to
+    /// start: whether it opens, the depth and the key it names.
+    fn rest(&mut self, depth: usize, key: K, over: bool, opens: bool) -> Option<(bool, usize, K)> {
+        let child = self.child(depth).cloned();
+        let timer = self.timer_mut(depth)?;
+        if opens {
+            let shown = matches!(timer, SubmenuTimer::Idle) && child.as_ref() == Some(&key);
+            if over && !shown {
+                *timer = SubmenuTimer::Opening { key: key.clone() };
+                return Some((true, depth, key));
+            }
+            if !over && matches!(timer, SubmenuTimer::Opening { key: current } if *current == key) {
+                *timer = SubmenuTimer::Idle;
+            }
+        } else if over && let Some(child) = child {
+            *timer = SubmenuTimer::Closing { by: key };
+            return Some((false, depth, child));
+        } else if !over && matches!(timer, SubmenuTimer::Closing { by } if *by == key) {
+            *timer = SubmenuTimer::Idle;
+        }
+        None
     }
 }
 pub(super) enum Event<K> {
@@ -100,11 +200,7 @@ impl<K: kivact_core::state::ItemKey> kivact_core::state::Machine for Machine<K> 
                 State::Closed => {
                     next = State::Open {
                         opened_by,
-                        levels: vec![SessionLevel {
-                            parent: None,
-                            highlight: None,
-                            submenu: Submenu::None,
-                        }],
+                        levels: Levels::new(),
                         want: None,
                         typeahead: Typeahead::default(),
                     }
@@ -125,16 +221,8 @@ impl<K: kivact_core::state::ItemKey> kivact_core::state::Machine for Machine<K> 
         };
         let timer = update_level_event(levels, want, typeahead, event);
         // All topology repairs happen in this transition, before publishing state.
-        let path: Vec<K> = levels
-            .iter()
-            .skip(1)
-            .filter_map(|level| level.parent.clone())
-            .collect();
-        let focus = levels
-            .iter()
-            .enumerate()
-            .find_map(|(depth, level)| level.highlight.clone().map(|key| (depth, key)));
-        let kept = kept_levels(&self.entries, &path, focus.as_ref());
+        let path = levels.path();
+        let kept = kept_levels(&self.entries, &path, levels.focus.as_ref());
         if kept == 0 {
             return Step::to(next).with(Effect::Close);
         }
@@ -143,10 +231,8 @@ impl<K: kivact_core::state::ItemKey> kivact_core::state::Machine for Machine<K> 
                 .get(kept - 1)
                 .cloned()
                 .filter(|key| item_enabled(&self.entries, &path[..kept - 1], key));
-            truncate(levels, kept - 1);
-            for level in levels.iter_mut() {
-                level.highlight = None;
-            }
+            levels.truncate(kept - 1);
+            levels.focus = None;
             *want = Some(Want::Command {
                 depth: kept - 1,
                 target: parent.map_or(Target::Edge(Edge::First), Target::Key),
@@ -170,71 +256,38 @@ impl<K: kivact_core::state::ItemKey> kivact_core::state::Machine for Machine<K> 
         step
     }
 }
-fn open_level<K: Clone + PartialEq>(levels: &mut Vec<SessionLevel<K>>, depth: usize, key: K) {
-    if depth >= levels.len() {
-        return;
-    }
-    if levels.len() == depth + 2 && levels[depth + 1].parent.as_ref() == Some(&key) {
-        return;
-    }
-    levels.truncate(depth + 1);
-    levels[depth].submenu = Submenu::Open { key: key.clone() };
-    levels.push(SessionLevel {
-        parent: Some(key),
-        highlight: None,
-        submenu: Submenu::None,
-    });
-}
-fn truncate<K>(levels: &mut Vec<SessionLevel<K>>, depth: usize) {
-    levels.truncate(depth + 1);
-    if let Some(level) = levels.get_mut(depth) {
-        level.submenu = Submenu::None;
-    }
-}
 
 fn update_level_event<K: kivact_core::state::ItemKey>(
-    levels: &mut Vec<SessionLevel<K>>,
+    levels: &mut Levels<K>,
     want: &mut Option<Want<K>>,
     typeahead: &mut Typeahead,
     event: Event<K>,
 ) -> Option<(bool, usize, K)> {
-    let mut timer = None;
     match event {
-            Event::Request(request) => *want = request,
-            Event::Hover(depth, key) if !matches!(want, Some(Want::Command { .. })) => *want = Some(Want::Hover { depth, key }),
-            Event::Focus(depth, key) => {
-                for level in levels.iter_mut() { level.highlight = None; }
-                if let Some(level) = levels.get_mut(depth) { level.highlight = key; }
-            }
-            Event::OpenSubmenu(depth, key) => open_level(levels, depth, key),
-            Event::Truncate(depth) => truncate(levels, depth),
-            Event::Typeahead(typed) => *typeahead = typed,
-            Event::Rest(depth, key, over, opens) => {
-                let parent = levels.get(depth + 1).and_then(|level| level.parent.clone());
-                if let Some(level) = levels.get_mut(depth) {
-                    if opens {
-                        if over && !matches!(&level.submenu, Submenu::Open { key: current } if current == &key) {
-                            level.submenu = Submenu::Opening { key: key.clone() };
-                            timer = Some((true, depth, key));
-                        } else if !over && matches!(&level.submenu, Submenu::Opening { key: current } if current == &key) {
-                            level.submenu = Submenu::None;
-                        }
-                    } else if over && let Some(parent) = parent {
-                        level.submenu = Submenu::Closing { key: parent.clone(), by: key };
-                        timer = Some((false, depth, parent));
-                    } else if !over && let Submenu::Closing { key: open, by } = &level.submenu && by == &key {
-                        level.submenu = Submenu::Open { key: open.clone() };
-                    }
-                }
-            }
-            Event::OpenAfter(depth, key) => {
-                if levels.get(depth).is_some_and(|level| matches!(&level.submenu, Submenu::Opening { key: current } if current == &key)) { open_level(levels, depth, key); }
-            }
-            Event::CloseAfter(depth, key)
-                if levels.get(depth).is_some_and(|level| matches!(&level.submenu, Submenu::Closing { key: current, .. } if current == &key)) => { truncate(levels, depth); }
-            _ => {}
+        Event::Request(request) => *want = request,
+        Event::Hover(depth, key) if !matches!(want, Some(Want::Command { .. })) => {
+            *want = Some(Want::Hover { depth, key })
         }
-    timer
+        Event::Focus(depth, key) => levels.set_focus(depth, key),
+        Event::OpenSubmenu(depth, key) => levels.open(depth, key),
+        Event::Truncate(depth) => levels.truncate(depth),
+        Event::Typeahead(typed) => *typeahead = typed,
+        Event::Rest(depth, key, over, opens) => return levels.rest(depth, key, over, opens),
+        Event::OpenAfter(depth, key) => {
+            if matches!(levels.timer(depth), Some(SubmenuTimer::Opening { key: current }) if *current == key)
+            {
+                levels.open(depth, key);
+            }
+        }
+        Event::CloseAfter(depth, key)
+            if matches!(levels.timer(depth), Some(SubmenuTimer::Closing { .. }))
+                && levels.child(depth) == Some(&key) =>
+        {
+            levels.truncate(depth);
+        }
+        _ => {}
+    }
+    None
 }
 
 /// Interpret an accepted external open as a menu opening without a focus request.

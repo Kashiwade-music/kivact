@@ -9,6 +9,7 @@ use kivact_core::view::View;
 use kivact_engine::testing::{ArvaneTestHost, MirrorMode, TestHostOptions};
 use kivact_style::asset::Asset;
 use kivact_style::draw::{Point, Rect, TextFormat};
+use kivact_types::WindowId;
 use std::rc::Rc;
 use std::time::{Duration, Instant};
 
@@ -42,7 +43,7 @@ fn frame(host: &mut ArvaneTestHost) {
     while host.redraw() {}
 }
 fn pixel(host: &ArvaneTestHost, x: u32, y: u32) -> u32 {
-    host.frame()
+    host.frame(WindowId::MAIN)
         .expect("presented frame")
         .pixel(x, y)
         .expect("pixel")
@@ -93,7 +94,7 @@ fn pending_canvas_assets_complete_after_a_presented_frame_and_remain_live_on_reu
     );
     pump_until(&mut host, |h| pixel(h, 12, 12) == 0x0000ff);
     for width in [161., 162., 163.] {
-        host.resize(width, 60.);
+        host.resize(WindowId::MAIN, width, 60.);
         frame(&mut host);
         assert_eq!(
             pixel(&host, 12, 12),
@@ -102,7 +103,7 @@ fn pending_canvas_assets_complete_after_a_presented_frame_and_remain_live_on_reu
         );
     }
     host.memory_warning();
-    host.resize(164., 60.);
+    host.resize(WindowId::MAIN, 164., 60.);
     frame(&mut host);
     pump_until(&mut host, |h| pixel(h, 12, 12) == 0x0000ff);
 }
@@ -132,8 +133,12 @@ fn registering_a_font_after_a_cached_canvas_frame_replaces_fallback_shaping() {
         true,
     );
     frame(&mut host);
-    let before = host.frame().expect("fallback frame").pixels.to_vec();
-    host.resize(161., 60.);
+    let before = host
+        .frame(WindowId::MAIN)
+        .expect("fallback frame")
+        .pixels
+        .to_vec();
+    host.resize(WindowId::MAIN, 161., 60.);
     frame(&mut host);
     rt.effect(
         kivact_types::RequestId(1),
@@ -145,12 +150,12 @@ fn registering_a_font_after_a_cached_canvas_frame_replaces_fallback_shaping() {
     host.wake();
     frame(&mut host);
     assert!(host.has_font_family("Inter Variable"));
-    let after = host.frame().expect("registered font frame");
+    let after = host.frame(WindowId::MAIN).expect("registered font frame");
     let changed =
         (0..50).any(|y| (0..150).any(|x| before[y * 160 + x] != after.pixels[y * 161 + x]));
     assert!(changed, "registered family replaces cached fallback glyphs");
     host.memory_warning();
-    host.resize(162., 60.);
+    host.resize(WindowId::MAIN, 162., 60.);
     frame(&mut host);
     assert!(
         host.has_font_family("Inter Variable"),
@@ -177,8 +182,8 @@ fn retained_reporting_host(
     ArvaneTestHost::new(
         Client::new(
             move |_, _, writer| {
-                writer.create(NodeId(1), NodeKind::Root);
-                writer.create(NodeId(2), NodeKind::Box(Default::default()));
+                writer.create(WindowId::MAIN, NodeId(1), NodeKind::Root);
+                writer.create(WindowId::MAIN, NodeId(2), NodeKind::Box(Default::default()));
                 writer.set_layout(
                     NodeId(2),
                     LayoutProps {
@@ -240,15 +245,15 @@ fn a_successful_old_svg_raster_is_invalidated_when_the_worker_completes_its_repl
     frame(&mut host);
     pump_until(&mut host, |h| pixel(h, 14, 14) == 0x0000ff);
     // Present again with the successful small raster available.
-    host.resize(161., 60.);
+    host.resize(WindowId::MAIN, 161., 60.);
     frame(&mut host);
-    host.set_scale(2.);
+    host.set_scale(WindowId::MAIN, 2.);
     assert!(
         host.redraw(),
         "present exactly the successful fallback frame"
     );
     let fallback = {
-        let frame = host.frame().expect("fallback raster frame");
+        let frame = host.frame(WindowId::MAIN).expect("fallback raster frame");
         (0..120)
             .flat_map(|y| frame.pixels[y * 322..y * 322 + 320].iter().copied())
             .collect::<Vec<_>>()
@@ -256,7 +261,7 @@ fn a_successful_old_svg_raster_is_invalidated_when_the_worker_completes_its_repl
     let mut reference = retained_host(scene.clone(), true, 2.);
     frame(&mut reference);
     let sharp = reference
-        .frame()
+        .frame(WindowId::MAIN)
         .expect("fresh high resolution raster")
         .pixels
         .to_vec();
@@ -265,10 +270,10 @@ fn a_successful_old_svg_raster_is_invalidated_when_the_worker_completes_its_repl
         "old small raster is a successful temporary fallback"
     );
     pump_until(&mut host, |h| {
-        let current = h.frame().expect("replacement frame");
+        let current = h.frame(WindowId::MAIN).expect("replacement frame");
         (0..120).all(|y| (0..320).all(|x| current.pixels[y * 322 + x] == sharp[y * 320 + x]))
     });
-    let ready = host.frame().expect("sharp replacement");
+    let ready = host.frame(WindowId::MAIN).expect("sharp replacement");
     for y in 0..120 {
         for x in 0..320 {
             assert_eq!(

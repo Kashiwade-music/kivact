@@ -147,3 +147,17 @@ fn component_initializes_once_in_mounting_context_and_cleans_up_on_removal() {
     assert_eq!(started.get(), 2);
     assert_eq!(cleaned.get(), 1);
 }
+
+#[test]
+fn is_mounted_is_false_during_setup_and_true_once_the_nodes_are_live() {
+    let (screen, mounted) = crate::support::mount(|| {
+        let mounted = kivact::view::is_mounted();
+        assert!(!mounted.get_untracked(), "false while the setup runs");
+        (mounted, text("Body"))
+    });
+    assert!(
+        mounted.get_untracked(),
+        "true after the host applied the nodes"
+    );
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}

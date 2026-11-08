@@ -12,9 +12,9 @@ use crate::{
 use kivact_core::custom::Part;
 use kivact_core::geometry::Rect;
 use kivact_core::state::IntoValue;
-use kivact_core::state::{Signal, Value, effect, memo, on_cleanup, on_mount, signal};
+use kivact_core::state::{Signal, Value, effect, memo, on_cleanup, signal};
 use kivact_core::style::use_theme;
-use kivact_core::view::{Handled, Key, KeyEvent, PointerEvent, PointerPhase, Role};
+use kivact_core::view::{Handled, Key, KeyEvent, PointerEvent, Role};
 
 pub use crate::menu_policy::{DisabledMenuFocus, SubmenuTiming};
 
@@ -205,8 +205,7 @@ impl<K: kivact_core::state::ItemKey> Level<K> {
         }
         // Focus requests addressed to this level wait for its nodes
         // to be live.
-        let ready = signal(false);
-        on_mount(move || ready.set(true));
+        let ready = kivact_core::view::is_mounted();
         effect(move || {
             if !ready.get() {
                 return;
@@ -250,7 +249,6 @@ impl<K: kivact_core::state::ItemKey> Level<K> {
         submenu: bool,
         item_ref: kivact_core::view::NodeRef,
         disabled: Value<bool>,
-        hovered: Signal<bool>,
         pressed_over: Value<Option<bool>>,
     ) {
         let Self {
@@ -259,6 +257,9 @@ impl<K: kivact_core::state::ItemKey> Level<K> {
             shown,
             ..
         } = self;
+        // The engine owns hover: the item's node is hovered while the
+        // pointer is over it, whatever presses or captures there are.
+        let hovered = item_ref.hovered();
         // The pointer focuses the item it rests on; a submenu opens after a rest.
         let timing = self.timing;
         let aiming = self.aiming;
@@ -280,12 +281,11 @@ impl<K: kivact_core::state::ItemKey> Level<K> {
             });
         } else {
             let key = key.clone();
-            let over = item_ref.hovered();
             effect(move || {
                 session.machine.send(super::machine::Event::Rest(
                     depth,
                     key.clone(),
-                    pressed_over.get().unwrap_or_else(|| over.get())
+                    pressed_over.get().unwrap_or_else(|| hovered.get())
                         && !aiming.get()
                         && shown.get(),
                     false,
@@ -317,20 +317,12 @@ impl<K: kivact_core::state::ItemKey> Level<K> {
         });
     }
 
-    fn item_pointer(self, hovered: Signal<bool>, event: PointerEvent) -> Handled {
-        let session = self.session;
-        if let Some(press) = session.press {
-            let handled = press.event(session, super::press_machine::Source::Menu, event);
-            if handled == Handled::Yes {
-                return handled;
-            }
+    /// Pass a pointer event on to the menu press, when the theme opted in.
+    fn item_pointer(self, event: PointerEvent) -> Handled {
+        match self.session.press {
+            Some(press) => press.event(self.session, super::press_machine::Source::Menu, event),
+            None => Handled::No,
         }
-        match event.phase() {
-            PointerPhase::Enter => hovered.set(true),
-            PointerPhase::Leave => hovered.set(false),
-            _ => {}
-        }
-        Handled::No
     }
 
     fn activate_item(
@@ -389,15 +381,7 @@ impl<K: kivact_core::state::ItemKey> Level<K> {
         let pressed_over =
             memo(move || session.press.and_then(|press| press.highlighted(item_ref)));
 
-        let hovered = signal(false);
-        self.watch_item(
-            key.clone(),
-            submenu,
-            item_ref,
-            disabled,
-            hovered,
-            pressed_over,
-        );
+        self.watch_item(key.clone(), submenu, item_ref, disabled, pressed_over);
         let observed_key = key.clone();
         let invoke_key = key;
         let member = member.map_state(move |state| MenuItemState {
@@ -420,7 +404,7 @@ impl<K: kivact_core::state::ItemKey> Level<K> {
                 })
                 .disabled(disabled)
                 .description(description)
-                .on_pointer(move |event: PointerEvent| self.item_pointer(hovered, event))
+                .on_pointer(move |event: PointerEvent| self.item_pointer(event))
                 .on_press(move || {
                     self.activate_item(&invoke_key, disabled.get(), submenu, keep_open.get())
                 });

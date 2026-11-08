@@ -30,6 +30,7 @@ use kivact_core::style::style;
 use kivact_core::view::canvas;
 use kivact_core::view::{IntoView, column, node, row, text};
 use kivact_style::{Align, Color, Justify, pct, rgba};
+use kivact_types::WindowId;
 
 /// A 2 × 2 RGBA PNG (stretched and sampled bilinearly) and a two-color
 /// SVG with a translucent half (rasterized at its drawn size).
@@ -272,7 +273,7 @@ fn shot_of(gpu: bool, scene: fn() -> kivact_core::view::View) -> (Screenshot, Op
         Location::caller(),
     );
     let shot = screen.screenshot();
-    let renderer = screen.with_host(|host| host.renderer());
+    let renderer = screen.with_host(|host| host.renderer(WindowId::MAIN));
     (shot, renderer)
 }
 
@@ -344,7 +345,7 @@ fn gpu_host_state_transition_matches_the_cpu_intermediate_frame() {
         screen.advance(std::time::Duration::from_millis(80));
         assert!(screen.errors().is_empty(), "{:?}", screen.errors());
         let screenshot = screen.screenshot();
-        let renderer = screen.with_host(|host| host.renderer());
+        let renderer = screen.with_host(|host| host.renderer(WindowId::MAIN));
         (screenshot, renderer)
     };
     let (cpu, _) = shot(false);
@@ -492,7 +493,7 @@ fn gpu_frames_follow_a_scale_change() {
         gpu.set_scale(scale);
         let shot = gpu.screenshot();
         assert_eq!(
-            gpu.with_host(|host| host.renderer()),
+            gpu.with_host(|host| host.renderer(WindowId::MAIN)),
             Some(Renderer::Gpu),
             "the frame went through the window's GPU surface"
         );

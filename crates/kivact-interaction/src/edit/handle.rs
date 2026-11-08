@@ -220,4 +220,14 @@ impl<T: Clone + 'static> EditSession<T> {
             EditSessionState::Editing { initial } => Some(read(initial.as_ref())),
         })
     }
+
+    /// Replace the value the active edit holds with `value`; a later `cancel`
+    /// passes `value` to `restore`, and `with_initial` reads it. For a
+    /// gesture whose growing data is the edit's payload and whose `restore`
+    /// ignores it (a paint across rows). Does nothing without an active edit.
+    pub fn replace_initial(self, value: T) {
+        if self.is_active() {
+            self.session.send(machine::Event::Replace(Rc::new(value)));
+        }
+    }
 }

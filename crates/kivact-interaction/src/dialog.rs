@@ -82,7 +82,6 @@ impl Default for DismissOn {
 #[derive(Clone, Copy, Default)]
 struct DialogOptions {
     dismiss: Option<DismissOn>,
-    return_focus: Option<Value<NodeRef>>,
 }
 
 #[derive(Clone, Copy)]
@@ -219,10 +218,7 @@ impl DialogApi {
     /// programmatic focus restoration. Outside presses retain outside focus.
     /// Setup only; the supplied value is read by the opening's focus owner.
     pub fn return_focus(self, target: impl kivact_core::state::IntoValue<NodeRef>) -> Self {
-        let target = target.into_value();
-        self.popup.return_focus_target(target);
-        self.settings
-            .update(|settings| settings.return_focus = Some(target));
+        self.popup.return_focus_target(target.into_value());
         self
     }
 

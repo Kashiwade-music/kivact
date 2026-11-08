@@ -3,7 +3,7 @@
 use kivact_engine::api::Client;
 use kivact_engine::contract::{NodeKind, TurnOutput};
 use kivact_engine::testing::{ArvaneTestHost, MirrorMode, TestHostOptions};
-use kivact_types::{NodeId, Role};
+use kivact_types::{NodeId, Role, WindowId};
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -35,33 +35,35 @@ fn empty_real_empty_and_replaced_roots_publish_without_stale_nodes() {
     .expect("real host");
     let writer = slot.borrow_mut().take().expect("writer");
     settle(&mut host);
-    let empty = host.semantics().expect("empty root published");
+    let empty = host
+        .semantics(WindowId::MAIN)
+        .expect("empty root published");
     assert_eq!(empty.nodes.len(), 1);
     assert_eq!(empty.nodes[0].semantics.role, Some(Role::Generic));
     assert_eq!(empty.nodes[0].bounds.map(|b| b.width), Some(320.0));
     assert!(empty.nodes[0].children.is_empty());
     assert!(empty.focus.is_none());
-    host.resize(400.0, 240.0);
+    host.resize(WindowId::MAIN, 400.0, 240.0);
     settle(&mut host);
-    let resized = host.semantics().unwrap();
+    let resized = host.semantics(WindowId::MAIN).unwrap();
     assert_eq!(resized.root, empty.root);
     assert_eq!(resized.nodes[0].bounds.map(|b| b.width), Some(400.0));
     for root in [NodeId(1), NodeId(3)] {
-        writer.create(root, NodeKind::Root);
+        writer.create(WindowId::MAIN, root, NodeKind::Root);
         let child = NodeId(root.0 + 1);
-        writer.create(child, NodeKind::Box(Default::default()));
+        writer.create(WindowId::MAIN, child, NodeKind::Box(Default::default()));
         writer.set_role(child, Role::Group);
         writer.set_name(child, format!("root {}", root.0));
         writer.insert(root, child, None);
         writer.commit();
         settle(&mut host);
-        let tree = host.semantics().unwrap();
+        let tree = host.semantics(WindowId::MAIN).unwrap();
         assert_eq!(tree.root.0, root.0);
         assert_eq!(tree.nodes.len(), 2);
         writer.remove(root);
         writer.commit();
         settle(&mut host);
-        let cleared = host.semantics().unwrap();
+        let cleared = host.semantics(WindowId::MAIN).unwrap();
         assert_eq!(cleared.root, empty.root);
         assert_eq!(cleared.nodes.len(), 1);
         assert!(cleared.nodes[0].children.is_empty());

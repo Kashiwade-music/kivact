@@ -9,7 +9,7 @@ use crate::Selection;
 use crate::options_cell::OptionsCell;
 use crate::roving::{Observation, Roving};
 use kivact_core::ErrorKind;
-use kivact_core::custom::{NodeRefExt, Owned, Owner};
+use kivact_core::custom::{NodeRefExt, Owned, Owner, Sent};
 use kivact_core::state::{Binding, Callback, Signal, Value, effect, memo, signal};
 use kivact_core::state::{IntoBinding, IntoValue};
 use kivact_core::state::{MachineHandle, machine};
@@ -94,17 +94,18 @@ pub(super) fn create<K: kivact_core::state::ItemKey>(
     let pending = machine(
         machine::State {
             pending: machine::Pending::Nothing,
-            position: 0,
             focus: machine::Focus::Physical,
         },
         || machine::Machine::new(),
         |_, ()| {},
     );
+    // Where a search for the tab stop starts: the requested row's ordinal in
+    // the current order, else the first row. A pure projection; no history.
     let position = memo(move || {
         requested
             .get()
             .and_then(|key| order.with(|order| order.position(&key)))
-            .unwrap_or_else(|| pending.state().get().position)
+            .unwrap_or(0)
     });
     let active = active_value(
         order,
@@ -224,19 +225,23 @@ impl<K: kivact_core::state::ItemKey> State<K> {
                 }
             }
             None => {
-                let origin = self.owner.focused_node();
-                let origin_ref = self.roving.with_members(|members| {
-                    members
-                        .values()
-                        .find(|entry| origin.is_some() && entry.node.mounted_node() == origin)
-                        .map(|entry| entry.node)
-                });
+                let origin = match self.owner.focused_node() {
+                    None => machine::Origin::Nowhere,
+                    Some(token) => self
+                        .roving
+                        .with_members(|members| {
+                            members
+                                .values()
+                                .find(|entry| entry.node.mounted_node() == Some(token))
+                                .map(|entry| entry.node)
+                        })
+                        .map_or(machine::Origin::Outside(token), |node| {
+                            machine::Origin::Member { token, node }
+                        }),
+                };
                 self.pending.send(machine::Event::Activate {
                     key: key.clone(),
-                    origin: machine::Origin {
-                        token: origin,
-                        node: origin_ref,
-                    },
+                    origin,
                 });
                 if let Some(scroll) = scroll {
                     scroll.call(key);
@@ -368,8 +373,7 @@ fn active_value<K: kivact_core::state::ItemKey>(
                 .iter()
                 .find(|key| selected.contains(key) && order.enabled(key) && available(key));
             preference.cloned().or_else(|| {
-                // Keep the last tab stop's ordinal when a selected item disappears.
-                // An empty selection still starts a fresh entry at the first item.
+                // Start at the requested row's ordinal while that row is listed; otherwise at the first row.
                 let start = if mode == ListMode::Select && !selected.is_empty() {
                     position.get()
                 } else {
@@ -391,32 +395,20 @@ fn active_value<K: kivact_core::state::ItemKey>(
 
 fn observe_list<K: kivact_core::state::ItemKey>(state: Rc<State<K>>, stored: Owned<Rc<State<K>>>) {
     let owner = state.owner;
-    let pending = state.pending;
-    let duplicates = RefCell::new(Vec::<K>::new());
+    let duplicates = RefCell::new(Sent::<Vec<K>>::new());
     effect(move || {
         if stored.try_get().is_none() {
             return;
         }
-        // History follows the derived tab stop even before an explicit focus request.
-        if let Some(at) = state
-            .active
-            .get()
-            .and_then(|key| state.order.with(|order| order.position(&key)))
-        {
-            pending.send(machine::Event::Position(at));
-        }
         let next = state.order.with(|order| order.duplicates().to_vec());
-        if *duplicates.borrow() != next {
-            if !next.is_empty() {
-                owner.report(
-                    ErrorKind::Message,
-                    format!(
-                        "ListApi: {} duplicate logical key(s); first occurrence wins",
-                        next.len()
-                    ),
-                );
-            }
-            *duplicates.borrow_mut() = next;
+        let changed = duplicates.borrow_mut().update(next).map(Vec::len);
+        if let Some(count) = changed
+            && count > 0
+        {
+            owner.report(
+                ErrorKind::Message,
+                format!("ListApi: {count} duplicate logical key(s); first occurrence wins"),
+            );
         }
         if state.pending.state().get().focus == machine::Focus::Physical {
             reconcile(&state);

@@ -70,24 +70,25 @@ const CONTACT_PRESS: ButtonPress = ButtonPress {
 
 impl Screen {
     pub(super) fn send(&self, mut event: ShellEvent) {
-        let mut host = self.host.borrow_mut();
+        let mut host = self.host_mut();
         match &mut event {
-            ShellEvent::Key(input) => input.pointer = host.mouse_position(),
+            ShellEvent::Key(input) => input.pointer = host.mouse_position(self.window),
             ShellEvent::Wheel(input) => {
-                let Some(position) = host.mouse_position() else {
+                let Some(position) = host.mouse_position(self.window) else {
                     return;
                 };
                 input.position = position;
-                input.modifiers = host.modifiers();
+                input.modifiers = host.modifiers(self.window);
             }
             _ => {}
         }
-        host.send(event);
+        host.send(self.window, event);
     }
 
     /// Move the virtual window's mouse to the window point `at`.
     fn mouse_to(&self, at: Point) {
-        self.host.borrow_mut().mouse(PointerPhase::Move, Some(at));
+        self.host_mut()
+            .mouse(self.window, PointerPhase::Move, Some(at));
     }
 
     /// Press or release `button` where the virtual window's mouse is.
@@ -98,7 +99,7 @@ impl Screen {
         } else {
             PointerPhase::Up(press)
         };
-        self.host.borrow_mut().mouse(phase, None);
+        self.host_mut().mouse(self.window, phase, None);
     }
 
     /// Send `key` with `modifiers` held (none: no modifier events).
@@ -138,7 +139,8 @@ impl Screen {
     /// Type `text` key by key (a newline is Enter), or commit it when an
     /// IME composition is open (the IME commit replaces the composition).
     fn type_events(&self, text: &str) {
-        if self.host.borrow().composing() {
+        self.check_open();
+        if self.app.host.borrow().composing() {
             self.send(ShellEvent::Ime(p::ImeInput::Commit(text.into())));
             return;
         }
@@ -248,14 +250,19 @@ impl Screen {
     #[must_use = "the contact stays down until `contact_up` or `contact_cancel` names it"]
     #[track_caller]
     pub fn contact_down(&self, kind: PointerKind, x: f64, y: f64) -> Contact {
+        self.check_open();
         if kind == PointerKind::Mouse {
             self.fail("contact_down: the mouse is not a contact (use the mouse_* methods)");
         }
-        let id = self.last_contact.get() + 1;
-        self.last_contact.set(id);
-        let contact = Contact { id, kind };
+        let id = self.app.last_contact.get() + 1;
+        self.app.last_contact.set(id);
+        let contact = Contact {
+            id,
+            window: self.window,
+            kind,
+        };
         let at = Point::new(x, y);
-        self.contacts.borrow_mut().push((contact, at));
+        self.app.contacts.borrow_mut().push((contact, at));
         self.log(format!("{} down at ({x}, {y})", contact.name()));
         self.send_contact(PointerPhase::Down(CONTACT_PRESS), contact, at);
         self.run_until_idle();
@@ -265,9 +272,11 @@ impl Screen {
     /// Move `contact` to the window point `(x, y)`.
     #[track_caller]
     pub fn contact_move(&self, contact: Contact, x: f64, y: f64) {
+        self.check_contact(contact);
         self.current_contact("contact_move", contact);
         let at = Point::new(x, y);
         if let Some(entry) = self
+            .app
             .contacts
             .borrow_mut()
             .iter_mut()
@@ -283,6 +292,7 @@ impl Screen {
     /// Lift `contact` where it is.
     #[track_caller]
     pub fn contact_up(&self, contact: Contact) {
+        self.check_contact(contact);
         let at = self.end_contact("contact_up", contact);
         self.log(format!("{} up", contact.name()));
         self.send_contact(PointerPhase::Up(CONTACT_PRESS), contact, at);
@@ -294,16 +304,26 @@ impl Screen {
     /// stay down.
     #[track_caller]
     pub fn contact_cancel(&self, contact: Contact) {
+        self.check_contact(contact);
         let at = self.end_contact("contact_cancel", contact);
         self.log(format!("{} canceled", contact.name()));
         self.send_contact(PointerPhase::Cancel, contact, at);
         self.run_until_idle();
     }
 
+    /// Fail when `contact` went down in another window's handle.
+    #[track_caller]
+    fn check_contact(&self, contact: Contact) {
+        if contact.window != self.window {
+            self.fail("contact belongs to another window");
+        }
+    }
+
     /// Where `contact` is, failing the test if it is not down.
     #[track_caller]
     fn current_contact(&self, what: &str, contact: Contact) -> Point {
         let found = self
+            .app
             .contacts
             .borrow()
             .iter()
@@ -322,42 +342,49 @@ impl Screen {
     #[track_caller]
     fn end_contact(&self, what: &str, contact: Contact) -> Point {
         let at = self.current_contact(what, contact);
-        self.contacts.borrow_mut().retain(|(c, _)| *c != contact);
+        self.app
+            .contacts
+            .borrow_mut()
+            .retain(|(c, _)| *c != contact);
         at
     }
 
     /// Report the contact as the platform does: the window maps the
     /// platform's contact to a pointer of its own (`arvane_virtual::Script::contact`).
     fn send_contact(&self, phase: PointerPhase, contact: Contact, at: Point) {
-        let mut host = self.host.borrow_mut();
-        let modifiers = host.modifiers();
-        host.contact(PointerSample {
-            id: PointerId(contact.id),
-            kind: contact.kind,
-            phase,
-            position: at,
-            buttons: p::PointerButtons::NONE.with(
-                MouseButton::Primary,
-                matches!(phase, PointerPhase::Down(_) | PointerPhase::Move),
-            ),
-            pressure: None,
-            tilt: None,
-            button: None,
-            press: match phase {
-                PointerPhase::Down(press) | PointerPhase::Up(press) => Some(press),
-                _ => None,
+        let mut host = self.host_mut();
+        let modifiers = host.modifiers(self.window);
+        host.contact(
+            self.window,
+            PointerSample {
+                id: PointerId(contact.id),
+                kind: contact.kind,
+                phase,
+                position: at,
+                buttons: p::PointerButtons::NONE.with(
+                    MouseButton::Primary,
+                    matches!(phase, PointerPhase::Down(_) | PointerPhase::Move),
+                ),
+                pressure: None,
+                tilt: None,
+                button: None,
+                press: match phase {
+                    PointerPhase::Down(press) | PointerPhase::Up(press) => Some(press),
+                    _ => None,
+                },
+                time_ns: 0,
+                modifiers,
+                is_primary: true,
             },
-            time_ns: 0,
-            modifiers,
-            is_primary: true,
-        });
+        );
     }
 
     /// The pointer leaves the window. Panics when the pointer was never placed in the window (call
     /// [`Self::mouse_move`] or click or hover an element first).
     pub fn mouse_leave(&self) {
         self.log("pointer leaves".into());
-        self.host.borrow_mut().mouse(PointerPhase::Leave, None);
+        self.host_mut()
+            .mouse(self.window, PointerPhase::Leave, None);
         self.run_until_idle();
     }
 
@@ -369,14 +396,14 @@ impl Screen {
 
     /// The window's logical size (its root's box).
     fn window_rect(&self) -> Option<p::Rect> {
-        let host = self.host.borrow();
-        let root = *host.preorder().first()?;
+        let host = self.host();
+        let root = *host.preorder(self.window).first()?;
         host.rect(root)
     }
 
     /// Whether `node` is `ancestor` or below it in the host's tree.
     fn in_subtree(&self, node: NodeId, ancestor: NodeId) -> bool {
-        let host = self.host.borrow();
+        let host = self.host();
         let mut stack = vec![ancestor];
         while let Some(id) = stack.pop() {
             if id == node {
@@ -392,7 +419,7 @@ impl<'a> Element<'a> {
     /// The element's box (the region's for a region) in window
     /// coordinates, if it is mounted on the host.
     pub(super) fn host_rect(&self) -> Option<p::Rect> {
-        let host = self.screen.host.borrow();
+        let host = self.screen.host();
         match self.region {
             Some(r) => host.region_rect(self.node, r),
             None => host.rect(self.node),
@@ -403,7 +430,7 @@ impl<'a> Element<'a> {
     /// its node's untransformed box: where actions land, mapped by the
     /// node's transforms.
     fn local_center(&self) -> Point {
-        let host = self.screen.host.borrow();
+        let host = self.screen.host();
         let r = match self.region {
             Some(region) => host.region_local(self.node, region),
             None => host.size(self.node).map(|s| p::Rect {
@@ -448,7 +475,7 @@ impl<'a> Element<'a> {
         let Some(r) = self.host_rect() else {
             fail("is not mounted".into());
         };
-        if !screen.host.borrow().shown(self.node) {
+        if !screen.host().shown(self.node) {
             fail("is hidden".into());
         }
         if r.width <= 0.0 || r.height <= 0.0 {
@@ -460,7 +487,7 @@ impl<'a> Element<'a> {
         // Local to the node's untransformed box (a region's too, like
         // `drag`), as drawn: through the node's transforms.
         let local = local.unwrap_or_else(|| self.local_center());
-        let at = { screen.host.borrow().window_point(self.node, local) };
+        let at = { screen.host().window_point(self.node, local) };
         if let Some(w) = screen.window_rect()
             && !(at.x >= w.x && at.y >= w.y && at.x < w.x + w.width && at.y < w.y + w.height)
         {
@@ -469,8 +496,8 @@ impl<'a> Element<'a> {
                 at.x, at.y, w.width, w.height
             ));
         }
-        let hit = screen.host.borrow().hit(at.x, at.y);
-        let modal = screen.host.borrow().modal();
+        let hit = screen.host().hit(screen.window, at.x, at.y);
+        let modal = screen.host().modal(screen.window);
         match hit {
             Some(h) if screen.in_subtree(h, self.node) => at,
             Some(h) => fail(format!(
@@ -520,7 +547,7 @@ impl<'a> Element<'a> {
         }
         self.screen.log(format!("force click {}", self.short()));
         let c = self.local_center();
-        let at = { self.screen.host.borrow().window_point(self.node, c) };
+        let at = { self.screen.host().window_point(self.node, c) };
         self.screen.pointer_click(at, MouseButton::Primary);
         self.screen.run_until_idle();
     }
@@ -604,9 +631,8 @@ impl<'a> Element<'a> {
             screen.fail(&screen.report(&format!("focus: {} {why}", self.describe()), None, &[]));
         }
         let id = screen
-            .host
-            .borrow()
-            .semantics_id(self.node, self.region)
+            .host()
+            .semantics_id(screen.window, self.node, self.region)
             .expect("invariant: focusable element has accessibility identity");
         screen.send(ShellEvent::Accessibility {
             node: id,
@@ -685,7 +711,7 @@ impl<'a> Element<'a> {
         let start = self.action_point("drag", Some(from), true);
         self.screen.log(format!("drag {}", self.short()));
         let node = self.node;
-        let host = &self.screen.host;
+        let host = &self.screen.app.host;
         let at = |l: Point| host.borrow().window_point(node, l);
         let s = self.screen;
         s.mouse_to(start);
@@ -752,8 +778,8 @@ impl<'a> Element<'a> {
         self.screen
             .log(format!("a11y {request:?} on {}", self.short()));
         let id = {
-            let host = self.screen.host.borrow();
-            host.semantics_id(self.node, self.region)
+            let host = self.screen.host();
+            host.semantics_id(self.screen.window, self.node, self.region)
         };
         let Some(id) = id else {
             self.screen.fail(&format!(
@@ -783,8 +809,7 @@ impl Screen {
     /// Press and release the primary button at the centre of `node`.
     pub(crate) fn queue_click(&self, node: NodeId) {
         let r = self
-            .host
-            .borrow()
+            .host()
             .rect(node)
             .expect("invariant: the node is laid out");
         self.pointer_click(
@@ -801,9 +826,11 @@ impl Screen {
     /// The host reports a failure after the last revision it applied.
     pub(crate) fn queue_host_failure(&self, reason: &str) {
         let revision = kivact_types::Revision(self.inspect().reader().stats().revision);
-        self.host
+        self.app
+            .host
             .borrow_mut()
             .inject(kivact_engine::contract::HostEvent::HostFailure {
+                window: self.window,
                 revision,
                 reason: reason.into(),
             });

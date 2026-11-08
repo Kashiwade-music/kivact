@@ -47,6 +47,7 @@ pub fn use_hover_surface(
         enabled.into_value(),
         (|| false).into_value(),
         delays,
+        |_| (),
     )
 }
 
@@ -56,6 +57,7 @@ pub(crate) fn hover_surface(
     enabled: Value<bool>,
     immediate: Value<bool>,
     delays: Delays,
+    on_visible: impl Fn(bool) + 'static,
 ) -> HoverSurfaceApi {
     let over_anchor = anchor.hovered();
     let over_surface = surface.hovered();
@@ -72,6 +74,7 @@ pub(crate) fn hover_surface(
             }
         },
         delays.close,
+        on_visible,
     );
     let shown = delayed.is_open();
     let (_, progress) = hover_corridor(
@@ -152,5 +155,11 @@ impl HoverSurfaceApi {
     /// Renew the close delay.
     pub fn pulse(self) {
         self.delayed.pulse();
+    }
+    pub(crate) fn dismiss_on_release(self, requested: impl IntoValue<bool>) {
+        self.delayed.dismiss_on_release(requested);
+    }
+    pub(crate) fn hurry_on(self, immediate: impl IntoValue<bool>) {
+        self.delayed.hurry_on(immediate);
     }
 }

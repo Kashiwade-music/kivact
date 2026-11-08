@@ -8,6 +8,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use crate::support::mount_with;
+use kivact::interaction::EditSession;
 use kivact::interaction::ScalarRange;
 use kivact::interaction::use_splitter;
 use kivact::prelude::*;
@@ -247,4 +248,30 @@ fn text_input_reports_edit_phases_from_the_native_editor() {
         assert_eq!(*phases, [Begin, Commit]);
     }
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
+fn replace_initial_changes_what_the_active_edit_holds_and_cancel_restores() {
+    let (screen, value) = mount_with(real_window(), || {
+        let value = signal(0);
+        let edit = EditSession::new(move |restored: i32| value.set(restored));
+        (
+            value,
+            column((
+                button("Begin").on_press(move || {
+                    edit.begin(1);
+                    edit.replace_initial(5);
+                }),
+                button("Cancel").on_press(move || {
+                    edit.cancel();
+                }),
+                text(move || format!("{:?}", edit.with_initial(|v| *v))).test_id("held"),
+            )),
+        )
+    });
+    screen.get_by_role(Role::Button, "Begin").click();
+    assert_eq!(screen.get_by_test_id("held").text(), "Some(5)");
+    screen.get_by_role(Role::Button, "Cancel").click();
+    assert_eq!(value.get_untracked(), 5);
+    assert_eq!(screen.get_by_test_id("held").text(), "None");
 }

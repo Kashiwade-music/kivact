@@ -72,7 +72,7 @@ impl Screen {
         scope: Option<NodeId>,
     ) -> Vec<LayoutViolation> {
         self.run_until_idle();
-        let findings = self.host.borrow().layout_findings(check, scope);
+        let findings = self.host().layout_findings(self.window, check, scope);
         findings
             .into_iter()
             .map(|f| {
@@ -109,7 +109,7 @@ impl Screen {
                     name,
                     text,
                     test_id,
-                    created_at: created_at.unwrap_or(self.at),
+                    created_at: created_at.unwrap_or(self.app.at),
                 }
             })
             .collect()

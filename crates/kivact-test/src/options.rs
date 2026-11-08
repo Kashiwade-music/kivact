@@ -40,6 +40,7 @@ pub struct RenderOptions {
     mirror: MirrorMode,
     gpu: bool,
     frame_period_ns: u64,
+    single_window: bool,
     restored_state: std::collections::BTreeMap<String, Vec<u8>>,
 }
 
@@ -56,6 +57,7 @@ impl Default for RenderOptions {
             mirror: mirror_from_env(),
             gpu: false,
             frame_period_ns: kivact_types::defaults::FRAME_PERIOD_NS,
+            single_window: false,
             restored_state: Default::default(),
         }
     }
@@ -145,6 +147,11 @@ impl RenderOptions {
         self.frame_period_ns = value;
         self
     }
+    /// The test platform opens no window beyond the first (`Capabilities.multi_window` and `window_placement` false), like an embedded editor.
+    pub fn single_window(mut self) -> Self {
+        self.single_window = true;
+        self
+    }
 }
 
 impl RenderOptions {
@@ -197,6 +204,7 @@ impl RenderOptions {
             mirror: self.mirror,
             title,
             frame_period_ns: self.frame_period_ns,
+            single_window: self.single_window,
             theme: if self.dark {
                 kivact_types::ThemeHint::Dark
             } else {

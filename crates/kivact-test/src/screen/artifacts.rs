@@ -3,10 +3,10 @@
 //! A failing test leaves the last frame (`<name>.png`) and the trees
 //! (`<name>.txt`: the accessibility tree the host published and the
 //! retained tree's semantic tree) in `kivact-test-failures/` under the
-//! cargo target directory, named after the test; failure messages name
-//! the files (or stderr does). `Screen::screenshot` is the last frame
-//! (pixels, hash and PNG), `Element::screenshot` its part under the
-//! element's box.
+//! cargo target directory, named after the test; a window beyond the main
+//! one is named `<name>-w<id>`. Failure messages name the files (or stderr
+//! does). `Screen::screenshot` is the last frame (pixels, hash and PNG),
+//! `Element::screenshot` its part under the element's box.
 
 use std::cell::Cell;
 use std::fmt::Write as _;
@@ -15,8 +15,9 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use kivact_engine::testing::{SemanticsNode, Transform};
+use kivact_types::WindowId;
 
-use super::model::{Element, Screen};
+use super::model::{Element, Screen, TestApp};
 use super::results::Screenshot;
 use kivact_style::draw::Rect;
 
@@ -89,25 +90,23 @@ impl Screen {
     /// The last frame the host presented (settling first).
     pub fn screenshot(&self) -> Screenshot {
         self.run_until_idle();
-        match self.frame_now() {
-            Some(frame) => frame,
+        match self.host().frame(self.window) {
+            Some(frame) => Screenshot {
+                width: frame.width,
+                height: frame.height,
+                pixels: frame.pixels.to_vec(),
+            },
             None => self.fail("screenshot: no frame was drawn (the surface is lost)"),
         }
     }
 
-    fn frame_now(&self) -> Option<Screenshot> {
-        let host = self.host.borrow();
-        let frame = host.frame()?;
-        Some(Screenshot {
-            width: frame.width,
-            height: frame.height,
-            pixels: frame.pixels.to_vec(),
-        })
-    }
-
     /// The scale (physical pixels per logical pixel) frames are drawn at.
     pub fn scale(&self) -> f64 {
-        self.scale.get()
+        self.app
+            .host
+            .borrow()
+            .scale(self.window)
+            .expect("invariant: the window is open")
     }
 
     /// The accessibility tree the host published, one node per line:
@@ -115,8 +114,47 @@ impl Screen {
     /// platforms map them: moved back by the scroll offsets above the
     /// node and mapped by the transforms, `SemanticsTree::window_bounds`).
     pub fn accessibility_tree(&self) -> String {
+        self.check_open();
+        self.app.accessibility_tree(self.window)
+    }
+
+    /// Fail the test with `message`, leaving the failure artifacts (named
+    /// in the message).
+    #[track_caller]
+    pub(super) fn fail(&self, message: &str) -> ! {
+        self.app.fail(self.window, message)
+    }
+}
+
+impl Element<'_> {
+    /// The element's part of a screenshot (its layout box, in physical
+    /// pixels of the frame).
+    pub fn screenshot(&self) -> Screenshot {
+        let shot = self.screen.screenshot();
+        let rect = self.rect().unwrap_or(Rect::new(0.0, 0.0, 0.0, 0.0));
+        let scale = self.screen.scale();
+        let px = |v: f64| (v * scale).round().max(0.0) as u32;
+        shot.crop(px(rect.x), px(rect.y), px(rect.width), px(rect.height))
+    }
+}
+
+impl TestApp {
+    /// The last frame the host presented for `window`.
+    fn frame_now(&self, window: WindowId) -> Option<Screenshot> {
         let host = self.host.borrow();
-        let Some(tree) = host.semantics() else {
+        let frame = host.frame(window)?;
+        Some(Screenshot {
+            width: frame.width,
+            height: frame.height,
+            pixels: frame.pixels.to_vec(),
+        })
+    }
+
+    /// The accessibility tree the host published for `window`, one node per
+    /// line (see [`Screen::accessibility_tree`]).
+    fn accessibility_tree(&self, window: WindowId) -> String {
+        let host = self.host.borrow();
+        let Some(tree) = host.semantics(window) else {
             return "(no accessibility tree published)\n".into();
         };
         let mut out = String::new();
@@ -187,18 +225,23 @@ impl Screen {
         out
     }
 
-    /// Write the failure artifacts; returns their paths.
-    pub(super) fn write_artifacts(&self) -> Option<(PathBuf, PathBuf)> {
-        if self.artifacts_written.replace(true) {
+    /// Write `window`'s failure artifacts; returns their paths.
+    pub(super) fn write_artifacts(&self, window: WindowId) -> Option<(PathBuf, PathBuf)> {
+        if !self.artifacts_written.note() {
             return None;
         }
         let dir = failure_dir();
         std::fs::create_dir_all(&dir).ok()?;
-        let png = dir.join(format!("{}.png", self.name));
-        let txt = dir.join(format!("{}.txt", self.name));
+        let name = if window == WindowId::MAIN {
+            self.name.clone()
+        } else {
+            format!("{}-w{}", self.name, window.get())
+        };
+        let png = dir.join(format!("{name}.png"));
+        let txt = dir.join(format!("{name}.txt"));
         // Reads only (no turn runs while a test is failing). A failure is
         // reported with nothing borrowed: `fail` callers release the host,
-        // and an unwinding test has dropped its borrows before the screen.
+        // and an unwinding test has dropped its borrows before the app.
         match self.host.try_borrow_mut() {
             // The frame of the failing state (drawing runs no client code
             // the host has not already run).
@@ -207,29 +250,31 @@ impl Screen {
             }
             Err(_) => return None,
         }
-        if let Some(frame) = self.frame_now() {
+        if let Some(frame) = self.frame_now(window) {
             let _ = frame.save_png(&png);
         }
         let mut text = String::new();
         let _ = writeln!(text, "accessibility tree (published by the host):");
-        text.push_str(&self.accessibility_tree());
-        let _ = writeln!(text, "\nsemantic tree (retained tree):");
-        text.push_str(&self.debug());
+        text.push_str(&self.accessibility_tree(window));
+        if self.host.borrow().windows().contains(&window) {
+            let _ = writeln!(text, "\nsemantic tree (retained tree):");
+            text.push_str(&self.debug_tree(window));
+        }
         let _ = writeln!(text, "\nrecent actions: {:?}", self.actions.borrow());
         let _ = writeln!(
             text,
             "virtual time: {:?}",
-            Duration::from_nanos(self.now_ns())
+            Duration::from_nanos(self.host.borrow().now_ns())
         );
         std::fs::write(&txt, text).ok()?;
         Some((png, txt))
     }
 
-    /// Fail the test with `message`, leaving the failure artifacts (named
-    /// in the message).
+    /// Fail the test with `message` for `window`, leaving its failure
+    /// artifacts (named in the message).
     #[track_caller]
-    pub(super) fn fail(&self, message: &str) -> ! {
-        match self.write_artifacts() {
+    pub(super) fn fail(&self, window: WindowId, message: &str) -> ! {
+        match self.write_artifacts(window) {
             Some((png, txt)) => panic!(
                 "{message}\nfailure artifacts: {} {}",
                 png.display(),
@@ -240,22 +285,10 @@ impl Screen {
     }
 }
 
-impl Element<'_> {
-    /// The element's part of a screenshot (its layout box, in physical
-    /// pixels of the frame).
-    pub fn screenshot(&self) -> Screenshot {
-        let shot = self.screen.screenshot();
-        let rect = self.rect().unwrap_or(Rect::new(0.0, 0.0, 0.0, 0.0));
-        let scale = self.screen.scale();
-        let px = |v: f64| (v * scale).round().max(0.0) as u32;
-        shot.crop(px(rect.x), px(rect.y), px(rect.width), px(rect.height))
-    }
-}
-
-impl Drop for Screen {
+impl Drop for TestApp {
     fn drop(&mut self) {
         if std::thread::panicking() {
-            if let Some((png, txt)) = self.write_artifacts() {
+            if let Some((png, txt)) = self.write_artifacts(WindowId::MAIN) {
                 #[allow(
                     clippy::print_stderr,
                     reason = "the test harness shows a failing test's stderr: where its artifacts are"
@@ -272,9 +305,9 @@ impl Drop for Screen {
             .ok()
             .and_then(|v| v.parse().ok())
         {
-            self.run_until_idle();
+            self.run_until_idle(WindowId::MAIN);
             if let Ok(host) = self.host.try_borrow() {
-                host.sync_window();
+                host.sync_window(WindowId::MAIN);
             }
             std::thread::sleep(Duration::from_millis(ms));
         }
