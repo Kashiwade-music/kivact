@@ -12,7 +12,7 @@ pub(crate) fn blur_sigmas(sigma_x: f64, sigma_y: f64) -> Option<(f64, f64)> {
     (sigma_x >= 0.5 || sigma_y >= 0.5).then_some((sigma_x, sigma_y))
 }
 
-/// The input's alpha times `color`, blurred by `sigma` px, shifted by `offset` px, with the input over it (design §8.8.2).
+/// The input's alpha times `color`, blurred by `sigma` px, shifted by `offset` px, with the input over it.
 pub(crate) fn drop_shadow(
     input: &Pixmap,
     offset: (f64, f64),
@@ -51,7 +51,7 @@ pub(crate) fn drop_shadow(
     out
 }
 
-/// Each pixel unpremultiplied, multiplied by the 4×5 matrix, clamped, and premultiplied again (design §8.8.3).
+/// Each pixel unpremultiplied, multiplied by the 4×5 matrix, clamped, and premultiplied again.
 pub(crate) fn color_matrix(input: &Pixmap, matrix: &ColorMatrix) -> Pixmap {
     let (w, h) = input.size();
     let mut out = Pixmap::new(w, h);

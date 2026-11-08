@@ -31,7 +31,7 @@ const MIN_SCALE: f64 = 1.0 / 16.0;
 const SCALE_SNAP: f64 = 1e9;
 /// The largest raster scale a surface takes.
 const MAX_SCALE: f64 = 16.0;
-/// The cell, in px, that a `RasterGrid::Layer` surface's bounds snap to (design §8.3 step 2).
+/// The cell, in px, that a `RasterGrid::Layer` surface's bounds snap to.
 const LAYER_GRID_CELL_PX: f64 = 256.0;
 
 /// The geometry of a layer's surface in its target.
@@ -524,7 +524,7 @@ impl<'a> Builder<'a> {
         Ok(())
     }
 
-    /// Filter the surface, clip it and mask it, in the CSS order (design §8.3 step 7).
+    /// Filter the surface, clip it and mask it, in the CSS order.
     fn emit_effects(
         &mut self,
         layer: &'a CompositeLayer,
@@ -582,7 +582,7 @@ impl<'a> Builder<'a> {
         Ok(())
     }
 
-    /// Draw a planned surface into its target (design §8.3 step 9).
+    /// Draw a planned surface into its target.
     pub(super) fn draw_surface(
         &mut self,
         layer: &CompositeLayer,

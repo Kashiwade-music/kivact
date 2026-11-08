@@ -1,4 +1,4 @@
-//! Role: Records the draw operations of a plan (design §8.7).
+//! Role: Records the draw operations of a plan.
 //!
 //! Sampling, anti-aliased coverage, blend and composite of each draw.
 

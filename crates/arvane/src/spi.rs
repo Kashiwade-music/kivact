@@ -6,7 +6,7 @@ pub use arvane_shell::{
 
 /// Make the window's GPU device lost, as a device failure does: the
 /// window's exports are reported lost, and the device restarts once per session
-/// (the test driver's control, §10.6).
+/// (the test driver's control).
 pub fn lose_gpu_device(window: &mut crate::Window<'_>) {
     window.lose_gpu_device();
 }

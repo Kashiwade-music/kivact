@@ -1,4 +1,4 @@
-//! Role: Chunk rasters and window damage: which chunks and rectangles change (§8.6).
+//! Role: Chunk rasters and window damage: which chunks and rectangles change.
 
 use std::borrow::Cow;
 use std::sync::Arc;
@@ -14,11 +14,11 @@ use super::hash;
 use super::ops::{ChunkTask, Damage, Grid, PlanError, Redraw};
 use crate::cache::{ChunkKey, ChunkRecord, LayerRecord, Retained};
 
-/// Changed commands beyond which their bounds merge into one rectangle (§8.6).
+/// Changed commands beyond which their bounds merge into one rectangle.
 const MERGE_AT: usize = 17;
 /// How far a chunk's diff searches for a command that moved.
 const SEARCH: usize = 64;
-/// Damaged rectangles beyond which the whole window redraws (§8.6).
+/// Damaged rectangles beyond which the whole window redraws.
 const FULL_AT: usize = 17;
 
 /// The px rectangle of `r` in a grid of px, clipped to `size`; None when nothing is left.
@@ -213,7 +213,7 @@ impl<'a> Builder<'a> {
     /// The output's damage this frame, from the records and the changes of the frame.
     pub(super) fn finish_damage(&mut self) -> Damage {
         let cache = self.cache;
-        // After a resize, `invalidate()` or a failed frame, the whole output is redrawn (§8.6).
+        // After a resize, `invalidate()` or a failed frame, the whole output is redrawn.
         if cache.invalidated {
             return Damage::Full;
         }

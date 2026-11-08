@@ -1,4 +1,4 @@
-//! Role: Runs the layer filters of an Op::Filter on the CPU (design §8.8).
+//! Role: Runs the layer filters of an Op::Filter on the CPU.
 
 use kivact_types::geometry::Point;
 use kivact_types::render::LayerFilter;
@@ -35,7 +35,7 @@ pub(crate) fn apply(
         }
         LayerFilter::ColorMatrix(matrix) => color_matrix(input, matrix),
         LayerFilter::Graph(filter_graph) => graph::apply(filter_graph, input, px_per_unit, origin)?,
-        // The CPU does not run filter shaders: the input passes through (design §8.8.5).
+        // The CPU does not run filter shaders: the input passes through.
         LayerFilter::Shader(_) => input.clone(),
     })
 }

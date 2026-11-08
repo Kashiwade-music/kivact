@@ -2,5 +2,5 @@
 
 use kivact_types::render::FrameReport;
 
-/// What a presented frame produced besides pixels (design §10.6, `FrameReport`).
+/// What a presented frame produced besides pixels (`FrameReport`).
 pub type GpuReport = FrameReport;

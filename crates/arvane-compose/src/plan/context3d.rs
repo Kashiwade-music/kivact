@@ -1,4 +1,4 @@
-//! Role: 3D contexts: planes sharing a context, drawn in depth order (§8.4).
+//! Role: 3D contexts: planes sharing a context, drawn in depth order.
 
 use kivact_types::Matrix4;
 use kivact_types::geometry::{Point, Rect};
@@ -272,7 +272,7 @@ impl<'a> Builder<'a> {
         let layer = self.layer(index)?;
         let mut start = 0usize;
         for (pos, item) in layer.items.iter().enumerate() {
-            // A child with clips is not a participant (design §6.4, §8.4): it stays in the
+            // A child with clips is not a participant: it stays in the
             // fragment, drawn flat with its clips as a coverage on that fragment's surface.
             let LayerItem::Layer {
                 index: child,

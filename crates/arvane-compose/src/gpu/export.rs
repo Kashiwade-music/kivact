@@ -1,4 +1,4 @@
-//! Role: Sends drawable frames to their sinks' export pools (design §8.12).
+//! Role: Sends drawable frames to their sinks' export pools.
 //!
 //! A frame is copied into a free slot of its sink's pool and shared; a frame
 //! that finds no free slot waits for the next one. The pools and the records
@@ -44,7 +44,7 @@ impl GpuContext {
         }
     }
 
-    /// The exports of a frame (design §8.12): pixel frames read back, GPU frames copied into their sink's pool.
+    /// The exports of a frame: pixel frames read back, GPU frames copied into their sink's pool.
     /// Returns the frames sent and the sinks whose GPU frame waits for a free slot.
     pub(super) fn send_exports(
         &mut self,
@@ -228,7 +228,7 @@ fn publish(
     Ok(None)
 }
 
-/// Drop `pool` on a worker thread: its drop waits (at most five seconds) for its last submissions (design §8.12).
+/// Drop `pool` on a worker thread: its drop waits (at most five seconds) for its last submissions.
 #[cfg(feature = "gpu-interop")]
 fn retire(pool: Pool) {
     std::thread::spawn(move || drop(pool));

@@ -115,7 +115,7 @@ pub(super) fn wrapped(scene: &RenderScene, t: Transform) -> RenderScene {
     RenderScene { commands }
 }
 
-/// Whether a layer may be drawn into its parent instead of a surface (design §8.14),
+/// Whether a layer may be drawn into its parent instead of a surface,
 /// ignoring the runtime affine test. The rules keep each draw's coverage and
 /// shader grid in its parent's space.
 pub(super) fn inline_candidate(comp: &Composition, index: u32) -> bool {

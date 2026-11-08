@@ -227,7 +227,7 @@ fn color_matrix_group(checker: Pixels) -> CompositeLayer {
 }
 
 /// [`vocabulary`] scaled down about the middle: tiles, glyphs and blurs at
-/// other device sizes. The root keeps the identity transform (design §8.3),
+/// other device sizes. The root keeps the identity transform,
 /// so the vocabulary is a child layer of the root that is scaled instead.
 fn scaled_vocabulary() -> Composition {
     let mut layers = vocabulary().layers;

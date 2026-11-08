@@ -79,7 +79,7 @@ fn sample_with<T: Texels + ?Sized>(t: &T, p: Point, nearest: bool) -> Premul {
     }
 }
 
-/// A convex polygon's coverage of pixel centers (design §8.7).
+/// A convex polygon's coverage of pixel centers.
 pub(crate) struct Shape<'a> {
     /// The vertices in the plan's order.
     points: &'a [Point],
@@ -202,7 +202,7 @@ pub(crate) fn draw(
 /// The map from target px to the texels `texture` is sampled at.
 ///
 /// Every source but an external frame is already in its own px, so `op.map` is used as it is.
-/// An external frame's map ends at the item rect space (design §8.3): it is taken to the
+/// An external frame's map ends at the item rect space: it is taken to the
 /// frame's px here, by the size of the CPU pixels and the source rectangle, as the GPU does.
 /// None when the item rect has no area in target px.
 fn texel_map(op: &DrawOp<'_>, texture: &Texture<'_>) -> Option<Projective> {

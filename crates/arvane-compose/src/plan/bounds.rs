@@ -12,7 +12,7 @@ use kivact_types::scene::{LineJoin, Shape, Stroke};
 
 use super::ops::PlanError;
 
-/// Blur reach in standard deviations (design §8.6: a group's blur grows it by 3σ).
+/// Blur reach in standard deviations (a group's blur grows it by 3σ).
 const BLUR_REACH: f64 = 3.0;
 
 /// The kind of group an open push starts.

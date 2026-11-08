@@ -1,4 +1,4 @@
-// feDiffuseLighting and feSpecularLighting (design §8.8.4; resvg's Sobel normal and light equations).
+// feDiffuseLighting and feSpecularLighting (resvg's Sobel normal and light equations).
 
 // Modes of the light source (p0.x).
 const LIGHT_DISTANT: f32 = 0.0;

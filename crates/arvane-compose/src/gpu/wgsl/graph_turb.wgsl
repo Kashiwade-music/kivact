@@ -1,4 +1,4 @@
-// feTurbulence (design §8.8.4): the Perlin gradient noise of the SVG reference algorithm.
+// feTurbulence: the Perlin gradient noise of the SVG reference algorithm.
 // The lattice and gradient tables are built by the CPU (cpu/graph/turbulence.rs).
 
 // Gradient noise of channel `ch` at (x, y) with the stitch tile of the frequencies (wrap, width, height).

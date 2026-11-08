@@ -1,4 +1,4 @@
-// The primitives of a filter graph, one mode each (design §8.8.4). The values are
+// The primitives of a filter graph, one mode each. The values are
 // premultiplied; a conversion or a table read follows resvg's 8-bit arithmetic.
 
 const M_COPY: u32 = 0u;

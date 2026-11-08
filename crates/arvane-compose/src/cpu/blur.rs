@@ -1,4 +1,4 @@
-//! Role: Gaussian blur of premultiplied pixels by repeated halving (§8.8.1).
+//! Role: Gaussian blur of premultiplied pixels by repeated halving.
 
 use super::surface::{Pixmap, Premul};
 
@@ -184,7 +184,7 @@ fn kernel(sigma: f64) -> Vec<f32> {
 /// Gaussian blur of `src` with standard deviations `sigma_x` and `sigma_y` (px).
 ///
 /// Each axis is halved `levels` times, convolved at the reduced size, then
-/// doubled back (design §8.8.1). An axis below 0.5 px is left as it is.
+/// doubled back. An axis below 0.5 px is left as it is.
 pub(crate) fn gaussian(src: &Pixmap, sigma_x: f64, sigma_y: f64) -> Pixmap {
     let (kx, ky) = (levels(sigma_x), levels(sigma_y));
     let mut plane = Plane::from_pixmap(src);

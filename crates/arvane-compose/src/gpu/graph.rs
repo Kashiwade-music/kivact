@@ -1,4 +1,4 @@
-//! Role: Records a filter graph's primitives (design §8.8.4).
+//! Role: Records a filter graph's primitives.
 //!
 //! One pass of the graph shader per primitive, over textures of the region's size.
 
@@ -199,7 +199,7 @@ impl Data {
         }
     }
 
-    /// The turbulence lattice and gradients of `seed` (the CPU builds them, design §8.8.4).
+    /// The turbulence lattice and gradients of `seed` (the CPU builds them).
     fn set_turbulence(&mut self, seed: i32) {
         let built = lattice_init(seed);
         self.lattice = built.lattice.iter().map(|&i| i as u32).collect();
@@ -821,7 +821,7 @@ impl<'a> Lighting<'a> {
 }
 
 impl GpuContext {
-    /// Record `graph` over `source` into `dest` (both the region's size) through `encoder` (design §8.8.4).
+    /// Record `graph` over `source` into `dest` (both the region's size) through `encoder`.
     pub(super) fn record_graph(
         &self,
         encoder: &mut wgpu::CommandEncoder,

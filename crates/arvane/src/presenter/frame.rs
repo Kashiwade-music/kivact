@@ -46,12 +46,12 @@ pub enum Presented {
         raster: Duration,
         /// Waiting for the window's buffer and handing the frame over.
         present: Duration,
-        /// The drawable frames this presentation exported (§10.6).
+        /// The drawable frames this presentation exported.
         exports: Vec<ExportedFrame>,
         /// The drawables whose export waits for a free slot; their frames
-        /// come on a later frame (§8.12).
+        /// come on a later frame.
         pending_exports: Vec<DrawableId>,
-        /// The work counts of the frame (§8.15).
+        /// The work counts of the frame.
         stats: FrameStats,
     },
     /// Presentation is temporarily unavailable (no buffer, occlusion, or
