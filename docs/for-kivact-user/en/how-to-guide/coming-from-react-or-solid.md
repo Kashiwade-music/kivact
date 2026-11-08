@@ -89,6 +89,16 @@ This is the model of SolidJS. Two consequences:
 | Controlled input | `value` + `onChange` | `value` + `onInput` | a `Signal<String>` (or a `Binding<T>`) passed to the input |
 | Error boundary | `ErrorBoundary` | `ErrorBoundary` | `error_boundary(..)` |
 | Data loading | libraries or `useEffect` | `createResource` | `resource(source, fetch)`; `action(..)` for user actions |
+| Shared element between two places (Framer Motion `layoutId`) | `layoutId` (Framer Motion) | a library | `.layout_id("id")` on both nodes; the new one glides from the old box with a layout transition in its style |
+| Old content leaves before new content enters (`AnimatePresence mode="wait"`) | `AnimatePresence mode="wait"` | a library | `show(cond, \|\| a).fallback(\|\| b).presence(PresenceMode::Wait)`; `Sync` and `PopLayout` are the other modes |
+| A value that follows scrolling (`useScroll`) | `useScroll` | a scroll listener | `scroll_progress(scroller, Orientation::Vertical)`, or `view_progress(target, scroller, axis, ViewRange::Entry)` for one element |
+| A sequence on one clock (GSAP `timeline`) | `gsap.timeline()` | a library | `timeline()`, `track(..)`, `to(track, target, transition).at(At::AfterPrevious(ms))`, `play()` |
+| A delay per list item (GSAP `stagger`) | `stagger` | a library | `Stagger::new(ms).from(StaggerFrom::Center)` and `stagger.delay(index, count)` |
+| CSS `transform: perspective(..) rotateX(..)` | `style={{ transform }}` | `style={{ transform }}` | `style().transform(Transform::new().perspective(..).rotate_x(..))` |
+| CSS `filter: blur(4px)` | `style={{ filter }}` | `style={{ filter }}` | `style().filter(Filter::new().blur(4))` (`kivact::draw`) |
+| CSS `mask`, `clip-path`, `mix-blend-mode` | `style={{ mask }}` and so on | the same | `style().mask(..)`, `.clip_path(shape)`, `.mix_blend_mode(BlendMode::Multiply)` |
+| CSS `font-variation-settings`, `font-stretch` | `style={{ fontVariationSettings }}` | the same | `style().font_variation_settings([("wght", 650.0)])`, `.font_width(75.0)` |
+| CSS `-webkit-text-stroke`, `paint-order` | `style={{ WebkitTextStroke }}` | the same | `style().text_stroke(width, color)`, `.paint_order(..)` |
 
 All the ordinary UI names in the table are available through
 `use kivact::prelude::*;`, including `callback`, `error_boundary`

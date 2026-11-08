@@ -4,8 +4,9 @@
 
 Use `image(source)` to show a PNG, JPEG or SVG, name it so assistive technology
 can describe it, size it with a style, and register your own fonts with
-`App::font`. This guide also covers images loaded at run time and SVG files used
-as icons.
+`App::font`. This guide also covers images loaded at run time, animated images,
+SVG files used as icons or as pictures with their own text, and the axes of
+variable fonts.
 
 ## The shortest working image
 
@@ -47,8 +48,9 @@ mod tests {
 }
 ```
 
-`image(source)` decides the format from the content: PNG, JPEG, GIF and WebP
-(first frame), SVG and SVGZ. Without a size in its style it has its natural
+`image(source)` decides the format from the content: PNG (animated PNG too), JPEG,
+GIF, WebP, SVG and SVGZ. Animated GIF, WebP and PNG play; see
+[Play an animated image](#play-an-animated-image). Without a size in its style it has its natural
 size; with one side set, the other follows the aspect ratio. The column here
 uses `align_items(Align::Start)` because the default `Stretch` would make every
 image as wide as the column.
@@ -155,6 +157,36 @@ fn main() -> kivact::Result<()> {
 - `style().radius(8)` rounds the corners, `style().clip(true)` clips children,
   and `style().opacity(..)` fades the image.
 
+## Play an animated image
+
+An animated GIF, WebP or PNG plays by itself. `.playing(..)` controls it: give it
+a `bool` or a signal, and set it to `false` to stop the animation on its current
+frame. With reduced motion on, an animated picture shows its first frame and does
+not play, whatever `playing` says.
+
+```rust,no_run
+use kivact::prelude::*;
+
+fn loading(busy: Signal<bool>) -> impl IntoView {
+    column((
+        image("assets/spinner.gif")
+            .name("Loading")
+            .playing(busy)
+            .style(style().size(32, 32)),
+        text(move || String::from(if busy.get() { "Loading" } else { "Done" })),
+    ))
+    .style(style().gap(8).padding(16).align_items(Align::Start))
+}
+
+fn main() -> kivact::Result<()> {
+    App::new("Spinner").run(|| loading(signal(true)))
+}
+```
+
+A picture that moves on its own is a decoration unless it carries meaning: name
+it only when the animation tells the user something (a progress spinner that
+says "loading" is named "Loading" above), otherwise leave it unnamed.
+
 ## Describe an image
 
 An image is exposed to assistive technology only when you name it:
@@ -195,6 +227,80 @@ fn main() -> kivact::Result<()> {
 color. To use the same icon everywhere by name (and let a theme replace it),
 register it in the theme and draw it with `icon("star")`; see
 [Theming](theming.md#icons).
+
+## Put text and pictures inside an SVG
+
+An SVG keeps its own `<text>` and embedded pictures, and both are drawn:
+
+- A `<text>` element is drawn with the fonts of the app. Name the family the
+  way you registered it (see [Register your own fonts](#register-your-own-fonts)),
+  and the text takes that font's shapes and metrics. Register the font before the
+  first screen, as with any other font.
+- An `<image>` whose `href` is a `data:` URL of a PNG, JPEG, GIF or WebP is drawn.
+  A link to a file (`href="logo.png"`) is not read: the SVG is drawn without that
+  picture, so embed the bytes or show the picture with `image(..)` beside it.
+- An SVG that would need too much memory for its text and its pictures is refused
+  and reported as an asset error, like any other source that cannot be read.
+
+```rust,no_run
+use kivact::prelude::*;
+
+static BADGE: &[u8] = br##"<svg xmlns="http://www.w3.org/2000/svg" width="120" height="32" viewBox="0 0 120 32"><rect width="120" height="32" rx="6" fill="#1e3a8a"/><text x="12" y="21" font-family="Inter" font-size="14" fill="#ffffff">Online</text></svg>"##;
+
+fn status() -> impl IntoView {
+    image(BADGE).name("Status: online")
+}
+
+fn main() -> kivact::Result<()> {
+    let regular = std::fs::read("assets/Inter-Regular.ttf").expect("font file");
+    App::new("Status").font(regular).run(status)
+}
+```
+
+## Adjust a variable font
+
+A variable font has axes, such as weight and width, that you set to any value
+within the font's range. Write them with `font_variation_settings`, a list of
+four-letter axis tags and values. Other settings adjust the design along the
+axes the font provides:
+
+- `font_variation_settings([("wght", 650.0)])` sets an axis by its tag: weight
+  `wght`, width `wdth`, slant `slnt`, optical size `opsz`, and so on.
+- `font_width(75.0)` (CSS `font-stretch`) sets the width as a percentage of the
+  normal width, from 50 to 200.
+- `font_optical_sizing(false)` turns off the optical size axis, which follows the
+  font size by default, so a headline and a caption keep one design.
+
+```rust,no_run
+use kivact::prelude::*;
+
+fn headlines() -> impl IntoView {
+    column((
+        text("Variable weight").style(
+            style()
+                .font_family("Inter")
+                .font_variation_settings([("wght", 650.0)]),
+        ),
+        text("Condensed width").style(style().font_family("Inter").font_width(75.0)),
+        text("One design at every size").style(
+            style()
+                .font_family("Inter")
+                .font_size(48)
+                .font_optical_sizing(false),
+        ),
+    ))
+    .style(style().gap(8).padding(16))
+}
+
+fn main() -> kivact::Result<()> {
+    let inter = std::fs::read("assets/Inter-Variable.ttf").expect("font file");
+    App::new("Headlines").font(inter).run(headlines)
+}
+```
+
+A setting for an axis that the font does not have does nothing. `font_feature_settings([("tnum", 1)])`
+switches OpenType features on or off in the same way, and `tabular_nums()` is a
+shorthand for the `tnum` feature.
 
 ## Register your own fonts
 

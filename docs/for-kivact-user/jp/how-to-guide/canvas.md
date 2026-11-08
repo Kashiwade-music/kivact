@@ -184,6 +184,97 @@ fn spinner() -> impl IntoView {
 # fn main() -> kivact::Result<()> { App::new("Layer").run(spinner) }
 ```
 
+## 3D で描き、合成し、枠の画像を描く
+
+レイヤーの transform には、perspective と x・y 軸まわりの回転を含められるので、描いた図形を空間の中で回せます。3D のグループの見え方は、さらに 3 つのレイヤー設定で決まります。
+
+- `transform_style(TransformStyle::Preserve3d)` は、グループの中に描いたレイヤーを、グループ自身の 3D の空間に保ちます（CSS の `transform-style: preserve-3d` と同じ）。
+- `backface_visibility(BackfaceVisibility::Hidden)` は、グループが 90 度を超えて回ったときに隠します。表だけが見えます。
+- `composite(Composite::…)` は、レイヤーが既に描かれたものとどう合成されるかを選びます（HTML の canvas の `globalCompositeOperation` と同じ）。`SourceIn` は、既存の画素の上にあるレイヤーの部分だけを残し、`DestinationOver` はレイヤーを既にある画素の後ろに描き、`Xor` は重ならない部分を残します。
+
+`draw.border_image(rect, &image)` は九分割の枠を描きます。絵の四隅は変わらず、辺と中央が伸びるか繰り返して `rect` を埋めます。`BorderImage::new(source)` には、画像のバイト列（SVG も可）、ファイル名、グラデーションのいずれかを渡します。`.slice(n)` は絵のどこで切るかを絵の画素で指定し、`.width(..)` は画面での枠の大きさ、`.repeat(BorderImageRepeat::Round)` は辺の部分を整数回に収まるよう繰り返します。
+
+```rust,no_run
+use kivact::view::canvas;
+use kivact::draw::{BorderImage, Composite, Layer, Transform};
+use kivact::geometry::{Point, Rect};
+use kivact::prelude::*;
+use kivact::style::{BackfaceVisibility, TransformStyle};
+
+fn tilted_panel() -> impl IntoView {
+    canvas(|draw, size| {
+        let centre = Point::new(size.width / 2.0, size.height / 2.0);
+        // パネルを縦の軸まわりに回し、400 px 離れた所から見る。
+        let tilt = Transform::new()
+            .translate(centre.x, centre.y)
+            .perspective(400.0)
+            .rotate_y(25.0);
+        draw.layer(
+            Layer::new()
+                .transform(tilt)
+                .transform_style(TransformStyle::Preserve3d)
+                .backface_visibility(BackfaceVisibility::Hidden),
+            |draw| {
+                draw.fill_rect(Rect::new(-60.0, -40.0, 120.0, 80.0), ColorToken::Accent);
+            },
+        );
+
+        // パネルが既にある所だけに描く枠。
+        let frame = BorderImage::new(br##"<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12"><rect width="12" height="12" fill="#f59e0b"/></svg>"##)
+            .slice(4)
+            .width(4)
+            .repeat(kivact::draw::BorderImageRepeat::Round);
+        draw.layer(Layer::new().composite(Composite::SourceIn), |draw| {
+            draw.border_image(Rect::new(0.0, 0.0, size.width, size.height), &frame);
+        });
+    })
+    .style(style().size(240, 160))
+    .name("傾いたパネル")
+}
+# fn main() -> kivact::Result<()> { App::new("Panel").run(tilted_panel) }
+```
+
+## 文字を塗り、線で縁取り、輪郭を描く
+
+`layout_paragraph` で一度作った段落は 3 通りに描けます。その塗りには任意の paint を使えるので、グラデーションで文字を塗れます。`stroke_paragraph` は `Stroke` でグリフの縁を描き、`paragraph_path` はグリフの輪郭を `Path` として返します。その `Path` は塗っても線を引いてもかまいません。1 行のテキストなら、`draw.text_path(text, 位置, &format)` で輪郭を直接得られます。
+
+```rust,no_run
+use kivact::view::canvas;
+use kivact::draw::{Stroke, TextFormat, linear_gradient};
+use kivact::geometry::Point;
+use kivact::prelude::*;
+
+fn headline() -> impl IntoView {
+    canvas(|draw, _size| {
+        let format = TextFormat {
+            size: 40.0,
+            weight: 800,
+            ..TextFormat::default()
+        };
+        let paragraph = draw.layout_paragraph("SHIFT", &format, None);
+        let origin = Point::new(12.0, 8.0);
+
+        // 文字はグラデーションで塗り、その上から縁を描く。
+        let fill = linear_gradient(90).colors([rgb(0xffb300), rgb(0xff5a6e)]);
+        draw.paragraph(&paragraph, origin, fill);
+        draw.stroke_paragraph(&paragraph, origin, &Stroke::new(2.0), rgb(0x1a1a1a));
+
+        // 同じ輪郭を path として、もう一度細く明るく描く。
+        let outline = draw.paragraph_path(&paragraph, origin);
+        draw.stroke_path(&outline, &Stroke::new(0.5), rgb(0xffffff));
+    })
+    .style(style().size(240, 64))
+    .name("見出し")
+}
+# fn main() -> kivact::Result<()> { App::new("Headline").run(headline) }
+```
+
+要素のテキストにも、スタイルで同じ効果があります。`style().text_stroke(width, color)` はグリフを縁取り、`paint_order` は塗りと線のどちらを先に描くかを決め、`text_shadow(..)` は影を加えます。縁取りをパスやスタイルで表せないグラデーションに沿わせたいときに、キャンバスを使ってください。
+
+## キャンバスの中にドローアブルを表示する
+
+ドローアブルは、キャンバスが画像として描く view の部分木です。そのため、ほかのキャンバスの内容と同じように、回転・クリップ・重ね合わせができます。セットアップで `drawable()` で作り、`node().drawable(d, content)` で内容をノードにマウントし、キャンバスの中で `draw.drawable(d, 位置)` を呼んで描きます。開いたレイヤーや transform の下で描かれます。ヒットテストとアクセシビリティは、描かれた絵に対して自動的に従います。全体の流れは[ドローアブルのガイド](drawables.md)で説明します。自前の GPU レンダラーの絵は、[GPU テクスチャをキャンバスと共有する](gpu-texture-sharing.md)を参照してください。
+
 ## 状態が変わったら再描画する
 
 クロージャの中でシグナルから読んだものは、すべて依存関係になります。シグナルが変わると、このキャンバスだけが再描画されます。「汚れた」フラグを立てたり、再描画の関数を呼んだりする必要はありません。

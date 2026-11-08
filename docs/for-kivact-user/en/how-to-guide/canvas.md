@@ -216,6 +216,123 @@ fn spinner() -> impl IntoView {
 # fn main() -> kivact::Result<()> { App::new("Layer").run(spinner) }
 ```
 
+## Paint in 3D, composite and draw a border image
+
+A layer's transform may include a perspective and rotations about the x and y
+axes, so a drawn shape can turn in space. Three more layer settings control how
+a 3D group appears:
+
+- `transform_style(TransformStyle::Preserve3d)` keeps the layers drawn inside the
+  group in the group's own 3D space, as CSS `transform-style: preserve-3d` does.
+- `backface_visibility(BackfaceVisibility::Hidden)` hides the group when it turns
+  past 90 degrees, so only its front shows.
+- `composite(Composite::…)` chooses how the layer combines with what is already
+  drawn, as `globalCompositeOperation` does in an HTML canvas. `SourceIn` keeps
+  only the part of the layer that lies over existing pixels, `DestinationOver`
+  draws the layer behind what is there, and `Xor` keeps the parts that do not overlap.
+
+`draw.border_image(rect, &image)` draws a nine-slice: the corners of a picture
+stay as they are, and the edges and the middle stretch or repeat to fill `rect`.
+`BorderImage::new(source)` takes a picture's bytes (SVG included), a file name or a
+gradient. `.slice(n)` says where to cut the picture, in its own pixels, `.width(..)`
+gives the frame's size on screen, and `.repeat(BorderImageRepeat::Round)` repeats
+the edge pieces so they fit a whole number of times.
+
+```rust,no_run
+use kivact::view::canvas;
+use kivact::draw::{BorderImage, Composite, Layer, Transform};
+use kivact::geometry::{Point, Rect};
+use kivact::prelude::*;
+use kivact::style::{BackfaceVisibility, TransformStyle};
+
+fn tilted_panel() -> impl IntoView {
+    canvas(|draw, size| {
+        let centre = Point::new(size.width / 2.0, size.height / 2.0);
+        // The panel turns about its vertical axis, seen from 400 px away.
+        let tilt = Transform::new()
+            .translate(centre.x, centre.y)
+            .perspective(400.0)
+            .rotate_y(25.0);
+        draw.layer(
+            Layer::new()
+                .transform(tilt)
+                .transform_style(TransformStyle::Preserve3d)
+                .backface_visibility(BackfaceVisibility::Hidden),
+            |draw| {
+                draw.fill_rect(Rect::new(-60.0, -40.0, 120.0, 80.0), ColorToken::Accent);
+            },
+        );
+
+        // A frame drawn only where the panel already is.
+        let frame = BorderImage::new(br##"<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12"><rect width="12" height="12" fill="#f59e0b"/></svg>"##)
+            .slice(4)
+            .width(4)
+            .repeat(kivact::draw::BorderImageRepeat::Round);
+        draw.layer(Layer::new().composite(Composite::SourceIn), |draw| {
+            draw.border_image(Rect::new(0.0, 0.0, size.width, size.height), &frame);
+        });
+    })
+    .style(style().size(240, 160))
+    .name("Tilted panel")
+}
+# fn main() -> kivact::Result<()> { App::new("Panel").run(tilted_panel) }
+```
+
+## Fill, stroke and outline text
+
+A paragraph made once with `layout_paragraph` can be drawn three ways. Its fill
+takes any paint, so a gradient colors the letters; `stroke_paragraph` outlines
+the glyphs with a `Stroke`; and `paragraph_path` returns the outline of the
+glyphs as a `Path`, which you can fill or stroke. A single line of
+text can give its outline directly with `draw.text_path(text, at, &format)`.
+
+```rust,no_run
+use kivact::view::canvas;
+use kivact::draw::{Stroke, TextFormat, linear_gradient};
+use kivact::geometry::Point;
+use kivact::prelude::*;
+
+fn headline() -> impl IntoView {
+    canvas(|draw, _size| {
+        let format = TextFormat {
+            size: 40.0,
+            weight: 800,
+            ..TextFormat::default()
+        };
+        let paragraph = draw.layout_paragraph("SHIFT", &format, None);
+        let origin = Point::new(12.0, 8.0);
+
+        // The letters take a gradient, then an outline is drawn over them.
+        let fill = linear_gradient(90).colors([rgb(0xffb300), rgb(0xff5a6e)]);
+        draw.paragraph(&paragraph, origin, fill);
+        draw.stroke_paragraph(&paragraph, origin, &Stroke::new(2.0), rgb(0x1a1a1a));
+
+        // The same outline as a path, here drawn a second time, thin and bright.
+        let outline = draw.paragraph_path(&paragraph, origin);
+        draw.stroke_path(&outline, &Stroke::new(0.5), rgb(0xffffff));
+    })
+    .style(style().size(240, 64))
+    .name("Headline")
+}
+# fn main() -> kivact::Result<()> { App::new("Headline").run(headline) }
+```
+
+Element text has the same effects in its style: `style().text_stroke(width, color)`
+outlines the glyphs, `paint_order` decides whether the fill or the stroke is drawn
+first, and `text_shadow(..)` adds a shadow. Use the canvas when the outline must
+follow a path or a gradient that the style cannot express.
+
+## Show a drawable inside a canvas
+
+A drawable is a view subtree that a canvas draws as a picture, so it can be
+turned, clipped or layered like other canvas content. Create it in setup with
+`drawable()`, mount its content on a node with `node().drawable(d, content)`, and
+draw it inside the canvas with `draw.drawable(d, at)`, under the layers and
+transforms you open. Hit testing and accessibility of the content follow the
+drawn picture automatically. The [drawables guide](drawables.md) explains the whole
+flow, and [Share GPU textures with a canvas](gpu-texture-sharing.md) covers pictures
+from your own renderer.
+
 ## Redraw when state changes
 
 Whatever you read from a signal inside the closure becomes a dependency. When

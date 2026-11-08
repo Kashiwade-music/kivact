@@ -50,10 +50,20 @@ to Kivact.
 | --- | --- |
 | [Run async work from a component](async-and-tasks.md) | Load data, save in the background, wait on timers and run heavy work off the UI thread |
 | [Animate values and elements](animation.md) | Move a value toward a target, run code every frame and animate elements in and out |
+| [Run timelines, scroll-linked motion and shared layout](timelines-and-scroll.md) | Steps that run in order, stagger, progress from scrolling, waiting for an exit and gliding a shared element |
 | [Call an HTTP JSON API](http-json.md) | Requests, JSON responses and asynchronous errors |
 | [Work with slides and files](slides-and-files.md) | Presentation content and file-oriented views |
 | [Use platform services](platform-services.md) | Clipboard, file dialogs, opening paths and other operating system features |
 | [Draw with a canvas](canvas.md) | Draw your own graphics, charts and effects |
+
+## Graphics
+
+| Guide | What it solves |
+| --- | --- |
+| [3D and depth](3d-and-depth.md) | 3D transforms, perspective, preserved 3D and backfaces, and pointer-driven parallax |
+| [Effects](effects.md) | Filters and filter graphs, masks, blend modes, backdrop effects, border images and gradient text |
+| [Shaders](shaders.md) | Your own WGSL paints and filters, their parameters and images, and their fallback on the CPU |
+| [Drawables](drawables.md) | Draw a subtree of views inside a canvas, hit testing and accessibility, and exporting pictures |
 
 ## Quality
 

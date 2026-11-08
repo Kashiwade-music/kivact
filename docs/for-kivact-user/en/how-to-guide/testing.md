@@ -527,6 +527,89 @@ To look at the same data on a passing test, print `screen.accessibility_tree()`
 `screen.screenshot().save_png("frame.png")`. Every settle draws requested frames.
 `KIVACT_TEST_HOLD_MS=3000` keeps the mirror open for three seconds when a test ends.
 
+## Test shaders on the GPU and the CPU
+
+A shader is drawn in two lanes, and a test can cover both. On the **CPU lane**
+(the default) the shader is not run: the CPU draws the paint that
+`ShaderPaint::fallback` gives, so the picture is the fallback and the test still
+renders the real screen and finds its elements. On the **GPU lane** the window
+runs the WGSL on the graphics card, and the picture is the shader's output. The
+GPU lane needs a graphics adapter and a native window, so it is skipped where
+either is missing (see [Run tests in CI](#run-tests-in-ci)).
+
+A GPU test asks for the lane with `RenderOptions::from_env().gpu()`, requires
+the native window with `.mirror(MirrorMode::Required)`, and returns early when
+`gpu_unavailable()` gives a reason. `from_env()` also reads `KIVACT_TEST_GPU=1`, so
+a test that leaves out `.gpu()` runs on the GPU lane only when a CI job sets that
+variable on a machine with a card. A GPU test
+that is skipped does not compile the shader, so keep a CPU test that renders the
+screen, as below: it compiles the WGSL on every machine.
+
+```rust,test_harness
+use kivact::draw::PaintShader;
+use kivact::geometry::Rect;
+use kivact::prelude::*;
+use kivact::view::canvas;
+
+const WAVE: &str = r#"
+struct Params { speed: f32, tint: vec4<f32> }
+
+fn paint(position: vec2<f32>, context: Context, params: Params) -> vec4<f32> {
+    let uv = position / context.size;
+    let wave = 0.5 + 0.5 * sin(uv.x * 12.0 + context.time * params.speed);
+    return vec4<f32>(params.tint.rgb * wave, 1.0);
+}
+"#;
+
+fn wave() -> impl IntoView {
+    let shader = PaintShader::wgsl(WAVE).expect("the shader is valid WGSL");
+    canvas(move |draw, size| {
+        // The CPU lane draws the solid fallback instead of the shader.
+        let paint = shader
+            .paint()
+            .param("speed", 2.0)
+            .param("tint", rgb(0x3b82f6))
+            .fallback(rgb(0x1e3a8a));
+        draw.fill_rect(Rect::new(0.0, 0.0, size.width, size.height), paint);
+    })
+    .style(style().size(120, 60))
+    .test_id("wave")
+}
+
+fn main() -> kivact::Result<()> {
+    App::new("Wave").run(wave)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use kivact::test::{MirrorMode, RenderOptions, gpu_unavailable, render, render_with};
+
+    #[test]
+    fn the_wave_renders_on_the_cpu_lane() {
+        let screen = render(wave);
+        screen.get_by_test_id("wave");
+        assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+    }
+
+    #[test]
+    fn the_wave_renders_on_the_gpu_lane() {
+        if let Some(reason) = gpu_unavailable() {
+            eprintln!("skipped: {reason}");
+            return;
+        }
+        let options = RenderOptions::from_env().gpu().mirror(MirrorMode::Required);
+        let screen = render_with(options, wave);
+        screen.get_by_test_id("wave");
+        assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+    }
+}
+```
+
+The screen is the same in both lanes, so a test that checks structure or text
+needs no lane. Compare pixels only in a test that says which lane it is on,
+because the two lanes draw different pictures.
+
 ## Run tests in CI
 
 Tests run with the normal `cargo test`. What differs from unit tests is the
