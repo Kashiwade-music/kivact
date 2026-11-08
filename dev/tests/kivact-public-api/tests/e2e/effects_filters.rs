@@ -134,24 +134,26 @@ fn filter_graph_rejects_handles_of_other_graphs() {
 }
 
 #[test]
-#[ignore = "pending: the window clear is opaque, so the backdrop under the panel is opaque and the drop shadow is hidden (needs a transparent backdrop; orchestrator to decide)"]
 fn backdrop_drop_shadow_is_applied() {
-    // The panel's backdrop is the red box and what is beneath it, which is
-    // transparent (no canvas). The drop shadow (offset 10 px right, blue)
-    // shows where the backdrop is transparent, inside the panel, right of
-    // the red box: the shadow of the red box is blue there. Tier 2.
+    // A Backdrop Root (CONTRACT-BACKDROP-ROOT: a layer with an effect; here
+    // opacity 0.999, which is invisible in the output) with a transparent
+    // background. Its child, the glass, reads that root's content: the red
+    // box, and nothing where the box is not. The drop shadow (offset 10 px
+    // right, blue) therefore shows right of the box. Tier 2.
     let screen = render(|| {
-        node().style(style().size(800, 600)).child((
-            node().style(at(40, 40, 60, 60).background(rgb(RED))),
-            node().style(
-                at(40, 40, 120, 120).backdrop_filter(Filter::new().drop_shadow(
-                    10,
-                    0,
-                    0,
-                    rgb(BLUE),
-                )),
-            ),
-        ))
+        node().style(style().size(800, 600)).child(
+            node().style(style().size(800, 600).opacity(0.999)).child((
+                node().style(at(40, 40, 60, 60).background(rgb(RED))),
+                node().style(
+                    at(40, 40, 120, 120).backdrop_filter(Filter::new().drop_shadow(
+                        10,
+                        0,
+                        0,
+                        rgb(BLUE),
+                    )),
+                ),
+            )),
+        )
     });
     let shot = screen.screenshot();
     expect(&shot, 105, 70, BLUE, 2, "the backdrop's drop shadow");
