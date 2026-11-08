@@ -68,6 +68,8 @@ pub(crate) struct Builder<'a> {
     pub(crate) ops: Vec<Op<'a>>,
     /// The chunk records so far.
     pub(crate) chunk_records: Vec<(ChunkKey, ChunkRecord)>,
+    /// Chunks drawn without caching this frame, whose old records are dropped.
+    pub(crate) forgets: Vec<ChunkKey>,
     /// The layer records so far.
     pub(crate) layer_records: Vec<(LayerKey, LayerRecord)>,
     /// Layers recorded this frame.
@@ -114,6 +116,7 @@ impl<'a> Builder<'a> {
             chunks: Vec::new(),
             ops: Vec::new(),
             chunk_records: Vec::new(),
+            forgets: Vec::new(),
             layer_records: Vec::new(),
             seen: HashSet::new(),
             reused: HashSet::new(),
@@ -194,11 +197,9 @@ impl<'a> Builder<'a> {
         let saved = self.caching;
         self.caching = Caching::Uncached;
         for export in &comp.exports {
-            let layer = self.layer(export.layer)?;
             let target = self.new_temp(export.size);
-            let to = layer
-                .transform
-                .then(Matrix4::scale(export.scale, export.scale, 1.0));
+            // The exported layer's own transform is ignored: it is drawn at the export's scale alone (§8.12).
+            let to = Matrix4::scale(export.scale, export.scale, 1.0);
             let dest = Dest {
                 target,
                 to,
@@ -261,6 +262,7 @@ impl<'a> Builder<'a> {
             damage,
             exports,
             chunk_records: self.chunk_records,
+            chunk_forgets: self.forgets,
             layer_records: self.layer_records,
             frame: self.frame,
             stats,
@@ -296,10 +298,14 @@ impl<'a> Builder<'a> {
                     })
                     .collect();
                 for op in &mut self.ops {
-                    if let Op::Draw(draw) = op
-                        && draw.target == OUTPUT
-                    {
-                        draw.scissor = Scissor::Rects(rects.clone());
+                    match op {
+                        Op::Draw(draw) if draw.target == OUTPUT => {
+                            draw.scissor = Scissor::Rects(rects.clone());
+                        }
+                        Op::Shader(shader) if shader.target == OUTPUT => {
+                            shader.scissor = Scissor::Rects(rects.clone());
+                        }
+                        _ => {}
                     }
                 }
                 clears.append(&mut self.ops);

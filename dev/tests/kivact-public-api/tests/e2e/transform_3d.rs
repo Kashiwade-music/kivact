@@ -180,6 +180,46 @@ fn preserve_3d_orders_by_depth() {
 }
 
 #[test]
+fn nested_hidden_backface_hides_its_own_content() {
+    // A Preserve3d child turned to show its back draws none of its own content
+    // inside its parent's 3D context (§8.4, §8.5). The visible back is the control.
+    let shot = |backface: BackfaceVisibility| {
+        render(move || {
+            canvas_of(
+                node()
+                    .style(at(100, 100, 200, 200).transform_style(TransformStyle::Preserve3d))
+                    .child(
+                        node().style(
+                            at(0, 0, 120, 120)
+                                .background(rgb(RED))
+                                .transform_style(TransformStyle::Preserve3d)
+                                .rotate_y(180)
+                                .backface_visibility(backface),
+                        ),
+                    ),
+            )
+        })
+        .screenshot()
+    };
+    expect(
+        &shot(BackfaceVisibility::Hidden),
+        150,
+        150,
+        WHITE,
+        2,
+        "the hidden back of the nested plane is not drawn",
+    );
+    expect(
+        &shot(BackfaceVisibility::Visible),
+        150,
+        150,
+        RED,
+        2,
+        "the visible back is drawn",
+    );
+}
+
+#[test]
 fn backface_hidden_is_not_drawn_or_hit() {
     // Compositor tier for the pixel; the hit test is geometry.
     let log: Log = Rc::default();

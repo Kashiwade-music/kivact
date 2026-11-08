@@ -29,6 +29,7 @@ type DrawOutcome = (
 pub(super) struct Records {
     pub(super) frame: u64,
     pub(super) chunks: Vec<(ChunkKey, ChunkRecord)>,
+    pub(super) forgets: Vec<ChunkKey>,
     pub(super) layers: Vec<(LayerKey, LayerRecord)>,
 }
 
@@ -46,7 +47,12 @@ impl GpuContext {
         match self.draw_planned(composition, size, scale, &cache) {
             Ok((drawn, records)) => {
                 let mut cache = cache;
-                cache.store(records.frame, records.chunks, records.layers);
+                cache.store(
+                    records.frame,
+                    records.chunks,
+                    records.layers,
+                    &records.forgets,
+                );
                 self.cache = cache;
                 self.prune();
                 Ok(drawn)
@@ -97,6 +103,7 @@ impl GpuContext {
             ops,
             exports,
             chunk_records,
+            chunk_forgets,
             layer_records,
             frame,
             mut stats,
@@ -129,6 +136,7 @@ impl GpuContext {
         let records = Records {
             frame,
             chunks: chunk_records,
+            forgets: chunk_forgets,
             layers: layer_records,
         };
         Ok((Drawn { output, report }, records))

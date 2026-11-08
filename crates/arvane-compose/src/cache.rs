@@ -96,18 +96,27 @@ pub(crate) struct CacheIndex {
     pub(crate) layers: HashMap<LayerKey, LayerRecord>,
     /// Frames drawn so far (cache stamps; statistics, not a phase).
     pub(crate) frame: u64,
+    /// The next frame redraws everything: set by `clear`, cleared by `store`.
+    pub(crate) invalidated: bool,
 }
 
 impl CacheIndex {
     /// Store the records of the frame `frame` and drop the records that
-    /// were not used for [`KEEP_FRAMES`] frames.
+    /// were not used for [`KEEP_FRAMES`] frames. `forgets` are chunks the
+    /// frame drew without caching: their old records no longer match the
+    /// pixels under their keys, so they go first.
     pub(crate) fn store(
         &mut self,
         frame: u64,
         chunks: Vec<(ChunkKey, ChunkRecord)>,
         layers: Vec<(LayerKey, LayerRecord)>,
+        forgets: &[ChunkKey],
     ) {
         self.frame = frame;
+        self.invalidated = false;
+        for key in forgets {
+            self.chunks.remove(key);
+        }
         self.chunks.extend(chunks);
         self.layers.extend(layers);
         self.chunks
@@ -120,5 +129,6 @@ impl CacheIndex {
     pub(crate) fn clear(&mut self) {
         self.chunks.clear();
         self.layers.clear();
+        self.invalidated = true;
     }
 }

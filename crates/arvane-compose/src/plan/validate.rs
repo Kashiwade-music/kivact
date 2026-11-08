@@ -7,7 +7,8 @@ use super::ops::PlanError;
 
 /// Check the composition before planning: a finite scale, an identity root
 /// transform and no effects on the root, every child referenced once from
-/// its parent (never the root), and every export naming a layer.
+/// its parent (never the root), and every export naming a layer that is not
+/// part of the tree (its chunks would share keys with the tree's).
 pub(super) fn check(comp: &Composition, scale: f64) -> Result<(), PlanError> {
     if !(scale.is_finite() && scale > 0.0) {
         return Err(PlanError::new(
@@ -57,6 +58,15 @@ pub(super) fn check(comp: &Composition, scale: f64) -> Result<(), PlanError> {
                 export.layer
             )));
         }
+        // An export's chunks share their keys with the tree's (and with another export of the layer).
+        let i = export.layer as usize;
+        if referenced[i] {
+            return Err(PlanError::new(format!(
+                "export layer {} is the root, a child of the tree, or exported twice",
+                export.layer
+            )));
+        }
+        referenced[i] = true;
         if !(export.scale.is_finite() && export.scale > 0.0) {
             return Err(PlanError::new(
                 "an export scale must be finite and positive",

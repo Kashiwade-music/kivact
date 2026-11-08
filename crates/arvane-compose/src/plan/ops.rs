@@ -246,6 +246,8 @@ pub(crate) struct ShaderOp<'a> {
     pub(crate) fallback_map: Projective,
     /// Alpha multiplier.
     pub(crate) opacity: f64,
+    /// Pixels of the target outside these rectangles stay as they are (window damage).
+    pub(crate) scissor: Scissor,
 }
 
 /// One operation of the frame, executed in order.
@@ -323,6 +325,8 @@ pub(crate) struct Plan<'a> {
     pub(crate) exports: Vec<PlannedExport>,
     /// Chunk records to store after a successful frame.
     pub(crate) chunk_records: Vec<(ChunkKey, ChunkRecord)>,
+    /// Chunks drawn without caching: their old records are dropped after a successful frame.
+    pub(crate) chunk_forgets: Vec<ChunkKey>,
     /// Layer records to store after a successful frame.
     pub(crate) layer_records: Vec<(LayerKey, LayerRecord)>,
     /// The frame number the records carry.

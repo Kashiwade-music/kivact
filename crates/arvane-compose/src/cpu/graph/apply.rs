@@ -669,7 +669,10 @@ fn color_in(c: Rgba, cs: FilterColorSpace) -> Rgba {
     if cs == FilterColorSpace::Srgb {
         return c;
     }
-    let lin = |v: f64| f64::from(SRGB_TO_LINEAR_RGB_TABLE[(v * 255.0).round() as usize]) / 255.0;
+    let lin = |v: f64| {
+        let index = (v.clamp(0.0, 1.0) * 255.0).round() as usize;
+        f64::from(SRGB_TO_LINEAR_RGB_TABLE[index]) / 255.0
+    };
     Rgba {
         r: lin(c.r),
         g: lin(c.g),

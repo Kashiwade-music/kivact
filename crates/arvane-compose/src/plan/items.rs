@@ -156,6 +156,7 @@ impl<'a> Builder<'a> {
             fallback,
             fallback_map,
             opacity: shader.opacity,
+            scissor: Scissor::Off,
         }));
         Ok(())
     }
@@ -174,6 +175,11 @@ impl<'a> Builder<'a> {
         } else {
             Some(self.clip_key(cx, at, clips)?)
         };
+        if child.backface == kivact_types::paint::BackfaceVisibility::Hidden
+            && child.transform.shows_back()
+        {
+            return Ok(());
+        }
         let to_child = child.transform.then(cx.dest.to);
         let win_child = child.transform.then(cx.to_win);
         let dest = Dest {

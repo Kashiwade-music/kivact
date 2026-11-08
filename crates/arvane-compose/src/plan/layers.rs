@@ -6,7 +6,6 @@ use std::f64::consts::SQRT_2;
 use kivact_types::Matrix4;
 use kivact_types::geometry::{Point, Rect, Size, Transform};
 use kivact_types::geometry3d::Projective;
-use kivact_types::paint::BackfaceVisibility;
 use kivact_types::pixel::BlendMode;
 use kivact_types::render::{
     Composite, CompositeLayer, LayerEffects, LayerItem, Plane, RasterGrid, RenderBackdrop,
@@ -329,9 +328,6 @@ impl<'a> Builder<'a> {
             cover,
         } = dest;
         let layer = self.layer(index)?;
-        if layer.backface == BackfaceVisibility::Hidden && layer.transform.shows_back() {
-            return Ok(());
-        }
         if layer.plane == Plane::Preserve3d {
             return self.emit_context(index, dest, to_win, clips);
         }

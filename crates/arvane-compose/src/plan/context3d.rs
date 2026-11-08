@@ -179,6 +179,11 @@ impl<'a> Builder<'a> {
         tsize: (u32, u32),
     ) -> Result<Option<PlannedPart<'a>>, PlanError> {
         let owner = self.layer(index)?;
+        if owner.backface == kivact_types::paint::BackfaceVisibility::Hidden
+            && part.to_t.shows_back()
+        {
+            return Ok(None);
+        }
         let Some(geo) = self.geometry(owner, &part.to_t, tsize) else {
             return Ok(None);
         };
