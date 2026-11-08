@@ -17,7 +17,8 @@
 //!   besides them, stay within a quarter of the budget. The next frame is
 //!   not decoded when it would not fit: the frames decoded so far are kept
 //!   (one frame makes it a still image), and the first frame alone when
-//!   not even that fits.
+//!   not even that fits. A frame that fails to decode ends the animation
+//!   the same way, keeping the frames before it.
 //! - A frame delay below 11 ms is 100 ms, as in browsers.
 
 use std::io::Cursor;
@@ -227,7 +228,9 @@ fn canvas<D: ImageDecoder>(decoder: &D) -> Result<(u32, u32), RasterError> {
 /// Decodes the frames `frames` yields, one at a time, for as long as they
 /// fit: before each frame, the frames kept so far, that frame and the
 /// `work` frames the decoder holds must fit a quarter of `budget` (each
-/// frame is `canvas` in size). Returns the frames kept, with their delays.
+/// frame is `canvas` in size). A frame that fails to decode ends the
+/// animation after the frames kept so far; it is an error only when it is
+/// the first. Returns the frames kept, with their delays.
 fn collect_frames(
     mut frames: Frames<'_>,
     orientation: Orientation,
@@ -249,7 +252,14 @@ fn collect_frames(
         let Some(frame) = frames.next() else {
             break;
         };
-        let frame: Frame = frame.map_err(error)?;
+        let frame: Frame = match frame {
+            Ok(frame) => frame,
+            Err(failure) if !kept.is_empty() => {
+                tracing::warn!(kept = kept.len(), %failure, "an animation ends at a bad frame");
+                break;
+            }
+            Err(failure) => return Err(error(failure)),
+        };
         let delay = delay_ms(frame.delay());
         let mut image = DynamicImage::ImageRgba8(frame.into_buffer());
         image.apply_orientation(orientation);
