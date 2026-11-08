@@ -205,3 +205,23 @@ fn mask_composite_subtract() {
     expect(&shot, 236, 60, RED, 8, "the right end is opaque red");
     expect(&shot, 44, 60, WHITE, 8, "the left end is clear");
 }
+
+#[test]
+fn linear_flood_clamps_a_channel_above_one() {
+    // A flood colour with a channel above 1 is clamped before the linear lookup
+    // (§8.8), so the flood draws full red. Tier 2.
+    let over = Color::from_rgba_f64(1.5, 0.0, 0.0, 1.0);
+    let screen = render(move || {
+        let mut graph = FilterGraph::new();
+        graph.flood(over);
+        canvas_of(
+            node().style(
+                at(40, 40, 120, 80)
+                    .background(rgb(BLUE))
+                    .filter(Filter::new().graph(graph)),
+            ),
+        )
+    });
+    let shot = screen.screenshot();
+    expect(&shot, 100, 80, RED, 2, "the flood is full red");
+}
