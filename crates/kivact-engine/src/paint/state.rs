@@ -193,7 +193,7 @@ pub(crate) struct Step {
 }
 
 impl Step {
-    /// What opening this step pushes, in order (§6.3). Its layer comes
+    /// What opening this step pushes, in order. Its layer comes
     /// first; its transform and group are not opened inside a layer,
     /// whose transform and effects are its own.
     pub(crate) fn opened(&self) -> Vec<Opening> {

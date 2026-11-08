@@ -2,7 +2,7 @@
 //!
 //! Layout runs move boxes in window space (`window_layout_rect`). A node's
 //! transform cancels the motion of its nearest moving ancestor, so each
-//! node lands on its own box (design §12.12).
+//! node lands on its own box.
 
 use super::state::LayoutAnimation;
 use crate::contract::NodeType;

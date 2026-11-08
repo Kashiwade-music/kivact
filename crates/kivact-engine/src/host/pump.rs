@@ -316,7 +316,7 @@ impl Host {
         self.adapter_changed(window);
         // The window's export notices (GPU available or lost) can come from
         // a wake that queues no event: they are events here, so the turn that
-        // answers them runs (design §10.5, §8.12).
+        // answers them runs.
         self.export_notices(window);
         self.model.borrow_mut().tick(window.now_ns());
         let mut turns = 0;
@@ -369,7 +369,7 @@ impl Host {
         self.synchronize_ime(window);
         self.show_cursor(window);
         // A skipped export due now draws a frame, even with nothing else
-        // changed (design §10.5, step 6). The turns above may not have run
+        // changed. The turns above may not have run
         // (no event was queued), so the check is here, not in `turn`.
         if self.model.borrow().drawables.retry_due(window.now_ns()) {
             self.model.borrow_mut().paint.request_redraw();

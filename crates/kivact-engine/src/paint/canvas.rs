@@ -3,9 +3,9 @@
 //! Invariants:
 //! - The plan is built before the hosts are composed and replaced each
 //!   frame; a drawable's layers are composed from its own subtree at the
-//!   window's scale, as an export's are (§6.1 R6, §10.3, §10.4).
+//!   window's scale, as an export's are.
 //! - A drawing in a node other than a drawable's host is reported once per
-//!   node and drawable (§10.2).
+//!   node and drawable.
 
 use kivact_types::render::{CompositeLayer, LayerKey};
 use kivact_types::{DrawableId, NodeId, Rect, Size};
@@ -87,8 +87,8 @@ impl Model {
     }
 
     /// Queue one report per node and drawable for the drawings of drawables
-    /// that their hosts do not mount (§10.2), and for the second drawings of
-    /// a drawable its host draws in both slots (§10.3).
+    /// that their hosts do not mount, and for the second drawings of
+    /// a drawable its host draws in both slots.
     pub(super) fn report_misplaced(&mut self) {
         let misplaced = std::mem::take(&mut self.paint.drawables.get_mut().misplaced);
         for (node, drawable) in misplaced {

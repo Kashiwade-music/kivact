@@ -3,7 +3,7 @@
 //! Invariants:
 //! - A node needs frames only while it is drawn with a shader whose clock
 //!   runs: not `Still`, and not under reduced motion unless the shader is
-//!   essential (§11.3.5).
+//!   essential.
 //! - At each tick every such node is repainted (its time advanced), and the
 //!   next frame is the earliest of the nodes' next times: a display clock
 //!   wants every tick, an `Hz(r)` clock wants the tick after `⌊now·r⌋`.

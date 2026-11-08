@@ -53,7 +53,7 @@ use crate::tree::node::HostNode;
 use kivact_types::PaintProps;
 
 /// One plane of a 3D rendering context: its node and the map from its box
-/// space to the box space of the context root's parent (§8.4).
+/// space to the box space of the context root's parent.
 struct ContextPlane {
     id: NodeId,
     map: Matrix4,
@@ -115,7 +115,7 @@ impl layer::LayerView for Model {
 }
 
 impl Model {
-    /// The facts of every drawn subtree of the layer roots (§6.1), see
+    /// The facts of every drawn subtree of the layer roots, see
     /// [`layer::layer_facts`].
     pub(crate) fn layer_facts(&self) -> HashMap<NodeId, SubtreeFacts> {
         layer::layer_facts(self)
@@ -441,7 +441,7 @@ impl Model {
     /// of `id`'s parent (the window for a root or a layer), where
     /// [`Model::to_parent`] maps the box of `id`. A node whose map is not
     /// invertible, or puts the point behind the viewer, is not hit; nor is
-    /// a back face that is hidden (§7.3). A 3D rendering context is hit by
+    /// a back face that is hidden. A 3D rendering context is hit by
     /// depth ([`Model::hit_context`]).
     pub(crate) fn hit_node(&self, id: NodeId, p: Point) -> Option<NodeId> {
         self.hit_in(id, p, None)
@@ -467,7 +467,7 @@ impl Model {
     }
 
     /// Whether the node `id`, under `map` (its box space to its parent's),
-    /// shows a back face that is hidden (§8.5).
+    /// shows a back face that is hidden.
     fn backface_hidden_at(&self, id: NodeId, map: &Matrix4) -> bool {
         map.shows_back()
             && self.effective_paint(id).backface == kivact_types::paint::BackfaceVisibility::Hidden
@@ -496,7 +496,7 @@ impl Model {
         if self.scrollbar_at(id, p).is_some() {
             return Some(id);
         }
-        // Drawables drawn over the children are hit first (§10.4).
+        // Drawables drawn over the children are hit first.
         if let Some(h) = self.drawable_hit(id, 1, p) {
             return Some(h);
         }
@@ -526,7 +526,7 @@ impl Model {
 
     /// The deepest node under `p` (in the box space of the root `root`'s
     /// parent) of the 3D rendering context rooted at `root`, whose map is
-    /// `root_map` (§7.3). Its planes are hit in depth order, nearer first
+    /// `root_map`. Its planes are hit in depth order, nearer first
     /// (ties: the later one in paint order first). Past
     /// `MAX_CONTEXT_PLANES` planes, the context is hit flat: the later plane
     /// in paint order first, without depth.
@@ -557,8 +557,8 @@ impl Model {
     }
 
     /// The planes of a 3D context below `parent`, whose map to the context
-    /// root's parent is `parent_map` (§6.4, §8.4): each layer child of
-    /// `parent` (a child with a clip is not one, as §6.4 says, and neither is
+    /// root's parent is `parent_map`: each layer child of
+    /// `parent` (a child with a clip is not one, since the clip flattens it, and neither is
     /// a fixed box or an overlay), in paint order, and the layers under the
     /// ones that preserve 3D. Each plane is listed before its own children.
     fn collect_planes(
@@ -600,7 +600,7 @@ impl Model {
     /// The point `p` (in the root's parent's box space) in the plane's box
     /// space, and the plane's depth at it, or `None` when the plane is not
     /// hit there: it does not invert, the point is behind the viewer, or it
-    /// shows a hidden back face (§8.5).
+    /// shows a hidden back face.
     fn plane_point(&self, plane: &ContextPlane, p: Point) -> Option<(f64, Point)> {
         if self.backface_hidden_at(plane.id, &plane.map) {
             return None;

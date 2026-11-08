@@ -190,7 +190,7 @@ fn shades(c: Rgba) -> (Rgba, Rgba) {
 
 /// Draw side `i` (top, right, bottom, left) of `width` inside `shape` in
 /// `style`, with its color `color` (tinted). Dashed and dotted sides are one
-/// stroke; the other styles are solid bands, as §9.1 of the design gives them:
+/// stroke; the other styles are solid bands:
 /// the double style has two bands a third of the width each at the edges, and
 /// the groove, ridge, inset and outset styles shade the top and left sides
 /// one way and the bottom and right sides the other way. The caller has

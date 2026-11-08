@@ -233,7 +233,7 @@ pub enum DrawCmd {
         /// Destination.
         rect: Rect,
     },
-    /// A drawable's subtree at `at` under the open transforms (§10).
+    /// A drawable's subtree at `at` under the open transforms.
     Drawable {
         /// The drawable.
         id: crate::ids::DrawableId,

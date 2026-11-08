@@ -143,7 +143,7 @@ pub(super) fn bind_props(
         cx.bind(id, source, PropValue::ImagePlaying, at);
     }
     if let Some(layout_id) = props.layout_id {
-        // Written once at mount: the id is an attribute of the node (§12.11).
+        // Written once at mount: the id is an attribute of the node.
         let writer = cx.rt.running_effect();
         ViewState::tree_mut(cx.rt).update(id, PropValue::LayoutId(Some(layout_id)), writer);
     }

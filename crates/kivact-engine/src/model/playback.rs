@@ -4,7 +4,7 @@
 //! is not false, reduced motion is off and its asset is animated. It plays
 //! from the frame it was first drawn in, repeats its run (`Repeat`), and
 //! then holds its last frame. An animated background layer plays the same
-//! way (its own slot, §9.8).
+//! way (in its own slot).
 //!
 //! Invariants:
 //! - An entry exists only for a drawn image that plays; it is dropped when

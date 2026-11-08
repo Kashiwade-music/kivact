@@ -140,7 +140,7 @@ impl Context<'_> {
     }
 
     /// The paint of glyphs filled with `layers`: one gradient layer over
-    /// `bounds`, the text's box (§9.7). Any other fill is not drawn and is
+    /// `bounds`, the text's box. Any other fill is not drawn and is
     /// counted as dropped.
     fn text_fill(&self, layers: &[FillLayer], bounds: Rect, tint: &Tint) -> Option<Paint> {
         let [

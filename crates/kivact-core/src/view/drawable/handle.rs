@@ -103,7 +103,7 @@ impl Drawable {
         self.state.get().size
     }
 
-    /// A thread-safe handle that exports frames of a viewport-hosted drawable (§10.5).
+    /// A thread-safe handle that exports frames of a viewport-hosted drawable.
     pub fn share(&self) -> DrawableShare {
         DrawableShare {
             inner: self.state.get().inbox.clone(),

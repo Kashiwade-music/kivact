@@ -6,7 +6,7 @@
 //!   and clips the chunk has open are kept with their payload ([`Opened`]),
 //!   so a child layer or an item splits the chunk: the chunk closes with
 //!   their pops, the layer or item follows, and the same groups are opened
-//!   again, in the same order, in the next chunk (§6.3).
+//!   again, in the same order, in the next chunk.
 //! - A layer's pieces, in paint order, are its raster chunks, its items and
 //!   its child layers. The composition numbers the layers when it is built.
 //! - `space` is the transform from the open layer's space to the chunk's
@@ -124,7 +124,7 @@ enum Piece {
 
 /// A canvas drawable's composed layers: the root layer first, with layer
 /// indices local to `layers`. Placed under the open transforms, it is
-/// clipped by the clips open at its command (§10.4).
+/// clipped by the clips open at its command.
 #[derive(Debug)]
 struct DrawablePiece {
     layers: Vec<CompositeLayer>,
@@ -372,7 +372,7 @@ impl SceneOut {
 
     /// Place a canvas drawable's composed `layers` at `at` in the innermost
     /// layer's space, under its open transforms and clipped by its open
-    /// clips (§10.3, §10.4). The root layer takes the drawable's transform.
+    /// clips. The root layer takes the drawable's transform.
     pub(crate) fn drawable(&mut self, layers: Vec<CompositeLayer>, at: Point) {
         let top = self.top();
         let clips = top.clips();

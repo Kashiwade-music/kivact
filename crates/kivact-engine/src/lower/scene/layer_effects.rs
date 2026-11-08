@@ -4,10 +4,9 @@
 //! Invariants:
 //! - A color filter becomes a layer color matrix, in order; `blur` and
 //!   `drop-shadow` become layer filters; a filter graph takes its images as
-//!   pixels at their natural size (§11.2.1); a filter shader is a shader use.
+//!   pixels at their natural size; a filter shader is a shader use.
 //! - A shader's images are their natural pixels and its time is its clock's
-//!   (§11.3.5; still shaders, and non-essential ones under reduced motion,
-//!   are at 0).
+//!   (a still shader, and a non-essential one under reduced motion, is at 0).
 //!   A shader whose images are not ready draws its fallback in place.
 //! - A mask is the scene of its fill over its area. A shader mask is not
 //!   supported and is left out.

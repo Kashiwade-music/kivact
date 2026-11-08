@@ -2,12 +2,12 @@
 //!
 //! Invariants:
 //! - The content box is layout's, inside the border and the padding; the
-//!   padding box is the border box inset by the border widths (§9.3).
+//!   padding box is the border box inset by the border widths.
 //! - A background clipped to the text is clipped to the glyph outlines of the
-//!   node's own paragraph, drawn at the paragraph's place (§9.4). A node that
+//!   node's own paragraph, drawn at the paragraph's place. A node that
 //!   is not a text node has none, so such a layer is not drawn.
 //! - Each animated background layer shows the frame of its own playback
-//!   (slot 1 + its index, §9.8).
+//!   (slot 1 + its index).
 
 use kivact_types::render::ShapedText;
 use kivact_types::scene::Shape;

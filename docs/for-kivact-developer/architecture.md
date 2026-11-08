@@ -268,7 +268,7 @@ NodeRef::snapshotはpoll時のnodeをHostのrequest/replyへ送り、layout/pain
 | 支援技術の性質（例 key_shortcuts） | types の Semantics、core の Node setter、native の変換の 3 crate。relation は node/region identity も検証 |
 | Role | types の Role と native の role mapping の 2 crate |
 | text style（例 text_wrap_style） | types の宣言・computed 値・継承、style builder、arvane-text の 3 crate。relative unit/current color と native 精度を保つ |
-| layout/paint の性質 | types の一つの値、style の入口、layout または engine::lower の計算・描画の 3 crate。削除済み lower crate を再設置しない。画素が要る効果は compositor の LayerEffects（§6.1） |
+| layout/paint の性質 | types の一つの値、style の入口、layout または engine::lower の計算・描画の 3 crate。削除済み lower crate を再設置しない。画素が要る効果は compositor の LayerEffects |
 | OS service（例 beep） | types の request/result/capability、native の window.perform、core/platform の 3 crate。virtual は台本の応答を登録するだけ |
 | Environment field | types、native の事実、core の readonly query の 3 crate。別の environment model を作らない |
 | OS backend | native/port に入口、shell の共有 pipeline を利用。core に外部 backend 注入 API を増やさない。virtual が常時第二の SPI 実装 |

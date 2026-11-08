@@ -595,7 +595,8 @@ impl SpaceColor {
         .sanitize()
     }
 
-    /// Whether the hue channel is powerless (§5.4.3).
+    /// Whether the hue channel is powerless: the color is near grey, black or white,
+    /// so the hue has no visible effect (the limit differs per space).
     pub fn hue_is_powerless(&self) -> bool {
         let c = self.channels;
         match self.space {

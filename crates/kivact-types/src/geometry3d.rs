@@ -490,7 +490,7 @@ impl Projective {
         (out.x.is_finite() && out.y.is_finite()).then_some(out)
     }
 
-    /// The convex polygon `r` maps to, clipped to w' > W_EPS (§5.2).
+    /// The convex polygon `r` maps to, clipped to w' > W_EPS.
     /// None when fewer than three vertices remain.
     pub fn map_rect(&self, r: Rect) -> Option<Polygon> {
         let corners = rect_corners(r);

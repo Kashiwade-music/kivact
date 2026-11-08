@@ -5,7 +5,7 @@
 //! placement: its map folds the open transforms from the innermost out
 //! (`Projective::then` applies its first argument first), a clip keeps the
 //! map from the host canvas into the space it was declared in, and the
-//! backface is decided by the enclosing layers' matrices (§8.5).
+//! backface is decided by the enclosing layers' matrices.
 //!
 //! Invariants:
 //! - The first `Drawable` command of an id wins (slot 0 before slot 1, then
@@ -163,8 +163,8 @@ fn inside_3d(frames: &[Frame]) -> bool {
 
 /// The map from the innermost space out to the host canvas of the open frames
 /// (`then` applies the inner frame first). A run of frames in a 3D context
-/// accumulates its 4 × 4 matrices and is flattened where the context ends
-/// (§10.3, §7.2); the others are flattened at once.
+/// accumulates its 4 × 4 matrices and is flattened where the context ends;
+/// the others are flattened at once.
 fn fold(frames: &[Frame]) -> Projective {
     let mut flat = Projective::IDENTITY;
     let mut deep = Matrix4::IDENTITY;

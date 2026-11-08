@@ -162,7 +162,7 @@ fn dispatch_host(rt: &Runtime, host_event: &HostEvent) {
 }
 
 /// Report a drawable the engine could not place: a drawing in a node that
-/// does not host it, or a drawable drawn in both slots (design §10.2, §10.3).
+/// does not host it, or a drawable drawn in both slots.
 fn dispatch_drawable_report(rt: &Runtime, host_event: &HostEvent) {
     match host_event {
         HostEvent::DrawableNotHosted { node, drawable } => {

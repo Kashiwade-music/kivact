@@ -560,7 +560,7 @@ pub(crate) struct Common {
     /// Whether an animated image plays (image nodes only; default true).
     pub image_playing: Option<InputProp<bool>>,
     /// The shared-layout id: a node that departs with it leaves its box for
-    /// the next node of the same id to animate from (§12.11).
+    /// the next node of the same id to animate from.
     pub layout_id: Option<std::sync::Arc<str>>,
     /// Creation location set by `.located_at_caller()`; replaces the builder's call site
     /// for every node the builder creates.

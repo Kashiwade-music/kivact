@@ -1,7 +1,7 @@
 //! Role: Paint one node's scene: reuse its cached lowering or lower each command.
 //!
 //! Invariants: a scene with a child layer or an item is not cached: what it
-//! lowers to is in the composition's layers, not a plain command list (§6.7).
+//! lowers to is in the composition's layers, not a plain command list.
 
 use super::state::State;
 use crate::lower::SceneOut;
