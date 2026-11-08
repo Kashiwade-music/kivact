@@ -1,5 +1,5 @@
 //! Role: Render a themed radio group over the shared keyed list parts.
-use super::layer::{recipes, with_recipe_style};
+use super::layer::{recipes, with_base_recipe_style, with_recipe_style};
 use super::values::{CheckableState, ControlSize};
 use super::variants::{Variant, Variants};
 use kivact_core::state::{Binding, Callback, Value, binding};
@@ -12,7 +12,6 @@ use kivact_core::view::{
 };
 use kivact_core::view::{Node, NodeBuilder, icon, node};
 use kivact_interaction::{EditSession, ListItem, ListOptions, Selection, use_list};
-use std::cell::Cell;
 use std::rc::Rc;
 
 /// What an option shows, from its item and its state.
@@ -28,9 +27,6 @@ pub struct RadioGroup<K: kivact_core::state::ItemKey> {
     options: Value<Vec<ListItem<K>>>,
     value: Binding<Option<K>>,
     orientation: Orientation,
-    /// What the group's recipe layer reads once the group is built: its
-    /// orientation and whether a row runs from the right.
-    layout: Rc<Cell<(Orientation, bool)>>,
     size: Value<ControlSize>,
     on_edit: Option<Callback<EditPhase>>,
     item: Option<OptionContent<K>>,
@@ -72,38 +68,16 @@ pub fn radio_group<K: kivact_core::state::ItemKey>(
     options: impl IntoValue<Vec<ListItem<K>>>,
     value: impl kivact_core::state::IntoBinding<Option<K>>,
 ) -> RadioGroup<K> {
-    let layout = Rc::new(Cell::new((Orientation::Vertical, false)));
-    let read = layout.clone();
-    // The variants are shared: `.variant` adds to them before mount.
-    let variants = Variants::default();
-    // The recipe is the first style layer, so the caller's styles win.
-    let root = with_recipe_style(
-        node().role(Role::RadioGroup).name(label),
-        |r| r.radio_group_recipes().group_recipe(),
-        &variants,
-        move || read.get().0,
-    )
-    .style({
-        let read = layout.clone();
-        move || {
-            if read.get().1 {
-                kivact_core::style::style().direction(kivact_core::style::Direction::RowReverse)
-            } else {
-                kivact_core::style::style()
-            }
-        }
-    });
     RadioGroup {
-        root,
+        root: node().role(Role::RadioGroup).name(label),
         options: options.into_value(),
         value: value.into_binding(),
         orientation: Orientation::Vertical,
-        layout,
         size: super::values::default_control_size().into_value(),
         on_edit: None,
         item: None,
         item_node: None,
-        variants,
+        variants: Variants::default(),
     }
 }
 
@@ -118,7 +92,7 @@ impl<K: kivact_core::state::ItemKey> RadioGroup<K> {
     /// the component is mounted, and a value never changes afterwards. A
     /// look that changes while the component lives is a state the recipe
     /// reads, or a reactive `.style(..)` of the caller's.
-    pub fn variant(self, v: impl Variant) -> Self {
+    pub fn variant(mut self, v: impl Variant) -> Self {
         self.variants.add(v);
         self
     }
@@ -209,7 +183,6 @@ impl<K: kivact_core::state::ItemKey> IntoView for RadioGroup<K> {
             options,
             value,
             orientation,
-            layout,
             size,
             on_edit,
             item: slot,
@@ -232,7 +205,18 @@ impl<K: kivact_core::state::ItemKey> IntoView for RadioGroup<K> {
         );
         let reversed = orientation == Orientation::Horizontal
             && use_direction().get() == ReadingDirection::Rtl;
-        layout.set((orientation, reversed));
+        // The recipe, then the row direction: base layers below the caller's styles.
+        let root = with_base_recipe_style(
+            root,
+            |r| r.radio_group_recipes().group_recipe(),
+            &variants,
+            move || orientation,
+        )
+        .base_style(if reversed {
+            kivact_core::style::style().direction(kivact_core::style::Direction::RowReverse)
+        } else {
+            kivact_core::style::style()
+        });
         root.orientation(orientation).child(rows).into_view()
     }
 }

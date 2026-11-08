@@ -30,7 +30,7 @@ impl<K: Clone + PartialEq + 'static> DisclosureGroup<K> {
         self
     }
     /// Apply a theme look to every panel, independent of builder call order.
-    pub fn variant(self, variant: impl crate::Variant) -> Self {
+    pub fn variant(mut self, variant: impl crate::Variant) -> Self {
         self.variants.add(variant);
         self
     }

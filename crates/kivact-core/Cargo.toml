@@ -16,6 +16,9 @@ kivact-engine = { path = "../kivact-engine", version = "0.1.0" }
 kivact-runtime = { path = "../kivact-runtime", version = "0.1.0" }
 kivact-i18n = { path = "../kivact-i18n", version = "0.1.0" }
 kivact-style = { path = "../kivact-style", version = "0.1.0" }
+# The DevTools agent and its wire types (feature `devtools`).
+kivact-devtools-agent = { path = "../kivact-devtools-agent", version = "0.1.0", optional = true }
+kivact-devtools-protocol = { path = "../kivact-devtools-protocol", version = "0.1.0", optional = true }
 # The `kivact` and `kivact::layout` tracing targets of the host side.
 tracing = { workspace = true }
 
@@ -23,6 +26,7 @@ tracing = { workspace = true }
 tokio = ["kivact-runtime/tokio"]
 embed = []
 gpu-interop = []
+devtools = ["dep:kivact-devtools-agent", "dep:kivact-devtools-protocol"]
 
 [lints]
 workspace = true

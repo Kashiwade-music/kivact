@@ -30,7 +30,7 @@ impl TypingIndicator {
         self
     }
     /// Add an appearance read by the theme recipe.
-    pub fn variant(self, variant: impl Variant) -> Self {
+    pub fn variant(mut self, variant: impl Variant) -> Self {
         self.variants.add(variant);
         self
     }

@@ -59,6 +59,7 @@ mod interaction_palette;
 mod interaction_select;
 mod interaction_slider;
 mod interaction_splitter;
+mod interaction_state;
 mod interaction_table;
 mod interaction_tabs;
 mod interaction_toast;
@@ -112,6 +113,7 @@ mod ui_field;
 mod ui_standard;
 mod ui_theming;
 mod view;
+mod windows;
 
 mod launch_fonts;
 mod launch_platform;

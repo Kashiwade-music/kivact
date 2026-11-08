@@ -731,7 +731,7 @@ fn restriction_painter(
     on_restriction: Option<Callback<EditorEvent<Restriction>>>,
 ) -> super::controls::Painter {
     super::controls::Painter::new(crate::editors::shared::model::observed(
-        EditSession::new(|()| {}),
+        EditSession::new(|_: super::controls::Paint| {}),
         on_restriction.map(|observer| {
             callback(move |phase| {
                 observer.call(match phase {

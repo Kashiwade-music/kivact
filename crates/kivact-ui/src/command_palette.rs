@@ -98,7 +98,7 @@ impl<K: kivact_core::state::ItemKey> CommandPalette<K> {
     ///
     /// The value is a constant: the recipes read the values given before
     /// the component is mounted, and a value never changes afterwards.
-    pub fn variant(self, v: impl Variant) -> Self {
+    pub fn variant(mut self, v: impl Variant) -> Self {
         self.variants.add(v);
         self
     }

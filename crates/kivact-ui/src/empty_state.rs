@@ -1,7 +1,7 @@
 //! Role: Build accessible empty messages with opt-in announcements.
 use super::layer::{with_base_recipe_style, with_recipe_style};
 use super::variants::{Variant, Variants};
-use kivact_core::state::{IntoText, IntoValue, Value, on_mount, signal};
+use kivact_core::state::{IntoText, IntoValue, Value, on_mount};
 use kivact_core::view::{IntoView, LiveRegion, Node, NodeBuilder, Role, View, node, text};
 use kivact_interaction::announcer;
 
@@ -12,21 +12,18 @@ enum AnnouncePolicy {
     Changes,
 }
 
-#[derive(Clone, Copy, PartialEq)]
-enum Announcement {
-    Pending,
-    Spoken,
-}
-
 use crate::component_values::EmptyStateState;
 
-// xtask-allow(state-fields): Builder configuration and optional slots; runtime announcement is an explicit Announcement phase.
+// xtask-allow(state-fields): Builder configuration and optional slots; the one-shot announcement runs in on_mount.
 /// A message for a region without content.
 pub struct EmptyState {
     root: Node,
     title: Value<String>,
+    // xtask-allow(state-fields): builder option - description
     description: Option<Value<String>>,
+    // xtask-allow(state-fields): builder option - icon
     icon: Option<View>,
+    // xtask-allow(state-fields): builder option - actions
     actions: Option<View>,
     heading_level: Value<u8>,
     announce: AnnouncePolicy,
@@ -78,7 +75,7 @@ impl EmptyState {
         self
     }
     /// Add a theme-defined appearance.
-    pub fn variant(self, value: impl Variant) -> Self {
+    pub fn variant(mut self, value: impl Variant) -> Self {
         self.variants.add(value);
         self
     }
@@ -98,16 +95,12 @@ impl IntoView for EmptyState {
         let description = self.description;
         let notices = (self.announce == AnnouncePolicy::Once).then(|| {
             let notices = announcer();
-            let phase = signal(Announcement::Pending);
             on_mount(move || {
-                if phase.get() == Announcement::Pending {
-                    let message = description.map_or_else(
-                        || title.get(),
-                        |description| format!("{}. {}", title.get(), description.get()),
-                    );
-                    notices.announce(message, LiveRegion::Polite);
-                    phase.set(Announcement::Spoken);
-                }
+                let message = description.map_or_else(
+                    || title.get(),
+                    |description| format!("{}. {}", title.get(), description.get()),
+                );
+                notices.announce(message, LiveRegion::Polite);
             });
             notices.outlet()
         });

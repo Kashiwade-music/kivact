@@ -54,7 +54,7 @@ pub fn hover_card<V: IntoView>(content: impl Fn() -> V + 'static) -> HoverCard {
 }
 impl HoverCard {
     /// Select a theme-specific visual treatment.
-    pub fn variant(self, variant: impl crate::Variant) -> Self {
+    pub fn variant(mut self, variant: impl crate::Variant) -> Self {
         self.variants.add(variant);
         self
     }

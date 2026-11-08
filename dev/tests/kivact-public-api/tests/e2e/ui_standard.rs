@@ -407,3 +407,113 @@ fn table_row_selected_is_exposed_and_styled() {
     assert_eq!(fill("first"), plain_fill);
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct Marked;
+impl kivact::ui::Variant for Marked {}
+
+#[test]
+fn a_variant_given_after_construction_reaches_the_root_recipe() {
+    let recipes = UiRecipes::default().number_input(|table| {
+        table.root(|prev| {
+            move |theme: &Theme, look: &Look<kivact::custom::PartState>| match look
+                .variant::<Marked>()
+            {
+                Some(Marked) => prev(theme, look).background(rgb(0xff0000)),
+                None => prev(theme, look),
+            }
+        })
+    });
+    let screen = kivact::test::render_with(options(theme_with(recipes)), || {
+        kivact::ui::number_input(
+            "Count",
+            signal(1.0),
+            kivact::interaction::ScalarRange::new(0.0, 9.0).expect("a valid range"),
+        )
+        .variant(Marked)
+        .test_id("count")
+    });
+    assert_eq!(
+        pixel_mid(&screen, "count", 2.0),
+        RED,
+        "the variant reaches the root recipe"
+    );
+}
+
+#[test]
+fn a_variant_given_after_construction_reaches_the_tag_input_recipe() {
+    let recipes = UiRecipes::default().tag_input(|table| {
+        table.root(|prev| {
+            move |theme: &Theme, look: &Look<kivact::custom::PartState>| match look
+                .variant::<Marked>()
+            {
+                Some(Marked) => prev(theme, look).background(rgb(0xff0000)),
+                None => prev(theme, look),
+            }
+        })
+    });
+    let screen = kivact::test::render_with(options(theme_with(recipes)), || {
+        kivact::ui::tag_input("Labels", signal(vec!["rust".to_string()]))
+            .variant(Marked)
+            .test_id("tags")
+    });
+    assert_eq!(
+        pixel_mid(&screen, "tags", 2.0),
+        RED,
+        "the variant reaches the root recipe"
+    );
+}
+
+#[test]
+fn a_variant_given_after_construction_reaches_the_data_table_recipe() {
+    let recipes = UiRecipes::default().data_table(|table| {
+        table.frame(|prev| {
+            move |theme: &Theme, look: &Look<kivact::custom::PartState>| match look
+                .variant::<Marked>()
+            {
+                Some(Marked) => prev(theme, look).background(rgb(0xff0000)),
+                None => prev(theme, look),
+            }
+        })
+    });
+    let screen = kivact::test::render_with(options(theme_with(recipes)), || {
+        data_table(
+            signal(vec![(1u32, "Alpha")]),
+            |row: &(u32, &'static str)| row.0,
+            vec![DataColumn::new("Name", |row: &(u32, &'static str)| {
+                row.1.to_string()
+            })],
+        )
+        .variant(Marked)
+        .test_id("table")
+    });
+    assert_eq!(
+        pixel_mid(&screen, "table", 2.0),
+        RED,
+        "the variant reaches the frame recipe"
+    );
+}
+
+#[test]
+fn a_variant_given_after_construction_reaches_the_calendar_recipe() {
+    let recipes = UiRecipes::default().calendar(|table| {
+        table.root(|prev| {
+            move |theme: &Theme, look: &Look<kivact::custom::PartState>| match look
+                .variant::<Marked>()
+            {
+                Some(Marked) => prev(theme, look).background(rgb(0xff0000)),
+                None => prev(theme, look),
+            }
+        })
+    });
+    let screen = kivact::test::render_with(options(theme_with(recipes)), || {
+        calendar(signal(None::<kivact::i18n::CalendarDate>))
+            .variant(Marked)
+            .test_id("calendar")
+    });
+    assert_eq!(
+        pixel_mid(&screen, "calendar", 2.0),
+        RED,
+        "the variant reaches the root recipe"
+    );
+}

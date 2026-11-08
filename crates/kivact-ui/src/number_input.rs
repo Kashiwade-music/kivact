@@ -1,6 +1,6 @@
 //! Role: Render a themed number field with decrease and increase buttons.
-use super::layer::with_recipe_style;
-use super::text_input::text_input;
+use super::layer::{with_base_recipe_style, with_recipe_style};
+use super::text_input::{TextInput, text_input};
 use super::variants::{Variant, Variants};
 use super::{ButtonVariant, button};
 use kivact_core::custom::PartState;
@@ -9,7 +9,7 @@ use kivact_core::state::{Binding, Machine, Step, Value, binding, machine, memo};
 use kivact_core::state::{IntoText, IntoValue};
 use kivact_core::style::{Track, auto, style};
 use kivact_core::view::EditPhase;
-use kivact_core::view::{IntoView, View, node_ref};
+use kivact_core::view::{IntoView, NodeRef, View, node_ref};
 use kivact_core::view::{Node, NodeBuilder, grid, icon};
 use kivact_interaction::{ScalarRange, use_scalar};
 
@@ -125,20 +125,14 @@ pub fn number_input(
     value: impl kivact_core::state::IntoBinding<f64>,
     range: impl IntoValue<ScalarRange>,
 ) -> NumberInput {
-    let variants = Variants::default();
-    let root = with_recipe_style(
-        grid(()).base_style(style().grid_template_columns((auto(), Track::fr(1), auto()))),
-        |r| r.number_input_recipes().root_recipe(),
-        &variants,
-        PartState::default,
-    );
+    let root = grid(()).base_style(style().grid_template_columns((auto(), Track::fr(1), auto())));
     NumberInput {
         root,
         label: label.into_text_value(),
         value: value.into_binding(),
         range: range.into_value(),
         on_edit: None,
-        variants,
+        variants: Variants::default(),
     }
 }
 
@@ -151,7 +145,7 @@ impl NumberInput {
     ///
     /// The value is a constant: the recipes read the values given before
     /// the component is mounted, and a value never changes afterwards.
-    pub fn variant(self, v: impl Variant) -> Self {
+    pub fn variant(mut self, v: impl Variant) -> Self {
         self.variants.add(v);
         self
     }
@@ -284,22 +278,40 @@ impl IntoView for NumberInput {
                 typed.send(NumberEvent::FocusOut);
             }
         });
-        let mut field = with_recipe_style(
-            field,
-            |r| r.number_input_recipes().input_recipe(),
-            &variants,
-            PartState::default,
-        );
-        for reference in labelled_by {
-            field = field.with_node(|node| node.labelled_by(reference));
-        }
-        for reference in described_by {
-            field = field.with_node(|node| node.described_by(reference));
-        }
+        let field = editor_field(field, &variants, labelled_by, described_by);
         let decrease = step_button(number, input_ref, disabled, false);
         let increase = step_button(number, input_ref, disabled, true);
-        root.child((field, decrease, increase)).into_view()
+        with_base_recipe_style(
+            root,
+            |r| r.number_input_recipes().root_recipe(),
+            &variants,
+            PartState::default,
+        )
+        .child((field, decrease, increase))
+        .into_view()
     }
+}
+
+/// The editor with its recipe and the caller's accessibility references.
+fn editor_field(
+    mut field: TextInput,
+    variants: &Variants,
+    labelled_by: Vec<NodeRef>,
+    described_by: Vec<NodeRef>,
+) -> TextInput {
+    field = with_recipe_style(
+        field,
+        |r| r.number_input_recipes().input_recipe(),
+        variants,
+        PartState::default,
+    );
+    for reference in labelled_by {
+        field = field.with_node(|node| node.labelled_by(reference));
+    }
+    for reference in described_by {
+        field = field.with_node(|node| node.described_by(reference));
+    }
+    field
 }
 
 /// Render a spinbutton step action while keeping focus in its editor.

@@ -71,15 +71,9 @@ pub struct Calendar {
 }
 
 fn new(selection: CalendarSelection) -> Calendar {
-    let variants = crate::variants::Variants::default();
     Calendar {
-        root: crate::layer::with_base_recipe_style(
-            node().with_node(|root| root.role(Role::Group)),
-            |r| r.calendar_recipes().root_recipe(),
-            &variants,
-            kivact_core::custom::PartState::default,
-        ),
-        variants,
+        root: node().with_node(|root| root.role(Role::Group)),
+        variants: crate::variants::Variants::default(),
         cell_size: kivact_core::state::memo(|| {
             kivact_core::style::use_theme()
                 .get()
@@ -140,7 +134,7 @@ impl Calendar {
     }
 
     /// Pass a kit-defined appearance to every calendar part recipe.
-    pub fn variant(self, variant: impl crate::Variant) -> Self {
+    pub fn variant(mut self, variant: impl crate::Variant) -> Self {
         self.variants.add(variant);
         self
     }
@@ -351,18 +345,23 @@ impl IntoView for Calendar {
                     .size(1, 1)
                     .opacity(0.0),
             );
-        self.root
-            .on_pointer(move |event| {
-                swipe.send(super::navigation::Event::Pointer(event));
-                if matches!(swipe.get(), super::navigation::Swipe::Dragging { .. }) {
-                    event.capture();
-                    kivact_core::view::Handled::Yes
-                } else {
-                    kivact_core::view::Handled::No
-                }
-            })
-            .child((body, status))
-            .into_view()
+        crate::layer::with_base_recipe_style(
+            self.root,
+            |r| r.calendar_recipes().root_recipe(),
+            &self.variants,
+            kivact_core::custom::PartState::default,
+        )
+        .on_pointer(move |event| {
+            swipe.send(super::navigation::Event::Pointer(event));
+            if matches!(swipe.get(), super::navigation::Swipe::Dragging { .. }) {
+                event.capture();
+                kivact_core::view::Handled::Yes
+            } else {
+                kivact_core::view::Handled::No
+            }
+        })
+        .child((body, status))
+        .into_view()
     }
 }
 

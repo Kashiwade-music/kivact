@@ -21,7 +21,7 @@ pub fn description_list(children: impl IntoChildren) -> DescriptionList {
 }
 impl DescriptionList {
     /// Add an appearance read by the list recipe.
-    pub fn variant(self, value: impl Variant) -> Self {
+    pub fn variant(mut self, value: impl Variant) -> Self {
         self.variants.add(value);
         self
     }
@@ -68,7 +68,7 @@ impl Description {
         self
     }
     /// Add an appearance read by every recipe of this pair.
-    pub fn variant(self, value: impl Variant) -> Self {
+    pub fn variant(mut self, value: impl Variant) -> Self {
         self.variants.add(value);
         self
     }

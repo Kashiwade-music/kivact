@@ -21,6 +21,8 @@ cd "$(git rev-parse --show-toplevel)"
 entries=(
   arvane-native/embed
   kivact-core/embed
+  kivact-core/devtools
+  kivact/devtools
   kivact/embed
   kivact/gpu
   kivact/gpu-interop

@@ -132,7 +132,6 @@ pub(super) enum TypedEvent {
     Commit(String),
     External(Option<CalendarDate>),
 }
-// xtask-allow(state-fields): Event snapshot contains independent inclusive bounds and locale.
 pub(super) enum TypedEffect {
     Commit(String),
     Validity(bool),

@@ -97,7 +97,7 @@ impl ChatMessage {
         self
     }
     /// Add an appearance read by the theme recipes.
-    pub fn variant(self, variant: impl Variant) -> Self {
+    pub fn variant(mut self, variant: impl Variant) -> Self {
         self.variants.add(variant);
         self
     }

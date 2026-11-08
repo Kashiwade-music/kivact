@@ -84,7 +84,12 @@ where
     );
     let grid = grid_plan(&mut table, &plan, navigation);
     regions(
-        table.root,
+        crate::layer::with_base_recipe_style(
+            table.root,
+            |r| r.data_table_recipes().frame_recipe(),
+            &table.variants,
+            kivact_core::custom::PartState::default,
+        ),
         toolbar,
         footer,
         grid,

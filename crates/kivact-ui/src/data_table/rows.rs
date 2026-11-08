@@ -1,4 +1,5 @@
 //! Role: Render keyed header and body cells with the table's actual part states.
+use super::row_drag::{RowDrag, RowDragEvent, RowPlace};
 use super::sticky_paint::surface;
 use super::types::{
     CellSlot, Key, RowColor, RowContextMenu, RowName, RowSelectable, RowSlot, RowStatusOf, Sort,
@@ -14,7 +15,7 @@ use kivact_core::view::NodeBuilder;
 
 use kivact_core::geometry::Rect;
 use kivact_core::i18n::message_with;
-use kivact_core::state::{Binding, Callback, Value, binding, memo, signal};
+use kivact_core::state::{Binding, Callback, Value, binding, machine, memo};
 use kivact_core::style::{
     Color, Cursor, Direction, Justify, Position, Style, TransitionProp, pct, style, use_theme,
 };
@@ -882,32 +883,29 @@ where
     R: kivact_core::state::PropValue,
     K: kivact_core::state::ItemKey,
 {
-    let consumed = signal(0.0_f64);
     let (source, key, sort) = (grid.source, grid.key.clone(), grid.sort);
-    let drag = use_drag::<()>(DragCoordinates::Window)
-        .on_start(move |_| consumed.set(0.0))
-        .on_update(move |update: DragUpdate<()>| {
-            let dy = update.delta.y - consumed.get_untracked();
-            if dy.abs() <= 28.0 {
-                return;
-            }
-            let destination = source.with(|rows| {
-                let at = rows.iter().position(|row| key(row) == id)?;
-                Some(if dy > 0.0 {
-                    (at + 1).min(rows.len().saturating_sub(1))
-                } else {
-                    at.saturating_sub(1)
-                })
+    let place = id.clone();
+    let row_drag = machine(
+        RowDrag::Idle,
+        move || {
+            let (at, len) =
+                source.with(|rows| (rows.iter().position(|row| key(row) == place), rows.len()));
+            RowPlace { at, len }
+        },
+        move |_, to: usize| {
+            reorder.call(kivact_interaction::Reorder {
+                key: id.clone(),
+                to,
             });
-            if let Some(destination) = destination {
-                reorder.call(kivact_interaction::Reorder {
-                    key: id.clone(),
-                    to: destination,
-                });
-                sort.set(None);
-                consumed.set(update.delta.y);
-            }
-        });
+            sort.set(None);
+        },
+    );
+    let drag = use_drag::<()>(DragCoordinates::Window)
+        .on_start(move |_| row_drag.send(RowDragEvent::Start))
+        .on_update(move |update: DragUpdate<()>| {
+            row_drag.send(RowDragEvent::Update(update.delta.y))
+        })
+        .on_end(move |_| row_drag.send(RowDragEvent::End));
     drag.source(())
 }
 

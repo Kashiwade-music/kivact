@@ -85,11 +85,11 @@ impl DateInput {
     }
 
     /// Add a visual variant shared by the field and its picker surface.
-    pub fn variant(self, variant: impl crate::Variant) -> Self {
+    pub fn variant(mut self, variant: impl crate::Variant) -> Self {
         self.variants.add(variant);
         self
     }
-    pub(crate) fn with_variants(self, variants: &crate::variants::Variants) -> Self {
+    pub(crate) fn with_variants(mut self, variants: &crate::variants::Variants) -> Self {
         self.variants.merge(variants);
         self
     }

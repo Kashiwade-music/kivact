@@ -28,7 +28,6 @@ pub(super) enum Event {
     Protect(PointerId),
 }
 pub(super) enum Effect {
-    Hold(bool),
     Dismiss,
 }
 pub(super) struct Machine {
@@ -53,7 +52,7 @@ impl MachineTrait for Machine {
         {
             return Step::stay();
         }
-        let reset = || Step::to(Swipe::Rest).with(Effect::Hold(false));
+        let reset = || Step::to(Swipe::Rest);
         let pos = event.window_pos();
         if !pos.x.is_finite() || !pos.y.is_finite() {
             return reset();
@@ -74,8 +73,7 @@ impl MachineTrait for Machine {
                     origin: pos,
                     started: self.now,
                     height: rect.height.max(1.0),
-                }))
-                .with(Effect::Hold(true));
+                }));
             }
             return Step::stay();
         }

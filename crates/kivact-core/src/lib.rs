@@ -57,6 +57,8 @@ mod embed;
 mod app;
 mod client;
 pub mod custom;
+#[cfg(feature = "devtools")]
+mod devtools;
 pub mod diagnostics;
 pub mod draw;
 pub mod geometry;

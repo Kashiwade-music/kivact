@@ -52,7 +52,7 @@ impl<C> ButtonGroup<C> {
         self
     }
     /// Add a theme presentation variant.
-    pub fn variant(self, variant: impl Variant) -> Self {
+    pub fn variant(mut self, variant: impl Variant) -> Self {
         self.variants.add(variant);
         self
     }

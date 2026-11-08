@@ -2,7 +2,8 @@
 use crate::layer::{with_base_recipe_style, with_recipe_style};
 use crate::variants::Variants;
 use kivact_core::state::{
-    Binding, IntoBinding, IntoText, IntoValue, Value, binding, machine, signal,
+    Binding, IntoBinding, IntoText, IntoValue, Value, binding, effect_on, machine, memo, signal,
+    untrack,
 };
 use kivact_core::style::{Length, style};
 use kivact_core::view::{
@@ -56,7 +57,7 @@ impl SelectionField {
         self
     }
     /// Supply a theme-specific visual treatment.
-    pub fn variant(self, variant: impl crate::Variant) -> Self {
+    pub fn variant(mut self, variant: impl crate::Variant) -> Self {
         self.variants.add(variant);
         self
     }
@@ -69,7 +70,6 @@ impl NodeBuilder for SelectionField {
 impl IntoView for SelectionField {
     fn into_view(mut self) -> View {
         let open = self.open.unwrap_or_else(|| signal(false).into_binding());
-        let surface = signal(Surface::Popup);
         let target = node_ref();
         let bounds = target.rect();
         let disabled = self
@@ -78,6 +78,7 @@ impl IntoView for SelectionField {
             .unwrap_or_else(|| false.into_value());
         let gesture = sheet_gesture(bounds, disabled, open);
         let presentation = self.presentation;
+        let surface = opening_surface(open, presentation, gesture);
         let part = kivact_core::custom::part(|input| input);
         let input = part.state();
         let trigger = with_base_recipe_style(
@@ -104,7 +105,10 @@ impl IntoView for SelectionField {
             gesture.send(crate::select::machine::Event::Reset);
             Handled::No
         });
-        let popup_open = popup_binding(open, surface, presentation, gesture);
+        let popup_open = binding(
+            move || open.get() && surface.get() == Surface::Popup,
+            move |shown| open.set(shown),
+        );
         let content = self.content;
         let popup_body = content.clone();
         let variants = self.variants;
@@ -175,32 +179,35 @@ fn indicator(open: Binding<bool>, variants: &Variants) -> View {
     .into_view()
 }
 
-/// Choose the requested surface using the canonical sheet-tap outcome.
-fn popup_binding(
+/// The surface of the current opening, a snapshot taken when the caller's
+/// `open` changes. A touch tap on the trigger opens the sheet when the
+/// presentation uses one. Every other opening (keyboard, mouse, the caller's
+/// binding) opens the popup. Only `open` is tracked, so the snapshot holds for
+/// the whole opening. Closing feeds `Reset` to the trigger gesture, so the next
+/// opening never reuses the previous tap.
+fn opening_surface(
     open: Binding<bool>,
-    surface: kivact_core::state::Signal<Surface>,
     presentation: Value<crate::SelectPresentation>,
     gesture: kivact_core::state::MachineHandle<crate::select::machine::Machine>,
-) -> Binding<bool> {
-    binding(
-        move || open.get() && surface.get() == Surface::Popup,
-        move |shown| {
-            if shown {
-                let sheet = presentation.get().uses_sheet()
-                    && matches!(
-                        gesture.get(),
-                        crate::select::machine::SheetGesture::Released(
-                            crate::select::machine::Outcome::Tap
-                        )
-                    );
-                surface.set(if sheet {
-                    Surface::Sheet
-                } else {
-                    Surface::Popup
-                });
-                gesture.send(crate::select::machine::Event::Reset);
-            }
-            open.set(shown);
-        },
-    )
+) -> Value<Surface> {
+    effect_on(open, move |open| {
+        if !*open {
+            gesture.send(crate::select::machine::Event::Reset);
+        }
+    });
+    memo(move || {
+        if !open.get() {
+            return Surface::Popup;
+        }
+        let (gesture, presentation) = untrack(|| (gesture.get(), presentation.get()));
+        let tap = matches!(
+            gesture,
+            crate::select::machine::SheetGesture::Released(crate::select::machine::Outcome::Tap)
+        );
+        if tap && presentation.uses_sheet() {
+            Surface::Sheet
+        } else {
+            Surface::Popup
+        }
+    })
 }

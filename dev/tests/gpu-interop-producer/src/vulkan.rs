@@ -114,19 +114,24 @@ struct Slot {
     fence: vk::Fence,
 }
 
-// xtask-allow(state-fields): Owned Vulkan resources; optional platform resources reflect independent enabled device extensions.
-pub(crate) struct Vulkan {
+/// Everything but the texture pool; dropping it destroys the slots, the
+/// command pool, the device and the instance.
+struct Base {
     _entry: ash::Entry,
     instance: ash::Instance,
     physical: vk::PhysicalDevice,
-    device: Option<ash::Device>,
+    device: ash::Device,
     family: u32,
     queue: vk::Queue,
     width: u32,
     height: u32,
     slots: Vec<Slot>,
     commands: vk::CommandPool,
-    pool: Option<Pool>,
+}
+
+pub(crate) struct Vulkan {
+    pool: std::mem::ManuallyDrop<Pool>,
+    base: std::mem::ManuallyDrop<Base>,
 }
 
 /// A Vulkan 1.2 instance of the system's loader.
@@ -141,6 +146,37 @@ fn instance() -> Result<(ash::Entry, ash::Instance), String> {
     let instance =
         unsafe { entry.create_instance(&info, None) }.map_err(failed("vkCreateInstance"))?;
     Ok((entry, instance))
+}
+
+/// The device, its graphics queue family and its queue, opened on `physical`.
+fn open_device(
+    instance: &ash::Instance,
+    physical: vk::PhysicalDevice,
+) -> Result<(ash::Device, u32, vk::Queue), String> {
+    // SAFETY: a physical device of the instance.
+    let families = unsafe { instance.get_physical_device_queue_family_properties(physical) };
+    let family = families
+        .iter()
+        .position(|f| f.queue_flags.contains(vk::QueueFlags::GRAPHICS))
+        .ok_or("no graphics queue")? as u32;
+    let names: Vec<_> = interop::DEVICE_EXTENSIONS
+        .iter()
+        .map(|e| e.as_ptr())
+        .collect();
+    let mut v12 = vk::PhysicalDeviceVulkan12Features::default().timeline_semaphore(true);
+    let queues = [vk::DeviceQueueCreateInfo::default()
+        .queue_family_index(family)
+        .queue_priorities(&[1.0])];
+    let info = vk::DeviceCreateInfo::default()
+        .queue_create_infos(&queues)
+        .enabled_extension_names(&names)
+        .push_next(&mut v12);
+    // SAFETY: a valid create info for the physical device.
+    let device = unsafe { instance.create_device(physical, &info, None) }
+        .map_err(failed("vkCreateDevice"))?;
+    // SAFETY: the one queue of the family made above.
+    let queue = unsafe { device.get_device_queue(family, 0) };
+    Ok((device, family, queue))
 }
 
 /// This machine's Vulkan 1.2 hardware adapters, as a window reports them.
@@ -179,112 +215,55 @@ pub(crate) fn adapters() -> Vec<GpuAdapter> {
     found
 }
 
-impl Vulkan {
-    /// An engine of a pool of `width` × `height` textures, made for
-    /// storage writes when `storage`.
-    pub(crate) fn new(
-        adapter: &GpuAdapter,
-        (width, height): (u32, u32),
-        storage: bool,
-    ) -> Result<(Self, SharedTextures), String> {
+impl Base {
+    /// The instance, physical device, device and slots, before the pool.
+    fn new(adapter: &GpuAdapter, (width, height): (u32, u32)) -> Result<Base, String> {
         let (entry, instance) = instance()?;
-        let mut engine = Self {
+        // SAFETY: a live instance of API 1.2.
+        let physical = match unsafe { interop::find_physical_device(&instance, adapter) } {
+            Ok(physical) => physical,
+            Err(e) => {
+                // SAFETY: the instance made no device.
+                unsafe { instance.destroy_instance(None) };
+                return Err(e.to_string());
+            }
+        };
+        let (device, family, queue) = match open_device(&instance, physical) {
+            Ok(opened) => opened,
+            Err(e) => {
+                // SAFETY: the instance made no device.
+                unsafe { instance.destroy_instance(None) };
+                return Err(e);
+            }
+        };
+        let mut base = Base {
             _entry: entry,
             instance,
-            physical: vk::PhysicalDevice::null(),
-            device: None,
-            family: 0,
-            queue: vk::Queue::null(),
+            physical,
+            device,
+            family,
+            queue,
             width,
             height,
             slots: Vec::new(),
             commands: vk::CommandPool::null(),
-            pool: None,
         };
-        // SAFETY: a live instance of API 1.2.
-        engine.physical = unsafe { interop::find_physical_device(&engine.instance, adapter) }
-            .map_err(|e| e.to_string())?;
-        engine.open()?;
-        for _ in 0..POOL {
-            engine.slots.push(Slot::default());
-            engine.make_slot()?;
-        }
-        let config = PoolConfig {
-            slots: POOL as u32,
-            storage,
-            ..PoolConfig::new(width, height)
-        };
-        // SAFETY: the engine's live instance, physical device and device
-        // (made with the pool's extensions, API 1.2 and timeline
-        // semaphores), which outlives the pool (dropped first).
-        let (pool, shared) = unsafe {
-            Pool::new(
-                &engine.instance,
-                engine.physical,
-                engine.device(),
-                engine.family,
-                adapter,
-                config,
-            )
-        }
-        .map_err(|e| e.to_string())?;
-        engine.pool = Some(pool);
-        Ok((engine, shared))
-    }
-
-    fn device(&self) -> &ash::Device {
-        self.device
-            .as_ref()
-            .expect("invariant: the device is made in `new`")
-    }
-
-    fn pool(&self) -> &Pool {
-        self.pool
-            .as_ref()
-            .expect("invariant: the pool is made in `new`")
-    }
-
-    /// The device, its graphics queue and command pool.
-    fn open(&mut self) -> Result<(), String> {
-        // SAFETY: a physical device of the instance.
-        let families = unsafe {
-            self.instance
-                .get_physical_device_queue_family_properties(self.physical)
-        };
-        self.family = families
-            .iter()
-            .position(|f| f.queue_flags.contains(vk::QueueFlags::GRAPHICS))
-            .ok_or("no graphics queue")? as u32;
-        let names: Vec<_> = interop::DEVICE_EXTENSIONS
-            .iter()
-            .map(|e| e.as_ptr())
-            .collect();
-        let mut v12 = vk::PhysicalDeviceVulkan12Features::default().timeline_semaphore(true);
-        let queues = [vk::DeviceQueueCreateInfo::default()
-            .queue_family_index(self.family)
-            .queue_priorities(&[1.0])];
-        let info = vk::DeviceCreateInfo::default()
-            .queue_create_infos(&queues)
-            .enabled_extension_names(&names)
-            .push_next(&mut v12);
-        // SAFETY: a valid create info for the physical device.
-        let device = unsafe { self.instance.create_device(self.physical, &info, None) }
-            .map_err(failed("vkCreateDevice"))?;
-        // SAFETY: the one queue of the family made above.
-        self.queue = unsafe { device.get_device_queue(self.family, 0) };
-        self.device = Some(device);
         let pool_info = vk::CommandPoolCreateInfo::default()
-            .queue_family_index(self.family)
+            .queue_family_index(base.family)
             .flags(vk::CommandPoolCreateFlags::RESET_COMMAND_BUFFER);
         // SAFETY: a valid create info.
-        self.commands = unsafe { self.device().create_command_pool(&pool_info, None) }
+        base.commands = unsafe { base.device.create_command_pool(&pool_info, None) }
             .map_err(failed("vkCreateCommandPool"))?;
-        Ok(())
+        for _ in 0..POOL {
+            base.slots.push(Slot::default());
+            base.make_slot()?;
+        }
+        Ok(base)
     }
 
     /// The last slot's staging buffer, command buffer and fence.
     fn make_slot(&mut self) -> Result<(), String> {
-        let device = self.device().clone();
+        let device = self.device.clone();
         let slot = self.slots.len() - 1;
         let size = u64::from(self.width) * u64::from(self.height) * 4;
         let buffer_info = vk::BufferCreateInfo::default()
@@ -347,42 +326,74 @@ impl Vulkan {
     }
 }
 
+impl Vulkan {
+    /// An engine of a pool of `width` × `height` textures, made for
+    /// storage writes when `storage`.
+    pub(crate) fn new(
+        adapter: &GpuAdapter,
+        (width, height): (u32, u32),
+        storage: bool,
+    ) -> Result<(Self, SharedTextures), String> {
+        let base = Base::new(adapter, (width, height))?;
+        let config = PoolConfig {
+            slots: POOL as u32,
+            storage,
+            ..PoolConfig::new(width, height)
+        };
+        // SAFETY: the base's live instance, physical device and device
+        // (made with the pool's extensions, API 1.2 and timeline
+        // semaphores), which outlives the pool (dropped first).
+        let (pool, shared) = unsafe {
+            Pool::new(
+                &base.instance,
+                base.physical,
+                &base.device,
+                base.family,
+                adapter,
+                config,
+            )
+        }
+        .map_err(|e| e.to_string())?;
+        Ok((
+            Vulkan {
+                pool: std::mem::ManuallyDrop::new(pool),
+                base: std::mem::ManuallyDrop::new(base),
+            },
+            shared,
+        ))
+    }
+}
+
 impl Engine for Vulkan {
     fn pitch(&self) -> usize {
-        self.width as usize * 4
+        self.base.width as usize * 4
     }
 
     fn draw(&mut self, rgba: &[u8]) -> Result<FrameReady, String> {
-        let device = self.device().clone();
-        let mut pool = self
-            .pool
-            .take()
-            .expect("invariant: the pool is made in `new`");
-        let drawn = self.draw_with(&device, &mut pool, rgba);
-        self.pool = Some(pool);
-        drawn
+        let device = self.base.device.clone();
+        self.base.draw_with(&device, &mut self.pool, rgba)
     }
 
     fn release_value(&self) -> u64 {
-        self.pool().release_value().unwrap_or(0)
+        self.pool.release_value().unwrap_or(0)
     }
 
     fn wait_release(&self, value: u64, timeout: Duration) -> bool {
-        self.pool().wait_release(value, timeout).is_ok()
+        self.pool.wait_release(value, timeout).is_ok()
     }
 
     fn read_back(&self, slot: u32) -> Result<Vec<u8>, String> {
         // SAFETY: the engine's own queue of the pool's family, used by this
         // thread alone; the caller's window does not use the texture.
-        unsafe { self.pool().read_back(self.queue, slot, WAIT) }.map_err(|e| e.to_string())
+        unsafe { self.pool.read_back(self.base.queue, slot, WAIT) }.map_err(|e| e.to_string())
     }
 
     fn prepare(&self, release: &SharedHandle) -> Result<(), String> {
-        prepare(&self.instance, self.device(), release)
+        prepare(&self.base.instance, &self.base.device, release)
     }
 }
 
-impl Vulkan {
+impl Base {
     fn draw_with(
         &self,
         device: &ash::Device,
@@ -446,40 +457,46 @@ impl Vulkan {
     }
 }
 
+impl Drop for Base {
+    fn drop(&mut self) {
+        for slot in &self.slots {
+            // SAFETY: nothing of the slot is in use (the fences).
+            unsafe { self.device.destroy_fence(slot.fence, None) };
+            // SAFETY: as above.
+            unsafe { self.device.destroy_buffer(slot.staging, None) };
+            // SAFETY: as above (freeing unmaps).
+            unsafe { self.device.free_memory(slot.staging_memory, None) };
+        }
+        // SAFETY: the pool's buffers finished (the fences).
+        unsafe { self.device.destroy_command_pool(self.commands, None) };
+        // SAFETY: every object of the device is gone.
+        unsafe { self.device.destroy_device(None) };
+        // SAFETY: the instance's device is gone.
+        unsafe { self.instance.destroy_instance(None) };
+    }
+}
+
 impl Drop for Vulkan {
     fn drop(&mut self) {
-        if let Some(device) = self.device.clone() {
-            let fences: Vec<_> = self
-                .slots
-                .iter()
-                .map(|s| s.fence)
-                .filter(|f| *f != vk::Fence::null())
-                .collect();
-            let nanos = u64::try_from(WAIT.as_nanos()).unwrap_or(u64::MAX);
-            // SAFETY: fences of the device; a bounded wait.
-            let finished = fences.is_empty()
-                || unsafe { device.wait_for_fences(&fences, true, nanos) }.is_ok();
-            if !finished {
-                // The GPU may still wait for a release: keep everything.
-                std::mem::forget(self.pool.take());
-                return;
-            }
-            // The pool's images and semaphores, while the device lives.
-            drop(self.pool.take());
-            for slot in &self.slots {
-                // SAFETY: nothing of the slot is in use (the fences).
-                unsafe { device.destroy_fence(slot.fence, None) };
-                // SAFETY: as above.
-                unsafe { device.destroy_buffer(slot.staging, None) };
-                // SAFETY: as above (freeing unmaps).
-                unsafe { device.free_memory(slot.staging_memory, None) };
-            }
-            // SAFETY: the pool's buffers finished (the fences).
-            unsafe { device.destroy_command_pool(self.commands, None) };
-            // SAFETY: every object of the device is gone.
-            unsafe { device.destroy_device(None) };
+        let device = &self.base.device;
+        let fences: Vec<_> = self
+            .base
+            .slots
+            .iter()
+            .map(|s| s.fence)
+            .filter(|f| *f != vk::Fence::null())
+            .collect();
+        let nanos = u64::try_from(WAIT.as_nanos()).unwrap_or(u64::MAX);
+        // SAFETY: fences of the device; a bounded wait.
+        let finished =
+            fences.is_empty() || unsafe { device.wait_for_fences(&fences, true, nanos) }.is_ok();
+        if !finished {
+            // The GPU may still wait for a release: keep everything.
+            return;
         }
-        // SAFETY: the instance's device is gone (or was never made).
-        unsafe { self.instance.destroy_instance(None) };
+        // SAFETY: the fences finished; neither field is used again.
+        unsafe { std::mem::ManuallyDrop::drop(&mut self.pool) };
+        // SAFETY: as above, for the base.
+        unsafe { std::mem::ManuallyDrop::drop(&mut self.base) };
     }
 }

@@ -104,7 +104,7 @@ impl<K: kivact_core::state::ItemKey> Tree<K> {
     }
 
     /// Set a theme-specific variant for the tree's recipes.
-    pub fn variant(self, variant: impl Variant) -> Self {
+    pub fn variant(mut self, variant: impl Variant) -> Self {
         self.variants.add(variant);
         self
     }

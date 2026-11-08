@@ -48,7 +48,7 @@ pub fn carousel(index: impl IntoBinding<usize>, slides: impl IntoChildren) -> Ca
 }
 impl Carousel {
     /// Add a setup-only visual variant for every component recipe.
-    pub fn variant(self, variant: impl crate::Variant) -> Self {
+    pub fn variant(mut self, variant: impl crate::Variant) -> Self {
         self.variants.add(variant);
         self
     }

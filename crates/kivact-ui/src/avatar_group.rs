@@ -54,7 +54,7 @@ impl AvatarGroup {
         self.overflow = Some(Rc::new(move |count| content(count).into_view()));
         self
     }
-    pub fn variant(self, variant: impl Variant) -> Self {
+    pub fn variant(mut self, variant: impl Variant) -> Self {
         self.variants.add(variant);
         self
     }

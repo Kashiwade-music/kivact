@@ -164,7 +164,7 @@ impl CodeBlock {
         self
     }
     /// Add an appearance read by all code recipes.
-    pub fn variant(self, variant: impl Variant) -> Self {
+    pub fn variant(mut self, variant: impl Variant) -> Self {
         self.variants.add(variant);
         self
     }

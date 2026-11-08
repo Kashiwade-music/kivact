@@ -114,7 +114,7 @@ impl ItemRow {
         self.contents.description_lines = Some(lines.into_value());
         self
     }
-    pub fn variant(self, value: impl Variant) -> Self {
+    pub fn variant(mut self, value: impl Variant) -> Self {
         self.contents.variants.add(value);
         self
     }

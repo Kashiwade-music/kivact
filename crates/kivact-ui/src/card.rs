@@ -74,7 +74,7 @@ impl Card {
         self
     }
     /// Add a theme-defined appearance.
-    pub fn variant(self, value: impl Variant) -> Self {
+    pub fn variant(mut self, value: impl Variant) -> Self {
         self.variants.add(value);
         self
     }

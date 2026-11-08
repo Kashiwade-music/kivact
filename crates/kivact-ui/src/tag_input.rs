@@ -1,6 +1,6 @@
 //! Role: Render a themed field of removable tags and a text input to add one.
-use super::layer::with_recipe_style;
-use super::text_input::text_input;
+use super::layer::{with_base_recipe_style, with_recipe_style};
+use super::text_input::{TextInput, text_input};
 use super::variants::{Variant, Variants};
 use super::{ButtonVariant, button};
 use kivact_core::custom::PartState;
@@ -57,20 +57,9 @@ pub struct TagInput {
 /// ```
 #[track_caller]
 pub fn tag_input(label: impl IntoText, tags: impl IntoValue<Vec<String>>) -> TagInput {
-    let variants = Variants::default();
     let input_ref = node_ref();
-    // The box rings while the focus is in its input.
-    let within = input_ref.focus_within();
-    let root = with_recipe_style(
-        grid(())
-            .base_style(style().grid_template_columns((Track::minmax(0, Track::fr(1)), auto()))),
-        |r| r.tag_input_recipes().root_recipe(),
-        &variants,
-        move || PartState {
-            focused: within.get(),
-            ..PartState::default()
-        },
-    );
+    let root = grid(())
+        .base_style(style().grid_template_columns((Track::minmax(0, Track::fr(1)), auto())));
     TagInput {
         root,
         label: label.into_text_value(),
@@ -80,7 +69,7 @@ pub fn tag_input(label: impl IntoText, tags: impl IntoValue<Vec<String>>) -> Tag
         on_remove: callback(|_: usize| {}),
         placeholder: None,
         input_ref,
-        variants,
+        variants: Variants::default(),
     }
 }
 
@@ -112,7 +101,7 @@ impl TagInput {
     ///
     /// The value is a constant: the recipes read the values given before
     /// the component is mounted, and a value never changes afterwards.
-    pub fn variant(self, v: impl Variant) -> Self {
+    pub fn variant(mut self, v: impl Variant) -> Self {
         self.variants.add(v);
         self
     }
@@ -162,7 +151,7 @@ impl IntoView for TagInput {
         let placeholder = placeholder.unwrap_or_else(|| {
             kivact_core::i18n::message("tags.placeholder", "Add a tag...").into_value()
         });
-        let mut field = with_recipe_style(
+        let field = with_recipe_style(
             text_input(label, pending)
                 .disabled(disabled)
                 .invalid(invalid)
@@ -194,22 +183,55 @@ impl IntoView for TagInput {
             &variants,
             PartState::default,
         );
-        for reference in labelled_by {
-            field = field.with_node(|node| node.labelled_by(reference));
-        }
-        for reference in described_by {
-            field = field.with_node(|node| node.described_by(reference));
-        }
-        let chips = chip_row(chips);
-        root.child((field, chips))
-            .on_pointer_default(move |event| {
-                if matches!(event.phase(), PointerPhase::Down(_)) && !disabled.get() {
-                    input_ref.focus();
-                }
-                Handled::No
-            })
-            .into_view()
+        let field = editor_references(field, labelled_by, described_by);
+        with_tag_box(root, field, chips, &variants, disabled, input_ref)
     }
+}
+
+/// The editor with the caller's accessibility references.
+fn editor_references(
+    mut field: TextInput,
+    labelled_by: Vec<NodeRef>,
+    described_by: Vec<NodeRef>,
+) -> TextInput {
+    for reference in labelled_by {
+        field = field.with_node(|node| node.labelled_by(reference));
+    }
+    for reference in described_by {
+        field = field.with_node(|node| node.described_by(reference));
+    }
+    field
+}
+
+/// The finished box: the editor and its chips, ringing while the editor has focus.
+fn with_tag_box(
+    root: Node,
+    field: TextInput,
+    chips: impl IntoView,
+    variants: &Variants,
+    disabled: Value<bool>,
+    input_ref: NodeRef,
+) -> View {
+    let chips = chip_row(chips);
+    // The box rings while the focus is in its input.
+    let within = input_ref.focus_within();
+    with_base_recipe_style(
+        root,
+        |r| r.tag_input_recipes().root_recipe(),
+        variants,
+        move || PartState {
+            focused: within.get(),
+            ..PartState::default()
+        },
+    )
+    .child((field, chips))
+    .on_pointer_default(move |event| {
+        if matches!(event.phase(), PointerPhase::Down(_)) && !disabled.get() {
+            input_ref.focus();
+        }
+        Handled::No
+    })
+    .into_view()
 }
 
 /// Render application-owned tags and report each removal as one edit.

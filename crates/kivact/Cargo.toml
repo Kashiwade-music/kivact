@@ -24,6 +24,7 @@ gpu = ["dep:arvane-compose", "arvane-compose/gpu"]
 gpu-interop = ["gpu", "arvane-compose/gpu-interop", "kivact-core/gpu-interop", "kivact-test?/gpu-interop"]
 embed = ["dep:arvane-native", "arvane-native/embed", "kivact-core/embed", "kivact-test?/embed"]
 test = ["dep:kivact-test"]
+devtools = ["kivact-core/devtools"]
 
 [lints]
 workspace = true

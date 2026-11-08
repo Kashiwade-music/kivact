@@ -67,7 +67,7 @@ impl Stat {
         self
     }
     /// Add an appearance read by every recipe of the statistic.
-    pub fn variant(self, value: impl Variant) -> Self {
+    pub fn variant(mut self, value: impl Variant) -> Self {
         self.variants.add(value);
         self
     }

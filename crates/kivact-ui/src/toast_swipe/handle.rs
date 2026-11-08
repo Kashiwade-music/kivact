@@ -3,7 +3,7 @@ use super::machine::{self, Event, edge_sign};
 use kivact_core::custom::clock_now;
 use kivact_core::geometry::{Edge, Rect};
 use kivact_core::motion::Transition;
-use kivact_core::state::{MachineHandle, Signal, Value, machine};
+use kivact_core::state::{MachineHandle, Value, machine, memo};
 use kivact_core::style::{Style, TransitionProp, pct, style, use_theme};
 use kivact_core::task::spawn;
 use kivact_core::view::{Handled, PointerEvent, PointerPhase};
@@ -17,7 +17,6 @@ impl Swipe {
     pub(crate) fn new(
         edge: Edge,
         rect: Value<Option<Rect>>,
-        held: Signal<bool>,
         toaster: ToasterApi,
         id: ToastId,
     ) -> Self {
@@ -34,7 +33,6 @@ impl Swipe {
                     .swipe_slop,
             },
             move |_, effect| match effect {
-                machine::Effect::Hold(value) => held.set(value),
                 // A task runs in the same turn once the effects have settled:
                 // the card's style has committed its released look (the swipe
                 // exit and the theme's transition) before the card is removed,
@@ -46,6 +44,19 @@ impl Swipe {
             },
         );
         Self { edge, session }
+    }
+    /// Whether a touch on the card holds its timer: from the press, through
+    /// the drag and a qualifying swipe's exit, until the gesture resets.
+    pub(crate) fn held(self) -> Value<bool> {
+        let session = self.session;
+        memo(move || {
+            matches!(
+                session.get(),
+                machine::Swipe::Pressed(_)
+                    | machine::Swipe::Dragging { .. }
+                    | machine::Swipe::Released { .. }
+            )
+        })
     }
     pub(crate) fn protect_action(self, event: PointerEvent) {
         if matches!(event.phase(), PointerPhase::Down(_)) {

@@ -93,7 +93,7 @@ impl<K: ItemKey> ToggleGroup<K> {
         self
     }
     /// Add a theme presentation variant shared by the group and its items.
-    pub fn variant(self, variant: impl Variant) -> Self {
+    pub fn variant(mut self, variant: impl Variant) -> Self {
         self.variants.add(variant);
         self
     }

@@ -89,7 +89,7 @@ impl<K: kivact_core::state::ItemKey> Menu<K> {
     /// the component is mounted, and a value never changes afterwards. A
     /// look that changes while the component lives is a state the recipe
     /// reads, or a reactive `.style(..)` of the caller's.
-    pub fn variant(self, v: impl Variant) -> Self {
+    pub fn variant(mut self, v: impl Variant) -> Self {
         self.variants.add(v);
         self
     }
@@ -156,30 +156,28 @@ impl<K: kivact_core::state::ItemKey> Menu<K> {
     /// menu bar's triggers are `Role::MenuItem`), and one without is a
     /// `Role::Button`.
     pub fn attach<T: NodeBuilder + IntoView>(self, trigger: T) -> View {
-        self.render(Some(trigger), false, false)
+        self.render(Some(trigger), Opening::Trigger)
     }
     /// Open the same themed menu by a context press or the context-menu key
     /// on `target`, at the pointer, and return the target with the menu. Its
     /// top level is drawn with the `context_surface` recipe.
     pub fn attach_context<T: NodeBuilder + IntoView>(self, target: T) -> View {
-        self.render(Some(target), true, false)
+        self.render(Some(target), Opening::Context)
     }
     pub(crate) fn attach_context_fallback<T: NodeBuilder + IntoView>(self, target: T) -> View {
-        self.render(Some(target), true, true)
+        self.render(Some(target), Opening::ContextFallback)
     }
 
-    fn render<T: NodeBuilder + IntoView>(
-        self,
-        trigger: Option<T>,
-        context: bool,
-        fallback: bool,
-    ) -> View {
-        let part = if fallback {
-            self.behavior.context_fallback_trigger()
-        } else if context {
-            self.behavior.context_trigger()
+    fn render<T: NodeBuilder + IntoView>(self, trigger: Option<T>, opening: Opening) -> View {
+        let part = match opening {
+            Opening::ContextFallback => self.behavior.context_fallback_trigger(),
+            Opening::Context => self.behavior.context_trigger(),
+            Opening::Trigger => self.behavior.trigger(),
+        };
+        let kind = if opening == Opening::Trigger {
+            LevelKind::Anchored
         } else {
-            self.behavior.trigger()
+            LevelKind::Context
         };
         let anchor = kivact_core::view::node_ref();
         let (name, trigger) = match trigger {
@@ -217,11 +215,15 @@ impl<K: kivact_core::state::ItemKey> Menu<K> {
                     anchor,
                     placement: self.placement,
                     align: self.align,
-                    at_least_anchor_width: self.at_least_anchor_width && !context,
-                    context,
-                    sub: false,
+                    at_least_anchor_width: self.at_least_anchor_width
+                        && kind == LevelKind::Anchored,
+                    kind,
                     label,
-                    offset: self.offset.unwrap_or(if context { 0.0 } else { 4.0 }),
+                    offset: self.offset.unwrap_or(if kind == LevelKind::Context {
+                        0.0
+                    } else {
+                        4.0
+                    }),
                     variants: self.variants,
                 },
                 self.item,
@@ -247,8 +249,23 @@ fn named<T: NodeBuilder + IntoView, S: kivact_core::state::PropValue>(
 }
 impl<K: kivact_core::state::ItemKey> IntoView for Menu<K> {
     fn into_view(self) -> View {
-        self.render(None::<Node>, false, false)
+        self.render(None::<Node>, Opening::Trigger)
     }
+}
+
+/// How the top level of a menu is opened.
+#[derive(Clone, Copy, PartialEq)]
+enum Opening {
+    Trigger,
+    Context,
+    ContextFallback,
+}
+/// Which surface one level of the open menu is.
+#[derive(Clone, Copy, PartialEq)]
+enum LevelKind {
+    Anchored,
+    Context,
+    Submenu,
 }
 
 /// One level of the open menu: where and how its surface shows.
@@ -260,11 +277,7 @@ struct Level<K: kivact_core::state::ItemKey> {
     align: Option<OverlayAlign>,
     // xtask-allow(state-fields): Independent immutable layout option.
     at_least_anchor_width: bool,
-    // xtask-allow(state-fields): Immutable renderer choice for context positioning; session owns the origin.
-    context: bool,
-    // xtask-allow(state-fields): Immutable renderer choice for a submenu recipe.
-    /// A submenu's level, drawn with the submenu surface recipe.
-    sub: bool,
+    kind: LevelKind,
     label: Value<String>,
     offset: f64,
     variants: Variants,
@@ -368,8 +381,7 @@ fn surface<K: kivact_core::state::ItemKey>(level: Level<K>, slot: Option<ItemCon
         placement,
         align,
         at_least_anchor_width,
-        context,
-        sub,
+        kind,
         label,
         offset,
         variants,
@@ -380,18 +392,18 @@ fn surface<K: kivact_core::state::ItemKey>(level: Level<K>, slot: Option<ItemCon
         let rows = menu_rows(behavior, slot.clone(), variants.clone());
         let content = with_recipe_style(
             scroll(column(rows)),
-            if sub {
-                |r| r.menu_recipes().sub_surface_recipe()
-            } else if context {
-                |r| r.menu_recipes().context_surface_recipe()
-            } else {
-                |r| r.menu_recipes().surface_recipe()
+            match kind {
+                LevelKind::Submenu => |r| r.menu_recipes().sub_surface_recipe(),
+                LevelKind::Context => |r| r.menu_recipes().context_surface_recipe(),
+                LevelKind::Anchored => |r| r.menu_recipes().surface_recipe(),
             },
             &variants,
             move || state.get(),
         );
         let origin = behavior.origin();
-        let layer = if context && matches!(origin.get_untracked(), Some(MenuOrigin::Pointer(_))) {
+        let layer = if kind == LevelKind::Context
+            && matches!(origin.get_untracked(), Some(MenuOrigin::Pointer(_)))
+        {
             overlay_at(
                 move || match origin.get() {
                     Some(MenuOrigin::Pointer(point)) => point,
@@ -537,8 +549,7 @@ fn menu_item<K: kivact_core::state::ItemKey>(
                 placement: Placement::End,
                 align: None,
                 at_least_anchor_width: false,
-                context: false,
-                sub: true,
+                kind: LevelKind::Submenu,
                 label: kivact_core::state::memo(move || entry.get().1.label()),
                 offset: 0.0,
                 variants: looks.clone(),

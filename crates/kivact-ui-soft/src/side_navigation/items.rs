@@ -419,6 +419,10 @@ struct ItemExpansion {
 }
 
 /// Whether the item has a children factory, with that branch's owners.
+#[allow(
+    clippy::large_enum_variant,
+    reason = "the branch is a Copy, private item description; boxing a variant would drop Copy and break the item API"
+)]
 #[derive(Clone, Copy)]
 enum ItemBranch {
     /// No children factory.

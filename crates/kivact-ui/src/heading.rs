@@ -27,7 +27,7 @@ pub fn heading(value: impl IntoText, level: u8) -> Heading {
 }
 impl Heading {
     /// Add an appearance read by the heading recipe.
-    pub fn variant(self, value: impl Variant) -> Self {
+    pub fn variant(mut self, value: impl Variant) -> Self {
         self.variants.add(value);
         self
     }

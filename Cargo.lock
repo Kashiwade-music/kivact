@@ -2278,6 +2278,8 @@ dependencies = [
 name = "kivact-core"
 version = "0.1.0"
 dependencies = [
+ "kivact-devtools-agent",
+ "kivact-devtools-protocol",
  "kivact-editing",
  "kivact-engine",
  "kivact-i18n",

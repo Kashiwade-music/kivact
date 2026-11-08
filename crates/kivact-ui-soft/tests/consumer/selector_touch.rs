@@ -149,3 +149,55 @@ fn complex_selector_uses_the_same_search_binding_in_its_two_surfaces() {
         Some("des"),
     );
 }
+
+#[test]
+fn selection_field_reopened_through_the_caller_binding_takes_a_fresh_surface() {
+    let (screen, open) = render_with_handle(
+        RenderOptions::with_theme(kivact_ui_soft::theme(ThemeMode::Light))
+            .window_size(500.0, 700.0),
+        || {
+            let open = signal(false);
+            (
+                open,
+                kivact::ui::selection_field("Workspace", "Design")
+                    .presentation(kivact::ui::SelectPresentation::BottomSheet)
+                    .open(open)
+                    .content(|| kivact::view::text("Choices")),
+            )
+        },
+    );
+    // The drawer reaches the bottom of the 700 px window; the popup sits under the trigger.
+    let drawer_shown = || {
+        let rect = screen
+            .get_by_role(Role::Dialog, "Workspace")
+            .rect()
+            .expect("dialog laid out");
+        rect.y + rect.height >= 699.0
+    };
+    let trigger = screen.get_by_role(Role::Button, "Workspace");
+    let rect = trigger.rect().unwrap();
+    let touch = screen.contact_down(
+        PointerKind::Touch,
+        rect.x + rect.width / 2.0,
+        rect.y + rect.height / 2.0,
+    );
+    screen.contact_up(touch);
+    screen.advance(Duration::from_millis(350));
+    assert!(open.get());
+    assert!(drawer_shown(), "a touch tap opens the drawer");
+
+    open.set(false);
+    screen.run_until_idle();
+    screen.advance(Duration::from_millis(350));
+    assert!(screen.query_by_role(Role::Dialog, "Workspace").is_none());
+
+    // The caller reopens: a new opening without a tap shows the popup.
+    open.set(true);
+    screen.run_until_idle();
+    screen.advance(Duration::from_millis(350));
+    assert!(
+        !drawer_shown(),
+        "the caller's reopening must not reuse the drawer"
+    );
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}

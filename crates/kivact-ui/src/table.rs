@@ -54,7 +54,7 @@ pub fn table_row(children: impl IntoChildren) -> TableRow {
     }
 }
 impl Table {
-    pub fn variant(self, variant: impl Variant) -> Self {
+    pub fn variant(mut self, variant: impl Variant) -> Self {
         self.variants.add(variant);
         self
     }
@@ -159,7 +159,7 @@ impl TableCell {
         self.span = span.into_value();
         self
     }
-    pub fn variant(self, variant: impl Variant) -> Self {
+    pub fn variant(mut self, variant: impl Variant) -> Self {
         self.variants.add(variant);
         self
     }

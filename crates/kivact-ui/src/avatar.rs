@@ -81,7 +81,7 @@ impl Avatar {
         self.name_tooltip = Some(show.into_value());
         self
     }
-    pub fn variant(self, variant: impl Variant) -> Self {
+    pub fn variant(mut self, variant: impl Variant) -> Self {
         self.variants.add(variant);
         self
     }
