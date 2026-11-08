@@ -276,6 +276,26 @@ fn reduced_motion_shows_first_frame() {
 }
 
 #[test]
+fn gif_cut_off_in_a_later_frame_keeps_the_frames_before_it() {
+    // Tier 2: a GIF whose last frame is cut off (a download that stopped) still
+    // animates through the frames before it; the image is not lost.
+    let mut bytes = gif();
+    bytes.truncate(bytes.len() - 20);
+    let screen = render(move || canvas_of(image(bytes).test_id("gif").style(at(0, 0, 40, 40))));
+    expect(&screen.screenshot(), 20, 20, RED, 2, "frame 0");
+    screen.advance(ms(100));
+    expect(
+        &screen.screenshot(),
+        20,
+        20,
+        GREEN,
+        2,
+        "frame 1 after 100 ms",
+    );
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
 fn apng_and_webp_animate() {
     // Tier 2: an APNG (left) and an animated WebP (right), both of three
     // 100 ms frames, advance together.
