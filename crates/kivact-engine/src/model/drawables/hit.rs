@@ -57,41 +57,23 @@ impl Model {
         if placed.back_hidden {
             return None;
         }
-        let n = self.tree.get(host)?;
-        let size = self.computed_layout(host)?.size;
-        let paint = n.paint().cloned().unwrap_or_default();
-        let padding = visual::padding_box(
-            Rect {
-                x: 0.0,
-                y: 0.0,
-                width: size.width,
-                height: size.height,
-            },
-            &paint,
-        );
-        Some(
-            Matrix4::from_projective(placed.map)
-                .then(Matrix4::translate(padding.x, padding.y, 0.0)),
-        )
+        let origin = self.padding_origin(host)?;
+        Some(Matrix4::from_projective(placed.map).then(Matrix4::translate(origin.x, origin.y, 0.0)))
     }
 
-    /// The exported drawable of `host` under `p` (`p` in `host`'s box space),
-    /// through the geometry the app set for it.
+    /// The exported drawable of `host` under `p` (`p` in `host`'s box space).
+    /// Its root's own map (`export_step`) takes the point into its box.
     pub(crate) fn exported_hit(&self, host: NodeId, p: Point) -> Option<NodeId> {
-        let canvas = self.canvas_point(host, p)?;
         self.drawables
             .iter()
             .filter(|(_, entry)| entry.mode == DrawableMode::Export)
             .filter(|(_, entry)| self.parent_of(entry.root) == Some(host))
-            .find_map(|(id, entry)| {
-                let map = self.drawables.geometry_of(id)?;
-                let at = map.invert()?.apply(canvas)?;
-                self.hit_node(entry.root, at)
-            })
+            .find_map(|(_, entry)| self.hit_node(entry.root, p))
     }
 
-    /// The point `p` of `host`'s box space, in its canvas (padding box) space.
-    fn canvas_point(&self, host: NodeId, p: Point) -> Option<Point> {
+    /// The origin of `host`'s padding box in its border box: the canvas that
+    /// its drawings and exported drawables are mapped into.
+    pub(crate) fn padding_origin(&self, host: NodeId) -> Option<Point> {
         let n = self.tree.get(host)?;
         let size = self.computed_layout(host)?.size;
         let paint = n.paint().cloned().unwrap_or_default();
@@ -105,8 +87,17 @@ impl Model {
             &paint,
         );
         Some(Point {
-            x: p.x - padding.x,
-            y: p.y - padding.y,
+            x: padding.x,
+            y: padding.y,
+        })
+    }
+
+    /// The point `p` of `host`'s box space, in its canvas (padding box) space.
+    fn canvas_point(&self, host: NodeId, p: Point) -> Option<Point> {
+        let origin = self.padding_origin(host)?;
+        Some(Point {
+            x: p.x - origin.x,
+            y: p.y - origin.y,
         })
     }
 

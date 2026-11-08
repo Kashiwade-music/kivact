@@ -27,9 +27,17 @@ impl StateMotion {
         self.0.remove(&id);
     }
 
-    /// The nodes whose transitions move.
+    /// Whether the transition of `id` is still in flight ([`StateAnimation::in_flight`]).
+    pub(crate) fn in_flight(&self, id: NodeId) -> bool {
+        self.get(id).is_some_and(StateAnimation::in_flight)
+    }
+
+    /// The nodes whose transitions are still in flight.
     pub(crate) fn moving(&self) -> impl Iterator<Item = NodeId> + '_ {
-        self.0.keys().copied()
+        self.0
+            .iter()
+            .filter(|(_, a)| a.in_flight())
+            .map(|(id, _)| *id)
     }
 
     /// Whether `id` moves its opacity or its transform now (a track of
@@ -191,5 +199,12 @@ impl StateAnimation {
         self.tracks
             .iter()
             .any(|t| matches!(t.phase, TrackPhase::Captured { .. }))
+    }
+
+    /// Whether a track still moves or waits to: a held track (a run that
+    /// ended away from its target) is not in flight, so a presence waits
+    /// for it no longer.
+    pub(super) fn in_flight(&self) -> bool {
+        self.running() || self.captured()
     }
 }

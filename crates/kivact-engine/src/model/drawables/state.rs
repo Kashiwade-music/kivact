@@ -3,8 +3,9 @@
 //! Invariants:
 //! - A geometry request whose generation is not the current ask's
 //!   generation is dropped (an older request's geometry never shows).
-//! - `ExportRetry` is decided per presentation only, from that
-//!   presentation's pending exports; a retry is a deadline on the pump's
+//! - `ExportRetry` is decided by a shown presentation, from its pending
+//!   exports; a skipped one moves a pending retry to the window's retry
+//!   time, and a dropped one clears it. A retry is a deadline on the pump's
 //!   clock, never an `Instant`.
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -72,6 +73,22 @@ impl ExportRetry {
             Self::Idle => None,
             Self::Pending { retry_at_ns, .. } => Some(*retry_at_ns),
         }
+    }
+
+    /// The window skipped the presentation: a pending retry waits for the
+    /// window's own retry time (its backoff) instead of coming due at once.
+    pub(crate) fn skipped(&mut self, retry_at_ns: u64) {
+        if let Self::Pending { interval_ns, .. } = *self {
+            *self = Self::Pending {
+                retry_at_ns,
+                interval_ns,
+            };
+        }
+    }
+
+    /// The window dropped the presentation: the next change draws it again.
+    pub(crate) fn dropped(&mut self) {
+        *self = Self::Idle;
     }
 }
 
@@ -205,13 +222,27 @@ impl Drawables {
         self.retry_deadline().is_some_and(|at| at <= now_ns)
     }
 
-    /// Decide every drawable's retry from one presentation: `pending` names the
-    /// drawables whose export it skipped; the others are idle.
+    /// Decide every drawable's retry from one shown presentation: `pending`
+    /// names the drawables whose export it skipped; the others are idle.
     pub(crate) fn presented(&mut self, pending: &[DrawableId], now_ns: u64, period_ns: u64) {
         for (id, entry) in self.entries.iter_mut() {
             entry
                 .retry
                 .presented(pending.contains(id), now_ns, period_ns);
+        }
+    }
+
+    /// The window skipped a presentation: pending retries wait for its retry time.
+    pub(crate) fn skipped(&mut self, retry_at_ns: u64) {
+        for entry in self.entries.values_mut() {
+            entry.retry.skipped(retry_at_ns);
+        }
+    }
+
+    /// The window dropped a presentation: no retry is pending until the next change.
+    pub(crate) fn dropped(&mut self) {
+        for entry in self.entries.values_mut() {
+            entry.retry.dropped();
         }
     }
 

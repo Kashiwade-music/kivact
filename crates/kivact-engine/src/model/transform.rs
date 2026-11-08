@@ -246,16 +246,21 @@ impl Model {
 
     /// The step of `id` up its parent chain (see [`Model::to_parent`]).
     fn step(&self, id: NodeId) -> Option<Step> {
+        self.step_in(id, true)
+    }
+
+    /// The step of `id`. Without `scrolled` it leaves out its parent's
+    /// scroll, so the box stays where its layout puts it (content space).
+    fn step_in(&self, id: NodeId, scrolled: bool) -> Option<Step> {
         let n = self.tree.get(id)?;
         if n.is_transparent() {
             return None;
         }
-        if let Some(role) = n
-            .properties
-            .drawable
-            .filter(|r| r.mode == DrawableMode::Canvas)
-        {
-            return self.canvas_step(id, role.id);
+        if let Some(role) = n.properties.drawable {
+            return match role.mode {
+                DrawableMode::Canvas => self.canvas_step(id, role.id),
+                DrawableMode::Export => self.export_step(id, role.id),
+            };
         }
         let size = self.computed_layout(id)?.size;
         let parent = if n.is_layer() {
@@ -265,7 +270,11 @@ impl Model {
         };
         let place = match parent {
             Some(p) => {
-                let scroll = self.tree.get(p)?.scroll;
+                let scroll = if scrolled {
+                    self.tree.get(p)?.scroll
+                } else {
+                    Point::default()
+                };
                 let at = self.location(n);
                 Point {
                     x: at.x - scroll.x,
@@ -302,6 +311,26 @@ impl Model {
     fn canvas_step(&self, id: NodeId, drawable: DrawableId) -> Option<Step> {
         let host = self.tree.parent_id(self.tree.get(id)?)?;
         let matrix = self.drawn_matrix(host, drawable)?;
+        let regular = matrix.is_finite() && matrix.determinant().abs() >= SINGULAR;
+        regular.then_some(Step {
+            matrix,
+            up: Up::Parent {
+                parent: host,
+                preserves_3d: false,
+            },
+        })
+    }
+
+    /// The step of the root `id` of the exported drawable `drawable` (§10.5):
+    /// its box into its host's border box, through the geometry the app set
+    /// for it. `None` without geometry, the way a canvas root without a
+    /// drawing has none.
+    fn export_step(&self, id: NodeId, drawable: DrawableId) -> Option<Step> {
+        let host = self.tree.parent_id(self.tree.get(id)?)?;
+        let geometry = self.drawables.geometry_of(drawable)?;
+        let origin = self.padding_origin(host)?;
+        let matrix =
+            Matrix4::from_projective(geometry).then(Matrix4::translate(origin.x, origin.y, 0.0));
         let regular = matrix.is_finite() && matrix.determinant().abs() >= SINGULAR;
         regular.then_some(Step {
             matrix,
@@ -350,11 +379,21 @@ impl Model {
     /// The same up to the node `upto` (exclusive; the window with `None`):
     /// node box space to the box space of `upto`.
     pub(crate) fn map_between(&self, id: NodeId, upto: Option<NodeId>) -> Option<Projective> {
+        self.map_walk(id, upto, true)
+    }
+
+    /// [`Model::map_between`] in content space: no step leaves its parent's
+    /// scroll in, so the boxes are where their layouts put them (§7.4).
+    pub(crate) fn content_map_between(&self, id: NodeId, upto: NodeId) -> Option<Projective> {
+        self.map_walk(id, Some(upto), false)
+    }
+
+    fn map_walk(&self, id: NodeId, upto: Option<NodeId>, scrolled: bool) -> Option<Projective> {
         let mut flat = Projective::IDENTITY;
         let mut deep = Matrix4::IDENTITY;
         let mut cur = Some(id);
         while let Some(x) = cur.filter(|x| Some(*x) != upto) {
-            let step = self.step(x)?;
+            let step = self.step_in(x, scrolled)?;
             let (next, preserves_3d) = match step.up {
                 Up::Window => (None, false),
                 Up::Parent {

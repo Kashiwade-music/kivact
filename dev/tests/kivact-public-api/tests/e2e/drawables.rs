@@ -667,3 +667,85 @@ fn exported_drawable_geometry_enables_hits() {
     );
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
+
+/// Tier 1 (geometry): an exported drawable's hit and accessibility bounds
+/// follow the geometry the app set. The geometry maps the drawable's box into
+/// the host's padding box (its origin inside the border), and nothing else
+/// moves it: without geometry the button has no bounds at all.
+#[test]
+fn exported_drawable_hit_and_bounds_follow_its_geometry() {
+    let (screen, (pressed, card)) = mount(|| {
+        let card = drawable();
+        let pressed = signal(false);
+        let view = viewport(Pixels::new(1, 1, vec![0, 0, 0, 0]))
+            .drawable(card, move || apply(pressed))
+            .test_id("viewport")
+            .style(style().size(200, 120).padding(16));
+        ((pressed, card), view)
+    });
+    let (ox, oy) = origin_of(&screen, "viewport");
+    assert!(
+        screen
+            .get_by_role(Role::Button, "Apply")
+            .accessibility_bounds()
+            .is_none(),
+        "no geometry, no bounds"
+    );
+    card.share()
+        .set_geometry(Some(Matrix4::translate(30.0, 10.0, 0.0)));
+    screen.run_until_idle();
+    let bounds = screen
+        .get_by_role(Role::Button, "Apply")
+        .accessibility_bounds()
+        .expect("the drawn button has bounds");
+    for (got, want) in [
+        (bounds.x - ox, 30.0),
+        (bounds.y - oy, 10.0),
+        (bounds.width, 80.0),
+        (bounds.height, 30.0),
+    ] {
+        assert!(
+            (got - want).abs() <= 1.0,
+            "bounds {bounds:?}, want x 30 y 10 w 80 h 30 in the window"
+        );
+    }
+    screen.click_at(ox + 50.0, oy + 30.0);
+    assert!(pressed.get_untracked(), "the drawn box is hit");
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+/// Tier 1 (geometry): a drawable under a Preserve3d layer whose inner layer
+/// is pushed along z is placed through the whole 3D context and flattened
+/// where it ends: the box at z = 200 under `rotate_y(60)` lands at
+/// x = 200 sin 60 = 173 on the stage (a flattened inner layer would give 0).
+#[test]
+fn preserve_3d_drawable_is_placed_through_its_context() {
+    let (screen, presses) = mount(|| {
+        let card = drawable();
+        let presses = signal(0u32);
+        let view = stage(move |d, _| {
+            let outer = Layer::new()
+                .transform(Transform::new().rotate_y(60.0))
+                .transform_style(TransformStyle::Preserve3d);
+            let inner = Layer::new().transform(Transform::new().translate_3d(0.0, 0.0, 200.0));
+            d.layer(outer, |d| {
+                d.layer(inner, |d| d.drawable(card, Point::new(0.0, 0.0)));
+            });
+        })
+        .drawable(card, move || {
+            node()
+                .role(Role::Generic)
+                .style(style().size(40, 20).background(rgb(RED)))
+                .on_press(move || presses.set(presses.get_untracked() + 1))
+        });
+        (presses, view)
+    });
+    assert_bounds(
+        bounds_of(&stage_shot(&screen), RED),
+        [173, 0, 192, 19],
+        "preserve-3d: drawn through its context",
+    );
+    click_stage(&screen, 180.0, 10.0);
+    assert_eq!(presses.get_untracked(), 1, "hit where it is drawn");
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}

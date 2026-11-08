@@ -46,8 +46,9 @@ pub(crate) struct Placements {
 
 /// One open scope of the walk of a scene.
 enum Frame {
-    /// A transform (affine, as a homography).
-    Transform(Projective),
+    /// A transform (affine, as a homography), and whether the nearest open
+    /// layer preserves 3D, so the transform is in its 3D context.
+    Transform { map: Projective, in_3d: bool },
     /// A layer: its matrix, its 3D context and its clip.
     Layer(LayerFrame),
     /// A clip declared at this depth, in the host canvas to clip space map.
@@ -56,9 +57,6 @@ enum Frame {
 
 /// What a layer contributes to the walk.
 struct LayerFrame {
-    // xtask-allow(state-fields): Geometric value of one layer; it is set from the command's transform and has no phase that depends on the flags below.
-    /// The flattened map of the layer's transform (identity without one).
-    map: Projective,
     // xtask-allow(state-fields): Geometric value of one layer; it is set from the command's own transform, independent of the 3D flags.
     /// The layer's own 4×4 transform (identity without one).
     own: Matrix4,
@@ -92,8 +90,11 @@ pub(crate) fn drawable_placements(scenes: [Option<&DrawList>; 2]) -> Placements 
 /// Apply one command of the walk: open or close a scope, or place a drawable.
 fn walk_cmd(cmd: &DrawCmd, slot: u8, order: u32, frames: &mut Vec<Frame>, out: &mut Placements) {
     match cmd {
-        DrawCmd::PushTransform(t) => frames.push(Frame::Transform(Projective::from_affine(*t))),
-        DrawCmd::PopTransform => pop(frames, |f| matches!(f, Frame::Transform(_))),
+        DrawCmd::PushTransform(t) => frames.push(Frame::Transform {
+            map: Projective::from_affine(*t),
+            in_3d: inside_3d(frames),
+        }),
+        DrawCmd::PopTransform => pop(frames, |f| matches!(f, Frame::Transform { .. })),
         DrawCmd::PushClip(rect) => {
             let map = fold(frames).invert();
             if let Some(map) = map {
@@ -119,11 +120,7 @@ fn pop(frames: &mut Vec<Frame>, is: impl Fn(&Frame) -> bool) {
 /// Open a layer: its transform and its clip (the clip is in the layer's space).
 fn push_layer(layer: &DrawingLayer, frames: &mut Vec<Frame>) {
     let own = layer.transform.unwrap_or(Matrix4::IDENTITY);
-    let parent = frames.iter().rev().find_map(|f| match f {
-        Frame::Layer(l) => Some(l.preserves),
-        _ => None,
-    });
-    let in_3d = parent.unwrap_or(false);
+    let in_3d = inside_3d(frames);
     let context = if in_3d {
         frames
             .iter()
@@ -137,12 +134,7 @@ fn push_layer(layer: &DrawingLayer, frames: &mut Vec<Frame>) {
     } else {
         own
     };
-    let map = match layer.transform {
-        Some(m) => m.flatten(),
-        None => Projective::IDENTITY,
-    };
     frames.push(Frame::Layer(LayerFrame {
-        map,
         own,
         context,
         in_3d,
@@ -156,19 +148,40 @@ fn push_layer(layer: &DrawingLayer, frames: &mut Vec<Frame>) {
     }
 }
 
-/// The map from the innermost space out to the host canvas of the open frames
-/// (`then` applies the inner frame first).
-fn fold(frames: &[Frame]) -> Projective {
+/// Whether a frame pushed now is inside a 3D context: the nearest open layer
+/// preserves 3D.
+fn inside_3d(frames: &[Frame]) -> bool {
     frames
         .iter()
         .rev()
-        .fold(Projective::IDENTITY, |acc, frame| {
-            acc.then(match frame {
-                Frame::Transform(t) => *t,
-                Frame::Layer(l) => l.map,
-                Frame::Clip(..) => Projective::IDENTITY,
-            })
+        .find_map(|f| match f {
+            Frame::Layer(l) => Some(l.preserves),
+            _ => None,
         })
+        .unwrap_or(false)
+}
+
+/// The map from the innermost space out to the host canvas of the open frames
+/// (`then` applies the inner frame first). A run of frames in a 3D context
+/// accumulates its 4 × 4 matrices and is flattened where the context ends
+/// (§10.3, §7.2); the others are flattened at once.
+fn fold(frames: &[Frame]) -> Projective {
+    let mut flat = Projective::IDENTITY;
+    let mut deep = Matrix4::IDENTITY;
+    for frame in frames.iter().rev() {
+        let (matrix, in_3d) = match frame {
+            Frame::Transform { map, in_3d } => (Matrix4::from_projective(*map), *in_3d),
+            Frame::Layer(l) => (l.own, l.in_3d),
+            Frame::Clip(..) => continue,
+        };
+        if in_3d {
+            deep = deep.then(matrix);
+        } else {
+            flat = flat.then(deep.then(matrix).flatten());
+            deep = Matrix4::IDENTITY;
+        }
+    }
+    flat.then(deep.flatten())
 }
 
 /// Place the drawable `id` drawn at `at` under the open frames.
