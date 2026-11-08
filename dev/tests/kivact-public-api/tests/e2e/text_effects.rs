@@ -103,28 +103,24 @@ fn paint_order_stroke_first() {
         .get_by_test_id("glyph")
         .screenshot()
     };
-    let inside_red = |shot: &Screenshot| {
+    // The red run's width on the left edge: the first red pixel to the
+    // first blue one. A stroke of 6 px centred on the outline is 3 px out
+    // and 3 px in; the fill covers the inner 3 px only when it goes first.
+    let red_to_blue = |shot: &Screenshot| {
         let row = middle_row(shot);
-        let blue: Vec<u32> = (0..shot.width)
-            .filter(|&x| is_blue(pixel_at(shot, x, row)))
-            .collect();
-        let (Some(&first), Some(&last)) = (blue.first(), blue.last()) else {
-            panic!("no blue fill in the glyph");
+        let first_red = (0..shot.width).find(|&x| is_red(pixel_at(shot, x, row)));
+        let first_blue = (0..shot.width).find(|&x| is_blue(pixel_at(shot, x, row)));
+        let (Some(red), Some(blue)) = (first_red, first_blue) else {
+            panic!("no red stroke or no blue fill in the glyph's middle row");
         };
-        (first..last)
-            .filter(|&x| is_red(pixel_at(shot, x, row)))
-            .count()
+        blue - red
     };
     let fill_first = stroked(PaintOrder::FillStroke);
     let stroke_first = stroked(PaintOrder::StrokeFill);
+    let (fill_gap, stroke_gap) = (red_to_blue(&fill_first), red_to_blue(&stroke_first));
     assert!(
-        inside_red(&fill_first) > 0,
-        "the fill-first stroke covers the inner half"
-    );
-    assert_eq!(
-        inside_red(&stroke_first),
-        0,
-        "the stroke-first glyph has no red inside it"
+        fill_gap >= stroke_gap + 2,
+        "the stroke's inner half is over the fill (fill-first gap {fill_gap}, stroke-first gap {stroke_gap})"
     );
 }
 
@@ -217,18 +213,27 @@ fn draw_text_with_gradient_and_path() {
             && bounds.y + bounds.height <= inside.y + inside.height,
         "outline {bounds:?} lies outside the metrics {inside:?}"
     );
-    let reddish = (0..shot.width / 4).any(|x| {
-        (0..shot.height).any(|y| {
+    // The gradient spans the text's metrics, so its left and right thirds
+    // are the thirds of `inside`, not of the window.
+    let third = inside.width / 3.0;
+    let in_third = |from: f64, to: f64| {
+        (from.floor().max(0.0) as u32..to.ceil().min(f64::from(shot.width)) as u32)
+            .collect::<Vec<u32>>()
+    };
+    let reddish = in_third(inside.x, inside.x + third).into_iter().any(|x| {
+        (inside.y.floor() as u32..(inside.y + inside.height).ceil() as u32).any(|y| {
             let p = pixel_at(&shot, x, y);
             (p >> 16 & 255) > (p & 255) + 100
         })
     });
-    let bluish = (shot.width * 3 / 4..shot.width).any(|x| {
-        (0..shot.height).any(|y| {
-            let p = pixel_at(&shot, x, y);
-            (p & 255) > (p >> 16 & 255) + 100
-        })
-    });
+    let bluish = in_third(inside.x + 2.0 * third, inside.x + inside.width)
+        .into_iter()
+        .any(|x| {
+            (inside.y.floor() as u32..(inside.y + inside.height).ceil() as u32).any(|y| {
+                let p = pixel_at(&shot, x, y);
+                (p & 255) > (p >> 16 & 255) + 100
+            })
+        });
     assert!(reddish, "the left of the gradient is red");
     assert!(bluish, "the right of the gradient is blue");
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
