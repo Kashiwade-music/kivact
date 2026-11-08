@@ -3,7 +3,7 @@
 use std::time::Duration;
 
 use crate::support::mount;
-use kivact::motion::{Easing, Transition};
+use kivact::motion::{Easing, Repeat, Transition};
 use kivact::prelude::*;
 use kivact::style::TransitionProp;
 use kivact::view::{Node, PresenceMode};
@@ -20,6 +20,48 @@ fn leaving_arm(test_id: &'static str) -> Node {
             .exit(style().opacity(0.0))
             .transition(TransitionProp::All, Transition::tween(200, Easing::Linear)),
     )
+}
+
+/// The old arm's exit is two alternating 100 ms iterations, so its run ends
+/// on the value it started from, not on the exit target.
+fn held_exit_arm(test_id: &'static str) -> Node {
+    node().test_id(test_id).style(
+        style().size(50, 30).exit(style().opacity(0.0)).transition(
+            TransitionProp::All,
+            Transition::tween(100, Easing::Linear)
+                .repeat(Repeat::Times(2))
+                .alternate(),
+        ),
+    )
+}
+
+#[test]
+fn wait_mounts_after_an_exit_that_ends_held() {
+    let (screen, shown) = mount(|| {
+        let shown = signal(true);
+        let content = show(shown, || held_exit_arm("old"))
+            .fallback(|| node().test_id("new").style(style().size(50, 30)))
+            .presence(PresenceMode::Wait);
+        (shown, content)
+    });
+    assert!(screen.query_by_test_id("old").is_some());
+    shown.set(false);
+    screen.run_until_idle();
+    screen.advance(ms(150));
+    assert!(
+        screen.query_by_test_id("new").is_none(),
+        "Wait: the new arm waits for the exit's second iteration"
+    );
+    screen.advance(ms(250));
+    assert!(
+        screen.query_by_test_id("old").is_none(),
+        "an exit that ends held still completes"
+    );
+    assert!(
+        screen.query_by_test_id("new").is_some(),
+        "the new arm mounts once the held exit completes"
+    );
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 
 #[test]
