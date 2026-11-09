@@ -59,8 +59,21 @@ impl RichDoc {
 #[derive(Clone, Copy, PartialEq)]
 enum EditorMode {
     Preview,
-    Write,
+    Write {
+        /// Whether the write text area is composing text.
+        composing: bool,
+    },
     Blocks,
+}
+
+impl EditorMode {
+    fn surface(self) -> Self {
+        match self {
+            Self::Write { .. } => Self::Write { composing: false },
+            Self::Preview => Self::Preview,
+            Self::Blocks => Self::Blocks,
+        }
+    }
 }
 
 /// Render the supported Markdown blocks and inline marks.
@@ -76,7 +89,7 @@ pub fn rich_text_toolbar(preview: impl IntoBinding<bool>) -> impl kivact::view::
             if preview.get() {
                 EditorMode::Preview
             } else {
-                EditorMode::Write
+                EditorMode::Write { composing: false }
             }
         },
         move |mode| preview.set(mode == EditorMode::Preview),
@@ -93,7 +106,7 @@ fn toolbar(
         button(label)
             .variant(ButtonVariant::Ghost)
             .size(ControlSize::Small)
-            .with_node(move |node| node.selected(move || mode.get() == value))
+            .with_node(move |node| node.selected(move || mode.get().surface() == value))
             .on_press(move || mode.set(value))
     };
     let commands = target.map(|target| {
@@ -127,7 +140,10 @@ fn toolbar(
                 EditorMode::Blocks,
             )
         }),
-        mode_button(message("soft.rich_text.write", "Write"), EditorMode::Write),
+        mode_button(
+            message("soft.rich_text.write", "Write"),
+            EditorMode::Write { composing: false },
+        ),
         mode_button(
             message("soft.rich_text.preview", "Preview"),
             EditorMode::Preview,
@@ -268,14 +284,12 @@ impl IntoView for RichTextEditor {
         } else if offers_blocks {
             EditorMode::Blocks
         } else {
-            EditorMode::Write
+            EditorMode::Write { composing: false }
         });
         let blocks = offers_blocks.then(|| crate::rich_blocks::block_editor(source));
         let write_ref = node_ref();
-        // The Write text area's last composition report; its unmount reports `false`.
-        let write_composing = signal(false);
         let surface = dynamic(
-            move || mode.get(),
+            move || mode.get().surface(),
             move |current| match current {
                 EditorMode::Preview => rich_text_view(move || source.get())
                     .style(style().padding(12))
@@ -283,12 +297,22 @@ impl IntoView for RichTextEditor {
                 EditorMode::Blocks => blocks
                     .map(|blocks| crate::rich_blocks::edit_blocks(label, blocks))
                     .into_view(),
-                EditorMode::Write => {
-                    on_cleanup(move || write_composing.set(false));
+                EditorMode::Write { .. } => {
+                    on_cleanup(move || {
+                        mode.update(|mode| {
+                            if let EditorMode::Write { composing } = mode {
+                                *composing = false;
+                            }
+                        })
+                    });
                     text_area(label, source)
                         .node_ref(write_ref)
                         .on_composition_change(move |active| {
-                            write_composing.set(active == kivact::view::Composition::Composing)
+                            mode.update(|mode| {
+                                if let EditorMode::Write { composing } = mode {
+                                    *composing = active == kivact::view::Composition::Composing;
+                                }
+                            })
                         })
                         .wrap(true)
                         .rows(6..=16)
@@ -298,8 +322,8 @@ impl IntoView for RichTextEditor {
         );
         let target = memo(move || match mode.get() {
             EditorMode::Preview => EditTarget::Detached,
-            EditorMode::Write if write_composing.get() => EditTarget::Composing(write_ref),
-            EditorMode::Write => EditTarget::Ready(write_ref),
+            EditorMode::Write { composing: true } => EditTarget::Composing(write_ref),
+            EditorMode::Write { composing: false } => EditTarget::Ready(write_ref),
             EditorMode::Blocks => blocks.map_or(EditTarget::Detached, |blocks| blocks.target()),
         });
         let toolbar =

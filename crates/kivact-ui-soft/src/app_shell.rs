@@ -81,13 +81,13 @@ pub(crate) fn shell_nav_mode() -> ShellNavMode {
 
 /// Automatic mobile navigation configuration; defaults to a toggle and the Md breakpoint.
 pub struct MobileNavConfig {
-    // xtask-allow(state-fields): Independent toggle-visibility construction option.
+    // xtask-allow(state-fields): independent: whether the automatic configuration shows its toggle; unrelated to the caller's open binding
     has_toggle: bool,
-    // xtask-allow(state-fields): Optional caller binding to the existing drawer owner, not mirrored openness.
+    // xtask-allow(state-fields): option: caller binding to the existing drawer owner, not mirrored openness.
     open: Option<Binding<bool>>,
     on_change: Option<Callback<bool>>,
     content: Option<ViewFn>,
-    // xtask-allow(state-fields): Optional viewport threshold construction configuration.
+    // xtask-allow(state-fields): option: viewport threshold construction configuration.
     breakpoint: Option<Breakpoint>,
 }
 
@@ -326,11 +326,11 @@ struct ShellPresentation {
     mobile: AppShellMobile,
     height: Value<ShellHeight>,
     variant: Value<ShellVariant>,
-    // xtask-allow(state-fields): Readonly presence of the actual top-navigation slot.
+    // xtask-allow(state-fields): independent: readonly presence of the actual top-navigation slot.
     has_top: bool,
-    // xtask-allow(state-fields): Readonly presence of the actual side-navigation slot.
+    // xtask-allow(state-fields): independent: readonly presence of the actual side-navigation slot.
     has_side: bool,
-    // xtask-allow(state-fields): Readonly presence of the actual banner slot.
+    // xtask-allow(state-fields): independent: readonly presence of the actual banner slot.
     has_banner: bool,
 }
 fn configure_mobile(

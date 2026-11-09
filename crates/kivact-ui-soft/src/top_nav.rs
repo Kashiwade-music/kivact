@@ -60,13 +60,13 @@ struct TopNavCx {
 
 #[derive(Default)]
 struct Slots {
-    // xtask-allow(state-fields): builder option - heading
+    // xtask-allow(state-fields): option: absent means the component's default
     heading: Option<View>,
-    // xtask-allow(state-fields): builder option - start
+    // xtask-allow(state-fields): option: absent means the component's default
     start: Option<View>,
-    // xtask-allow(state-fields): builder option - center
+    // xtask-allow(state-fields): option: absent means the component's default
     center: Option<View>,
-    // xtask-allow(state-fields): builder option - end
+    // xtask-allow(state-fields): option: absent means the component's default
     end: Option<View>,
 }
 

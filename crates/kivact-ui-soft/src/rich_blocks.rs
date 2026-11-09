@@ -48,13 +48,10 @@ use kivact::view::node;
 use kivact::view::node_ref;
 use kivact::view::row;
 use kivact::view::text;
-use std::cell::Cell;
 use std::collections::HashMap;
-use std::rc::Rc;
 
 #[derive(Clone, Copy)]
 pub(super) struct Editor {
-    source: Binding<String>,
     document: Value<Document>,
     state: MachineHandle<BlockMachine>,
     references: Var<HashMap<usize, NodeRef>>,
@@ -72,16 +69,31 @@ pub(super) fn block_editor(source: Binding<String>) -> Editor {
             source: source.get_untracked(),
             references: references.with(Clone::clone),
         },
-        move |_, markdown: String| {
-            if source.get_untracked() != markdown {
-                source.set(markdown);
+        move |_, effect: BlockEffect| match effect {
+            BlockEffect::Source(markdown) => {
+                if source.get_untracked() != markdown {
+                    source.set(markdown);
+                }
             }
+            BlockEffect::Focus { id, caret } => {
+                if let Some(reference) = references.with(|references| references.get(&id).copied())
+                {
+                    reference.focus();
+                    reference.set_edit_session(TextSession::caret_at(caret));
+                }
+            }
+            BlockEffect::Move { id, forward, x } => {
+                if let Some(reference) = references.with(|references| references.get(&id).copied())
+                {
+                    move_to(reference, forward, x);
+                }
+            }
+            BlockEffect::Copy(text) => copy_text(text),
         },
     );
     state.feed(move || source.get(), |_| BlockEvent::Source);
     let document = memo(move || state.get().document);
     Editor {
-        source,
         document,
         state,
         references,
@@ -102,11 +114,17 @@ pub(super) fn edit_blocks(label: Value<String>, editor: Editor) -> Node {
         .style(style().gap(8).padding(12).width(pct(100)).min_width(0))
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 enum Command {
-    Split,
+    Split {
+        /// The selected byte range in the block being split.
+        selection: std::ops::Range<usize>,
+    },
     Merge,
-    Move { forward: bool, x: f64 },
+    Move {
+        forward: bool,
+        x: f64,
+    },
     SelectAll,
     CopyAll,
     Clear,
@@ -168,8 +186,7 @@ impl Editor {
                 [("label", label.get()), ("index", index.to_string())]
             },
         );
-        let command = Rc::new(Cell::new(None));
-        let editing = self.block_editing(id, block, kind.prose(), command.clone());
+        let editing = self.block_editing(id, block, kind.prose());
         let style_kind = kind.clone();
         let field = node()
             .node_ref(reference)
@@ -184,13 +201,6 @@ impl Editor {
                         .send(BlockEvent::Selection(BlockSelection::Caret));
                 }
                 Handled::No
-            })
-            .on_key(move |_| {
-                let Some(command) = command.take() else {
-                    return Handled::No;
-                };
-                self.run(id, reference, command);
-                Handled::Yes
             });
         self.decorate_block(id, block, kind, field)
     }
@@ -221,14 +231,7 @@ impl Editor {
         reference
     }
 
-    fn block_editing(
-        self,
-        id: usize,
-        block: Value<Block>,
-        prose: bool,
-        command: Rc<Cell<Option<Command>>>,
-    ) -> TextEditing {
-        let native_command = command;
+    fn block_editing(self, id: usize, block: Value<Block>, prose: bool) -> TextEditing {
         TextEditing::new(move || block.with(|block| block.body.clone()))
             .multiline()
             .line_layout(|| EditLineLayout {
@@ -237,9 +240,8 @@ impl Editor {
             })
             .report_text()
             .behavior(move |state, request, context| {
-                let action = key_command(state, &request, context, prose, self.whole());
-                native_command.set(action);
-                if action.is_some() {
+                if let Some(command) = key_command(state, &request, context, prose, self.whole()) {
+                    self.state.send(BlockEvent::Command { id, command });
                     EditOutcome::NotEditing
                 } else {
                     text_edit_policy(state, request, context)
@@ -340,48 +342,6 @@ impl Editor {
             _ => field.into_view(),
         }
     }
-
-    fn run(self, id: usize, reference: NodeRef, command: Command) {
-        match command {
-            Command::Split => {
-                if let Some(edit) = reference.edit_state() {
-                    self.state.send(BlockEvent::Source);
-                    let mut document = self.document.get_untracked();
-                    let await_mount = document.split(id, edit.selection());
-                    self.state.send(BlockEvent::Document {
-                        document,
-                        await_mount,
-                    });
-                }
-            }
-            Command::Merge => {
-                if let Some((target, caret)) = self.change(|doc| doc.merge(id))
-                    && let Some(reference) = self.reference(target)
-                {
-                    reference.focus();
-                    reference.set_edit_session(TextSession::caret_at(caret));
-                }
-            }
-            Command::Move { forward, x } => {
-                let next = self.document.with(|doc| doc.neighbor(id, forward));
-                if let Some(reference) = next.and_then(|id| self.reference(id)) {
-                    move_to(reference, forward, x);
-                }
-            }
-            Command::SelectAll => self
-                .state
-                .send(BlockEvent::Selection(BlockSelection::Whole)),
-            Command::CopyAll => copy_text(self.source.get_untracked()),
-            Command::Clear => self
-                .state
-                .send(BlockEvent::Selection(BlockSelection::Caret)),
-        }
-    }
-
-    fn reference(self, id: usize) -> Option<NodeRef> {
-        self.references
-            .with(|references| references.get(&id).copied())
-    }
 }
 
 fn key_command(
@@ -410,7 +370,9 @@ fn key_command(
     let caret = state.caret();
     match key {
         Key::Escape if whole => Some(Command::Clear),
-        Key::Enter if prose => Some(Command::Split),
+        Key::Enter if prose => Some(Command::Split {
+            selection: state.selection(),
+        }),
         Key::Backspace if prose && state.selection() == (0..0) => Some(Command::Merge),
         Key::ArrowUp | Key::ArrowDown if state.selection().is_empty() => {
             let forward = *key == Key::ArrowDown;
@@ -552,20 +514,55 @@ enum BlockEvent {
     Detach(NodeRef),
     Selection(BlockSelection),
     Composition(BlockComposition),
+    Command {
+        id: usize,
+        command: Command,
+    },
+}
+/// An action the block editor runs after a transition.
+enum BlockEffect {
+    /// Write the document Markdown back to the caller's binding.
+    Source(String),
+    /// Focus a block and place its caret.
+    Focus { id: usize, caret: usize },
+    /// Move to the neighbouring block at the same x position.
+    Move { id: usize, forward: bool, x: f64 },
+    /// Copy text to the platform clipboard.
+    Copy(String),
 }
 struct BlockMachine {
     source: String,
     references: HashMap<usize, NodeRef>,
 }
+impl BlockMachine {
+    /// Clear a phase whose focused block the new document removed.
+    fn reconcile_removed(&self, document: &Document, phase: &mut BlockEditPhase) {
+        let removed = match phase {
+            BlockEditPhase::Focused { target, .. } => self
+                .references
+                .iter()
+                .find_map(|(id, reference)| (reference == target).then_some(*id))
+                .is_some_and(|id| !document.blocks.iter().any(|block| block.id == id)),
+            BlockEditPhase::AwaitingMount { block } => !document
+                .blocks
+                .iter()
+                .any(|candidate| candidate.id == *block),
+            BlockEditPhase::Idle => false,
+        };
+        if removed {
+            *phase = BlockEditPhase::Idle;
+        }
+    }
+}
 impl Machine for BlockMachine {
     type State = BlockSnapshot;
     type Event = BlockEvent;
-    type Effect = String;
+    type Effect = BlockEffect;
     fn transition(
         &self,
         state: &BlockSnapshot,
         event: BlockEvent,
-    ) -> Step<BlockSnapshot, BlockEvent, String> {
+    ) -> Step<BlockSnapshot, BlockEvent, BlockEffect> {
         let mut next = state.clone();
         match event {
             BlockEvent::Source => {
@@ -583,24 +580,7 @@ impl Machine for BlockMachine {
                 if let Some(block) = await_mount {
                     next.phase = BlockEditPhase::AwaitingMount { block };
                 } else {
-                    let removed = match &next.phase {
-                        BlockEditPhase::Focused { target, .. } => self
-                            .references
-                            .iter()
-                            .find_map(|(id, reference)| (reference == target).then_some(*id))
-                            .is_some_and(|id| {
-                                !next.document.blocks.iter().any(|block| block.id == id)
-                            }),
-                        BlockEditPhase::AwaitingMount { block } => !next
-                            .document
-                            .blocks
-                            .iter()
-                            .any(|candidate| candidate.id == *block),
-                        BlockEditPhase::Idle => false,
-                    };
-                    if removed {
-                        next.phase = BlockEditPhase::Idle;
-                    }
+                    self.reconcile_removed(&next.document, &mut next.phase);
                 }
             }
             BlockEvent::Focus(target) => {
@@ -642,8 +622,63 @@ impl Machine for BlockMachine {
                     *current = composition;
                 }
             }
+            BlockEvent::Command { id, command } => {
+                if let Some(step) = self.command(&mut next, id, command) {
+                    return step;
+                }
+            }
         }
         let markdown = next.document.markdown();
-        Step::to(next).with(markdown)
+        Step::to(next).with(BlockEffect::Source(markdown))
+    }
+}
+
+impl BlockMachine {
+    /// Apply one editor command; `Some` finishes the transition without the source write.
+    fn command(
+        &self,
+        next: &mut BlockSnapshot,
+        id: usize,
+        command: Command,
+    ) -> Option<Step<BlockSnapshot, BlockEvent, BlockEffect>> {
+        match command {
+            Command::Split { selection } => {
+                if let Some(block) = next.document.split(id, selection) {
+                    next.phase = BlockEditPhase::AwaitingMount { block };
+                }
+            }
+            Command::Merge => {
+                let (target, caret) = next.document.merge(id)?;
+                self.reconcile_removed(&next.document, &mut next.phase);
+                let markdown = next.document.markdown();
+                return Some(
+                    Step::to(next.clone())
+                        .with(BlockEffect::Source(markdown))
+                        .with(BlockEffect::Focus { id: target, caret }),
+                );
+            }
+            Command::Move { forward, x } => {
+                let target = next.document.neighbor(id, forward)?;
+                return Some(Step::stay().with(BlockEffect::Move {
+                    id: target,
+                    forward,
+                    x,
+                }));
+            }
+            Command::SelectAll => {
+                if let BlockEditPhase::Focused { selection, .. } = &mut next.phase {
+                    *selection = BlockSelection::Whole;
+                }
+            }
+            Command::CopyAll => {
+                return Some(Step::stay().with(BlockEffect::Copy(self.source.clone())));
+            }
+            Command::Clear => {
+                if let BlockEditPhase::Focused { selection, .. } = &mut next.phase {
+                    *selection = BlockSelection::Caret;
+                }
+            }
+        }
+        None
     }
 }

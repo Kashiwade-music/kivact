@@ -16,8 +16,11 @@ use kivact::style::pct;
 use kivact::style::style;
 use kivact::ui::CheckableState;
 use kivact::ui::ControlSize;
+use kivact::ui::Lift;
 use kivact::ui::Look;
 use kivact::ui::RadioGroupRecipes;
+use kivact::ui::SwitchDragState;
+use kivact::ui::TrackInput;
 use kivact::view::CheckedState;
 use kivact::view::Orientation;
 use kivact::view::ReadingDirection;
@@ -46,6 +49,56 @@ fn switch_size(t: &Tokens, s: &Look<CheckableState>) -> (f64, f64) {
         },
         check_side(t, s),
     )
+}
+
+fn switch_parts(t: &Tokens, s: &Look<CheckableState>) -> (f64, f64, f64) {
+    if small(s.size) {
+        (t.typography.size_md, 3.0, t.spacing.s4)
+    } else {
+        (t.spacing.s4, t.spacing.s1, t.spacing.s5)
+    }
+}
+
+fn switch_travel(t: &Tokens, s: &Look<CheckableState>) -> f64 {
+    let (width, _) = switch_size(t, s);
+    let (base_side, inset, on_side) = switch_parts(t, s);
+    width - t.spacing.s0_5 - on_side / 2.0 - inset - base_side / 2.0
+}
+
+fn switch_sign() -> f64 {
+    if use_direction().get() == ReadingDirection::Rtl {
+        -1.0
+    } else {
+        1.0
+    }
+}
+
+/// The side the switch shows while a gesture moves the thumb.
+fn switch_on(t: &Tokens, s: &Look<CheckableState>, drag: Option<SwitchDragState>) -> bool {
+    match drag {
+        Some(SwitchDragState::Tracking(TrackInput::Touch { offset })) => {
+            offset * switch_sign() > switch_travel(t, s) / 2.0
+        }
+        _ => s.checked.is_checked(),
+    }
+}
+
+fn switch_lifted(drag: Option<SwitchDragState>) -> bool {
+    matches!(
+        drag,
+        Some(
+            SwitchDragState::TouchPressed
+                | SwitchDragState::Tracking(TrackInput::Touch { .. })
+                | SwitchDragState::TouchReleased(Lift::Raised)
+        )
+    )
+}
+
+fn switch_offset(drag: Option<SwitchDragState>) -> Option<f64> {
+    match drag {
+        Some(SwitchDragState::Tracking(TrackInput::Touch { offset })) => Some(offset),
+        _ => None,
+    }
 }
 
 fn inline_start(base: Style, offset: f64) -> Style {
@@ -120,7 +173,7 @@ fn check_surface(theme: &Theme, t: &Tokens, s: &Look<CheckableState>, radius: f6
         .background(pressed_fill(theme, t, s, fill));
     fast(
         t,
-        if s.input.focus_visible {
+        if s.input.is_focus_visible() {
             base.merge(&ring(t, c.focus_ring))
         } else {
             base
@@ -186,10 +239,8 @@ pub(super) fn switch_track(theme: &Theme, s: &Look<CheckableState>) -> Style {
     let (width, height) = switch_size(&t, s);
     let c = &t.colors;
     let drag = s.switch_drag;
-    let touch = drag.is_some_and(|drag| drag.touch);
-    let on = drag
-        .filter(|drag| drag.tracking)
-        .map_or_else(|| s.checked.is_checked(), |drag| drag.visually_on);
+    let touch = drag.is_some_and(SwitchDragState::is_touch);
+    let on = switch_on(&t, s, drag);
     let fill = if on { c.accent } else { c.border_emphasized };
     let fill = if s.input.hovered && !s.input.disabled && !touch {
         if on {
@@ -208,7 +259,7 @@ pub(super) fn switch_track(theme: &Theme, s: &Look<CheckableState>) -> Style {
         } else {
             1.0
         });
-    let base = if s.input.focus_visible {
+    let base = if s.input.is_focus_visible() {
         base.merge(&ring(&t, c.focus_ring))
     } else {
         base
@@ -230,32 +281,20 @@ pub(super) fn switch_track(theme: &Theme, s: &Look<CheckableState>) -> Style {
 pub(super) fn switch_thumb(theme: &Theme, s: &Look<CheckableState>) -> Style {
     let t = theme.ext::<Tokens>();
     let drag = s.switch_drag;
-    let on = drag
-        .filter(|drag| drag.tracking)
-        .map_or_else(|| s.checked.is_checked(), |drag| drag.visually_on);
-    let (width, height) = switch_size(&t, s);
-    let (base_side, inset, on_side) = if small(s.size) {
-        (t.typography.size_md, 3.0, t.spacing.s4)
-    } else {
-        (t.spacing.s4, t.spacing.s1, t.spacing.s5)
-    };
-    let movement = width - t.spacing.s0_5 - on_side / 2.0 - inset - base_side / 2.0;
-    let sign = if use_direction().get() == ReadingDirection::Rtl {
-        -1.0
-    } else {
-        1.0
-    };
+    let on = switch_on(&t, s, drag);
+    let (_, height) = switch_size(&t, s);
+    let (base_side, inset, on_side) = switch_parts(&t, s);
+    let movement = switch_travel(&t, s);
+    let sign = switch_sign();
     let reduced = kivact::platform::is_motion_reduced().get();
-    let lifted = drag.is_some_and(|drag| drag.lifted) && !reduced;
+    let lifted = switch_lifted(drag) && !reduced;
     let side = if on { on_side } else { base_side };
     let lift = if lifted {
         1.0 + if on { t.spacing.s0_5 } else { inset } / side
     } else {
         1.0
     };
-    let offset =
-        drag.and_then(|drag| drag.offset)
-            .unwrap_or(if on { sign * movement } else { 0.0 });
+    let offset = switch_offset(drag).unwrap_or(if on { sign * movement } else { 0.0 });
     let base = inline_start(style().position(Position::Absolute), inset)
         .top((height - base_side) / 2.0)
         .size(base_side, base_side)
@@ -268,18 +307,15 @@ pub(super) fn switch_thumb(theme: &Theme, s: &Look<CheckableState>) -> Style {
     } else {
         base
     };
-    if let Some(drag) = drag.filter(|drag| drag.touch) {
+    if let Some(drag) = drag.filter(|drag| drag.is_touch()) {
         if reduced {
             return base;
         }
-        let transition = if drag.tracking {
-            spring(304.6, 34.91)
-        } else if !drag.lifted {
-            spring(157.9, 17.59)
-        } else if drag.released {
-            spring(438.6, 41.89)
-        } else {
-            spring(746.3, 30.05)
+        let transition = match drag {
+            SwitchDragState::Tracking(_) => spring(304.6, 34.91),
+            SwitchDragState::TouchReleased(Lift::Settled) => spring(157.9, 17.59),
+            SwitchDragState::TouchReleased(Lift::Raised) => spring(438.6, 41.89),
+            SwitchDragState::TouchPressed => spring(746.3, 30.05),
         };
         base.transition(kivact::style::TransitionProp::All, transition)
     } else {

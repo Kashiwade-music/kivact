@@ -5,6 +5,7 @@ use kivact::draw::LineCap;
 use kivact::draw::Stroke;
 use kivact::geometry::Point;
 use kivact::geometry::Rect;
+use kivact::interaction::HeaderSort;
 use kivact::interaction::SortOrder;
 use kivact::interaction::TabState;
 use kivact::interaction::TableHeaderState;
@@ -500,7 +501,7 @@ pub(crate) fn data_table(r: DataTableRecipes) -> DataTableRecipes {
                 .weight(p.typography.weight_semibold)
                 .color(p.colors.text_secondary)
                 .border_bottom(p.sizes.border_width, p.colors.border)
-                .cursor(if s.sortable {
+                .cursor(if !matches!(s.sorting, HeaderSort::Unsortable) {
                     Cursor::Pointer
                 } else {
                     Cursor::Default
@@ -583,16 +584,19 @@ fn table_cell(p: &Tokens, density: DataTableDensity) -> Style {
 
 fn sort_mark(t: &Theme, s: &Look<TableHeaderState>) -> Style {
     let p = t.ext::<Tokens>();
-    if !s.sortable {
+    if matches!(s.sorting, HeaderSort::Unsortable) {
         return style().size(0, 0).shrink(0);
     }
-    let order = s.sort;
+    let order = match s.sorting {
+        HeaderSort::Sorted { direction, .. } => Some(direction),
+        HeaderSort::Unsortable | HeaderSort::Sortable => None,
+    };
     let color = if order.is_some() {
         p.colors.icon_accent
     } else {
         p.colors
             .icon_secondary
-            .with_alpha(if s.input.hovered || s.input.focused {
+            .with_alpha(if s.input.hovered || s.input.is_focused() {
                 1.0
             } else {
                 0.35

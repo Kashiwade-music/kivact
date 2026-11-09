@@ -155,7 +155,7 @@ fn link(theme: &Theme, s: &Look<NavigationLinkState>) -> Style {
         .min_width(0)
         .radius(t.radius.element)
         .background(
-            if !s.input.disabled && (s.input.hovered || s.input.focused) {
+            if !s.input.disabled && (s.input.hovered || s.input.is_focused()) {
                 t.colors.overlay_hover
             } else {
                 Color::TRANSPARENT

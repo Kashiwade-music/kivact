@@ -70,7 +70,9 @@ fn tool_calls_publish_keyboard_disclosures_and_hide_collapsed_details() {
         RenderOptions::with_theme(soft::theme(ThemeMode::Light)),
         || {
             soft::chat_tool_calls(vec![
-                soft::ToolCall::new("read", "Read file").error("Access denied"),
+                soft::ToolCall::new("read", "Read file").status(soft::ToolStatus::Error {
+                    message: Some("Access denied".into()),
+                }),
                 soft::ToolCall::new("check", "Check path"),
             ])
             .detail(|_| kivact::ui::button("Inspect output"))

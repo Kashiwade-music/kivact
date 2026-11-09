@@ -58,7 +58,7 @@ pub(super) fn frame(tokens: &Tokens, input: &PartState, invalid: bool) -> Style 
                 c.border_emphasized
             },
         )
-        .hover(if input.focused {
+        .hover(if input.is_focused() {
             style()
         } else {
             style().shadow(hover)
@@ -178,7 +178,7 @@ pub(super) fn tag_input(r: TagInputRecipes) -> TagInputRecipes {
             let t = theme.ext::<Tokens>();
             let inset = t.radius.element - t.radius.inner - t.sizes.border_width;
             let base = frame(&t, state, false);
-            let base = if state.focused {
+            let base = if state.is_focused() {
                 base.border_color(t.colors.accent)
                     .shadow(t.shadows.input_focus_ring)
             } else {

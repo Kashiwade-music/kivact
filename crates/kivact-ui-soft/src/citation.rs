@@ -28,16 +28,16 @@ use kivact::view::use_direction;
 /// Source metadata used to label and open a citation.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct CitationSource {
-    // xtask-allow(state-fields): Optional display title is application source metadata, not an opening phase.
+    // xtask-allow(state-fields): option: display title is application source metadata, not an opening phase.
     /// Optional title used as the citation label.
     pub title: Option<String>,
-    // xtask-allow(state-fields): Optional destination is authored source metadata, not a pending navigation handle.
+    // xtask-allow(state-fields): option: destination is authored source metadata, not a pending navigation handle.
     /// Destination opened when the citation is activated.
     pub url: Option<String>,
-    // xtask-allow(state-fields): Optional preview asset is an independent authored visual.
+    // xtask-allow(state-fields): option: preview asset is an independent authored visual.
     /// Optional image shown beside the citation label.
     pub image: Option<Asset>,
-    // xtask-allow(state-fields): Optional fallback glyph is an independent authored visual.
+    // xtask-allow(state-fields): option: fallback glyph is an independent authored visual.
     /// Optional glyph shown when no source image is available.
     pub icon: Option<Icon>,
 }

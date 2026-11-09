@@ -44,18 +44,29 @@ use kivact::view::show_some;
 use kivact::view::span;
 use kivact::view::text;
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 /// Execution status supplied by the application for a tool call.
 pub enum ToolStatus {
     /// The tool has not started executing.
     Pending,
     /// The tool is executing.
     Running,
-    #[default]
-    /// The tool completed successfully.
-    Complete,
-    /// The tool failed.
-    Error,
+    /// The tool completed successfully, with its duration when reported.
+    Complete {
+        /// The reported execution duration.
+        duration: Option<Duration>,
+    },
+    /// The tool failed, with the failure details when reported.
+    Error {
+        /// The failure details supplied by the application.
+        message: Option<String>,
+    },
+}
+
+impl Default for ToolStatus {
+    fn default() -> Self {
+        Self::Complete { duration: None }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -65,21 +76,15 @@ pub struct ToolCall {
     pub key: String,
     /// Tool name shown in the row.
     pub name: String,
-    /// Current execution status.
+    /// Current execution status and its reported details.
     pub status: ToolStatus,
-    // xtask-allow(state-fields): Optional target is application-owned display metadata, not a pending command.
+    // xtask-allow(state-fields): independent: optional target is application-owned display metadata, not a pending command
     /// Optional target description shown beside the tool name.
     pub target: Option<String>,
-    // xtask-allow(state-fields): Optional duration is a reported measurement, not a locally scheduled timer.
-    /// Optional execution duration.
-    pub duration: Option<Duration>,
     /// Number of additions shown in the change summary.
     pub additions: u32,
     /// Number of deletions shown in the change summary.
     pub deletions: u32,
-    // xtask-allow(state-fields): Optional diagnostic text is supplied by the application, not a local error phase.
-    /// Optional failure details.
-    pub error: Option<String>,
 }
 
 impl ToolCall {
@@ -88,15 +93,13 @@ impl ToolCall {
         Self {
             key: key.into(),
             name: name.into(),
-            status: ToolStatus::Complete,
+            status: ToolStatus::Complete { duration: None },
             target: None,
-            duration: None,
             additions: 0,
             deletions: 0,
-            error: None,
         }
     }
-    /// Set the execution status displayed for this record.
+    /// Set the execution status and its reported details.
     pub fn status(mut self, status: ToolStatus) -> Self {
         self.status = status;
         self
@@ -106,21 +109,10 @@ impl ToolCall {
         self.target = Some(target.into());
         self
     }
-    /// Set the displayed execution duration.
-    pub fn duration(mut self, duration: Duration) -> Self {
-        self.duration = Some(duration);
-        self
-    }
     /// Set the addition and deletion counts in the change summary.
     pub fn diff(mut self, additions: u32, deletions: u32) -> Self {
         self.additions = additions;
         self.deletions = deletions;
-        self
-    }
-    /// Attach failure details and mark the call as an error.
-    pub fn error(mut self, error: impl Into<String>) -> Self {
-        self.status = ToolStatus::Error;
-        self.error = Some(error.into());
         self
     }
 }
@@ -137,10 +129,10 @@ pub struct ChatToolCalls {
 }
 
 /// Render reactive tool-call records with stable row identities.
-pub fn chat_tool_calls(calls: impl IntoValue<Vec<ToolCall>>) -> ChatToolCalls {
+pub fn chat_tool_calls(items: impl IntoValue<Vec<ToolCall>>) -> ChatToolCalls {
     ChatToolCalls {
         root: node(),
-        calls: calls.into_value(),
+        calls: items.into_value(),
         label: None,
         expanded: None,
         detail: None,
@@ -218,15 +210,15 @@ fn tool_status(
     let running = message("soft.chat.tool_calls.running", "Running");
     let complete = message("soft.chat.tool_calls.complete", "Complete");
     let failed = message("soft.chat.tool_calls.failed", "Failed");
-    let status = memo(move || call.with(|call| call.status));
+    let status = memo(move || call.with(|call| call.status.clone()));
     let status_label = memo(move || match status.get() {
         ToolStatus::Pending => pending.get(),
         ToolStatus::Running => running.get(),
-        ToolStatus::Complete => complete.get(),
-        ToolStatus::Error => failed.get(),
+        ToolStatus::Complete { .. } => complete.get(),
+        ToolStatus::Error { .. } => failed.get(),
     });
     let pending = show(
-        move || visible.get() && status.get() == ToolStatus::Pending,
+        move || visible.get() && matches!(status.get(), ToolStatus::Pending),
         move || {
             spinner()
                 .size(ControlSize::ExtraSmall)
@@ -238,11 +230,11 @@ fn tool_status(
         },
     );
     let running = show(
-        move || visible.get() && status.get() == ToolStatus::Running,
+        move || visible.get() && matches!(status.get(), ToolStatus::Running),
         move || spinner().size(ControlSize::ExtraSmall).name(status_label),
     );
     let result = text(move || {
-        let glyph = if status.get() == ToolStatus::Error {
+        let glyph = if matches!(status.get(), ToolStatus::Error { .. }) {
             "!"
         } else {
             "✓"
@@ -256,7 +248,7 @@ fn tool_status(
         style()
             .shrink(0)
             .single_line()
-            .color(if status.get() == ToolStatus::Error {
+            .color(if matches!(status.get(), ToolStatus::Error { .. }) {
                 p.colors.text_error
             } else {
                 p.colors.text_success
@@ -281,14 +273,15 @@ fn tool_labels(call: Value<ToolCall>) -> (Node, Node, Node) {
         .hidden(move || call.with(|call| call.target.is_none()))
         .style(style().shrink(10).min_width(0).single_line());
     let duration = text(move || {
-        call.with(|call| {
-            call.duration
-                .map(|duration| format!("{:.2}s", duration.as_secs_f64()))
-                .unwrap_or_default()
+        call.with(|call| match &call.status {
+            ToolStatus::Complete {
+                duration: Some(duration),
+            } => format!("{:.2}s", duration.as_secs_f64()),
+            _ => String::new(),
         })
     })
     .hidden(move || {
-        call.with(|call| call.status != ToolStatus::Complete || call.duration.is_none())
+        call.with(|call| !matches!(&call.status, ToolStatus::Complete { duration: Some(_) }))
     })
     .style(style().single_line().shrink(0));
     (label, target, duration)
@@ -362,8 +355,7 @@ impl IntoView for ChatToolCalls {
             )
         });
         let trigger = tool_group_trigger(calls, open, multiple, disclosure, title);
-        let rows_visible = rows_open.into_value();
-        let items = tool_group_items(calls, rows_visible, disclosure, title, detail);
+        let items = tool_group_items(calls, disclosure, title, detail);
         root.hidden(move || calls.with(Vec::is_empty))
             .with_node(move |node| {
                 node.base_style(
@@ -684,7 +676,6 @@ fn tool_group_trigger(
 
 fn tool_group_items(
     calls: Value<Vec<ToolCall>>,
-    rows_visible: Value<bool>,
     disclosure: kivact::interaction::DisclosureApi,
     title: Value<String>,
     detail: Option<ToolDetails>,
@@ -695,7 +686,7 @@ fn tool_group_items(
         let items = for_each(
             calls,
             |call| call.key.clone(),
-            move |call| tool_row(call, rows_visible, detail.clone()),
+            move |call| tool_row(call, disclosure.is_open(), detail.clone()),
         );
         column(
             column(items)
@@ -725,11 +716,16 @@ fn tool_row(call: Value<ToolCall>, rows_visible: Value<bool>, detail: Option<Too
         move || {
             [(
                 "message",
-                call.with(|call| call.error.clone().unwrap_or_default()),
+                call.with(|call| match &call.status {
+                    ToolStatus::Error { message } => message.clone().unwrap_or_default(),
+                    _ => String::new(),
+                }),
             )]
         },
     ))
-    .hidden(move || call.with(|call| call.error.is_none()))
+    .hidden(move || {
+        call.with(|call| !matches!(&call.status, ToolStatus::Error { message: Some(_) }))
+    })
     .style(move || {
         style().padding_left(22).color(
             kivact::style::use_tokens::<crate::Tokens>()
@@ -739,6 +735,8 @@ fn tool_row(call: Value<ToolCall>, rows_visible: Value<bool>, detail: Option<Too
     });
     let summary = if let Some(detail) = &detail {
         let expanded = signal(false);
+        // The detail content is visible only while the group shows its rows.
+        let content_visible = memo(move || expanded.get() && rows_visible.get());
         let disclosure = use_disclosure(expanded).disabled(move || !rows_visible.get());
         let detail_label = message_with(
             "soft.chat.tool_calls.detail",
@@ -757,7 +755,7 @@ fn tool_row(call: Value<ToolCall>, rows_visible: Value<bool>, detail: Option<Too
             .with_node(move |node| node.role(Role::Group))
             .name(detail_label)
             .with_node(move |node| node.part(disclosure.content()))
-            .hidden(move || !rows_visible.get() || !expanded.get())
+            .hidden(move || !content_visible.get())
             .on_key(move |event: KeyEvent| {
                 if event.key() == Key::Escape {
                     expanded.set(false);

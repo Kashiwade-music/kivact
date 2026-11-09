@@ -6,22 +6,22 @@ use kivact::state::Value;
 /// Insets inherited by Layout regions from a parent surface.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct LayoutInset {
-    // xtask-allow(state-fields): Independent optional inherited outer inline padding in logical pixels, not lifecycle state.
+    // xtask-allow(state-fields): independent: a measured or construction value; optional inherited outer inline padding in logical pixels, not lifecycle state.
     /// Inherited inline outer padding in logical pixels; None uses the region fallback.
     pub outer_x: Option<f64>,
-    // xtask-allow(state-fields): Independent optional inherited outer block padding in logical pixels, not lifecycle state.
+    // xtask-allow(state-fields): independent: a measured or construction value; optional inherited outer block padding in logical pixels, not lifecycle state.
     /// Inherited block outer padding in logical pixels; None uses the region fallback.
     pub outer_y: Option<f64>,
-    // xtask-allow(state-fields): Independent optional inherited inner inline padding in logical pixels, not lifecycle state.
+    // xtask-allow(state-fields): independent: a measured or construction value; optional inherited inner inline padding in logical pixels, not lifecycle state.
     /// Padding between inline regions in logical pixels; None uses the region fallback.
     pub inner_x: Option<f64>,
-    // xtask-allow(state-fields): Independent optional inherited inner block padding in logical pixels, not lifecycle state.
+    // xtask-allow(state-fields): independent: a measured or construction value; optional inherited inner block padding in logical pixels, not lifecycle state.
     /// Padding between block regions in logical pixels; None uses the region fallback.
     pub inner_y: Option<f64>,
-    // xtask-allow(state-fields): Independent optional local outer inline padding in logical pixels, not lifecycle state.
+    // xtask-allow(state-fields): independent: a measured or construction value; optional local outer inline padding in logical pixels, not lifecycle state.
     /// This layout’s inline outer padding override in logical pixels.
     pub own_outer_x: Option<f64>,
-    // xtask-allow(state-fields): Independent optional local outer block padding in logical pixels, not lifecycle state.
+    // xtask-allow(state-fields): independent: a measured or construction value; optional local outer block padding in logical pixels, not lifecycle state.
     /// This layout’s block outer padding override in logical pixels.
     pub own_outer_y: Option<f64>,
 }
@@ -170,17 +170,17 @@ impl Element for Layout {
 
 #[derive(Clone, Copy, Default)]
 struct LayoutSlots {
-    // xtask-allow(state-fields): Optional observer reference to the actual layout root.
+    // xtask-allow(state-fields): option: observer reference to the actual layout root.
     root_ref: Option<NodeRef>,
-    // xtask-allow(state-fields): Readonly resolved header divider configuration.
+    // xtask-allow(state-fields): independent: readonly resolved header divider configuration.
     header_divider: Option<bool>,
-    // xtask-allow(state-fields): Readonly resolved footer divider configuration.
+    // xtask-allow(state-fields): independent: readonly resolved footer divider configuration.
     footer_divider: Option<bool>,
-    // xtask-allow(state-fields): Readonly presence of the actual leading panel slot.
+    // xtask-allow(state-fields): independent: readonly presence of the actual leading panel slot.
     has_start: bool,
-    // xtask-allow(state-fields): Readonly presence of the actual trailing panel slot.
+    // xtask-allow(state-fields): independent: readonly presence of the actual trailing panel slot.
     has_end: bool,
-    // xtask-allow(state-fields): Optional readonly width input shared with actual regions.
+    // xtask-allow(state-fields): option: readonly width input shared with actual regions.
     content_width: Option<Value<Length>>,
 }
 

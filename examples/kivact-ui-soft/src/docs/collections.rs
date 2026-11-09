@@ -341,10 +341,7 @@ fn example_chat() -> Node {
 fn example_chat_dictation_button() -> Node {
     specimen(
         "Dictation available",
-        chat_dictation_button(signal(DictationState {
-            supported: true,
-            ..DictationState::default()
-        })),
+        chat_dictation_button(signal(DictationState::Idle)),
         "chat_dictation_button(dictation_state)",
     )
 }

@@ -5,9 +5,9 @@ use kivact::state::{IntoValue, Value};
 /// Soft appearance for `kivact::ui::tree`; navigation belongs to the shared tree.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct TreeLook {
-    // xtask-allow(state-fields): builder option - density
+    // xtask-allow(state-fields): option: absent means the component's default
     pub(crate) density: Option<Value<ItemDensity>>,
-    // xtask-allow(state-fields): builder option - guides
+    // xtask-allow(state-fields): option: absent means the component's default
     pub(crate) guides: Option<Value<bool>>,
 }
 impl TreeLook {

@@ -160,15 +160,15 @@ pub enum InstantFormat {
 /// A row in the timestamp details.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct TimestampEntry {
-    // xtask-allow(state-fields): Optional per-entry time zone is an immutable formatting override.
+    // xtask-allow(state-fields): option: per-entry time zone is an immutable formatting override.
     /// Optional time zone overriding the main timestamp zone for this entry.
     pub zone: Option<TimeZone>,
     /// Date and time format for this detail row.
     pub format: InstantFormat,
-    // xtask-allow(state-fields): Optional prefix label is independent authored presentation text.
+    // xtask-allow(state-fields): option: prefix label is independent authored presentation text.
     /// Optional label preceding the detail value.
     pub label: Option<String>,
-    // xtask-allow(state-fields): Copy permission is a presentation capability, not a clipboard phase.
+    // xtask-allow(state-fields): independent: Copy permission is a presentation capability, not a clipboard phase.
     /// Whether the detail value offers a copy action.
     pub copyable: bool,
 }

@@ -64,13 +64,13 @@ pub struct PowerSearch<K: ItemKey> {
 /// Build an editor for adding, changing and removing filters over the supplied keyed fields.
 pub fn power_search<K: ItemKey>(
     label: impl IntoText,
-    fields: impl IntoValue<Vec<ListItem<K>>>,
+    items: impl IntoValue<Vec<ListItem<K>>>,
     filters: impl IntoBinding<Vec<SearchFilter<K>>>,
 ) -> PowerSearch<K> {
     PowerSearch {
         root: node(),
         label: label.into_text_value(),
-        fields: fields.into_value(),
+        fields: items.into_value(),
         filters: filters.into_binding(),
     }
 }
@@ -140,9 +140,9 @@ impl<K: ItemKey> IntoView for PowerSearch<K> {
 
 #[derive(Clone, PartialEq)]
 struct FilterDraft<K> {
-    // xtask-allow(state-fields): passive record - field
+    // xtask-allow(state-fields): independent: the chosen filter field; a draft may not have one yet
     field: Option<K>,
-    // xtask-allow(state-fields): passive record - operator
+    // xtask-allow(state-fields): independent: the chosen comparison; every field offers every operator
     operator: Option<SearchOperator>,
     value: String,
 }

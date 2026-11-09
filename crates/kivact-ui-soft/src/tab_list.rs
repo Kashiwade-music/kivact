@@ -99,10 +99,14 @@ pub struct Tab<K> {
     root: Node,
     key: K,
     label: Value<String>,
+    // xtask-allow(state-fields): option: mounted once when the tab is built; absent means no icon
     icon: Option<View>,
+    // xtask-allow(state-fields): option: mounted once for the selected tab; absent means the resting icon
     selected_icon: Option<View>,
     label_hidden: Value<bool>,
+    // xtask-allow(state-fields): option: mounted once when the tab is built; absent means no trailing content
     end: Option<View>,
+    // xtask-allow(state-fields): option: caller-provided panel reference; absent means no associated panel
     panel: Option<NodeRef>,
 }
 
@@ -148,12 +152,23 @@ impl<K> Tab<K> {
     }
 }
 
-impl<K> Element for Tab<K> {
-    #[doc(hidden)]
-    fn node_mut(&mut self) -> &mut Node {
-        &mut self.root
-    }
+macro_rules! keyed_element {
+    ($type:ident) => {
+        impl<K: 'static> Element for $type<K> {
+            #[doc(hidden)]
+            fn node_mut(&mut self) -> &mut Node {
+                &mut self.root
+            }
+        }
+
+        impl<K: 'static> IntoView for $type<K> {
+            fn into_view(self) -> View {
+                self.root.into_view()
+            }
+        }
+    };
 }
+keyed_element!(Tab);
 
 #[derive(Clone)]
 /// A keyed option inside a tab-strip menu.
@@ -161,7 +176,7 @@ pub struct TabMenuOption<K> {
     key: K,
     label: Value<String>,
     icon: Option<ViewFn>,
-    // xtask-allow(state-fields): Immutable caller availability input, not the Menu interaction phase.
+    // xtask-allow(state-fields): independent: immutable caller availability input, not the Menu interaction phase.
     disabled: bool,
 }
 
@@ -194,21 +209,16 @@ pub struct TabMenu<K> {
     options: Vec<TabMenuOption<K>>,
 }
 
-/// Create a labeled tab-strip menu from keyed options in visible order.
-pub fn tab_menu<K>(label: impl IntoText, options: Vec<TabMenuOption<K>>) -> TabMenu<K> {
+/// Create a labeled tab-strip menu from keyed items in visible order.
+pub fn tab_menu<K>(label: impl IntoText, items: Vec<TabMenuOption<K>>) -> TabMenu<K> {
     TabMenu {
         root: node(),
         label: label.into_text_value(),
-        options,
+        options: items,
     }
 }
 
-impl<K> Element for TabMenu<K> {
-    #[doc(hidden)]
-    fn node_mut(&mut self) -> &mut Node {
-        &mut self.root
-    }
-}
+keyed_element!(TabMenu);
 
 /// An ordinary tab or embedded menu in a tab strip.
 pub enum TabEntry<K> {
@@ -849,10 +859,10 @@ fn focus_track<K: ItemKey>(
 struct TabRuntime<K: ItemKey> {
     binding: Binding<K>,
     look: Look,
-    // xtask-allow(state-fields): Existing canonical TabsApi handle, without copied selection or phase.
+    // xtask-allow(state-fields): independent: existing canonical TabsApi handle, without copied selection or phase.
     behavior: Option<kivact::interaction::TabsApi<K>>,
     focus: FocusTrack,
-    // xtask-allow(state-fields): Fixed overflow presentation input, independent of the shared Tabs and focus cursor.
+    // xtask-allow(state-fields): independent: fixed overflow presentation input, independent of the shared Tabs and focus cursor.
     scrollable: bool,
 }
 impl<K: ItemKey> TabRuntime<K> {

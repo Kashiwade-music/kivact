@@ -42,10 +42,10 @@ use std::time::Duration;
 /// An action entry for a navigation heading menu, with optional supporting content.
 pub struct NavHeadingMenuItem {
     pub(crate) label: Value<String>,
-    // xtask-allow(state-fields): builder option - description
+    // xtask-allow(state-fields): option: absent means the component's default
     pub(crate) description: Option<Value<String>>,
     pub(crate) icon: Option<ViewFn>,
-    // xtask-allow(state-fields): builder option - disabled
+    // xtask-allow(state-fields): option: absent means the component's default
     pub(crate) disabled: bool,
     pub(crate) action: Option<Callback<()>>,
 }
@@ -512,11 +512,13 @@ fn nav_entry_style(
         .font_size(t.typography.body.size_px)
         .line_height(t.typography.body.line_height_px / t.typography.body.size_px)
         .radius(t.radius.element)
-        .background(if !input.disabled && (input.focused || input.hovered) {
-            t.colors.overlay_hover
-        } else {
-            kivact::style::Color::TRANSPARENT
-        })
+        .background(
+            if !input.disabled && (input.is_focused() || input.hovered) {
+                t.colors.overlay_hover
+            } else {
+                kivact::style::Color::TRANSPARENT
+            },
+        )
         .disabled(style().opacity(t.sizes.disabled_opacity))
         .transition(
             TransitionProp::All,
@@ -632,7 +634,7 @@ pub(crate) fn menu_option_style(
             role.weight
         })
         .disabled(style().opacity(t.sizes.disabled_opacity));
-    if input.hovered || input.focused {
+    if input.hovered || input.is_focused() {
         base.background(t.colors.overlay_hover)
     } else {
         base

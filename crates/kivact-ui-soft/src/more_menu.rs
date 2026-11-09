@@ -32,7 +32,7 @@ pub struct MoreMenu<K: ItemKey> {
 #[track_caller]
 /// Create an overflow menu whose chosen entry key is passed to `choose`.
 pub fn more_menu<K, R>(
-    entries: impl IntoValue<Vec<MenuEntry<K>>>,
+    items: impl IntoValue<Vec<MenuEntry<K>>>,
     choose: impl Fn(K) -> R + 'static,
 ) -> MoreMenu<K>
 where
@@ -41,7 +41,7 @@ where
 {
     let label = kivact::i18n::message("soft.more_menu.label", "More options");
     MoreMenu {
-        menu: menu(label, entries).on_activate(choose),
+        menu: menu(label, items).on_activate(choose),
         label,
         button: button(label)
             .icon(icon("ellipsis"))

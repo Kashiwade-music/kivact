@@ -248,12 +248,12 @@ impl Machine for FocusMachine {
 
 #[derive(Clone, Copy)]
 struct Navigation {
-    // xtask-allow(state-fields): Optional mounted scroll-viewport reference, not scroll phase.
+    // xtask-allow(state-fields): option: mounted scroll-viewport reference, not scroll phase.
     viewport: Option<NodeRef>,
     offset: f64,
-    // xtask-allow(state-fields): Immutable setup snapshot controlling whether navigation requests scrolling.
+    // xtask-allow(state-fields): independent: immutable setup snapshot controlling whether navigation requests scrolling.
     scroll_on_press: bool,
-    // xtask-allow(state-fields): Optional caller-owned active-heading binding; pending lifecycle belongs to ScrollMachine.
+    // xtask-allow(state-fields): option: caller-owned active-heading binding; pending lifecycle belongs to ScrollMachine.
     controlled: Option<Binding<Option<String>>>,
     pending: MachineHandle<ScrollMachine>,
     start: Option<Callback<String>>,

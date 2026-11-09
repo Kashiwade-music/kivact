@@ -313,6 +313,7 @@ names and their replacements:
 | `CollapsibleGroup`, `collapsible_group`, `GroupMode` | `ui::disclosure_group(selection).panel(key, title, factory)`; `Option<K>` binding = single, `Vec<K>` = multiple |
 | `DateInput`, `date_input`, `DatePresentation`, `DateRangeInput`, `date_range_input`, `DateRangePreset`, `DateTimeInput`, `date_time_input`, `TimeInput`, `time_input` | Same names in `kivact::ui` (builders also in prelude); `.presentation(ui::DatePresentation::..)`, `.presets(Vec<ui::DateRangePreset>)` |
 | `DateTime`, `TimeOfDay` | `kivact::i18n::DateTime`, `kivact::i18n::TimeOfDay` |
+| `DictationState { supported, listening, volume, bands }` | `DictationState::{Unsupported, Idle, Listening { volume, bands }}`; `Unsupported` is the default |
 | `EmptyState`, `empty_state` | `ui::empty_state(title).description(..).icon(..).actions(..)` (`ui::EmptyState`); `.announce_changes()`; `.variant(soft::EmptyStateVariant::compact(..))` |
 | `FileInput`, `file_input` | `ui::dropzone(label).pick_on_press().on_files(..)`; `.multiple()`, `.filters(..)`, `.accept_drop(false)` for picker-only; `.variant(soft::DropzoneVariant::Field)` |
 | `Grid`, `grid` | `soft::LayoutGrid`, `soft::layout_grid(children)` |
@@ -324,6 +325,8 @@ names and their replacements:
 | `Instant` | `soft::TimestampValue` (`unix_seconds`, `unix_millis`, `parse_iso`) |
 | `Item`, `item`, `list_item` | `ui::item_row(title)` (`ui::ItemRow`); `.description(..)`, `.media(..)`, `.actions(..)`, `.delegate_to(..)`; `.variant(soft::ItemLook\|ItemDensity\|ItemAlign\|ItemLayout)` |
 | `kbd` | `ui::kbd("mod+shift+p")` or typed `ui::kbd_combo(keys)` |
+| `LightboxHandle::open(index)`, `AppShellMobile::open()` | `LightboxHandle::show(index)`, `AppShellMobile::show()` |
+| `mobile_nav(..).width(f64)` | `mobile_nav(..).width(impl IntoValue<Length>)`; `320.0` is 320 px |
 | `List`, `list`, `list_items`, `IntoListItems`, `ListDensity`, `ListMarker` | `ui::item_list(children)` (`ui::ItemList`; keyed: `for_each` + `item_row(..).position(index, count)`); `.marker(ui::ItemListMarker::..)`, `.start(n)`; `.variant(soft::ListLook)`; `ListDensity` -> `soft::ItemDensity` |
 | `MetadataItem`, `metadata_item`, `MetadataList`, `metadata_list`, `IntoMetadataItems` | `ui::description_list(children)`, `ui::description(term, detail)`; same `.variant(soft::MetadataLook)` on list and pairs |
 | `Motion`, `Radius`, `Spacing`, `TextStyle`, `Typography` | `soft::MotionTokens`, `soft::RadiusTokens`, `soft::SpaceTokens`, `soft::TypeStyle`, `soft::TypeTokens` |
@@ -344,6 +347,7 @@ names and their replacements:
 | `ToggleButtonGroup`, `toggle_button_group`, `ToggleSelection` | `ui::toggle_group(label, options, selection)` (`ui::ToggleGroup`); `Option<K>` binding = single, `Vec<K>` = multiple; `ListItem::with_pressed_icon(..)`, `.icon_only(..)` |
 | `tokens` | `kivact::style::use_tokens::<soft::Tokens>()` |
 | `Tokenizer`, `tokenizer` | `ui::combobox(label, options, Vec<K> binding).chips().exclude_selected()` |
+| `ToolCall::duration(..)`, `ToolCall::error(..)` | `chat_tool_calls(..)` records carry `ToolCall::status(ToolStatus::Complete { duration: Some(..) })` or `ToolStatus::Error { message: Some(..) }`; the duration and error fields moved into `ToolStatus` |
 | `Toolbar`, `toolbar`, `Edge` | `ui::toolbar(label).start(..).center(..).end(..)` (`ui::Toolbar`); `.dividers(&[ui::ToolbarEdge::..])`; `.variant(soft::ToolbarVariant(soft::SectionVariant::..))` |
 | `toolbar_item` | `soft::keyboard_hint(target)` inside `soft::with_key_hints(axis, \|\| ..)` |
 | `TopNavHeading`, `TopNavMenuItem` | `soft::SideNavHeading`, `soft::NavHeadingMenuItem` (still returned by `top_nav_heading`, `top_nav_menu_item`) |

@@ -116,7 +116,9 @@ impl IntoView for Indicator {
         let look = move || {
             let mut input = input.get();
             input.disabled |= actual.get().disabled;
-            input.focus_visible &= !input.disabled;
+            if input.disabled {
+                input.focus = kivact::view::Focus::None;
+            }
             Look::new(CheckableState {
                 input,
                 checked: checked.get(),

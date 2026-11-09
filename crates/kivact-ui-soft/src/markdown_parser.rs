@@ -13,9 +13,9 @@ pub(crate) enum Block<'a> {
 
 #[derive(Debug)]
 pub(crate) struct ListEntry<'a> {
-    // xtask-allow(state-fields): Optional ordinal is parsed list syntax, not an execution counter.
+    // xtask-allow(state-fields): option: ordinal is parsed list syntax, not an execution counter.
     pub(crate) number: Option<u32>,
-    // xtask-allow(state-fields): Optional task mark describes source syntax independently of list numbering.
+    // xtask-allow(state-fields): option: task mark describes source syntax independently of list numbering.
     pub(crate) checked: Option<bool>,
     pub(crate) blocks: Vec<Block<'a>>,
 }

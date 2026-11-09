@@ -24,7 +24,7 @@ fn field(theme: &Theme, s: &Look<PartState>) -> Style {
         .gap(t.spacing.s1)
         .align_items(Align::Center)
         .wrap(true);
-    if s.focused {
+    if s.is_focused() {
         base.border_color(t.colors.accent)
             .shadow(t.shadows.input_focus_ring)
     } else {

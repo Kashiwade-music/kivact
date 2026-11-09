@@ -1,6 +1,6 @@
 //! Role: Render the sidebar shell and collapse control.
 
-use super::context::{SideNavCx, nav_cx};
+use super::context::{NavSurface, SideNavCx, nav_cx};
 use super::items::logical_row;
 
 use crate::app_shell::{ShellNavMode, shell_nav_mode};
@@ -235,10 +235,11 @@ impl IntoView for SideNav {
                 None
             };
             let collapsed = sidebar_collapse(collapse, resize.as_ref());
-            let expanded_width =
-                signal(resize.as_ref().map_or(260.0, |resize| resize.default_width));
+            let expanded_width = signal(SidebarWidth::Expanded(
+                resize.as_ref().map_or(260.0, |resize| resize.default_width),
+            ));
             let cx = SideNavCx {
-                collapsed,
+                surface: collapsed.map_or(NavSurface::Fixed, NavSurface::Collapsible),
                 ..SideNavCx::default()
             };
             let width = sidebar_width(cx, expanded_width, resize.is_none() && collapsed.is_some());
@@ -319,7 +320,7 @@ impl IntoView for SideNavCollapseButton {
             label,
         } = self;
         kivact::view::scope(move || {
-            let Some(collapsed) = binding.or(nav_cx().collapsed) else {
+            let Some(collapsed) = binding.or(nav_cx().collapsed()) else {
                 return View::empty();
             };
             if use_app_shell_mobile().is_mobile() {
@@ -372,13 +373,13 @@ fn sidebar_collapse(
 
 struct SideNavSlots {
     children: View,
-    // xtask-allow(state-fields): Independent retained header content slot; this record owns no sidebar phase.
+    // xtask-allow(state-fields): independent: a measured or construction value; retained header content slot; this record owns no sidebar phase.
     header: Option<View>,
-    // xtask-allow(state-fields): Independent retained top content slot; this record owns no sidebar phase.
+    // xtask-allow(state-fields): independent: a measured or construction value; retained top content slot; this record owns no sidebar phase.
     top: Option<View>,
-    // xtask-allow(state-fields): Independent retained footer content slot; this record owns no sidebar phase.
+    // xtask-allow(state-fields): independent: a measured or construction value; retained footer content slot; this record owns no sidebar phase.
     footer: Option<View>,
-    // xtask-allow(state-fields): Independent retained icons content slot; this record owns no sidebar phase.
+    // xtask-allow(state-fields): independent: a measured or construction value; retained icons content slot; this record owns no sidebar phase.
     icons: Option<View>,
 }
 impl SideNavSlots {
@@ -484,10 +485,31 @@ fn sidebar_bottom_style(cx: SideNavCx, mode: ShellNavMode) -> kivact::style::Sty
     base
 }
 
+/// The width a resizable sidebar remembers while its rail is collapsed.
+#[derive(Clone, Copy, PartialEq)]
+enum SidebarWidth {
+    /// The rail is collapsed; `restore` is the expanded width it returns to.
+    Collapsed {
+        /// The width the sidebar expands to again.
+        restore: f64,
+    },
+    /// The sidebar is expanded at this width.
+    Expanded(f64),
+}
+
+impl SidebarWidth {
+    fn expanded(self) -> f64 {
+        match self {
+            Self::Collapsed { restore } => restore,
+            Self::Expanded(width) => width,
+        }
+    }
+}
+
 fn resize_grip(
     resize: SideNavResize,
     collapsed: Option<Binding<bool>>,
-    expanded_width: kivact::state::Signal<f64>,
+    expanded_width: kivact::state::Signal<SidebarWidth>,
     nav_ref: kivact::view::NodeRef,
 ) -> Node {
     let size = binding(
@@ -495,15 +517,21 @@ fn resize_grip(
             if collapsed.is_some_and(|collapsed| collapsed.get()) {
                 0.0
             } else {
-                expanded_width.get()
+                expanded_width.get().expanded()
             }
         },
         move |size| {
-            if let Some(collapsed) = collapsed {
-                collapsed.set(size < 160.0);
-            }
-            if size >= 160.0 {
-                expanded_width.set(size.clamp(resize.min, resize.max));
+            if size < 160.0 {
+                if let Some(collapsed) = collapsed {
+                    collapsed.set(true);
+                }
+                let restore = expanded_width.get().expanded();
+                expanded_width.set(SidebarWidth::Collapsed { restore });
+            } else {
+                if let Some(collapsed) = collapsed {
+                    collapsed.set(false);
+                }
+                expanded_width.set(SidebarWidth::Expanded(size.clamp(resize.min, resize.max)));
             }
         },
     );
@@ -540,7 +568,7 @@ fn resize_grip(
                 .radius(t.radius.full)
                 .translate_x(if rtl() { -7.0 } else { 7.0 })
                 .opacity(
-                    if state.dragging || state.input.hovered || state.input.focused {
+                    if state.dragging || state.input.hovered || state.input.is_focused() {
                         1.0
                     } else {
                         0.0
@@ -556,14 +584,14 @@ fn resize_grip(
 
 fn sidebar_width(
     cx: SideNavCx,
-    expanded_width: kivact::state::Signal<f64>,
+    expanded_width: kivact::state::Signal<SidebarWidth>,
     animate: bool,
 ) -> impl Fn() -> f64 {
     let target = move || {
         if cx.rail() {
             kivact::style::use_tokens::<crate::Tokens>().spacing.s12
         } else {
-            expanded_width.get()
+            expanded_width.get().expanded()
         }
     };
     let animated_width = if animate {

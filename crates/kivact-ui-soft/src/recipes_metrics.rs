@@ -59,9 +59,9 @@ pub struct MetadataLook(Option<kivact::state::Value<MetadataAppearance>>);
 #[derive(Clone, Copy, Debug, PartialEq)]
 struct MetadataAppearance {
     columns: MetadataColumns,
-    // xtask-allow(state-fields): builder option - position
+    // xtask-allow(state-fields): option: absent means the component's default
     position: Option<LabelPosition>,
-    // xtask-allow(state-fields): builder option - width
+    // xtask-allow(state-fields): option: absent means the component's default
     width: Option<f64>,
     orientation: kivact::view::Orientation,
 }

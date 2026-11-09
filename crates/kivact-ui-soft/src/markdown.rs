@@ -804,13 +804,13 @@ fn inline_spans(source: &str, strong: bool) -> Node {
 #[derive(Clone, Copy, Default)]
 // Passive inline syntax paint flags combined recursively while parsing one source string; not reactive UI state or a lifecycle.
 struct Marks {
-    // xtask-allow(state-fields): Passive bold syntax mark combined during one parse.
+    // xtask-allow(state-fields): independent: passive bold syntax mark combined during one parse.
     strong: bool,
-    // xtask-allow(state-fields): Passive italic syntax mark independent of bold and deletion.
+    // xtask-allow(state-fields): independent: passive italic syntax mark independent of bold and deletion.
     italic: bool,
-    // xtask-allow(state-fields): Passive deletion syntax mark; no runtime UI lifecycle.
+    // xtask-allow(state-fields): independent: passive deletion syntax mark; no runtime UI lifecycle.
     deleted: bool,
-    // xtask-allow(state-fields): Passive code syntax mark used only to compute inline paint.
+    // xtask-allow(state-fields): independent: passive code syntax mark used only to compute inline paint.
     code: bool,
 }
 

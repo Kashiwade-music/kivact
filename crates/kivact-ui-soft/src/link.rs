@@ -260,17 +260,17 @@ fn name_link(
 #[derive(Clone, Copy)]
 struct LinkAppearance {
     kind: TextKind,
-    // xtask-allow(state-fields): Optional readonly font-size override shared with paint.
+    // xtask-allow(state-fields): option: readonly font-size override shared with paint.
     size: Option<Value<f64>>,
-    // xtask-allow(state-fields): Optional immutable font-weight override.
+    // xtask-allow(state-fields): option: immutable font-weight override.
     weight: Option<u16>,
-    // xtask-allow(state-fields): Readonly underline choice sampled from the builder.
+    // xtask-allow(state-fields): independent: readonly underline choice sampled from the builder.
     underline: bool,
     color: LinkColor,
-    // xtask-allow(state-fields): Readonly typography fallback choice sampled from the builder.
+    // xtask-allow(state-fields): independent: readonly typography fallback choice sampled from the builder.
     standalone: bool,
     direction: Direction,
-    // xtask-allow(state-fields): Readonly presence of the caller activation callback.
+    // xtask-allow(state-fields): independent: readonly presence of the caller activation callback.
     interactive: bool,
 }
 impl LinkAppearance {

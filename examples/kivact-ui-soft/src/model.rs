@@ -5,9 +5,9 @@ use kivact::style::ThemeMode;
 
 #[derive(Clone, Copy)]
 pub(super) struct CatalogState {
-    // xtask-allow(state-fields): Independent caller-controlled appearance preference, unrelated to selected page or query.
+    // xtask-allow(state-fields): independent: caller-controlled appearance preference, unrelated to selected page or query
     pub(super) dark: Signal<bool>,
-    // xtask-allow(state-fields): The single selected-page index, independent of appearance and search text.
+    // xtask-allow(state-fields): independent: the single selected-page index, independent of appearance and search text
     pub(super) selected: Signal<usize>,
     pub(super) query: Signal<String>,
 }

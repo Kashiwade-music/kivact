@@ -1,6 +1,6 @@
 //! Role: Render nested sidebar items and section rows.
 
-use super::context::{SideNavCx, nav_cx};
+use super::context::{NavSurface, SideNavCx, nav_cx};
 
 use crate::app_shell::{ShellNavMode, shell_nav_mode};
 use crate::mobile_nav::use_app_shell_mobile;
@@ -399,13 +399,13 @@ impl IntoView for SideNavSection {
 kivact::state::constant_value!(ItemCollapse);
 
 struct ItemSlots {
-    // xtask-allow(state-fields): Independent retained leading construction slot, without navigation state.
+    // xtask-allow(state-fields): independent: a measured or construction value; retained leading construction slot, without navigation state.
     leading: Option<View>,
-    // xtask-allow(state-fields): Independent retained selected icon construction slot, without navigation state.
+    // xtask-allow(state-fields): independent: a measured or construction value; retained selected icon construction slot, without navigation state.
     selected_icon: Option<View>,
-    // xtask-allow(state-fields): Independent retained end construction slot, without navigation state.
+    // xtask-allow(state-fields): independent: a measured or construction value; retained end construction slot, without navigation state.
     end: Option<View>,
-    // xtask-allow(state-fields): Independent retained actions construction slot, without navigation state.
+    // xtask-allow(state-fields): independent: a measured or construction value; retained actions construction slot, without navigation state.
     actions: Option<View>,
     children: Option<ViewFn>,
 }
@@ -428,10 +428,10 @@ enum ItemBranch {
     Leaf,
     /// A children factory exists.
     Parent {
-        // xtask-allow(state-fields): independent fact - the collapse owner of the item, absent for ItemCollapse::AlwaysOpen
+        // xtask-allow(state-fields): independent: whether the item has its own collapse owner (AlwaysOpen has none); independent of the shell's flyout
         /// `None` for `ItemCollapse::AlwaysOpen`.
         expansion: Option<ItemExpansion>,
-        // xtask-allow(state-fields): independent fact - the rail flyout panel, present only inside a collapsible sidebar
+        // xtask-allow(state-fields): independent: whether the shell is collapsible (a fixed shell has no rail flyout); independent of the item's collapse owner
         /// The rail flyout panel; present only inside a collapsible sidebar.
         flyout: Option<crate::navigation_session::NavPanel>,
     },
@@ -515,7 +515,7 @@ impl ItemContext {
                     disclosure: use_disclosure(open).disabled(disabled),
                 }
             });
-            let flyout = cx.collapsed.is_some().then(|| {
+            let flyout = cx.collapsed().is_some().then(|| {
                 crate::navigation_session::NavPanel::new(
                     move || cx.rail() && !disabled.get(),
                     Delays {
@@ -713,7 +713,7 @@ impl ItemContext {
         } else {
             primary
         };
-        if !has_children && cx.collapsed.is_some() {
+        if !has_children && cx.collapsed().is_some() {
             tooltip(label).placement(Placement::End).attach(primary)
         } else {
             primary.into_view()
@@ -735,7 +735,7 @@ impl ItemContext {
             panel.toggle();
         } else if let Some(action) = action {
             action.call(());
-            if let Some(popup) = cx.popup {
+            if let Some(popup) = cx.popup() {
                 popup.set(false);
             }
             if mode == ShellNavMode::Drawer {
@@ -807,7 +807,7 @@ impl ItemContext {
             show(behavior.is_open(), move || {
                 let children = children.clone();
                 let cx = SideNavCx {
-                    popup: Some(open),
+                    surface: NavSurface::Flyout { open },
                     ..SideNavCx::default()
                 };
                 let surface = nav_panel

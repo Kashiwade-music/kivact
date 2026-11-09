@@ -24,10 +24,10 @@ pub enum DisclosureDensity {
 pub struct DisclosureVariant {
     /// Chevron placement; defaults to the trailing side.
     pub chevron: ChevronPosition,
-    // xtask-allow(state-fields): builder option - Padding override;
+    // xtask-allow(state-fields): option: absent means the component's default
     /// Padding override; `None` uses Balanced with dividers and no padding otherwise.
     pub density: Option<DisclosureDensity>,
-    // xtask-allow(state-fields): builder option - Draw a separator before each grouped panel after the first;
+    // xtask-allow(state-fields): option: absent means the component's default
     /// Draw a separator before each grouped panel after the first; false by default.
     pub dividers: bool,
 }

@@ -70,11 +70,11 @@ impl LightboxMedia {
 pub struct Lightbox {
     open: Binding<bool>,
     media: Value<Vec<LightboxMedia>>,
-    // xtask-allow(state-fields): Optional external active-index binding; gallery lifecycle remains in LightboxState.
+    // xtask-allow(state-fields): projection: written only through LightboxHandle's state
     index: Option<Binding<usize>>,
-    // xtask-allow(state-fields): Fixed zoom capability chosen during setup.
+    // xtask-allow(state-fields): option: fixed at setup; absent means zoom is disabled
     zoom: bool,
-    // xtask-allow(state-fields): Optional external zoom-view binding supplied by the shared gallery handle.
+    // xtask-allow(state-fields): projection: written only through LightboxHandle's state
     view: Option<Binding<LightboxView>>,
 }
 
@@ -134,8 +134,8 @@ pub fn use_lightbox(media: impl IntoValue<Vec<LightboxMedia>>) -> LightboxHandle
 }
 
 impl LightboxHandle {
-    /// Open the zero-based gallery entry in fit-to-view mode.
-    pub fn open(self, index: usize) {
+    /// Show the zero-based gallery entry in fit-to-view mode.
+    pub fn show(self, index: usize) {
         self.state.set(LightboxState::Open {
             index,
             view: LightboxView::Fit,
@@ -158,7 +158,7 @@ impl LightboxHandle {
             move || matches!(self.state.get(), LightboxState::Open { .. }),
             move |open| {
                 if open {
-                    self.open(0);
+                    self.show(0);
                 } else {
                     self.close();
                 }
@@ -196,7 +196,7 @@ impl LightboxHandle {
 
     /// Return an activation callback that opens the given zero-based entry.
     pub fn trigger(self, index: usize) -> impl Fn() + 'static {
-        move || self.open(index)
+        move || self.show(index)
     }
 }
 
