@@ -156,12 +156,13 @@ impl Writer {
     /// (append if `None`). Both must live in the same window.
     pub fn insert(&self, parent: NodeId, id: NodeId, before: Option<NodeId>) {
         let mut app = self.app.borrow_mut();
-        let parent_window = app.window_of(parent);
-        let id_window = app.window_of(id);
-        let window = id_window.expect("invariant: a node and its parent live in the same window");
+        // A window whose open failed had its model removed before the core
+        // saw `WindowFailed`: its nodes have no window any more.
+        let (Some(window), Some(parent_window)) = (app.window_of(id), app.window_of(parent)) else {
+            return;
+        };
         assert_eq!(
-            parent_window,
-            Some(window),
+            parent_window, window,
             "invariant: a node and its parent live in the same window"
         );
         let AppModel {
@@ -508,19 +509,24 @@ impl Writer {
     }
 
     /// Import the textures an external render engine shares as the image
-    /// `image` (`Window::import_external_image`), after the turn; the answer
-    /// is `HostEvent::ExternalImported`. The client names each image once.
+    /// `image` into window `window` (`Window::import_external_image`), after
+    /// the turn; the answer is `HostEvent::ExternalImported`. The client names
+    /// each image once.
     pub fn import_external(
         &self,
         image: kivact_types::ExternalImageId,
+        window: WindowId,
         textures: kivact_types::SharedTextures,
     ) {
         let mut app = self.app.borrow_mut();
-        let window = app.window_using_image(image).unwrap_or(WindowId::MAIN);
         let AppModel {
-            windows, writes, ..
+            windows,
+            writes,
+            external_windows,
+            ..
         } = &mut *app;
         if let Some(model) = windows.get_mut(&window) {
+            external_windows.insert(image, window);
             writes.command(None);
             model
                 .external_writes
@@ -532,7 +538,9 @@ impl Writer {
     /// after the turn; nothing when it is not imported.
     pub fn drop_external(&self, image: kivact_types::ExternalImageId) {
         let mut app = self.app.borrow_mut();
-        let window = app.window_using_image(image).unwrap_or(WindowId::MAIN);
+        let Some(window) = app.external_windows.remove(&image) else {
+            return;
+        };
         let AppModel {
             windows, writes, ..
         } = &mut *app;
@@ -544,7 +552,8 @@ impl Writer {
         }
     }
 
-    /// Ask for a `FrameTick` at or after `at_ns` (host clock).
+    /// Ask for a `FrameTick` at or after `at_ns` on the frame (motion) clock,
+    /// which equals the host clock at time scale 1.
     pub fn request_frame(&self, at_ns: u64) {
         let mut app = self.app.borrow_mut();
         app.writes.command(None);

@@ -828,14 +828,15 @@ impl Host {
         }
         match event {
             ShellEvent::Pointer(input) => {
-                let node = self.pick_node(id, input.position);
+                // Every other pointer event is swallowed while picking, and emits nothing.
                 let phase = match input.phase {
                     PointerPhase::Move => PickPhase::Hover,
                     PointerPhase::Down(press) if press.button == MouseButton::Primary => {
                         PickPhase::Select
                     }
-                    _ => return false,
+                    _ => return true,
                 };
+                let node = self.pick_node(id, input.position);
                 self.app.borrow().push_event(HostEvent::DevtoolsPick {
                     window: id,
                     node,

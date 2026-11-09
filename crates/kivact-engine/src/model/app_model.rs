@@ -10,7 +10,7 @@ use crate::model::Model;
 use crate::model::events::{EngineLog, EventSink, Shared};
 use crate::model::frame::state::FrameRequests;
 use crate::mutation::Writes;
-use kivact_types::{DrawCmd, MotionClock, NodeId, Size, WindowId, WindowRequest};
+use kivact_types::{ExternalImageId, MotionClock, NodeId, Size, WindowId, WindowRequest};
 use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::rc::Rc;
@@ -50,6 +50,8 @@ pub(crate) struct AppModel {
     pub(crate) client_frames: FrameRequests,
     /// The window the OS gives the keyboard focus (`WindowInfo.focused`).
     pub(crate) focused_window: Option<WindowId>,
+    /// The window each imported external image was imported into, until it is dropped.
+    pub(crate) external_windows: BTreeMap<ExternalImageId, WindowId>,
     /// The DevTools changes the host applies after the turn, in write order.
     pub(crate) devtools_changes: Vec<DevtoolsChange>,
     /// What the DevTools records, shared by every model and the host.
@@ -72,6 +74,7 @@ impl AppModel {
             clock: AppClock::Running,
             client_frames: FrameRequests::default(),
             focused_window: None,
+            external_windows: BTreeMap::new(),
             devtools_changes: Vec::new(),
             log: shared.log,
         }
@@ -109,25 +112,6 @@ impl AppModel {
         Some(f(model, writes))
     }
 
-    /// The window whose tree draws `image` (its first such window).
-    pub(crate) fn window_using_image(
-        &self,
-        image: kivact_types::ExternalImageId,
-    ) -> Option<WindowId> {
-        self.windows
-            .iter()
-            .find(|(_, model)| {
-                model.tree.iter().any(|(_, node)| {
-                    node.scenes().iter().flatten().any(|list| {
-                        list.cmds.iter().any(|cmd| {
-                            matches!(cmd, DrawCmd::External { frame, .. } if frame.image == image)
-                        })
-                    })
-                })
-            })
-            .map(|(id, _)| *id)
-    }
-
     /// Open a window and queue the host's open, sized `viewport`.
     pub(crate) fn open_window(&mut self, request: WindowRequest, viewport: Size) {
         let shared = Shared {
@@ -160,9 +144,11 @@ impl AppModel {
         self.devtools_changes.push(change);
     }
 
-    /// Remove the model of `id`; the focus becomes none when it was there.
+    /// Remove the model of `id`; the focus becomes none when it was there,
+    /// and the images imported into it are no longer known.
     pub(crate) fn remove_window(&mut self, id: WindowId) {
         self.windows.remove(&id);
+        self.external_windows.retain(|_, window| *window != id);
         if self.focused_window == Some(id) {
             self.focused_window = None;
         }

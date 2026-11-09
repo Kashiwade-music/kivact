@@ -166,13 +166,17 @@ impl Model {
             self.scroll_into_view(id);
         }
         let fitted = self.refit_tooltips(engine, !computed);
+        // The record's lists are collected only while the DevTools records syncs.
+        let recording = self.log.syncs_recording();
         let mut laid_out = Vec::new();
         if computed || fitted {
             let geometry: Vec<_> = self.layout.drain_geometry_changes().collect();
             for change in &geometry {
                 self.a11y.subtree(change.id);
             }
-            laid_out = geometry.iter().map(|change| change.id).collect();
+            if recording {
+                laid_out = geometry.iter().map(|change| change.id).collect();
+            }
             let tree = &self.tree;
             let repaint = geometry.into_iter().filter_map(|change| match change.kind {
                 kivact_layout::GeometryChangeKind::Local => Some(change.id),
@@ -184,7 +188,7 @@ impl Model {
             // Set pass flags even when no local ink dependency changed.
             self.changes.laid_out(repaint);
         }
-        if !remeasure.is_empty() || !laid_out.is_empty() {
+        if recording && (!remeasure.is_empty() || !laid_out.is_empty()) {
             let revision = self.events.applied();
             self.log.sync(|| SyncRecord {
                 window: self.window,

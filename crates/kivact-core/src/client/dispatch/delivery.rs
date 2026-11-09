@@ -275,7 +275,9 @@ fn dispatch_drawable_report(rt: &Runtime, host_event: &HostEvent) {
 fn dispatch_export_host(rt: &Runtime, host_event: &HostEvent) -> bool {
     match host_event {
         HostEvent::ExternalImported { image, result } => gpu::external_imported(rt, *image, result),
-        HostEvent::GpuAdapterChanged { adapter, .. } => gpu::adapter_changed(rt, adapter.as_ref()),
+        HostEvent::GpuAdapterChanged { window, adapter } => {
+            gpu::adapter_changed(rt, *window, adapter.as_ref())
+        }
         HostEvent::DrawableFrame(frame) => events::frame(frame),
         HostEvent::DrawableResized { id } => events::resized(*id),
         HostEvent::DrawableTextures {

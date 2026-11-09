@@ -227,6 +227,7 @@ impl WindowSlot {
             ViewState::tree(rt).engine().close_window(id);
         }
         ViewState::of(rt).remove_window(id);
+        crate::gpu_interop::forget_window(rt, id);
         *self.arm.borrow_mut() = WindowArm::Closed;
     }
 }
@@ -288,8 +289,9 @@ impl IntoView for Window {
                 let Some(rt) = slot.rt.upgrade() else {
                     return;
                 };
-                let (wanted, multi_window) =
-                    kivact_runtime::pure(|| (open.get(), capabilities.get().multi_window));
+                let (wanted, multi_window) = kivact_runtime::pure(|| {
+                    (open.get(), capabilities.get_untracked().multi_window)
+                });
                 slot.switch(&rt, wanted, multi_window);
             });
             frag

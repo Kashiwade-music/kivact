@@ -145,6 +145,11 @@ impl EngineLog {
         matches!(self.0.borrow().frames, Log::Recording { .. })
     }
 
+    /// Whether syncs are being recorded.
+    pub(crate) fn syncs_recording(&self) -> bool {
+        matches!(self.0.borrow().syncs, Log::Recording { .. })
+    }
+
     /// Keep one sync record (at most 4096).
     pub(crate) fn sync(&self, make: impl FnOnce() -> SyncRecord) {
         self.0.borrow_mut().syncs.push(4096, make);

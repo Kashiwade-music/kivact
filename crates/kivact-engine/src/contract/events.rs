@@ -122,6 +122,8 @@ pub enum HostEvent {
     },
     FrameTick {
         window: WindowId,
+        /// The frame (motion) clock at this tick: the host clock at time scale 1,
+        /// the scaled motion time otherwise. The App's clock is the host clock.
         now_ns: u64,
         estimated_present_ns: u64,
         /// The engine's motion clock at this tick.
