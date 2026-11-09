@@ -159,7 +159,7 @@ pub(crate) fn bind_style(
                 .as_ref()
                 .map_or(has_paint, |old| !old.same_retained_paint(&resolved));
             if changed {
-                *source.value.borrow_mut() = has_paint.then(|| resolved.clone());
+                *source.value.borrow_mut() = has_paint.then(|| Box::new(resolved.clone()));
                 source.revision.notify_from_render();
             }
         }

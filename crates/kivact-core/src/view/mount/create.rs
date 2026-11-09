@@ -34,6 +34,25 @@ pub(super) struct FirstWrite {
     pub(super) editing: Option<EditorProps>,
 }
 
+/// Whether `handlers` is the default record: the node declared no handler.
+fn is_default_handlers(handlers: &Handlers) -> bool {
+    handlers.activate.is_none()
+        && handlers.secondary_context.is_none()
+        && handlers.text.is_none()
+        && handlers.selection.is_none()
+        && handlers.edit_phase.is_none()
+        && handlers.image_error.is_none()
+        && handlers.scroll.is_none()
+        && handlers.layout.is_none()
+        && handlers.a11y.is_empty()
+        && handlers.key.is_empty()
+        && handlers.file.is_empty()
+        && handlers.key_up.is_empty()
+        && handlers.pointer.is_empty()
+        && handlers.wheel.is_empty()
+        && handlers.ime.is_empty()
+}
+
 /// Stage 1: decide the listener flags from the final handlers, then write the node's first
 /// properties (test id, role, focusable, hit_testable, actions, listeners, intrinsic size, text
 /// editing). This is the only stage that borrows the engine tree for its writes at once.
@@ -61,7 +80,11 @@ pub(super) fn write(cx: &Mcx<'_>, id: NodeId, first: FirstWrite, at: &'static Lo
             n.at = Some(at);
             n.exit_layout = exit_layout;
             n.exit_complete = exit_complete;
-            n.handlers = Some(Box::new(handlers));
+            // A node that declared no handler keeps no record of them: an
+            // observer added later creates it (`ViewNodes::handlers_mut`).
+            if !is_default_handlers(&handlers) {
+                n.handlers = Some(Box::new(handlers));
+            }
         }
         if listen_file {
             tree.update(id, PropValue::ListenFile(true), writer);

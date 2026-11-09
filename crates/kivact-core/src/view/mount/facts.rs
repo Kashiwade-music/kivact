@@ -21,6 +21,6 @@ pub(super) struct NodeFacts {
 /// Retained style paint and its render-safe metadata notification source.
 #[derive(Clone)]
 pub(crate) struct LocalPaintSource {
-    pub(super) value: Rc<RefCell<Option<CompiledStyle>>>,
+    pub(super) value: Rc<RefCell<Option<Box<CompiledStyle>>>>,
     pub(super) revision: Notifier,
 }
