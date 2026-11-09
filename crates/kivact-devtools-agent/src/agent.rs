@@ -73,9 +73,16 @@ impl Agent {
         let (incoming_tx, incoming) = mpsc::channel();
         let (stop, stop_rx) = mpsc::channel();
         let shared_for_thread = Arc::clone(&shared);
-        let listener_thread = std::thread::Builder::new()
+        let spawned = std::thread::Builder::new()
             .name("kivact-devtools-listener".to_owned())
-            .spawn(move || server::listen(listener, stop_rx, shared_for_thread, incoming_tx))?;
+            .spawn(move || server::listen(listener, stop_rx, shared_for_thread, incoming_tx));
+        let listener_thread = match spawned {
+            Ok(handle) => handle,
+            Err(error) => {
+                discovery::remove(&discovery_path);
+                return Err(error);
+            }
+        };
         let review = ReviewStore::new(
             workspace_root.join(".kivact").join("review").join(&session),
             shared.app.clone(),

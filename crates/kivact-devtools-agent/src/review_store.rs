@@ -83,13 +83,26 @@ impl ReviewStore {
             .items
             .iter()
             .position(|item| same_target(item, window, &target));
+        let item_id = match index {
+            Some(index) => self.document.items[index].id.clone(),
+            None => format!("C{}", self.next_item),
+        };
+        // The image is written before anything else changes: when the write fails, the
+        // document and the id counter stay as they were.
+        let image = match &image_png {
+            Some(png) => {
+                let relative = format!("images/{item_id}.png");
+                write_atomic(&self.dir.join(&relative), png)?;
+                Some(relative)
+            }
+            None => None,
+        };
         let item = match index {
             Some(index) => &mut self.document.items[index],
             None => {
-                let id = format!("C{}", self.next_item);
                 self.next_item += 1;
                 self.document.items.push(ReviewItem {
-                    id,
+                    id: item_id,
                     window_title,
                     window,
                     target,
@@ -107,10 +120,8 @@ impl ReviewStore {
         *number += 1;
         let comment_id = format!("{}.{}", item.id, number);
         item.style_changes = style_changes;
-        if let Some(png) = image_png {
-            let path = self.dir.join("images").join(format!("{}.png", item.id));
-            write_atomic(&path, &png)?;
-            item.image = Some(format!("images/{}.png", item.id));
+        if let Some(relative) = image {
+            item.image = Some(relative);
         }
         item.comments.push(Comment {
             id: comment_id,

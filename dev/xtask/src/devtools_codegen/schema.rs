@@ -144,7 +144,7 @@ fn choice_schema(doc: &str, variants: &[(String, String)]) -> Json {
 fn union_schema(doc: &str, variants: &[(String, String, Vec<Field>)]) -> Json {
     let variants = variants
         .iter()
-        .map(|(variant, _, fields)| {
+        .map(|(variant, variant_doc, fields)| {
             let mut properties =
                 vec![("kind".to_owned(), obj(vec![("const", s(&snake(variant)))]))];
             let mut required = vec![s("kind")];
@@ -155,6 +155,7 @@ fn union_schema(doc: &str, variants: &[(String, String, Vec<Field>)]) -> Json {
                 }
             }
             obj(vec![
+                ("description", s(variant_doc)),
                 ("type", s("object")),
                 ("properties", Json::Object(properties)),
                 ("required", Json::Array(required)),

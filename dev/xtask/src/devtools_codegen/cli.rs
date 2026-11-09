@@ -11,7 +11,8 @@ pub(crate) fn run(root: &Path, arguments: &[String]) -> ExitCode {
         .iter()
         .find(|argument| argument.as_str() != "--check")
     {
-        return fail(&format!("unknown argument: {unknown}"));
+        let _ = fail(&format!("unknown argument: {unknown}"));
+        return ExitCode::from(2);
     }
     if check {
         return check_files(root);

@@ -22,7 +22,9 @@ class RpcConnection:
         self._calls: dict[int, queue.Queue[dict[str, Any]]] | DevtoolsError = {}
         threading.Thread(target=self._read_loop, daemon=True).start()
 
-    def call(self, method: str, params: dict[str, Any]) -> Any:
+    def call(self, method: str, params: dict[str, Any], *, timeout: float | None = None) -> Any:
+        """Send one call and wait for its answer; `timeout` seconds, or the default for this method."""
+        limit = self._answer_timeout(method, params) if timeout is None else timeout
         replies: queue.Queue[dict[str, Any]] = queue.Queue(maxsize=1)
         with self._lock:
             if isinstance(self._calls, DevtoolsError):
@@ -37,13 +39,25 @@ class RpcConnection:
             except OSError as error:
                 self._fail(DevtoolsError(_CLOSED, f"connection closed: {error}"))
         try:
-            reply = replies.get(timeout=self._timeout)
+            reply = replies.get(timeout=limit)
         except queue.Empty:
             self._forget(request_id)
-            raise Timeout(int(ErrorCode.TIMED_OUT), f"no answer to {method} in {self._timeout:g} s") from None
+            raise Timeout(int(ErrorCode.TIMED_OUT), f"no answer to {method} in {limit:g} s") from None
         if "error" in reply:
             raise error_from_rpc(int(reply["error"]["code"]), str(reply["error"]["message"]))
         return reply.get("result")
+
+    def _answer_timeout(self, method: str, params: dict[str, Any]) -> float:
+        """The default timeout, or the agent's own wait plus 5 s when that is longer (`find_by_*`: timeout_ms; `list_turns`: wait_ms)."""
+        if method == "list_turns":
+            wait_ms = params.get("wait_ms")
+        elif method.startswith("find_by_"):
+            wait_ms = params.get("timeout_ms")
+        else:
+            return self._timeout
+        if not isinstance(wait_ms, int):
+            return self._timeout
+        return max(self._timeout, wait_ms / 1000 + 5.0)
 
     def close(self) -> None:
         with self._lock:
@@ -69,6 +83,8 @@ class RpcConnection:
         try:
             for raw in self._file:
                 message = json.loads(raw)
+                if not isinstance(message, dict):
+                    raise ValueError("a message is not a JSON object")
                 request_id = message.get("id")
                 if request_id is None:
                     continue  # a notification: this client does not subscribe

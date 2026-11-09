@@ -3,7 +3,7 @@
 use std::path::Path;
 
 use crate::devtools_codegen::model::{
-    ErrorCode, Field, Item, MethodDecl, NotificationDecl, Protocol, Ty,
+    ErrorCode, Field, Item, MethodDecl, NotificationDecl, Protocol, Reference, Ty,
 };
 
 /// Files of the protocol crate that hold no wire types (design 4.2.3).
@@ -50,7 +50,25 @@ pub(super) fn read_protocol(root: &Path) -> Result<Protocol, String> {
             "crates/kivact-devtools-protocol/src/app.rs: PROTOCOL_VERSION is missing".into(),
         );
     }
+    check_references(&protocol)?;
     Ok(protocol)
+}
+
+/// Every type name that the protocol names must be a type of the protocol (design 4.2.3).
+pub(super) fn check_references(protocol: &Protocol) -> Result<(), String> {
+    for reference in &protocol.references {
+        let known = protocol
+            .items
+            .iter()
+            .any(|item| item.name() == reference.name);
+        if !known {
+            return Err(format!(
+                "{}: {}: unknown type {} (design 4.2.3)",
+                reference.file, reference.context, reference.name
+            ));
+        }
+    }
+    Ok(())
 }
 
 /// Read one file of Rust source into `out`.
@@ -72,7 +90,9 @@ pub(super) fn read_source(file: &str, text: &str, out: &mut Protocol) -> Result<
 fn read_struct(file: &str, item: &syn::ItemStruct, out: &mut Protocol) -> Result<(), String> {
     let name = item.ident.to_string();
     let syn::Fields::Named(fields) = &item.fields else {
-        return Ok(());
+        return Err(format!(
+            "{file}: {name}: a tuple or unit struct is not a wire type; use named fields (design 4.2.3)"
+        ));
     };
     expect_serde(file, &name, &item.attrs, &[])?;
     let config = name == "DevtoolsConfig";
@@ -104,6 +124,7 @@ fn read_field(
         .unwrap_or_default();
     let context = format!("{owner}.{name}");
     let ty = convert_type(file, &context, &field.ty)?;
+    note_references(file, &context, &ty, out);
     let schema_key = config && name == "schema";
     let expected: Vec<&str> = if schema_key {
         vec![
@@ -194,6 +215,7 @@ fn read_enum(file: &str, item: &syn::ItemEnum, out: &mut Protocol) -> Result<(),
 fn read_alias(file: &str, item: &syn::ItemType, out: &mut Protocol) -> Result<(), String> {
     let name = item.ident.to_string();
     let ty = convert_type(file, &name, &item.ty)?;
+    note_references(file, &name, &ty, out);
     out.items.push(Item::Alias {
         name,
         doc: doc_text(&item.attrs),
@@ -209,7 +231,9 @@ fn read_const(file: &str, item: &syn::ItemConst, out: &mut Protocol) -> Result<(
             .ok_or_else(|| format!("{file}: PROTOCOL_VERSION: expected an integer"))?;
         out.version = u32::try_from(value)
             .map_err(|_| format!("{file}: PROTOCOL_VERSION: value is out of range"))?;
-    } else if matches!(&*item.ty, syn::Type::Path(path) if path.path.is_ident("i32")) {
+    } else if is_code_file(file)
+        && matches!(&*item.ty, syn::Type::Path(path) if path.path.is_ident("i32"))
+    {
         let code =
             const_int(&item.expr).ok_or_else(|| format!("{file}: {name}: expected an integer"))?;
         out.errors.push(ErrorCode {
@@ -221,6 +245,28 @@ fn read_const(file: &str, item: &syn::ItemConst, out: &mut Protocol) -> Result<(
     Ok(())
 }
 
+/// Whether `file` is the protocol's `code.rs`, the only place that holds the error codes.
+fn is_code_file(file: &str) -> bool {
+    Path::new(file).file_name().and_then(|name| name.to_str()) == Some("code.rs")
+}
+
+/// Record every type name in `ty`, as written at `context` in `file`.
+fn note_references(file: &str, context: &str, ty: &Ty, out: &mut Protocol) {
+    match ty {
+        Ty::Named(name) => note_name(file, context, name, out),
+        Ty::Option(inner) | Ty::Vec(inner) => note_references(file, context, inner, out),
+        Ty::Bool | Ty::U32 | Ty::U64 | Ty::I64 | Ty::F64 | Ty::Str => {}
+    }
+}
+
+fn note_name(file: &str, context: &str, name: &str, out: &mut Protocol) {
+    out.references.push(Reference {
+        file: file.to_owned(),
+        context: context.to_owned(),
+        name: name.to_owned(),
+    });
+}
+
 fn read_macro(file: &str, item: &syn::ItemMacro, out: &mut Protocol) -> Result<(), String> {
     if item.ident.is_some() {
         return Ok(());
@@ -230,16 +276,23 @@ fn read_macro(file: &str, item: &syn::ItemMacro, out: &mut Protocol) -> Result<(
     };
     match segment.ident.to_string().as_str() {
         "protocol_methods" => {
-            out.methods.extend(
-                parse_methods(item.mac.tokens.clone())
-                    .map_err(|error| format!("{file}: {error}"))?,
-            );
+            let methods = parse_methods(item.mac.tokens.clone())
+                .map_err(|error| format!("{file}: {error}"))?;
+            for method in &methods {
+                let context = format!("method {}", method.wire);
+                note_name(file, &context, &method.params, out);
+                note_name(file, &context, &method.result, out);
+            }
+            out.methods.extend(methods);
         }
         "protocol_notifications" => {
-            out.notifications.extend(
-                parse_notifications(item.mac.tokens.clone())
-                    .map_err(|error| format!("{file}: {error}"))?,
-            );
+            let notifications = parse_notifications(item.mac.tokens.clone())
+                .map_err(|error| format!("{file}: {error}"))?;
+            for notification in &notifications {
+                let context = format!("notification {}", notification.wire);
+                note_name(file, &context, &notification.params, out);
+            }
+            out.notifications.extend(notifications);
         }
         _ => {}
     }

@@ -806,6 +806,7 @@ class InputStepA11y:
         return data
 
 InputStep = InputStepClick | InputStepMouseMove | InputStepMouseDown | InputStepMouseUp | InputStepWheel | InputStepKey | InputStepText | InputStepA11y
+"""One step of an injected input."""
 
 def input_step_from_json(data: dict[str, Any]) -> InputStep:
     kind = data["kind"]
@@ -1757,6 +1758,7 @@ class ReviewTargetWindow:
         return data
 
 ReviewTarget = ReviewTargetNode | ReviewTargetWindow
+"""What a review item points at."""
 
 def review_target_from_json(data: dict[str, Any]) -> ReviewTarget:
     kind = data["kind"]
@@ -1978,6 +1980,7 @@ class OverrideScopeToken:
         return data
 
 OverrideScope = OverrideScopeNode | OverrideScopeCallSite | OverrideScopeToken
+"""What a style override applies to."""
 
 def override_scope_from_json(data: dict[str, Any]) -> OverrideScope:
     kind = data["kind"]
@@ -2568,47 +2571,47 @@ class FrameList:
 class ErrorCode(IntEnum):
     """JSON-RPC error codes of the DevTools protocol."""
 
-    # The line is not JSON.
     PARSE_ERROR = -32700
+    """The line is not JSON."""
 
-    # The line is not a JSON-RPC 2.0 request.
     INVALID_REQUEST = -32600
+    """The line is not a JSON-RPC 2.0 request."""
 
-    # The method is unknown.
     METHOD_NOT_FOUND = -32601
+    """The method is unknown."""
 
-    # The params are invalid.
     INVALID_PARAMS = -32602
+    """The params are invalid."""
 
-    # The agent failed internally.
     INTERNAL_ERROR = -32603
+    """The agent failed internally."""
 
-    # The token is wrong.
     BAD_TOKEN = -32001
+    """The token is wrong."""
 
-    # The connection has not sent `initialize` yet.
     NOT_INITIALIZED = -32002
+    """The connection has not sent `initialize` yet."""
 
-    # The protocol version of the client differs from the target's.
     VERSION_MISMATCH = -32003
+    """The protocol version of the client differs from the target's."""
 
-    # The node does not exist (including an unmounted node).
     NODE_NOT_FOUND = -32010
+    """The node does not exist (including an unmounted node)."""
 
-    # The window does not exist.
     WINDOW_NOT_FOUND = -32011
+    """The window does not exist."""
 
-    # A query found no node.
     NO_MATCH = -32012
+    """A query found no node."""
 
-    # A query found more than one node.
     MULTIPLE_MATCHES = -32013
+    """A query found more than one node."""
 
-    # The wait of a `find_*` call timed out.
     TIMED_OUT = -32014
+    """The wait of a `find_*` call timed out."""
 
-    # The target cannot do this (no multi-window, no GPU, embed input, ...).
     UNSUPPORTED = -32015
+    """The target cannot do this (no multi-window, no GPU, embed input, ...)."""
 
 class Methods:
     """Every protocol method under its wire name."""

@@ -86,6 +86,17 @@ pub(super) struct ErrorCode {
     pub(super) doc: String,
 }
 
+/// A type name written in the protocol crate, with where it was written.
+#[derive(Clone, Debug, PartialEq)]
+pub(super) struct Reference {
+    /// The file of the protocol crate that names the type.
+    pub(super) file: String,
+    /// The field, the alias or the method that names the type (`Owner.field`, `method get_tree`).
+    pub(super) context: String,
+    /// The name of the type.
+    pub(super) name: String,
+}
+
 /// Everything the generator reads from the protocol crate.
 #[derive(Default, Debug, PartialEq)]
 pub(super) struct Protocol {
@@ -96,6 +107,8 @@ pub(super) struct Protocol {
     pub(super) errors: Vec<ErrorCode>,
     /// `DevtoolsConfig` has the `#[serde(rename = "$schema")]` field; only the config schema lists it.
     pub(super) config_schema_key: bool,
+    /// Every type name that a field, an alias, a method or a notification names.
+    pub(super) references: Vec<Reference>,
 }
 
 /// The `snake_case` name of a Rust identifier, as `serde` writes it.
