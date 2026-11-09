@@ -40,7 +40,8 @@ pub(crate) fn run(schema: Value) {
     }
 }
 
-/// One request line: its response, or `None` for a notification.
+/// One request line: its response, or `None` for a message without an `id` (a notification,
+/// which JSON-RPC 2.0 does not answer).
 fn handle(line: &str, tools: &[Value], selection: &mut Selection) -> Option<p::RpcResponse> {
     let request: Value = match serde_json::from_str(line) {
         Ok(value) => value,
@@ -51,7 +52,7 @@ fn handle(line: &str, tools: &[Value], selection: &mut Selection) -> Option<p::R
             ));
         }
     };
-    let id = request.get("id").cloned().unwrap_or(Value::Null);
+    let id = request.get("id").cloned()?;
     let Some(method) = request.get("method").and_then(Value::as_str) else {
         return Some(p::response(
             id,
@@ -63,10 +64,9 @@ fn handle(line: &str, tools: &[Value], selection: &mut Selection) -> Option<p::R
     };
     let outcome = match method {
         "initialize" => Ok(initialize_result(&request)),
-        "notifications/initialized" => return None,
         "ping" => Ok(json!({})),
         "tools/list" => Ok(json!({ "tools": tools })),
-        "tools/call" => Ok(call_tool(request.get("params"), selection)),
+        "tools/call" => Ok(call_tool(request.get("params"), tools, selection)),
         _ => Err(p::RpcError::new(
             p::code::METHOD_NOT_FOUND,
             format!("unknown method: {method}"),
@@ -91,9 +91,15 @@ fn initialize_result(request: &Value) -> Value {
     })
 }
 
-fn call_tool(params: Option<&Value>, selection: &mut Selection) -> Value {
+fn call_tool(params: Option<&Value>, tools: &[Value], selection: &mut Selection) -> Value {
     let params = params.cloned().unwrap_or(Value::Null);
     let name = params.get("name").and_then(Value::as_str).unwrap_or("");
+    let advertised = tools
+        .iter()
+        .any(|tool| tool.get("name").and_then(Value::as_str) == Some(name));
+    if !advertised {
+        return result::failure(&ToolError::Text(format!("unknown tool: {name}")));
+    }
     let arguments = params
         .get("arguments")
         .cloned()

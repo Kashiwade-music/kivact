@@ -3,7 +3,7 @@
 use std::io::{BufRead, BufReader, Read};
 use std::net::TcpStream;
 use std::sync::{Arc, Mutex, mpsc};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use serde_json::Value;
 
@@ -15,8 +15,11 @@ use kivact_devtools_protocol::{
 use crate::incoming::{Incoming, Responder};
 use crate::session::{ConnectionId, Peer, Session, Shared, Writer, shutdown};
 
+/// A connection that has not sent `initialize` within this time after it was accepted is closed.
 const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(10);
 const WRITE_TIMEOUT: Duration = Duration::from_secs(5);
+/// The longest line before `initialize`: a handshake is small.
+const MAX_HANDSHAKE_LINE: usize = 64 * 1024;
 const MAX_LINE: usize = 64 * 1024 * 1024;
 
 /// What one line did to its connection.
@@ -26,15 +29,15 @@ enum Step {
     Close,
 }
 
+/// Serve one connection. `accepted` is when the listener accepted it: the handshake deadline counts from there.
 pub(crate) fn run(
     stream: TcpStream,
     id: ConnectionId,
     shared: Arc<Shared>,
     incoming: mpsc::Sender<Incoming>,
+    accepted: Instant,
 ) {
-    if stream.set_write_timeout(Some(WRITE_TIMEOUT)).is_err()
-        || stream.set_read_timeout(Some(HANDSHAKE_TIMEOUT)).is_err()
-    {
+    if stream.set_write_timeout(Some(WRITE_TIMEOUT)).is_err() {
         return;
     }
     let Ok(clone) = stream.try_clone() else {
@@ -44,7 +47,11 @@ pub(crate) fn run(
     let mut reader = BufReader::new(stream);
     let mut session = Session::AwaitingInitialize;
     loop {
-        let line = match read_line(&mut reader) {
+        let awaiting = matches!(session, Session::AwaitingInitialize);
+        if awaiting && !arm_handshake_read(reader.get_ref(), accepted) {
+            break;
+        }
+        let line = match read_line(&mut reader, line_cap(&session)) {
             Ok(Some(line)) => line,
             Ok(None) => break,
             Err(error) => {
@@ -58,6 +65,9 @@ pub(crate) fn run(
                 break;
             }
         };
+        if awaiting && accepted.elapsed() >= HANDSHAKE_TIMEOUT {
+            break;
+        }
         if line.trim().is_empty() {
             continue;
         }
@@ -73,20 +83,39 @@ pub(crate) fn run(
     finish(id, &session, &writer, &shared, &incoming);
 }
 
-/// One line of at most `MAX_LINE` bytes; `Ok(None)` at the end of the stream; a longer line is `InvalidData`.
-fn read_line(reader: &mut BufReader<TcpStream>) -> std::io::Result<Option<String>> {
+/// The longest line the session accepts: the handshake cap before `initialize`, `MAX_LINE` after it.
+fn line_cap(session: &Session) -> usize {
+    match session {
+        Session::AwaitingInitialize => MAX_HANDSHAKE_LINE,
+        Session::Ready => MAX_LINE,
+    }
+}
+
+/// Limit the next read to the time left of the handshake. `false` when the handshake deadline has passed.
+fn arm_handshake_read(stream: &TcpStream, accepted: Instant) -> bool {
+    match HANDSHAKE_TIMEOUT
+        .checked_sub(accepted.elapsed())
+        .filter(|left| !left.is_zero())
+    {
+        Some(left) => stream.set_read_timeout(Some(left)).is_ok(),
+        None => false,
+    }
+}
+
+/// One line of at most `max` bytes; `Ok(None)` at the end of the stream; a longer line is `InvalidData`.
+fn read_line(reader: &mut BufReader<TcpStream>, max: usize) -> std::io::Result<Option<String>> {
     let mut bytes = Vec::new();
     let read = reader
         .by_ref()
-        .take(MAX_LINE as u64 + 1)
+        .take(max as u64 + 1)
         .read_until(b'\n', &mut bytes)?;
     if read == 0 {
         return Ok(None);
     }
-    if bytes.len() > MAX_LINE {
+    if bytes.len() > max {
         return Err(std::io::Error::new(
             std::io::ErrorKind::InvalidData,
-            "line longer than 64 MiB",
+            format!("line longer than {max} bytes"),
         ));
     }
     String::from_utf8(bytes)

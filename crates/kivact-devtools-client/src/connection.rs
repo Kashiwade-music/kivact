@@ -17,6 +17,9 @@ use crate::error::{ClientError, io_error};
 
 const CALL_TIMEOUT: Duration = Duration::from_secs(30);
 
+/// The time a call allows beyond the agent's own wait, for the answer to arrive.
+const ANSWER_MARGIN: Duration = Duration::from_secs(5);
+
 type Answer = Result<serde_json::Value, ClientError>;
 
 /// The calls waiting for an answer, or why the connection ended.
@@ -89,6 +92,7 @@ impl Connection {
         params: serde_json::Value,
     ) -> Result<serde_json::Value, ClientError> {
         let id = self.next_id.fetch_add(1, Ordering::Relaxed);
+        let timeout = answer_timeout(method, &params);
         let (sender, receiver) = mpsc::channel();
         {
             let mut calls = lock(&self.calls);
@@ -105,7 +109,7 @@ impl Connection {
             }
             return Err(error);
         }
-        match receiver.recv_timeout(CALL_TIMEOUT) {
+        match receiver.recv_timeout(timeout) {
             Ok(answer) => answer,
             Err(mpsc::RecvTimeoutError::Timeout) => {
                 if let Calls::Open(map) = &mut *lock(&self.calls) {
@@ -159,6 +163,22 @@ impl Drop for Connection {
             .expect("invariant: the lock is never poisoned");
         let _ = writer.shutdown(Shutdown::Both);
     }
+}
+
+/// How long a call waits for its answer: `CALL_TIMEOUT`, or the agent's own wait
+/// (`timeout_ms` of `find_by_*`, `wait_ms` of `list_turns`) plus 5 s when that is longer.
+fn answer_timeout(method: &str, params: &serde_json::Value) -> Duration {
+    let wait_ms = if method == "list_turns" {
+        params.get("wait_ms")
+    } else if method.starts_with("find_by_") {
+        params.get("timeout_ms")
+    } else {
+        None
+    };
+    let wait = wait_ms
+        .and_then(serde_json::Value::as_u64)
+        .map_or(Duration::ZERO, Duration::from_millis);
+    CALL_TIMEOUT.max(wait + ANSWER_MARGIN)
 }
 
 fn lock(calls: &Mutex<Calls>) -> MutexGuard<'_, Calls> {

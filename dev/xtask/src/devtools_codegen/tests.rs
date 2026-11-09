@@ -161,3 +161,46 @@ fn names_convert_to_snake_and_upper_snake() {
     assert_eq!(super::model::snake("FocusVisible"), "focus_visible");
     assert_eq!(super::model::upper_snake("CheckBox"), "CHECK_BOX");
 }
+
+#[test]
+fn refuses_tuple_and_unit_structs() {
+    for (source, name) in [
+        ("/// A pair.\npub struct Pair(pub u32);", "Pair"),
+        ("/// A marker.\npub struct Marker;", "Marker"),
+    ] {
+        let mut protocol = Protocol::default();
+        let error = super::read::read_source("fixture.rs", source, &mut protocol).unwrap_err();
+        assert!(error.contains("fixture.rs"), "{error}");
+        assert!(error.contains(name), "{error}");
+    }
+}
+
+#[test]
+fn refuses_a_field_that_names_an_unknown_type() {
+    let mut protocol = Protocol::default();
+    super::read::read_source(
+        "fixture.rs",
+        "/// A holder.\npub struct Holder {\n    /// The missing one.\n    pub missing: Missing,\n}\n",
+        &mut protocol,
+    )
+    .unwrap();
+    let error = super::read::check_references(&protocol).unwrap_err();
+    assert!(error.contains("fixture.rs"), "{error}");
+    assert!(error.contains("Holder.missing"), "{error}");
+    assert!(error.contains("Missing"), "{error}");
+}
+
+#[test]
+fn reads_error_codes_only_from_code_rs() {
+    let mut protocol = Protocol::default();
+    super::read::read_source("app.rs", "pub const LIMIT: i32 = 5;", &mut protocol).unwrap();
+    assert!(protocol.errors.is_empty());
+    super::read::read_source(
+        "code.rs",
+        "/// A missing node.\npub const NODE_NOT_FOUND: i32 = -32010;",
+        &mut protocol,
+    )
+    .unwrap();
+    assert_eq!(protocol.errors.len(), 1);
+    assert_eq!(protocol.errors[0].name, "NODE_NOT_FOUND");
+}

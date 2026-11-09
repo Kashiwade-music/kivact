@@ -179,7 +179,7 @@ fn choice_block(name: &str, doc: &str, variants: &[(String, String)]) -> String 
 fn union_block(
     protocol: &Protocol,
     name: &str,
-    _doc: &str,
+    doc: &str,
     variants: &[(String, String, Vec<Field>)],
 ) -> String {
     let mut blocks = Vec::new();
@@ -198,7 +198,12 @@ fn union_block(
         .map(|(variant, _, _)| format!("{name}{variant}"))
         .collect::<Vec<_>>()
         .join(" | ");
-    blocks.push(format!("{name} = {alias}"));
+    let mut alias_block = format!("{name} = {alias}");
+    if !doc.trim().is_empty() {
+        alias_block.push('\n');
+        alias_block.push_str(&docstring(doc, 0));
+    }
+    blocks.push(alias_block);
     blocks.push(dispatcher(name, variants));
     blocks.join("\n\n")
 }
@@ -232,8 +237,11 @@ fn error_code_block(protocol: &Protocol) -> String {
     ];
     for error in &protocol.errors {
         lines.push(String::new());
-        lines.push(format!("    # {}", error.doc));
         lines.push(format!("    {} = {}", error.name, error.code));
+        let doc = error.doc.split_whitespace().collect::<Vec<_>>().join(" ");
+        if !doc.is_empty() {
+            lines.push(docstring(&doc, 4));
+        }
     }
     lines.join("\n")
 }

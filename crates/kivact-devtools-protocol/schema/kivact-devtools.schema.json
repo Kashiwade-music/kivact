@@ -986,6 +986,7 @@
       "description": "One step of an injected input.",
       "oneOf": [
         {
+          "description": "Click the center of a node.",
           "type": "object",
           "properties": {
             "kind": {
@@ -1003,6 +1004,7 @@
           "additionalProperties": false
         },
         {
+          "description": "Move the mouse.",
           "type": "object",
           "properties": {
             "kind": {
@@ -1025,6 +1027,7 @@
           "additionalProperties": false
         },
         {
+          "description": "Press a mouse button.",
           "type": "object",
           "properties": {
             "kind": {
@@ -1042,6 +1045,7 @@
           "additionalProperties": false
         },
         {
+          "description": "Release a mouse button.",
           "type": "object",
           "properties": {
             "kind": {
@@ -1059,6 +1063,7 @@
           "additionalProperties": false
         },
         {
+          "description": "Scroll the wheel.",
           "type": "object",
           "properties": {
             "kind": {
@@ -1081,6 +1086,7 @@
           "additionalProperties": false
         },
         {
+          "description": "Press and release a key chord.",
           "type": "object",
           "properties": {
             "kind": {
@@ -1098,6 +1104,7 @@
           "additionalProperties": false
         },
         {
+          "description": "Type text, one key per character.",
           "type": "object",
           "properties": {
             "kind": {
@@ -1115,6 +1122,7 @@
           "additionalProperties": false
         },
         {
+          "description": "Perform an accessibility action.",
           "type": "object",
           "properties": {
             "kind": {
@@ -2394,6 +2402,7 @@
       "description": "What a review item points at.",
       "oneOf": [
         {
+          "description": "One element, as it was when the comment was added.",
           "type": "object",
           "properties": {
             "kind": {
@@ -2446,6 +2455,7 @@
           "additionalProperties": false
         },
         {
+          "description": "One window.",
           "type": "object",
           "properties": {
             "kind": {
@@ -2719,6 +2729,7 @@
       "description": "What a style override applies to.",
       "oneOf": [
         {
+          "description": "One node.",
           "type": "object",
           "properties": {
             "kind": {
@@ -2736,6 +2747,7 @@
           "additionalProperties": false
         },
         {
+          "description": "One call site.",
           "type": "object",
           "properties": {
             "kind": {
@@ -2753,6 +2765,7 @@
           "additionalProperties": false
         },
         {
+          "description": "One theme token.",
           "type": "object",
           "properties": {
             "kind": {
