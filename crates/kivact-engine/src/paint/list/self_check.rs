@@ -1,13 +1,14 @@
 //! Role: Compare retained paint order, ink and child indices with a fresh walk.
 
 use crate::model::Model;
-use crate::paint::state::{ChildIndex, Ink, PaintList};
+use crate::paint::state::{ChildIndex, Ink, PaintList, StaleFacts};
 
 impl Model {
     pub(crate) fn paint_self_check(&mut self) -> Vec<String> {
         // Run both walks on disposable lists. Even refreshing the retained
         // list's lazy bookkeeping must not repair the live cache for later.
         let original = std::mem::take(&mut self.paint.list);
+        let kept = std::mem::replace(&mut self.paint.stale_facts, StaleFacts::All);
         self.paint.list = original.clone();
         let inks: Vec<_> = self
             .tree
@@ -28,6 +29,7 @@ impl Model {
             ink_gen: retained.ink_gen,
             ..PaintList::default()
         };
+        self.paint.stale_facts = StaleFacts::All;
         self.paint_list();
         let rebuilt = std::mem::take(&mut self.paint.list);
         let mut errors = Vec::new();
@@ -80,6 +82,7 @@ impl Model {
             }
         }
         self.paint.list = original;
+        self.paint.stale_facts = kept;
         errors
     }
 }

@@ -48,6 +48,17 @@ pub(super) enum ListState {
     },
 }
 
+/// The nodes whose subtree facts must be derived again before the next
+/// paint list (a work queue, not a phase).
+#[derive(Default)]
+pub(crate) enum StaleFacts {
+    /// Every fact is derived again (first list, new root, layer roots changed).
+    #[default]
+    All,
+    /// Only these nodes (and, through propagation, their ancestors).
+    Nodes(BTreeSet<NodeId>),
+}
+
 /// The paint group of the model: derived caches and whether a
 /// frame must be redrawn. Only the paint modules read the caches.
 pub(crate) struct PaintState {
@@ -65,6 +76,8 @@ pub(crate) struct PaintState {
     pub(super) twice_reported: RefCell<BTreeSet<(NodeId, kivact_types::DrawableId)>>,
     pub(super) list: PaintList,
     pub(super) redraw: Redraw,
+    /// The nodes whose facts the next list derives again.
+    pub(crate) stale_facts: StaleFacts,
 }
 
 impl PaintState {
@@ -82,6 +95,7 @@ impl PaintState {
             twice_reported: RefCell::default(),
             list: PaintList::new(),
             redraw: Redraw::Needed,
+            stale_facts: StaleFacts::All,
         }
     }
 
@@ -113,6 +127,23 @@ impl PaintState {
     /// Forget what was kept for the nodes `live` says are gone.
     pub(crate) fn forget_missing(&mut self, live: impl Fn(NodeId) -> bool) {
         self.dropped_reported.get_mut().retain(|(id, _)| live(*id));
+    }
+
+    /// Derive `id`'s subtree facts again before the next list (and its ancestors as they change).
+    pub(crate) fn stale_fact(&mut self, id: NodeId) {
+        if let StaleFacts::Nodes(set) = &mut self.stale_facts {
+            set.insert(id);
+        }
+    }
+
+    /// Derive every subtree fact again before the next list.
+    pub(crate) fn stale_all_facts(&mut self) {
+        self.stale_facts = StaleFacts::All;
+    }
+
+    /// Forget the recorded facts of `id` (the node is gone).
+    pub(crate) fn forget_fact(&mut self, id: NodeId) {
+        self.list.facts.remove(&id);
     }
 }
 

@@ -125,6 +125,26 @@ impl Model {
         self.tree.get(id)
     }
 
+    /// Mark `id`'s subtree facts stale for the next paint list. A transparent
+    /// node marks the flat parent that holds the children it contributes, and
+    /// those children (their own layer reads that parent's look).
+    pub(crate) fn stale_fact(&mut self, id: NodeId) {
+        let Some(node) = self.tree.get(id) else {
+            return;
+        };
+        if !node.is_transparent() {
+            self.paint.stale_fact(id);
+            return;
+        }
+        if let Some(at) = self.tree.flat_parent(node).or_else(|| self.tree.root()) {
+            self.paint.stale_fact(at);
+        }
+        let children: Vec<NodeId> = self.tree.flat_children(id).collect();
+        for child in children {
+            self.paint.stale_fact(child);
+        }
+    }
+
     /// Computed geometry from the retained node.
     pub(crate) fn computed_layout(&self, id: NodeId) -> Option<kivact_layout::NodeLayout> {
         self.layout.computed_layout(&self.tree, id)

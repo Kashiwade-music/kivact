@@ -16,6 +16,10 @@ impl Model {
             self.editors.push(None);
         }
         self.tree.install(id, HostNode::new(kind, index), index);
+        if self.tree.root() == Some(id) {
+            // A new root is a new set of layer roots.
+            self.paint.stale_all_facts();
+        }
     }
     pub(crate) fn remove_slots(&mut self, id: NodeId) -> Vec<NodeId> {
         let Self {

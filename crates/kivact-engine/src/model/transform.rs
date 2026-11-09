@@ -183,6 +183,7 @@ impl Model {
             for child in children {
                 if self.tree.raise_under_perspective(child) {
                     self.changes.restack = true;
+                    self.stale_fact(child);
                     self.repaint(child);
                 }
             }

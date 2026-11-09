@@ -156,7 +156,17 @@ impl Model {
         if let Some(client) = client {
             client.0.retain(|t| *t > now);
         }
-        self.changes.restack |= self.motion.is_active();
+        if self.motion.is_active() {
+            self.changes.restack = true;
+            let moving: Vec<NodeId> = self.motion.moving().collect();
+            for id in moving {
+                self.stale_fact(id);
+                let children: Vec<NodeId> = self.tree.flat_children(id).collect();
+                for child in children {
+                    self.stale_fact(child);
+                }
+            }
+        }
         let sizes = self.step_sizes(stamp, self.frame.reduced_motion());
         let layout = self.step_layout_motion(stamp, self.frame.reduced_motion());
         self.step_playback(stamp);

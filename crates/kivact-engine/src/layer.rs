@@ -47,7 +47,7 @@ pub(crate) trait LayerView {
 /// What a node's paint says about where it draws, sanitized like
 /// `paint::sanitize_paint` (read in place: most nodes have no state
 /// styles, and their paint is not copied).
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) struct Look {
     pub(crate) opacity: f64,
     /// How far its outer shadows and focus ring reach outside its box.
@@ -102,6 +102,11 @@ pub(crate) struct Look {
     /// One of its background layers is a shader.
     pub(crate) shader: bool,
 }
+
+const _: () = assert!(
+    std::mem::size_of::<Look>() <= 72,
+    "Look grew: box the new rare field"
+);
 
 /// What a subtree holds that decides its layers: whether the node
 /// itself is a layer, and what its subtree contains.
@@ -252,6 +257,41 @@ pub(crate) fn subtree_facts(
         out.insert(id, facts);
     }
     facts
+}
+
+/// The facts of `id` from its children's recorded facts (`facts`), given its parent's look.
+pub(crate) fn node_facts(
+    view: &impl LayerView,
+    id: NodeId,
+    parent: Option<&Look>,
+    facts: &HashMap<NodeId, SubtreeFacts>,
+) -> SubtreeFacts {
+    let Some(look) = view.drawn_look(id) else {
+        return SubtreeFacts::default();
+    };
+    let mut below = SubtreeFacts::default();
+    for child in view.flat_children(id) {
+        if view.is_layer_node(child) {
+            continue;
+        }
+        let f = facts.get(&child).copied().unwrap_or_default();
+        below.has_layer |= f.has_layer;
+        below.has_item |= f.has_item;
+        below.has_backdrop |= f.has_backdrop;
+        below.has_blend |= f.has_blend;
+    }
+    let (scene_layer, scene_item) = view.scene_facts(id);
+    below.has_layer |= scene_layer;
+    // Its own background shader is an item inside its group too.
+    below.has_item |= scene_item || look.shader;
+    let layer = own_layer(view, id, &look, parent) || promoted(&look, &below);
+    SubtreeFacts {
+        layer,
+        has_layer: layer || below.has_layer,
+        has_item: look.shader || below.has_item,
+        has_backdrop: look.backdropped || below.has_backdrop,
+        has_blend: look.blended || below.has_blend,
+    }
 }
 
 /// Whether `id` is a layer for its own reasons, given its parent's look: an

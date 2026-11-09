@@ -133,6 +133,7 @@ impl Model {
         };
         if self.frame.reduced_motion() && timing.decorative {
             self.layout_motion.runs.remove(&id);
+            self.stale_fact(id);
             return;
         }
         let start = self.frame.request_motion_frame();
@@ -149,6 +150,7 @@ impl Model {
             },
         );
         self.changes.restack = true;
+        self.stale_fact(id);
     }
 
     /// Step every run to `now`; a finished run is dropped at its goal.
@@ -162,6 +164,7 @@ impl Model {
             self.a11y.subtree(id);
             self.repaint_corrected_below(id);
         }
+        let before: Vec<NodeId> = self.layout_motion.runs.keys().copied().collect();
         let tree = &self.tree;
         self.layout_motion.runs.retain(|id, a| {
             tree.contains(*id)
@@ -170,6 +173,12 @@ impl Model {
                     .timing
                     .step(&a.from, &a.to, a.start, now, &mut a.current, &mut a.spring)
         });
+        for id in before {
+            if !self.layout_motion.runs.contains_key(&id) {
+                // A run that ended may stop making its node a layer.
+                self.stale_fact(id);
+            }
+        }
         self.changes.restack = true;
         self.changes.paint = true;
         !self.layout_motion.runs.is_empty()

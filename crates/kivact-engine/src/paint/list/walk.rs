@@ -7,10 +7,11 @@
 
 use super::ink::{grow, ink, ink_local, local_transform, overlaps, placed, reach};
 use crate::contract::NodeType;
+use crate::layer::LayerView;
 use crate::model::Model;
 use crate::model::transform::map_rect;
 use crate::paint::state::{
-    ChildIndex, Entry, LayerSpec, ListState, Look, PaintList, Step, SubtreeFacts,
+    ChildIndex, Entry, LayerSpec, ListState, Look, PaintList, StaleFacts, Step, SubtreeFacts,
 };
 use crate::tree::node::HostNode;
 use kivact_types::cell::Generation;
@@ -18,7 +19,7 @@ use kivact_types::geometry3d::Matrix4;
 use kivact_types::paint::BackfaceVisibility;
 use kivact_types::render::{Plane, RasterGrid};
 use kivact_types::{NodeId, Point, Rect, Transform, WillChange};
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeSet, BinaryHeap, HashMap, HashSet};
 
 /// Logical pixels the clip is grown by before culling: more than a device
 /// pixel at every scale from 0.5 up (and `1 / scale` below).
@@ -422,7 +423,11 @@ impl Model {
                 width: window.width + 2.0 * margin,
                 height: window.height + 2.0 * margin,
             };
-            list.facts = self.layer_facts();
+            let stale = std::mem::replace(
+                &mut self.paint.stale_facts,
+                StaleFacts::Nodes(BTreeSet::new()),
+            );
+            self.refresh_facts(stale, &mut list.facts);
             let mut walk = Walk {
                 host: self,
                 margin,
@@ -457,6 +462,61 @@ impl Model {
             list.state = key;
         }
         self.paint.list = list;
+    }
+
+    /// Bring `facts` up to date with the nodes marked stale since the last list.
+    pub(crate) fn refresh_facts(
+        &self,
+        stale: StaleFacts,
+        facts: &mut HashMap<NodeId, SubtreeFacts>,
+    ) {
+        match stale {
+            StaleFacts::All => *facts = self.layer_facts(),
+            StaleFacts::Nodes(set) => {
+                let tree = self.tree();
+                let mut queue: BinaryHeap<(usize, NodeId)> = set
+                    .into_iter()
+                    .filter(|id| tree.contains(*id))
+                    .map(|id| (tree.depth(id), id))
+                    .collect();
+                let mut done = BTreeSet::new();
+                while let Some((_, id)) = queue.pop() {
+                    if !done.insert(id) {
+                        continue;
+                    }
+                    let parent = if self.is_layer_node(id) {
+                        // A layer root starts afresh: its facts are derived with no parent.
+                        None
+                    } else {
+                        tree.get(id)
+                            .and_then(|n| tree.flat_parent(n))
+                            // A chain of transparent ancestors: the root is the
+                            // layer root the facts were derived from.
+                            .or_else(|| tree.root().filter(|root| *root != id))
+                    };
+                    let parent_look = parent.and_then(|p| self.drawn_look(p));
+                    let new = crate::layer::node_facts(self, id, parent_look.as_ref(), facts);
+                    let old = facts.get(&id).copied().unwrap_or_default();
+                    if new == SubtreeFacts::default() {
+                        facts.remove(&id);
+                    } else {
+                        facts.insert(id, new);
+                    }
+                    if new != old
+                        && !self.is_layer_node(id)
+                        && let Some(p) = parent
+                    {
+                        queue.push((tree.depth(p), p));
+                    }
+                }
+            }
+        }
+        #[cfg(debug_assertions)]
+        debug_assert_eq!(
+            *facts,
+            self.layer_facts(),
+            "paint: retained subtree facts diverged"
+        );
     }
 
     /// Build an independent list in the target's local output space.

@@ -63,6 +63,7 @@ impl Model {
         self.a11y.request_publication(std::iter::empty());
         self.changes.restack = true;
         if let Some(parent) = self.tree.detach(id) {
+            self.stale_fact(parent);
             self.changes.mark(parent, Dirty::LAYOUT_CHAIN);
             self.changes.outdate_viewport();
             self.changes
@@ -70,11 +71,13 @@ impl Model {
                 .insert(crate::model::changes::LayoutReasons::STYLE);
             self.insert(parent, id, before, false);
         }
+        self.stale_fact(id);
     }
 
     /// Set the scene of one draw layer of `id`.
     pub(crate) fn set_scene(&mut self, id: NodeId, layer: SceneLayer, scene: Arc<DrawList>) {
         self.changes.restack = true;
+        self.stale_fact(id);
         let old_order = if self.focused().is_some_and(|focus| focus.node == id) {
             self.focus_order()
         } else {
@@ -197,6 +200,9 @@ impl Model {
             return false;
         };
         let role = mutation.style.then(|| flat_role(node));
+        let visibility = mutation
+            .style
+            .then(|| (node.hidden(), node.visibility_hidden()));
         let Some(old) = field(&mut node.properties) else {
             return false;
         };
@@ -249,6 +255,14 @@ impl Model {
         if role.is_some_and(|was| self.tree.get(id).is_some_and(|n| flat_role(n) != was)) {
             self.reflattened(id);
         }
+        if visibility.is_some_and(|was| {
+            self.tree
+                .get(id)
+                .is_none_or(|n| (n.hidden(), n.visibility_hidden()) != was)
+        }) {
+            // Hidden subtrees' facts are derived differently throughout.
+            self.paint.stale_all_facts();
+        }
         self.changed(id, mutation);
         true
     }
@@ -258,6 +272,7 @@ impl Model {
     /// draws changed.
     fn reflattened(&mut self, id: NodeId) {
         self.tree.forget_flat();
+        self.paint.stale_all_facts();
         self.changes.restack = true;
         self.changes
             .layout
@@ -318,6 +333,8 @@ impl Model {
             let parent = parent.map(|index| self.tree.nodes.id_at(index));
             self.changes.mark(id, Dirty::LAYOUT_STYLE);
             if place.fixed != was.1 {
+                // A fixed box came or went: it is a layer root of its own.
+                self.paint.stale_all_facts();
                 self.changes
                     .layout
                     .insert(crate::model::changes::LayoutReasons::STYLE);
@@ -440,13 +457,17 @@ impl Model {
         // text descendants even though the root itself has no layout box.
         let inherited = inherit.then(|| self.text_props(id));
         if let Some(previous) = self.tree.detach(id) {
+            self.stale_fact(previous);
             self.changes.mark(previous, Dirty::LAYOUT_CHAIN);
             self.a11y.subtree(previous);
         }
+        self.stale_fact(id);
         self.a11y.request_publication(std::iter::empty());
         self.a11y.subtree(id);
         self.changes.restack = true;
         if self.tree.insert(parent, id, before).is_none() {
+            // Not attached: the facts of the detached subtree are unreachable.
+            self.paint.stale_all_facts();
             return;
         }
         // Its ancestors changed: so did the text style it inherits.
@@ -472,8 +493,17 @@ impl Model {
                 self.a11y.node(child);
             }
         }
+        if self
+            .tree
+            .get(id)
+            .is_some_and(|n| n.kind() == NodeType::Overlay)
+        {
+            // An overlay is a layer root of its own.
+            self.paint.stale_all_facts();
+        }
         self.changes.regroup(parent);
         self.a11y.node(parent);
+        self.stale_fact(parent);
         self.changes
             .layout
             .insert(crate::model::changes::LayoutReasons::PASS);
@@ -513,6 +543,7 @@ impl Model {
             .get(id)
             .and_then(|node| self.tree.flat_parent(node))
         {
+            self.stale_fact(parent);
             self.changes.mark(parent, Dirty::LAYOUT_CHAIN);
         }
         self.changes.outdate_viewport();
@@ -536,6 +567,11 @@ impl Model {
             self.forget_presence(gone);
             self.presence.sizes.remove(&gone);
         }
+        let had_root = self.tree.root().is_some();
+        let was_overlay = self
+            .tree
+            .get(id)
+            .is_some_and(|n| n.kind() == NodeType::Overlay);
         for gone in self.remove_slots(id) {
             if notify.contains(&gone) {
                 self.push(HostEvent::ExitComplete { node: gone });
@@ -544,6 +580,11 @@ impl Model {
             let previous = self.set_edit(gone, None);
             debug_assert!(previous.is_none());
             self.changes.forget(gone);
+            self.paint.forget_fact(gone);
+        }
+        if was_overlay || (had_root && self.tree.root().is_none()) {
+            // An overlay or the root went: the set of layer roots changed.
+            self.paint.stale_all_facts();
         }
         self.focus.forget_missing(&self.tree);
         self.clear_removed_hits();

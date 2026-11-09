@@ -192,6 +192,7 @@ impl Model {
         }
         self.a11y.subtree(id);
         self.changes.restack = true;
+        self.stale_fact(id);
         self.revalidate_hover();
         self.focus.forget_missing(&self.tree);
         self.pointer.forget_missing(&self.tree);
