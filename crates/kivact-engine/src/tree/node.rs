@@ -37,6 +37,11 @@ pub(crate) struct HostNode {
     pub(crate) shift: Point,
 }
 
+const _: () = assert!(
+    std::mem::size_of::<HostNode>() <= 464,
+    "HostNode grew: box the new rare field"
+);
+
 /// The last published geometry, text clipping and window layout box observation.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) struct LayoutReport(

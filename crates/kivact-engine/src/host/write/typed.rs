@@ -164,11 +164,11 @@ macro_rules! props {
 props! {
     /// Replace the node's layout when its value differs.
     Layout: set_layout(v: LayoutProps)
-        => boxed(Some(v), |p| Some(&mut p.layout)),
+        => boxed((v != LayoutProps::default()).then_some(v), |p| Some(&mut p.layout)),
         mut = Mut::STYLE.and(Mut::RESTACK);
     /// Replace the node's paint when its value differs.
     Paint: set_paint(v: PaintProps)
-        => boxed(Some(v), |p| Some(&mut p.paint)),
+        => boxed((v != PaintProps::default()).then_some(v), |p| Some(&mut p.paint)),
         mut = Mut::PAINT;
     /// Replace the node's text style when its value differs.
     TextStyle: set_text_style(v: Option<TextStyle>)

@@ -314,28 +314,43 @@ fn state_styles(s: &Style, theme: &Theme) -> Option<StateStyles> {
         || states.enter.is_some()
         || states.exit.is_some())
     .then(|| StateStyles {
-        hover: states.hover.as_ref().map(|h| paint_delta(s, h, theme)),
-        pressed: states.pressed.as_ref().map(|h| paint_delta(s, h, theme)),
-        focus: states.focus.as_ref().map(|h| paint_delta(s, h, theme)),
+        hover: states
+            .hover
+            .as_ref()
+            .map(|h| Box::new(paint_delta(s, h, theme))),
+        pressed: states
+            .pressed
+            .as_ref()
+            .map(|h| Box::new(paint_delta(s, h, theme))),
+        focus: states
+            .focus
+            .as_ref()
+            .map(|h| Box::new(paint_delta(s, h, theme))),
         focus_visible: states.focus_visible.as_ref().map(|h| {
             // Over the focus state, as the host applies it.
             let focused = match &states.focus {
                 Some(focus) => s.clone().merge(focus),
                 None => s.clone(),
             };
-            paint_delta(&focused, h, theme)
+            Box::new(paint_delta(&focused, h, theme))
         }),
         group_hover: states
             .group_hover
             .as_ref()
-            .map(|h| paint_delta(s, h, theme)),
+            .map(|h| Box::new(paint_delta(s, h, theme))),
         group_focus: states
             .group_focus
             .as_ref()
-            .map(|h| paint_delta(s, h, theme)),
+            .map(|h| Box::new(paint_delta(s, h, theme))),
         group: states.group,
-        enter: states.enter.as_ref().map(|h| paint_delta(s, h, theme)),
-        exit: states.exit.as_ref().map(|h| paint_delta(s, h, theme)),
+        enter: states
+            .enter
+            .as_ref()
+            .map(|h| Box::new(paint_delta(s, h, theme))),
+        exit: states
+            .exit
+            .as_ref()
+            .map(|h| Box::new(paint_delta(s, h, theme))),
     })
 }
 

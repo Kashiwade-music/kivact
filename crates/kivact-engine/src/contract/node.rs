@@ -58,6 +58,11 @@ pub struct NodeProperties {
     pub layout_id: Option<std::sync::Arc<str>>,
 }
 
+const _: () = assert!(
+    std::mem::size_of::<NodeProperties>() <= 240,
+    "NodeProperties grew: box the new rare field"
+);
+
 /// The root node of a drawable: which drawable it is and how it is shown.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct DrawableRole {

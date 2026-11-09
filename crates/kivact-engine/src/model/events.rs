@@ -30,10 +30,16 @@ impl EventQueue {
     /// Take every queued event in order, with the commit boundaries among them: the
     /// number of events before each boundary and its revision.
     fn drain(&mut self) -> (Vec<HostEvent>, Vec<(usize, Revision)>) {
-        (
-            self.events.drain(..).collect(),
-            self.boundaries.drain(..).collect(),
-        )
+        let events: Vec<HostEvent> = self.events.drain(..).collect();
+        let boundaries = self.boundaries.drain(..).collect();
+        // M-R4: the drained queue keeps the mount burst's capacity; shrink it
+        // back to the size it just held, keeping room for a small burst (a
+        // burst of the same size does not shrink and grow again).
+        let keep = events.len().max(1024);
+        if self.events.capacity() > 4 * keep {
+            self.events.shrink_to(keep);
+        }
+        (events, boundaries)
     }
 
     fn applied(&self) -> Revision {
