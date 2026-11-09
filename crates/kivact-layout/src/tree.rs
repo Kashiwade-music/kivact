@@ -29,7 +29,8 @@
 //!   column), and its own chain is cleared only when that answers another
 //!   size, baseline or reach of its overflow than its cache held. A box that becomes or stops being absolute
 //!   clears the chain through itself (its parent's intrinsic sizes change).
-//! - Layouts are rounded to whole pixels (`taffy::round_layout`);
+//! - Layouts are rounded to whole pixels (`round_changed`: taffy's
+//!   `round_layout` only where something changed);
 //!   `NodeLayoutColumns::layout_at` reads a node's by its position, and only a
 //!   lookup by `NodeId` goes through the store's index.
 
@@ -44,7 +45,7 @@ use crate::{
 use kivact_types::{
     AvailableSpace, Baseline, Insets, MeasureRequest, NodeId, Orientation, Point, Rect, Size,
 };
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use taffy::{
     CacheTree, ClearState, CoreStyle, Display, Layout, LayoutFlexboxContainer, LayoutGridContainer,
     LayoutInput, LayoutOutput, LayoutPartialTree, LengthPercentageAuto, NodeId as TId,
@@ -68,6 +69,10 @@ struct LayoutPass<'a, Tree: LayoutTree + ?Sized> {
     final_layout: &'a mut [Option<Layout>],
     geometry_changed: &'a mut Vec<GeometryChange>,
     performed: &'a mut [Option<LayoutInput>],
+    touched: &'a mut [u32],
+    below: &'a mut [u32],
+    origin: &'a mut [(f32, f32)],
+    stamp: u32,
     measure: &'a mut dyn LeafMeasurer,
 }
 
@@ -139,6 +144,28 @@ impl<Tree: LayoutTree + ?Sized> LayoutPass<'_, Tree> {
         }
         out
     }
+
+    /// Round the subtrees whose unrounded layout or position changed in this
+    /// pass; the others keep their final layout (taffy's `round_layout`, but
+    /// only where something changed).
+    fn round_changed(&mut self, node: TId, cum: (f32, f32), stamp: u32) {
+        let i = usize::from(node);
+        let same_origin = self.origin[i] == cum;
+        if same_origin && self.below[i] != stamp {
+            return;
+        }
+        let unrounded = self.unrounded[i];
+        if !same_origin || self.touched[i] == stamp {
+            let layout = rounded(unrounded, cum);
+            self.set_final_layout(node, &layout);
+            self.origin[i] = cum;
+        }
+        let child_cum = (cum.0 + unrounded.location.x, cum.1 + unrounded.location.y);
+        for index in 0..self.child_count(node) {
+            let child = self.get_child_id(node, index);
+            self.round_changed(child, child_cum, stamp);
+        }
+    }
 }
 
 impl<Tree: LayoutTree + ?Sized> TraversePartialTree for LayoutPass<'_, Tree> {
@@ -181,6 +208,63 @@ fn same_from_outside(before: &LayoutOutput, after: &LayoutOutput) -> bool {
         ..*after
     } == *before
         && reach(before) == reach(after)
+}
+
+/// Record that column `index` got a new unrounded layout in pass `stamp`,
+/// and that every ancestor (up to the viewport, column 0) has such a node below it.
+fn touch(
+    tree: &(impl LayoutTree + ?Sized),
+    touched: &mut [u32],
+    below: &mut [u32],
+    stamp: u32,
+    index: usize,
+) {
+    touched[index] = stamp;
+    let mut at = Some(index);
+    while let Some(i) = at {
+        if below[i] == stamp {
+            break;
+        }
+        below[i] = stamp;
+        at = if i == 0 {
+            None
+        } else {
+            Some(tree.parent(i - 1).map_or(0, |p| p + 1))
+        };
+    }
+}
+
+/// The rounded copy of `unrounded`, whose parent's cumulative origin is `cum`
+/// (the `layout` part of taffy 0.14's `round_layout_inner`, and its
+/// `round_scrollable_overflow_rect`: the same arithmetic in the same order).
+fn rounded(unrounded: Layout, cum: (f32, f32)) -> Layout {
+    let mut layout = unrounded;
+    let x = cum.0 + unrounded.location.x;
+    let y = cum.1 + unrounded.location.y;
+    layout.location.x = unrounded.location.x.round();
+    layout.location.y = unrounded.location.y.round();
+    layout.size.width = (x + unrounded.size.width).round() - x.round();
+    layout.size.height = (y + unrounded.size.height).round() - y.round();
+    layout.scrollbar_size.width = unrounded.scrollbar_size.width.round();
+    layout.scrollbar_size.height = unrounded.scrollbar_size.height.round();
+    layout.border.left = (x + unrounded.border.left).round() - x.round();
+    layout.border.right = (x + unrounded.size.width).round()
+        - (x + unrounded.size.width - unrounded.border.right).round();
+    layout.border.top = (y + unrounded.border.top).round() - y.round();
+    layout.border.bottom = (y + unrounded.size.height).round()
+        - (y + unrounded.size.height - unrounded.border.bottom).round();
+    layout.padding.left = (x + unrounded.padding.left).round() - x.round();
+    layout.padding.right = (x + unrounded.size.width).round()
+        - (x + unrounded.size.width - unrounded.padding.right).round();
+    layout.padding.top = (y + unrounded.padding.top).round() - y.round();
+    layout.padding.bottom = (y + unrounded.size.height).round()
+        - (y + unrounded.size.height - unrounded.padding.bottom).round();
+    let overflow = unrounded.scrollable_overflow_rect;
+    layout.scrollable_overflow_rect.left = (x + overflow.left).round() - x.round();
+    layout.scrollable_overflow_rect.right = (x + overflow.right).round() - x.round();
+    layout.scrollable_overflow_rect.top = (y + overflow.top).round() - y.round();
+    layout.scrollable_overflow_rect.bottom = (y + overflow.bottom).round() - y.round();
+    layout
 }
 
 fn resolve_dimension(value: taffy::Dimension, basis: Option<f32>, calcs: &Calcs) -> Option<f32> {
@@ -275,7 +359,14 @@ impl<Tree: LayoutTree + ?Sized> LayoutPartialTree for LayoutPass<'_, Tree> {
 
     #[inline(always)]
     fn set_unrounded_layout(&mut self, t: TId, layout: &Layout) {
-        self.unrounded[usize::from(t)] = *layout;
+        let index = usize::from(t);
+        // Taffy sets every child again when it lays out the parent: mark only a
+        // new value, or a slot that was never rounded (its origin is NaN).
+        let changed = self.unrounded[index] != *layout || self.origin[index].0.is_nan();
+        self.unrounded[index] = *layout;
+        if changed {
+            touch(self.tree, self.touched, self.below, self.stamp, index);
+        }
     }
 
     #[inline(always)]
@@ -684,6 +775,13 @@ impl NodeLayoutColumns {
             });
             if same_from_outside(&before, &after) {
                 self.values.unrounded[at].scrollable_overflow_rect = after.scrollable_overflow_rect;
+                touch(
+                    tree,
+                    &mut self.values.touched,
+                    &mut self.values.below,
+                    self.stamp,
+                    at,
+                );
             } else {
                 self.clear_caches_up(tree, state, slot);
             }
@@ -701,6 +799,7 @@ impl NodeLayoutColumns {
             states,
             calcs,
             values,
+            stamp,
         } = self;
         let NodeLayoutValues {
             styles,
@@ -711,9 +810,14 @@ impl NodeLayoutColumns {
             final_layout,
             geometry_changed,
             performed,
+            touched,
+            below,
+            origin,
+            scaled,
         } = values;
         let mut pass_calcs = std::borrow::Cow::Borrowed(&*calcs);
-        let item_styles = scale_item_styles(tree, styles, presence_scale, calcs, &mut pass_calcs);
+        let item_styles =
+            scale_item_styles(tree, styles, presence_scale, scaled, calcs, &mut pass_calcs);
         let mut pass = LayoutPass {
             tree,
             traversal: Traversal {
@@ -733,6 +837,10 @@ impl NodeLayoutColumns {
             final_layout,
             geometry_changed,
             performed,
+            touched,
+            below,
+            origin,
+            stamp: *stamp,
             measure,
         };
         f(&mut pass)
@@ -751,6 +859,7 @@ impl NodeLayoutColumns {
         measure: &mut dyn LeafMeasurer,
     ) {
         self.values.geometry_changed.clear();
+        self.next_stamp();
         state.fixed_cursor.set(None);
         self.relayout_parents(tree, state, measure);
         if let Some(root) = tree.root() {
@@ -853,7 +962,8 @@ impl NodeLayoutColumns {
         };
         self.with_pass(tree, state, measure, |pass| {
             taffy::compute_root_layout(pass, root, space);
-            taffy::round_layout(pass, root);
+            let stamp = pass.stamp;
+            pass.round_changed(root, (0.0, 0.0), stamp);
         });
     }
 }
@@ -862,12 +972,13 @@ fn scale_item_styles<Tree: LayoutTree + ?Sized>(
     tree: &Tree,
     styles: &[NodeStyle],
     presence_scale: &[Option<(Orientation, f64)>],
+    scaled: &BTreeSet<usize>,
     calcs: &Calcs,
     pass_calcs: &mut std::borrow::Cow<'_, Calcs>,
 ) -> BTreeMap<usize, NodeStyle> {
     let mut item_styles = BTreeMap::new();
-    for (index, scale) in presence_scale.iter().enumerate() {
-        let Some((axis, scale)) = *scale else {
+    for &index in scaled {
+        let Some((axis, scale)) = presence_scale[index] else {
             continue;
         };
         if axis == Orientation::Unspecified {

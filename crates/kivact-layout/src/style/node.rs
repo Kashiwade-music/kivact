@@ -71,6 +71,11 @@ pub(crate) struct NodeStyle {
     pub(crate) grid: Option<Box<TStyle>>,
 }
 
+const _: () = assert!(
+    std::mem::size_of::<NodeStyle>() <= 264,
+    "NodeStyle grew: box the new rare field"
+);
+
 impl Default for NodeStyle {
     fn default() -> Self {
         let d = TStyle::DEFAULT;

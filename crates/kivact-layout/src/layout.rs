@@ -31,6 +31,11 @@ impl Layout {
             return;
         }
         *current = scale;
+        if scale.is_some() {
+            self.columns.values.scaled.insert(slot + 1);
+        } else {
+            self.columns.values.scaled.remove(&(slot + 1));
+        }
         // A changed scale changes the node's output and, through it, its
         // ancestors' cached outputs.
         self.columns
@@ -80,6 +85,7 @@ impl Layout {
         limit: Option<Size>,
         measure: &mut dyn LeafMeasurer,
     ) {
+        self.columns.next_stamp();
         self.columns
             .compute_overlay(tree, &self.state, id, available, limit, measure);
     }

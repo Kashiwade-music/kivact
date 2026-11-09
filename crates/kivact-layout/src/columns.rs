@@ -5,6 +5,7 @@ use crate::pass_state::Epoch;
 use crate::style::node::NodeStyle;
 use kivact_types::{Insets, LeafSize, MeasureRequest, Orientation, Point, Rect, Size};
 use std::cell::Cell;
+use std::collections::BTreeSet;
 
 /// The computed layout of one node.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
@@ -117,6 +118,18 @@ pub(crate) struct NodeLayoutValues {
     /// The inputs of the node's last full layout (taffy's `PerformLayout`),
     /// which lay a parent of an absolute box out again on its own (`tree`).
     pub(crate) performed: Vec<Option<taffy::LayoutInput>>,
+    /// The pass number of the last `set_unrounded_layout` that changed this
+    /// slot's value (taffy sets every child again when it lays out the parent).
+    pub(crate) touched: Vec<u32>,
+    /// The pass number of the last change to this slot or one of its
+    /// descendants (the path `round_changed` visits).
+    pub(crate) below: Vec<u32>,
+    /// The parent's cumulative origin when this slot was last rounded;
+    /// `(f32::NAN, f32::NAN)` until it is rounded (or after `reset`).
+    pub(crate) origin: Vec<(f32, f32)>,
+    /// The slots (`position + 1`) whose presence scale is set (LAY-2): the
+    /// sparse index `scale_item_styles` walks instead of every slot.
+    pub(crate) scaled: BTreeSet<usize>,
 }
 
 impl Default for NodeLayoutValues {
@@ -130,6 +143,10 @@ impl Default for NodeLayoutValues {
             final_layout: vec![None],
             geometry_changed: Vec::new(),
             performed: vec![None],
+            touched: vec![0],
+            below: vec![0],
+            origin: vec![(f32::NAN, f32::NAN)],
+            scaled: BTreeSet::new(),
         }
     }
 }
@@ -158,6 +175,9 @@ pub(crate) struct NodeLayoutColumns {
     pub(crate) states: Vec<NodeLayoutState>,
     pub(crate) calcs: Calcs,
     pub(crate) values: NodeLayoutValues,
+    /// The number of the current pass, marked into `touched` and `below`
+    /// (`0` never marks: the first pass advances it to `1`).
+    pub(crate) stamp: u32,
 }
 
 impl Default for NodeLayoutColumns {
@@ -167,7 +187,16 @@ impl Default for NodeLayoutColumns {
             states: vec![NodeLayoutState::default()],
             calcs: Calcs::default(),
             values: NodeLayoutValues::default(),
+            stamp: 0,
         }
+    }
+}
+
+impl NodeLayoutColumns {
+    /// Advance and return the pass number, never `0` (the unmarked value).
+    pub(crate) fn next_stamp(&mut self) -> u32 {
+        self.stamp = self.stamp.wrapping_add(1).max(1);
+        self.stamp
     }
 }
 
@@ -187,6 +216,9 @@ impl NodeLayoutColumns {
         values.unrounded.push(taffy::Layout::new());
         values.final_layout.push(None);
         values.performed.push(None);
+        values.touched.push(0);
+        values.below.push(0);
+        values.origin.push((f32::NAN, f32::NAN));
     }
 
     /// Release calcs and reset every derived component before a slot is reused.
@@ -208,6 +240,10 @@ impl NodeLayoutColumns {
         values.unrounded[index] = taffy::Layout::new();
         values.final_layout[index] = None;
         values.performed[index] = None;
+        values.touched[index] = 0;
+        values.below[index] = 0;
+        values.origin[index] = (f32::NAN, f32::NAN);
+        values.scaled.remove(&index);
     }
 }
 
