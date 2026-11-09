@@ -48,7 +48,9 @@ use kivact::view::node;
 use kivact::view::node_ref;
 use kivact::view::row;
 use kivact::view::text;
+use std::cell::Cell;
 use std::collections::HashMap;
+use std::rc::Rc;
 
 #[derive(Clone, Copy)]
 pub(super) struct Editor {
@@ -186,7 +188,10 @@ impl Editor {
                 [("label", label.get()), ("index", index.to_string())]
             },
         );
-        let editing = self.block_editing(id, block, kind.prose());
+        // The editing behavior runs in a pure frame, so it only records the
+        // command here; the key handler sends it to the machine.
+        let command = Rc::new(Cell::new(None));
+        let editing = self.block_editing(id, block, kind.prose(), command.clone());
         let style_kind = kind.clone();
         let field = node()
             .node_ref(reference)
@@ -201,6 +206,13 @@ impl Editor {
                         .send(BlockEvent::Selection(BlockSelection::Caret));
                 }
                 Handled::No
+            })
+            .on_key(move |_| {
+                let Some(command) = command.take() else {
+                    return Handled::No;
+                };
+                self.state.send(BlockEvent::Command { id, command });
+                Handled::Yes
             });
         self.decorate_block(id, block, kind, field)
     }
@@ -231,7 +243,14 @@ impl Editor {
         reference
     }
 
-    fn block_editing(self, id: usize, block: Value<Block>, prose: bool) -> TextEditing {
+    fn block_editing(
+        self,
+        id: usize,
+        block: Value<Block>,
+        prose: bool,
+        command: Rc<Cell<Option<Command>>>,
+    ) -> TextEditing {
+        let pending = command;
         TextEditing::new(move || block.with(|block| block.body.clone()))
             .multiline()
             .line_layout(|| EditLineLayout {
@@ -240,8 +259,9 @@ impl Editor {
             })
             .report_text()
             .behavior(move |state, request, context| {
-                if let Some(command) = key_command(state, &request, context, prose, self.whole()) {
-                    self.state.send(BlockEvent::Command { id, command });
+                let command = key_command(state, &request, context, prose, self.whole());
+                pending.set(command.clone());
+                if command.is_some() {
                     EditOutcome::NotEditing
                 } else {
                     text_edit_policy(state, request, context)
