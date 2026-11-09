@@ -13,7 +13,8 @@ use kivact_core::view::{
 };
 use kivact_interaction::{DialogMode, InteractionPolicy, PopupState};
 
-use crate::select::machine::{Outcome, Readiness, SheetGesture, gesture};
+use crate::select::machine as select_machine;
+use crate::select::machine::{Outcome, Readiness, SheetGesture};
 
 /// The surface the current opening shows.
 #[derive(Clone, Copy, PartialEq)]
@@ -88,7 +89,7 @@ impl MachineTrait for FieldMachine {
                 } else {
                     Readiness::Ready
                 };
-                match gesture(current, readiness, self.bounds, self.slop, event) {
+                match select_machine::gesture(current, readiness, self.bounds, self.slop, event) {
                     Some(next) => Step::to(FieldState::Closed { gesture: next }),
                     None => Step::stay(),
                 }
