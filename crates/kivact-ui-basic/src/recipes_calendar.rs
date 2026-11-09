@@ -1,7 +1,7 @@
 //! Role: Lyra calendar panels, day cells and range-band recipes.
 use crate::Tokens;
 use crate::theme_access::wide_focus_ring;
-use kivact::interaction::CalendarSpan;
+use kivact::interaction::{CalendarSpan, DaySelection};
 use kivact::style::{Align, Color, Direction, Justify, Position, Style, Theme, style};
 use kivact::ui::{CalendarRecipes, Look};
 const CELL: f64 = 28.0;
@@ -44,7 +44,7 @@ fn day(t: &Theme, s: &Look<kivact::ui::CalendarDayVisual>) -> Style {
     let p = t.ext::<Tokens>();
     let dark = p.is_dark();
     let disabled = state.disabled;
-    let (fill, color) = if state.edge {
+    let (fill, color) = if state.selection == DaySelection::Edge {
         (p.primary, p.primary_foreground)
     } else if state.span == CalendarSpan::Middle || (today && in_month) {
         (p.muted, p.foreground)
@@ -74,7 +74,7 @@ fn day(t: &Theme, s: &Look<kivact::ui::CalendarDayVisual>) -> Style {
         .background(fill)
         .color(color)
         .focus_visible(wide_focus_ring(&p));
-    if state.edge || disabled {
+    if state.selection == DaySelection::Edge || disabled {
         s
     } else {
         s.hover(style().background(hover))

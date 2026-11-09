@@ -101,11 +101,11 @@ pub(super) struct Frame<'a> {
     pub(super) config: &'a ChartConfig,
     pub(super) rows: &'a [ChartRow],
     pub(super) kind: ChartKind,
-    // xtask-allow(state-fields): passive record - horizontal
+    // xtask-allow(state-fields): independent: options read from the chart config; every combination is valid
     pub(super) horizontal: bool,
-    // xtask-allow(state-fields): passive record - grid
+    // xtask-allow(state-fields): independent: options read from the chart config; every combination is valid
     pub(super) grid: bool,
-    // xtask-allow(state-fields): passive record - axis
+    // xtask-allow(state-fields): independent: options read from the chart config; every combination is valid
     pub(super) axis: bool,
     /// The caption under the total in the middle of a donut.
     pub(super) total_label: &'a str,

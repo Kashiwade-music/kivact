@@ -22,9 +22,9 @@ fn icon_only(cx: Option<SidebarCx>) -> impl Fn() -> bool + Copy + 'static {
 pub struct SidebarGroup {
     root: Node,
     label: Value<String>,
-    // xtask-allow(state-fields): builder option - action
+    // xtask-allow(state-fields): option: absent means the component's default
     action: Option<kivact::view::View>,
-    // xtask-allow(state-fields): builder option - content
+    // xtask-allow(state-fields): option: absent means the component's default
     content: Option<kivact::view::View>,
 }
 
@@ -165,27 +165,27 @@ impl SidebarMenuButtonSize {
 pub struct SidebarMenuButton {
     root: Node,
     label: Value<String>,
-    // xtask-allow(state-fields): builder option - icon
+    // xtask-allow(state-fields): option: absent means the component's default
     icon: Option<View>,
     active: Value<bool>,
-    // xtask-allow(state-fields): builder option - badge
+    // xtask-allow(state-fields): option: absent means the component's default
     badge: Option<Value<String>>,
-    // xtask-allow(state-fields): builder option - action
+    // xtask-allow(state-fields): option: absent means the component's default
     action: Option<kivact::view::View>,
     size: kivact::state::Value<SidebarMenuButtonSize>,
     on_press: Option<Callback<()>>,
-    // xtask-allow(state-fields): builder option - sub
+    // xtask-allow(state-fields): option: absent means the component's default
     sub: Option<kivact::view::View>,
 }
 
 /// What the root style of a [`SidebarMenuButton`] reads.
 #[derive(Clone, Copy)]
 struct ButtonCfg {
-    // xtask-allow(state-fields): passive record - cx
+    // xtask-allow(state-fields): option: absent means the part is outside a provider
     cx: Option<SidebarCx>,
     active: Value<bool>,
     size: kivact::state::Value<SidebarMenuButtonSize>,
-    // xtask-allow(state-fields): passive record - has action
+    // xtask-allow(state-fields): projection: written only by SidebarMenuButton::build from whether it has an action view
     has_action: bool,
 }
 

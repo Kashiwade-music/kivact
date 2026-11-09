@@ -1,5 +1,4 @@
 //! Role: Catalog page of Dropdown Menu: items, checkboxes, radio group and submenu.
-use kivact::ui::ButtonVariant;
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;
@@ -11,7 +10,7 @@ pub(crate) fn page() -> Page {
         slug: "dropdown-menu",
         name: "Dropdown Menu",
         description: "ボタンから開く、操作の一覧メニューです。標準の kivact::ui::menu を Lyra の見た目で描きます。矢印キー、Home、End、先頭の文字の入力で項目を移動し、Enter か Space で選びます。見出しと区切りには移動しません。",
-        usage: "use kivact::prelude::*;\nuse kivact::ui::ButtonVariant;\nuse kivact::view::{OverlayAlign, Placement};",
+        usage: "use kivact::prelude::*;\nuse kivact::view::{OverlayAlign, Placement};",
         source: include_str!("dropdown_menu.rs"),
         align: PreviewAlign::Center,
         examples: vec![
@@ -73,7 +72,9 @@ fn basic() -> impl IntoView {
 
 // example: checkboxes
 fn checkboxes() -> impl IntoView {
+    // xtask-allow(state-fields): independent: each checkbox of the demo is toggled separately
     let status = signal(true);
+    // xtask-allow(state-fields): independent: each checkbox of the demo is toggled separately
     let activity = signal(false);
     let entries = move || {
         vec![

@@ -7,14 +7,15 @@ use crate::state::Session;
 
 /// The tasks, resources, actions and timers.
 pub(crate) fn view(session: Session) -> impl IntoView {
-    let data = signal(None::<p::TaskList>);
-    on_mount(move || refresh(session, data));
-
-    let rows = memo(move || data.get().map(|list| list.tasks).unwrap_or_default());
+    let data = session.read::<p::ListTasks>();
+    let rows = memo(move || data.latest().map(|list| list.tasks).unwrap_or_default());
     column((
-        text(move || match data.get() {
-            Some(list) => format!("Outstanding blocking: {}", list.outstanding_blocking),
-            None => "Outstanding blocking: loading...".to_owned(),
+        text(move || match data.state() {
+            AsyncState::Idle | AsyncState::Pending => "Outstanding blocking: loading...".to_owned(),
+            AsyncState::Failed(error) => format!("Outstanding blocking: {}", error.message()),
+            AsyncState::Ready(list) => {
+                format!("Outstanding blocking: {}", list.outstanding_blocking)
+            }
         }),
         data_table(
             rows,
@@ -37,11 +38,6 @@ pub(crate) fn view(session: Session) -> impl IntoView {
         .style(style().grow(1.0).min_height(0.0)),
     ))
     .style(style().grow(1.0).min_height(0.0))
-}
-
-/// Read the tasks, resources, actions and timers.
-fn refresh(session: Session, data: Signal<Option<p::TaskList>>) {
-    session.send::<p::ListTasks>(p::Empty {}, move |list| data.set(Some(list)));
 }
 
 /// The wire name of a task kind.

@@ -1,6 +1,7 @@
 //! Role: The Accessibility panel.
 
 use std::collections::HashMap;
+use std::rc::Rc;
 
 use kivact::interaction::{ListOptions, TableFocus, TreeNode};
 use kivact::prelude::*;
@@ -9,31 +10,31 @@ use kivact_devtools_protocol as p;
 use crate::state::Session;
 use crate::widgets::virtual_tree::virtual_tree;
 
+/// The accessibility data of one window, loaded together.
+#[derive(Clone, Debug, PartialEq)]
+struct A11yData {
+    tree: p::A11yTree,
+    audit: p::AuditReport,
+    focus: p::FocusInfo,
+    tab_order: p::TabOrder,
+}
+
 /// The accessibility tree, its audits, the Tab order toggle and focus history.
 pub(crate) fn view(session: Session) -> impl IntoView {
-    let tree = signal(None::<p::A11yTree>);
-    let audit = signal(None::<p::AuditReport>);
-    let focus = signal(None::<p::FocusInfo>);
-    let tab_order = signal(None::<p::TabOrder>);
     let expanded = signal(Vec::<p::NodeId>::new());
     let tree_selected = signal(None::<p::NodeId>);
     let audit_selected = signal(Vec::<usize>::new());
-
-    let window = memo(move || session.window());
-    effect(move || {
-        let window = window.get();
-        load(session, window, tree, audit, focus, tab_order, expanded);
-    });
+    let data = resource(
+        move || session.window(),
+        move |window| load(session, window, expanded),
+    );
     effect_on(audit_selected, move |keys| {
         let Some(index) = keys.first().copied() else {
             return;
         };
-        let node = audit.with(|report| {
-            report
-                .as_ref()
-                .and_then(|report| report.findings.get(index))
-                .map(|finding| finding.node)
-        });
+        let node = data
+            .latest()
+            .and_then(|data| data.audit.findings.get(index).map(|finding| finding.node));
         if let Some(node) = node {
             session.highlight(Some(node), false);
         }
@@ -41,61 +42,79 @@ pub(crate) fn view(session: Session) -> impl IntoView {
 
     scroll(
         column((
-            row((
-                spacer(),
-                button("Refresh").on_press(move || {
-                    let window = session.window();
-                    load(session, window, tree, audit, focus, tab_order, expanded);
-                }),
-            ))
-            .style(style().align_items(Align::Center)),
-            tree_section(session, tree, tab_order, expanded, tree_selected),
-            audit_section(audit, audit_selected),
-            focus_section(focus),
+            row((spacer(), button("Refresh").on_press(move || data.refetch())))
+                .style(style().align_items(Align::Center)),
+            dynamic(
+                move || data.state(),
+                move |state| match state {
+                    AsyncState::Idle | AsyncState::Pending => {
+                        text("The accessibility data is loading...").into_view()
+                    }
+                    AsyncState::Failed(error) => text(error.message().to_owned()).into_view(),
+                    AsyncState::Ready(data) => {
+                        body(session, data, expanded, tree_selected, audit_selected).into_view()
+                    }
+                },
+            ),
         ))
         .style(style().gap(8)),
     )
     .style(style().grow(1.0).min_height(0.0))
 }
 
+/// The tree, audit and focus sections of one load.
+fn body(
+    session: Session,
+    data: A11yData,
+    expanded: Signal<Vec<p::NodeId>>,
+    tree_selected: Signal<Option<p::NodeId>>,
+    audit_selected: Signal<Vec<usize>>,
+) -> impl IntoView {
+    let A11yData {
+        tree,
+        audit,
+        focus,
+        tab_order,
+    } = data;
+    column((
+        tree_section(session, tree, tab_order, expanded, tree_selected),
+        audit_section(audit, audit_selected),
+        focus_section(focus),
+    ))
+    .style(style().gap(8))
+}
+
 /// The virtualized accessibility tree and the Tab order toggle.
 fn tree_section(
     session: Session,
-    tree: Signal<Option<p::A11yTree>>,
-    tab_order: Signal<Option<p::TabOrder>>,
+    tree: p::A11yTree,
+    tab_order: p::TabOrder,
     expanded: Signal<Vec<p::NodeId>>,
     selected: Signal<Option<p::NodeId>>,
 ) -> impl IntoView {
-    let labels = memo(move || tree.with(|tree| tree.as_ref().map(label_map).unwrap_or_default()));
-    let nodes = memo(move || {
-        tree.with(|tree| match tree {
-            Some(tree) => labels.with(|labels| {
-                tree.nodes
-                    .iter()
-                    .map(|node| {
-                        let label = labels.get(&node.node).cloned().unwrap_or_default();
-                        TreeNode::new(node.node, node.parent, label)
-                    })
-                    .collect()
-            }),
-            None => Vec::new(),
+    let labels = Rc::new(label_map(&tree));
+    let nodes = tree
+        .nodes
+        .iter()
+        .map(|node| {
+            let label = labels.get(&node.node).cloned().unwrap_or_default();
+            TreeNode::new(node.node, node.parent, label)
         })
-    });
+        .collect::<Vec<_>>();
     let row_labels = labels;
     let tree_view = virtual_tree(
         "Accessibility tree",
-        nodes,
+        nodes.into_value(),
         expanded,
         binding(move || selected.get(), move |node| selected.set(node)),
         move |node| {
             let node = *node;
+            let labels = row_labels.clone();
             text(move || {
-                row_labels.with(|labels| {
-                    labels
-                        .get(&node)
-                        .cloned()
-                        .unwrap_or_else(|| node.to_string())
-                })
+                labels
+                    .get(&node)
+                    .cloned()
+                    .unwrap_or_else(|| node.to_string())
             })
             .into_view()
         },
@@ -113,10 +132,7 @@ fn tree_section(
     column((
         text("Accessibility tree"),
         switch("Tab order numbers", tab_binding).disabled(move || !session.overlays_ready()),
-        show_some(tab_order, |order| {
-            text(move || format!("Tab order: {} nodes", order.get().nodes.len()))
-        })
-        .fallback(|| text("Tab order is loading...")),
+        text(format!("Tab order: {} nodes", tab_order.nodes.len())),
         node()
             .style(style().height(220.0).min_height(0.0))
             .child(tree_view),
@@ -124,68 +140,45 @@ fn tree_section(
 }
 
 /// The audit findings table.
-fn audit_section(
-    audit: Signal<Option<p::AuditReport>>,
-    selected: Signal<Vec<usize>>,
-) -> impl IntoView {
-    column((
-        text("Audits"),
-        show_some(audit, move |report| audit_table(report, selected))
-            .fallback(|| text("The audit is loading...")),
-    ))
+fn audit_section(audit: p::AuditReport, selected: Signal<Vec<usize>>) -> impl IntoView {
+    column((text("Audits"), audit_table(audit, selected)))
 }
 
 /// The focus of the window and its history.
-fn focus_section(focus: Signal<Option<p::FocusInfo>>) -> impl IntoView {
-    column((
-        text("Focus history"),
-        show_some(focus, focus_view).fallback(|| text("The focus history is loading...")),
-    ))
+fn focus_section(focus: p::FocusInfo) -> impl IntoView {
+    column((text("Focus history"), focus_view(focus)))
 }
 
 /// Load the accessibility tree, audit, focus and Tab order of the window.
-fn load(
+async fn load(
     session: Session,
     window: p::WindowId,
-    tree: Signal<Option<p::A11yTree>>,
-    audit: Signal<Option<p::AuditReport>>,
-    focus: Signal<Option<p::FocusInfo>>,
-    tab_order: Signal<Option<p::TabOrder>>,
     expanded: Signal<Vec<p::NodeId>>,
-) {
+) -> Result<A11yData, UiError> {
+    let source = session.source();
     let params = p::WindowParams { window };
-    session.send::<p::GetA11yTree>(params.clone(), move |result| {
-        expanded.set(
-            result
-                .nodes
-                .iter()
-                .filter(|node| !node.children.is_empty())
-                .map(|node| node.node)
-                .collect(),
-        );
-        tree.set(Some(result));
-    });
-    session.send::<p::AuditA11y>(params.clone(), move |result| {
-        audit.set(Some(result));
-    });
-    session.send::<p::GetFocus>(params.clone(), move |result| {
-        focus.set(Some(result));
-    });
-    session.send::<p::GetTabOrder>(params, move |result| {
-        tab_order.set(Some(result));
-    });
+    let tree = source.call::<p::GetA11yTree>(params.clone()).await?;
+    expanded.set(
+        tree.nodes
+            .iter()
+            .filter(|node| !node.children.is_empty())
+            .map(|node| node.node)
+            .collect(),
+    );
+    let audit = source.call::<p::AuditA11y>(params.clone()).await?;
+    let focus = source.call::<p::GetFocus>(params.clone()).await?;
+    let tab_order = source.call::<p::GetTabOrder>(params).await?;
+    Ok(A11yData {
+        tree,
+        audit,
+        focus,
+        tab_order,
+    })
 }
 
 /// The table of the audit findings; choosing a row highlights its node.
-fn audit_table(report: Value<p::AuditReport>, selected: Signal<Vec<usize>>) -> impl IntoView {
-    let rows = memo(move || {
-        report
-            .get()
-            .findings
-            .into_iter()
-            .enumerate()
-            .collect::<Vec<_>>()
-    });
+fn audit_table(report: p::AuditReport, selected: Signal<Vec<usize>>) -> impl IntoView {
+    let rows = report.findings.into_iter().enumerate().collect::<Vec<_>>();
     data_table(
         rows,
         |(index, _): &(usize, p::AuditFinding)| *index,
@@ -211,20 +204,14 @@ fn audit_table(report: Value<p::AuditReport>, selected: Signal<Vec<usize>>) -> i
 }
 
 /// The focused node and the moves that led to it.
-fn focus_view(info: Value<p::FocusInfo>) -> impl IntoView {
-    let rows = memo(move || {
-        info.get()
-            .history
-            .into_iter()
-            .enumerate()
-            .collect::<Vec<_>>()
-    });
+fn focus_view(info: p::FocusInfo) -> impl IntoView {
+    let rows = info.history.into_iter().enumerate().collect::<Vec<_>>();
     column((
-        text(move || match info.get().node {
+        text(match info.node {
             Some(node) => format!("Focused node: {node}"),
             None => "Focused node: none".to_owned(),
         }),
-        text(move || format!("Window focused: {}", info.get().visible)),
+        text(format!("Window focused: {}", info.visible)),
         data_table(
             rows,
             |(index, _): &(usize, p::FocusMove)| *index,

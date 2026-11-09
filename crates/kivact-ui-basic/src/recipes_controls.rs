@@ -82,7 +82,7 @@ fn radio_indicator(t: &Theme, s: &kivact::ui::Look<CheckableState>) -> Style {
         } else {
             Color::TRANSPARENT
         });
-    if s.input.focus_visible {
+    if s.input.is_focus_visible() {
         base.merge(&wide_focus_ring(&p))
     } else {
         base
@@ -333,7 +333,7 @@ fn splitter_handle(t: &Theme, s: &kivact::ui::Look<AxisState>) -> Style {
     let p = t.ext::<Tokens>();
     // Panes in a row are split by a vertical line.
     let stacked = s.orientation == Orientation::Vertical;
-    let line = if s.input.focus_visible {
+    let line = if s.input.is_focus_visible() {
         p.ring
     } else {
         p.border

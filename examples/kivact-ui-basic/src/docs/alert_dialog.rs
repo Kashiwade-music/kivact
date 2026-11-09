@@ -1,5 +1,4 @@
 //! Role: Catalog page of Alert Dialog: confirmation, destructive, media and small sizes.
-use kivact::ui::ButtonVariant;
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;
@@ -10,7 +9,7 @@ pub(crate) fn page() -> Page {
         slug: "alert-dialog",
         name: "Alert Dialog",
         description: "ユーザーに確認や回答を求めるモーダルです。標準の kivact::ui::dialog を DialogMode::AlertModal にすると、このテーマでは alert-dialog.tsx の見た目で描きます。Escape とボタンで閉じ、外側の押下では閉じません。フォーカスはフッターの最初のボタンから始まり、閉じると開いた要素へ戻ります。",
-        usage: "use kivact::prelude::*;\nuse kivact::ui::ButtonVariant;\nuse kivact::interaction::DialogMode;\nuse kivact_ui_basic as basic;",
+        usage: "use kivact::prelude::*;\nuse kivact::interaction::DialogMode;\nuse kivact_ui_basic as basic;",
         source: include_str!("alert_dialog.rs"),
         align: PreviewAlign::Center,
         examples: vec![
@@ -75,7 +74,9 @@ fn default() -> impl IntoView {
 
 // example: destructive
 fn destructive() -> impl IntoView {
+    // xtask-allow(state-fields): independent: the dialog can be opened again after the deletion; every open and closed state is valid
     let open = signal(false);
+    // xtask-allow(state-fields): independent: a one-way record of the deletion, kept after the dialog closes
     let deleted = signal(false);
     column((
         button("Delete Chat")

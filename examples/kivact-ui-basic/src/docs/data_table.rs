@@ -1,5 +1,5 @@
 //! Role: Catalog page of Data Table: `kivact::ui::data_table` in the Lyra theme.
-use kivact::ui::ButtonVariant;
+use kivact::ui::Paging;
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;
@@ -10,7 +10,7 @@ pub(crate) fn page() -> Page {
         slug: "data-table",
         name: "Data Table",
         description: "標準の kivact::ui::data_table を Lyra の theme で描いた表です。行は任意の型で、key で識別します。絞り込み・選択・並べ替え・ページは、それぞれの状態をアプリの signal で渡したときだけ付きます。Columns メニューのような部品は toolbar の slot で作ります。",
-        usage: "use kivact::prelude::*;\nuse kivact::ui::ButtonVariant;\nuse kivact_ui_basic as basic;",
+        usage: "use kivact::prelude::*;\nuse kivact::ui::Paging;\nuse kivact_ui_basic as basic;",
         source: include_str!("data_table.rs"),
         align: PreviewAlign::Start,
         examples: vec![
@@ -61,7 +61,9 @@ fn payments() -> impl IntoView {
     let data = payment_rows();
     let query = signal(String::new());
     let selected = signal(Vec::<u32>::new());
+    // xtask-allow(state-fields): independent: the demo sorts by any column in either direction
     let sort = signal(None);
+    // xtask-allow(state-fields): independent: any page of the demo's rows is valid
     let page = signal(0_usize);
     let visible = signal(vec![true; 3]);
     let copied = signal(String::new());
@@ -86,7 +88,11 @@ fn payments() -> impl IntoView {
         .page(page, 5)
         .toolbar(move |context| {
             let query = context.filter.expect("the table has a filter");
-            let first_page = context.page.map(|(page, _)| page);
+            let first_page = match context.paging {
+                Paging::Local { page, .. } => Some(page),
+                Paging::Remote { page, .. } => Some(page),
+                Paging::Off => None,
+            };
             let filter = text_input(
                 "Filter emails...",
                 binding(query, move |text: String| {

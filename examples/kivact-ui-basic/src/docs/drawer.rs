@@ -1,5 +1,4 @@
 //! Role: Catalog page of Drawer: a modal panel that is swiped away with its handle.
-use kivact::ui::ButtonVariant;
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;
@@ -11,7 +10,7 @@ pub(crate) fn page() -> Page {
         slug: "drawer",
         name: "Drawer",
         description: "端に付くモーダルのパネルで、取っ手をつかんで端へスワイプして閉じます。パネルの高さ（横向きなら幅）の 30 % を越えるか、素早くはじくと閉じ、それ以外は元の位置へ戻ります。",
-        usage: "use kivact::geometry::Edge;\nuse kivact::prelude::*;\nuse kivact::ui::ButtonVariant;\nuse kivact::ui::ControlSize;\nuse kivact_ui_basic as basic;",
+        usage: "use kivact::geometry::Edge;\nuse kivact::prelude::*;\nuse kivact::ui::ControlSize;\nuse kivact_ui_basic as basic;",
         source: include_str!("drawer.rs"),
         align: PreviewAlign::Center,
         examples: vec![
@@ -33,7 +32,9 @@ pub(crate) fn page() -> Page {
 
 // example: default
 fn default() -> impl IntoView {
+    // xtask-allow(state-fields): independent: the drawer can be opened and closed freely
     let open = signal(false);
+    // xtask-allow(state-fields): independent: any daily goal is valid
     let goal = signal(350);
     column((
         button("Open Drawer")

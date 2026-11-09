@@ -18,6 +18,7 @@ pub(crate) fn virtual_tree<K: ItemKey>(
     selected: Binding<Option<K>>,
     row: impl Fn(&K) -> View + 'static,
 ) -> impl IntoView {
+    // xtask-allow(state-fields): independent: one pending scroll request
     let scroll_to = signal(None::<(K, bool)>);
     let tree = use_tree(nodes, expanded, selected).page_size(PAGE_ROWS);
     let rows = tree.rows();

@@ -9,7 +9,7 @@ use kivact::i18n::message;
 use kivact::view::{Element, Node, column, node, row, scroll};
 
 use kivact::state::Value;
-use kivact::state::{IntoValue, callback};
+use kivact::state::{IntoBinding, IntoValue, callback};
 use kivact::style::{Align, Color, Cursor, Direction, Position, pct, style};
 use kivact::view::{Handled, IntoView, Key, Role, show};
 
@@ -22,11 +22,11 @@ pub struct Sidebar {
     pub(super) side: SidebarSide,
     pub(super) variant: SidebarVariant,
     pub(super) collapsible: SidebarCollapsible,
-    // xtask-allow(state-fields): builder option - header
+    // xtask-allow(state-fields): option: absent means the component's default
     header: Option<kivact::view::View>,
-    // xtask-allow(state-fields): builder option - content
+    // xtask-allow(state-fields): option: absent means the component's default
     content: Option<kivact::view::View>,
-    // xtask-allow(state-fields): builder option - footer
+    // xtask-allow(state-fields): option: absent means the component's default
     footer: Option<kivact::view::View>,
     rail: Value<bool>,
 }
@@ -98,6 +98,20 @@ impl Element for Sidebar {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
+    }
+}
+
+impl IntoView for Sidebar {
+    /// A sidebar without a provider: the panel, expanded (the parts behave
+    /// as an expanded sidebar outside a provider, `state.rs`).
+    fn into_view(self) -> kivact::view::View {
+        let cx = SidebarCx {
+            open: kivact::state::signal(true).into_binding(),
+            side: self.side,
+            variant: self.variant,
+            collapsible: self.collapsible,
+        };
+        self.build(cx).into_view()
     }
 }
 

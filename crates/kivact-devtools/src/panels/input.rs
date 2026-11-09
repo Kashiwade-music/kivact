@@ -5,24 +5,29 @@ use kivact_devtools_protocol as p;
 
 use crate::state::Session;
 
+/// The recorded input events and the IME state of one load.
+#[derive(Clone, Debug, PartialEq)]
+struct InputData {
+    log: p::InputLog,
+    ime: p::ImeState,
+}
+
 /// The recorded input events and the IME state.
 pub(crate) fn view(session: Session) -> impl IntoView {
-    let log = signal(None::<p::InputLog>);
-    let ime = signal(None::<p::ImeState>);
-    let window = memo(move || session.window());
-    effect(move || {
-        let window = window.get();
-        load(session, window, log, ime);
+    let data = resource(
+        move || session.window(),
+        move |window| load(session, window),
+    );
+    let entries = memo(move || {
+        data.latest()
+            .map(|data| data.log.entries)
+            .unwrap_or_default()
     });
-
-    let entries = memo(move || log.get().map(|log| log.entries).unwrap_or_default());
     column((
         row((
             text("Input log"),
             spacer(),
-            button("Refresh").on_press(move || {
-                load(session, session.window(), log, ime);
-            }),
+            button("Refresh").on_press(move || data.refetch()),
         ))
         .style(style().align_items(Align::Center)),
         header(),
@@ -30,28 +35,33 @@ pub(crate) fn view(session: Session) -> impl IntoView {
             .row_height(RowHeight::Fixed(22.0))
             .style(style().grow(1.0).min_height(0.0)),
         text("IME state"),
-        show_some(ime, ime_view).fallback(|| text("The IME state is loading...")),
+        dynamic(
+            move || data.state(),
+            move |state| match state {
+                AsyncState::Idle | AsyncState::Pending => {
+                    text("The IME state is loading...").into_view()
+                }
+                AsyncState::Failed(error) => text(error.message().to_owned()).into_view(),
+                AsyncState::Ready(data) => ime_view(data.ime).into_view(),
+            },
+        ),
     ))
     .style(style().grow(1.0).min_height(0.0))
 }
 
 /// Load the input log and the IME state of the inspected window.
-fn load(
-    session: Session,
-    window: p::WindowId,
-    log: Signal<Option<p::InputLog>>,
-    ime: Signal<Option<p::ImeState>>,
-) {
-    session.send::<p::ListInputs>(
-        p::ListInputsParams {
+async fn load(session: Session, window: p::WindowId) -> Result<InputData, UiError> {
+    let source = session.source();
+    let log = source
+        .call::<p::ListInputs>(p::ListInputsParams {
             since: None,
             limit: Some(500),
-        },
-        move |result| log.set(Some(result)),
-    );
-    session.send::<p::GetImeState>(p::WindowParams { window }, move |result| {
-        ime.set(Some(result));
-    });
+        })
+        .await?;
+    let ime = source
+        .call::<p::GetImeState>(p::WindowParams { window })
+        .await?;
+    Ok(InputData { log, ime })
 }
 
 /// The column titles of the log.
@@ -79,27 +89,20 @@ fn input_row(entry: Value<p::InputLogEntry>) -> impl IntoView {
 }
 
 /// The IME state of the window.
-fn ime_view(state: Value<p::ImeState>) -> impl IntoView {
+fn ime_view(state: p::ImeState) -> impl IntoView {
     column((
-        text(move || format!("Purpose: {}", state.get().purpose)),
-        text(move || format!("Composing: {}", state.get().composing)),
-        text(move || format!("Target node: {}", node_text(state.get().node))),
-        show_some(
-            move || state.get().preedit,
-            |preedit| text(move || format!("Preedit: {}", preedit.get())),
-        ),
-        show_some(
-            move || state.get().cursor_area,
-            |area| {
-                text(move || {
-                    let area = area.get();
-                    format!(
-                        "Cursor: {:.1} x {:.1} at {:.1}, {:.1}",
-                        area.width, area.height, area.x, area.y
-                    )
-                })
-            },
-        ),
+        text(format!("Purpose: {}", state.purpose)),
+        text(format!("Composing: {}", state.composing)),
+        text(format!("Target node: {}", node_text(state.node))),
+        state
+            .preedit
+            .map(|preedit| text(format!("Preedit: {preedit}"))),
+        state.cursor_area.map(|area| {
+            text(format!(
+                "Cursor: {:.1} x {:.1} at {:.1}, {:.1}",
+                area.width, area.height, area.x, area.y
+            ))
+        }),
     ))
 }
 

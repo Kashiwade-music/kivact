@@ -281,7 +281,7 @@ fn toggle_edge(
     if invalid {
         let (border, ring) = invalid_edge(p);
         (border, Some(ring))
-    } else if input.focus_visible {
+    } else if input.is_focus_visible() {
         (p.ring, Some(p.ring.with_alpha(0.5)))
     } else {
         (rest, None)
@@ -300,7 +300,7 @@ fn draw_checkbox(p: &Tokens, state: &CheckableState, d: &mut Draw, size: Size) {
     d.fill_rect(rect, if on { p.primary } else { field_fill(p) });
     let (border, halo) = toggle_edge(p, &state.input, state.invalid, p.input);
     // `aria-invalid:aria-checked:border-primary`.
-    let border = if on && !state.input.focus_visible {
+    let border = if on && !state.input.is_focus_visible() {
         p.primary
     } else {
         border

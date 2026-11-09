@@ -1,5 +1,4 @@
 //! Role: Catalog page of Command: the standard command palette in a dialog.
-use kivact::ui::ButtonVariant;
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::interaction::Command;
@@ -12,8 +11,7 @@ pub(crate) fn page() -> Page {
         slug: "command",
         name: "Command",
         description: "検索しながらコマンドや項目を選ぶメニューです。標準の command_palette をモーダルのダイアログに表示します。入力で項目を絞り込み、矢印キーで移動し、Enter かクリックで選びます。グループ、アイコン、ショートカットを持てます。",
-        usage: "use kivact::prelude::*;\nuse kivact::ui::ButtonVariant;
-use kivact_ui_basic as basic;",
+        usage: "use kivact::prelude::*;\nuse kivact_ui_basic as basic;",
         source: include_str!("command.rs"),
         align: PreviewAlign::Start,
         examples: vec![

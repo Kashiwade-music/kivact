@@ -1,10 +1,8 @@
 //! Role: The Scripts panel.
 
-use std::cell::RefCell;
 use std::io::BufRead;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Stdio};
-use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -26,19 +24,39 @@ enum Stream {
 }
 
 /// Whether a script runs.
-#[derive(Clone, PartialEq)]
+#[derive(Clone)]
 enum ScriptRun {
     /// No script runs.
     Idle,
-    /// The named script runs.
+    /// The named script runs, as `child` (so that the panel can kill it).
     Running {
         /// The file name of the script.
         script: String,
+        /// The child process of the run.
+        child: Arc<Mutex<Child>>,
     },
 }
 
-/// The run of the selected script: its state, its output and the child process to kill when the
-/// panel goes away.
+impl PartialEq for ScriptRun {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (ScriptRun::Idle, ScriptRun::Idle) => true,
+            (
+                ScriptRun::Running {
+                    script: a,
+                    child: child_a,
+                },
+                ScriptRun::Running {
+                    script: b,
+                    child: child_b,
+                },
+            ) => a == b && Arc::ptr_eq(child_a, child_b),
+            _ => false,
+        }
+    }
+}
+
+/// The run of the selected script: its state and its output.
 #[derive(Clone)]
 struct Runner {
     /// Whether a script runs.
@@ -47,8 +65,6 @@ struct Runner {
     stdout: Signal<Vec<String>>,
     /// The standard error lines, oldest first.
     stderr: Signal<Vec<String>>,
-    /// The child process of the run, while it runs.
-    child: Rc<RefCell<Option<Arc<Mutex<Child>>>>>,
 }
 
 /// What the scripts read from the session, as plain data so that the disk is read off the UI thread.
@@ -82,7 +98,6 @@ pub(crate) fn view(session: Session) -> impl IntoView {
         state: signal(ScriptRun::Idle),
         stdout: signal(Vec::new()),
         stderr: signal(Vec::new()),
-        child: Rc::new(RefCell::new(None)),
     };
     on_mount(move || load(Probe::of(session), scripts, interpreter));
     let cleanup = runner.clone();
@@ -115,14 +130,14 @@ pub(crate) fn view(session: Session) -> impl IntoView {
                 move || scripts.with(Vec::is_empty),
                 || text("No .py scripts."),
             ),
-            list("Scripts", items).selection(selected),
+            list("Scripts", items, selected),
             row((
                 text("Interpreter"),
                 text(move || interpreter.get()),
                 text(move || {
                     state.with(|state| match state {
                         ScriptRun::Idle => String::new(),
-                        ScriptRun::Running { script } => format!("Running {script}"),
+                        ScriptRun::Running { script, .. } => format!("Running {script}"),
                     })
                 }),
                 button("Run")
@@ -166,7 +181,6 @@ fn run_script(session: Session, runner: Runner, path: PathBuf, interpreter: Stri
         .file_name()
         .map(|name| name.to_string_lossy().into_owned())
         .unwrap_or_default();
-    runner.state.set(ScriptRun::Running { script });
     let mut command = std::process::Command::new(&interpreter);
     command
         .arg(&path)
@@ -180,7 +194,6 @@ fn run_script(session: Session, runner: Runner, path: PathBuf, interpreter: Stri
         let mut child = match blocking(move || command.spawn()).await {
             Ok(child) => child,
             Err(error) => {
-                runner.state.set(ScriptRun::Idle);
                 session.report(format!("run: {error}"));
                 return;
             }
@@ -192,7 +205,10 @@ fn run_script(session: Session, runner: Runner, path: PathBuf, interpreter: Stri
         std::thread::spawn(move || read_lines(out, Stream::Out, out_sender));
         std::thread::spawn(move || read_lines(err, Stream::Err, sender));
         let child = Arc::new(Mutex::new(child));
-        *runner.child.borrow_mut() = Some(child.clone());
+        runner.state.set(ScriptRun::Running {
+            script,
+            child: child.clone(),
+        });
         let receiver = Arc::new(Mutex::new(receiver));
         loop {
             let receiver = receiver.clone();
@@ -221,7 +237,6 @@ fn run_script(session: Session, runner: Runner, path: PathBuf, interpreter: Stri
             }
         }
         let status = blocking(move || wait_for_exit(&child)).await;
-        *runner.child.borrow_mut() = None;
         let alive = runner.state.try_get_untracked().is_some();
         runner.state.set(ScriptRun::Idle);
         match status {
@@ -249,8 +264,14 @@ fn wait_for_exit(child: &Mutex<Child>) -> std::io::Result<std::process::ExitStat
 
 /// Kill the running script, if any; called when the panel goes away.
 fn kill_running(runner: &Runner) {
-    let taken = runner.child.borrow_mut().take();
-    if let Some(child) = taken
+    let child = runner
+        .state
+        .try_get_untracked()
+        .and_then(|state| match state {
+            ScriptRun::Idle => None,
+            ScriptRun::Running { child, .. } => Some(child),
+        });
+    if let Some(child) = child
         && let Ok(mut child) = child.lock()
     {
         // The process may have exited already; there is nothing to stop then.

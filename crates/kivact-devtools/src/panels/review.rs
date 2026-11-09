@@ -5,11 +5,19 @@ use kivact_devtools_protocol as p;
 
 use crate::state::{Inspected, Panel, Session};
 
+/// The comment being edited, with its text as typed so far.
+#[derive(Clone, Debug, PartialEq)]
+enum CommentEdit {
+    /// No comment is being changed.
+    Idle,
+    /// The comment `id` is being changed, to `draft`.
+    Editing { id: String, draft: String },
+}
+
 /// The comments of the review and their export.
 pub(crate) fn view(session: Session) -> impl IntoView {
     let comment = signal(String::new());
-    let editing = signal(None::<String>);
-    let draft = signal(String::new());
+    let edit = signal(CommentEdit::Idle);
     let items = memo(move || {
         session
             .review
@@ -28,11 +36,11 @@ pub(crate) fn view(session: Session) -> impl IntoView {
             button("Add comment")
                 .disabled(move || comment.get().trim().is_empty())
                 .on_press(move || add_comment(session, comment)),
-            comment_editor(session, editing, draft),
+            comment_editor(session, edit),
             for_each(
                 items,
                 |item| item.id.clone(),
-                move |item| item_view(session, item, editing, draft),
+                move |item| item_view(session, item, edit),
             ),
         ))
         .style(style().gap(8).padding(12).align_items(Align::Start)),
@@ -41,29 +49,38 @@ pub(crate) fn view(session: Session) -> impl IntoView {
 }
 
 /// The editor shown while a comment is being changed.
-fn comment_editor(
-    session: Session,
-    editing: Signal<Option<String>>,
-    draft: Signal<String>,
-) -> impl IntoView {
-    show_some(editing, move |comment| {
-        row((
-            text_area("Edit comment", draft),
-            button("Save").on_press(move || {
-                save_comment(session, comment.get_untracked(), draft, editing);
-            }),
-            button("Cancel").on_press(move || editing.set(None)),
-        ))
-        .style(style().gap(8).align_items(Align::Center))
-    })
+fn comment_editor(session: Session, edit: Signal<CommentEdit>) -> impl IntoView {
+    let draft = binding(
+        move || match edit.get() {
+            CommentEdit::Idle => String::new(),
+            CommentEdit::Editing { draft, .. } => draft,
+        },
+        move |text: String| {
+            edit.update(|edit| {
+                if let CommentEdit::Editing { draft, .. } = edit {
+                    *draft = text;
+                }
+            });
+        },
+    );
+    show(
+        move || matches!(edit.get(), CommentEdit::Editing { .. }),
+        move || {
+            row((
+                text_area("Edit comment", draft),
+                button("Save").on_press(move || save_comment(session, edit)),
+                button("Cancel").on_press(move || edit.set(CommentEdit::Idle)),
+            ))
+            .style(style().gap(8).align_items(Align::Center))
+        },
+    )
 }
 
 /// One review item with its comments.
 fn item_view(
     session: Session,
     item: Value<p::ReviewItem>,
-    editing: Signal<Option<String>>,
-    draft: Signal<String>,
+    edit: Signal<CommentEdit>,
 ) -> impl IntoView {
     let node = item.with(|item| match &item.target {
         p::ReviewTarget::Node { node, .. } => Some(*node),
@@ -98,7 +115,7 @@ fn item_view(
         for_each(
             comments,
             |comment| comment.id.clone(),
-            move |comment| comment_view(session, comment, editing, draft),
+            move |comment| comment_view(session, comment, edit),
         ),
     ))
     .style(style().gap(2))
@@ -108,16 +125,18 @@ fn item_view(
 fn comment_view(
     session: Session,
     comment: Value<p::Comment>,
-    editing: Signal<Option<String>>,
-    draft: Signal<String>,
+    edit: Signal<CommentEdit>,
 ) -> impl IntoView {
     let edit_id = comment.with(|comment| comment.id.clone());
     let remove_id = edit_id.clone();
     row((
         text(move || comment.with(|comment| format!("{}  ({})", comment.text, comment.created))),
         button("Edit").on_press(move || {
-            draft.set(comment.with(|comment| comment.text.clone()));
-            editing.set(Some(edit_id.clone()));
+            let draft = comment.with(|comment| comment.text.clone());
+            edit.set(CommentEdit::Editing {
+                id: edit_id.clone(),
+                draft,
+            });
         }),
         button("Remove").on_press(move || remove_comment(session, remove_id.clone())),
     ))
@@ -195,19 +214,18 @@ fn add_comment(session: Session, draft: Signal<String>) {
 }
 
 /// Change the text of a comment.
-fn save_comment(
-    session: Session,
-    comment: String,
-    draft: Signal<String>,
-    editing: Signal<Option<String>>,
-) {
+fn save_comment(session: Session, edit: Signal<CommentEdit>) {
+    let (id, draft) = match edit.get_untracked() {
+        CommentEdit::Idle => return,
+        CommentEdit::Editing { id, draft } => (id, draft),
+    };
     session.send::<p::EditComment>(
         p::EditCommentParams {
-            comment,
-            text: draft.get_untracked(),
+            comment: id,
+            text: draft,
         },
         move |_| {
-            editing.set(None);
+            edit.set(CommentEdit::Idle);
             session.review.refetch();
         },
     );

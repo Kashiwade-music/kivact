@@ -33,7 +33,7 @@ fn frame(t: &Theme, s: &Look<PartState>) -> Style {
     } else {
         base
     };
-    if s.focused {
+    if s.is_focused() {
         base.merge(&crate::theme_access::focus_ring(&p))
     } else {
         base

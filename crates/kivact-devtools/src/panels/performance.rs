@@ -24,7 +24,26 @@ pub(crate) fn view(session: Session) -> impl IntoView {
     let window = signal(session.window());
     let counters = signal(Vec::<(u64, p::Counters)>::new());
     let snapshots = signal(Vec::<p::SnapshotInfo>::new());
-    let diff = signal(None::<p::SnapshotDiff>);
+    let diff = resource(
+        move || {
+            snapshots.with(|snapshots| {
+                let len = snapshots.len();
+                (len >= 2).then(|| (snapshots[len - 2].id, snapshots[len - 1].id))
+            })
+        },
+        move |pair: Option<(u64, u64)>| async move {
+            match pair {
+                None => Ok(None),
+                Some((before, after)) => {
+                    let source = session.source();
+                    source
+                        .call::<p::DiffSnapshots>(p::DiffSnapshotsParams { before, after })
+                        .await
+                        .map(Some)
+                }
+            }
+        },
+    );
     on_mount(move || refresh_counters(session, counters));
     let frames = memo(move || {
         session.frames.with(|frames| {
@@ -249,39 +268,30 @@ fn refresh_counters(session: Session, counters: Signal<Vec<(u64, p::Counters)>>)
 fn snapshot_section(
     session: Session,
     snapshots: Signal<Vec<p::SnapshotInfo>>,
-    diff: Signal<Option<p::SnapshotDiff>>,
+    diff: Resource<Option<p::SnapshotDiff>>,
 ) -> impl IntoView {
     column((
         row((
             text("Snapshots"),
-            button("Take snapshot").on_press(move || take_snapshot(session, snapshots, diff)),
+            button("Take snapshot").on_press(move || take_snapshot(session, snapshots)),
             text(move || format!("{} taken", snapshots.get().len())),
         ))
         .style(style().gap(8).align_items(Align::Center)),
-        show_some(diff, |diff| diff_table(diff.get()))
-            .fallback(|| text("Take two snapshots to compare them")),
+        dynamic(
+            move || diff.state(),
+            move |state| match state {
+                AsyncState::Ready(Some(diff)) => diff_table(diff).into_view(),
+                _ => text("Take two snapshots to compare them").into_view(),
+            },
+        ),
     ))
     .style(style().gap(6))
 }
 
-/// Take one snapshot and diff it against the one before.
-fn take_snapshot(
-    session: Session,
-    snapshots: Signal<Vec<p::SnapshotInfo>>,
-    diff: Signal<Option<p::SnapshotDiff>>,
-) {
+/// Take one snapshot; the diff follows from the pair of snapshots.
+fn take_snapshot(session: Session, snapshots: Signal<Vec<p::SnapshotInfo>>) {
     session.send::<p::TakeSnapshot>(p::Empty {}, move |info| {
         snapshots.update(|snapshots| push_capped(snapshots, info, MAX_SNAPSHOTS));
-        let pair = snapshots.with(|snapshots| {
-            let len = snapshots.len();
-            (len >= 2).then(|| (snapshots[len - 2].id, snapshots[len - 1].id))
-        });
-        if let Some((before, after)) = pair {
-            session.send::<p::DiffSnapshots>(
-                p::DiffSnapshotsParams { before, after },
-                move |diff_value| diff.set(Some(diff_value)),
-            );
-        }
     });
 }
 

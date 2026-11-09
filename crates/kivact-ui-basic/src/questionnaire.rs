@@ -101,10 +101,10 @@ enum StepKind {
 #[derive(Clone, Debug, PartialEq)]
 pub struct QuestionnaireStep {
     title: String,
-    // xtask-allow(state-fields): passive record - description
+    // xtask-allow(state-fields): option: absent means the step has no description
     description: Option<String>,
     kind: StepKind,
-    // xtask-allow(state-fields): passive record - optional
+    // xtask-allow(state-fields): independent: a step can be optional with or without a description
     optional: bool,
 }
 

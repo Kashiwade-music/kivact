@@ -33,7 +33,7 @@ pub(crate) fn row_style(p: &Tokens, state: &ListItemState) -> Style {
     // The check is local paint, which a state style cannot recolor, so it
     // follows the row's state.
     let input = &state.input;
-    let lit = (input.hovered || input.focused || state.active) && !input.disabled;
+    let lit = (input.hovered || input.is_focused() || state.active) && !input.disabled;
     let check = if lit {
         p.accent_foreground
     } else {

@@ -37,7 +37,7 @@ pub struct NativeSelect<K: kivact::state::ItemKey> {
     size: kivact::state::Value<NativeSelectSize>,
 }
 
-/// A native-looking select over `options`.
+/// A native-looking select over `items`.
 ///
 /// ```no_run
 /// use kivact::interaction::{ListItem};
@@ -56,13 +56,13 @@ pub struct NativeSelect<K: kivact::state::ItemKey> {
 /// ```
 #[track_caller]
 pub fn native_select<K: kivact::state::ItemKey>(
-    options: impl IntoValue<Vec<ListItem<K>>>,
-    value: impl kivact::state::IntoBinding<Option<K>>,
+    items: impl IntoValue<Vec<ListItem<K>>>,
+    selected: impl kivact::state::IntoBinding<Option<K>>,
 ) -> NativeSelect<K> {
     NativeSelect {
         root: node(),
-        options: options.into_value(),
-        value: value.into_binding(),
+        options: items.into_value(),
+        value: selected.into_binding(),
         placeholder: None,
         size: NativeSelectSize::Default.into_value(),
     }

@@ -70,9 +70,9 @@ kivact::state::constant_value!(AttachmentState);
 struct Cfg {
     size: Value<AttachmentSize>,
     vertical: Value<bool>,
-    // xtask-allow(state-fields): passive record - has media
+    // xtask-allow(state-fields): independent: whether the chip has a media slot and whether it is pressable are separate facts; every combination is valid
     has_media: bool,
-    // xtask-allow(state-fields): passive record - actionable
+    // xtask-allow(state-fields): independent: whether the chip has a media slot and whether it is pressable are separate facts; every combination is valid
     actionable: bool,
     state: Value<AttachmentState>,
 }

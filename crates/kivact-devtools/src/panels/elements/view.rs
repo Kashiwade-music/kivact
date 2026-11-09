@@ -18,21 +18,26 @@ const OWNERS_LABEL: &str = "Owners";
 /// The element tree, the owner tree, the details and their actions.
 pub(crate) fn view(session: Session) -> impl IntoView {
     let sizes = signal(vec![0.38, 0.62]);
+    // xtask-allow(state-fields): independent: the owner tree replaces the element tree; the layout overlay is shown for either
     let owners_on = signal(false);
+    // xtask-allow(state-fields): independent: the layout overlay is shown for whichever tree is displayed
     let layout = signal(false);
-    effect(move || {
-        let on = layout.get();
-        if let Some(node) = session.inspected.with_untracked(Inspected::selected) {
-            session.highlight(Some(node), on);
-        }
-    });
+    let layout_toggle = binding(
+        move || layout.get(),
+        move |on: bool| {
+            layout.set(on);
+            if let Some(node) = session.inspected.with_untracked(Inspected::selected) {
+                session.highlight(Some(node), on);
+            }
+        },
+    );
     let tree = node()
         .style(style().size(pct(100), pct(100)).min_height(240))
         .child(
             show(move || owners_on.get(), move || owners::owners(session))
-                .fallback(move || element_tree(session, layout)),
+                .fallback(move || element_tree(session, layout_toggle)),
         );
-    let details = details::tabs(session, layout);
+    let details = details::tabs(session, layout_toggle);
     column((
         actions(session, owners_on),
         split(sizes, (tree, details))
@@ -57,7 +62,7 @@ fn actions(session: Session, owners_on: Signal<bool>) -> impl IntoView {
 }
 
 /// The virtualized element tree, or a spinner while the tree loads.
-fn element_tree(session: Session, layout: Signal<bool>) -> impl IntoView {
+fn element_tree(session: Session, layout: Binding<bool>) -> impl IntoView {
     let nodes = memo(move || session.inspected.with(tree_nodes));
     show(
         move || {
@@ -80,7 +85,7 @@ fn element_tree(session: Session, layout: Signal<bool>) -> impl IntoView {
 }
 
 /// The selection binding of the element tree: inspect, then highlight.
-fn selection(session: Session, layout: Signal<bool>) -> Binding<Option<p::NodeId>> {
+fn selection(session: Session, layout: Binding<bool>) -> Binding<Option<p::NodeId>> {
     binding(
         move || session.inspected.with(Inspected::selected),
         move |id: Option<p::NodeId>| {

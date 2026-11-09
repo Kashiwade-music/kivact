@@ -61,7 +61,9 @@ fn collapsible() -> impl IntoView {
 
 // example: steps
 fn steps() -> impl IntoView {
+    // xtask-allow(state-fields): independent: each collapsible of the demo opens separately
     let first = signal(true);
+    // xtask-allow(state-fields): independent: each collapsible of the demo opens separately
     let second = signal(false);
     basic::trace((
         basic::trace_collapsible(

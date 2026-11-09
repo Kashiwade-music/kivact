@@ -1,5 +1,4 @@
 //! Role: Catalog page of Progress: static, label with value and interactive.
-use kivact::ui::ButtonVariant;
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;
@@ -11,7 +10,7 @@ pub(crate) fn page() -> Page {
         slug: "progress",
         name: "Progress",
         description: "処理の進み具合を示すバーです。kivact::ui::progress に 0 から 1 の値を Some で渡し、範囲外は丸められます。None は不定の進み方で、動く区間を描きます。Role::ProgressBar として公開されます。",
-        usage: "use kivact::prelude::*;\nuse kivact::ui::ButtonVariant;\nuse kivact::ui::{ControlSize, progress};\nuse kivact_ui_basic as basic;",
+        usage: "use kivact::prelude::*;\nuse kivact::ui::{ControlSize, progress};\nuse kivact_ui_basic as basic;",
         source: include_str!("progress.rs"),
         align: PreviewAlign::Center,
         examples: vec![

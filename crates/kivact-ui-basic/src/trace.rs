@@ -3,9 +3,7 @@ use crate::Tokens;
 use crate::parts::sized_icon;
 use kivact::state::{IntoBinding, IntoText, Value};
 use kivact::style::{Align, Cursor, Direction, Style, Theme, pct, style, use_tokens};
-use kivact::view::{
-    Component, Element, IntoView, IntoViewFn, Node, View, column, icon, node, text,
-};
+use kivact::view::{Element, IntoView, IntoViewFn, Node, View, column, icon, node, text};
 
 /// A stack of trace lines and collapsibles with 8 px between them.
 #[track_caller]

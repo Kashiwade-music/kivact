@@ -1,5 +1,4 @@
 //! Role: Catalog page of EmptyState: icon media, outline and with actions.
-use kivact::ui::ButtonVariant;
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;
@@ -10,7 +9,7 @@ pub(crate) fn page() -> Page {
         slug: "empty",
         name: "EmptyState",
         description: "表示する内容がないときの状態を伝える部品です。メディア、題名、説明、操作を中央に並べます。",
-        usage: "use kivact::prelude::*;\nuse kivact::ui::ButtonVariant;\nuse kivact_ui_basic as basic;",
+        usage: "use kivact::prelude::*;\nuse kivact_ui_basic as basic;",
         source: include_str!("empty.rs"),
         align: PreviewAlign::Center,
         examples: vec![

@@ -1,5 +1,4 @@
 //! Role: Catalog page of Accordion: single, multiple and controlled open sections.
-use kivact::ui::ButtonVariant;
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;
@@ -11,7 +10,7 @@ pub(crate) fn page() -> Page {
         slug: "accordion",
         name: "Accordion",
         description: "縦に積んだ見出しを開閉して、内容を折りたたむ並びです。kivact::ui::disclosure を縦に並べ、開いている項目のキーを持つ signal を各項目の open の binding に結んで作ります。basic の theme は項目の下に罫線を引きます。",
-        usage: "use kivact::prelude::*;\nuse kivact::ui::ButtonVariant;\nuse kivact::ui::{ControlSize, disclosure};\nuse kivact_ui_basic as basic;",
+        usage: "use kivact::prelude::*;\nuse kivact::ui::{ControlSize, disclosure};\nuse kivact_ui_basic as basic;",
         source: include_str!("accordion.rs"),
         align: PreviewAlign::Start,
         examples: vec![

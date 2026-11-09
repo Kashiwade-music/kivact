@@ -1,5 +1,4 @@
 //! Role: Catalog page of Card: login form, small, bordered header and image.
-use kivact::ui::ButtonVariant;
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;
@@ -10,7 +9,7 @@ pub(crate) fn page() -> Page {
         slug: "card",
         name: "Card",
         description: "見出し、内容、フッターを持つ枠付きの表示領域です。header、image、content、footer の各スロットに渡します。",
-        usage: "use kivact::prelude::*;\nuse kivact::ui::ButtonVariant;\nuse kivact_ui_basic as basic;",
+        usage: "use kivact::prelude::*;\nuse kivact_ui_basic as basic;",
         source: include_str!("card.rs"),
         align: PreviewAlign::Center,
         examples: vec![

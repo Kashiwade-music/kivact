@@ -6,7 +6,6 @@ use crate::ColorName;
 use crate::typography::MONO;
 use kivact::geometry::{Point, Size};
 use kivact::prelude::Element;
-use kivact::state::Signal;
 use kivact::style::{Align, Direction, Justify, Position, style};
 use kivact::view::{IntoView, Role};
 use kivact::view::{Node, column, node, row, text};
@@ -17,12 +16,11 @@ const OFFSET: f64 = 14.0;
 
 /// The tooltip card for `hit` (chart.tsx `ChartTooltipContent`), placed beside the pointer `at` in a plot of `size`.
 ///
-/// The card is built once per row; a pointer move only translates it (a
-/// paint change: no layout), and flipping it to the pointer's left side
-/// changes its anchor.
+/// The card is built once per hit; it is placed at the pointer's side and
+/// flipped to its left when the pointer is near the right edge.
 pub(super) fn tooltip(
     hit: &Hit,
-    at: Signal<Point>,
+    at: Point,
     config: &Rc<ChartConfig>,
     size: Size,
     format: &dyn Fn(f64) -> String,
@@ -80,7 +78,6 @@ pub(super) fn tooltip(
     .hit_testable(false)
     .style(move || {
         let p = kivact::style::use_tokens::<crate::Tokens>();
-        let at = at.get();
         let top = (at.y + OFFSET).min(size.height - height).max(0.0);
         // Laid out at the plot's top left corner (flipped: ending there),
         // and moved to the pointer.
