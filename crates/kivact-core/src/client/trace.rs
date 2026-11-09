@@ -20,11 +20,11 @@ pub(crate) struct Trace {
 
 struct Sink {
     file: BufWriter<File>,
-    // xtask-allow(state-fields): immutable config switches + diff cache (HOST-REWRITE module) - stage
+    // xtask-allow(state-fields): option: a trace stream the test selects; any combination of the three is valid
     stage: bool,
-    // xtask-allow(state-fields): immutable config switches + diff cache (HOST-REWRITE module) - semantics
+    // xtask-allow(state-fields): option: a trace stream the test selects; any combination of the three is valid
     semantics: bool,
-    // xtask-allow(state-fields): immutable config switches + diff cache (HOST-REWRITE module) - host events
+    // xtask-allow(state-fields): option: a trace stream the test selects; any combination of the three is valid
     host_events: bool,
     previous: Vec<(NodeId, String)>,
 }

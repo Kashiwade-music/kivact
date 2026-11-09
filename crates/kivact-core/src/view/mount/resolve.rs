@@ -33,19 +33,19 @@ use crate::view::node_ref::NodeRef;
 pub(super) struct Resolved {
     pub(super) first: FirstWrite,
     pub(super) semantics: SemanticProps,
-    // xtask-allow(state-fields): passive mount record - disabled
+    // xtask-allow(state-fields): option: a builder input carried to mount; absent means enabled
     pub(super) disabled: Option<InputProp<bool>>,
-    // xtask-allow(state-fields): passive mount record - selected
+    // xtask-allow(state-fields): option: a builder input carried to mount; absent means unselected
     pub(super) selected: Option<InputProp<bool>>,
     pub(super) style: Vec<StyleLayer>,
     pub(super) facts: NodeFacts,
-    // xtask-allow(state-fields): passive mount record - draw
+    // xtask-allow(state-fields): option: a builder input carried to mount; absent means no drawing
     pub(super) draw: Option<DrawInput>,
     pub(super) late_semantics: Vec<crate::view::semantics_data::SemanticsPatch>,
-    // xtask-allow(state-fields): passive mount record - ime
+    // xtask-allow(state-fields): option: a builder input carried to mount; absent means no IME session
     pub(super) ime: Option<ImeSession>,
     pub(super) refs: Vec<NodeRef>,
-    // xtask-allow(state-fields): passive mount record - attached
+    // xtask-allow(state-fields): option: a builder input carried to mount; absent means nothing attached
     pub(super) attached: Option<Attached>,
 }
 

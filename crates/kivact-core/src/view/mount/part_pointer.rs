@@ -230,21 +230,18 @@ pub(super) fn route(
     EventHandlers::router(move |event: PointerEvent| {
         let root = &registry.root;
         let mut transitions = Vec::new();
-        let (target, deliver_raw, finish_fallback) =
-            select_pointer(&registry, event, &mut transitions);
-        let mut delivered_finish = false;
+        let (target, delivery) = select_pointer(&registry, event, &mut transitions);
         let result = deliver_pointer(
             &registry,
             &own,
             event,
             target.as_ref(),
-            (deliver_raw, finish_fallback),
+            delivery,
             transitions,
-            &mut delivered_finish,
         );
         cleanup_release(&registry, event);
         // Consuming a terminal event cannot leave an adopted fallback gesture open.
-        if finish_fallback && (!delivered_finish || result.is_err()) {
+        if delivery.finishes_fallback() && !matches!(&result, Ok((_, FinishReached(true)))) {
             let mut cancelled = event;
             cancelled.routed.input.phase = PointerPhase::Cancel;
             cancelled.routed.input.buttons = PointerButtons::NONE;
@@ -257,7 +254,7 @@ pub(super) fn route(
                 runtime.report(Some(root.owner), error);
             }
         }
-        result
+        result.map(|(handled, _)| handled)
     })
 }
 
@@ -265,10 +262,10 @@ fn select_pointer(
     registry: &Registry,
     event: PointerEvent,
     transitions: &mut Vec<(Rc<Target>, PointerPhase)>,
-) -> (Option<Rc<Target>>, bool, bool) {
+) -> (Option<Rc<Target>>, Delivery) {
     let mut gestures = registry.gestures.borrow_mut();
     if event.origin().node != registry.node {
-        (None, false, false)
+        (None, Delivery::NoRaw)
     } else {
         let finish_fallback = gestures.capture(event.id()).is_some_and(|capture| {
             capture.state.fallback().is_some_and(|button| {
@@ -328,11 +325,14 @@ fn select_pointer(
         } else if event.routed.input.phase == PointerPhase::Cancel {
             gestures.captures.retain(|c| c.pointer != event.id());
         }
-        (
-            target,
-            !matches!(event.phase(), PointerPhase::Enter | PointerPhase::Leave),
-            finish_fallback,
-        )
+        let delivery = if matches!(event.phase(), PointerPhase::Enter | PointerPhase::Leave) {
+            Delivery::NoRaw
+        } else if finish_fallback {
+            Delivery::RawFinishingFallback
+        } else {
+            Delivery::Raw
+        };
+        (target, delivery)
     }
 }
 
@@ -423,16 +423,42 @@ fn adopt_fallback(registry: &Registry, target: &Rc<Target>, event: PointerEvent)
     }
 }
 
+/// What the raw event is delivered for, and whether it finishes an adopted
+/// fallback gesture.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Delivery {
+    /// No raw event (a hover transition only).
+    NoRaw,
+    /// The raw event, with no adopted fallback to finish.
+    Raw,
+    /// The raw event that finishes the adopted fallback of its gesture.
+    RawFinishingFallback,
+}
+
+impl Delivery {
+    /// Whether the raw event is delivered (not only the hover transitions).
+    fn delivers_raw(self) -> bool {
+        self != Self::NoRaw
+    }
+
+    /// Whether this event finishes the gesture's adopted fallback.
+    fn finishes_fallback(self) -> bool {
+        self == Self::RawFinishingFallback
+    }
+}
+
+/// Whether the finishing fallback ran for the event.
+struct FinishReached(bool);
+
 fn deliver_pointer(
     registry: &Registry,
     own: &EventHandlers<PointerEvent>,
     event: PointerEvent,
     target: Option<&Rc<Target>>,
-    delivery: (bool, bool),
+    delivery: Delivery,
     transitions: Vec<(Rc<Target>, PointerPhase)>,
-    delivered_finish: &mut bool,
-) -> crate::Result<Handled> {
-    let (deliver_raw, finish_fallback) = delivery;
+) -> crate::Result<(Handled, FinishReached)> {
+    let deliver_raw = delivery.delivers_raw();
     let root = &registry.root;
 
     // State always sees both logical hover transitions and gesture updates,
@@ -445,7 +471,7 @@ fn deliver_pointer(
     }
     let mut handled = own.deliver(event)?;
     if handled == Handled::Yes {
-        return Ok(Handled::Yes);
+        return Ok((Handled::Yes, FinishReached(false)));
     }
     for (target, phase) in transitions {
         handled = handled.and(default(&target, event_for(event, &target, phase))?);
@@ -469,15 +495,15 @@ fn deliver_pointer(
             .as_ref()
             .expect("invariant: a live region target was checked");
         let event = event_for(event, target, event.phase());
-        *delivered_finish = finish_fallback;
         let result = fallback(root, event)?;
         handled = handled.and(result);
         if result == Handled::Yes {
             adopt_fallback(registry, target, event);
-            return Ok(Handled::Yes);
+            return Ok((Handled::Yes, FinishReached(true)));
         }
+        return Ok((handled, FinishReached(true)));
     }
-    Ok(handled)
+    Ok((handled, FinishReached(false)))
 }
 
 fn cleanup_release(registry: &Registry, event: PointerEvent) {

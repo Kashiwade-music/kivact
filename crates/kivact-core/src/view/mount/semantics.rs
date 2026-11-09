@@ -118,15 +118,15 @@ pub(super) fn bind_late(
 /// Non-semantic host properties share the semantic mounting stage.
 pub(super) struct SemanticProps {
     pub(super) patches: Vec<SemanticsPatch>,
-    // xtask-allow(state-fields): mount config - image fit
+    // xtask-allow(state-fields): option: absent means the image's own fit
     pub(super) image_fit: Option<InputProp<ImageFit>>,
-    // xtask-allow(state-fields): mount config - monochrome
+    // xtask-allow(state-fields): option: absent means the image's own colors
     pub(super) monochrome: Option<InputProp<bool>>,
-    // xtask-allow(state-fields): mount config - image playing
+    // xtask-allow(state-fields): option: absent means the image plays
     pub(super) image_playing: Option<InputProp<bool>>,
-    // xtask-allow(state-fields): mount config - layout id
+    // xtask-allow(state-fields): option: absent means no shared layout
     pub(super) layout_id: Option<std::sync::Arc<str>>,
-    // xtask-allow(state-fields): mount config - focus on press
+    // xtask-allow(state-fields): option: absent means the press does not focus
     pub(super) focus_on_press: Option<NodeRef>,
 }
 

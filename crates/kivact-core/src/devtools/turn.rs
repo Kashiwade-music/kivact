@@ -16,6 +16,7 @@ use super::styles;
 use super::target;
 use super::tree;
 use super::updates;
+use crate::view::devtools_state::inspect::Inspector as Inspect;
 use crate::view::devtools_state::{DevtoolsEvent, DevtoolsState, Inspector, Pending};
 use crate::view::state::ViewState;
 
@@ -86,10 +87,10 @@ fn sweep_closed_windows(rt: &Runtime, i: &Inspector) {
             i.session.pending.borrow_mut().push(item);
         }
     }
-    if let Some(window) = i.session.pick.get()
+    if let Inspect::Picking { window, .. } = i.session.inspector.get()
         && !open.contains(&window)
     {
-        i.session.pick.set(None);
+        i.session.end_pick();
         ViewState::tree(rt).engine().set_pick(None);
     }
     i.session

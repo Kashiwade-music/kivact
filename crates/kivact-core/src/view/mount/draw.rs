@@ -15,10 +15,15 @@ use crate::view::state::ViewState;
 
 /// Stage 5's input: the draw layers, the style's local paint and the canvas regions.
 pub(super) struct DrawInput {
+    // xtask-allow(state-fields): option: a draw layer below the children; absent means none
     pub(super) below: Option<DrawFn>,
+    // xtask-allow(state-fields): option: a draw layer over the children; absent means none
     pub(super) over: Option<DrawFn>,
+    // xtask-allow(state-fields): option: a layout-driven draw; absent means none
     pub(super) with_layout: Option<LayoutDrawFn>,
+    // xtask-allow(state-fields): option: the style's local paint; absent means none
     pub(super) local_paint: Option<LocalPaintSource>,
+    // xtask-allow(state-fields): option: the canvas regions the node declares; absent means none
     pub(super) regions: Option<Rc<Registry>>,
     /// The node's layout size, written by the layout observer `resolve` installed.
     pub(super) size: Signal<Size>,
@@ -60,7 +65,7 @@ pub(super) fn bind(cx: &Mcx<'_>, id: NodeId, input: DrawInput, at: &'static Loca
                 .map(|rt| ViewState::tree_mut(&rt).reader().text_measurer(id));
             let layout = observation.and_then(|observation| {
                 observation.editing_revision.track();
-                observation.rect.get();
+                observation.measured.get();
                 observation.scroll_geometry.get();
                 let rt = weak.upgrade()?;
                 ViewState::tree_mut(&rt).reader().editing_canvas_layout(id)

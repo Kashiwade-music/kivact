@@ -465,7 +465,7 @@ fn restore_focus_on_unmount(
     };
     let visible = ViewState::of(rt)
         .focus_keys(window)
-        .is_some_and(|keys| keys.visible.get_untracked());
+        .is_some_and(|keys| keys.focus.get_untracked().is_some_and(|key| key.visible));
     let scope = ModalScope {
         rt: Rc::downgrade(rt),
         window,
@@ -514,10 +514,10 @@ impl Drop for ModalScope {
 pub(crate) struct KeyRoute {
     /// The first node of the chain.
     pub target: NodeId,
-    // xtask-allow(state-fields): per-dispatch result value - The topmost shown modal, where the chain stops
+    // xtask-allow(state-fields): independent: the topmost shown modal; any target may have one or none
     /// The topmost shown modal, where the chain stops.
     pub stop: Option<NodeId>,
-    // xtask-allow(state-fields): per-dispatch result value - Whether an unhandled Enter or Space activates `target`: not when the key reached the App's view (or the root) only because nothing has the focus and no modal is open
+    // xtask-allow(state-fields): independent: whether the key activates the target; independent of where the chain stops
     /// Whether an unhandled Enter or Space activates `target`: not when
     /// the key reached the App's view (or the root) only because nothing
     /// has the focus and no modal is open.

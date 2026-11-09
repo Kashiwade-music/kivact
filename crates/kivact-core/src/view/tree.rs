@@ -73,7 +73,7 @@ pub(crate) struct Handlers {
     pub key_up: EventHandlers<KeyEvent>,
     /// Pointer handlers.
     pub pointer: EventHandlers<PointerEvent>,
-    // xtask-allow(state-fields): optional subscriptions (builder) - Fallback for an unclaimed secondary button event in this subtree
+    // xtask-allow(state-fields): option: a builder subscription; absent means none
     /// Fallback for an unclaimed secondary button event in this subtree.
     pub secondary_context: Option<SecondaryContextHandler>,
     /// Wheel handlers.
@@ -85,7 +85,7 @@ pub(crate) struct Handlers {
     pub a11y: Vec<(A11yAction, Handler<crate::view::A11yEvent>)>,
     /// Text edits of a TextInput.
     pub text: Option<Handler<crate::view::editing_data::TextEditEvent>>,
-    // xtask-allow(state-fields): optional subscriptions (builder) - Session changes of a TextInput (`TextEditing::on_selection_change`)
+    // xtask-allow(state-fields): option: a builder subscription; absent means none
     /// Session changes of a TextInput (`TextEditing::on_selection_change`).
     pub selection: Option<crate::view::editing_data::SessionHandler>,
     pub edit_phase: Option<Handler<crate::view::EditPhase>>,
@@ -249,19 +249,26 @@ fn offered_actions<T>(activate: bool, a11y: &[(A11yAction, T)]) -> Vec<A11yActio
     actions
 }
 
+/// The geometry of one observed node: the rectangle the engine reported and
+/// the window layout box (without the node's own transform). Both arrive in
+/// the same `LayoutChanged`; an observed node has neither before its first
+/// layout.
+#[derive(Clone, Copy, PartialEq)]
+pub(crate) struct Measured {
+    pub(crate) rect: crate::geometry::Rect,
+    pub(crate) layout_rect: crate::geometry::Rect,
+}
+
 /// Sources shared by all node and region references bound to one host node.
 #[derive(Clone, Copy)]
 pub(crate) struct NodeObservation {
-    // xtask-allow(state-fields): independent fact - the node's rectangle as the engine last reported it, absent before the first layout
-    pub(crate) rect: Signal<Option<crate::geometry::Rect>>,
-    // xtask-allow(state-fields): independent fact - whether the engine truncated the node's text
+    // xtask-allow(state-fields): independent: a measured value; any value is valid on its own
+    pub(crate) measured: Signal<Option<Measured>>,
+    // xtask-allow(state-fields): independent: whether the engine truncated the node's text; independent of the geometry
     pub(crate) text_truncated: Signal<bool>,
     /// The offset, viewport and content extents of a scroll container: the
     /// one scroll fact; the offset and the scroll position are projections.
     pub(crate) scroll_geometry: Signal<ScrollState>,
-    // xtask-allow(state-fields): independent fact - the window layout box without the node's own transform, absent before the first layout
-    /// The window layout box, without the node's own transform.
-    pub(crate) layout_rect: Signal<Option<crate::geometry::Rect>>,
     pub(crate) image_status: Signal<kivact_types::ImageStatus>,
     pub(crate) scene_revision: Notifier,
     pub(crate) editing_revision: Notifier,
@@ -288,7 +295,7 @@ pub(crate) struct CoreNode {
     pub(crate) references: Vec<Signal<crate::view::ref_data::RefState>>,
     /// Owner whose disposal removes the node.
     pub owner: Owner,
-    // xtask-allow(state-fields): independent per-node resources - Where the builder of a host node was called (`#[track_caller]` of `node()`, `text(..)`, `button(..)`, ...)
+    // xtask-allow(state-fields): independent: a per-node resource; created only when the node has one
     /// Where the builder of a host node was called (`#[track_caller]` of
     /// `node()`, `text(..)`, `button(..)`, ...). `None` for the root, for
     /// fragments, for the wrappers a builder adds (stack layers, list rows)
@@ -296,15 +303,15 @@ pub(crate) struct CoreNode {
     /// their nearest located ancestor. Snapshots and diagnostics name nodes
     /// by it.
     pub at: Option<&'static Location<'static>>,
-    // xtask-allow(state-fields): independent per-node resources - Event handlers, if any
+    // xtask-allow(state-fields): independent: a per-node resource; created only when the node has one
     /// Event handlers, if any.
     pub handlers: Option<Box<Handlers>>,
     pub(crate) exit_layout: crate::view::ExitLayout,
     pub(crate) exit_complete: Option<kivact_runtime::Handler<()>>,
-    // xtask-allow(state-fields): independent per-node resources - The graph sources node references read (`ViewNodes::observe_node`)
+    // xtask-allow(state-fields): independent: a per-node resource; created only when the node has one
     /// The graph sources node references read (`ViewNodes::observe_node`).
     pub(crate) observation: Option<NodeObservation>,
-    // xtask-allow(state-fields): independent per-node resources - Created only when a reference observes this node's lifetime
+    // xtask-allow(state-fields): independent: a per-node resource; created only when the node has one
     /// Created only when a reference observes this node's lifetime.
     pub(crate) presence: Option<Signal<kivact_types::Presence>>,
     /// The effect that last set each dynamic prop (diagnostics::why).
@@ -473,24 +480,14 @@ impl ViewNodes {
             return Some(observation);
         }
         let observation = NodeObservation {
-            rect: node.owner.signal(None::<crate::geometry::Rect>, at),
+            measured: node.owner.signal(None::<Measured>, at),
             text_truncated: node.owner.signal(false, at),
             scroll_geometry: node.owner.signal(ScrollState::default(), at),
-            layout_rect: node.owner.signal(None::<crate::geometry::Rect>, at),
             image_status: node.owner.signal(image_status, at),
             scene_revision: node.owner.notifier(at),
             editing_revision: node.owner.notifier(at),
         };
         let handlers = node.handlers.get_or_insert_with(Default::default);
-        let rect = observation.rect;
-        handlers.observe_layout(move |bounds, _| {
-            rect.set(Some(crate::geometry::Rect::new(
-                bounds.x,
-                bounds.y,
-                bounds.width,
-                bounds.height,
-            )));
-        });
         let scroll_geometry = observation.scroll_geometry;
         handlers.observe_scroll(move |state| scroll_geometry.set(state));
         node.observation = Some(observation);

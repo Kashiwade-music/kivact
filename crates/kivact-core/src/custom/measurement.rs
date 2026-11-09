@@ -20,10 +20,10 @@ pub enum AvailableSpace {
 /// ([`Constraints::measure_text`]) for the call.
 #[derive(Clone, Copy)]
 pub struct Constraints<'a> {
-    // xtask-allow(state-fields): borrowed input snapshot - The width the layout already fixed
+    // xtask-allow(state-fields): independent: the width the layout already fixed; either dimension may be fixed on its own
     /// The width the layout already fixed.
     pub known_width: Option<f64>,
-    // xtask-allow(state-fields): borrowed input snapshot - The height the layout already fixed
+    // xtask-allow(state-fields): independent: the height the layout already fixed; either dimension may be fixed on its own
     /// The height the layout already fixed.
     pub known_height: Option<f64>,
     /// The width available.

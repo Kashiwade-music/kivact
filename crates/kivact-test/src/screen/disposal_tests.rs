@@ -28,10 +28,13 @@ fn push(log: &Log, entry: impl Into<String>) {
 #[test]
 fn a_cleanup_writes_signals_and_registers_on_its_disposing_owner() {
     let log: Log = Rc::default();
+    // xtask-allow(state-fields): independent: a test slot holding the branch signals; written once
     let slots = Rc::new(Cell::new(None));
     let (seen, slot) = (log.clone(), slots.clone());
     let screen = render(move || {
+        // xtask-allow(state-fields): independent: a test signal; the test observes it on its own
         let open = signal(true);
+        // xtask-allow(state-fields): independent: a test signal; the test observes it on its own
         let closed = signal(0);
         slot.set(Some((open, closed)));
         let seen = seen.clone();

@@ -30,7 +30,7 @@ pub(crate) struct TestApp {
     /// The touch and pen contacts the test has down (`contact_*`), in the
     /// order they went down, each at its last position.
     pub(super) contacts: RefCell<Vec<(Contact, kivact_style::draw::Point)>>,
-    // xtask-allow(state-fields): S-8 ID - the platform id of the last contact
+    // xtask-allow(state-fields): identity: the platform pointer id of the last contact
     /// The platform's id of the last contact (the window gives each
     /// contact a pointer id of its own, never the mouse's).
     pub(super) last_contact: Cell<u64>,

@@ -36,11 +36,11 @@ fn wheel_list(handlers: &Handlers) -> &EventHandlers<WheelEvent> {
 /// Where one event goes: the target whose observers see it and the target
 /// whose defaults run.
 struct Selected {
-    // xtask-allow(state-fields): per-event routing snapshot - observed
+    // xtask-allow(state-fields): independent: a per-event routing value; the event sets each from its hit
     observed: Option<Rc<Target>>,
-    // xtask-allow(state-fields): per-event routing snapshot - target
+    // xtask-allow(state-fields): independent: a per-event routing value; the event sets each from its hit
     target: Option<Rc<Target>>,
-    // xtask-allow(state-fields): per-event routing snapshot - The event came from this node's own canvas
+    // xtask-allow(state-fields): independent: a per-event routing value; any combination with the targets is valid
     /// The event came from this node's own canvas.
     own_canvas: bool,
 }

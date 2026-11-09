@@ -33,9 +33,9 @@ use std::panic::Location;
 /// If the parent dies first, the child stops safely without undefined behavior.
 #[derive(Clone)]
 pub struct Parent {
-    // xtask-allow(state-fields): optional validated constructor input, independent of parent scale.
+    // xtask-allow(state-fields): option: an optional constructor input; the default applies when absent
     window: Option<ParentWindow>,
-    // xtask-allow(state-fields): optional host scale configuration, independent of callback presence.
+    // xtask-allow(state-fields): option: an optional host scale; the default applies when absent
     scale: Option<f64>,
     on_resize_request: Option<std::sync::Arc<dyn Fn(u32, u32) -> bool + Send + Sync>>,
 }

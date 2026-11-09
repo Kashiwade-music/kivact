@@ -59,21 +59,58 @@ pub(crate) struct SessionData {
     pub(crate) turns: RefCell<VecDeque<p::TurnGraph>>,
     pub(crate) frames: RefCell<BTreeMap<WindowId, VecDeque<p::FrameInfo>>>,
     pub(crate) update_counts: RefCell<HashMap<NodeId, u32>>,
-    // xtask-allow(state-fields): S-8 ID - style override id allocator.
+    // xtask-allow(state-fields): identity: allocates style override ids
     pub(crate) next_override: Cell<u64>,
-    // xtask-allow(state-fields): independent fact - the node the DevTools user highlights (with the layout overlay choice).
-    pub(crate) highlight: Cell<Option<Highlight>>,
-    // xtask-allow(state-fields): independent fact - the window in pick mode; the core owns it and the engine holds an applied copy.
-    pub(crate) pick: Cell<Option<WindowId>>,
+    pub(crate) inspector: Cell<inspect::Inspector>,
     pub(crate) overlays: RefCell<p::OverlaySettings>,
     pub(crate) sent_overlays: RefCell<BTreeMap<WindowId, DevtoolsOverlay>>,
     pub(crate) snapshots: RefCell<VecDeque<(u64, LiveSnapshot)>>,
-    // xtask-allow(state-fields): S-8 ID - snapshot id allocator.
+    // xtask-allow(state-fields): identity: allocates snapshot ids
     pub(crate) next_snapshot: Cell<u64>,
     pub(crate) sent_tree: RefCell<HashMap<NodeId, p::ElementInfo>>,
+    // xtask-allow(state-fields): cache: the last windows report sent; the whole report is compared with the next one
     pub(crate) sent_windows: RefCell<Sent<Vec<p::WindowInfo>>>,
+    // xtask-allow(state-fields): cache: the last error count sent; the number is compared with the next one
     pub(crate) errors_sent: RefCell<Sent<u64>>,
     pub(crate) open_failed: ReportOnce,
+}
+
+/// The DevTools highlight and pick mode: the one node the user inspects,
+/// either chosen in a panel or hovered while picking.
+pub(crate) mod inspect {
+    use kivact_types::WindowId;
+
+    use super::Highlight;
+
+    #[derive(Clone, Copy)]
+    pub(crate) enum Inspector {
+        Idle {
+            highlight: Option<Highlight>,
+        },
+        Picking {
+            window: WindowId,
+            hover: Option<Highlight>,
+        },
+    }
+
+    impl Inspector {
+        /// The node the DevTools draws as highlighted.
+        pub(crate) fn highlight(&self) -> Option<Highlight> {
+            match self {
+                Self::Idle { highlight } => *highlight,
+                Self::Picking { hover, .. } => *hover,
+            }
+        }
+    }
+}
+
+impl SessionData {
+    /// Leave pick mode; the node the pointer last hovered stays the
+    /// highlight, as it did before pick mode began.
+    pub(crate) fn end_pick(&self) {
+        let highlight = self.inspector.get().highlight();
+        self.inspector.set(inspect::Inspector::Idle { highlight });
+    }
 }
 
 #[derive(Clone, Copy)]
@@ -85,7 +122,7 @@ pub(crate) struct Highlight {
 pub(crate) struct PropWrite {
     pub(crate) node: NodeId,
     pub(crate) prop: Prop,
-    // xtask-allow(state-fields): passive record - the effect that wrote the prop; known only for effect-driven writes
+    // xtask-allow(state-fields): statistic: a diagnostic record of the effect that wrote the prop; known only for effect-driven writes
     pub(crate) effect: Option<EffectId>,
     pub(crate) changed: bool,
 }
@@ -203,8 +240,7 @@ impl DevtoolsState {
                 frames: RefCell::new(BTreeMap::new()),
                 update_counts: RefCell::new(HashMap::new()),
                 next_override: Cell::new(0),
-                highlight: Cell::new(None),
-                pick: Cell::new(None),
+                inspector: Cell::new(inspect::Inspector::Idle { highlight: None }),
                 overlays: RefCell::new(overlays_off()),
                 sent_overlays: RefCell::new(BTreeMap::new()),
                 snapshots: RefCell::new(VecDeque::new()),

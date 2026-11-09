@@ -68,7 +68,11 @@ pub fn view_progress(
 
 /// The window layout box of `node`, tracked.
 fn layout_rect(node: NodeRef) -> Option<Rect> {
-    node.tracked_observation()?.layout_rect.try_get().flatten()
+    node.tracked_observation()?
+        .measured
+        .try_get()
+        .flatten()
+        .map(|measured| measured.layout_rect)
 }
 
 /// The start and length of `rect` along `axis`.

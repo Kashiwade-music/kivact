@@ -16,21 +16,21 @@ use crate::view::tree::Handlers;
 pub(super) struct FirstWrite {
     pub(super) exit_layout: crate::view::ExitLayout,
     pub(super) exit_complete: Option<kivact_runtime::Handler<()>>,
-    // xtask-allow(state-fields): passive mount record - focusable when disabled
+    // xtask-allow(state-fields): option: a builder input carried to mount; absent means not focusable while disabled
     pub(super) focusable_when_disabled: Option<InputProp<bool>>,
-    // xtask-allow(state-fields): passive mount record - roving focus
+    // xtask-allow(state-fields): option: a builder input carried to mount; absent means no roving focus
     pub(super) roving_focus: Option<InputProp<kivact_engine::contract::RovingFocus>>,
-    // xtask-allow(state-fields): passive mount record - hit testable
+    // xtask-allow(state-fields): option: a builder input carried to mount; absent means the node hit-tests
     pub(super) hit_testable: Option<InputProp<bool>>,
     /// The accessibility actions the node offers, its own and its parts'.
     /// The final handlers (routed through the parts' defaults when the node has parts).
     pub(super) handlers: Handlers,
-    // xtask-allow(state-fields): passive mount record - intrinsic
+    // xtask-allow(state-fields): option: a builder input carried to mount; absent means none
     pub(super) intrinsic: Option<IntrinsicSize>,
-    // xtask-allow(state-fields): passive mount record - The node has an explicit draw layer: its layout is observed for the layer's size
+    // xtask-allow(state-fields): option: a builder input carried to mount; absent means no draw layer
     /// The node has an explicit draw layer: its layout is observed for the layer's size.
     pub(super) observe_layout: bool,
-    // xtask-allow(state-fields): passive mount record - editing
+    // xtask-allow(state-fields): option: a builder input carried to mount; absent means the node does not edit
     pub(super) editing: Option<EditorProps>,
 }
 

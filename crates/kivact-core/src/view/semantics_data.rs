@@ -16,19 +16,19 @@ pub(crate) enum Relation {
 /// A patch retains its declaration site and its place in the modifier sequence.
 #[derive(Clone)]
 pub(crate) struct SemanticsPatch {
-    // xtask-allow(state-fields): passive patch value - part
+    // xtask-allow(state-fields): option: a patch the builder may set; absent leaves the prop unchanged
     pub(crate) part: bool,
     pub(crate) input: SemanticInput,
     pub(crate) layer: usize,
     pub(crate) at: &'static Location<'static>,
-    // xtask-allow(state-fields): passive patch value - reactive
+    // xtask-allow(state-fields): option: a patch the builder may set; absent leaves the prop unchanged
     pub(crate) reactive: bool,
-    // xtask-allow(state-fields): passive patch value - text
+    // xtask-allow(state-fields): option: a patch the builder may set; absent leaves the prop unchanged
     pub(crate) text: bool,
     pub(crate) apply: Rc<dyn Fn(&mut Semantics<FocusTarget>)>,
-    // xtask-allow(state-fields): passive patch value - relation
+    // xtask-allow(state-fields): option: a patch the builder may set; absent leaves the prop unchanged
     pub(crate) relation: Option<(Relation, NodeRef)>,
-    // xtask-allow(state-fields): passive patch value - orientation
+    // xtask-allow(state-fields): option: a patch the builder may set; absent leaves the prop unchanged
     pub(crate) orientation: Option<Prop<Orientation>>,
 }
 

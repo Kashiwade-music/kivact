@@ -103,6 +103,7 @@ pub(super) fn layout_changed(
     rect: Rect,
     size: Size,
     text_truncated: bool,
+    measured_layout: Option<Rect>,
 ) {
     let observation = {
         let tree = ViewState::tree(rt);
@@ -111,13 +112,17 @@ pub(super) fn layout_changed(
         };
         node.observation
     };
-    let layout = handler(rt, node, |h| h.layout.clone());
-    if observation.is_some() || layout.is_some() {
+    let layout_handler = handler(rt, node, |h| h.layout.clone());
+    if observation.is_some() || layout_handler.is_some() {
         run_handler(rt, node_owner(rt, node), || {
             if let Some(observation) = observation {
                 observation.text_truncated.set(text_truncated);
+                observation.measured.set(
+                    measured_layout
+                        .map(|layout_rect| crate::view::tree::Measured { rect, layout_rect }),
+                );
             }
-            if let Some(layout) = layout {
+            if let Some(layout) = layout_handler {
                 layout.call((rect, size))?;
             }
             Ok(())

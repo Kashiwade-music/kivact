@@ -10,11 +10,11 @@ use kivact_style::CompiledStyle;
 /// What a node's first write decided, for the style and draw stages.
 pub(super) struct NodeFacts {
     pub(super) kind: NodeType,
-    // xtask-allow(state-fields): passive mount record - The node is a focus stop: the theme's focus ring and disabled look apply under its style, styled or not (see `kivact_style::internal::compile_style`)
+    // xtask-allow(state-fields): option: a builder input carried to mount; absent means not a focus stop
     /// The node is a focus stop: the theme's focus ring and disabled look
     /// apply under its style, styled or not (see `kivact_style::internal::compile_style`).
     pub(super) focus_stop: bool,
-    // xtask-allow(state-fields): passive mount record - local paint
+    // xtask-allow(state-fields): option: a builder input carried to mount; absent means none
     pub(super) local_paint: Option<LocalPaintSource>,
 }
 

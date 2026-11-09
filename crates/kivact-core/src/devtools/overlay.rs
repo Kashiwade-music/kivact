@@ -16,6 +16,7 @@ use kivact_types::{NodeId, Point, Rect, Rgba, WindowId};
 
 use super::convert;
 use super::lifecycle;
+use crate::view::devtools_state::inspect::Inspector as Inspect;
 use crate::view::devtools_state::{DevtoolsState, Highlight, Inspector, overlays_off};
 use crate::view::state::ViewState;
 
@@ -30,19 +31,26 @@ const LINT_COLOR: u32 = 0xe5484d;
 
 pub(super) fn highlight(rt: &Runtime, params: p::HighlightParams) -> Result<p::Empty, p::RpcError> {
     let i = DevtoolsState::inspector(rt);
-    match params.node {
+    let highlight = match params.node {
         Some(raw) => {
             let id = NodeId(raw);
             if ViewState::tree(rt).get(id).is_none() {
                 return Err(node_not_found(raw));
             }
-            i.session.highlight.set(Some(Highlight {
+            Some(Highlight {
                 node: id,
                 layout: params.layout,
-            }));
+            })
         }
-        None => i.session.highlight.set(None),
-    }
+        None => None,
+    };
+    i.session.inspector.set(match i.session.inspector.get() {
+        Inspect::Idle { .. } => Inspect::Idle { highlight },
+        Inspect::Picking { window, .. } => Inspect::Picking {
+            window,
+            hover: highlight,
+        },
+    });
     Ok(p::Empty {})
 }
 
@@ -75,7 +83,7 @@ pub(super) fn start_pick(
 }
 
 pub(super) fn stop_pick(rt: &Runtime, _: p::Empty) -> Result<p::Empty, p::RpcError> {
-    DevtoolsState::inspector(rt).session.pick.set(None);
+    DevtoolsState::inspector(rt).session.end_pick();
     ViewState::tree(rt).engine().set_pick(None);
     Ok(p::Empty {})
 }
@@ -146,10 +154,16 @@ pub(super) fn pick_event(rt: &Runtime, window: WindowId, node: Option<NodeId>, p
     {
         let layout = i
             .session
-            .highlight
+            .inspector
             .get()
+            .highlight()
             .is_some_and(|highlight| highlight.layout);
-        i.session.highlight.set(Some(Highlight { node, layout }));
+        if let Inspect::Picking { window, .. } = i.session.inspector.get() {
+            i.session.inspector.set(Inspect::Picking {
+                window,
+                hover: Some(Highlight { node, layout }),
+            });
+        }
     }
     if i.wants(p::Topic::Pick) {
         i.notify(p::Notification::Pick(p::PickEvent {
@@ -163,7 +177,7 @@ pub(super) fn pick_event(rt: &Runtime, window: WindowId, node: Option<NodeId>, p
         }));
     }
     if phase != PickPhase::Hover {
-        i.session.pick.set(None);
+        i.session.end_pick();
         ViewState::tree(rt).engine().set_pick(None);
     }
 }
@@ -171,7 +185,10 @@ pub(super) fn pick_event(rt: &Runtime, window: WindowId, node: Option<NodeId>, p
 /// Begin pick mode in `window`.
 pub(super) fn start_pick_in(rt: &Runtime, window: WindowId) {
     let i = DevtoolsState::inspector(rt);
-    i.session.pick.set(Some(window));
+    i.session.inspector.set(Inspect::Picking {
+        window,
+        hover: None,
+    });
     ViewState::tree(rt).engine().set_pick(Some(window));
 }
 
@@ -216,7 +233,7 @@ fn paint_scope(reader: &Reader, i: &Inspector) -> Scope {
     if !i.session.overlays.borrow().selected_only {
         return Scope::All;
     }
-    match i.session.highlight.get() {
+    match i.session.inspector.get().highlight() {
         Some(highlight) => Scope::Subtree(subtree(reader, highlight.node)),
         None => Scope::Empty,
     }
@@ -242,7 +259,7 @@ fn build_overlay(
     scope: &Scope,
 ) -> DevtoolsOverlay {
     let mut overlay = DevtoolsOverlay::default();
-    if let Some(highlight) = i.session.highlight.get() {
+    if let Some(highlight) = i.session.inspector.get().highlight() {
         add_highlight(reader, window, highlight, &mut overlay);
     }
     let settings = i.session.overlays.borrow().clone();
@@ -448,8 +465,7 @@ fn layout_outline(rect: Rect, color: u32) -> OverlayOutline {
 /// Stop pick, highlight and every overlay.
 pub(super) fn clear(rt: &Runtime) {
     let i = DevtoolsState::inspector(rt);
-    i.session.pick.set(None);
-    i.session.highlight.set(None);
+    i.session.inspector.set(Inspect::Idle { highlight: None });
     *i.session.overlays.borrow_mut() = overlays_off();
     {
         let tree = ViewState::tree(rt);

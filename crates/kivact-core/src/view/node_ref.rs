@@ -639,7 +639,9 @@ impl NodeRef {
         let keys = ViewState::of(&rt)
             .focus_keys(window)
             .expect("invariant: the node reference's window is open");
-        kivact_runtime::memo(move || focused.get() && keys.visible.get())
+        kivact_runtime::memo(move || {
+            focused.get() && keys.focus.get().is_some_and(|key| key.visible)
+        })
     }
 
     /// Whether the keyboard focus is on the bound node or on a node inside
@@ -669,7 +671,7 @@ impl NodeRef {
             let Some(me) = bound_node(app, node) else {
                 return false;
             };
-            let Some(inner) = keys.node.try_get().flatten() else {
+            let Some(inner) = keys.focus.try_get().flatten().map(|key| key.target) else {
                 return false;
             };
             let Some(rt) = Runtime::get(app) else {
@@ -740,7 +742,11 @@ fn resolved_rect(app: AppId, binding: Signal<RefState>) -> Value<Option<Rect>> {
     kivact_runtime::memo(move || {
         let target = binding.try_get().and_then(RefState::bound)?.target();
         let observation = observation(app, target)?;
-        let owner_rect = observation.rect.try_get().flatten();
+        let owner_rect = observation
+            .measured
+            .try_get()
+            .flatten()
+            .map(|measured| measured.rect);
         let Some(region) = target.region else {
             return owner_rect;
         };

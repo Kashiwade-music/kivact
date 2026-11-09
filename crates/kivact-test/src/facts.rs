@@ -6,12 +6,12 @@ use kivact_types::NodeId;
 use std::collections::HashMap;
 use std::panic::Location;
 pub(super) struct Node {
-    // xtask-allow(state-fields): immutable per-query engine/creation metadata, not a lifecycle phase.
+    // xtask-allow(state-fields): independent: a per-query engine fact; any combination is valid
     pub(super) kind: Option<NodeType>,
     pub(super) children: Vec<NodeId>,
-    // xtask-allow(state-fields): immutable per-query engine/creation metadata, not a lifecycle phase.
+    // xtask-allow(state-fields): independent: a per-query engine fact; any combination is valid
     pub(super) parent: Option<NodeId>,
-    // xtask-allow(state-fields): immutable per-query engine/creation metadata, not a lifecycle phase.
+    // xtask-allow(state-fields): independent: a per-query creation location; any combination is valid
     pub(super) at: Option<&'static Location<'static>>,
 }
 pub(super) struct Facts {

@@ -28,10 +28,10 @@ pub struct SharedImage {
     /// Notified after each change of `state` the UI makes or takes from the
     /// engine (the receiving task): [`SharedImage::status`] tracks it.
     changed: Notifier,
-    // xtask-allow(state-fields): independent retained outputs (latest delivery) - The import of the newest request, once the engine provided it
+    // xtask-allow(state-fields): projection: written only by import and renew from the link phase
     /// The import of the newest request, once the engine provided it.
     current: Signal<Option<Current>>,
-    // xtask-allow(state-fields): independent retained outputs (latest delivery) - pixels
+    // xtask-allow(state-fields): independent: the last pixels delivered, kept for every phase
     pixels: Signal<Option<Pixels>>,
     size: Signal<(u32, u32)>,
 }

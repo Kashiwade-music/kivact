@@ -452,8 +452,9 @@ pub(super) fn audit_a11y(
 pub(super) fn focus_visible(rt: &Runtime, window: WindowId) -> bool {
     ViewState::of(rt)
         .focus_keys(window)
-        .and_then(|keys| keys.visible.try_get_untracked())
-        .unwrap_or(false)
+        .and_then(|keys| keys.focus.try_get_untracked())
+        .flatten()
+        .is_some_and(|key| key.visible)
 }
 
 pub(super) fn get_focus(

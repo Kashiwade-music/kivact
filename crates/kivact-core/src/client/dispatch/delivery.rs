@@ -189,10 +189,7 @@ fn dispatch_host(rt: &Runtime, host_event: &HostEvent) {
             size,
             text_truncated,
             layout,
-        } => {
-            set_layout_rect(rt, *node, *layout);
-            env::layout_changed(rt, *node, *rect, *size, *text_truncated)
-        }
+        } => env::layout_changed(rt, *node, *rect, *size, *text_truncated, *layout),
         HostEvent::EffectResult { request, result } => {
             platform::effect_result(rt, *request, result)
         }
@@ -299,17 +296,6 @@ fn set_image_status(rt: &Runtime, node: kivact_types::NodeId, status: kivact_typ
         .and_then(|node| node.observation);
     if let Some(observation) = observation {
         observation.image_status.set(status);
-    }
-}
-
-/// Record the window layout box of an observed node for the scroll-driven
-/// progress values that read it.
-fn set_layout_rect(rt: &Runtime, node: kivact_types::NodeId, layout: Option<kivact_types::Rect>) {
-    let observation = crate::view::state::ViewState::tree(rt)
-        .get(node)
-        .and_then(|node| node.observation);
-    if let Some(observation) = observation {
-        observation.layout_rect.set(layout);
     }
 }
 

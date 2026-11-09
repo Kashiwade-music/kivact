@@ -94,29 +94,29 @@ pub struct TextEditing {
 
 /// The editor settings a mounted editing node binds (`mount::editing::bind`).
 pub(crate) struct EditorProps {
-    // xtask-allow(state-fields): builder/mount config - behavior
+    // xtask-allow(state-fields): option: an editing behavior; absent means no behavior
     pub(crate) behavior: Option<Rc<Behavior>>,
-    // xtask-allow(state-fields): builder/mount config - highlight
+    // xtask-allow(state-fields): option: the highlight binding; absent means no highlight
     pub(crate) highlight: Option<BindHighlight>,
-    // xtask-allow(state-fields): builder/mount config - decorations
+    // xtask-allow(state-fields): option: the decorations to bind; absent means none
     pub(crate) decorations: Option<BindHighlight>,
-    // xtask-allow(state-fields): builder/mount config - forward keys
+    // xtask-allow(state-fields): option: the keys to forward; absent means none
     pub(crate) forward_keys: Option<InputProp<Vec<kivact_types::Key>>>,
     pub(crate) value: InputProp<Rc<str>>,
-    // xtask-allow(state-fields): builder/mount config - multiline
+    // xtask-allow(state-fields): option: whether the editor is multiline; absent means single line
     pub(crate) multiline: bool,
-    // xtask-allow(state-fields): builder/mount config - line layout
+    // xtask-allow(state-fields): option: the line layout; absent means the default
     pub(crate) line_layout: Option<InputProp<kivact_types::EditLineLayout>>,
-    // xtask-allow(state-fields): builder/mount config - report text
+    // xtask-allow(state-fields): option: whether text changes are reported; absent means not reported
     pub(crate) report_text: bool,
-    // xtask-allow(state-fields): builder/mount config - purpose
+    // xtask-allow(state-fields): option: the input purpose; absent means unspecified
     pub(crate) purpose: Option<InputProp<kivact_types::InputPurpose>>,
-    // xtask-allow(state-fields): builder/mount config - read only
+    // xtask-allow(state-fields): option: whether the editor is read only; absent means editable
     pub(crate) read_only: Option<InputProp<bool>>,
-    // xtask-allow(state-fields): builder/mount config - The longest text, in Unicode scalars;
+    // xtask-allow(state-fields): option: the longest text; absent means no limit
     /// The longest text, in Unicode scalars; no source, or a source reading `None`: no limit.
     pub(crate) max_length: Option<InputProp<Option<usize>>>,
-    // xtask-allow(state-fields): builder/mount config - placeholder
+    // xtask-allow(state-fields): option: the placeholder; absent means none
     pub(crate) placeholder: Option<InputProp<String>>,
 }
 

@@ -21,13 +21,17 @@ fn rejected_pointer_down_cannot_retain_an_ended_region_gesture() {
     use kivact_core::view::{ButtonPress, Handled, MouseButton, PointerPhase};
     use kivact_engine::contract::HostEvent;
     use kivact_style::draw::{Rect, RegionId};
+    // xtask-allow(state-fields): statistic: a test counter of presses
     let presses = Rc::new(Cell::new(0));
     let calls = presses.clone();
+    // xtask-allow(state-fields): statistic: a test counter of observed downs
     let downs = Rc::new(Cell::new(0));
     let observed = downs.clone();
+    // xtask-allow(state-fields): independent: a test slot holding the disabled signal; written once
     let disabled = Rc::new(Cell::new(None));
     let disabled_slot = disabled.clone();
     let screen = render(move || {
+        // xtask-allow(state-fields): independent: a test signal; the test observes it on its own
         let disabled = signal(false);
         disabled_slot.set(Some(disabled));
         canvas(|draw, _| draw.region(RegionId(1), Rect::new(0., 0., 100., 60.)))
@@ -105,8 +109,10 @@ fn a_primary_down_of_the_gesture_pointer_releases_a_gesture_whose_up_was_lost() 
     use kivact_engine::contract::HostEvent;
     use kivact_style::draw::{Point, Rect, RegionId};
     use kivact_types::{Modifiers, PointerSample};
+    // xtask-allow(state-fields): statistic: a test counter of presses
     let presses = Rc::new(Cell::new(0));
     let calls = presses.clone();
+    // xtask-allow(state-fields): statistic: a test counter of observed downs
     let downs = Rc::new(Cell::new(0));
     let observed = downs.clone();
     let screen = render(move || {
@@ -345,8 +351,11 @@ fn replacing_editing_drops_line_state_after_releasing_the_model() {
     use std::cell::RefCell;
     use std::rc::Weak;
 
+    // xtask-allow(state-fields): statistic: a test counter of drops
     let drops = Rc::new(Cell::new(0));
+    // xtask-allow(state-fields): statistic: a test counter of re-entered drops
     let reentered = Rc::new(Cell::new(0));
+    // xtask-allow(state-fields): independent: a test slot holding the reader; written once
     let reader = Rc::new(RefCell::new(None));
     let probes: Rc<RefCell<Vec<Weak<Probe>>>> = Rc::default();
     let (d, e, read, seen) = (

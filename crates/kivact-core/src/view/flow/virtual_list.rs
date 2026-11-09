@@ -298,7 +298,7 @@ impl<T: kivact_runtime::PropValue, K: kivact_runtime::ItemKey> IntoView for Virt
                 let weak = cx.weak();
                 let st = state.clone();
                 cx.effect(EffectKind::Internal, at, move || {
-                    let node = keys.node.get();
+                    let node = keys.focus.get().map(|key| key.target);
                     let Some(rt) = weak.upgrade() else { return };
                     let held = node.and_then(|node| focused_row(&rt, spacer, node.node, &st));
                     st.borrow_mut().held.set(held);

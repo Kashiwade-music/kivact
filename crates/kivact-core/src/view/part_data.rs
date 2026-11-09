@@ -60,21 +60,21 @@ pub enum Focus {
 /// Actual input and availability state of an attached node or canvas region.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct PartState {
-    // xtask-allow(state-fields): public observation snapshot - A primary pointer or focused activation key is held down
+    // xtask-allow(state-fields): independent: a public observation snapshot; any combination can be observed
     /// A primary pointer or focused activation key is held down. Always
     /// `false` while the target is disabled or hidden.
     pub pressed: bool,
-    // xtask-allow(state-fields): public observation snapshot - The pointer is over this exact target
+    // xtask-allow(state-fields): independent: a public observation snapshot; any combination can be observed
     /// The pointer is over this exact target. Always `false` while the
     /// target is disabled or hidden.
     pub hovered: bool,
     /// This exact target's keyboard focus; [`Focus::FocusedVisible`] also
     /// means the host requests a visible focus indication.
     pub focus: Focus,
-    // xtask-allow(state-fields): public observation snapshot - A caller or attached behavior disables this target
+    // xtask-allow(state-fields): independent: a public observation snapshot; any combination can be observed
     /// A caller or attached behavior disables this target.
     pub disabled: bool,
-    // xtask-allow(state-fields): public observation snapshot - A caller or attached behavior hides this target
+    // xtask-allow(state-fields): independent: a public observation snapshot; any combination can be observed
     /// A caller or attached behavior hides this target.
     pub hidden: bool,
 }

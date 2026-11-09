@@ -72,7 +72,7 @@ pub(super) fn bind_node_style(
 pub(crate) struct NodeStyle {
     /// Style layers, merged in order.
     pub layers: Vec<StyleLayer>,
-    // xtask-allow(state-fields): mount config - The node is a focus stop: the theme's focus ring and disabled look apply under its style
+    // xtask-allow(state-fields): option: a mount input; absent means not a focus stop
     /// The node is a focus stop: the theme's focus ring and disabled look
     /// apply under its style.
     pub focusable: bool,
@@ -80,11 +80,11 @@ pub(crate) struct NodeStyle {
     pub disabled: Option<Rc<dyn Fn() -> bool>>,
     /// Reader of the selected state (applies the `selected` state style).
     pub selected: Option<Rc<dyn Fn() -> bool>>,
-    // xtask-allow(state-fields): mount config - Applied to every resolved layout before it is set (a builder that owns part of its node's layout)
+    // xtask-allow(state-fields): option: a layout hook; absent means the layout is set as resolved
     /// Applied to every resolved layout before it is set (a builder that
     /// owns part of its node's layout).
     pub fix_layout: Option<fn(&mut LayoutProps)>,
-    // xtask-allow(state-fields): mount config - The merged local paint read by the existing drawing effect
+    // xtask-allow(state-fields): option: the merged local paint; absent means none
     /// The merged local paint read by the existing drawing effect.
     pub local_paint: Option<LocalPaintSource>,
 }
