@@ -132,6 +132,8 @@ impl TurnGuard<'_> {
         self.rt.record_stage(stage, self.started.elapsed());
     }
     /// Record a cause of the given kind in the turn trace.
+    // xtask-allow(internal-contract): the core's DevTools reads the detailed trace.
+    #[doc(hidden)]
     pub fn cause_with(&self, tag: CauseTag, label: String) {
         self.rt.record_cause_with(tag, label);
     }

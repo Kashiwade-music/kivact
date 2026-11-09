@@ -60,7 +60,7 @@ fn preceding_contacts(
                 .map(|event| native.input.platform(event, now, double_click))
                 .collect()
         }
-        WindowEvent::Focused(false) => native.input.focus_lost(),
+        WindowEvent::Focused(false) => native.input.focus_lost(now, double_click),
         _ => Vec::new(),
     }
 }

@@ -148,7 +148,11 @@ impl WindowScript {
         };
         let mut events = Vec::new();
         if matches!(event, ShellEvent::Focused(false)) {
-            events.extend(state.input.focus_lost());
+            events.extend(
+                state
+                    .input
+                    .focus_lost(now, kivact_types::defaults::DOUBLE_CLICK),
+            );
         }
         events.push(
             state
@@ -234,7 +238,11 @@ impl WindowScript {
         };
         let mut events = Vec::new();
         if !focused {
-            events.extend(state.input.focus_lost());
+            events.extend(
+                state
+                    .input
+                    .focus_lost(now, kivact_types::defaults::DOUBLE_CLICK),
+            );
         }
         events.push(state.input.platform(
             ShellEvent::Focused(focused),

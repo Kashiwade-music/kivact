@@ -220,8 +220,15 @@ impl Running {
         };
         self.handler.start(&mut shell, self.waker.clone())
     }
+    /// Deliver one event to the handler. An event for a window that an earlier
+    /// callback closed is dropped: no event follows `close_window`.
     fn deliver(&mut self, target: arvane_shell::EventTarget, event: ShellEvent) {
         if !matches!(self.state, State::Live) {
+            return;
+        }
+        if let arvane_shell::EventTarget::Window(id) = target
+            && !self.windows.borrow().contains_key(&id)
+        {
             return;
         }
         let result = {
@@ -661,5 +668,101 @@ impl WindowProbe {
     }
     pub fn focus_requests(&self) -> u32 {
         self.with(|window| window.focus_requests.get())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    //! Role: Tests that the virtual loop delivers no event to a window a callback closed.
+    use super::{MirrorMode, VirtualBackend, VirtualOptions};
+    use arvane_shell::{
+        EventTarget, ShellControl, ShellError, ShellEvent, ShellHandler, ShellLoop, ShellWaker,
+        Step, SteppedBackend,
+    };
+    use kivact_types::{PointerSettings, Size, WindowId, WindowRequest};
+    use std::cell::RefCell;
+    use std::rc::Rc;
+
+    /// Opens the second window at start and closes it on the main window's first
+    /// environment change; records each delivered target and whether it was that change.
+    struct CloseSecondOnMain {
+        second: WindowId,
+        seen: Rc<RefCell<Vec<(EventTarget, bool)>>>,
+    }
+
+    impl ShellHandler for CloseSecondOnMain {
+        fn start(
+            &mut self,
+            shell: &mut dyn ShellLoop,
+            _waker: ShellWaker,
+        ) -> Result<ShellControl, ShellError> {
+            shell.open_window(WindowRequest {
+                id: self.second,
+                parent: Some(WindowId::MAIN),
+                ..WindowRequest::main(
+                    "second",
+                    Size {
+                        width: 320.0,
+                        height: 240.0,
+                    },
+                )
+            })?;
+            Ok(ShellControl::Wait)
+        }
+
+        fn event(
+            &mut self,
+            target: EventTarget,
+            event: ShellEvent,
+            shell: &mut dyn ShellLoop,
+        ) -> Result<ShellControl, ShellError> {
+            let environment = matches!(event, ShellEvent::EnvironmentChanged);
+            self.seen.borrow_mut().push((target, environment));
+            if target == EventTarget::Window(WindowId::MAIN) && environment {
+                shell.close_window(self.second);
+            }
+            Ok(ShellControl::Wait)
+        }
+
+        fn close(&mut self, _shell: &mut dyn ShellLoop) {}
+    }
+
+    #[test]
+    fn no_event_follows_close_window_in_the_same_batch() {
+        let second = WindowId::new(2).expect("invariant: 2 is a valid window id");
+        let seen = Rc::new(RefCell::new(Vec::new()));
+        let options = VirtualOptions {
+            mirror: MirrorMode::Off,
+            ..VirtualOptions::default()
+        };
+        let backend = VirtualBackend::new(options);
+        let script = backend.script();
+        let handler = CloseSecondOnMain {
+            second,
+            seen: Rc::clone(&seen),
+        };
+        let mut running = Box::new(backend)
+            .start(Box::new(handler))
+            .expect("the virtual loop starts");
+        // One queued item fans out to the main window and the second window; the
+        // main window's event closes the second window before its own event arrives.
+        script.pointer_settings(PointerSettings::default());
+        running.step(Step::Input);
+
+        let seen = seen.borrow();
+        assert!(
+            seen.contains(&(EventTarget::Window(WindowId::MAIN), true)),
+            "the main window receives its environment change: {seen:?}"
+        );
+        let second_events: Vec<bool> = seen
+            .iter()
+            .filter(|(target, _)| *target == EventTarget::Window(second))
+            .map(|(_, environment)| *environment)
+            .collect();
+        assert_eq!(
+            second_events,
+            vec![false],
+            "only the opening event reaches the second window: {seen:?}"
+        );
     }
 }
