@@ -56,15 +56,13 @@ pub enum SideNavCollapse {
     Controlled(Binding<bool>),
 }
 
-// xtask-allow(state-fields): Construction metrics and optional caller collapse binding; the default is used only without that binding and is not a runtime lifecycle flag.
-/// Initial width, width bounds and optional collapse binding for a resizable sidebar.
+/// Initial width, width bounds and collapse ownership for a resizable sidebar.
 /// `Default` starts expanded at 260 px, bounded to 180–480 px.
 pub struct SideNavResize {
     default_width: f64,
     min: f64,
     max: f64,
-    default_collapsed: bool,
-    collapsed: Option<Binding<bool>>,
+    collapse: SideNavCollapse,
 }
 
 impl Default for SideNavResize {
@@ -73,8 +71,7 @@ impl Default for SideNavResize {
             default_width: 260.0,
             min: 180.0,
             max: 480.0,
-            default_collapsed: false,
-            collapsed: None,
+            collapse: SideNavCollapse::Uncontrolled { default: false },
         }
     }
 }
@@ -102,12 +99,14 @@ impl SideNavResize {
     }
     /// Start an uncontrolled sidebar collapsed.
     pub fn initially_collapsed(mut self) -> Self {
-        self.default_collapsed = true;
+        if let SideNavCollapse::Uncontrolled { default } = &mut self.collapse {
+            *default = true;
+        }
         self
     }
     /// Use the caller's single collapse binding.
     pub fn collapsed(mut self, collapsed: impl IntoBinding<bool>) -> Self {
-        self.collapsed = Some(collapsed.into_binding());
+        self.collapse = SideNavCollapse::Controlled(collapsed.into_binding());
         self
     }
 }
@@ -359,10 +358,9 @@ fn sidebar_collapse(
     resize: Option<&SideNavResize>,
 ) -> Option<Binding<bool>> {
     resize
-        .map(|resize| {
-            resize
-                .collapsed
-                .unwrap_or_else(|| signal(resize.default_collapsed).into_binding())
+        .map(|resize| match &resize.collapse {
+            SideNavCollapse::Uncontrolled { default } => signal(*default).into_binding(),
+            SideNavCollapse::Controlled(collapsed) => *collapsed,
         })
         .or_else(|| {
             collapse.map(|collapse| match collapse {
@@ -372,7 +370,6 @@ fn sidebar_collapse(
         })
 }
 
-// xtask-allow(state-fields): Independent retained construction slots; sidebar collapse and resizing are owned by their existing bindings and splitter.
 struct SideNavSlots {
     children: View,
     // xtask-allow(state-fields): Independent retained header content slot; this record owns no sidebar phase.

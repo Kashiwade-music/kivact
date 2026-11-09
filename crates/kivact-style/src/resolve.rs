@@ -44,7 +44,6 @@ use super::sheet::{Direction, Overflow, Position, ScrollbarWidth, Sides, Style};
 use super::theme::value::Theme;
 use super::transform::Transform;
 
-// xtask-allow(state-fields): This compilation result independently contains optional text, state deltas and retained paint.
 /// A [`Style`] compiled against a theme: the engine's node props and the
 /// diagnostics of the compilation, made by [`crate::internal::compile_style`].
 ///
@@ -58,15 +57,18 @@ use super::transform::Transform;
 /// [`paint_retained`]: CompiledStyle::paint_retained
 #[derive(Clone)]
 pub struct CompiledStyle {
+    // xtask-allow(state-fields): passive record - retained paint
     retained_paint: Option<LocalPaint>,
     /// Layout props.
     pub layout: LayoutProps,
     /// Paint props.
     pub paint: PaintProps,
+    // xtask-allow(state-fields): passive record - Text props: when the style sets any (only what it sets: the rest is inherited property by property), and always for the root, which carries the theme's text defaults that every node inherits
     /// Text props: when the style sets any (only what it sets: the rest
     /// is inherited property by property), and always for the root, which
     /// carries the theme's text defaults that every node inherits.
     pub text: Option<TextStyle>,
+    // xtask-allow(state-fields): passive record - Hover/pressed/focus/disabled overrides, if any
     /// Hover/pressed/focus/disabled overrides, if any.
     pub states: Option<StateStyles>,
     /// Properties set more than once (reported as diagnostics).
@@ -206,23 +208,58 @@ fn text(s: &Style, theme: &Theme) -> (TextStyle, u32) {
     (t, dropped)
 }
 
-// xtask-allow(state-fields): Independent input facts select compiled style defaults; this value owns no transitions.
+/// Interactive states a tool forces on a node (DevTools), as a set.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct ForcedStates(u8);
+impl ForcedStates {
+    /// Hovered.
+    pub const HOVER: Self = Self(1);
+    /// Pressed.
+    pub const PRESSED: Self = Self(2);
+    /// Focused.
+    pub const FOCUS: Self = Self(4);
+    /// Focused with a visible focus ring.
+    pub const FOCUS_VISIBLE: Self = Self(8);
+    /// Disabled.
+    pub const DISABLED: Self = Self(16);
+    /// Selected.
+    pub const SELECTED: Self = Self(32);
+    /// Whether every state of `s` is in the set.
+    pub fn contains(self, s: Self) -> bool {
+        self.0 & s.0 == s.0
+    }
+    /// Add the states of `s`.
+    pub fn insert(&mut self, s: Self) {
+        self.0 |= s.0;
+    }
+    /// Whether no state is forced.
+    pub fn is_empty(self) -> bool {
+        self.0 == 0
+    }
+}
+
 /// How a node takes part in the theme's defaults for interactive elements,
 /// the input of [`crate::internal::compile_style`] next to the style and the theme.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Interactive {
+    // xtask-allow(state-fields): passive record (compile input) - The node is a focus stop (focusable, or a native editor): it gets the theme's focus ring and disabled opacity unless its style sets its own.
     /// The node is a focus stop (focusable, or a native editor): it gets
     /// the theme's focus ring and disabled opacity unless its style sets
     /// its own.
     pub focusable: bool,
+    // xtask-allow(state-fields): passive record (compile input) - Apply the style's `disabled` state style, and take no hover or pressed look.
     /// Apply the style's `disabled` state style, and take no hover or pressed
     /// look.
     pub disabled: bool,
+    // xtask-allow(state-fields): passive record (compile input) - Apply the style's `selected` state style.
     /// Apply the style's `selected` state style.
     pub selected: bool,
+    // xtask-allow(state-fields): passive record (compile input) - The node is the root of the App: its text props always carry the theme's text defaults, which every node inherits.
     /// The node is the root of the App: its text props always carry the
     /// theme's text defaults, which every node inherits.
     pub root: bool,
+    /// States a tool forces on the node; empty for an App.
+    pub forced: ForcedStates,
 }
 
 /// The theme's defaults under a focusable node's style: a ring of
@@ -251,10 +288,73 @@ fn interactive_defaults(s: &mut Style, theme: &Theme, disabled: bool) {
     }
 }
 
+/// Merge the state styles a tool forces into the base, in the engine's
+/// layer order, so they no longer apply as deltas.
+fn merge_forced(mut s: Style, forced: ForcedStates) -> Style {
+    if forced.contains(ForcedStates::FOCUS)
+        && let Some(v) = s.focus.take()
+    {
+        s = s.merge(&v);
+    }
+    if forced.contains(ForcedStates::FOCUS_VISIBLE)
+        && let Some(v) = s.focus_visible.take()
+    {
+        s = s.merge(&v);
+    }
+    if forced.contains(ForcedStates::HOVER)
+        && let Some(v) = s.hover.take()
+    {
+        s = s.merge(&v);
+    }
+    if forced.contains(ForcedStates::PRESSED)
+        && let Some(v) = s.pressed.take()
+    {
+        s = s.merge(&v);
+    }
+    s
+}
+
+/// The host-evaluated state deltas of `s`, if it sets any state.
+fn state_styles(s: &Style, theme: &Theme) -> Option<StateStyles> {
+    (s.hover.is_some()
+        || s.group_hover.is_some()
+        || s.group_focus.is_some()
+        || s.group
+        || s.pressed.is_some()
+        || s.focus.is_some()
+        || s.focus_visible.is_some()
+        || s.enter.is_some()
+        || s.exit.is_some())
+    .then(|| StateStyles {
+        hover: s.hover.as_ref().map(|h| paint_delta(s, h, theme)),
+        pressed: s.pressed.as_ref().map(|h| paint_delta(s, h, theme)),
+        focus: s.focus.as_ref().map(|h| paint_delta(s, h, theme)),
+        focus_visible: s.focus_visible.as_ref().map(|h| {
+            // Over the focus state, as the host applies it.
+            let focused = match &s.focus {
+                Some(focus) => s.clone().merge(focus),
+                None => s.clone(),
+            };
+            paint_delta(&focused, h, theme)
+        }),
+        group_hover: s.group_hover.as_ref().map(|h| paint_delta(s, h, theme)),
+        group_focus: s.group_focus.as_ref().map(|h| paint_delta(s, h, theme)),
+        group: s.group,
+        enter: s.enter.as_ref().map(|h| paint_delta(s, h, theme)),
+        exit: s.exit.as_ref().map(|h| paint_delta(s, h, theme)),
+    })
+}
+
 /// Compile a style for a node. `disabled`/`selected` variants are merged
 /// here; hover/pressed/focus/focus-visible become host-evaluated state
 /// deltas.
-pub fn compile_style(s: &Style, theme: &Theme, state: Interactive) -> CompiledStyle {
+pub fn compile_style(s: &Style, theme: &Theme, mut state: Interactive) -> CompiledStyle {
+    if state.forced.contains(ForcedStates::DISABLED) {
+        state.disabled = true;
+    }
+    if state.forced.contains(ForcedStates::SELECTED) {
+        state.selected = true;
+    }
     let retained_paint = s.local_paint.clone();
     let mut s = s.clone();
     let unsupported_in_states = unsupported_in_states(&s);
@@ -272,37 +372,8 @@ pub fn compile_style(s: &Style, theme: &Theme, state: Interactive) -> CompiledSt
     {
         s = s.merge(&v);
     }
-    let states = if s.hover.is_some()
-        || s.group_hover.is_some()
-        || s.group_focus.is_some()
-        || s.group
-        || s.pressed.is_some()
-        || s.focus.is_some()
-        || s.focus_visible.is_some()
-        || s.enter.is_some()
-        || s.exit.is_some()
-    {
-        Some(StateStyles {
-            hover: s.hover.as_ref().map(|h| paint_delta(&s, h, theme)),
-            pressed: s.pressed.as_ref().map(|h| paint_delta(&s, h, theme)),
-            focus: s.focus.as_ref().map(|h| paint_delta(&s, h, theme)),
-            focus_visible: s.focus_visible.as_ref().map(|h| {
-                // Over the focus state, as the host applies it.
-                let focused = match &s.focus {
-                    Some(focus) => s.clone().merge(focus),
-                    None => s.clone(),
-                };
-                paint_delta(&focused, h, theme)
-            }),
-            group_hover: s.group_hover.as_ref().map(|h| paint_delta(&s, h, theme)),
-            group_focus: s.group_focus.as_ref().map(|h| paint_delta(&s, h, theme)),
-            group: s.group,
-            enter: s.enter.as_ref().map(|h| paint_delta(&s, h, theme)),
-            exit: s.exit.as_ref().map(|h| paint_delta(&s, h, theme)),
-        })
-    } else {
-        None
-    };
+    s = merge_forced(s, state.forced);
+    let states = state_styles(&s, theme);
     let mut unsupported_text = 0;
     let text = (s.has_text() || state.root).then(|| {
         let (mut t, dropped) = text(&s, theme);
@@ -402,12 +473,32 @@ macro_rules! classify_properties {
                 $($field:ident => $set:expr, $name:literal;)*
             }
         )*
+        @state fn $state_group:ident {
+            $($state_field:ident => $state_set:expr, $state_name:literal;)*
+        }
         @ignored $($ignored:ident),*
     ) => {
         fn set_properties(s: &Style) -> Vec<&'static str> {
-            let Style { $($($field: _,)*)* $($ignored: _,)* } = s;
+            let Style { $($($field: _,)*)* $($state_field: _,)* $($ignored: _,)* } = s;
             let mut out = Vec::new();
             $(out.extend($group(s));)*
+            out.extend($state_group(s));
+            out
+        }
+
+        /// Every property of the non-state groups that `s` sets, with the
+        /// `Debug` of its value.
+        fn describe_properties(s: &Style) -> Vec<(&'static str, String)> {
+            let Style { $($($field: _,)*)* $($state_field: _,)* $($ignored: _,)* } = s;
+            let mut out = Vec::new();
+            $({
+                let Style { $($field,)* .. } = s;
+                $(
+                    if $set {
+                        out.push(($name, format!("{:?}", $field)));
+                    }
+                )*
+            })*
             out
         }
 
@@ -420,6 +511,13 @@ macro_rules! classify_properties {
                     .collect()
             }
         )*
+        fn $state_group(s: &Style) -> Vec<&'static str> {
+            let Style { $($state_field,)* .. } = s;
+            [$(($state_set, $state_name),)*]
+                .into_iter()
+                .filter_map(|(set, name)| set.then_some(name))
+                .collect()
+        }
     };
 }
 
@@ -507,7 +605,7 @@ classify_properties! {
         italic => italic.is_some(), "italic";
         text => text.is_some(), "text";
     }
-    fn state_properties {
+    @state fn state_properties {
         hover => hover.is_some(), "hover";
         group => *group, "group";
         group_hover => group_hover.is_some(), "group_hover";
@@ -523,6 +621,122 @@ classify_properties! {
         layout_transition => layout_transition.is_some(), "layout_transition";
     }
     @ignored duplicates
+}
+
+/// Names of the four edges of a `padding`, `margin` or `inset`.
+const PADDING: [&str; 4] = [
+    "padding_top",
+    "padding_right",
+    "padding_bottom",
+    "padding_left",
+];
+const MARGIN: [&str; 4] = ["margin_top", "margin_right", "margin_bottom", "margin_left"];
+const INSET: [&str; 4] = ["top", "right", "bottom", "left"];
+/// Names of the four edges of a `border-width`, `border-color` or
+/// `border-style` array.
+const BORDER_WIDTH: [&str; 4] = [
+    "border_top_width",
+    "border_right_width",
+    "border_bottom_width",
+    "border_left_width",
+];
+const BORDER_COLOR: [&str; 4] = [
+    "border_top_color",
+    "border_right_color",
+    "border_bottom_color",
+    "border_left_color",
+];
+const BORDER_STYLE: [&str; 4] = [
+    "border_top_style",
+    "border_right_style",
+    "border_bottom_style",
+    "border_left_style",
+];
+/// Names of the four corners of a `radius`, in CSS's order.
+const RADIUS: [&str; 4] = [
+    "radius_top_left",
+    "radius_top_right",
+    "radius_bottom_right",
+    "radius_bottom_left",
+];
+/// Names of the two axes of a `translate`.
+const TRANSLATE: [&str; 2] = ["translate_x", "translate_y"];
+
+/// Separator of the per-edge values a [`describe_style`] splits. A unit
+/// separator never occurs in the `Debug` of a value.
+const SEP: &str = "\u{1f}";
+
+/// The `Debug` of each element that is set, separated by [`SEP`] (`""` for
+/// an unset one).
+fn options_value<T: std::fmt::Debug>(items: &[Option<T>]) -> String {
+    items
+        .iter()
+        .map(|item| item.as_ref().map(|v| format!("{v:?}")).unwrap_or_default())
+        .collect::<Vec<_>>()
+        .join(SEP)
+}
+
+/// The `Debug` of each set edge of `sides`, separated by [`SEP`].
+fn sides_value(sides: &Sides) -> String {
+    options_value(&[sides.top, sides.right, sides.bottom, sides.left])
+}
+
+/// Split one set property's value into the names of its edges or corners.
+fn split_sides(name: &'static str, value: String) -> Vec<(&'static str, String)> {
+    let names: &[&'static str] = match name {
+        "padding" => &PADDING,
+        "margin" => &MARGIN,
+        "inset" => &INSET,
+        "border_width" => &BORDER_WIDTH,
+        "border_color" => &BORDER_COLOR,
+        "border_style" => &BORDER_STYLE,
+        "radius" => &RADIUS,
+        "translate" => &TRANSLATE,
+        _ => return vec![(name, value)],
+    };
+    names
+        .iter()
+        .zip(value.split(SEP))
+        .filter(|(_, part)| !part.is_empty())
+        .map(|(name, part)| (*name, part.to_owned()))
+        .collect()
+}
+
+/// The properties `s` sets, with each edge and corner under its own name
+/// and the `Debug` of its value.
+pub fn describe_style(s: &Style) -> Vec<(&'static str, String)> {
+    let mut out = Vec::new();
+    for (name, value) in describe_properties(s) {
+        let value = match name {
+            "padding" => sides_value(&s.padding),
+            "margin" => sides_value(&s.margin),
+            "inset" => sides_value(&s.inset),
+            "border_width" => options_value(&s.border_width),
+            "border_color" => options_value(&s.border_color),
+            "border_style" => options_value(&s.border_style),
+            "radius" => options_value(&s.radius),
+            "translate" => options_value(&s.translate),
+            _ => value,
+        };
+        out.extend(split_sides(name, value));
+    }
+    out
+}
+
+/// The properties of each state style `s` sets: `"hover"`, `"pressed"`,
+/// `"focus"`, `"focus_visible"`, `"disabled"` and `"selected"`.
+pub fn describe_state_styles(s: &Style) -> Vec<(&'static str, Vec<(&'static str, String)>)> {
+    [
+        ("hover", &s.hover),
+        ("pressed", &s.pressed),
+        ("focus", &s.focus),
+        ("focus_visible", &s.focus_visible),
+        ("disabled", &s.disabled),
+        ("selected", &s.selected),
+    ]
+    .into_iter()
+    .filter_map(|(name, state)| state.as_deref().map(|state| (name, describe_style(state))))
+    .collect()
 }
 
 /// Push `prefix` + `state.property` for every property the delta states

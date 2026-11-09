@@ -101,12 +101,16 @@ impl<K: kivact::state::ItemKey> DockCx<K> {
     /// Register a tab's reported window rectangle for strip drop targets.
     pub(super) fn register_rect(self, id: K, rect: Value<Option<Rect>>) {
         let shared = self.shared();
-        let token = shared.next_rect.get().wrapping_add(1);
-        shared.next_rect.set(token);
+        let mut generation = shared.next_rect.get();
+        let token = generation.next();
+        shared.next_rect.set(generation);
         shared.rects.borrow_mut().insert(id.clone(), (token, rect));
         kivact::state::on_cleanup(move || {
             let mut rects = shared.rects.borrow_mut();
-            if rects.get(&id).is_some_and(|(owner, _)| *owner == token) {
+            if rects
+                .get(&id)
+                .is_some_and(|(owner, _)| owner.is_current(token))
+            {
                 rects.remove(&id);
             }
         });

@@ -96,7 +96,7 @@ impl NavigationMenu {
         self
     }
     /// Add a kit-defined visual variant.
-    pub fn variant(self, variant: impl crate::Variant) -> Self {
+    pub fn variant(mut self, variant: impl crate::Variant) -> Self {
         self.variants.add(variant);
         self
     }

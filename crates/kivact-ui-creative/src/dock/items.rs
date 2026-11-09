@@ -10,7 +10,9 @@ pub(super) enum Item<K> {
     Chrome {
         tabs: DockTabs<K>,
         frame: Frame,
+        // xtask-allow(state-fields): passive record - whether the container is shown in the flattened layout
         shown: bool,
+        // xtask-allow(state-fields): passive record - whether the container is maximized in the flattened layout
         maximized: bool,
     },
     Content {

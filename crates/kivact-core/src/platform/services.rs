@@ -67,11 +67,30 @@ fn ask(
     request_async(Owner::ambient(api, at), api, req)
 }
 
-/// Request a content size in logical pixels, clamped to the App minimum.
-/// A desktop window asks the OS for that size. Embedded windows ask
-/// `Parent::on_resize_request` in physical pixels. A
-/// refusal is a platform error; an absent callback is unsupported. Invalid
-/// dimensions return a message error. Await the future to observe the result.
+/// Send the platform request of the nearest owner to its window.
+#[track_caller]
+fn ask_platform(
+    api: &'static str,
+    req: PlatformRequest,
+    at: &'static Location<'static>,
+) -> Completion<Result<PlatformResult, UiError>> {
+    let owner = Owner::ambient(api, at);
+    let window = crate::view::state::current_window(owner);
+    request_async(
+        owner,
+        api,
+        HostRequest::Platform {
+            window,
+            request: req,
+        },
+    )
+}
+
+/// Request a content size in logical pixels for the window of the calling
+/// owner, clamped to that window's minimum. A desktop window asks the OS for that size. Embedded windows
+/// ask `Parent::on_resize_request` in physical pixels. A refusal is a
+/// platform error; an absent callback is unsupported. Invalid dimensions
+/// return a message error. Await the future to observe the result.
 #[track_caller]
 pub fn request_window_size(
     width: impl Into<f64>,
@@ -80,18 +99,24 @@ pub fn request_window_size(
     let at = Location::caller();
     let owner = Owner::ambient("request_window_size", at);
     require_effectful("request_window_size");
+    let window = crate::view::state::current_window(owner);
     let (width, height) = (width.into(), height.into());
     let valid = kivact_types::env::is_valid_window_size(kivact_types::Size { width, height });
     let result = if valid {
         let mut size = kivact_types::Size { width, height };
-        if let Some(min) = crate::view::state::ViewState::of(&owner.runtime()).min_window_size() {
+        if let Some(min) =
+            crate::view::state::ViewState::of(&owner.runtime()).min_window_size(window)
+        {
             size.width = size.width.max(min.width);
             size.height = size.height.max(min.height);
         }
         Ok(request_async(
             owner,
             "request_window_size",
-            HostRequest::Platform(PlatformRequest::RequestWindowSize(size)),
+            HostRequest::Platform {
+                window,
+                request: PlatformRequest::RequestWindowSize(size),
+            },
         ))
     } else {
         Err(UiError::new(
@@ -103,7 +128,7 @@ pub fn request_window_size(
     async move { result?.await.and_then(platform_result).map(|_| ()) }
 }
 
-/// Enter or leave borderless fullscreen on this window.
+/// Enter or leave borderless fullscreen on the window of the calling owner.
 ///
 /// Like every service of this module, it sends the request at the call for
 /// the nearest owner (setup, handler, task or effect); the request fails
@@ -113,9 +138,23 @@ pub fn request_window_size(
 /// failure yourself.
 #[track_caller]
 pub fn set_fullscreen(on: bool) -> impl Future<Output = Result<(), UiError>> + 'static {
-    let slot = ask(
+    let slot = ask_platform(
         "set_fullscreen",
-        HostRequest::Platform(PlatformRequest::Fullscreen(on)),
+        PlatformRequest::Fullscreen(on),
+        Location::caller(),
+    );
+    async move { slot.await.and_then(platform_result).map(|_| ()) }
+}
+
+/// Bring the window of the calling owner to the front and give it the
+/// keyboard focus. Best effort: the platform may refuse (Windows may only
+/// flash the taskbar entry; Wayland has no way to raise a window). Needs no
+/// capability. `ErrorKind::Unsupported` in an embedded editor.
+#[track_caller]
+pub fn focus_window() -> impl Future<Output = Result<(), UiError>> + 'static {
+    let slot = ask_platform(
+        "focus_window",
+        PlatformRequest::FocusWindow,
         Location::caller(),
     );
     async move { slot.await.and_then(platform_result).map(|_| ()) }
@@ -138,9 +177,9 @@ pub fn set_reduced_motion(
 /// Copies `text` to the system clipboard.
 #[track_caller]
 pub fn copy_text(text: impl Into<String>) -> impl Future<Output = Result<(), UiError>> + 'static {
-    let slot = ask(
+    let slot = ask_platform(
         "copy_text",
-        HostRequest::Platform(PlatformRequest::CopyText(text.into())),
+        PlatformRequest::CopyText(text.into()),
         Location::caller(),
     );
     async move { slot.await.and_then(platform_result).map(|_| ()) }
@@ -149,11 +188,7 @@ pub fn copy_text(text: impl Into<String>) -> impl Future<Output = Result<(), UiE
 /// Reads text from the system clipboard; empty when it holds no text.
 #[track_caller]
 pub fn read_text() -> impl Future<Output = Result<String, UiError>> + 'static {
-    let slot = ask(
-        "read_text",
-        HostRequest::Platform(PlatformRequest::ReadText),
-        Location::caller(),
-    );
+    let slot = ask_platform("read_text", PlatformRequest::ReadText, Location::caller());
     async move {
         match slot.await.and_then(platform_result)? {
             PlatformResult::Text(t) => Ok(t),
@@ -162,14 +197,15 @@ pub fn read_text() -> impl Future<Output = Result<String, UiError>> + 'static {
     }
 }
 
-/// `Ok(None)` when the user cancels.
+/// Select one file in a native dialog whose parent is the window of the
+/// calling owner. `Ok(None)` when the user cancels.
 #[track_caller]
 pub fn pick_file(
     opts: FileDialog,
 ) -> impl Future<Output = Result<Option<PathBuf>, UiError>> + 'static {
-    let slot = ask(
+    let slot = ask_platform(
         "pick_file",
-        HostRequest::Platform(PlatformRequest::PickFile(opts.clone())),
+        PlatformRequest::PickFile(opts.clone()),
         Location::caller(),
     );
     async move {
@@ -180,15 +216,16 @@ pub fn pick_file(
     }
 }
 
-/// Select multiple files in one native dialog. `Ok(None)` when cancelled.
+/// Select multiple files in one native dialog whose parent is the window
+/// of the calling owner. `Ok(None)` when cancelled.
 /// The returned order is the order supplied by the platform picker.
 #[track_caller]
 pub fn pick_files(
     opts: FileDialog,
 ) -> impl Future<Output = Result<Option<Vec<PathBuf>>, UiError>> + 'static {
-    let slot = ask(
+    let slot = ask_platform(
         "pick_files",
-        HostRequest::Platform(PlatformRequest::PickFiles(opts.clone())),
+        PlatformRequest::PickFiles(opts.clone()),
         Location::caller(),
     );
     async move {
@@ -199,8 +236,8 @@ pub fn pick_files(
     }
 }
 
-/// Select a folder in one native dialog. `Ok(None)` when the user
-/// cancels. Of `opts`, `title` and `directory` apply; `file_name` and
+/// Select a folder in one native dialog whose parent is the window of the
+/// calling owner. `Ok(None)` when the user cancels. Of `opts`, `title` and `directory` apply; `file_name` and
 /// `filters` do not apply to a folder and are ignored (they are still
 /// checked like a file dialog's). The test host answers it from the
 /// same script as the file dialogs (`Screen::respond_file_dialog`).
@@ -208,9 +245,9 @@ pub fn pick_files(
 pub fn pick_folder(
     opts: FileDialog,
 ) -> impl Future<Output = Result<Option<PathBuf>, UiError>> + 'static {
-    let slot = ask(
+    let slot = ask_platform(
         "pick_folder",
-        HostRequest::Platform(PlatformRequest::PickFolder(opts.clone())),
+        PlatformRequest::PickFolder(opts.clone()),
         Location::caller(),
     );
     async move {
@@ -221,14 +258,15 @@ pub fn pick_folder(
     }
 }
 
-/// Shows a save dialog. `Ok(None)` when the user cancels.
+/// Shows a save dialog whose parent is the window of the calling owner.
+/// `Ok(None)` when the user cancels.
 #[track_caller]
 pub fn save_file(
     opts: FileDialog,
 ) -> impl Future<Output = Result<Option<PathBuf>, UiError>> + 'static {
-    let slot = ask(
+    let slot = ask_platform(
         "save_file",
-        HostRequest::Platform(PlatformRequest::SaveFile(opts.clone())),
+        PlatformRequest::SaveFile(opts.clone()),
         Location::caller(),
     );
     async move {
@@ -251,9 +289,9 @@ pub fn save_file(
 /// the path (`Screen::opened_paths`) instead of starting anything.
 #[track_caller]
 pub fn open_path(path: impl Into<PathBuf>) -> impl Future<Output = Result<(), UiError>> + 'static {
-    let slot = ask(
+    let slot = ask_platform(
         "open_path",
-        HostRequest::Platform(PlatformRequest::OpenPath(path.into())),
+        PlatformRequest::OpenPath(path.into()),
         Location::caller(),
     );
     async move { slot.await.and_then(platform_result).map(|_| ()) }
@@ -268,9 +306,9 @@ pub fn open_path(path: impl Into<PathBuf>) -> impl Future<Output = Result<(), Ui
 pub fn reveal_path(
     path: impl Into<PathBuf>,
 ) -> impl Future<Output = Result<(), UiError>> + 'static {
-    let slot = ask(
+    let slot = ask_platform(
         "reveal_path",
-        HostRequest::Platform(PlatformRequest::RevealPath(path.into())),
+        PlatformRequest::RevealPath(path.into()),
         Location::caller(),
     );
     async move { slot.await.and_then(platform_result).map(|_| ()) }
@@ -281,10 +319,14 @@ pub fn reveal_path(
 pub fn save_state(key: &'static str, bytes: Vec<u8>) {
     let at = Location::caller();
     let owner = Owner::ambient("save_state", at);
+    let window = crate::view::state::current_window(owner);
     request(
         owner,
         "save_state",
-        HostRequest::Platform(PlatformRequest::SaveState { key, bytes }),
+        HostRequest::Platform {
+            window,
+            request: PlatformRequest::SaveState { key, bytes },
+        },
         EffectWaiter::Report {
             owner: Some(owner),
             at,

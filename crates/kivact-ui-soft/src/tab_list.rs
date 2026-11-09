@@ -28,11 +28,13 @@ use kivact::interaction::MenuEntry;
 use kivact::state::Binding;
 use kivact::state::IntoText;
 use kivact::state::IntoValue;
-use kivact::state::Signal;
+use kivact::state::Machine;
+use kivact::state::MachineHandle;
+use kivact::state::Step;
 use kivact::state::Value;
 use kivact::state::effect_on;
+use kivact::state::machine;
 use kivact::state::memo;
-use kivact::state::signal;
 use kivact::state::try_use_context;
 use kivact::style::Align;
 use kivact::style::Color;
@@ -92,21 +94,15 @@ pub enum TabOverflow {
     Visible,
 }
 
-// xtask-allow(state-fields): Independent immutable key, label, icon, panel reference and trailing-content inputs; shared Tabs owns selection and interaction.
 /// A keyed tab with retained icon and trailing-content slots.
 pub struct Tab<K> {
     root: Node,
     key: K,
     label: Value<String>,
-    // xtask-allow(state-fields): Independent retained leading-icon slot.
     icon: Option<View>,
-    // xtask-allow(state-fields): Independent retained alternative icon slot.
     selected_icon: Option<View>,
-    // xtask-allow(state-fields): Caller label visibility input, without selection state.
     label_hidden: Value<bool>,
-    // xtask-allow(state-fields): Independent retained trailing-content slot.
     end: Option<View>,
-    // xtask-allow(state-fields): Reference to the actual associated panel, not its lifecycle state.
     panel: Option<NodeRef>,
 }
 
@@ -160,12 +156,10 @@ impl<K> NodeBuilder for Tab<K> {
 }
 
 #[derive(Clone)]
-// xtask-allow(state-fields): Immutable menu key, label, icon factory and availability input; shared Menu owns the interaction lifecycle.
 /// A keyed option inside a tab-strip menu.
 pub struct TabMenuOption<K> {
     key: K,
     label: Value<String>,
-    // xtask-allow(state-fields): Immutable icon factory for reopened menu content.
     icon: Option<ViewFn>,
     // xtask-allow(state-fields): Immutable caller availability input, not the Menu interaction phase.
     disabled: bool,
@@ -243,7 +237,6 @@ struct Look {
     divider: bool,
 }
 
-// xtask-allow(state-fields): Independent caller selection binding, immutable entries and visual options; shared Tabs and the single focus cursor own interaction.
 /// A keyed tab or navigation strip with optional selected-panel content.
 pub struct TabList<K: ItemKey> {
     root: Node,
@@ -253,9 +246,7 @@ pub struct TabList<K: ItemKey> {
     look: Look,
     pattern: Value<TabPattern>,
     overflow: Value<TabOverflow>,
-    // xtask-allow(state-fields): Independent caller layout input, not navigation state.
     full_bleed: Value<bool>,
-    // xtask-allow(state-fields): Immutable selected-panel factory; the existing selection binding chooses its key.
     content: Option<kivact::view::ViewFn<K>>,
 }
 
@@ -338,23 +329,44 @@ impl<K: ItemKey> NodeBuilder for TabList<K> {
     }
 }
 
-// xtask-allow(state-fields): Mounted NodeRef plus actual read-only selected and disabled projections, without an independent interaction lifecycle.
 struct FocusMember {
     reference: NodeRef,
-    // xtask-allow(state-fields): Actual selected-state projection of the existing selection binding.
     selected: Value<bool>,
-    // xtask-allow(state-fields): Actual disabled-state projection of the mounted tab root.
     disabled: Value<bool>,
 }
 
-// xtask-allow(state-fields): One roving cursor fact plus actual read-only focus, selection and disabled projections; there is no second mutable lifecycle field.
+/// The keyboard tab stop inside the strip; it lasts only while focus stays inside.
+#[derive(Clone, Copy, PartialEq)]
+enum TabCursor {
+    /// The selected, or else the first enabled, member is the tab stop.
+    Resting,
+    /// An arrow, Home or End key moved the tab stop to this member.
+    At(usize),
+}
+enum CursorEvent {
+    /// A navigation key moved focus to this member.
+    Move(usize),
+    /// Keyboard focus is now inside (`true`) or outside (`false`) the strip.
+    Within(bool),
+}
+struct TabRoving;
+impl Machine for TabRoving {
+    type State = TabCursor;
+    type Event = CursorEvent;
+    type Effect = ();
+    fn transition(&self, _: &TabCursor, event: CursorEvent) -> Step<TabCursor, CursorEvent, ()> {
+        match event {
+            CursorEvent::Move(index) => Step::to(TabCursor::At(index)),
+            CursorEvent::Within(true) => Step::stay(),
+            CursorEvent::Within(false) => Step::to(TabCursor::Resting),
+        }
+    }
+}
+
 #[derive(Clone)]
 struct FocusTrack {
-    // xtask-allow(state-fields): Mounted NodeRef registry with actual read-only selection and disabled projections.
     members: Rc<[FocusMember]>,
-    // xtask-allow(state-fields): Actual NodeRef focus-within projection, not an independently writable lifecycle fact.
-    focused_within: Value<bool>,
-    roving: Signal<Option<usize>>,
+    cursor: MachineHandle<TabRoving>,
 }
 
 impl FocusTrack {
@@ -362,10 +374,10 @@ impl FocusTrack {
         if self.members[index].disabled.get() {
             return false;
         }
-        let preferred = self
-            .roving
-            .get()
-            .filter(|index| self.focused_within.get() && !self.members[*index].disabled.get());
+        let preferred = match self.cursor.get() {
+            TabCursor::At(roved) if !self.members[roved].disabled.get() => Some(roved),
+            TabCursor::At(_) | TabCursor::Resting => None,
+        };
         preferred
             .or_else(|| {
                 self.members
@@ -414,7 +426,7 @@ impl FocusTrack {
                 .find(|i| !self.members[*i].disabled.get()),
         };
         if let Some(next) = next {
-            self.roving.set(Some(next));
+            self.cursor.send(CursorEvent::Move(next));
             self.members[next].reference.focus();
         }
         Handled::Yes
@@ -826,14 +838,14 @@ fn focus_track<K: ItemKey>(
             }
         })
         .collect::<Vec<_>>();
+    let cursor = machine(TabCursor::Resting, || TabRoving, |_, ()| {});
+    cursor.feed(strip_ref.focus_within(), CursorEvent::Within);
     FocusTrack {
         members: members.into(),
-        focused_within: strip_ref.focus_within(),
-        roving: signal(None),
+        cursor,
     }
 }
 
-// xtask-allow(state-fields): Immutable binding, presentation and actual shared Tabs/focus handles; this bundle stores no copied lifecycle state.
 struct TabRuntime<K: ItemKey> {
     binding: Binding<K>,
     look: Look,

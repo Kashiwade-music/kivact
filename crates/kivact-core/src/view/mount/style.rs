@@ -19,10 +19,9 @@ use crate::view::state::ViewState;
 pub(crate) fn merge_layers(layers: &[StyleLayer]) -> Style {
     layers
         .iter()
-        .fold(Style::default(), |s, layer| s.merge(&layer()))
+        .fold(Style::default(), |s, layer| s.merge(&(layer.f)()))
 }
 
-// xtask-allow(state-fields): Independent disabled and selected readers feed style compilation without owning their state.
 /// The readers of the disabled and selected states, for the style effect.
 pub(super) struct States {
     disabled: Option<Rc<dyn Fn() -> bool>>,
@@ -68,12 +67,12 @@ pub(super) fn bind_node_style(
     }
 }
 
-// xtask-allow(state-fields): Independent style source readers and optional layout/paint hooks are mount configuration.
 /// What the style of a host node is resolved from (see [`bind_style`]).
 #[derive(Default)]
 pub(crate) struct NodeStyle {
     /// Style layers, merged in order.
     pub layers: Vec<StyleLayer>,
+    // xtask-allow(state-fields): mount config - The node is a focus stop: the theme's focus ring and disabled look apply under its style
     /// The node is a focus stop: the theme's focus ring and disabled look
     /// apply under its style.
     pub focusable: bool,
@@ -81,9 +80,11 @@ pub(crate) struct NodeStyle {
     pub disabled: Option<Rc<dyn Fn() -> bool>>,
     /// Reader of the selected state (applies the `selected` state style).
     pub selected: Option<Rc<dyn Fn() -> bool>>,
+    // xtask-allow(state-fields): mount config - Applied to every resolved layout before it is set (a builder that owns part of its node's layout)
     /// Applied to every resolved layout before it is set (a builder that
     /// owns part of its node's layout).
     pub fix_layout: Option<fn(&mut LayoutProps)>,
+    // xtask-allow(state-fields): mount config - The merged local paint read by the existing drawing effect
     /// The merged local paint read by the existing drawing effect.
     pub local_paint: Option<LocalPaintSource>,
 }
@@ -109,6 +110,11 @@ pub(crate) fn bind_style(
         local_paint,
     } = style;
     let owner = cx.owner;
+    #[cfg(feature = "devtools")]
+    if crate::view::devtools_hooks::is_running(cx.rt) {
+        crate::view::state::ViewState::tree_mut(cx.rt).set_style_layers(id, layers.clone());
+    }
+    let hook = crate::view::devtools_hooks::StyleHook::new(cx.rt, cx.owner, id, at);
     let reports = StyleReports::default();
     let theme = cx.theme();
     let weak = cx.weak();
@@ -119,12 +125,13 @@ pub(crate) fn bind_style(
         // an Internal effect feeding a paint transition.
         let resolved = kivact_runtime::pure(|| {
             theme_sig.with(|theme| {
-                let s = merge_layers(&layers);
+                let s = hook.apply(merge_layers(&layers));
                 let state = Interactive {
                     focusable,
                     disabled: disabled.as_ref().is_some_and(|f| f()),
                     selected: selected.as_ref().is_some_and(|f| f()),
                     root: kind == NodeType::Root,
+                    forced: hook.forced(),
                 };
                 kivact_style::internal::compile_style(&s, theme, state)
             })

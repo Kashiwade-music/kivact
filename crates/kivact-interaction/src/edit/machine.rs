@@ -32,6 +32,8 @@ impl<T> Machine<T> {
 }
 pub(super) enum Event<T> {
     Begin(Rc<T>),
+    /// Replace the payload of the active edit.
+    Replace(Rc<T>),
     Finish,
 }
 impl<T: 'static> MachineTrait for Machine<T> {
@@ -41,6 +43,11 @@ impl<T: 'static> MachineTrait for Machine<T> {
     fn transition(&self, state: &Self::State, event: Event<T>) -> Step<Self::State, Event<T>, ()> {
         match (state, event) {
             (EditSessionState::Idle, Event::Begin(initial)) => {
+                Step::to(EditSessionState::Editing {
+                    initial: Initial(initial),
+                })
+            }
+            (EditSessionState::Editing { .. }, Event::Replace(initial)) => {
                 Step::to(EditSessionState::Editing {
                     initial: Initial(initial),
                 })

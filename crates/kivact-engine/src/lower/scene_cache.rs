@@ -11,14 +11,14 @@ use std::sync::{Arc, Weak};
 #[derive(Default)]
 pub(crate) struct SceneCache {
     entries: Vec<Arc<Entry>>,
-    revision: u64,
+    revision: kivact_types::cell::Generation,
 }
 impl SceneCache {
     /// Release rebuildable payloads without changing live resource owners.
     pub(crate) fn clear(&mut self) {
         self.entries.clear();
     }
-    pub(crate) fn revision(&mut self, revision: u64) {
+    pub(crate) fn revision(&mut self, revision: kivact_types::cell::Generation) {
         if self.revision != revision {
             self.clear();
             self.revision = revision;

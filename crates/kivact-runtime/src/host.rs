@@ -1,8 +1,8 @@
 //! Role: Runtime construction and task and motion turn operations.
 use crate::reactive::host_types::TurnState;
 use crate::{
-    DEFAULT_DRAIN_NS, ErrorKind, ExitState, Extensions, Host, MotionState, Owner, Runtime, Stage,
-    TaskState, ThreadWaker, TurnGuard, TurnReport, UiError,
+    CauseTag, DEFAULT_DRAIN_NS, ErrorKind, ExitState, Extensions, Host, MotionState, Owner,
+    Runtime, Stage, TaskState, ThreadWaker, TurnGuard, TurnReport, UiError,
 };
 use std::panic::Location;
 use std::rc::Rc;
@@ -113,14 +113,14 @@ impl TurnGuard<'_> {
             let wakers = TaskState::of(rt).take_due_timers(rt.now_ns());
             let woke = !wakers.is_empty();
             if woke {
-                self.cause("timer".into());
+                self.cause_with(CauseTag::Timer, "timer".into());
             }
             for w in wakers {
                 w.wake();
             }
             let n = TaskState::of(rt).poll_tasks(rt);
             if n > 0 {
-                self.cause("task".into());
+                self.cause_with(CauseTag::Task, "task".into());
             }
             self.stabilize();
             if n == 0 && !woke {

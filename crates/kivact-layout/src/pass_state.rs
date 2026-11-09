@@ -18,7 +18,6 @@ impl Epoch {
     }
 }
 
-// xtask-allow(state-fields): Topology generation and fixed traversal cursor are independent derived cache metadata (S-9); changed is a separate invalidation fact.
 /// Pending work and traversal generations for one columns/tree allocation domain.
 /// Keep it paired with the same NodeLayoutColumns and authoritative slot mapping.
 /// Cloning all three produces independent derived state; mixing a state from an
@@ -26,9 +25,11 @@ impl Epoch {
 #[derive(Clone, Debug)]
 pub(crate) struct LayoutState {
     pub(crate) no_grid: TStyle,
+    // xtask-allow(state-fields): dirty fact + cache generation + cursor cache - changed
     pub(crate) changed: bool,
     /// The shared generation of derived child traversal cursors.
     pub(crate) epoch: Epoch,
+    // xtask-allow(state-fields): dirty fact + cache generation + cursor cache - The last indexed fixed child;
     /// The last indexed fixed child; this is a traversal cursor only.
     pub(crate) fixed_cursor: Cell<Option<(usize, kivact_types::NodeId)>>,
     /// Parents of absolute boxes whose layout was invalidated: each is laid

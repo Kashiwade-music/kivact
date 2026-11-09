@@ -12,7 +12,6 @@ use kivact_interaction::{EditSession, ListItem, ListItemState, ListOptions, Sele
 /// What an item shows, from its data and its state.
 type ItemContent<K> = kivact_core::view::ViewFn<(Value<ListItem<K>>, Value<ListItemState>)>;
 
-// xtask-allow(state-fields): Optional item/header slots and activation callback configure a list; navigation and selection belong to ListApi.
 /// A list of items the user picks from (`Role::ListBox`), created by
 /// [`list`].
 pub struct List<K: kivact_core::state::ItemKey> {
@@ -76,7 +75,7 @@ impl<K: kivact_core::state::ItemKey> List<K> {
     /// the component is mounted, and a value never changes afterwards. A
     /// look that changes while the component lives is a state the recipe
     /// reads, or a reactive `.style(..)` of the caller's.
-    pub fn variant(self, v: impl Variant) -> Self {
+    pub fn variant(mut self, v: impl Variant) -> Self {
         self.variants.add(v);
         self
     }

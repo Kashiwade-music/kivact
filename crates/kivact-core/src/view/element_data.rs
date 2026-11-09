@@ -245,8 +245,21 @@ pub trait NodeBuilder: Sized {
     /// reads [`use_theme`](crate::style::use_theme) is
     /// recomputed when the theme visible at the node changes:
     /// `.style(move || { let t = &use_theme(); style().padding(t.space().md) })`.
+    #[track_caller]
     fn style(mut self, s: impl IntoValue<Style>) -> Self {
-        self.node_mut().common.push_style(s.into_prop());
+        self.node_mut()
+            .common
+            .push_style(s.into_prop(), Location::caller());
+        self
+    }
+
+    /// Add a kit recipe's style layer (DevTools shows its name).
+    // xtask-allow(internal-contract): kit recipes tag their style layers with the recipe's name for DevTools
+    #[doc(hidden)]
+    fn recipe_style(mut self, name: RecipeName, s: impl IntoValue<Style>) -> Self {
+        self.node_mut()
+            .common
+            .push_recipe_style(name, s.into_prop(), Location::caller());
         self
     }
 
@@ -504,32 +517,35 @@ pub(crate) type LayoutDrawFn = Rc<dyn Fn(&mut Draw, &kivact_editing::TextLayout)
 
 pub(crate) type DrawFn = Rc<dyn Fn(&mut Draw, Size)>;
 
-// xtask-allow(state-fields): Independent authored node modifiers are construction data resolved by mounting.
 /// Modifiers shared by every element builder.
 #[derive(Default)]
 pub(crate) struct Common {
     pub(crate) deferred_parts:
         Vec<Box<dyn FnOnce(crate::view::element_data::Node) -> crate::view::element_data::Node>>,
+    // xtask-allow(state-fields): builder option - exit layout
     pub(crate) exit_layout: Option<super::exit_layout::ExitLayout>,
     pub(crate) exit_complete: Option<kivact_runtime::Handler<()>>,
     /// NodeRefs bound at mount (each once, in order).
     pub node_ref: Vec<crate::view::node_ref::NodeRef>,
     /// Style layers, merged in order (a later layer wins per property).
     pub style: Vec<StyleLayer>,
-    /// How many of the first layers of `style` are base layers
-    /// (`Node::base_style`).
-    pub base_styles: usize,
     /// Canonical authored semantic patches, in declaration order.
     pub semantics: Vec<crate::view::semantics_data::SemanticsPatch>,
+    // xtask-allow(state-fields): builder option - focusable when disabled
     pub focusable_when_disabled: Option<InputProp<bool>>,
+    // xtask-allow(state-fields): builder option - roving focus
     pub roving_focus: Option<InputProp<kivact_engine::contract::RovingFocus>>,
+    // xtask-allow(state-fields): builder option - the pointer passes through the subtree
     /// `Some(false)`: the pointer passes through the subtree.
     pub hit_testable: Option<InputProp<bool>>,
+    // xtask-allow(state-fields): builder option - native pointer focus destination, resolved through the reference binding
     /// Native pointer focus destination, resolved through the reference binding.
     pub(crate) focus_on_press: Option<crate::view::node_ref::NodeRef>,
     /// Event handlers.
     pub handlers: Handlers,
+    // xtask-allow(state-fields): builder option - text editing
     pub(crate) text_editing: Option<Box<crate::view::editing_data::TextEditing>>,
+    // xtask-allow(state-fields): builder option - the IME session of a node that edits its own text
     /// The IME session of a node that edits its own text.
     pub(crate) ime: Option<crate::view::ime_session::ImeSession>,
     /// Behavior requirements cannot be erased by later caller modifiers.
@@ -538,52 +554,115 @@ pub(crate) struct Common {
     /// parts, which remain defaults even after later customizations. Their
     /// key, pointer and wheel handlers are entries of `handlers`.
     pub(crate) part_actions: crate::view::tree::PartActions,
+    // xtask-allow(state-fields): builder option - this part opts its own defaults into unhandled canvas-region input
     /// This part opts its own defaults into unhandled canvas-region input.
     pub(crate) part_region_events: bool,
     /// Mount hooks and references of attached parts, in attachment order.
     pub(crate) part_bindings: Vec<crate::view::part_data::PartBinding>,
+    // xtask-allow(state-fields): builder option - an attached behavior requires the existing Overlay modal focus scope
     /// An attached behavior requires the existing Overlay modal focus scope.
     pub(crate) part_modal: bool,
     /// Setup declarations; drawing supplies only geometry for these identities.
     pub(crate) regions: Vec<Declaration>,
+    // xtask-allow(state-fields): builder option - draw layer behind the children
     /// Draw layer behind the children.
     pub draw: Option<DrawFn>,
+    // xtask-allow(state-fields): builder option - draw layer over the children
     /// Draw layer over the children.
     pub draw_over: Option<DrawFn>,
+    // xtask-allow(state-fields): builder option - draw with layout
     pub draw_with_layout: Option<LayoutDrawFn>,
+    // xtask-allow(state-fields): builder option - size hints for layout
     /// Size hints for layout.
     pub intrinsic: Option<IntrinsicSize>,
+    // xtask-allow(state-fields): builder option - how an image fills its box (image nodes only)
     /// How an image fills its box (image nodes only).
     pub image_fit: Option<InputProp<ImageFit>>,
+    // xtask-allow(state-fields): builder option - paint an image in the text color (image nodes only)
     /// Paint an image in the text color (image nodes only).
     pub monochrome: Option<InputProp<bool>>,
+    // xtask-allow(state-fields): builder option - whether an animated image plays (image nodes only; default true)
     /// Whether an animated image plays (image nodes only; default true).
     pub image_playing: Option<InputProp<bool>>,
+    // xtask-allow(state-fields): builder option - the shared-layout id
     /// The shared-layout id: a node that departs with it leaves its box for
     /// the next node of the same id to animate from.
     pub layout_id: Option<std::sync::Arc<str>>,
+    // xtask-allow(state-fields): builder option - creation location set by `.located_at_caller()`
     /// Creation location set by `.located_at_caller()`; replaces the builder's call site
     /// for every node the builder creates.
     pub at: Option<&'static Location<'static>>,
 }
 
-/// One style layer: a constant or reactive style (`.style(..)`). Signals
-/// read inside, the theme from `use_theme()` included, are tracked by
-/// the node's style effect.
-pub(crate) type StyleLayer = Rc<dyn Fn() -> Style>;
+/// The style layers and their origins are defined in [`style_layer`](crate::view::style_layer).
+pub(crate) use crate::view::style_layer::{LayerOrigin, RecipeName, StyleLayer};
 
 impl Common {
+    /// How many of the first layers of `style` are base layers.
+    pub(crate) fn base_count(&self) -> usize {
+        self.style
+            .iter()
+            .take_while(|layer| {
+                matches!(layer.origin, LayerOrigin::Base | LayerOrigin::BaseRecipe(_))
+            })
+            .count()
+    }
+
     /// Insert a style layer after the base layers already inserted and before
     /// every other one: a builder's base style that a caller's `.style(..)`
     /// overrides whatever the order of the calls. Base layers merge in the
     /// order they were inserted.
-    pub(crate) fn prepend_style(&mut self, s: InputProp<Style>) {
-        self.style.insert(self.base_styles, s.into_fn());
-        self.base_styles += 1;
+    pub(crate) fn prepend_style(&mut self, s: InputProp<Style>, at: &'static Location<'static>) {
+        let index = self.base_count();
+        self.style.insert(
+            index,
+            StyleLayer {
+                f: s.into_fn(),
+                at: Some(at),
+                origin: LayerOrigin::Base,
+            },
+        );
     }
+
     /// Append a style layer (`.style(..)`).
-    pub(crate) fn push_style(&mut self, s: InputProp<Style>) {
-        self.style.push(s.into_fn());
+    pub(crate) fn push_style(&mut self, s: InputProp<Style>, at: &'static Location<'static>) {
+        self.style.push(StyleLayer {
+            f: s.into_fn(),
+            at: Some(at),
+            origin: LayerOrigin::Caller,
+        });
+    }
+
+    /// Append a kit recipe's style layer.
+    pub(crate) fn push_recipe_style(
+        &mut self,
+        name: RecipeName,
+        s: InputProp<Style>,
+        at: &'static Location<'static>,
+    ) {
+        self.style.push(StyleLayer {
+            f: s.into_fn(),
+            at: Some(at),
+            origin: LayerOrigin::Recipe(name),
+        });
+    }
+
+    /// Insert a kit recipe's base style layer at the end of the base group.
+    pub(crate) fn prepend_recipe_style(
+        &mut self,
+        name: RecipeName,
+        s: InputProp<Style>,
+        at: &'static Location<'static>,
+    ) {
+        let index = self.base_count();
+        self.style.insert(
+            index,
+            StyleLayer {
+                f: s.into_fn(),
+                at: Some(at),
+                origin: LayerOrigin::BaseRecipe(name),
+            },
+        );
     }
 }
 
@@ -642,7 +721,6 @@ pub(super) struct Adopted {
     pub(super) owner: Owner,
     pub(super) common: Common,
     pub(super) target: Rc<Target>,
-    pub(super) generation: Generation,
     pub(super) binding: Cell<RegionBinding>,
 }
 
@@ -748,7 +826,6 @@ pub(super) enum CaptureTarget {
     },
 }
 
-// xtask-allow(state-fields): These independent read-only availability projections are mount results; their sources own the underlying facts.
 /// Final values are shared by publication, input gating, and every bind hook.
 #[derive(Clone, Copy)]
 pub(super) struct Constraints {

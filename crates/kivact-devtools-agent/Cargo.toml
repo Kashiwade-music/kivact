@@ -1,0 +1,20 @@
+[package]
+name = "kivact-devtools-agent"
+authors.workspace = true
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Server of the Kivact DevTools inside a target app."
+
+[dependencies]
+kivact-devtools-protocol = { path = "../kivact-devtools-protocol", version = "0.1.0" }
+serde_json = { workspace = true }
+png = { workspace = true }
+tracing = { workspace = true }
+
+[dev-dependencies]
+kivact-devtools-client = { path = "../kivact-devtools-client", version = "0.1.0" }
+
+[lints]
+workspace = true

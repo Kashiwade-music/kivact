@@ -2,12 +2,13 @@
 
 use crate::editors::shared::model::EditorEvent;
 use crate::outliner_data::{Restriction, RestrictionFlag, TreeItem};
+use kivact::custom::Generation;
 use kivact::geometry::Rect;
 use kivact::i18n::message;
 use kivact::interaction::EditSession;
 use kivact::view::NodeBuilder;
 
-use kivact::state::{Binding, Callback, Signal, Value};
+use kivact::state::{Binding, Callback, Value};
 use kivact::style::style;
 use kivact::view::MouseButton;
 use kivact::view::{A11yAction, ButtonPress, Handled, NodeRef, PointerPhase};
@@ -20,7 +21,7 @@ use std::rc::Rc;
 pub(super) struct Mounted {
     pub node: NodeRef,
     pub rect: Value<Option<Rect>>,
-    pub generation: u64,
+    pub generation: Generation,
 }
 pub(super) type Rows = Rc<RefCell<HashMap<u64, Mounted>>>;
 
@@ -41,36 +42,32 @@ pub(super) struct Paint {
 }
 
 /// One restriction paint: a drag across rows that sets one flag on each row
-/// it touches, as one edit.
+/// it touches, as one edit. The paint is the payload of the edit's active
+/// phase, so it exists exactly while the edit does.
 #[derive(Clone, Copy)]
 pub(super) struct Painter {
-    paint: Signal<Option<Paint>>,
-    session: EditSession<()>,
+    session: EditSession<Paint>,
 }
 
 impl Painter {
-    pub(super) fn new(session: EditSession<()>) -> Self {
-        Painter {
-            paint: kivact::state::signal(None),
-            session,
-        }
+    pub(super) fn new(session: EditSession<Paint>) -> Self {
+        Painter { session }
     }
 
     /// Begin the paint and propose its first rows; nothing happens (and
-    /// `false` returns) while a paint runs.
+    /// `false` returns) while an edit runs.
     fn start(self, context: &Context, paint: Paint) -> bool {
-        if self.paint.with_untracked(Option::is_some) {
+        if self.session.is_active() {
             return false;
         }
-        self.session.begin(());
+        self.session.begin(paint.clone());
         propose(context, paint.column, &paint.touched, paint.value);
-        self.paint.set(Some(paint));
         true
     }
 
     /// The pointer is over the row `over`: add its rows and propose again.
     fn extend(self, context: &Context, over: u64) {
-        let Some(mut paint) = self.paint.get_untracked() else {
+        let Some(mut paint) = self.session.with_initial(Paint::clone) else {
             return;
         };
         if paint.touched.contains(&over) {
@@ -82,31 +79,22 @@ impl Painter {
             }
         }
         propose(context, paint.column, &paint.touched, paint.value);
-        self.paint.set(Some(paint));
+        self.session.replace_initial(paint);
     }
 
     /// The button is released: end the paint and commit its edit.
     fn finish(self) {
-        if self.paint.get_untracked().is_some() {
-            self.paint.set(None);
-            self.session.commit();
-        }
+        self.session.commit();
     }
 
     /// End the paint and cancel its edit; whether a paint ran.
     pub(super) fn cancel(self) -> bool {
-        if self.paint.get_untracked().is_some() {
-            self.paint.set(None);
-            self.session.cancel();
-            true
-        } else {
-            false
-        }
+        self.session.cancel()
     }
 
     /// A single toggle (a key or an assistive action) as one edit.
-    fn once(self, write: impl FnOnce()) {
-        self.session.once((), write);
+    fn once(self, paint: Paint, write: impl FnOnce()) {
+        self.session.once(paint, write);
     }
 }
 
@@ -152,9 +140,15 @@ pub(super) fn toggle(context: &Context, id: u64, flag: RestrictionFlag) {
         .with_untracked(|items| items.iter().find(|item| item.id == id).cloned())
     {
         let ids = ids(context, id);
+        let value = !self::flag(&item, column);
+        let paint = Paint {
+            column,
+            value,
+            touched: ids.clone(),
+        };
         context
             .painter
-            .once(|| propose(context, column, &ids, !self::flag(&item, column)));
+            .once(paint, || propose(context, column, &ids, value));
     }
 }
 pub(super) fn restriction(

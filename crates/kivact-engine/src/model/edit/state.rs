@@ -4,7 +4,6 @@ use kivact_editing::TextSession;
 use kivact_types::{NodeId, Rect};
 use std::collections::BTreeSet;
 
-// xtask-allow(state-fields): Cache key records the complete IME input snapshot.
 /// What a text input's IME text is made from (`Model::ime_changed`): the input,
 /// its text's revision and its session, its text box, its text scroll, its
 /// transform and its password and read-only flags.
@@ -15,12 +14,14 @@ pub(super) struct InputSource {
     pub(super) session: TextSession,
     pub(super) area: Rect,
     pub(super) scroll: f64,
+    // xtask-allow(state-fields): cache key - transform
     pub(super) transform: Option<kivact_types::Projective>,
+    // xtask-allow(state-fields): cache key - password
     pub(super) password: bool,
+    // xtask-allow(state-fields): cache key - read only
     pub(super) read_only: bool,
 }
 
-// xtask-allow(state-fields): Cache key records the complete IME session snapshot.
 /// What the IME text of a node with an IME session is made from
 /// (`Model::session_ime_changed`): the node, its session, its box and its
 /// transform.
@@ -28,7 +29,9 @@ pub(super) struct InputSource {
 pub(super) struct SessionSource {
     pub(super) node: NodeId,
     pub(super) session: crate::contract::ImeSessionProps,
+    // xtask-allow(state-fields): cache key - area
     pub(super) area: Option<Rect>,
+    // xtask-allow(state-fields): cache key - transform
     pub(super) transform: Option<kivact_types::Projective>,
 }
 

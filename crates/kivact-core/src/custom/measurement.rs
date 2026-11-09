@@ -14,15 +14,16 @@ pub enum AvailableSpace {
     MaxContent,
 }
 
-// xtask-allow(state-fields): Known width and height are independent optional layout inputs in this borrowed measurement snapshot.
 /// What a primitive is measured under, in logical pixels. A dimension the
 /// layout already fixed (`known_*`, from the style or a stretch) wins
 /// over the measured one. It lends the layout's text measurement
 /// ([`Constraints::measure_text`]) for the call.
 #[derive(Clone, Copy)]
 pub struct Constraints<'a> {
+    // xtask-allow(state-fields): borrowed input snapshot - The width the layout already fixed
     /// The width the layout already fixed.
     pub known_width: Option<f64>,
+    // xtask-allow(state-fields): borrowed input snapshot - The height the layout already fixed
     /// The height the layout already fixed.
     pub known_height: Option<f64>,
     /// The width available.

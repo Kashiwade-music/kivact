@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Kivact DevTools configuration",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "keys": {
+      "description": "Key chords.",
+      "$ref": "#/$defs/KeyConfig"
+    },
+    "app": {
+      "description": "Path of the DevTools app (relative to the workspace root, or absolute).",
+      "type": "string"
+    },
+    "python": {
+      "description": "Path of the Python interpreter for scripts.",
+      "type": "string"
+    },
+    "scripts_dir": {
+      "description": "Directory of the scripts (relative to the workspace root, or absolute).",
+      "type": "string"
+    },
+    "editor": {
+      "description": "The command that opens a source location; `{file}`, `{line}` and `{column}` are replaced.\nEmpty means the default.",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "KeyConfig": {
+      "description": "Keys that open DevTools (`\"Ctrl+Shift+I\"` style chords). `None` means the default; `[]` disables.",
+      "type": "object",
+      "properties": {
+        "open": {
+          "description": "Chords that open DevTools.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "pick": {
+          "description": "Chords that open DevTools in pick mode.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    }
+  }
+}

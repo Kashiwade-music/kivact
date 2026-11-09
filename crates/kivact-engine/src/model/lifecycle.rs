@@ -45,14 +45,15 @@ impl Model {
 
 // Declaration order preserves raw props/scenes -> native editor -> text extents.
 // Dropped under the existing Model borrow: structural reentry remains OPEN.
-// xtask-allow(state-fields): Removed resources are independent optional node payloads collected only to preserve destruction order.
 #[expect(
     dead_code,
     reason = "the fields are held only to be dropped, in declaration order"
 )]
 struct RemovedPayload {
     node: HostNode,
+    // xtask-allow(state-fields): drop-order payload - editor
     editor: Option<Box<crate::measure::editor::EditorNode>>,
+    // xtask-allow(state-fields): drop-order payload - extents
     extents: Option<Box<crate::measure::state::TextExtents>>,
 }
 impl Drop for Model {

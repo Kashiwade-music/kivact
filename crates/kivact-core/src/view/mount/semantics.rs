@@ -115,14 +115,18 @@ pub(super) fn bind_late(
     bind(cx, id, patches, at);
 }
 
-// xtask-allow(state-fields): Independent optional image properties and focus destination are mount configuration.
 /// Non-semantic host properties share the semantic mounting stage.
 pub(super) struct SemanticProps {
     pub(super) patches: Vec<SemanticsPatch>,
+    // xtask-allow(state-fields): mount config - image fit
     pub(super) image_fit: Option<InputProp<ImageFit>>,
+    // xtask-allow(state-fields): mount config - monochrome
     pub(super) monochrome: Option<InputProp<bool>>,
+    // xtask-allow(state-fields): mount config - image playing
     pub(super) image_playing: Option<InputProp<bool>>,
+    // xtask-allow(state-fields): mount config - layout id
     pub(super) layout_id: Option<std::sync::Arc<str>>,
+    // xtask-allow(state-fields): mount config - focus on press
     pub(super) focus_on_press: Option<NodeRef>,
 }
 

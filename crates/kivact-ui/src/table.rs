@@ -54,7 +54,7 @@ pub fn table_row(children: impl IntoChildren) -> TableRow {
     }
 }
 impl Table {
-    pub fn variant(self, variant: impl Variant) -> Self {
+    pub fn variant(mut self, variant: impl Variant) -> Self {
         self.variants.add(variant);
         self
     }
@@ -111,10 +111,8 @@ impl IntoView for TableRow {
 /// A header or data cell with proportional or fixed width.
 pub struct TableCell {
     root: Node,
-    // xtask-allow(state-fields): Header versus data role is a fixed cell construction option.
     header: bool,
     align: Value<TextAlign>,
-    // xtask-allow(state-fields): Optional fixed width is independent of the cell role and never changes interaction phase.
     width: Option<Value<Length>>,
     span: Value<usize>,
     variants: Variants,
@@ -159,7 +157,7 @@ impl TableCell {
         self.span = span.into_value();
         self
     }
-    pub fn variant(self, variant: impl Variant) -> Self {
+    pub fn variant(mut self, variant: impl Variant) -> Self {
         self.variants.add(variant);
         self
     }

@@ -1,4 +1,4 @@
-//! Role: The engine's one model: the node tree, its state groups and the event queue.
+//! Role: The engine's models, one per window, and the App's shared state.
 //!
 //! One Model owns the retained node tree, the ordered event queue, the
 //! pending Changes and one state group per concern. Each group's module
@@ -57,6 +57,7 @@
 //!   by one.
 
 mod aggregate;
+mod app_model;
 pub(crate) mod apply;
 pub(crate) mod changes;
 pub(crate) mod dismiss;
@@ -84,3 +85,5 @@ pub(crate) mod transform;
 pub(crate) use crate::layer::{EVERYWHERE, Look, SubtreeFacts};
 pub(crate) use aggregate::ExternalWrite;
 pub(crate) use aggregate::{DeferredRequest, Model};
+pub(crate) use app_model::{AppClock, AppModel, WindowChange};
+pub(crate) use events::{EventSink, Shared};

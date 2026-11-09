@@ -56,6 +56,7 @@ UI の試験は `kivact::test` による App 全体の E2E です。`arvane-virt
 | `crates/kivact-test` | App の共通起動経路を使う `kivact::test` ハーネス |
 | `crates/arvane-virtual` | 仮想 backend、入力の台本、描画と任意の native mirror |
 | `dev/tests/docs` | ドキュメントのコードブロック |
+| `python/kivact-devtools/tests` | DevTools の Python client の試験（標準ライブラリの `unittest`） |
 | `dev/tests/gpu-interop-producer` | GPU texture 共有の試験で使う描画エンジン |
 
 `KIVACT_TEST_MIRROR` は `auto`（既定、可能なら mirror）、`off`（仮想 host のみ）、`required`（mirror が作れなければ失敗）を選びます。`RenderOptions::mirror` でも試験ごとに指定できます。GPU の表示や native host 固有の試験は対応する実環境が必要です。
@@ -82,6 +83,8 @@ dev/tools/check-features.sh
 ```
 
 `cargo xtask check` はファイルごとの code 行の上限、crate の `visible_to`、module の依存の向き、Google Rust Style Guide の規則（rustfmt と Clippy を含む）を検査し、`architecture/` の図と `architecture/index.html` を生成します。`state-fields`、`effect-writes`、`api-shape`、`canonical-path`、`name-collision`、`kit-literal-color`、`os-branch`、`structural-options` も含み、`--only <検査> --crate <crate> --module <module path>` で範囲を絞れます（`--only` はコンマ区切りで複数指定可、`--report` は違反を一覧にして成功で終了、例外は対象の field や項目の直前の `// xtask-allow(<検査>): <理由>`）。CI は fmt と `cargo xtask check --no-write` だけを実行します。`dev/tools/check-features.sh` は library の非既定 feature を一つずつ有効にしてコンパイルします。
+
+`cargo xtask devtools-codegen --check` は `cargo xtask check` に含まれるため、別に実行しません。DevTools の Python client を変えたときは、`python -m unittest discover python/kivact-devtools/tests` も実行します（任意）。
 
 ## commit と PR
 

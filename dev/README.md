@@ -36,7 +36,7 @@ cargo xtask check --no-write --only effect-writes --crate kivact-ui-soft
 
 `--only` には検査の名前を一つ、またはコンマ区切りで複数（例：`--only state-fields,effect-writes`）
 渡せます。ほかに `api-shape`・`canonical-path`・`name-collision`・
-`kit-literal-color`・`os-branch`・`structural-options` を選べます。
+`kit-literal-color`・`os-branch`・`structural-options`・`devtools-codegen` を選べます。
 
 ## E2E と doctest
 
@@ -67,7 +67,7 @@ dev/tools/check-features.sh
 ```
 
 `kivact` の既定は `gpu` です。任意の `test` は `kivact-test`、`embed` は native 埋込み、
-`gpu-interop` は GPU texture 共有、`tokio` は非同期 task の連携を有効にします。
+`devtools` は DevTools の agent と protocol、`gpu-interop` は GPU texture 共有、`tokio` は非同期 task の連携を有効にします。
 workspace 全体の build は dev-dependency 経由で feature が統合されるため、
 `check-features.sh` が `kivact-core`・`kivact-test`・`kivact-engine`・Arvane adapters・
-`kivact-gpu-share` の非既定 feature も個別に確認します。
+`kivact-gpu-share` の非既定 feature（`devtools` を含む）も個別に確認します。

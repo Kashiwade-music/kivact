@@ -15,8 +15,18 @@ pub(super) enum Event {
     Pulse,
     OpenDue,
     CloseDue,
+    /// The owner's open request changed: `false` dismisses, `true` changes nothing.
+    Request(bool),
+    /// The surface may open at once (focus arrived): while `Opening`, acts as `Pulse`.
+    Immediate(bool),
 }
-pub(super) enum Effect {}
+/// A change of the visibility, reported to the owner.
+pub(super) enum Effect {
+    /// Entered `Shown` from another state.
+    Shown,
+    /// Entered `Hidden` or `Dismissed` from another state.
+    Hidden,
+}
 pub(super) struct Machine {
     pub wanted: bool,
     pub open: Duration,
@@ -27,46 +37,69 @@ impl MachineTrait for Machine {
     type Event = Event;
     type Effect = Effect;
     fn transition(&self, state: &State, event: Event) -> Step<State, Event, Effect> {
+        let from = *state;
         match event {
-            Event::Wanted(true) => match state {
-                State::Hidden if self.open.is_zero() => Step::to(State::Shown),
-                State::Hidden => Step::to(State::Opening).after(self.open, Event::OpenDue),
-                State::Closing => Step::to(State::Shown).cancel(Event::CloseDue),
+            Event::Wanted(true) => match from {
+                State::Hidden if self.open.is_zero() => enter(from, State::Shown),
+                State::Hidden => enter(from, State::Opening).after(self.open, Event::OpenDue),
+                State::Closing => enter(from, State::Shown).cancel(Event::CloseDue),
                 _ => Step::stay(),
             },
-            Event::Wanted(false) => match state {
-                State::Opening => Step::to(State::Hidden).cancel(Event::OpenDue),
-                State::Shown => self.close(),
-                State::Dismissed => Step::to(State::Hidden),
+            Event::Wanted(false) => match from {
+                State::Opening => enter(from, State::Hidden).cancel(Event::OpenDue),
+                State::Shown => self.close(from),
+                State::Dismissed => enter(from, State::Hidden),
                 _ => Step::stay(),
             },
-            Event::Dismiss => Step::to(if self.wanted {
-                State::Dismissed
-            } else {
-                State::Hidden
-            })
-            .cancel(Event::OpenDue)
-            .cancel(Event::CloseDue),
-            Event::Pulse => {
-                let step = if self.wanted {
-                    Step::to(State::Shown).cancel(Event::CloseDue)
-                } else {
-                    self.close()
-                };
-                step.cancel(Event::OpenDue)
-            }
-            Event::OpenDue if *state == State::Opening => Step::to(State::Shown),
-            Event::CloseDue if *state == State::Closing => Step::to(State::Hidden),
+            Event::Dismiss | Event::Request(false) => self.dismiss(from),
+            Event::Request(true) => Step::stay(),
+            Event::Pulse => self.pulse(from),
+            Event::Immediate(true) if from == State::Opening => self.pulse(from),
+            Event::Immediate(_) => Step::stay(),
+            Event::OpenDue if from == State::Opening => enter(from, State::Shown),
+            Event::CloseDue if from == State::Closing => enter(from, State::Hidden),
             Event::OpenDue | Event::CloseDue => Step::stay(),
         }
     }
 }
 impl Machine {
-    fn close(&self) -> Step<State, Event, Effect> {
+    fn close(&self, from: State) -> Step<State, Event, Effect> {
         if self.close.is_zero() {
-            Step::to(State::Hidden).cancel(Event::CloseDue)
+            enter(from, State::Hidden).cancel(Event::CloseDue)
         } else {
-            Step::to(State::Closing).after(self.close, Event::CloseDue)
+            enter(from, State::Closing).after(self.close, Event::CloseDue)
         }
+    }
+    fn dismiss(&self, from: State) -> Step<State, Event, Effect> {
+        enter(
+            from,
+            if self.wanted {
+                State::Dismissed
+            } else {
+                State::Hidden
+            },
+        )
+        .cancel(Event::OpenDue)
+        .cancel(Event::CloseDue)
+    }
+    fn pulse(&self, from: State) -> Step<State, Event, Effect> {
+        let step = if self.wanted {
+            enter(from, State::Shown).cancel(Event::CloseDue)
+        } else {
+            self.close(from)
+        };
+        step.cancel(Event::OpenDue)
+    }
+}
+/// Move to `to`, reporting an entry into `Shown` or into a hidden state.
+fn enter(from: State, to: State) -> Step<State, Event, Effect> {
+    let step = Step::to(to);
+    if from == to {
+        return step;
+    }
+    match to {
+        State::Shown => step.with(Effect::Shown),
+        State::Hidden | State::Dismissed => step.with(Effect::Hidden),
+        State::Opening | State::Closing => step,
     }
 }

@@ -9,7 +9,6 @@ use kivact_core::state::{IntoText, IntoValue};
 use kivact_core::view::{IntoView, NodeRef, OverlayAlign, Placement, View, node_ref, overlay};
 use kivact_core::view::{NodeBuilder, node, text};
 
-// xtask-allow(state-fields): Setup-only builder options; content and alignment are independent.
 /// A themed hint for a trigger, created by [`tooltip`]; attach it with
 /// [`attach`](Tooltip::attach).
 pub struct Tooltip {
@@ -49,7 +48,7 @@ impl Tooltip {
     /// the component is mounted, and a value never changes afterwards. A
     /// look that changes while the component lives is a state the recipe
     /// reads, or a reactive `.style(..)` of the caller's.
-    pub fn variant(self, v: impl Variant) -> Self {
+    pub fn variant(mut self, v: impl Variant) -> Self {
         self.variants.add(v);
         self
     }

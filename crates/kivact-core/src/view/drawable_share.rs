@@ -7,9 +7,9 @@
 //! the UI thread and are published to the waiting threads.
 //!
 //! Invariants:
-//! - Each request starts a new generation (`next_generation` counts up and
-//!   is never reused); a frame or textures of another generation are
-//!   dropped on arrival.
+//! - Each request starts a new generation (`ExportOpen::restart` makes it the
+//!   current request's generation plus one, so none is reused); a frame or
+//!   textures of another generation are dropped on arrival.
 //! - Frame numbers count up over the drawable's whole life, so `wait(after)`
 //!   of an older generation returns the first frame of the current one.
 //! - `wait` never returns `ShareError::Stale`.
@@ -104,28 +104,29 @@ pub(crate) enum ExportLink {
 
 /// The state of an open export.
 pub(crate) struct ExportOpen {
-    /// The current request and its generation.
+    /// The current request, its generation and, for the requests that
+    /// receive frames, the newest frame.
     pub(crate) request: ExportRequest,
-    // xtask-allow(state-fields): Mailbox: the latest geometry the app set, taken by the UI turn.
     pub(crate) geometry: Mailbox<Option<Matrix4>>,
     // xtask-allow(state-fields): The app's configured scale; a setting, not derived from the window.
     pub(crate) scale: Option<f64>,
-    // xtask-allow(state-fields): Delivery record: the newest frame handed over to the app.
-    pub(crate) latest: Option<DrawableFrame>,
-    // xtask-allow(state-fields): ID allocator: the last generation issued.
-    pub(crate) next_generation: u64,
     // xtask-allow(state-fields): ID allocator: the last frame number issued over the drawable's life.
     pub(crate) next_number: u64,
-    // xtask-allow(state-fields): Wake marker: a call of the app the UI turn has not taken yet.
-    pub(crate) changed: bool,
+    /// Take-once wake of the UI task: an app call the UI turn has not taken yet.
+    pub(crate) wake: Mailbox<()>,
 }
 
 /// The export request in force, with its generation.
 pub(crate) enum ExportRequest {
     /// Nothing is exported.
     None { generation: u64 },
-    /// Frames are read back as pixels.
-    Pixels { generation: u64 },
+    /// Frames are read back as pixels; `latest` is the newest one received.
+    Pixels {
+        // xtask-allow(state-fields): S-8 ID - the generation of the app's request; a frame of another generation is dropped
+        generation: u64,
+        // xtask-allow(state-fields): delivery record - the newest frame received for this request
+        latest: Option<DrawableFrame>,
+    },
     /// The window has to make the pool; no GPU frames yet.
     #[cfg(feature = "gpu-interop")]
     GpuRequested {
@@ -138,12 +139,16 @@ pub(crate) enum ExportRequest {
         generation: u64,
         adapter: GpuAdapter,
     },
-    /// Textures made. `textures` is taken once by `wait`.
+    /// Textures made. `textures` is taken once by `wait`; `latest` is the newest GPU frame.
     #[cfg(feature = "gpu-interop")]
     GpuProvided {
+        // xtask-allow(state-fields): S-8 ID - the generation of the app's request; a frame of another generation is dropped
         generation: u64,
         adapter: GpuAdapter,
-        textures: Option<SharedTextures>,
+        /// Take-once hand-over of the pool to `wait` (S-9 Mailbox, not an `Option` that is taken).
+        textures: Mailbox<SharedTextures>,
+        // xtask-allow(state-fields): delivery record - the newest frame received for this request
+        latest: Option<DrawableFrame>,
     },
     /// The request failed; `wait` reports it.
     #[cfg(feature = "gpu-interop")]
@@ -154,7 +159,7 @@ impl ExportRequest {
     /// The generation of this request.
     pub(crate) fn generation(&self) -> u64 {
         match self {
-            Self::None { generation } | Self::Pixels { generation } => *generation,
+            Self::None { generation } | Self::Pixels { generation, .. } => *generation,
             #[cfg(feature = "gpu-interop")]
             Self::Failed { generation, .. } => *generation,
             #[cfg(feature = "gpu-interop")]
@@ -166,12 +171,21 @@ impl ExportRequest {
 }
 
 impl ExportOpen {
-    /// A new generation with `request` made from it; the latest frame is dropped.
+    /// A new generation (the current one plus one) with `request` made from it;
+    /// the latest frame stays with the old request.
     fn restart(&mut self, request: impl FnOnce(u64) -> ExportRequest) {
-        self.next_generation += 1;
-        self.request = request(self.next_generation);
-        self.latest = None;
-        self.changed = true;
+        let generation = self.request.generation() + 1;
+        self.request = request(generation);
+    }
+
+    /// The newest frame of the current request, when it receives frames.
+    fn latest(&self) -> Option<&DrawableFrame> {
+        match &self.request {
+            ExportRequest::Pixels { latest, .. } => latest.as_ref(),
+            #[cfg(feature = "gpu-interop")]
+            ExportRequest::GpuProvided { latest, .. } => latest.as_ref(),
+            _ => None,
+        }
     }
 
     /// The generation the current request answers.
@@ -227,9 +241,13 @@ impl ExportOpen {
                 self.request = ExportRequest::GpuProvided {
                     generation,
                     adapter,
-                    textures: Some(textures),
+                    textures: {
+                        let slot = Mailbox::new();
+                        slot.put(textures);
+                        slot
+                    },
+                    latest: None,
                 };
-                self.changed = true;
             }
             Err(failure) if failure.kind == kivact_types::FailureKind::NotReady => {
                 self.request = ExportRequest::GpuWaiting {
@@ -273,14 +291,21 @@ impl ExportOpen {
         }
     }
 
-    /// Accept a frame the compositor exported when its generation is current.
+    /// Accept a frame the compositor exported when its generation is current
+    /// and the current request receives frames.
     pub(crate) fn on_frame(&mut self, frame: ExportedFrame) {
         if frame.generation != self.current() {
             return;
         }
+        let latest = match &mut self.request {
+            ExportRequest::Pixels { latest, .. } => latest,
+            #[cfg(feature = "gpu-interop")]
+            ExportRequest::GpuProvided { latest, .. } => latest,
+            _ => return,
+        };
         self.next_number += 1;
         let (generation, number) = (frame.generation, self.next_number);
-        self.latest = Some(match frame.frame {
+        *latest = Some(match frame.frame {
             ExportFrame::Pixels(pixels) => DrawableFrame::Pixels {
                 generation,
                 number,
@@ -293,7 +318,6 @@ impl ExportOpen {
                 value,
             },
         });
-        self.changed = true;
     }
 }
 
@@ -312,17 +336,14 @@ impl ExportLink {
             request: ExportRequest::None { generation: 0 },
             geometry: Mailbox::default(),
             scale: None,
-            latest: None,
-            next_generation: 0,
             next_number: 0,
-            changed: false,
+            wake: Mailbox::default(),
         }))
     }
 
     /// Take the wake marker of the UI side; `None` when nothing changed.
     pub(crate) fn take_changed(&mut self) -> Option<()> {
-        let open = self.open_mut()?;
-        std::mem::take(&mut open.changed).then_some(())
+        self.open_mut()?.wake.take()
     }
 }
 
@@ -332,7 +353,7 @@ impl DrawableShare {
         self.inner.update(|link| {
             f(link);
             if let Some(open) = link.open_mut() {
-                open.changed = true;
+                open.wake.put(());
             }
         });
     }
@@ -341,7 +362,10 @@ impl DrawableShare {
     pub fn request_pixels(&self) {
         self.change(|link| {
             if let Some(open) = link.open_mut() {
-                open.restart(|generation| ExportRequest::Pixels { generation });
+                open.restart(|generation| ExportRequest::Pixels {
+                    generation,
+                    latest: None,
+                });
             }
         });
     }
@@ -392,7 +416,7 @@ impl DrawableShare {
     /// The newest frame of the current generation, if any.
     pub fn latest(&self) -> Option<DrawableFrame> {
         self.inner.read(|link| match link {
-            ExportLink::Open(open) => open.latest.clone(),
+            ExportLink::Open(open) => open.latest().cloned(),
             ExportLink::Closed => None,
         })
     }
@@ -431,7 +455,7 @@ fn take_update(link: &mut ExportLink, after: u64) -> Option<Result<ShareUpdate, 
     if let ExportRequest::Failed { message, .. } = &open.request {
         return Some(Err(ShareError::Failed(message.clone())));
     }
-    match &open.latest {
+    match open.latest() {
         Some(frame) if frame.number() > after => Some(Ok(ShareUpdate::Frame(frame.clone()))),
         _ => None,
     }

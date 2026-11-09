@@ -13,15 +13,11 @@ use crate::collection_values::{ToolbarEdge, ToolbarState};
 /// Three optional regions that share a single keyboard Tab stop.
 pub struct Toolbar {
     root: Node,
-    // xtask-allow(state-fields): Independent presentation or construction input, not interaction state.
     start: Option<Vec<View>>,
-    // xtask-allow(state-fields): Independent presentation or construction input, not interaction state.
     center: Option<Vec<View>>,
-    // xtask-allow(state-fields): Independent presentation or construction input, not interaction state.
     end: Option<Vec<View>>,
     orientation: Orientation,
     size: Value<ControlSize>,
-    // xtask-allow(state-fields): Independent presentation or construction input, not interaction state.
     gap: Option<Value<f64>>,
     dividers: Vec<ToolbarEdge>,
     variants: Variants,
@@ -82,7 +78,7 @@ impl Toolbar {
         self
     }
     /// Add a theme presentation variant.
-    pub fn variant(self, variant: impl Variant) -> Self {
+    pub fn variant(mut self, variant: impl Variant) -> Self {
         self.variants.add(variant);
         self
     }

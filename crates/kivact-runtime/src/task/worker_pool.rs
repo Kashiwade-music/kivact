@@ -21,7 +21,9 @@ pub(crate) fn lock<T>(m: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
 /// Fixed pool of worker threads (default `min(4, CPUs)`).
 pub(crate) struct Pool {
     handles: Mutex<Vec<JoinHandle<()>>>,
+    // xtask-allow(state-fields): owned resource - the job channel sender, dropped at shutdown so the workers end
     tx: Mutex<Option<mpsc::Sender<Job>>>,
+    // xtask-allow(state-fields): statistics - the number of submitted jobs not yet finished, which the shutdown waits on
     pub(crate) outstanding: Arc<AtomicUsize>,
 }
 

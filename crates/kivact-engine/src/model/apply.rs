@@ -31,7 +31,7 @@ use std::sync::Arc;
 use crate::contract::{DrawableMode, HostEvent, NodeKind, NodeProperties, NodeType, SceneLayer};
 use crate::mutation::Mutation;
 use crate::tree::node::{LeavingRole, NodePresence, Notify};
-use kivact_types::{DrawList, ElementTransform, NodeId, Point, RequestId, Revision};
+use kivact_types::{DrawList, ElementTransform, NodeId, Point, RequestId};
 
 use crate::model::Model;
 use crate::model::changes::Dirty;
@@ -46,9 +46,9 @@ fn flat_role(node: &HostNode) -> Option<bool> {
 }
 
 impl Model {
-    /// End the writes of one revision (the one after the last applied):
-    /// check the focus once and record its private post-layout boundary.
-    pub(crate) fn commit_revision(&mut self) -> Revision {
+    /// Prepare this window's writes for one shared revision: check the
+    /// focus once; the caller commits the revision and syncs every window.
+    pub(crate) fn prepare_commit(&mut self) {
         self.tree.pack_child_orders();
         self.start_entrances();
         self.revalidate_focus();
@@ -56,9 +56,6 @@ impl Model {
         self.revalidate_hover();
         self.reveal_moved_focus();
         self.reconcile_drawables();
-        let revision = Revision(self.applied().0 + 1);
-        self.events.commit(revision);
-        revision
     }
 
     /// Move an attached node before a sibling (append if `None`).

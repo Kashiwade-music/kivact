@@ -1,4 +1,5 @@
 //! Role: Engine client host contracts.
+use super::devtools::EngineEmulation;
 use kivact_types::{Asset, Capabilities, Environment, PlatformRequest};
 use std::fmt;
 
@@ -59,11 +60,25 @@ impl std::error::Error for HostError {}
 pub enum HostRequest {
     /// Capture CPU pixels after the current turn's layout and draw have settled.
     Snapshot(kivact_types::NodeId),
-    Platform(PlatformRequest),
+    Platform {
+        window: kivact_types::WindowId,
+        request: PlatformRequest,
+    },
     /// Register a font before the next layout measures text.
     RegisterFont(Asset),
     /// Override reduced motion, or follow the system preference.
     ReducedMotion(Option<bool>),
+    /// Deliver `inputs` to `window` after the turn; the answer is
+    /// `HostEvent::InjectDelivered { window, request }` with the request
+    /// this effect was given.
+    Inject {
+        window: kivact_types::WindowId,
+        inputs: Vec<super::InjectedInput>,
+    },
+    /// Override the environment of every window.
+    Emulate(EngineEmulation),
+    /// Multiply the motion clock of every window.
+    TimeScale(f64),
     /// What a drawable's export asks of the window: its frames of
     /// `generation`, as `mode`, at `scale` device px per logical px. `None`
     /// follows the window's scale.

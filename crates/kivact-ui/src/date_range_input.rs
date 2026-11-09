@@ -98,7 +98,7 @@ impl DateRangeInput {
     }
 
     /// Add a visual variant shared by the field and its picker surface.
-    pub fn variant(self, variant: impl crate::Variant) -> Self {
+    pub fn variant(mut self, variant: impl crate::Variant) -> Self {
         self.variants.add(variant);
         self
     }
@@ -393,7 +393,6 @@ impl DateRangeInput {
         (first, last)
     }
 }
-// xtask-allow(state-fields): Only projections of one authoritative RangeDraft machine into endpoint and validity bindings; no separate mutable lifecycle state.
 /// The canonical range draft and the bindings which project its endpoint fields.
 #[derive(Clone, Copy)]
 struct RangeEditors {

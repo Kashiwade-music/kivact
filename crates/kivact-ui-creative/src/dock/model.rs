@@ -44,7 +44,6 @@ impl DockSide {
     }
 }
 
-// xtask-allow(state-fields): Immutable application panel description: key, title, icon and close affordance are independent input data.
 /// One panel tab: a stable consumer key, its visible title and chrome options.
 ///
 /// The key identifies the panel's retained content in [`crate::dock`]. Panel
@@ -54,7 +53,9 @@ impl DockSide {
 pub struct DockTab<K> {
     pub id: K,
     pub title: String,
+    // xtask-allow(state-fields): passive record - icon
     pub icon: Option<Icon>,
+    // xtask-allow(state-fields): passive record - Whether the tab shows a close button and the close commands remove it
     /// Whether the tab shows a close button and the close commands remove it.
     pub closable: bool,
 }
@@ -83,7 +84,6 @@ impl<K> DockTab<K> {
     }
 }
 
-// xtask-allow(state-fields): Immutable application panel description: key, title, icon and close affordance are independent input data.
 /// A tabbed container: the leaf of a dock layout.
 #[derive(Clone, Debug, PartialEq)]
 pub struct DockTabs<K> {

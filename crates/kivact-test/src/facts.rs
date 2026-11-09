@@ -20,8 +20,13 @@ pub(super) struct Facts {
     nodes: HashMap<NodeId, Node>,
 }
 impl Facts {
-    pub(super) fn new(inspect: Inspect<'_>) -> Self {
-        let root = inspect.root();
+    pub(super) fn new(inspect: Inspect<'_>, window: kivact_types::WindowId) -> Self {
+        let root = inspect
+            .roots()
+            .into_iter()
+            .find(|(id, _)| *id == window)
+            .map(|(_, root)| root)
+            .expect("invariant: the window of a Screen is open");
         let reader = inspect.reader();
         let mut nodes = HashMap::new();
         let mut stack = vec![root];

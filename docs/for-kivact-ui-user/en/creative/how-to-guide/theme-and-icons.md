@@ -152,7 +152,7 @@ fn main() -> kivact::Result<()> {
 }
 ```
 
-Names also appear as arguments in the kit's components: `DockTab::icon("palette")`, `TreeItem::new(.., "box")`, `PickerItem::icon(..)`, `PieEntry` and `WindowOptions::icon(..)`. Each also accepts a `kivact::style::Icon` such as an image, so you can pass an image directly without registering it. A theme that lacks the name you ask for draws nothing and reports a diagnostic, so keep the kit's theme (or add the name) when you switch themes.
+Names also appear as arguments in the kit's components: `DockTab::icon("palette")`, `TreeItem::new(.., "box")`, `PickerItem::icon(..)`, `PieEntry` and `ToolWindowOptions::icon(..)`. Each also accepts a `kivact::style::Icon` such as an image, so you can pass an image directly without registering it. A theme that lacks the name you ask for draws nothing and reports a diagnostic, so keep the kit's theme (or add the name) when you switch themes.
 
 `ui::KeyGlyph` (`Diamond`, `Square`, `Circle`, `HalfDiamond`) is the shape of a keyframe marker: set it per key with `Keyframe::glyph(..)`. `ui::LabelTone` (`Normal`, `Muted`, `Accent`, `Warning`, `Error`, `Custom(color)`) names a text color that follows the theme; `TreeItem::tone(..)` uses it.
 

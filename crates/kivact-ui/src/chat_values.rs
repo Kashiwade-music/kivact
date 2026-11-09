@@ -70,19 +70,24 @@ kivact_core::state::constant_value!(
     ComposerStatus,
     ComposerStatusPosition
 );
-// xtask-allow(state-fields): Read-only recipe facts projected from independent sender, layout, delivery and slot inputs.
 /// Message facts passed to every message recipe.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ChatMessageState {
     pub sender: ChatSender,
+    // xtask-allow(state-fields): passive record - status
     pub status: Option<ChatMessageStatus>,
     pub align: ChatAlign,
     pub group: ChatBubbleGroup,
     pub reactions_side: ChatReactionsSide,
+    // xtask-allow(state-fields): passive record - has reactions
     pub has_reactions: bool,
+    // xtask-allow(state-fields): passive record - actionable
     pub actionable: bool,
+    // xtask-allow(state-fields): passive record - has header
     pub has_header: bool,
+    // xtask-allow(state-fields): passive record - has footer
     pub has_footer: bool,
+    // xtask-allow(state-fields): passive record - has avatar
     pub has_avatar: bool,
 }
 /// Scroll-follow facts supplied by the shared follow behavior.
@@ -90,11 +95,12 @@ pub struct ChatMessageState {
 pub struct ChatThreadState {
     pub distance: f64,
 }
-// xtask-allow(state-fields): Read-only recipe facts projected from independent response and validation inputs.
 /// Composer facts supplied to its recipes.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ChatComposerState {
+    // xtask-allow(state-fields): passive record - stopped
     pub stopped: bool,
+    // xtask-allow(state-fields): passive record - status
     pub status: Option<ComposerStatus>,
 }
 /// The repeating typing phase supplied to recipes.

@@ -13,7 +13,6 @@ use kivact_core::view::{
 use kivact_core::view::{Node, NodeBuilder, node};
 use kivact_interaction::{ScalarRange, ScalarRangeError, use_splitter};
 
-// xtask-allow(state-fields): Setup-only NodeBuilder options; optional panes and observer are independent construction inputs.
 /// Two panes and a handle between them, created by [`splitter`].
 pub struct Splitter {
     root: Node,
@@ -92,7 +91,7 @@ impl Splitter {
     /// the component is mounted, and a value never changes afterwards. A
     /// look that changes while the component lives is a state the recipe
     /// reads, or a reactive `.style(..)` of the caller's.
-    pub fn variant(self, v: impl Variant) -> Self {
+    pub fn variant(mut self, v: impl Variant) -> Self {
         self.variants.add(v);
         self
     }

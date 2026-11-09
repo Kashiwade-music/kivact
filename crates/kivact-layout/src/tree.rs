@@ -42,7 +42,7 @@ use crate::{
     NodeLayoutColumns, NodeLayoutState, NodeLayoutValues,
 };
 use kivact_types::{
-    AvailableSpace, Baseline, MeasureRequest, NodeId, Orientation, Point, Rect, Size,
+    AvailableSpace, Baseline, Insets, MeasureRequest, NodeId, Orientation, Point, Rect, Size,
 };
 use std::collections::BTreeMap;
 use taffy::{
@@ -51,7 +51,6 @@ use taffy::{
     ResolveOrZero, RoundTree, RunMode, TraversePartialTree, TraverseTree,
 };
 
-// xtask-allow(state-fields): One computation borrows independent geometry and measurement caches; no application lifecycle is stored (S-9).
 struct LayoutPass<'a, Tree: LayoutTree + ?Sized> {
     tree: &'a Tree,
     traversal: Traversal<'a, Tree>,
@@ -506,6 +505,24 @@ impl NodeLayoutColumns {
                 height: f64::from(
                     (l.size.height - y - l.border.bottom - l.padding.bottom).max(0.0),
                 ),
+            },
+            padding: Insets {
+                top: f64::from(l.padding.top),
+                right: f64::from(l.padding.right),
+                bottom: f64::from(l.padding.bottom),
+                left: f64::from(l.padding.left),
+            },
+            border: Insets {
+                top: f64::from(l.border.top),
+                right: f64::from(l.border.right),
+                bottom: f64::from(l.border.bottom),
+                left: f64::from(l.border.left),
+            },
+            margin: Insets {
+                top: f64::from(l.margin.top),
+                right: f64::from(l.margin.right),
+                bottom: f64::from(l.margin.bottom),
+                left: f64::from(l.margin.left),
             },
         })
     }

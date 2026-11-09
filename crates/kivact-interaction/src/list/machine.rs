@@ -4,28 +4,45 @@ use kivact_core::state::{Machine as MachineTrait, Step};
 use kivact_core::view::NodeRef;
 use std::marker::PhantomData;
 
+/// Where the focus was when a virtual focus request was made.
 #[derive(Clone, Copy)]
-pub(super) struct Origin {
-    pub(super) token: Option<NodeToken>,
-    // xtask-allow(state-fields): A snapshot reference locates the origin token through virtualization.
-    pub(super) node: Option<NodeRef>,
+pub(super) enum Origin {
+    /// No node had the focus.
+    Nowhere,
+    /// A node that is not a member of the list had the focus.
+    Outside(NodeToken),
+    /// A member had the focus; its reference finds it again when
+    /// virtualization unmounts it.
+    Member { token: NodeToken, node: NodeRef },
 }
 impl PartialEq for Origin {
     fn eq(&self, other: &Self) -> bool {
-        self.token == other.token
-            && match (self.node, other.node) {
-                (Some(left), Some(right)) => left.same_ref(right),
-                (None, None) => true,
-                _ => false,
-            }
+        match (self, other) {
+            (Self::Nowhere, Self::Nowhere) => true,
+            (Self::Outside(left), Self::Outside(right)) => left == right,
+            (
+                Self::Member {
+                    token: left,
+                    node: a,
+                },
+                Self::Member {
+                    token: right,
+                    node: b,
+                },
+            ) => left == right && a.same_ref(*b),
+            _ => false,
+        }
     }
 }
 impl Origin {
     pub(super) fn kept(self, current: Option<NodeToken>) -> bool {
-        current == self.token
-            || (current.is_none()
-                && self.token.is_some()
-                && self.node.is_some_and(|node| node.mounted_node().is_none()))
+        match self {
+            Self::Nowhere => current.is_none(),
+            Self::Outside(token) => current == Some(token),
+            Self::Member { token, node } => {
+                current == Some(token) || (current.is_none() && node.mounted_node().is_none())
+            }
+        }
     }
 }
 #[derive(Clone, PartialEq)]
@@ -42,13 +59,11 @@ pub(super) enum Focus {
 #[derive(Clone, PartialEq)]
 pub(super) struct State<K> {
     pub(super) pending: Pending<K>,
-    pub(super) position: usize,
     pub(super) focus: Focus,
 }
 pub(super) enum Event<K> {
     Activate { key: K, origin: Origin },
     Cancel,
-    Position(usize),
     MountFocus(Focus),
     Observe(Option<NodeToken>),
 }
@@ -67,7 +82,6 @@ impl<K: Clone + PartialEq + 'static> MachineTrait for Machine<K> {
         match event {
             Event::Activate { key, origin } => next.pending = Pending::Activating { key, origin },
             Event::Cancel => next.pending = Pending::Nothing,
-            Event::Position(position) => next.position = position,
             Event::MountFocus(focus) => next.focus = focus,
             Event::Observe(current) => match state.pending {
                 Pending::Activating { origin, .. } if !origin.kept(current) => {

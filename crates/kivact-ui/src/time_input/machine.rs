@@ -33,10 +33,12 @@ pub(super) enum Event {
     Close,
     External(Option<TimeOfDay>),
 }
-// xtask-allow(state-fields): Event snapshot contains independent inclusive bounds and formatting precision.
 pub(super) struct Snapshot {
+    // xtask-allow(state-fields): passive record - seconds
     pub(super) seconds: bool,
+    // xtask-allow(state-fields): passive record - min
     pub(super) min: Option<TimeOfDay>,
+    // xtask-allow(state-fields): passive record - max
     pub(super) max: Option<TimeOfDay>,
 }
 fn key(time: TimeOfDay) -> (u8, u8, u8) {

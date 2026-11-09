@@ -3,7 +3,7 @@
 use crate::calcs::Calcs;
 use crate::pass_state::Epoch;
 use crate::style::node::NodeStyle;
-use kivact_types::{LeafSize, MeasureRequest, Orientation, Point, Rect, Size};
+use kivact_types::{Insets, LeafSize, MeasureRequest, Orientation, Point, Rect, Size};
 use std::cell::Cell;
 
 /// The computed layout of one node.
@@ -19,6 +19,12 @@ pub struct NodeLayout {
     pub content_size: Size,
     /// The content box (inside border and padding), relative to the node.
     pub content_box: Rect,
+    /// Padding between the border and the content box.
+    pub padding: Insets,
+    /// Border widths around the padding box.
+    pub border: Insets,
+    /// Margins outside the border box.
+    pub margin: Insets,
 }
 
 /// What a leaf measured to, by request: the last 16 requests (`sizes`);
@@ -44,15 +50,16 @@ pub(crate) enum RecordState {
 #[derive(Clone, Debug, Default)]
 pub(crate) struct ChildCursor(Cell<Option<Counted>>);
 
-// xtask-allow(state-fields): Disposable traversal cache holds a count, filtering fact and optional lookup position (S-9).
 /// A cursor as counted at one epoch.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct Counted {
     pub(crate) epoch: Epoch,
     /// The children in flow (the viewport's: its attached fixed boxes).
     pub(crate) count: usize,
+    // xtask-allow(state-fields): pure cache - Whether no child is filtered out
     /// Whether no child is filtered out.
     pub(crate) unfiltered: bool,
+    // xtask-allow(state-fields): pure cache - The last (filtered, raw) position looked up
     /// The last (filtered, raw) position looked up.
     pub(crate) at: Option<(usize, usize)>,
 }
@@ -96,7 +103,6 @@ pub(crate) struct NodeLayoutState {
     pub(crate) measured: Record,
 }
 
-// xtask-allow(state-fields): Independent slot-indexed measurement, geometry and layout input caches (S-9).
 /// Style, caches and optional geometry borrowed for one root computation.
 #[derive(Clone, Debug)]
 pub(crate) struct NodeLayoutValues {

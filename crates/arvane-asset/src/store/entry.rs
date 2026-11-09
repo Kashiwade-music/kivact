@@ -47,6 +47,7 @@ pub(crate) struct Stamp {
 }
 
 pub(crate) struct Entry {
+    // xtask-allow(state-fields): S-8 ID - the generation stamped on the entry; a job result names it
     pub(crate) generation: u64,
     pub(crate) state: State,
     /// Encoded bytes the key keeps alive.
@@ -120,15 +121,17 @@ impl Recheck {
     }
 }
 
-// xtask-allow(state-fields): Immutable image variant cache key; size, frame and rendering options are independent request properties.
 /// A derived raster: an SVG at a device size (or the part `crop` of it),
 /// and/or a tinted copy, of one frame of a raster source.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub(crate) struct VariantKey {
+    // xtask-allow(state-fields): cache key - The device size (SVG rasters only)
     /// The device size (SVG rasters only).
     pub(crate) size: Option<PixelSize>,
+    // xtask-allow(state-fields): cache key - The part of that size rasterized (SVG rasters of a visible part)
     /// The part of that size rasterized (SVG rasters of a visible part).
     pub(crate) crop: Option<Crop>,
+    // xtask-allow(state-fields): cache key - tint
     pub(crate) tint: Option<Tint>,
     /// The frame of an animation a tinted copy is of (0 for stills and SVGs).
     pub(crate) frame: u32,

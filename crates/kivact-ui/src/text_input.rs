@@ -10,8 +10,6 @@
 //! return style only.
 
 use kivact_core::style::use_theme;
-use std::cell::Cell;
-use std::rc::Rc;
 
 use kivact_core::state::Binding;
 use kivact_core::state::{IntoText, IntoValue};
@@ -32,7 +30,7 @@ use super::variants::{Variant, Variants};
 pub struct TextInput {
     field: Node,
     editing: TextEditApi,
-    size: Rc<Cell<kivact_core::state::Value<ControlSize>>>,
+    size: kivact_core::state::Value<ControlSize>,
     variants: Variants,
     multiline: bool,
 }
@@ -78,9 +76,7 @@ fn create(
     value: Binding<String>,
     multiline: bool,
 ) -> TextInput {
-    let size = Rc::new(Cell::new(
-        super::values::default_control_size().into_value(),
-    ));
+    let size = super::values::default_control_size().into_value();
     let editing = if multiline {
         use_text_area(value)
     } else {
@@ -126,7 +122,7 @@ impl TextInput {
     /// the component is mounted, and a value never changes afterwards. A
     /// look that changes while the component lives is a state the recipe
     /// reads, or a reactive `.style(..)` of the caller's.
-    pub fn variant(self, v: impl Variant) -> Self {
+    pub fn variant(mut self, v: impl Variant) -> Self {
         self.variants.add(v);
         self
     }
@@ -152,8 +148,8 @@ impl TextInput {
     }
 
     /// The metrics (default [`ControlSize::Medium`]).
-    pub fn size(self, size: impl IntoValue<ControlSize>) -> Self {
-        self.size.set(size.into_value());
+    pub fn size(mut self, size: impl IntoValue<ControlSize>) -> Self {
+        self.size = size.into_value();
         self
     }
 
@@ -294,7 +290,7 @@ impl IntoView for TextInput {
                 &theme,
                 &look.look(TextInputState {
                     input: input.get(),
-                    size: size.get().get(),
+                    size: size.get(),
                     invalid: invalid.get(),
                 }),
             )

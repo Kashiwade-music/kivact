@@ -162,8 +162,8 @@ fn run(
         waker(&backend),
     )?;
     let session = window.session.clone();
-    let _watch = crate::port::linux_settings::watch(waker(&backend));
-    session.start(make, &mut window, waker(&backend));
+    let _watch = crate::port::linux_settings::watch(session.waker());
+    session.start(make, &mut window);
     session.opened();
     let result = if let Some(error) = shared.failure() {
         let _ = ready.send(Err(error.clone()));

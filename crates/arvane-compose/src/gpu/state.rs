@@ -16,7 +16,6 @@ use kivact_types::{GpuAdapter, GpuBackend, GpuPower, GpuPreference};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
-// xtask-allow(state-fields): Construction options from environment variables; backend and power overrides are independently optional.
 /// How GPU devices are made: as the application wishes
 /// ([`GpuPreference`]), except where the environment says otherwise: the
 /// backends to try (`WGPU_BACKEND`), the adapter's power preference
@@ -26,8 +25,10 @@ use std::sync::{Arc, Mutex};
 /// [`GpuContext::new`].
 #[derive(Clone, Copy, Debug)]
 pub struct GpuEnv {
+    // xtask-allow(state-fields): construction option - `WGPU_BACKEND`
     /// `WGPU_BACKEND`.
     pub(crate) backends: Option<wgpu::Backends>,
+    // xtask-allow(state-fields): construction option - `WGPU_POWER_PREF`
     /// `WGPU_POWER_PREF`.
     pub(crate) power: Option<wgpu::PowerPreference>,
     pub(crate) flags: wgpu::InstanceFlags,

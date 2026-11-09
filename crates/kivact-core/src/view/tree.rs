@@ -6,6 +6,7 @@
 //! only during a Reader or Writer call. Removed user resources are dropped
 //! after this service's borrow ends.
 
+use std::collections::BTreeMap;
 use std::panic::Location;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -13,7 +14,7 @@ use std::sync::Arc;
 use kivact_engine::api::{Prop, PropValue};
 use kivact_engine::api::{Reader, Writer};
 use kivact_engine::contract::{NodeKind, NodeProperties, NodeType, SceneLayer};
-use kivact_types::{DrawList, IdMap, NodeId, Rect, Size};
+use kivact_types::{DrawList, IdMap, NodeId, Rect, Size, WindowId};
 
 use crate::view::handler_layers::EventHandlers;
 use crate::view::input::{Handled, KeyEvent, PointerEvent, WheelEvent};
@@ -30,7 +31,7 @@ pub(crate) struct ScrollState {
     pub content: kivact_types::Size,
 }
 
-fn classify_scroll(report: ScrollState) -> super::node_status_data::ScrollState {
+pub(crate) fn classify_scroll(report: ScrollState) -> super::node_status_data::ScrollState {
     let extent = [
         (
             report.offset.x,
@@ -55,7 +56,6 @@ fn classify_scroll(report: ScrollState) -> super::node_status_data::ScrollState 
 
 type SecondaryContextHandler = Handler<PointerEvent>;
 
-// xtask-allow(state-fields): independent optional handlers, one per event kind; absence means no subscription.
 /// Event handlers of one host node.
 ///
 /// The key, key release, pointer, wheel and file handlers are one layered
@@ -73,6 +73,7 @@ pub(crate) struct Handlers {
     pub key_up: EventHandlers<KeyEvent>,
     /// Pointer handlers.
     pub pointer: EventHandlers<PointerEvent>,
+    // xtask-allow(state-fields): optional subscriptions (builder) - Fallback for an unclaimed secondary button event in this subtree
     /// Fallback for an unclaimed secondary button event in this subtree.
     pub secondary_context: Option<SecondaryContextHandler>,
     /// Wheel handlers.
@@ -84,6 +85,7 @@ pub(crate) struct Handlers {
     pub a11y: Vec<(A11yAction, Handler<crate::view::A11yEvent>)>,
     /// Text edits of a TextInput.
     pub text: Option<Handler<crate::view::editing_data::TextEditEvent>>,
+    // xtask-allow(state-fields): optional subscriptions (builder) - Session changes of a TextInput (`TextEditing::on_selection_change`)
     /// Session changes of a TextInput (`TextEditing::on_selection_change`).
     pub selection: Option<crate::view::editing_data::SessionHandler>,
     pub edit_phase: Option<Handler<crate::view::EditPhase>>,
@@ -181,7 +183,6 @@ impl Handlers {
     }
 }
 
-// xtask-allow(state-fields): independent optional action defaults, composed independently by event kind.
 /// The activation, text and accessibility-action defaults of the parts
 /// attached to a node or a canvas region, composed in attachment order (an
 /// earlier part runs first, and its error stops the later ones). These kinds
@@ -248,16 +249,17 @@ fn offered_actions<T>(activate: bool, a11y: &[(A11yAction, T)]) -> Vec<A11yActio
     actions
 }
 
-// xtask-allow(state-fields): independent observed engine facts, not a lifecycle phase.
 /// Sources shared by all node and region references bound to one host node.
 #[derive(Clone, Copy)]
 pub(crate) struct NodeObservation {
+    // xtask-allow(state-fields): independent fact - the node's rectangle as the engine last reported it, absent before the first layout
     pub(crate) rect: Signal<Option<crate::geometry::Rect>>,
+    // xtask-allow(state-fields): independent fact - whether the engine truncated the node's text
     pub(crate) text_truncated: Signal<bool>,
-    pub(crate) scroll: Signal<crate::geometry::Point>,
-    pub(crate) scroll_state: Signal<super::node_status_data::ScrollState>,
-    /// The offset, viewport and content extents of a scroll container.
+    /// The offset, viewport and content extents of a scroll container: the
+    /// one scroll fact; the offset and the scroll position are projections.
     pub(crate) scroll_geometry: Signal<ScrollState>,
+    // xtask-allow(state-fields): independent fact - the window layout box without the node's own transform, absent before the first layout
     /// The window layout box, without the node's own transform.
     pub(crate) layout_rect: Signal<Option<crate::geometry::Rect>>,
     pub(crate) image_status: Signal<kivact_types::ImageStatus>,
@@ -278,7 +280,6 @@ pub(crate) struct Removed {
     )]
     records: Vec<CoreNode>,
 }
-// xtask-allow(state-fields): independent core resources; each optional subscription or callback is allocated only when requested.
 /// One node of the retained tree (host node or fragment): only what the
 /// engine cannot hold. Everything the engine knows about a host node (its
 /// props, rect, test id, whether its layout is observed) is read through
@@ -287,6 +288,7 @@ pub(crate) struct CoreNode {
     pub(crate) references: Vec<Signal<crate::view::ref_data::RefState>>,
     /// Owner whose disposal removes the node.
     pub owner: Owner,
+    // xtask-allow(state-fields): independent per-node resources - Where the builder of a host node was called (`#[track_caller]` of `node()`, `text(..)`, `button(..)`, ...)
     /// Where the builder of a host node was called (`#[track_caller]` of
     /// `node()`, `text(..)`, `button(..)`, ...). `None` for the root, for
     /// fragments, for the wrappers a builder adds (stack layers, list rows)
@@ -294,17 +296,23 @@ pub(crate) struct CoreNode {
     /// their nearest located ancestor. Snapshots and diagnostics name nodes
     /// by it.
     pub at: Option<&'static Location<'static>>,
+    // xtask-allow(state-fields): independent per-node resources - Event handlers, if any
     /// Event handlers, if any.
     pub handlers: Option<Box<Handlers>>,
     pub(crate) exit_layout: crate::view::ExitLayout,
     pub(crate) exit_complete: Option<kivact_runtime::Handler<()>>,
+    // xtask-allow(state-fields): independent per-node resources - The graph sources node references read (`ViewNodes::observe_node`)
     /// The graph sources node references read (`ViewNodes::observe_node`).
     pub(crate) observation: Option<NodeObservation>,
+    // xtask-allow(state-fields): independent per-node resources - Created only when a reference observes this node's lifetime
     /// Created only when a reference observes this node's lifetime.
     pub(crate) presence: Option<Signal<kivact_types::Presence>>,
     /// The effect that last set each dynamic prop (diagnostics::why).
     pub(crate) origins: Vec<(Prop, EffectId)>,
     pub(crate) semantic_origins: Vec<&'static Location<'static>>,
+    /// The style layers the node was mounted with, for the DevTools.
+    #[cfg(feature = "devtools")]
+    pub(crate) style_layers: Vec<crate::view::style_layer::StyleLayer>,
 }
 
 impl CoreNode {
@@ -321,6 +329,8 @@ impl CoreNode {
             presence: None,
             origins: Vec::new(),
             semantic_origins: Vec::new(),
+            #[cfg(feature = "devtools")]
+            style_layers: Vec::new(),
         }
     }
 }
@@ -332,8 +342,8 @@ pub(crate) struct CoreNodes(IdMap<CoreNode>);
 pub(crate) struct ViewNodes {
     nodes: CoreNodes,
     next_id: u64,
-    /// The root node (`NodeType::Root`), made with the tree; it lives as long as the App.
-    pub root: NodeId,
+    /// The root node (`NodeType::Root`) of each open window.
+    roots: BTreeMap<WindowId, NodeId>,
     engine: Writer,
     pub(super) future_text_edits: Rc<std::cell::RefCell<TextEditsInFlight>>,
     leaving: IdMap<Leaving>,
@@ -344,17 +354,19 @@ pub(crate) struct ViewNodes {
 
 impl ViewNodes {
     /// The tree of an App the host started: `engine` writes the engine's
-    /// tree, and the root node (`NodeType::Root`, of the root `owner`) is
-    /// created in it.
+    /// tree, and the main window's root node (`NodeType::Root`, of the root
+    /// `owner`) is created in it.
     pub(crate) fn new(engine: Writer, owner: Owner) -> Self {
         let root = NodeId(1);
         let mut nodes = IdMap::default();
         nodes.insert(root, CoreNode::new(owner));
-        engine.create(root, NodeKind::new(NodeType::Root));
+        engine.create(WindowId::MAIN, root, NodeKind::new(NodeType::Root));
+        let mut roots = BTreeMap::new();
+        roots.insert(WindowId::MAIN, root);
         ViewNodes {
             nodes: CoreNodes(nodes),
             next_id: 1,
-            root,
+            roots,
             engine,
             future_text_edits: Rc::new(std::cell::RefCell::new(
                 TextEditsInFlight(IdMap::default()),
@@ -365,16 +377,37 @@ impl ViewNodes {
         }
     }
 
-    fn root_node(&self) -> &CoreNode {
-        self.nodes
-            .0
-            .get(&self.root)
-            .expect("invariant: the root node lives as long as the App")
+    /// The root node of `window`.
+    pub(crate) fn root(&self, window: WindowId) -> Option<NodeId> {
+        self.roots.get(&window).copied()
     }
 
-    /// The root owner (the owner of the root node).
-    pub(crate) fn root_owner(&self) -> Owner {
-        self.root_node().owner
+    /// Every open window's root, ascending by window.
+    pub(crate) fn roots(&self) -> Vec<(WindowId, NodeId)> {
+        self.roots
+            .iter()
+            .map(|(window, id)| (*window, *id))
+            .collect()
+    }
+
+    /// The owner of `node`.
+    pub(crate) fn owner_of(&self, node: NodeId) -> Owner {
+        self.nodes
+            .0
+            .get(&node)
+            .map(|record| record.owner)
+            .expect("invariant: the node has a core record")
+    }
+
+    /// Create the root node (`NodeType::Root`) of `window`, owned by `owner`.
+    pub(crate) fn create_root(&mut self, window: WindowId, owner: Owner) -> NodeId {
+        self.next_id += 1;
+        let id = NodeId(self.next_id);
+        self.nodes.0.insert(id, CoreNode::new(owner));
+        self.engine()
+            .create(window, id, NodeKind::new(NodeType::Root));
+        self.roots.insert(window, id);
+        id
     }
 
     /// Release excess metadata capacity without discarding live nodes,
@@ -387,12 +420,12 @@ impl ViewNodes {
         self.future_text_edits.borrow_mut().0.shrink_to_fit();
     }
 
-    /// A new detached engine node and its owner metadata.
-    pub(crate) fn create(&mut self, kind: NodeType, owner: Owner) -> NodeId {
+    /// A new detached engine node of `window` and its owner metadata.
+    pub(crate) fn create(&mut self, kind: NodeType, owner: Owner, window: WindowId) -> NodeId {
         self.next_id += 1;
         let id = NodeId(self.next_id);
         self.nodes.0.insert(id, CoreNode::new(owner));
-        self.engine().create(id, NodeKind::new(kind));
+        self.engine().create(window, id, NodeKind::new(kind));
         id
     }
 
@@ -442,10 +475,6 @@ impl ViewNodes {
         let observation = NodeObservation {
             rect: node.owner.signal(None::<crate::geometry::Rect>, at),
             text_truncated: node.owner.signal(false, at),
-            scroll: node.owner.signal(crate::geometry::Point::default(), at),
-            scroll_state: node
-                .owner
-                .signal(super::node_status_data::ScrollState::NotScrollable, at),
             scroll_geometry: node.owner.signal(ScrollState::default(), at),
             layout_rect: node.owner.signal(None::<crate::geometry::Rect>, at),
             image_status: node.owner.signal(image_status, at),
@@ -462,14 +491,8 @@ impl ViewNodes {
                 bounds.height,
             )));
         });
-        let scroll = observation.scroll;
-        let scroll_state = observation.scroll_state;
         let scroll_geometry = observation.scroll_geometry;
-        handlers.observe_scroll(move |state| {
-            scroll.set(state.offset);
-            scroll_state.set(classify_scroll(state));
-            scroll_geometry.set(state);
-        });
+        handlers.observe_scroll(move |state| scroll_geometry.set(state));
         node.observation = Some(observation);
         Some(observation)
     }
@@ -635,6 +658,7 @@ impl ViewNodes {
         if tracks_live && changed && was_live != self.is_live_region(id) {
             self.live_region_revision.notify_from_render();
         }
+        crate::view::devtools_hooks::prop_written(id, prop, writer, changed);
         changed
     }
 
@@ -649,6 +673,18 @@ impl ViewNodes {
         self.engine().set_scene(id, layer, Arc::new(scene));
         if let Some(observation) = self.get(id).and_then(|node| node.observation) {
             observation.scene_revision.notify_from_render();
+        }
+    }
+
+    /// Keep the style layers of `id` for the DevTools style inspector.
+    #[cfg(feature = "devtools")]
+    pub(crate) fn set_style_layers(
+        &mut self,
+        id: NodeId,
+        layers: Vec<crate::view::style_layer::StyleLayer>,
+    ) {
+        if let Some(node) = self.nodes.0.get_mut(&id) {
+            node.style_layers = layers;
         }
     }
 
@@ -674,6 +710,7 @@ impl ViewNodes {
             };
         }
         let ids = self.remove_engine_subtree(id);
+        self.roots.retain(|_, root| !ids.contains(root));
         let mut records = Vec::new();
         for id in &ids {
             self.future_text_edits.borrow_mut().0.remove(id);
@@ -882,8 +919,9 @@ impl ViewNodes {
     /// in it: input that bubbles up from `id` (pointer, wheel and key handler
     /// chains) stops there and never reaches the nodes behind the modal.
     pub(crate) fn modal_boundary(&self, id: NodeId) -> Option<NodeId> {
+        let window = self.reader().window_of(id)?;
         self.reader()
-            .active_modal()
+            .active_modal(window)
             .filter(|m| self.is_within(id, *m))
     }
 }

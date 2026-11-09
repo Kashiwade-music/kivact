@@ -25,6 +25,7 @@ use std::panic::Location;
 use std::rc::Rc;
 
 use crate::reactive::arena::{Arena, Key};
+use crate::reactive::detail::DetailLog;
 use crate::reactive::error::UiError;
 
 /// Upper bound of effect runs per stabilisation and of user-effect rounds per turn.
@@ -52,7 +53,6 @@ pub struct LiveCounts {
     pub slots: usize,
 }
 
-// xtask-allow(state-fields): Sequence, write and stabilization epochs are independent scheduler counters; turn and exit lifecycles have their own enums.
 /// The reactive runtime of one App: arenas, frame stack, scheduler, trace
 /// ring, its driver and the extensions of the higher crates.
 pub struct Runtime {
@@ -66,8 +66,9 @@ pub struct Runtime {
     pub(crate) collectors: RefCell<Vec<Collector>>,
     pub(crate) sched: RefCell<Sched>,
     pub(crate) scratch: RefCell<Vec<(Key, Staleness)>>,
+    // xtask-allow(state-fields): S-8 ID - the effect creation-order ID allocator
     pub(crate) seq: Cell<u64>,
-    pub(crate) write_epoch: Cell<u64>,
+    pub(crate) write_epoch: Cell<kivact_types::cell::Generation>,
     pub(crate) root: Key,
     #[expect(
         clippy::disallowed_types,
@@ -81,14 +82,13 @@ pub struct Runtime {
     pub(crate) host: Rc<dyn crate::reactive::host_types::Host>,
     pub(crate) state: Cell<crate::reactive::host_types::TurnState>,
     pub(crate) exit: Cell<crate::reactive::host_types::ExitState>,
+    // xtask-allow(state-fields): measurement - the runtime's time measurement
     pub(crate) clock: Cell<u64>,
     pub(crate) diag: RefCell<Diag>,
     /// Errors raised where no user code may run (inside the engine's
     /// layout), delivered at the start of the next turn
     /// ([`Runtime::report_later`]).
     pub(crate) later: RefCell<Vec<(Option<Key>, UiError)>>,
-    /// Stabilisation pass counter (per-effect cycle limit).
-    pub(crate) stab_epoch: Cell<u64>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -129,27 +129,6 @@ impl CompState {
         }
     }
 }
-#[derive(Default)]
-pub(crate) struct PassRuns {
-    epoch: u64,
-    runs: u16,
-}
-pub(crate) struct CycleDetected;
-impl PassRuns {
-    pub(crate) fn note_run(&mut self, epoch: u64) -> Result<(), CycleDetected> {
-        if self.epoch != epoch {
-            self.epoch = epoch;
-            self.runs = 0;
-        }
-        self.runs = self.runs.saturating_add(1);
-        if usize::from(self.runs) > CYCLE_LIMIT {
-            Err(CycleDetected)
-        } else {
-            Ok(())
-        }
-    }
-}
-
 /// When an effect runs and whether it may write.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum EffectKind {
@@ -188,10 +167,11 @@ pub(crate) struct SourceCell<T> {
     pub(crate) value: RefCell<T>,
 }
 
-// xtask-allow(state-fields): The optional cached value is independent of the optional equality strategy; the computation lifecycle lives in Computation.state.
 pub(crate) struct MemoCell<T> {
+    // xtask-allow(state-fields): cache + config - value
     pub(crate) value: RefCell<Option<T>>,
     pub(crate) f: Box<dyn Fn(Option<&T>) -> T>,
+    // xtask-allow(state-fields): cache + config - eq
     pub(crate) eq: Option<fn(&T, &T) -> bool>,
 }
 
@@ -223,8 +203,8 @@ pub(crate) enum NodeData {
 pub(crate) struct SourceNode {
     /// (subscriber, index of this node in subscriber.deps).
     pub(crate) subs: Vec<(Key, u32)>,
-    /// Write epoch of the last change.
-    pub(crate) changed_at: u64,
+    /// Write generation of the last change.
+    pub(crate) changed_at: kivact_types::cell::Generation,
     /// Location and turn of the last value-changing write (why chains).
     pub(crate) written: Option<(&'static Location<'static>, Turn)>,
 }
@@ -241,9 +221,6 @@ pub(crate) struct EffectNode {
     pub(crate) seq: u64,
     pub(crate) run: Computation,
     pub(crate) cleanups: Vec<Box<dyn FnOnce()>>,
-    /// Stabilisation pass (epoch) and the runs of this effect within it
-    /// (per-effect cycle limit; a User effect never stabilises).
-    pub(crate) pass_runs: PassRuns,
 }
 
 /// The part of a memo or an effect that computes.
@@ -335,8 +312,8 @@ pub struct NodeInfo {
     pub deps: Vec<NodeId>,
 }
 
-// xtask-allow(state-fields): Parent identity and the optional error handler are independent owner configuration; lifecycle is held only by OwnerPhase.
 pub(crate) struct OwnerEntry {
+    // xtask-allow(state-fields): config; lifecycle in OwnerPhase - parent
     pub(crate) parent: Option<Key>,
     pub(crate) parent_index: u32,
     pub(crate) children: Vec<Key>,
@@ -373,18 +350,23 @@ pub(crate) struct Object {
     pub(crate) owner: Key,
     pub(crate) owner_index: u32,
     pub(crate) data: Rc<dyn Any>,
+    /// The name the owner stored it under (diagnostics).
+    pub(crate) name: &'static str,
     pub(crate) on_dispose: Option<Box<dyn FnOnce(&Runtime)>>,
     pub(crate) created_at: &'static Location<'static>,
 }
 
-// xtask-allow(state-fields): Owner, tracking, purity and writer are independent execution facts inherited across copied frames.
 /// One execution context. Copies never own dependency storage.
 #[derive(Clone, Copy, Default)]
 pub(crate) struct Frame {
+    // xtask-allow(state-fields): execution-context value - owner
     pub(crate) owner: Option<Key>,
     pub(crate) kind: FrameKind,
+    // xtask-allow(state-fields): execution-context value - pure
     pub(crate) pure: bool,
+    // xtask-allow(state-fields): execution-context value - writer
     pub(crate) writer: Option<Key>,
+    // xtask-allow(state-fields): execution-context value - tracking
     pub(crate) tracking: Option<CollectorSlot>,
 }
 
@@ -483,16 +465,22 @@ pub struct TurnRecord {
 }
 
 /// Ring buffers of errors, diagnostics and turn records, plus the turn
-/// being recorded.
+/// being recorded and the detailed trace the DevTools reads.
 #[derive(Default)]
 pub(crate) struct Diag {
-    pub(crate) errors: VecDeque<UiError>,
-    pub(crate) diagnostics: VecDeque<UiError>,
+    /// Errors that reached the default sink, with their report sequence.
+    pub(crate) errors: VecDeque<(u64, UiError)>,
+    /// Non-fatal diagnostics, with their report sequence.
+    pub(crate) diagnostics: VecDeque<(u64, UiError)>,
     pub(crate) turns: VecDeque<TurnRecord>,
     /// The record being filled: the setup's, then always the next turn's
     /// (what happens between two turns belongs to the next one).
     pub(crate) current: TurnRecord,
     pub(crate) total_errors: u64,
+    /// The detail of the turn being recorded: off unless the DevTools asked.
+    pub(crate) detail: DetailLog,
+    /// The sequence number of the last error or diagnostic put in a ring.
+    pub(crate) next_seq: u64,
 }
 
 /// The per-App extension values, at most one per type.

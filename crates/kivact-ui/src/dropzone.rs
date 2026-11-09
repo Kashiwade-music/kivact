@@ -8,7 +8,6 @@ use kivact_core::view::{
 use kivact_interaction::{DropzoneState, FileInfo, use_dropzone};
 use std::rc::Rc;
 type FileValidator = Rc<dyn Fn(&FileInfo) -> Option<String>>;
-// xtask-allow(state-fields): Independent setup-only NodeBuilder options; drag and picker lifecycle live in DropzoneState.
 /// A validated file drop target. Native file metadata stays application-owned.
 pub struct Dropzone {
     root: Node,
@@ -54,7 +53,7 @@ impl Dropzone {
     }
 
     /// Add a setup-only visual variant for every component recipe.
-    pub fn variant(self, variant: impl crate::Variant) -> Self {
+    pub fn variant(mut self, variant: impl crate::Variant) -> Self {
         self.variants.add(variant);
         self
     }

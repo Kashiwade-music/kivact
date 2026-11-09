@@ -21,10 +21,12 @@ pub(crate) const RETRY_MAX_NS: u64 = 100_000_000;
 /// The export the app asked of one drawable.
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct ExportAsk {
+    // xtask-allow(state-fields): S-8 ID - the generation of the app's request in the public export protocol
     /// The generation of the app's request.
     pub(crate) generation: u64,
     /// How the frames are delivered.
     pub(crate) mode: ExportRequestMode,
+    // xtask-allow(state-fields): setting - the scale the app set for the frames; absent follows the window
     /// Device px per logical px of the frames; `None` follows the window.
     pub(crate) scale: Option<f64>,
 }
@@ -114,7 +116,6 @@ pub(crate) struct Drawables {
     /// The GPU export pools the window has made, by drawable: generation and size.
     pools: BTreeMap<DrawableId, (u64, (u32, u32))>,
     /// Nodes whose drawable role was written since the last reconcile.
-    // xtask-allow(state-fields): Dirty set of role writes; reconcile drains it at the commit.
     noted: BTreeSet<NodeId>,
 }
 

@@ -26,12 +26,18 @@ use kivact_types::NodeId;
 
 use crate::view::descriptor::Mcx;
 use crate::view::descriptor::{IntoView, View, view_fn};
+use kivact_types::WindowId;
 
 /// Run `build` as the setup of `owner` (a `Setup` frame; a panic
-/// propagates) and mount the view it returns under `owner`.
-pub(crate) fn mount_in(rt: &Rc<Runtime>, owner: Owner, build: impl FnOnce() -> View) -> NodeId {
+/// propagates) and mount the view it returns under `owner` in `window`.
+pub(crate) fn mount_in(
+    rt: &Rc<Runtime>,
+    owner: Owner,
+    window: WindowId,
+    build: impl FnOnce() -> View,
+) -> NodeId {
     let view = owner.with_setup(build);
-    Mcx { rt, owner }.mount_child(view)
+    Mcx { rt, owner, window }.mount_child(view)
 }
 
 /// Build a component once when mounted, within its own setup and cleanup owner.
@@ -46,7 +52,7 @@ pub fn component<V: IntoView>(build: impl FnOnce() -> V + 'static) -> View {
     view_fn(move |cx| {
         let owner = cx.owner.child(at);
         let fragment = cx.fragment();
-        let child = mount_in(cx.rt, owner, move || build().into_view());
+        let child = mount_in(cx.rt, owner, cx.window, move || build().into_view());
         cx.append(fragment, child);
         fragment
     })
@@ -72,7 +78,7 @@ pub fn provide<T: Clone + 'static, V: IntoView>(
         let value = owner.constant(value, at);
         owner.provide(value);
         let fragment = cx.fragment();
-        let child = mount_in(cx.rt, owner, move || child().into_view());
+        let child = mount_in(cx.rt, owner, cx.window, move || child().into_view());
         cx.append(fragment, child);
         fragment
     })
@@ -102,9 +108,10 @@ pub fn provide_theme<V: IntoView>(
     view_fn(move |cx| {
         let owner = cx.owner.child(at);
         let value = theme.into_value(owner, at);
+        let value = crate::view::devtools_hooks::wrap_theme(owner, value);
         kivact_style::internal::install_theme(owner, value);
         let fragment = cx.fragment();
-        let child = mount_in(cx.rt, owner, move || child().into_view());
+        let child = mount_in(cx.rt, owner, cx.window, move || child().into_view());
         cx.append(fragment, child);
         fragment
     })
@@ -143,7 +150,7 @@ pub fn provide_locale<V: IntoView>(
         let value = locale.into_value(owner, at);
         install_locale(owner, value);
         let fragment = cx.fragment();
-        let child = mount_in(cx.rt, owner, move || child().into_view());
+        let child = mount_in(cx.rt, owner, cx.window, move || child().into_view());
         cx.append(fragment, child);
         fragment
     })
@@ -181,7 +188,7 @@ pub fn provide_messages<V: IntoView>(
         // Layered over the messages `owner` inherits from `cx.owner`.
         install_layered_messages(owner, own, at);
         let fragment = cx.fragment();
-        let child = mount_in(cx.rt, owner, move || child().into_view());
+        let child = mount_in(cx.rt, owner, cx.window, move || child().into_view());
         cx.append(fragment, child);
         fragment
     })
@@ -332,7 +339,11 @@ pub fn use_locale() -> Value<Locale> {
 pub fn message(key: &'static str, default: &'static str) -> Value<String> {
     let owner = Owner::current("message", Location::caller());
     let messages = messages_value(owner);
-    memo(move || messages.with(|m| m.get(key).unwrap_or(default).to_owned()))
+    memo(move || {
+        crate::view::devtools_hooks::pseudo(
+            messages.with(|m| m.get(key).unwrap_or(default).to_owned()),
+        )
+    })
 }
 
 /// Like [`message`], for a text with values in it: every `{name}` in the
@@ -384,6 +395,6 @@ pub fn message_with<A: IntoIterator<Item = (&'static str, String)>>(
                 .to_owned()
         });
         let args: Vec<(&str, &str)> = args.iter().map(|(k, v)| (*k, v.as_str())).collect();
-        interpolate(&template, &args)
+        crate::view::devtools_hooks::pseudo(interpolate(&template, &args))
     })
 }

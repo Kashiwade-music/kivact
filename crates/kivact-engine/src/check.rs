@@ -70,7 +70,6 @@ mod shaped_lines;
 
 #[cfg(debug_assertions)]
 pub(crate) use boxes::visual_parent_of;
-#[cfg(feature = "testing")]
 pub(crate) use findings::layout_findings;
 #[cfg(debug_assertions)]
 pub(crate) use findings::text_findings;

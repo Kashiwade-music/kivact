@@ -2,7 +2,7 @@
 
 use super::registry::{ImportPhase, ImportStatus, State};
 use crate::sync::Inbox;
-use crate::view::state::ViewState;
+use crate::view::state::{ViewState, current_window};
 use kivact_runtime::Signal;
 use kivact_runtime::spawn_in;
 use kivact_runtime::{Owner, Runtime, require_effectful};
@@ -28,6 +28,7 @@ pub struct ExternalImage {
     status: Signal<ImportPhase>,
     /// The size in pixels of the imported textures.
     size: (u32, u32),
+    // xtask-allow(state-fields): delivery record - the newest frame a FramePublisher published, independent of the import status
     /// The newest frame a [`FramePublisher`] published.
     latest: Signal<Option<GpuFrame>>,
     published: Arc<Inbox<Published>>,
@@ -186,9 +187,12 @@ pub(crate) fn import_in(
     at: &'static Location<'static>,
 ) -> ExternalImage {
     let size = (textures.width, textures.height);
+    let window = current_window(owner);
     let status: Signal<ImportPhase> = owner.signal(ImportPhase::Pending, at);
-    let id = State::of(rt).register(status, at);
-    ViewState::tree(rt).engine().import_external(id, textures);
+    let id = State::of(rt).register(window, status, at);
+    ViewState::tree(rt)
+        .engine()
+        .import_external(id, window, textures);
     rt.request_turn();
     let latest: Signal<Option<GpuFrame>> = owner.signal(None::<GpuFrame>, at);
     let published = Arc::new(Inbox::new(Published::Open { newest: None }));

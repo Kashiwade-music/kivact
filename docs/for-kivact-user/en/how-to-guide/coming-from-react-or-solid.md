@@ -81,6 +81,7 @@ This is the model of SolidJS. Two consequences:
 | Mutable value, no re-render | `useRef` | a plain variable | `var(value)` |
 | Element ref | `useRef` on a DOM node | `ref` | `node_ref()` and `.node_ref(r)`; `r.focus()` |
 | Context | `createContext`, `useContext` | `createContext`, `useContext` | `provide(value, \|\| child)` and `use_context::<T>()` |
+| Portal | `createPortal(child, el)`; `window.open` + a portal for a new window | `<Portal>` | `overlay(..)` in the same window; `window(title, open)` for an OS window |
 | Conditional | `cond && <A/>` | `<Show when>` | `show(cond, \|\| a)`, `show_some(option, \|v\| a)` |
 | Several branches | ternary or `switch` | `<Switch>` | `dynamic(source, \|v\| match v { .. })` |
 | List | `items.map(..)` with `key` | `<For>` | `for_each(items, \|i\| key, \|item\| row)` |
@@ -513,11 +514,12 @@ handle itself does not convert the values read later.
 Rust uses the nearest binding for a name. After `let text = signal(String::new())`,
 `text("Hello")` tries to call that signal and reports E0618, “expected function”.
 Use names that describe the data: `label`, `rows`, `choices`, `name_field` or
-`save_action`, leaving `text`, `row`, `list`, `field` and `message` available as
-prelude functions. Name a row callback's argument after its data too, such as
-`item` or `todo`, rather than `row`. The same rule applies to an imported type
-such as `Action`; avoid reusing it for another item. If a name must stay,
-qualify it, such as `kivact::view::text("Hello")`,
+`save_action`, leaving `text`, `row`, `list`, `field`, `message` and `window`
+available as prelude functions. `window` is a common local name (`let window =
+…`): call it `settings_window` instead. Name a row callback's argument after
+its data too, such as `item` or `todo`, rather than `row`. The same rule
+applies to an imported type such as `Action`; avoid reusing it for another
+item. If a name must stay, qualify it, such as `kivact::view::text("Hello")`,
 `kivact::ui::field("Name", input)` or `kivact::task::Action`.
 
 ```rust,no_run

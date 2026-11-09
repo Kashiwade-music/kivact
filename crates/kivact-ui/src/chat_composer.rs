@@ -8,7 +8,6 @@ use kivact_core::view::{
     Handled, HandlerResult, IntoView, Key, KeyEvent, Modifiers, Node, NodeBuilder, Role, View,
     node, node_ref, text,
 };
-// xtask-allow(state-fields): Independent draft binding, diagnostic inputs and slots; History owns recall and shared native editing owns the draft session.
 /// A multiline draft with independent action slots and optional submission history.
 pub struct ChatComposer {
     root: Node,
@@ -88,7 +87,7 @@ impl ChatComposer {
         self
     }
     /// Add an appearance read by every composer recipe.
-    pub fn variant(self, variant: impl Variant) -> Self {
+    pub fn variant(mut self, variant: impl Variant) -> Self {
         self.variants.add(variant);
         self
     }

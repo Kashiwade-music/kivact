@@ -11,7 +11,7 @@ use std::time::Duration;
 use kivact_core::state::IntoValue;
 use kivact_core::state::{MachineHandle, Value, effect, machine, memo};
 
-use super::machine::{Event, Machine, State};
+use super::machine::{Effect, Event, Machine, State};
 
 /// How long a [`DelayedApi`] waits.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -67,7 +67,12 @@ pub struct DelayedApi {
 /// only.
 #[track_caller]
 pub fn use_delayed(wanted: impl IntoValue<bool>, delays: Delays) -> DelayedApi {
-    delayed(wanted.into_value(), move || delays.open, delays.close)
+    delayed(
+        wanted.into_value(),
+        move || delays.open,
+        delays.close,
+        |_| (),
+    )
 }
 
 /// A [`DelayedApi`] whose open delay is read at each false-to-true change of
@@ -77,6 +82,7 @@ pub(crate) fn delayed(
     wanted: Value<bool>,
     open: impl Fn() -> Duration + 'static,
     close: Duration,
+    on_visible: impl Fn(bool) + 'static,
 ) -> DelayedApi {
     let state = machine(
         State::Hidden,
@@ -85,7 +91,10 @@ pub(crate) fn delayed(
             open: open(),
             close,
         },
-        |_, effect| match effect {},
+        move |_, effect| match effect {
+            Effect::Shown => on_visible(true),
+            Effect::Hidden => on_visible(false),
+        },
     );
     let phase = memo(move || match state.get() {
         State::Hidden => DelayedPhase::Hidden,
@@ -132,5 +141,17 @@ impl DelayedApi {
     #[track_caller]
     pub fn pulse(self) {
         self.state.send(Event::Pulse);
+    }
+
+    /// Dismiss whenever `requested` changes to `false`, as `dismiss` does; a
+    /// change to `true` changes nothing. Setup only.
+    pub(crate) fn dismiss_on_release(self, requested: impl IntoValue<bool>) {
+        self.state.feed(requested, Event::Request);
+    }
+
+    /// End a running open delay at once whenever `immediate` changes to
+    /// `true`, as `pulse` does while `Opening`. Setup only.
+    pub(crate) fn hurry_on(self, immediate: impl IntoValue<bool>) {
+        self.state.feed(immediate, Event::Immediate);
     }
 }

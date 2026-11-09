@@ -21,17 +21,17 @@ use super::results::ImeText;
 impl Screen {
     /// Input purpose delivered to the platform for the focused editor.
     pub fn ime_purpose(&self) -> kivact_core::view::InputPurpose {
-        self.host.borrow().ime_purpose()
+        self.host().ime_purpose(self.window)
     }
     /// What the host answers the platform IME about the focused text
     /// input: the text around its caret, the selection and composition in
     /// it, and where the composed characters and the caret are (`None`: no
     /// text input has the focus).
     pub fn ime_text(&self) -> Option<ImeText> {
-        let text = self.host.borrow().ime_text()?;
+        let text = self.host().ime_text(self.window)?;
         let value = self
             .focused()
-            .and_then(|f| self.host.borrow().input_value(f.node))
+            .and_then(|f| self.app.host.borrow().input_value(f.node))
             .unwrap_or_default();
         let start = value
             .chars()
@@ -57,7 +57,7 @@ impl Screen {
     /// focused text input in window coordinates, as drawn (`None`: no text
     /// input has the focus).
     pub fn ime_cursor_area(&self) -> Option<Rect> {
-        self.host.borrow().ime_area()
+        self.host().ime_area(self.window)
     }
 }
 
@@ -74,8 +74,7 @@ impl Element<'_> {
             .log(format!("reconvert {range:?} in {}", self.short()));
         let mut value = self
             .screen
-            .host
-            .borrow()
+            .host()
             .input_value(self.node)
             .unwrap_or_default()
             .to_string();
@@ -87,15 +86,13 @@ impl Element<'_> {
         // The IME answers in the text it was given.
         let base = self
             .screen
-            .host
-            .borrow()
-            .ime_text()
+            .host()
+            .ime_text(self.screen.window)
             .map_or(0, |t| t.text_start);
         let snapshot = self
             .screen
-            .host
-            .borrow()
-            .ime_text()
+            .host()
+            .ime_text(self.screen.window)
             .map(|t| t.text)
             .unwrap_or_default();
         let byte = |chars: usize| -> usize {

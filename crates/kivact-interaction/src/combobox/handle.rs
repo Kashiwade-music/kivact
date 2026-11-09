@@ -110,7 +110,9 @@ fn contains_query<K>(query: &str, option: &ListItem<K>) -> bool {
 /// ));
 /// ```
 pub struct ComboboxApi<K: kivact_core::state::ItemKey> {
+    // xtask-allow(state-fields): independent fact - the observation of the attached input part, absent until it attaches
     input_state: Signal<Option<Value<PartState>>>,
+    // xtask-allow(state-fields): independent fact - the observation of the attached content part, absent until it attaches
     content_state: Signal<Option<Value<PartState>>>,
     item_states: Signal<HashMap<K, Value<ListItemState>>>,
     options: Value<Vec<ListItem<K>>>,

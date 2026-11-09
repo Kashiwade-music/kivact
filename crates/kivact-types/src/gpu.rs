@@ -45,7 +45,6 @@ pub enum AdapterMatch {
     },
 }
 
-// xtask-allow(state-fields): Backend and adapter are independently optional construction preferences, not lifecycle states.
 /// What an application wishes of the GPU device Arvane makes. A wish, not
 /// a requirement: Arvane takes the adapter asked for when it has one, else
 /// the one the power preference picks, and reports what it took
@@ -58,14 +57,15 @@ pub enum AdapterMatch {
 pub struct GpuPreference {
     /// The kind of adapter.
     pub power: GpuPower,
+    // xtask-allow(state-fields): construction preference - The graphics API (`None`: Arvane's order)
     /// The graphics API (`None`: Arvane's order).
     pub backend: Option<GpuBackend>,
+    // xtask-allow(state-fields): construction preference - The adapter (`None`: as `power` picks)
     /// The adapter (`None`: as `power` picks). Only builds with GPU
     /// texture sharing look adapters up by identity; others ignore it.
     pub adapter: Option<AdapterMatch>,
 }
 
-// xtask-allow(state-fields): LUID and Vulkan UUIDs are independent optional device identity facts supplied by the backend.
 /// The adapter a window's GPU device is on, when the device can import
 /// shared textures. Direct3D 12 reports the LUID; Vulkan reports the device
 /// and driver UUIDs, and on Windows the LUID as well.
@@ -75,12 +75,16 @@ pub struct GpuAdapter {
     pub backend: GpuBackend,
     /// The adapter's name, for diagnostics.
     pub name: String,
+    // xtask-allow(state-fields): identity value - DXGI's (or Vulkan's) adapter LUID ([`AdapterMatch::Luid`]'s bytes)
     /// DXGI's (or Vulkan's) adapter LUID ([`AdapterMatch::Luid`]'s bytes).
     pub luid: Option<[u8; 8]>,
+    // xtask-allow(state-fields): identity value - Vulkan's `deviceUUID`
     /// Vulkan's `deviceUUID`.
     pub device_uuid: Option<[u8; 16]>,
+    // xtask-allow(state-fields): identity value - Vulkan's `driverUUID`
     /// Vulkan's `driverUUID`.
     pub driver_uuid: Option<[u8; 16]>,
+    // xtask-allow(state-fields): identity value - The device's generation: 1 for the process's first GPU device, one more for each device made after it
     /// The device's generation: 1 for the process's first GPU device, one
     /// more for each device made after it. A new generation means every
     /// image imported into the window before is gone.

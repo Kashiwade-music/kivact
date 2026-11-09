@@ -23,16 +23,11 @@ pub struct Tree<K: kivact_core::state::ItemKey> {
     nodes: Value<Vec<TreeNode<K>>>,
     selection: Selection<K>,
     expanded: Binding<Vec<K>>,
-    // xtask-allow(state-fields): Optional custom row content chosen during construction.
     item: Option<RowContent<K>>,
-    // xtask-allow(state-fields): Optional construction slot, independent of tree navigation.
     marker_content: Option<kivact_core::view::ViewFn<Value<TreeRowRecipeState>>>,
     variants: Variants,
-    // xtask-allow(state-fields): Optional construction callback; navigation transitions belong to use_tree.
     activate: Option<kivact_core::state::Callback<K>>,
-    // xtask-allow(state-fields): Optional construction slot independent of tree navigation.
     header: Option<View>,
-    // xtask-allow(state-fields): Optional construction transition independent of expansion bindings.
     reveal: Option<(f64, Transition)>,
 }
 
@@ -104,7 +99,7 @@ impl<K: kivact_core::state::ItemKey> Tree<K> {
     }
 
     /// Set a theme-specific variant for the tree's recipes.
-    pub fn variant(self, variant: impl Variant) -> Self {
+    pub fn variant(mut self, variant: impl Variant) -> Self {
         self.variants.add(variant);
         self
     }

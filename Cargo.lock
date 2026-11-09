@@ -2278,6 +2278,8 @@ dependencies = [
 name = "kivact-core"
 version = "0.1.0"
 dependencies = [
+ "kivact-devtools-agent",
+ "kivact-devtools-protocol",
  "kivact-editing",
  "kivact-engine",
  "kivact-i18n",
@@ -2285,6 +2287,53 @@ dependencies = [
  "kivact-style",
  "kivact-types",
  "tracing",
+]
+
+[[package]]
+name = "kivact-devtools"
+version = "0.1.0"
+dependencies = [
+ "kivact",
+ "kivact-devtools-client",
+ "kivact-devtools-protocol",
+ "kivact-ui-basic",
+ "serde_json",
+]
+
+[[package]]
+name = "kivact-devtools-agent"
+version = "0.1.0"
+dependencies = [
+ "kivact-devtools-client",
+ "kivact-devtools-protocol",
+ "png 0.18.1",
+ "serde_json",
+ "tracing",
+]
+
+[[package]]
+name = "kivact-devtools-client"
+version = "0.1.0"
+dependencies = [
+ "kivact-devtools-protocol",
+ "serde_json",
+]
+
+[[package]]
+name = "kivact-devtools-mcp"
+version = "0.1.0"
+dependencies = [
+ "kivact-devtools-client",
+ "kivact-devtools-protocol",
+ "serde_json",
+]
+
+[[package]]
+name = "kivact-devtools-protocol"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -2318,6 +2367,7 @@ version = "0.1.0"
 dependencies = [
  "arvane",
  "arvane-native",
+ "arvane-shell",
  "arvane-virtual",
  "kivact-editing",
  "kivact-layout",
@@ -2412,6 +2462,8 @@ dependencies = [
  "gpu-interop-producer",
  "image",
  "kivact",
+ "kivact-devtools-client",
+ "kivact-devtools-protocol",
  "kivact-gpu-share",
  "kivact-ui-basic",
  "kivact-ui-creative",

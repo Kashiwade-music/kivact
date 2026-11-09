@@ -1,5 +1,4 @@
 //! Role: Application configuration and startup validation.
-use crate::Result;
 use crate::i18n::{Locale, Messages};
 use kivact_runtime::{ErrorKind, UiError};
 use kivact_style::Theme;
@@ -13,23 +12,29 @@ pub struct AppOptions {
     pub(super) settings: AppSettings,
 }
 
-// xtask-allow(state-fields): Independent application construction options do not encode runtime lifecycle.
 /// Canonical application settings that can cross the embedded UI thread boundary.
 #[derive(Clone)]
 pub(crate) struct AppSettings {
     pub(super) title: String,
+    // xtask-allow(state-fields): construction option - `None`: the system's locale (`App::locale`)
     /// `None`: the system's locale (`App::locale`).
     pub(super) locale: Option<Locale>,
     pub(super) messages: Messages,
+    // xtask-allow(state-fields): construction option - The window's first size (`window_size`);
     /// The window's first size (`window_size`); the engine's default when
     /// `None`.
     pub(super) window_size: Option<Size>,
+    // xtask-allow(state-fields): construction option - The window's minimum size (`min_window_size`)
     /// The window's minimum size (`min_window_size`).
     pub(super) min_window_size: Option<Size>,
+    // xtask-allow(state-fields): construction option - blocking threads
     pub(super) blocking_threads: Option<usize>,
     pub(super) fonts: Vec<(Asset, &'static Location<'static>)>,
     /// How the window's GPU device is made (`gpu_preference`).
     pub(super) gpu_preference: kivact_types::GpuPreference,
+    // xtask-allow(state-fields): setting - an independent opt-in a test sets to start the DevTools agent
+    #[cfg(feature = "devtools")]
+    pub(super) devtools_in_tests: bool,
 }
 
 impl AppOptions {
@@ -46,6 +51,8 @@ impl AppOptions {
                 blocking_threads: None,
                 fonts: Vec::new(),
                 gpu_preference: kivact_types::GpuPreference::default(),
+                #[cfg(feature = "devtools")]
+                devtools_in_tests: false,
             },
         }
     }
@@ -137,11 +144,20 @@ impl AppOptions {
         self
     }
 
+    // xtask-allow(internal-contract): kivact::test starts the DevTools agent for a test App
+    #[cfg(feature = "devtools")]
+    #[doc(hidden)]
+    pub fn devtools_in_tests(mut self) -> Self {
+        self.settings.devtools_in_tests = true;
+        self
+    }
+
     #[track_caller]
     pub fn check_window_sizes(&self) -> crate::Result<()> {
-        check_window_sizes(
+        crate::geometry::check_window_sizes(
             self.settings.window_size,
             self.settings.min_window_size,
+            ("App::window_size", "App::min_window_size"),
             Location::caller(),
         )
     }
@@ -194,34 +210,4 @@ impl AppSettings {
             settings: self,
         }
     }
-}
-
-/// Refuse a window size or minimum size that cannot form a drawable extent,
-/// and a minimum larger than the size, as an error located at `at`
-/// (`App::run`): the platform would otherwise clamp or ignore it silently.
-pub(crate) fn check_window_sizes(
-    window: Option<Size>,
-    min: Option<Size>,
-    at: &'static Location<'static>,
-) -> Result<()> {
-    let fail = |message: String| Err(UiError::new(ErrorKind::Message, message, Some(at)));
-    for (name, size) in [("window_size", window), ("min_window_size", min)] {
-        if let Some(s) = size
-            && !kivact_types::env::is_valid_window_size(s)
-        {
-            return fail(format!(
-                "App::{name}: {} by {} must be finite, at least one logical pixel and fit the native window extent",
-                s.width, s.height
-            ));
-        }
-    }
-    if let (Some(window), Some(min)) = (window, min)
-        && (min.width > window.width || min.height > window.height)
-    {
-        return fail(format!(
-            "App::min_window_size: {} by {} is larger than App::window_size {} by {}",
-            min.width, min.height, window.width, window.height
-        ));
-    }
-    Ok(())
 }

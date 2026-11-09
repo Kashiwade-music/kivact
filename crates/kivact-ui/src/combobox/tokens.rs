@@ -1,6 +1,5 @@
 //! Role: Store combobox visual dimensions overridden by official kits.
 use kivact_core::style::{Color, ColorToken};
-// xtask-allow(state-fields): Passive theme data; optional scalar overrides independently inherit the theme, with no lifecycle state.
 /// Visual measurements for [`crate::combobox`], configured through [`crate::UiTokens`].
 #[derive(Clone, Debug, PartialEq)]
 pub struct ComboboxTokens {

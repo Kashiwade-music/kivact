@@ -77,12 +77,15 @@
 //!   frames the window could not draw are noted with the renderer's other
 //!   changes (`RendererChange::ExternalFrameMissed`, in the frame log).
 mod client;
+mod devtools;
 mod events;
 mod launch;
 pub(crate) mod options;
 mod pump;
 #[cfg(feature = "testing")]
 pub mod testing;
+mod window;
+mod window_changes;
 pub(crate) mod write;
 
 pub use client::{Boundary, Client, HostWaker};

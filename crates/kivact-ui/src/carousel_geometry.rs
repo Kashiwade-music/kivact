@@ -2,11 +2,14 @@
 use kivact_core::geometry::Point;
 use kivact_core::view::{NodeRef, ScrollBehavior};
 use kivact_interaction::Snap;
-// xtask-allow(state-fields): Independent per-command direction, wrapping and snapping options; measured navigation retains no state.
 pub(super) struct PageRequest {
+    // xtask-allow(state-fields): passive record - vertical
     pub(super) vertical: bool,
+    // xtask-allow(state-fields): passive record - rtl
     pub(super) rtl: bool,
+    // xtask-allow(state-fields): passive record - next
     pub(super) next: bool,
+    // xtask-allow(state-fields): passive record - looping
     pub(super) looping: bool,
     pub(super) snap: Snap,
     pub(super) padding: f64,

@@ -189,6 +189,10 @@ pub enum DismissReason {
     Accessibility,
     /// The configured dismissal duration elapsed.
     Timeout,
+    /// The user asked to close the window (its title bar button or a platform
+    /// shortcut). A window closes itself unless its `on_dismiss` keeps it
+    /// open.
+    WindowClose,
 }
 
 /// What a node or drawn region is asked to do: an [`A11yAction`] with the

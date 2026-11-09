@@ -86,8 +86,8 @@ pub use editors::node::{NodeEditor, node_editor};
 pub use editors::shared::model::EditorEvent;
 pub use editors::shared::ruler::RulerTicks;
 pub use feedback::{
-    NoticeVariant, SplitButton, ToolWindow, ToolWindowApi, WindowOptions, WindowPosition,
-    popup_button, split_button, window, window_button,
+    NoticeVariant, SplitButton, ToolWindow, ToolWindowApi, ToolWindowOptions, WindowPosition,
+    popup_button, split_button, tool_window, tool_window_button,
 };
 pub use gradient::{GradientEditor, GradientStop, gradient_editor};
 pub use key_glyph::KeyGlyph;

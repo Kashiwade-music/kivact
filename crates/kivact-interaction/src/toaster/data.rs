@@ -88,7 +88,6 @@ impl ToastOptions {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct ToastId(pub(super) Generation);
 
-// xtask-allow(state-fields): Immutable public notification content and independent optional presentation, never lifecycle state.
 /// The content of one notification: what it says, how urgent it is, how long
 /// it stays and an optional action.
 ///
@@ -113,12 +112,15 @@ pub struct ToastId(pub(super) Generation);
 pub struct Toast {
     /// What the toast says. It names the toast for assistive technology.
     pub title: String,
+    // xtask-allow(state-fields): passive record - The second line, if there is one
     /// The second line, if there is one.
     pub body: Option<String>,
     /// The tone.
     pub tone: Tone,
+    // xtask-allow(state-fields): passive record - How long it stays;
     /// How long it stays; `None` until it is dismissed.
     pub duration: Option<Duration>,
+    // xtask-allow(state-fields): passive record - action
     /// The label and the function of the action, if there is one: owned by
     /// the toast, run when its action button is pressed.
     #[allow(

@@ -69,9 +69,7 @@ pub struct Section {
     variant: Value<SectionVariant>,
     padding: Padding,
     dividers: Value<Edges>,
-    // xtask-allow(state-fields): Independent caller top-edge layout compensation input.
     bleed_top: Value<bool>,
-    // xtask-allow(state-fields): Independent caller bottom-edge layout compensation input.
     bleed_bottom: Value<bool>,
 }
 

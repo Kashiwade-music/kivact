@@ -5,10 +5,9 @@
 //! with `look.variant::<T>()`, and ignored by a theme that does not know
 //! the type. A look within one theme (a button's [`ButtonVariant`](super::ButtonVariant),
 //! Creative's segmented radio group, a boxed tabs list) is such a value,
-//! not another component or a subtree theme. The values are read when the
-//! builder is mounted and its styles first run.
+//! not another component or a subtree theme. A builder owns its values and
+//! installs every recipe style in `into_view`, after its last `.variant(..)`.
 use std::any::Any;
-use std::cell::RefCell;
 use std::rc::Rc;
 
 /// A look a standard component takes with `.variant(value)` and its recipes
@@ -107,50 +106,48 @@ impl std::fmt::Debug for DebugWith<'_> {
     }
 }
 
-/// The variant values a component builder collects with
-/// `.variant(..)`, shared with the recipe styles it has made: they are
-/// read when the styles first run, once the builder is mounted.
+/// The variant values a component builder collects with `.variant(..)`.
+/// The builder owns them and installs its recipe styles in `into_view`, so
+/// each style captures the final values.
 #[derive(Clone, Default)]
-pub(super) struct Variants(Rc<RefCell<Extensions>>);
+pub(super) struct Variants(Extensions);
 
 impl Variants {
     /// Merge inherited group decoration while preserving panel-specific types.
     pub(super) fn inherited(&self, parent: &Self) -> Self {
-        let own = self.0.borrow();
-        let parent = parent.0.borrow();
         let mut entries = parent
+            .0
             .0
             .iter()
             .filter(|entry| {
-                !own.0
+                !self
+                    .0
+                    .0
                     .iter()
                     .any(|value| (*value.value).type_id() == (*entry.value).type_id())
             })
             .cloned()
             .collect::<Vec<_>>();
-        entries.extend(own.0.iter().cloned());
-        Self(Rc::new(RefCell::new(Extensions(Rc::new(entries)))))
+        entries.extend(self.0.0.iter().cloned());
+        Self(Extensions(Rc::new(entries)))
     }
 
-    pub(super) fn add<T: Variant>(&self, value: T) {
-        let mut ext = self.0.borrow_mut();
-        *ext = std::mem::take(&mut *ext).with(value);
+    pub(super) fn add<T: Variant>(&mut self, value: T) {
+        self.0 = std::mem::take(&mut self.0).with(value);
     }
 
     /// Inherit missing presentation types while retaining explicit caller values.
     pub(super) fn with_defaults(&self, defaults: &Self) -> Self {
-        let merged = Self::default();
+        let mut merged = Self::default();
         merged.merge(defaults);
         merged.merge(self);
         merged
     }
 
     /// Merge presentation values, replacing only values of the same type.
-    pub(super) fn merge(&self, other: &Self) {
-        let incoming = other.0.borrow().clone();
-        let mut current = self.0.borrow_mut();
-        let entries = Rc::make_mut(&mut current.0);
-        for entry in incoming.0.iter() {
+    pub(super) fn merge(&mut self, other: &Self) {
+        let entries = Rc::make_mut(&mut self.0.0);
+        for entry in other.0.0.iter() {
             entries.retain(|existing| (*existing.value).type_id() != (*entry.value).type_id());
             entries.push(entry.clone());
         }
@@ -158,14 +155,14 @@ impl Variants {
 
     /// An independent recipe look for one presentation of this component.
     pub(super) fn with<T: Variant>(&self, value: T) -> Self {
-        Self(Rc::new(RefCell::new(self.0.borrow().clone().with(value))))
+        Self(self.0.clone().with(value))
     }
 
-    /// `state` with the values collected so far.
+    /// `state` with the collected values.
     pub(super) fn look<S>(&self, state: S) -> Look<S> {
         Look {
             state,
-            ext: self.0.borrow().clone(),
+            ext: self.0.clone(),
         }
     }
 }

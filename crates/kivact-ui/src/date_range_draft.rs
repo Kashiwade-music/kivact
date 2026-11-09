@@ -14,7 +14,9 @@ pub(super) enum FieldValidity {
 pub(super) enum RangeDraft {
     Following(Option<DateRange>),
     Editing {
+        // xtask-allow(state-fields): independent fact - the typed start endpoint, absent while that field is empty
         start: Option<CalendarDate>,
+        // xtask-allow(state-fields): independent fact - the typed end endpoint, absent while that field is empty
         end: Option<CalendarDate>,
         fields: FieldValidity,
     },

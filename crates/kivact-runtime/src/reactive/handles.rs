@@ -206,7 +206,7 @@ impl<T: 'static> Signal<T> {
                 Ok(())
             }),
         });
-        let key = rt.insert_object(owner, cb, None, at);
+        let key = rt.insert_object(owner, cb, "Callback", None, at);
         Binding {
             repr: BindingRepr::Pair(
                 Value::node(self.app, memo),
@@ -511,7 +511,7 @@ impl<E: 'static> Callback<E> {
         });
         Callback {
             app: self.app,
-            key: rt.insert_object(owner, cb, None, at),
+            key: rt.insert_object(owner, cb, "Callback", None, at),
             _m: PhantomData,
         }
     }
@@ -600,7 +600,7 @@ impl<T: crate::PropValue> Binding<T> {
                 cb.try_call(whole)
             }),
         });
-        let key = rt.insert_object(owner, write, None, at);
+        let key = rt.insert_object(owner, write, "Callback", None, at);
         Binding {
             repr: BindingRepr::Pair(
                 Value::node(value.app, memo),
@@ -686,7 +686,7 @@ where
             owner,
             f: Box::new(move |()| f().into_outcome().map(|_| ())),
         });
-        Self::from_key(rt.id(), rt.insert_object(owner, cb, None, at))
+        Self::from_key(rt.id(), rt.insert_object(owner, cb, "Callback", None, at))
     }
 }
 

@@ -93,8 +93,8 @@ impl Screen {
     ) -> Vec<(NodeId, Option<RegionId>)> {
         let visible: std::collections::HashSet<NodeId> = visible.iter().copied().collect();
         let wire = role;
-        let host = self.host.borrow();
-        let Some(tree) = host.semantics() else {
+        let host = self.host();
+        let Some(tree) = host.semantics(self.window) else {
             return Vec::new();
         };
         let mut out = Vec::new();
@@ -110,7 +110,7 @@ impl Screen {
             {
                 continue;
             }
-            if let Some((node, region)) = host.semantics_target(n.id.0)
+            if let Some((node, region)) = host.semantics_target(self.window, n.id.0)
                 && visible.contains(&node)
             {
                 out.push((node, region));
@@ -230,7 +230,7 @@ impl Screen {
             let region = r.map(|r| format!(" region {}", r.0)).unwrap_or_default();
             let _ = writeln!(s, "  {}{region}", self.describe(*id));
         }
-        let focus = self.host.borrow().focused();
+        let focus = self.host().focused(self.window);
         let focus = focus.map_or("none".into(), |f| {
             format!(
                 "{} region {:?}",
@@ -239,7 +239,7 @@ impl Screen {
             )
         });
         let _ = writeln!(s, "focus: {focus}");
-        let _ = writeln!(s, "recent actions: {:?}", self.actions.borrow());
+        let _ = writeln!(s, "recent actions: {:?}", self.app.actions.borrow());
         let _ = writeln!(s, "recent updates:");
         let turns = self.trace();
         let busy = |t: &&TurnRecord| {

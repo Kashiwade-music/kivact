@@ -24,7 +24,6 @@ use std::rc::Rc;
 /// Month and weekday names come from the current locale; navigation labels
 /// use the `calendar.previous`, `calendar.next`, `calendar.month` and
 /// `calendar.year` messages.
-// xtask-allow(state-fields): Setup builder options are independent bindings, callbacks and display capabilities.
 pub struct Calendar {
     root: Node,
     cell_size: Value<f64>,
@@ -35,51 +34,32 @@ pub struct Calendar {
     disabled: Rc<dyn Fn(CalendarDate) -> bool>,
     count: Value<usize>,
     caption: Value<CalendarCaption>,
-    // xtask-allow(state-fields): Independent setup or presentation option, not a lifecycle flag.
     outside: Value<bool>,
     // xtask-allow(state-fields): Independent setup or presentation option, not a lifecycle flag.
     week_start: Option<Value<Weekday>>,
-    // xtask-allow(state-fields): Independent setup or presentation option, not a lifecycle flag.
     on_commit: Option<Callback<()>>,
-    // xtask-allow(state-fields): Independent setup or presentation option, not a lifecycle flag.
     autofocus: Value<bool>,
     // xtask-allow(state-fields): Independent setup or presentation option, not a lifecycle flag.
     displayed_month: Option<Binding<CalendarMonth>>,
     today: Value<CalendarDate>,
-    // xtask-allow(state-fields): Independent setup or presentation option, not a lifecycle flag.
     min: Value<Option<CalendarDate>>,
-    // xtask-allow(state-fields): Independent setup or presentation option, not a lifecycle flag.
     max: Value<Option<CalendarDate>>,
     min_span: Value<u32>,
-    // xtask-allow(state-fields): Independent setup or presentation option, not a lifecycle flag.
     max_span: Value<Option<u32>>,
-    // xtask-allow(state-fields): Independent setup or presentation option, not a lifecycle flag.
     variable_rows: Value<bool>,
-    // xtask-allow(state-fields): Independent setup or presentation option, not a lifecycle flag.
     marks: Rc<dyn Fn(CalendarDate) -> Option<kivact_interaction::Tone>>,
     events: Value<Vec<crate::calendar_values::CalendarEvent>>,
-    // xtask-allow(state-fields): Independent setup or presentation option, not a lifecycle flag.
     weekend: Rc<dyn Fn(Weekday) -> Option<kivact_interaction::Tone>>,
-    // xtask-allow(state-fields): Independent setup or presentation option, not a lifecycle flag.
     year_navigation: Value<bool>,
-    // xtask-allow(state-fields): Independent setup or presentation option, not a lifecycle flag.
     month_title: Option<Rc<dyn Fn(CalendarDate) -> String>>,
-    // xtask-allow(state-fields): Independent setup or presentation option, not a lifecycle flag.
     range: Value<Option<DateRange>>,
-    // xtask-allow(state-fields): Independent setup or presentation option, not a lifecycle flag.
     on_activate: Option<Callback<CalendarDate>>,
 }
 
 fn new(selection: CalendarSelection) -> Calendar {
-    let variants = crate::variants::Variants::default();
     Calendar {
-        root: crate::layer::with_base_recipe_style(
-            node().with_node(|root| root.role(Role::Group)),
-            |r| r.calendar_recipes().root_recipe(),
-            &variants,
-            kivact_core::custom::PartState::default,
-        ),
-        variants,
+        root: node().with_node(|root| root.role(Role::Group)),
+        variants: crate::variants::Variants::default(),
         cell_size: kivact_core::state::memo(|| {
             kivact_core::style::use_theme()
                 .get()
@@ -140,7 +120,7 @@ impl Calendar {
     }
 
     /// Pass a kit-defined appearance to every calendar part recipe.
-    pub fn variant(self, variant: impl crate::Variant) -> Self {
+    pub fn variant(mut self, variant: impl crate::Variant) -> Self {
         self.variants.add(variant);
         self
     }
@@ -351,18 +331,23 @@ impl IntoView for Calendar {
                     .size(1, 1)
                     .opacity(0.0),
             );
-        self.root
-            .on_pointer(move |event| {
-                swipe.send(super::navigation::Event::Pointer(event));
-                if matches!(swipe.get(), super::navigation::Swipe::Dragging { .. }) {
-                    event.capture();
-                    kivact_core::view::Handled::Yes
-                } else {
-                    kivact_core::view::Handled::No
-                }
-            })
-            .child((body, status))
-            .into_view()
+        crate::layer::with_base_recipe_style(
+            self.root,
+            |r| r.calendar_recipes().root_recipe(),
+            &self.variants,
+            kivact_core::custom::PartState::default,
+        )
+        .on_pointer(move |event| {
+            swipe.send(super::navigation::Event::Pointer(event));
+            if matches!(swipe.get(), super::navigation::Swipe::Dragging { .. }) {
+                event.capture();
+                kivact_core::view::Handled::Yes
+            } else {
+                kivact_core::view::Handled::No
+            }
+        })
+        .child((body, status))
+        .into_view()
     }
 }
 
@@ -394,7 +379,6 @@ fn range_prompt(
     )
 }
 
-// xtask-allow(state-fields): Independent construction constraints and commit observers; CalendarGridApi owns selection and range picking.
 struct CalendarRules {
     disabled: Rc<dyn Fn(CalendarDate) -> bool>,
     min: Value<Option<CalendarDate>>,

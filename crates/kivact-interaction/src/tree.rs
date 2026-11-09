@@ -9,8 +9,8 @@
 //! rows are metadata ([`TreeRow`]); `list` and `item` are the `TreeApi` and
 //! `TreeItem` parts, with [`TreeItemState`] (`input`, `selected`, `active`,
 //! `branch`, `level`). Only a parent has Expand/Collapse, so a row's part
-//! is built for its `(key, has_children)` identity while the other metadata stays reactive. The tree adds no
-//! `scroll_with` or `page_size` of its own; single selection is
+//! is built for its `(key, has_children)` identity while the other metadata stays reactive. The tree passes
+//! `scroll_with` and `page_size` through to its one [`ListApi`]; single selection is
 //! `Selection::Single`. The Creative outliner is built on a
 //! `TreeApi<u64>`.
 
@@ -546,6 +546,22 @@ impl<K: kivact_core::state::ItemKey> TreeApi<K> {
     #[track_caller]
     pub fn policy(self, policy: ListRangeOptions) -> Self {
         self.state().list.retune(|list| list.range = policy);
+        self
+    }
+
+    /// Set the Select-policy Page Up/Down distance; values below one count as one.
+    /// Setup only.
+    #[track_caller]
+    pub fn page_size(self, rows: impl IntoValue<usize>) -> Self {
+        self.state().list.page_size(rows);
+        self
+    }
+
+    /// Scroll through the caller and permit pending focus on unmounted keys.
+    /// An `Err` from `f` goes to the nearest error handler. Setup only.
+    #[track_caller]
+    pub fn scroll_with<R: HandlerResult>(self, f: impl Fn(K) -> R + 'static) -> Self {
+        self.state().list.scroll_with(f);
         self
     }
 

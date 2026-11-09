@@ -13,7 +13,6 @@ use kivact_core::view::{
 };
 use kivact_interaction::{CopyFeedbackApi, DisclosureApi, use_copy_feedback, use_disclosure};
 use std::time::Duration;
-// xtask-allow(state-fields): Independent builder inputs and slots; native editing, use_disclosure and use_copy_feedback own interaction state.
 /// A read-only multiline editor and its header, gutter and footer.
 pub struct CodeBlock {
     root: Node,
@@ -164,7 +163,7 @@ impl CodeBlock {
         self
     }
     /// Add an appearance read by all code recipes.
-    pub fn variant(self, variant: impl Variant) -> Self {
+    pub fn variant(mut self, variant: impl Variant) -> Self {
         self.variants.add(variant);
         self
     }
@@ -183,13 +182,14 @@ struct CodePresentation {
     can_collapse: Value<bool>,
     feedback: CopyFeedbackApi,
 }
-// xtask-allow(state-fields): Read-only source and formatting inputs rebuild the native editor on each disclosure opening; no interaction phase is stored here.
 /// Inputs consumed together when constructing the one native source editor.
 struct CodeSource {
     code: Value<String>,
+    // xtask-allow(state-fields): passive record - highlight
     highlight: Option<Highlight>,
     highlight_lines: Value<Vec<u32>>,
     diff: Value<bool>,
+    // xtask-allow(state-fields): passive record - max height
     max_height: Option<Value<Length>>,
 }
 impl CodeBlock {

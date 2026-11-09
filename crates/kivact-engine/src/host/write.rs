@@ -4,15 +4,16 @@
 //! turn ([`Writer`]), and reads it back ([`Reader`]).
 //!
 //! The host gives kivact owned cloneable write access at startup. Each
-//! mutation borrows the shared model for that operation only. Commit checks
-//! focus once, records a private event boundary, and synchronizes changes.
+//! mutation borrows the shared `AppModel` for that operation only. Commit
+//! checks every window's focus once, records a private event boundary, and
+//! synchronizes changes.
 //! The host releases all borrows and completes layout before notifying core.
 //! Platform effects, window settings and the imports and drops of shared
 //! textures run after the turn; fonts register
 //! immediately. Trusted structural operations retain local debug assertions.
 //!
-//! [`Writer`] and [`Reader`] are concrete types owning the same model and
-//! text engine through `Rc`, borrowing them for each call only; there is no
+//! [`Writer`] and [`Reader`] are concrete types owning the same `AppModel`
+//! and text engine through `Rc`, borrowing them for each call only; there is no
 //! backend trait per write or deferred model mutation. The active sibling order
 //! changes immediately and is packed at revision and geometry-read boundaries.
 //! The effects kivact runs
@@ -27,9 +28,9 @@
 //!   `before` among the parent's children). There is no second tree to
 //!   validate against and no report of an invalid write; the layout lint
 //!   is a module of its own (`check`).
-//! - A commit checks the focus, moves the revision on, records the private
-//!   boundary of the events (`Model::commit_revision`), then synchronizes
-//!   (`Model::sync`).
+//! - A commit checks every window's focus, moves the revision on, records
+//!   the private boundary of the events (`Writer::commit`), then
+//!   synchronizes every window (`Model::sync`).
 //! - [`Reader`] lends the typed properties and payload of a node to a
 //!   closure ([`Reader::with_node`]) and reads scenes, geometry and input
 //!   values: kivact never copies a prop. [`Reader::text_measurer`] gives a

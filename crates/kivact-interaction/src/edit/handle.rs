@@ -82,6 +82,7 @@ use kivact_core::view::{EditPhase, HandlerResult};
 pub struct EditSession<T: 'static> {
     session: MachineHandle<machine::Machine<T>>,
     restore: Callback<T>,
+    // xtask-allow(state-fields): builder option - the observer callback a setter supplied, absent until set
     observer: Var<Option<Callback<EditPhase>>>,
     /// Passes an error of the observer on, as the session's owner reports it.
     failed: Callback<UiError>,
@@ -219,5 +220,15 @@ impl<T: Clone + 'static> EditSession<T> {
             EditSessionState::Idle => None,
             EditSessionState::Editing { initial } => Some(read(initial.as_ref())),
         })
+    }
+
+    /// Replace the value the active edit holds with `value`; a later `cancel`
+    /// passes `value` to `restore`, and `with_initial` reads it. For a
+    /// gesture whose growing data is the edit's payload and whose `restore`
+    /// ignores it (a paint across rows). Does nothing without an active edit.
+    pub fn replace_initial(self, value: T) {
+        if self.is_active() {
+            self.session.send(machine::Event::Replace(Rc::new(value)));
+        }
     }
 }

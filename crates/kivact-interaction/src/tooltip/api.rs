@@ -23,7 +23,7 @@ use kivact_types::cell::Generation;
 use crate::delayed::{DelayedApi, delayed};
 use crate::popup::PopupState;
 use kivact_core::state::IntoValue;
-use kivact_core::state::{Signal, Value, effect, memo, on_cleanup, signal};
+use kivact_core::state::{Signal, Value, memo, on_cleanup, signal};
 use kivact_core::view::{
     A11yAction, Handled, Key, KeyEvent, Modifiers, NodeRef, PointerEvent, PointerPhase, Role,
     node_ref,
@@ -134,7 +134,9 @@ fn now_ns() -> u64 {
 #[derive(Clone, Copy)]
 pub struct TooltipApi {
     options: OptionsCell<TooltipOptions>,
+    // xtask-allow(state-fields): independent fact - the observation of the attached trigger part, absent until it attaches
     trigger_state: Signal<Option<Value<PopupState>>>,
+    // xtask-allow(state-fields): independent fact - the observation of the attached content part, absent until it attaches
     content_state: Signal<Option<Value<PopupState>>>,
     delayed: DelayedApi,
     visible: Value<bool>,
@@ -173,7 +175,10 @@ pub fn use_tooltip() -> TooltipApi {
     });
 
     // The delay, or none while another tooltip is warm; both end with the
-    // engagement.
+    // engagement. One tooltip at a time: the delayed machine's visibility
+    // changes are the only events this tooltip sends to the App hub, so the
+    // one shown last is visible, and one that another took over shows again
+    // when that one hides.
     let delayed = delayed(
         engaged,
         move || {
@@ -184,24 +189,21 @@ pub fn use_tooltip() -> TooltipApi {
             }
         },
         Duration::ZERO,
+        move |shown| {
+            if shown {
+                hub.want(id);
+            } else {
+                hub.release(
+                    id,
+                    config
+                        .get_untracked()
+                        .ext::<crate::InteractionPolicy>()
+                        .tooltip
+                        .skip_delay,
+                );
+            }
+        },
     );
-
-    // One tooltip at a time: the one that was shown last is visible, and one
-    // that another took over shows again when that one hides.
-    effect(move || {
-        if delayed.is_open().get() {
-            hub.want(id);
-        } else {
-            hub.release(
-                id,
-                config
-                    .get()
-                    .ext::<crate::InteractionPolicy>()
-                    .tooltip
-                    .skip_delay,
-            );
-        }
-    });
     let visible = memo(move || delayed.is_open().get() && hub.current() == Some(id));
     on_cleanup(move || {
         if hub.next.try_get().is_some() {

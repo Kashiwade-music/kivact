@@ -1,4 +1,5 @@
 //! Role: Render keyed header and body cells with the table's actual part states.
+use super::row_drag::{RowDrag, RowDragEvent, RowPlace};
 use super::sticky_paint::surface;
 use super::types::{
     CellSlot, Key, RowColor, RowContextMenu, RowName, RowSelectable, RowSlot, RowStatusOf, Sort,
@@ -14,7 +15,7 @@ use kivact_core::view::NodeBuilder;
 
 use kivact_core::geometry::Rect;
 use kivact_core::i18n::message_with;
-use kivact_core::state::{Binding, Callback, Value, binding, memo, signal};
+use kivact_core::state::{Binding, Callback, Value, binding, machine, memo};
 use kivact_core::style::{
     Color, Cursor, Direction, Justify, Position, Style, TransitionProp, pct, style, use_theme,
 };
@@ -65,43 +66,56 @@ fn navigation_content(root: Node, content: View, enabled: bool, enter: bool) -> 
         })
 }
 
-// xtask-allow(state-fields): Immutable mounted composition inputs; each optional binding or slot enables an independent table feature.
 /// What the header and the rows of one table share.
 pub(super) struct Grid<R: 'static, K: kivact_core::state::ItemKey> {
+    // xtask-allow(state-fields): passive record - tree
     pub(super) tree: Option<super::tree::Plan<K>>,
     pub(super) behavior: DataTableApi<K, usize>,
     pub(super) navigation: super::navigation::NavigationCache<K>,
     pub(super) row_metadata: Value<super::metadata::Rows<K>>,
     pub(super) column_metadata: Value<(Option<u32>, HashMap<usize, u32>)>,
+    // xtask-allow(state-fields): passive record - filters
     pub(super) filters: Option<super::filters::Filters>,
     /// The keys of the rows of the page.
     pub(super) keys: Value<Vec<K>>,
+    // xtask-allow(state-fields): passive record - indexed
     pub(super) indexed: Option<Value<HashMap<K, usize>>>,
     pub(super) columns: Rc<Vec<DataColumn<R>>>,
     /// The positions of the columns that are shown.
     pub(super) visible: Value<Vec<usize>>,
+    // xtask-allow(state-fields): passive record - selection
     pub(super) selection: Option<Binding<Vec<K>>>,
+    // xtask-allow(state-fields): passive record - row selectable
     pub(super) row_selectable: Option<RowSelectable<R>>,
+    // xtask-allow(state-fields): passive record - sticky
     pub(super) sticky: Option<Rc<StickyColumns>>,
+    // xtask-allow(state-fields): passive record - widths
     pub(super) widths: Option<Binding<Vec<f64>>>,
+    // xtask-allow(state-fields): passive record - actions
     pub(super) actions: Option<(f64, RowSlot<R>)>,
+    // xtask-allow(state-fields): passive record - row context menu
     pub(super) row_context_menu: Option<RowContextMenu<R>>,
     pub(super) row_label: RowName<R>,
+    // xtask-allow(state-fields): passive record - cells
     pub(super) cells: Option<CellSlot<R>>,
+    // xtask-allow(state-fields): passive record - details
     pub(super) details: Option<RowSlot<R>>,
+    // xtask-allow(state-fields): passive record - expanded rows
     pub(super) expanded_rows: Option<Binding<Vec<K>>>,
     pub(super) reorder: Option<Callback<kivact_interaction::Reorder<K>>>,
     pub(super) source: Value<Vec<R>>,
     pub(super) key: Key<R, K>,
     pub(super) sort: Sort,
     pub(super) focus: TableFocus,
+    // xtask-allow(state-fields): passive record - row height
     pub(super) row_height: Option<Value<f64>>,
+    // xtask-allow(state-fields): passive record - row status
     pub(super) row_status: Option<RowStatusOf<R>>,
+    // xtask-allow(state-fields): passive record - row color
     pub(super) row_color: Option<RowColor<R>>,
     pub(super) variants: Variants,
 }
 
-// xtask-allow(state-fields): Geometry cache and immutable direction; overflow is a derived pair of independent edge facts.
 /// Shared header measurements let in-flow pins follow flex and resize.
 pub(super) struct StickyColumns {
     edges: StickyEdges,
@@ -882,32 +896,29 @@ where
     R: kivact_core::state::PropValue,
     K: kivact_core::state::ItemKey,
 {
-    let consumed = signal(0.0_f64);
     let (source, key, sort) = (grid.source, grid.key.clone(), grid.sort);
-    let drag = use_drag::<()>(DragCoordinates::Window)
-        .on_start(move |_| consumed.set(0.0))
-        .on_update(move |update: DragUpdate<()>| {
-            let dy = update.delta.y - consumed.get_untracked();
-            if dy.abs() <= 28.0 {
-                return;
-            }
-            let destination = source.with(|rows| {
-                let at = rows.iter().position(|row| key(row) == id)?;
-                Some(if dy > 0.0 {
-                    (at + 1).min(rows.len().saturating_sub(1))
-                } else {
-                    at.saturating_sub(1)
-                })
+    let place = id.clone();
+    let row_drag = machine(
+        RowDrag::Idle,
+        move || {
+            let (at, len) =
+                source.with(|rows| (rows.iter().position(|row| key(row) == place), rows.len()));
+            RowPlace { at, len }
+        },
+        move |_, to: usize| {
+            reorder.call(kivact_interaction::Reorder {
+                key: id.clone(),
+                to,
             });
-            if let Some(destination) = destination {
-                reorder.call(kivact_interaction::Reorder {
-                    key: id.clone(),
-                    to: destination,
-                });
-                sort.set(None);
-                consumed.set(update.delta.y);
-            }
-        });
+            sort.set(None);
+        },
+    );
+    let drag = use_drag::<()>(DragCoordinates::Window)
+        .on_start(move |_| row_drag.send(RowDragEvent::Start))
+        .on_update(move |update: DragUpdate<()>| {
+            row_drag.send(RowDragEvent::Update(update.delta.y))
+        })
+        .on_end(move |_| row_drag.send(RowDragEvent::End));
     drag.source(())
 }
 

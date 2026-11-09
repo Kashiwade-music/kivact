@@ -1,5 +1,6 @@
 //! Role: Source-preserving Markdown editing and a formatted read-only preview.
 use crate::markdown::markdown;
+pub(crate) use crate::rich_block_doc::EditTarget;
 use kivact::custom::NodeRefExt;
 use kivact::custom::TextSession;
 use kivact::i18n::message;
@@ -7,9 +8,10 @@ use kivact::state::Binding;
 use kivact::state::IntoBinding;
 use kivact::state::IntoText;
 use kivact::state::IntoValue;
-use kivact::state::Signal;
 use kivact::state::Value;
-use kivact::state::on_mount;
+use kivact::state::binding;
+use kivact::state::memo;
+use kivact::state::on_cleanup;
 use kivact::state::signal;
 use kivact::style::Align;
 use kivact::style::style;
@@ -54,6 +56,13 @@ impl RichDoc {
     }
 }
 
+#[derive(Clone, Copy, PartialEq)]
+enum EditorMode {
+    Preview,
+    Write,
+    Blocks,
+}
+
 /// Render the supported Markdown blocks and inline marks.
 pub fn rich_text_view(source: impl IntoText) -> impl kivact::view::Component {
     node().child(markdown(source.into_text_value()))
@@ -61,46 +70,40 @@ pub fn rich_text_view(source: impl IntoText) -> impl kivact::view::Component {
 
 /// A toolbar for switching the Markdown editor between source and preview.
 pub fn rich_text_toolbar(preview: impl IntoBinding<bool>) -> impl kivact::view::Component {
-    toolbar(preview.into_binding(), None, None)
+    let preview = preview.into_binding();
+    let mode = binding(
+        move || {
+            if preview.get() {
+                EditorMode::Preview
+            } else {
+                EditorMode::Write
+            }
+        },
+        move |mode| preview.set(mode == EditorMode::Preview),
+    );
+    toolbar(mode, None, false)
 }
 
 fn toolbar(
-    preview: Binding<bool>,
-    editor: Option<(Signal<Option<NodeRef>>, Signal<bool>)>,
-    blocks: Option<Signal<bool>>,
+    mode: Binding<EditorMode>,
+    target: Option<Value<EditTarget>>,
+    offers_blocks: bool,
 ) -> Node {
-    let mode = |label, selected, block_mode| {
+    let mode_button = |label, value: EditorMode| {
         button(label)
             .variant(ButtonVariant::Ghost)
             .size(ControlSize::Small)
-            .with_node(move |node| {
-                node.selected(move || {
-                    preview.get() == selected
-                        && (selected || blocks.is_none_or(|blocks| blocks.get() == block_mode))
-                })
-            })
-            .on_press(move || {
-                let changed = preview.get_untracked() != selected
-                    || (!selected
-                        && blocks.is_some_and(|blocks| blocks.get_untracked() != block_mode));
-                if changed && let Some((target, composing)) = editor {
-                    composing.set(false);
-                    target.set(None);
-                }
-                if !selected && let Some(blocks) = blocks {
-                    blocks.set(block_mode);
-                }
-                preview.set(selected);
-            })
+            .with_node(move |node| node.selected(move || mode.get() == value))
+            .on_press(move || mode.set(value))
     };
-    let commands = editor.map(|(editor, composing)| {
+    let commands = target.map(|target| {
         let command = |label, marker| {
             button(label)
                 .variant(ButtonVariant::Ghost)
                 .size(ControlSize::Small)
-                .disabled(move || preview.get() || composing.get() || editor.get().is_none())
+                .disabled(move || !matches!(target.get(), EditTarget::Ready(_)))
                 .on_press(move || {
-                    if let Some(editor) = editor.get_untracked() {
+                    if let EditTarget::Ready(editor) = target.get_untracked() {
                         format_selection(editor, marker);
                     }
                 })
@@ -118,9 +121,17 @@ fn toolbar(
     });
     row((
         commands,
-        blocks.map(|_| mode(message("soft.rich_text.blocks", "Blocks"), false, true)),
-        mode(message("soft.rich_text.write", "Write"), false, false),
-        mode(message("soft.rich_text.preview", "Preview"), true, false),
+        offers_blocks.then(|| {
+            mode_button(
+                message("soft.rich_text.blocks", "Blocks"),
+                EditorMode::Blocks,
+            )
+        }),
+        mode_button(message("soft.rich_text.write", "Write"), EditorMode::Write),
+        mode_button(
+            message("soft.rich_text.preview", "Preview"),
+            EditorMode::Preview,
+        ),
     ))
     .with_node(move |node| node.role(Role::Toolbar))
     .roving_focus(kivact::view::Orientation::Horizontal)
@@ -250,26 +261,34 @@ impl IntoView for RichTextEditor {
             read_only,
             block_editing,
         } = self;
-        let previewing = signal(read_only.get());
-        let target = signal(None::<NodeRef>);
-        let blocks = block_editing.get().then(|| signal(true));
-        let composing = signal(false);
+        let read_only = read_only.get();
+        let offers_blocks = !read_only && block_editing.get();
+        let mode = signal(if read_only {
+            EditorMode::Preview
+        } else if offers_blocks {
+            EditorMode::Blocks
+        } else {
+            EditorMode::Write
+        });
+        let blocks = offers_blocks.then(|| crate::rich_blocks::block_editor(source));
+        let write_ref = node_ref();
+        // The Write text area's last composition report; its unmount reports `false`.
+        let write_composing = signal(false);
         let surface = dynamic(
-            move || (previewing.get(), blocks.is_some_and(|blocks| blocks.get())),
-            move |(previewing, blocks)| {
-                if previewing {
-                    rich_text_view(move || source.get())
-                        .style(style().padding(12))
-                        .into_view()
-                } else if blocks {
-                    crate::rich_blocks::edit_blocks(label, source, target, composing).into_view()
-                } else {
-                    let editor = node_ref();
-                    on_mount(move || target.set(Some(editor)));
+            move || mode.get(),
+            move |current| match current {
+                EditorMode::Preview => rich_text_view(move || source.get())
+                    .style(style().padding(12))
+                    .into_view(),
+                EditorMode::Blocks => blocks
+                    .map(|blocks| crate::rich_blocks::edit_blocks(label, blocks))
+                    .into_view(),
+                EditorMode::Write => {
+                    on_cleanup(move || write_composing.set(false));
                     text_area(label, source)
-                        .node_ref(editor)
+                        .node_ref(write_ref)
                         .on_composition_change(move |active| {
-                            composing.set(active == kivact::view::Composition::Composing)
+                            write_composing.set(active == kivact::view::Composition::Composing)
                         })
                         .wrap(true)
                         .rows(6..=16)
@@ -277,8 +296,14 @@ impl IntoView for RichTextEditor {
                 }
             },
         );
-        let toolbar = (!read_only.get())
-            .then(|| toolbar(previewing.into_binding(), Some((target, composing)), blocks));
+        let target = memo(move || match mode.get() {
+            EditorMode::Preview => EditTarget::Detached,
+            EditorMode::Write if write_composing.get() => EditTarget::Composing(write_ref),
+            EditorMode::Write => EditTarget::Ready(write_ref),
+            EditorMode::Blocks => blocks.map_or(EditTarget::Detached, |blocks| blocks.target()),
+        });
+        let toolbar =
+            (!read_only).then(|| toolbar(mode.into_binding(), Some(target), offers_blocks));
         root.child(column((toolbar, surface)).style(style().gap(4)))
             .into_view()
     }

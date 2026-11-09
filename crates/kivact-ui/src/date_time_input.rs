@@ -47,7 +47,7 @@ impl DateTimeInput {
     }
 
     /// Add a visual variant shared by the field and its picker surface.
-    pub fn variant(self, variant: impl crate::Variant) -> Self {
+    pub fn variant(mut self, variant: impl crate::Variant) -> Self {
         self.variants.add(variant);
         self
     }

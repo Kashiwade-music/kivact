@@ -282,6 +282,24 @@ mod tests {
 
 画面を描画するテストバイナリで `App::run` を呼んではいけません。テストのウィンドウはすべて、プロセスにつき 1 つのイベントループを共有するからです。`main` をテストに含めないでください。テストの入口は `render` です。
 
+## ウィンドウをテストする
+
+ウィンドウは、それぞれが独立した `Screen` です。`screen.window("設定")` はそのウィンドウが開くまで待ち（`find_by_*` と同じ時間上限）、ハンドルを返します。`screen.windows()` は開いているすべてのウィンドウを id の昇順で返します。`Screen::has_window()` は `is_mirrored()` に改名しました（公開の変更。この window が本物の window に写っているか、という意味は変わりません）。`RenderOptions::default().single_window()` は、埋め込みの editor のように、追加の window を開けない環境を表します。`Element` を取る前に、ハンドルを `let` に入れてください。
+
+```rust,no_run
+# use kivact::prelude::*;
+# fn demo(screen: &kivact::test::Screen) {
+let settings = screen.window("設定");
+settings.get_by_role(Role::Button, "適用").click();
+assert!(settings.is_open());
+
+settings.request_close();
+assert!(!settings.is_open());
+# }
+```
+
+`screen.window(..)` の戻り値は一時値なので、`let apply = screen.window("設定").get_by_role(..);` はコンパイルできません（E0716）。ハンドルがウィンドウを生かします。同じ title のウィンドウが 2 つ開いていると、`window` は曖昧な `get_by_*` と同じように失敗します。詳しくは[複数のウィンドウを開く](windows.md#ウィンドウをテストする)を参照してください。
+
 ## 時間と非同期処理
 
 テストの時間は仮想です。タイマーは壁掛け時計ではなく `advance` を待つので、30 秒のタイムアウトも一瞬で済み、結果がマシンの速さに左右されることはありません。

@@ -75,7 +75,6 @@ impl TokenColor {
     }
 }
 
-// xtask-allow(state-fields): Passive constructor inputs for content, appearance and independent callbacks, not runtime lifecycle state.
 /// A static, pressable, or removable entity chip.
 pub struct Token {
     root: Node,

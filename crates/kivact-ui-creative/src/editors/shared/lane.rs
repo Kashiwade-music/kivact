@@ -12,9 +12,7 @@ pub(crate) type MenuFactory = kivact::view::ViewFn<(Node, Value<EditorContext>)>
 #[derive(Default)]
 pub(crate) struct LaneExtensions {
     pub(crate) cells: Vec<(Value<f64>, CellRenderer)>,
-    // xtask-allow(state-fields): Independent optional setup callback or menu factory.
     pub(crate) lane_activate: Option<Callback<u64>>,
-    // xtask-allow(state-fields): Independent optional setup callback or menu factory.
     pub(crate) item_activate: Option<Callback<u64>>,
     // xtask-allow(state-fields): Independent optional setup callback or menu factory.
     pub(crate) menu: Option<MenuFactory>,

@@ -40,7 +40,7 @@
 //! - Reports go out in id order: every changed scroll container's
 //!   `ScrollChanged`, then every changed observed node's `LayoutChanged`.
 
-use crate::contract::{HostEvent, NodeType};
+use crate::contract::{HostEvent, NodeType, SyncRecord};
 use kivact_types::geometry3d::Matrix4;
 use kivact_types::{NodeId, OverlayAt, Point, Rect};
 use std::collections::{HashMap, HashSet};
@@ -142,15 +142,16 @@ impl Model {
             return false;
         };
         let previous = self.capture_layout_motion();
-        let mut measure = Measure::new(engine, self.assets.get_mut(), &self.measure, &self.editors);
-        for id in remeasure {
-            if measure.measures_same(&self.tree, &self.layout, id) {
-                continue;
-            }
-            self.layout.invalidate_chain(&self.tree, id);
-        }
-        // Scrolls alone keep the main layout, but may change a tooltip's available room.
         let computed = {
+            let mut assets = self.assets.borrow_mut();
+            let mut measure = Measure::new(engine, &mut assets, &self.measure, &self.editors);
+            for id in &remeasure {
+                if measure.measures_same(&self.tree, &self.layout, *id) {
+                    continue;
+                }
+                self.layout.invalidate_chain(&self.tree, *id);
+            }
+            // Scrolls alone keep the main layout, but may change a tooltip's available room.
             let mut leaves = crate::measure::leaf::EngineMeasure {
                 tree: &self.tree,
                 measure: &mut measure,
@@ -165,10 +166,16 @@ impl Model {
             self.scroll_into_view(id);
         }
         let fitted = self.refit_tooltips(engine, !computed);
+        // The record's lists are collected only while the DevTools records syncs.
+        let recording = self.log.syncs_recording();
+        let mut laid_out = Vec::new();
         if computed || fitted {
             let geometry: Vec<_> = self.layout.drain_geometry_changes().collect();
             for change in &geometry {
                 self.a11y.subtree(change.id);
+            }
+            if recording {
+                laid_out = geometry.iter().map(|change| change.id).collect();
             }
             let tree = &self.tree;
             let repaint = geometry.into_iter().filter_map(|change| match change.kind {
@@ -180,6 +187,17 @@ impl Model {
             });
             // Set pass flags even when no local ink dependency changed.
             self.changes.laid_out(repaint);
+        }
+        if recording && (!remeasure.is_empty() || !laid_out.is_empty()) {
+            let revision = self.events.applied();
+            self.log.sync(|| SyncRecord {
+                window: self.window,
+                revision,
+                reasons: 0,
+                measured: remeasure,
+                laid_out,
+                redrawn: Vec::new(),
+            });
         }
         self.retarget_layout_motion(previous);
         self.report_geometry(engine);
@@ -227,7 +245,8 @@ impl Model {
         id: NodeId,
         limit: Option<kivact_types::Size>,
     ) {
-        let mut measure = Measure::new(engine, self.assets.get_mut(), &self.measure, &self.editors);
+        let mut assets = self.assets.borrow_mut();
+        let mut measure = Measure::new(engine, &mut assets, &self.measure, &self.editors);
         let mut leaves = crate::measure::leaf::EngineMeasure {
             tree: &self.tree,
             measure: &mut measure,
@@ -435,6 +454,16 @@ impl Model {
             return None;
         }
         self.hit_node(self.tree.root?, p)
+    }
+
+    /// The deepest shown node under a window point, ignoring modals.
+    pub(crate) fn hit_any(&self, p: Point) -> Option<NodeId> {
+        for (layer, _) in self.layers().into_iter().rev() {
+            if let Some(hit) = self.hit_node(layer, p) {
+                return Some(hit);
+            }
+        }
+        self.tree.root.and_then(|root| self.hit_node(root, p))
     }
 
     /// The deepest node under `p` in `id`'s subtree. `p` is in the box space

@@ -66,9 +66,9 @@ impl Model {
 
     /// kivact gave `id` the controlled value `value`: its editing state
     /// takes it (the node's first value, with the caret at the end), and
-    /// is measured again; whether its text changed.
-    pub(crate) fn controlled_value(&mut self, id: NodeId, value: Rc<str>) -> bool {
-        let created = self.writes.created(id);
+    /// is measured again; whether its text changed. `created` says the
+    /// node was created in this revision.
+    pub(crate) fn controlled_value(&mut self, id: NodeId, value: Rc<str>, created: bool) -> bool {
         let Some(node) = self.tree.get_mut(id) else {
             return false;
         };

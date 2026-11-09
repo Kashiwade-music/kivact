@@ -1,6 +1,6 @@
 //! Role: Project preview visibility and provenance from the shared hover surface.
 use crate::{DelayedPhase, Delays, HoverCardTiming, HoverSurfaceApi};
-use kivact_core::state::{Binding, IntoBinding, IntoValue, Value, effect, effect_on, memo};
+use kivact_core::state::{Binding, IntoBinding, IntoValue, Value, memo};
 use kivact_core::view::NodeRef;
 
 /// The input that currently requests a preview.
@@ -40,6 +40,8 @@ pub fn use_hover_card(
     let focused = focused.into_value();
     let enabled = enabled.into_value();
     let immediate = focused;
+    // The surface's visibility changes are the only writer of `requested`;
+    // the caller's own writes reach the surface through `feed`.
     let surface = crate::hover_corridor::hover_surface(
         anchor,
         surface,
@@ -49,22 +51,10 @@ pub fn use_hover_card(
             open: timing.open_delay,
             close: timing.close_delay,
         },
+        move |visible| requested.set(visible),
     );
-    effect(move || {
-        if immediate.get() && surface.phase().get() == DelayedPhase::Opening {
-            surface.pulse();
-        }
-    });
-    effect_on(surface.phase(), move |phase| match phase {
-        DelayedPhase::Shown => requested.set(true),
-        DelayedPhase::Hidden | DelayedPhase::Dismissed => requested.set(false),
-        DelayedPhase::Opening | DelayedPhase::Closing => (),
-    });
-    effect_on(requested, move |open| {
-        if !open {
-            surface.dismiss();
-        }
-    });
+    surface.hurry_on(immediate);
+    surface.dismiss_on_release(requested);
     let shown = memo(move || enabled.get() && requested.get());
     let state = memo(move || {
         if shown.get() {

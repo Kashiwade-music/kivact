@@ -1,10 +1,12 @@
 //! Role: Routing metadata wrapped around shared input samples.
 
-use kivact_types::{NodeId, Point, RegionId};
+use kivact_types::{NodeId, Point, RegionId, WindowId};
 
 /// One shared input sample and the engine's routing decision.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Routed<T> {
+    /// The window the input belongs to.
+    pub window: WindowId,
     /// The receiving node, or no node for a window-directed key event.
     pub target: Option<NodeId>,
     /// The receiving scene region, when the target is a region.

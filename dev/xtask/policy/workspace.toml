@@ -27,6 +27,9 @@ kivact-core = ["kivact", "kivact-interaction", "kivact-ui", "kivact-test"]
 kivact-test = ["kivact"]
 kivact-interaction = ["kivact", "kivact-ui"]
 kivact-ui = ["kivact"]
+kivact-devtools-protocol = ["kivact-devtools-agent", "kivact-devtools-client", "kivact-core", "kivact-devtools", "kivact-devtools-mcp", "kivact-public-api-tests"]
+kivact-devtools-agent = ["kivact-core"]
+kivact-devtools-client = ["kivact-devtools", "kivact-devtools-mcp", "kivact-devtools-agent", "kivact-public-api-tests"]
 
 # ----- Core/engine boundary: only kivact-core consumes the engine.
 # App::run, OffscreenRenderer and the test driver share the engine API.
@@ -74,6 +77,8 @@ kivact-ui-game-catalog = []
 kivact-ui-creative-catalog = []
 kivact-ui-soft-catalog = []
 kivact-docs = []
+kivact-devtools = []
+kivact-devtools-mcp = []
 # Public API tests consume all five official kits for theme conformance.
 kivact-public-api-tests = []
 xtask = []
@@ -92,6 +97,7 @@ trusted_macros = [
     # workspace の macro_rules と、それを呼ぶ path は dev/xtask（macros.rs）が自動で足す。
     # item を生成する macro は、呼んだ module を解析の外に置く。
 ]
+trusted_attributes = ["serde"]
 trusted_derives = [
     "Clone", "Copy", "Debug", "Default", "Eq", "Hash", "Ord", "PartialEq", "PartialOrd",
     "Deserialize", "Serialize",
@@ -126,9 +132,10 @@ diagnostics = ["task", "motion", "style", "view"]
 gpu_interop = ["task", "motion", "style", "view", "sync"]
 client = ["task", "motion", "style", "view", "platform", "gpu_interop", "diagnostics"]
 # Launch owns client construction; App and embedding consume that shared boundary.
-launch = ["state", "view", "platform", "diagnostics", "gpu_interop", "client"]
-app = ["state", "view", "launch"]
+launch = ["state", "view", "platform", "diagnostics", "gpu_interop", "client", "devtools", "geometry"]
+app = ["state", "view", "launch", "geometry"]
 custom = ["task", "motion", "style", "view", "draw"]
+devtools = ["task", "motion", "style", "state", "geometry", "sync", "view", "platform", "diagnostics", "client"]
 
 # kivact-i18n contains pure locale values and ICU formatting calculations.
 [module_rules.kivact-i18n.uses]
@@ -217,8 +224,11 @@ mouse = []
 ime = []
 services = []
 # The window SPI uses the neutral vocabulary and the GPU target leaf.
-window = ["events", "ime", "types", "services", "a11y", "target"]
+window = ["events", "ime", "types", "services", "a11y", "target", "input"]
 target = []
+# Injected input is pipeline vocabulary; one window's normalization joins its parts.
+input = ["pipeline"]
+window_input = ["events", "types", "ime", "pipeline", "mouse", "clicks", "contacts", "input"]
 
 
 # B7: topology below measurement, Model processing, presentation,
@@ -251,7 +261,7 @@ text_measure = ["lower", "contract", "tree", "measure", "model"]
 paint = ["lower", "contract", "tree", "measure", "mutation", "model", "text_measure", "offscreen", "layer"]
 a11y = ["contract", "tree", "measure", "mutation", "model"]
 check = ["lower", "contract", "tree", "measure", "mutation", "model", "paint", "a11y"]
-host = ["text_input", "contract", "tree", "measure", "mutation", "model", "paint", "a11y", "check", "text_measure", "frame_log", "offscreen"]
+host = ["text_input", "contract", "tree", "measure", "mutation", "model", "paint", "a11y", "check", "text_measure", "frame_log", "offscreen", "lower"]
 offscreen = ["lower", "contract", "text_measure"]
 # The facade exposes the immutable WriteStats DTO from this passive leaf.
 api = ["contract", "host", "offscreen", "text_measure", "mutation"]
@@ -320,7 +330,6 @@ options_structs = [
     "arvane-virtual::VirtualOptions",
     "arvane::ShellSetup",
     "arvane-shell::ChildHooks",
-    "arvane-shell::ShellOptions",
     "kivact-test::RenderOptions",
     "kivact-engine::api::HostOptions",
     "kivact-engine::testing::TestHostOptions",
@@ -336,7 +345,7 @@ options_structs = [
     "kivact-types::env::PointerSettings",
     "kivact-types::platform::FileDialog",
     "kivact-ui-basic::ChartConfig",
-    "kivact-ui-creative::WindowOptions",
+    "kivact-ui-creative::ToolWindowOptions",
 ]
 
 
@@ -384,6 +393,11 @@ path = "crates/kivact-ui-pop/tests/*"
 reason = "Kit E2E tests are written from the user's side and import `kivact::prelude::*`."
 
 [[style.exceptions]]
+rule = "glob-imports"
+path = "crates/kivact-devtools/*"
+reason = "The DevTools app is written as a Kivact user writes an app (dogfooding P-07): it starts from `use kivact::prelude::*`."
+
+[[style.exceptions]]
 rule = "catch-unwind"
 path = "crates/arvane-native/src/port/win32/proc.rs"
 item = "port::win32::proc::wndproc"
@@ -425,11 +439,29 @@ path = "dev/xtask/src/main.rs"
 item = "main"
 reason = "Glue: the binary entry only wires xtask-core's run to this workspace's module-rule and impl-model checks."
 
+[[style.exceptions]]
+rule = "non-leaf-implementation"
+path = "crates/kivact-devtools-mcp/src/main.rs"
+item = "main"
+reason = "Glue: the MCP binary entry only reads the embedded schema and starts the stdio server."
+
+[[style.exceptions]]
+rule = "non-leaf-implementation"
+path = "crates/kivact-devtools/src/main.rs"
+item = "main"
+reason = "Glue: the DevTools binary entry only parses arguments and runs the app root."
+
+[[style.exceptions]]
+rule = "non-leaf-implementation"
+path = "crates/kivact-devtools/tests/app.rs"
+reason = "Glue: the integration test root registers the shared support module and the per-panel test modules, then holds the shell tests."
+
 [state_fields]
 role_suffixes = ["Options", "Event", "Phase", "Reason", "Input", "Report", "Tokens", "Recipes"]
 record_types = ["SemanticNode", "LayoutViolation", "ListItem", "MenuEntry", "Command", "TreeNode", "DataColumn", "ToastOptions", "CalendarOptions", "StepperItem"]
+named_helpers = ["Generation", "Sent", "ReportOnce", "ReportOnceSet", "Mailbox", "LocalMailbox", "Registry"]
 # Mobile input purposes and launch restoration snapshots remain passive transport values.
-value_modules = ["kivact-engine::contract", "kivact-types::semantics", "kivact-types::env", "kivact-types::scroll", "kivact-types::layout", "kivact-types::paint", "kivact-types::text", "kivact-types::scene", "kivact-types::render", "kivact-types::input", "kivact-types::platform", "kivact-types::embed", "kivact-types::check"]
+value_modules = ["kivact-engine::contract", "kivact-types::semantics", "kivact-types::env", "kivact-types::scroll", "kivact-types::layout", "kivact-types::paint", "kivact-types::text", "kivact-types::scene", "kivact-types::render", "kivact-types::input", "kivact-types::platform", "kivact-types::embed", "kivact-types::check", "kivact-devtools-protocol", "kivact-types::window"]
 
 [kit_literal_color]
 allowed_files = ["tokens.rs", "theme.rs", "color.rs"]

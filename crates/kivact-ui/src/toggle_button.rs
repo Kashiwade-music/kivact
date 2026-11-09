@@ -80,7 +80,6 @@ fn toggle_label(
     .into_view()
 }
 
-// xtask-allow(state-fields): Independent builder labels, enabled/busy inputs and optional edit callback; checked value belongs to the caller binding.
 /// A button that stays pressed, created by [`toggle_button`]. Its behavior and
 /// semantics are those of [`use_toggle_button`].
 pub struct ToggleButton {
@@ -175,7 +174,7 @@ impl ToggleButton {
     /// the component is mounted, and a value never changes afterwards. A
     /// look that changes while the component lives is a state the recipe
     /// reads, or a reactive `.style(..)` of the caller's.
-    pub fn variant(self, v: impl Variant) -> Self {
+    pub fn variant(mut self, v: impl Variant) -> Self {
         self.variants.add(v);
         self
     }

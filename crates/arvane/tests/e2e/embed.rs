@@ -1,9 +1,9 @@
 //! Role: Arvane's embedded host contract, without Kivact or a virtual window.
 #![cfg(any(windows, target_os = "linux"))]
 use arvane::embed::{self, EmbedOptions, Embedder};
-use arvane::{Handler, ShellControl, ShellError, ShellEvent, ShellWaker, Window};
+use arvane::{EventTarget, Handler, ShellControl, ShellError, ShellEvent, ShellWaker, Windows};
 use arvane_native::embed::TestParent;
-use kivact_types::Size;
+use kivact_types::{Size, WindowId};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 static SERIAL: Mutex<()> = Mutex::new(());
@@ -20,14 +20,22 @@ struct Host(Arc<Mutex<Seen>>);
 impl Handler for Host {
     fn start(
         &mut self,
-        window: &mut Window<'_>,
+        windows: &mut Windows<'_>,
         waker: ShellWaker,
     ) -> Result<ShellControl, ShellError> {
+        let mut window = windows
+            .get(WindowId::MAIN)
+            .expect("invariant: the main window is open");
         assert_eq!(window.surface_generation(), Some(1));
         assert!(!window.fullscreen());
         assert_eq!(
             window.perform(kivact_types::PlatformRequest::Fullscreen(true)),
             kivact_types::PlatformResult::Unsupported
+        );
+        assert_eq!(
+            window.perform(kivact_types::PlatformRequest::FocusWindow),
+            kivact_types::PlatformResult::Unsupported,
+            "an embedded window cannot be raised"
         );
         let deadline = window.now_ns() + 50_000_000;
         let mut seen = self
@@ -42,9 +50,13 @@ impl Handler for Host {
     }
     fn event(
         &mut self,
+        _: EventTarget,
         event: ShellEvent,
-        window: &mut Window<'_>,
+        windows: &mut Windows<'_>,
     ) -> Result<ShellControl, ShellError> {
+        let mut window = windows
+            .get(WindowId::MAIN)
+            .expect("invariant: the main window is open");
         let mut seen = self
             .0
             .lock()
@@ -73,6 +85,7 @@ impl Handler for Host {
             ShellControl::WakeAt(seen.deadline)
         })
     }
+    fn close(&mut self, _: &mut Windows<'_>) {}
 }
 fn wait(parent: &TestParent, mut ready: impl FnMut() -> bool) {
     let deadline = Instant::now() + Duration::from_secs(10);

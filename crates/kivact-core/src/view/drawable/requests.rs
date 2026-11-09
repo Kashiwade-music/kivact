@@ -24,7 +24,7 @@ pub(super) async fn wake(inbox: Arc<Inbox<ExportLink>>, changed: Notifier) {
 
 /// What the engine was last asked to export: mode, generation and scale
 /// (`None` follows the window's scale, which the engine reads).
-type Sent = Option<(ExportRequestMode, u64, Option<f64>)>;
+type Sent = kivact_types::cell::Sent<(ExportRequestMode, u64, Option<f64>)>;
 
 /// Send the export request of the drawable `id` when it differs from the
 /// one sent last, and its geometry when the app set one.
@@ -45,17 +45,16 @@ pub(super) fn send_requests(
         ),
         ExportLink::Closed => (None, None),
     });
-    if let Some((mode, generation, scale)) = request {
-        let now = (mode, generation, scale);
-        if sent.borrow().as_ref() != Some(&now) {
-            *sent.borrow_mut() = Some(now.clone());
-            writer.drawable_request(HostRequest::DrawableExport {
-                id,
-                generation,
-                mode: now.0,
-                scale,
-            });
-        }
+    if let Some(now) = request
+        && sent.borrow_mut().update(now.clone()).is_some()
+    {
+        let (mode, generation, scale) = now;
+        writer.drawable_request(HostRequest::DrawableExport {
+            id,
+            generation,
+            mode,
+            scale,
+        });
     }
     if let Some((generation, geometry)) = geometry {
         writer.drawable_request(HostRequest::SetDrawableGeometry {

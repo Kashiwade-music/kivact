@@ -25,7 +25,6 @@ pub(crate) struct Shared {
     focus: MachineHandle<Machine>,
     /// Whether each thumb has the focus; a drag the focus leaves is canceled.
     thumb_focus: Signal<Vec<Value<bool>>>,
-    // xtask-allow(state-fields): per-mount caller inputs, each removed with its mount; independent of the focus registrations.
     /// The disabled state each mounted thumb or track received from its
     /// caller; any true value disables the whole scalar.
     host_disabled: Signal<Vec<Value<bool>>>,
@@ -151,7 +150,6 @@ pub(crate) struct Edit {
     pub(crate) index: usize,
     /// The thumb's element, which a press on the track focuses.
     pub(crate) thumb: NodeRef,
-    // xtask-allow(state-fields): independently observed layout, not an edit lifecycle state.
     pub(crate) thumb_rect: Value<Option<Rect>>,
     // xtask-allow(state-fields): optional caller-supplied bounds are independent of the mounted-state observation.
     /// The published bounds of a thumb that another thumb limits.

@@ -8,7 +8,6 @@ use kivact_core::view::{
     IntoView, Node, NodeBuilder, NodeRef, Role, ScrollAxes, View, node, node_ref, scroll,
 };
 use kivact_interaction::use_follow_end;
-// xtask-allow(state-fields): Independent builder inputs and slots; use_follow_end owns the complete following and anchor state.
 /// A scrollable message log that follows new content until the reader scrolls away.
 pub struct ChatThread {
     root: Node,
@@ -89,7 +88,7 @@ impl ChatThread {
         self
     }
     /// Add an appearance read by every thread recipe.
-    pub fn variant(self, variant: impl Variant) -> Self {
+    pub fn variant(mut self, variant: impl Variant) -> Self {
         self.variants.add(variant);
         self
     }

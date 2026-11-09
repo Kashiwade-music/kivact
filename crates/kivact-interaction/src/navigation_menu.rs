@@ -194,7 +194,6 @@ fn remove_panel(state: NavMachineState, key: usize) -> Step<NavMachineState, Eve
 pub struct NavigationMenuApi {
     machine: MachineHandle<Machine>,
     changed: OptionsCell<Option<Callback<bool>>>,
-    // xtask-allow(state-fields): Setup-only genuine panel identity allocation, not an event epoch or visibility cache.
     next_panel: OptionsCell<usize>,
 }
 

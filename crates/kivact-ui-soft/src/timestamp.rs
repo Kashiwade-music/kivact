@@ -208,10 +208,8 @@ pub struct Timestamp {
     text: StyledText,
     clock: MachineHandle<TimestampTick>,
     settings: Rc<RefCell<TimestampSettings>>,
-    // xtask-allow(state-fields): Detail visibility is a caller input independent of the refresh clock phase.
     details: Value<bool>,
     entries: Value<Vec<TimestampEntry>>,
-    // xtask-allow(state-fields): Live refresh is a caller policy input; TimestampTick alone owns scheduling.
     live: Value<bool>,
 }
 
@@ -226,7 +224,7 @@ pub fn timestamp(value: impl IntoValue<TimestampValue>) -> Timestamp {
     }));
     let input = settings.clone();
     let clock = machine(
-        TimestampClock::Running {
+        TimestampClock::Still {
             now: TimestampValue::from(SystemTime::now()),
         },
         move || TimestampTick {
@@ -239,7 +237,7 @@ pub fn timestamp(value: impl IntoValue<TimestampValue>) -> Timestamp {
     let now_label = message("soft.relative_time.now", "now");
     let yesterday = message("soft.relative_time.yesterday", "yesterday");
     let display = memo(move || {
-        let TimestampClock::Running { now } = clock.get();
+        let now = clock.get().now();
         timestamp_presentation(&presentation.borrow(), now, now_label, yesterday)
     });
     Timestamp {
@@ -350,9 +348,9 @@ impl IntoView for Timestamp {
         });
         kivact::state::effect(move || {
             if live.get() && relative.get() {
-                clock.send(TimestampEvent::Tick);
+                clock.send(TimestampEvent::Live);
             } else {
-                clock.send(TimestampEvent::Refresh);
+                clock.send(TimestampEvent::Still);
             }
         });
         let full_zone = zone;
@@ -371,7 +369,7 @@ impl IntoView for Timestamp {
             if relative.get() {
                 full()
             } else {
-                let TimestampClock::Running { now } = clock.get();
+                let now = clock.get().now();
                 timestamp_presentation(&presentation_settings.borrow(), now, now_label, yesterday)
             }
         });
@@ -515,7 +513,17 @@ fn civil_from_days(days: i64) -> (i64, i64, i64) {
 
 #[derive(Clone, PartialEq)]
 enum TimestampClock {
-    Running { now: TimestampValue },
+    /// Refreshed once at `now`; no tick is scheduled.
+    Still { now: TimestampValue },
+    /// Refreshed at `now`; the next tick is scheduled.
+    Live { now: TimestampValue },
+}
+impl TimestampClock {
+    fn now(&self) -> TimestampValue {
+        match self {
+            Self::Still { now } | Self::Live { now } => *now,
+        }
+    }
 }
 struct TimestampTick {
     value: TimestampValue,
@@ -527,7 +535,7 @@ impl Machine for TimestampTick {
     type Effect = ();
     fn transition(
         &self,
-        _: &TimestampClock,
+        state: &TimestampClock,
         event: TimestampEvent,
     ) -> Step<TimestampClock, TimestampEvent, ()> {
         let age = difference(self.now, self.value).unsigned_abs();
@@ -537,16 +545,25 @@ impl Machine for TimestampTick {
             3600..=86399 => 60,
             _ => 300,
         };
-        let step = Step::to(TimestampClock::Running { now: self.now });
-        match event {
-            TimestampEvent::Refresh => step,
-            TimestampEvent::Tick => step.after(Duration::from_secs(delay), TimestampEvent::Tick),
+        match (state, event) {
+            (_, TimestampEvent::Still) => {
+                Step::to(TimestampClock::Still { now: self.now }).cancel(TimestampEvent::Tick)
+            }
+            (_, TimestampEvent::Live) | (TimestampClock::Live { .. }, TimestampEvent::Tick) => {
+                Step::to(TimestampClock::Live { now: self.now })
+                    .after(Duration::from_secs(delay), TimestampEvent::Tick)
+            }
+            (TimestampClock::Still { .. }, TimestampEvent::Tick) => Step::stay(),
         }
     }
 }
 
 enum TimestampEvent {
-    Refresh,
+    /// Refresh once and stop ticking.
+    Still,
+    /// Refresh now and keep ticking.
+    Live,
+    /// The scheduled tick fired.
     Tick,
 }
 fn timestamp_presentation(

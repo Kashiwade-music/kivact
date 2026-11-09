@@ -24,9 +24,10 @@ pub(super) fn run_a11y(rt: &Runtime, node: NodeId, region: Option<RegionId>, req
     if let Some(h) = h
         && !is_disabled(rt, node)
     {
-        run_handler(rt, node_owner(rt, node), || {
+        let outcome = run_handler(rt, node_owner(rt, node), || {
             h.call(A11yEvent { request, region })
         });
+        crate::view::devtools_hooks::handler_ran(rt, node, "on_a11y", outcome);
     }
 }
 

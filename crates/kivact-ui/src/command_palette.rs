@@ -17,7 +17,6 @@ use std::rc::Rc;
 type Filter<K> = Rc<dyn Fn(&str, &Command<K>) -> bool>;
 type Footer = View;
 
-// xtask-allow(state-fields): Construction-only bindings, command source, recipe variants and optional content slots; mounted navigation belongs to CommandPaletteApi.
 /// A searchable command palette in a modal, created by [`command_palette`].
 ///
 /// It is a view: put it in the tree once; it draws nothing while the palette
@@ -26,10 +25,15 @@ pub struct CommandPalette<K: kivact_core::state::ItemKey> {
     open: Binding<bool>,
     commands: Value<Vec<Command<K>>>,
     run: Rc<dyn Fn(K) -> kivact_core::Result<()>>,
+    // xtask-allow(state-fields): builder option - filter
     filter: Option<Filter<K>>,
+    // xtask-allow(state-fields): builder option - close on
     close_on: Option<fn(&KeyEvent) -> bool>,
+    // xtask-allow(state-fields): builder option - placeholder
     placeholder: Option<Value<String>>,
+    // xtask-allow(state-fields): builder option - empty
     empty: Option<Value<String>>,
+    // xtask-allow(state-fields): builder option - footer
     footer: Option<Footer>,
     variants: Variants,
 }
@@ -98,7 +102,7 @@ impl<K: kivact_core::state::ItemKey> CommandPalette<K> {
     ///
     /// The value is a constant: the recipes read the values given before
     /// the component is mounted, and a value never changes afterwards.
-    pub fn variant(self, v: impl Variant) -> Self {
+    pub fn variant(mut self, v: impl Variant) -> Self {
         self.variants.add(v);
         self
     }

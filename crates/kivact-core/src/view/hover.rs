@@ -23,58 +23,80 @@ use std::panic::Location;
 use crate::geometry::Point;
 use kivact_runtime::Runtime;
 use kivact_runtime::{Signal, Value};
-use kivact_types::FocusTarget;
+use kivact_types::{FocusTarget, WindowId};
 
-use crate::view::state::{PointerObservation, ViewState};
+use crate::view::state::{PointerObservation, ViewState, current_window};
 
-/// The hover source of `rt`'s App, created under the root owner by the first
-/// call (at the node the host reported last) and kept for the App's lifetime.
-pub(crate) fn source(rt: &Runtime, at: &'static Location<'static>) -> Signal<Option<FocusTarget>> {
+/// The hover source of `window`'s App, created under the window's root
+/// owner by the first call (at the node the host reported last) and kept for
+/// the window's lifetime.
+pub(crate) fn source(
+    rt: &Runtime,
+    window: WindowId,
+    at: &'static Location<'static>,
+) -> Signal<Option<FocusTarget>> {
     let state = ViewState::of(rt);
-    let last = match state.hover() {
+    let last = match state.hover(window) {
         PointerObservation::Reactive(source) => return source,
         PointerObservation::Plain(last) => last,
     };
-    let owner = ViewState::tree(rt).root_owner();
+    let owner = ViewState::tree(rt).owner_of(
+        ViewState::tree(rt)
+            .root(window)
+            .expect("invariant: the window is open"),
+    );
     let source = owner.signal(last, at);
-    state.set_hover(PointerObservation::Reactive(source));
+    state.set_hover(window, PointerObservation::Reactive(source));
     source
 }
 
 /// The host reported that `node` is under the pointer now; a node already
 /// unmounted on the core side hovers nothing.
-pub(crate) fn set_hovered(rt: &Runtime, node: Option<FocusTarget>) {
+pub(crate) fn set_hovered(rt: &Runtime, window: WindowId, node: Option<FocusTarget>) {
     let node = node.filter(|id| ViewState::tree(rt).get(id.node).is_some());
     let state = ViewState::of(rt);
-    match state.hover() {
-        PointerObservation::Plain(_) => state.set_hover(PointerObservation::Plain(node)),
+    match state.hover(window) {
+        PointerObservation::Plain(_) => state.set_hover(window, PointerObservation::Plain(node)),
         // Only the hover source is written here: no owner applies.
         PointerObservation::Reactive(source) => rt.enter(|| source.set(node)),
     }
 }
 
-/// The last mouse position in logical window coordinates, independently of
-/// hit testing, capture or node handlers. It is absent outside the window.
-/// Call during setup to observe movement across gaps between floating views.
+/// The last mouse position of the calling owner's window in logical window
+/// coordinates, independently of hit testing, capture or node handlers. It
+/// is absent outside the window. Call during setup to observe movement
+/// across gaps between floating views.
 #[track_caller]
 pub fn pointer_position() -> Value<Option<Point>> {
     let at = Location::caller();
     let rt = Runtime::current().expect("pointer_position requires an active App");
+    let window = current_window(kivact_runtime::Owner::ambient("pointer_position", at));
     let state = ViewState::of(&rt);
-    let last = match state.mouse.get() {
+    let last = match state.mouse(window) {
         PointerObservation::Reactive(source) => return source.into(),
         PointerObservation::Plain(last) => last,
     };
-    let source = ViewState::tree(&rt).root_owner().signal(last, at);
-    state.mouse.set(PointerObservation::Reactive(source));
+    let owner = ViewState::tree(&rt).owner_of(
+        ViewState::tree(&rt)
+            .root(window)
+            .expect("invariant: the calling owner's window is open"),
+    );
+    let source = owner.signal(last, at);
+    state.set_mouse(window, PointerObservation::Reactive(source));
     source.into()
 }
 
-pub(crate) fn set_pointer_position(rt: &Runtime, position: Option<kivact_types::Point>) {
+pub(crate) fn set_pointer_position(
+    rt: &Runtime,
+    window: WindowId,
+    position: Option<kivact_types::Point>,
+) {
     let position = position.map(|point| Point::new(point.x, point.y));
     let state = ViewState::of(rt);
-    match state.mouse.get() {
-        PointerObservation::Plain(_) => state.mouse.set(PointerObservation::Plain(position)),
+    match state.mouse(window) {
+        PointerObservation::Plain(_) => {
+            state.set_mouse(window, PointerObservation::Plain(position))
+        }
         PointerObservation::Reactive(source) => rt.enter(|| source.set(position)),
     }
 }

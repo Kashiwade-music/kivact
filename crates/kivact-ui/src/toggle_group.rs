@@ -21,13 +21,9 @@ pub struct ToggleGroup<K: ItemKey> {
     selection: Selection<K>,
     orientation: Value<Orientation>,
     size: Value<ControlSize>,
-    // xtask-allow(state-fields): Independent presentation or construction input, not interaction state.
     spacing: Option<Value<f64>>,
-    // xtask-allow(state-fields): Independent presentation or construction input, not interaction state.
     icon_only: Value<bool>,
-    // xtask-allow(state-fields): Independent presentation or construction input, not interaction state.
     on_edit: Option<Callback<EditPhase>>,
-    // xtask-allow(state-fields): Independent presentation or construction input, not interaction state.
     item: Option<ToggleItemSlot<K>>,
     variants: Variants,
 }
@@ -93,7 +89,7 @@ impl<K: ItemKey> ToggleGroup<K> {
         self
     }
     /// Add a theme presentation variant shared by the group and its items.
-    pub fn variant(self, variant: impl Variant) -> Self {
+    pub fn variant(mut self, variant: impl Variant) -> Self {
         self.variants.add(variant);
         self
     }

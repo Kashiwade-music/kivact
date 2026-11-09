@@ -100,7 +100,9 @@ pub struct PopupState {
 #[derive(Clone, Copy)]
 pub struct PopupApi {
     disclosure: DisclosureApi,
+    // xtask-allow(state-fields): independent fact - the observation of the attached content part, absent until it attaches
     content_state: kivact_core::state::Signal<Option<Value<PopupState>>>,
+    // xtask-allow(state-fields): independent fact - the observation of the attached trigger part, absent until it attaches
     trigger_state: kivact_core::state::Signal<Option<Value<PopupState>>>,
     /// The reference the trigger part binds.
     own_anchor: NodeRef,
@@ -468,7 +470,9 @@ impl PopupApi {
                     // binding. Its surface is still mounted during this same handler
                     // chain, so the reason's focus policy still applies.
                     self.finish_close(match reason {
-                        DismissReason::Escape => PopupCloseReason::Escape,
+                        DismissReason::Escape | DismissReason::WindowClose => {
+                            PopupCloseReason::Escape
+                        }
                         DismissReason::OutsidePress => PopupCloseReason::OutsidePress,
                         DismissReason::Accessibility => PopupCloseReason::Accessibility,
                         DismissReason::Timeout => PopupCloseReason::Programmatic,

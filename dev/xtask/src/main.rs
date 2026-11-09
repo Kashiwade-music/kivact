@@ -21,6 +21,7 @@ mod canonical_path;
 mod check_cli;
 mod check_policy;
 mod check_source;
+mod devtools_codegen;
 mod effect_writes;
 mod impl_model;
 mod kit_literal_color;
@@ -42,6 +43,9 @@ fn main() -> ExitCode {
         .nth(2)
         .expect("dev/xtask is two levels below the repository root");
     let arguments = std::env::args().skip(1).collect::<Vec<_>>();
+    if arguments.first().map(String::as_str) == Some("devtools-codegen") {
+        return devtools_codegen::run(root, &arguments[1..]);
+    }
     if arguments
         .iter()
         .any(|argument| matches!(argument.as_str(), "--help" | "-h"))

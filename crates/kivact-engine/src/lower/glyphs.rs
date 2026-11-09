@@ -22,14 +22,16 @@ use kivact_types::render::{GlyphStroke, Paint, RenderCmd as D};
 use kivact_types::{ComputedTextStyle, LineJoin, PaintOrder, Rect, Stroke, TextMetrics, TextRun};
 use kivact_types::{Point, Rgba, TextShadow};
 
-// xtask-allow(state-fields): Glyph and decoration overrides are independent optional drawing parameters.
 /// How a shaped text is colored as it is drawn.
 #[derive(Default)]
 pub(crate) struct Colors {
+    // xtask-allow(state-fields): drawing options - The paint of every glyph run (`None`: the shaped run's own color)
     /// The paint of every glyph run (`None`: the shaped run's own color).
     pub(crate) glyphs: Option<Paint>,
+    // xtask-allow(state-fields): drawing options - Every decoration line's color (plain text's `currentColor`)
     /// Every decoration line's color (plain text's `currentColor`).
     pub(crate) decorations: Option<Rgba>,
+    // xtask-allow(state-fields): drawing options - The outline of the glyphs (CSS `-webkit-text-stroke`), when there is one
     /// The outline of the glyphs (CSS `-webkit-text-stroke`), when there is one.
     pub(crate) outline: Option<GlyphStroke>,
     /// Whether the fill or the outline of the glyphs is painted first.

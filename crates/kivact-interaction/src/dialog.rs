@@ -57,13 +57,14 @@ pub enum DialogMode {
     Popover,
 }
 
-// xtask-allow(state-fields): Independent dismissal options, not lifecycle state.
 /// Which requests close a [`DialogApi`]. Assistive technology's DismissOn always
 /// does.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct DismissOn {
+    // xtask-allow(state-fields): builder option - An unhandled Escape closes it
     /// An unhandled Escape closes it.
     pub escape: bool,
+    // xtask-allow(state-fields): builder option - A pointer press outside it (and outside its anchor) closes it
     /// A pointer press outside it (and outside its anchor) closes it.
     pub outside: bool,
 }
@@ -82,7 +83,6 @@ impl Default for DismissOn {
 #[derive(Clone, Copy, Default)]
 struct DialogOptions {
     dismiss: Option<DismissOn>,
-    return_focus: Option<Value<NodeRef>>,
 }
 
 #[derive(Clone, Copy)]
@@ -219,10 +219,7 @@ impl DialogApi {
     /// programmatic focus restoration. Outside presses retain outside focus.
     /// Setup only; the supplied value is read by the opening's focus owner.
     pub fn return_focus(self, target: impl kivact_core::state::IntoValue<NodeRef>) -> Self {
-        let target = target.into_value();
-        self.popup.return_focus_target(target);
-        self.settings
-            .update(|settings| settings.return_focus = Some(target));
+        self.popup.return_focus_target(target.into_value());
         self
     }
 
@@ -288,7 +285,7 @@ impl DialogApi {
     #[track_caller]
     pub fn content(self) -> Part<PopupState> {
         let allowed = move |reason: DismissReason| match reason {
-            DismissReason::Escape => self.rules().escape,
+            DismissReason::Escape | DismissReason::WindowClose => self.rules().escape,
             DismissReason::OutsidePress => {
                 // An outside press keeps the pressed destination, accepted or
                 // not: for the rest of this opening a popover returns the

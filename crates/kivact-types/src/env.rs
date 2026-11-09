@@ -166,6 +166,10 @@ pub struct Capabilities {
     /// renderer draws them is reported as it changes); else on the CPU
     /// only.
     pub gpu: bool,
+    /// More windows than the first can be opened.
+    pub multi_window: bool,
+    /// The platform honours `WindowPlacement` other than `Auto` (false on Wayland).
+    pub window_placement: bool,
 }
 
 /// An actual application lifecycle transition or platform memory warning.

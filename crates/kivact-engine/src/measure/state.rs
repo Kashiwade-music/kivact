@@ -10,7 +10,6 @@ use kivact_types::{ComputedTextStyle, Size};
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
-// xtask-allow(state-fields): Slot-indexed natural size, extents and inherited text are independent rebuildable caches (S-9).
 #[derive(Clone, Debug, Default)]
 pub(crate) struct MeasureColumns {
     pub(crate) natural: Vec<Cell<Option<Size>>>,
@@ -44,7 +43,6 @@ impl MeasureColumns {
         self.computed_text[slot].get_mut().take();
     }
 }
-// xtask-allow(state-fields): Single-line and width-keyed wrapped metrics are independent measurement caches (S-9).
 #[derive(Clone, Debug)]
 pub(crate) struct TextExtents {
     pub(crate) style: kivact_types::ComputedTextStyle,

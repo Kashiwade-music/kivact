@@ -183,11 +183,8 @@ struct Parts<K: 'static> {
     items: Value<Vec<PickerItem<K>>>,
     columns: Rc<Vec<Column<K>>>,
     placeholder: Value<String>,
-    // xtask-allow(state-fields): Optional immutable application callback.
     pick: Option<Callback<K>>,
-    // xtask-allow(state-fields): Optional immutable application callback.
     preview: Option<Callback<Option<K>>>,
-    // xtask-allow(state-fields): Optional immutable application callback.
     cancel: Option<Callback<()>>,
 }
 
@@ -509,11 +506,8 @@ enum PickerPhase<K> {
 /// What the picker reports to the application, once per opening.
 struct Outcomes<K: kivact::state::PropValue> {
     phase: Var<PickerPhase<K>>,
-    // xtask-allow(state-fields): Optional immutable application callback.
     pick: Option<Callback<K>>,
-    // xtask-allow(state-fields): Optional immutable application callback.
     preview: Option<Callback<Option<K>>>,
-    // xtask-allow(state-fields): Optional immutable application callback.
     cancel: Option<Callback<()>>,
 }
 

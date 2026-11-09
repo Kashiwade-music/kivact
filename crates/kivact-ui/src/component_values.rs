@@ -3,28 +3,38 @@ use crate::values::ControlSize;
 use kivact_core::view::ReadingDirection;
 use kivact_interaction::Tone;
 
-// xtask-allow(state-fields): Read-only recipe projection of tone, disclosure binding and independent dismiss-control availability.
 /// Alert meaning and disclosure state supplied to recipes.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct AlertState {
     pub tone: Tone,
+    // xtask-allow(state-fields): passive record - expanded
     pub expanded: Option<bool>,
+    // xtask-allow(state-fields): passive record - dismissible
     pub dismissible: bool,
+    // xtask-allow(state-fields): passive record - has icon
     pub has_icon: bool,
+    // xtask-allow(state-fields): passive record - has actions
     pub has_actions: bool,
+    // xtask-allow(state-fields): passive record - has description
     pub has_description: bool,
+    // xtask-allow(state-fields): passive record - has content
     pub has_content: bool,
 }
 
-// xtask-allow(state-fields): Read-only recipe projection of the caller binding and actual interaction configuration.
 /// Card semantics supplied to recipes.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct CardState {
+    // xtask-allow(state-fields): passive record - input
     pub input: Option<kivact_core::custom::PartState>,
+    // xtask-allow(state-fields): passive record - selected
     pub selected: Option<bool>,
+    // xtask-allow(state-fields): passive record - disabled
     pub disabled: bool,
+    // xtask-allow(state-fields): passive record - interactive
     pub interactive: bool,
+    // xtask-allow(state-fields): passive record - has media
     pub has_media: bool,
+    // xtask-allow(state-fields): passive record - has footer
     pub has_footer: bool,
 }
 
@@ -34,28 +44,35 @@ pub struct EmptyStateState {
     pub heading_level: u8,
 }
 
-// xtask-allow(state-fields): Read-only recipe projection of actual input and independent validation, focus-within and construction-slot facts; no mutable lifecycle authority.
 /// Input group size and reading direction passed to its recipes.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct InputGroupState {
     pub input: kivact_core::custom::PartState,
+    // xtask-allow(state-fields): passive record - focused
     pub focused: bool,
+    // xtask-allow(state-fields): passive record - invalid
     pub invalid: bool,
+    // xtask-allow(state-fields): passive record - has start
     pub has_start: bool,
+    // xtask-allow(state-fields): passive record - has end
     pub has_end: bool,
+    // xtask-allow(state-fields): passive record - has block start
     pub has_block_start: bool,
+    // xtask-allow(state-fields): passive record - has block end
     pub has_block_end: bool,
     pub size: ControlSize,
     pub direction: ReadingDirection,
 }
-// xtask-allow(state-fields): Read-only projection of member position and NodeRef focus-within, never independent behavior state.
 /// A member's position, inherited size, and actual focus-within observation.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct InputGroupMemberState {
     pub kind: InputGroupMemberKind,
     pub group: InputGroupState,
+    // xtask-allow(state-fields): passive record - first
     pub first: bool,
+    // xtask-allow(state-fields): passive record - last
     pub last: bool,
+    // xtask-allow(state-fields): passive record - focused
     pub focused: bool,
 }
 /// Semantic heading level passed to its recipe.

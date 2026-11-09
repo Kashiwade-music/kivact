@@ -15,7 +15,6 @@ use kivact_core::state::{Value, memo};
 use kivact_core::view::{IntoView, Role, View, node_ref, show_some};
 use kivact_core::view::{Node, NodeBuilder, node, text};
 
-// xtask-allow(state-fields): Optional label hints and validation inputs configure a field; caller-owned values determine validity.
 /// A control with its visible label, hint and error, created by [`field`].
 ///
 /// The root is a column of the label, the control, the hint and the error
@@ -102,7 +101,7 @@ impl<C> Field<C> {
     /// the component is mounted, and a value never changes afterwards. A
     /// look that changes while the component lives is a state the recipe
     /// reads, or a reactive `.style(..)` of the caller's.
-    pub fn variant(self, v: impl Variant) -> Self {
+    pub fn variant(mut self, v: impl Variant) -> Self {
         self.variants.add(v);
         self
     }

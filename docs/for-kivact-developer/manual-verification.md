@@ -45,3 +45,15 @@ Windows と、利用可能な Linux Wayland／X11 の各環境を区別して記
 | Linux の reduced motion：GNOME と KDE | 各デスクトップの「アニメーションを減らす」設定を切り替え、Effects の boot sequence と parallax HUD の動きを見る。 | 設定が reduced motion として反映され、装飾の動きは止まる。essential と指定した動きは続く。設定を読めない環境では既定の動きのまま、理由を「未確認」として記録する。 | [Linux の設定](../../crates/arvane-native/src/port/linux_settings.rs) |
 | X11 の refresh rate：Linux X11 の 60 Hz と 120 Hz 以上の display | Effects の scanline 背景（`FrameRate::Display`）の frame 間隔を見る。display を別の refresh rate へ移す。 | `FrameRate::Display` は表示の refresh rate に合い、`FrameRate::Hz` の指定は指定した値に近い。移動後も追従する。 | [X11 window](../../crates/arvane-native/src/port/x11/window.rs) |
 | drawable の GPU export：Windows の D3D12・Vulkan、Linux の Vulkan | Effects の 3D 設定パネル（drawable）を `Viewport::drawable` で export し、外部 renderer の共有 texture に表示したまま、回転、resize、pool の交換、owner の破棄を行う。 | export の画像は drawable の表示と一致する。consumer が import の fence を signal するまで slot を書き換えず、close 後は producer が終了を観測する。対応しない import は理由を返す。 | [drawable の share](../../crates/kivact-core/src/view/drawable_share.rs)、[drawable の mount](../../crates/kivact-core/src/view/drawable/mount.rs) |
+
+## 複数 window と DevTools
+
+native でしか確かめられない項目です。自動 E2E では確認できません。
+
+| 環境 | 確かめること |
+|---|---|
+| Windows | `Tool` の window が親の上に残り taskbar に出ない。`Modal` は親が無効になり、閉じると戻る。`CenterOnParent`・`NextToParent` の位置。window ごとの focus と Tab 順。2 つ目の window の IME。title bar の閉じるが `on_dismiss` に届く。`platform::focus_window()` が window を前面に出す（出せないときは task bar の点滅） |
+| X11 | `Utility`・`Dialog` の window type |
+| Wayland | 位置が `Auto` に落ちる。`focus_window()` は何も起きないが error にならない |
+| DevTools | 実際の native の App で F12・Ctrl+Shift+I・Ctrl+Shift+C が DevTools アプリを起動する／すでに開いていれば前面に出る。Ctrl+Shift+C は押した window で pick を始める。pick と重ね表示が内容の上に描かれる。DevTools アプリの「Open source」が editor を開く（Windows の `code.cmd` を含む） |
+| embed（DAW など） | host の中でも F12・Ctrl+Shift+I・Ctrl+Shift+C が DevTools に届く。`inject_input` は `-32015` で断られる |

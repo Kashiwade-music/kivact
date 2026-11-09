@@ -52,7 +52,7 @@ impl<C> ButtonGroup<C> {
         self
     }
     /// Add a theme presentation variant.
-    pub fn variant(self, variant: impl Variant) -> Self {
+    pub fn variant(mut self, variant: impl Variant) -> Self {
         self.variants.add(variant);
         self
     }
@@ -116,7 +116,6 @@ impl<C: IntoChildren> IntoView for ButtonGroup<C> {
 /// or [`button_group_text`].
 pub struct ButtonGroupCell {
     root: Node,
-    // xtask-allow(state-fields): Independent presentation or construction input, not interaction state.
     separator: bool,
 }
 impl NodeBuilder for ButtonGroupCell {
@@ -177,7 +176,6 @@ pub fn button_group_text(label: impl IntoText) -> ButtonGroupCell {
 /// Ordinary buttons can also be supplied directly to [`button_group`].
 pub struct ButtonGroupMember {
     button: crate::Button,
-    // xtask-allow(state-fields): Independent presentation or construction input, not interaction state.
     solid: Value<bool>,
     // xtask-allow(state-fields): Independent presentation or construction input, not interaction state.
     keep_size: bool,

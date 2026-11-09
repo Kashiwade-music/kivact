@@ -13,7 +13,7 @@ mod window;
 
 #[cfg(feature = "mirror")]
 pub use arvane_native::mirror::MirrorStats;
-pub use backend::{GpuMode, MirrorMode, Probe, VirtualBackend, VirtualOptions};
+pub use backend::{GpuMode, MirrorMode, Probe, VirtualBackend, VirtualOptions, WindowProbe};
 #[cfg(feature = "mirror")]
 pub use mirror::mirror_stats;
-pub use script::Script;
+pub use script::{Script, WindowScript};

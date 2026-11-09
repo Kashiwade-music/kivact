@@ -18,7 +18,7 @@ pub fn kbd(keys: impl IntoText) -> Kbd {
     }
 }
 impl Kbd {
-    pub fn variant(self, variant: impl Variant) -> Self {
+    pub fn variant(mut self, variant: impl Variant) -> Self {
         self.variants.add(variant);
         self
     }
@@ -66,7 +66,7 @@ impl KbdCombo {
         self.modifiers = modifiers.into_value();
         self
     }
-    pub fn variant(self, variant: impl Variant) -> Self {
+    pub fn variant(mut self, variant: impl Variant) -> Self {
         self.variants.add(variant);
         self
     }

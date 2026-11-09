@@ -1,4 +1,4 @@
-//! Role: Main-thread event loop and lifetime-bound CPU surface.
+//! Role: Main-thread event loop and window life cycle.
 //!
 //! The window outlives its surface; every callback runs on the creator thread.
 //! The CPU surface (softbuffer) is created by the first CPU presentation, so
@@ -23,7 +23,7 @@
 //!   of 20 logical px each, Shift turning a vertical notch sideways; a
 //!   "page" setting (more than 100 lines) scrolls the window's height.
 //!   Pixel deltas pass as they are, in logical px.
-//! - The environment ([`WinitWindow::environment`]): a theme change, a
+//! - The environment ([`crate::port::winit::window::WinitWindow::environment`]): a theme change, a
 //!   move to a monitor of another identity (`Moved` or a scale change; the
 //!   refresh period is read again first), a reduced motion, mouse settings
 //!   or locale change (`WM_SETTINGCHANGE`) and a locale changed while the
@@ -46,467 +46,47 @@
 //! - winit 0.30 reports no safe area on any platform (it stays zero), nor
 //!   the area a software keyboard covers.
 
-use crate::a11y::native::NativeAccessibility;
-use crate::native_input::state::NativeInput;
-use crate::port::winit::key_code::{map_key, physical_code};
+use crate::port::winit::open::create_window;
+use crate::port::winit::shell_loop::NativeLoop;
+use crate::port::winit::window::Surface;
+use crate::port::winit::window_events;
+use crate::port::winit::windows::{NativeWindow, WindowTable};
 use crate::present::CpuSurface;
-use crate::services::Services;
-use arvane_shell::ShellImeText;
-use arvane_shell::pipeline::{DropSession, ImePort, RawDrop, RawIme};
-use arvane_shell::{Backend, ShellEvent, ShellHandler, ShellWindow};
-use arvane_shell::{ShellControl, ShellError, ShellOptions, ShellWaker};
-use kivact_types::{
-    Cursor as ShellCursor, Modifiers as ShellModifiers, MouseButton as ShellButton,
+use arvane_shell::pipeline::RawDrop;
+use arvane_shell::{
+    Backend, EventTarget, InjectedInput, ShellControl, ShellError, ShellEvent, ShellHandler,
+    ShellWaker, ShellWindow, WindowInput,
 };
-use kivact_types::{PlatformRequest, PlatformResult};
-use kivact_types::{Point, PointerPhase, Rect, Size};
-use std::num::{NonZeroU32, NonZeroU64};
-use std::rc::Rc;
+use kivact_types::{RequestId, WindowId, WindowRequest};
+use std::collections::VecDeque;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU8, Ordering};
 use std::time::{Duration, Instant};
 use winit::application::ApplicationHandler;
-use winit::dpi::{LogicalSize, PhysicalPosition, PhysicalSize};
-use winit::event::{ElementState, Ime, MouseScrollDelta, StartCause, WindowEvent};
+use winit::event::{StartCause, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop};
-use winit::window::{CursorIcon, Window, WindowId};
+use winit::window::WindowId as WinitWindowId;
 
-/// The softbuffer surface of a winit window.
-type WinitSurface = softbuffer::Surface<Arc<Window>, Arc<Window>>;
-
-/// The window's presentation surface as the platform gives it.
-enum Surface {
-    /// The platform destroyed it with a suspension (Android); `last` is its generation.
-    Destroyed { last: NonZeroU64 },
-    /// The platform surface of `generation` (the first is 1) and the CPU surface on it.
-    Live {
-        generation: NonZeroU64,
-        cpu: CpuSurface<Arc<Window>, Arc<Window>>,
-    },
-}
-
-// xtask-allow(state-fields): Native resources and monitor cache; optional Windows subclass and last observed monitor are independent platform facts.
-/// Native window and CPU surface; deliberately !Send and !Sync through Rc.
-pub struct WinitWindow {
-    /// The window's subclass (Windows), held for its drop, which removes
-    /// it before the window goes (fields drop in order).
-    #[cfg(windows)]
-    subclass: Option<crate::native_input::Subclass>,
-    /// What the subclass and the runner share.
-    input: Rc<NativeInput>,
-    /// The CPU surface inside is created by the first CPU presentation (`present_with`).
-    surface: Surface,
-    /// `Arc`: a GPU surface keeps the window it presents to alive on any
-    /// thread (`gpu_target`); `affinity` keeps this
-    /// handle on the UI thread.
-    pub(crate) window: Arc<Window>,
-    started: Instant,
-    // Rc enforces affinity even if an upstream platform makes its surface Send.
-    affinity: Rc<()>,
-    accessibility: NativeAccessibility,
-    services: Services,
-    /// The monitor the window was last seen on.
-    monitor: Option<winit::monitor::MonitorHandle>,
-    /// The refresh period of that monitor (`frame_period_ns`).
-    frame_period_ns: u64,
-}
-impl ShellWindow for WinitWindow {
-    fn perform(&mut self, request: PlatformRequest) -> PlatformResult {
-        match request {
-            PlatformRequest::SaveState { .. } => return PlatformResult::Done,
-            PlatformRequest::CopyText(text) => self
-                .services
-                .copy_text(&text)
-                .map(|()| PlatformResult::Done),
-            PlatformRequest::ReadText => self.services.read_text().map(PlatformResult::Text),
-            PlatformRequest::PickFile(request) => {
-                Services::pick_file(&self.window, &request).map(PlatformResult::Path)
-            }
-            PlatformRequest::PickFiles(request) => {
-                Services::pick_files(&self.window, &request).map(PlatformResult::Paths)
-            }
-            PlatformRequest::SaveFile(request) => {
-                Services::save_file(&self.window, &request).map(PlatformResult::Path)
-            }
-            PlatformRequest::PickFolder(request) => {
-                Services::pick_folder(&self.window, &request).map(PlatformResult::Path)
-            }
-            PlatformRequest::OpenPath(path) => {
-                crate::open::open_path(&path).map(|()| PlatformResult::Done)
-            }
-            PlatformRequest::RevealPath(path) => {
-                crate::open::reveal_path(&path).map(|()| PlatformResult::Done)
-            }
-            PlatformRequest::RequestWindowSize(size) => {
-                let _ = self
-                    .window
-                    .request_inner_size(winit::dpi::LogicalSize::new(size.width, size.height));
-                Ok(PlatformResult::Done)
-            }
-            PlatformRequest::Fullscreen(fullscreen) => {
-                self.window.set_fullscreen(
-                    fullscreen.then_some(winit::window::Fullscreen::Borderless(None)),
-                );
-                Ok(PlatformResult::Done)
-            }
-        }
-        .unwrap_or_else(|error| match error {
-            ShellError::Unsupported(_) => PlatformResult::Unsupported,
-            ShellError::Failed(failure) => PlatformResult::Failed(failure),
-        })
-    }
-    fn cpu_format(&self) -> arvane_shell::CpuFormat {
-        arvane_shell::CpuFormat::Xrgb8888
-    }
-
-    fn keeps_frames(&self) -> bool {
-        false
-    }
-    fn keep_frame(&mut self, _: kivact_types::render::CpuFrame) {
-        unreachable!("invariant: native windows do not keep frames")
-    }
-
-    fn wait_until(&mut self, done: &mut dyn FnMut() -> bool, limit: Duration) -> bool {
-        crate::wait::until(done, limit)
-    }
-
-    /// Drop the CPU presentation surface after a presentation failure; the
-    /// next CPU presentation creates a new one.
-    fn recover_surface(&mut self) -> Result<(), ShellError> {
-        self.release_cpu_surface();
-        Ok(())
-    }
-    /// Whether the window shows a frame its CPU presentation surface
-    /// presented (it presented a CPU frame since nothing else presented to
-    /// it).
-    fn shows_cpu_frame(&self) -> bool {
-        matches!(&self.surface, Surface::Live { cpu, .. } if cpu.shows_frame())
-    }
-    /// Release the CPU presentation surface (and its pixel buffer) of a
-    /// window something else (a GPU surface) presents to now.
-    fn release_cpu_surface(&mut self) {
-        if let Surface::Live { cpu, .. } = &mut self.surface {
-            cpu.release();
-        }
-    }
-    /// The window as a GPU surface's target. winit hands window handles
-    /// out only on the thread running the window's event loop: make the
-    /// surface here.
-    fn with_gpu_target(
-        &self,
-        make: Box<dyn FnOnce(arvane_shell::GpuTarget) + Send>,
-    ) -> Result<(), ShellError> {
-        make(self.window.clone());
-        Ok(())
-    }
-    /// Validate a complete accessibility tree and replace the window's
-    /// accepted one with it: assistive technology is handed every node. A
-    /// rejected tree keeps the accepted one.
-    fn replace_accessibility(
-        &mut self,
-        tree: &kivact_types::render::SemanticsTree,
-    ) -> Result<(), arvane_shell::AccessibilityError> {
-        self.accessibility.replace(tree)
-    }
-
-    /// Validate and apply the accessibility nodes that may have changed:
-    /// assistive technology is handed only those that did (nothing when
-    /// none did). Without an accepted tree, or with a new root, `update`
-    /// must hold the complete tree. A rejected update keeps the accepted
-    /// tree.
-    fn update_accessibility(
-        &mut self,
-        update: &kivact_types::render::SemanticsUpdate,
-    ) -> Result<(), arvane_shell::AccessibilityError> {
-        self.accessibility.update(update)
-    }
-
-    /// Whether assistive technology reads the window's accessibility tree:
-    /// it asked for it (the shell then wakes the application) and has not
-    /// let go of it (AT-SPI deactivates when the screen reader stops).
-    /// Otherwise nothing reads the tree, so the application need not build
-    /// it; the next activation wakes it to hand over the whole tree.
-    /// Current logical content size.
-    fn size(&self) -> Size {
-        let s = self
-            .window
-            .inner_size()
-            .to_logical::<f64>(self.window.scale_factor());
-        Size {
-            width: s.width,
-            height: s.height,
-        }
-    }
-    /// Current physical content size.
-    fn physical_size(&self) -> (u32, u32) {
-        let s = self.window.inner_size();
-        (s.width, s.height)
-    }
-    /// Physical pixels per logical pixel.
-    fn scale(&self) -> f64 {
-        self.window.scale_factor()
-    }
-    /// Monotonic clock from loop creation.
-    fn now_ns(&self) -> u64 {
-        self.started.elapsed().as_nanos().min(u64::MAX as u128) as u64
-    }
-    /// What this backend can do on this platform through winit 0.30 (the
-    /// facade fills in the GPU): touch arrives as touch except on macOS
-    /// (a trackpad is not a touch screen); pens are told from touch on
-    /// Windows only (the window subclass; elsewhere winit reports them as
-    /// touch); the software keyboard and memory warnings exist on Android
-    /// and iOS; winit reports no safe area anywhere; the IME's
-    /// reconversion is answered on Windows (the subclass); AccessKit
-    /// reaches assistive technology on desktops.
-    fn capabilities(&self) -> kivact_types::Capabilities {
-        let mobile = cfg!(any(target_os = "android", target_os = "ios"));
-        kivact_types::Capabilities {
-            state_restoration: false,
-            clipboard_text: true,
-            file_dialogs: true,
-            open_path: cfg!(any(
-                windows,
-                all(
-                    unix,
-                    not(any(
-                        target_os = "macos",
-                        target_os = "ios",
-                        target_os = "android"
-                    ))
-                )
-            )),
-            reveal_path: cfg!(any(
-                windows,
-                all(
-                    unix,
-                    not(any(
-                        target_os = "macos",
-                        target_os = "ios",
-                        target_os = "android"
-                    ))
-                )
-            )),
-            fullscreen: true,
-            min_size: true,
-            command_key: if cfg!(target_os = "macos") {
-                kivact_types::CommandKey::Command
-            } else {
-                kivact_types::CommandKey::Ctrl
-            },
-            context_menu_on: if cfg!(target_os = "macos") {
-                kivact_types::ContextMenuTrigger::Press
-            } else {
-                kivact_types::ContextMenuTrigger::Release
-            },
-            touch: !cfg!(target_os = "macos"),
-            pen: self.subclassed(),
-            soft_keyboard: SOFT_KEYBOARD,
-            safe_area: false,
-            memory_warnings: mobile,
-            ime_reconversion: self.subclassed(),
-            native_accessibility: !mobile,
-            gpu: false,
-        }
-    }
-    /// The generation of the window's presentation surface: the count of
-    /// surfaces the platform gave the window (the first is 1), or `None`
-    /// while it has none ([`ShellEvent::SurfaceDestroyed`] until
-    /// [`ShellEvent::SurfaceCreated`]). Desktops keep the first.
-    fn surface_generation(&self) -> Option<u64> {
-        match self.surface {
-            Surface::Live { generation, .. } => Some(generation.get()),
-            Surface::Destroyed { .. } => None,
-        }
-    }
-    /// Schedule OS-driven redraw.
-    fn request_redraw(&self) {
-        self.window.request_redraw();
-    }
-    /// Change the title.
-    fn set_title(&self, title: &str) {
-        self.window.set_title(title);
-    }
-    /// Change minimum logical content size.
-    fn set_min_size(&self, size: Option<Size>) {
-        self.window
-            .set_min_inner_size(size.map(|s| LogicalSize::new(s.width, s.height)));
-    }
-    /// Whether the system asks to reduce motion (Windows: animation effects
-    /// are off). A change arrives as [`ShellEvent::EnvironmentChanged`].
-    fn reduced_motion(&self) -> bool {
-        self.input.reduced_motion.get()
-    }
-    /// The window's environment now: scale, refresh period, reduce-motion
-    /// and theme preferences, safe area (zero: no desktop covers a window's
-    /// content with system UI; winit 0.30 reports none elsewhere either),
-    /// mouse settings and the system's locale. A change arrives as
-    /// [`ShellEvent::EnvironmentChanged`] (the scale's as
-    /// [`ShellEvent::Resized`]).
-    fn environment(&self) -> kivact_types::Environment {
-        let (double_click_ns, double_click_distance) = self.double_click();
-        let mouse = self.input.mouse.get();
-        kivact_types::Environment {
-            scale_factor: self.scale(),
-            frame_period_ns: self.frame_period_ns,
-            reduced_motion: self.reduced_motion(),
-            theme_hint: if self.window.theme() == Some(winit::window::Theme::Dark) {
-                kivact_types::ThemeHint::Dark
-            } else {
-                kivact_types::ThemeHint::Light
-            },
-            safe_area: kivact_types::Insets::default(),
-            pointer: kivact_types::PointerSettings {
-                double_click_ns,
-                double_click_distance,
-                wheel_lines: mouse.wheel_lines,
-                wheel_chars: mouse.wheel_chars,
-                ..mouse
-            },
-            window_size: self.size(),
-            fullscreen: self.fullscreen(),
-            locale: self.input.locale.borrow().clone(),
-            ..Default::default()
-        }
-    }
-
-    /// Current fullscreen state.
-    fn fullscreen(&self) -> bool {
-        self.window.fullscreen().is_some()
-    }
-    /// Show `cursor` while the pointer is over the window's content.
-    fn set_cursor(&self, cursor: ShellCursor) {
-        self.window.set_cursor_visible(cursor != ShellCursor::None);
-        self.window.set_cursor(match cursor {
-            ShellCursor::Auto | ShellCursor::Default => CursorIcon::Default,
-            ShellCursor::Text => CursorIcon::Text,
-            ShellCursor::Pointer => CursorIcon::Pointer,
-            ShellCursor::ColResize => CursorIcon::ColResize,
-            ShellCursor::RowResize => CursorIcon::RowResize,
-            ShellCursor::EwResize => CursorIcon::EwResize,
-            ShellCursor::NsResize => CursorIcon::NsResize,
-            ShellCursor::Grab => CursorIcon::Grab,
-            ShellCursor::Grabbing => CursorIcon::Grabbing,
-            ShellCursor::Crosshair => CursorIcon::Crosshair,
-            ShellCursor::Move => CursorIcon::Move,
-            ShellCursor::NotAllowed => CursorIcon::NotAllowed,
-            ShellCursor::None => CursorIcon::Default,
-        });
-    }
-    /// Enable IME when an editable control owns focus.
-    fn set_ime_purpose(&self, purpose: kivact_types::InputPurpose) {
-        self.window
-            .set_ime_purpose(if purpose == kivact_types::InputPurpose::Password {
-                winit::window::ImePurpose::Password
-            } else {
-                winit::window::ImePurpose::Normal
-            });
-    }
-    fn set_ime_allowed(&self, allowed: bool) {
-        self.input
-            .ime
-            .borrow_mut()
-            .set_allowed(&mut ImeWindow(self), allowed);
-    }
-    /// Show or hide the software keyboard. winit 0.30 shows it with the IME
-    /// on Android and iOS (`set_ime_allowed`); desktops have none, so the
-    /// request does nothing there.
-    fn set_soft_keyboard(&self, shown: bool) {
-        if SOFT_KEYBOARD {
-            // Through the IME cache: the same native switch backs both.
-            self.set_ime_allowed(shown);
-        }
-    }
-    /// Position the native IME candidate UI at a logical caret rectangle.
-    fn set_ime_cursor_area(&self, area: Rect) {
-        // Native pixels keep a scale change visible to the shared output cache.
-        let scale = self.window.scale_factor();
-        let area = Rect {
-            x: area.x * scale,
-            y: area.y * scale,
-            width: area.width * scale,
-            height: area.height * scale,
-        };
-        self.input
-            .ime
-            .borrow_mut()
-            .set_cursor_area(&mut ImeWindow(self), area);
-    }
-    /// What the focused text input shows the IME (`None`: no text input
-    /// has focus), answering the platform IME's queries about it
-    /// (reconversion, the text around the composition, character
-    /// positions; Windows).
-    fn set_ime_text(&self, text: Option<ShellImeText>) {
-        self.input
-            .ime
-            .borrow_mut()
-            .set_text(&mut ImeWindow(self), text);
-    }
-    /// The refresh period (ns) of the display the window is on: its
-    /// monitor's reported rate, a whole-hertz report read as the common
-    /// rate it was rounded down from (Windows reports a 60 Hz mode as
-    /// 59 Hz). An unknown or implausible report keeps the last period
-    /// ([`kivact_types::defaults::FRAME_PERIOD_NS`] before any). A move to another
-    /// monitor is announced as [`ShellEvent::EnvironmentChanged`].
-    fn frame_period_ns(&self) -> u64 {
-        self.frame_period_ns
-    }
-
-    /// Offer the current CPU buffer once and commit only on callback success.
-    /// The caller retains its rendering error; backend failures stay separate.
-    /// Missing surfaces and zero-sized frames do not invoke the callback.
-    fn present_with(
-        &mut self,
-        width: u32,
-        height: u32,
-        damage: Option<&[kivact_types::render::PixelRect]>,
-        draw: &mut dyn FnMut(&mut [u32], arvane_shell::BufferAge) -> bool,
-    ) -> Result<bool, ShellError> {
-        let _ = &self.affinity;
-        let (Some(w), Some(h)) = (NonZeroU32::new(width), NonZeroU32::new(height)) else {
-            return Ok(false);
-        };
-        let physical = self.physical_size();
-        let Surface::Live { cpu, .. } = &mut self.surface else {
-            return Ok(false);
-        };
-        if (width, height) != physical {
-            return Err(ShellError::new("frame size differs from window surface"));
-        }
-        cpu.present(w, h, || cpu_surface(&self.window), damage, draw)
-    }
-}
-/// A physical client position in logical pixels.
-fn logical((x, y): (f64, f64), scale: f64) -> Point {
-    Point {
-        x: (x / scale),
-        y: (y / scale),
-    }
-}
-
-fn cpu_surface(window: &Arc<Window>) -> Result<WinitSurface, ShellError> {
-    crate::present::surface(window)
-}
 /// Whether the platform destroys a window's surface when it suspends the
 /// application (Android), so the window has none until it resumes.
 const SUSPENSION_DESTROYS_SURFACES: bool = cfg!(target_os = "android");
-/// Whether the platform has a software keyboard winit can show.
-pub(crate) const SOFT_KEYBOARD: bool = cfg!(any(target_os = "android", target_os = "ios"));
+
 /// Create the native window backend.
-pub fn backend(options: ShellOptions) -> Result<Box<dyn Backend>, ShellError> {
-    NativeBackend::new(options).map(|value| Box::new(value) as Box<dyn Backend>)
+pub fn backend(main: WindowRequest) -> Result<Box<dyn Backend>, ShellError> {
+    NativeBackend::new(main).map(|value| Box::new(value) as Box<dyn Backend>)
 }
 /// Main-thread window loop. Construct and run on the application's main thread.
 struct NativeBackend {
     event_loop: EventLoop<()>,
-    options: ShellOptions,
+    main: WindowRequest,
 }
 impl NativeBackend {
     /// Create the native event loop, rejecting invalid geometry and OS failures.
-    fn new(options: ShellOptions) -> Result<Self, ShellError> {
-        if !options.width.is_finite()
-            || !options.height.is_finite()
-            || options.width <= 0.0
-            || options.height <= 0.0
+    fn new(main: WindowRequest) -> Result<Self, ShellError> {
+        if !main.size.width.is_finite()
+            || !main.size.height.is_finite()
+            || main.size.width <= 0.0
+            || main.size.height <= 0.0
         {
             return Err(ShellError::new(
                 "initial window size must be positive and finite",
@@ -515,110 +95,101 @@ impl NativeBackend {
         let event_loop = EventLoop::with_user_event()
             .build()
             .map_err(|e| ShellError::new(e.to_string()))?;
-        Ok(Self {
-            event_loop,
-            options,
-        })
+        Ok(Self { event_loop, main })
     }
 }
-/// Where the runner is in the window's life.
-enum Run {
-    /// `resumed` has not created the window yet.
+/// Where the runner is in the loop's life; the window table lives in the
+/// phases that own windows.
+enum LoopPhase {
+    /// `resumed` has not created the main window yet.
     Starting,
-    /// The handler receives the window's events.
-    Running(WinitWindow),
-    /// The handler asked to exit (`failure` None) or failed: it gets no more events; `close`
-    /// follows the loop.
+    /// The handler receives the windows' events.
+    Running(WindowTable),
+    /// The handler asked to exit (`failure` None) or failed: it gets no more
+    /// events; `close` follows the loop.
     Stopped {
-        window: WinitWindow,
+        table: WindowTable,
         failure: Option<ShellError>,
     },
-    /// The window could not be created: no handler started.
+    /// The main window could not be created: no handler started.
     Unopened(ShellError),
-}
-impl Run {
-    fn live(&mut self) -> Option<&mut WinitWindow> {
-        match self {
-            Self::Running(window) => Some(window),
-            Self::Starting | Self::Stopped { .. } | Self::Unopened(_) => None,
-        }
-    }
-    fn live_ref(&self) -> Option<&WinitWindow> {
-        match self {
-            Self::Running(window) => Some(window),
-            Self::Starting | Self::Stopped { .. } | Self::Unopened(_) => None,
-        }
-    }
 }
 struct Runner<'a> {
     handler: &'a mut dyn ShellHandler,
-    options: ShellOptions,
-    run: Run,
+    main: WindowRequest,
+    phase: LoopPhase,
     started: Instant,
     waker: ShellWaker,
+    // xtask-allow(state-fields): mailbox - coalesced wake reasons the loop drains
     /// Wake reasons accumulated until the event loop receives the notification.
     wake_reasons: Arc<AtomicU8>,
-    /// The mouse's logical position and held buttons, which winit's button
-    /// and leave messages do not carry.
-    mouse: arvane_shell::Mouse,
-    /// Shift is held (a vertical wheel then scrolls horizontally).
-    modifiers: arvane_shell::ModifierState,
-    dnd: DropSession,
-    /// Counts the presses of the pointer events delivered.
-    clicks: arvane_shell::ClickCounter,
-    /// The touch and pen contacts in progress.
-    contacts: arvane_shell::Contacts,
-    /// The window's keys and what each held key means for its next press.
-    keys: arvane_shell::pipeline::KeyPipeline,
 }
 impl Runner<'_> {
     /// Stop delivering events: the loop ends after this callback and `close` follows it.
     fn stop(&mut self, failure: Option<ShellError>) {
-        self.run = match std::mem::replace(&mut self.run, Run::Starting) {
-            Run::Running(window) => Run::Stopped { window, failure },
+        self.phase = match std::mem::replace(&mut self.phase, LoopPhase::Starting) {
+            LoopPhase::Running(table) => LoopPhase::Stopped { table, failure },
             other => other,
         };
     }
-    /// Deliver the files dropped in this batch of winit events, after every `DroppedFile` of it.
-    fn deliver_drop(&mut self, el: &ActiveEventLoop) {
-        // Runs before every wait: query the system pointer (an X11 connection)
-        // only when a drop is pending.
-        if !matches!(self.dnd, DropSession::Dropped { .. }) {
-            return;
-        }
-        if let Some(position) = self.file_position() {
-            let _ = self.dnd.input(RawDrop::Move(position));
-        }
-        if let Some(event) = self.dnd.take_dropped() {
-            self.input(el, event);
+
+    /// The open windows, ascending by id.
+    fn ids(&self) -> Vec<WindowId> {
+        match &self.phase {
+            LoopPhase::Running(table) => table.ids(),
+            _ => Vec::new(),
         }
     }
-    /// Where a file drag is now: the operating system's answer, else the last pointer position;
-    /// `None` when neither is known (never a placeholder).
-    fn file_position(&self) -> Option<kivact_types::Point> {
-        self.run
-            .live_ref()
-            .and_then(|w| crate::native_input::file_position(&w.window))
-            .or_else(|| self.mouse.window_position())
-    }
-    /// Deliver a window's input event, its presses counted.
-    fn input(&mut self, el: &ActiveEventLoop, mut event: ShellEvent) {
-        if let ShellEvent::Pointer(sample) = &mut event {
-            sample.modifiers = self.modifiers.current();
+
+    /// Run `f` on an open window.
+    fn with_window<R>(
+        &mut self,
+        id: WindowId,
+        f: impl FnOnce(&mut NativeWindow) -> R,
+    ) -> Option<R> {
+        match &mut self.phase {
+            LoopPhase::Running(table) => table.get_mut(id).map(f),
+            _ => None,
         }
-        if let Some(window) = self.run.live_ref() {
-            self.clicks
-                .count(&mut event, || window.now_ns(), || window.double_click());
-        }
-        self.callback(el, Some(event));
     }
-    fn callback(&mut self, el: &ActiveEventLoop, event: Option<ShellEvent>) {
-        let Run::Running(window) = &mut self.run else {
-            return;
-        };
-        let result = match event {
-            Some(event) => self.handler.event(event, window),
-            None => self.handler.start(window, self.waker.clone()),
+
+    /// Whether the window is still open.
+    fn has_window(&self, id: WindowId) -> bool {
+        match &self.phase {
+            LoopPhase::Running(table) => table.get(id).is_some(),
+            _ => false,
+        }
+    }
+
+    /// Deliver one callback to the handler; `None` is its `start`. An event for
+    /// a window that an earlier callback closed is dropped: no event follows
+    /// `close_window`.
+    fn dispatch(&mut self, el: &ActiveEventLoop, target: EventTarget, event: Option<ShellEvent>) {
+        let result = {
+            let LoopPhase::Running(table) = &mut self.phase else {
+                return;
+            };
+            if let EventTarget::Window(id) = target
+                && table.get(id).is_none()
+            {
+                return;
+            }
+            let mut lp = NativeLoop {
+                el,
+                table,
+                started: self.started,
+                waker: &self.waker,
+            };
+            let result = match event {
+                Some(event) => self.handler.event(target, event, &mut lp),
+                None => self.handler.start(&mut lp, self.waker.clone()),
+            };
+            for id in lp.table.take_pending_show() {
+                if let Some(native) = lp.table.get(id) {
+                    native.window.window.set_visible(true);
+                }
+            }
+            result
         };
         match result {
             Ok(ShellControl::Exit) => {
@@ -643,402 +214,283 @@ impl Runner<'_> {
             }
         }
     }
+
+    /// Deliver one callback and then the input queued during it.
+    fn callback(&mut self, el: &ActiveEventLoop, target: EventTarget, event: Option<ShellEvent>) {
+        self.dispatch(el, target, event);
+        self.drain_injected(el);
+    }
+
+    /// Deliver injected input queued during the callback that just returned.
+    /// It goes through the window's `WindowInput` like platform input and is
+    /// followed by `ShellEvent::Injected` once all of it was delivered.
+    fn drain_injected(&mut self, el: &ActiveEventLoop) {
+        loop {
+            let Some((id, inputs, request)) = self.next_injected() else {
+                return;
+            };
+            let mut closed = false;
+            for input in inputs {
+                let Some(events) = self.injected_events(id, input) else {
+                    closed = true;
+                    break;
+                };
+                for event in events {
+                    self.dispatch(el, EventTarget::Window(id), Some(event));
+                }
+                if !self.has_window(id) {
+                    closed = true;
+                    break;
+                }
+            }
+            if closed || !self.has_window(id) {
+                continue;
+            }
+            self.dispatch(
+                el,
+                EventTarget::Window(id),
+                Some(ShellEvent::Injected { request }),
+            );
+        }
+    }
+
+    /// The first injected batch of the lowest open window id.
+    fn next_injected(&mut self) -> Option<(WindowId, Vec<InjectedInput>, RequestId)> {
+        match &mut self.phase {
+            LoopPhase::Running(table) => table.next_injected(),
+            _ => None,
+        }
+    }
+
+    /// The events one injected input makes, or `None` when its window closed.
+    fn injected_events(&mut self, id: WindowId, input: InjectedInput) -> Option<Vec<ShellEvent>> {
+        let LoopPhase::Running(table) = &mut self.phase else {
+            return None;
+        };
+        let native = table.get_mut(id)?;
+        let now = native.window.now_ns();
+        let double_click = native.window.double_click();
+        let events = match input {
+            InjectedInput::Accessibility { node, request } => native
+                .window
+                .accessibility
+                .request_action(node, request)
+                .into_iter()
+                .collect(),
+            input => {
+                let mut ime = native.window.input.ime.borrow_mut();
+                native.input.normalize(input, now, double_click, &mut ime)
+            }
+        };
+        Some(events)
+    }
 }
 impl ApplicationHandler<()> for Runner<'_> {
     fn resumed(&mut self, el: &ActiveEventLoop) {
-        if let Some(window) = self.run.live() {
-            // A platform that destroyed the surface with the suspension
-            // gives the window a new one now.
-            if let Surface::Destroyed { last } = window.surface {
-                window.surface = Surface::Live {
-                    generation: last.saturating_add(1),
-                    cpu: CpuSurface::Released,
-                };
-                self.callback(el, Some(ShellEvent::SurfaceCreated));
-            }
-            self.callback(el, Some(ShellEvent::Resumed));
-            return;
-        }
-        if !matches!(self.run, Run::Starting) {
-            // A stopped runner resumes nothing.
-            return;
-        }
-        let result = (|| {
-            let logical = (self.options.width, self.options.height);
-            let mut attributes = Window::default_attributes()
-                .with_visible(false)
-                .with_title(&self.options.title)
-                .with_inner_size(LogicalSize::new(self.options.width, self.options.height));
-            let placement = crate::display::initial_window_position(el, logical);
-            if let Some((position, _)) = &placement {
-                attributes = attributes.with_position(*position);
-            }
-            let window = Arc::new(
-                el.create_window(attributes)
-                    .map_err(|e| ShellError::new(e.to_string()))?,
-            );
-            if let Some((_, placement)) = &placement {
-                crate::display::center_window(placement, &window, logical);
-            }
-            let accessibility = NativeAccessibility::new(el, &window, self.waker.clone());
-            let input = Rc::new(NativeInput::new(
-                kivact_types::Environment {
-                    scale_factor: window.scale_factor(),
-                    reduced_motion: crate::native_input::reduced_motion(),
-                    pointer: crate::native_input::pointer_settings(window.scale_factor()),
-                    locale: crate::native_input::locale::system_locale(),
-                    ..Default::default()
-                },
-                #[cfg(windows)]
-                Some(self.waker.clone()),
-            ));
-            let monitor = window.current_monitor();
-            let mut window = WinitWindow {
-                #[cfg(windows)]
-                subclass: crate::native_input::Subclass::install(&window, &input),
-                input,
-                surface: Surface::Live {
-                    generation: NonZeroU64::MIN,
-                    cpu: CpuSurface::Released,
-                },
-                window,
-                started: self.started,
-                affinity: Rc::new(()),
-                accessibility,
-                services: Services::default(),
-                monitor,
-                frame_period_ns: kivact_types::defaults::FRAME_PERIOD_NS,
-            };
-            window.read_frame_period();
-            Ok::<_, ShellError>(window)
-        })();
-        match result {
-            Ok(window) => {
-                self.run = Run::Running(window);
-                self.callback(el, None);
-                if let Some(window) = self.run.live_ref() {
-                    window.window.set_visible(true);
+        match &self.phase {
+            LoopPhase::Running(_) => {
+                for id in self.ids() {
+                    let created = self
+                        .with_window(id, |native| {
+                            if let Surface::Destroyed { last } = &native.window.surface {
+                                native.window.surface = Surface::Live {
+                                    generation: last.saturating_add(1),
+                                    cpu: CpuSurface::Released,
+                                };
+                                true
+                            } else {
+                                false
+                            }
+                        })
+                        .unwrap_or(false);
+                    if created {
+                        self.callback(
+                            el,
+                            EventTarget::Window(id),
+                            Some(ShellEvent::SurfaceCreated),
+                        );
+                    }
                 }
+                self.callback(el, EventTarget::Loop, Some(ShellEvent::Resumed));
             }
-            Err(e) => {
-                self.run = Run::Unopened(e);
-                el.exit();
-            }
+            LoopPhase::Starting => self.start_loop(el),
+            LoopPhase::Stopped { .. } | LoopPhase::Unopened(_) => {}
         }
     }
+
     fn suspended(&mut self, el: &ActiveEventLoop) {
-        self.callback(el, Some(ShellEvent::Suspended));
+        self.callback(el, EventTarget::Loop, Some(ShellEvent::Suspended));
         // Android destroys the native window's surface with the suspension
         // (winit asks applications to drop theirs); iOS keeps it.
-        if SUSPENSION_DESTROYS_SURFACES
-            && let Some(window) = self.run.live()
-            && let Surface::Live { generation, .. } = window.surface
-        {
-            // The CPU surface drops with the variant.
-            window.surface = Surface::Destroyed { last: generation };
-            self.callback(el, Some(ShellEvent::SurfaceDestroyed));
+        if SUSPENSION_DESTROYS_SURFACES {
+            for id in self.ids() {
+                let destroyed = self
+                    .with_window(id, |native| {
+                        if let Surface::Live { generation, .. } = &native.window.surface {
+                            native.window.surface = Surface::Destroyed { last: *generation };
+                            true
+                        } else {
+                            false
+                        }
+                    })
+                    .unwrap_or(false);
+                if destroyed {
+                    self.callback(
+                        el,
+                        EventTarget::Window(id),
+                        Some(ShellEvent::SurfaceDestroyed),
+                    );
+                }
+            }
         }
     }
+
     fn memory_warning(&mut self, el: &ActiveEventLoop) {
-        self.callback(el, Some(ShellEvent::MemoryWarning));
+        self.callback(el, EventTarget::Loop, Some(ShellEvent::MemoryWarning));
     }
+
     fn user_event(&mut self, el: &ActiveEventLoop, _: ()) {
         let reasons = crate::wake::decode(self.wake_reasons.swap(0, Ordering::AcqRel));
         if reasons.is_empty() {
             return;
         }
-        if let Some(position) = self
-            .run
-            .live_ref()
-            .and_then(|w| w.input.file_pointer.take())
-        {
-            for event in self.dnd.input(RawDrop::Move(position)) {
-                self.input(el, event);
+        // A file drag delivers its held position and, after every dropped
+        // file, the drop itself.
+        for id in self.ids() {
+            let events = self
+                .with_window(id, |native| {
+                    let Some(position) = native.window.input.file_pointer.take() else {
+                        return Vec::new();
+                    };
+                    let now = native.window.now_ns();
+                    let double_click = native.window.double_click();
+                    native
+                        .input
+                        .dnd_mut()
+                        .input(RawDrop::Move(position))
+                        .into_iter()
+                        .map(|event| native.input.platform(event, now, double_click))
+                        .collect()
+                })
+                .unwrap_or_default();
+            for event in events {
+                self.callback(el, EventTarget::Window(id), Some(event));
             }
         }
-        // A wake for the environment (the Linux settings portal) carries the new preference
-        // into the window before the change is announced.
-        if reasons.contains(arvane_shell::WakeReasons::ENVIRONMENT)
-            && let Some(window) = self.run.live_ref()
-        {
-            window
-                .input
-                .reduced_motion
-                .set(crate::native_input::reduced_motion());
+        // A wake for the environment (the Linux settings portal) carries the new
+        // preference into every window before the change is announced.
+        for id in self.ids() {
+            let events = self
+                .with_window(id, |native| {
+                    if reasons.contains(arvane_shell::WakeReasons::ENVIRONMENT) {
+                        native
+                            .window
+                            .input
+                            .reduced_motion
+                            .set(crate::native_input::reduced_motion());
+                    }
+                    let changed = native.window.input.env_changed.take().is_some();
+                    if changed || reasons.contains(arvane_shell::WakeReasons::ENVIRONMENT) {
+                        vec![ShellEvent::EnvironmentChanged]
+                    } else {
+                        Vec::new()
+                    }
+                })
+                .unwrap_or_default();
+            for event in events {
+                self.callback(el, EventTarget::Window(id), Some(event));
+            }
         }
-        let changed = self
-            .run
-            .live_ref()
-            .is_some_and(|window| window.input.env_changed.take().is_some());
-        // A wake for the environment (the Linux settings portal) announces the change too.
-        if changed || reasons.contains(arvane_shell::WakeReasons::ENVIRONMENT) {
-            self.callback(el, Some(ShellEvent::EnvironmentChanged));
+        for id in self.ids() {
+            let actions = self
+                .with_window(id, |native| native.window.accessibility.drain_actions())
+                .unwrap_or_default();
+            for action in actions {
+                self.callback(el, EventTarget::Window(id), Some(action));
+            }
         }
-        let actions = self
-            .run
-            .live()
-            .map(|window| window.accessibility.drain_actions())
-            .unwrap_or_default();
-        for action in actions {
-            self.callback(el, Some(action));
-        }
-        self.callback(el, Some(ShellEvent::Wake(reasons)));
+        self.callback(el, EventTarget::Loop, Some(ShellEvent::Wake(reasons)));
     }
+
     fn about_to_wait(&mut self, el: &ActiveEventLoop) {
-        self.deliver_drop(el);
+        for id in self.ids() {
+            let events = self
+                .with_window(id, window_events::deliver_drop)
+                .unwrap_or_default();
+            for event in events {
+                self.callback(el, EventTarget::Window(id), Some(event));
+            }
+        }
     }
+
     fn new_events(&mut self, el: &ActiveEventLoop, cause: StartCause) {
         if matches!(cause, StartCause::ResumeTimeReached { .. }) {
             self.callback(
                 el,
+                EventTarget::Loop,
                 Some(ShellEvent::Wake(arvane_shell::WakeReasons::CLIENT)),
             );
         }
     }
-    fn window_event(&mut self, el: &ActiveEventLoop, id: WindowId, event: WindowEvent) {
-        let Some(window) = self.run.live() else {
-            return;
-        };
-        if window.window.id() != id {
-            return;
-        }
-        window.accessibility.process_event(&window.window, &event);
-        let scale = window.window.scale_factor();
-        // The IME's character positions follow a scale change at once, even
-        // when the text it answers from stays the same.
-        window.input.scale.set(scale);
-        let (mouse, height) = (window.input.mouse.get(), window.size().height);
-        let before = preceding_event(window, &event, &mut self.mouse, scale);
-        // Contacts begin, move and end several at a time: a Down of a
-        // contact whose end was lost cancels it first, and losing the focus
-        // (and the pointer capture) cancels every contact and, when a mouse
-        // button is held, the mouse's gesture.
-        let contacts = match &event {
-            WindowEvent::Touch(touch) => {
-                let notes = window.input.contacts.borrow();
-                self.contacts
-                    .deliver(super::contacts::map(*touch, scale, &notes))
-            }
-            WindowEvent::Focused(false) => {
-                self.keys.focus_lost();
-                let mut events = self.contacts.cancel();
-                if let Some(cancel) = self.mouse.cancel() {
-                    events.push(ShellEvent::Pointer(cancel));
-                }
-                events
-            }
-            _ => Vec::new(),
-        };
-        if let Some(before) = before {
-            self.input(el, before);
-        }
-        for contact in contacts {
-            self.input(el, contact);
-        }
-        let mapped = self.map_window_event(el, event, scale, mouse, height);
-        if let Some(event) = mapped {
-            self.input(el, event);
-        }
-    }
-}
-impl Runner<'_> {
-    /// Translate a winit event after preceding native observations.
-    fn map_window_event(
-        &mut self,
-        el: &ActiveEventLoop,
-        event: WindowEvent,
-        scale: f64,
-        mouse: kivact_types::PointerSettings,
-        height: f64,
-    ) -> Option<ShellEvent> {
-        match event {
-            WindowEvent::RedrawRequested => Some(ShellEvent::Redraw),
-            WindowEvent::CloseRequested => Some(ShellEvent::CloseRequested),
-            WindowEvent::Resized(_) | WindowEvent::ScaleFactorChanged { .. } => {
-                Some(ShellEvent::Resized)
-            }
-            WindowEvent::Focused(focus) => Some(ShellEvent::Focused(focus)),
-            WindowEvent::CursorMoved { position, .. } => {
-                let at = logical((position.x, position.y), scale);
-                if matches!(self.dnd, DropSession::Hovering { .. }) {
-                    self.dnd.input(RawDrop::Move(at)).into_iter().next()
-                } else {
-                    self.mouse
-                        .event(PointerPhase::Move, Some(at))
-                        .map(ShellEvent::Pointer)
-                }
-            }
 
-            // The mouse keeps its position and buttons: a button held keeps
-            // its capture and is released outside.
-            WindowEvent::CursorLeft { .. } => self
-                .mouse
-                .event(PointerPhase::Leave, None)
-                .map(ShellEvent::Pointer),
-            WindowEvent::MouseInput { state, button, .. } => match button {
-                winit::event::MouseButton::Left => Some(ShellButton::Primary),
-                winit::event::MouseButton::Right => Some(ShellButton::Secondary),
-                winit::event::MouseButton::Middle => Some(ShellButton::Middle),
-                winit::event::MouseButton::Back => Some(ShellButton::Back),
-                winit::event::MouseButton::Forward => Some(ShellButton::Forward),
-                _ => None,
-            }
-            .and_then(|button| {
-                self.mouse
-                    .button(button, state == ElementState::Pressed, None)
-                    .map(ShellEvent::Pointer)
-            }),
-            WindowEvent::MouseWheel { delta, .. } => {
-                let (x, y) = match delta {
-                    MouseScrollDelta::LineDelta(x, y) => crate::port::winit::wheel::lines(
-                        f64::from(x),
-                        f64::from(y),
-                        self.modifiers.current().shift,
-                        height,
-                        mouse.wheel_lines,
-                        mouse.wheel_chars,
-                    ),
-                    MouseScrollDelta::PixelDelta(p) => ((-p.x / scale), (-p.y / scale)),
-                };
-                self.mouse.position().map(|position| {
-                    ShellEvent::Wheel(kivact_types::WheelInput {
-                        delta: kivact_types::Point { x, y },
-                        position,
-                        modifiers: self.modifiers.current(),
-                    })
-                })
-            }
-            WindowEvent::ModifiersChanged(m) => {
-                let m = m.state();
-                self.modifiers.update(ShellModifiers {
-                    shift: m.shift_key(),
-                    ctrl: m.control_key(),
-                    alt: m.alt_key(),
-                    meta: m.super_key(),
-                })
-            }
-            WindowEvent::KeyboardInput { event, .. } => self.map_keyboard(event),
-            WindowEvent::ThemeChanged(_) => Some(ShellEvent::EnvironmentChanged),
-            event => self.map_platform_event(el, event),
-        }
-    }
-}
-
-impl Runner<'_> {
-    /// Translate a physical and logical keyboard sample together.
-    fn map_keyboard(&mut self, event: winit::event::KeyEvent) -> Option<ShellEvent> {
-        Some(self.keys.key(
-            arvane_shell::pipeline::RawKey {
-                key: arvane_shell::pipeline::PlatformKey::Code {
-                    key: map_key(&event.logical_key),
-                    code: physical_code(event.physical_key),
-                },
-                pressed: event.state == ElementState::Pressed,
-                repeat: Some(event.repeat),
-                text: event.text.map(|s| s.to_string()),
-            },
-            self.modifiers.current(),
-            self.mouse.window_position(),
-        ))
-    }
-
-    /// Translate file-drop and IME protocol events.
-    fn map_platform_event(
-        &mut self,
-        el: &ActiveEventLoop,
-        event: WindowEvent,
-    ) -> Option<ShellEvent> {
-        match event {
-            WindowEvent::HoveredFile(path) => {
-                if matches!(self.dnd, DropSession::Dropped { .. }) {
-                    self.deliver_drop(el);
-                }
-                let (mut files, last) = match &self.dnd {
-                    DropSession::Hovering { files, at } => (files.clone(), *at),
-                    _ => (Vec::new(), None),
-                };
-                if !files.contains(&path) {
-                    files.push(path);
-                }
-                if let Some(window) = self.run.live_ref() {
-                    crate::native_input::track_files(&window.window, true);
-                }
-                let at = self.file_position().or(last);
-                self.dnd
-                    .input(RawDrop::Hover { files, at })
-                    .into_iter()
-                    .next()
-            }
-            WindowEvent::HoveredFileCancelled => {
-                if let Some(window) = self.run.live_ref() {
-                    crate::native_input::track_files(&window.window, false);
-                }
-                if let Some(position) = self.file_position() {
-                    let _ = self.dnd.input(RawDrop::Move(position));
-                }
-                self.dnd.input(RawDrop::Leave).into_iter().next()
-            }
-            WindowEvent::DroppedFile(path) => {
-                if let Some(window) = self.run.live_ref() {
-                    crate::native_input::track_files(&window.window, false);
-                }
-                let (mut files, at) = match &self.dnd {
-                    DropSession::Dropped { files, at } => (files.clone(), *at),
-                    DropSession::Hovering { at, .. } => (Vec::new(), *at),
-                    DropSession::Idle => (Vec::new(), None),
-                };
-                files.push(path);
-                let _ = self.dnd.input(RawDrop::Hover { files, at });
-                let _ = self.dnd.input(RawDrop::Drop);
-                None
-            }
-            WindowEvent::Ime(ime) => {
-                let raw = match ime {
-                    Ime::Preedit(text, caret) => Some(RawIme::Preedit { text, caret }),
-                    Ime::Commit(text) => Some(RawIme::Commit(text)),
-                    Ime::Disabled => Some(RawIme::End),
-                    Ime::Enabled => None,
-                };
-                raw.and_then(|raw| {
-                    self.run.live_ref().and_then(|window| {
-                        window.input.ime.borrow_mut().input(raw).into_iter().next()
-                    })
-                })
-            }
+    fn window_event(&mut self, el: &ActiveEventLoop, id: WinitWindowId, event: WindowEvent) {
+        let Some(window) = (match &self.phase {
+            LoopPhase::Running(table) => table.by_winit(id),
             _ => None,
+        }) else {
+            return;
+        };
+        let events = self
+            .with_window(window, |native| window_events::window_events(native, event))
+            .unwrap_or_default();
+        for event in events {
+            self.callback(el, EventTarget::Window(window), Some(event));
         }
+    }
+
+    fn exiting(&mut self, el: &ActiveEventLoop) {
+        let table = match &mut self.phase {
+            LoopPhase::Running(table) => table,
+            LoopPhase::Stopped { table, .. } => table,
+            LoopPhase::Starting | LoopPhase::Unopened(_) => return,
+        };
+        let mut lp = NativeLoop {
+            el,
+            table,
+            started: self.started,
+            waker: &self.waker,
+        };
+        self.handler.close(&mut lp);
     }
 }
-
-impl WinitWindow {
-    /// Whether the Windows subclass is installed: it answers the IME's reconversion and tells pens
-    /// from touch.
-    fn subclassed(&self) -> bool {
-        #[cfg(windows)]
-        {
-            self.subclass.is_some()
-        }
-        #[cfg(not(windows))]
-        {
-            false
-        }
-    }
-    /// How close in time (ns) and space (logical pixels per axis) a second
-    /// press of a button counts as a double click: the system's setting
-    /// (Windows' defaults elsewhere: 500 ms, 4 pixels), read at each press.
-    fn double_click(&self) -> (u64, (f64, f64)) {
-        let mouse = crate::native_input::pointer_settings(self.scale());
-        (
-            mouse.double_click_ns,
-            (mouse.double_click_distance.0, mouse.double_click_distance.1),
-        )
-    }
-    /// Read the display's refresh period again (created, or moved to
-    /// another monitor).
-    fn read_frame_period(&mut self) {
-        let rate = crate::display::refresh_rate_millihertz(self.window.current_monitor());
-        if let Some(millihertz) = rate {
-            self.frame_period_ns = crate::display::period_ns(millihertz);
+impl Runner<'_> {
+    /// Create the main window, start the handler and run the loop.
+    fn start_loop(&mut self, el: &ActiveEventLoop) {
+        let mut table = WindowTable::new(crate::display::placement_supported(el));
+        match create_window(el, &self.main, None, &self.waker, self.started) {
+            Ok(window) => {
+                let winit_id = window.window.id();
+                table.insert(
+                    self.main.id,
+                    winit_id,
+                    NativeWindow {
+                        window,
+                        input: WindowInput::new(),
+                        injected: VecDeque::new(),
+                        #[cfg(windows)]
+                        modal_parent: None,
+                    },
+                );
+                self.phase = LoopPhase::Running(table);
+                self.callback(el, EventTarget::Loop, None);
+                self.with_window(self.main.id, |native| {
+                    native.window.window.set_visible(true);
+                });
+            }
+            Err(error) => {
+                self.phase = LoopPhase::Unopened(error);
+                el.exit();
+            }
         }
     }
 }
@@ -1056,118 +508,26 @@ impl Backend for NativeBackend {
         });
         #[cfg(target_os = "linux")]
         let _watch = crate::port::linux_settings::watch(waker.clone());
+        let main = self.main.clone();
         let mut app = Runner {
             handler,
-            options: self.options,
-            run: Run::Starting,
+            main,
+            phase: LoopPhase::Starting,
             started: Instant::now(),
             waker,
             wake_reasons,
-            mouse: arvane_shell::Mouse::default(),
-            dnd: DropSession::Idle,
-            modifiers: arvane_shell::ModifierState::default(),
-            clicks: arvane_shell::ClickCounter::default(),
-            contacts: arvane_shell::Contacts::default(),
-            keys: arvane_shell::pipeline::KeyPipeline::default(),
         };
         let result = self.event_loop.run_app(&mut app);
-        let Runner { handler, run, .. } = app;
-        let failure = match run {
-            Run::Starting => None,
-            Run::Running(mut window) => {
-                handler.close(&mut window);
-                None
-            }
-            Run::Stopped {
-                mut window,
-                failure,
-            } => {
-                handler.close(&mut window);
+        let Runner { phase, .. } = app;
+        let failure = match phase {
+            LoopPhase::Starting | LoopPhase::Running(_) => None,
+            LoopPhase::Stopped { table, failure } => {
+                drop(table);
                 failure
             }
-            Run::Unopened(error) => Some(error),
+            LoopPhase::Unopened(error) => Some(error),
         };
         result.map_err(|e| ShellError::new(e.to_string()))?;
         failure.map_or(Ok(()), Err)
     }
-}
-
-struct ImeWindow<'a>(&'a WinitWindow);
-impl ImePort for ImeWindow<'_> {
-    fn allow(&mut self, allowed: bool) {
-        self.0.window.set_ime_allowed(allowed);
-    }
-    fn cursor_area(&mut self, area: Rect) {
-        self.0.window.set_ime_cursor_area(
-            PhysicalPosition::new(area.x, area.y),
-            PhysicalSize::new(area.width, area.height),
-        );
-    }
-    fn surrounding(&mut self, text: Option<&ShellImeText>) {
-        *self.0.input.text.borrow_mut() = text.cloned();
-    }
-}
-
-/// Deliver native observations that precede the corresponding winit event.
-fn preceding_event(
-    window: &mut WinitWindow,
-    event: &WindowEvent,
-    mouse: &mut arvane_shell::Mouse,
-    scale: f64,
-) -> Option<ShellEvent> {
-    // What the window's subclass learned that winit does not report,
-    // delivered before the event it precedes.
-    let mut before = None;
-    match event {
-        // A range the IME took for reconversion.
-        WindowEvent::Ime(_) => {
-            before = window.input.reconvert.take().map(|(start, end)| {
-                window
-                    .input
-                    .ime
-                    .borrow_mut()
-                    .input(RawIme::Reconvert {
-                        selection: (start, end),
-                    })
-                    .remove(0)
-            });
-        }
-        // winit reports buttons and wheels without a position: the
-        // message's own, when it differs from the last move (a move
-        // the platform reported late, after the button).
-        WindowEvent::MouseInput { .. } | WindowEvent::MouseWheel { .. } => {
-            let size = window.window.inner_size();
-            let inside = |(x, y): (f64, f64)| {
-                x >= 0.0 && y >= 0.0 && x < f64::from(size.width) && y < f64::from(size.height)
-            };
-            if let Some(at) = window.input.pointer.take().filter(|at| inside(*at))
-                && mouse.window_position() != Some(logical(at, scale))
-            {
-                let at = logical(at, scale);
-                before = mouse
-                    .event(PointerPhase::Move, Some(at))
-                    .map(ShellEvent::Pointer);
-            }
-        }
-        // winit tells of no change of the locale, and only Windows has a
-        // message for it (`WM_SETTINGCHANGE`): coming back to the window
-        // is when the user may have changed it elsewhere.
-        WindowEvent::Focused(true) => {
-            let locale = crate::native_input::locale::system_locale();
-            if window.input.locale.replace(locale.clone()) != locale {
-                before = Some(ShellEvent::EnvironmentChanged);
-            }
-        }
-        // Another monitor may refresh at another rate.
-        WindowEvent::Moved(_) | WindowEvent::ScaleFactorChanged { .. } => {
-            let monitor = window.window.current_monitor();
-            if monitor != window.monitor {
-                window.monitor = monitor;
-                window.read_frame_period();
-                before = Some(ShellEvent::EnvironmentChanged);
-            }
-        }
-        _ => {}
-    }
-    before
 }

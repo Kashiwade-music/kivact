@@ -329,6 +329,30 @@ Do not call `App::run` in a test binary that renders screens: all test windows
 share one event loop per process. Keep `main` out of your tests; `render` is
 the test entry point.
 
+## Test windows
+
+A window is a `Screen` of its own. `screen.window("Settings")` waits for that
+window to open (the same time limit as `find_by_*`) and returns its handle;
+`screen.windows()` returns every open window in id order. `Screen::has_window()` is now `is_mirrored()` (a public rename; the meaning, whether this window is shown in a real window, is unchanged). `RenderOptions::default().single_window()` models an environment that cannot open more windows, such as an embedded editor. Keep the handle in a `let` before you take an `Element` from it:
+
+```rust,no_run
+# use kivact::prelude::*;
+# fn demo(screen: &kivact::test::Screen) {
+let settings = screen.window("Settings");
+settings.get_by_role(Role::Button, "Apply").click();
+assert!(settings.is_open());
+
+settings.request_close();
+assert!(!settings.is_open());
+# }
+```
+
+`screen.window(..)` returns a temporary, so `let apply =
+screen.window("Settings").get_by_role(..);` does not compile (E0716); the
+handle keeps the window alive. Two open windows with the same title make
+`window` fail, like an ambiguous `get_by_*`. See
+[Open multiple windows](windows.md#test-windows).
+
 ## Time and async work
 
 Time in tests is virtual. A timer waits for `advance`, not for the clock on the

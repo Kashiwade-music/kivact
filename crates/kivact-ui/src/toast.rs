@@ -5,7 +5,6 @@ use super::values::{ButtonVariant, ToastGroupState};
 use super::variants::{Variant, Variants};
 use kivact_core::custom::part;
 use kivact_core::motion::Transition;
-use kivact_core::state::signal;
 use kivact_core::state::{IntoValue, Value};
 use kivact_core::style::use_theme;
 use kivact_core::view::NodeBuilder;
@@ -72,7 +71,7 @@ impl ToastRegion {
     /// the component is mounted, and a value never changes afterwards. A
     /// look that changes while the component lives is a state the recipe
     /// reads, or a reactive `.style(..)` of the caller's.
-    pub fn variant(self, v: impl Variant) -> Self {
+    pub fn variant(mut self, v: impl Variant) -> Self {
         self.variants.add(v);
         self
     }
@@ -217,9 +216,8 @@ fn toast(
     let (part, swipe) = match &swipe {
         ToastSwipe::Disabled => (toaster.item(id), None),
         ToastSwipe::Enabled { edge, transition } => {
-            let held = signal(false);
-            let part = toaster.item_while(id, held);
-            let swipe = Swipe::new(*edge, card_ref.rect(), held, toaster, id);
+            let swipe = Swipe::new(*edge, card_ref.rect(), toaster, id);
+            let part = toaster.item_while(id, swipe.held());
             (part, Some((swipe, transition.clone())))
         }
     };

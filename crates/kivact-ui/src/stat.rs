@@ -5,7 +5,6 @@ use kivact_core::state::{IntoText, IntoValue, Value};
 use kivact_core::view::{IntoView, Node, NodeBuilder, Role, View, node, text};
 
 use crate::component_values::{StatState, Trend};
-// xtask-allow(state-fields): Optional views and text are builder slots, not runtime phases; trend is application-owned reactive input.
 /// A statistic labelled by its visible label, created by [`stat`].
 pub struct Stat {
     root: Node,
@@ -67,7 +66,7 @@ impl Stat {
         self
     }
     /// Add an appearance read by every recipe of the statistic.
-    pub fn variant(self, value: impl Variant) -> Self {
+    pub fn variant(mut self, value: impl Variant) -> Self {
         self.variants.add(value);
         self
     }

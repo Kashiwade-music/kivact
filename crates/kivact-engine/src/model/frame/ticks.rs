@@ -1,11 +1,23 @@
 //! Role: Deliver frame ticks, smooth scrolling and environment changes.
 
-use super::state::{Clock, SmoothScroll, TickHistory};
+use super::state::{Clock, FrameRequests, SmoothScroll, TickHistory};
 use crate::contract::HostEvent;
 use crate::model::Model;
-use kivact_types::{Environment, MotionClock, NodeId, Point};
+use kivact_types::{Environment, NodeId, Point};
+
+/// The tick a `Model::tick` delivered, for the host to report.
+pub(crate) struct FrameStamp {
+    pub(crate) now_ns: u64,
+    pub(crate) estimated_present_ns: u64,
+}
 
 impl Model {
+    /// Continue the motion clock from `now_ns` at `scale` (the DevTools'
+    /// time scale).
+    pub(crate) fn set_time_scale(&mut self, now_ns: u64, scale: f64) {
+        self.frame.time_scale = self.frame.time_scale.rescaled(now_ns, scale);
+    }
+
     /// Scroll `id` from `start` to `target` over the next frames (at once
     /// with reduced motion or unless `smooth`).
     pub(crate) fn scroll_smoothly(
@@ -86,12 +98,6 @@ impl Model {
                 self.shift_state_times(since, now);
                 self.shift_size_times(since, now);
                 self.shift_layout_times(since, now);
-                self.frame.motion.offset_ns = self
-                    .frame
-                    .motion
-                    .offset_ns
-                    .saturating_add(now.saturating_sub(since));
-                self.frame.motion.resumed_ns = now;
                 self.frame.clock = Clock::Running;
             }
             (Clock::Running, false) => {
@@ -104,6 +110,7 @@ impl Model {
         self.a11y.invalidate();
         self.frame.env = env.clone();
         self.push(HostEvent::EnvChanged {
+            window: self.window,
             environment: env,
             surface_active,
         });
@@ -130,18 +137,25 @@ impl Model {
     /// display-rate loop (which asks for the next tick a period after the
     /// last one's stamp) keeps the display's rate instead of adding the
     /// shell's wake latency to every period; a later wake starts a new
-    /// schedule at `now`.
-    pub(crate) fn tick(&mut self, now: u64) {
+    /// schedule at `now`. Only the tick source's model is given the core's
+    /// requests, and only it returns the stamp the host reports.
+    pub(crate) fn tick(
+        &mut self,
+        now: u64,
+        client: Option<&mut FrameRequests>,
+    ) -> Option<FrameStamp> {
+        let now = self.frame.time_scale.motion_ns(now);
         self.frame.now = now;
-        let Some(due) = self
-            .frame_deadline()
-            .filter(|t| self.frame.surface_active() && *t <= now)
-        else {
-            return;
-        };
+        let source = client.is_some();
+        let due = self
+            .frame_deadline(client.as_deref())
+            .filter(|t| self.frame.surface_active() && *t <= now)?;
         let period = self.frame.period_ns();
         let stamp = if now - due < period / 4 { due } else { now };
         self.frame.frames.0.retain(|t| *t > now);
+        if let Some(client) = client {
+            client.0.retain(|t| *t > now);
+        }
         self.changes.restack |= self.motion.is_active();
         let sizes = self.step_sizes(stamp, self.frame.reduced_motion());
         let layout = self.step_layout_motion(stamp, self.frame.reduced_motion());
@@ -153,11 +167,10 @@ impl Model {
         self.sync();
         self.tick_scrolls(stamp, period);
         self.frame.last_frame = TickHistory::Ticked { last_ns: stamp };
-        self.push(HostEvent::FrameTick {
+        source.then_some(FrameStamp {
             now_ns: stamp,
             estimated_present_ns: stamp.saturating_add(period),
-            clock: self.motion_clock(),
-        });
+        })
     }
 
     fn tick_scrolls(&mut self, stamp: u64, period: u64) {
@@ -255,19 +268,19 @@ impl Model {
         active
     }
 
-    /// The motion clock the next frame tick carries.
-    fn motion_clock(&self) -> MotionClock {
-        self.frame.motion
-    }
-
-    /// When the next frame tick is due: the earliest request, but at most
-    /// one tick per display period. A request up to a quarter period before
-    /// the period ends is on time, so a loop at the display rate is neither
-    /// delayed by the period's rounding (a 60 Hz `FrameLoop` asks every
-    /// 16 666 666 or 16 666 667 ns) nor by a late wake of the shell; an
-    /// earlier request waits for the period's end.
-    pub(crate) fn frame_deadline(&self) -> Option<u64> {
-        let requested = self.frame.frames.0.first().copied()?;
+    /// When the next frame tick is due: the earliest request of this
+    /// window and, for the tick source, the core's, but at most one tick per
+    /// display period. A request up to a quarter period before the period
+    /// ends is on time, so a loop at the display rate is neither delayed by
+    /// the period's rounding (a 60 Hz `FrameLoop` asks every 16 666 666 or
+    /// 16 666 667 ns) nor by a late wake of the shell; an earlier request
+    /// waits for the period's end.
+    pub(crate) fn frame_deadline(&self, client: Option<&FrameRequests>) -> Option<u64> {
+        let own = self.frame.frames.0.first().copied();
+        let requested = match (own, client.and_then(|c| c.0.first().copied())) {
+            (Some(own), Some(client)) => Some(own.min(client)),
+            (own, client) => own.or(client),
+        }?;
         let TickHistory::Ticked { last_ns: last } = self.frame.last_frame else {
             return Some(requested);
         };

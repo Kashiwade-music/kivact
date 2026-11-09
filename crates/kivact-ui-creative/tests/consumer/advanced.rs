@@ -89,7 +89,7 @@ fn floating_window_drags_collapses_and_restores_opener_focus() {
             (),
             column((
                 kivact::ui::button("Another opener").variant(kivact::ui::ButtonVariant::Secondary),
-                ui::window_button("Render Settings", ui::WindowOptions::default(), |_| {
+                ui::tool_window_button("Render Settings", ui::ToolWindowOptions::default(), |_| {
                     column((
                         text("Retained settings"),
                         kivact::ui::text_input("Window text", signal(String::new()))
@@ -219,7 +219,10 @@ fn table_rows_are_one_tab_stop_and_follow_the_list_keys() {
     screen.get_by_role(Role::Button, "Before").click();
     screen.press_tab(false);
     screen.press_tab(false);
-    assert!(row("Cherry").is_focused(), "the row that took its place");
+    assert!(
+        row("Apple").is_focused(),
+        "the tab entry starts at the first row after the selected row disappears"
+    );
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 

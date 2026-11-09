@@ -93,7 +93,10 @@ impl Model {
     /// when it differs from the last one reported.
     fn report_mouse_position(&mut self, position: Option<Point>) {
         if self.pointer.position_sent.update(position).is_some() {
-            self.push(HostEvent::MousePosition(position));
+            self.push(HostEvent::MousePosition {
+                window: self.window,
+                position,
+            });
         }
     }
 
@@ -396,6 +399,7 @@ impl Model {
             if let Some(node) = previous {
                 let pos = self.pointer_local(node, point);
                 self.push(HostEvent::File(crate::contract::Routed {
+                    window: self.window,
                     target: Some(node),
                     region: None,
                     local: pos,
@@ -411,6 +415,7 @@ impl Model {
             if let Some(node) = hit {
                 let pos = self.pointer_local(node, point);
                 self.push(HostEvent::File(crate::contract::Routed {
+                    window: self.window,
                     target: Some(node),
                     region: None,
                     local: pos,
@@ -432,6 +437,7 @@ impl Model {
                 FilePhase::Over
             };
             self.push(HostEvent::File(crate::contract::Routed {
+                window: self.window,
                 target: Some(node),
                 region: None,
                 local: pos,

@@ -136,6 +136,7 @@ where
     view_fn(move |cx| {
         let frag = cx.fragment();
         let weak = cx.weak();
+        let window = cx.window;
         let parent = cx.owner;
         let state: RefCell<Rows<K, Row<K, T>>> = RefCell::new(Rows::new());
         cx.effect(EffectKind::Internal, at, move || {
@@ -168,7 +169,7 @@ where
                             ),
                         );
                     }
-                    apply_list(&rt, parent, frag, &state, keys, plans, &row, at);
+                    apply_list(&rt, parent, window, frag, &state, keys, plans, &row, at);
                 }
             }
         });
@@ -183,6 +184,7 @@ where
 fn apply_list<T: Clone + 'static, K: kivact_runtime::ItemKey>(
     rt: &Rc<Runtime>,
     parent: Owner,
+    window: kivact_types::WindowId,
     frag: NodeId,
     state: &RefCell<Rows<K, Row<K, T>>>,
     keys: Vec<K>,
@@ -217,16 +219,7 @@ fn apply_list<T: Clone + 'static, K: kivact_runtime::ItemKey>(
         }
     }
     // 3. Stable rows = LIS of old positions in new order.
-    let mut stable = vec![false; old.len()];
-    if kept_old_pos.windows(2).all(|w| w[0] < w[1]) {
-        for &o in &kept_old_pos {
-            stable[o] = true;
-        }
-    } else {
-        for i in lis(&kept_old_pos) {
-            stable[kept_old_pos[i]] = true;
-        }
-    }
+    let stable = stable_positions(&kept_old_pos, old.len());
     // 4. Build the new row list; mount new rows; attach and move right to left.
     let live = ViewState::tree(rt).contains(frag);
     let n = plans.len();
@@ -250,9 +243,10 @@ fn apply_list<T: Clone + 'static, K: kivact_runtime::ItemKey>(
                 let cx = Mcx {
                     rt,
                     owner: keyed.owner(),
+                    window,
                 };
                 let node = cx.fragment();
-                let child = mount_in(rt, keyed.owner(), || row.call((k, item)));
+                let child = mount_in(rt, keyed.owner(), window, || row.call((k, item)));
                 cx.append(node, child);
                 new_rows.push(Row { row: keyed, node });
                 fresh.push(true);
@@ -277,6 +271,22 @@ fn apply_list<T: Clone + 'static, K: kivact_runtime::ItemKey>(
     state.borrow_mut().replace(new_rows);
 }
 
+/// Which old rows stay put: the longest increasing subsequence of their old
+/// positions in the new order (every row when the order did not change).
+fn stable_positions(kept_old_pos: &[usize], old_len: usize) -> Vec<bool> {
+    let mut stable = vec![false; old_len];
+    if kept_old_pos.windows(2).all(|w| w[0] < w[1]) {
+        for &o in kept_old_pos {
+            stable[o] = true;
+        }
+    } else {
+        for i in lis(kept_old_pos) {
+            stable[kept_old_pos[i]] = true;
+        }
+    }
+    stable
+}
+
 /// Index-keyed list: `row(i, item)` for each item. Row `i` keeps its owner
 /// while the list has an item at `i`; the row's `Value<T>` follows the item
 /// at that index.
@@ -294,6 +304,7 @@ where
     view_fn(move |cx| {
         let frag = cx.fragment();
         let weak = cx.weak();
+        let window = cx.window;
         let parent = cx.owner;
         let rows: RefCell<Vec<(Branch, Signal<T>)>> = RefCell::new(Vec::new());
         cx.effect(EffectKind::Internal, at, move || {
@@ -329,7 +340,7 @@ where
                 let i = rows.borrow().len();
                 let owner = parent.child(at);
                 let sig = owner.signal(item, at);
-                let b = mount_branch(&rt, owner, frag, || {
+                let b = mount_branch(&rt, owner, window, frag, || {
                     let child = row(i, sig.into_value()).into_view();
                     view_fn(move |cx| {
                         let fragment = cx.fragment();

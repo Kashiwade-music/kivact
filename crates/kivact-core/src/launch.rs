@@ -6,5 +6,3 @@ pub use inspect::{Inspect, LaunchHandle};
 pub(crate) use runtime::run_native;
 pub use runtime::{ClientMode, Launch, TestTiming};
 pub use settings::AppOptions;
-#[cfg(test)]
-pub(crate) use settings::check_window_sizes;

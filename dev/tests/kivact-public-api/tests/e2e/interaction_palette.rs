@@ -276,3 +276,18 @@ fn enter_runs_the_active_command_and_closes() {
     );
     p.no_errors();
 }
+
+#[test]
+fn closing_resets_the_query_so_a_reopened_palette_lists_its_commands_again() {
+    let p = page();
+    p.show();
+    p.field().type_text("zz-no-match");
+    assert!(p.rendered().is_empty());
+    p.screen.press_key(Key::Escape);
+    assert!(!p.open.get_untracked());
+    p.open.set(false); // a repeated close notification only resets again
+    p.show();
+    assert_eq!(p.field().value().as_deref(), Some(""));
+    assert!(!p.rendered().is_empty());
+    p.no_errors();
+}

@@ -5,7 +5,6 @@ use kivact::state::{IntoValue, Value};
 use kivact::style::{Align, Direction, Style, Theme, pct, style};
 use kivact::ui::{Look, TableRecipes};
 
-// xtask-allow(state-fields): Independent reactive row paint inputs; dividers, hover paint and striping never own selection or interaction phase.
 /// Independent visual choices for a static table row.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct TableRowAppearance {

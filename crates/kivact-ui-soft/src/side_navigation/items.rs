@@ -407,35 +407,84 @@ struct ItemSlots {
     end: Option<View>,
     // xtask-allow(state-fields): Independent retained actions construction slot, without navigation state.
     actions: Option<View>,
-    // xtask-allow(state-fields): Independent retained children construction slot, without navigation state.
     children: Option<ViewFn>,
 }
+/// The collapse owner of an item that has a children factory and a collapse toggle.
+#[derive(Clone, Copy)]
+struct ItemExpansion {
+    /// Inverted view of the item's collapse binding.
+    open: Binding<bool>,
+    disclosure: kivact::interaction::DisclosureApi,
+}
+
+/// Whether the item has a children factory, with that branch's owners.
+#[allow(
+    clippy::large_enum_variant,
+    reason = "the branch is a Copy, private item description; boxing a variant would drop Copy and break the item API"
+)]
+#[derive(Clone, Copy)]
+enum ItemBranch {
+    /// No children factory.
+    Leaf,
+    /// A children factory exists.
+    Parent {
+        // xtask-allow(state-fields): independent fact - the collapse owner of the item, absent for ItemCollapse::AlwaysOpen
+        /// `None` for `ItemCollapse::AlwaysOpen`.
+        expansion: Option<ItemExpansion>,
+        // xtask-allow(state-fields): independent fact - the rail flyout panel, present only inside a collapsible sidebar
+        /// The rail flyout panel; present only inside a collapsible sidebar.
+        flyout: Option<crate::navigation_session::NavPanel>,
+    },
+}
+
+impl ItemBranch {
+    fn has_children(self) -> bool {
+        matches!(self, Self::Parent { .. })
+    }
+    fn disclosure(self) -> Option<kivact::interaction::DisclosureApi> {
+        match self {
+            Self::Parent {
+                expansion: Some(expansion),
+                ..
+            } => Some(expansion.disclosure),
+            Self::Parent {
+                expansion: None, ..
+            }
+            | Self::Leaf => None,
+        }
+    }
+    fn open(self) -> Option<Binding<bool>> {
+        match self {
+            Self::Parent {
+                expansion: Some(expansion),
+                ..
+            } => Some(expansion.open),
+            Self::Parent {
+                expansion: None, ..
+            }
+            | Self::Leaf => None,
+        }
+    }
+    fn flyout(self) -> Option<crate::navigation_session::NavPanel> {
+        match self {
+            Self::Parent { flyout, .. } => flyout,
+            Self::Leaf => None,
+        }
+    }
+}
+
 #[derive(Clone, Copy)]
 struct ItemContext {
     cx: SideNavCx,
     mode: ShellNavMode,
-    // xtask-allow(state-fields): Derived from the presence of the immutable children factory, not an expansion phase.
-    has_children: bool,
     mobile: crate::mobile_nav::AppShellMobile,
-    // xtask-allow(state-fields): Inverted view of the existing collapse binding; no second mutable open state is allocated.
-    open: Option<Binding<bool>>,
-    // xtask-allow(state-fields): Shared DisclosureApi owns its phase; this field retains only its handle.
-    disclosure: Option<kivact::interaction::DisclosureApi>,
-    // xtask-allow(state-fields): Derived from separate action and disclosure availability, not a gesture phase.
-    independent: bool,
+    branch: ItemBranch,
     anchor: kivact::view::NodeRef,
     popup_ref: kivact::view::NodeRef,
-    // xtask-allow(state-fields): Existing shared navigation-panel handle; its lifecycle remains in the canonical controller.
-    popup_panel: Option<crate::navigation_session::NavPanel>,
-    // xtask-allow(state-fields): The existing panel open binding, never mirrored into a second signal.
-    popup: Option<Binding<bool>>,
     label: Value<String>,
-    // xtask-allow(state-fields): Actual caller selection projection, independent of disclosure and popup phases.
     selected: Value<bool>,
-    // xtask-allow(state-fields): Actual root availability projection, never copied into mutable local state.
     disabled: Value<bool>,
     size: Value<ControlSize>,
-    // xtask-allow(state-fields): Immutable caller activation callback, independent of the navigation lifecycle.
     action: Option<Callback<()>>,
 }
 impl ItemContext {
@@ -451,46 +500,43 @@ impl ItemContext {
         let cx = nav_cx();
         let mode = shell_nav_mode();
         let mobile = use_app_shell_mobile();
-        let collapse = match collapse.get() {
-            ItemCollapse::AlwaysOpen => None,
-            ItemCollapse::Uncontrolled { default_collapsed } => {
-                Some(signal(default_collapsed).into_binding())
-            }
-            ItemCollapse::Controlled(binding) => Some(binding),
+        let branch = if has_children {
+            let collapse = match collapse.get() {
+                ItemCollapse::AlwaysOpen => None,
+                ItemCollapse::Uncontrolled { default_collapsed } => {
+                    Some(signal(default_collapsed).into_binding())
+                }
+                ItemCollapse::Controlled(binding) => Some(binding),
+            };
+            let expansion = collapse.map(|collapse: Binding<bool>| {
+                let open = binding(move || !collapse.get(), move |open| collapse.set(!open));
+                ItemExpansion {
+                    open,
+                    disclosure: use_disclosure(open).disabled(disabled),
+                }
+            });
+            let flyout = cx.collapsed.is_some().then(|| {
+                crate::navigation_session::NavPanel::new(
+                    move || cx.rail() && !disabled.get(),
+                    Delays {
+                        open: Duration::from_millis(150),
+                        close: Duration::from_millis(200),
+                    },
+                )
+            });
+            ItemBranch::Parent { expansion, flyout }
+        } else {
+            ItemBranch::Leaf
         };
-        let open = collapse.map(|collapse: Binding<bool>| {
-            binding(move || !collapse.get(), move |open| collapse.set(!open))
-        });
-        let disclosure = open
-            .filter(|_| has_children)
-            .map(|open| use_disclosure(open).disabled(disabled));
-        let independent = disclosure.is_some() && action.is_some();
         let anchor = node_ref();
         let popup_ref = node_ref();
-        let popup_panel = if has_children && cx.collapsed.is_some() {
-            Some(crate::navigation_session::NavPanel::new(
-                move || cx.rail() && !disabled.get(),
-                Delays {
-                    open: Duration::from_millis(150),
-                    close: Duration::from_millis(200),
-                },
-            ))
-        } else {
-            None
-        };
-        let popup = popup_panel.map(|panel| panel.open());
         Self {
             cx,
             mode,
-            has_children,
             mobile,
-            open,
-            disclosure,
-            independent,
+            branch,
             anchor,
             popup_ref,
-            popup_panel,
-            popup,
             label,
             selected,
             disabled,
@@ -498,9 +544,12 @@ impl ItemContext {
             action,
         }
     }
+    fn independent(self) -> bool {
+        self.branch.disclosure().is_some() && self.action.is_some()
+    }
     fn render(self, root: Node, slots: ItemSlots) -> Node {
         let cx = self.cx;
-        let independent = self.independent;
+        let independent = self.independent();
         let label = self.label;
         let selected = self.selected;
         let disabled = self.disabled;
@@ -557,8 +606,8 @@ impl ItemContext {
     }
     fn chevron(self) -> Option<View> {
         let cx = self.cx;
-        let disclosure = self.disclosure;
-        let independent = self.independent;
+        let disclosure = self.branch.disclosure();
+        let independent = self.independent();
         let label = self.label;
         disclosure.map(|disclosure| {
             let glyph = icon("chevron-down").style(move || {
@@ -602,12 +651,11 @@ impl ItemContext {
     }
     fn primary(self, content: impl IntoView) -> View {
         let cx = self.cx;
-        let has_children = self.has_children;
-        let disclosure = self.disclosure;
-        let independent = self.independent;
+        let has_children = self.branch.has_children();
+        let disclosure = self.branch.disclosure();
+        let independent = self.independent();
         let anchor = self.anchor;
-        let popup_panel = self.popup_panel;
-        let popup = self.popup;
+        let popup_panel = self.branch.flyout();
         let label = self.label;
         let selected = self.selected;
         let disabled = self.disabled;
@@ -623,7 +671,8 @@ impl ItemContext {
                 })
             })
             .focusable(move || {
-                !disabled.get() && (action.is_some() || disclosure.is_some() || popup.is_some())
+                !disabled.get()
+                    && (action.is_some() || disclosure.is_some() || popup_panel.is_some())
             })
             .disabled(disabled)
             .selected(selected)
@@ -650,7 +699,7 @@ impl ItemContext {
             })
             .child(content);
         let primary = if !independent {
-            if let Some(disclosure) = disclosure.filter(|_| popup.is_none()) {
+            if let Some(disclosure) = disclosure.filter(|_| popup_panel.is_none()) {
                 primary.with_node(move |node| node.part(disclosure.trigger()))
             } else {
                 primary
@@ -674,9 +723,8 @@ impl ItemContext {
         let cx = self.cx;
         let mode = self.mode;
         let mobile = self.mobile;
-        let open = self.open;
-        let popup_panel = self.popup_panel;
-        let popup = self.popup;
+        let open = self.branch.open();
+        let popup_panel = self.branch.flyout();
         let disabled = self.disabled;
         let action = self.action;
 
@@ -693,7 +741,7 @@ impl ItemContext {
             if mode == ShellNavMode::Drawer {
                 mobile.close();
             }
-        } else if popup.is_some()
+        } else if popup_panel.is_some()
             && let Some(open) = open
         {
             open.set(!open.get());
@@ -701,8 +749,8 @@ impl ItemContext {
     }
     fn nested(self, children: Option<ViewFn>) -> impl IntoView {
         let cx = self.cx;
-        let has_children = self.has_children;
-        let disclosure = self.disclosure;
+        let has_children = self.branch.has_children();
+        let disclosure = self.branch.disclosure();
         let child_slot = children;
         show(
             move || {
@@ -748,7 +796,7 @@ impl ItemContext {
     fn flyout(self, children: Option<ViewFn>) -> Option<impl IntoView> {
         let anchor = self.anchor;
         let popup_ref = self.popup_ref;
-        let popup_panel = self.popup_panel;
+        let popup_panel = self.branch.flyout();
         let label = self.label;
         popup_panel.zip(children).map(|(nav_panel, children)| {
             let open = nav_panel.open();

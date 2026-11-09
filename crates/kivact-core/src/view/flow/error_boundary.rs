@@ -31,7 +31,6 @@ use crate::view::flow::branch::{Branch, Build, build, mount_branch, unmount_bran
 
 type FallbackFn = crate::view::ViewFn<(UiError, Retry)>;
 
-// xtask-allow(state-fields): Fallback rendering and error notification are independently optional construction hooks.
 /// A boundary catching the errors of its child. Built by
 /// [`error_boundary`]; see the module documentation for the semantics.
 pub struct ErrorBoundary {
@@ -112,12 +111,13 @@ impl IntoView for ErrorBoundary {
         view_fn(move |cx| {
             let frag = cx.fragment();
             let rt = cx.rt.clone();
+            let window = cx.window;
             let parent = cx.owner;
             let boundary = parent.child(at);
             let (on_error, fallback) = match catch {
                 // No handler: errors go on to the parent; the child is mounted once and stays.
                 None => {
-                    mount_branch(&rt, boundary.child(at), frag, || child.call(()));
+                    mount_branch(&rt, boundary.child(at), window, frag, || child.call(()));
                     return frag;
                 }
                 Some(Catch::Observe(f)) => {
@@ -126,7 +126,7 @@ impl IntoView for ErrorBoundary {
                             parent.report(error);
                         }
                     });
-                    mount_branch(&rt, boundary.child(at), frag, || child.call(()));
+                    mount_branch(&rt, boundary.child(at), window, frag, || child.call(()));
                     return frag;
                 }
                 Some(Catch::Replace { on_error, fallback }) => (on_error, fallback),
@@ -154,6 +154,7 @@ impl IntoView for ErrorBoundary {
             let inner = Mcx {
                 rt: &rt,
                 owner: boundary,
+                window,
             };
             inner.effect(EffectKind::Internal, at, move || {
                 let now = shown.get();
@@ -162,10 +163,12 @@ impl IntoView for ErrorBoundary {
                     unmount_branch(&rt, b);
                 }
                 let b = match now {
-                    Shown::Child => mount_branch(&rt, boundary.child(at), frag, || child.call(())),
+                    Shown::Child => {
+                        mount_branch(&rt, boundary.child(at), window, frag, || child.call(()))
+                    }
                     Shown::Fallback(e) => {
                         let fallback = fallback.clone();
-                        mount_branch(&rt, boundary.child(at), frag, move || {
+                        mount_branch(&rt, boundary.child(at), window, frag, move || {
                             let reset = Retry::new(move || shown.set(Shown::Child));
                             fallback.call((e, reset))
                         })

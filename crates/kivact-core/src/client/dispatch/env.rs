@@ -1,18 +1,20 @@
 //! Role: Window and environment events: the environment, the frame clock,
 //! close, and the geometry reports (`ScrollChanged`, `LayoutChanged`).
 
-use kivact_runtime::MotionState;
-use kivact_runtime::Runtime;
-use kivact_types::{Environment, MotionClock, NodeId, Point, Rect, Size};
+use kivact_runtime::{ErrorKind, MotionState, Runtime, UiError};
+use kivact_types::{DismissReason, Environment, MotionClock, NodeId, Point, Rect, Size, WindowId};
 
 use super::common::{handler, node_owner, run_handler, stale};
+use crate::view::input::Handled;
 use crate::view::state::ViewState;
 use crate::view::tree::ScrollState;
 
-/// The host reports its environment, whole: the one signal changes, and
-/// only the readers of the fields that differ run again.
-pub(super) fn env_changed(rt: &Runtime, env: &Environment, surface_active: bool) {
-    let state = ViewState::of(rt).env();
+/// The host reports the environment of `window`, whole: the one signal
+/// changes, and only the readers of the fields that differ run again.
+pub(super) fn env_changed(rt: &Runtime, window: WindowId, env: &Environment, surface_active: bool) {
+    let Some(state) = ViewState::of(rt).env(window) else {
+        return;
+    };
     let was_reduced = state.reduced_motion();
     // Only the env signal is written here: no owner applies.
     rt.enter(|| {
@@ -31,13 +33,30 @@ pub(super) fn env_changed(rt: &Runtime, env: &Environment, surface_active: bool)
     }
 }
 
+/// The host opened `window` with this environment.
+pub(super) fn window_opened(
+    rt: &Runtime,
+    window: WindowId,
+    env: &Environment,
+    surface_active: bool,
+) {
+    let Some(state) = ViewState::of(rt).env(window) else {
+        return;
+    };
+    rt.enter(|| {
+        state.set(env.clone());
+        state.surface_active.set(surface_active);
+    });
+}
+
 pub(super) fn frame_tick(
     rt: &Runtime,
     now_ns: u64,
     estimated_present_ns: u64,
     clock: &MotionClock,
 ) {
-    rt.advance_clock(now_ns);
+    // The turn advanced the App's clock with host time; `now_ns` is the
+    // frame (motion) clock and is not applied to the App's clock again.
     MotionState::of(rt).on_frame_tick(rt, now_ns, estimated_present_ns, clock);
 }
 
@@ -106,6 +125,40 @@ pub(super) fn layout_changed(
     }
 }
 
-pub(super) fn close_requested(rt: &Runtime) {
-    rt.request_exit();
+pub(super) fn close_requested(rt: &Runtime, window: WindowId) {
+    if window == WindowId::MAIN {
+        rt.request_exit();
+        return;
+    }
+    let Some(record) = ViewState::of(rt).window_record(window) else {
+        return;
+    };
+    let close = match &record.dismiss {
+        None => true,
+        Some(handler) => {
+            run_handler(rt, Some(record.declared_in), || {
+                handler.call(DismissReason::WindowClose)
+            }) == Some(Handled::No)
+        }
+    };
+    if close {
+        record.open.set(false);
+    }
+}
+
+/// The platform refused to open `window`: report it where the window was
+/// declared and write `open` false (the window's effect then closes it).
+pub(super) fn window_failed(rt: &Runtime, window: WindowId, reason: &str) {
+    let Some(record) = ViewState::of(rt).window_record(window) else {
+        return;
+    };
+    rt.report(
+        Some(record.declared_in),
+        UiError::new(
+            ErrorKind::Platform,
+            format!("the window could not open: {reason}"),
+            None,
+        ),
+    );
+    record.open.set(false);
 }

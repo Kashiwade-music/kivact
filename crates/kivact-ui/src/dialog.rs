@@ -29,18 +29,23 @@ use kivact_core::view::{IntoView, NodeRef, OverlayAlign, Placement, View, node_r
 use kivact_core::view::{Node, NodeBuilder, column, node, row, scroll, text};
 use kivact_interaction::{DialogMode, DismissOn, PopupState};
 
-// xtask-allow(state-fields): Independent construction bindings, focus targets and content slots; modal lifecycle belongs to DialogApi.
 pub struct Dialog {
     open: Binding<bool>,
     title: Value<String>,
     title_hidden: Value<bool>,
     kind: DialogMode,
     placement: Placement,
+    // xtask-allow(state-fields): builder option - align
     align: Option<OverlayAlign>,
+    // xtask-allow(state-fields): builder option - width
     width: Option<Value<Length>>,
+    // xtask-allow(state-fields): builder option - description
     description: Option<Value<String>>,
+    // xtask-allow(state-fields): builder option - initial focus
     initial_focus: Option<NodeRef>,
+    // xtask-allow(state-fields): builder option - return focus
     return_focus: Option<Value<NodeRef>>,
+    // xtask-allow(state-fields): builder option - dismiss
     dismiss: Option<DismissOn>,
     closable: Value<bool>,
     media: Option<kivact_core::view::ViewFn>,
@@ -111,11 +116,11 @@ impl Dialog {
     /// the component is mounted, and a value never changes afterwards. A
     /// look that changes while the component lives is a state the recipe
     /// reads, or a reactive `.style(..)` of the caller's.
-    pub(crate) fn with_variants(self, variants: &Variants) -> Self {
+    pub(crate) fn with_variants(mut self, variants: &Variants) -> Self {
         self.variants.merge(variants);
         self
     }
-    pub fn variant(self, v: impl Variant) -> Self {
+    pub fn variant(mut self, v: impl Variant) -> Self {
         self.variants.add(v);
         self
     }

@@ -29,7 +29,6 @@ use kivact_types::{GridLine, GridPos};
 /// container's (`NodeStyle::grid`).
 pub(crate) type TStyle = taffy::Style<String>;
 
-// xtask-allow(state-fields): Passive converted layout properties are independent optional sizing and alignment parameters.
 /// The taffy style of one layout node (see the module docs).
 #[derive(Clone, Debug)]
 pub(crate) struct NodeStyle {
@@ -43,6 +42,7 @@ pub(crate) struct NodeStyle {
     /// the layout pass, never by the props.
     pub(crate) min_width_floor: f32,
     pub(crate) max_size: Size<LengthPercentageAuto>,
+    // xtask-allow(state-fields): passive converted props - aspect ratio
     pub(crate) aspect_ratio: Option<f32>,
     pub(crate) margin: Rect<LengthPercentageAuto>,
     pub(crate) padding: Rect<LengthPercentage>,
@@ -50,9 +50,13 @@ pub(crate) struct NodeStyle {
     pub(crate) gap: Size<LengthPercentage>,
     pub(crate) flex_direction: FlexDirection,
     pub(crate) flex_wrap: FlexWrap,
+    // xtask-allow(state-fields): passive converted props - align items
     pub(crate) align_items: Option<AlignItems>,
+    // xtask-allow(state-fields): passive converted props - align self
     pub(crate) align_self: Option<AlignSelf>,
+    // xtask-allow(state-fields): passive converted props - align content
     pub(crate) align_content: Option<AlignContent>,
+    // xtask-allow(state-fields): passive converted props - justify content
     pub(crate) justify_content: Option<JustifyContent>,
     pub(crate) flex_basis: Dimension,
     pub(crate) flex_grow: f32,
@@ -60,7 +64,9 @@ pub(crate) struct NodeStyle {
     /// Its place as a grid item.
     pub(crate) grid_column: GridLine,
     pub(crate) grid_row: GridLine,
+    // xtask-allow(state-fields): passive converted props - justify self
     pub(crate) justify_self: Option<AlignSelf>,
+    // xtask-allow(state-fields): passive converted props - A grid container's full style (`None`: not a grid container)
     /// A grid container's full style (`None`: not a grid container).
     pub(crate) grid: Option<Box<TStyle>>,
 }

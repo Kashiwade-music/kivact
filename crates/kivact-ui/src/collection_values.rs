@@ -75,17 +75,21 @@ pub struct TableTokens {
     pub font_size: Option<f64>,
 }
 
-// xtask-allow(state-fields): Read-only recipe projection of actual input, description-slot availability and activation capability; no independent runtime state.
 /// Actual item-row input and independent construction facts exposed to recipes.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct ItemRowState {
     pub input: kivact_core::custom::PartState,
+    // xtask-allow(state-fields): passive record - has description
     pub has_description: bool,
+    // xtask-allow(state-fields): passive record - actionable
     pub actionable: bool,
+    // xtask-allow(state-fields): passive record - position
     pub position: Option<ItemPosition>,
     pub marker: ItemListMarker,
     pub start: u32,
+    // xtask-allow(state-fields): passive record - title lines
     pub title_lines: Option<u32>,
+    // xtask-allow(state-fields): passive record - description lines
     pub description_lines: Option<u32>,
 }
 impl std::ops::Deref for ItemRowState {

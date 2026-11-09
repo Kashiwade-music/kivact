@@ -3,11 +3,14 @@ use kivact_engine::api::Reader;
 use kivact_types::NodeId;
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
-// xtask-allow(state-fields): Test destruction diagnostics independently track arming, counts and a reader used to verify borrow release.
 pub(super) struct Probe {
+    // xtask-allow(state-fields): test diagnostics (HOST-REWRITE module) - armed
     pub(super) armed: Cell<bool>,
+    // xtask-allow(state-fields): test diagnostics (HOST-REWRITE module) - drops
     pub(super) drops: Rc<Cell<usize>>,
+    // xtask-allow(state-fields): test diagnostics (HOST-REWRITE module) - reentered
     pub(super) reentered: Rc<Cell<usize>>,
+    // xtask-allow(state-fields): test diagnostics (HOST-REWRITE module) - reader
     pub(super) reader: Rc<RefCell<Option<(Reader, NodeId)>>>,
 }
 impl Drop for Probe {

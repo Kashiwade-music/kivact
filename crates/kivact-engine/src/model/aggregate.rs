@@ -1,32 +1,36 @@
 //! Role: The Model aggregate: every passive state group, its creation and reads.
 
 use crate::a11y::state::A11yState;
-use crate::contract::HostEvent;
-use crate::mutation::Writes;
+use crate::contract::{EngineEmulation, HostEvent};
+use crate::model::events::EngineLog;
 use crate::paint::state::PaintState;
 use crate::tree::NodeTree;
 use crate::tree::node::HostNode;
-use arvane::asset::AssetStore;
-use kivact_types::{Modifiers, NodeId, PlatformRequest, RequestId, Revision, Size};
+use kivact_types::{Modifiers, NodeId, PlatformRequest, RequestId, Size, WindowId};
+use std::cell::RefCell;
+use std::rc::Rc;
 
 /// Requests that must wait until the current client turn has finished.
 pub(crate) enum DeferredRequest {
     Platform(PlatformRequest),
     ReducedMotion(Option<bool>),
+    Inject(Vec<arvane::InjectedInput>),
+    Emulate(EngineEmulation),
+    TimeScale(f64),
 }
 
-// xtask-allow(state-fields): Editor slots and deferred window requests are independent payload collections; each lifecycle is owned by its named state group.
 /// The engine's state: the node tree and one field per state group.
 pub(crate) struct Model {
+    /// This model's window.
+    pub(crate) window: WindowId,
     pub(crate) tree: NodeTree,
     pub(crate) layout: kivact_layout::Layout,
     pub(crate) layout_motion: super::layout_motion::state::LayoutMotion,
     pub(crate) playback: super::playback::state::Playback,
     pub(crate) measure: crate::measure::state::MeasureColumns,
     pub(crate) editors: Vec<Option<Box<crate::measure::editor::EditorNode>>>,
-    pub(crate) events: super::events::EventQueue,
+    pub(crate) events: super::events::EventSink,
     pub(crate) changes: super::changes::Changes,
-    pub(crate) writes: Writes,
     pub(crate) viewport: Size,
     pub(crate) focus: super::focus::state::Focus,
     pub(crate) pointer: super::pointer::state::Pointer,
@@ -38,7 +42,9 @@ pub(crate) struct Model {
     pub(crate) edits: super::edit::state::Edits,
     pub(crate) motion: super::state_motion::state::StateMotion,
     pub(crate) presence: super::presence::state::Presences,
-    pub(crate) assets: std::cell::RefCell<crate::lower::assets::ArvaneAssets>,
+    pub(crate) assets: Rc<RefCell<crate::lower::assets::ArvaneAssets>>,
+    /// What the DevTools records, shared by every model and the host.
+    pub(crate) log: EngineLog,
     pub(crate) paint: PaintState,
     pub(crate) a11y: A11yState,
     pub(crate) frame: super::frame::state::Frame,
@@ -67,19 +73,18 @@ pub(crate) enum ExternalWrite {
 }
 
 impl Model {
-    /// A model loading images with `store` (the host's worker-thread store;
-    /// tests may pass an inline one).
-    pub(crate) fn new(viewport: Size, store: AssetStore) -> Self {
+    /// A model for `window` loading images with the App's shared resources.
+    pub(crate) fn new(window: WindowId, viewport: Size, shared: &super::events::Shared) -> Self {
         Self {
+            window,
             tree: NodeTree::default(),
             layout: Default::default(),
             layout_motion: Default::default(),
             playback: Default::default(),
             measure: Default::default(),
             editors: Vec::new(),
-            events: super::events::EventQueue::default(),
+            events: shared.events.clone(),
             changes: super::changes::Changes::initial(),
-            writes: Writes::default(),
             viewport,
             focus: super::focus::state::Focus::default(),
             pointer: super::pointer::state::Pointer::default(),
@@ -93,7 +98,8 @@ impl Model {
             edits: super::edit::state::Edits::default(),
             motion: super::state_motion::state::StateMotion::default(),
             presence: super::presence::state::Presences::default(),
-            assets: std::cell::RefCell::new(crate::lower::assets::ArvaneAssets::new(store)),
+            assets: Rc::clone(&shared.assets),
+            log: shared.log.clone(),
             paint: PaintState::new(),
             a11y: A11yState::default(),
             frame: super::frame::state::Frame::default(),
@@ -132,16 +138,6 @@ impl Model {
     /// Queue a host event after every event queued so far.
     pub(crate) fn push(&mut self, event: HostEvent) {
         self.events.push(event);
-    }
-
-    /// Whether events are waiting.
-    pub(crate) fn has_events(&self) -> bool {
-        self.events.has_events()
-    }
-
-    /// The last applied revision.
-    pub(crate) fn applied(&self) -> Revision {
-        self.events.applied()
     }
 
     /// Existing native document/session changed; geometry reports can still

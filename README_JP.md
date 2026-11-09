@@ -78,7 +78,7 @@ API リファレンスは rustdoc です: `cargo doc -p kivact --open`
 
 ## Workspace の crate
 
-workspace は 40 package で構成します。アプリは `kivact` と必要な UI キットを使います。
+workspace は 47 package で構成します。アプリは `kivact` と必要な UI キットを使います。
 内部の library は runtime、engine、backend、test harness の責務で分かれています。
 図は主な依存経路です。全体は [アーキテクチャ](docs/for-kivact-developer/architecture.md) と
 [生成した依存図](architecture/) を参照してください。
@@ -111,6 +111,11 @@ flowchart TD
 | `kivact` | `crates/kivact` | アプリ・部品作者向けの公開入口。 |
 | `kivact-core` | `crates/kivact-core` | view の記述、mount、入力、アプリ起動。 |
 | `kivact-test` | `crates/kivact-test` | kivact::test の App 全体 E2E ハーネス。 |
+| `kivact-devtools-protocol` | `crates/kivact-devtools-protocol` | DevTools の agent・アプリ・MCP・Python client が共有する通信の語彙。 |
+| `kivact-devtools-agent` | `crates/kivact-devtools-agent` | target のアプリの中で動く DevTools の server。socket、discovery、PNG。 |
+| `kivact-devtools-client` | `crates/kivact-devtools-client` | DevTools の agent の discovery と型付きの呼び出し。 |
+| `kivact-devtools` | `crates/kivact-devtools` | DevTools のデスクトップアプリ。 |
+| `kivact-devtools-mcp` | `crates/kivact-devtools-mcp` | DevTools の target を stdio で公開する MCP server。 |
 | `kivact-public-api-tests` | `dev/tests/kivact-public-api` | 公開 API 利用者の E2E と offscreen の契約。 |
 | `kivact-runtime` | `crates/kivact-runtime` | reactive owner、signal、Machine、task、motion。 |
 | `kivact-i18n` | `crates/kivact-i18n` | locale、message、日付・数値の書式。 |
@@ -157,6 +162,7 @@ flowchart TD
 |---|---|---|
 | `gpu` | 有効 | GPU で描画し、使えなければ CPU に切り替えます。無効にすると CPU だけで build します。`ARVANE_RENDERER=cpu` で実行時に CPU へ固定できます。 |
 | `test` | 無効 | `kivact::test` の App 全体の仮想 E2E と任意の実窓 mirror。 |
+| `devtools` | 無効 | アプリ内の DevTools の agent。別アプリの DevTools、MCP server、Python client から使います。有効にした release build は起動時に警告を出します。 |
 | `tokio` | 無効 | 非同期 task の Tokio 連携。 |
 | `embed` | 無効 | 実験的。ホストのウィンドウの中にアプリを開きます（オーディオプラグインの editor など）。 |
 | `gpu-interop` | 無効 | 実験的。アプリ自身の renderer の GPU texture を、読み戻さずに表示します。 |

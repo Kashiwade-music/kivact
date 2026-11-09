@@ -7,7 +7,6 @@ use kivact::style::{Align, Color, Direction, Justify, Style, Theme, pct, style, 
 use kivact::ui::{AvatarShape, AvatarState, ControlSize, Look, Variant};
 use kivact::view::{IntoView, node, show};
 
-// xtask-allow(state-fields): Independent reactive decoration and appearance options, never runtime lifecycle flags.
 /// Continuous hue, pixel diameter and optional Pop avatar decorations.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct AvatarLook {

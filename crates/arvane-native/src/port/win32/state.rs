@@ -54,10 +54,11 @@ impl Drop for Hold<'_> {
     }
 }
 
-// xtask-allow(state-fields): Named UTF-16 decoder: pending surrogate and unread output character are separate stream buffers.
 #[derive(Default)]
 pub(super) struct Utf16Decoder {
+    // xtask-allow(state-fields): stream decoder buffers (HOST-REWRITE module) - pending
     pending: Option<u16>,
+    // xtask-allow(state-fields): stream decoder buffers (HOST-REWRITE module) - tail
     tail: Option<char>,
 }
 impl Utf16Decoder {

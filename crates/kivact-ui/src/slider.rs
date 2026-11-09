@@ -22,7 +22,6 @@ enum Values {
     Two(Binding<f64>, Binding<f64>),
 }
 
-// xtask-allow(state-fields): Independent construction constraints, labels and optional edit callback; scalar interaction is owned by ScalarApi.
 /// A themed slider, created by [`slider`] or [`range_slider`].
 pub struct Slider {
     root: Node,
@@ -108,7 +107,7 @@ impl Slider {
     /// the component is mounted, and a value never changes afterwards. A
     /// look that changes while the component lives is a state the recipe
     /// reads, or a reactive `.style(..)` of the caller's.
-    pub fn variant(self, v: impl Variant) -> Self {
+    pub fn variant(mut self, v: impl Variant) -> Self {
         self.variants.add(v);
         self
     }
@@ -170,13 +169,14 @@ impl NodeBuilder for Slider {
     }
 }
 
-// xtask-allow(state-fields): Read-only measured track/thumb geometry and axis direction project actual layout, with no lifecycle state.
 /// Where the thumbs and the filled range go along the track, in the
 /// track's own pixels, once both are laid out.
 struct Geometry {
     track: Value<Option<Rect>>,
     thumb: Value<Option<Rect>>,
+    // xtask-allow(state-fields): independent fact - vertical
     vertical: bool,
+    // xtask-allow(state-fields): independent fact - rtl
     rtl: bool,
 }
 

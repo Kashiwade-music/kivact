@@ -23,6 +23,7 @@ use crate::{MirrorMode, RenderOptions, render, render_with};
 use kivact_core::motion::FrameRate;
 use kivact_core::style::style;
 use kivact_core::view::{IntoView, Role, column, row, show, text};
+use kivact_types::WindowId;
 
 fn counter() -> impl IntoView {
     let count = signal(1);
@@ -143,7 +144,7 @@ fn a_display_rate_loop_follows_the_window_to_a_faster_display() {
     let at60 = count.replace(0);
     assert!((59..=61).contains(&at60), "{at60} ticks at 60 Hz");
     // The window moves to a 120 Hz monitor.
-    screen.with_host(|host| host.set_display_period(8_333_333));
+    screen.with_host(|host| host.set_display_period(WindowId::MAIN, 8_333_333));
     screen.run_until_idle();
     count.set(0);
     screen.advance(Duration::from_secs(1));
@@ -166,7 +167,7 @@ fn a_minimized_window_asks_for_no_redraws_until_it_is_restored() {
     });
     screen.run_until_idle();
     assert!(!screen.with_host(|host| host.redraw_requested()));
-    screen.with_host(|host| host.set_surface(true));
+    screen.with_host(|host| host.set_surface(WindowId::MAIN, true));
     assert!(screen.with_host(|host| host.redraw_requested()));
     screen.run_until_idle();
     screen.get_by_text("count: 2");
@@ -198,7 +199,7 @@ fn failures_leave_artifacts_windows_are_pooled_and_tests_run_in_parallel() {
     // Closed windows go back to the pool (when there are windows at all).
     let before = display_stats();
     let windowed = (0..3)
-        .map(|_| render(counter).has_window())
+        .map(|_| render(counter).is_mirrored())
         .fold(false, |a, b| a | b);
     if let (true, Some(before), Some(after)) = (windowed, before, display_stats()) {
         assert!(after.reused > before.reused, "{before:?} → {after:?}");

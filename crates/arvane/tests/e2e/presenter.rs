@@ -60,7 +60,7 @@ fn a_skipped_frame_ends_a_row_of_losses_and_a_loss_restarts_the_backoff() {
         Presented::Skipped { retry_at_ns } => retry_at_ns,
         other => panic!("not skipped: {other:?}"),
     };
-    let now = window.probe().now_ns();
+    let now = window.platform_probe().now_ns();
     window.script().fail_presents(2);
     lost(present(&mut window, frame()));
     lost(present(&mut window, frame()));

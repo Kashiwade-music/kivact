@@ -16,7 +16,9 @@ pub(super) enum State<K> {
         typeahead: Typeahead,
     },
     Open {
+        // xtask-allow(state-fields): independent fact - the key the keyboard highlights in the open list
         highlight: Option<K>,
+        // xtask-allow(state-fields): independent fact - the key the pointer is over in the open list
         hovered: Option<K>,
         opened_by: OpenedBy,
         surface: Surface,

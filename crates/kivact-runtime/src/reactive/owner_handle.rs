@@ -178,7 +178,7 @@ impl Owner {
     ) -> Owned<T> {
         let key = self
             .rt(at)
-            .insert_object(self.key, Rc::new(value), None, at);
+            .insert_object(self.key, Rc::new(value), name, None, at);
         Owned::from_key(self.app, key, name)
     }
 
@@ -193,7 +193,13 @@ impl Owner {
         at: &'static Location<'static>,
     ) -> Owned<T> {
         let rt = self.rt(at);
-        let key = rt.insert_object(self.key, Rc::new(value), Some(Box::new(on_dispose)), at);
+        let key = rt.insert_object(
+            self.key,
+            Rc::new(value),
+            name,
+            Some(Box::new(on_dispose)),
+            at,
+        );
         Owned::from_key(self.app, key, name)
     }
 

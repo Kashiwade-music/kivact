@@ -4,11 +4,12 @@ use std::time::Duration;
 pub struct DisclosureTokens {
     pub motion: DisclosureMotion,
 }
-// xtask-allow(state-fields): Independent immutable theme motion settings; an optional transition overrides duration without representing a mounted phase.
 #[derive(Clone, Debug, PartialEq)]
 pub struct DisclosureMotion {
+    // xtask-allow(state-fields): passive record - animate
     pub animate: bool,
     pub duration: Duration,
+    // xtask-allow(state-fields): passive record - Optional theme transition;
     /// Optional theme transition; absent uses the duration-based ease-out tween.
     pub transition: Option<kivact_core::motion::Transition>,
 }

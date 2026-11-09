@@ -17,18 +17,20 @@ pub enum CalendarSpan {
     None,
 }
 
-// xtask-allow(state-fields): Public drawing projection of input, selection, range geometry, and policy availability.
 /// The reactive drawing state of a [`cell`](super::CalendarGridApi::cell).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct CalendarDayState {
     pub input: PartState,
+    // xtask-allow(state-fields): passive record - The day is chosen or inside the chosen range;
     /// The day is chosen or inside the chosen range; it is published as
     /// selected.
     pub selected: bool,
+    // xtask-allow(state-fields): passive record - The chosen day, or an end of the chosen range: what is drawn solid
     /// The chosen day, or an end of the chosen range: what is drawn solid.
     pub edge: bool,
     /// Where the day lies in a range of several days.
     pub span: CalendarSpan,
+    // xtask-allow(state-fields): passive record - The policy refuses the day
     /// The policy refuses the day.
     pub disabled: bool,
 }

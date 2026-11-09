@@ -310,6 +310,10 @@ line you probably wanted to see. A property that never changes does not appear
 (`all props are static`). A node bound to no effect at all can only be updated by
 something that creates the node again, such as a `show` branch or a list row.
 
+To see the same causes in a running app, record with DevTools and read the
+Updates panel; see
+[See why the screen updated](devtools.md#see-why-the-screen-updated).
+
 In a test you do not need a `NodeRef`: `Element::why()` does the same for any
 element you found.
 

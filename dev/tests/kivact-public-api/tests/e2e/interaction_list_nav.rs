@@ -274,3 +274,52 @@ fn a_press_selects_by_modifiers_makes_the_row_active_and_focuses_it() {
     assert!(row(&screen, "Elder").is_focused());
     no_errors(&screen);
 }
+
+#[test]
+fn removing_the_focused_row_moves_the_tab_stop_to_the_first_row_without_a_leave_rule() {
+    let (screen, rows) = mount_with(real_window(), || {
+        let rows = signal(vec!["Apple", "Apricot", "Banana", "Cherry", "Date"]);
+        let selected = signal(Vec::<&'static str>::new());
+        let nav = use_list(
+            move || {
+                rows.get()
+                    .into_iter()
+                    .map(|key| ListItem::new(key, key))
+                    .collect::<Vec<_>>()
+            },
+            selected.into_selection(),
+            ListOptions::default(),
+        );
+        let list = for_each(
+            rows,
+            |name| *name,
+            move |row_value| {
+                let name = row_value.with(|name| *name);
+                node()
+                    .role(Role::Option)
+                    .name(name)
+                    .child(text(name))
+                    .part(nav.item(name))
+            },
+        );
+        (
+            rows,
+            column((
+                button("before"),
+                column(list)
+                    .role(Role::ListBox)
+                    .name("Fruit")
+                    .part(nav.list()),
+                button("after"),
+            )),
+        )
+    });
+    focus_row(&screen, "Cherry");
+    rows.update(|rows| rows.retain(|name| *name != "Cherry"));
+    screen.run_until_idle();
+    assert!(
+        row(&screen, "Apple").is_focused(),
+        "the search starts at the first row, not at Cherry's old ordinal (Date)"
+    );
+    no_errors(&screen);
+}

@@ -34,7 +34,7 @@ use super::arena::Tomb;
 use crate::reactive::NodeId;
 use crate::reactive::arena::Key;
 use crate::reactive::data::{
-    CompState, Computation, Compute, EffectCell, MemoCell, PassRuns, RNode, Runtime, Staleness,
+    CompState, Computation, Compute, EffectCell, MemoCell, RNode, Runtime, Staleness,
 };
 use crate::reactive::data::{
     EffectKind, EffectNode, MemoNode, NodeData, NodeInfo, SourceCell, SourceNode,
@@ -164,7 +164,7 @@ impl Runtime {
         let ty = std::any::type_name::<T>();
         let data = NodeData::Source(SourceNode {
             subs: Vec::new(),
-            changed_at: 0,
+            changed_at: kivact_types::cell::Generation::new(),
             written: None,
         });
         self.insert_node(owner, cell, data, at, ty)
@@ -208,7 +208,6 @@ impl Runtime {
             seq,
             run: Computation::new(compute),
             cleanups: Vec::new(),
-            pass_runs: PassRuns::default(),
         });
         let key = self.insert_node(owner, cell, data, at, "effect");
         if !self.node_alive(key) {
@@ -245,7 +244,6 @@ impl Runtime {
             seq: self.next_seq(),
             run: Computation::new(compute),
             cleanups: Vec::new(),
-            pass_runs: PassRuns::default(),
         });
         let key = self.insert_node(owner, cell, data, at, "watcher");
         if !self.node_alive(key) {
@@ -387,9 +385,19 @@ impl Runtime {
                 (n.ty, n.at)
             });
             if let Some((ty, created_at)) = written {
-                self.diag.borrow_mut().record_write(ty, created_at, at);
+                let mut diag = self.diag.borrow_mut();
+                diag.record_write(ty, created_at, at);
+                diag.detail.write(NodeId(key), ty, created_at, at, true);
             }
             self.notify_subscribers(key);
+        } else {
+            let mut diag = self.diag.borrow_mut();
+            if diag.detail.is_recording() {
+                let written = self.graph.borrow().get(key).map(|n| (n.ty, n.at));
+                if let Some((ty, created_at)) = written {
+                    diag.detail.write(NodeId(key), ty, created_at, at, false);
+                }
+            }
         }
     }
 
@@ -399,14 +407,19 @@ impl Runtime {
         let mut stack = std::mem::take(&mut *self.scratch.borrow_mut());
         stack.clear();
         let mut queued_any = false;
-        let epoch = self.write_epoch.get() + 1;
-        self.write_epoch.set(epoch);
+        let mut diag = self.diag.borrow_mut();
+        let mut write_epoch = self.write_epoch.get();
+        let epoch = write_epoch.next();
+        self.write_epoch.set(write_epoch);
         {
             let mut g = self.graph.borrow_mut();
             let mut sched = self.sched.borrow_mut();
             if let Some(n) = g.get_mut(src) {
                 if let NodeData::Source(s) = &mut n.data {
                     s.changed_at = epoch;
+                }
+                for (s, _) in n.subs() {
+                    diag.detail.edge(NodeId(src), NodeId(*s));
                 }
                 stack.extend(n.subs().iter().map(|(s, _)| (*s, Staleness::Dirty)));
             }
@@ -421,6 +434,9 @@ impl Runtime {
                             continue;
                         }
                         if was_clean {
+                            for (s, _) in &m.subs {
+                                diag.detail.edge(NodeId(k), NodeId(*s));
+                            }
                             stack.extend(m.subs.iter().map(|(s, _)| (*s, Staleness::Check)));
                         }
                     }
@@ -433,6 +449,7 @@ impl Runtime {
                 }
             }
         }
+        drop(diag);
         *self.scratch.borrow_mut() = stack;
         if queued_any {
             self.request_turn();
@@ -540,8 +557,7 @@ impl Runtime {
             Some(EffectKind::User) => "effect",
         };
         self.diag.borrow_mut().record_run(label, at);
-        let epoch_before = self.write_epoch.get();
-        let is_effect = effect.is_some();
+        let (epoch_before, is_effect) = (self.write_epoch.get(), effect.is_some());
         if is_effect {
             self.run_node_cleanups(key, owner);
         }
@@ -554,6 +570,8 @@ impl Runtime {
             self.set_deps(key, deps);
             changed
         };
+        let mut diag = self.diag.borrow_mut();
+        diag.detail.run(NodeId(key), label, at, changed);
         let subs = {
             let mut g = self.graph.borrow_mut();
             let Some(n) = g.get_mut(key) else { return };
@@ -593,7 +611,7 @@ impl Runtime {
 
     /// An effect that wrote a signal it read during the same run saw a stale
     /// value: mark it dirty so it runs again (cycles are bounded by the turn).
-    fn recheck_after_own_writes(&self, key: Key, epoch_before: u64) {
+    fn recheck_after_own_writes(&self, key: Key, epoch_before: kivact_types::cell::Generation) {
         let mut g = self.graph.borrow_mut();
         let stale = match g.get(key) {
             Some(n) => n

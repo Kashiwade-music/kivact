@@ -46,6 +46,25 @@ pub struct OwnerId(pub(crate) Key);
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct NodeId(pub(crate) Key);
 
+impl OwnerId {
+    /// The identity as the protocol's `u64` id: slot in the high half, generation in the low half.
+    pub fn raw(self) -> u64 {
+        key_raw(self.0)
+    }
+}
+
+impl NodeId {
+    /// The identity as the protocol's `u64` id: slot in the high half, generation in the low half.
+    pub fn raw(self) -> u64 {
+        key_raw(self.0)
+    }
+}
+
+/// The protocol's `u64` id of an arena key.
+pub(crate) fn key_raw(key: Key) -> u64 {
+    (u64::from(key.slot) << 32) | u64::from(key.generation)
+}
+
 impl fmt::Debug for OwnerId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "OwnerId({}:{})", self.0.slot, self.0.generation)

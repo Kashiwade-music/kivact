@@ -4,7 +4,7 @@
 
 ## crate の境界
 
-workspace は 42 package からなる。アプリと公式 kit は `kivact` facade を利用する。内部 crate を直接使わせることで公開 API の不足を埋めない。依存の許可と module の向きは `dev/xtask/policy/workspace.toml` が機械的に検査する。
+workspace は 47 package からなる。アプリと公式 kit は `kivact` facade を利用する。内部 crate を直接使わせることで公開 API の不足を埋めない。依存の許可と module の向きは `dev/xtask/policy/workspace.toml` が機械的に検査する。
 
 | package | 担当と境界の理由 |
 |---|---|
@@ -20,7 +20,12 @@ workspace は 42 package からなる。アプリと公式 kit は `kivact` faca
 | `kivact-interaction` | 描画しない behavior、Part、binding と状態機械。UI の recipe を知らない |
 | `kivact-ui` | 標準部品、その builder、variant、recipes、tokens。公式 kit にあった共通 behavior の和集合を所有する |
 | `kivact-test` | App 全体の E2E、Screen、Inspect。公開 view API と engine の試験境界を使う葉であり、view tree の内部を直接読まない |
-| `kivact-engine` | 一つの tree/model、計測、入力、paint、a11y、host pump。lower と text_input は内部 module。多数の内部情報を共有する処理を偽の crate 境界で分けない |
+| `kivact-devtools-protocol` | 4 者（agent・DevTools アプリ・MCP・Python 生成）が共有する通信の語彙。I/O を持たない純粋な値と純粋関数だけを置く |
+| `kivact-devtools-agent` | socket・thread・file・process を扱う server。Kivact の内部を知らず、core は `take_incoming` で受け取った `Call` を処理して `Responder::send` で答える |
+| `kivact-devtools-client` | discovery の一覧・接続・型付きの呼び出し・通知の受信。アプリと MCP が共有し、二重実装を避ける |
+| `kivact-devtools` | DevTools の GUI。公開 API と kit だけで作り（P-07 の dogfooding）、パネルは module にする |
+| `kivact-devtools-mcp` | MCP の仕様への追従と stdio。GUI を link しない |
+| `kivact-engine` | window ごとの tree/model（`Model`）と App 全体の `AppModel`、計測、入力、paint、a11y、host pump。lower と text_input は内部 module。多数の内部情報を共有する処理を偽の crate 境界で分けない |
 | `arvane` | presenter と text、asset、render の組み立て。backend SPI の利用側 |
 | `arvane-shell` | OS 非依存の window SPI、入力語彙と正規化 pipeline。winit、softbuffer、AccessKit を持ち込まない |
 | `arvane-native` | Windows/Linux の実 window、OS port、入力 mapping、present、支援技術、services、embed、mirror |
@@ -39,7 +44,7 @@ workspace は 42 package からなる。アプリと公式 kit は `kivact` faca
 | `gpu-interop-producer` | GPU 共有を検証する別の描画 producer |
 | `xtask` | 依存、API、状態、style と図の検査 |
 
-library は 27、雛形・小例・catalog は 11、試験・道具は 4 package。検査用 package も workspace の数に含める。旧 wire、reactive、task、motion、text、lower の独立 crate は復活させない。
+library は 30、アプリは 2、雛形・小例・catalog は 11、試験・道具は 4 package。検査用 package も workspace の数に含める。旧 wire、reactive、task、motion、text、lower の独立 crate は復活させない。
 
 ### 境界を作る規則（B）
 
@@ -56,11 +61,11 @@ library は 27、雛形・小例・catalog は 11、試験・道具は 4 package
 | crate | 依存の向き |
 |---|---|
 | runtime | `reactive` が基底。`task → reactive`、`motion → reactive`、`machine → reactive/task`、`host → reactive/task/motion`。passive host_types と Runtime を借りる TurnGuard を実行実装から分離 |
-| core | `view → state/geometry/task/motion/style`、`platform/diagnostics/gpu_interop → view`、`client → platform/diagnostics/gpu_interop/view`、`launch → client`、`app → launch`、`embed → app/launch/view`。`custom → view/draw` |
+| core | `view → state/geometry/task/motion/style`、`platform/diagnostics/gpu_interop → view`、`client → platform/diagnostics/gpu_interop/view`、`devtools → task/motion/style/state/geometry/sync/view/platform/diagnostics/client`、`launch → client/devtools`、`app → launch`、`embed → app/launch/view`。`custom → view/draw`。`client` は `devtools` を参照せず、`view/devtools_hooks.rs` の hook を呼ぶ |
 | style | asset/length/color などの値 → geometry/path/theme/effect/paint/text → draw/sheet → resolve の順に組み立てる。上位から下位だけを参照 |
 | interaction | policy、axis、press、edit、disclosure、focus_return、roving などの小さい behavior を下に置き、list/drag、popup/scalar、dialog/select/menu、table/palette を組む。UI への逆依存は禁止 |
-| engine | contract/lower/text_input が基底。tree/mutation → measure → model → text_measure/paint/a11y/check → host/api/embed/testing。model が読む paint/a11y/check の passive state leaf は明示した例外だけ |
-| shell | `events → types`、`pipeline → events/types/ime`、`window → events/ime/types/services/a11y/target`。正規化は backend から独立 |
+| engine | `Model` は window ごとの tree/model、`AppModel` は App 全体の event の列・motion の時計・frame の要求を持つ。contract/lower/text_input が基底。tree/mutation → measure → model → text_measure/paint/a11y/check → host/api/embed/testing。model が読む paint/a11y/check の passive state leaf は明示した例外だけ |
+| shell | `events → types`、`pipeline → events/types/ime`、`input → pipeline`、`window_input → events/types/ime/pipeline/mouse/clicks/contacts/input`、`window → events/ime/types/services/a11y/target/input`。正規化は backend から独立 |
 | native | port が present/a11y/services/display を使い、mirror が port/present/a11y を使う。OS 固有の入口から engine へ逆依存しない |
 | virtual | clock を script が使い、window が clock/script/surface を使い、backend と mirror がそれを組み立てる |
 | compose | cache が基底。plan は cache を使い、cpu と gpu は plan・cache・tables を使う。cpu と gpu は互いを参照しない |
@@ -91,7 +96,9 @@ Creative jobs の run/stop は独立した一つの入力であり、progress/am
 
 | 事実 | 唯一の持ち主 / 利用側 |
 |---|---|
-| keyboard focus | engine Focus。NodeRef の focused は投影。支援技術の focus も publish 時に導出 |
+| window ごとの keyboard focus | window ごとの engine Focus。NodeRef の focused は投影。支援技術の focus も publish 時に導出 |
+| 開いている window | core の WindowRecord の表。`open` が true で mount した window だけが入り、root と owner は ViewNodes が持つ |
+| DevTools が target に掛けた状態（highlight、overlay、forced states、style override、emulation、時間の倍率、記録） | target に一つ。core の DevTools の session が持ち、全 client が共有する。表示用の写しを正本にしない |
 | node pointer capture | engine。region/Part capture は core PartCapture、engine は node の経路を保持 |
 | pointer の press、capture、現在の over | engine の pointer ごとの Track。press と capture は別の事実で四つの組合せを許す |
 | region hover | engine の node/region を組にした target。primary hover chain と secondary pointer の over を混同しない |
@@ -205,17 +212,17 @@ DEP-1 は同じ意味の feature 名を揃えること、DEP-2 は feature が�
 
 | package | feature と意味 |
 |---|---|
-| kivact | default は gpu。gpu は arvane-render/gpu、gpu-interop は gpu と render/core/test の共有入口、embed は native/core/test、test は kivact-test、tokio は core/tokio |
-| kivact-core | tokio、embed、gpu-interop。gpu/test feature は持たない |
+| kivact | default は gpu。gpu は arvane-render/gpu、gpu-interop は gpu と render/core/test の共有入口、embed は native/core/test、test は kivact-test、devtools は core と test の devtools（有効な release build は起動時に警告する）、tokio は core/tokio |
+| kivact-core | tokio、embed、gpu-interop、devtools。gpu/test feature は持たない |
 | kivact-runtime | tokio（task の実行 adapter） |
-| kivact-test | embed、gpu-interop を core に転送 |
+| kivact-test | embed、gpu-interop、devtools を core に転送 |
 | kivact-engine | testing（virtual/mirror、png、native/test）。これは内部試験の意味なので test に改名しない |
 | arvane-native | default は空、embed、test（embed を含む） |
 | arvane-virtual | default は空、mirror（native/test） |
 | arvane-render | gpu、gpu-interop（gpu を含む） |
 | kivact-gpu-share | default は空、export、import、wgpu（export と wgpu adapter） |
 | gpu-interop-producer | wgpu |
-| public-api-tests | default gpu、gpu、gpu-interop、embed、tokio を facade に転送 |
+| public-api-tests | default gpu、gpu、gpu-interop、devtools、embed、tokio を facade に転送 |
 | docs、template、五つの catalog | default gpu、gpu を facade に転送 |
 | その他 | feature なし。五つの kit に gpu-interop 等の中継 feature を置かない |
 
@@ -266,16 +273,18 @@ NodeRef::snapshotはpoll時のnodeをHostのrequest/replyへ送り、layout/pain
 | 足すもの | 変更する場所と確認 |
 |---|---|
 | 支援技術の性質（例 key_shortcuts） | types の Semantics、core の Node setter、native の変換の 3 crate。relation は node/region identity も検証 |
-| Role | types の Role と native の role mapping の 2 crate |
+| Role | types の Role、native の role mapping、protocol の `Role` と core devtools の `convert`（`cargo xtask devtools-codegen`） |
 | text style（例 text_wrap_style） | types の宣言・computed 値・継承、style builder、arvane-text の 3 crate。relative unit/current color と native 精度を保つ |
 | layout/paint の性質 | types の一つの値、style の入口、layout または engine::lower の計算・描画の 3 crate。削除済み lower crate を再設置しない。画素が要る効果は compositor の LayerEffects |
 | OS service（例 beep） | types の request/result/capability、native の window.perform、core/platform の 3 crate。virtual は台本の応答を登録するだけ |
+| window に向けた service（例 focus_window） | types の request/result/capability、shell の window SPI、native の window.perform、core/platform の 4 crate。呼んだ owner の window を対象にし、main window へ暗黙に落とさない |
 | Environment field | types、native の事実、core の readonly query の 3 crate。別の environment model を作らない |
 | OS backend | native/port に入口、shell の共有 pipeline を利用。core に外部 backend 注入 API を増やさない。virtual が常時第二の SPI 実装 |
-| 入力の正規化 | native port で raw code を写し、shell/pipeline で key/IME/DnD を正規化。virtual も同じ道を通す |
+| 入力の正規化 | native port で raw code を写し、shell/pipeline で key/IME/DnD を正規化。window ごとの `WindowInput`（native の winit・virtual・注入が共有。embed の port は別） |
 | 地域書式 | i18n の Locale と ICU4X。全 locale の compiled data を利用し、kit に en-US table や日付計算を作らない |
 | behavior | interaction の State/Event/Effect と Machine、Part の配線、一つの公開 E2E。APG の当該 pattern の keyboard/roles/states を同じ変更で確認 |
 | 標準部品 | interaction の behavior、ui の concrete builder/state/variant/Recipes/Tokens、移す元の kit の全 option の和集合、実 recipe/getter と README、公開 E2E と英日ガイド |
+| DevTools の method | protocol の leaf の型と `lib.rs` の再公開、`protocol_methods!` の 1 行、`cargo xtask devtools-codegen`、core の `devtools/` の振り分けと leaf、必要なら Python の `client.py`、MCP の除外の一覧、ガイドの tool の一覧。版の規則（wire の型の field の削除・改名・型の変更、method・通知の削除・改名は `PROTOCOL_VERSION` を上げる。追加は上げない） |
 | 独自 editor | custom の文字編集、IME session、line_styles と decorations。内容と cross-line state を純粋な callback で解析し、byte range を使う。子や独自描画を失わせない |
 | アプリの描画表示 | 標準 viewport と canonical ViewTransform。domain 固有の time/value 座標は独立した意味を持つ場合だけ保持 |
 | E2E | App 全体を virtual backend と本番 presenter/driver で動かす。mirror は任意。Screen の共通 helper と既存の数値・focus・binding assertion を保つ |

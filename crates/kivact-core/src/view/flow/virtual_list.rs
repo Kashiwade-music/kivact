@@ -59,7 +59,6 @@ pub enum RowHeight {
     Measured { estimate: f64 },
 }
 
-// xtask-allow(state-fields): These independent list construction options configure source, row rendering and focus retention.
 /// Virtualized keyed list. Built by [`virtual_list`].
 pub struct VirtualList<T: 'static, K: 'static> {
     items: InputProp<Vec<T>>,
@@ -293,7 +292,9 @@ impl<T: kivact_runtime::PropValue, K: kivact_runtime::ItemKey> IntoView for Virt
             // Which row holds the focus changes rarely: only then does the
             // visible range run again, not at every focus move.
             if keep_focused {
-                let keys = ViewState::of(cx.rt).focus_keys();
+                let keys = ViewState::of(cx.rt)
+                    .focus_keys(cx.window)
+                    .expect("invariant: the list's window is open");
                 let weak = cx.weak();
                 let st = state.clone();
                 cx.effect(EffectKind::Internal, at, move || {
@@ -471,6 +472,7 @@ impl<K: kivact_runtime::ItemKey, T: Clone + 'static> Seeker<K, T> {
 fn apply_visible<K: kivact_runtime::ItemKey, T: Clone + 'static>(
     rt: &Rc<Runtime>,
     parent: Owner,
+    window: kivact_types::WindowId,
     spacer: NodeId,
     state: &Rc<RefCell<VState<K, T>>>,
     visible: Vec<(K, Option<T>, f64, Option<f64>)>,
@@ -510,7 +512,7 @@ fn apply_visible<K: kivact_runtime::ItemKey, T: Clone + 'static>(
                 let Some(item) = item else { continue };
                 let owner = parent.child(at);
                 let sig: Signal<T> = owner.signal(item, at);
-                let cx = Mcx { rt, owner };
+                let cx = Mcx { rt, owner, window };
                 let wrapper = cx.host(NodeType::Box);
                 cx.update(wrapper, PropValue::Layout(wrapper_layout(top, h)));
                 if h.is_none() {
@@ -529,7 +531,7 @@ fn apply_visible<K: kivact_runtime::ItemKey, T: Clone + 'static>(
                     }
                 }
                 let fragment = cx.fragment();
-                let content = mount_in(rt, owner, || row.call((k.clone(), sig)));
+                let content = mount_in(rt, owner, window, || row.call((k.clone(), sig)));
                 cx.append(fragment, content);
                 cx.append(wrapper, fragment);
                 order.push(wrapper);
@@ -736,6 +738,7 @@ fn bind_visible<K: kivact_runtime::ItemKey, T: kivact_runtime::PropValue>(
 ) {
     let weak = cx.weak();
     let parent = cx.owner;
+    let window = cx.window;
     let st = seeker.state.clone();
     let warned = kivact_types::cell::ReportOnce::new();
     let range_seeker = seeker.clone();
@@ -788,6 +791,7 @@ fn bind_visible<K: kivact_runtime::ItemKey, T: kivact_runtime::PropValue>(
                 apply_visible(
                     &rt,
                     parent,
+                    window,
                     spacer,
                     &st,
                     visible,
@@ -832,14 +836,13 @@ fn bind_scroll_to<K: kivact_runtime::ItemKey, T: kivact_runtime::PropValue>(
     // change of the request.
     if scroll_to.fixed().is_none_or(|v| v.is_some()) {
         let weak = cx.weak();
-        let last: RefCell<Option<K>> = RefCell::new(None);
+        let last = RefCell::new(kivact_types::cell::Sent::<Option<K>>::new());
         cx.effect(EffectKind::Internal, at, move || {
             let request = scroll_to.get();
             let Some(rt) = weak.upgrade() else { return };
-            if *last.borrow() == request {
+            if last.borrow_mut().update(request.clone()).is_none() {
                 return;
             }
-            last.borrow_mut().clone_from(&request);
             let Some(request) = request else { return };
             seeker.state.borrow_mut().seek = Seek::Pending {
                 key: request,

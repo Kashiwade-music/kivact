@@ -4,6 +4,7 @@ use super::drop_plan::{Placement, Plan, plan_drop};
 use crate::editors::shared::model::EditorEvent;
 use crate::outliner_data::{Restriction, RestrictionFlag, TreeDrop, TreeItem};
 use crate::{ColorName, LabelTone};
+use kivact::custom::Generation;
 use kivact::geometry::Point;
 use kivact::i18n::message;
 use kivact::interaction::{
@@ -28,7 +29,6 @@ use std::rc::Rc;
 
 type CellRenderer = kivact::view::ViewFn<Value<TreeItem>>;
 
-// xtask-allow(state-fields): Builder inputs, callbacks and row options are independent construction settings; use_tree owns navigation and the reveal machine owns pending reveal.
 /// A searchable hierarchy on [`Tree`](kivact::interaction::TreeApi).
 /// It retains expansion, rename, restriction flags and drag and drop,
 /// and hosts the application's cells.
@@ -212,12 +212,11 @@ impl IntoView for Outliner {
     }
 }
 
-// xtask-allow(state-fields): Immutable row factory inputs and owner-scoped registry handles; tree, reveal, rename and drag each own their transitions.
 struct RowFactory {
     by_id: Value<HashMap<u64, TreeItem>>,
     data: Value<Vec<TreeItem>>,
     rename_edit: kivact::interaction::InlineEditApi<u64>,
-    generation: Rc<Cell<u64>>,
+    generation: Rc<Cell<Generation>>,
     mounted: super::controls::Rows,
     reveal: kivact::state::MachineHandle<super::reveal::Reveal>,
     on_rename: Option<Callback<(u64, String)>>,
@@ -226,13 +225,15 @@ struct RowFactory {
     painter: super::controls::Painter,
     on_restriction: Option<Callback<EditorEvent<Restriction>>>,
     cells: Vec<(Value<f64>, CellRenderer)>,
+    // xtask-allow(state-fields): independent fact - the drop plan shared between the dragger and the rows
     plan: kivact::state::Signal<Option<Plan>>,
     active: Value<Option<u64>>,
     restrictions: Value<bool>,
+    // xtask-allow(state-fields): builder option - the row height a setter supplied
     row_height: Option<Value<f64>>,
     levels: Value<HashMap<u64, u32>>,
-    pressed: Rc<Cell<Option<u64>>>,
     item_drop: Option<Callback<TreeDrop>>,
+    // xtask-allow(state-fields): builder option - whether an activation callback was set
     has_activation: bool,
 }
 impl RowFactory {
@@ -463,18 +464,9 @@ impl Outliner {
             tree = tree.on_activate(move |value| callback.try_call(value));
         }
         let mounted: super::controls::Rows = Rc::new(RefCell::new(HashMap::new()));
-        let generation = Rc::new(Cell::new(0u64));
-        // The row that a primary press is on, from its press to its release.
-        let pressed = Rc::new(Cell::new(None::<u64>));
+        let generation = Rc::new(Cell::new(Generation::new()));
         let plan = signal(None::<Plan>);
-        let reveal = super::reveal::observe(
-            active,
-            reveal_active,
-            data,
-            expanded,
-            mounted.clone(),
-            pressed.clone(),
-        );
+        let reveal = super::reveal::observe(active, reveal_active, data, expanded, mounted.clone());
         let painter = restriction_painter(on_restriction);
         let levels = memo(move || {
             tree.rows().with(|rows| {
@@ -501,7 +493,6 @@ impl Outliner {
             restrictions,
             row_height,
             levels,
-            pressed,
             item_drop,
             has_activation,
         });
@@ -515,8 +506,9 @@ impl RowFactory {
         let mounted = self.mounted.clone();
         let reveal = self.reveal;
         let reference = node_ref();
-        let mount = generation.get() + 1;
-        generation.set(mount);
+        let mut next = generation.get();
+        let mount = next.next();
+        generation.set(next);
         mounted.borrow_mut().insert(
             id,
             super::controls::Mounted {
@@ -528,7 +520,10 @@ impl RowFactory {
         let cleanup = mounted.clone();
         kivact::state::on_cleanup(move || {
             let mut rows = cleanup.borrow_mut();
-            if rows.get(&id).is_some_and(|row| row.generation == mount) {
+            if rows
+                .get(&id)
+                .is_some_and(|row| row.generation.is_current(mount))
+            {
                 rows.remove(&id);
             }
         });
@@ -620,7 +615,7 @@ impl RowFactory {
         let on_restriction = self.on_restriction;
         let data = self.data;
         let mounted = self.mounted.clone();
-        let pressed = self.pressed.clone();
+        let reveal = self.reveal;
         let plan = self.plan;
         let item_drop = self.item_drop;
         let has_activation = self.has_activation;
@@ -636,8 +631,6 @@ impl RowFactory {
             rows: mounted.clone(),
         };
         let start_rename = move || rename_edit.open(id);
-        let released = pressed.clone();
-        let pressed = pressed.clone();
         let dragger = row_drag(id, data, mounted.clone(), plan, item_drop, dragger);
         // Consume the drag Part after the Tree Part so selection runs
         // before a drag or double-click rename can handle the press.
@@ -670,7 +663,7 @@ impl RowFactory {
                         if let PointerPhase::Down(press) = e.phase()
                             && press.button == MouseButton::Primary
                         {
-                            pressed.set(Some(id));
+                            reveal.send(super::reveal::Event::Press(Some(id)));
                             if press.clicks == 2 && !has_activation && !rename_edit.is_open(&id) {
                                 dragger.cancel();
                                 start_rename();
@@ -678,7 +671,7 @@ impl RowFactory {
                             }
                         }
                         if matches!(e.phase(), PointerPhase::Up(_) | PointerPhase::Cancel) {
-                            released.set(None);
+                            reveal.send(super::reveal::Event::Press(None));
                         }
                         Handled::No
                     })
@@ -739,7 +732,7 @@ fn restriction_painter(
     on_restriction: Option<Callback<EditorEvent<Restriction>>>,
 ) -> super::controls::Painter {
     super::controls::Painter::new(crate::editors::shared::model::observed(
-        EditSession::new(|()| {}),
+        EditSession::new(|_: super::controls::Paint| {}),
         on_restriction.map(|observer| {
             callback(move |phase| {
                 observer.call(match phase {

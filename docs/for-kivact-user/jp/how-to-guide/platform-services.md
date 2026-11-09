@@ -324,6 +324,25 @@ mod tests {
 
 テストでは、`RenderOptions` が開始時の大きさ・倍率・ダークモード・動きを減らす設定を決め、`Screen::resize`・`set_scale`・`set_dark`・`set_reduced_motion`・`set_safe_area` で画面の実行中に変えられます。[アプリをテストする](testing.md#環境を設定する) を参照してください。
 
+## 呼び出したウィンドウを問い合わせる
+
+環境の読み取りとサービスは、呼び出した owner のウィンドウを対象にします。main window ではありません。`window_size`・`scale_factor`・`is_fullscreen`・`safe_area`・`keyboard_inset`・`theme_hint`・`is_surface_active`・`is_motion_reduced`・`pointer_settings` と、`request_window_size`・`set_fullscreen`・`focus_window`・ファイルダイアログ（ダイアログの親）です。ハンドラーやコールバックは、実行されるウィンドウではなく、作られたウィンドウに属します。そのウィンドウの content の中で作ってください。
+
+`platform::focus_window()` は、呼び出した owner のウィンドウを前面に出し、キーボードのフォーカスを与えます。
+
+```rust,no_run
+use kivact::platform;
+use kivact::prelude::*;
+
+fn settings() -> impl IntoView {
+    button("このウィンドウを前面に出す").on_press(|| {
+        spawn(platform::focus_window());
+    })
+}
+```
+
+これは最善の努力です。Windows では taskbar の項目が点滅するだけのことがあり、Wayland ではウィンドウを前面に出す方法がありません。capability は不要です。埋め込みの editor では `ErrorKind::Unsupported` で失敗し、開いているウィンドウの binding に `true` を書き直しても前面に出ません。[ウィンドウを前面に出す](windows.md#ウィンドウを前面に出す) を参照してください。
+
 ## 関連項目
 
 - [コンポーネントから非同期処理を実行する](async-and-tasks.md): future、`spawn`、`blocking`。

@@ -2,13 +2,19 @@
 
 use super::client::Client;
 use super::options::HostOptions;
-use super::pump::{Host, HostPhase, LastPresent};
+use super::pump::{Host, HostPhase};
+use super::window::HostWindow;
 use crate::FrameLog;
 use crate::contract::HostError;
-use crate::model::Model;
-use arvane::{RendererChange, Shell, ShellOptions};
-use kivact_types::Size;
+use crate::model::{AppModel, EventSink, Model, Shared};
+use arvane::{
+    EventTarget, Handler, RendererChange, Shell, ShellControl, ShellError, ShellEvent, ShellWaker,
+    Windows,
+};
+use kivact_types::cell::Sent;
+use kivact_types::{Size, WindowId, WindowMode, WindowRequest};
 use std::cell::RefCell;
+use std::collections::BTreeMap;
 use std::rc::Rc;
 
 /// Run the client on the application's main thread until its native window exits.
@@ -26,15 +32,11 @@ pub fn run_native(client: Client, options: HostOptions) -> Result<(), HostError>
     // with.
     let log = frame_log.clone();
     let shell = Shell::new(
-        arvane_native::backend(ShellOptions {
-            width: window_size.width,
-            height: window_size.height,
-            title: "Kivact".into(),
-        })
-        .map_err(|e| HostError::new(e.to_string()))?,
+        arvane_native::backend(WindowRequest::main("Kivact", window_size))
+            .map_err(|e| HostError::new(e.to_string()))?,
     );
     let shell = shell.gpu_preference(options.gpu_preference);
-    let shell = shell.on_renderer_change(move |change| {
+    let shell = shell.on_renderer_change(move |_window, change| {
         let mut log = log.borrow_mut();
         match change {
             RendererChange::Start { .. } => log.note(&format!("host=arvane {change}")),
@@ -108,12 +110,12 @@ impl Launch {
         }
     }
 }
-impl arvane::Handler for Launch {
+impl Handler for Launch {
     fn start(
         &mut self,
-        window: &mut arvane::Window<'_>,
-        waker: arvane::ShellWaker,
-    ) -> Result<arvane::ShellControl, arvane::ShellError> {
+        windows: &mut Windows<'_>,
+        waker: ShellWaker,
+    ) -> Result<ShellControl, ShellError> {
         let Self::Pending(args) = std::mem::replace(self, Self::Starting) else {
             panic!("invariant: shell starts its handler once");
         };
@@ -126,31 +128,34 @@ impl arvane::Handler for Launch {
                 arvane::asset::AssetStore::new(move || wake.wake(arvane::WakeReasons::ASSETS))
             }
         };
-        let mut model = Model::new(args.window_size, store);
+        let shared = Shared {
+            events: EventSink::default(),
+            assets: Rc::new(RefCell::new(crate::lower::assets::ArvaneAssets::new(store))),
+            log: Default::default(),
+        };
+        let mut model = Model::new(WindowId::MAIN, args.window_size, &shared);
         model.frame.start_theme(args.theme);
+        let mut host_windows = BTreeMap::new();
+        host_windows.insert(WindowId::MAIN, HostWindow::new(WindowMode::Normal, None));
         let client = args.client;
         let engine = args.engine;
         let mut host = Host {
             client,
-            model: Rc::new(RefCell::new(model)),
+            app: Rc::new(RefCell::new(AppModel::new(shared, model))),
             engine: Rc::new(RefCell::new(engine)),
             phase: HostPhase::Starting,
             presence: super::pump::AppPresence::Foreground,
-            surface: super::pump::Surface::Unavailable(super::pump::Unavailable::NoSurface),
-            last_present: LastPresent::Settled,
             next_wake: None,
             close: args.close.clone(),
-            environment: kivact_types::cell::Sent::new(),
             reduced_motion_override: None,
-            soft_keyboard: kivact_types::cell::Sent::new(),
-            ime_allowed: kivact_types::cell::Sent::new(),
             frame_log: args.frame_log.clone(),
             accessibility_noted: kivact_types::cell::ReportOnce::new(),
-            adapter: kivact_types::cell::Sent::new(),
-            last_stats: None,
+            windows: host_windows,
+            app_motion: Sent::new(),
+            devtools: Default::default(),
         };
         let result = host.begin(
-            window,
+            windows,
             super::client::HostWaker::new(move || waker.wake(arvane::WakeReasons::CLIENT)),
         );
         *self = Self::Running(Box::new(host));
@@ -158,9 +163,11 @@ impl arvane::Handler for Launch {
     }
     fn event(
         &mut self,
-        event: arvane::ShellEvent,
-        window: &mut arvane::Window<'_>,
-    ) -> Result<arvane::ShellControl, arvane::ShellError> {
-        self.host_mut().handle(event, window)
+        target: EventTarget,
+        event: ShellEvent,
+        windows: &mut Windows<'_>,
+    ) -> Result<ShellControl, ShellError> {
+        self.host_mut().handle(target, event, windows)
     }
+    fn close(&mut self, _windows: &mut Windows<'_>) {}
 }

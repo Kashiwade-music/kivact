@@ -29,7 +29,9 @@ use kivact_core::view::{A11yAction, CheckedState, Handled, Key, KeyEvent, Modifi
 /// else's (a canvas region, a native control).
 #[derive(Clone, Copy)]
 pub struct ButtonApi {
+    // xtask-allow(state-fields): independent fact - the observation of the attached part, absent until it attaches
     observed: Signal<Option<Value<PartState>>>,
+    // xtask-allow(state-fields): builder option - the disabled value a setter supplied, absent until set
     disabled: Signal<Option<Value<bool>>>,
 }
 
@@ -110,15 +112,11 @@ pub struct ToggleState {
 /// What every toggle shares: the binding, the kind and the disabled value.
 #[derive(Clone, Copy)]
 struct Core {
-    // xtask-allow(state-fields): The checked binding is caller-owned input, independent of mount observation.
     checked: Binding<bool>,
     kind: Kind,
-    // xtask-allow(state-fields): EditSession already owns the edit lifecycle machine; bool is its payload type.
     edit: crate::EditSession<bool>,
     observed: Signal<Option<Value<ToggleState>>>,
     options: OptionsCell<ToggleOptions>,
-    // xtask-allow(state-fields): Host disabled is a mounted node input, not a lifecycle phase.
-    host_disabled: Signal<Option<Value<bool>>>,
 }
 
 /// Copy handle for a check box ([`use_checkbox`]), react-aria's
@@ -157,7 +155,6 @@ fn core(checked: Binding<bool>, kind: Kind) -> Core {
         edit: crate::EditSession::new(move |value| checked.set(value)),
         observed: signal(None),
         options: OptionsCell::new(ToggleOptions::default()),
-        host_disabled: signal(None),
     }
 }
 
@@ -332,14 +329,12 @@ impl Core {
             .update(|options| options.disabled = Some(disabled));
     }
 
-    fn is_disabled(self) -> bool {
+    fn is_disabled(self, caller_disabled: Option<Value<bool>>) -> bool {
         self.options
             .get()
             .disabled
             .is_some_and(|value| value.get_untracked())
-            || self
-                .host_disabled
-                .with_untracked(|value| value.is_some_and(|value| value.get_untracked()))
+            || caller_disabled.is_some_and(|value| value.get_untracked())
     }
 
     /// The mixed value is meaningful only for a checkbox.
@@ -353,8 +348,8 @@ impl Core {
                 .is_some_and(|value| value.get())
     }
 
-    fn press(self) {
-        if !self.is_disabled() {
+    fn press(self, caller_disabled: Option<Value<bool>>) {
+        if !self.is_disabled(caller_disabled) {
             let mixed = self.is_mixed();
             self.edit.once(self.checked.get_untracked(), || {
                 self.checked.set(mixed || !self.checked.get())
@@ -380,7 +375,6 @@ impl Core {
         self.observed.set(Some(part_state));
         Part::new(part_state, move |mut host| {
             let caller_disabled = host.accessible_disabled();
-            self.host_disabled.set(caller_disabled);
 
             let mut control = host
                 .part(input)
@@ -390,9 +384,9 @@ impl Core {
                     Kind::Button => Role::Button,
                 })
                 .focusable(true)
-                .on_press(move || self.press())
+                .on_press(move || self.press(caller_disabled))
                 .checked(checked)
-                .a11y_action(A11yAction::Toggle, move |_| self.press())
+                .a11y_action(A11yAction::Toggle, move |_| self.press(caller_disabled))
                 .disabled(move || {
                     caller_disabled.is_some_and(|value| value.get())
                         || options.get().disabled.is_some_and(|value| value.get())

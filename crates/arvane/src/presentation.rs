@@ -1,7 +1,10 @@
 //! Role: Defines renderer choices and presentation change notifications.
 
+use kivact_types::WindowId;
 use kivact_types::{ExternalFrame, GpuAdapter};
+use std::cell::RefCell;
 use std::fmt;
+use std::rc::Rc;
 use std::time::Duration;
 
 /// The rasterizer behind a frame.
@@ -32,9 +35,11 @@ pub enum RendererChange {
         adapter: String,
         /// Creating the device.
         init: Duration,
+        // xtask-allow(state-fields): passive record - how long the first swapchain took when it was configured in the background, absent otherwise
         /// Configuring the window's first swapchain, when it was configured
         /// in the background.
         configure: Option<Duration>,
+        // xtask-allow(state-fields): passive record - the adapter that can import shared textures, absent without gpu-interop
         /// The adapter, when the device can import textures an external
         /// render engine shares (feature `gpu-interop`): a new
         /// [`GpuAdapter::generation`] means the images imported before are
@@ -101,21 +106,23 @@ impl fmt::Display for RendererChange {
     }
 }
 
-/// Observes a window's renderer changes.
-pub type Observer = Box<dyn FnMut(&RendererChange)>;
+/// Observes the renderer changes of a window.
+pub type Observer = Rc<RefCell<dyn FnMut(WindowId, &RendererChange)>>;
 
 /// Where a presenter notes its renderer changes.
-#[derive(Default)]
-pub(crate) struct Notes(Option<Observer>);
+pub(crate) struct Notes {
+    observer: Option<Observer>,
+    window: WindowId,
+}
 
 impl Notes {
-    pub(crate) fn new(observer: Option<Observer>) -> Self {
-        Self(observer)
+    pub(crate) fn new(observer: Option<Observer>, window: WindowId) -> Self {
+        Self { observer, window }
     }
 
     pub(crate) fn note(&mut self, change: RendererChange) {
-        if let Some(observer) = &mut self.0 {
-            observer(&change);
+        if let Some(observer) = &self.observer {
+            observer.borrow_mut()(self.window, &change);
         }
     }
 }

@@ -27,7 +27,6 @@ pub enum EditOutcome {
     Paste,
 }
 
-// xtask-allow(state-fields): These independent native editing constraints and optional geometry are a borrowed request snapshot.
 /// What an editing behavior is given beside the state and the request:
 /// the editor's native constraints and its laid-out lines.
 ///
@@ -38,12 +37,16 @@ pub enum EditOutcome {
 /// `x` is in logical pixels from the start of the editor's text box,
 /// before the editor's horizontal scroll.
 pub struct EditContext<'a> {
+    // xtask-allow(state-fields): borrowed snapshot - Whether committed text may contain line breaks
     /// Whether committed text may contain line breaks.
     pub multiline: bool,
+    // xtask-allow(state-fields): borrowed snapshot - Whether user input must preserve the value
     /// Whether user input must preserve the value.
     pub read_only: bool,
+    // xtask-allow(state-fields): borrowed snapshot - Whether clipboard copy and cut must hide the value
     /// Whether clipboard copy and cut must hide the value.
     pub password: bool,
+    // xtask-allow(state-fields): borrowed snapshot - layout
     layout: Option<EditLayout<'a>>,
 }
 

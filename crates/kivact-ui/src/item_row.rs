@@ -14,21 +14,32 @@ pub struct ItemRow {
     root: Node,
     contents: RowContents,
 }
-// xtask-allow(state-fields): Independent construction inputs, slots and caller callbacks; actual input belongs to Part and delegated activation belongs to the supplied target.
 struct RowContents {
     title: Value<String>,
+    // xtask-allow(state-fields): passive record - title content
     title_content: Option<View>,
+    // xtask-allow(state-fields): passive record - description
     description: Option<Value<String>>,
+    // xtask-allow(state-fields): passive record - description content
     description_content: Option<View>,
+    // xtask-allow(state-fields): passive record - media
     media: Option<View>,
+    // xtask-allow(state-fields): passive record - actions
     actions: Option<View>,
+    // xtask-allow(state-fields): passive record - header
     header: Option<View>,
+    // xtask-allow(state-fields): passive record - footer
     footer: Option<View>,
+    // xtask-allow(state-fields): passive record - marker
     marker: Option<View>,
     press: Option<Callback<()>>,
+    // xtask-allow(state-fields): passive record - delegate
     delegate: Option<NodeRef>,
+    // xtask-allow(state-fields): passive record - position
     position: Option<(Value<usize>, Value<usize>)>,
+    // xtask-allow(state-fields): passive record - title lines
     title_lines: Option<Value<Option<u32>>>,
+    // xtask-allow(state-fields): passive record - description lines
     description_lines: Option<Value<Option<u32>>>,
     variants: Variants,
 }
@@ -114,7 +125,7 @@ impl ItemRow {
         self.contents.description_lines = Some(lines.into_value());
         self
     }
-    pub fn variant(self, value: impl Variant) -> Self {
+    pub fn variant(mut self, value: impl Variant) -> Self {
         self.contents.variants.add(value);
         self
     }

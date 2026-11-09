@@ -145,3 +145,29 @@ fn hover_card_controlled_binding_rejection_and_external_close_are_authoritative(
     assert!(open.get_untracked());
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
+
+#[test]
+fn focus_during_the_open_delay_opens_the_hover_card_at_once() {
+    let (screen, ()) = mount(|| {
+        (
+            (),
+            kivact::ui::hover_card(|| text("Preview body"))
+                .label("Preview")
+                .open_delay(Duration::from_millis(200))
+                .attach(button("Preview trigger")),
+        )
+    });
+    let trigger = screen.get_by_role(Role::Button, "Preview trigger");
+    trigger.hover();
+    screen.advance(Duration::from_millis(50));
+    assert!(
+        screen.query_by_role(Role::Dialog, "Preview").is_none(),
+        "the open delay runs"
+    );
+    trigger.focus();
+    assert!(
+        screen.query_by_role(Role::Dialog, "Preview").is_some(),
+        "focus ends the delay"
+    );
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}

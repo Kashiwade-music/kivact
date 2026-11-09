@@ -29,11 +29,9 @@ impl Inspect<'_> {
     pub fn reader(&self) -> kivact_engine::api::Reader {
         ViewState::tree(self.rt()).reader()
     }
-    pub fn root(&self) -> kivact_types::NodeId {
-        ViewState::tree(self.rt()).root
-    }
-    pub fn app_view(&self) -> Option<kivact_types::NodeId> {
-        self.reader().children(self.root()).first().copied()
+    /// Every open window's root, ascending by window.
+    pub fn roots(&self) -> Vec<(kivact_types::WindowId, kivact_types::NodeId)> {
+        ViewState::tree(self.rt()).roots()
     }
     pub fn located_at(&self, node: kivact_types::NodeId) -> Option<&'static Location<'static>> {
         ViewState::tree(self.rt()).get(node).and_then(|n| n.at)
@@ -47,9 +45,17 @@ impl Inspect<'_> {
     pub fn turns(&self) -> Vec<kivact_runtime::TurnRecord> {
         self.rt().turns()
     }
-    #[cfg(debug_assertions)]
-    pub fn open_trace(&self, name: &str) {
-        crate::client::trace::Trace::of(self.rt()).open(name);
+
+    /// The discovery file of the running DevTools agent, if it runs.
+    #[cfg(feature = "devtools")]
+    pub fn devtools_target(&self) -> Option<std::path::PathBuf> {
+        let crate::view::devtools_state::DevtoolsState::Running(inspector) =
+            crate::view::devtools_state::DevtoolsState::of(self.rt())
+        else {
+            return None;
+        };
+        let path = inspector.agent.borrow().discovery_path().to_owned();
+        Some(path)
     }
 }
 
@@ -115,7 +121,7 @@ impl Inspect<'_> {
         let tree = ViewState::tree(self.rt());
         let reader = tree.reader();
         let mut reached = std::collections::HashSet::new();
-        let mut stack = vec![tree.root];
+        let mut stack: Vec<_> = tree.roots().into_iter().map(|(_, root)| root).collect();
         while let Some(id) = stack.pop() {
             if !reached.insert(id) {
                 return Err(format!("engine node {} is reachable twice", id.0));
@@ -142,7 +148,10 @@ impl Inspect<'_> {
 impl Launch {
     pub fn into_engine_client(self) -> (Client, LaunchHandle) {
         let timing = match &self.mode {
-            ClientMode::Test(TestTiming(timing)) => Some(timing.clone()),
+            ClientMode::Test {
+                timing: TestTiming(timing),
+                ..
+            } => Some(timing.clone()),
             _ => None,
         };
         let shared = Rc::new(RefCell::new(self));

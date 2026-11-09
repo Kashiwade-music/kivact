@@ -9,12 +9,14 @@ use kivact::ui::ButtonVariant;
 use kivact::view::{IntoView, Role, View};
 use kivact::view::{Node, NodeBuilder, row};
 
-// xtask-allow(state-fields): Application-owned independent transport switches; play, record and cycle are valid in every combination, without a component lifecycle.
 /// Playback button state; the application owns its clock.
 #[derive(Clone, Debug, PartialEq)]
 pub struct TransportState {
+    // xtask-allow(state-fields): caller binding - playing
     pub playing: bool,
+    // xtask-allow(state-fields): caller binding - recording
     pub recording: bool,
+    // xtask-allow(state-fields): caller binding - cycling
     pub cycling: bool,
 }
 

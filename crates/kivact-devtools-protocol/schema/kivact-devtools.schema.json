@@ -1,0 +1,4079 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "kivact-devtools.schema.json",
+  "title": "Kivact DevTools protocol",
+  "x-protocol": 1,
+  "x-errors": [
+    {
+      "name": "PARSE_ERROR",
+      "code": -32700,
+      "description": "The line is not JSON."
+    },
+    {
+      "name": "INVALID_REQUEST",
+      "code": -32600,
+      "description": "The line is not a JSON-RPC 2.0 request."
+    },
+    {
+      "name": "METHOD_NOT_FOUND",
+      "code": -32601,
+      "description": "The method is unknown."
+    },
+    {
+      "name": "INVALID_PARAMS",
+      "code": -32602,
+      "description": "The params are invalid."
+    },
+    {
+      "name": "INTERNAL_ERROR",
+      "code": -32603,
+      "description": "The agent failed internally."
+    },
+    {
+      "name": "BAD_TOKEN",
+      "code": -32001,
+      "description": "The token is wrong."
+    },
+    {
+      "name": "NOT_INITIALIZED",
+      "code": -32002,
+      "description": "The connection has not sent `initialize` yet."
+    },
+    {
+      "name": "VERSION_MISMATCH",
+      "code": -32003,
+      "description": "The protocol version of the client differs from the target's."
+    },
+    {
+      "name": "NODE_NOT_FOUND",
+      "code": -32010,
+      "description": "The node does not exist (including an unmounted node)."
+    },
+    {
+      "name": "WINDOW_NOT_FOUND",
+      "code": -32011,
+      "description": "The window does not exist."
+    },
+    {
+      "name": "NO_MATCH",
+      "code": -32012,
+      "description": "A query found no node."
+    },
+    {
+      "name": "MULTIPLE_MATCHES",
+      "code": -32013,
+      "description": "A query found more than one node."
+    },
+    {
+      "name": "TIMED_OUT",
+      "code": -32014,
+      "description": "The wait of a `find_*` call timed out."
+    },
+    {
+      "name": "UNSUPPORTED",
+      "code": -32015,
+      "description": "The target cannot do this (no multi-window, no GPU, embed input, ...)."
+    }
+  ],
+  "$defs": {
+    "A11yNode": {
+      "description": "One node of an accessibility tree.",
+      "type": "object",
+      "properties": {
+        "node": {
+          "description": "The node.",
+          "$ref": "#/$defs/NodeId"
+        },
+        "parent": {
+          "description": "The parent.",
+          "$ref": "#/$defs/NodeId"
+        },
+        "children": {
+          "description": "The children.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/NodeId"
+          }
+        },
+        "semantics": {
+          "description": "The semantics.",
+          "$ref": "#/$defs/SemanticsInfo"
+        },
+        "bounds": {
+          "description": "The bounds.",
+          "$ref": "#/$defs/Rect"
+        }
+      },
+      "required": [
+        "node",
+        "semantics",
+        "bounds"
+      ],
+      "additionalProperties": false
+    },
+    "A11yTree": {
+      "description": "The accessibility tree of a window.",
+      "type": "object",
+      "properties": {
+        "window": {
+          "description": "The window.",
+          "$ref": "#/$defs/WindowId"
+        },
+        "nodes": {
+          "description": "The nodes.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/A11yNode"
+          }
+        }
+      },
+      "required": [
+        "window"
+      ],
+      "additionalProperties": false
+    },
+    "AuditRule": {
+      "description": "A rule of the accessibility audit.",
+      "type": "string",
+      "enum": [
+        "missing_name",
+        "low_contrast",
+        "small_target",
+        "focusable_without_role",
+        "duplicate_test_id",
+        "unlabelled_image"
+      ]
+    },
+    "AuditFinding": {
+      "description": "One finding of the accessibility audit.",
+      "type": "object",
+      "properties": {
+        "rule": {
+          "description": "The rule.",
+          "$ref": "#/$defs/AuditRule"
+        },
+        "node": {
+          "description": "The node.",
+          "$ref": "#/$defs/NodeId"
+        },
+        "message": {
+          "description": "The message.",
+          "type": "string"
+        },
+        "value": {
+          "description": "The measured value.",
+          "type": "number"
+        },
+        "limit": {
+          "description": "The limit of the rule.",
+          "type": "number"
+        }
+      },
+      "required": [
+        "rule",
+        "node",
+        "message"
+      ],
+      "additionalProperties": false
+    },
+    "AuditReport": {
+      "description": "The findings of the accessibility audit of a window.",
+      "type": "object",
+      "properties": {
+        "window": {
+          "description": "The window.",
+          "$ref": "#/$defs/WindowId"
+        },
+        "findings": {
+          "description": "The findings.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/AuditFinding"
+          }
+        }
+      },
+      "required": [
+        "window"
+      ],
+      "additionalProperties": false
+    },
+    "FocusReason": {
+      "description": "Why focus moved.",
+      "type": "string",
+      "enum": [
+        "pointer",
+        "keyboard",
+        "programmatic"
+      ]
+    },
+    "FocusMove": {
+      "description": "One move of focus.",
+      "type": "object",
+      "properties": {
+        "at_ns": {
+          "description": "When focus moved (the app's clock, nanoseconds).",
+          "type": "integer",
+          "minimum": 0
+        },
+        "before": {
+          "description": "The node that was focused before.",
+          "$ref": "#/$defs/NodeId"
+        },
+        "after": {
+          "description": "The node that is focused after.",
+          "$ref": "#/$defs/NodeId"
+        },
+        "reason": {
+          "description": "Why focus moved.",
+          "$ref": "#/$defs/FocusReason"
+        }
+      },
+      "required": [
+        "at_ns",
+        "reason"
+      ],
+      "additionalProperties": false
+    },
+    "FocusInfo": {
+      "description": "The focus of a window and its history.",
+      "type": "object",
+      "properties": {
+        "window": {
+          "description": "The window.",
+          "$ref": "#/$defs/WindowId"
+        },
+        "node": {
+          "description": "The focused node.",
+          "$ref": "#/$defs/NodeId"
+        },
+        "visible": {
+          "description": "Whether the window is focused.",
+          "type": "boolean"
+        },
+        "history": {
+          "description": "The recent moves, oldest first.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FocusMove"
+          }
+        }
+      },
+      "required": [
+        "window",
+        "visible"
+      ],
+      "additionalProperties": false
+    },
+    "TabOrder": {
+      "description": "The Tab order of a window.",
+      "type": "object",
+      "properties": {
+        "window": {
+          "description": "The window.",
+          "$ref": "#/$defs/WindowId"
+        },
+        "nodes": {
+          "description": "The nodes, in Tab order.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/NodeId"
+          }
+        }
+      },
+      "required": [
+        "window"
+      ],
+      "additionalProperties": false
+    },
+    "WindowParams": {
+      "description": "The parameters that name one window.",
+      "type": "object",
+      "properties": {
+        "window": {
+          "description": "The window.",
+          "$ref": "#/$defs/WindowId"
+        }
+      },
+      "required": [
+        "window"
+      ],
+      "additionalProperties": false
+    },
+    "AppInfo": {
+      "description": "The app behind the agent.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "description": "The name of the app.",
+          "type": "string"
+        },
+        "pid": {
+          "description": "The process id.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "kivact_version": {
+          "description": "The version of Kivact.",
+          "type": "string"
+        },
+        "build": {
+          "description": "The build kind.",
+          "$ref": "#/$defs/BuildKind"
+        },
+        "exe": {
+          "description": "The path of the executable.",
+          "type": "string"
+        },
+        "cwd": {
+          "description": "The working directory.",
+          "type": "string"
+        },
+        "workspace_root": {
+          "description": "The root of the workspace.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "pid",
+        "kivact_version",
+        "build",
+        "exe",
+        "cwd",
+        "workspace_root"
+      ],
+      "additionalProperties": false
+    },
+    "WindowInfo": {
+      "description": "One open window.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "description": "The id of the window.",
+          "$ref": "#/$defs/WindowId"
+        },
+        "title": {
+          "description": "The title.",
+          "type": "string"
+        },
+        "bounds": {
+          "description": "The bounds (the position is always 0).",
+          "$ref": "#/$defs/Rect"
+        },
+        "scale": {
+          "description": "The scale factor.",
+          "type": "number"
+        },
+        "focused": {
+          "description": "Whether the window has focus.",
+          "type": "boolean"
+        },
+        "mode": {
+          "description": "The mode.",
+          "$ref": "#/$defs/WindowMode"
+        },
+        "parent": {
+          "description": "The parent window, for a tool or modal window.",
+          "$ref": "#/$defs/WindowId"
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "bounds",
+        "scale",
+        "focused",
+        "mode"
+      ],
+      "additionalProperties": false
+    },
+    "WindowList": {
+      "description": "Every open window.",
+      "type": "object",
+      "properties": {
+        "windows": {
+          "description": "The windows.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/WindowInfo"
+          }
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "ClientKind": {
+      "description": "The kind of a client.",
+      "type": "string",
+      "enum": [
+        "devtools",
+        "mcp",
+        "python",
+        "other"
+      ]
+    },
+    "ClientInfo": {
+      "description": "The client that opens a connection.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "description": "The name of the client.",
+          "type": "string"
+        },
+        "version": {
+          "description": "The version of the client.",
+          "type": "string"
+        },
+        "kind": {
+          "description": "The kind of the client.",
+          "$ref": "#/$defs/ClientKind"
+        }
+      },
+      "required": [
+        "name",
+        "version",
+        "kind"
+      ],
+      "additionalProperties": false
+    },
+    "InitializeParams": {
+      "description": "The first request of a connection.",
+      "type": "object",
+      "properties": {
+        "protocol": {
+          "description": "The protocol version of the client.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "token": {
+          "description": "The token of the discovery file.",
+          "type": "string"
+        },
+        "client": {
+          "description": "The client.",
+          "$ref": "#/$defs/ClientInfo"
+        }
+      },
+      "required": [
+        "protocol",
+        "token",
+        "client"
+      ],
+      "additionalProperties": false
+    },
+    "InitializeResult": {
+      "description": "The answer of `initialize`.",
+      "type": "object",
+      "properties": {
+        "protocol": {
+          "description": "The protocol version of the target.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "app": {
+          "description": "The app.",
+          "$ref": "#/$defs/AppInfo"
+        }
+      },
+      "required": [
+        "protocol",
+        "app"
+      ],
+      "additionalProperties": false
+    },
+    "DiscoveryFile": {
+      "description": "One discovery file of an agent.",
+      "type": "object",
+      "properties": {
+        "protocol": {
+          "description": "The protocol version of the target.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "pid": {
+          "description": "The process id.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "app_name": {
+          "description": "The name of the app.",
+          "type": "string"
+        },
+        "kivact_version": {
+          "description": "The version of Kivact.",
+          "type": "string"
+        },
+        "port": {
+          "description": "The port of the agent.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "token": {
+          "description": "The token a client must send.",
+          "type": "string"
+        },
+        "started_unix_ms": {
+          "description": "When the agent started (Unix milliseconds).",
+          "type": "integer",
+          "minimum": 0
+        },
+        "workspace_root": {
+          "description": "The root of the workspace.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "protocol",
+        "pid",
+        "app_name",
+        "kivact_version",
+        "port",
+        "token",
+        "started_unix_ms",
+        "workspace_root"
+      ],
+      "additionalProperties": false
+    },
+    "Topic": {
+      "description": "A notification topic.",
+      "type": "string",
+      "enum": [
+        "tree",
+        "turns",
+        "frames",
+        "pick",
+        "errors",
+        "devtools",
+        "scripts",
+        "windows"
+      ]
+    },
+    "SubscribeParams": {
+      "description": "The topics a connection subscribes to.",
+      "type": "object",
+      "properties": {
+        "topics": {
+          "description": "The topics (replaces the earlier choice).",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Topic"
+          }
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "NodeId": {
+      "description": "The id of a node.",
+      "type": "integer",
+      "minimum": 0
+    },
+    "WindowId": {
+      "description": "The id of a window.",
+      "type": "integer",
+      "minimum": 0
+    },
+    "OwnerId": {
+      "description": "The id of an owner.",
+      "type": "integer",
+      "minimum": 0
+    },
+    "SourceLocation": {
+      "description": "A place in a source file.",
+      "type": "object",
+      "properties": {
+        "file": {
+          "description": "The path of the file.",
+          "type": "string"
+        },
+        "line": {
+          "description": "The 1-based line.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "column": {
+          "description": "The 1-based column.",
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "file",
+        "line",
+        "column"
+      ],
+      "additionalProperties": false
+    },
+    "Point": {
+      "description": "A position.",
+      "type": "object",
+      "properties": {
+        "x": {
+          "description": "The horizontal coordinate.",
+          "type": "number"
+        },
+        "y": {
+          "description": "The vertical coordinate.",
+          "type": "number"
+        }
+      },
+      "required": [
+        "x",
+        "y"
+      ],
+      "additionalProperties": false
+    },
+    "Size": {
+      "description": "A size.",
+      "type": "object",
+      "properties": {
+        "width": {
+          "description": "The width.",
+          "type": "number"
+        },
+        "height": {
+          "description": "The height.",
+          "type": "number"
+        }
+      },
+      "required": [
+        "width",
+        "height"
+      ],
+      "additionalProperties": false
+    },
+    "Rect": {
+      "description": "A rectangle.",
+      "type": "object",
+      "properties": {
+        "x": {
+          "description": "The horizontal position.",
+          "type": "number"
+        },
+        "y": {
+          "description": "The vertical position.",
+          "type": "number"
+        },
+        "width": {
+          "description": "The width.",
+          "type": "number"
+        },
+        "height": {
+          "description": "The height.",
+          "type": "number"
+        }
+      },
+      "required": [
+        "x",
+        "y",
+        "width",
+        "height"
+      ],
+      "additionalProperties": false
+    },
+    "Empty": {
+      "description": "No parameters, or no result.",
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
+    "Role": {
+      "description": "An accessible role; mirrors `kivact_types::Role` variant by variant, in the same order.",
+      "type": "string",
+      "enum": [
+        "generic",
+        "group",
+        "text",
+        "heading",
+        "button",
+        "check_box",
+        "combo_box",
+        "list_box",
+        "list_item",
+        "option",
+        "text_box",
+        "image",
+        "slider",
+        "progress_bar",
+        "alert",
+        "status",
+        "list",
+        "dialog",
+        "alert_dialog",
+        "menu",
+        "menu_item",
+        "tab",
+        "tab_list",
+        "scroll_view",
+        "canvas",
+        "link",
+        "toolbar",
+        "tooltip",
+        "radio_group",
+        "radio_button",
+        "switch",
+        "tab_panel",
+        "splitter",
+        "table",
+        "row",
+        "cell",
+        "column_header",
+        "tree",
+        "tree_item",
+        "meter",
+        "spin_button",
+        "menu_bar",
+        "menu_item_check_box",
+        "menu_item_radio",
+        "separator",
+        "grid",
+        "grid_cell",
+        "row_group",
+        "navigation",
+        "log",
+        "article",
+        "main",
+        "region"
+      ]
+    },
+    "A11yAction": {
+      "description": "An accessibility action; mirrors `kivact_types::A11yAction` variant by variant, in the same order.",
+      "type": "string",
+      "enum": [
+        "activate",
+        "focus",
+        "increment",
+        "decrement",
+        "expand",
+        "collapse",
+        "toggle",
+        "select",
+        "scroll_into_view",
+        "set_value",
+        "show_menu",
+        "dismiss"
+      ]
+    },
+    "NodeKind": {
+      "description": "The kind of a node.",
+      "type": "string",
+      "enum": [
+        "root",
+        "box",
+        "text",
+        "image",
+        "overlay",
+        "contents"
+      ]
+    },
+    "InteractiveState": {
+      "description": "An interactive state of a node.",
+      "type": "string",
+      "enum": [
+        "hovered",
+        "pressed",
+        "focused",
+        "focus_visible",
+        "disabled",
+        "selected"
+      ]
+    },
+    "MouseButton": {
+      "description": "A mouse button.",
+      "type": "string",
+      "enum": [
+        "primary",
+        "secondary",
+        "middle"
+      ]
+    },
+    "WindowMode": {
+      "description": "The mode of a window.",
+      "type": "string",
+      "enum": [
+        "normal",
+        "tool",
+        "modal"
+      ]
+    },
+    "BuildKind": {
+      "description": "The build kind of the app.",
+      "type": "string",
+      "enum": [
+        "debug",
+        "release"
+      ]
+    },
+    "KeyConfig": {
+      "description": "Keys that open DevTools (`\"Ctrl+Shift+I\"` style chords). `None` means the default; `[]` disables.",
+      "type": "object",
+      "properties": {
+        "open": {
+          "description": "Chords that open DevTools.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "pick": {
+          "description": "Chords that open DevTools in pick mode.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "DevtoolsConfig": {
+      "description": "The DevTools configuration read from `.kivact/devtools.json`.",
+      "type": "object",
+      "properties": {
+        "keys": {
+          "description": "Key chords.",
+          "$ref": "#/$defs/KeyConfig"
+        },
+        "app": {
+          "description": "Path of the DevTools app (relative to the workspace root, or absolute).",
+          "type": "string"
+        },
+        "python": {
+          "description": "Path of the Python interpreter for scripts.",
+          "type": "string"
+        },
+        "scripts_dir": {
+          "description": "Directory of the scripts (relative to the workspace root, or absolute).",
+          "type": "string"
+        },
+        "editor": {
+          "description": "The command that opens a source location; `{file}`, `{line}` and `{column}` are replaced.\nEmpty means the default.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "ErrorEntry": {
+      "description": "One reported error.",
+      "type": "object",
+      "properties": {
+        "seq": {
+          "description": "The sequence number of the error.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "kind": {
+          "description": "The kind of the error.",
+          "type": "string"
+        },
+        "message": {
+          "description": "The message.",
+          "type": "string"
+        },
+        "source": {
+          "description": "Where the error was reported.",
+          "$ref": "#/$defs/SourceLocation"
+        },
+        "turn": {
+          "description": "The turn that reported the error.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "handled": {
+          "description": "Whether the app handled the error.",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "seq",
+        "kind",
+        "message",
+        "handled"
+      ],
+      "additionalProperties": false
+    },
+    "ErrorList": {
+      "description": "The reported errors.",
+      "type": "object",
+      "properties": {
+        "errors": {
+          "description": "The errors, oldest first.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ErrorEntry"
+          }
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "ListErrorsParams": {
+      "description": "The parameters of `list_errors`.",
+      "type": "object",
+      "properties": {
+        "since": {
+          "description": "Only errors after this sequence number.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "limit": {
+          "description": "The newest number of errors to return.",
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "ThemeEmulation": {
+      "description": "An emulated theme.",
+      "type": "string",
+      "enum": [
+        "light",
+        "dark"
+      ]
+    },
+    "PseudoLocale": {
+      "description": "An emulated pseudo-locale.",
+      "type": "string",
+      "enum": [
+        "off",
+        "accented",
+        "long",
+        "rtl"
+      ]
+    },
+    "Emulation": {
+      "description": "The environment emulation; every `None` leaves the setting alone.",
+      "type": "object",
+      "properties": {
+        "theme": {
+          "description": "The theme.",
+          "$ref": "#/$defs/ThemeEmulation"
+        },
+        "reduced_motion": {
+          "description": "Whether reduced motion is on.",
+          "type": "boolean"
+        },
+        "locale": {
+          "description": "The locale.",
+          "type": "string"
+        },
+        "pseudo_locale": {
+          "description": "The pseudo-locale.",
+          "$ref": "#/$defs/PseudoLocale"
+        },
+        "scale": {
+          "description": "The DPI scale factor.",
+          "type": "number"
+        },
+        "touch": {
+          "description": "Whether the device has touch.",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "pseudo_locale"
+      ],
+      "additionalProperties": false
+    },
+    "InputStep": {
+      "description": "One step of an injected input.",
+      "oneOf": [
+        {
+          "description": "Click the center of a node.",
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "click"
+            },
+            "node": {
+              "description": "The node.",
+              "$ref": "#/$defs/NodeId"
+            }
+          },
+          "required": [
+            "kind",
+            "node"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "description": "Move the mouse.",
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "mouse_move"
+            },
+            "x": {
+              "description": "The horizontal position.",
+              "type": "number"
+            },
+            "y": {
+              "description": "The vertical position.",
+              "type": "number"
+            }
+          },
+          "required": [
+            "kind",
+            "x",
+            "y"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "description": "Press a mouse button.",
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "mouse_down"
+            },
+            "button": {
+              "description": "The button.",
+              "$ref": "#/$defs/MouseButton"
+            }
+          },
+          "required": [
+            "kind",
+            "button"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "description": "Release a mouse button.",
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "mouse_up"
+            },
+            "button": {
+              "description": "The button.",
+              "$ref": "#/$defs/MouseButton"
+            }
+          },
+          "required": [
+            "kind",
+            "button"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "description": "Scroll the wheel.",
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "wheel"
+            },
+            "lines_x": {
+              "description": "The horizontal lines (one line is 20 px).",
+              "type": "number"
+            },
+            "lines_y": {
+              "description": "The vertical lines (a positive value scrolls down).",
+              "type": "number"
+            }
+          },
+          "required": [
+            "kind",
+            "lines_x",
+            "lines_y"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "description": "Press and release a key chord.",
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "key"
+            },
+            "key": {
+              "description": "The chord (`\"Enter\"`, `\"Ctrl+Enter\"`, ...).",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "key"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "description": "Type text, one key per character.",
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "text"
+            },
+            "text": {
+              "description": "The text.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "text"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "description": "Perform an accessibility action.",
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "a11y"
+            },
+            "node": {
+              "description": "The node.",
+              "$ref": "#/$defs/NodeId"
+            },
+            "action": {
+              "description": "The action.",
+              "$ref": "#/$defs/A11yAction"
+            },
+            "value": {
+              "description": "The value for `SetValue`.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "node",
+            "action"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "InjectInputParams": {
+      "description": "The parameters of `inject_input`.",
+      "type": "object",
+      "properties": {
+        "window": {
+          "description": "The window.",
+          "$ref": "#/$defs/WindowId"
+        },
+        "steps": {
+          "description": "The steps, in order.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/InputStep"
+          }
+        }
+      },
+      "required": [
+        "window"
+      ],
+      "additionalProperties": false
+    },
+    "InputSource": {
+      "description": "Where an input event came from.",
+      "type": "string",
+      "enum": [
+        "platform",
+        "injected"
+      ]
+    },
+    "HandlerOutcome": {
+      "description": "The outcome of one handler.",
+      "type": "string",
+      "enum": [
+        "handled",
+        "not_handled",
+        "prevent_default",
+        "failed"
+      ]
+    },
+    "HandlerCall": {
+      "description": "One handler that ran for an input event.",
+      "type": "object",
+      "properties": {
+        "node": {
+          "description": "The node of the handler.",
+          "$ref": "#/$defs/NodeId"
+        },
+        "event": {
+          "description": "The event.",
+          "type": "string"
+        },
+        "outcome": {
+          "description": "The outcome.",
+          "$ref": "#/$defs/HandlerOutcome"
+        }
+      },
+      "required": [
+        "node",
+        "event",
+        "outcome"
+      ],
+      "additionalProperties": false
+    },
+    "InputLogEntry": {
+      "description": "One recorded input event.",
+      "type": "object",
+      "properties": {
+        "seq": {
+          "description": "The sequence number (1 from the start of the log).",
+          "type": "integer",
+          "minimum": 0
+        },
+        "at_ns": {
+          "description": "When the event arrived (the app's clock, nanoseconds).",
+          "type": "integer",
+          "minimum": 0
+        },
+        "window": {
+          "description": "The window.",
+          "$ref": "#/$defs/WindowId"
+        },
+        "kind": {
+          "description": "The kind of the event.",
+          "type": "string"
+        },
+        "detail": {
+          "description": "The detail of the event.",
+          "type": "string"
+        },
+        "source": {
+          "description": "Where the event came from.",
+          "$ref": "#/$defs/InputSource"
+        },
+        "target": {
+          "description": "The node the event was sent to.",
+          "$ref": "#/$defs/NodeId"
+        },
+        "route": {
+          "description": "The route of the event, from the target to the root.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/NodeId"
+          }
+        },
+        "handlers": {
+          "description": "The handlers that ran.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/HandlerCall"
+          }
+        }
+      },
+      "required": [
+        "seq",
+        "at_ns",
+        "window",
+        "kind",
+        "detail",
+        "source"
+      ],
+      "additionalProperties": false
+    },
+    "InputLog": {
+      "description": "The recorded input events.",
+      "type": "object",
+      "properties": {
+        "entries": {
+          "description": "The entries, oldest first.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/InputLogEntry"
+          }
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "ListInputsParams": {
+      "description": "The parameters of `list_inputs`.",
+      "type": "object",
+      "properties": {
+        "since": {
+          "description": "Only entries after this sequence number.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "limit": {
+          "description": "The newest number of entries to return.",
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "ImeState": {
+      "description": "The text input state of a window.",
+      "type": "object",
+      "properties": {
+        "window": {
+          "description": "The window.",
+          "$ref": "#/$defs/WindowId"
+        },
+        "node": {
+          "description": "The node that receives text.",
+          "$ref": "#/$defs/NodeId"
+        },
+        "composing": {
+          "description": "Whether an IME composition is in progress.",
+          "type": "boolean"
+        },
+        "preedit": {
+          "description": "The text being composed.",
+          "type": "string"
+        },
+        "cursor_area": {
+          "description": "The area of the cursor.",
+          "$ref": "#/$defs/Rect"
+        },
+        "purpose": {
+          "description": "The purpose of the text input.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "window",
+        "composing",
+        "purpose"
+      ],
+      "additionalProperties": false
+    },
+    "LayoutRuleKind": {
+      "description": "A rule of the layout lint.",
+      "type": "string",
+      "enum": [
+        "overflow_own_box",
+        "overflow_parent",
+        "wrapped",
+        "off_center",
+        "clipped_without_ellipsis"
+      ]
+    },
+    "LayoutFindingInfo": {
+      "description": "One finding of the layout lint.",
+      "type": "object",
+      "properties": {
+        "node": {
+          "description": "The node.",
+          "$ref": "#/$defs/NodeId"
+        },
+        "rule": {
+          "description": "The rule.",
+          "$ref": "#/$defs/LayoutRuleKind"
+        },
+        "amount": {
+          "description": "How much the rule is exceeded.",
+          "type": "number"
+        },
+        "text_rect": {
+          "description": "The rectangle of the text.",
+          "$ref": "#/$defs/Rect"
+        },
+        "limit_rect": {
+          "description": "The rectangle that limits the text.",
+          "$ref": "#/$defs/Rect"
+        }
+      },
+      "required": [
+        "node",
+        "rule",
+        "amount",
+        "text_rect",
+        "limit_rect"
+      ],
+      "additionalProperties": false
+    },
+    "LayoutLint": {
+      "description": "The layout findings of a window.",
+      "type": "object",
+      "properties": {
+        "window": {
+          "description": "The window.",
+          "$ref": "#/$defs/WindowId"
+        },
+        "findings": {
+          "description": "The findings.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/LayoutFindingInfo"
+          }
+        }
+      },
+      "required": [
+        "window"
+      ],
+      "additionalProperties": false
+    },
+    "AnimationKind": {
+      "description": "The kind of an animation.",
+      "type": "string",
+      "enum": [
+        "animated",
+        "timeline",
+        "frame_loop"
+      ]
+    },
+    "AnimationInfo": {
+      "description": "One running animation.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "description": "The id of the animation.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "kind": {
+          "description": "The kind.",
+          "$ref": "#/$defs/AnimationKind"
+        },
+        "source": {
+          "description": "Where the animation was created.",
+          "$ref": "#/$defs/SourceLocation"
+        },
+        "owner": {
+          "description": "The owner of the animation.",
+          "$ref": "#/$defs/OwnerId"
+        },
+        "running": {
+          "description": "Whether the animation is running.",
+          "type": "boolean"
+        },
+        "paused": {
+          "description": "Whether the animation is paused.",
+          "type": "boolean"
+        },
+        "decorative": {
+          "description": "Whether the animation is decorative.",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "owner",
+        "running",
+        "paused",
+        "decorative"
+      ],
+      "additionalProperties": false
+    },
+    "AnimationList": {
+      "description": "The running animations and the clock.",
+      "type": "object",
+      "properties": {
+        "animations": {
+          "description": "The animations.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/AnimationInfo"
+          }
+        },
+        "time_scale": {
+          "description": "The scale of the animation clock.",
+          "type": "number"
+        }
+      },
+      "required": [
+        "time_scale"
+      ],
+      "additionalProperties": false
+    },
+    "TimeScaleParams": {
+      "description": "The parameters of `set_time_scale`.",
+      "type": "object",
+      "properties": {
+        "scale": {
+          "description": "The scale: 0 pauses, 1 is normal, up to 4.",
+          "type": "number"
+        }
+      },
+      "required": [
+        "scale"
+      ],
+      "additionalProperties": false
+    },
+    "GetNodeParams": {
+      "description": "The parameters of `get_node`.",
+      "type": "object",
+      "properties": {
+        "node": {
+          "description": "The node.",
+          "$ref": "#/$defs/NodeId"
+        }
+      },
+      "required": [
+        "node"
+      ],
+      "additionalProperties": false
+    },
+    "BoxModel": {
+      "description": "The four boxes of a node.",
+      "type": "object",
+      "properties": {
+        "margin": {
+          "description": "The margin box.",
+          "$ref": "#/$defs/Rect"
+        },
+        "border": {
+          "description": "The border box.",
+          "$ref": "#/$defs/Rect"
+        },
+        "padding": {
+          "description": "The padding box.",
+          "$ref": "#/$defs/Rect"
+        },
+        "content": {
+          "description": "The content box.",
+          "$ref": "#/$defs/Rect"
+        }
+      },
+      "required": [
+        "margin",
+        "border",
+        "padding",
+        "content"
+      ],
+      "additionalProperties": false
+    },
+    "CallFrame": {
+      "description": "One frame of a call chain.",
+      "type": "object",
+      "properties": {
+        "location": {
+          "description": "Where the call was made.",
+          "$ref": "#/$defs/SourceLocation"
+        },
+        "app_code": {
+          "description": "Whether the frame is app code (not Kivact or Arvane).",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "location",
+        "app_code"
+      ],
+      "additionalProperties": false
+    },
+    "StyleOrigin": {
+      "description": "The origin of a style layer.",
+      "type": "string",
+      "enum": [
+        "devtools",
+        "state",
+        "selected",
+        "disabled",
+        "caller",
+        "recipe",
+        "base",
+        "theme_default",
+        "inherited"
+      ]
+    },
+    "StyleProperty": {
+      "description": "One style property.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "description": "The name of the property.",
+          "type": "string"
+        },
+        "value": {
+          "description": "The value.",
+          "type": "string"
+        },
+        "overridden": {
+          "description": "Whether the value is overridden.",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "name",
+        "value",
+        "overridden"
+      ],
+      "additionalProperties": false
+    },
+    "StyleLayerInfo": {
+      "description": "One layer of the style stack.",
+      "type": "object",
+      "properties": {
+        "origin": {
+          "description": "The origin of the layer.",
+          "$ref": "#/$defs/StyleOrigin"
+        },
+        "name": {
+          "description": "The name of the layer.",
+          "type": "string"
+        },
+        "source": {
+          "description": "Where the layer was declared.",
+          "$ref": "#/$defs/SourceLocation"
+        },
+        "properties": {
+          "description": "The properties of the layer.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/StyleProperty"
+          }
+        }
+      },
+      "required": [
+        "origin"
+      ],
+      "additionalProperties": false
+    },
+    "SemanticsInfo": {
+      "description": "The accessible semantics of a node.",
+      "type": "object",
+      "properties": {
+        "role": {
+          "description": "The role.",
+          "$ref": "#/$defs/Role"
+        },
+        "name": {
+          "description": "The name.",
+          "type": "string"
+        },
+        "description": {
+          "description": "The description.",
+          "type": "string"
+        },
+        "value": {
+          "description": "The value.",
+          "type": "string"
+        },
+        "states": {
+          "description": "The states.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "actions": {
+          "description": "The actions.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/A11yAction"
+          }
+        },
+        "labelled_by": {
+          "description": "The nodes that label this node.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/NodeId"
+          }
+        },
+        "described_by": {
+          "description": "The nodes that describe this node.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/NodeId"
+          }
+        },
+        "controls": {
+          "description": "The nodes this node controls.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/NodeId"
+          }
+        },
+        "focusable": {
+          "description": "Whether the node is focusable.",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "focusable"
+      ],
+      "additionalProperties": false
+    },
+    "HandlerInfo": {
+      "description": "One event handler of a node.",
+      "type": "object",
+      "properties": {
+        "event": {
+          "description": "The event name.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "event"
+      ],
+      "additionalProperties": false
+    },
+    "WhyDep": {
+      "description": "One read of a value that a prop or effect depends on.",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "description": "The kind of the dependency.",
+          "type": "string"
+        },
+        "ty": {
+          "description": "The type of the dependency.",
+          "type": "string"
+        },
+        "created_at": {
+          "description": "Where the dependency was created.",
+          "$ref": "#/$defs/SourceLocation"
+        },
+        "name_hint": {
+          "description": "A hint at the name of the dependency.",
+          "type": "string"
+        },
+        "last_write": {
+          "description": "Where the dependency was last written.",
+          "$ref": "#/$defs/SourceLocation"
+        },
+        "last_write_turn": {
+          "description": "The turn of the last write.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "reads": {
+          "description": "The reads of this dependency.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/WhyDep"
+          }
+        }
+      },
+      "required": [
+        "kind",
+        "ty",
+        "created_at"
+      ],
+      "additionalProperties": false
+    },
+    "WhyProp": {
+      "description": "One prop and the values its effect reads.",
+      "type": "object",
+      "properties": {
+        "prop": {
+          "description": "The prop.",
+          "type": "string"
+        },
+        "effect_at": {
+          "description": "Where the effect was created.",
+          "$ref": "#/$defs/SourceLocation"
+        },
+        "reads": {
+          "description": "The values the effect reads.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/WhyDep"
+          }
+        }
+      },
+      "required": [
+        "prop",
+        "effect_at"
+      ],
+      "additionalProperties": false
+    },
+    "NodeDetail": {
+      "description": "Everything known about one element.",
+      "type": "object",
+      "properties": {
+        "node": {
+          "description": "The node.",
+          "$ref": "#/$defs/ElementInfo"
+        },
+        "bounds": {
+          "description": "The boxes.",
+          "$ref": "#/$defs/BoxModel"
+        },
+        "call_chain": {
+          "description": "The call chain, from the node's creation to the root.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/CallFrame"
+          }
+        },
+        "styles": {
+          "description": "The style layers, highest priority first.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/StyleLayerInfo"
+          }
+        },
+        "computed": {
+          "description": "The computed values.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/StyleProperty"
+          }
+        },
+        "semantics": {
+          "description": "The semantics.",
+          "$ref": "#/$defs/SemanticsInfo"
+        },
+        "handlers": {
+          "description": "The handlers.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/HandlerInfo"
+          }
+        },
+        "states": {
+          "description": "The interactive states.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/InteractiveState"
+          }
+        },
+        "forced": {
+          "description": "The states DevTools forces on this node (`force_state`), in `InteractiveState` order.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/InteractiveState"
+          }
+        },
+        "why": {
+          "description": "The props and the values their effects read.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/WhyProp"
+          }
+        }
+      },
+      "required": [
+        "node",
+        "bounds",
+        "semantics"
+      ],
+      "additionalProperties": false
+    },
+    "HighlightParams": {
+      "description": "The parameters of `highlight`.",
+      "type": "object",
+      "properties": {
+        "node": {
+          "description": "The node to highlight, or `None` to clear it.",
+          "$ref": "#/$defs/NodeId"
+        },
+        "layout": {
+          "description": "Whether to show the layout boxes of the children too.",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "layout"
+      ],
+      "additionalProperties": false
+    },
+    "OverlaySettings": {
+      "description": "The debugging overlays drawn over every window.",
+      "type": "object",
+      "properties": {
+        "paint_flashing": {
+          "description": "Flash the boxes of the nodes that were redrawn.",
+          "type": "boolean"
+        },
+        "layout_lint": {
+          "description": "Outline layout problems.",
+          "type": "boolean"
+        },
+        "update_heatmap": {
+          "description": "Color the nodes by how often they are redrawn.",
+          "type": "boolean"
+        },
+        "tab_order": {
+          "description": "Show the Tab order.",
+          "type": "boolean"
+        },
+        "selected_only": {
+          "description": "Draw paint flashing and the update heatmap only for the highlighted node and its descendants; nothing when no node is highlighted.",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "paint_flashing",
+        "layout_lint",
+        "update_heatmap",
+        "tab_order",
+        "selected_only"
+      ],
+      "additionalProperties": false
+    },
+    "StartPickParams": {
+      "description": "The parameters of `start_pick`.",
+      "type": "object",
+      "properties": {
+        "window": {
+          "description": "The window to pick in.",
+          "$ref": "#/$defs/WindowId"
+        }
+      },
+      "required": [
+        "window"
+      ],
+      "additionalProperties": false
+    },
+    "PickPhase": {
+      "description": "The phase of a pick event.",
+      "type": "string",
+      "enum": [
+        "hover",
+        "select",
+        "cancel"
+      ]
+    },
+    "PickEvent": {
+      "description": "A pick mode event.",
+      "type": "object",
+      "properties": {
+        "window": {
+          "description": "The window.",
+          "$ref": "#/$defs/WindowId"
+        },
+        "node": {
+          "description": "The node under the pointer.",
+          "$ref": "#/$defs/NodeId"
+        },
+        "phase": {
+          "description": "The phase.",
+          "$ref": "#/$defs/PickPhase"
+        }
+      },
+      "required": [
+        "window",
+        "phase"
+      ],
+      "additionalProperties": false
+    },
+    "ScreenshotParams": {
+      "description": "The parameters of `screenshot`.",
+      "type": "object",
+      "properties": {
+        "window": {
+          "description": "The window.",
+          "$ref": "#/$defs/WindowId"
+        },
+        "node": {
+          "description": "One element of the window, or the whole window when absent.",
+          "$ref": "#/$defs/NodeId"
+        }
+      },
+      "required": [
+        "window"
+      ],
+      "additionalProperties": false
+    },
+    "Image": {
+      "description": "A PNG image.",
+      "type": "object",
+      "properties": {
+        "png_base64": {
+          "description": "The PNG bytes, base64 encoded.",
+          "type": "string"
+        },
+        "width": {
+          "description": "The width of the image.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "height": {
+          "description": "The height of the image.",
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "png_base64",
+        "width",
+        "height"
+      ],
+      "additionalProperties": false
+    },
+    "Counters": {
+      "description": "Counts of live objects.",
+      "type": "object",
+      "properties": {
+        "live_reactive": {
+          "description": "Live reactive values.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "live_owners": {
+          "description": "Live owners.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "live_objects": {
+          "description": "Live objects.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "live_constants": {
+          "description": "Live constant values.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "tree_nodes": {
+          "description": "Nodes in the element trees.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "timers": {
+          "description": "Live timers.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "frame_loops": {
+          "description": "Live frame loops.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "animations": {
+          "description": "Running animations.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "turns": {
+          "description": "Turns so far.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "outstanding_blocking": {
+          "description": "Async work that is still blocking.",
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "live_reactive",
+        "live_owners",
+        "live_objects",
+        "live_constants",
+        "tree_nodes",
+        "timers",
+        "frame_loops",
+        "animations",
+        "turns",
+        "outstanding_blocking"
+      ],
+      "additionalProperties": false
+    },
+    "SnapshotInfo": {
+      "description": "One saved snapshot of the live objects.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "description": "The id of the snapshot.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "taken_ns": {
+          "description": "When the snapshot was taken (the app's clock, nanoseconds).",
+          "type": "integer",
+          "minimum": 0
+        },
+        "owners": {
+          "description": "How many owners it holds.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "objects": {
+          "description": "How many objects it holds.",
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "id",
+        "taken_ns",
+        "owners",
+        "objects"
+      ],
+      "additionalProperties": false
+    },
+    "OwnerEntry": {
+      "description": "One owner in a snapshot.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "description": "The owner.",
+          "$ref": "#/$defs/OwnerId"
+        },
+        "parent": {
+          "description": "The parent owner.",
+          "$ref": "#/$defs/OwnerId"
+        },
+        "source": {
+          "description": "Where the owner was created.",
+          "$ref": "#/$defs/SourceLocation"
+        }
+      },
+      "required": [
+        "id",
+        "source"
+      ],
+      "additionalProperties": false
+    },
+    "ObjectEntry": {
+      "description": "One object in a snapshot.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "description": "The object.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "owner": {
+          "description": "The owner of the object.",
+          "$ref": "#/$defs/OwnerId"
+        },
+        "name": {
+          "description": "The name of the object.",
+          "type": "string"
+        },
+        "source": {
+          "description": "Where the object was created.",
+          "$ref": "#/$defs/SourceLocation"
+        }
+      },
+      "required": [
+        "id",
+        "owner",
+        "name",
+        "source"
+      ],
+      "additionalProperties": false
+    },
+    "DiffSnapshotsParams": {
+      "description": "The parameters of `diff_snapshots`.",
+      "type": "object",
+      "properties": {
+        "before": {
+          "description": "The earlier snapshot.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "after": {
+          "description": "The later snapshot.",
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "before",
+        "after"
+      ],
+      "additionalProperties": false
+    },
+    "SnapshotDiff": {
+      "description": "What changed between two snapshots.",
+      "type": "object",
+      "properties": {
+        "added_owners": {
+          "description": "Owners that appeared.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/OwnerEntry"
+          }
+        },
+        "removed_owners": {
+          "description": "Owners that disappeared.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/OwnerEntry"
+          }
+        },
+        "added_objects": {
+          "description": "Objects that appeared.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ObjectEntry"
+          }
+        },
+        "removed_objects": {
+          "description": "Objects that disappeared.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ObjectEntry"
+          }
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "OwnerNode": {
+      "description": "One owner of an owner tree.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "description": "The owner.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "label": {
+          "description": "The label of the owner.",
+          "type": "string"
+        },
+        "location": {
+          "description": "Where the owner was created.",
+          "$ref": "#/$defs/SourceLocation"
+        },
+        "nodes": {
+          "description": "The nodes the owner created.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/NodeId"
+          }
+        },
+        "children": {
+          "description": "The child owners.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/OwnerNode"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "label"
+      ],
+      "additionalProperties": false
+    },
+    "OwnerTree": {
+      "description": "The owner tree of a window.",
+      "type": "object",
+      "properties": {
+        "roots": {
+          "description": "The roots.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/OwnerNode"
+          }
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "ExportTraceParams": {
+      "description": "The parameters of `export_trace`.",
+      "type": "object",
+      "properties": {
+        "path": {
+          "description": "The path to write (relative to the workspace root, or absolute).",
+          "type": "string"
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "ExportedFiles": {
+      "description": "The files a call wrote.",
+      "type": "object",
+      "properties": {
+        "paths": {
+          "description": "The paths of the files.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "RoleQuery": {
+      "description": "A query by role and name.",
+      "type": "object",
+      "properties": {
+        "window": {
+          "description": "The window.",
+          "$ref": "#/$defs/WindowId"
+        },
+        "within": {
+          "description": "Search only under this node.",
+          "$ref": "#/$defs/NodeId"
+        },
+        "role": {
+          "description": "The role.",
+          "$ref": "#/$defs/Role"
+        },
+        "name": {
+          "description": "The exact name (`None` compares only the role).",
+          "type": "string"
+        },
+        "timeout_ms": {
+          "description": "How long `find_*` waits (5000 ms by default).",
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "window",
+        "role"
+      ],
+      "additionalProperties": false
+    },
+    "TextQuery": {
+      "description": "A query by text.",
+      "type": "object",
+      "properties": {
+        "window": {
+          "description": "The window.",
+          "$ref": "#/$defs/WindowId"
+        },
+        "within": {
+          "description": "Search only under this node.",
+          "$ref": "#/$defs/NodeId"
+        },
+        "text": {
+          "description": "The exact text.",
+          "type": "string"
+        },
+        "timeout_ms": {
+          "description": "How long `find_*` waits (5000 ms by default).",
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "window",
+        "text"
+      ],
+      "additionalProperties": false
+    },
+    "TestIdQuery": {
+      "description": "A query by test id.",
+      "type": "object",
+      "properties": {
+        "window": {
+          "description": "The window.",
+          "$ref": "#/$defs/WindowId"
+        },
+        "within": {
+          "description": "Search only under this node.",
+          "$ref": "#/$defs/NodeId"
+        },
+        "id": {
+          "description": "The exact test id.",
+          "type": "string"
+        },
+        "timeout_ms": {
+          "description": "How long `find_*` waits (5000 ms by default).",
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "window",
+        "id"
+      ],
+      "additionalProperties": false
+    },
+    "FoundNode": {
+      "description": "The one node a query found.",
+      "type": "object",
+      "properties": {
+        "node": {
+          "description": "The node.",
+          "$ref": "#/$defs/ElementInfo"
+        }
+      },
+      "required": [
+        "node"
+      ],
+      "additionalProperties": false
+    },
+    "MaybeNode": {
+      "description": "The node a query found, if any.",
+      "type": "object",
+      "properties": {
+        "node": {
+          "description": "The node.",
+          "$ref": "#/$defs/ElementInfo"
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "FoundNodes": {
+      "description": "Every node a query found.",
+      "type": "object",
+      "properties": {
+        "nodes": {
+          "description": "The nodes.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ElementInfo"
+          }
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "ReviewTarget": {
+      "description": "What a review item points at.",
+      "oneOf": [
+        {
+          "description": "One element, as it was when the comment was added.",
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "node"
+            },
+            "node": {
+              "description": "The node.",
+              "$ref": "#/$defs/NodeId"
+            },
+            "role": {
+              "description": "The role.",
+              "$ref": "#/$defs/Role"
+            },
+            "name": {
+              "description": "The name.",
+              "type": "string"
+            },
+            "test_id": {
+              "description": "The test id.",
+              "type": "string"
+            },
+            "source": {
+              "description": "Where the node was created.",
+              "$ref": "#/$defs/SourceLocation"
+            },
+            "call_chain": {
+              "description": "The call chain.",
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/CallFrame"
+              }
+            },
+            "bounds": {
+              "description": "The bounds.",
+              "$ref": "#/$defs/Rect"
+            },
+            "states": {
+              "description": "The interactive states.",
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/InteractiveState"
+              }
+            }
+          },
+          "required": [
+            "kind",
+            "node",
+            "bounds"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "description": "One window.",
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "window"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "StyleChange": {
+      "description": "One style override copied into a review item.",
+      "type": "object",
+      "properties": {
+        "scope": {
+          "description": "What the override applies to.",
+          "$ref": "#/$defs/OverrideScope"
+        },
+        "property": {
+          "description": "The property.",
+          "type": "string"
+        },
+        "before": {
+          "description": "The value before the override.",
+          "type": "string"
+        },
+        "after": {
+          "description": "The value after the override.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "scope",
+        "property",
+        "after"
+      ],
+      "additionalProperties": false
+    },
+    "Comment": {
+      "description": "One comment of a review item.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "description": "The id of the comment (`C1.1`, ...).",
+          "type": "string"
+        },
+        "text": {
+          "description": "The text.",
+          "type": "string"
+        },
+        "created": {
+          "description": "When the comment was added (RFC 3339, UTC).",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "text",
+        "created"
+      ],
+      "additionalProperties": false
+    },
+    "ReviewItem": {
+      "description": "One item of the review.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "description": "The id of the item (`C1`, ...).",
+          "type": "string"
+        },
+        "window_title": {
+          "description": "The title of the window.",
+          "type": "string"
+        },
+        "window": {
+          "description": "The window.",
+          "$ref": "#/$defs/WindowId"
+        },
+        "target": {
+          "description": "What the item points at.",
+          "$ref": "#/$defs/ReviewTarget"
+        },
+        "style_changes": {
+          "description": "The style overrides of the node.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/StyleChange"
+          }
+        },
+        "image": {
+          "description": "The path of the screenshot.",
+          "type": "string"
+        },
+        "comments": {
+          "description": "The comments.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Comment"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "window_title",
+        "window",
+        "target"
+      ],
+      "additionalProperties": false
+    },
+    "ReviewDocument": {
+      "description": "The whole review of a session.",
+      "type": "object",
+      "properties": {
+        "schema": {
+          "description": "The schema of the document (`kivact-devtools-review/1`).",
+          "type": "string"
+        },
+        "app": {
+          "description": "The app.",
+          "$ref": "#/$defs/AppInfo"
+        },
+        "session": {
+          "description": "The session.",
+          "type": "string"
+        },
+        "created": {
+          "description": "When the review was created (RFC 3339, UTC).",
+          "type": "string"
+        },
+        "updated": {
+          "description": "When the review was last changed (RFC 3339, UTC).",
+          "type": "string"
+        },
+        "environment": {
+          "description": "The emulation when the review was written.",
+          "$ref": "#/$defs/Emulation"
+        },
+        "items": {
+          "description": "The items.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ReviewItem"
+          }
+        }
+      },
+      "required": [
+        "schema",
+        "app",
+        "session",
+        "created",
+        "updated",
+        "environment"
+      ],
+      "additionalProperties": false
+    },
+    "AddCommentParams": {
+      "description": "The parameters of `add_comment`.",
+      "type": "object",
+      "properties": {
+        "window": {
+          "description": "The window.",
+          "$ref": "#/$defs/WindowId"
+        },
+        "node": {
+          "description": "The node, or `None` for a comment on the window.",
+          "$ref": "#/$defs/NodeId"
+        },
+        "text": {
+          "description": "The text.",
+          "type": "string"
+        },
+        "screenshot": {
+          "description": "Whether to attach a screenshot.",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "window",
+        "text",
+        "screenshot"
+      ],
+      "additionalProperties": false
+    },
+    "EditCommentParams": {
+      "description": "The parameters of `edit_comment`.",
+      "type": "object",
+      "properties": {
+        "comment": {
+          "description": "The id of the comment.",
+          "type": "string"
+        },
+        "text": {
+          "description": "The new text.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "comment",
+        "text"
+      ],
+      "additionalProperties": false
+    },
+    "RemoveCommentParams": {
+      "description": "The parameters of `remove_comment`.",
+      "type": "object",
+      "properties": {
+        "comment": {
+          "description": "The id of the comment.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "comment"
+      ],
+      "additionalProperties": false
+    },
+    "ExportedReview": {
+      "description": "The files `export_review` wrote.",
+      "type": "object",
+      "properties": {
+        "json": {
+          "description": "The path of `review.json`.",
+          "type": "string"
+        },
+        "markdown": {
+          "description": "The path of `review.md`.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "json",
+        "markdown"
+      ],
+      "additionalProperties": false
+    },
+    "ShowTableParams": {
+      "description": "The parameters of `show_table`.",
+      "type": "object",
+      "properties": {
+        "title": {
+          "description": "The title of the table.",
+          "type": "string"
+        },
+        "columns": {
+          "description": "The column headers.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "rows": {
+          "description": "The rows.",
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "required": [
+        "title"
+      ],
+      "additionalProperties": false
+    },
+    "OverrideScope": {
+      "description": "What a style override applies to.",
+      "oneOf": [
+        {
+          "description": "One node.",
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "node"
+            },
+            "node": {
+              "description": "The node.",
+              "$ref": "#/$defs/NodeId"
+            }
+          },
+          "required": [
+            "kind",
+            "node"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "description": "One call site.",
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "call_site"
+            },
+            "location": {
+              "description": "The call site.",
+              "$ref": "#/$defs/SourceLocation"
+            }
+          },
+          "required": [
+            "kind",
+            "location"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "description": "One theme token.",
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "token"
+            },
+            "token": {
+              "description": "The name of the token.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "token"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "SetStyleOverrideParams": {
+      "description": "The parameters of `set_style_override`.",
+      "type": "object",
+      "properties": {
+        "scope": {
+          "description": "What the override applies to.",
+          "$ref": "#/$defs/OverrideScope"
+        },
+        "property": {
+          "description": "The property.",
+          "type": "string"
+        },
+        "value": {
+          "description": "The value.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "scope",
+        "property",
+        "value"
+      ],
+      "additionalProperties": false
+    },
+    "StyleOverride": {
+      "description": "One style override.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "description": "The id of the override.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "scope": {
+          "description": "What the override applies to.",
+          "$ref": "#/$defs/OverrideScope"
+        },
+        "property": {
+          "description": "The property.",
+          "type": "string"
+        },
+        "value": {
+          "description": "The value.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "scope",
+        "property",
+        "value"
+      ],
+      "additionalProperties": false
+    },
+    "StyleOverrideList": {
+      "description": "Every style override that is set.",
+      "type": "object",
+      "properties": {
+        "overrides": {
+          "description": "The overrides.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/StyleOverride"
+          }
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "ClearStyleOverridesParams": {
+      "description": "The parameters of `clear_style_overrides`.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "description": "One override, or every override when absent.",
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "ForceStateParams": {
+      "description": "The parameters of `force_state`.",
+      "type": "object",
+      "properties": {
+        "node": {
+          "description": "The node.",
+          "$ref": "#/$defs/NodeId"
+        },
+        "states": {
+          "description": "The states to force (an empty list releases them).",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/InteractiveState"
+          }
+        }
+      },
+      "required": [
+        "node"
+      ],
+      "additionalProperties": false
+    },
+    "TokenKind": {
+      "description": "The kind of a theme token.",
+      "type": "string",
+      "enum": [
+        "color",
+        "length",
+        "number",
+        "text"
+      ]
+    },
+    "ThemeToken": {
+      "description": "One theme token.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "description": "The name of the token.",
+          "type": "string"
+        },
+        "kind": {
+          "description": "The kind of the token.",
+          "$ref": "#/$defs/TokenKind"
+        },
+        "value": {
+          "description": "The value.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "kind",
+        "value"
+      ],
+      "additionalProperties": false
+    },
+    "ThemeTokenList": {
+      "description": "The theme tokens of the main window.",
+      "type": "object",
+      "properties": {
+        "tokens": {
+          "description": "The tokens.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ThemeToken"
+          }
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "TaskKind": {
+      "description": "The kind of a task.",
+      "type": "string",
+      "enum": [
+        "task",
+        "resource",
+        "action",
+        "timer"
+      ]
+    },
+    "AsyncPhase": {
+      "description": "The phase of async work.",
+      "type": "string",
+      "enum": [
+        "idle",
+        "pending",
+        "ready",
+        "failed"
+      ]
+    },
+    "TaskInfo": {
+      "description": "One task, resource, action or timer.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "description": "The id of the task.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "kind": {
+          "description": "The kind.",
+          "$ref": "#/$defs/TaskKind"
+        },
+        "source": {
+          "description": "Where the task was created.",
+          "$ref": "#/$defs/SourceLocation"
+        },
+        "owner": {
+          "description": "The owner of the task.",
+          "$ref": "#/$defs/OwnerId"
+        },
+        "phase": {
+          "description": "The phase.",
+          "$ref": "#/$defs/AsyncPhase"
+        },
+        "deadline_ns": {
+          "description": "When a timer is due (the app's clock, nanoseconds).",
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "phase"
+      ],
+      "additionalProperties": false
+    },
+    "TaskList": {
+      "description": "The tasks, resources, actions and timers.",
+      "type": "object",
+      "properties": {
+        "tasks": {
+          "description": "The tasks.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/TaskInfo"
+          }
+        },
+        "outstanding_blocking": {
+          "description": "How much async work is still blocking.",
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "outstanding_blocking"
+      ],
+      "additionalProperties": false
+    },
+    "ElementInfo": {
+      "description": "One element of a window.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "description": "The id of the node.",
+          "$ref": "#/$defs/NodeId"
+        },
+        "window": {
+          "description": "The window of the node.",
+          "$ref": "#/$defs/WindowId"
+        },
+        "parent": {
+          "description": "The parent.",
+          "$ref": "#/$defs/NodeId"
+        },
+        "children": {
+          "description": "The children.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/NodeId"
+          }
+        },
+        "kind": {
+          "description": "The kind.",
+          "$ref": "#/$defs/NodeKind"
+        },
+        "role": {
+          "description": "The accessible role.",
+          "$ref": "#/$defs/Role"
+        },
+        "name": {
+          "description": "The accessible name.",
+          "type": "string"
+        },
+        "text": {
+          "description": "The text of a text node (the first 80 characters).",
+          "type": "string"
+        },
+        "test_id": {
+          "description": "The test id.",
+          "type": "string"
+        },
+        "source": {
+          "description": "Where the node was created.",
+          "$ref": "#/$defs/SourceLocation"
+        },
+        "hidden": {
+          "description": "Whether the node is hidden.",
+          "type": "boolean"
+        },
+        "leaving": {
+          "description": "Whether the node is leaving.",
+          "type": "boolean"
+        },
+        "update_count": {
+          "description": "How many times a prop changed since recording started.",
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "id",
+        "window",
+        "kind",
+        "hidden",
+        "leaving",
+        "update_count"
+      ],
+      "additionalProperties": false
+    },
+    "GetTreeParams": {
+      "description": "The parameters of `get_tree`.",
+      "type": "object",
+      "properties": {
+        "window": {
+          "description": "The window.",
+          "$ref": "#/$defs/WindowId"
+        },
+        "root": {
+          "description": "The root to read from (the window's root when absent).",
+          "$ref": "#/$defs/NodeId"
+        },
+        "depth": {
+          "description": "The maximum depth.",
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "window"
+      ],
+      "additionalProperties": false
+    },
+    "TreeSnapshot": {
+      "description": "A snapshot of the element tree of one window.",
+      "type": "object",
+      "properties": {
+        "window": {
+          "description": "The window.",
+          "$ref": "#/$defs/WindowId"
+        },
+        "root": {
+          "description": "The root.",
+          "$ref": "#/$defs/NodeId"
+        },
+        "revision": {
+          "description": "The revision of the tree.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "nodes": {
+          "description": "The nodes.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ElementInfo"
+          }
+        }
+      },
+      "required": [
+        "window",
+        "root",
+        "revision"
+      ],
+      "additionalProperties": false
+    },
+    "TreeChanged": {
+      "description": "The nodes that changed in one window.",
+      "type": "object",
+      "properties": {
+        "window": {
+          "description": "The window.",
+          "$ref": "#/$defs/WindowId"
+        },
+        "revision": {
+          "description": "The revision of the tree.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "upserted": {
+          "description": "The added or changed nodes.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ElementInfo"
+          }
+        },
+        "removed": {
+          "description": "The removed nodes.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/NodeId"
+          }
+        }
+      },
+      "required": [
+        "window",
+        "revision"
+      ],
+      "additionalProperties": false
+    },
+    "RecordingSettings": {
+      "description": "What is being recorded.",
+      "type": "object",
+      "properties": {
+        "updates": {
+          "description": "Record turns and their cause graphs.",
+          "type": "boolean"
+        },
+        "frames": {
+          "description": "Record frames.",
+          "type": "boolean"
+        },
+        "input": {
+          "description": "Record input events.",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "updates",
+        "frames",
+        "input"
+      ],
+      "additionalProperties": false
+    },
+    "TurnStage": {
+      "description": "A stage of a turn.",
+      "type": "string",
+      "enum": [
+        "begin",
+        "reports",
+        "dispatch",
+        "async",
+        "commit",
+        "mounts",
+        "user_effects",
+        "output"
+      ]
+    },
+    "StageTime": {
+      "description": "How long one stage of a turn took.",
+      "type": "object",
+      "properties": {
+        "stage": {
+          "description": "The stage.",
+          "$ref": "#/$defs/TurnStage"
+        },
+        "start_ns": {
+          "description": "When the stage started (the app's clock, nanoseconds).",
+          "type": "integer",
+          "minimum": 0
+        },
+        "duration_ns": {
+          "description": "How long the stage took (nanoseconds).",
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "stage",
+        "start_ns",
+        "duration_ns"
+      ],
+      "additionalProperties": false
+    },
+    "CauseKind": {
+      "description": "The kind of a cause.",
+      "type": "string",
+      "enum": [
+        "input",
+        "timer",
+        "task",
+        "mount",
+        "devtools",
+        "signal_write",
+        "memo_run",
+        "effect_run",
+        "prop_change",
+        "layout",
+        "paint",
+        "frame"
+      ]
+    },
+    "CauseNode": {
+      "description": "One node of a cause graph.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "description": "The id of the node in the graph.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "kind": {
+          "description": "The kind of the cause.",
+          "$ref": "#/$defs/CauseKind"
+        },
+        "label": {
+          "description": "A label.",
+          "type": "string"
+        },
+        "ty": {
+          "description": "The type of the value.",
+          "type": "string"
+        },
+        "name_hint": {
+          "description": "A hint at the name of the value.",
+          "type": "string"
+        },
+        "source": {
+          "description": "Where the value was created.",
+          "$ref": "#/$defs/SourceLocation"
+        },
+        "node": {
+          "description": "The node the cause changed.",
+          "$ref": "#/$defs/NodeId"
+        },
+        "window": {
+          "description": "The window.",
+          "$ref": "#/$defs/WindowId"
+        },
+        "count": {
+          "description": "How many events the node stands for.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "wasted": {
+          "description": "Whether the work changed nothing.",
+          "type": "boolean"
+        },
+        "members": {
+          "description": "For a merged node (`count` > 1): the element nodes of the merged members, in first-seen order without duplicates; empty otherwise.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/NodeId"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "label",
+        "count",
+        "wasted"
+      ],
+      "additionalProperties": false
+    },
+    "CauseEdge": {
+      "description": "An edge of a cause graph.",
+      "type": "object",
+      "properties": {
+        "source": {
+          "description": "The source node.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "target": {
+          "description": "The target node.",
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "source",
+        "target"
+      ],
+      "additionalProperties": false
+    },
+    "LayoutReason": {
+      "description": "Why layout ran.",
+      "type": "string",
+      "enum": [
+        "pass",
+        "style",
+        "viewport"
+      ]
+    },
+    "LayoutPass": {
+      "description": "One layout pass.",
+      "type": "object",
+      "properties": {
+        "window": {
+          "description": "The window.",
+          "$ref": "#/$defs/WindowId"
+        },
+        "reasons": {
+          "description": "The reasons layout ran.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/LayoutReason"
+          }
+        },
+        "measured": {
+          "description": "How many nodes were measured.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "laid_out": {
+          "description": "How many nodes were laid out.",
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "window",
+        "measured",
+        "laid_out"
+      ],
+      "additionalProperties": false
+    },
+    "Renderer": {
+      "description": "The renderer of a frame.",
+      "type": "string",
+      "enum": [
+        "cpu",
+        "gpu"
+      ]
+    },
+    "FrameInfo": {
+      "description": "One presented frame.",
+      "type": "object",
+      "properties": {
+        "window": {
+          "description": "The window.",
+          "$ref": "#/$defs/WindowId"
+        },
+        "end_ns": {
+          "description": "When the frame ended (the app's clock, nanoseconds).",
+          "type": "integer",
+          "minimum": 0
+        },
+        "work_ns": {
+          "description": "How long the work took (nanoseconds).",
+          "type": "integer",
+          "minimum": 0
+        },
+        "scene_ns": {
+          "description": "How long the scene took (nanoseconds).",
+          "type": "integer",
+          "minimum": 0
+        },
+        "raster_ns": {
+          "description": "How long rasterizing took (nanoseconds).",
+          "type": "integer",
+          "minimum": 0
+        },
+        "present_ns": {
+          "description": "How long presenting took (nanoseconds).",
+          "type": "integer",
+          "minimum": 0
+        },
+        "chunks_rastered": {
+          "description": "How many chunks were rastered.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "pixels_rastered": {
+          "description": "How many pixels were rastered.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "damage_pixels": {
+          "description": "How many pixels were damaged.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "renderer": {
+          "description": "The renderer.",
+          "$ref": "#/$defs/Renderer"
+        },
+        "frame_period_ns": {
+          "description": "The length of the frame period (nanoseconds).",
+          "type": "integer",
+          "minimum": 0
+        },
+        "over_budget": {
+          "description": "Whether the frame took longer than the frame period.",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "window",
+        "end_ns",
+        "work_ns",
+        "scene_ns",
+        "raster_ns",
+        "present_ns",
+        "chunks_rastered",
+        "pixels_rastered",
+        "damage_pixels",
+        "renderer",
+        "frame_period_ns",
+        "over_budget"
+      ],
+      "additionalProperties": false
+    },
+    "WastedWork": {
+      "description": "Work that changed nothing.",
+      "type": "object",
+      "properties": {
+        "equal_writes": {
+          "description": "Writes of an equal value.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "equal_memos": {
+          "description": "Memos that returned an equal value.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "unchanged_props": {
+          "description": "Writes of an unchanged prop.",
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "equal_writes",
+        "equal_memos",
+        "unchanged_props"
+      ],
+      "additionalProperties": false
+    },
+    "TurnGraph": {
+      "description": "One recorded turn and its cause graph.",
+      "type": "object",
+      "properties": {
+        "turn": {
+          "description": "The turn number.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "started_ns": {
+          "description": "When the turn started (the app's clock, nanoseconds).",
+          "type": "integer",
+          "minimum": 0
+        },
+        "duration_ns": {
+          "description": "How long the turn took (nanoseconds).",
+          "type": "integer",
+          "minimum": 0
+        },
+        "stages": {
+          "description": "The stages.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/StageTime"
+          }
+        },
+        "nodes": {
+          "description": "The nodes of the cause graph.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/CauseNode"
+          }
+        },
+        "edges": {
+          "description": "The edges of the cause graph.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/CauseEdge"
+          }
+        },
+        "changed_nodes": {
+          "description": "The nodes that changed.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/NodeId"
+          }
+        },
+        "layout": {
+          "description": "The layout passes.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/LayoutPass"
+          }
+        },
+        "frames": {
+          "description": "The frames.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FrameInfo"
+          }
+        },
+        "wasted": {
+          "description": "The work that changed nothing.",
+          "$ref": "#/$defs/WastedWork"
+        },
+        "truncated": {
+          "description": "Whether the rest of the graph was dropped.",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "turn",
+        "started_ns",
+        "duration_ns",
+        "wasted",
+        "truncated"
+      ],
+      "additionalProperties": false
+    },
+    "ListTurnsParams": {
+      "description": "The parameters of `list_turns`.",
+      "type": "object",
+      "properties": {
+        "since": {
+          "description": "Only turns after this number.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "limit": {
+          "description": "The newest number of turns to return.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "wait_ms": {
+          "description": "How long to wait for a new turn (milliseconds).",
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "TurnList": {
+      "description": "Recorded turns.",
+      "type": "object",
+      "properties": {
+        "turns": {
+          "description": "The turns, oldest first.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/TurnGraph"
+          }
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "ListFramesParams": {
+      "description": "The parameters of `list_frames`.",
+      "type": "object",
+      "properties": {
+        "window": {
+          "description": "One window.",
+          "$ref": "#/$defs/WindowId"
+        },
+        "since": {
+          "description": "Only frames that ended after this time (nanoseconds).",
+          "type": "integer",
+          "minimum": 0
+        },
+        "limit": {
+          "description": "The newest number of frames to return.",
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "FrameList": {
+      "description": "Recorded frames.",
+      "type": "object",
+      "properties": {
+        "frames": {
+          "description": "The frames, oldest first.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FrameInfo"
+          }
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    }
+  },
+  "x-methods": [
+    {
+      "name": "initialize",
+      "params": "InitializeParams",
+      "result": "InitializeResult",
+      "description": "Start a session (the first request on a connection)."
+    },
+    {
+      "name": "subscribe",
+      "params": "SubscribeParams",
+      "result": "Empty",
+      "description": "Choose the notification topics of this connection (replaces the earlier choice)."
+    },
+    {
+      "name": "get_app_info",
+      "params": "Empty",
+      "result": "AppInfo",
+      "description": "The app: name, process, build and workspace root."
+    },
+    {
+      "name": "get_config",
+      "params": "Empty",
+      "result": "DevtoolsConfig",
+      "description": "The DevTools configuration of the target, with defaults filled in."
+    },
+    {
+      "name": "list_windows",
+      "params": "Empty",
+      "result": "WindowList",
+      "description": "Every open window."
+    },
+    {
+      "name": "get_tree",
+      "params": "GetTreeParams",
+      "result": "TreeSnapshot",
+      "description": "The element tree of one window."
+    },
+    {
+      "name": "get_node",
+      "params": "GetNodeParams",
+      "result": "NodeDetail",
+      "description": "Everything known about one element."
+    },
+    {
+      "name": "get_by_role",
+      "params": "RoleQuery",
+      "result": "FoundNode",
+      "description": "The one element with this role (and name); fails when there is none or more than one."
+    },
+    {
+      "name": "query_by_role",
+      "params": "RoleQuery",
+      "result": "MaybeNode",
+      "description": "The element with this role (and name), or none; fails when there is more than one."
+    },
+    {
+      "name": "find_by_role",
+      "params": "RoleQuery",
+      "result": "FoundNode",
+      "description": "Like `get_by_role`, but waits up to `timeout_ms` for the element to appear."
+    },
+    {
+      "name": "all_by_role",
+      "params": "RoleQuery",
+      "result": "FoundNodes",
+      "description": "Every element with this role (and name)."
+    },
+    {
+      "name": "get_by_text",
+      "params": "TextQuery",
+      "result": "FoundNode",
+      "description": "The one element with this text; fails when there is none or more than one."
+    },
+    {
+      "name": "query_by_text",
+      "params": "TextQuery",
+      "result": "MaybeNode",
+      "description": "The element with this text, or none; fails when there is more than one."
+    },
+    {
+      "name": "find_by_text",
+      "params": "TextQuery",
+      "result": "FoundNode",
+      "description": "Like `get_by_text`, but waits up to `timeout_ms` for the element to appear."
+    },
+    {
+      "name": "all_by_text",
+      "params": "TextQuery",
+      "result": "FoundNodes",
+      "description": "Every element with this text."
+    },
+    {
+      "name": "get_by_test_id",
+      "params": "TestIdQuery",
+      "result": "FoundNode",
+      "description": "The one element with this test id; fails when there is none or more than one."
+    },
+    {
+      "name": "query_by_test_id",
+      "params": "TestIdQuery",
+      "result": "MaybeNode",
+      "description": "The element with this test id, or none; fails when there is more than one."
+    },
+    {
+      "name": "find_by_test_id",
+      "params": "TestIdQuery",
+      "result": "FoundNode",
+      "description": "Like `get_by_test_id`, but waits up to `timeout_ms` for the element to appear."
+    },
+    {
+      "name": "all_by_test_id",
+      "params": "TestIdQuery",
+      "result": "FoundNodes",
+      "description": "Every element with this test id."
+    },
+    {
+      "name": "highlight",
+      "params": "HighlightParams",
+      "result": "Empty",
+      "description": "Highlight an element on screen (`node: None` clears it)."
+    },
+    {
+      "name": "set_overlays",
+      "params": "OverlaySettings",
+      "result": "Empty",
+      "description": "Choose the debugging overlays drawn over every window."
+    },
+    {
+      "name": "get_overlays",
+      "params": "Empty",
+      "result": "OverlaySettings",
+      "description": "The debugging overlays that are on now."
+    },
+    {
+      "name": "start_pick",
+      "params": "StartPickParams",
+      "result": "Empty",
+      "description": "Start pick mode in a window: the next click selects an element instead of reaching the app."
+    },
+    {
+      "name": "stop_pick",
+      "params": "Empty",
+      "result": "Empty",
+      "description": "Leave pick mode."
+    },
+    {
+      "name": "screenshot",
+      "params": "ScreenshotParams",
+      "result": "Image",
+      "description": "A PNG of a window or one element."
+    },
+    {
+      "name": "set_style_override",
+      "params": "SetStyleOverrideParams",
+      "result": "StyleOverride",
+      "description": "Override one style property of an element, a call site or a theme token."
+    },
+    {
+      "name": "clear_style_overrides",
+      "params": "ClearStyleOverridesParams",
+      "result": "Empty",
+      "description": "Remove one style override, or all of them."
+    },
+    {
+      "name": "list_style_overrides",
+      "params": "Empty",
+      "result": "StyleOverrideList",
+      "description": "Every style override that is set."
+    },
+    {
+      "name": "force_state",
+      "params": "ForceStateParams",
+      "result": "Empty",
+      "description": "Force interactive states (hover, pressed, ...) on an element; an empty list releases them."
+    },
+    {
+      "name": "list_theme_tokens",
+      "params": "Empty",
+      "result": "ThemeTokenList",
+      "description": "The theme tokens of the main window."
+    },
+    {
+      "name": "start_recording",
+      "params": "RecordingSettings",
+      "result": "Empty",
+      "description": "Start recording turns, frames and input (replaces the settings when already recording)."
+    },
+    {
+      "name": "stop_recording",
+      "params": "Empty",
+      "result": "Empty",
+      "description": "Finish the turns that are waiting for their frame, then stop recording."
+    },
+    {
+      "name": "get_recording",
+      "params": "Empty",
+      "result": "RecordingSettings",
+      "description": "What is being recorded (all false when not recording)."
+    },
+    {
+      "name": "list_turns",
+      "params": "ListTurnsParams",
+      "result": "TurnList",
+      "description": "Recorded turns with their cause graphs; `wait_ms` waits for a new one."
+    },
+    {
+      "name": "list_frames",
+      "params": "ListFramesParams",
+      "result": "FrameList",
+      "description": "Recorded frames."
+    },
+    {
+      "name": "get_counters",
+      "params": "Empty",
+      "result": "Counters",
+      "description": "Counts of live objects, owners, timers and so on."
+    },
+    {
+      "name": "take_snapshot",
+      "params": "Empty",
+      "result": "SnapshotInfo",
+      "description": "Save the list of live owners and objects."
+    },
+    {
+      "name": "diff_snapshots",
+      "params": "DiffSnapshotsParams",
+      "result": "SnapshotDiff",
+      "description": "What was added and removed between two snapshots."
+    },
+    {
+      "name": "get_owners",
+      "params": "WindowParams",
+      "result": "OwnerTree",
+      "description": "The owner tree of a window."
+    },
+    {
+      "name": "export_trace",
+      "params": "ExportTraceParams",
+      "result": "ExportedFiles",
+      "description": "Write the recorded turns and frames as a Chrome trace file."
+    },
+    {
+      "name": "get_a11y_tree",
+      "params": "WindowParams",
+      "result": "A11yTree",
+      "description": "The accessibility tree of a window."
+    },
+    {
+      "name": "audit_a11y",
+      "params": "WindowParams",
+      "result": "AuditReport",
+      "description": "Accessibility problems found in a window."
+    },
+    {
+      "name": "get_focus",
+      "params": "WindowParams",
+      "result": "FocusInfo",
+      "description": "The focused element and the focus history of a window."
+    },
+    {
+      "name": "get_tab_order",
+      "params": "WindowParams",
+      "result": "TabOrder",
+      "description": "The Tab order of a window."
+    },
+    {
+      "name": "lint_layout",
+      "params": "WindowParams",
+      "result": "LayoutLint",
+      "description": "Layout problems found in a window."
+    },
+    {
+      "name": "inject_input",
+      "params": "InjectInputParams",
+      "result": "Empty",
+      "description": "Inject input into a window; answers after the turn that handled it."
+    },
+    {
+      "name": "list_inputs",
+      "params": "ListInputsParams",
+      "result": "InputLog",
+      "description": "The recorded input events."
+    },
+    {
+      "name": "get_ime_state",
+      "params": "WindowParams",
+      "result": "ImeState",
+      "description": "The text input (IME) state of a window."
+    },
+    {
+      "name": "list_animations",
+      "params": "Empty",
+      "result": "AnimationList",
+      "description": "The running animations."
+    },
+    {
+      "name": "set_time_scale",
+      "params": "TimeScaleParams",
+      "result": "Empty",
+      "description": "Slow down, pause or restore the animation clock."
+    },
+    {
+      "name": "list_tasks",
+      "params": "Empty",
+      "result": "TaskList",
+      "description": "The tasks, resources, actions and timers."
+    },
+    {
+      "name": "list_errors",
+      "params": "ListErrorsParams",
+      "result": "ErrorList",
+      "description": "The errors the app reported."
+    },
+    {
+      "name": "get_emulation",
+      "params": "Empty",
+      "result": "Emulation",
+      "description": "The environment emulation that is set."
+    },
+    {
+      "name": "set_emulation",
+      "params": "Emulation",
+      "result": "Emulation",
+      "description": "Emulate another environment (theme, locale, scale, touch); replaces the whole setting."
+    },
+    {
+      "name": "get_review",
+      "params": "Empty",
+      "result": "ReviewDocument",
+      "description": "The review of this session."
+    },
+    {
+      "name": "add_comment",
+      "params": "AddCommentParams",
+      "result": "ReviewItem",
+      "description": "Add a comment to an element (or a window) of the review."
+    },
+    {
+      "name": "edit_comment",
+      "params": "EditCommentParams",
+      "result": "ReviewItem",
+      "description": "Change the text of a comment."
+    },
+    {
+      "name": "remove_comment",
+      "params": "RemoveCommentParams",
+      "result": "Empty",
+      "description": "Remove a comment."
+    },
+    {
+      "name": "export_review",
+      "params": "Empty",
+      "result": "ExportedReview",
+      "description": "Write the review as `review.json` and `review.md` and return their paths."
+    },
+    {
+      "name": "show_table",
+      "params": "ShowTableParams",
+      "result": "Empty",
+      "description": "Show a table in the DevTools app (for scripts)."
+    }
+  ],
+  "x-notifications": [
+    {
+      "name": "tree_changed",
+      "params": "TreeChanged",
+      "topic": "tree",
+      "description": "The element tree of a window changed."
+    },
+    {
+      "name": "turn_recorded",
+      "params": "TurnGraph",
+      "topic": "turns",
+      "description": "A recorded turn is complete."
+    },
+    {
+      "name": "frame_recorded",
+      "params": "FrameInfo",
+      "topic": "frames",
+      "description": "A recorded frame was presented."
+    },
+    {
+      "name": "pick",
+      "params": "PickEvent",
+      "topic": "pick",
+      "description": "Pick mode hovered, selected or cancelled."
+    },
+    {
+      "name": "error_reported",
+      "params": "ErrorEntry",
+      "topic": "errors",
+      "description": "The app reported a new error."
+    },
+    {
+      "name": "focus_requested",
+      "params": "Empty",
+      "topic": "devtools",
+      "description": "A key asked for DevTools while a DevTools app is already connected."
+    },
+    {
+      "name": "script_table",
+      "params": "ShowTableParams",
+      "topic": "scripts",
+      "description": "A script showed a table."
+    },
+    {
+      "name": "windows_changed",
+      "params": "WindowList",
+      "topic": "windows",
+      "description": "A window opened, closed or changed its title."
+    }
+  ]
+}

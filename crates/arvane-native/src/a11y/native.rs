@@ -187,6 +187,16 @@ impl NativeAccessibility {
         self.shared.drain_actions()
     }
 
+    /// Check an assistive-technology request against the accepted tree,
+    /// without queueing it (injected input is validated this way).
+    pub(crate) fn request_action(
+        &self,
+        node: u64,
+        request: kivact_types::A11yRequest,
+    ) -> Option<ShellEvent> {
+        self.shared.request_action(node, request)
+    }
+
     /// Forget the accepted tree (a pooled test window handed to a new
     /// test): the platform keeps showing what it was handed until the next
     /// tree, which is complete.

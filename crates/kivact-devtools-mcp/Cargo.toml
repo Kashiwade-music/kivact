@@ -1,0 +1,15 @@
+[package]
+name = "kivact-devtools-mcp"
+publish = false
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "MCP server that exposes a Kivact DevTools agent to AI tools."
+
+[dependencies]
+kivact-devtools-client = { path = "../kivact-devtools-client", version = "0.1.0" }
+kivact-devtools-protocol = { path = "../kivact-devtools-protocol", version = "0.1.0" }
+serde_json = { workspace = true }
+
+[lints]
+workspace = true

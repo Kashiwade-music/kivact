@@ -108,7 +108,9 @@ enum Step<T> {
     /// invalid coordinates).
     Stop {
         stop: Stop,
+        // xtask-allow(state-fields): passive record - whether the ended drag owned the edit session
         owns_edit: bool,
+        // xtask-allow(state-fields): passive record - what on_end receives, absent for an event with invalid coordinates
         update: Option<DragUpdate<T>>,
     },
 }
@@ -141,6 +143,7 @@ enum Step<T> {
 /// without calling a callback. The setters work in any order, before or
 /// after the sources are made.
 pub struct DragApi<T: 'static> {
+    // xtask-allow(state-fields): independent fact - the observation of the attached source part, absent until it attaches
     observed: Signal<Option<Value<DragState>>>,
     session: MachineHandle<machine::Machine<T>>,
     /// The source of the active drag, derived from `session`.
@@ -148,6 +151,7 @@ pub struct DragApi<T: 'static> {
     sources: Var<Generation>,
     coordinates: DragCoordinates,
     settings: OptionsCell<DragOptions<T>>,
+    // xtask-allow(state-fields): builder option - the disabled value a setter supplied, absent until set
     disabled: Signal<Option<Value<bool>>>,
 }
 

@@ -25,7 +25,6 @@ use kivact_interaction::{ScalarRange, use_splitter};
 /// The pixels used until the host has laid the panes out.
 const UNMEASURED: f64 = 800.0;
 
-// xtask-allow(state-fields): Setup-only NodeBuilder options; grip visibility and the edit observer are independent construction inputs.
 /// Panes separated by handles, created by [`split`].
 pub struct Split {
     root: Node,
@@ -137,7 +136,7 @@ impl Split {
     /// the component is mounted, and a value never changes afterwards. A
     /// look that changes while the component lives is a state the recipe
     /// reads, or a reactive `.style(..)` of the caller's.
-    pub fn variant(self, v: impl Variant) -> Self {
+    pub fn variant(mut self, v: impl Variant) -> Self {
         self.variants.add(v);
         self
     }

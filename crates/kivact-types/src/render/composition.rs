@@ -30,6 +30,8 @@ pub struct Composition {
 pub enum LayerKey {
     /// The window's root layer.
     Root,
+    /// The DevTools overlay of a window, drawn above everything and never hit-tested.
+    Devtools,
     /// The layer of a tree node.
     Node(NodeId),
     /// A layer opened by a Draw recording: the node, its scene slot (0 draw,

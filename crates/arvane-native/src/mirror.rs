@@ -103,20 +103,27 @@ pub struct MirrorStats {
 
 #[derive(Default)]
 struct Counters {
+    // xtask-allow(state-fields): statistics - native windows created
     created: AtomicU64,
+    // xtask-allow(state-fields): statistics - pooled windows handed to a new test
     reused: AtomicU64,
+    // xtask-allow(state-fields): statistics - frames shown after coalescing
     presented: AtomicU64,
 }
 
-// xtask-allow(state-fields): Mailbox of independent pending window commands; optional payloads and notifications are consumed together without conditional presence invariants.
 /// What a test window shows next; the UI thread takes it all at once.
 #[derive(Default)]
 struct MirrorBatch {
+    // xtask-allow(state-fields): mailbox - frame
     frame: Option<Frame>,
+    // xtask-allow(state-fields): mailbox - The accessibility tree changed: hand the platform what it lacks
     /// The accessibility tree changed: hand the platform what it lacks.
     accessibility: bool,
+    // xtask-allow(state-fields): mailbox - title
     title: Option<String>,
+    // xtask-allow(state-fields): mailbox - resize
     resize: Option<(u32, u32, f64)>,
+    // xtask-allow(state-fields): mailbox - A GPU surface presents to the window from now on
     /// A GPU surface presents to the window from now on.
     gpu: bool,
 }
@@ -389,18 +396,22 @@ impl Drop for MirrorWindow {
     }
 }
 
-// xtask-allow(state-fields): Native mirror facts: GPU presentation, last CPU frame, and optional test ownership vary independently when windows are pooled.
+/// What a native window of the display shows.
+enum Use {
+    /// In the pool, showing the idle tree.
+    Pooled,
+    /// A test window's, drawn here on the CPU; `frame` is the last frame it was given.
+    Cpu { slot: Slot, frame: Option<Frame> },
+    /// A test window's; a GPU surface presents to it, so its test's close destroys it.
+    Gpu { slot: Slot },
+}
+
 /// A native window on the UI thread.
 struct Entry {
     window: Arc<Window>,
     surface: softbuffer::Surface<Arc<Window>, Arc<Window>>,
-    /// A GPU surface presents to it: frames are not drawn here, and the
-    /// window is destroyed, not pooled, when its test closes it.
-    gpu: bool,
     accessibility: NativeAccessibility,
-    frame: Option<Frame>,
-    /// The test window it shows (`None` while pooled).
-    owner: Option<(u64, Slot)>,
+    usage: Use,
 }
 
 struct Display {
@@ -450,8 +461,7 @@ impl Display {
             .windows
             .get_mut(&native)
             .expect("invariant: the window was just placed in the table");
-        entry.owner = Some((id, slot));
-        entry.frame = None;
+        entry.usage = Use::Cpu { slot, frame: None };
         self.tests.insert(id, native);
         Ok(entry.accessibility.platform_tree())
     }
@@ -485,10 +495,8 @@ impl Display {
         Ok(Entry {
             window,
             surface,
-            gpu: false,
             accessibility,
-            frame: None,
-            owner: None,
+            usage: Use::Pooled,
         })
     }
 
@@ -511,7 +519,7 @@ impl Display {
         let Some(entry) = self.tests.get(&id).and_then(|w| self.windows.get_mut(w)) else {
             return;
         };
-        let Some((_, slot)) = &entry.owner else {
+        let (Use::Cpu { slot, .. } | Use::Gpu { slot }) = &entry.usage else {
             return;
         };
         let MirrorPending::Scheduled(pending) = std::mem::take(&mut *lock(slot)) else {
@@ -530,11 +538,18 @@ impl Display {
         if pending.accessibility {
             entry.accessibility.publish();
         }
-        entry.gpu |= pending.gpu;
+        if pending.gpu
+            && let Use::Cpu { slot, .. } = &entry.usage
+        {
+            let slot = slot.clone();
+            entry.usage = Use::Gpu { slot };
+        }
         // Assistive technology's requests on test windows are not input.
         let _ = entry.accessibility.drain_actions();
         if let Some(frame) = pending.frame {
-            entry.frame = Some(frame);
+            if let Use::Cpu { frame: shown, .. } = &mut entry.usage {
+                *shown = Some(frame);
+            }
             blit(entry);
             self.counters.presented.fetch_add(1, Ordering::Relaxed);
         }
@@ -547,13 +562,12 @@ impl Display {
         let Some(entry) = self.windows.get_mut(&native) else {
             return;
         };
-        if entry.gpu {
+        if matches!(entry.usage, Use::Gpu { .. }) {
             // Dropping the last handle destroys the native window.
             self.windows.remove(&native);
             return;
         }
-        entry.owner = None;
-        entry.frame = None;
+        entry.usage = Use::Pooled;
         entry.window.set_title("(idle test window)");
         let _ = entry.accessibility.replace(&idle_tree());
         let _ = entry.accessibility.drain_actions();
@@ -619,9 +633,11 @@ fn idle_tree() -> SemanticsTree {
 /// Copy the window's frame to its surface; the part the frame does not
 /// cover (a window larger than the frame) is blank.
 fn blit(entry: &mut Entry) {
-    if entry.gpu {
-        return;
-    }
+    let frame = match &entry.usage {
+        Use::Gpu { .. } => return,
+        Use::Cpu { frame, .. } => frame.as_ref(),
+        Use::Pooled => None,
+    };
     let size = entry.window.inner_size();
     let (Some(width), Some(height)) = (NonZeroU32::new(size.width), NonZeroU32::new(size.height))
     else {
@@ -634,7 +650,7 @@ fn blit(entry: &mut Entry) {
         return;
     };
     let (w, h) = (size.width as usize, size.height as usize);
-    match &entry.frame {
+    match frame {
         Some(frame) if (frame.width as usize, frame.height as usize) == (w, h) => {
             buffer.copy_from_slice(&frame.pixels);
         }

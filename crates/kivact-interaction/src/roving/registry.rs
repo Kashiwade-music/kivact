@@ -26,9 +26,7 @@ use kivact_core::view::NodeRef;
 pub(crate) struct Member {
     pub(crate) node: NodeRef,
     pub(crate) eligible: Value<bool>,
-    // xtask-allow(state-fields): Caller-provided eligibility constraints are independent reactive inputs.
     pub(crate) disabled: Value<bool>,
-    // xtask-allow(state-fields): Ancestor visibility is an independent input, not a focus phase.
     pub(crate) hidden: Value<bool>,
 }
 

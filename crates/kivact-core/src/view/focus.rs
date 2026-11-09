@@ -15,19 +15,26 @@
 //!   node mounted later.
 
 use kivact_runtime::Runtime;
-use kivact_types::FocusTarget;
+use kivact_types::{FocusTarget, WindowId};
 
 use crate::view::state::ViewState;
 
-/// The focused node (untracked).
-pub(crate) fn focused(rt: &Runtime) -> Option<FocusTarget> {
-    let keys = ViewState::of(rt).focus_keys();
+/// The focused node of `window` (untracked).
+pub(crate) fn focused(rt: &Runtime, window: WindowId) -> Option<FocusTarget> {
+    let keys = ViewState::of(rt).focus_keys(window)?;
     keys.node.try_get_untracked().flatten()
 }
 
-/// The host reported that `node` has the keyboard focus now.
-pub(crate) fn set_focused(rt: &Runtime, node: Option<FocusTarget>, visible: bool) {
-    let keys = ViewState::of(rt).focus_keys();
+/// The host reported that `node` has the keyboard focus in `window` now.
+pub(crate) fn set_focused(
+    rt: &Runtime,
+    window: WindowId,
+    node: Option<FocusTarget>,
+    visible: bool,
+) {
+    let Some(keys) = ViewState::of(rt).focus_keys(window) else {
+        return;
+    };
     // Only the focus source is written here: no owner applies.
     rt.enter(|| {
         keys.node.set(node);

@@ -535,6 +535,45 @@ pub struct MotionClock {
     pub resumed_ns: u64,
 }
 
+/// How fast motion runs for DevTools: since the anchor, motion time passes
+/// `scale` times as fast as host time (0 pauses, 1 is normal).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct TimeScale {
+    /// The host time (ns) the current scale began at.
+    pub anchor_host_ns: u64,
+    /// The motion time (ns) at that moment.
+    pub anchor_motion_ns: u64,
+    pub scale: f64,
+}
+
+impl TimeScale {
+    /// The motion time (ns) at host time `host_ns` (not before the anchor).
+    pub fn motion_ns(&self, host_ns: u64) -> u64 {
+        let elapsed = host_ns.saturating_sub(self.anchor_host_ns);
+        self.anchor_motion_ns
+            .saturating_add((elapsed as f64 * self.scale) as u64)
+    }
+
+    /// The same clock continued from `host_ns` at the new `scale`.
+    pub fn rescaled(&self, host_ns: u64, scale: f64) -> TimeScale {
+        TimeScale {
+            anchor_host_ns: host_ns,
+            anchor_motion_ns: self.motion_ns(host_ns),
+            scale,
+        }
+    }
+}
+
+impl Default for TimeScale {
+    fn default() -> Self {
+        TimeScale {
+            anchor_host_ns: 0,
+            anchor_motion_ns: 0,
+            scale: 1.0,
+        }
+    }
+}
+
 /// Direction of repeated iterations.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PlayDirection {

@@ -30,10 +30,10 @@
 //!   records the geometry it changed in `Changes`, runs the debug layout
 //!   lint, then syncs again to dispatch that geometry.
 
-use crate::contract::{HostEvent, NodeType};
+use crate::contract::{HostEvent, NodeType, SyncRecord};
 use crate::lower::AssetEvent;
 use crate::model::Model;
-use crate::model::changes::{Dirty, Geometry};
+use crate::model::changes::{Dirty, Dispatched, Geometry};
 use kivact_types::{NodeId, Size};
 
 /// Whether settling performed pending layout and geometry work.
@@ -94,6 +94,7 @@ impl Model {
 
     /// Dispatch pending writes and input changes into derived work once.
     pub(crate) fn sync(&mut self) {
+        let reasons = self.changes.layout.bits();
         self.retarget_frame();
         self.finish_entrances();
         self.finish_exits();
@@ -120,7 +121,9 @@ impl Model {
         }
         let tree = &self.tree;
         self.paint.forget_missing(|id| tree.contains(id));
-        self.assets.get_mut().prune_reports(|id| tree.contains(id));
+        self.assets
+            .borrow_mut()
+            .prune_reports(|id| tree.contains(id));
         if self.changes.fonts {
             let texts: Vec<NodeId> = self
                 .tree
@@ -151,6 +154,7 @@ impl Model {
         touched.sort_unstable();
         self.report_images(&touched);
         let changes = self.changes.dispatch();
+        self.record_sync(reasons, &changes);
         let moved = changes.geometry != Geometry::Kept;
         let redraw = changes.paint
             || changes.fonts
@@ -163,6 +167,26 @@ impl Model {
         self.paint
             .outdate_paint(&self.tree, &changes, redraw, changes.fonts, restack);
         self.report_sessions();
+    }
+
+    /// Keep one sync record for the DevTools when the sync dispatched work
+    /// and the DevTools records syncs (nothing is collected otherwise).
+    fn record_sync(&self, reasons: u8, changes: &Dispatched) {
+        if !self.log.syncs_recording() {
+            return;
+        }
+        let redrawn: Vec<NodeId> = changes.marked(Dirty::REDRAW).collect();
+        if reasons == 0 && redrawn.is_empty() {
+            return;
+        }
+        self.log.sync(|| SyncRecord {
+            window: self.window,
+            revision: self.events.applied(),
+            reasons,
+            measured: Vec::new(),
+            laid_out: Vec::new(),
+            redrawn,
+        });
     }
 
     /// Keep the base paint metrics derived from `id`'s props.
@@ -189,7 +213,7 @@ impl Model {
             #[cfg(debug_assertions)]
             let remeasured: Vec<NodeId> = self.changes.marked(Dirty::MEASURE).collect();
             self.layout(engine);
-            let pending = self.assets.get_mut().take_pending();
+            let pending = self.assets.borrow_mut().take_pending();
             for e in pending {
                 match e {
                     AssetEvent::AssetFailed { node, message } => {
@@ -215,7 +239,7 @@ impl Model {
     /// have landed), report failures. Laying out is left to the next
     /// [`Model::settle`].
     pub(crate) fn poll_assets(&mut self) {
-        let (changed, failed) = self.assets.get_mut().poll();
+        let (changed, failed) = self.assets.borrow_mut().poll();
         if !changed && !failed {
             return;
         }
@@ -225,7 +249,7 @@ impl Model {
                 let node = self.tree.get(*id);
                 let used = node.and_then(|n| self.measure.natural[n.index.0].get());
                 let image = node.and_then(|n| n.image());
-                if self.assets.get_mut().natural_changed(image, used) {
+                if self.assets.borrow_mut().natural_changed(image, used) {
                     self.remeasure(*id);
                     self.changes.mark(*id, Dirty::REDRAW);
                     self.a11y.node(*id);
@@ -241,7 +265,7 @@ impl Model {
     /// changed, and their failed images once per node and asset, in the
     /// order of `nodes`.
     fn report_images(&mut self, nodes: &[NodeId]) {
-        let assets = self.assets.get_mut();
+        let mut assets = self.assets.borrow_mut();
         let mut reports = Vec::new();
         let mut statuses = Vec::new();
         for id in nodes {
@@ -261,6 +285,7 @@ impl Model {
                 statuses.push((*id, status));
             }
         }
+        drop(assets);
         for (node, status) in statuses {
             self.push(HostEvent::ImageStatusChanged { node, status });
         }

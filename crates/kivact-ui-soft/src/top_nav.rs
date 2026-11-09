@@ -58,12 +58,15 @@ struct TopNavCx {
     align: OverlayAlign,
 }
 
-// xtask-allow(state-fields): Independent immutable heading/start/center/end views; these slots store no navigation lifecycle.
 #[derive(Default)]
 struct Slots {
+    // xtask-allow(state-fields): builder option - heading
     heading: Option<View>,
+    // xtask-allow(state-fields): builder option - start
     start: Option<View>,
+    // xtask-allow(state-fields): builder option - center
     center: Option<View>,
+    // xtask-allow(state-fields): builder option - end
     end: Option<View>,
 }
 
@@ -190,7 +193,6 @@ impl IntoView for TopNav {
     }
 }
 
-// xtask-allow(state-fields): Independent caller selection, availability and label/icon presentation inputs; active panel state belongs only to the navigation controller.
 /// A top navigation action with optional icon and custom retained label content.
 pub struct TopNavItem {
     root: Node,
@@ -471,7 +473,6 @@ fn drawer_menu_item(item: &NavHeadingMenuItem) -> SideNavItem {
     row
 }
 
-// xtask-allow(state-fields): Independent immutable item/featured factories, timing inputs and external change callback; no open or pinned copy is stored.
 /// A wide top navigation flyout with recreated item and featured-content columns.
 pub struct TopNavMegaMenu {
     root: Node,
@@ -603,7 +604,6 @@ impl IntoView for TopNavMegaMenu {
     }
 }
 
-// xtask-allow(state-fields): Independent immutable title, description, icon and activation slot; this metadata has no panel lifecycle.
 /// An action item with a title, supporting text and an optional icon in a mega menu.
 pub struct TopNavMegaMenuItem {
     root: Node,
@@ -730,7 +730,6 @@ fn title_style() -> kivact::style::Style {
         .color(t.colors.text_primary)
 }
 
-// xtask-allow(state-fields): Independent immutable illustration, supporting content and optional link slots; no panel or focus state is stored.
 /// A featured mega-menu card with retained image, body and link slots.
 pub struct TopNavMegaMenuFeaturedCard {
     root: Node,

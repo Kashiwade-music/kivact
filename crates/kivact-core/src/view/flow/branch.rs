@@ -32,6 +32,7 @@ use kivact_runtime::EffectKind;
 use kivact_runtime::{Handler, IntoReactive, IntoValue, Prop as InputProp, PropValue};
 use kivact_runtime::{Owner, Runtime};
 use kivact_runtime::{Signal, Value};
+use kivact_types::WindowId;
 
 /// A branch builder: runs in the setup frame of the branch's owner.
 pub(crate) type Build = crate::view::ViewFn<()>;
@@ -58,10 +59,11 @@ pub enum PresenceMode {
 pub(crate) fn mount_branch(
     rt: &Rc<Runtime>,
     owner: Owner,
+    window: WindowId,
     frag: NodeId,
     build: impl FnOnce() -> View,
 ) -> Branch {
-    let node = mount_in(rt, owner, build);
+    let node = mount_in(rt, owner, window, build);
     ViewState::tree(rt).engine().insert(frag, node, None);
     Branch { owner, node }
 }
@@ -80,11 +82,13 @@ pub(crate) fn build<V: IntoView>(f: impl crate::view::IntoViewFn<V>) -> Build {
 }
 
 /// Where the branches of one flow mount: its fragment, the owner each
-/// branch is a child of, the call site and the presence mode.
+/// branch is a child of, the window of the fragment, the call site and the
+/// presence mode.
 struct Site {
     rt: Weak<Runtime>,
     frag: NodeId,
     parent: Owner,
+    window: WindowId,
     at: &'static Location<'static>,
     presence: PresenceMode,
 }
@@ -97,7 +101,7 @@ impl Site {
 
     /// Mount `build` in `owner`, a child owner the caller made.
     fn mount_in(&self, rt: &Rc<Runtime>, owner: Owner, build: impl FnOnce() -> View) -> Branch {
-        mount_branch(rt, owner, self.frag, build)
+        mount_branch(rt, owner, self.window, self.frag, build)
     }
 
     /// Take `old` out of the slot as the presence mode says. Returns true when
@@ -143,7 +147,6 @@ impl Site {
 // ---------------------------------------------------------------------------
 // show
 
-// xtask-allow(state-fields): The condition source and optional fallback are independent view construction inputs.
 /// Conditional view. Built by [`show`].
 pub struct Show {
     pub(crate) when: InputProp<bool>,
@@ -297,6 +300,7 @@ impl IntoView for Show {
                     rt: cx.weak(),
                     frag,
                     parent: cx.owner,
+                    window: cx.window,
                     at,
                     presence,
                 },
@@ -320,7 +324,6 @@ impl IntoView for Show {
 // ---------------------------------------------------------------------------
 // show_some
 
-// xtask-allow(state-fields): The optional-value source and optional fallback are independent view construction inputs.
 /// View for `Some` values. Built by [`show_some`].
 pub struct ShowSome<T: 'static> {
     pub(crate) value: InputProp<Option<T>>,
@@ -484,6 +487,7 @@ impl<T: Clone + 'static> IntoView for ShowSome<T> {
                     rt: cx.weak(),
                     frag,
                     parent: cx.owner,
+                    window: cx.window,
                     at,
                     presence,
                 },
@@ -637,6 +641,7 @@ impl<T: PropValue> IntoView for Dynamic<T> {
                     rt: cx.weak(),
                     frag,
                     parent: cx.owner,
+                    window: cx.window,
                     at,
                     presence,
                 },

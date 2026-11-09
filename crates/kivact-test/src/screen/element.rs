@@ -54,9 +54,12 @@ impl<'a> Element<'a> {
 
     /// The node the host published for this element, structural or not.
     pub(super) fn published_any(&self) -> Option<SemanticsNode> {
-        let host = self.screen.host.borrow();
-        let id = host.semantics_id(self.node, self.region)?;
-        host.semantics()?.nodes.into_iter().find(|n| n.id.0 == id)
+        let host = self.screen.host();
+        let id = host.semantics_id(self.screen.window, self.node, self.region)?;
+        host.semantics(self.screen.window)?
+            .nodes
+            .into_iter()
+            .find(|n| n.id.0 == id)
     }
 
     /// The node the host published for this element, if it is exposed to
@@ -73,9 +76,9 @@ impl<'a> Element<'a> {
     /// published scrolls and transforms of its ancestors and its own, as
     /// platforms (AccessKit) map them. `None` when it was not published.
     pub fn accessibility_bounds(&self) -> Option<kivact_core::geometry::Rect> {
-        let host = self.screen.host.borrow();
-        let id = host.semantics_id(self.node, self.region)?;
-        let tree = host.semantics()?;
+        let host = self.screen.host();
+        let id = host.semantics_id(self.screen.window, self.node, self.region)?;
+        let tree = host.semantics(self.screen.window)?;
         let node = tree.nodes.iter().find(|n| n.id.0 == id)?.id;
         let r = tree.window_bounds(node)?;
         Some(r)
@@ -132,9 +135,9 @@ impl<'a> Element<'a> {
             .map(|n| n.semantics)
             .map(|p| pick(&p))
             .unwrap_or_default();
-        let host = self.screen.host.borrow();
+        let host = self.screen.host();
         ids.into_iter()
-            .filter_map(|id| host.semantics_target(id))
+            .filter_map(|id| host.semantics_target(self.screen.window, id))
             .map(|(node, region)| Element {
                 screen: self.screen,
                 node,
@@ -207,9 +210,8 @@ impl<'a> Element<'a> {
         let node = self.published()?;
         let caret = node.semantics.text.as_ref()?.caret;
         self.screen
-            .host
-            .borrow()
-            .semantics()?
+            .host()
+            .semantics(self.screen.window)?
             .window_rect(node.id, caret)
     }
 
@@ -359,7 +361,7 @@ impl<'a> Element<'a> {
 
     /// Whether the element has the keyboard focus.
     pub fn is_focused(&self) -> bool {
-        self.screen.host.borrow().focused()
+        self.screen.host().focused(self.screen.window)
             == Some(p::FocusTarget {
                 node: self.node,
                 region: self.region,
@@ -374,7 +376,7 @@ impl<'a> Element<'a> {
 
     /// Whether the element is shown: mounted, not hidden, with a size.
     pub fn is_visible(&self) -> bool {
-        self.screen.host.borrow().shown(self.node)
+        self.screen.host().shown(self.node)
             && self
                 .host_rect()
                 .is_some_and(|r| r.width > 0.0 && r.height > 0.0)

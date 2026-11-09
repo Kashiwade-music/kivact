@@ -97,13 +97,14 @@ enum StepKind {
     Input { placeholder: Option<String> },
 }
 
-// xtask-allow(state-fields): Immutable authored question data; optional is independent validation configuration, not progress or answer state.
 /// One question of a [`Questionnaire`].
 #[derive(Clone, Debug, PartialEq)]
 pub struct QuestionnaireStep {
     title: String,
+    // xtask-allow(state-fields): passive record - description
     description: Option<String>,
     kind: StepKind,
+    // xtask-allow(state-fields): passive record - optional
     optional: bool,
 }
 

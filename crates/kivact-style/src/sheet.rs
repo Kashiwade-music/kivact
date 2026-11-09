@@ -151,12 +151,15 @@ pub use kivact_types::Overflow;
 #[doc(inline)]
 pub use kivact_types::TransitionProp;
 
-// xtask-allow(state-fields): Each independently unspecified edge participates in style cascading.
 #[derive(Clone, Copy, Debug, PartialEq, Default)]
 pub(crate) struct Sides {
+    // xtask-allow(state-fields): passive record - top
     pub(crate) top: Option<Length>,
+    // xtask-allow(state-fields): passive record - right
     pub(crate) right: Option<Length>,
+    // xtask-allow(state-fields): passive record - bottom
     pub(crate) bottom: Option<Length>,
+    // xtask-allow(state-fields): passive record - left
     pub(crate) left: Option<Length>,
 }
 
@@ -169,105 +172,181 @@ impl Sides {
     }
 }
 
-// xtask-allow(state-fields): Independent authored style properties use None for unspecified cascading values; this is a passive value.
 /// A style value. Build with [`style()`].
 #[derive(Clone, Debug, PartialEq, Default)]
 pub struct Style {
+    // xtask-allow(state-fields): passive record - local paint
     pub(super) local_paint: Option<LocalPaint>,
     pub(super) padding: Sides,
     pub(super) margin: Sides,
     pub(super) inset: Sides,
+    // xtask-allow(state-fields): passive record - row gap
     pub(super) row_gap: Option<Length>,
+    // xtask-allow(state-fields): passive record - column gap
     pub(super) column_gap: Option<Length>,
+    // xtask-allow(state-fields): passive record - width
     pub(super) width: Option<Length>,
+    // xtask-allow(state-fields): passive record - height
     pub(super) height: Option<Length>,
+    // xtask-allow(state-fields): passive record - min width
     pub(super) min_width: Option<Length>,
+    // xtask-allow(state-fields): passive record - min height
     pub(super) min_height: Option<Length>,
+    // xtask-allow(state-fields): passive record - max width
     pub(super) max_width: Option<Length>,
+    // xtask-allow(state-fields): passive record - max height
     pub(super) max_height: Option<Length>,
+    // xtask-allow(state-fields): passive record - grow
     pub(super) grow: Option<f64>,
+    // xtask-allow(state-fields): passive record - shrink
     pub(super) shrink: Option<f64>,
+    // xtask-allow(state-fields): passive record - basis
     pub(super) basis: Option<Length>,
+    // xtask-allow(state-fields): passive record - aspect ratio
     pub(super) aspect_ratio: Option<f64>,
+    // xtask-allow(state-fields): passive record - direction
     pub(super) direction: Option<Direction>,
+    // xtask-allow(state-fields): passive record - align
     pub(super) align: Option<Align>,
+    // xtask-allow(state-fields): passive record - align self
     pub(super) align_self: Option<Align>,
+    // xtask-allow(state-fields): passive record - justify
     pub(super) justify: Option<Justify>,
+    // xtask-allow(state-fields): passive record - align content
     pub(super) align_content: Option<Justify>,
+    // xtask-allow(state-fields): passive record - Lays the children out as a grid (CSS `display: grid`;
     /// Lays the children out as a grid (CSS `display: grid`; set by
     /// `grid(..)` only).
     pub(super) display: Option<kivact_types::Display>,
+    // xtask-allow(state-fields): passive record - visibility
     pub(super) visibility: Option<kivact_types::Visibility>,
+    // xtask-allow(state-fields): passive record - Grid tracks and placement (rare: boxed)
     /// Grid tracks and placement (rare: boxed).
     pub(super) grid: Option<Box<GridStyle>>,
+    // xtask-allow(state-fields): passive record - wrap
     pub(super) wrap: Option<bool>,
+    // xtask-allow(state-fields): passive record - position
     pub(super) position: Option<Position>,
+    // xtask-allow(state-fields): passive record - overflow
     pub(super) overflow: Option<Overflow>,
+    // xtask-allow(state-fields): passive record - Scroll axes set by `scroll(..)`
     /// Scroll axes set by `scroll(..)`.
     pub(super) scroll_axes: Option<ScrollAxes>,
+    // xtask-allow(state-fields): passive record - scroll snap
     pub(super) scroll_snap: Option<kivact_types::ScrollSnap>,
+    // xtask-allow(state-fields): passive record - background
     pub(super) background: Option<Background>,
     /// Border widths and colors, top, right, bottom, left.
     pub(super) border_width: [Option<f64>; 4],
     pub(super) border_color: [Option<Color>; 4],
     /// Border line styles, top, right, bottom, left.
     pub(super) border_style: [Option<BorderStyle>; 4],
+    // xtask-allow(state-fields): passive record - ring
     pub(super) ring: Option<(f64, f64, Color)>,
     /// Corner radii, top left, top right, bottom right, bottom left.
     pub(super) radius: [Option<CornerRadius>; 4],
+    // xtask-allow(state-fields): passive record - shadows
     pub(super) shadows: Option<Vec<Shadow>>,
+    // xtask-allow(state-fields): passive record - opacity
     pub(super) opacity: Option<f64>,
     /// CSS `translate` (x, then y: each axis is set and merged on its own),
     /// `rotate`, `scale`, `transform`, `transform-origin`.
     pub(super) translate: [Option<Length>; 2],
+    // xtask-allow(state-fields): passive record - rotate
     pub(super) rotate: Option<f64>,
+    // xtask-allow(state-fields): passive record - scale
     pub(super) scale: Option<(f64, f64)>,
+    // xtask-allow(state-fields): passive record - transform
     pub(super) transform: Option<Transform>,
+    // xtask-allow(state-fields): passive record - transform origin
     pub(super) transform_origin: Option<(Length, Length)>,
+    // xtask-allow(state-fields): passive record - translate z
     pub(super) translate_z: Option<f64>,
+    // xtask-allow(state-fields): passive record - rotate x
     pub(super) rotate_x: Option<f64>,
+    // xtask-allow(state-fields): passive record - rotate y
     pub(super) rotate_y: Option<f64>,
+    // xtask-allow(state-fields): passive record - transform origin z
     pub(super) transform_origin_z: Option<f64>,
+    // xtask-allow(state-fields): passive record - perspective
     pub(super) perspective: Option<f64>,
+    // xtask-allow(state-fields): passive record - perspective origin
     pub(super) perspective_origin: Option<(Length, Length)>,
+    // xtask-allow(state-fields): passive record - transform style
     pub(super) transform_style: Option<TransformStyle>,
+    // xtask-allow(state-fields): passive record - backface
     pub(super) backface: Option<BackfaceVisibility>,
+    // xtask-allow(state-fields): passive record - will change
     pub(super) will_change: Option<WillChange>,
+    // xtask-allow(state-fields): passive record - isolation
     pub(super) isolation: Option<Isolation>,
+    // xtask-allow(state-fields): passive record - border image
     pub(super) border_image: Option<Box<BorderImage>>,
+    // xtask-allow(state-fields): passive record - scrollbar
     pub(super) scrollbar: Option<Box<ScrollbarStyle>>,
+    // xtask-allow(state-fields): passive record - cursor
     pub(super) cursor: Option<Cursor>,
+    // xtask-allow(state-fields): passive record - z index
     pub(super) z_index: Option<i32>,
+    // xtask-allow(state-fields): passive record - clip
     pub(super) clip: Option<bool>,
+    // xtask-allow(state-fields): passive record - filter
     pub(super) filter: Option<Filter>,
+    // xtask-allow(state-fields): passive record - backdrop filter
     pub(super) backdrop_filter: Option<Filter>,
+    // xtask-allow(state-fields): passive record - blend
     pub(super) blend: Option<BlendMode>,
+    // xtask-allow(state-fields): passive record - mask
     pub(super) mask: Option<Box<Mask>>,
+    // xtask-allow(state-fields): passive record - clip path
     pub(super) clip_path: Option<Box<Shape>>,
+    // xtask-allow(state-fields): passive record - font size
     pub(super) font_size: Option<f64>,
+    // xtask-allow(state-fields): passive record - weight
     pub(super) weight: Option<u16>,
+    // xtask-allow(state-fields): passive record - color
     pub(super) color: Option<Color>,
+    // xtask-allow(state-fields): passive record - line height
     pub(super) line_height: Option<LineHeight>,
+    // xtask-allow(state-fields): passive record - text wrap
     pub(super) text_wrap: Option<bool>,
+    // xtask-allow(state-fields): passive record - text align
     pub(super) text_align: Option<TextAlign>,
+    // xtask-allow(state-fields): passive record - font family
     pub(super) font_family: Option<String>,
+    // xtask-allow(state-fields): passive record - italic
     pub(super) italic: Option<bool>,
+    // xtask-allow(state-fields): passive record - The rarer text properties (letter spacing, decorations, features, overflow, clamps, case, shadows, input colors: boxed)
     /// The rarer text properties (letter spacing, decorations, features,
     /// overflow, clamps, case, shadows, input colors: boxed).
     pub(super) text: Option<Box<TextExtras>>,
+    // xtask-allow(state-fields): passive record - hover
     pub(super) hover: Option<Box<Style>>,
+    // xtask-allow(state-fields): passive record - group
     pub(super) group: bool,
+    // xtask-allow(state-fields): passive record - group hover
     pub(super) group_hover: Option<Box<Style>>,
+    // xtask-allow(state-fields): passive record - group focus
     pub(super) group_focus: Option<Box<Style>>,
+    // xtask-allow(state-fields): passive record - pressed
     pub(super) pressed: Option<Box<Style>>,
+    // xtask-allow(state-fields): passive record - focus
     pub(super) focus: Option<Box<Style>>,
+    // xtask-allow(state-fields): passive record - focus visible
     pub(super) focus_visible: Option<Box<Style>>,
+    // xtask-allow(state-fields): passive record - disabled
     pub(super) disabled: Option<Box<Style>>,
+    // xtask-allow(state-fields): passive record - selected
     pub(super) selected: Option<Box<Style>>,
+    // xtask-allow(state-fields): passive record - enter size
     pub(super) enter_size: Option<kivact_types::Orientation>,
+    // xtask-allow(state-fields): passive record - exit size
     pub(super) exit_size: Option<kivact_types::Orientation>,
+    // xtask-allow(state-fields): passive record - enter
     pub(super) enter: Option<Box<Style>>,
+    // xtask-allow(state-fields): passive record - exit
     pub(super) exit: Option<Box<Style>>,
+    // xtask-allow(state-fields): passive record - layout transition
     pub(super) layout_transition: Option<Transition>,
     pub(super) transitions: Vec<(TransitionProp, Transition)>,
     pub(super) duplicates: u32,
@@ -1242,10 +1321,11 @@ impl From<i32> for ScrollbarWidth {
         Self::Px(px as f64)
     }
 }
-// xtask-allow(state-fields): Width and colors are independent authored scrollbar options.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub(super) struct ScrollbarStyle {
+    // xtask-allow(state-fields): passive record - width
     pub(super) width: Option<ScrollbarWidth>,
+    // xtask-allow(state-fields): passive record - colors
     pub(super) colors: Option<(Color, Color)>,
 }
 

@@ -106,6 +106,9 @@ impl LayoutReasons {
         self.0 &= !reason.0;
         contained
     }
+    pub(crate) fn bits(self) -> u8 {
+        self.0
+    }
 }
 
 /// How far boxes may have moved since the last sync.
@@ -121,7 +124,6 @@ pub(crate) enum Geometry {
     LaidOut,
 }
 
-// xtask-allow(state-fields): Paint, restacking and font invalidations are independent cache invalidation facts, with every combination valid (S-9).
 /// Pending work; only sync dispatches visual invalidation.
 #[derive(Default)]
 pub(crate) struct Changes {
@@ -131,18 +133,23 @@ pub(crate) struct Changes {
     /// again).
     pub(super) geometry: Geometry,
     pub(super) layout: LayoutReasons,
+    // xtask-allow(state-fields): dirty set (invalidation facts) - paint
     pub(super) paint: bool,
+    // xtask-allow(state-fields): dirty set (invalidation facts) - restack
     pub(super) restack: bool,
+    // xtask-allow(state-fields): dirty set (invalidation facts) - fonts
     pub(super) fonts: bool,
 }
 
-// xtask-allow(state-fields): Consumed paint, restacking and font invalidations are independent work facts, not lifecycle phases.
 /// What one sync dispatches into derived work (`Changes::dispatch`).
 pub(crate) struct Dispatched {
     dirty: HashMap<NodeId, Dirty>,
     pub(crate) geometry: Geometry,
+    // xtask-allow(state-fields): consumed work record - paint
     pub(crate) paint: bool,
+    // xtask-allow(state-fields): consumed work record - restack
     pub(crate) restack: bool,
+    // xtask-allow(state-fields): consumed work record - fonts
     pub(crate) fonts: bool,
 }
 

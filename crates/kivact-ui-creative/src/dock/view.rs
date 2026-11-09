@@ -26,7 +26,6 @@ use std::collections::HashMap;
 
 use std::rc::Rc;
 
-// xtask-allow(state-fields): Independent builder slots and application binding; the dock layout, drag and inline edit handles own interaction transitions.
 /// A docking workspace bound to an application-owned [`DockLayout`].
 ///
 /// Every edit (activation, drag-and-drop, container menu commands, rename,
@@ -154,7 +153,7 @@ impl<K: kivact::state::ItemKey> IntoView for Dock<K> {
             root: reference.rect(),
             shared: var(Rc::new(Shared {
                 rects: RefCell::new(HashMap::new()),
-                next_rect: Cell::new(0),
+                next_rect: Cell::new(kivact::custom::Generation::new()),
                 menu,
                 on_close,
                 texts: Texts::new(),

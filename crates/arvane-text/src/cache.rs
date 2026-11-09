@@ -78,30 +78,42 @@ fn decoration_bits(d: TextDecoration) -> DecorationBits {
     )
 }
 
-// xtask-allow(state-fields): Immutable cache key; optional style overrides and highlight are independent text properties.
 /// What a span sets, as bits; what drawing alone reads (its color,
 /// decoration and highlight) is left out for measurement.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 struct SpanBits {
     start: usize,
     end: usize,
+    // xtask-allow(state-fields): cache key - font size
     font_size: Option<u64>,
+    // xtask-allow(state-fields): cache key - weight
     weight: Option<u16>,
+    // xtask-allow(state-fields): cache key - color
     color: Option<[u64; 4]>,
+    // xtask-allow(state-fields): cache key - stroke
     stroke: Option<(u64, [u64; 4])>,
+    // xtask-allow(state-fields): cache key - family
     family: Option<String>,
+    // xtask-allow(state-fields): cache key - italic
     italic: Option<bool>,
+    // xtask-allow(state-fields): cache key - letter spacing
     letter_spacing: Option<u64>,
+    // xtask-allow(state-fields): cache key - word spacing
     word_spacing: Option<u64>,
+    // xtask-allow(state-fields): cache key - kerning
     kerning: Option<FontKerning>,
+    // xtask-allow(state-fields): cache key - features
     features: Option<Vec<FontFeature>>,
+    // xtask-allow(state-fields): cache key - variations
     variations: Option<Vec<layouts::VariationBits>>,
+    // xtask-allow(state-fields): cache key - font width
     font_width: Option<u64>,
+    // xtask-allow(state-fields): cache key - decoration
     decoration: Option<DecorationBits>,
+    // xtask-allow(state-fields): cache key - highlight
     highlight: bool,
 }
 
-// xtask-allow(state-fields): Immutable cache key for independent paragraph style options.
 /// The rest of the text vocabulary in a key, kept out of line: plain text
 /// in a plain style keys none (its key is as small and as quick to hash
 /// as before the vocabulary existed).
@@ -111,15 +123,18 @@ struct RichKey {
     word_spacing: u64,
     kerning: FontKerning,
     features: Vec<FontFeature>,
+    // xtask-allow(state-fields): cache key - decoration
     decoration: Option<DecorationBits>,
+    // xtask-allow(state-fields): cache key - overflow
     overflow: bool,
+    // xtask-allow(state-fields): cache key - max lines
     max_lines: Option<u32>,
+    // xtask-allow(state-fields): cache key - capsize
     capsize: bool,
     transform: TextTransform,
     spans: Vec<SpanBits>,
 }
 
-// xtask-allow(state-fields): Immutable cache key for independent text, style, width, and caret options.
 /// Exact text, spans, style and wrap width; floats compare by bit
 /// pattern.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -127,20 +142,28 @@ pub(crate) struct TextKey {
     text: String,
     font_size: u64,
     weight: u16,
+    // xtask-allow(state-fields): cache key - Absent for measurement, which color cannot change
     /// Absent for measurement, which color cannot change.
     color: Option<[u64; 4]>,
     line_height: (u8, u64),
+    // xtask-allow(state-fields): cache key - wrap
     wrap: bool,
     align: u8,
+    // xtask-allow(state-fields): cache key - family
     family: Option<String>,
+    // xtask-allow(state-fields): cache key - italic
     italic: bool,
     /// The paragraph's axis settings, as bits.
     variations: Vec<layouts::VariationBits>,
     font_width: u64,
+    // xtask-allow(state-fields): cache key - optical sizing
     optical_sizing: bool,
+    // xtask-allow(state-fields): cache key - max width
     max_width: Option<u64>,
+    // xtask-allow(state-fields): cache key - Whether the shaped text has its carets
     /// Whether the shaped text has its carets.
     carets: bool,
+    // xtask-allow(state-fields): cache key - rich
     rich: Option<Box<RichKey>>,
 }
 
@@ -279,7 +302,6 @@ const SHAPED_ENTRIES: usize = 1024;
 /// Measured extents kept per cache generation.
 const MEASURED_ENTRIES: usize = 4096;
 
-// xtask-allow(state-fields): Named text cache; each optional result and collection memoizes an independent computation for the current font generation.
 /// Everything one text engine computes from its font collection: replaced as
 /// a whole when a font is registered, so no answer of the old collection
 /// survives.

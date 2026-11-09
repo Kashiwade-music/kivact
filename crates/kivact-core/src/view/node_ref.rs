@@ -9,12 +9,15 @@ use std::rc::Rc;
 
 use kivact_types::{FocusTarget, NodeId};
 
-use crate::view::state::{Bound, LayoutObservation, NodeRefState, RefState, ViewState};
+use crate::view::state::{
+    Bound, LayoutObservation, NodeRefState, RefState, ViewState, current_window,
+};
 use kivact_runtime::{
     AppId, ErrorKind, Owned, Owner, Runtime, Signal, UiError, Value, require_effectful,
     require_setup,
 };
 use kivact_style::draw::Rect;
+use kivact_types::WindowId;
 
 /// A Copy reference to a node, bound with `.node_ref(r)` exactly once.
 /// Equality identifies the same reference handle (App, key and generation),
@@ -445,11 +448,21 @@ impl NodeRef {
         let Some(rt) = Runtime::get(self.app) else {
             return false;
         };
-        let Some(focused) = super::focus::focused(&rt) else {
+        let window = self.window_of(&rt, panel);
+        let Some(focused) = super::focus::focused(&rt, window) else {
             return false;
         };
         let tree = ViewState::tree(&rt);
         !tree.contains(focused.node) || tree.is_within(focused.node, panel)
+    }
+
+    /// The window of the bound node, else of `node`, else of this ref's owner.
+    fn window_of(&self, rt: &Runtime, node: NodeId) -> WindowId {
+        ViewState::tree(rt)
+            .reader()
+            .window_of(node)
+            .or_else(|| self.state.find().map(|state| current_window(state.owner)))
+            .unwrap_or(WindowId::MAIN)
     }
 
     /// Whether the keyboard focus is on the bound node, as the core last
@@ -458,7 +471,7 @@ impl NodeRef {
         let (Some(rt), Some(node)) = (Runtime::get(self.app), self.target()) else {
             return false;
         };
-        super::focus::focused(&rt) == Some(node)
+        super::focus::focused(&rt, self.window_of(&rt, node.node)) == Some(node)
     }
 
     /// Whether the keyboard focus is on a node below the bound one, as the
@@ -467,7 +480,7 @@ impl NodeRef {
         let (Some(rt), Some(node)) = (Runtime::get(self.app), self.node()) else {
             return false;
         };
-        let Some(focused) = super::focus::focused(&rt) else {
+        let Some(focused) = super::focus::focused(&rt, self.window_of(&rt, node)) else {
             return false;
         };
         self.target().is_some_and(|target| {
@@ -500,7 +513,7 @@ impl NodeRef {
         let (Some(rt), Some(root)) = (Runtime::get(self.app), self.node()) else {
             return false;
         };
-        let Some(focus) = super::focus::focused(&rt) else {
+        let Some(focus) = super::focus::focused(&rt, self.window_of(&rt, root)) else {
             return false;
         };
         let targets = ViewState::tree(&rt).reader().roving_targets(root);
@@ -589,7 +602,10 @@ impl NodeRef {
         let at = Location::caller();
         let (rt, s) = self.state(at);
         require_setup("NodeRef::focused");
-        let keys = ViewState::of(&rt).focus_keys();
+        let window = current_window(s.owner);
+        let keys = ViewState::of(&rt)
+            .focus_keys(window)
+            .expect("invariant: the node reference's window is open");
         let app = rt.id();
         let node = s.bound;
         drop(rt);
@@ -617,9 +633,12 @@ impl NodeRef {
     #[track_caller]
     pub fn focus_visible(&self) -> Value<bool> {
         let at = Location::caller();
-        let (rt, _) = self.state(at);
+        let (rt, s) = self.state(at);
         let focused = self.focused();
-        let keys = ViewState::of(&rt).focus_keys();
+        let window = current_window(s.owner);
+        let keys = ViewState::of(&rt)
+            .focus_keys(window)
+            .expect("invariant: the node reference's window is open");
         kivact_runtime::memo(move || focused.get() && keys.visible.get())
     }
 
@@ -639,7 +658,10 @@ impl NodeRef {
         let at = Location::caller();
         let (rt, s) = self.state(at);
         require_setup("NodeRef::focus_within");
-        let keys = ViewState::of(&rt).focus_keys();
+        let window = current_window(s.owner);
+        let keys = ViewState::of(&rt)
+            .focus_keys(window)
+            .expect("invariant: the node reference's window is open");
         let app = rt.id();
         let node = s.bound;
         drop(rt);
@@ -685,7 +707,7 @@ impl NodeRef {
         let at = Location::caller();
         let (rt, s) = self.state(at);
         require_setup("NodeRef::hovered");
-        let hover = crate::view::hover::source(&rt, at);
+        let hover = crate::view::hover::source(&rt, current_window(s.owner), at);
         let app = rt.id();
         let node = s.bound;
         drop(rt);
@@ -744,7 +766,8 @@ fn resolved_scroll(app: AppId, binding: Signal<RefState>) -> Value<crate::geomet
             .try_get()
             .and_then(RefState::bound)
             .and_then(|bound| observation(app, bound.target()))
-            .and_then(|observation| observation.scroll.try_get())
+            .and_then(|observation| observation.scroll_geometry.try_get())
+            .map(|state| state.offset)
             .unwrap_or_default()
     })
 }

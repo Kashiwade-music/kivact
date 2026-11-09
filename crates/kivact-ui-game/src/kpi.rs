@@ -6,7 +6,6 @@ use kivact::state::{IntoText, IntoValue, Machine, Step, Value, effect, machine, 
 use kivact::style::{Align, ColorToken, style};
 use kivact::view::{IntoView, Node, NodeBuilder, NodeRef, Role, View, node, node_ref, row, text};
 
-// xtask-allow(state-fields): Builder inputs and optional content are independent configuration; the count-up phase lives in its machine.
 /// A KPI tile: a standard `kivact::ui::stat` in [`StatVariant::Kpi`] whose
 /// number counts up from zero once the tile is in view. Created by [`kpi`].
 pub struct Kpi {

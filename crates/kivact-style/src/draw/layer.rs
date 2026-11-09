@@ -8,7 +8,6 @@ use kivact_types as p;
 use kivact_types::render::Composite;
 use kivact_types::{BackfaceVisibility, TransformStyle};
 
-// xtask-allow(state-fields): This authored drawing options bundle independently selects clip, opacity, transform and paint effects.
 /// What [`Draw::layer`](super::Draw::layer) applies to the commands its closure draws: a
 /// transform, a clip, group opacity, blending, a filter, a mask and a
 /// shadow. Effects use the element style types.
@@ -38,17 +37,23 @@ use kivact_types::{BackfaceVisibility, TransformStyle};
 /// ```
 #[derive(Clone, Debug)]
 pub struct Layer {
+    // xtask-allow(state-fields): builder option - area
     pub(super) area: Option<Rect>,
+    // xtask-allow(state-fields): builder option - transform
     pub(super) transform: Option<Transform>,
     pub(super) transform_style: TransformStyle,
     pub(super) backface: BackfaceVisibility,
+    // xtask-allow(state-fields): builder option - clip rect
     pub(super) clip_rect: Option<Rect>,
+    // xtask-allow(state-fields): builder option - clip
     pub(super) clip: Option<Shape>,
     pub(super) opacity: f64,
     pub(super) blend: BlendMode,
     pub(super) composite: Composite,
     pub(super) filter: Filter,
+    // xtask-allow(state-fields): builder option - mask
     pub(super) mask: Option<Mask>,
+    // xtask-allow(state-fields): builder option - shadow
     pub(super) shadow: Option<Shadow>,
 }
 

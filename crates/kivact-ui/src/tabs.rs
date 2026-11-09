@@ -24,7 +24,6 @@ use std::rc::Rc;
 /// What a tab shows, from its item and its state.
 type TabContent<K> = kivact_core::view::ViewFn<(Value<ListItem<K>>, Value<TabState>)>;
 
-// xtask-allow(state-fields): Optional panel, item and activation configuration; selection and focus belong to TabListApi.
 pub struct Tabs<K: kivact_core::state::ItemKey> {
     root: Node,
     options: Value<Vec<ListItem<K>>>,
@@ -86,7 +85,7 @@ impl<K: kivact_core::state::ItemKey> Tabs<K> {
     /// the component is mounted, and a value never changes afterwards. A
     /// look that changes while the component lives is a state the recipe
     /// reads, or a reactive `.style(..)` of the caller's.
-    pub fn variant(self, v: impl Variant) -> Self {
+    pub fn variant(mut self, v: impl Variant) -> Self {
         self.variants.add(v);
         self
     }

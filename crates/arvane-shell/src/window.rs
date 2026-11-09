@@ -7,9 +7,10 @@
 
 use crate::events::ShellEvent;
 use crate::ime::ShellImeText;
+use crate::input::InjectedInput;
 use crate::types::{ShellControl, ShellError, ShellWaker};
 use kivact_types::render::PixelRect;
-use kivact_types::{Cursor as ShellCursor, Rect, Size};
+use kivact_types::{Cursor as ShellCursor, Rect, RequestId, Size, WindowId, WindowRequest};
 
 /// Pixel layout accepted by a CPU presentation surface.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -31,6 +32,11 @@ pub enum BufferAge {
 pub trait ShellWindow {
     /// Execute a platform request synchronously on this window's UI thread.
     fn perform(&mut self, request: kivact_types::PlatformRequest) -> kivact_types::PlatformResult;
+
+    /// Bring the window to the front and give it the keyboard focus. Best effort:
+    /// `Ok` also when the platform only flashes the taskbar entry.
+    /// `ShellError::unsupported` where a window cannot be raised (an embedded editor).
+    fn focus(&mut self) -> Result<(), ShellError>;
 
     /// Pixel format accepted by the CPU surface.
     fn cpu_format(&self) -> CpuFormat;
@@ -157,27 +163,75 @@ pub trait ShellWindow {
     ) -> Result<(), ShellError>;
 }
 
+/// What one backend event is about.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum EventTarget {
+    /// The loop as a whole: SaveState, Wake, Suspended, Resumed, MemoryWarning.
+    Loop,
+    /// One window: every other event.
+    Window(WindowId),
+}
+
+impl EventTarget {
+    /// The target of `event` for a loop whose window is `window`: `Loop` for
+    /// SaveState, Wake, Suspended, Resumed and MemoryWarning, else `Window(window)`.
+    pub fn of(event: &ShellEvent, window: WindowId) -> EventTarget {
+        match event {
+            ShellEvent::SaveState
+            | ShellEvent::Wake(_)
+            | ShellEvent::Suspended
+            | ShellEvent::Resumed
+            | ShellEvent::MemoryWarning => EventTarget::Loop,
+            _ => EventTarget::Window(window),
+        }
+    }
+}
+
+/// The running loop as the handler sees it during one callback.
+pub trait ShellLoop {
+    /// An open window, or `None` once it is closed.
+    fn window(&mut self, id: WindowId) -> Option<&mut dyn ShellWindow>;
+    /// The open windows, ascending by id.
+    fn windows(&self) -> Vec<WindowId>;
+    /// Open a window. It becomes visible when the current callback returns.
+    /// `ShellError::unsupported` where `Capabilities.multi_window` is false.
+    fn open_window(&mut self, request: WindowRequest) -> Result<(), ShellError>;
+    /// Destroy a window. No event for it follows, and input queued for it
+    /// (`inject`) is dropped without `ShellEvent::Injected`. The handler
+    /// releases what it holds for the window (its presenter) before calling this.
+    fn close_window(&mut self, id: WindowId);
+    /// Queue input for a window; it goes through that window's `WindowInput`
+    /// like the platform's own input and is delivered right after the current
+    /// callback returns, followed by `ShellEvent::Injected { request }` once
+    /// all of it was delivered.
+    fn inject(&mut self, id: WindowId, inputs: Vec<InjectedInput>, request: RequestId);
+    /// The loop clock, comparable to `ShellControl::WakeAt`.
+    fn now_ns(&self) -> u64;
+    /// The waker of this loop (the same one `ShellHandler::start` received).
+    fn waker(&self) -> ShellWaker;
+    /// What the loop can do (`multi_window`, `window_placement`, ...).
+    fn capabilities(&self) -> kivact_types::Capabilities;
+}
+
 /// Application callbacks borrowed for the synchronous event-loop invocation.
 /// Neither the handler nor data it borrows needs a `'static` lifetime.
 pub trait ShellHandler {
-    /// Finish work needing this window's thread before the handler drops.
-    /// Called exactly once for every handler whose `start` was called, also when `start` failed or the
-    /// handler asked to exit; no event follows it.
-    fn close(&mut self, window: &mut dyn ShellWindow);
-
-    /// Initialize state after the backend creates its window.
+    /// Called once, after the backend opened the main window (`WindowId::MAIN`).
     fn start(
         &mut self,
-        window: &mut dyn ShellWindow,
+        shell: &mut dyn ShellLoop,
         waker: ShellWaker,
     ) -> Result<ShellControl, ShellError>;
-    /// Consume one ordered backend event and choose what the loop does next. After
-    /// [`ShellControl::Exit`] or an error, no further event is delivered.
+    /// One ordered event. After [`ShellControl::Exit`] or an error, none follows.
     fn event(
         &mut self,
+        target: EventTarget,
         event: ShellEvent,
-        window: &mut dyn ShellWindow,
+        shell: &mut dyn ShellLoop,
     ) -> Result<ShellControl, ShellError>;
+    /// Called exactly once for every handler whose `start` was called; the
+    /// windows are still open during the call.
+    fn close(&mut self, shell: &mut dyn ShellLoop);
 }
 
 /// A UI-thread event loop consumed by one synchronous run.
@@ -191,7 +245,7 @@ pub trait Backend {
 
 /// A backend driven explicitly by its caller.
 pub trait SteppedBackend {
-    /// Create the window and call the handler before returning.
+    /// Open the main window and call `handler.start` before returning.
     fn start(
         self: Box<Self>,
         handler: Box<dyn ShellHandler>,
@@ -215,8 +269,12 @@ pub enum Step {
 #[derive(Clone, Debug)]
 pub enum StepOutcome {
     Idle {
+        // xtask-allow(state-fields): passive record - the next timer deadline the backend reports
         next_deadline: Option<u64>,
+        // xtask-allow(state-fields): passive record - whether a redraw was asked during the turn
+        /// Whether any window asked for a redraw during the turn.
         redraw_requested: bool,
+        // xtask-allow(state-fields): passive record - whether the turn handled a wake
         woken: bool,
     },
     Exited,

@@ -5,7 +5,7 @@ use kivact_core::view::PointerKind;
 use kivact_core::view::Role;
 use kivact_engine::testing::ArvaneTestHost;
 use kivact_style::draw::RegionId;
-use kivact_types::NodeId;
+use kivact_types::{NodeId, WindowId};
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 use std::time::Duration;
@@ -13,8 +13,9 @@ use std::time::Duration;
 /// How long `find_by_*` and `wait_for` wait by default (virtual time).
 pub(super) const FIND_TIMEOUT: Duration = Duration::from_secs(5);
 
-/// A rendered App on a real window of the engine's test driver.
-pub struct Screen {
+/// A rendered App on real windows of the engine's test driver, shared by
+/// every [`Screen`] handle of its windows.
+pub(crate) struct TestApp {
     pub(super) host: RefCell<ArvaneTestHost>,
     pub(super) launch: LaunchHandle,
     pub(super) record: Rc<Record>,
@@ -24,18 +25,22 @@ pub struct Screen {
     /// Where the screen was rendered (the location of a node created
     /// outside every builder).
     pub(super) at: &'static std::panic::Location<'static>,
-    // xtask-allow(state-fields): independent report-once flag for failure artifact publication.
-    /// Failure artifacts were written (by a failing query).
-    pub(super) artifacts_written: Cell<bool>,
-    /// Physical pixels per logical pixel.
-    pub(super) scale: Cell<f64>,
+    /// Failure artifacts were written (by a failing query); they are written once.
+    pub(super) artifacts_written: kivact_types::cell::ReportOnce,
     /// The touch and pen contacts the test has down (`contact_*`), in the
     /// order they went down, each at its last position.
     pub(super) contacts: RefCell<Vec<(Contact, kivact_style::draw::Point)>>,
-    // xtask-allow(state-fields): identifier allocator, not an event or phase.
+    // xtask-allow(state-fields): S-8 ID - the platform id of the last contact
     /// The platform's id of the last contact (the window gives each
     /// contact a pointer id of its own, never the mouse's).
     pub(super) last_contact: Cell<u64>,
+}
+
+/// A handle to one window of a rendered App on the engine's test driver.
+#[derive(Clone)]
+pub struct Screen {
+    pub(super) app: Rc<TestApp>,
+    pub(super) window: WindowId,
 }
 
 /// A touch or pen contact a test put down with [`Screen::contact_down`].
@@ -45,6 +50,8 @@ pub struct Screen {
 pub struct Contact {
     /// The platform's id of the contact.
     pub(super) id: u64,
+    /// The window the contact went down in.
+    pub(super) window: WindowId,
     pub(super) kind: PointerKind,
 }
 
@@ -100,16 +107,41 @@ pub(super) struct Record {
 
 impl Screen {
     pub fn script(&self) -> crate::Script {
+        self.check_open();
         crate::Script {
-            platform: self.host.borrow().script(),
+            platform: self.app.host.borrow().script(),
+            window: self.window,
         }
     }
+
+    /// Fail unless this handle's window is still open.
+    pub(super) fn check_open(&self) {
+        if !self.is_open() {
+            self.fail(&format!("window {} is closed", self.window.get()));
+        }
+    }
+
+    /// The test host, failing when this handle's window is closed.
+    pub(super) fn host(&self) -> std::cell::Ref<'_, ArvaneTestHost> {
+        self.check_open();
+        self.app.host.borrow()
+    }
+
+    /// The test host, failing when this handle's window is closed.
+    pub(super) fn host_mut(&self) -> std::cell::RefMut<'_, ArvaneTestHost> {
+        self.check_open();
+        self.app.host.borrow_mut()
+    }
+
     pub(super) fn inspect(&self) -> Inspect<'_> {
-        self.launch
+        self.app
+            .launch
             .inspect()
             .expect("invariant: screen host started the app")
     }
+
     pub(super) fn facts(&self) -> crate::facts::Facts {
-        crate::facts::Facts::new(self.inspect())
+        self.check_open();
+        crate::facts::Facts::new(self.inspect(), self.window)
     }
 }

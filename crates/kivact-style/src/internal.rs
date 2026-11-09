@@ -2,7 +2,7 @@
 
 pub use crate::draw::recorder::record;
 use crate::paint::fill_layer;
-pub use crate::resolve::compile_style;
+pub use crate::resolve::{ForcedStates, compile_style, describe_state_styles, describe_style};
 pub use crate::sheet::with_scroll_axes;
 use crate::text::{CompiledSpanStyle, SpanStyle, TextLength, decoration, features};
 use crate::theme::value::Theme;

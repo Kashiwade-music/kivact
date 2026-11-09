@@ -117,6 +117,22 @@ impl<T> Arena<T> {
         self.get(key).is_some()
     }
 
+    /// Every live entry with its key, in slot order.
+    pub(crate) fn iter(&self) -> impl Iterator<Item = (Key, &T)> {
+        self.entries.iter().enumerate().filter_map(|(slot, entry)| {
+            let SlotState::Occupied(value) = &entry.state else {
+                return None;
+            };
+            Some((
+                Key {
+                    slot: slot as u32,
+                    generation: entry.generation.0,
+                },
+                value,
+            ))
+        })
+    }
+
     pub(crate) fn remove(&mut self, key: Key, tomb: Option<Tomb>) -> Option<T> {
         let e = self.entries.get_mut(key.slot as usize)?;
         if e.generation.0 != key.generation {

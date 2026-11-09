@@ -514,3 +514,35 @@ fn four_entrances_open_a_context_menu_at_the_pointer_or_at_the_area() {
     assert_eq!(area.is_expanded(), None);
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
+
+#[test]
+fn a_submenu_item_the_pointer_rests_on_during_a_held_press_opens_after_the_delay() {
+    let (screen, _chosen) = mount_with(real_window(), || {
+        let chosen = signal(Vec::new());
+        let file = use_menu(nested_entries())
+            .on_activate(move |key: &'static str| chosen.update(|c| c.push(key)));
+        (chosen, column((menu_button("File", file), action("After"))))
+    });
+    screen
+        .get_by_role(Role::Button, "File")
+        .press_key(Key::ArrowDown);
+    let new = center(&item(&screen, "New"));
+    let export = center(&item(&screen, "Export"));
+    // A primary press held from another item, then a rest on the submenu item.
+    screen.mouse_move(new.x, new.y);
+    screen.mouse_down(MouseButton::Primary);
+    screen.mouse_move(export.x, export.y);
+    screen.advance(Duration::from_millis(200)); // > SubmenuTiming::default().open (140 ms)
+    assert_eq!(
+        item(&screen, "Export").is_expanded(),
+        Some(true),
+        "engine hover opens the submenu while the press is held"
+    );
+    assert!(
+        item(&screen, "Export").is_focused(),
+        "the hovered item takes the focus"
+    );
+    screen.mouse_up(MouseButton::Primary);
+    assert!(screen.get_by_role(Role::Menu, "Export").exists());
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}

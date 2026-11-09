@@ -2,11 +2,54 @@
 
 use crate::reactive::AppId;
 use std::cell::{Cell, RefCell};
+use std::panic::Location;
 
 use crate::reactive::arena::Arena;
 use crate::reactive::data::{Diag, LiveCounts, Runtime, Sched};
 use crate::reactive::host_types::{ExitState, Host, Stage, TurnState};
+use crate::reactive::identity::{OwnerId, key_raw};
 use std::rc::Rc;
+
+/// One live owner: its identity, its parent and where it was created.
+pub struct OwnerInfo {
+    /// The parent owner.
+    pub parent: Option<OwnerId>,
+    /// Where the owner was created.
+    // xtask-allow(api-shape): diagnostic source positions retain Rust caller locations.
+    pub created_at: &'static Location<'static>,
+}
+
+/// One live owner in a [`LiveSnapshot`].
+pub struct LiveOwner {
+    /// The owner.
+    pub id: OwnerId,
+    /// The parent owner.
+    pub parent: Option<OwnerId>,
+    /// Where the owner was created.
+    // xtask-allow(api-shape): diagnostic source positions retain Rust caller locations.
+    pub created_at: &'static Location<'static>,
+}
+
+/// One live owner-bound object in a [`LiveSnapshot`].
+pub struct LiveObject {
+    /// The object's protocol id.
+    pub id: u64,
+    /// The owner it is registered under.
+    pub owner: OwnerId,
+    /// The name it was stored under.
+    pub name: &'static str,
+    /// Where it was created.
+    // xtask-allow(api-shape): diagnostic source positions retain Rust caller locations.
+    pub created_at: &'static Location<'static>,
+}
+
+/// The live owners and owner-bound objects of one App.
+pub struct LiveSnapshot {
+    /// Live owners.
+    pub owners: Vec<LiveOwner>,
+    /// Live objects.
+    pub objects: Vec<LiveObject>,
+}
 
 impl Runtime {
     /// A runtime for App `id` with its extensions (registered by
@@ -23,7 +66,7 @@ impl Runtime {
             sched: RefCell::new(Sched::default()),
             scratch: RefCell::new(Vec::new()),
             seq: Cell::new(0),
-            write_epoch: Cell::new(0),
+            write_epoch: Cell::new(kivact_types::cell::Generation::new()),
             // Registration precedes root creation, which always takes the first fresh slot.
             root: crate::reactive::arena::Key {
                 slot: 0,
@@ -43,8 +86,41 @@ impl Runtime {
             clock: Cell::new(start_ns),
             diag: RefCell::new(Diag::default()),
             later: RefCell::new(Vec::new()),
-            stab_epoch: Cell::new(0),
         }
+    }
+
+    /// The live parent and creation location of owner `id`, or `None` once it is gone.
+    pub fn owner_info(&self, id: OwnerId) -> Option<OwnerInfo> {
+        self.owners.borrow().get(id.0).map(|o| OwnerInfo {
+            parent: o.parent.map(OwnerId),
+            created_at: o.created_at,
+        })
+    }
+
+    /// The live owners and owner-bound objects of this App.
+    pub fn live_snapshot(&self) -> LiveSnapshot {
+        let owners = self
+            .owners
+            .borrow()
+            .iter()
+            .map(|(key, o)| LiveOwner {
+                id: OwnerId(key),
+                parent: o.parent.map(OwnerId),
+                created_at: o.created_at,
+            })
+            .collect();
+        let objects = self
+            .objects
+            .borrow()
+            .iter()
+            .map(|(key, o)| LiveObject {
+                id: key_raw(key),
+                owner: OwnerId(o.owner),
+                name: o.name,
+                created_at: o.created_at,
+            })
+            .collect();
+        LiveSnapshot { owners, objects }
     }
 
     /// Live arena counts of this App (lifecycle leak checks).

@@ -9,7 +9,6 @@ use kivact_interaction::{use_button, use_checkbox};
 
 use crate::component_values::CardState;
 
-// xtask-allow(state-fields): Setup-only independent slots and behavior inputs; selection belongs to the caller binding.
 /// A surface containing optional header, media, content and footer regions.
 pub struct Card {
     root: Node,
@@ -74,7 +73,7 @@ impl Card {
         self
     }
     /// Add a theme-defined appearance.
-    pub fn variant(self, value: impl Variant) -> Self {
+    pub fn variant(mut self, value: impl Variant) -> Self {
         self.variants.add(value);
         self
     }

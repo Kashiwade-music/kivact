@@ -367,7 +367,6 @@ struct CatalogNavigation {
     category: Signal<Option<Category>>,
     filter: Signal<String>,
     current: Signal<usize>,
-    // xtask-allow(state-fields): Read-only optional measured section rectangles; missing geometry is not a navigation phase.
     rects: std::rc::Rc<Vec<Value<Option<Rect>>>>,
     main_scroll: NodeRef,
     main_offset: Value<Point>,

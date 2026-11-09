@@ -89,6 +89,11 @@
 | 2026-11-05 | ADR-45 | touch の日付入力は kit 固有か | DatePresentation Adaptive/Desktop/BottomSheet を構造 option とし、Adaptive は capabilities.touch。calendar/date/time/wheel は標準 UI と scalar に統合し kit の option をすべて維持 | 同じ日付入力の behavior と OS 判断を kit に重複させないため |
 | 2026-11-05 | ADR-46 | Creative picker を全て標準 combobox に置換するか | 共通 body は標準 API を使うが、Creative 固有の column-follow picker は kit に残す | column に追従する domain の意味が一般の選択 field と異なるため |
 | 2026-11-05 | ADR-47 | 一度だけ mount する setup closure をどう渡すか | view::component(FnOnce→IntoView) と prelude を公開。mount 時に child owner/transparent fragment の下で一度実行し、context を登録しない。Variant Default は通常値、reactive 値は明示 setter | eager 評価、provide(())、recipe 評価中の hook で owner と cleanup の寿命を変えないため |
+| 2026-11-08 | ADR-48 | 複数の window を扱う shell の境界をどうするか | 一つの handler が loop 全体と複数の window を相手にし、backend の event を `EventTarget::{Loop, Window(WindowId)}` で分ける。handler の口は `ShellLoop`・`ShellWindow` とし、`open_window`・`close_window` を持つ | window ごとに backend と handler の組を増やさず、loop 全体の event（SaveState・Wake など）と window の event を一つの型で区別するため |
+| 2026-11-08 | ADR-49 | engine の model を App 全体で一つにするか window ごとに分けるか | 一つの window の `Model` と App 全体の `AppModel` に分ける。`AppModel` が `windows`・`window_changes`・`AppClock`・`client_frames`・共有の `EventSink` と assets と writes を持つ | window ごとの tree・focus・surface を保ちながら、motion の時計と frame の要求を App に一つにし、ある window の surface が止まっても他の window の animated が進むようにするため |
+| 2026-11-08 | ADR-50 | OS の window を公開 API でどう表すか | `window(title, open)` を `overlay` と同じ構造の view とし、content は宣言した場所の context を引き継ぐ（React の Portal と同じ）。閉じる操作は `on_dismiss` が取り消さない限り既定で window を閉じる（`dialog` と同じ） | open の binding で寿命を表し、overlay・dialog と同じ組み立てと dismiss の規則を共有するため |
+| 2026-11-08 | ADR-51 | DevTools を target の中の UI にするか別プロセスにするか、protocol の定義をどこに置くか | DevTools は別プロセスのアプリとし、loopback TCP の JSON-RPC で target の agent に繋ぐ。protocol の型・method・通知は `kivact-devtools-protocol` を単一の正本とし、JSON Schema・Python・MCP をそこから生成する | DevTools の不具合で target を止めず、同じ語彙を Rust・Python・MCP に複製しないため |
+| 2026-11-08 | ADR-52 | 状態の合成を許す印を型の前と field の前に書けるようにするか | 印は field の直前だけに置き、型の前の印は error にする。印の無い stored の field を名前付きで error に並べる | 型の前の印が中の field すべてを黙らせ、どの field が何の事実かを失うため |
 
 ### 実装の決定の補足
 

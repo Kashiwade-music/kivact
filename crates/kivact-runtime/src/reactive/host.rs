@@ -4,6 +4,7 @@ use std::panic::Location;
 use std::rc::Rc;
 
 use crate::reactive::data::{NodeInfo, Runtime, TurnGuard};
+use crate::reactive::detail::CauseTag;
 use crate::reactive::error::UiError;
 use crate::reactive::host_types::{Pending, Stage, TurnState};
 use crate::reactive::{AppId, NodeId, Owner, OwnerId};
@@ -62,10 +63,12 @@ impl Runtime {
             Location::caller()
         );
         self.state.set(TurnState::Running(stage));
-        TurnGuard {
+        let turn = TurnGuard {
             rt: self,
             started: std::time::Instant::now(),
-        }
+        };
+        self.record_stage(stage, turn.started.elapsed());
+        turn
     }
     #[track_caller]
     /// Begin the setup turn; turns cannot be nested.
@@ -126,10 +129,13 @@ impl TurnGuard<'_> {
     /// Record the active turn stage.
     pub fn stage(&self, stage: Stage) {
         self.rt.state.set(TurnState::Running(stage));
+        self.rt.record_stage(stage, self.started.elapsed());
     }
-    /// Record a cause in the turn trace.
-    pub fn cause(&self, cause: String) {
-        self.rt.record_cause(cause);
+    /// Record a cause of the given kind in the turn trace.
+    // xtask-allow(internal-contract): the core's DevTools reads the detailed trace.
+    #[doc(hidden)]
+    pub fn cause_with(&self, tag: CauseTag, label: String) {
+        self.rt.record_cause_with(tag, label);
     }
     /// Run render and internal effects until stable.
     pub fn stabilize(&self) {

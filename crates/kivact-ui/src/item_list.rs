@@ -42,7 +42,7 @@ impl ItemList {
         self.start = start.into_value();
         self
     }
-    pub fn variant(self, variant: impl Variant) -> Self {
+    pub fn variant(mut self, variant: impl Variant) -> Self {
         self.variants.add(variant);
         self
     }

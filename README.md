@@ -92,7 +92,7 @@ The API reference is the rustdoc: `cargo doc -p kivact --open`.
 
 ## Workspace crates
 
-The workspace contains 40 packages. Application code uses `kivact` and,
+The workspace contains 47 packages. Application code uses `kivact` and,
 optionally, a UI kit; the remaining library boundaries separate the runtime,
 engine, backend and test harness. This diagram shows the main dependency paths;
 see the [architecture guide](docs/for-kivact-developer/architecture.md) and
@@ -126,6 +126,11 @@ flowchart TD
 | `kivact` | `crates/kivact` | Application and component-author facade. |
 | `kivact-core` | `crates/kivact-core` | View descriptions, mounting, input and application launch. |
 | `kivact-test` | `crates/kivact-test` | App-wide E2E harness exposed as kivact::test. |
+| `kivact-devtools-protocol` | `crates/kivact-devtools-protocol` | Wire vocabulary shared by the DevTools agent, app, MCP server and Python client. |
+| `kivact-devtools-agent` | `crates/kivact-devtools-agent` | The DevTools server inside a target app: socket, discovery and PNG images. |
+| `kivact-devtools-client` | `crates/kivact-devtools-client` | Discovery and typed calls to a DevTools agent. |
+| `kivact-devtools` | `crates/kivact-devtools` | The DevTools desktop app. |
+| `kivact-devtools-mcp` | `crates/kivact-devtools-mcp` | MCP server that exposes a DevTools target over stdio. |
 | `kivact-public-api-tests` | `dev/tests/kivact-public-api` | Public consumer E2E and offscreen contracts. |
 | `kivact-runtime` | `crates/kivact-runtime` | Reactive owners, signals, Machines, tasks and motion. |
 | `kivact-i18n` | `crates/kivact-i18n` | Locales, messages and date/number formatting. |
@@ -172,6 +177,7 @@ flowchart TD
 |---|---|---|
 | `gpu` | yes | GPU rendering with automatic CPU fallback. Without it the build is CPU-only. `ARVANE_RENDERER=cpu` forces the CPU renderer at run time. |
 | `test` | no | App-wide virtual E2E through `kivact::test`, with optional native mirrors. |
+| `devtools` | no | The DevTools agent in the app, for the separate DevTools app, MCP server and Python client. Release builds that enable it warn at startup. |
 | `tokio` | no | Tokio integration for asynchronous tasks. |
 | `embed` | no | Experimental. Open an app inside a host window, e.g. an audio plugin editor. |
 | `gpu-interop` | no | Experimental. Show GPU textures from the application's own renderer without read-back. |

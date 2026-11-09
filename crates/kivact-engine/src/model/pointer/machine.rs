@@ -29,7 +29,10 @@ impl Model {
             })
         });
         if self.pointer.hover_sent.update(target).is_some() {
-            self.push(HostEvent::HoverChanged { target });
+            self.push(HostEvent::HoverChanged {
+                window: self.window,
+                target,
+            });
         }
     }
 
@@ -57,6 +60,7 @@ impl Model {
         let region = self.node(node).and_then(|n| n.region_at(pos));
         let source = *self.pointer.state.track(pointer).source();
         crate::contract::Routed {
+            window: self.window,
             target: Some(node),
             region,
             local: pos,
@@ -696,6 +700,7 @@ impl Model {
             let pos = space.local(self, t);
             let region = space.region(self, t, pos);
             self.push(HostEvent::Wheel(crate::contract::Routed {
+                window: self.window,
                 target: Some(t),
                 region,
                 local: pos,

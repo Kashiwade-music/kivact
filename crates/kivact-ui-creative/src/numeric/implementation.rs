@@ -430,7 +430,6 @@ impl Numeric {
     }
 }
 
-// xtask-allow(state-fields): Immutable control inputs and handles; inline editing, scalar scrubbing and scrub phase each own their lifecycle.
 struct NumericView {
     label: Value<String>,
     kind: NumericKind,
@@ -440,8 +439,10 @@ struct NumericView {
     reset: Value<f64>,
     precision: Value<usize>,
     tint: Value<PropertyState>,
+    // xtask-allow(state-fields): builder option - timecode
     timecode: Option<Value<u32>>,
     label_visible: Value<bool>,
+    // xtask-allow(state-fields): builder option - accent
     accent: Option<Value<Color>>,
     bipolar: Value<bool>,
     horizontal: Value<bool>,

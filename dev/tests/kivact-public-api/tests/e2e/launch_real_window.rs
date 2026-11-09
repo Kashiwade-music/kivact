@@ -81,7 +81,7 @@ fn a_counter_is_clicked_typed_into_and_composed_in_a_real_window() {
         .rect()
         .expect("laid out");
     assert_eq!((plus.width, plus.height), (r.width as u32, r.height as u32));
-    let _ = (mount_time, click_time, screen.has_window());
+    let _ = (mount_time, click_time, screen.is_mirrored());
 }
 
 #[test]
@@ -93,7 +93,7 @@ fn frames_are_deterministic_and_headless_frames_match_real_ones() {
     let a = render_with(small(MirrorMode::Auto), label);
     let b = render_with(small(MirrorMode::Auto), label);
     let c = render_with(small(MirrorMode::Off), label);
-    assert!(!c.has_window());
+    assert!(!c.is_mirrored());
     assert_eq!(a.screenshot().hash(), b.screenshot().hash());
     assert_eq!(a.screenshot().hash(), c.screenshot().hash());
     // Text is drawn: a frame without it differs.

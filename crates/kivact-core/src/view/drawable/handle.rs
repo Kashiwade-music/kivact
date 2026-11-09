@@ -83,7 +83,7 @@ pub fn drawable() -> Drawable {
     );
     spawn_in(owner, wake(inbox.clone(), changed), at);
     let sending = inbox.clone();
-    let sent = RefCell::new(None);
+    let sent = RefCell::new(kivact_types::cell::Sent::new());
     effect(move || {
         changed.track();
         send_requests(app, id, &sending, &sent);

@@ -41,7 +41,6 @@ impl From<Gradient> for BorderImageSource {
     }
 }
 
-// xtask-allow(state-fields): The border image independently authors its source, slices, width, outset, repeat and fill; each is a separate CSS longhand.
 /// A CSS border image: `border-image-source`, `-slice`, `-width`, `-outset`,
 /// `-repeat` and whether the middle is filled.
 ///
@@ -59,8 +58,11 @@ impl From<Gradient> for BorderImageSource {
 pub struct BorderImage {
     source: BorderImageSource,
     slice: Insets,
+    // xtask-allow(state-fields): passive record - slice pct
     slice_pct: bool,
+    // xtask-allow(state-fields): passive record - fill
     fill: bool,
+    // xtask-allow(state-fields): passive record - width
     width: Option<Insets>,
     outset: Insets,
     repeat: [BorderImageRepeat; 2],

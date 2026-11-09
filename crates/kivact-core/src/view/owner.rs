@@ -22,7 +22,6 @@ use std::panic::Location;
 use std::rc::Rc;
 
 use super::NodeRef;
-use super::state::ViewState;
 use kivact_runtime::{ErrorKind, Owned, Runtime, UiError, raise, require_effectful};
 
 /// The identity of a component resource owner, without retaining its App.
@@ -49,7 +48,7 @@ impl Owner {
         let at = Location::caller();
         let rt = Runtime::current()
             .unwrap_or_else(|| raise(ErrorKind::WrongApp, "`Owner::root` needs a running App", at));
-        let owner = Self(ViewState::tree(&rt).root_owner());
+        let owner = Self(rt.root());
         owner.runtime();
         owner
     }

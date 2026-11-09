@@ -12,7 +12,6 @@ enum Controls<C> {
     Built(C),
     Scoped(Box<dyn FnOnce() -> C>),
 }
-// xtask-allow(state-fields): Builder-only optional adornments and scoped initializer; no coupled runtime state.
 /// A labelled group of adjacent inputs and adornments.
 pub struct InputGroup<C> {
     root: Node,
@@ -83,7 +82,7 @@ impl<C> InputGroup<C> {
         self
     }
     /// Add a theme-defined appearance.
-    pub fn variant(self, value: impl Variant) -> Self {
+    pub fn variant(mut self, value: impl Variant) -> Self {
         self.variants.add(value);
         self
     }

@@ -40,6 +40,16 @@ pub(crate) fn check(root: &Path, policy: &Path, options: &Options) -> Result<Vec
         if !options.selected(rule) {
             continue;
         }
+        if rule == "devtools-codegen" {
+            if options
+                .package
+                .as_deref()
+                .is_none_or(|package| package == "kivact-devtools-protocol")
+            {
+                errors.extend(crate::devtools_codegen::check(root));
+            }
+            continue;
+        }
         let key = rule.replace('-', "_");
         let settings = policy
             .get(&key)
@@ -56,6 +66,7 @@ pub(crate) fn check(root: &Path, policy: &Path, options: &Options) -> Result<Vec
                 &builders,
                 &enums,
                 &surface,
+                options.report,
                 &mut errors,
             );
         }
@@ -75,6 +86,7 @@ fn validate_policy(policy: &toml::Table) -> Result<(), String> {
                 if !matches!(
                     key.as_str(),
                     "role_suffixes"
+                        | "named_helpers"
                         | "record_types"
                         | "value_modules"
                         | "allowed_files"
@@ -95,7 +107,7 @@ fn validate_policy(policy: &toml::Table) -> Result<(), String> {
     Ok(())
 }
 
-fn model_types(
+pub(crate) fn model_types(
     sources: &[crate::check_source::Source],
     surface: &crate::public_surface::Surface,
 ) -> (BTreeSet<String>, BTreeSet<String>) {
@@ -132,6 +144,10 @@ fn model_types(
     (builders, enums)
 }
 
+#[allow(
+    clippy::too_many_arguments,
+    reason = "one shared dispatcher passes the policy, model sets and report flag to every rule"
+)]
 fn run_rule(
     rule: &str,
     source: &crate::check_source::Source,
@@ -139,11 +155,12 @@ fn run_rule(
     builders: &BTreeSet<String>,
     enums: &BTreeSet<String>,
     surface: &crate::public_surface::Surface,
+    report: bool,
     errors: &mut Vec<String>,
 ) {
     match rule {
         "state-fields" => {
-            crate::state_fields::check(source, settings, builders, enums, surface, errors)
+            crate::state_fields::check(source, settings, builders, enums, surface, report, errors)
         }
         "effect-writes" => crate::effect_writes::check(source, errors),
         "api-shape" => crate::api_shape::check(source, surface, errors),
@@ -152,6 +169,7 @@ fn run_rule(
         "kit-literal-color" => crate::kit_literal_color::check(source, settings, errors),
         "os-branch" => crate::os_branch::check(source, settings, errors),
         "structural-options" => crate::structural_options::check(source, settings, surface, errors),
+        "devtools-codegen" => {}
         _ => unreachable!("invariant: RULES contains only implemented checks"),
     }
 }

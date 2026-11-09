@@ -46,12 +46,15 @@ pub struct AssetStore {
     /// registered ones (`register_font`).
     pub(super) fonts: FontDb,
     pub(super) entries: HashMap<Asset, Entry>,
+    // xtask-allow(state-fields): measurement - the host's frame clock written by begin_frame; the cache protects what the current and the previous frame used
     /// The host's current frame (`begin_frame`, counted from 1); `None`
     /// before the first: nothing is protected.
     pub(super) frame: Option<NonZeroU64>,
     /// Ticks once per use; orders uses within a frame.
     pub(super) tick: u64,
+    // xtask-allow(state-fields): S-8 ID - the next image id
     pub(super) next_id: u64,
+    // xtask-allow(state-fields): S-8 ID - the next entry generation; a job result of another generation is dropped
     pub(super) next_generation: u64,
     pub(super) budget: usize,
     pub(super) bytes: usize,

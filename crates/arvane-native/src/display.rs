@@ -24,5 +24,7 @@ mod x11;
 mod placement;
 mod refresh;
 
-pub(crate) use placement::{center_window, initial_window_position};
+pub(crate) use placement::{
+    center_window, initial_window_position, place_relative, placement_supported, work_area_of,
+};
 pub(crate) use refresh::{period_ns, refresh_rate_millihertz};

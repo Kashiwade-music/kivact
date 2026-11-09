@@ -77,13 +77,19 @@ use std::sync::Arc;
 /// fills (`Tabs::item`, `Menu::item`, `Select::item`). Tables compare
 /// their recipes by identity, so installing an unchanged table never
 /// restyles.
-pub struct Recipe<S>(Arc<RecipeFn<S>>);
+pub struct Recipe<S> {
+    f: Arc<RecipeFn<S>>,
+    name: &'static str,
+}
 
 type RecipeFn<S> = dyn Fn(&Theme, &Look<S>) -> Style + Send + Sync;
 
 impl<S> Clone for Recipe<S> {
     fn clone(&self) -> Self {
-        Self(self.0.clone())
+        Self {
+            f: self.f.clone(),
+            name: self.name,
+        }
     }
 }
 impl<S, F> From<F> for Recipe<S>
@@ -91,18 +97,32 @@ where
     F: Fn(&Theme, &Look<S>) -> Style + Send + Sync + 'static,
 {
     fn from(value: F) -> Self {
-        Self(Arc::new(value))
+        Self {
+            f: Arc::new(value),
+            name: "",
+        }
     }
 }
 impl<S> std::ops::Deref for Recipe<S> {
     type Target = dyn Fn(&Theme, &Look<S>) -> Style + Send + Sync;
     fn deref(&self) -> &Self::Target {
-        &*self.0
+        &*self.f
     }
 }
 impl<S> Recipe<S> {
     fn same(&self, other: &Self) -> bool {
-        Arc::ptr_eq(&self.0, &other.0)
+        Arc::ptr_eq(&self.f, &other.f)
+    }
+
+    pub(crate) fn named(mut self, name: &'static str) -> Self {
+        self.name = name;
+        self
+    }
+
+    /// The recipe's name (its table and field); empty for a recipe made
+    /// without one.
+    pub fn name(&self) -> &'static str {
+        self.name
     }
 }
 
@@ -128,11 +148,11 @@ macro_rules! recipe_table {
         }
 
         impl $name {
-            fn default_table() -> &'static Self {
+            pub(crate) fn default_table() -> &'static Self {
                 #[expect(clippy::disallowed_types, reason = "Immutable global recipe defaults are initialized once and share stable recipe identities.")]
                 static DEFAULT: std::sync::OnceLock<$name> = std::sync::OnceLock::new();
                 DEFAULT.get_or_init(|| Self {
-                    $( $field: Recipe::from(|theme: &Theme, look: &Look<$state>| $default(theme, look)), )*
+                    $( $field: Recipe::from(|theme: &Theme, look: &Look<$state>| $default(theme, look)).named(concat!(stringify!($name), ".", stringify!($field))), )*
                     $( $( $table: Default::default(), )* )?
                 })
             }
@@ -154,7 +174,8 @@ macro_rules! recipe_table {
                 where
                     F: Fn(&Theme, &Look<$state>) -> Style + Send + Sync + 'static,
                 {
-                    self.$field = Recipe::from(f(self.$field));
+                    self.$field = Recipe::from(f(self.$field))
+                        .named(concat!(stringify!($name), ".", stringify!($field)));
                     self
                 }
             )*
@@ -195,7 +216,7 @@ macro_rules! recipe_table {
         impl std::fmt::Debug for $name {
             fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
                 f.debug_struct(stringify!($name))
-                    $( .field(stringify!($field), &Arc::as_ptr(&self.$field.0).cast::<()>()) )*
+                    $( .field(stringify!($field), &Arc::as_ptr(&self.$field.f).cast::<()>()) )*
                     $( $( .field(stringify!($table), &self.$table) )* )?
                     .finish()
             }

@@ -7,7 +7,7 @@ use std::panic::Location;
 use std::rc::Rc;
 
 use super::Repeat;
-use super::state::{Anim, MotionState};
+use super::state::{Anim, AnimInfo, AnimKind, MotionState, motion_now};
 use super::transition::{Kind, Transition, settles_at_start};
 use super::values::Animatable;
 use crate::Prop as InputProp;
@@ -233,6 +233,17 @@ impl<T: Animatable> Anim for AnimCell<T> {
         matches!(self.phase.get_untracked(), AnimPhase::Running { .. })
     }
 
+    fn info(&self) -> AnimInfo {
+        AnimInfo {
+            kind: AnimKind::Animated,
+            created_at: super::state::owner_source(self.owner),
+            owner: self.owner.id(),
+            running: self.is_running(),
+            paused: matches!(self.phase.get_untracked(), AnimPhase::Paused { .. }),
+            decorative: self.transition.decorative,
+        }
+    }
+
     fn finish_decorative(&self) {
         if let AnimPhase::Running { run, .. } = self.phase.get_untracked()
             && self.transition.decorative
@@ -354,7 +365,7 @@ impl<T: Animatable> Animated<T> {
         let retarget = move |t: &T| {
             let Some(rt) = Runtime::get(app) else { return };
             let Some(cell) = weak.upgrade() else { return };
-            let now = rt.now_ns();
+            let now = motion_now(&rt);
             let reduced = MotionState::of(&rt).reduced_motion(&rt);
             crate::untrack(|| cell.retarget(t, now, reduced));
             rt.request_turn();
@@ -430,7 +441,7 @@ impl<T: Animatable> Animated<T> {
         if let AnimPhase::Running { start_ns, run } = cell.phase.get_untracked() {
             cell.phase.set(AnimPhase::Paused {
                 start_ns,
-                at_ns: rt.now_ns(),
+                at_ns: motion_now(&rt),
                 run,
             });
         }
@@ -449,7 +460,7 @@ impl<T: Animatable> Animated<T> {
             run,
         } = cell.phase.get_untracked()
         {
-            let now = rt.now_ns();
+            let now = motion_now(&rt);
             let reduced = MotionState::of(&rt).reduced_motion(&rt);
             run.shift_last(at_ns, now);
             cell.begin(run, shift(start_ns, at_ns, now), reduced);
@@ -479,7 +490,7 @@ impl<T: Animatable> Animated<T> {
             return;
         }
         let v = comps(&velocity);
-        let now = rt.now_ns();
+        let now = motion_now(&rt);
         match cell.phase.get_untracked() {
             AnimPhase::Running { run, .. } | AnimPhase::Paused { run, .. } => {
                 run.spring.borrow_mut().velocity = v;

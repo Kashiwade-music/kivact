@@ -6,7 +6,6 @@ use kivact_core::view::{
     IntoChildren, IntoView, Node, NodeBuilder, Orientation, Role, View, node, row, show, text,
 };
 use std::rc::Rc;
-// xtask-allow(state-fields): Independent immutable group limits, overlap input and presentation factory; roving focus remains the sole interaction owner.
 pub struct AvatarGroup {
     root: Node,
     children: Vec<View>,
@@ -54,7 +53,7 @@ impl AvatarGroup {
         self.overflow = Some(Rc::new(move |count| content(count).into_view()));
         self
     }
-    pub fn variant(self, variant: impl Variant) -> Self {
+    pub fn variant(mut self, variant: impl Variant) -> Self {
         self.variants.add(variant);
         self
     }

@@ -48,7 +48,6 @@ pub(super) enum ListState {
     },
 }
 
-// xtask-allow(state-fields): Ink, look, scene and dropped-draw collections are independent derived caches and report deduplication (S-9); redraw has its own enum.
 /// The paint group of the model: derived caches and whether a
 /// frame must be redrawn. Only the paint modules read the caches.
 pub(crate) struct PaintState {
@@ -158,7 +157,6 @@ pub(crate) enum Opening {
     ClipGroup,
 }
 
-// xtask-allow(state-fields): Immutable paint-list record stores independent drawing and clipping facts, not a lifecycle.
 /// How one listed node is drawn.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) struct Step {
@@ -167,27 +165,35 @@ pub(crate) struct Step {
     /// transforms pushed around it (its own and its ancestors'
     /// translations below them applied). A layer's origin is its own box.
     pub(super) origin: Point,
+    // xtask-allow(state-fields): passive record - The transform it is drawn through (an index into [`PaintList::transforms`])
     /// The transform it is drawn through (an index into
     /// [`PaintList::transforms`]).
     pub(super) transform: Option<u32>,
     /// The alpha its colors are faded by (outside a group: its opacity
     /// times its ancestors'; inside a layer: its ancestors' only).
     pub(super) alpha: f64,
+    // xtask-allow(state-fields): passive record - clips
     pub(super) clips: bool,
+    // xtask-allow(state-fields): passive record - presence clip
     pub(super) presence_clip: Option<Rect>,
+    // xtask-allow(state-fields): passive record - Its corners are rounded (a clip is a layer clipped to its rounded padding box, not a rect clip)
     /// Its corners are rounded (a clip is a layer clipped to its rounded
     /// padding box, not a rect clip).
     pub(super) rounded: bool,
+    // xtask-allow(state-fields): passive record - It draws itself (else it is listed for its group only)
     /// It draws itself (else it is listed for its group only).
     pub(super) own: bool,
+    // xtask-allow(state-fields): passive record - It is composited in a group
     /// It is composited in a group.
     pub(super) grouped: bool,
+    // xtask-allow(state-fields): passive record - Its opacity is the group's (applied by its group)
     /// Its opacity is the group's (applied by its group).
     pub(super) group: bool,
     /// The area its ancestors let it draw in (grown by the culling
     /// margin), in the space of its origin: a text input draws only the
     /// lines that reach it.
     pub(super) clip: Rect,
+    // xtask-allow(state-fields): passive record - Its compositor layer (an index into [`PaintList::layers`])
     /// Its compositor layer (an index into [`PaintList::layers`]).
     pub(super) layer: Option<u32>,
 }

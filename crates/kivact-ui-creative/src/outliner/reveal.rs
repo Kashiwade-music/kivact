@@ -3,15 +3,22 @@ use super::controls::Rows;
 use crate::TreeItem;
 use kivact::state::{Binding, Machine, MachineHandle, Step, Value, machine};
 use kivact::view::NodeRef;
-use std::cell::Cell;
-use std::rc::Rc;
 
+/// Whether a reveal waits for its row to mount.
 #[derive(Clone, Copy, PartialEq)]
-pub(super) enum State {
+pub(super) enum Pending {
     Idle,
     AwaitingRow(u64),
 }
+#[derive(Clone, Copy, PartialEq)]
+pub(super) struct State {
+    /// The row a primary press is on, from its press to its release; a
+    /// press activates its own row without scrolling it.
+    pressed: Option<u64>,
+    pending: Pending,
+}
 pub(super) enum Event {
+    Press(Option<u64>),
     Active {
         target: Option<u64>,
         ancestors: Vec<u64>,
@@ -33,16 +40,23 @@ impl Machine for Reveal {
     type Effect = Effect;
     fn transition(&self, state: &State, event: Event) -> Step<State, Event, Effect> {
         match event {
+            Event::Press(pressed) => Step::to(State { pressed, ..*state }),
             Event::Active {
                 target,
                 ancestors,
                 node,
             } => {
-                let next = match (target, node) {
-                    (Some(id), None) => State::AwaitingRow(id),
-                    _ => State::Idle,
+                if target.is_some() && target == state.pressed {
+                    return Step::to(State {
+                        pending: Pending::Idle,
+                        ..*state
+                    });
+                }
+                let pending = match (target, node) {
+                    (Some(id), None) => Pending::AwaitingRow(id),
+                    _ => Pending::Idle,
                 };
-                let mut step = Step::to(next);
+                let mut step = Step::to(State { pending, ..*state });
                 if !ancestors.is_empty() {
                     step = step.with(Effect::Expand(ancestors));
                 }
@@ -51,8 +65,12 @@ impl Machine for Reveal {
                 }
                 step
             }
-            Event::Mounted { id, node } if *state == State::AwaitingRow(id) => {
-                Step::to(State::Idle).with(Effect::Scroll(node))
+            Event::Mounted { id, node } if state.pending == Pending::AwaitingRow(id) => {
+                Step::to(State {
+                    pending: Pending::Idle,
+                    ..*state
+                })
+                .with(Effect::Scroll(node))
             }
             Event::Mounted { .. } => Step::stay(),
         }
@@ -64,10 +82,12 @@ pub(super) fn observe(
     data: Value<Vec<TreeItem>>,
     expanded: Binding<Vec<u64>>,
     rows: Rows,
-    pressed: Rc<Cell<Option<u64>>>,
 ) -> MachineHandle<Reveal> {
     let reveal = machine(
-        State::Idle,
+        State {
+            pressed: None,
+            pending: Pending::Idle,
+        },
         || Reveal,
         move |_, effect| match effect {
             Effect::Expand(ancestors) => {
@@ -82,7 +102,6 @@ pub(super) fn observe(
         if !enabled.get_untracked() {
             return;
         }
-        let target = target.filter(|id| pressed.get() != Some(*id));
         let ancestors = target.map_or_else(Vec::new, |id| {
             closed_ancestors(id, &data.get_untracked(), &expanded.get_untracked())
         });

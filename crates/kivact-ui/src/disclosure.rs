@@ -16,7 +16,6 @@ use kivact_core::view::{IntoView, Orientation, View, show};
 use kivact_core::view::{Node, NodeBuilder, icon, node, text};
 use kivact_interaction::use_disclosure;
 
-// xtask-allow(state-fields): Setup-only builder options; structural presentation and binding inputs are independent.
 /// A trigger and the content it opens, created by [`disclosure`].
 pub struct Disclosure {
     root: Node,
@@ -190,7 +189,7 @@ impl Disclosure {
     /// the component is mounted, and a value never changes afterwards. A
     /// look that changes while the component lives is a state the recipe
     /// reads, or a reactive `.style(..)` of the caller's.
-    pub fn variant(self, v: impl Variant) -> Self {
+    pub fn variant(mut self, v: impl Variant) -> Self {
         self.variants.add(v);
         self
     }

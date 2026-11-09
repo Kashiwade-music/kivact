@@ -15,7 +15,6 @@ enum AvatarStatusSource {
     None,
     Mounted { label: Value<Option<String>> },
 }
-// xtask-allow(state-fields): Builder inputs and optional content are independent configuration; image state belongs to NodeRef.
 pub struct Avatar {
     root: Node,
     name: Value<String>,
@@ -81,7 +80,7 @@ impl Avatar {
         self.name_tooltip = Some(show.into_value());
         self
     }
-    pub fn variant(self, variant: impl Variant) -> Self {
+    pub fn variant(mut self, variant: impl Variant) -> Self {
         self.variants.add(variant);
         self
     }

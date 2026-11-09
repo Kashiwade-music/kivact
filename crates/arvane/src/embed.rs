@@ -4,6 +4,9 @@ use crate::presentation::Observer;
 use crate::{Handler, RendererChange, ShellError};
 pub use arvane_shell::PanicSlot;
 use arvane_shell::{MakeHandler, ShellChild};
+use kivact_types::WindowId;
+use std::cell::RefCell;
+use std::rc::Rc;
 
 pub use arvane_shell::ChildHooks;
 pub use kivact_types::EmbedOptions;
@@ -23,8 +26,11 @@ impl<H: Handler> Embedder<H> {
         }
     }
     /// Observe renderer changes on the window's UI thread.
-    pub fn on_renderer_change(mut self, observer: impl FnMut(&RendererChange) + 'static) -> Self {
-        self.observer = Some(Box::new(observer));
+    pub fn on_renderer_change(
+        mut self,
+        observer: impl FnMut(WindowId, &RendererChange) + 'static,
+    ) -> Self {
+        self.observer = Some(Rc::new(RefCell::new(observer)));
         self
     }
 }

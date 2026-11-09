@@ -37,11 +37,9 @@ impl Common {
         self.part_region_events |= later.part_region_events;
         self.append_semantics(&mut later.semantics);
         self.node_ref.append(&mut later.node_ref);
-        self.style.splice(
-            self.base_styles..self.base_styles,
-            later.style.drain(..later.base_styles),
-        );
-        self.base_styles += later.base_styles;
+        let at = self.base_count();
+        let n = later.base_count();
+        self.style.splice(at..at, later.style.drain(..n));
         self.style.append(&mut later.style);
         self.regions.append(&mut later.regions);
         self.part_bindings.append(&mut later.part_bindings);
@@ -150,11 +148,13 @@ fn replace<T>(target: &mut Option<T>, incoming: Option<T>) {
     }
 }
 
-// xtask-allow(state-fields): Independent caller constraint sources and behavior requirements are mount inputs.
 /// What a target's final constraints combine: the caller's own modifiers and the parts' requirements.
 pub(super) struct ConstraintSources {
+    // xtask-allow(state-fields): passive mount input - disabled
     pub(super) disabled: Option<InputProp<bool>>,
+    // xtask-allow(state-fields): passive mount input - hidden
     pub(super) hidden: Option<InputProp<bool>>,
+    // xtask-allow(state-fields): passive mount input - focusable
     pub(super) focusable: Option<InputProp<bool>>,
     pub(super) required: PartConstraints,
 }

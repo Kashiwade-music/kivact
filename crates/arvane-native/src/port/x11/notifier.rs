@@ -7,7 +7,9 @@ use std::thread::JoinHandle;
 pub(super) const MAX_DIMENSION: u32 = u16::MAX as u32;
 pub(super) struct Notifier {
     pub(super) wake: OwnedFd,
+    // xtask-allow(state-fields): mailbox - wake reasons coalesced across threads until the UI loop takes them
     pub(super) reasons: AtomicU8,
+    // xtask-allow(state-fields): owned resource - the UI thread's join handle, stored once after the spawn and taken once at close
     pub(super) thread: Mutex<Option<JoinHandle<()>>>,
 }
 impl Notifier {

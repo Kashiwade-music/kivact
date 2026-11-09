@@ -110,7 +110,6 @@ pub(crate) enum Notify {
     OnComplete,
 }
 
-// xtask-allow(state-fields): Derived placement cache records independent transform, z-order and positioning facts (S-9); stacking has its own enum.
 /// What a node's paint and layout say about where it is: read from its
 /// `Paint`, `States` and `Layout` props when they are stored, so the walks
 /// over the tree (hit testing, the paint list, the geometry reports) skip
@@ -118,20 +117,24 @@ pub(crate) enum Notify {
 /// z-indexed children at no cost.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub(crate) struct Place {
+    // xtask-allow(state-fields): derived cache - Its base paint or a state style transforms it
     /// Its base paint or a state style transforms it.
     pub(crate) transformed: bool,
     /// Its base paint's z-index.
     pub(crate) z: i32,
+    // xtask-allow(state-fields): derived cache - A state style sets its z-index
     /// A state style sets its z-index.
     pub(crate) z_states: bool,
     /// One of its children has (or had) a z-index or a state style that
     /// sets one: its children are ordered by z-index (`Model::stacked`).
     /// Kept once set.
     pub(crate) stacks: Stacking,
+    // xtask-allow(state-fields): derived cache - `position: sticky`: moved by its scrollport's scroll, and drawn and hit over its in-flow siblings of the same z-index (CSS paints positioned boxes after in-flow ones)
     /// `position: sticky`: moved by its scrollport's scroll, and drawn and
     /// hit over its in-flow siblings of the same z-index (CSS paints
     /// positioned boxes after in-flow ones).
     pub(crate) sticky: bool,
+    // xtask-allow(state-fields): derived cache - `position: fixed`: a layer of its own at its window position
     /// `position: fixed`: a layer of its own at its window position.
     pub(crate) fixed: bool,
 }

@@ -33,12 +33,14 @@ fn wheel_list(handlers: &Handlers) -> &EventHandlers<WheelEvent> {
     &handlers.wheel
 }
 
-// xtask-allow(state-fields): This per-event routing snapshot independently identifies observers, defaults and canvas origin; it owns no lifecycle.
 /// Where one event goes: the target whose observers see it and the target
 /// whose defaults run.
 struct Selected {
+    // xtask-allow(state-fields): per-event routing snapshot - observed
     observed: Option<Rc<Target>>,
+    // xtask-allow(state-fields): per-event routing snapshot - target
     target: Option<Rc<Target>>,
+    // xtask-allow(state-fields): per-event routing snapshot - The event came from this node's own canvas
     /// The event came from this node's own canvas.
     own_canvas: bool,
 }

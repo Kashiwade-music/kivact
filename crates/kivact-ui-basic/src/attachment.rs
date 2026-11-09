@@ -49,7 +49,6 @@ pub enum AttachmentMediaVariant {
     Image,
 }
 
-// xtask-allow(state-fields): Independent setup inputs and slots; transfer status is a caller-owned read-only Value, and shared button input owns activation.
 /// A file chip (attachment.tsx). Created by [`attachment`].
 pub struct Attachment {
     root: Node,
@@ -66,13 +65,14 @@ pub struct Attachment {
 
 kivact::state::constant_value!(AttachmentState);
 
-// xtask-allow(state-fields): Read-only style arguments from independent size, orientation, transfer status and actual slot availability; this record has no state owner.
 /// What the root style of an [`Attachment`] reads once it is turned into a view.
 #[derive(Clone, Copy)]
 struct Cfg {
     size: Value<AttachmentSize>,
     vertical: Value<bool>,
+    // xtask-allow(state-fields): passive record - has media
     has_media: bool,
+    // xtask-allow(state-fields): passive record - actionable
     actionable: bool,
     state: Value<AttachmentState>,
 }

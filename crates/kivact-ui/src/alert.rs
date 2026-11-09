@@ -54,7 +54,6 @@ impl BannerState {
 }
 use crate::component_values::AlertState;
 
-// xtask-allow(state-fields): Independent builder slots and inputs; persistent dismissal uses BannerState.
 /// An urgent, persistent message with optional actions and details.
 pub struct Alert {
     root: Node,
@@ -161,7 +160,7 @@ impl Alert {
         self
     }
     /// Set a structural or theme-defined appearance.
-    pub fn variant(self, value: impl Variant) -> Self {
+    pub fn variant(mut self, value: impl Variant) -> Self {
         self.variants.add(value);
         self
     }

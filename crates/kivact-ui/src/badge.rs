@@ -4,7 +4,6 @@ use crate::{BadgeState, Variant};
 use kivact_core::state::{Callback, IntoText, IntoValue, Value};
 use kivact_core::view::{IntoView, Node, NodeBuilder, View, row, text};
 use kivact_interaction::Tone;
-// xtask-allow(state-fields): Builder inputs and optional content are independent configuration; image state belongs to NodeRef.
 pub struct Badge {
     root: Node,
     label: Value<String>,
@@ -31,7 +30,7 @@ impl Badge {
         self.tone = tone.into_value();
         self
     }
-    pub fn variant(self, variant: impl Variant) -> Self {
+    pub fn variant(mut self, variant: impl Variant) -> Self {
         self.variants.add(variant);
         self
     }

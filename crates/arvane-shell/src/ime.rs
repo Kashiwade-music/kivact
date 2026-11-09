@@ -2,7 +2,6 @@
 
 use kivact_types::Rect;
 
-// xtask-allow(state-fields): Immutable IME text snapshot; optional selection and composition describe independent text properties.
 /// What the focused text input shows the IME: the text around its caret,
 /// its selection and composition, and where its characters are, for the
 /// platform IME's queries (on Windows: reconversion, `IMR_DOCUMENTFEED`
@@ -16,6 +15,7 @@ use kivact_types::Rect;
 /// mapping back into the complete document.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct ShellImeText {
+    // xtask-allow(state-fields): snapshot value - Password input: no surrounding text is supplied to native reconversion
     /// Password input: no surrounding text is supplied to native reconversion.
     pub password: bool,
     /// The text around the caret (all of the input's text when short).
@@ -29,6 +29,7 @@ pub struct ShellImeText {
     /// The caret in UTF-16 code units: the selection's end, or its start
     /// when the selection was made backwards.
     pub caret: usize,
+    // xtask-allow(state-fields): snapshot value - The composition, `[start, end)` in UTF-16 code units, if any
     /// The composition, `[start, end)` in UTF-16 code units, if any.
     pub composition: Option<(usize, usize)>,
     /// The UTF-16 offset of the character `rects` starts with: the

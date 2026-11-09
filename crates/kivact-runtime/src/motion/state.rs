@@ -10,6 +10,7 @@ use crate::Value;
 use crate::reactive::Handler;
 use crate::{Owner, Runtime};
 use kivact_types::MotionClock;
+use kivact_types::TimeScale;
 use kivact_types::cell::Registry;
 
 use super::values::{FrameInfo, FrameRate};
@@ -59,7 +60,6 @@ pub struct MotionStats {
     pub ticks: u64,
 }
 
-// xtask-allow(state-fields): These are independent read-only host environment sources; this bundle owns no transitions.
 /// Environment values installed at runtime construction and read untracked.
 #[derive(Clone, Copy)]
 pub struct MotionEnv {
@@ -71,12 +71,56 @@ pub struct MotionEnv {
     pub frame_period_ns: Value<u64>,
 }
 
+/// What a [`MotionState::animations`] snapshot lists.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum AnimKind {
+    /// An `Animated` value.
+    Animated,
+    /// A timeline.
+    Timeline,
+    /// A frame loop.
+    FrameLoop,
+}
+
+/// One animation of a [`MotionState::animations`] snapshot.
+pub struct AnimInfo {
+    /// What kind of animation it is.
+    pub kind: AnimKind,
+    // xtask-allow(state-fields): passive record - a snapshot of one animation for DevTools; the fields are independent facts read once.
+    // xtask-allow(api-shape): diagnostic source positions retain Rust caller locations.
+    /// Where the owner that owns it was created.
+    pub created_at: Option<&'static std::panic::Location<'static>>,
+    /// The owner it is registered under.
+    pub owner: crate::OwnerId,
+    /// Whether a run is in progress.
+    pub running: bool,
+    // xtask-allow(state-fields): passive record - a snapshot of one animation for DevTools; the fields are independent facts read once.
+    /// Whether it is paused (never for a frame loop).
+    pub paused: bool,
+    // xtask-allow(state-fields): passive record - a snapshot of one animation for DevTools; the fields are independent facts read once.
+    /// Whether reduced motion stops it (the default) or it is essential.
+    pub decorative: bool,
+}
+
 /// Per-App frame clock and weak registrations driven by host frame ticks.
 #[derive(Default)]
 pub struct MotionState {
     clock: RefCell<FrameClock>,
     loops: RefCell<Registry<LoopCell>>,
     anims: RefCell<Registry<dyn Anim>>,
+    /// How fast motion time runs for DevTools.
+    time_scale: Cell<TimeScale>,
+}
+
+/// The motion clock (ns) of `rt`: host time through the DevTools time scale.
+pub(crate) fn motion_now(rt: &Runtime) -> u64 {
+    MotionState::of(rt).time_scale.get().motion_ns(rt.now_ns())
+}
+
+/// Where the owner that owns an animation was created, if its App is still registered.
+pub(super) fn owner_source(owner: Owner) -> Option<&'static std::panic::Location<'static>> {
+    let rt = Runtime::get(owner.app())?;
+    rt.owner_info(owner.id()).map(|info| info.created_at)
 }
 
 impl MotionState {
@@ -84,6 +128,34 @@ impl MotionState {
     #[inline]
     pub fn of(rt: &Runtime) -> &MotionState {
         rt.ext::<MotionState>()
+    }
+
+    /// Set how fast motion time runs (0 pauses, 1 is normal) from now on.
+    pub fn set_time_scale(&self, rt: &Runtime, scale: f64) {
+        self.time_scale
+            .set(self.time_scale.get().rescaled(rt.now_ns(), scale));
+        rt.request_turn();
+    }
+
+    /// The current motion time scale (the DevTools `list_animations` reads it).
+    pub fn time_scale(&self) -> f64 {
+        self.time_scale.get().scale
+    }
+
+    /// Snapshot of the live animations (animated values, timelines and frame loops).
+    pub fn animations(&self) -> Vec<AnimInfo> {
+        let mut list: Vec<AnimInfo> = self.live_anims().iter().map(|a| a.info()).collect();
+        for l in self.live_loops() {
+            list.push(AnimInfo {
+                kind: AnimKind::FrameLoop,
+                created_at: owner_source(l.owner),
+                owner: l.owner.id(),
+                running: matches!(l.state.get_untracked(), LoopState::Running(_)),
+                paused: false,
+                decorative: l.motion.get() == LoopMotion::Decorative,
+            });
+        }
+        list
     }
 
     /// Whether the host asks for reduced motion (untracked; a disposed root
@@ -145,7 +217,7 @@ impl MotionState {
     /// [`MotionState::reduce_motion`]). The host calls it only for the change
     /// from on to off, in the turn that reports it.
     pub fn restore_motion(&self, rt: &Runtime) {
-        let now = rt.now_ns();
+        let now = motion_now(rt);
         rt.enter(|| {
             for l in self.live_loops() {
                 if l.motion.get() != LoopMotion::Decorative {
@@ -258,7 +330,7 @@ impl MotionState {
             return None;
         }
         let period = self.period(rt)?.get();
-        let now = rt.now_ns();
+        let now = motion_now(rt);
         let last = self.clock.borrow().phase.last_tick();
         let reduced = self.reduced_motion(rt);
         let mut want: Option<u64> = None;
@@ -309,6 +381,8 @@ pub(crate) trait Anim {
     /// A run is in progress (not paused).
     fn is_running(&self) -> bool;
     fn step(&self, now_ns: u64);
+    /// A snapshot of this animation for the DevTools.
+    fn info(&self) -> AnimInfo;
     /// Apply a newly enabled reduced-motion preference to an existing run.
     /// Explicitly paused values keep their state until their owner resumes them.
     fn finish_decorative(&self);
@@ -341,13 +415,14 @@ pub(crate) enum LoopMotion {
     Essential,
 }
 
-// xtask-allow(state-fields): The run lifecycle lives in LoopState alone; the scheduling gate, the frame count, the lazily made rate memo and the motion class are independent facts of the loop.
 pub(crate) struct LoopCell {
     pub(crate) owner: Owner,
     pub(crate) f: Handler<FrameInfo>,
     pub(crate) state: Signal<LoopState>,
+    // xtask-allow(state-fields): count + gate + lazy memo (ADR-19) - frames
     pub(crate) frames: Cell<u64>,
     pub(crate) gate: Cell<LoopGate>,
+    // xtask-allow(state-fields): count + gate + lazy memo (ADR-19) - The memo `FrameLoop::rate` returns, made on its first call
     /// The memo `FrameLoop::rate` returns, made on its first call.
     pub(crate) rate: Cell<Option<crate::Value<Option<super::values::FrameRate>>>>,
     /// Set in setup by `FrameLoop::essential`.

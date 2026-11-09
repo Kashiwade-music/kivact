@@ -566,6 +566,7 @@ pub(crate) fn scene_hashes(scene: &RenderScene, retain: &mut Vec<Retained>) -> V
 pub(crate) fn layer_key(h: &mut Fnv, key: LayerKey) {
     match key {
         LayerKey::Root => h.tag(0),
+        LayerKey::Devtools => h.tag(4),
         LayerKey::Node(id) => {
             h.tag(1);
             h.u64(id.0);

@@ -6,7 +6,6 @@ use crate::{
 };
 use kivact_core::state::{Callback, IntoText, IntoValue, Value};
 use kivact_core::view::{IntoView, Node, NodeBuilder, View, node, text};
-// xtask-allow(state-fields): Independent builder inputs and view slots; this builder owns no persistent interaction state.
 /// A message with independent content, author and supporting slots.
 pub struct ChatMessage {
     root: Node,
@@ -97,7 +96,7 @@ impl ChatMessage {
         self
     }
     /// Add an appearance read by the theme recipes.
-    pub fn variant(self, variant: impl Variant) -> Self {
+    pub fn variant(mut self, variant: impl Variant) -> Self {
         self.variants.add(variant);
         self
     }

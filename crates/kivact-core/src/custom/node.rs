@@ -44,7 +44,8 @@ impl Owner {
     #[track_caller]
     pub fn focused_node(self) -> Option<NodeToken> {
         let rt = self.runtime();
-        let keys = ViewState::of(&rt).focus_keys();
+        let window = crate::view::state::current_window(self.0);
+        let keys = ViewState::of(&rt).focus_keys(window)?;
         keys.node.get().map(|node| NodeToken {
             app: self.0.app(),
             node,
@@ -58,10 +59,15 @@ impl Owner {
 #[track_caller]
 pub fn focused_node() -> Option<NodeToken> {
     let rt = Runtime::current()?;
-    focus::focused(&rt).map(|node| NodeToken {
+    let at = Location::caller();
+    let window =
+        crate::view::state::current_window(kivact_runtime::Owner::ambient("focused_node", at));
+    focus::focused(&rt, window).map(|node| NodeToken {
         app: rt.id(),
         node,
-        visible: ViewState::of(&rt).focus_keys().visible.get_untracked(),
+        visible: ViewState::of(&rt)
+            .focus_keys(window)
+            .is_some_and(|keys| keys.visible.get_untracked()),
     })
 }
 

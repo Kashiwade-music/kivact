@@ -61,7 +61,7 @@ pub(super) fn bind(cx: &Mcx<'_>, id: NodeId, input: DrawInput, at: &'static Loca
             let layout = observation.and_then(|observation| {
                 observation.editing_revision.track();
                 observation.rect.get();
-                observation.scroll.get();
+                observation.scroll_geometry.get();
                 let rt = weak.upgrade()?;
                 ViewState::tree_mut(&rt).reader().editing_canvas_layout(id)
             });

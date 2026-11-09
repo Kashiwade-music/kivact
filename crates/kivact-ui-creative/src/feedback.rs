@@ -194,7 +194,7 @@ impl WindowPosition {
 /// with a draggable and collapsible title bar. Modal windows retain their
 /// backdrop when it is pressed, and close on Escape or their own commands.
 #[derive(Clone, Debug)]
-pub struct WindowOptions {
+pub struct ToolWindowOptions {
     title: Option<String>,
     width: f64,
     position: WindowPosition,
@@ -208,7 +208,7 @@ pub struct WindowOptions {
     titlebar_padding: (f64, f64),
     icon: Option<Icon>,
 }
-impl Default for WindowOptions {
+impl Default for ToolWindowOptions {
     fn default() -> Self {
         Self {
             title: None,
@@ -226,7 +226,7 @@ impl Default for WindowOptions {
         }
     }
 }
-impl WindowOptions {
+impl ToolWindowOptions {
     /// Give the window a title independent of its opener label.
     pub fn title(mut self, title: impl Into<String>) -> Self {
         self.title = Some(title.into());
@@ -309,14 +309,14 @@ impl ToolWindowApi {
 /// A button labelled `label` that opens a tool window with `options`, whose
 /// `content` gets the [`ToolWindowApi`] to close it.
 ///
-/// This is [`window`] with the button as its anchor and an open state the
-/// button keeps itself. The window's title is [`WindowOptions::title`], or
-/// else the label. `WindowOptions::default()` is a 520-pixel nonmodal
+/// This is [`tool_window`] with the button as its anchor and an open state the
+/// button keeps itself. The window's title is [`ToolWindowOptions::title`], or
+/// else the label. `ToolWindowOptions::default()` is a 520-pixel nonmodal
 /// centered window with a draggable and collapsible title bar.
 #[track_caller]
-pub fn window_button<V: IntoView>(
+pub fn tool_window_button<V: IntoView>(
     label: impl IntoText,
-    options: WindowOptions,
+    options: ToolWindowOptions,
     content: impl Fn(ToolWindowApi) -> V + 'static,
 ) -> impl kivact::view::Component {
     let label = label.into_text_value();
@@ -345,7 +345,7 @@ pub fn window_button<V: IntoView>(
 /// Dismiss from assistive technology, an outside press on a nonmodal window,
 /// [`ToolWindowApi::close`] and the unmounting of the window's part itself. A
 /// modal window keeps input and focus inside it and ignores an outside press.
-/// The title is [`WindowOptions::title`], or the message `window.untitled`
+/// The title is [`ToolWindowOptions::title`], or the message `window.untitled`
 /// ("Window").
 ///
 /// Each time the window opens it starts expanded at its initial position,
@@ -366,10 +366,10 @@ pub fn window_button<V: IntoView>(
 ///     let anchor = node_ref();
 ///     column((
 ///         kivact::ui::button("Tool").with_node(move |node| node.node_ref(anchor)).on_press(move || open.set(true)),
-///         ui::window(
+///         ui::tool_window(
 ///             anchor,
 ///             open,
-///             ui::WindowOptions::default().title("Tool"),
+///             ui::ToolWindowOptions::default().title("Tool"),
 ///         ).content(|window: ui::ToolWindowApi| {
 ///                 kivact::ui::button("Done").on_press(move || window.close())
 ///             }),
@@ -377,7 +377,11 @@ pub fn window_button<V: IntoView>(
 /// }
 /// ```
 #[track_caller]
-pub fn window(anchor: NodeRef, open: impl IntoBinding<bool>, options: WindowOptions) -> ToolWindow {
+pub fn tool_window(
+    anchor: NodeRef,
+    open: impl IntoBinding<bool>,
+    options: ToolWindowOptions,
+) -> ToolWindow {
     ToolWindow {
         root: column(()),
         anchor,
@@ -391,7 +395,7 @@ pub struct ToolWindow {
     root: Node,
     anchor: NodeRef,
     open: Binding<bool>,
-    options: WindowOptions,
+    options: ToolWindowOptions,
     content: kivact::view::ViewFn<ToolWindowApi>,
 }
 impl ToolWindow {
@@ -430,7 +434,7 @@ impl IntoView for ToolWindow {
 fn window_layer<V: IntoView>(
     anchor: NodeRef,
     open: Binding<bool>,
-    options: WindowOptions,
+    options: ToolWindowOptions,
     title: Value<String>,
     content: impl Fn(ToolWindowApi) -> V + 'static,
 ) -> Node {
@@ -541,7 +545,7 @@ fn window_mover(
 }
 
 fn window_header(
-    options: WindowOptions,
+    options: ToolWindowOptions,
     title: Value<String>,
     collapsed: kivact::state::Signal<bool>,
     mover: kivact::interaction::DragApi<Option<(Point, Rect)>>,
@@ -627,7 +631,7 @@ fn window_header(
     header
 }
 
-fn window_header_style(options: &WindowOptions) -> kivact::style::Style {
+fn window_header_style(options: &ToolWindowOptions) -> kivact::style::Style {
     let t = &use_theme().get();
     style()
         .height(options.titlebar_height)
@@ -643,7 +647,7 @@ fn window_header_style(options: &WindowOptions) -> kivact::style::Style {
         })
 }
 
-fn window_backdrop(options: &WindowOptions) -> Option<Node> {
+fn window_backdrop(options: &ToolWindowOptions) -> Option<Node> {
     let modal = options.modal;
     let blur = options.backdrop_blur;
     (modal && blur > 0.0).then(move || {

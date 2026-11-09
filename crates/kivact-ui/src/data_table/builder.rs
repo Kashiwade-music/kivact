@@ -1,9 +1,7 @@
 //! Role: The data table's constructor and the options a caller turns on.
 use super::types::{DataTable, DataTableContext, DataTableTreeIndent, Grouping, TreeConfig};
 use crate::column_values::DataColumn;
-use crate::layer::with_recipe_style;
 use crate::variants::{Variant, Variants};
-use kivact_core::custom::PartState;
 use kivact_core::state::Value;
 use kivact_core::state::{IntoValue, callback};
 use kivact_core::style::Color;
@@ -92,15 +90,7 @@ where
     R: kivact_core::state::PropValue,
     K: kivact_core::state::ItemKey,
 {
-    // The variants are shared: `.variant` adds to them before mount.
-    let variants = Variants::default();
-    // The recipe is the first style layer, so the caller's styles win.
-    let root = with_recipe_style(
-        column(()).role(Role::Group),
-        |r| r.data_table_recipes().frame_recipe(),
-        &variants,
-        PartState::default,
-    );
+    let root = column(()).role(Role::Group);
     DataTable {
         root,
         rows: rows.into_value(),
@@ -141,7 +131,7 @@ where
         row_height: None,
         row_status: None,
         row_color: None,
-        variants,
+        variants: Variants::default(),
     }
 }
 
@@ -208,7 +198,7 @@ impl<R: 'static, K: 'static> DataTable<R, K> {
     /// the component is mounted, and a value never changes afterwards. A
     /// look that changes while the component lives is a state the recipe
     /// reads, or a reactive `.style(..)` of the caller's.
-    pub fn variant(self, v: impl Variant) -> Self {
+    pub fn variant(mut self, v: impl Variant) -> Self {
         self.variants.add(v);
         self
     }

@@ -45,7 +45,6 @@ impl Machine for ProgressMotionInput {
     }
 }
 
-// xtask-allow(state-fields): NodeBuilder options describe the requested progress appearance; motion is owned by ProgressMotionPhase.
 /// A bar of the share done, created by [`progress`].
 pub struct Progress {
     root: Node,
@@ -121,7 +120,7 @@ impl Progress {
     /// the component is mounted, and a value never changes afterwards. A
     /// look that changes while the component lives is a state the recipe
     /// reads, or a reactive `.style(..)` of the caller's.
-    pub fn variant(self, v: impl Variant) -> Self {
+    pub fn variant(mut self, v: impl Variant) -> Self {
         self.variants.add(v);
         self
     }

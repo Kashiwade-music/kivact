@@ -4,11 +4,12 @@
 
 use kivact_engine::contract::HostEvent;
 use kivact_runtime::Runtime;
-use kivact_types::{A11yRequest, DismissReason, KeyPhase};
+use kivact_types::{A11yRequest, DismissReason, KeyPhase, NodeId};
 
 use super::a11y::run_a11y;
 use super::common::{handler, is_disabled, node_owner, run_handler, stale};
 use super::pointer::activate;
+use crate::view::handler_layers::EventHandlers;
 use crate::view::input::{Handled, Key as UKey, KeyEvent, Modifiers};
 use crate::view::overlays;
 use crate::view::state::ViewState;
@@ -19,9 +20,10 @@ pub(super) fn key(rt: &Runtime, host_event: &HostEvent) {
     };
     let node = routed.target;
     let region = routed.region;
+    let window = routed.window;
     let phase = &routed.input.phase;
     let released = matches!(phase, KeyPhase::Up);
-    let route = overlays::key_route(rt, node);
+    let route = overlays::key_route(rt, window, node);
     let target = route.target;
     if ViewState::tree(rt).get(target).is_none() {
         return stale(rt, "key", target);
@@ -64,8 +66,8 @@ pub(super) fn key(rt: &Runtime, host_event: &HostEvent) {
         }) && !is_disabled(rt, id)
         {
             let ev = e.clone();
-            handled = handled
-                .and(run_handler(rt, node_owner(rt, id), || h.deliver(ev)).unwrap_or(Handled::Yes));
+            let outcome = run_key_handler(rt, id, h, ev, released);
+            handled = handled.and(outcome);
             if handled == Handled::Yes {
                 break;
             }
@@ -93,9 +95,27 @@ pub(super) fn key(rt: &Runtime, host_event: &HostEvent) {
     }
     if default
         && !released
-        && let Some(o) = overlays::escape_dismisses(rt, &e)
+        && let Some(o) = overlays::escape_dismisses(rt, window, &e)
     {
         // Nobody handled Escape: dismiss the topmost overlay.
         run_a11y(rt, o, None, A11yRequest::Dismiss(DismissReason::Escape));
     }
+}
+
+/// Run one key handler and record its outcome for the DevTools input log.
+fn run_key_handler(
+    rt: &Runtime,
+    id: NodeId,
+    handler: EventHandlers<KeyEvent>,
+    event: KeyEvent,
+    released: bool,
+) -> Handled {
+    let outcome = run_handler(rt, node_owner(rt, id), || handler.deliver(event));
+    crate::view::devtools_hooks::handler_ran(
+        rt,
+        id,
+        if released { "on_key_up" } else { "on_key" },
+        outcome,
+    );
+    outcome.unwrap_or(Handled::Yes)
 }
