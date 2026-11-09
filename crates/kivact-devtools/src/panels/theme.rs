@@ -4,7 +4,7 @@ use kivact::prelude::*;
 use kivact_devtools_protocol as p;
 
 use crate::state::Session;
-use crate::widgets::property_row::{color_property_row, property_row};
+use crate::widgets::property_row::{RowAccess, color_property_row, property_row};
 
 /// The theme tokens and their overrides.
 pub(crate) fn view(session: Session) -> impl IntoView {
@@ -62,9 +62,23 @@ fn token_row(
     });
     let commit = move |text: String| set_token(session, tokens, name.clone(), text);
     if token.kind == p::TokenKind::Color {
-        color_property_row(token.name.clone(), value, enabled, commit).into_view()
+        color_property_row(
+            token.name.clone(),
+            value,
+            enabled,
+            RowAccess::Editable,
+            commit,
+        )
+        .into_view()
     } else {
-        property_row(token.name.clone(), value, enabled, commit).into_view()
+        property_row(
+            token.name.clone(),
+            value,
+            enabled,
+            RowAccess::Editable,
+            commit,
+        )
+        .into_view()
     }
 }
 
