@@ -135,6 +135,168 @@ fn text_align(value: &str) -> Result<TextAlign, String> {
     }
 }
 
+/// The override syntax (design 4.4.5) of one property value, given as
+/// `describe_style` wrote it: the `Debug` text of the value, wrapped in
+/// `Some(...)` for an optional field. `None` when `property` is not in that
+/// table or the value has no such syntax. The edges and corners that
+/// `describe_style` names one by one (`border_top_width`, `radius_top_left`, ...)
+/// are not in the table, so they have no editable form.
+pub(crate) fn editable_value(property: &str, described: &str) -> Option<String> {
+    let text = described
+        .strip_prefix("Some(")
+        .and_then(|rest| rest.strip_suffix(')'))
+        .unwrap_or(described);
+    match property {
+        "width" | "height" | "min_width" | "min_height" | "max_width" | "max_height"
+        | "padding" | "padding_top" | "padding_right" | "padding_bottom" | "padding_left"
+        | "margin" | "margin_top" | "margin_right" | "margin_bottom" | "margin_left" | "gap"
+        | "row_gap" | "column_gap" => length_text(text),
+        "grow" | "shrink" | "opacity" | "font_size" | "weight" => {
+            text.parse::<f64>().ok().map(number_text)
+        }
+        "line_height" => one_value(text, "Scale").map(number_text),
+        "background" => background_text(text),
+        "color" => color_text(text),
+        "display" => display_text(text),
+        "text_align" => text_align_text(text),
+        _ => None,
+    }
+}
+
+fn number_text(value: f64) -> String {
+    format!("{value}")
+}
+
+/// The text inside `name(...)` when `text` is exactly that, and the text
+/// after the closing parenthesis.
+fn split_group<'a>(text: &'a str, name: &str) -> Option<(&'a str, &'a str)> {
+    let inner = text.strip_prefix(name)?.strip_prefix('(')?;
+    let mut depth = 1_usize;
+    for (index, c) in inner.char_indices() {
+        match c {
+            '(' => depth += 1,
+            ')' => {
+                depth -= 1;
+                if depth == 0 {
+                    return Some((&inner[..index], &inner[index + 1..]));
+                }
+            }
+            _ => {}
+        }
+    }
+    None
+}
+
+/// The number inside `name(...)`, when `text` is exactly that.
+fn one_value(text: &str, name: &str) -> Option<f64> {
+    let (inner, rest) = split_group(text, name)?;
+    if !rest.is_empty() {
+        return None;
+    }
+    inner.trim().parse::<f64>().ok()
+}
+
+/// `Auto`, `Px(n)` or `Percent(n)` as `auto`, `n` or `n%`.
+fn length_text(text: &str) -> Option<String> {
+    if text == "Auto" {
+        return Some("auto".to_owned());
+    }
+    if let Some(px) = one_value(text, "Px") {
+        return Some(number_text(px));
+    }
+    one_value(text, "Percent").map(|percent| format!("{}%", number_text(percent)))
+}
+
+fn display_text(text: &str) -> Option<String> {
+    Some(
+        match text {
+            "Flex" => "flex",
+            "Grid" => "grid",
+            "Contents" => "contents",
+            _ => return None,
+        }
+        .to_owned(),
+    )
+}
+
+fn text_align_text(text: &str) -> Option<String> {
+    Some(
+        match text {
+            "Start" => "start",
+            "Center" => "center",
+            "End" => "end",
+            _ => return None,
+        }
+        .to_owned(),
+    )
+}
+
+/// `Color(Rgba(r, g, b, a))` as `#rrggbb` or `#rrggbbaa`, and
+/// `Color(Token(Name, 1.0))` as the token's name.
+fn color_text(text: &str) -> Option<String> {
+    let (repr, rest) = split_group(text, "Color")?;
+    if !rest.is_empty() {
+        return None;
+    }
+    if let Some((components, after)) = split_group(repr, "Rgba") {
+        if !after.is_empty() {
+            return None;
+        }
+        let values = components
+            .split(", ")
+            .map(|part| part.trim().parse::<f64>())
+            .collect::<Result<Vec<f64>, _>>()
+            .ok()?;
+        let rgba: [f64; 4] = values.try_into().ok()?;
+        return Some(hex(rgba));
+    }
+    let (token, after) = split_group(repr, "Token")?;
+    if !after.is_empty() {
+        return None;
+    }
+    let (name, alpha) = token.split_once(", ")?;
+    if alpha.trim().parse::<f64>().ok()? != 1.0 {
+        return None;
+    }
+    token_name(name)
+}
+
+/// The theme token name of a `ColorToken` `Debug` name: `SurfaceAlt` is
+/// `surface_alt`.
+fn token_name(debug: &str) -> Option<String> {
+    let mut name = String::with_capacity(debug.len() + 2);
+    for (index, c) in debug.chars().enumerate() {
+        if c.is_ascii_uppercase() {
+            if index > 0 {
+                name.push('_');
+            }
+            name.push(c.to_ascii_lowercase());
+        } else {
+            name.push(c);
+        }
+    }
+    color_token(&name).map(|_| name)
+}
+
+/// The color of a background that is one solid color covering the box, from
+/// the `Background` `Debug` text.
+fn background_text(text: &str) -> Option<String> {
+    let (layers, rest) = split_group(text, "Background")?;
+    if !rest.is_empty() {
+        return None;
+    }
+    let paint = layers.strip_prefix("[Paint { image: ")?;
+    let (image, tail) = split_group(paint, "Color")?;
+    let solid = tail.starts_with(", size: Auto, ")
+        && tail
+            .ends_with(", repeat: (true, true), clip: BorderBox, origin: None, blend: Normal }]")
+        && !tail.contains("Paint {");
+    if !solid {
+        return None;
+    }
+    color_text(image)
+}
+
 /// The overrides of `id`: call-site overrides first, then node overrides, so
 /// the node wins.
 pub(crate) fn node_overrides(
@@ -493,5 +655,96 @@ fn accent_char(c: char) -> char {
         'N' => 'Ñ',
         'Y' => 'Ý',
         other => other,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use kivact_style::internal::describe_style;
+
+    /// One sample value for each property of the table that `describe_style`
+    /// names as the property itself. The border and radius properties are
+    /// left out: `describe_style` names their edges and corners one by one.
+    const SAMPLES: [(&str, &str); 26] = [
+        ("width", "120"),
+        ("height", "50%"),
+        ("min_width", "auto"),
+        ("min_height", "20"),
+        ("max_width", "300"),
+        ("max_height", "80%"),
+        ("padding", "12"),
+        ("padding_top", "4"),
+        ("margin", "8"),
+        ("margin_left", "2"),
+        ("gap", "8"),
+        ("row_gap", "4"),
+        ("column_gap", "6"),
+        ("grow", "1"),
+        ("shrink", "0.5"),
+        ("display", "grid"),
+        ("background", "#2563eb"),
+        ("color", "accent"),
+        ("opacity", "0.5"),
+        ("font_size", "14"),
+        ("line_height", "1.5"),
+        ("weight", "700"),
+        ("text_align", "center"),
+        ("text_align", "end"),
+        ("display", "contents"),
+        ("background", "#2563eb80"),
+    ];
+
+    #[test]
+    fn every_described_value_overrides_back_to_the_same_text() {
+        for (property, sample) in SAMPLES {
+            let style = override_style(property, sample)
+                .unwrap_or_else(|error| panic!("{property} {sample}: {error}"));
+            for (name, described) in describe_style(&style) {
+                let value = editable_value(name, &described)
+                    .unwrap_or_else(|| panic!("{name} has no editable form: {described}"));
+                let again = override_style(name, &value)
+                    .unwrap_or_else(|error| panic!("{name} {value}: {error}"));
+                let text = describe_style(&again)
+                    .into_iter()
+                    .find(|(same, _)| *same == name)
+                    .map(|(_, text)| text);
+                assert_eq!(text.as_deref(), Some(described.as_str()), "{name} {value}");
+            }
+        }
+    }
+
+    #[test]
+    fn the_editable_form_is_the_override_syntax() {
+        assert_eq!(
+            editable_value("width", "Some(Px(12.0))").as_deref(),
+            Some("12")
+        );
+        assert_eq!(
+            editable_value("height", "Some(Percent(50.0))").as_deref(),
+            Some("50%")
+        );
+        assert_eq!(
+            editable_value("min_width", "Some(Auto)").as_deref(),
+            Some("auto")
+        );
+        assert_eq!(
+            editable_value("padding_left", "Px(0.5)").as_deref(),
+            Some("0.5")
+        );
+        assert_eq!(
+            editable_value("weight", "Some(700)").as_deref(),
+            Some("700")
+        );
+        assert_eq!(
+            editable_value("color", "Some(Color(Token(Accent, 1.0)))").as_deref(),
+            Some("accent")
+        );
+        assert_eq!(
+            editable_value("text_align", "Some(Center)").as_deref(),
+            Some("center")
+        );
+        assert_eq!(editable_value("width", "Some(MinContent)"), None);
+        assert_eq!(editable_value("border_top_width", "Some(1.0)"), None);
     }
 }

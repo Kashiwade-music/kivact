@@ -180,9 +180,10 @@ pub(super) fn after_turn(rt: &Runtime, records: &EngineRecords) {
     let i = DevtoolsState::inspector(rt);
     let tree = ViewState::tree(rt);
     let reader = tree.reader();
+    let scope = paint_scope(&reader, i);
     let mut sent = i.session.sent_overlays.borrow_mut();
     for window in reader.windows() {
-        let overlay = build_overlay(&reader, i, window, records);
+        let overlay = build_overlay(&reader, i, window, records, &scope);
         if sent.get(&window) != Some(&overlay) {
             tree.engine().set_devtools_overlay(window, overlay.clone());
             sent.insert(window, overlay);
@@ -190,11 +191,55 @@ pub(super) fn after_turn(rt: &Runtime, records: &EngineRecords) {
     }
 }
 
+/// The nodes paint flashing and the update heatmap draw.
+enum Scope {
+    /// Every node.
+    All,
+    /// The highlighted node and its descendants.
+    Subtree(BTreeSet<NodeId>),
+    /// No node: `selected_only` is on and no node is highlighted.
+    Empty,
+}
+
+impl Scope {
+    fn admits(&self, id: NodeId) -> bool {
+        match self {
+            Scope::All => true,
+            Scope::Subtree(nodes) => nodes.contains(&id),
+            Scope::Empty => false,
+        }
+    }
+}
+
+/// The scope the settings choose for this turn's paint flashing and heatmap.
+fn paint_scope(reader: &Reader, i: &Inspector) -> Scope {
+    if !i.session.overlays.borrow().selected_only {
+        return Scope::All;
+    }
+    match i.session.highlight.get() {
+        Some(highlight) => Scope::Subtree(subtree(reader, highlight.node)),
+        None => Scope::Empty,
+    }
+}
+
+/// `root` and every node below it.
+fn subtree(reader: &Reader, root: NodeId) -> BTreeSet<NodeId> {
+    let mut nodes = BTreeSet::new();
+    let mut stack = vec![root];
+    while let Some(id) = stack.pop() {
+        if nodes.insert(id) {
+            stack.extend(reader.children(id));
+        }
+    }
+    nodes
+}
+
 fn build_overlay(
     reader: &Reader,
     i: &Inspector,
     window: WindowId,
     records: &EngineRecords,
+    scope: &Scope,
 ) -> DevtoolsOverlay {
     let mut overlay = DevtoolsOverlay::default();
     if let Some(highlight) = i.session.highlight.get() {
@@ -202,10 +247,10 @@ fn build_overlay(
     }
     let settings = i.session.overlays.borrow().clone();
     if settings.paint_flashing {
-        add_paint_flashing(reader, window, records, &mut overlay);
+        add_paint_flashing(reader, window, records, scope, &mut overlay);
     }
     if settings.update_heatmap {
-        add_update_heatmap(reader, window, i, &mut overlay);
+        add_update_heatmap(reader, window, i, scope, &mut overlay);
     }
     if settings.tab_order {
         add_tab_order(reader, window, &mut overlay);
@@ -324,6 +369,7 @@ fn add_paint_flashing(
     reader: &Reader,
     window: WindowId,
     records: &EngineRecords,
+    scope: &Scope,
     overlay: &mut DevtoolsOverlay,
 ) {
     let mut seen = BTreeSet::new();
@@ -332,7 +378,7 @@ fn add_paint_flashing(
             continue;
         }
         for id in &sync.redrawn {
-            if !seen.insert(*id) {
+            if !seen.insert(*id) || !scope.admits(*id) {
                 continue;
             }
             if let Some(model) = reader.box_model(*id) {
@@ -348,6 +394,7 @@ fn add_update_heatmap(
     reader: &Reader,
     window: WindowId,
     i: &Inspector,
+    scope: &Scope,
     overlay: &mut DevtoolsOverlay,
 ) {
     let turns = i.session.turns.borrow();
@@ -357,7 +404,7 @@ fn add_update_heatmap(
     let mut seen = BTreeSet::new();
     for id in &turn.changed_nodes {
         let node = NodeId(*id);
-        if !seen.insert(node) || reader.window_of(node) != Some(window) {
+        if !seen.insert(node) || reader.window_of(node) != Some(window) || !scope.admits(node) {
             continue;
         }
         if let Some(model) = reader.box_model(node) {
@@ -407,6 +454,7 @@ pub(super) fn clear(rt: &Runtime) {
     {
         let tree = ViewState::tree(rt);
         let writer = tree.engine();
+        writer.set_pick(None);
         for window in tree.reader().windows() {
             writer.set_devtools_overlay(window, DevtoolsOverlay::default());
         }
@@ -444,4 +492,18 @@ pub(super) fn route(rt: &Runtime, call: p::Call, reply: Responder) -> Option<(p:
         other => return Some((other, reply)),
     }
     None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn selected_scope_admits_the_subtree_only() {
+        let scope = Scope::Subtree(BTreeSet::from([NodeId(2), NodeId(3)]));
+        assert!(scope.admits(NodeId(2)));
+        assert!(!scope.admits(NodeId(4)));
+        assert!(!Scope::Empty.admits(NodeId(2)));
+        assert!(Scope::All.admits(NodeId(4)));
+    }
 }

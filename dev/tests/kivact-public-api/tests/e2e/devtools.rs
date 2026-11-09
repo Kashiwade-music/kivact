@@ -28,10 +28,8 @@ fn a_devtools_client_inspects_drives_and_reviews_a_test_app() {
         (
             (),
             column((
-                // Tall enough for the `padding` 20 override below to leave a
-                // non-empty content box (`Click` rejects a content size of 0).
                 button("Increment")
-                    .style(style().align_self(Align::Start).height(64))
+                    .style(style().align_self(Align::Start))
                     .on_press(move || count.update(|c| *c += 1)),
                 text(move || count.get().to_string()).test_id("count"),
             )),

@@ -6,11 +6,11 @@ use kivact_devtools_agent::Responder;
 use kivact_devtools_protocol as p;
 use kivact_engine::contract::NodeKind as EngineNodeKind;
 use kivact_runtime::Runtime;
-use kivact_types::NodeId;
+use kivact_types::{NodeId, WindowId};
 
 use super::convert;
 use crate::view::devtools_state::DevtoolsState;
-use crate::view::state::ViewState;
+use crate::view::state::{ViewState, current_window};
 
 /// One element of the retained tree as the wire sees it.
 pub(crate) fn tree_node(rt: &Runtime, id: NodeId) -> Option<p::ElementInfo> {
@@ -72,6 +72,8 @@ pub(super) fn list_windows(rt: &Runtime, _: p::Empty) -> Result<p::WindowList, p
             continue;
         };
         let environment = record.env.environment();
+        let parent =
+            (window != WindowId::MAIN).then(|| convert::window(current_window(record.declared_in)));
         windows.push(p::WindowInfo {
             id: convert::window(window),
             title: record.title.get_untracked(),
@@ -88,7 +90,7 @@ pub(super) fn list_windows(rt: &Runtime, _: p::Empty) -> Result<p::WindowList, p
                 kivact_types::WindowMode::Tool => p::WindowMode::Tool,
                 kivact_types::WindowMode::Modal => p::WindowMode::Modal,
             },
-            parent: None,
+            parent,
         });
     }
     Ok(p::WindowList { windows })
@@ -167,11 +169,11 @@ pub(crate) fn notify_windows_changed(rt: &Runtime) {
 /// Notify the Tree subscribers of the nodes added, changed or removed.
 pub(crate) fn notify_tree_changes(rt: &Runtime) {
     let i = DevtoolsState::inspector(rt);
-    let current = current_nodes(rt);
     if !i.wants(p::Topic::Tree) {
         i.session.sent_tree.borrow_mut().clear();
         return;
     }
+    let current = current_nodes(rt);
     let mut changes: BTreeMap<p::WindowId, (Vec<p::ElementInfo>, Vec<p::NodeId>)> = BTreeMap::new();
     {
         let sent = i.session.sent_tree.borrow();

@@ -1277,11 +1277,12 @@ class NodeDetail:
     computed: list[StyleProperty] = field(default_factory=list)
     handlers: list[HandlerInfo] = field(default_factory=list)
     states: list[InteractiveState] = field(default_factory=list)
+    forced: list[InteractiveState] = field(default_factory=list)
     why: list[WhyProp] = field(default_factory=list)
 
     @classmethod
     def from_json(cls, data: dict[str, Any]) -> NodeDetail:
-        return cls(node=ElementInfo.from_json(data["node"]), bounds=BoxModel.from_json(data["bounds"]), call_chain=[CallFrame.from_json(v) for v in data.get("call_chain", [])], styles=[StyleLayerInfo.from_json(v) for v in data.get("styles", [])], computed=[StyleProperty.from_json(v) for v in data.get("computed", [])], semantics=SemanticsInfo.from_json(data["semantics"]), handlers=[HandlerInfo.from_json(v) for v in data.get("handlers", [])], states=[InteractiveState(v) for v in data.get("states", [])], why=[WhyProp.from_json(v) for v in data.get("why", [])])
+        return cls(node=ElementInfo.from_json(data["node"]), bounds=BoxModel.from_json(data["bounds"]), call_chain=[CallFrame.from_json(v) for v in data.get("call_chain", [])], styles=[StyleLayerInfo.from_json(v) for v in data.get("styles", [])], computed=[StyleProperty.from_json(v) for v in data.get("computed", [])], semantics=SemanticsInfo.from_json(data["semantics"]), handlers=[HandlerInfo.from_json(v) for v in data.get("handlers", [])], states=[InteractiveState(v) for v in data.get("states", [])], forced=[InteractiveState(v) for v in data.get("forced", [])], why=[WhyProp.from_json(v) for v in data.get("why", [])])
 
     def to_json(self) -> dict[str, Any]:
         data: dict[str, Any] = {"node": self.node.to_json(), "bounds": self.bounds.to_json(), "semantics": self.semantics.to_json()}
@@ -1295,6 +1296,8 @@ class NodeDetail:
             data["handlers"] = [v.to_json() for v in self.handlers]
         if self.states:
             data["states"] = [v.value for v in self.states]
+        if self.forced:
+            data["forced"] = [v.value for v in self.forced]
         if self.why:
             data["why"] = [v.to_json() for v in self.why]
         return data
@@ -1324,13 +1327,14 @@ class OverlaySettings:
     layout_lint: bool
     update_heatmap: bool
     tab_order: bool
+    selected_only: bool
 
     @classmethod
     def from_json(cls, data: dict[str, Any]) -> OverlaySettings:
-        return cls(paint_flashing=data["paint_flashing"], layout_lint=data["layout_lint"], update_heatmap=data["update_heatmap"], tab_order=data["tab_order"])
+        return cls(paint_flashing=data["paint_flashing"], layout_lint=data["layout_lint"], update_heatmap=data["update_heatmap"], tab_order=data["tab_order"], selected_only=data["selected_only"])
 
     def to_json(self) -> dict[str, Any]:
-        data: dict[str, Any] = {"paint_flashing": self.paint_flashing, "layout_lint": self.layout_lint, "update_heatmap": self.update_heatmap, "tab_order": self.tab_order}
+        data: dict[str, Any] = {"paint_flashing": self.paint_flashing, "layout_lint": self.layout_lint, "update_heatmap": self.update_heatmap, "tab_order": self.tab_order, "selected_only": self.selected_only}
         return data
 
 @dataclass(frozen=True, slots=True)
@@ -2339,10 +2343,11 @@ class CauseNode:
     source: SourceLocation | None = None
     node: NodeId | None = None
     window: WindowId | None = None
+    members: list[NodeId] = field(default_factory=list)
 
     @classmethod
     def from_json(cls, data: dict[str, Any]) -> CauseNode:
-        return cls(id=data["id"], kind=CauseKind(data["kind"]), label=data["label"], ty=data["ty"] if data.get("ty") is not None else None, name_hint=data["name_hint"] if data.get("name_hint") is not None else None, source=SourceLocation.from_json(data["source"]) if data.get("source") is not None else None, node=data["node"] if data.get("node") is not None else None, window=data["window"] if data.get("window") is not None else None, count=data["count"], wasted=data["wasted"])
+        return cls(id=data["id"], kind=CauseKind(data["kind"]), label=data["label"], ty=data["ty"] if data.get("ty") is not None else None, name_hint=data["name_hint"] if data.get("name_hint") is not None else None, source=SourceLocation.from_json(data["source"]) if data.get("source") is not None else None, node=data["node"] if data.get("node") is not None else None, window=data["window"] if data.get("window") is not None else None, count=data["count"], wasted=data["wasted"], members=[v for v in data.get("members", [])])
 
     def to_json(self) -> dict[str, Any]:
         data: dict[str, Any] = {"id": self.id, "kind": self.kind.value, "label": self.label, "count": self.count, "wasted": self.wasted}
@@ -2356,6 +2361,8 @@ class CauseNode:
             data["node"] = self.node
         if self.window is not None:
             data["window"] = self.window
+        if self.members:
+            data["members"] = [v for v in self.members]
         return data
 
 @dataclass(frozen=True, slots=True)

@@ -234,6 +234,7 @@ pub(crate) fn overlays_off() -> p::OverlaySettings {
         layout_lint: false,
         update_heatmap: false,
         tab_order: false,
+        selected_only: false,
     }
 }
 

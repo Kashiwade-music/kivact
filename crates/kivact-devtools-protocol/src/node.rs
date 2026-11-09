@@ -185,6 +185,9 @@ pub struct NodeDetail {
     /// The interactive states.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub states: Vec<InteractiveState>,
+    /// The states DevTools forces on this node (`force_state`), in `InteractiveState` order.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub forced: Vec<InteractiveState>,
     /// The props and the values their effects read.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub why: Vec<WhyProp>,

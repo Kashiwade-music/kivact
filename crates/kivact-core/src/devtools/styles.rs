@@ -17,6 +17,20 @@ use crate::view::devtools_state::DevtoolsState;
 use crate::view::element_data::{LayerOrigin, StyleLayer};
 use crate::view::state::ViewState;
 
+/// The value of `property` on `id` without any DevTools override, in the form
+/// an override takes.
+pub(super) fn base_value(rt: &Runtime, id: NodeId, property: &str) -> Option<String> {
+    let (layers, owner, _) = style_source(rt, id)?;
+    let mut merged = Style::default();
+    for layer in &layers {
+        merged = merged.merge(&evaluate(owner, layer));
+    }
+    describe_style(&merged)
+        .into_iter()
+        .find(|(name, _)| *name == property)
+        .map(|(name, value)| editable(name, value))
+}
+
 /// The style layers of `id`, highest priority first.
 pub(super) fn layers(rt: &Runtime, id: NodeId) -> Vec<p::StyleLayerInfo> {
     let Some((layers, owner, at)) = style_source(rt, id) else {
@@ -80,16 +94,47 @@ pub(super) fn set_style_override(
         }
     }
     let i = DevtoolsState::inspector(rt);
-    let id = i.session.next_override.get() + 1;
-    i.session.next_override.set(id);
-    let entry = p::StyleOverride {
-        id,
-        scope: params.scope,
-        property: params.property,
-        value: params.value,
-    };
-    i.hooks.overrides.update(|all| all.push(entry.clone()));
+    let mut all = i.hooks.overrides.get_untracked();
+    let entry = store_override(
+        &mut all,
+        params.scope,
+        params.property,
+        params.value,
+        || {
+            let id = i.session.next_override.get() + 1;
+            i.session.next_override.set(id);
+            id
+        },
+    );
+    i.hooks.overrides.set(all);
     Ok(entry)
+}
+
+/// Store an override in `all`. An override with the same scope and property
+/// keeps its id and takes the new value; otherwise `next_id` gives the id of a
+/// new override, which is appended.
+fn store_override(
+    all: &mut Vec<p::StyleOverride>,
+    scope: p::OverrideScope,
+    property: String,
+    value: String,
+    next_id: impl FnOnce() -> u64,
+) -> p::StyleOverride {
+    if let Some(slot) = all
+        .iter_mut()
+        .find(|slot| slot.scope == scope && slot.property == property)
+    {
+        slot.value = value;
+        return slot.clone();
+    }
+    let entry = p::StyleOverride {
+        id: next_id(),
+        scope,
+        property,
+        value,
+    };
+    all.push(entry.clone());
+    entry
 }
 
 pub(super) fn clear_style_overrides(
@@ -240,7 +285,7 @@ fn state_layers(style: &Style, forced: ForcedStates) -> Vec<p::StyleLayerInfo> {
             properties: properties(
                 items
                     .into_iter()
-                    .map(|(property, value)| (property.to_owned(), value)),
+                    .map(|(property, value)| (property.to_owned(), editable(property, value))),
             ),
         });
     }
@@ -274,8 +319,13 @@ fn described(style: &Style) -> Vec<p::StyleProperty> {
     properties(
         describe_style(style)
             .into_iter()
-            .map(|(name, value)| (name.to_owned(), value)),
+            .map(|(name, value)| (name.to_owned(), editable(name, value))),
     )
+}
+
+/// `described` in the form an override takes, when the property has one.
+fn editable(name: &str, described: String) -> String {
+    devtools_apply::editable_value(name, &described).unwrap_or(described)
 }
 
 /// Mark a property a higher layer also sets.
@@ -358,4 +408,40 @@ fn kind_name(kind: p::TokenKind) -> &'static str {
 
 fn invalid_params(message: impl Into<String>) -> p::RpcError {
     p::RpcError::new(p::code::INVALID_PARAMS, message)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_repeated_override_keeps_its_id_and_takes_the_new_value() {
+        let scope = p::OverrideScope::Node { node: 7 };
+        let mut all = Vec::new();
+        let mut allocated = 0_u64;
+        let first = store_override(
+            &mut all,
+            scope.clone(),
+            "width".to_owned(),
+            "120".to_owned(),
+            || {
+                allocated += 1;
+                allocated
+            },
+        );
+        let second = store_override(
+            &mut all,
+            scope,
+            "width".to_owned(),
+            "50%".to_owned(),
+            || {
+                allocated += 1;
+                allocated
+            },
+        );
+        assert_eq!(all.len(), 1);
+        assert_eq!(second.id, first.id);
+        assert_eq!(all[0].value, "50%");
+        assert_eq!(allocated, 1);
+    }
 }

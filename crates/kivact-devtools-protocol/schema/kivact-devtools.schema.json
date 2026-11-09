@@ -1817,6 +1817,13 @@
             "$ref": "#/$defs/InteractiveState"
           }
         },
+        "forced": {
+          "description": "The states DevTools forces on this node (`force_state`), in `InteractiveState` order.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/InteractiveState"
+          }
+        },
         "why": {
           "description": "The props and the values their effects read.",
           "type": "array",
@@ -1869,13 +1876,18 @@
         "tab_order": {
           "description": "Show the Tab order.",
           "type": "boolean"
+        },
+        "selected_only": {
+          "description": "Draw paint flashing and the update heatmap only for the highlighted node and its descendants; nothing when no node is highlighted.",
+          "type": "boolean"
         }
       },
       "required": [
         "paint_flashing",
         "layout_lint",
         "update_heatmap",
-        "tab_order"
+        "tab_order",
+        "selected_only"
       ],
       "additionalProperties": false
     },
@@ -3290,6 +3302,13 @@
         "wasted": {
           "description": "Whether the work changed nothing.",
           "type": "boolean"
+        },
+        "members": {
+          "description": "For a merged node (`count` > 1): the element nodes of the merged members, in first-seen order without duplicates; empty otherwise.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/NodeId"
+          }
         }
       },
       "required": [
