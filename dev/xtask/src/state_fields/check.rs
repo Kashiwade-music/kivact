@@ -53,6 +53,10 @@ pub(crate) fn check(
                 _ => {}
             }
         }
+    } else if mode.strictness == Strictness::Current {
+        // Current skips value modules, but the strict rules check them: their
+        // counted fields keep the markers used instead of "unused marker".
+        mark_strict_fields(&context, builders);
     }
     report_statics(&context, &statics, errors);
     let functions = locals::scan(source);
@@ -62,6 +66,25 @@ pub(crate) fn check(
         errors.extend(locals::collect(source, &functions));
     }
     report_unused_markers(source, mode.strictness, &struct_markers, errors);
+}
+
+/// Record the markers of a module that Current skips but the strict rules count.
+fn mark_strict_fields(context: &RuleContext<'_>, builders: &BTreeSet<String>) {
+    let strict = RuleContext {
+        strictness: Strictness::Strict,
+        ..*context
+    };
+    let mut struct_markers = BTreeSet::new();
+    let mut ignored = Vec::new();
+    for item in &context.source.items {
+        match item {
+            syn::Item::Struct(item) => {
+                check_struct(&strict, item, builders, &mut struct_markers, &mut ignored)
+            }
+            syn::Item::Enum(item) => check_enum(&strict, item, &mut ignored),
+            _ => {}
+        }
+    }
 }
 
 fn is_value_module(source: &Source, policy: &toml::Table, strictness: Strictness) -> bool {
