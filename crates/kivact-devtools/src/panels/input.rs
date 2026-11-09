@@ -9,11 +9,22 @@ use crate::state::Session;
 pub(crate) fn view(session: Session) -> impl IntoView {
     let log = signal(None::<p::InputLog>);
     let ime = signal(None::<p::ImeState>);
-    on_mount(move || load(session, log, ime));
+    let window = memo(move || session.window());
+    effect(move || {
+        let window = window.get();
+        load(session, window, log, ime);
+    });
 
     let entries = memo(move || log.get().map(|log| log.entries).unwrap_or_default());
     column((
-        text("Input log"),
+        row((
+            text("Input log"),
+            spacer(),
+            button("Refresh").on_press(move || {
+                load(session, session.window(), log, ime);
+            }),
+        ))
+        .style(style().align_items(Align::Center)),
         header(),
         virtual_list(entries, |entry| entry.seq, input_row)
             .row_height(RowHeight::Fixed(22.0))
@@ -25,8 +36,12 @@ pub(crate) fn view(session: Session) -> impl IntoView {
 }
 
 /// Load the input log and the IME state of the inspected window.
-fn load(session: Session, log: Signal<Option<p::InputLog>>, ime: Signal<Option<p::ImeState>>) {
-    let window = session.window();
+fn load(
+    session: Session,
+    window: p::WindowId,
+    log: Signal<Option<p::InputLog>>,
+    ime: Signal<Option<p::ImeState>>,
+) {
     session.send::<p::ListInputs>(
         p::ListInputsParams {
             since: None,

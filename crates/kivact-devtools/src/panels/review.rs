@@ -17,24 +17,27 @@ pub(crate) fn view(session: Session) -> impl IntoView {
             .map(|review| review.items)
             .unwrap_or_default()
     });
-    column((
-        row((
-            text("review.json and review.md are saved on every change."),
-            button("Open folder").on_press(move || open_folder(session)),
+    scroll(
+        column((
+            row((
+                text("review.json and review.md are saved on every change."),
+                button("Open folder").on_press(move || open_folder(session)),
+            ))
+            .style(style().gap(8).align_items(Align::Center)),
+            text_area("Comment", comment),
+            button("Add comment")
+                .disabled(move || comment.get().trim().is_empty())
+                .on_press(move || add_comment(session, comment)),
+            comment_editor(session, editing, draft),
+            for_each(
+                items,
+                |item| item.id.clone(),
+                move |item| item_view(session, item, editing, draft),
+            ),
         ))
-        .style(style().gap(8).align_items(Align::Center)),
-        text_area("Comment", comment),
-        button("Add comment")
-            .disabled(move || comment.get().trim().is_empty())
-            .on_press(move || add_comment(session, comment)),
-        comment_editor(session, editing, draft),
-        for_each(
-            items,
-            |item| item.id.clone(),
-            move |item| item_view(session, item, editing, draft),
-        ),
-    ))
-    .style(style().gap(8).padding(12).align_items(Align::Start))
+        .style(style().gap(8).padding(12).align_items(Align::Start)),
+    )
+    .style(style().grow(1.0).min_height(0.0))
 }
 
 /// The editor shown while a comment is being changed.

@@ -19,7 +19,9 @@ fn export_trace_shows_the_written_path() {
     let screen = support::open(&fixture, "Performance");
     screen.get_by_role(Role::Canvas, "Frame times");
     screen.get_by_role(Role::Canvas, "Flame chart");
-    screen.get_by_role(Role::Button, "Export trace").click();
+    screen
+        .get_by_role(Role::Button, "Export as Perfetto")
+        .click();
     screen.get_by_text("/work/.kivact/traces/session-1.json");
     let calls = fixture.calls.borrow();
     assert!(

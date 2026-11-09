@@ -40,6 +40,31 @@ fn the_layout_tab_highlights_with_the_layout_boxes() {
 }
 
 #[test]
+fn why_shows_the_values_an_effect_reads_as_a_graph() {
+    let mut fixture = support::fixture();
+    fixture.nodes[0].why = serde_json::from_value(serde_json::json!([{
+        "prop": "label",
+        "effect_at": {"file": "src/main.rs", "line": 7, "column": 3},
+        "reads": [{
+            "kind": "signal",
+            "ty": "i32",
+            "name_hint": "count",
+            "created_at": {"file": "src/main.rs", "line": 4, "column": 9},
+            "last_write": {"file": "src/main.rs", "line": 12, "column": 5}
+        }]
+    }]))
+    .expect("invariant: the test why list is valid");
+    let fixture = Rc::new(fixture);
+    let screen = support::open(&fixture, "Elements");
+    screen
+        .get_by_role(Role::TreeItem, "Button \"Save\"")
+        .click();
+    screen.get_by_role(Role::Tab, "Why").click();
+    screen.get_by_role(Role::Button, "label");
+    screen.get_by_role(Role::Button, "signal i32 · count");
+}
+
+#[test]
 fn pick_starts_from_the_button_and_the_shortcut() {
     let fixture = support::fixture_with(Vec::new());
     let screen = support::open(&fixture, "Elements");

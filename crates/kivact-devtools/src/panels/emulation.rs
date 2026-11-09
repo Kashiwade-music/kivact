@@ -92,7 +92,7 @@ impl PseudoChoice {
 
 /// The environment emulation controls.
 pub(crate) fn view(session: Session) -> impl IntoView {
-    column((
+    scroll(column((
         theme_select(session),
         text(
             "Theme emulation only affects apps that choose their theme from the platform theme hint.",
@@ -117,7 +117,8 @@ pub(crate) fn view(session: Session) -> impl IntoView {
         pseudo_select(session),
         touch_switch(session),
     ))
-    .style(style().gap(12).padding(12).align_items(Align::Start))
+    .style(style().gap(12).padding(12).align_items(Align::Start)))
+    .style(style().grow(1.0).min_height(0.0))
 }
 
 /// The theme select.

@@ -7,6 +7,7 @@ use kivact_devtools_protocol as p;
 use crate::panels::elements::styles::styles_tab;
 use crate::state::Session;
 use crate::widgets::box_model::box_model;
+use crate::widgets::graph;
 
 /// One tab of the selected node's details.
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
@@ -68,7 +69,7 @@ fn panel(tab: DetailTab, session: Session, layout: Signal<bool>) -> View {
         DetailTab::Computed => computed(session.detail),
         DetailTab::Layout => layout_tab(session, layout),
         DetailTab::Semantics => semantics(session.detail),
-        DetailTab::Why => why(session.detail),
+        DetailTab::Why => why(session, session.detail),
         DetailTab::Handlers => handlers(session.detail),
     }
 }
@@ -138,30 +139,89 @@ fn semantics_rows(info: p::SemanticsInfo) -> Vec<kivact::ui::Description> {
     ]
 }
 
-/// The values the effects of the selected node read.
-fn why(detail: Resource<Option<p::NodeDetail>>) -> View {
+/// The values the effects of the selected node read, as a dependency graph.
+fn why(session: Session, detail: Resource<Option<p::NodeDetail>>) -> View {
     dynamic(
         move || detail.latest().flatten(),
-        |detail| match detail {
+        move |detail| match detail {
             None => empty("No node selected"),
             Some(detail) if detail.why.is_empty() => empty("No dependencies"),
-            Some(detail) => page(description_list(why_rows(detail.why))),
+            Some(detail) => page(graph::cause_graph(
+                Some(why_causes(detail.why)),
+                |_| (),
+                move |source| session.open_source(source),
+            )),
         },
     )
     .into_view()
 }
 
-fn why_rows(props: Vec<p::WhyProp>) -> Vec<kivact::ui::Description> {
-    props
-        .into_iter()
-        .map(|prop| {
-            let term = format!(
-                "{} · {}:{}",
-                prop.prop, prop.effect_at.file, prop.effect_at.line
-            );
-            description(term, lines(read_lines(&prop.reads)))
-        })
-        .collect()
+/// The graph of a `why` list: each prop is a card on the right, and each value it reads is a card
+/// on its left, with the deepest values furthest left.
+fn why_causes(props: Vec<p::WhyProp>) -> graph::Causes {
+    let mut causes = graph::Causes {
+        nodes: Vec::new(),
+        edges: Vec::new(),
+    };
+    for prop in props {
+        let reader = next_id(&causes);
+        causes.nodes.push(p::CauseNode {
+            id: reader,
+            kind: p::CauseKind::PropChange,
+            label: prop.prop,
+            ty: None,
+            name_hint: None,
+            source: Some(prop.effect_at),
+            node: None,
+            window: None,
+            count: 1,
+            wasted: false,
+            members: Vec::new(),
+        });
+        for dep in &prop.reads {
+            add_dep(&mut causes, dep, reader);
+        }
+    }
+    causes
+}
+
+/// Add one dependency and the values it reads, with an edge from each to the card it feeds.
+fn add_dep(causes: &mut graph::Causes, dep: &p::WhyDep, reader: u32) {
+    let id = next_id(causes);
+    let kind = if dep.last_write.is_some() {
+        p::CauseKind::SignalWrite
+    } else {
+        p::CauseKind::MemoRun
+    };
+    let label = match &dep.name_hint {
+        Some(name) => format!("{} {} · {name}", dep.kind, dep.ty),
+        None => format!("{} {}", dep.kind, dep.ty),
+    };
+    causes.nodes.push(p::CauseNode {
+        id,
+        kind,
+        label,
+        ty: Some(dep.ty.clone()),
+        name_hint: dep.name_hint.clone(),
+        source: Some(dep.created_at.clone()),
+        node: None,
+        window: None,
+        count: 1,
+        wasted: false,
+        members: Vec::new(),
+    });
+    causes.edges.push(p::CauseEdge {
+        source: id,
+        target: reader,
+    });
+    for read in &dep.reads {
+        add_dep(causes, read, id);
+    }
+}
+
+/// The id of the next card of `causes`.
+fn next_id(causes: &graph::Causes) -> u32 {
+    u32::try_from(causes.nodes.len()).expect("invariant: a graph has fewer than 2^32 cards")
 }
 
 /// The event handlers of the selected node.
@@ -194,34 +254,6 @@ fn page(content: impl IntoView) -> View {
 fn empty(message: &'static str) -> View {
     text(message)
         .style(style().color(ColorToken::TextMuted).padding(8))
-        .into_view()
-}
-
-/// The indented lines of a `why` dependency list.
-fn read_lines(reads: &[p::WhyDep]) -> Vec<String> {
-    let mut lines = Vec::new();
-    collect_reads(reads, 0, &mut lines);
-    if lines.is_empty() {
-        lines.push("no reads".to_owned());
-    }
-    lines
-}
-
-fn collect_reads(reads: &[p::WhyDep], depth: usize, out: &mut Vec<String>) {
-    let indent = "  ".repeat(depth);
-    for read in reads {
-        let name = match &read.name_hint {
-            Some(name) => format!(" · {name}"),
-            None => String::new(),
-        };
-        out.push(format!("{indent}{} {}{name}", read.kind, read.ty));
-        collect_reads(&read.reads, depth + 1, out);
-    }
-}
-
-fn lines(lines: Vec<String>) -> View {
-    column(lines.into_iter().map(text).collect::<Vec<_>>())
-        .style(style().gap(2))
         .into_view()
 }
 

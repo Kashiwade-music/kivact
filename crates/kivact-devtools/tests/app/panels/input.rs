@@ -1,6 +1,33 @@
 //! Role: Tests of the Input panel.
 
+use std::rc::Rc;
+
+use kivact::prelude::*;
+
 use crate::support;
+
+#[test]
+fn switching_the_window_reloads_the_ime_state() {
+    let mut fixture = support::fixture();
+    fixture.windows.push(
+        serde_json::from_value(serde_json::json!({
+            "id": 2,
+            "title": "Second",
+            "bounds": {"x": 0.0, "y": 0.0, "width": 400.0, "height": 300.0},
+            "scale": 1.0,
+            "focused": false,
+            "mode": "normal"
+        }))
+        .expect("invariant: the test window is valid"),
+    );
+    let fixture = Rc::new(fixture);
+    let screen = support::open(&fixture, "Input");
+    screen.get_by_role(Role::ComboBox, "Window").click();
+    screen.get_by_role(Role::Option, "Second").click();
+    assert!(fixture.calls.borrow().iter().any(|(method, params)| {
+        method == "get_ime_state" && params == &serde_json::json!({"window": 2})
+    }));
+}
 
 #[test]
 fn the_input_log_and_ime_state_are_shown() {
