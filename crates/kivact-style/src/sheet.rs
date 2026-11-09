@@ -172,184 +172,525 @@ impl Sides {
     }
 }
 
-/// A style value. Build with [`style()`].
-#[derive(Clone, Debug, PartialEq, Default)]
-pub struct Style {
-    // xtask-allow(state-fields): passive record - local paint
-    pub(super) local_paint: Option<LocalPaint>,
-    pub(super) padding: Sides,
-    pub(super) margin: Sides,
-    pub(super) inset: Sides,
-    // xtask-allow(state-fields): passive record - row gap
-    pub(super) row_gap: Option<Length>,
-    // xtask-allow(state-fields): passive record - column gap
-    pub(super) column_gap: Option<Length>,
-    // xtask-allow(state-fields): passive record - width
-    pub(super) width: Option<Length>,
-    // xtask-allow(state-fields): passive record - height
-    pub(super) height: Option<Length>,
-    // xtask-allow(state-fields): passive record - min width
-    pub(super) min_width: Option<Length>,
-    // xtask-allow(state-fields): passive record - min height
-    pub(super) min_height: Option<Length>,
-    // xtask-allow(state-fields): passive record - max width
-    pub(super) max_width: Option<Length>,
-    // xtask-allow(state-fields): passive record - max height
-    pub(super) max_height: Option<Length>,
-    // xtask-allow(state-fields): passive record - grow
-    pub(super) grow: Option<f64>,
-    // xtask-allow(state-fields): passive record - shrink
-    pub(super) shrink: Option<f64>,
-    // xtask-allow(state-fields): passive record - basis
-    pub(super) basis: Option<Length>,
-    // xtask-allow(state-fields): passive record - aspect ratio
-    pub(super) aspect_ratio: Option<f64>,
-    // xtask-allow(state-fields): passive record - direction
-    pub(super) direction: Option<Direction>,
-    // xtask-allow(state-fields): passive record - align
-    pub(super) align: Option<Align>,
-    // xtask-allow(state-fields): passive record - align self
-    pub(super) align_self: Option<Align>,
-    // xtask-allow(state-fields): passive record - justify
-    pub(super) justify: Option<Justify>,
-    // xtask-allow(state-fields): passive record - align content
-    pub(super) align_content: Option<Justify>,
-    // xtask-allow(state-fields): passive record - Lays the children out as a grid (CSS `display: grid`;
+/// The `size` group of a [`Style`]: the box's size and flex sizing.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub(crate) struct SizeFields {
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
+    pub(crate) width: Option<Length>,
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
+    pub(crate) height: Option<Length>,
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
+    pub(crate) min_width: Option<Length>,
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
+    pub(crate) min_height: Option<Length>,
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
+    pub(crate) max_width: Option<Length>,
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
+    pub(crate) max_height: Option<Length>,
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
+    pub(crate) basis: Option<Length>,
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
+    pub(crate) aspect_ratio: Option<f64>,
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
+    pub(crate) grow: Option<f64>,
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
+    pub(crate) shrink: Option<f64>,
+}
+
+impl SizeFields {
+    fn merge(&mut self, o: &Self) {
+        macro_rules! take {
+            ($($f:ident),*) => {$(
+                if o.$f.is_some() {
+                    self.$f = o.$f;
+                }
+            )*};
+        }
+        take!(
+            width,
+            height,
+            min_width,
+            min_height,
+            max_width,
+            max_height,
+            basis,
+            aspect_ratio,
+            grow,
+            shrink
+        );
+    }
+}
+
+/// The `spacing` group of a [`Style`]: padding, margin, insets and gaps.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub(crate) struct SpacingFields {
+    pub(crate) padding: Sides,
+    pub(crate) margin: Sides,
+    pub(crate) inset: Sides,
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
+    pub(crate) row_gap: Option<Length>,
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
+    pub(crate) column_gap: Option<Length>,
+}
+
+impl SpacingFields {
+    fn merge(&mut self, o: &Self) {
+        self.padding.merge(&o.padding);
+        self.margin.merge(&o.margin);
+        self.inset.merge(&o.inset);
+        if o.row_gap.is_some() {
+            self.row_gap = o.row_gap;
+        }
+        if o.column_gap.is_some() {
+            self.column_gap = o.column_gap;
+        }
+    }
+}
+
+/// The `flow` group of a [`Style`]: flex, grid, position and overflow.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub(crate) struct FlowFields {
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
+    pub(crate) direction: Option<Direction>,
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
+    pub(crate) align: Option<Align>,
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
+    pub(crate) align_self: Option<Align>,
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
+    pub(crate) justify: Option<Justify>,
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
+    pub(crate) align_content: Option<Justify>,
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
     /// Lays the children out as a grid (CSS `display: grid`; set by
     /// `grid(..)` only).
-    pub(super) display: Option<kivact_types::Display>,
-    // xtask-allow(state-fields): passive record - visibility
-    pub(super) visibility: Option<kivact_types::Visibility>,
-    // xtask-allow(state-fields): passive record - Grid tracks and placement (rare: boxed)
+    pub(crate) display: Option<kivact_types::Display>,
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
+    pub(crate) visibility: Option<kivact_types::Visibility>,
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
     /// Grid tracks and placement (rare: boxed).
-    pub(super) grid: Option<Box<GridStyle>>,
-    // xtask-allow(state-fields): passive record - wrap
-    pub(super) wrap: Option<bool>,
-    // xtask-allow(state-fields): passive record - position
-    pub(super) position: Option<Position>,
-    // xtask-allow(state-fields): passive record - overflow
-    pub(super) overflow: Option<Overflow>,
-    // xtask-allow(state-fields): passive record - Scroll axes set by `scroll(..)`
+    pub(crate) grid: Option<Box<GridStyle>>,
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
+    pub(crate) wrap: Option<bool>,
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
+    pub(crate) position: Option<Position>,
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
+    pub(crate) overflow: Option<Overflow>,
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
     /// Scroll axes set by `scroll(..)`.
-    pub(super) scroll_axes: Option<ScrollAxes>,
-    // xtask-allow(state-fields): passive record - scroll snap
-    pub(super) scroll_snap: Option<kivact_types::ScrollSnap>,
-    // xtask-allow(state-fields): passive record - background
-    pub(super) background: Option<Background>,
+    pub(crate) scroll_axes: Option<ScrollAxes>,
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
+    pub(crate) scroll_snap: Option<kivact_types::ScrollSnap>,
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
+    pub(crate) z_index: Option<i32>,
+}
+
+impl FlowFields {
+    fn merge(&mut self, o: &Self) {
+        macro_rules! take {
+            ($($f:ident),*) => {$(
+                if o.$f.is_some() {
+                    self.$f = o.$f.clone();
+                }
+            )*};
+        }
+        take!(
+            direction,
+            align,
+            align_self,
+            justify,
+            align_content,
+            display,
+            visibility,
+            wrap,
+            position,
+            overflow,
+            scroll_axes,
+            scroll_snap,
+            z_index
+        );
+        if let Some(g) = &o.grid {
+            self.grid.get_or_insert_with(Default::default).merge(g);
+        }
+    }
+}
+
+/// The `paint` group of a [`Style`]: backgrounds, borders, effects and
+/// the ways a box is drawn.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub(crate) struct PaintFields {
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
+    pub(crate) local_paint: Option<LocalPaint>,
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
+    pub(crate) background: Option<Background>,
     /// Border widths and colors, top, right, bottom, left.
-    pub(super) border_width: [Option<f64>; 4],
-    pub(super) border_color: [Option<Color>; 4],
+    pub(crate) border_width: [Option<f64>; 4],
+    pub(crate) border_color: [Option<Color>; 4],
     /// Border line styles, top, right, bottom, left.
-    pub(super) border_style: [Option<BorderStyle>; 4],
-    // xtask-allow(state-fields): passive record - ring
-    pub(super) ring: Option<(f64, f64, Color)>,
+    pub(crate) border_style: [Option<BorderStyle>; 4],
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
+    pub(crate) ring: Option<(f64, f64, Color)>,
     /// Corner radii, top left, top right, bottom right, bottom left.
-    pub(super) radius: [Option<CornerRadius>; 4],
-    // xtask-allow(state-fields): passive record - shadows
-    pub(super) shadows: Option<Vec<Shadow>>,
-    // xtask-allow(state-fields): passive record - opacity
-    pub(super) opacity: Option<f64>,
+    pub(crate) radius: [Option<CornerRadius>; 4],
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
+    pub(crate) shadows: Option<Vec<Shadow>>,
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
+    pub(crate) opacity: Option<f64>,
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
+    pub(crate) isolation: Option<Isolation>,
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
+    pub(crate) border_image: Option<Box<BorderImage>>,
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
+    pub(crate) scrollbar: Option<Box<ScrollbarStyle>>,
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
+    pub(crate) cursor: Option<Cursor>,
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
+    pub(crate) clip: Option<bool>,
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
+    pub(crate) filter: Option<Filter>,
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
+    pub(crate) backdrop_filter: Option<Filter>,
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
+    pub(crate) blend: Option<BlendMode>,
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
+    pub(crate) mask: Option<Box<Mask>>,
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
+    pub(crate) clip_path: Option<Box<Shape>>,
+}
+
+impl PaintFields {
+    fn merge(&mut self, o: &Self) {
+        macro_rules! take {
+            ($($f:ident),*) => {$(
+                if o.$f.is_some() {
+                    self.$f = o.$f.clone();
+                }
+            )*};
+        }
+        take!(
+            local_paint,
+            background,
+            ring,
+            shadows,
+            opacity,
+            isolation,
+            border_image,
+            cursor,
+            clip,
+            filter,
+            backdrop_filter,
+            blend,
+            mask,
+            clip_path
+        );
+        if let Some(other) = &o.scrollbar {
+            let mine = self.scrollbar.get_or_insert_with(Default::default);
+            mine.width = other.width.or(mine.width);
+            mine.colors = other.colors.or(mine.colors);
+        }
+        for (a, b) in self.border_width.iter_mut().zip(o.border_width) {
+            *a = b.or(*a);
+        }
+        for (a, b) in self.border_style.iter_mut().zip(o.border_style) {
+            *a = b.or(*a);
+        }
+        for (a, b) in self.border_color.iter_mut().zip(o.border_color) {
+            *a = b.or(*a);
+        }
+        for (a, b) in self.radius.iter_mut().zip(o.radius) {
+            *a = b.or(*a);
+        }
+    }
+}
+
+/// The `transform` group of a [`Style`]: the transform properties.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub(crate) struct TransformFields {
     /// CSS `translate` (x, then y: each axis is set and merged on its own),
     /// `rotate`, `scale`, `transform`, `transform-origin`.
-    pub(super) translate: [Option<Length>; 2],
-    // xtask-allow(state-fields): passive record - rotate
-    pub(super) rotate: Option<f64>,
-    // xtask-allow(state-fields): passive record - scale
-    pub(super) scale: Option<(f64, f64)>,
-    // xtask-allow(state-fields): passive record - transform
-    pub(super) transform: Option<Transform>,
-    // xtask-allow(state-fields): passive record - transform origin
-    pub(super) transform_origin: Option<(Length, Length)>,
-    // xtask-allow(state-fields): passive record - translate z
-    pub(super) translate_z: Option<f64>,
-    // xtask-allow(state-fields): passive record - rotate x
-    pub(super) rotate_x: Option<f64>,
-    // xtask-allow(state-fields): passive record - rotate y
-    pub(super) rotate_y: Option<f64>,
-    // xtask-allow(state-fields): passive record - transform origin z
-    pub(super) transform_origin_z: Option<f64>,
-    // xtask-allow(state-fields): passive record - perspective
-    pub(super) perspective: Option<f64>,
-    // xtask-allow(state-fields): passive record - perspective origin
-    pub(super) perspective_origin: Option<(Length, Length)>,
-    // xtask-allow(state-fields): passive record - transform style
-    pub(super) transform_style: Option<TransformStyle>,
-    // xtask-allow(state-fields): passive record - backface
-    pub(super) backface: Option<BackfaceVisibility>,
-    // xtask-allow(state-fields): passive record - will change
-    pub(super) will_change: Option<WillChange>,
-    // xtask-allow(state-fields): passive record - isolation
-    pub(super) isolation: Option<Isolation>,
-    // xtask-allow(state-fields): passive record - border image
-    pub(super) border_image: Option<Box<BorderImage>>,
-    // xtask-allow(state-fields): passive record - scrollbar
-    pub(super) scrollbar: Option<Box<ScrollbarStyle>>,
-    // xtask-allow(state-fields): passive record - cursor
-    pub(super) cursor: Option<Cursor>,
-    // xtask-allow(state-fields): passive record - z index
-    pub(super) z_index: Option<i32>,
-    // xtask-allow(state-fields): passive record - clip
-    pub(super) clip: Option<bool>,
-    // xtask-allow(state-fields): passive record - filter
-    pub(super) filter: Option<Filter>,
-    // xtask-allow(state-fields): passive record - backdrop filter
-    pub(super) backdrop_filter: Option<Filter>,
-    // xtask-allow(state-fields): passive record - blend
-    pub(super) blend: Option<BlendMode>,
-    // xtask-allow(state-fields): passive record - mask
-    pub(super) mask: Option<Box<Mask>>,
-    // xtask-allow(state-fields): passive record - clip path
-    pub(super) clip_path: Option<Box<Shape>>,
-    // xtask-allow(state-fields): passive record - font size
-    pub(super) font_size: Option<f64>,
-    // xtask-allow(state-fields): passive record - weight
-    pub(super) weight: Option<u16>,
-    // xtask-allow(state-fields): passive record - color
-    pub(super) color: Option<Color>,
-    // xtask-allow(state-fields): passive record - line height
-    pub(super) line_height: Option<LineHeight>,
-    // xtask-allow(state-fields): passive record - text wrap
-    pub(super) text_wrap: Option<bool>,
-    // xtask-allow(state-fields): passive record - text align
-    pub(super) text_align: Option<TextAlign>,
-    // xtask-allow(state-fields): passive record - font family
-    pub(super) font_family: Option<String>,
-    // xtask-allow(state-fields): passive record - italic
-    pub(super) italic: Option<bool>,
-    // xtask-allow(state-fields): passive record - The rarer text properties (letter spacing, decorations, features, overflow, clamps, case, shadows, input colors: boxed)
+    pub(crate) translate: [Option<Length>; 2],
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
+    pub(crate) rotate: Option<f64>,
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
+    pub(crate) scale: Option<(f64, f64)>,
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
+    pub(crate) transform: Option<Transform>,
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
+    pub(crate) transform_origin: Option<(Length, Length)>,
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
+    pub(crate) translate_z: Option<f64>,
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
+    pub(crate) rotate_x: Option<f64>,
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
+    pub(crate) rotate_y: Option<f64>,
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
+    pub(crate) transform_origin_z: Option<f64>,
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
+    pub(crate) perspective: Option<f64>,
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
+    pub(crate) perspective_origin: Option<(Length, Length)>,
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
+    pub(crate) transform_style: Option<TransformStyle>,
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
+    pub(crate) backface: Option<BackfaceVisibility>,
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
+    pub(crate) will_change: Option<WillChange>,
+}
+
+impl TransformFields {
+    fn merge(&mut self, o: &Self) {
+        macro_rules! take {
+            ($($f:ident),*) => {$(
+                if o.$f.is_some() {
+                    self.$f = o.$f.clone();
+                }
+            )*};
+        }
+        take!(
+            rotate,
+            scale,
+            transform,
+            transform_origin,
+            translate_z,
+            rotate_x,
+            rotate_y,
+            transform_origin_z,
+            perspective,
+            perspective_origin,
+            transform_style,
+            backface,
+            will_change
+        );
+        for (a, b) in self.translate.iter_mut().zip(o.translate) {
+            *a = b.or(*a);
+        }
+    }
+}
+
+/// The `text` group of a [`Style`]: the text properties of a node and its
+/// subtree.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub(crate) struct TextFields {
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
+    pub(crate) font_size: Option<f64>,
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
+    pub(crate) weight: Option<u16>,
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
+    pub(crate) color: Option<Color>,
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
+    pub(crate) line_height: Option<LineHeight>,
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
+    pub(crate) text_wrap: Option<bool>,
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
+    pub(crate) text_align: Option<TextAlign>,
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
+    pub(crate) font_family: Option<String>,
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
+    pub(crate) italic: Option<bool>,
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
     /// The rarer text properties (letter spacing, decorations, features,
     /// overflow, clamps, case, shadows, input colors: boxed).
-    pub(super) text: Option<Box<TextExtras>>,
-    // xtask-allow(state-fields): passive record - hover
-    pub(super) hover: Option<Box<Style>>,
-    // xtask-allow(state-fields): passive record - group
-    pub(super) group: bool,
-    // xtask-allow(state-fields): passive record - group hover
-    pub(super) group_hover: Option<Box<Style>>,
-    // xtask-allow(state-fields): passive record - group focus
-    pub(super) group_focus: Option<Box<Style>>,
-    // xtask-allow(state-fields): passive record - pressed
-    pub(super) pressed: Option<Box<Style>>,
-    // xtask-allow(state-fields): passive record - focus
-    pub(super) focus: Option<Box<Style>>,
-    // xtask-allow(state-fields): passive record - focus visible
-    pub(super) focus_visible: Option<Box<Style>>,
-    // xtask-allow(state-fields): passive record - disabled
-    pub(super) disabled: Option<Box<Style>>,
-    // xtask-allow(state-fields): passive record - selected
-    pub(super) selected: Option<Box<Style>>,
-    // xtask-allow(state-fields): passive record - enter size
-    pub(super) enter_size: Option<kivact_types::Orientation>,
-    // xtask-allow(state-fields): passive record - exit size
-    pub(super) exit_size: Option<kivact_types::Orientation>,
-    // xtask-allow(state-fields): passive record - enter
-    pub(super) enter: Option<Box<Style>>,
-    // xtask-allow(state-fields): passive record - exit
-    pub(super) exit: Option<Box<Style>>,
-    // xtask-allow(state-fields): passive record - layout transition
-    pub(super) layout_transition: Option<Transition>,
-    pub(super) transitions: Vec<(TransitionProp, Transition)>,
-    pub(super) duplicates: u32,
+    pub(crate) text: Option<Box<TextExtras>>,
+}
+
+impl TextFields {
+    fn merge(&mut self, o: &Self) {
+        macro_rules! take {
+            ($($f:ident),*) => {$(
+                if o.$f.is_some() {
+                    self.$f = o.$f.clone();
+                }
+            )*};
+        }
+        take!(
+            font_size,
+            weight,
+            color,
+            line_height,
+            text_wrap,
+            text_align,
+            font_family,
+            italic
+        );
+        if let Some(t) = &o.text {
+            self.text.get_or_insert_with(Default::default).merge(t);
+        }
+    }
+}
+
+/// The `states` group of a [`Style`]: the interaction styles and the
+/// nesting of a group.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub(crate) struct StateFields {
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
+    pub(crate) hover: Option<Box<Style>>,
+    pub(crate) group: bool,
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
+    pub(crate) group_hover: Option<Box<Style>>,
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
+    pub(crate) group_focus: Option<Box<Style>>,
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
+    pub(crate) pressed: Option<Box<Style>>,
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
+    pub(crate) focus: Option<Box<Style>>,
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
+    pub(crate) focus_visible: Option<Box<Style>>,
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
+    pub(crate) disabled: Option<Box<Style>>,
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
+    pub(crate) selected: Option<Box<Style>>,
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
+    pub(crate) enter: Option<Box<Style>>,
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
+    pub(crate) exit: Option<Box<Style>>,
+}
+
+impl StateFields {
+    fn merge(&mut self, o: &Self) {
+        self.group |= o.group;
+        for (a, b) in [
+            (&mut self.hover, &o.hover),
+            (&mut self.group_hover, &o.group_hover),
+            (&mut self.group_focus, &o.group_focus),
+            (&mut self.pressed, &o.pressed),
+            (&mut self.focus, &o.focus),
+            (&mut self.focus_visible, &o.focus_visible),
+            (&mut self.disabled, &o.disabled),
+            (&mut self.selected, &o.selected),
+            (&mut self.enter, &o.enter),
+            (&mut self.exit, &o.exit),
+        ] {
+            if let Some(b) = b {
+                *a = Some(Box::new(match a.take() {
+                    Some(x) => (*x).merge(b),
+                    None => (**b).clone(),
+                }));
+            }
+        }
+    }
+}
+
+/// The `motion` group of a [`Style`]: the enter/exit sizes and the
+/// transitions.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub(crate) struct MotionFields {
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
+    pub(crate) enter_size: Option<kivact_types::Orientation>,
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
+    pub(crate) exit_size: Option<kivact_types::Orientation>,
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
+    pub(crate) layout_transition: Option<Transition>,
+    pub(crate) transitions: Vec<(TransitionProp, Transition)>,
+}
+
+impl MotionFields {
+    fn merge(&mut self, o: &Self) {
+        if o.enter_size.is_some() {
+            self.enter_size = o.enter_size;
+        }
+        if o.exit_size.is_some() {
+            self.exit_size = o.exit_size;
+        }
+        if o.layout_transition.is_some() {
+            self.layout_transition = o.layout_transition.clone();
+        }
+        for t in &o.transitions {
+            self.transitions.retain(|(p, _)| *p != t.0);
+            self.transitions.push(t.clone());
+        }
+    }
+}
+
+/// A style value. Build with [`style()`].
+///
+/// An authored style: each group of properties is allocated only when one
+/// of its properties is set. Values and merge rules are the dense style's.
+#[derive(Clone, Debug, Default)]
+pub struct Style {
+    // xtask-allow(state-fields): option: one group of authored properties; absent means the group's defaults
+    pub(crate) size: Option<Box<SizeFields>>,
+    // xtask-allow(state-fields): option: one group of authored properties; absent means the group's defaults
+    pub(crate) spacing: Option<Box<SpacingFields>>,
+    // xtask-allow(state-fields): option: one group of authored properties; absent means the group's defaults
+    pub(crate) flow: Option<Box<FlowFields>>,
+    // xtask-allow(state-fields): option: one group of authored properties; absent means the group's defaults
+    pub(crate) paint: Option<Box<PaintFields>>,
+    // xtask-allow(state-fields): option: one group of authored properties; absent means the group's defaults
+    pub(crate) transform: Option<Box<TransformFields>>,
+    // xtask-allow(state-fields): option: one group of authored properties; absent means the group's defaults
+    pub(crate) text: Option<Box<TextFields>>,
+    // xtask-allow(state-fields): option: one group of authored properties; absent means the group's defaults
+    pub(crate) states: Option<Box<StateFields>>,
+    // xtask-allow(state-fields): option: one group of authored properties; absent means the group's defaults
+    pub(crate) motion: Option<Box<MotionFields>>,
+    /// Setter calls that replaced an earlier value (the diagnostics count).
+    pub(crate) duplicates: u32,
+}
+
+const _: () = assert!(
+    std::mem::size_of::<Style>() <= 72,
+    "Style keeps its groups boxed"
+);
+
+impl PartialEq for Style {
+    fn eq(&self, other: &Self) -> bool {
+        self.size.as_deref().cloned().unwrap_or_default()
+            == other.size.as_deref().cloned().unwrap_or_default()
+            && self.spacing.as_deref().cloned().unwrap_or_default()
+                == other.spacing.as_deref().cloned().unwrap_or_default()
+            && self.flow.as_deref().cloned().unwrap_or_default()
+                == other.flow.as_deref().cloned().unwrap_or_default()
+            && self.paint.as_deref().cloned().unwrap_or_default()
+                == other.paint.as_deref().cloned().unwrap_or_default()
+            && self.transform.as_deref().cloned().unwrap_or_default()
+                == other.transform.as_deref().cloned().unwrap_or_default()
+            && self.text.as_deref().cloned().unwrap_or_default()
+                == other.text.as_deref().cloned().unwrap_or_default()
+            && self.states.as_deref().cloned().unwrap_or_default()
+                == other.states.as_deref().cloned().unwrap_or_default()
+            && self.motion.as_deref().cloned().unwrap_or_default()
+                == other.motion.as_deref().cloned().unwrap_or_default()
+            && self.duplicates == other.duplicates
+    }
+}
+
+/// The group of `style` named, or the group's defaults when it is unset:
+/// `let size = group_or_default!(style.size, SizeFields);`.
+macro_rules! group_or_default {
+    ($group:expr, $ty:ident) => {
+        match $group.as_deref() {
+            Some(group) => std::borrow::Cow::Borrowed(group),
+            None => std::borrow::Cow::Owned($ty::default()),
+        }
+    };
+}
+
+pub(crate) use group_or_default;
+
+impl Style {
+    pub(crate) fn size_mut(&mut self) -> &mut SizeFields {
+        self.size.get_or_insert_with(Default::default)
+    }
+    pub(crate) fn spacing_mut(&mut self) -> &mut SpacingFields {
+        self.spacing.get_or_insert_with(Default::default)
+    }
+    pub(crate) fn flow_mut(&mut self) -> &mut FlowFields {
+        self.flow.get_or_insert_with(Default::default)
+    }
+    pub(crate) fn paint_mut(&mut self) -> &mut PaintFields {
+        self.paint.get_or_insert_with(Default::default)
+    }
+    pub(crate) fn transform_mut(&mut self) -> &mut TransformFields {
+        self.transform.get_or_insert_with(Default::default)
+    }
+    pub(crate) fn text_mut(&mut self) -> &mut TextFields {
+        self.text.get_or_insert_with(Default::default)
+    }
+    pub(crate) fn states_mut(&mut self) -> &mut StateFields {
+        self.states.get_or_insert_with(Default::default)
+    }
+    pub(crate) fn motion_mut(&mut self) -> &mut MotionFields {
+        self.motion.get_or_insert_with(Default::default)
+    }
 }
 
 /// Start a style chain.
@@ -358,15 +699,15 @@ pub fn style() -> Style {
 }
 
 macro_rules! setter {
-    ($(#[$m:meta])* $name:ident, $field:ident, $t:ty, $conv:expr) => {
+    ($(#[$m:meta])* $name:ident, $group:ident, $field:ident, $t:ty, $conv:expr) => {
         $(#[$m])*
         pub fn $name(mut self, v: $t) -> Self {
-            if self.$field.is_some() {
+            if self.$group.as_deref().is_some_and(|g| g.$field.is_some()) {
                 self.duplicates += 1;
             }
             #[allow(clippy::redundant_closure_call, reason = "`$conv` may be a closure literal called in place")]
             {
-                self.$field = Some(($conv)(v.into()));
+                self.$group.get_or_insert_with(Default::default).$field = Some(($conv)(v.into()));
             }
             self
         }
@@ -375,28 +716,28 @@ macro_rules! setter {
 
 /// A setter of a color input, which takes any [`ThemeColor`].
 macro_rules! color_setter {
-    ($(#[$m:meta])* $name:ident, $field:ident) => {
+    ($(#[$m:meta])* $name:ident, $group:ident, $field:ident) => {
         $(#[$m])*
         pub fn $name(mut self, v: impl ThemeColor) -> Self {
-            if self.$field.is_some() {
+            if self.$group.as_deref().is_some_and(|g| g.$field.is_some()) {
                 self.duplicates += 1;
             }
-            self.$field = Some(Color::of(v));
+            self.$group.get_or_insert_with(Default::default).$field = Some(Color::of(v));
             self
         }
     };
 }
 
 macro_rules! sides {
-    ($(#[$m:meta])* $name:ident, $field:ident, [$($side:ident),+]) => {
+    ($(#[$m:meta])* $name:ident, $group:ident, $field:ident, [$($side:ident),+]) => {
         $(#[$m])*
         pub fn $name(mut self, v: impl Into<Length>) -> Self {
             let v = v.into();
             $(
-                if self.$field.$side.is_some() {
+                if self.$group.as_deref().is_some_and(|g| g.$field.$side.is_some()) {
                     self.duplicates += 1;
                 }
-                self.$field.$side = Some(v);
+                self.$group.get_or_insert_with(Default::default).$field.$side = Some(v);
             )+
             self
         }
@@ -406,82 +747,95 @@ macro_rules! sides {
 impl Style {
     /// Align direct in-flow children to scroll stops after touch scrolling.
     pub fn scroll_snap(mut self, snap: kivact_types::ScrollSnap) -> Self {
-        self.scroll_snap = Some(snap);
+        self.flow_mut().scroll_snap = Some(snap);
         self
     }
-    sides!(padding, padding, [top, right, bottom, left]);
-    sides!(padding_x, padding, [left, right]);
-    sides!(padding_y, padding, [top, bottom]);
+    sides!(padding, spacing, padding, [top, right, bottom, left]);
+    sides!(padding_x, spacing, padding, [left, right]);
+    sides!(padding_y, spacing, padding, [top, bottom]);
     sides!(/// CSS `padding-top`; other edges remain unset.
-        padding_top, padding, [top]);
+        padding_top, spacing, padding, [top]);
     sides!(/// CSS `padding-right`; other edges remain unset.
-        padding_right, padding, [right]);
+        padding_right, spacing, padding, [right]);
     sides!(/// CSS `padding-bottom`; other edges remain unset.
-        padding_bottom, padding, [bottom]);
+        padding_bottom, spacing, padding, [bottom]);
     sides!(/// CSS `padding-left`; other edges remain unset.
-        padding_left, padding, [left]);
-    sides!(margin, margin, [top, right, bottom, left]);
-    sides!(margin_x, margin, [left, right]);
-    sides!(margin_y, margin, [top, bottom]);
+        padding_left, spacing, padding, [left]);
+    sides!(margin, spacing, margin, [top, right, bottom, left]);
+    sides!(margin_x, spacing, margin, [left, right]);
+    sides!(margin_y, spacing, margin, [top, bottom]);
     sides!(/// CSS `margin-top`; other edges remain unset.
-        margin_top, margin, [top]);
+        margin_top, spacing, margin, [top]);
     sides!(/// CSS `margin-right`; other edges remain unset.
-        margin_right, margin, [right]);
+        margin_right, spacing, margin, [right]);
     sides!(/// CSS `margin-bottom`; other edges remain unset.
-        margin_bottom, margin, [bottom]);
+        margin_bottom, spacing, margin, [bottom]);
     sides!(/// CSS `margin-left`; other edges remain unset.
-        margin_left, margin, [left]);
-    sides!(inset, inset, [top, right, bottom, left]);
-    sides!(top, inset, [top]);
-    sides!(right, inset, [right]);
-    sides!(bottom, inset, [bottom]);
-    sides!(left, inset, [left]);
+        margin_left, spacing, margin, [left]);
+    sides!(inset, spacing, inset, [top, right, bottom, left]);
+    sides!(top, spacing, inset, [top]);
+    sides!(right, spacing, inset, [right]);
+    sides!(bottom, spacing, inset, [bottom]);
+    sides!(left, spacing, inset, [left]);
 
     setter!(
         /// CSS `row-gap`: between the rows of a grid or wrapped flex lines (a
         /// column's children).
-        row_gap, row_gap, impl Into<Length>, |v: Length| v);
+        row_gap, spacing, row_gap, impl Into<Length>, |v: Length| v);
     setter!(
         /// CSS `column-gap`: between the columns of a grid (a row's
         /// children).
-        column_gap, column_gap, impl Into<Length>, |v: Length| v);
+        column_gap, spacing, column_gap, impl Into<Length>, |v: Length| v);
     setter!(
         /// CSS `align-content`: how a grid's rows (or a wrapping flex box's
         /// lines) share the free space along the cross axis.
-        align_content, align_content, Justify, |v| v);
-    setter!(width, width, impl Into<Length>, |v: Length| v);
-    setter!(height, height, impl Into<Length>, |v: Length| v);
-    setter!(min_width, min_width, impl Into<Length>, |v: Length| v);
-    setter!(min_height, min_height, impl Into<Length>, |v: Length| v);
-    setter!(max_width, max_width, impl Into<Length>, |v: Length| v);
-    setter!(max_height, max_height, impl Into<Length>, |v: Length| v);
-    setter!(basis, basis, impl Into<Length>, |v: Length| v);
+        align_content, flow, align_content, Justify, |v| v);
+    setter!(width, size, width, impl Into<Length>, |v: Length| v);
+    setter!(height, size, height, impl Into<Length>, |v: Length| v);
+    setter!(min_width, size, min_width, impl Into<Length>, |v: Length| v);
+    setter!(
+        min_height,
+        size,
+        min_height,
+        impl Into<Length>,
+        |v: Length| v
+    );
+    setter!(max_width, size, max_width, impl Into<Length>, |v: Length| v);
+    setter!(
+        max_height,
+        size,
+        max_height,
+        impl Into<Length>,
+        |v: Length| v
+    );
+    setter!(basis, size, basis, impl Into<Length>, |v: Length| v);
     setter!(
         /// CSS `aspect-ratio`: width / height (`aspect_ratio(16.0 / 9.0)`). With
         /// one of width and height set (or stretched), the other follows.
-        aspect_ratio, aspect_ratio, impl Into<f64>, |v: f64| v);
-    setter!(grow, grow, impl Into<f64>, |v: f64| v);
-    setter!(shrink, shrink, impl Into<f64>, |v: f64| v);
-    setter!(direction, direction, Direction, |v| v);
+        aspect_ratio, size, aspect_ratio, impl Into<f64>, |v: f64| v);
+    setter!(grow, size, grow, impl Into<f64>, |v: f64| v);
+    setter!(shrink, size, shrink, impl Into<f64>, |v: f64| v);
+    setter!(direction, flow, direction, Direction, |v| v);
     setter!(
         /// Cross-axis alignment of children.
-        align_items, align, Align, |v| v);
-    setter!(align_self, align_self, Align, |v| v);
+        align_items, flow, align, Align, |v| v);
+    setter!(align_self, flow, align_self, Align, |v| v);
     setter!(
         /// Main-axis distribution of children.
-        justify_content, justify, Justify, |v| v);
-    setter!(wrap, wrap, bool, |v| v);
-    setter!(position, position, Position, |v| v);
+        justify_content, flow, justify, Justify, |v| v);
+    setter!(wrap, flow, wrap, bool, |v| v);
+    setter!(position, flow, position, Position, |v| v);
     setter!(
         /// Layout overflow on both axes; Hidden also clips layout overflow.
         /// For an axis-specific accessible scroll container, use `scroll`.
-        overflow, overflow, Overflow, |v| v);
+        overflow, flow, overflow, Overflow, |v| v);
     setter!(
         /// The background (CSS `background`): a color, a gradient, a
         /// [`Paint`] or a tuple of them stacked like CSS layers, the first
         /// on top (see [`Background`]). Layers are placed in the border box
         /// and clipped to its rounded shape.
         background,
+        paint,
         background,
         impl Into<Background>,
         |v: Background| v
@@ -490,30 +844,30 @@ impl Style {
         /// The opacity of the node and its subtree, as one group (CSS
         /// `opacity`: overlapping children do not show through each
         /// other).
-        opacity, opacity, impl Into<f64>, |v: f64| v.clamp(0.0, 1.0));
+        opacity, paint, opacity, impl Into<f64>, |v: f64| v.clamp(0.0, 1.0));
     setter!(
         /// CSS `filter`: color functions recolor everything the subtree
         /// draws; `blur` and `drop_shadow` filter the subtree's pixels.
-        filter, filter, Filter, |v| v);
+        filter, paint, filter, Filter, |v| v);
     setter!(
         /// CSS `backdrop-filter`: blur and recolor what lies behind the
         /// border box (glass), beneath the node's own background, which is
         /// then usually translucent.
-        backdrop_filter, backdrop_filter, Filter, |v| v);
+        backdrop_filter, paint, backdrop_filter, Filter, |v| v);
     setter!(
         /// CSS `mix-blend-mode`.
-        mix_blend_mode, blend, BlendMode, |v| v);
+        mix_blend_mode, paint, blend, BlendMode, |v| v);
     setter!(
         /// CSS `mask`: the node and its subtree keep the alpha of these
         /// layers (`mask(linear_gradient(180).colors([Color::BLACK,
         /// Color::TRANSPARENT]))` fades them out downwards).
-        mask, mask, impl Into<Mask>, |v: Mask| Box::new(v));
+        mask, paint, mask, impl Into<Mask>, |v: Mask| Box::new(v));
     setter!(
         /// CSS `clip-path`: the node's own paint (background, border,
         /// shadows) and its subtree are clipped to `shape`, and so are
         /// hit testing and pointer input: a press outside the shape does
         /// not reach the node.
-        clip_path, clip_path, Shape, Box::new);
+        clip_path, paint, clip_path, Shape, Box::new);
     setter!(
         /// CSS `transform`: the functions of `t` in their order
         /// (`Transform::new().skew_x(-12).translate_y(2)`), after the
@@ -523,17 +877,17 @@ impl Style {
         /// (`PointerEvent::pos` stays in the untransformed local space),
         /// reported (`NodeRef::rect`: the bounds as drawn) and exposed
         /// where it is drawn; layout ignores it (siblings do not move).
-        transform, transform, Transform, |v| v);
+        transform, transform, transform, Transform, |v| v);
     setter!(
         /// CSS `rotate`: clockwise, in degrees, after `translate` and
         /// before `scale` and `transform` (CSS's order for the individual
         /// transform properties, whatever the call order).
-        rotate, rotate, impl Into<f64>, |v: f64| v);
+        rotate, transform, rotate, impl Into<f64>, |v: f64| v);
     setter!(
         /// CSS `scale` (uniform), applied after `translate` and `rotate`
         /// and before `transform`. A state style can set it alone:
         /// `.hover(style().scale(1.05))` keeps the node's rotation.
-        scale, scale, impl Into<f64>, |v: f64| (v, v));
+        scale, transform, scale, impl Into<f64>, |v: f64| (v, v));
     setter!(
         /// CSS `z-index`: the order the node is painted and hit in among
         /// its siblings (higher on top; equal values keep the tree order).
@@ -541,29 +895,34 @@ impl Style {
         /// `isolation: isolate`): a negative one paints after the parent's
         /// own background, below its other children. Tab order stays the
         /// tree order.
-        z_index, z_index, i32, |v| v);
+        z_index, flow, z_index, i32, |v| v);
     /// Set overlay scrollbar width; no layout space is reserved.
     pub fn scrollbar_width(mut self, width: impl Into<ScrollbarWidth>) -> Self {
-        self.scrollbar.get_or_insert_with(Default::default).width = Some(width.into());
+        self.paint_mut()
+            .scrollbar
+            .get_or_insert_with(Default::default)
+            .width = Some(width.into());
         self
     }
     /// Set thumb and track colors (CSS scrollbar-color).
     pub fn scrollbar_color(mut self, thumb: impl ThemeColor, track: impl ThemeColor) -> Self {
-        self.scrollbar.get_or_insert_with(Default::default).colors =
-            Some((Color::of(thumb), Color::of(track)));
+        self.paint_mut()
+            .scrollbar
+            .get_or_insert_with(Default::default)
+            .colors = Some((Color::of(thumb), Color::of(track)));
         self
     }
-    setter!(cursor, cursor, Cursor, |v| v);
+    setter!(cursor, paint, cursor, Cursor, |v| v);
     setter!(
         /// Clip drawing to the box without changing layout overflow.
         /// Use `overflow(Overflow::Hidden)` to affect layout overflow too.
-        clip, clip, bool, |v| v);
+        clip, paint, clip, bool, |v| v);
     setter!(
         /// CSS `font-size` of the text in this node and below.
-        font_size, font_size, impl Into<f64>, |v: f64| v);
+        font_size, text, font_size, impl Into<f64>, |v: f64| v);
     setter!(
         /// CSS `font-weight` (1 to 1000) of the text in this node and below.
-        weight, weight, u16, |v| v);
+        weight, text, weight, u16, |v| v);
     color_setter!(
         /// CSS `color` of the text in this node and below. As in CSS, each
         /// text property is inherited on its own: a descendant that sets
@@ -572,7 +931,7 @@ impl Style {
         /// [`ColorToken::Text`](crate::ColorToken::Text); a
         /// `provide_theme` subtree gets its theme's by a
         /// `color(ColorToken::Text)` on its top node.
-        color, color);
+        color, text, color);
     setter!(
         /// CSS `line-height` of the text in this node and below. A number is
         /// a multiple of the font size, as CSS's unitless value:
@@ -583,9 +942,9 @@ impl Style {
         /// theme's). Text that sets none inherits the nearest ancestor's,
         /// else `Theme.text.line_height`. Not finite or not above zero is
         /// `normal`.
-        line_height, line_height, impl Into<LineHeight>, |v: LineHeight| v);
-    setter!(text_wrap, text_wrap, bool, |v| v);
-    setter!(text_align, text_align, TextAlign, |v| v);
+        line_height, text, line_height, impl Into<LineHeight>, |v: LineHeight| v);
+    setter!(text_wrap, text, text_wrap, bool, |v| v);
+    setter!(text_align, text, text_align, TextAlign, |v| v);
     setter!(
         /// Font family of the text in this node and below (CSS
         /// `font-family`): a family name (`"Inter"`, a font
@@ -599,10 +958,10 @@ impl Style {
         /// before system fallback; unavailable entries are skipped without
         /// diagnostics. Quote names containing commas. Malformed lists use
         /// system fallback. Without one, text uses `Theme.text.family`.
-        font_family, font_family, impl Into<String>, |v: String| v);
+        font_family, text, font_family, impl Into<String>, |v: String| v);
     setter!(
         /// Italic text (the family's italic face when it has one).
-        italic, italic, bool, |v| v);
+        italic, text, italic, bool, |v| v);
 
     /// CSS `gap`: between rows and between columns (`row_gap` and
     /// `column_gap` at once; CSS `gap: 6px 16px` is
@@ -651,10 +1010,14 @@ impl Style {
     /// translate. A layer or state that sets this axis replaces it, as in
     /// CSS.
     pub fn translate_x(mut self, x: impl Into<Length>) -> Self {
-        if self.translate[0].is_some() {
+        if self
+            .transform
+            .as_deref()
+            .is_some_and(|g| g.translate[0].is_some())
+        {
             self.duplicates += 1;
         }
-        self.translate[0] = Some(x.into());
+        self.transform_mut().translate[0] = Some(x.into());
         self
     }
 
@@ -662,19 +1025,23 @@ impl Style {
     /// (Tailwind's `translate-y-*`), merged on its own like
     /// [`translate_x`](Self::translate_x).
     pub fn translate_y(mut self, y: impl Into<Length>) -> Self {
-        if self.translate[1].is_some() {
+        if self
+            .transform
+            .as_deref()
+            .is_some_and(|g| g.translate[1].is_some())
+        {
             self.duplicates += 1;
         }
-        self.translate[1] = Some(y.into());
+        self.transform_mut().translate[1] = Some(y.into());
         self
     }
 
     /// CSS `scale: x y` (non-uniform).
     pub fn scale_xy(mut self, x: impl Into<f64>, y: impl Into<f64>) -> Self {
-        if self.scale.is_some() {
+        if self.transform.as_deref().is_some_and(|g| g.scale.is_some()) {
             self.duplicates += 1;
         }
-        self.scale = Some((x.into(), y.into()));
+        self.transform_mut().scale = Some((x.into(), y.into()));
         self
     }
 
@@ -683,64 +1050,72 @@ impl Style {
     /// `(0, 0)`, `right bottom` is `(pct(100), pct(100))`; the default is
     /// the centre, `(pct(50), pct(50))`).
     pub fn transform_origin(mut self, x: impl Into<Length>, y: impl Into<Length>) -> Self {
-        if self.transform_origin.is_some() {
+        if self
+            .transform
+            .as_deref()
+            .is_some_and(|g| g.transform_origin.is_some())
+        {
             self.duplicates += 1;
         }
-        self.transform_origin = Some((x.into(), y.into()));
+        self.transform_mut().transform_origin = Some((x.into(), y.into()));
         self
     }
 
     setter!(
         /// CSS `translate` on the z axis, in px (`translateZ`).
-        translate_z, translate_z, impl Into<f64>, |v: f64| v);
+        translate_z, transform, translate_z, impl Into<f64>, |v: f64| v);
 
     setter!(
         /// CSS `rotate` about the x axis, in degrees (`rotateX`).
-        rotate_x, rotate_x, impl Into<f64>, |v: f64| v);
+        rotate_x, transform, rotate_x, impl Into<f64>, |v: f64| v);
 
     setter!(
         /// CSS `rotate` about the y axis, in degrees (`rotateY`).
-        rotate_y, rotate_y, impl Into<f64>, |v: f64| v);
+        rotate_y, transform, rotate_y, impl Into<f64>, |v: f64| v);
 
     setter!(
         /// The z of the transform origin, in px (the third value of CSS `transform-origin`).
-        transform_origin_z, transform_origin_z, impl Into<f64>, |v: f64| v);
+        transform_origin_z, transform, transform_origin_z, impl Into<f64>, |v: f64| v);
 
     setter!(
         /// CSS `perspective` of this node's children, in px: the distance of
         /// the viewer. The origin is the center of the box unless
         /// [`perspective_origin`](Self::perspective_origin) says otherwise.
-        perspective, perspective, impl Into<f64>, |v: f64| v);
+        perspective, transform, perspective, impl Into<f64>, |v: f64| v);
 
     /// CSS `perspective-origin`: where the viewer looks at, against the box.
     pub fn perspective_origin(mut self, x: impl Into<Length>, y: impl Into<Length>) -> Self {
-        if self.perspective_origin.is_some() {
+        if self
+            .transform
+            .as_deref()
+            .is_some_and(|g| g.perspective_origin.is_some())
+        {
             self.duplicates += 1;
         }
-        self.perspective_origin = Some((x.into(), y.into()));
+        self.transform_mut().perspective_origin = Some((x.into(), y.into()));
         self
     }
 
     setter!(
         /// CSS `transform-style`: `Preserve3d` keeps the children in one 3D space.
-        transform_style, transform_style, TransformStyle, |v| v);
+        transform_style, transform, transform_style, TransformStyle, |v| v);
 
     setter!(
         /// CSS `backface-visibility`.
-        backface_visibility, backface, BackfaceVisibility, |v| v);
+        backface_visibility, transform, backface, BackfaceVisibility, |v| v);
 
     setter!(
         /// CSS `will-change`.
-        will_change, will_change, WillChange, |v| v);
+        will_change, transform, will_change, WillChange, |v| v);
 
     setter!(
         /// CSS `isolation`.
-        isolation, isolation, Isolation, |v| v);
+        isolation, paint, isolation, Isolation, |v| v);
 
     setter!(
         /// CSS `border-image`: a picture or a gradient cut into nine pieces
         /// that fill the border.
-        border_image, border_image, BorderImage, Box::new);
+        border_image, paint, border_image, BorderImage, Box::new);
 
     /// A border on every side (CSS `border: w solid c`). Like padding, it
     /// takes room inside the box (CSS `box-sizing: border-box`): the
@@ -783,19 +1158,27 @@ impl Style {
     /// (handy in state styles: `.hover(style().border_color(..))`).
     pub fn border_color(mut self, color: impl ThemeColor) -> Self {
         let color = Color::of(color);
-        if self.border_color.iter().any(Option::is_some) {
+        if self
+            .paint
+            .as_deref()
+            .is_some_and(|g| g.border_color.iter().any(Option::is_some))
+        {
             self.duplicates += 1;
         }
-        self.border_color = [Some(color); 4];
+        self.paint_mut().border_color = [Some(color); 4];
         self
     }
 
     /// How every side's border is drawn (CSS `border-style`).
     pub fn border_style(mut self, s: BorderStyle) -> Self {
-        if self.border_style.iter().any(Option::is_some) {
+        if self
+            .paint
+            .as_deref()
+            .is_some_and(|g| g.border_style.iter().any(Option::is_some))
+        {
             self.duplicates += 1;
         }
-        self.border_style = [Some(s); 4];
+        self.paint_mut().border_style = [Some(s); 4];
         self
     }
 
@@ -820,10 +1203,14 @@ impl Style {
     }
 
     fn border_side_style(mut self, side: usize, s: BorderStyle) -> Self {
-        if self.border_style[side].is_some() {
+        if self
+            .paint
+            .as_deref()
+            .is_some_and(|g| g.border_style[side].is_some())
+        {
             self.duplicates += 1;
         }
-        self.border_style[side] = Some(s);
+        self.paint_mut().border_style[side] = Some(s);
         self
     }
 
@@ -833,13 +1220,18 @@ impl Style {
         width: f64,
         color: Option<Color>,
     ) -> Self {
-        if sides.iter().any(|i| self.border_width[*i].is_some()) {
+        if sides.iter().any(|i| {
+            self.paint
+                .as_deref()
+                .is_some_and(|g| g.border_width[*i].is_some())
+        }) {
             self.duplicates += 1;
         }
+        let paint = self.paint_mut();
         for i in sides {
-            self.border_width[i] = Some(width);
+            paint.border_width[i] = Some(width);
             if let Some(c) = color {
-                self.border_color[i] = Some(c);
+                paint.border_color[i] = Some(c);
             }
         }
         self
@@ -893,11 +1285,16 @@ impl Style {
     }
 
     fn corners<const N: usize>(mut self, which: [usize; N], radii: [CornerRadius; N]) -> Self {
-        if which.iter().any(|i| self.radius[*i].is_some()) {
+        if which.iter().any(|i| {
+            self.paint
+                .as_deref()
+                .is_some_and(|g| g.radius[*i].is_some())
+        }) {
             self.duplicates += 1;
         }
+        let paint = self.paint_mut();
         for (i, r) in which.into_iter().zip(radii) {
-            self.radius[i] = Some(r);
+            paint.radius[i] = Some(r);
         }
         self
     }
@@ -922,17 +1319,20 @@ impl Style {
         offset: impl Into<f64>,
         color: impl ThemeColor,
     ) -> Self {
-        if self.ring.is_some() {
+        if self.paint.as_deref().is_some_and(|g| g.ring.is_some()) {
             self.duplicates += 1;
         }
-        self.ring = Some((width.into(), offset.into(), Color::of(color)));
+        self.paint_mut().ring = Some((width.into(), offset.into(), Color::of(color)));
         self
     }
 
     /// Add a box shadow (CSS `box-shadow`); several stack, the first on
     /// top. It follows the corner radii, elliptical ones too.
     pub fn shadow(mut self, s: Shadow) -> Self {
-        self.shadows.get_or_insert_with(Vec::new).push(s);
+        self.paint_mut()
+            .shadows
+            .get_or_insert_with(Vec::new)
+            .push(s);
         self
     }
 
@@ -944,7 +1344,7 @@ impl Style {
     /// `Unsupported` and ignored. `selected` and `disabled` apply any
     /// property.
     pub fn hover(mut self, s: Style) -> Self {
-        self.hover = Some(Box::new(s));
+        self.states_mut().hover = Some(Box::new(s));
         self
     }
 
@@ -952,7 +1352,7 @@ impl Style {
     /// and [`group_focus`](Self::group_focus) styles below it (Tailwind's
     /// `group`).
     pub fn group(mut self) -> Self {
-        self.group = true;
+        self.states_mut().group = true;
         self
     }
 
@@ -968,7 +1368,7 @@ impl Style {
     /// # let _ = (row, actions);
     /// ```
     pub fn group_hover(mut self, s: Style) -> Self {
-        self.group_hover = Some(Box::new(s));
+        self.states_mut().group_hover = Some(Box::new(s));
         self
     }
 
@@ -985,18 +1385,18 @@ impl Style {
     /// # let _ = (row, actions);
     /// ```
     pub fn group_focus(mut self, s: Style) -> Self {
-        self.group_focus = Some(Box::new(s));
+        self.states_mut().group_focus = Some(Box::new(s));
         self
     }
 
     pub fn pressed(mut self, s: Style) -> Self {
-        self.pressed = Some(Box::new(s));
+        self.states_mut().pressed = Some(Box::new(s));
         self
     }
 
     /// The style while the element has the focus, however it got it.
     pub fn focus(mut self, s: Style) -> Self {
-        self.focus = Some(Box::new(s));
+        self.states_mut().focus = Some(Box::new(s));
         self
     }
 
@@ -1006,7 +1406,7 @@ impl Style {
     /// [`focus`](Self::focus). A focusable element whose style has neither
     /// state draws the theme's focus ring here.
     pub fn focus_visible(mut self, s: Style) -> Self {
-        self.focus_visible = Some(Box::new(s));
+        self.states_mut().focus_visible = Some(Box::new(s));
         self
     }
 
@@ -1017,12 +1417,12 @@ impl Style {
     }
 
     pub fn disabled(mut self, s: Style) -> Self {
-        self.disabled = Some(Box::new(s));
+        self.states_mut().disabled = Some(Box::new(s));
         self
     }
 
     pub fn selected(mut self, s: Style) -> Self {
-        self.selected = Some(Box::new(s));
+        self.states_mut().selected = Some(Box::new(s));
         self
     }
 
@@ -1046,7 +1446,7 @@ impl Style {
     /// Without a paint transition, and under reduced motion with a
     /// decorative one, the node shows its paint at once.
     pub fn enter(mut self, s: Style) -> Self {
-        self.enter = Some(Box::new(s));
+        self.states_mut().enter = Some(Box::new(s));
         self
     }
 
@@ -1066,39 +1466,40 @@ impl Style {
     /// Without a paint transition, and under reduced motion with a
     /// decorative one, the node goes at once.
     pub fn exit(mut self, s: Style) -> Self {
-        self.exit = Some(Box::new(s));
+        self.states_mut().exit = Some(Box::new(s));
         self
     }
 
     /// Reveal the selected axis at entrance when Size has a transition.
     pub fn enter_size(mut self, axis: kivact_types::Orientation) -> Self {
-        self.enter_size = Some(axis);
+        self.motion_mut().enter_size = Some(axis);
         self
     }
 
     /// Collapse the selected axis before removal when Size has a transition.
     pub fn exit_size(mut self, axis: kivact_types::Orientation) -> Self {
-        self.exit_size = Some(axis);
+        self.motion_mut().exit_size = Some(axis);
         self
     }
 
     /// Animate position and size changes after layout, using a visual transform.
     /// Layout is computed once; painting interpolates from the previous rectangle.
     pub fn layout_transition(mut self, transition: Transition) -> Self {
-        self.layout_transition = Some(transition);
+        self.motion_mut().layout_transition = Some(transition);
         self
     }
 
     /// Animate changes of a property group with `t`.
     pub fn transition(mut self, prop: TransitionProp, t: Transition) -> Self {
-        self.transitions.retain(|(p, _)| *p != prop);
-        self.transitions.push((prop, t));
+        let motion = self.motion_mut();
+        motion.transitions.retain(|(p, _)| *p != prop);
+        motion.transitions.push((prop, t));
         self
     }
 
     /// Keep layout space while hiding this subtree from painting and interaction.
     pub fn visibility(mut self, visibility: kivact_types::Visibility) -> Self {
-        self.visibility = Some(visibility);
+        self.flow_mut().visibility = Some(visibility);
         self
     }
 
@@ -1107,17 +1508,24 @@ impl Style {
         mut self,
         value: impl kivact_runtime::IntoValue<crate::text::TextDecorationStyle>,
     ) -> Self {
-        let x = self.text.get_or_insert_with(Default::default);
-        if x.decoration_style.is_some() {
+        let set = self
+            .text
+            .as_deref()
+            .and_then(|text| text.text.as_deref())
+            .is_some_and(|x| x.decoration_style.is_some());
+        if set {
             self.duplicates += 1;
         }
-        x.decoration_style = Some(crate::text::DecorationStyleValue::new(value));
+        self.text_mut()
+            .text
+            .get_or_insert_with(Default::default)
+            .decoration_style = Some(crate::text::DecorationStyleValue::new(value));
         self
     }
 
     /// Select flex, grid, or a transparent container that contributes no box.
     pub fn display(mut self, display: kivact_types::Display) -> Style {
-        self.display = Some(display);
+        self.flow_mut().display = Some(display);
         self
     }
 
@@ -1136,163 +1544,52 @@ impl Style {
     /// and reported as unsupported;
     /// return a base paint from a reactive style to follow interaction state.
     pub fn paint(mut self, f: impl Fn(&mut Draw, Size) + 'static) -> Self {
-        self.local_paint = Some(LocalPaint::new(f));
+        self.paint_mut().local_paint = Some(LocalPaint::new(f));
         self
     }
 
     /// Overlay `o` on `self` (fields set in `o` win).
     pub fn merge(mut self, o: &Style) -> Style {
-        macro_rules! take {
-            ($($f:ident),*) => {$(
-                if o.$f.is_some() {
-                    self.$f = o.$f.clone();
-                }
-            )*};
+        if let Some(group) = o.size.as_deref() {
+            self.size_mut().merge(group);
         }
-        self.merge_compound_properties(o);
-        take!(
-            enter_size,
-            exit_size,
-            local_paint,
-            row_gap,
-            column_gap,
-            align_content,
-            display,
-            visibility,
-            width,
-            height,
-            min_width,
-            min_height,
-            max_width,
-            max_height,
-            grow,
-            shrink,
-            basis,
-            aspect_ratio,
-            direction,
-            align,
-            align_self,
-            justify,
-            wrap,
-            position,
-            overflow,
-            scroll_axes,
-            scroll_snap,
-            background,
-            ring,
-            shadows,
-            opacity,
-            rotate,
-            scale,
-            transform,
-            transform_origin,
-            translate_z,
-            rotate_x,
-            rotate_y,
-            transform_origin_z,
-            perspective,
-            perspective_origin,
-            transform_style,
-            backface,
-            will_change,
-            isolation,
-            border_image,
-            z_index,
-            cursor,
-            clip,
-            filter,
-            backdrop_filter,
-            blend,
-            mask,
-            clip_path,
-            font_size,
-            weight,
-            color,
-            line_height,
-            text_wrap,
-            text_align,
-            font_family,
-            italic
-        );
-        self.merge_states(o);
+        if let Some(group) = o.spacing.as_deref() {
+            self.spacing_mut().merge(group);
+        }
+        if let Some(group) = o.flow.as_deref() {
+            self.flow_mut().merge(group);
+        }
+        if let Some(group) = o.paint.as_deref() {
+            self.paint_mut().merge(group);
+        }
+        if let Some(group) = o.transform.as_deref() {
+            self.transform_mut().merge(group);
+        }
+        if let Some(group) = o.text.as_deref() {
+            self.text_mut().merge(group);
+        }
+        if let Some(group) = o.states.as_deref() {
+            self.states_mut().merge(group);
+        }
+        if let Some(group) = o.motion.as_deref() {
+            self.motion_mut().merge(group);
+        }
+        self.duplicates += o.duplicates;
         self
     }
 
-    /// Merge compound properties whose individual components cascade independently.
-    fn merge_compound_properties(&mut self, o: &Style) {
-        self.padding.merge(&o.padding);
-        if let Some(other) = &o.scrollbar {
-            let mine = self.scrollbar.get_or_insert_with(Default::default);
-            mine.width = other.width.or(mine.width);
-            mine.colors = other.colors.or(mine.colors);
-        }
-        if let Some(g) = &o.grid {
-            self.grid.get_or_insert_with(Default::default).merge(g);
-        }
-        if let Some(t) = &o.text {
-            self.text.get_or_insert_with(Default::default).merge(t);
-        }
-        self.margin.merge(&o.margin);
-        self.inset.merge(&o.inset);
-        for (a, b) in self.border_width.iter_mut().zip(o.border_width) {
-            *a = b.or(*a);
-        }
-        for (a, b) in self.border_style.iter_mut().zip(o.border_style) {
-            *a = b.or(*a);
-        }
-        for (a, b) in self.border_color.iter_mut().zip(o.border_color) {
-            *a = b.or(*a);
-        }
-        for (a, b) in self.radius.iter_mut().zip(o.radius) {
-            *a = b.or(*a);
-        }
-        for (a, b) in self.translate.iter_mut().zip(o.translate) {
-            *a = b.or(*a);
-        }
-    }
-
-    /// Merge independent interaction deltas and transition declarations.
-    fn merge_states(&mut self, o: &Style) {
-        self.group |= o.group;
-        for (a, b) in [
-            (&mut self.hover, &o.hover),
-            (&mut self.group_hover, &o.group_hover),
-            (&mut self.group_focus, &o.group_focus),
-            (&mut self.pressed, &o.pressed),
-            (&mut self.focus, &o.focus),
-            (&mut self.focus_visible, &o.focus_visible),
-            (&mut self.disabled, &o.disabled),
-            (&mut self.selected, &o.selected),
-            (&mut self.enter, &o.enter),
-            (&mut self.exit, &o.exit),
-        ] {
-            if let Some(b) = b {
-                *a = Some(Box::new(match a.take() {
-                    Some(x) => (*x).merge(b),
-                    None => (**b).clone(),
-                }));
-            }
-        }
-        if o.layout_transition.is_some() {
-            self.layout_transition = o.layout_transition.clone();
-        }
-        for t in &o.transitions {
-            self.transitions.retain(|(p, _)| *p != t.0);
-            self.transitions.push(t.clone());
-        }
-        self.duplicates += o.duplicates;
-    }
-
     pub(super) fn has_text(&self) -> bool {
-        self.font_size.is_some()
-            || self.weight.is_some()
-            || self.color.is_some()
-            || self.line_height.is_some()
-            || self.text_wrap.is_some()
-            || self.text_align.is_some()
-            || self.font_family.is_some()
-            || self.italic.is_some()
-            || self.text.is_some()
+        self.text.as_deref().is_some_and(|text| {
+            text.font_size.is_some()
+                || text.weight.is_some()
+                || text.color.is_some()
+                || text.line_height.is_some()
+                || text.text_wrap.is_some()
+                || text.text_align.is_some()
+                || text.font_family.is_some()
+                || text.italic.is_some()
+                || text.text.is_some()
+        })
     }
 }
 
@@ -1333,11 +1630,15 @@ macro_rules! text_color_setter {
     ($(#[$m:meta])* $name:ident, $field:ident) => {
         $(#[$m])*
         pub fn $name(mut self, v: impl ThemeColor) -> Self {
-            let x = self.text.get_or_insert_with(Default::default);
-            if x.$field.is_some() {
+            let set = self
+                .text
+                .as_deref()
+                .and_then(|text| text.text.as_deref())
+                .is_some_and(|x| x.$field.is_some());
+            if set {
                 self.duplicates += 1;
             }
-            x.$field = Some(Color::of(v));
+            self.text_mut().text.get_or_insert_with(Default::default).$field = Some(Color::of(v));
             self
         }
     };
@@ -1347,13 +1648,17 @@ macro_rules! text_setter {
     ($(#[$m:meta])* $name:ident, $field:ident, $t:ty, $conv:expr) => {
         $(#[$m])*
         pub fn $name(mut self, v: $t) -> Self {
-            let x = self.text.get_or_insert_with(Default::default);
-            if x.$field.is_some() {
+            let set = self
+                .text
+                .as_deref()
+                .and_then(|text| text.text.as_deref())
+                .is_some_and(|x| x.$field.is_some());
+            if set {
                 self.duplicates += 1;
             }
             #[allow(clippy::redundant_closure_call, reason = "`$conv` may be a closure literal called in place")]
             {
-                x.$field = Some(($conv)(v.into()));
+                self.text_mut().text.get_or_insert_with(Default::default).$field = Some(($conv)(v.into()));
             }
             self
         }
@@ -1419,12 +1724,18 @@ impl Style {
     /// CSS `-webkit-text-stroke`: the outline of the glyphs, in px or em, in
     /// `color`, drawn over or under the fill as `paint_order` says.
     pub fn text_stroke(mut self, width: impl Into<TextLength>, color: impl ThemeColor) -> Self {
-        let x = self.text.get_or_insert_with(Default::default);
-        if x.stroke.is_some() {
+        let set = self
+            .text
+            .as_deref()
+            .and_then(|text| text.text.as_deref())
+            .is_some_and(|x| x.stroke.is_some());
+        if set {
             self.duplicates += 1;
         }
-        let x = self.text.get_or_insert_with(Default::default);
-        x.stroke = Some((width.into(), Color::of(color)));
+        self.text_mut()
+            .text
+            .get_or_insert_with(Default::default)
+            .stroke = Some((width.into(), Color::of(color)));
         self
     }
 
@@ -1437,12 +1748,18 @@ impl Style {
         mut self,
         settings: impl IntoIterator<Item = impl Into<FontVariation>>,
     ) -> Self {
-        let x = self.text.get_or_insert_with(Default::default);
-        if x.variations.is_some() {
+        let set = self
+            .text
+            .as_deref()
+            .and_then(|text| text.text.as_deref())
+            .is_some_and(|x| x.variations.is_some());
+        if set {
             self.duplicates += 1;
         }
-        let x = self.text.get_or_insert_with(Default::default);
-        x.variations = Some(settings.into_iter().map(Into::into).collect());
+        self.text_mut()
+            .text
+            .get_or_insert_with(Default::default)
+            .variations = Some(settings.into_iter().map(Into::into).collect());
         self
     }
 
@@ -1473,11 +1790,18 @@ impl Style {
         mut self,
         features: impl IntoIterator<Item = impl Into<FontFeature>>,
     ) -> Self {
-        let x = self.text.get_or_insert_with(Default::default);
-        if x.features.is_some() {
+        let set = self
+            .text
+            .as_deref()
+            .and_then(|text| text.text.as_deref())
+            .is_some_and(|x| x.features.is_some());
+        if set {
             self.duplicates += 1;
         }
-        x.features = Some(features.into_iter().map(Into::into).collect());
+        self.text_mut()
+            .text
+            .get_or_insert_with(Default::default)
+            .features = Some(features.into_iter().map(Into::into).collect());
         self
     }
 
@@ -1485,11 +1809,18 @@ impl Style {
     /// font's `tnum` feature), so numbers in a column or a timer do not
     /// jiggle.
     pub fn tabular_nums(mut self) -> Self {
-        let x = self.text.get_or_insert_with(Default::default);
-        if x.tabular_nums.is_some() {
+        let set = self
+            .text
+            .as_deref()
+            .and_then(|text| text.text.as_deref())
+            .is_some_and(|x| x.tabular_nums.is_some());
+        if set {
             self.duplicates += 1;
         }
-        x.tabular_nums = Some(true);
+        self.text_mut()
+            .text
+            .get_or_insert_with(Default::default)
+            .tabular_nums = Some(true);
         self
     }
 
@@ -1498,7 +1829,7 @@ impl Style {
     /// lines (a shadow's spread and inset do not apply to text and are
     /// reported as unsupported).
     pub fn text_shadow(mut self, s: Shadow) -> Self {
-        let x = self.text.get_or_insert_with(Default::default);
+        let x = self.text_mut().text.get_or_insert_with(Default::default);
         x.shadows.get_or_insert_with(Vec::new).push(s);
         self
     }
@@ -1508,13 +1839,17 @@ macro_rules! grid_setter {
     ($(#[$m:meta])* $name:ident, $field:ident, $t:ty, $conv:expr) => {
         $(#[$m])*
         pub fn $name(mut self, v: $t) -> Self {
-            let g = self.grid.get_or_insert_with(Default::default);
-            if g.$field.is_some() {
+            let set = self
+                .flow
+                .as_deref()
+                .and_then(|flow| flow.grid.as_deref())
+                .is_some_and(|g| g.$field.is_some());
+            if set {
                 self.duplicates += 1;
             }
             #[allow(clippy::redundant_closure_call, reason = "`$conv` may be a closure literal called in place")]
             {
-                g.$field = Some(($conv)(v.into()));
+                self.flow_mut().grid.get_or_insert_with(Default::default).$field = Some(($conv)(v.into()));
             }
             self
         }
@@ -1571,6 +1906,6 @@ impl Style {
 /// scrolling axis scrolls, the other axis clips (the base style of the
 /// `scroll(..)` container).
 pub fn with_scroll_axes(mut style: Style, axes: ScrollAxes) -> Style {
-    style.scroll_axes = Some(axes);
+    style.flow_mut().scroll_axes = Some(axes);
     style
 }

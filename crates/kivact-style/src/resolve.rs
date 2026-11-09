@@ -40,7 +40,10 @@ use super::effect::{Shadow, clip_shape, filter_ops, filter_problems};
 use super::geometry::corner;
 use super::length::{Length, pct};
 use super::paint::{Background, fill_layer};
-use super::sheet::{Direction, Overflow, Position, ScrollbarWidth, Sides, Style};
+use super::sheet::{
+    Direction, FlowFields, MotionFields, Overflow, PaintFields, Position, ScrollbarWidth, Sides,
+    SizeFields, SpacingFields, StateFields, Style, TextFields, TransformFields, group_or_default,
+};
 use super::theme::value::Theme;
 use super::transform::Transform;
 
@@ -105,53 +108,57 @@ fn edges(s: &Sides, default: p::Dimension) -> Edges<p::Dimension> {
 }
 
 fn layout(s: &Style) -> LayoutProps {
+    let size = group_or_default!(s.size, SizeFields);
+    let spacing = group_or_default!(s.spacing, SpacingFields);
+    let flow = group_or_default!(s.flow, FlowFields);
+    let motion = group_or_default!(s.motion, MotionFields);
     let zero = p::Dimension::Px(0.0);
-    let ov = s.overflow.unwrap_or(p::Overflow::Visible);
-    let (ov_x, ov_y) = match s.scroll_axes {
+    let ov = flow.overflow.unwrap_or(p::Overflow::Visible);
+    let (ov_x, ov_y) = match flow.scroll_axes {
         Some(ScrollAxes::Vertical) => (p::Overflow::Hidden, p::Overflow::Scroll),
         Some(ScrollAxes::Horizontal) => (p::Overflow::Scroll, p::Overflow::Hidden),
         Some(ScrollAxes::Both) => (p::Overflow::Scroll, p::Overflow::Scroll),
         None => (ov, ov),
     };
     LayoutProps {
-        scroll_snap: s.scroll_snap.unwrap_or_default(),
-        enter_size: s.enter_size,
-        exit_size: s.exit_size,
-        layout_transition: s.layout_transition.clone(),
-        size_transition: s
+        scroll_snap: flow.scroll_snap.unwrap_or_default(),
+        enter_size: motion.enter_size,
+        exit_size: motion.exit_size,
+        layout_transition: motion.layout_transition.clone(),
+        size_transition: motion
             .transitions
             .iter()
             .find(|(p, _)| *p == super::sheet::TransitionProp::Size)
             .map(|(_, t)| t.clone()),
-        direction: s.direction.unwrap_or(Direction::Column),
-        align_items: s.align,
-        align_self: s.align_self,
-        justify: s.justify,
-        align_content: s.align_content,
-        wrap: s.wrap.unwrap_or(false),
-        row_gap: dim(s.row_gap, zero),
-        column_gap: dim(s.column_gap, zero),
-        padding: edges(&s.padding, zero),
+        direction: flow.direction.unwrap_or(Direction::Column),
+        align_items: flow.align,
+        align_self: flow.align_self,
+        justify: flow.justify,
+        align_content: flow.align_content,
+        wrap: flow.wrap.unwrap_or(false),
+        row_gap: dim(spacing.row_gap, zero),
+        column_gap: dim(spacing.column_gap, zero),
+        padding: edges(&spacing.padding, zero),
         border: border_widths(s),
-        margin: edges(&s.margin, zero),
-        width: dim(s.width, p::Dimension::Auto),
-        height: dim(s.height, p::Dimension::Auto),
-        min_width: dim(s.min_width, p::Dimension::Auto),
-        min_height: dim(s.min_height, p::Dimension::Auto),
-        max_width: dim(s.max_width, p::Dimension::Auto),
-        max_height: dim(s.max_height, p::Dimension::Auto),
-        grow: s.grow.unwrap_or(0.0),
-        shrink: s.shrink.unwrap_or(1.0),
-        basis: dim(s.basis, p::Dimension::Auto),
-        aspect_ratio: s.aspect_ratio,
-        position: s.position.unwrap_or(Position::Relative),
-        inset: edges(&s.inset, p::Dimension::Auto),
+        margin: edges(&spacing.margin, zero),
+        width: dim(size.width, p::Dimension::Auto),
+        height: dim(size.height, p::Dimension::Auto),
+        min_width: dim(size.min_width, p::Dimension::Auto),
+        min_height: dim(size.min_height, p::Dimension::Auto),
+        max_width: dim(size.max_width, p::Dimension::Auto),
+        max_height: dim(size.max_height, p::Dimension::Auto),
+        grow: size.grow.unwrap_or(0.0),
+        shrink: size.shrink.unwrap_or(1.0),
+        basis: dim(size.basis, p::Dimension::Auto),
+        aspect_ratio: size.aspect_ratio,
+        position: flow.position.unwrap_or(Position::Relative),
+        inset: edges(&spacing.inset, p::Dimension::Auto),
         overflow_x: ov_x,
         overflow_y: ov_y,
         hidden: false,
-        visibility: s.visibility.unwrap_or_default(),
-        display: s.display.unwrap_or_default(),
-        grid: super::grid::resolve(s.grid.as_deref(), s.display == Some(p::Display::Grid)),
+        visibility: flow.visibility.unwrap_or_default(),
+        display: flow.display.unwrap_or_default(),
+        grid: super::grid::resolve(flow.grid.as_deref(), flow.display == Some(p::Display::Grid)),
     }
 }
 
@@ -160,19 +167,21 @@ fn layout(s: &Style) -> LayoutProps {
 /// height, the flex basis): minimums, maximums, padding, margins, insets
 /// and gaps, where they are `auto`.
 fn misplaced_content(s: &Style) -> u32 {
+    let size = group_or_default!(s.size, SizeFields);
+    let spacing = group_or_default!(s.spacing, SpacingFields);
     let sides = |x: &Sides| [x.top, x.right, x.bottom, x.left];
     [
-        s.row_gap,
-        s.column_gap,
-        s.min_width,
-        s.min_height,
-        s.max_width,
-        s.max_height,
+        spacing.row_gap,
+        spacing.column_gap,
+        size.min_width,
+        size.min_height,
+        size.max_width,
+        size.max_height,
     ]
     .into_iter()
-    .chain(sides(&s.padding))
-    .chain(sides(&s.margin))
-    .chain(sides(&s.inset))
+    .chain(sides(&spacing.padding))
+    .chain(sides(&spacing.margin))
+    .chain(sides(&spacing.inset))
     .flatten()
     .filter(|l| l.is_content())
     .count() as u32
@@ -184,24 +193,25 @@ fn misplaced_content(s: &Style) -> u32 {
 /// nearest ancestor that sets it, and the root carries the theme's
 /// ([`resolve`]).
 fn text(s: &Style, theme: &Theme) -> (TextStyle, u32) {
+    let text = group_or_default!(s.text, TextFields);
     let mut t = TextStyle {
-        font_size: s.font_size,
-        weight: s.weight,
-        color: s.color.map(|c| c.resolve(theme)),
-        line_height: s.line_height,
-        wrap: s.text_wrap.map(|wrap| {
+        font_size: text.font_size,
+        weight: text.weight,
+        color: text.color.map(|c| c.resolve(theme)),
+        line_height: text.line_height,
+        wrap: text.text_wrap.map(|wrap| {
             if wrap {
                 p::TextWrap::Wrap
             } else {
                 p::TextWrap::NoWrap
             }
         }),
-        align: s.text_align,
-        family: s.font_family.clone(),
-        italic: s.italic,
+        align: text.text_align,
+        family: text.font_family.clone(),
+        italic: text.italic,
         ..TextStyle::default()
     };
-    let dropped = match &s.text {
+    let dropped = match &text.text {
         Some(x) => super::text::resolve_extras(&mut t, x, theme),
         None => 0,
     };
@@ -271,20 +281,29 @@ pub struct Interactive {
 /// it would.
 fn interactive_defaults(s: &mut Style, theme: &Theme, disabled: bool) {
     if disabled {
-        s.hover = None;
-        s.pressed = None;
+        let states = s.states_mut();
+        states.hover = None;
+        states.pressed = None;
     }
-    if s.focus.is_none() && s.focus_visible.is_none() {
+    let has_focus = s
+        .states
+        .as_deref()
+        .is_some_and(|states| states.focus.is_some() || states.focus_visible.is_some());
+    if !has_focus {
         let ring = Style::default().ring_with_offset(
             theme.focus_ring(),
             theme.focus_ring_offset(),
             ColorToken::Focus,
         );
-        s.focus_visible = Some(Box::new(ring));
+        s.states_mut().focus_visible = Some(Box::new(ring));
     }
-    let disabled = s.disabled.get_or_insert_with(Default::default);
-    if disabled.opacity.is_none() {
-        disabled.opacity = Some(theme.disabled_opacity());
+    let disabled = s.states_mut().disabled.get_or_insert_with(Default::default);
+    if !disabled
+        .paint
+        .as_deref()
+        .is_some_and(|paint| paint.opacity.is_some())
+    {
+        disabled.paint_mut().opacity = Some(theme.disabled_opacity());
     }
 }
 
@@ -292,22 +311,22 @@ fn interactive_defaults(s: &mut Style, theme: &Theme, disabled: bool) {
 /// layer order, so they no longer apply as deltas.
 fn merge_forced(mut s: Style, forced: ForcedStates) -> Style {
     if forced.contains(ForcedStates::FOCUS)
-        && let Some(v) = s.focus.take()
+        && let Some(v) = s.states_mut().focus.take()
     {
         s = s.merge(&v);
     }
     if forced.contains(ForcedStates::FOCUS_VISIBLE)
-        && let Some(v) = s.focus_visible.take()
+        && let Some(v) = s.states_mut().focus_visible.take()
     {
         s = s.merge(&v);
     }
     if forced.contains(ForcedStates::HOVER)
-        && let Some(v) = s.hover.take()
+        && let Some(v) = s.states_mut().hover.take()
     {
         s = s.merge(&v);
     }
     if forced.contains(ForcedStates::PRESSED)
-        && let Some(v) = s.pressed.take()
+        && let Some(v) = s.states_mut().pressed.take()
     {
         s = s.merge(&v);
     }
@@ -316,32 +335,39 @@ fn merge_forced(mut s: Style, forced: ForcedStates) -> Style {
 
 /// The host-evaluated state deltas of `s`, if it sets any state.
 fn state_styles(s: &Style, theme: &Theme) -> Option<StateStyles> {
-    (s.hover.is_some()
-        || s.group_hover.is_some()
-        || s.group_focus.is_some()
-        || s.group
-        || s.pressed.is_some()
-        || s.focus.is_some()
-        || s.focus_visible.is_some()
-        || s.enter.is_some()
-        || s.exit.is_some())
+    let states = group_or_default!(s.states, StateFields);
+    (states.hover.is_some()
+        || states.group_hover.is_some()
+        || states.group_focus.is_some()
+        || states.group
+        || states.pressed.is_some()
+        || states.focus.is_some()
+        || states.focus_visible.is_some()
+        || states.enter.is_some()
+        || states.exit.is_some())
     .then(|| StateStyles {
-        hover: s.hover.as_ref().map(|h| paint_delta(s, h, theme)),
-        pressed: s.pressed.as_ref().map(|h| paint_delta(s, h, theme)),
-        focus: s.focus.as_ref().map(|h| paint_delta(s, h, theme)),
-        focus_visible: s.focus_visible.as_ref().map(|h| {
+        hover: states.hover.as_ref().map(|h| paint_delta(s, h, theme)),
+        pressed: states.pressed.as_ref().map(|h| paint_delta(s, h, theme)),
+        focus: states.focus.as_ref().map(|h| paint_delta(s, h, theme)),
+        focus_visible: states.focus_visible.as_ref().map(|h| {
             // Over the focus state, as the host applies it.
-            let focused = match &s.focus {
+            let focused = match &states.focus {
                 Some(focus) => s.clone().merge(focus),
                 None => s.clone(),
             };
             paint_delta(&focused, h, theme)
         }),
-        group_hover: s.group_hover.as_ref().map(|h| paint_delta(s, h, theme)),
-        group_focus: s.group_focus.as_ref().map(|h| paint_delta(s, h, theme)),
-        group: s.group,
-        enter: s.enter.as_ref().map(|h| paint_delta(s, h, theme)),
-        exit: s.exit.as_ref().map(|h| paint_delta(s, h, theme)),
+        group_hover: states
+            .group_hover
+            .as_ref()
+            .map(|h| paint_delta(s, h, theme)),
+        group_focus: states
+            .group_focus
+            .as_ref()
+            .map(|h| paint_delta(s, h, theme)),
+        group: states.group,
+        enter: states.enter.as_ref().map(|h| paint_delta(s, h, theme)),
+        exit: states.exit.as_ref().map(|h| paint_delta(s, h, theme)),
     })
 }
 
@@ -355,7 +381,10 @@ pub fn compile_style(s: &Style, theme: &Theme, mut state: Interactive) -> Compil
     if state.forced.contains(ForcedStates::SELECTED) {
         state.selected = true;
     }
-    let retained_paint = s.local_paint.clone();
+    let retained_paint = s
+        .paint
+        .as_deref()
+        .and_then(|paint| paint.local_paint.clone());
     let mut s = s.clone();
     let unsupported_in_states = unsupported_in_states(&s);
     strip_state_paint(&mut s);
@@ -363,12 +392,12 @@ pub fn compile_style(s: &Style, theme: &Theme, mut state: Interactive) -> Compil
         interactive_defaults(&mut s, theme, state.disabled);
     }
     if state.selected
-        && let Some(v) = s.selected.take()
+        && let Some(v) = s.states_mut().selected.take()
     {
         s = s.merge(&v);
     }
     if state.disabled
-        && let Some(v) = s.disabled.take()
+        && let Some(v) = s.states_mut().disabled.take()
     {
         s = s.merge(&v);
     }
@@ -407,24 +436,27 @@ pub fn compile_style(s: &Style, theme: &Theme, mut state: Interactive) -> Compil
 
 /// State styles only carry declarative host properties, never callbacks.
 fn strip_state_paint(style: &mut Style) {
+    if let Some(paint) = style.paint.as_deref_mut() {
+        paint.local_paint = None;
+    }
+    let Some(states) = style.states.as_deref_mut() else {
+        return;
+    };
     [
-        &mut style.hover,
-        &mut style.group_hover,
-        &mut style.group_focus,
-        &mut style.pressed,
-        &mut style.focus,
-        &mut style.focus_visible,
-        &mut style.disabled,
-        &mut style.selected,
-        &mut style.enter,
-        &mut style.exit,
+        &mut states.hover,
+        &mut states.group_hover,
+        &mut states.group_focus,
+        &mut states.pressed,
+        &mut states.focus,
+        &mut states.focus_visible,
+        &mut states.disabled,
+        &mut states.selected,
+        &mut states.enter,
+        &mut states.exit,
     ]
     .into_iter()
     .flatten()
-    .for_each(|state| {
-        state.local_paint = None;
-        strip_state_paint(state);
-    });
+    .for_each(|state| strip_state_paint(state));
 }
 
 /// What a hover, pressed, focus, focus-visible, group-hover, group-focus,
@@ -463,23 +495,34 @@ const DELTA: &[&str] = &[
 ];
 
 /// Declares `set_properties`, which lists the properties `s` sets by the
-/// name of the setter that sets them, and one classifier per group. Every
-/// field of `Style` is named in the exhaustive pattern of `set_properties`,
-/// so a new field must be classified in one of the groups below.
+/// name of the setter that sets them, and one classifier per group. Each
+/// group of `Style` is read through `group_or_default`, so a field whose
+/// group is unset reads its default.
 macro_rules! classify_properties {
     (
         $(
             fn $group:ident {
-                $($field:ident => $set:expr, $name:literal;)*
+                @groups $( $gname:ident = $gty:ident, )*
+                @props $($value:expr => $set:expr, $name:literal;)*
             }
         )*
         @state fn $state_group:ident {
-            $($state_field:ident => $state_set:expr, $state_name:literal;)*
+            @groups $( $sgname:ident = $sgty:ident, )*
+            @props $($state_value:expr => $state_set:expr, $state_name:literal;)*
         }
-        @ignored $($ignored:ident),*
     ) => {
         fn set_properties(s: &Style) -> Vec<&'static str> {
-            let Style { $($($field: _,)*)* $($state_field: _,)* $($ignored: _,)* } = s;
+            let Style {
+                size: _,
+                spacing: _,
+                flow: _,
+                paint: _,
+                transform: _,
+                text: _,
+                states: _,
+                motion: _,
+                duplicates: _,
+            } = s;
             let mut out = Vec::new();
             $(out.extend($group(s));)*
             out.extend($state_group(s));
@@ -489,13 +532,12 @@ macro_rules! classify_properties {
         /// Every property of the non-state groups that `s` sets, with the
         /// `Debug` of its value.
         fn describe_properties(s: &Style) -> Vec<(&'static str, String)> {
-            let Style { $($($field: _,)*)* $($state_field: _,)* $($ignored: _,)* } = s;
             let mut out = Vec::new();
             $({
-                let Style { $($field,)* .. } = s;
+                $(let $gname = group_or_default!(s.$gname, $gty);)*
                 $(
                     if $set {
-                        out.push(($name, format!("{:?}", $field)));
+                        out.push(($name, format!("{:?}", $value)));
                     }
                 )*
             })*
@@ -504,7 +546,7 @@ macro_rules! classify_properties {
 
         $(
             fn $group(s: &Style) -> Vec<&'static str> {
-                let Style { $($field,)* .. } = s;
+                $(let $gname = group_or_default!(s.$gname, $gty);)*
                 [$(($set, $name),)*]
                     .into_iter()
                     .filter_map(|(set, name)| set.then_some(name))
@@ -512,7 +554,7 @@ macro_rules! classify_properties {
             }
         )*
         fn $state_group(s: &Style) -> Vec<&'static str> {
-            let Style { $($state_field,)* .. } = s;
+            $(let $sgname = group_or_default!(s.$sgname, $sgty);)*
             [$(($state_set, $state_name),)*]
                 .into_iter()
                 .filter_map(|(set, name)| set.then_some(name))
@@ -523,104 +565,110 @@ macro_rules! classify_properties {
 
 classify_properties! {
     fn layout_properties {
-        enter_size => enter_size.is_some(), "enter_size";
-        exit_size => exit_size.is_some(), "exit_size";
-        local_paint => local_paint.is_some(), "paint";
-        padding => *padding != Sides::default(), "padding";
-        margin => *margin != Sides::default(), "margin";
-        inset => *inset != Sides::default(), "inset";
-        row_gap => row_gap.is_some(), "row_gap";
-        column_gap => column_gap.is_some(), "column_gap";
-        width => width.is_some(), "width";
-        height => height.is_some(), "height";
-        min_width => min_width.is_some(), "min_width";
-        min_height => min_height.is_some(), "min_height";
-        max_width => max_width.is_some(), "max_width";
-        max_height => max_height.is_some(), "max_height";
-        grow => grow.is_some(), "grow";
-        shrink => shrink.is_some(), "shrink";
-        basis => basis.is_some(), "basis";
-        aspect_ratio => aspect_ratio.is_some(), "aspect_ratio";
-        direction => direction.is_some(), "direction";
-        align => align.is_some(), "align_items";
-        align_self => align_self.is_some(), "align_self";
-        justify => justify.is_some(), "justify_content";
-        align_content => align_content.is_some(), "align_content";
-        display => display.is_some(), "display";
-        visibility => visibility.is_some(), "visibility";
-        grid => grid.is_some(), "grid";
-        wrap => wrap.is_some(), "wrap";
+        @groups size = SizeFields, spacing = SpacingFields, flow = FlowFields,
+        paint = PaintFields, motion = MotionFields,
+        @props motion.enter_size => motion.enter_size.is_some(), "enter_size";
+        motion.exit_size => motion.exit_size.is_some(), "exit_size";
+        paint.local_paint => paint.local_paint.is_some(), "paint";
+        spacing.padding => spacing.padding != Sides::default(), "padding";
+        spacing.margin => spacing.margin != Sides::default(), "margin";
+        spacing.inset => spacing.inset != Sides::default(), "inset";
+        spacing.row_gap => spacing.row_gap.is_some(), "row_gap";
+        spacing.column_gap => spacing.column_gap.is_some(), "column_gap";
+        size.width => size.width.is_some(), "width";
+        size.height => size.height.is_some(), "height";
+        size.min_width => size.min_width.is_some(), "min_width";
+        size.min_height => size.min_height.is_some(), "min_height";
+        size.max_width => size.max_width.is_some(), "max_width";
+        size.max_height => size.max_height.is_some(), "max_height";
+        size.grow => size.grow.is_some(), "grow";
+        size.shrink => size.shrink.is_some(), "shrink";
+        size.basis => size.basis.is_some(), "basis";
+        size.aspect_ratio => size.aspect_ratio.is_some(), "aspect_ratio";
+        flow.direction => flow.direction.is_some(), "direction";
+        flow.align => flow.align.is_some(), "align_items";
+        flow.align_self => flow.align_self.is_some(), "align_self";
+        flow.justify => flow.justify.is_some(), "justify_content";
+        flow.align_content => flow.align_content.is_some(), "align_content";
+        flow.display => flow.display.is_some(), "display";
+        flow.visibility => flow.visibility.is_some(), "visibility";
+        flow.grid => flow.grid.is_some(), "grid";
+        flow.wrap => flow.wrap.is_some(), "wrap";
     }
     fn position_properties {
-        position => position.is_some(), "position";
-        overflow => overflow.is_some(), "overflow";
-        scroll_snap => scroll_snap.is_some(), "scroll_snap";
-        scroll_axes => scroll_axes.is_some(), "with_scroll_axes";
-        scrollbar => scrollbar.is_some(), "scrollbar";
-        cursor => cursor.is_some(), "cursor";
-        z_index => z_index.is_some(), "z_index";
-        clip => clip.is_some(), "clip";
+        @groups flow = FlowFields, paint = PaintFields,
+        @props flow.position => flow.position.is_some(), "position";
+        flow.overflow => flow.overflow.is_some(), "overflow";
+        flow.scroll_snap => flow.scroll_snap.is_some(), "scroll_snap";
+        flow.scroll_axes => flow.scroll_axes.is_some(), "with_scroll_axes";
+        paint.scrollbar => paint.scrollbar.is_some(), "scrollbar";
+        paint.cursor => paint.cursor.is_some(), "cursor";
+        flow.z_index => flow.z_index.is_some(), "z_index";
+        paint.clip => paint.clip.is_some(), "clip";
     }
     fn paint_properties {
-        background => background.is_some(), "background";
-        border_width => border_width.iter().any(Option::is_some), "border_width";
-        border_color => border_color.iter().any(Option::is_some), "border_color";
-        border_style => border_style.iter().any(Option::is_some), "border_style";
-        ring => ring.is_some(), "ring";
-        radius => radius.iter().any(Option::is_some), "radius";
-        shadows => shadows.is_some(), "shadow";
-        opacity => opacity.is_some(), "opacity";
-        border_image => border_image.is_some(), "border_image";
-        isolation => isolation.is_some(), "isolation";
-        filter => filter.is_some(), "filter";
-        backdrop_filter => backdrop_filter.is_some(), "backdrop_filter";
-        blend => blend.is_some(), "blend";
-        mask => mask.is_some(), "mask";
-        clip_path => clip_path.is_some(), "clip_path";
+        @groups paint = PaintFields,
+        @props paint.background => paint.background.is_some(), "background";
+        paint.border_width => paint.border_width.iter().any(Option::is_some), "border_width";
+        paint.border_color => paint.border_color.iter().any(Option::is_some), "border_color";
+        paint.border_style => paint.border_style.iter().any(Option::is_some), "border_style";
+        paint.ring => paint.ring.is_some(), "ring";
+        paint.radius => paint.radius.iter().any(Option::is_some), "radius";
+        paint.shadows => paint.shadows.is_some(), "shadow";
+        paint.opacity => paint.opacity.is_some(), "opacity";
+        paint.border_image => paint.border_image.is_some(), "border_image";
+        paint.isolation => paint.isolation.is_some(), "isolation";
+        paint.filter => paint.filter.is_some(), "filter";
+        paint.backdrop_filter => paint.backdrop_filter.is_some(), "backdrop_filter";
+        paint.blend => paint.blend.is_some(), "blend";
+        paint.mask => paint.mask.is_some(), "mask";
+        paint.clip_path => paint.clip_path.is_some(), "clip_path";
     }
     fn transform_properties {
-        translate => translate.iter().any(Option::is_some), "translate";
-        rotate => rotate.is_some(), "rotate";
-        scale => scale.is_some(), "scale";
-        transform => transform.is_some(), "transform";
-        transform_origin => transform_origin.is_some(), "transform_origin";
-        translate_z => translate_z.is_some(), "translate_z";
-        rotate_x => rotate_x.is_some(), "rotate_x";
-        rotate_y => rotate_y.is_some(), "rotate_y";
-        transform_origin_z => transform_origin_z.is_some(), "transform_origin_z";
-        perspective => perspective.is_some(), "perspective";
-        perspective_origin => perspective_origin.is_some(), "perspective_origin";
-        transform_style => transform_style.is_some(), "transform_style";
-        backface => backface.is_some(), "backface_visibility";
-        will_change => will_change.is_some(), "will_change";
+        @groups transform = TransformFields,
+        @props transform.translate => transform.translate.iter().any(Option::is_some), "translate";
+        transform.rotate => transform.rotate.is_some(), "rotate";
+        transform.scale => transform.scale.is_some(), "scale";
+        transform.transform => transform.transform.is_some(), "transform";
+        transform.transform_origin => transform.transform_origin.is_some(), "transform_origin";
+        transform.translate_z => transform.translate_z.is_some(), "translate_z";
+        transform.rotate_x => transform.rotate_x.is_some(), "rotate_x";
+        transform.rotate_y => transform.rotate_y.is_some(), "rotate_y";
+        transform.transform_origin_z => transform.transform_origin_z.is_some(), "transform_origin_z";
+        transform.perspective => transform.perspective.is_some(), "perspective";
+        transform.perspective_origin => transform.perspective_origin.is_some(), "perspective_origin";
+        transform.transform_style => transform.transform_style.is_some(), "transform_style";
+        transform.backface => transform.backface.is_some(), "backface_visibility";
+        transform.will_change => transform.will_change.is_some(), "will_change";
     }
     fn text_properties {
-        font_size => font_size.is_some(), "font_size";
-        weight => weight.is_some(), "weight";
-        color => color.is_some(), "color";
-        line_height => line_height.is_some(), "line_height";
-        text_wrap => text_wrap.is_some(), "text_wrap";
-        text_align => text_align.is_some(), "text_align";
-        font_family => font_family.is_some(), "font_family";
-        italic => italic.is_some(), "italic";
-        text => text.is_some(), "text";
+        @groups text = TextFields,
+        @props text.font_size => text.font_size.is_some(), "font_size";
+        text.weight => text.weight.is_some(), "weight";
+        text.color => text.color.is_some(), "color";
+        text.line_height => text.line_height.is_some(), "line_height";
+        text.text_wrap => text.text_wrap.is_some(), "text_wrap";
+        text.text_align => text.text_align.is_some(), "text_align";
+        text.font_family => text.font_family.is_some(), "font_family";
+        text.italic => text.italic.is_some(), "italic";
+        text.text => text.text.is_some(), "text";
     }
     @state fn state_properties {
-        hover => hover.is_some(), "hover";
-        group => *group, "group";
-        group_hover => group_hover.is_some(), "group_hover";
-        group_focus => group_focus.is_some(), "group_focus";
-        pressed => pressed.is_some(), "pressed";
-        focus => focus.is_some(), "focus";
-        focus_visible => focus_visible.is_some(), "focus_visible";
-        disabled => disabled.is_some(), "disabled";
-        selected => selected.is_some(), "selected";
-        enter => enter.is_some(), "enter";
-        exit => exit.is_some(), "exit";
-        transitions => !transitions.is_empty(), "transition";
-        layout_transition => layout_transition.is_some(), "layout_transition";
+        @groups states = StateFields, motion = MotionFields,
+        @props states.hover => states.hover.is_some(), "hover";
+        states.group => states.group, "group";
+        states.group_hover => states.group_hover.is_some(), "group_hover";
+        states.group_focus => states.group_focus.is_some(), "group_focus";
+        states.pressed => states.pressed.is_some(), "pressed";
+        states.focus => states.focus.is_some(), "focus";
+        states.focus_visible => states.focus_visible.is_some(), "focus_visible";
+        states.disabled => states.disabled.is_some(), "disabled";
+        states.selected => states.selected.is_some(), "selected";
+        states.enter => states.enter.is_some(), "enter";
+        states.exit => states.exit.is_some(), "exit";
+        motion.transitions => !motion.transitions.is_empty(), "transition";
+        motion.layout_transition => motion.layout_transition.is_some(), "layout_transition";
     }
-    @ignored duplicates
 }
 
 /// Names of the four edges of a `padding`, `margin` or `inset`.
@@ -705,17 +753,20 @@ fn split_sides(name: &'static str, value: String) -> Vec<(&'static str, String)>
 /// The properties `s` sets, with each edge and corner under its own name
 /// and the `Debug` of its value.
 pub fn describe_style(s: &Style) -> Vec<(&'static str, String)> {
+    let spacing = group_or_default!(s.spacing, SpacingFields);
+    let paint = group_or_default!(s.paint, PaintFields);
+    let transform = group_or_default!(s.transform, TransformFields);
     let mut out = Vec::new();
     for (name, value) in describe_properties(s) {
         let value = match name {
-            "padding" => sides_value(&s.padding),
-            "margin" => sides_value(&s.margin),
-            "inset" => sides_value(&s.inset),
-            "border_width" => options_value(&s.border_width),
-            "border_color" => options_value(&s.border_color),
-            "border_style" => options_value(&s.border_style),
-            "radius" => options_value(&s.radius),
-            "translate" => options_value(&s.translate),
+            "padding" => sides_value(&spacing.padding),
+            "margin" => sides_value(&spacing.margin),
+            "inset" => sides_value(&spacing.inset),
+            "border_width" => options_value(&paint.border_width),
+            "border_color" => options_value(&paint.border_color),
+            "border_style" => options_value(&paint.border_style),
+            "radius" => options_value(&paint.radius),
+            "translate" => options_value(&transform.translate),
             _ => value,
         };
         out.extend(split_sides(name, value));
@@ -726,13 +777,14 @@ pub fn describe_style(s: &Style) -> Vec<(&'static str, String)> {
 /// The properties of each state style `s` sets: `"hover"`, `"pressed"`,
 /// `"focus"`, `"focus_visible"`, `"disabled"` and `"selected"`.
 pub fn describe_state_styles(s: &Style) -> Vec<(&'static str, Vec<(&'static str, String)>)> {
+    let states = group_or_default!(s.states, StateFields);
     [
-        ("hover", &s.hover),
-        ("pressed", &s.pressed),
-        ("focus", &s.focus),
-        ("focus_visible", &s.focus_visible),
-        ("disabled", &s.disabled),
-        ("selected", &s.selected),
+        ("hover", &states.hover),
+        ("pressed", &states.pressed),
+        ("focus", &states.focus),
+        ("focus_visible", &states.focus_visible),
+        ("disabled", &states.disabled),
+        ("selected", &states.selected),
     ]
     .into_iter()
     .filter_map(|(name, state)| state.as_deref().map(|state| (name, describe_style(state))))
@@ -742,15 +794,16 @@ pub fn describe_state_styles(s: &Style) -> Vec<(&'static str, Vec<(&'static str,
 /// Push `prefix` + `state.property` for every property the delta states
 /// (hover, pressed, focus, ..) of `s` set that a delta cannot change.
 fn delta_misuse(prefix: &str, s: &Style, out: &mut Vec<String>) {
+    let states = group_or_default!(s.states, StateFields);
     for (name, state) in [
-        ("hover", &s.hover),
-        ("group_hover", &s.group_hover),
-        ("group_focus", &s.group_focus),
-        ("pressed", &s.pressed),
-        ("focus", &s.focus),
-        ("focus_visible", &s.focus_visible),
-        ("enter", &s.enter),
-        ("exit", &s.exit),
+        ("hover", &states.hover),
+        ("group_hover", &states.group_hover),
+        ("group_focus", &states.group_focus),
+        ("pressed", &states.pressed),
+        ("focus", &states.focus),
+        ("focus_visible", &states.focus_visible),
+        ("enter", &states.enter),
+        ("exit", &states.exit),
     ] {
         if let Some(state) = state {
             out.extend(
@@ -766,25 +819,46 @@ fn delta_misuse(prefix: &str, s: &Style, out: &mut Vec<String>) {
 /// The properties set in `s`'s state styles that their state cannot change
 /// (see `CompiledStyle::unsupported_in_states`).
 fn unsupported_in_states(s: &Style) -> Vec<String> {
+    let states = group_or_default!(s.states, StateFields);
     let mut out = Vec::new();
     delta_misuse("", s, &mut out);
-    if let Some(selected) = &s.selected {
-        if selected.local_paint.is_some() {
+    if let Some(selected) = &states.selected {
+        if selected
+            .paint
+            .as_deref()
+            .is_some_and(|paint| paint.local_paint.is_some())
+        {
             out.push("selected.paint".to_string());
         }
-        if selected.selected.is_some() {
+        if selected
+            .states
+            .as_deref()
+            .is_some_and(|states| states.selected.is_some())
+        {
             out.push("selected.selected".to_string());
         }
         delta_misuse("selected.", selected, &mut out);
     }
-    if let Some(disabled) = &s.disabled {
-        if disabled.local_paint.is_some() {
+    if let Some(disabled) = &states.disabled {
+        if disabled
+            .paint
+            .as_deref()
+            .is_some_and(|paint| paint.local_paint.is_some())
+        {
             out.push("disabled.paint".to_string());
         }
-        if disabled.disabled.is_some() {
+        if disabled
+            .states
+            .as_deref()
+            .is_some_and(|states| states.disabled.is_some())
+        {
             out.push("disabled.disabled".to_string());
         }
-        if disabled.selected.is_some() {
+        if disabled
+            .states
+            .as_deref()
+            .is_some_and(|states| states.selected.is_some())
+        {
             out.push("disabled.selected".to_string());
         }
         delta_misuse("disabled.", disabled, &mut out);
@@ -804,7 +878,8 @@ fn fill(b: &Background, theme: &Theme) -> Fill {
 /// The border's widths (0 where unset): the layout's border, as the
 /// paint's ([`border`]).
 fn border_widths(s: &Style) -> Edges<f64> {
-    let w = |i: usize| s.border_width[i].unwrap_or(0.0);
+    let paint = group_or_default!(s.paint, PaintFields);
+    let w = |i: usize| paint.border_width[i].unwrap_or(0.0);
     Edges {
         top: w(0),
         right: w(1),
@@ -816,12 +891,13 @@ fn border_widths(s: &Style) -> Edges<f64> {
 /// The border, when the style sets any of its properties (a width without
 /// a color takes the theme's border color).
 fn border(s: &Style, theme: &Theme) -> Option<Border> {
-    let set = s.border_width.iter().any(Option::is_some)
-        || s.border_color.iter().any(Option::is_some)
-        || s.border_style.iter().any(Option::is_some);
+    let paint = group_or_default!(s.paint, PaintFields);
+    let set = paint.border_width.iter().any(Option::is_some)
+        || paint.border_color.iter().any(Option::is_some)
+        || paint.border_style.iter().any(Option::is_some);
     set.then(|| {
         let c = |i: usize| {
-            s.border_color[i]
+            paint.border_color[i]
                 .unwrap_or(theme.colors().border)
                 .resolve(theme)
         };
@@ -834,21 +910,22 @@ fn border(s: &Style, theme: &Theme) -> Option<Border> {
                 left: c(3),
             },
             styles: p::Edges {
-                top: s.border_style[0].unwrap_or_default(),
-                right: s.border_style[1].unwrap_or_default(),
-                bottom: s.border_style[2].unwrap_or_default(),
-                left: s.border_style[3].unwrap_or_default(),
+                top: paint.border_style[0].unwrap_or_default(),
+                right: paint.border_style[1].unwrap_or_default(),
+                bottom: paint.border_style[2].unwrap_or_default(),
+                left: paint.border_style[3].unwrap_or_default(),
             },
         }
     })
 }
 
 fn corners(s: &Style) -> Corners {
+    let paint = group_or_default!(s.paint, PaintFields);
     Corners {
-        top_left: corner(s.radius[0]),
-        top_right: corner(s.radius[1]),
-        bottom_right: corner(s.radius[2]),
-        bottom_left: corner(s.radius[3]),
+        top_left: corner(paint.radius[0]),
+        top_right: corner(paint.radius[1]),
+        bottom_right: corner(paint.radius[2]),
+        bottom_left: corner(paint.radius[3]),
     }
 }
 
@@ -865,26 +942,31 @@ fn shadow(sh: &Shadow, theme: &Theme) -> p::Shadow {
 /// The effects, when the style sets any (`None` otherwise, so a node
 /// without effects carries none).
 fn effects(s: &Style, theme: &Theme) -> Option<Box<Effects>> {
-    let set = s.filter.is_some()
-        || s.backdrop_filter.is_some()
-        || s.blend.is_some()
-        || s.mask.is_some()
-        || s.clip_path.is_some();
+    let paint = group_or_default!(s.paint, PaintFields);
+    let set = paint.filter.is_some()
+        || paint.backdrop_filter.is_some()
+        || paint.blend.is_some()
+        || paint.mask.is_some()
+        || paint.clip_path.is_some();
     set.then(|| {
         Box::new(Effects {
-            filter: s
+            filter: paint
                 .filter
                 .as_ref()
                 .map(|f| filter_ops(f, theme))
                 .unwrap_or_default(),
-            backdrop: s
+            backdrop: paint
                 .backdrop_filter
                 .as_ref()
                 .map(|f| filter_ops(f, theme))
                 .unwrap_or_default(),
-            blend: s.blend.unwrap_or_default(),
-            masks: s.mask.as_ref().map(|m| m.wire(theme)).unwrap_or_default(),
-            clip_path: s.clip_path.as_ref().map(|c| clip_shape(&c.0)),
+            blend: paint.blend.unwrap_or_default(),
+            masks: paint
+                .mask
+                .as_ref()
+                .map(|m| m.wire(theme))
+                .unwrap_or_default(),
+            clip_path: paint.clip_path.as_ref().map(|c| clip_shape(&c.0)),
         })
     })
 }
@@ -893,25 +975,28 @@ fn effects(s: &Style, theme: &Theme) -> Option<Box<Effects>> {
 /// (x, y, z), then `rotate` (z, then y, then x), then `scale`, then
 /// `transform`, about `transform-origin` (the centre by default).
 fn transform_of(s: &Style) -> Transform {
+    let transform = group_or_default!(s.transform, TransformFields);
     let mut t = Transform::new();
-    if s.translate.iter().any(Option::is_some) || s.translate_z.is_some() {
+    if transform.translate.iter().any(Option::is_some) || transform.translate_z.is_some() {
         // An axis left unset does not move the node.
-        let [x, y] = s.translate.map(|axis| axis.unwrap_or(Length::Px(0.0)));
-        t = t.translate_3d(x, y, s.translate_z.unwrap_or(0.0));
+        let [x, y] = transform
+            .translate
+            .map(|axis| axis.unwrap_or(Length::Px(0.0)));
+        t = t.translate_3d(x, y, transform.translate_z.unwrap_or(0.0));
     }
-    if let Some(deg) = s.rotate {
+    if let Some(deg) = transform.rotate {
         t = t.rotate_z(deg);
     }
-    if let Some(deg) = s.rotate_y {
+    if let Some(deg) = transform.rotate_y {
         t = t.rotate_y(deg);
     }
-    if let Some(deg) = s.rotate_x {
+    if let Some(deg) = transform.rotate_x {
         t = t.rotate_x(deg);
     }
-    if let Some((x, y)) = s.scale {
+    if let Some((x, y)) = transform.scale {
         t = t.scale_xy(x, y);
     }
-    if let Some(list) = &s.transform {
+    if let Some(list) = &transform.transform {
         t = t.then(list);
     }
     t
@@ -920,36 +1005,39 @@ fn transform_of(s: &Style) -> Transform {
 /// The transform properties of `s` as one element transform, about
 /// `transform-origin` (the centre by default) and its z.
 fn element_transform(s: &Style) -> ElementTransform {
-    let (x, y) = s.transform_origin.unwrap_or((pct(50), pct(50)));
+    let transform = group_or_default!(s.transform, TransformFields);
+    let (x, y) = transform.transform_origin.unwrap_or((pct(50), pct(50)));
     // `auto` is the default centre.
     transform_of(s).to_wire(
         [x, y].map(|l| match l {
             Length::Auto => p::Len::pct(50.0),
             l => l.to_len(),
         }),
-        s.transform_origin_z.unwrap_or(0.0),
+        transform.transform_origin_z.unwrap_or(0.0),
     )
 }
 
 /// Whether `s` sets a transform property.
 fn sets_transform(s: &Style) -> bool {
-    s.translate.iter().any(Option::is_some)
-        || s.translate_z.is_some()
-        || s.rotate.is_some()
-        || s.rotate_x.is_some()
-        || s.rotate_y.is_some()
-        || s.scale.is_some()
-        || s.transform.is_some()
-        || s.transform_origin.is_some()
-        || s.transform_origin_z.is_some()
+    let transform = group_or_default!(s.transform, TransformFields);
+    transform.translate.iter().any(Option::is_some)
+        || transform.translate_z.is_some()
+        || transform.rotate.is_some()
+        || transform.rotate_x.is_some()
+        || transform.rotate_y.is_some()
+        || transform.scale.is_some()
+        || transform.transform.is_some()
+        || transform.transform_origin.is_some()
+        || transform.transform_origin_z.is_some()
 }
 
 /// The perspective of the node's children: the distance, about the
 /// `perspective-origin` (the centre by default).
 fn perspective(s: &Style) -> Option<Perspective> {
-    s.perspective.map(|distance| Perspective {
+    let transform = group_or_default!(s.transform, TransformFields);
+    transform.perspective.map(|distance| Perspective {
         distance,
-        origin: s
+        origin: transform
             .perspective_origin
             .map_or([p::Len::pct(50.0), p::Len::pct(50.0)], |(x, y)| {
                 [x.to_len(), y.to_len()]
@@ -958,36 +1046,39 @@ fn perspective(s: &Style) -> Option<Perspective> {
 }
 
 fn paint(s: &Style, theme: &Theme) -> PaintProps {
+    let paint = group_or_default!(s.paint, PaintFields);
+    let transform = group_or_default!(s.transform, TransformFields);
+    let flow = group_or_default!(s.flow, FlowFields);
     PaintProps {
         transitions: None,
-        background: s.background.as_ref().map(|b| fill(b, theme)),
+        background: paint.background.as_ref().map(|b| fill(b, theme)),
         border: border(s, theme),
-        ring: s.ring.map(|(width, offset, c)| Ring {
+        ring: paint.ring.map(|(width, offset, c)| Ring {
             width,
             offset,
             color: c.resolve(theme),
         }),
         radius: corners(s),
-        shadows: s
+        shadows: paint
             .shadows
             .iter()
             .flatten()
             .map(|sh| shadow(sh, theme))
             .collect(),
-        opacity: s.opacity.unwrap_or(1.0),
+        opacity: paint.opacity.unwrap_or(1.0),
         transform: element_transform(s),
         perspective: perspective(s),
-        transform_style: s.transform_style.unwrap_or_default(),
-        backface: s.backface.unwrap_or_default(),
-        will_change: s.will_change.unwrap_or_default(),
-        isolation: s.isolation.unwrap_or_default(),
-        border_image: s.border_image.as_ref().map(|b| Box::new(b.wire(theme))),
-        z_index: s.z_index.unwrap_or(0),
+        transform_style: transform.transform_style.unwrap_or_default(),
+        backface: transform.backface.unwrap_or_default(),
+        will_change: transform.will_change.unwrap_or_default(),
+        isolation: paint.isolation.unwrap_or_default(),
+        border_image: paint.border_image.as_ref().map(|b| Box::new(b.wire(theme))),
+        z_index: flow.z_index.unwrap_or(0),
         scrollbar: scrollbar(s, theme),
-        cursor: s.cursor.unwrap_or_default(),
-        clip: s.clip.unwrap_or(false)
-            || s.scroll_axes.is_some()
-            || s.overflow.is_some_and(|o| o != Overflow::Visible),
+        cursor: paint.cursor.unwrap_or_default(),
+        clip: paint.clip.unwrap_or(false)
+            || flow.scroll_axes.is_some()
+            || flow.overflow.is_some_and(|o| o != Overflow::Visible),
         effects: effects(s, theme),
     }
 }
@@ -997,7 +1088,8 @@ fn paint(s: &Style, theme: &Theme) -> PaintProps {
 fn paint_transitions(
     s: &Style,
 ) -> Option<std::sync::Arc<[(super::sheet::TransitionProp, Transition)]>> {
-    let list: Vec<_> = s
+    let motion = group_or_default!(s.motion, MotionFields);
+    let list: Vec<_> = motion
         .transitions
         .iter()
         .filter(|(prop, _)| *prop != super::sheet::TransitionProp::Size)
@@ -1009,13 +1101,15 @@ fn paint_transitions(
 /// What `compile_style` reports about the style itself (see
 /// [`CompiledStyle::reports`]).
 fn reports(s: &Style, theme: &Theme) -> Vec<UiError> {
+    let paint = group_or_default!(s.paint, PaintFields);
+    let motion = group_or_default!(s.motion, MotionFields);
     let mut out = Vec::new();
     let mut report = |error: UiError| out.push(error);
-    let springs = s
+    let springs = motion
         .transitions
         .iter()
         .map(|(_, t)| t)
-        .chain(s.layout_transition.iter());
+        .chain(motion.layout_transition.iter());
     for t in springs {
         if let p::Kind::Spring(spring) = &t.kind
             && let Some(problem) = spring.problem()
@@ -1023,28 +1117,31 @@ fn reports(s: &Style, theme: &Theme) -> Vec<UiError> {
             report(UiError::msg(format!("spring: {problem}")));
         }
     }
-    if let Some(t) = &s.layout_transition
+    if let Some(t) = &motion.layout_transition
         && (t.repeat != Repeat::Times(1) || t.direction != p::PlayDirection::Normal)
     {
         report(UiError::msg(
             "layout_transition ignores repeat and alternate",
         ));
     }
-    if let Some(background) = &s.background {
+    if let Some(background) = &paint.background {
         for paint in &background.0 {
             for problem in paint.shader_problems() {
                 report(problem);
             }
         }
     }
-    if let Some(mask) = &s.mask {
+    if let Some(mask) = &paint.mask {
         for layer in &mask.0 {
             for problem in layer.paint().shader_problems() {
                 report(problem);
             }
         }
     }
-    for filter in [&s.filter, &s.backdrop_filter].into_iter().flatten() {
+    for filter in [&paint.filter, &paint.backdrop_filter]
+        .into_iter()
+        .flatten()
+    {
         for problem in filter_problems(filter, theme) {
             report(problem);
         }
@@ -1062,30 +1159,38 @@ fn reports(s: &Style, theme: &Theme) -> Vec<UiError> {
 /// each group it sets, resolved over the base (a state that sets only a
 /// border color keeps the base's widths).
 fn paint_delta(base: &Style, st: &Style, theme: &Theme) -> PaintDelta {
+    let paint = group_or_default!(st.paint, PaintFields);
+    let transform = group_or_default!(st.transform, TransformFields);
+    let flow = group_or_default!(st.flow, FlowFields);
+    let text = group_or_default!(st.text, TextFields);
     let merged = base.clone().merge(st);
-    let full = paint(&merged, theme);
-    let sets_border = st.border_width.iter().any(Option::is_some)
-        || st.border_color.iter().any(Option::is_some)
-        || st.border_style.iter().any(Option::is_some);
-    let sets_effects = st.filter.is_some()
-        || st.backdrop_filter.is_some()
-        || st.blend.is_some()
-        || st.mask.is_some()
-        || st.clip_path.is_some();
+    let full = crate::resolve::paint(&merged, theme);
+    let sets_border = paint.border_width.iter().any(Option::is_some)
+        || paint.border_color.iter().any(Option::is_some)
+        || paint.border_style.iter().any(Option::is_some);
+    let sets_effects = paint.filter.is_some()
+        || paint.backdrop_filter.is_some()
+        || paint.blend.is_some()
+        || paint.mask.is_some()
+        || paint.clip_path.is_some();
     PaintDelta {
-        background: st.background.as_ref().and(full.background),
+        background: paint.background.as_ref().and(full.background),
         border: if sets_border { full.border } else { None },
-        ring: st.ring.and(full.ring),
-        radius: st.radius.iter().any(Option::is_some).then_some(full.radius),
-        opacity: st.opacity,
-        shadows: st.shadows.as_ref().map(|_| full.shadows),
+        ring: paint.ring.and(full.ring),
+        radius: paint
+            .radius
+            .iter()
+            .any(Option::is_some)
+            .then_some(full.radius),
+        opacity: paint.opacity,
+        shadows: paint.shadows.as_ref().map(|_| full.shadows),
         transform: sets_transform(st).then_some(full.transform),
-        perspective: (st.perspective.is_some() || st.perspective_origin.is_some())
+        perspective: (transform.perspective.is_some() || transform.perspective_origin.is_some())
             .then_some(full.perspective),
-        transform_style: st.transform_style.map(|_| full.transform_style),
-        backface: st.backface.map(|_| full.backface),
-        z_index: st.z_index,
-        scrollbar: st
+        transform_style: transform.transform_style.map(|_| full.transform_style),
+        backface: transform.backface.map(|_| full.backface),
+        z_index: flow.z_index,
+        scrollbar: paint
             .scrollbar
             .as_ref()
             .zip(full.scrollbar.as_ref())
@@ -1095,14 +1200,15 @@ fn paint_delta(base: &Style, st: &Style, theme: &Theme) -> PaintDelta {
                     colors: style.colors.map(|_| (full.thumb, full.track)),
                 })
             }),
-        cursor: st.cursor,
+        cursor: paint.cursor,
         effects: sets_effects.then_some(full.effects),
-        text_color: st.color.map(|c| c.resolve(theme)),
+        text_color: text.color.map(|c| c.resolve(theme)),
     }
 }
 
 fn scrollbar(s: &Style, theme: &Theme) -> Option<Box<p::ScrollbarProps>> {
-    let style = s.scrollbar.as_ref()?;
+    let paint = group_or_default!(s.paint, PaintFields);
+    let style = paint.scrollbar.as_ref()?;
     let mut props = p::ScrollbarProps {
         width: match style.width.unwrap_or_default() {
             ScrollbarWidth::Auto | ScrollbarWidth::Thin => 6.0,
