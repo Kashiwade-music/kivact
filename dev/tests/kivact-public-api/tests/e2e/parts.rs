@@ -182,8 +182,8 @@ fn canvas_parts_have_independent_focus_actions_input_state_and_geometry_lifetime
     screen
         .get_by_role(Role::Button, "Focus first")
         .a11y(A11yAction::Activate);
-    assert!(first_state.get().focused);
-    assert!(!second_state.get().focused);
+    assert!(first_state.get().is_focused());
+    assert!(!second_state.get().is_focused());
     screen.press_key(Key::Enter);
     assert_eq!(first_calls.get(), 1);
     assert_eq!(second_calls.get(), 0);
@@ -194,15 +194,15 @@ fn canvas_parts_have_independent_focus_actions_input_state_and_geometry_lifetime
     assert!(!first_state.get().pressed);
     screen.press_key(Key::Tab);
     assert!(
-        second_state.get().focused,
+        second_state.get().is_focused(),
         "Tab follows declaration order, not paint order"
     );
     assert!(screen.query_by_role(Role::Button, "Undrawn").is_none());
     screen
         .get_by_role(Role::Button, "Focus second")
         .a11y(A11yAction::Activate);
-    assert!(second_state.get().focused);
-    assert!(!first_state.get().focused);
+    assert!(second_state.get().is_focused());
+    assert!(!first_state.get().is_focused());
     screen
         .get_by_role(Role::Button, "Second region")
         .a11y(A11yAction::Activate);
@@ -216,7 +216,7 @@ fn canvas_parts_have_independent_focus_actions_input_state_and_geometry_lifetime
     );
     visible.set(false);
     screen.run_until_idle();
-    assert!(!second_state.get().focused);
+    assert!(!second_state.get().is_focused());
     assert!(
         screen
             .query_by_role(Role::Button, "Second region")

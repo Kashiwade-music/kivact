@@ -24,10 +24,10 @@ pub struct Producer {
     width: u32,
     height: u32,
     engine: Box<dyn Engine>,
-    // xtask-allow(state-fields): owned resource - the pool's handles until they are shared; taken once
+    // xtask-allow(state-fields): option: absent once the pool's handles are shared
     /// The pool's handles, until they are shared.
     shared: Option<SharedTextures>,
-    // xtask-allow(state-fields): S-8 ID - the number of the frame drawn next
+    // xtask-allow(state-fields): identity: the number of the frame drawn next
     /// The frame drawn next.
     next: u64,
 }

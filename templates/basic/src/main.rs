@@ -7,8 +7,10 @@
 
 use kivact::prelude::*;
 
-/// Components are plain functions that run once; dynamic parts are closures
+/// A component is a function returning a view; `#[component]` also makes a
+/// builder for its props. The setup runs once; dynamic parts are closures
 /// over Copy handles.
+#[component]
 fn counter(initial: i32) -> impl IntoView {
     let count = signal(initial);
     let doubled = memo(move || count.get() * 2);

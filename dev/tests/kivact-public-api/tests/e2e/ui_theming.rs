@@ -145,7 +145,11 @@ fn a_menu_slot_replaces_item_rows_and_the_default_shows_headings_and_description
                 .on_activate(move |key| chosen.set(Some(key)))
                 .item(|entry, state: Value<MenuItemState>| {
                     text(move || {
-                        let mark = if state.get().input.focused { "> " } else { "" };
+                        let mark = if state.get().input.is_focused() {
+                            "> "
+                        } else {
+                            ""
+                        };
                         format!("{mark}[{}]", entry.get().label())
                     })
                 }),

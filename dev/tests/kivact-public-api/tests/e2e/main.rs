@@ -22,6 +22,7 @@ mod apg_tree_view;
 mod apg_window_splitter;
 mod assets;
 mod async_tests;
+mod binding_update;
 mod borders_backgrounds;
 mod canvas;
 mod canvas_worker;
@@ -98,6 +99,7 @@ mod setup_functions;
 mod shaders;
 mod shared_layout;
 mod style_paint;
+mod svg_embedded_text;
 mod task;
 mod text_editing;
 mod text_effects;
@@ -127,6 +129,7 @@ mod launch_window;
 
 mod machine;
 mod reactive_props;
+mod resource_reclaim;
 
 mod apg_accordion;
 mod apg_menu;

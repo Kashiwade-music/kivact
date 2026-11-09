@@ -15,7 +15,7 @@ use kivact::platform;
 use kivact::state::signal;
 
 use super::launch_support::button_box;
-use kivact::prelude::{Component, Role, column, node, node_ref, row, show, style, text};
+use kivact::prelude::{Element, Role, column, node, node_ref, row, show, style, text};
 use kivact::test::Screen;
 use kivact::test::{MirrorMode, RenderOptions, render, render_with};
 

@@ -166,7 +166,7 @@ fn controlled_alert_keeps_refused_visibility_and_notifies_after_acceptance() {
             column((
                 ui::button("Outside"),
                 ui::alert("Controlled alert")
-                    .visible(binding(visible, move |next| {
+                    .open(binding(visible, move |next| {
                         if accept.get_untracked() {
                             visible.set(next);
                         }

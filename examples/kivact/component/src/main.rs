@@ -5,47 +5,48 @@ use kivact::prelude::*;
 
 /// A card with a title, a collapsible body and a close button that tells the
 /// parent through `on_close`.
-fn card<V: IntoView>(
-    title: impl IntoText,
-    on_close: impl Into<Callback<()>>,
-    children: impl kivact::view::IntoViewFn<V>,
-) -> impl Element {
+///
+/// The body is a `ViewFn`: closing and opening the card creates it again, so
+/// the two cards of the example never share their contents.
+#[component]
+fn card(
+    title: Value<String>,
+    #[prop(optional)] on_close: Option<Callback<()>>,
+    content: ViewFn,
+) -> impl IntoView {
     let open = signal(true);
+    let close = on_close.map(|on_close| button("Close").on_press(on_close));
     column((
         row((
             text(title),
             button(move || if open.get() { "Collapse" } else { "Expand" }.to_owned())
                 .on_press(move || open.update(|open| *open = !*open)),
-            button("Close").on_press(on_close),
+            close,
         ))
         .style(style().gap(8)),
-        show(open, children),
+        show(open, content),
     ))
     .style(style().padding(12).gap(8))
 }
 
 fn app() -> impl IntoView {
+    // xtask-allow(state-fields): independent: each card closes from its own button
     let first = signal(true);
+    // xtask-allow(state-fields): independent: each card closes from its own button
     let second = signal(true);
     column((
         show(first, move || {
-            card(
-                "First",
-                move || first.set(false),
-                || text("The first card holds one line."),
-            )
+            card("First", || text("The first card holds one line."))
+                .on_close(move || first.set(false))
         }),
         show(second, move || {
-            card(
-                "Second",
-                move || second.set(false),
-                || {
-                    column((
-                        text("The second card holds two lines."),
-                        text("Its children differ from the first."),
-                    ))
-                },
-            )
+            card("Second", || {
+                column((
+                    text("The second card holds two lines."),
+                    text("Its children differ from the first."),
+                ))
+            })
+            .on_close(move || second.set(false))
         }),
     ))
     .style(style().padding(24).gap(12))
