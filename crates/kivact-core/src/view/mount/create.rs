@@ -12,20 +12,25 @@ use crate::view::editing_data::EditorProps;
 use crate::view::state::ViewState;
 use crate::view::tree::Handlers;
 
-// xtask-allow(state-fields): Independent resolved node properties are consumed by the initial publication stage.
 /// The node's first write.
 pub(super) struct FirstWrite {
     pub(super) exit_layout: crate::view::ExitLayout,
     pub(super) exit_complete: Option<kivact_runtime::Handler<()>>,
+    // xtask-allow(state-fields): passive mount record - focusable when disabled
     pub(super) focusable_when_disabled: Option<InputProp<bool>>,
+    // xtask-allow(state-fields): passive mount record - roving focus
     pub(super) roving_focus: Option<InputProp<kivact_engine::contract::RovingFocus>>,
+    // xtask-allow(state-fields): passive mount record - hit testable
     pub(super) hit_testable: Option<InputProp<bool>>,
     /// The accessibility actions the node offers, its own and its parts'.
     /// The final handlers (routed through the parts' defaults when the node has parts).
     pub(super) handlers: Handlers,
+    // xtask-allow(state-fields): passive mount record - intrinsic
     pub(super) intrinsic: Option<IntrinsicSize>,
+    // xtask-allow(state-fields): passive mount record - The node has an explicit draw layer: its layout is observed for the layer's size
     /// The node has an explicit draw layer: its layout is observed for the layer's size.
     pub(super) observe_layout: bool,
+    // xtask-allow(state-fields): passive mount record - editing
     pub(super) editing: Option<EditorProps>,
 }
 

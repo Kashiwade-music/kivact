@@ -94,7 +94,6 @@ pub enum TabOverflow {
     Visible,
 }
 
-// xtask-allow(state-fields): Independent immutable key, label, icon, panel reference and trailing-content inputs; shared Tabs owns selection and interaction.
 /// A keyed tab with retained icon and trailing-content slots.
 pub struct Tab<K> {
     root: Node,
@@ -104,7 +103,6 @@ pub struct Tab<K> {
     icon: Option<View>,
     // xtask-allow(state-fields): Independent retained alternative icon slot.
     selected_icon: Option<View>,
-    // xtask-allow(state-fields): Caller label visibility input, without selection state.
     label_hidden: Value<bool>,
     // xtask-allow(state-fields): Independent retained trailing-content slot.
     end: Option<View>,
@@ -162,12 +160,10 @@ impl<K> NodeBuilder for Tab<K> {
 }
 
 #[derive(Clone)]
-// xtask-allow(state-fields): Immutable menu key, label, icon factory and availability input; shared Menu owns the interaction lifecycle.
 /// A keyed option inside a tab-strip menu.
 pub struct TabMenuOption<K> {
     key: K,
     label: Value<String>,
-    // xtask-allow(state-fields): Immutable icon factory for reopened menu content.
     icon: Option<ViewFn>,
     // xtask-allow(state-fields): Immutable caller availability input, not the Menu interaction phase.
     disabled: bool,
@@ -245,7 +241,6 @@ struct Look {
     divider: bool,
 }
 
-// xtask-allow(state-fields): Independent caller selection binding, immutable entries and visual options; shared Tabs and the single focus cursor own interaction.
 /// A keyed tab or navigation strip with optional selected-panel content.
 pub struct TabList<K: ItemKey> {
     root: Node,
@@ -255,9 +250,7 @@ pub struct TabList<K: ItemKey> {
     look: Look,
     pattern: Value<TabPattern>,
     overflow: Value<TabOverflow>,
-    // xtask-allow(state-fields): Independent caller layout input, not navigation state.
     full_bleed: Value<bool>,
-    // xtask-allow(state-fields): Immutable selected-panel factory; the existing selection binding chooses its key.
     content: Option<kivact::view::ViewFn<K>>,
 }
 
@@ -340,12 +333,9 @@ impl<K: ItemKey> NodeBuilder for TabList<K> {
     }
 }
 
-// xtask-allow(state-fields): Mounted NodeRef plus actual read-only selected and disabled projections, without an independent interaction lifecycle.
 struct FocusMember {
     reference: NodeRef,
-    // xtask-allow(state-fields): Actual selected-state projection of the existing selection binding.
     selected: Value<bool>,
-    // xtask-allow(state-fields): Actual disabled-state projection of the mounted tab root.
     disabled: Value<bool>,
 }
 
@@ -860,7 +850,6 @@ fn focus_track<K: ItemKey>(
     }
 }
 
-// xtask-allow(state-fields): Immutable binding, presentation and actual shared Tabs/focus handles; this bundle stores no copied lifecycle state.
 struct TabRuntime<K: ItemKey> {
     binding: Binding<K>,
     look: Look,

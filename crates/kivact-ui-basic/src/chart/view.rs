@@ -38,7 +38,6 @@ fn kind_name(kind: Value<ChartKind>) -> Value<String> {
     })
 }
 
-// xtask-allow(state-fields): Independent chart data, presentation options and slots supplied during construction; this builder owns no pointer or lifecycle state.
 /// A chart (chart.tsx). Created by [`chart`].
 ///
 /// The plot is drawn on one canvas in the theme's chart colors, with a hover

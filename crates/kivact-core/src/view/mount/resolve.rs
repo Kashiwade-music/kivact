@@ -29,19 +29,23 @@ use crate::view::element_data::{Common, StyleLayer};
 use crate::view::ime_session::ImeSession;
 use crate::view::node_ref::NodeRef;
 
-// xtask-allow(state-fields): Independent mounting stage inputs are consumed by their respective publishers.
 /// One host node's stage inputs, each moved into exactly one stage.
 pub(super) struct Resolved {
     pub(super) first: FirstWrite,
     pub(super) semantics: SemanticProps,
+    // xtask-allow(state-fields): passive mount record - disabled
     pub(super) disabled: Option<InputProp<bool>>,
+    // xtask-allow(state-fields): passive mount record - selected
     pub(super) selected: Option<InputProp<bool>>,
     pub(super) style: Vec<StyleLayer>,
     pub(super) facts: NodeFacts,
+    // xtask-allow(state-fields): passive mount record - draw
     pub(super) draw: Option<DrawInput>,
     pub(super) late_semantics: Vec<crate::view::semantics_data::SemanticsPatch>,
+    // xtask-allow(state-fields): passive mount record - ime
     pub(super) ime: Option<ImeSession>,
     pub(super) refs: Vec<NodeRef>,
+    // xtask-allow(state-fields): passive mount record - attached
     pub(super) attached: Option<Attached>,
 }
 

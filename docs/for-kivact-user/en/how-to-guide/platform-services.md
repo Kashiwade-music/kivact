@@ -385,6 +385,37 @@ motion, and `Screen::resize`, `set_scale`, `set_dark`, `set_reduced_motion` and
 `set_safe_area` change them while the screen runs. See
 [Test your app](testing.md#configure-the-environment).
 
+## Ask about the window that calls
+
+The environment reads and the services act on the window of the owner that calls
+them, not on the main window: `window_size`, `scale_factor`, `is_fullscreen`,
+`safe_area`, `keyboard_inset`, `theme_hint`, `is_surface_active`,
+`is_motion_reduced` and `pointer_settings`, and the services
+`request_window_size`, `set_fullscreen`, `focus_window` and the file dialogs
+(the dialog's parent). A handler or callback belongs to the window where it was
+created, not to the window where it runs, so create it inside that window's
+content.
+
+`platform::focus_window()` brings the calling owner's window to the front and
+gives it the keyboard focus:
+
+```rust,no_run
+use kivact::platform;
+use kivact::prelude::*;
+
+fn settings() -> impl IntoView {
+    button("Bring this window to the front").on_press(|| {
+        spawn(platform::focus_window());
+    })
+}
+```
+
+It is best effort: Windows may only flash the taskbar entry, and Wayland has no
+way to raise a window. It needs no capability. In an embedded editor it fails
+with `ErrorKind::Unsupported`, and writing `true` to an already open window's
+binding does not raise it. See
+[Bring a window to the front](windows.md#bring-a-window-to-the-front).
+
 ## See also
 
 - [Run async work from a component](async-and-tasks.md): futures, `spawn` and `blocking`.

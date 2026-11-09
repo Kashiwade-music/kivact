@@ -91,7 +91,6 @@ pub struct Layout {
     padding: Option<Space>,
     // xtask-allow(state-fields): Optional readonly content-width input.
     content_width: Option<Value<Length>>,
-    // xtask-allow(state-fields): Independent default divider construction input.
     default_dividers: Value<bool>,
 }
 
@@ -292,7 +291,6 @@ pub struct LayoutRegion {
     padding: Option<Space>,
     // xtask-allow(state-fields): Optional bottom spacing override.
     padding_bottom: Option<Space>,
-    // xtask-allow(state-fields): Independent scroll-viewport construction input.
     scrollable: Value<bool>,
     // xtask-allow(state-fields): Optional readonly panel-width input.
     width: Option<Value<Length>>,

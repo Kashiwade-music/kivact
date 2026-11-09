@@ -9,7 +9,6 @@ use kivact_core::state::{IntoText, IntoValue};
 use kivact_core::view::{IntoView, NodeRef, OverlayAlign, Placement, View, node_ref, overlay};
 use kivact_core::view::{NodeBuilder, node, text};
 
-// xtask-allow(state-fields): Setup-only builder options; content and alignment are independent.
 /// A themed hint for a trigger, created by [`tooltip`]; attach it with
 /// [`attach`](Tooltip::attach).
 pub struct Tooltip {

@@ -6,7 +6,6 @@ use kivact::state::Value;
 use kivact::state::memo;
 use kivact::view::NodeRef;
 
-// xtask-allow(state-fields): Independent read-only projections of one axis geometry, not a hidden state machine.
 /// Observed state of one logical scroll axis.
 #[derive(Clone, Copy)]
 pub struct AxisScroll {
@@ -72,7 +71,6 @@ fn observe_axis(viewport: NodeRef, content: NodeRef, inline: bool, enabled: bool
     }
 }
 
-// xtask-allow(state-fields): Independent read-only projections of inline overflow, not a hidden state machine.
 /// Hidden content on either inline side of a horizontally scrolling viewport.
 #[derive(Clone, Copy)]
 pub struct ScrollOverflow {

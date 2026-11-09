@@ -49,7 +49,6 @@ fn key(value: DateTime) -> (CalendarDate, u8, u8, u8) {
         value.time.second,
     )
 }
-// xtask-allow(state-fields): Complementary endpoint bindings project and write the single caller-owned accepted DateTime binding.
 /// Endpoint bindings project the caller-owned accepted date/time value.
 pub(crate) struct DateTimeFields {
     pub(crate) date: Binding<Option<CalendarDate>>,

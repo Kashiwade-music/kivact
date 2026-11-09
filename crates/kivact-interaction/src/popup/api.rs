@@ -100,7 +100,9 @@ pub struct PopupState {
 #[derive(Clone, Copy)]
 pub struct PopupApi {
     disclosure: DisclosureApi,
+    // xtask-allow(state-fields): independent fact - the observation of the attached content part, absent until it attaches
     content_state: kivact_core::state::Signal<Option<Value<PopupState>>>,
+    // xtask-allow(state-fields): independent fact - the observation of the attached trigger part, absent until it attaches
     trigger_state: kivact_core::state::Signal<Option<Value<PopupState>>>,
     /// The reference the trigger part binds.
     own_anchor: NodeRef,

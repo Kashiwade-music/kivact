@@ -103,20 +103,27 @@ pub struct MirrorStats {
 
 #[derive(Default)]
 struct Counters {
+    // xtask-allow(state-fields): statistics - native windows created
     created: AtomicU64,
+    // xtask-allow(state-fields): statistics - pooled windows handed to a new test
     reused: AtomicU64,
+    // xtask-allow(state-fields): statistics - frames shown after coalescing
     presented: AtomicU64,
 }
 
-// xtask-allow(state-fields): Mailbox of independent pending window commands; optional payloads and notifications are consumed together without conditional presence invariants.
 /// What a test window shows next; the UI thread takes it all at once.
 #[derive(Default)]
 struct MirrorBatch {
+    // xtask-allow(state-fields): mailbox - frame
     frame: Option<Frame>,
+    // xtask-allow(state-fields): mailbox - The accessibility tree changed: hand the platform what it lacks
     /// The accessibility tree changed: hand the platform what it lacks.
     accessibility: bool,
+    // xtask-allow(state-fields): mailbox - title
     title: Option<String>,
+    // xtask-allow(state-fields): mailbox - resize
     resize: Option<(u32, u32, f64)>,
+    // xtask-allow(state-fields): mailbox - A GPU surface presents to the window from now on
     /// A GPU surface presents to the window from now on.
     gpu: bool,
 }

@@ -9,13 +9,15 @@ use kivact_interaction::{use_button, use_checkbox};
 
 use crate::component_values::CardState;
 
-// xtask-allow(state-fields): Setup-only independent slots and behavior inputs; selection belongs to the caller binding.
 /// A surface containing optional header, media, content and footer regions.
 pub struct Card {
     root: Node,
     content: View,
+    // xtask-allow(state-fields): builder option - header
     header: Option<View>,
+    // xtask-allow(state-fields): builder option - media
     media: Option<View>,
+    // xtask-allow(state-fields): builder option - footer
     footer: Option<View>,
     action: CardAction,
     disabled: Value<bool>,

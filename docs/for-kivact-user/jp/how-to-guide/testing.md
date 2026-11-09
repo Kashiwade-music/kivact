@@ -284,7 +284,7 @@ mod tests {
 
 ## ウィンドウをテストする
 
-ウィンドウは、それぞれが独立した `Screen` です。`screen.window("設定")` はそのウィンドウが開くまで待ち（`find_by_*` と同じ時間上限）、ハンドルを返します。`screen.windows()` は開いているすべてのウィンドウを id の昇順で返します。`Element` を取る前に、ハンドルを `let` に入れてください。
+ウィンドウは、それぞれが独立した `Screen` です。`screen.window("設定")` はそのウィンドウが開くまで待ち（`find_by_*` と同じ時間上限）、ハンドルを返します。`screen.windows()` は開いているすべてのウィンドウを id の昇順で返します。`Screen::has_window()` は `is_mirrored()` に改名しました（公開の変更。この window が本物の window に写っているか、という意味は変わりません）。`RenderOptions::default().single_window()` は、埋め込みの editor のように、追加の window を開けない環境を表します。`Element` を取る前に、ハンドルを `let` に入れてください。
 
 ```rust,no_run
 # use kivact::prelude::*;

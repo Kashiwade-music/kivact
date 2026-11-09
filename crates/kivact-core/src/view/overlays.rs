@@ -509,14 +509,15 @@ impl Drop for ModalScope {
     }
 }
 
-// xtask-allow(state-fields): This per-dispatch route result contains the target, optional modal boundary and independent activation permission.
 /// Where a key goes and where its handler chain stops (see [`key_route`]).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct KeyRoute {
     /// The first node of the chain.
     pub target: NodeId,
+    // xtask-allow(state-fields): per-dispatch result value - The topmost shown modal, where the chain stops
     /// The topmost shown modal, where the chain stops.
     pub stop: Option<NodeId>,
+    // xtask-allow(state-fields): per-dispatch result value - Whether an unhandled Enter or Space activates `target`: not when the key reached the App's view (or the root) only because nothing has the focus and no modal is open
     /// Whether an unhandled Enter or Space activates `target`: not when
     /// the key reached the App's view (or the root) only because nothing
     /// has the focus and no modal is open.

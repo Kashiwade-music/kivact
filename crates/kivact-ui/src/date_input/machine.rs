@@ -49,10 +49,11 @@ pub(super) enum Event {
     Clear,
     External(Option<CalendarDate>),
 }
-// xtask-allow(state-fields): Event snapshot contains independent inclusive bounds and formatting precision.
 pub(super) struct Snapshot {
     pub(super) locale: Locale,
+    // xtask-allow(state-fields): passive record - min
     pub(super) min: Option<CalendarDate>,
+    // xtask-allow(state-fields): passive record - max
     pub(super) max: Option<CalendarDate>,
 }
 impl Machine for Snapshot {
@@ -136,10 +137,11 @@ pub(super) enum TypedEffect {
     Commit(String),
     Validity(bool),
 }
-// xtask-allow(state-fields): Event snapshot bounds are independent immutable inputs.
 pub(super) struct TypedSnapshot {
     pub(super) locale: Locale,
+    // xtask-allow(state-fields): passive record - min
     pub(super) min: Option<CalendarDate>,
+    // xtask-allow(state-fields): passive record - max
     pub(super) max: Option<CalendarDate>,
 }
 impl Machine for TypedSnapshot {

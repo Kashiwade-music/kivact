@@ -191,7 +191,9 @@ pub(crate) enum DragMode {
         from: u64,
         output: usize,
         to: Point,
+        // xtask-allow(state-fields): independent fact - the link re-routed from its input socket, fixed at the press
         rewire: Option<NodeLink>,
+        // xtask-allow(state-fields): independent fact - the input socket under the release
         released: Option<(u64, usize)>,
     },
     Marquee {
@@ -213,7 +215,6 @@ pub(crate) enum DragSnapshot {
 
 #[derive(Clone, Copy)]
 pub(crate) struct State {
-    // xtask-allow(state-fields): Application bindings, immutable callbacks and mounted input facts are independent of the gesture and connection machines.
     pub(crate) on_edit: Option<
         Callback<
             crate::editors::shared::model::EditorEvent<crate::editors::node::model::NodeRequest>,
@@ -223,12 +224,10 @@ pub(crate) struct State {
     pub(crate) nodes: Value<Vec<NodeData>>,
     pub(crate) links: Value<Vec<NodeLink>>,
     pub(crate) selected: Binding<Vec<u64>>,
-    // xtask-allow(state-fields): Application bindings, immutable callbacks and mounted input facts are independent of the gesture and connection machines.
     pub(crate) selected_link: Binding<Option<NodeLink>>,
     pub(crate) choose: ListApi<u64>,
     pub(crate) transform: Binding<ViewTransform>,
     pub(crate) scene: Value<Result<Rc<Scene<Target>>, UiError>>,
-    // xtask-allow(state-fields): Application bindings, immutable callbacks and mounted input facts are independent of the gesture and connection machines.
     pub(crate) snap: Value<bool>,
     // xtask-allow(state-fields): Application bindings, immutable callbacks and mounted input facts are independent of the gesture and connection machines.
     pub(crate) active: Signal<Option<(u64, usize)>>,
@@ -243,7 +242,6 @@ pub(crate) struct State {
     /// The editor's edit. The application restores its own items on
     /// `Cancel`, so the session restores nothing.
     pub(crate) edit: EditSession<()>,
-    // xtask-allow(state-fields): Application bindings, immutable callbacks and mounted input facts are independent of the gesture and connection machines.
     /// The editor is disabled, hidden or not visible.
     pub(crate) blocked: Value<bool>,
     /// The canvas's pan and zoom, which also tracks Space.

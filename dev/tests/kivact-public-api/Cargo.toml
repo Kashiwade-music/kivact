@@ -8,6 +8,8 @@ autotests = false
 description = "Public Kivact API consumer tests: one real-window E2E binary and the windowless Offscreen tests"
 
 [features]
+# Starts the DevTools agent of the test App (tests/e2e/devtools.rs).
+devtools = ["kivact/devtools"]
 embed = ["kivact/embed"]
 default = ["gpu"]
 tokio = ["kivact/tokio"]
@@ -19,6 +21,8 @@ gpu-interop = ["gpu", "kivact/gpu-interop"]
 [dev-dependencies]
 async-channel = { workspace = true }
 kivact = { path = "../../../crates/kivact", default-features = false, features = ["test"] }
+kivact-devtools-client = { path = "../../../crates/kivact-devtools-client" }
+kivact-devtools-protocol = { path = "../../../crates/kivact-devtools-protocol" }
 # Encodes the GIF, APNG and WebP fixtures of the image tests
 # (tests/e2e/images_animated.rs).
 image = { version = "0.25.10", default-features = false, features = ["png", "gif", "webp"] }

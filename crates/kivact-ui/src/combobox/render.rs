@@ -216,7 +216,6 @@ fn editable_selection<K: ItemKey>(
     }
 }
 
-// xtask-allow(state-fields): Read-only actual interaction handles and independent caller semantic inputs; no mirrored lifecycle state.
 /// Actual input handles and semantic projections shared by the combobox editor.
 struct EditorState<K: ItemKey> {
     list: ComboboxApi<K>,
@@ -462,7 +461,6 @@ fn sheet_surface<K: ItemKey>(
         .into_view()
 }
 
-// xtask-allow(state-fields): Independent setup semantics and actual shared list handles prepared for composition; list owns popup and query lifecycle.
 /// Shared handles and read-only inputs prepared before view composition.
 struct Mounted<K: ItemKey> {
     list: ComboboxApi<K>,

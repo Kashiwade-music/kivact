@@ -51,13 +51,13 @@ use kivact::view::show;
 pub struct AppShellMobile {
     context: Option<MobileContext>,
 }
-// xtask-allow(state-fields): This bundles immutable drawer configuration and external ports.
 #[derive(Clone, Copy)]
 struct MobileContext {
     state: MachineHandle<MobileMachine>,
     open: Binding<bool>,
     toggle: NodeRef,
     drawer: NodeRef,
+    // xtask-allow(state-fields): passive record - auto toggle
     auto_toggle: bool,
 }
 #[derive(Clone, Copy, PartialEq)]
@@ -198,7 +198,6 @@ pub struct MobileNav {
     label: Option<Value<String>>,
     // xtask-allow(state-fields): Optional plain-text heading input.
     header: Option<Value<String>>,
-    // xtask-allow(state-fields): Optional reusable custom heading factory.
     header_view: Option<ViewFn>,
     content: ViewFn,
 }

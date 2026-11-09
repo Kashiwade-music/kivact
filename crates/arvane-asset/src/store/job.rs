@@ -54,9 +54,11 @@ pub(crate) enum Job {
     /// given).
     Raster {
         asset: Asset,
+        // xtask-allow(state-fields): S-8 ID - the entry generation the job was made for
         generation: u64,
         svg: Arc<Svg>,
         size: PixelSize,
+        // xtask-allow(state-fields): passive record - the part of the SVG to rasterize, absent for all of it
         crop: Option<Crop>,
     },
 }
@@ -71,8 +73,10 @@ pub(crate) enum Done {
     },
     Raster {
         asset: Asset,
+        // xtask-allow(state-fields): S-8 ID - the entry generation the job was made for
         generation: u64,
         size: PixelSize,
+        // xtask-allow(state-fields): passive record - the part of the SVG that was rasterized, absent for all of it
         crop: Option<Crop>,
         bitmap: Pixels,
     },

@@ -19,7 +19,6 @@ type ItemNode<K> = Rc<dyn Fn(Node, Value<ListItem<K>>, Value<CheckableState>) ->
 
 type OptionContent<K> = kivact_core::view::ViewFn<(Value<ListItem<K>>, Value<CheckableState>)>;
 
-// xtask-allow(state-fields): Optional item content and label placement configure a radio group; checked state belongs to the caller binding and shared selection authority.
 /// A set of mutually exclusive choices (`Role::RadioGroup`), created by
 /// [`radio_group`].
 pub struct RadioGroup<K: kivact_core::state::ItemKey> {
@@ -29,7 +28,9 @@ pub struct RadioGroup<K: kivact_core::state::ItemKey> {
     orientation: Orientation,
     size: Value<ControlSize>,
     on_edit: Option<Callback<EditPhase>>,
+    // xtask-allow(state-fields): builder option - the item builder a setter supplied
     item: Option<OptionContent<K>>,
+    // xtask-allow(state-fields): builder option - the shared per-item node a setter supplied
     item_node: Option<ItemNode<K>>,
     variants: Variants,
 }

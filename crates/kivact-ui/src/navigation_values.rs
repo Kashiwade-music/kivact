@@ -68,11 +68,12 @@ pub struct PaginationItemState {
     pub mode: PaginationMode,
 }
 
-// xtask-allow(state-fields): Read-only independent current-page semantics and the actual entry part input; no stored interaction or reconciliation flags.
 /// Actual entry semantics and input from its single activation part.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct BreadcrumbItemState {
+    // xtask-allow(state-fields): passive record - current
     pub current: bool,
+    // xtask-allow(state-fields): passive record - input
     pub input: Option<kivact_core::custom::PartState>,
 }
 
@@ -105,15 +106,16 @@ pub enum PaginationMode {
     None,
 }
 
-// xtask-allow(state-fields): Read-only canonical count, item total and pagination configuration in consistent zero-based page units.
 /// Actual inputs for a caller's pagination summary; no duplicate range endpoints are stored.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PaginationSummary {
     /// Zero-based actual page index.
     pub page: usize,
     pub count: usize,
+    // xtask-allow(state-fields): passive record - total items
     pub total_items: Option<u64>,
     pub page_size: u32,
+    // xtask-allow(state-fields): passive record - has more
     pub has_more: bool,
 }
 

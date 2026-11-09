@@ -29,9 +29,11 @@ pub enum ErrorKind {
     },
     /// A handle was used after its owner was disposed.
     Disposed {
+        // xtask-allow(state-fields): passive record - the diagnostic source position where the handle was created
         /// Where the handle's node, object or owner was created, if known.
         // xtask-allow(api-shape): Diagnostic source positions retain Rust caller locations.
         created_at: Option<&'static Location<'static>>,
+        // xtask-allow(state-fields): passive record - the diagnostic source position of the owner that released it
         /// Where the owner that released it was created, if known.
         // xtask-allow(api-shape): Diagnostic source positions retain Rust caller locations.
         disposed_by: Option<&'static Location<'static>>,
@@ -92,11 +94,12 @@ pub enum ErrorKind {
     Shader,
 }
 
-// xtask-allow(state-fields): Caller location and underlying Rust error are independent optional diagnostic facts.
 struct Inner {
     kind: ErrorKind,
     message: String,
+    // xtask-allow(state-fields): diagnostic facts - at
     at: Option<&'static Location<'static>>,
+    // xtask-allow(state-fields): diagnostic facts - source
     source: Option<Box<dyn std::error::Error + Send + Sync>>,
 }
 

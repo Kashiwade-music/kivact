@@ -21,7 +21,9 @@ pub(super) enum Kind {
     Heading(u32),
     Quote,
     List {
+        // xtask-allow(state-fields): passive record - the number of an ordered list item, absent for a bullet
         number: Option<u32>,
+        // xtask-allow(state-fields): passive record - the check state of a task item, absent for a plain item
         checked: Option<bool>,
     },
     Code(String),

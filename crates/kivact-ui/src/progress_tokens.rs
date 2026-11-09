@@ -1,9 +1,9 @@
 //! Role: Passive theme data for progress.
 use kivact_core::motion::Easing;
-// xtask-allow(state-fields): Independent immutable animation settings supplied by the theme, not mounted animation state.
 /// Timing of standard progress bars. Configure it through [`crate::UiTokens`].
 #[derive(Clone, Debug, PartialEq)]
 pub struct ProgressMotion {
+    // xtask-allow(state-fields): passive record - Whether the first determinate fill animates from zero
     /// Whether the first determinate fill animates from zero.
     pub animate_initial: bool,
     /// Milliseconds for changes to the determinate fill.
@@ -12,6 +12,7 @@ pub struct ProgressMotion {
     pub determinate_easing: Easing,
     /// Milliseconds per full cycle of the moving-fill clock.
     pub period_ms: u64,
+    // xtask-allow(state-fields): passive record - Optional full clock period in reduced motion
     /// Optional full clock period in reduced motion. None leaves it still.
     pub reduced_period_ms: Option<u64>,
 }

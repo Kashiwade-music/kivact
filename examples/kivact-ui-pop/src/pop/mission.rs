@@ -3,7 +3,6 @@ use kivact::draw::{Shape, linear_gradient};
 use kivact::prelude::*;
 use kivact::style::{Direction, Position};
 use kivact_ui_pop::{self as ui, Hue, Tokens};
-// xtask-allow(state-fields): Immutable catalog mission facts; locked, progress and action labels are independent data, not local lifecycle flags.
 /// All mission content is public data; fetching, rewards and locking belong to the application.
 #[derive(Clone, Debug, PartialEq)]
 pub(super) struct Mission {
@@ -15,15 +14,18 @@ pub(super) struct Mission {
     pub rank_tone: Hue,
     pub banner_icon: &'static str,
     pub progress: f64,
+    // xtask-allow(state-fields): passive catalog record - The progress caption;
     /// The progress caption; `None` shows the message `mission.progress`.
     pub progress_label: Option<String>,
     pub progress_value: String,
     pub rewards: Vec<String>,
     pub reward_icons: Vec<&'static str>,
     pub footer: String,
+    // xtask-allow(state-fields): passive catalog record - The action button's label;
     /// The action button's label; `None` shows the message `mission.open`.
     pub action_label: Option<String>,
     pub action_tone: kivact_ui_pop::ButtonTone,
+    // xtask-allow(state-fields): passive catalog record - locked
     pub locked: bool,
 }
 #[track_caller]

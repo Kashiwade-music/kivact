@@ -35,10 +35,8 @@ impl Machine for ClipMachine {
 pub struct Meter {
     root: Node,
     level: Value<f64>,
-    // xtask-allow(state-fields): Independent reactive display option.
     horizontal: Value<bool>,
     channels: Value<usize>,
-    // xtask-allow(state-fields): Independent reactive display option.
     segmented: Value<bool>,
 }
 

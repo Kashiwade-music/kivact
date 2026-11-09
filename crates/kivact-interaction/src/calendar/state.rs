@@ -39,7 +39,6 @@ pub(super) struct State {
     /// the focus bookkeeping.
     pub(super) roving: Roving<CalendarDate>,
     /// The day that holds the tab stop.
-    // xtask-allow(state-fields): Pure projection of the canonical order, selection, and mounted registry.
     pub(super) active: Value<Option<CalendarDate>>,
 }
 

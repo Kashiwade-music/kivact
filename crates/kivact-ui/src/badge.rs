@@ -4,13 +4,14 @@ use crate::{BadgeState, Variant};
 use kivact_core::state::{Callback, IntoText, IntoValue, Value};
 use kivact_core::view::{IntoView, Node, NodeBuilder, View, row, text};
 use kivact_interaction::Tone;
-// xtask-allow(state-fields): Builder inputs and optional content are independent configuration; image state belongs to NodeRef.
 pub struct Badge {
     root: Node,
     label: Value<String>,
     tone: Value<Tone>,
     variants: Variants,
+    // xtask-allow(state-fields): builder option - icon
     icon: Option<View>,
+    // xtask-allow(state-fields): builder option - trailing
     trailing: Option<View>,
     on_press: Option<Callback<()>>,
 }

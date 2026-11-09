@@ -61,13 +61,15 @@ impl std::fmt::Debug for LineState {
     }
 }
 
-// xtask-allow(state-fields): Foreground, background and decoration independently override one resolved byte range.
 /// Resolved paint for one non-overlapping line byte range.
 #[derive(Clone, Debug, PartialEq)]
 pub struct LineStyle {
     pub range: Range<usize>,
+    // xtask-allow(state-fields): passive value - color
     pub color: Option<Rgba>,
+    // xtask-allow(state-fields): passive value - background
     pub background: Option<Rgba>,
+    // xtask-allow(state-fields): passive value - decoration
     pub decoration: Option<TextDecoration>,
 }
 

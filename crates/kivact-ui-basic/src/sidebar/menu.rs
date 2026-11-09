@@ -18,12 +18,13 @@ fn icon_only(cx: Option<SidebarCx>) -> impl Fn() -> bool + Copy + 'static {
     move || cx.is_some_and(|cx| cx.icon_only())
 }
 
-// xtask-allow(state-fields): Independent authored label and action/content slots; mounted parts observe the existing SidebarCx binding.
 /// A labelled section of the sidebar (`SidebarGroup`). Created by [`sidebar_group`].
 pub struct SidebarGroup {
     root: Node,
     label: Value<String>,
+    // xtask-allow(state-fields): builder option - action
     action: Option<kivact::view::View>,
+    // xtask-allow(state-fields): builder option - content
     content: Option<kivact::view::View>,
 }
 
@@ -159,28 +160,32 @@ impl SidebarMenuButtonSize {
     }
 }
 
-// xtask-allow(state-fields): Independent label, caller active value, size, callback and slots; mounted parts read the existing SidebarCx authority.
 /// A row of a [`sidebar_menu`] (`SidebarMenuItem` with `SidebarMenuButton`).
 /// Created by [`sidebar_menu_button`].
 pub struct SidebarMenuButton {
     root: Node,
     label: Value<String>,
+    // xtask-allow(state-fields): builder option - icon
     icon: Option<View>,
     active: Value<bool>,
+    // xtask-allow(state-fields): builder option - badge
     badge: Option<Value<String>>,
+    // xtask-allow(state-fields): builder option - action
     action: Option<kivact::view::View>,
     size: kivact::state::Value<SidebarMenuButtonSize>,
     on_press: Option<Callback<()>>,
+    // xtask-allow(state-fields): builder option - sub
     sub: Option<kivact::view::View>,
 }
 
-// xtask-allow(state-fields): Read-only style projection of the actual sidebar context, caller active/size values and action-slot availability.
 /// What the root style of a [`SidebarMenuButton`] reads.
 #[derive(Clone, Copy)]
 struct ButtonCfg {
+    // xtask-allow(state-fields): passive record - cx
     cx: Option<SidebarCx>,
     active: Value<bool>,
     size: kivact::state::Value<SidebarMenuButtonSize>,
+    // xtask-allow(state-fields): passive record - has action
     has_action: bool,
 }
 
@@ -401,7 +406,6 @@ fn build_button(this: SidebarMenuButton, wrapper: Node) -> Node {
         .child(sub)
 }
 
-// xtask-allow(state-fields): Independent authored label, caller active value and callback; activation belongs to the shared button part.
 /// A link inside the sub-list of a [`SidebarMenuButton`] (`SidebarMenuSubButton`).
 /// Created by [`sidebar_menu_sub_button`].
 pub struct SidebarMenuSubButton {

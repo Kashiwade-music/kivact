@@ -53,15 +53,11 @@ pub struct Link {
     // xtask-allow(state-fields): Optional accessible label input, independent of activation.
     label: Option<Value<String>>,
     content: View,
-    // xtask-allow(state-fields): Optional caller activation callback.
     press: Option<Callback<()>>,
     // xtask-allow(state-fields): Optional localized external-link suffix input.
     new_tab_label: Option<Value<String>>,
-    // xtask-allow(state-fields): Independent underline presentation input.
     underline: Value<bool>,
-    // xtask-allow(state-fields): Independent external-link presentation input.
     external: Value<bool>,
-    // xtask-allow(state-fields): Independent typography fallback input.
     standalone: Value<bool>,
     kind: Value<TextKind>,
     // xtask-allow(state-fields): Optional readonly font-size override.
@@ -70,7 +66,6 @@ pub struct Link {
     weight: Option<u16>,
     color: Value<LinkColor>,
     max_lines: Value<u32>,
-    // xtask-allow(state-fields): Independent semantic activation-mode construction input.
     as_button: Value<bool>,
 }
 
@@ -266,7 +261,6 @@ fn name_link(
     }
     root
 }
-// xtask-allow(state-fields): Independent immutable typography and interaction-availability inputs sampled from the Link builder; actual input remains in PartState.
 #[derive(Clone, Copy)]
 struct LinkAppearance {
     kind: TextKind,

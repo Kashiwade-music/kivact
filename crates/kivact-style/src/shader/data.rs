@@ -10,7 +10,6 @@ use crate::theme::value::Theme;
 
 use super::value::ShaderValue;
 
-// xtask-allow(state-fields): A shader program independently holds its parameters, images, clock, essentiality and the problems found while setting them.
 /// The program of a shader and the values set on it. Paint and filter
 /// shaders both hold one.
 #[derive(Clone, Debug, PartialEq)]

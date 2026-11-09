@@ -25,7 +25,6 @@ use kivact_interaction::{ScalarRange, use_splitter};
 /// The pixels used until the host has laid the panes out.
 const UNMEASURED: f64 = 800.0;
 
-// xtask-allow(state-fields): Setup-only NodeBuilder options; grip visibility and the edit observer are independent construction inputs.
 /// Panes separated by handles, created by [`split`].
 pub struct Split {
     root: Node,

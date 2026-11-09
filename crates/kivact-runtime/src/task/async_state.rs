@@ -63,6 +63,7 @@ pub(crate) fn cancelled(at: &'static Location<'static>) -> UiError {
 /// The only publication path for resource and action state.
 pub(crate) struct AsyncCell<T: 'static> {
     pub(super) state: crate::Signal<Rc<AsyncState<T>>>,
+    // xtask-allow(state-fields): delivery record - the value of the latest success, kept while a later run is pending or failed
     pub(super) latest: crate::Signal<Option<T>>,
 }
 impl<T: Clone + 'static> AsyncCell<T> {

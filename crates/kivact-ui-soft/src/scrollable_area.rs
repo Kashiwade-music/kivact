@@ -44,7 +44,6 @@ impl ScrollAxis {
     }
 }
 
-// xtask-allow(state-fields): Independent NodeBuilder setup options for axis, padding, bleed, and focusability.
 /// Named region with native scrolling and a tab stop when its content overflows.
 pub struct ScrollableArea {
     root: Node,

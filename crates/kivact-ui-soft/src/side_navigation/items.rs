@@ -407,7 +407,6 @@ struct ItemSlots {
     end: Option<View>,
     // xtask-allow(state-fields): Independent retained actions construction slot, without navigation state.
     actions: Option<View>,
-    // xtask-allow(state-fields): Independent retained children construction slot, without navigation state.
     children: Option<ViewFn>,
 }
 /// The collapse owner of an item that has a children factory and a collapse toggle.
@@ -483,12 +482,9 @@ struct ItemContext {
     anchor: kivact::view::NodeRef,
     popup_ref: kivact::view::NodeRef,
     label: Value<String>,
-    // xtask-allow(state-fields): Actual caller selection projection, independent of disclosure and popup phases.
     selected: Value<bool>,
-    // xtask-allow(state-fields): Actual root availability projection, never copied into mutable local state.
     disabled: Value<bool>,
     size: Value<ControlSize>,
-    // xtask-allow(state-fields): Immutable caller activation callback, independent of the navigation lifecycle.
     action: Option<Callback<()>>,
 }
 impl ItemContext {

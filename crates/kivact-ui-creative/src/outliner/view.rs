@@ -29,7 +29,6 @@ use std::rc::Rc;
 
 type CellRenderer = kivact::view::ViewFn<Value<TreeItem>>;
 
-// xtask-allow(state-fields): Builder inputs, callbacks and row options are independent construction settings; use_tree owns navigation and the reveal machine owns pending reveal.
 /// A searchable hierarchy on [`Tree`](kivact::interaction::TreeApi).
 /// It retains expansion, rename, restriction flags and drag and drop,
 /// and hosts the application's cells.
@@ -213,7 +212,6 @@ impl IntoView for Outliner {
     }
 }
 
-// xtask-allow(state-fields): Immutable row factory inputs and owner-scoped registry handles (mount tokens are a named Generation); tree, reveal (including the pressed row), rename and drag each own their transitions.
 struct RowFactory {
     by_id: Value<HashMap<u64, TreeItem>>,
     data: Value<Vec<TreeItem>>,
@@ -227,12 +225,15 @@ struct RowFactory {
     painter: super::controls::Painter,
     on_restriction: Option<Callback<EditorEvent<Restriction>>>,
     cells: Vec<(Value<f64>, CellRenderer)>,
+    // xtask-allow(state-fields): independent fact - the drop plan shared between the dragger and the rows
     plan: kivact::state::Signal<Option<Plan>>,
     active: Value<Option<u64>>,
     restrictions: Value<bool>,
+    // xtask-allow(state-fields): builder option - the row height a setter supplied
     row_height: Option<Value<f64>>,
     levels: Value<HashMap<u64, u32>>,
     item_drop: Option<Callback<TreeDrop>>,
+    // xtask-allow(state-fields): builder option - whether an activation callback was set
     has_activation: bool,
 }
 impl RowFactory {

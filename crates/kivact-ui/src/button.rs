@@ -87,17 +87,19 @@ impl Machine for BusyInput {
     }
 }
 
-// xtask-allow(state-fields): NodeBuilder configuration and optional children; busy runtime phases live in BusyPhase.
 pub struct Button {
     root: Node,
     label: Value<String>,
+    // xtask-allow(state-fields): builder option - the optional leading icon view
     icon: Option<View>,
+    // xtask-allow(state-fields): builder option - the optional trailing icon view
     trailing: Option<View>,
     children: Vec<View>,
     size: ButtonSize,
     variants: Variants,
     busy: Value<bool>,
     input: Value<PartState>,
+    // xtask-allow(state-fields): builder option - the optional reactive hide-label value
     hide_label: Option<Value<bool>>,
 }
 /// Where the button's size comes from: a default a group may replace, or

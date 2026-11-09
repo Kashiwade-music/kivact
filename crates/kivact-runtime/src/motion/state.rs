@@ -60,7 +60,6 @@ pub struct MotionStats {
     pub ticks: u64,
 }
 
-// xtask-allow(state-fields): These are independent read-only host environment sources; this bundle owns no transitions.
 /// Environment values installed at runtime construction and read untracked.
 #[derive(Clone, Copy)]
 pub struct MotionEnv {
@@ -416,13 +415,14 @@ pub(crate) enum LoopMotion {
     Essential,
 }
 
-// xtask-allow(state-fields): The run lifecycle lives in LoopState alone; the scheduling gate, the frame count, the lazily made rate memo and the motion class are independent facts of the loop.
 pub(crate) struct LoopCell {
     pub(crate) owner: Owner,
     pub(crate) f: Handler<FrameInfo>,
     pub(crate) state: Signal<LoopState>,
+    // xtask-allow(state-fields): count + gate + lazy memo (ADR-19) - frames
     pub(crate) frames: Cell<u64>,
     pub(crate) gate: Cell<LoopGate>,
+    // xtask-allow(state-fields): count + gate + lazy memo (ADR-19) - The memo `FrameLoop::rate` returns, made on its first call
     /// The memo `FrameLoop::rate` returns, made on its first call.
     pub(crate) rate: Cell<Option<crate::Value<Option<super::values::FrameRate>>>>,
     /// Set in setup by `FrameLoop::essential`.

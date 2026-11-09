@@ -12,10 +12,8 @@ pub struct Pagination {
     page: Binding<usize>,
     count: PageCount,
     siblings: Value<usize>,
-    // xtask-allow(state-fields): Independent reactive construction option controlling endpoint visibility.
     first_last: Value<bool>,
     step: Value<usize>,
-    // xtask-allow(state-fields): Caller-owned information about an unfinished remote page count.
     has_more: Value<bool>,
     // xtask-allow(state-fields): Optional caller binding for page-size selection, independent of page draft state.
     page_size: Option<Binding<u32>>,
@@ -485,9 +483,10 @@ fn dot_control(
             Handled::Yes
         })
 }
-// xtask-allow(state-fields): Independent actual presentation slots assembled once, with no page or focus state.
 struct ControlContent {
+    // xtask-allow(state-fields): passive record - summary
     summary: Option<View>,
+    // xtask-allow(state-fields): passive record - input
     input: Option<View>,
 }
 fn render_controls(
@@ -695,9 +694,10 @@ fn control_disabled(
         }
 }
 
-// xtask-allow(state-fields): Immutable rendering slots and original caller sources; no independent interaction state or cache.
 struct PageExtras {
+    // xtask-allow(state-fields): passive record - summary
     summary: Option<SummarySlot>,
+    // xtask-allow(state-fields): passive record - page size
     page_size: Option<Binding<u32>>,
     size_options: Value<Vec<u32>>,
     page_label: Value<String>,

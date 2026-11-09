@@ -12,6 +12,7 @@ use kivact_types::{Environment, PointerSettings};
 /// What the window's subclass shares with the window and the runner.
 pub(crate) struct NativeInput {
     pub(crate) ime: RefCell<arvane_shell::pipeline::ImeDriver>,
+    // xtask-allow(state-fields): independent fact - the focused text input's state as the application last set it
     /// The focused text input's state, as the application last set it.
     pub(crate) text: RefCell<Option<ShellImeText>>,
     /// Physical pixels per logical pixel of the window.
@@ -27,10 +28,12 @@ pub(crate) struct NativeInput {
     /// subclass reads it.
     #[cfg(windows)]
     pub(crate) subclass_installed: Cell<Subclass>,
+    // xtask-allow(state-fields): measurement - the system reduce-motion preference as last read
     /// The system's reduce-motion preference as last read.
     pub(crate) reduced_motion: Cell<bool>,
     /// The system's mouse settings as last read.
     pub(crate) mouse: Cell<PointerSettings>,
+    // xtask-allow(state-fields): measurement - the system locale as last read
     /// The system's locale as last read (`system_locale`).
     pub(crate) locale: RefCell<Option<String>>,
     /// The reduce-motion preference, the mouse settings or the locale
@@ -48,7 +51,6 @@ pub(crate) struct NativeInput {
     pub(crate) contacts: RefCell<Vec<ContactNote>>,
 }
 
-// xtask-allow(state-fields): Immutable platform contact snapshot; cancellation and optional pen tilt are independent reported facts.
 /// What the platform says about a touch or pen pointer that winit does
 /// not report.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -57,8 +59,10 @@ pub(crate) struct ContactNote {
     pub(crate) id: u64,
     /// Touch or pen.
     pub(crate) kind: kivact_types::PointerKind,
+    // xtask-allow(state-fields): platform snapshot - The contact ended without a release (the system took it over)
     /// The contact ended without a release (the system took it over).
     pub(crate) canceled: bool,
+    // xtask-allow(state-fields): platform snapshot - The pen's tilt (degrees along x and y), when reported
     /// The pen's tilt (degrees along x and y), when reported.
     pub(crate) tilt: Option<(f64, f64)>,
 }

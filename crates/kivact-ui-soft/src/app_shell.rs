@@ -85,9 +85,7 @@ pub struct MobileNavConfig {
     has_toggle: bool,
     // xtask-allow(state-fields): Optional caller binding to the existing drawer owner, not mirrored openness.
     open: Option<Binding<bool>>,
-    // xtask-allow(state-fields): Optional caller callback for accepted open changes.
     on_change: Option<Callback<bool>>,
-    // xtask-allow(state-fields): Optional reusable drawer content factory.
     content: Option<ViewFn>,
     // xtask-allow(state-fields): Optional viewport threshold construction configuration.
     breakpoint: Option<Breakpoint>,
@@ -163,11 +161,8 @@ impl MobileNavMode {
 pub struct AppShell {
     root: Node,
     content: View,
-    // xtask-allow(state-fields): Optional reusable top-navigation slot.
     top: Option<ViewFn>,
-    // xtask-allow(state-fields): Optional reusable side-navigation slot.
     side: Option<ViewFn>,
-    // xtask-allow(state-fields): Optional reusable banner slot.
     banner: Option<ViewFn>,
     padding: Value<Space>,
     height: Value<ShellHeight>,
@@ -326,7 +321,6 @@ impl Machine for SkipMachine {
 
 kivact::state::constant_value!(ShellHeight, ShellVariant);
 
-// xtask-allow(state-fields): Readonly construction facts, theme inputs and an observer handle to the existing mobile-navigation Machine; no lifecycle state is owned here.
 #[derive(Clone, Copy)]
 struct ShellPresentation {
     mobile: AppShellMobile,

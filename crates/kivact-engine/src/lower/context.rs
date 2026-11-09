@@ -42,7 +42,6 @@ use crate::lower::drawables::{DrawablePlan, DrawableSite};
 use crate::lower::scene_cache::{Dependency, SceneCache};
 use std::sync::Arc;
 
-// xtask-allow(state-fields): One lowering operation's own borrows, counters and site; it is not retained state, and the drawables field borrows the frame's plan.
 /// A UI-local, non-reentrant lowering operation borrowing resources and scale.
 /// Callers must not hold an overlapping resource borrow while invoking it.
 /// It records failures and drops; publishing them remains the caller's policy.
@@ -55,8 +54,10 @@ pub(crate) struct Context<'a> {
     pub(crate) dependencies: RefCell<Vec<Dependency>>,
     /// The shader clock of what is painted.
     pub(crate) time: ShaderTime,
+    // xtask-allow(state-fields): operation-scoped borrows + statistics - dropped
     dropped: Cell<u32>,
     failures: RefCell<Vec<kivact_types::Failure>>,
+    // xtask-allow(state-fields): operation-scoped borrows + statistics - The canvas drawables of the host scene being lowered, if it is one
     /// The canvas drawables of the host scene being lowered, if it is one.
     pub(crate) drawables: Option<DrawableSite<'a>>,
 }

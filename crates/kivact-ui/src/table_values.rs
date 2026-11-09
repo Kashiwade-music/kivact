@@ -11,13 +11,14 @@ pub struct DataTableGroupState {
     pub collapsed: bool,
 }
 
-// xtask-allow(state-fields): Immutable presentation descriptor; optional icon and color are independent overrides.
 /// A status announced by name and shown in the table's leading lane.
 #[derive(Clone, Debug, PartialEq)]
 pub struct RowStatus {
     pub(crate) label: String,
     pub(crate) tone: Tone,
+    // xtask-allow(state-fields): passive record - icon
     pub(crate) icon: Option<Icon>,
+    // xtask-allow(state-fields): passive record - color
     pub(crate) color: Option<Color>,
 }
 

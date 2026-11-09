@@ -59,7 +59,6 @@ pub enum RowHeight {
     Measured { estimate: f64 },
 }
 
-// xtask-allow(state-fields): These independent list construction options configure source, row rendering and focus retention.
 /// Virtualized keyed list. Built by [`virtual_list`].
 pub struct VirtualList<T: 'static, K: 'static> {
     items: InputProp<Vec<T>>,

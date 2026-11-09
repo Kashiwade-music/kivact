@@ -29,16 +29,20 @@ where
     }
 }
 
-// xtask-allow(state-fields): Immutable authoritative model handles and independent optional table capabilities, prepared once for composition.
 struct ModelPlan<R: 'static, K: 'static> {
     model: kivact_interaction::DataTableModelApi<R, K, usize>,
+    // xtask-allow(state-fields): passive record - tree
     tree: Option<super::tree::Plan<K>>,
+    // xtask-allow(state-fields): passive record - page
     page: Option<super::types::Paging>,
+    // xtask-allow(state-fields): passive record - page size
     page_size: Option<Binding<usize>>,
+    // xtask-allow(state-fields): passive record - groups
     groups: Option<super::grouped::Plan<R>>,
     display: kivact_core::state::Value<Vec<R>>,
     page_rows: kivact_core::state::Value<Vec<R>>,
     shown: kivact_core::state::Value<Vec<kivact_interaction::ColumnDef<R, usize>>>,
+    // xtask-allow(state-fields): passive record - grouping key
     grouping_key: Option<super::types::Key<R, String>>,
 }
 struct NavigationPlan<R: 'static, K: kivact_core::state::ItemKey> {

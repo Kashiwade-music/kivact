@@ -194,6 +194,13 @@ wrapper's job.
   as `Unsupported`.
 - **Close.** There is no close button to react to. The wrapper drops the editor when the
   host closes the window.
+- **One window.** The host owns the one window the editor occupies.
+  `platform::capabilities().get().multi_window` is false, and a `window` declaration
+  reports `ErrorKind::Unsupported` and stays closed (see
+  [Where windows are not available](windows.md#where-windows-are-not-available)).
+- **No input injection.** DevTools can inspect the editor, but `inject_input` is
+  refused with `UNSUPPORTED` (-32015); the embed ports keep their own input
+  state.
 - **Keys.** The editor receives the keys the host's window gives it. Keys the editor does
   not handle are not returned to the host, and Kivact has no workaround for a host that
   steals keys such as Space before the editor sees them.
@@ -417,6 +424,8 @@ drop(editor);
 | File and folder dialogs | yes | yes (the child window is the dialog's parent) |
 | Dropping files on the editor | yes, drop only (no hover or cancel) | yes (XDND), drop only |
 | Touch and pen | no | no |
+| Additional windows | no | no |
+| DevTools input injection | no (`UNSUPPORTED`) | no (`UNSUPPORTED`) |
 | Fullscreen, window title | no effect | no effect |
 | Largest size (physical) | `i32::MAX` | `u16::MAX` |
 | macOS (NSView) | not supported | |

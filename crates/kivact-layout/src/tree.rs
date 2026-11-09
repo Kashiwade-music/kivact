@@ -51,7 +51,6 @@ use taffy::{
     ResolveOrZero, RoundTree, RunMode, TraversePartialTree, TraverseTree,
 };
 
-// xtask-allow(state-fields): One computation borrows independent geometry and measurement caches; no application lifecycle is stored (S-9).
 struct LayoutPass<'a, Tree: LayoutTree + ?Sized> {
     tree: &'a Tree,
     traversal: Traversal<'a, Tree>,

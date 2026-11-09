@@ -45,11 +45,9 @@ pub(super) struct State<K: kivact_core::state::ItemKey> {
     pub(super) order: Value<Order<K>>,
     pub(super) selection: Selection<K>,
     pub(super) selected: Value<Vec<K>>,
-    // xtask-allow(state-fields): Read-only projection of the caller-owned range anchor.
     pub(super) anchor_value: Value<Option<K>>,
     /// The mounted items, the requested key and the focus bookkeeping.
     pub(super) roving: Roving<K>,
-    // xtask-allow(state-fields): Pure derived tab stop, never independently written.
     pub(super) active: Value<Option<K>>,
     /// What choosing an item does; fixed by `use_list`.
     pub(super) mode: ListMode,

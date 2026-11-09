@@ -327,7 +327,6 @@ fn gallery_image(
     transform: Binding<ViewTransform>,
     zoomed: impl Fn() -> bool + Copy + 'static,
     set_zoom: impl Fn(bool) + Copy + 'static,
-    // xtask-allow(state-fields): Fixed zoom capability chosen during setup.
     zoom: bool,
     zoom_behavior: kivact::interaction::ZoomPanApi,
 ) -> Node {
@@ -398,7 +397,6 @@ fn gallery_image(
 
 fn gallery_key(
     event: kivact::view::KeyEvent,
-    // xtask-allow(state-fields): Fixed zoom capability chosen during setup.
     zoom: bool,
     zoomed: impl Fn() -> bool,
     set_zoom: impl Fn(bool),

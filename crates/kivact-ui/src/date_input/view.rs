@@ -439,12 +439,13 @@ fn date_picker(
 }
 
 type DateFormat = Rc<dyn Fn(CalendarDate) -> String>;
-// xtask-allow(state-fields): Independent text-editor construction inputs and caller-owned semantic references; typed-date lifecycle belongs to its machine.
 struct EditorInputs {
     label: Value<String>,
     placeholder: Value<String>,
     value: Binding<Option<CalendarDate>>,
+    // xtask-allow(state-fields): caller binding - custom format
     custom_format: Option<DateFormat>,
+    // xtask-allow(state-fields): caller binding - external invalid
     external_invalid: Option<Value<bool>>,
     described_by: Vec<kivact_core::view::NodeRef>,
 }

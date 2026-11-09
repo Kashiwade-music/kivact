@@ -10,7 +10,6 @@ use kivact_core::view::{
 pub use kivact_interaction::Snap;
 
 use kivact_interaction::use_carousel;
-// xtask-allow(state-fields): Independent setup-only NodeBuilder options; navigation and settling live in CarouselState.
 /// A slide viewport and previous/next controls.
 pub struct Carousel {
     root: Node,
@@ -20,9 +19,13 @@ pub struct Carousel {
     orientation: Value<Orientation>,
     snap: Value<Snap>,
     mode: CarouselMode,
+    // xtask-allow(state-fields): builder option - looping
     looping: bool,
+    // xtask-allow(state-fields): builder option - per view
     per_view: Option<Value<f64>>,
+    // xtask-allow(state-fields): builder option - gap
     gap: Option<Value<f64>>,
+    // xtask-allow(state-fields): builder option - padding
     padding: Option<Value<f64>>,
     buttons: Value<bool>,
     edge_fade: Value<bool>,
@@ -136,12 +139,12 @@ impl IntoView for Carousel {
         .into_view()
     }
 }
-// xtask-allow(state-fields): Immutable construction settings and actual layout/interaction handles; CarouselApi owns all navigation and settling state.
 #[derive(Clone, Copy)]
 struct Layout {
     api: kivact_interaction::CarouselApi,
     navigation: Value<kivact_interaction::CarouselState>,
     mode: CarouselMode,
+    // xtask-allow(state-fields): passive record - looping
     looping: bool,
     snap: Value<Snap>,
     vertical: Value<bool>,
@@ -155,8 +158,11 @@ struct Layout {
     disabled: Value<bool>,
     buttons: Value<bool>,
     edge_fade: Value<bool>,
+    // xtask-allow(state-fields): passive record - per view
     per_view: Option<Value<f64>>,
+    // xtask-allow(state-fields): passive record - gap
     gap: Option<Value<f64>>,
+    // xtask-allow(state-fields): passive record - padding
     padding: Option<Value<f64>>,
 }
 impl Layout {

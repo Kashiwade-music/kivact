@@ -69,12 +69,14 @@ pub(super) enum Event {
     /// The months a swipe turned to are mounted.
     Entered,
 }
-// xtask-allow(state-fields): independent per-transition inputs read from the reading direction, the clock and the date bounds.
 pub(super) struct SwipeSnapshot {
+    // xtask-allow(state-fields): passive record - rtl
     pub(super) rtl: bool,
     pub(super) now: u64,
+    // xtask-allow(state-fields): passive record - The first shown month is the earliest the bounds allow
     /// The first shown month is the earliest the bounds allow.
     pub(super) at_min: bool,
+    // xtask-allow(state-fields): passive record - The first shown month is the latest the bounds allow
     /// The first shown month is the latest the bounds allow.
     pub(super) at_max: bool,
 }

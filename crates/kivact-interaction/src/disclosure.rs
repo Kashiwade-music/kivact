@@ -51,7 +51,9 @@ pub struct DisclosureApi {
     pub(crate) open: Binding<bool>,
     /// The shown state: the requested state.
     shown: Value<bool>,
+    // xtask-allow(state-fields): independent fact - the observation of the attached trigger part, absent until it attaches
     trigger_state: Signal<Option<Value<DisclosureState>>>,
+    // xtask-allow(state-fields): independent fact - the observation of the attached content part, absent until it attaches
     content_state: Signal<Option<Value<DisclosureState>>>,
     settings: OptionsCell<DisclosureOptions>,
     /// The disabled state each mounted trigger received from its caller;

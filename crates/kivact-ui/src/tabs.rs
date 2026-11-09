@@ -24,7 +24,6 @@ use std::rc::Rc;
 /// What a tab shows, from its item and its state.
 type TabContent<K> = kivact_core::view::ViewFn<(Value<ListItem<K>>, Value<TabState>)>;
 
-// xtask-allow(state-fields): Optional panel, item and activation configuration; selection and focus belong to TabListApi.
 pub struct Tabs<K: kivact_core::state::ItemKey> {
     root: Node,
     options: Value<Vec<ListItem<K>>>,
@@ -32,9 +31,11 @@ pub struct Tabs<K: kivact_core::state::ItemKey> {
     on_edit: Option<kivact_core::state::Callback<kivact_core::view::EditPhase>>,
     activation: ListActivation,
     orientation: Orientation,
+    // xtask-allow(state-fields): builder option - item
     item: Option<TabContent<K>>,
     content: Option<kivact_core::view::ViewFn<K>>,
     variants: Variants,
+    // xtask-allow(state-fields): builder option - keep mounted
     keep_mounted: bool,
 }
 /// A themed tab list whose selected key is `binding`; give it

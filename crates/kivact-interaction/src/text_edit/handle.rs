@@ -496,6 +496,7 @@ struct TextEditOptions {
 }
 
 struct Data {
+    // xtask-allow(state-fields): independent fact - the observation of the attached control part, absent until it attaches
     observed: Signal<Option<Value<PartState>>>,
     binding: Binding<String>,
     lines: Lines,

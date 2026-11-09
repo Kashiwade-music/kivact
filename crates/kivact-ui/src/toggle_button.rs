@@ -80,7 +80,6 @@ fn toggle_label(
     .into_view()
 }
 
-// xtask-allow(state-fields): Independent builder labels, enabled/busy inputs and optional edit callback; checked value belongs to the caller binding.
 /// A button that stays pressed, created by [`toggle_button`]. Its behavior and
 /// semantics are those of [`use_toggle_button`].
 pub struct ToggleButton {
@@ -88,7 +87,9 @@ pub struct ToggleButton {
     label: Value<String>,
     pressed: Binding<bool>,
     on_edit: Option<kivact_core::state::Callback<kivact_core::view::EditPhase>>,
+    // xtask-allow(state-fields): builder option - icon
     icon: Option<View>,
+    // xtask-allow(state-fields): builder option - hide label
     hide_label: Option<Value<bool>>,
     size: Value<ControlSize>,
     variants: Variants,

@@ -23,9 +23,7 @@ pub struct ToggleGroup<K: ItemKey> {
     size: Value<ControlSize>,
     // xtask-allow(state-fields): Independent presentation or construction input, not interaction state.
     spacing: Option<Value<f64>>,
-    // xtask-allow(state-fields): Independent presentation or construction input, not interaction state.
     icon_only: Value<bool>,
-    // xtask-allow(state-fields): Independent presentation or construction input, not interaction state.
     on_edit: Option<Callback<EditPhase>>,
     // xtask-allow(state-fields): Independent presentation or construction input, not interaction state.
     item: Option<ToggleItemSlot<K>>,

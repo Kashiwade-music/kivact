@@ -56,7 +56,6 @@ pub(crate) fn classify_scroll(report: ScrollState) -> super::node_status_data::S
 
 type SecondaryContextHandler = Handler<PointerEvent>;
 
-// xtask-allow(state-fields): independent optional handlers, one per event kind; absence means no subscription.
 /// Event handlers of one host node.
 ///
 /// The key, key release, pointer, wheel and file handlers are one layered
@@ -74,6 +73,7 @@ pub(crate) struct Handlers {
     pub key_up: EventHandlers<KeyEvent>,
     /// Pointer handlers.
     pub pointer: EventHandlers<PointerEvent>,
+    // xtask-allow(state-fields): optional subscriptions (builder) - Fallback for an unclaimed secondary button event in this subtree
     /// Fallback for an unclaimed secondary button event in this subtree.
     pub secondary_context: Option<SecondaryContextHandler>,
     /// Wheel handlers.
@@ -85,6 +85,7 @@ pub(crate) struct Handlers {
     pub a11y: Vec<(A11yAction, Handler<crate::view::A11yEvent>)>,
     /// Text edits of a TextInput.
     pub text: Option<Handler<crate::view::editing_data::TextEditEvent>>,
+    // xtask-allow(state-fields): optional subscriptions (builder) - Session changes of a TextInput (`TextEditing::on_selection_change`)
     /// Session changes of a TextInput (`TextEditing::on_selection_change`).
     pub selection: Option<crate::view::editing_data::SessionHandler>,
     pub edit_phase: Option<Handler<crate::view::EditPhase>>,
@@ -182,7 +183,6 @@ impl Handlers {
     }
 }
 
-// xtask-allow(state-fields): independent optional action defaults, composed independently by event kind.
 /// The activation, text and accessibility-action defaults of the parts
 /// attached to a node or a canvas region, composed in attachment order (an
 /// earlier part runs first, and its error stops the later ones). These kinds
@@ -280,7 +280,6 @@ pub(crate) struct Removed {
     )]
     records: Vec<CoreNode>,
 }
-// xtask-allow(state-fields): independent core resources; each optional subscription or callback is allocated only when requested.
 /// One node of the retained tree (host node or fragment): only what the
 /// engine cannot hold. Everything the engine knows about a host node (its
 /// props, rect, test id, whether its layout is observed) is read through
@@ -289,6 +288,7 @@ pub(crate) struct CoreNode {
     pub(crate) references: Vec<Signal<crate::view::ref_data::RefState>>,
     /// Owner whose disposal removes the node.
     pub owner: Owner,
+    // xtask-allow(state-fields): independent per-node resources - Where the builder of a host node was called (`#[track_caller]` of `node()`, `text(..)`, `button(..)`, ...)
     /// Where the builder of a host node was called (`#[track_caller]` of
     /// `node()`, `text(..)`, `button(..)`, ...). `None` for the root, for
     /// fragments, for the wrappers a builder adds (stack layers, list rows)
@@ -296,12 +296,15 @@ pub(crate) struct CoreNode {
     /// their nearest located ancestor. Snapshots and diagnostics name nodes
     /// by it.
     pub at: Option<&'static Location<'static>>,
+    // xtask-allow(state-fields): independent per-node resources - Event handlers, if any
     /// Event handlers, if any.
     pub handlers: Option<Box<Handlers>>,
     pub(crate) exit_layout: crate::view::ExitLayout,
     pub(crate) exit_complete: Option<kivact_runtime::Handler<()>>,
+    // xtask-allow(state-fields): independent per-node resources - The graph sources node references read (`ViewNodes::observe_node`)
     /// The graph sources node references read (`ViewNodes::observe_node`).
     pub(crate) observation: Option<NodeObservation>,
+    // xtask-allow(state-fields): independent per-node resources - Created only when a reference observes this node's lifetime
     /// Created only when a reference observes this node's lifetime.
     pub(crate) presence: Option<Signal<kivact_types::Presence>>,
     /// The effect that last set each dynamic prop (diagnostics::why).

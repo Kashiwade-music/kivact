@@ -16,7 +16,6 @@ use crate::sync::Inbox;
 use kivact_runtime::spawn_in;
 use kivact_style::draw::{GpuFrame, Pixels};
 
-// xtask-allow(state-fields): GPU import and the last CPU image are independently retained outputs; CPU pixels remain available across GPU renewal.
 /// An image an engine on another thread shares with the UI
 /// ([`shared_image`]): the UI thread's handle, `Clone` and `!Send`.
 ///
@@ -29,8 +28,10 @@ pub struct SharedImage {
     /// Notified after each change of `state` the UI makes or takes from the
     /// engine (the receiving task): [`SharedImage::status`] tracks it.
     changed: Notifier,
+    // xtask-allow(state-fields): independent retained outputs (latest delivery) - The import of the newest request, once the engine provided it
     /// The import of the newest request, once the engine provided it.
     current: Signal<Option<Current>>,
+    // xtask-allow(state-fields): independent retained outputs (latest delivery) - pixels
     pixels: Signal<Option<Pixels>>,
     size: Signal<(u32, u32)>,
 }

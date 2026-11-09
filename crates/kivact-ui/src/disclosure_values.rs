@@ -7,12 +7,13 @@ pub struct DisclosureGroupPosition {
     /// Number of panels in the group.
     pub count: usize,
 }
-// xtask-allow(state-fields): Passive recipe projection of actual interaction state and immutable group position; owns no lifecycle or selection authority.
 /// Actual disclosure state with optional group geometry for theme decoration.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct DisclosureRecipeState {
     pub input: kivact_core::custom::PartState,
+    // xtask-allow(state-fields): passive record - open
     pub open: bool,
+    // xtask-allow(state-fields): passive record - group
     pub group: Option<DisclosureGroupPosition>,
 }
 impl DisclosureRecipeState {

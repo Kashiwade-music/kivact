@@ -147,7 +147,6 @@ impl Site {
 // ---------------------------------------------------------------------------
 // show
 
-// xtask-allow(state-fields): The condition source and optional fallback are independent view construction inputs.
 /// Conditional view. Built by [`show`].
 pub struct Show {
     pub(crate) when: InputProp<bool>,
@@ -325,7 +324,6 @@ impl IntoView for Show {
 // ---------------------------------------------------------------------------
 // show_some
 
-// xtask-allow(state-fields): The optional-value source and optional fallback are independent view construction inputs.
 /// View for `Some` values. Built by [`show_some`].
 pub struct ShowSome<T: 'static> {
     pub(crate) value: InputProp<Option<T>>,

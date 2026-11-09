@@ -15,7 +15,6 @@ enum AvatarStatusSource {
     None,
     Mounted { label: Value<Option<String>> },
 }
-// xtask-allow(state-fields): Builder inputs and optional content are independent configuration; image state belongs to NodeRef.
 pub struct Avatar {
     root: Node,
     name: Value<String>,
@@ -25,7 +24,9 @@ pub struct Avatar {
     size: Value<ControlSize>,
     shape: Value<AvatarShape>,
     status: Value<Option<Tone>>,
+    // xtask-allow(state-fields): builder option - status content
     status_content: Option<View>,
+    // xtask-allow(state-fields): builder option - name tooltip
     name_tooltip: Option<Value<bool>>,
     variants: Variants,
 }

@@ -145,7 +145,6 @@ pub struct PlatformTree {
     shared: Arc<Mutex<Shared>>,
 }
 
-// xtask-allow(state-fields): Borrowed conversion snapshot; optional focus and inclusion of all text runs are independent update facts.
 /// The current semantics selected for one platform update, borrowed under lock.
 ///
 /// Node references come from the current accepted tree, never an earlier update.
@@ -153,9 +152,11 @@ pub struct PlatformTree {
 /// update separately carries only the text runs that changed.
 pub struct PlatformUpdate<'a> {
     tree: &'a state::AcceptedTree,
+    // xtask-allow(state-fields): borrowed snapshot - focus
     focus: Option<SemanticsId>,
     nodes: Vec<&'a kivact_types::render::SemanticsNode>,
     runs: &'a [Arc<SemanticsTextRun>],
+    // xtask-allow(state-fields): borrowed snapshot - all runs
     all_runs: bool,
     scale: f64,
 }

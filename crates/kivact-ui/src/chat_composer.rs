@@ -8,7 +8,6 @@ use kivact_core::view::{
     Handled, HandlerResult, IntoView, Key, KeyEvent, Modifiers, Node, NodeBuilder, Role, View,
     node, node_ref, text,
 };
-// xtask-allow(state-fields): Independent draft binding, diagnostic inputs and slots; History owns recall and shared native editing owns the draft session.
 /// A multiline draft with independent action slots and optional submission history.
 pub struct ChatComposer {
     root: Node,
@@ -20,12 +19,19 @@ pub struct ChatComposer {
     history: Value<bool>,
     status: Value<Option<ComposerStatus>>,
     status_position: Value<ComposerStatusPosition>,
+    // xtask-allow(state-fields): builder option - drawer
     drawer: Option<View>,
+    // xtask-allow(state-fields): builder option - header actions
     header_actions: Option<View>,
+    // xtask-allow(state-fields): builder option - header context
     header_context: Option<View>,
+    // xtask-allow(state-fields): builder option - footer actions
     footer_actions: Option<View>,
+    // xtask-allow(state-fields): builder option - send actions
     send_actions: Option<View>,
+    // xtask-allow(state-fields): builder option - send icon
     send_icon: Option<View>,
+    // xtask-allow(state-fields): builder option - stop icon
     stop_icon: Option<View>,
     variants: Variants,
 }

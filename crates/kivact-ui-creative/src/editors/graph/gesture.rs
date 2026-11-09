@@ -73,7 +73,6 @@ pub(crate) struct Gesture {
 #[derive(Clone, Copy)]
 pub(crate) struct State {
     pub(crate) curves: Value<Vec<Curve>>,
-    // xtask-allow(state-fields): Bindings, reactive options and keyboard targets are independent of the gesture lifecycle owned by DecisionMachine.
     pub(crate) on_edit: Option<Callback<crate::editors::shared::model::EditorEvent<GraphRequest>>>,
     pub(crate) view: Binding<GraphView>,
     pub(crate) selected: Binding<Vec<u64>>,
@@ -82,10 +81,8 @@ pub(crate) struct State {
     pub(crate) scene: Value<Result<Rc<Scene<Target>>, UiError>>,
     pub(crate) choose: ListApi<u64>,
     pub(crate) size: Value<Size>,
-    // xtask-allow(state-fields): Bindings, reactive options and keyboard targets are independent of the gesture lifecycle owned by DecisionMachine.
     pub(crate) snap: Value<bool>,
     pub(crate) step: (Value<f64>, Value<f64>),
-    // xtask-allow(state-fields): Bindings, reactive options and keyboard targets are independent of the gesture lifecycle owned by DecisionMachine.
     pub(crate) press:
         crate::editors::shared::gesture::CanvasGesture<Target, Option<Gesture>, Snapshot>,
     /// The editor's drag, without the callbacks its sources carry
@@ -96,11 +93,8 @@ pub(crate) struct State {
     pub(crate) active: Signal<Option<Target>>,
     /// Space held on the focused editor: the next primary drag pans.
     pub(crate) space: SpacePanApi,
-    // xtask-allow(state-fields): Bindings, reactive options and keyboard targets are independent of the gesture lifecycle owned by DecisionMachine.
     pub(crate) lane_activate: Option<Callback<u64>>,
-    // xtask-allow(state-fields): Bindings, reactive options and keyboard targets are independent of the gesture lifecycle owned by DecisionMachine.
     pub(crate) item_activate: Option<Callback<u64>>,
-    // xtask-allow(state-fields): Bindings, reactive options and keyboard targets are independent of the gesture lifecycle owned by DecisionMachine.
     pub(crate) child_focus: Value<bool>,
     pub(crate) context: Signal<EditorContext>,
 }

@@ -13,12 +13,13 @@ use kivact_core::view::{
 };
 use kivact_interaction::{CopyFeedbackApi, DisclosureApi, use_copy_feedback, use_disclosure};
 use std::time::Duration;
-// xtask-allow(state-fields): Independent builder inputs and slots; native editing, use_disclosure and use_copy_feedback own interaction state.
 /// A read-only multiline editor and its header, gutter and footer.
 pub struct CodeBlock {
     root: Node,
     code: Value<String>,
+    // xtask-allow(state-fields): builder option - title
     title: Option<Value<String>>,
+    // xtask-allow(state-fields): builder option - language
     language: Option<Value<String>>,
     language_label: Value<bool>,
     line_numbers: Value<bool>,
@@ -26,13 +27,18 @@ pub struct CodeBlock {
     diff: Value<bool>,
     copy_button: Value<bool>,
     on_copy: Option<Callback<()>>,
+    // xtask-allow(state-fields): builder option - end content
     end_content: Option<View>,
+    // xtask-allow(state-fields): builder option - footer
     footer: Option<View>,
     wrap: Value<bool>,
+    // xtask-allow(state-fields): builder option - max height
     max_height: Option<Value<Length>>,
     collapsible: Value<bool>,
     collapsible_threshold: Value<usize>,
+    // xtask-allow(state-fields): builder option - expanded
     expanded: Option<Binding<bool>>,
+    // xtask-allow(state-fields): builder option - highlight
     highlight: Option<Highlight>,
     variants: Variants,
 }
@@ -183,13 +189,14 @@ struct CodePresentation {
     can_collapse: Value<bool>,
     feedback: CopyFeedbackApi,
 }
-// xtask-allow(state-fields): Read-only source and formatting inputs rebuild the native editor on each disclosure opening; no interaction phase is stored here.
 /// Inputs consumed together when constructing the one native source editor.
 struct CodeSource {
     code: Value<String>,
+    // xtask-allow(state-fields): passive record - highlight
     highlight: Option<Highlight>,
     highlight_lines: Value<Vec<u32>>,
     diff: Value<bool>,
+    // xtask-allow(state-fields): passive record - max height
     max_height: Option<Value<Length>>,
 }
 impl CodeBlock {

@@ -255,33 +255,55 @@ impl From<&str> for FontFeature {
     }
 }
 
-// xtask-allow(state-fields): Independent authored text properties use None for unspecified cascading values.
 /// The text properties of a style that are rare enough to keep out of
 /// line (boxed in `Style`).
 #[derive(Clone, Debug, PartialEq, Default)]
 pub(crate) struct TextExtras {
+    // xtask-allow(state-fields): passive record - letter spacing
     pub(crate) letter_spacing: Option<TextLength>,
+    // xtask-allow(state-fields): passive record - word spacing
     pub(crate) word_spacing: Option<TextLength>,
+    // xtask-allow(state-fields): passive record - kerning
     pub(crate) kerning: Option<FontKerning>,
+    // xtask-allow(state-fields): passive record - features
     pub(crate) features: Option<Vec<FontFeature>>,
+    // xtask-allow(state-fields): passive record - tabular nums
     pub(crate) tabular_nums: Option<bool>,
+    // xtask-allow(state-fields): passive record - decoration line
     pub(crate) decoration_line: Option<TextDecorationLine>,
+    // xtask-allow(state-fields): passive record - decoration style
     pub(crate) decoration_style: Option<DecorationStyleValue>,
+    // xtask-allow(state-fields): passive record - decoration color
     pub(crate) decoration_color: Option<Color>,
+    // xtask-allow(state-fields): passive record - decoration thickness
     pub(crate) decoration_thickness: Option<TextLength>,
+    // xtask-allow(state-fields): passive record - underline offset
     pub(crate) underline_offset: Option<TextLength>,
+    // xtask-allow(state-fields): passive record - overflow
     pub(crate) overflow: Option<TextOverflow>,
+    // xtask-allow(state-fields): passive record - line clamp
     pub(crate) line_clamp: Option<u32>,
+    // xtask-allow(state-fields): passive record - capsize
     pub(crate) capsize: Option<bool>,
+    // xtask-allow(state-fields): passive record - transform
     pub(crate) transform: Option<TextTransform>,
+    // xtask-allow(state-fields): passive record - shadows
     pub(crate) shadows: Option<Vec<Shadow>>,
+    // xtask-allow(state-fields): passive record - caret color
     pub(crate) caret_color: Option<Color>,
+    // xtask-allow(state-fields): passive record - selection color
     pub(crate) selection_color: Option<Color>,
+    // xtask-allow(state-fields): passive record - placeholder color
     pub(crate) placeholder_color: Option<Color>,
+    // xtask-allow(state-fields): passive record - stroke
     pub(crate) stroke: Option<(TextLength, Color)>,
+    // xtask-allow(state-fields): passive record - paint order
     pub(crate) paint_order: Option<PaintOrder>,
+    // xtask-allow(state-fields): passive record - variations
     pub(crate) variations: Option<Vec<FontVariation>>,
+    // xtask-allow(state-fields): passive record - optical sizing
     pub(crate) optical_sizing: Option<bool>,
+    // xtask-allow(state-fields): passive record - font width
     pub(crate) font_width: Option<f64>,
 }
 
@@ -440,47 +462,64 @@ pub(crate) fn resolve_extras(t: &mut p::TextStyle, x: &TextExtras, theme: &Theme
     dropped
 }
 
-// xtask-allow(state-fields): Independent authored span overrides use None to inherit their paragraph properties.
 /// The text properties of one span of rich text; each one is optional and an
 /// unset one is the paragraph's. A span's decoration lines and features
 /// replace the paragraph's. The `Span` builders of `kivact::view` fill
 /// it, and [`crate::internal::compile_span_style`] turns it into the engine's form.
 #[derive(Clone, Debug, PartialEq, Default)]
 pub struct SpanStyle {
+    // xtask-allow(state-fields): passive record - Font size in logical px
     /// Font size in logical px.
     pub font_size: Option<f64>,
+    // xtask-allow(state-fields): passive record - Font weight
     /// Font weight.
     pub weight: Option<u16>,
+    // xtask-allow(state-fields): passive record - Color of the glyphs
     /// Color of the glyphs.
     pub color: Option<Color>,
+    // xtask-allow(state-fields): passive record - Font family: a name, a generic family or an ordered list
     /// Font family: a name, a generic family or an ordered list.
     pub family: Option<String>,
+    // xtask-allow(state-fields): passive record - Italic, or upright with `false`
     /// Italic, or upright with `false`.
     pub italic: Option<bool>,
+    // xtask-allow(state-fields): passive record - Space after each character
     /// Space after each character.
     pub letter_spacing: Option<TextLength>,
+    // xtask-allow(state-fields): passive record - Space after each word
     /// Space after each word.
     pub word_spacing: Option<TextLength>,
+    // xtask-allow(state-fields): passive record - Pair kerning
     /// Pair kerning.
     pub kerning: Option<FontKerning>,
+    // xtask-allow(state-fields): passive record - OpenType features replacing the paragraph's
     /// OpenType features replacing the paragraph's.
     pub features: Option<Vec<FontFeature>>,
+    // xtask-allow(state-fields): passive record - Tabular figures (adds the `tnum` feature when `true`)
     /// Tabular figures (adds the `tnum` feature when `true`).
     pub tabular_nums: Option<bool>,
+    // xtask-allow(state-fields): passive record - Decoration lines replacing the paragraph's
     /// Decoration lines replacing the paragraph's.
     pub decoration_line: Option<TextDecorationLine>,
+    // xtask-allow(state-fields): passive record - Decoration color (default: the text color)
     /// Decoration color (default: the text color).
     pub decoration_color: Option<Color>,
+    // xtask-allow(state-fields): passive record - Decoration thickness
     /// Decoration thickness.
     pub decoration_thickness: Option<TextLength>,
+    // xtask-allow(state-fields): passive record - Underline offset from its normal place
     /// Underline offset from its normal place.
     pub underline_offset: Option<TextLength>,
+    // xtask-allow(state-fields): passive record - A band behind the glyphs on each line the span is on
     /// A band behind the glyphs on each line the span is on.
     pub background: Option<Paint>,
+    // xtask-allow(state-fields): passive record - OpenType variation axis settings replacing the paragraph's
     /// OpenType variation axis settings replacing the paragraph's.
     pub variations: Option<Vec<FontVariation>>,
+    // xtask-allow(state-fields): passive record - CSS font-width (font-stretch) in percent, 50 to 200
     /// CSS font-width (font-stretch) in percent, 50 to 200.
     pub font_width: Option<f64>,
+    // xtask-allow(state-fields): passive record - Outline of its glyphs (CSS `-webkit-text-stroke`): width and color
     /// Outline of its glyphs (CSS `-webkit-text-stroke`): width and color.
     pub stroke: Option<(TextLength, Color)>,
 }
@@ -529,22 +568,25 @@ impl PartialEq for DecorationStyleValue {
     }
 }
 
-// xtask-allow(state-fields): Foreground, background and decoration independently override one byte range.
 /// Paint overrides for a UTF-8 byte range within one editing line.
 #[derive(Clone, Debug, PartialEq)]
 pub struct StyledRange {
     pub range: std::ops::Range<usize>,
+    // xtask-allow(state-fields): passive record - color
     pub color: Option<Color>,
+    // xtask-allow(state-fields): passive record - background
     pub background: Option<Color>,
+    // xtask-allow(state-fields): passive record - decoration
     pub decoration: Option<TextDecoration>,
 }
 
-// xtask-allow(state-fields): Color and thickness are independently optional authored decoration properties.
 /// Lines, pattern and dimensions of a text decoration.
 #[derive(Clone, Copy, Debug, PartialEq, Default)]
 pub struct TextDecoration {
     pub lines: TextDecorationLine,
+    // xtask-allow(state-fields): passive record - color
     pub color: Option<Color>,
+    // xtask-allow(state-fields): passive record - thickness
     pub thickness: Option<TextLength>,
     pub underline_offset: TextLength,
     pub style: TextDecorationStyle,

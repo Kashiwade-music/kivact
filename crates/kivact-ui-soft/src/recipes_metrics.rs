@@ -56,11 +56,12 @@ pub enum LabelPosition {
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct MetadataLook(Option<kivact::state::Value<MetadataAppearance>>);
 
-// xtask-allow(state-fields): Immutable visual layout inputs (columns, label placement/width and orientation), not runtime lifecycle state.
 #[derive(Clone, Copy, Debug, PartialEq)]
 struct MetadataAppearance {
     columns: MetadataColumns,
+    // xtask-allow(state-fields): builder option - position
     position: Option<LabelPosition>,
+    // xtask-allow(state-fields): builder option - width
     width: Option<f64>,
     orientation: kivact::view::Orientation,
 }

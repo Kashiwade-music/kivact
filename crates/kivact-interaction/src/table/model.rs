@@ -50,7 +50,6 @@ impl FilterValue {
     }
 }
 
-// xtask-allow(state-fields): Immutable column configuration; independent optional render, filter, comparison, and sizing capabilities.
 /// One column of a table: its key, label and starting width, how its rows
 /// compare and match a filter (TanStack DataTableApi's column definition), and
 /// whether it is shown.
@@ -63,10 +62,15 @@ impl FilterValue {
 pub struct ColumnDef<R, C> {
     key: C,
     label: Reactive<String>,
+    // xtask-allow(state-fields): builder option - width
     width: Option<f64>,
+    // xtask-allow(state-fields): builder option - min width
     pub(super) min_width: Option<f64>,
+    // xtask-allow(state-fields): builder option - compare
     compare: Option<Compare<R>>,
+    // xtask-allow(state-fields): builder option - matches
     matches: Option<Matches<R>>,
+    // xtask-allow(state-fields): builder option - matches value
     matches_value: Option<MatchesValue<R>>,
     visible: Reactive<bool>,
 }
@@ -293,11 +297,17 @@ pub struct DataTableModelApi<R: 'static, K: 'static, C: 'static> {
     columns: Value<Vec<ColumnDef<R, C>>>,
     count: Value<usize>,
     pages: Value<usize>,
+    // xtask-allow(state-fields): builder option - the sort order a setter supplied, absent until set
     sort: Signal<Option<Sort<C>>>,
+    // xtask-allow(state-fields): builder option - the text query a setter supplied, absent until set
     query: Signal<Option<Value<String>>>,
+    // xtask-allow(state-fields): builder option - the column queries a setter supplied, absent until set
     column_queries: Signal<Option<ColumnQueries<C>>>,
+    // xtask-allow(state-fields): builder option - the row arrangement a setter supplied, absent until set
     arrangement: Signal<Option<RowArrangement<R>>>,
+    // xtask-allow(state-fields): builder option - the typed queries a setter supplied, absent until set
     typed_queries: Signal<Option<TypedQueries<C>>>,
+    // xtask-allow(state-fields): builder option - the paging a setter supplied, absent until set
     paging: Signal<Option<Paging>>,
 }
 

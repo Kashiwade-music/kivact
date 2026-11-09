@@ -27,12 +27,10 @@ pub(crate) struct TimeEditor<T: TimeItem> {
     pub(crate) state: crate::TimeState,
     // xtask-allow(state-fields): Independent setup options and callback; this builder owns no gesture lifecycle.
     pub(crate) lanes: Option<Value<Vec<Lane>>>,
-    // xtask-allow(state-fields): Independent setup options and callback; this builder owns no gesture lifecycle.
     pub(crate) snap: Value<bool>,
     pub(crate) step: Value<f64>,
     pub(crate) ruler: Ruler,
     pub(crate) lane_height: f64,
-    // xtask-allow(state-fields): Independent setup options and callback; this builder owns no gesture lifecycle.
     pub(crate) on_edit: Option<
         Callback<
             crate::editors::shared::model::EditorEvent<crate::editors::time::model::TimeRequest>,

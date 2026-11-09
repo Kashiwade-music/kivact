@@ -90,28 +90,37 @@ impl Writes {
     }
 }
 
-// xtask-allow(state-fields): Independent property-impact facts describe a write; every combination is meaningful and no transition state is stored.
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(crate) struct Mutation {
+    // xtask-allow(state-fields): report value - The layout style is built again (and a layout pass runs)
     /// The layout style is built again (and a layout pass runs).
     pub(super) style: bool,
+    // xtask-allow(state-fields): report value - The node is measured again
     /// The node is measured again.
     pub(super) measure: bool,
+    // xtask-allow(state-fields): report value - An inherited text style: the texts, text inputs and images below are measured or drawn again
     /// An inherited text style: the texts, text inputs and images below
     /// are measured or drawn again.
     pub(super) text: bool,
+    // xtask-allow(state-fields): report value - Its transform or z-index may have moved it without a layout
     /// Its transform or z-index may have moved it without a layout.
     pub(super) placed: bool,
+    // xtask-allow(state-fields): report value - The paint list is built again
     /// The paint list is built again.
     pub(super) restack: bool,
+    // xtask-allow(state-fields): report value - Its base paint: a state transition is retargeted and its place read
     /// Its base paint: a state transition is retargeted and its place read.
     pub(super) paint: bool,
+    // xtask-allow(state-fields): report value - Its state styles: like `paint`
     /// Its state styles: like `paint`.
     pub(super) states: bool,
+    // xtask-allow(state-fields): report value - A composition is committed under the old read-only policy first
     /// A composition is committed under the old read-only policy first.
     pub(super) read_only: bool,
+    // xtask-allow(state-fields): report value - Inherited semantic state changes throughout the subtree
     /// Inherited semantic state changes throughout the subtree.
     pub(super) subtree: bool,
+    // xtask-allow(state-fields): report value - Existing plain text content or native document/session only
     /// Existing plain text content or native document/session only.
     pub(super) local_text: bool,
 }

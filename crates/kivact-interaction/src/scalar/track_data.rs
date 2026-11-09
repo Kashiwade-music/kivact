@@ -11,7 +11,6 @@ pub(crate) struct Target {
     pub(crate) binding: Binding<f64>,
     pub(crate) range: Value<ScalarRange>,
     pub(crate) thumb: NodeRef,
-    // xtask-allow(state-fields): layout can be unavailable independently of caller-supplied bounds or reading direction.
     pub(crate) rect: Value<Option<Rect>>,
     // xtask-allow(state-fields): optional caller constraints are passive input data.
     pub(crate) bounds: Option<(Value<f64>, Value<f64>)>,
@@ -78,7 +77,6 @@ pub(crate) fn fraction(value: f64, range: ScalarRange) -> f64 {
 /// Where a track is and which way its value grows.
 #[derive(Clone, Copy, PartialEq)]
 pub(crate) struct Geometry {
-    // xtask-allow(state-fields): layout can be unavailable independently of caller-supplied bounds or reading direction.
     pub(crate) rect: Value<Option<Rect>>,
     pub(crate) axis: Axis,
     /// The value grows from the right edge (a horizontal track in a

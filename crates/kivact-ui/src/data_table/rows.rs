@@ -66,43 +66,56 @@ fn navigation_content(root: Node, content: View, enabled: bool, enter: bool) -> 
         })
 }
 
-// xtask-allow(state-fields): Immutable mounted composition inputs; each optional binding or slot enables an independent table feature.
 /// What the header and the rows of one table share.
 pub(super) struct Grid<R: 'static, K: kivact_core::state::ItemKey> {
+    // xtask-allow(state-fields): passive record - tree
     pub(super) tree: Option<super::tree::Plan<K>>,
     pub(super) behavior: DataTableApi<K, usize>,
     pub(super) navigation: super::navigation::NavigationCache<K>,
     pub(super) row_metadata: Value<super::metadata::Rows<K>>,
     pub(super) column_metadata: Value<(Option<u32>, HashMap<usize, u32>)>,
+    // xtask-allow(state-fields): passive record - filters
     pub(super) filters: Option<super::filters::Filters>,
     /// The keys of the rows of the page.
     pub(super) keys: Value<Vec<K>>,
+    // xtask-allow(state-fields): passive record - indexed
     pub(super) indexed: Option<Value<HashMap<K, usize>>>,
     pub(super) columns: Rc<Vec<DataColumn<R>>>,
     /// The positions of the columns that are shown.
     pub(super) visible: Value<Vec<usize>>,
+    // xtask-allow(state-fields): passive record - selection
     pub(super) selection: Option<Binding<Vec<K>>>,
+    // xtask-allow(state-fields): passive record - row selectable
     pub(super) row_selectable: Option<RowSelectable<R>>,
+    // xtask-allow(state-fields): passive record - sticky
     pub(super) sticky: Option<Rc<StickyColumns>>,
+    // xtask-allow(state-fields): passive record - widths
     pub(super) widths: Option<Binding<Vec<f64>>>,
+    // xtask-allow(state-fields): passive record - actions
     pub(super) actions: Option<(f64, RowSlot<R>)>,
+    // xtask-allow(state-fields): passive record - row context menu
     pub(super) row_context_menu: Option<RowContextMenu<R>>,
     pub(super) row_label: RowName<R>,
+    // xtask-allow(state-fields): passive record - cells
     pub(super) cells: Option<CellSlot<R>>,
+    // xtask-allow(state-fields): passive record - details
     pub(super) details: Option<RowSlot<R>>,
+    // xtask-allow(state-fields): passive record - expanded rows
     pub(super) expanded_rows: Option<Binding<Vec<K>>>,
     pub(super) reorder: Option<Callback<kivact_interaction::Reorder<K>>>,
     pub(super) source: Value<Vec<R>>,
     pub(super) key: Key<R, K>,
     pub(super) sort: Sort,
     pub(super) focus: TableFocus,
+    // xtask-allow(state-fields): passive record - row height
     pub(super) row_height: Option<Value<f64>>,
+    // xtask-allow(state-fields): passive record - row status
     pub(super) row_status: Option<RowStatusOf<R>>,
+    // xtask-allow(state-fields): passive record - row color
     pub(super) row_color: Option<RowColor<R>>,
     pub(super) variants: Variants,
 }
 
-// xtask-allow(state-fields): Geometry cache and immutable direction; overflow is a derived pair of independent edge facts.
 /// Shared header measurements let in-flow pins follow flex and resize.
 pub(super) struct StickyColumns {
     edges: StickyEdges,

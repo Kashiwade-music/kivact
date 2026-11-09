@@ -43,3 +43,5 @@ The identifiers come from each crate's `license` field in the locked version (Ca
 | `zbus` (5.19.0) | MIT | Copyright (c) 2024 Zeeshan Ali Khan & zbus contributors. Already used by `arvane-native`; this work fixes its features (`blocking-api`, `async-io`). Full text: `LICENSE` |
 | `fontdb` (0.23.0) | MIT | Copyright (c) 2020 Yevhenii Reizner. Comes with `usvg` (resvg's `text` feature); `arvane-asset` adds it directly with the `fs` and `memmap` features for system fonts. Full text: `LICENSE` |
 | `rustybuzz` (0.20.1) | MIT | Copyright (c) HarfBuzz developers; Copyright (c) 2020 Yevhenii Reizner. Comes with `usvg` (resvg's `text` feature). Full text: `LICENSE` |
+| `serde` (1.0.229) | MIT OR Apache-2.0 | Authors: Erick Tryzelaar and David Tolnay. Made a direct dependency of `kivact-devtools-protocol` (wire values). Full texts: `LICENSE-MIT` and `LICENSE-APACHE` |
+| `serde_json` (1.0.151) | MIT OR Apache-2.0 | Authors: Erick Tryzelaar and David Tolnay. Made a direct dependency of the DevTools crates (JSON-RPC and values). Full texts: `LICENSE-MIT` and `LICENSE-APACHE` |

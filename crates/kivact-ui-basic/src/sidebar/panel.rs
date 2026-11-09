@@ -13,7 +13,6 @@ use kivact::state::{IntoValue, callback};
 use kivact::style::{Align, Color, Cursor, Direction, Position, pct, style};
 use kivact::view::{Handled, IntoView, Key, Role, show};
 
-// xtask-allow(state-fields): Independent construction-time placement, framing, collapse behavior, view slots and rail visibility; the provider binding owns opening.
 /// The panel of a sidebar (sidebar.tsx). Created by [`sidebar`].
 ///
 /// The root is the box that takes the sidebar's width in the layout, so
@@ -23,8 +22,11 @@ pub struct Sidebar {
     pub(super) side: SidebarSide,
     pub(super) variant: SidebarVariant,
     pub(super) collapsible: SidebarCollapsible,
+    // xtask-allow(state-fields): builder option - header
     header: Option<kivact::view::View>,
+    // xtask-allow(state-fields): builder option - content
     content: Option<kivact::view::View>,
+    // xtask-allow(state-fields): builder option - footer
     footer: Option<kivact::view::View>,
     rail: Value<bool>,
 }

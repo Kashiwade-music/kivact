@@ -53,7 +53,6 @@ pub struct LiveCounts {
     pub slots: usize,
 }
 
-// xtask-allow(state-fields): seq is the effect creation-order ID allocator and clock the runtime's time measurement; the write generation is a named Generation; turn and exit lifecycles have their own enums.
 /// The reactive runtime of one App: arenas, frame stack, scheduler, trace
 /// ring, its driver and the extensions of the higher crates.
 pub struct Runtime {
@@ -67,6 +66,7 @@ pub struct Runtime {
     pub(crate) collectors: RefCell<Vec<Collector>>,
     pub(crate) sched: RefCell<Sched>,
     pub(crate) scratch: RefCell<Vec<(Key, Staleness)>>,
+    // xtask-allow(state-fields): S-8 ID - the effect creation-order ID allocator
     pub(crate) seq: Cell<u64>,
     pub(crate) write_epoch: Cell<kivact_types::cell::Generation>,
     pub(crate) root: Key,
@@ -82,6 +82,7 @@ pub struct Runtime {
     pub(crate) host: Rc<dyn crate::reactive::host_types::Host>,
     pub(crate) state: Cell<crate::reactive::host_types::TurnState>,
     pub(crate) exit: Cell<crate::reactive::host_types::ExitState>,
+    // xtask-allow(state-fields): measurement - the runtime's time measurement
     pub(crate) clock: Cell<u64>,
     pub(crate) diag: RefCell<Diag>,
     /// Errors raised where no user code may run (inside the engine's
@@ -166,10 +167,11 @@ pub(crate) struct SourceCell<T> {
     pub(crate) value: RefCell<T>,
 }
 
-// xtask-allow(state-fields): The optional cached value is independent of the optional equality strategy; the computation lifecycle lives in Computation.state.
 pub(crate) struct MemoCell<T> {
+    // xtask-allow(state-fields): cache + config - value
     pub(crate) value: RefCell<Option<T>>,
     pub(crate) f: Box<dyn Fn(Option<&T>) -> T>,
+    // xtask-allow(state-fields): cache + config - eq
     pub(crate) eq: Option<fn(&T, &T) -> bool>,
 }
 
@@ -310,8 +312,8 @@ pub struct NodeInfo {
     pub deps: Vec<NodeId>,
 }
 
-// xtask-allow(state-fields): Parent identity and the optional error handler are independent owner configuration; lifecycle is held only by OwnerPhase.
 pub(crate) struct OwnerEntry {
+    // xtask-allow(state-fields): config; lifecycle in OwnerPhase - parent
     pub(crate) parent: Option<Key>,
     pub(crate) parent_index: u32,
     pub(crate) children: Vec<Key>,
@@ -354,14 +356,17 @@ pub(crate) struct Object {
     pub(crate) created_at: &'static Location<'static>,
 }
 
-// xtask-allow(state-fields): Owner, tracking, purity and writer are independent execution facts inherited across copied frames.
 /// One execution context. Copies never own dependency storage.
 #[derive(Clone, Copy, Default)]
 pub(crate) struct Frame {
+    // xtask-allow(state-fields): execution-context value - owner
     pub(crate) owner: Option<Key>,
     pub(crate) kind: FrameKind,
+    // xtask-allow(state-fields): execution-context value - pure
     pub(crate) pure: bool,
+    // xtask-allow(state-fields): execution-context value - writer
     pub(crate) writer: Option<Key>,
+    // xtask-allow(state-fields): execution-context value - tracking
     pub(crate) tracking: Option<CollectorSlot>,
 }
 

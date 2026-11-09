@@ -12,7 +12,6 @@ use std::time::Duration;
 pub(super) type Matcher<K> = Rc<dyn Fn(&str, &ListItem<K>) -> bool>;
 pub(super) type Search<K> =
     Rc<dyn Fn(String) -> Pin<Box<dyn Future<Output = kivact_core::Result<Vec<ListItem<K>>>>>>>;
-// xtask-allow(state-fields): These independent setup bindings, slots and structural options configure a builder; lifecycle state belongs to ComboboxApi.
 /// A themed editable list of keyed suggestions, created by [`super::handle::combobox`].
 /// Single choices show their label; multiple choices can be displayed as chips.
 pub struct Combobox<K: ItemKey> {
@@ -20,18 +19,28 @@ pub struct Combobox<K: ItemKey> {
     pub(super) label: Value<String>,
     pub(super) options: Value<Vec<ListItem<K>>>,
     pub(super) selection: Selection<K>,
+    // xtask-allow(state-fields): builder option - query
     pub(super) query: Option<Binding<String>>,
+    // xtask-allow(state-fields): builder option - open
     pub(super) open: Option<Binding<bool>>,
     pub(super) on_edit: Option<kivact_core::state::Callback<kivact_core::view::EditPhase>>,
+    // xtask-allow(state-fields): builder option - free text
     pub(super) free_text: bool,
+    // xtask-allow(state-fields): builder option - mode
     pub(super) mode: Option<ComboboxMode>,
+    // xtask-allow(state-fields): builder option - chips
     pub(super) chips: bool,
+    // xtask-allow(state-fields): builder option - placeholder
     pub(super) placeholder: Option<Value<String>>,
+    // xtask-allow(state-fields): builder option - empty
     pub(super) empty: Option<Value<String>>,
     pub(super) clear: Value<bool>,
+    // xtask-allow(state-fields): builder option - matcher
     pub(super) matcher: Option<Matcher<K>>,
+    // xtask-allow(state-fields): builder option - search
     pub(super) search: Option<Search<K>>,
     pub(super) debounce: Value<Duration>,
+    // xtask-allow(state-fields): builder option - exclude selected
     pub(super) exclude_selected: bool,
     pub(super) presentation: SelectPresentation,
     pub(super) variants: Variants,

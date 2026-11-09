@@ -29,6 +29,8 @@ mod color_spaces;
 mod components;
 mod compositor;
 mod custom_text_field;
+#[cfg(feature = "devtools")]
+mod devtools;
 mod diagnostics;
 mod disposal;
 #[cfg(all(feature = "gpu-interop", any(windows, target_os = "linux")))]

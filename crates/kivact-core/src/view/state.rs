@@ -145,14 +145,15 @@ impl EnvState {
     }
 }
 
-// xtask-allow(state-fields): Focus identity and visible indicator are independent host observations; selector only projects identity.
 /// The reactive focus nodes of an App (created at root mount).
 #[derive(Clone, Copy)]
 pub(crate) struct FocusKeys {
+    // xtask-allow(state-fields): independent facts; selector is a projection - The focused node as last reported by the host
     /// The focused node as last reported by the host.
     pub(crate) node: Signal<Option<kivact_types::FocusTarget>>,
     /// "Is this node focused", notifying only the previous and next node.
     pub(crate) selector: Selector<kivact_types::FocusTarget>,
+    // xtask-allow(state-fields): independent facts; selector is a projection - visible
     pub(crate) visible: Signal<bool>,
 }
 

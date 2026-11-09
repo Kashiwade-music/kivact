@@ -37,7 +37,6 @@ pub struct Divider {
     variant: Value<DividerVariant>,
     // xtask-allow(state-fields): Optional once-mounted separator content slot.
     label: Option<View>,
-    // xtask-allow(state-fields): Independent layout compensation input, not interaction state.
     full_bleed: Value<bool>,
 }
 

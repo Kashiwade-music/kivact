@@ -8,17 +8,21 @@ use kivact_core::view::{
     IntoView, Node, NodeBuilder, NodeRef, Role, ScrollAxes, View, node, node_ref, scroll,
 };
 use kivact_interaction::use_follow_end;
-// xtask-allow(state-fields): Independent builder inputs and slots; use_follow_end owns the complete following and anchor state.
 /// A scrollable message log that follows new content until the reader scrolls away.
 pub struct ChatThread {
     root: Node,
     children: View,
+    // xtask-allow(state-fields): builder option - viewport
     viewport: Option<NodeRef>,
+    // xtask-allow(state-fields): builder option - history revision
     history_revision: Option<Value<u64>>,
+    // xtask-allow(state-fields): builder option - composer
     composer: Option<View>,
+    // xtask-allow(state-fields): builder option - empty
     empty: Option<(Value<bool>, View)>,
     loading_top: Value<bool>,
     streaming: Value<bool>,
+    // xtask-allow(state-fields): builder option - gap
     gap: Option<Value<f64>>,
     align: Value<ChatAlign>,
     scroll_button: Value<bool>,

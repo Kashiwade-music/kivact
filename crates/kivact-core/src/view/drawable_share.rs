@@ -107,7 +107,6 @@ pub(crate) struct ExportOpen {
     /// The current request, its generation and, for the requests that
     /// receive frames, the newest frame.
     pub(crate) request: ExportRequest,
-    // xtask-allow(state-fields): Mailbox: the latest geometry the app set, taken by the UI turn.
     pub(crate) geometry: Mailbox<Option<Matrix4>>,
     // xtask-allow(state-fields): The app's configured scale; a setting, not derived from the window.
     pub(crate) scale: Option<f64>,

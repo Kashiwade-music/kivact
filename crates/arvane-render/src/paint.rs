@@ -40,15 +40,16 @@ pub(crate) enum Brush {
     Pattern(PatternFill),
 }
 
-// xtask-allow(state-fields): Pattern drawing options; repetition along each axis is independently selectable.
 /// How [`crate::draw::Canvas::fill_pattern`] repeats pixels.
 pub(crate) struct PatternFill {
     /// Straight-alpha pixels.
     pub(crate) image: Pixels,
     /// From the image's pixel grid to the current coordinates.
     pub(crate) transform: Affine,
+    // xtask-allow(state-fields): drawing options - Repeat along x (else the edge pixels extend)
     /// Repeat along x (else the edge pixels extend).
     pub(crate) repeat_x: bool,
+    // xtask-allow(state-fields): drawing options - Repeat along y
     /// Repeat along y.
     pub(crate) repeat_y: bool,
     /// The area of one tile in the current coordinates.

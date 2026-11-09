@@ -208,10 +208,8 @@ pub struct Timestamp {
     text: StyledText,
     clock: MachineHandle<TimestampTick>,
     settings: Rc<RefCell<TimestampSettings>>,
-    // xtask-allow(state-fields): Detail visibility is a caller input independent of the refresh clock phase.
     details: Value<bool>,
     entries: Value<Vec<TimestampEntry>>,
-    // xtask-allow(state-fields): Live refresh is a caller policy input; TimestampTick alone owns scheduling.
     live: Value<bool>,
 }
 

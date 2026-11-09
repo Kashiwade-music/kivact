@@ -39,9 +39,7 @@ class RpcConnection:
         try:
             reply = replies.get(timeout=self._timeout)
         except queue.Empty:
-            with self._lock:
-                if isinstance(self._calls, dict):
-                    self._calls.pop(request_id, None)
+            self._forget(request_id)
             raise Timeout(int(ErrorCode.TIMED_OUT), f"no answer to {method} in {self._timeout:g} s") from None
         if "error" in reply:
             raise error_from_rpc(int(reply["error"]["code"]), str(reply["error"]["message"]))
@@ -51,6 +49,12 @@ class RpcConnection:
         with self._lock:
             self._fail(DevtoolsError(_CLOSED, "connection closed"))
         self._sock.close()
+
+    def _forget(self, request_id: int) -> None:
+        """Forget a call that timed out, so a late reply is ignored."""
+        with self._lock:
+            if isinstance(self._calls, dict):
+                self._calls.pop(request_id, None)
 
     def _fail(self, error: DevtoolsError) -> None:
         """Close: give every waiting call `error`. The caller holds `self._lock`."""

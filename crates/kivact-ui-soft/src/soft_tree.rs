@@ -2,11 +2,12 @@
 use crate::ItemDensity;
 use kivact::state::{IntoValue, Value};
 
-// xtask-allow(state-fields): Independent read-only visual inputs, without tree interaction state.
 /// Soft appearance for `kivact::ui::tree`; navigation belongs to the shared tree.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct TreeLook {
+    // xtask-allow(state-fields): builder option - density
     pub(crate) density: Option<Value<ItemDensity>>,
+    // xtask-allow(state-fields): builder option - guides
     pub(crate) guides: Option<Value<bool>>,
 }
 impl TreeLook {

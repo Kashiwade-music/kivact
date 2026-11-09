@@ -14,7 +14,6 @@ enum AnnouncePolicy {
 
 use crate::component_values::EmptyStateState;
 
-// xtask-allow(state-fields): Builder configuration and optional slots; the one-shot announcement runs in on_mount.
 /// A message for a region without content.
 pub struct EmptyState {
     root: Node,

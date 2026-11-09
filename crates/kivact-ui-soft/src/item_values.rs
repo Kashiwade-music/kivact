@@ -63,12 +63,14 @@ impl kivact::ui::Variant for ItemAlign {}
 impl kivact::ui::Variant for ItemLayout {}
 impl kivact::ui::Variant for ListEdge {}
 kivact::state::constant_value!(ItemDensity, ItemAlign, ItemLayout, ListEdge);
-// xtask-allow(state-fields): Independent readonly visual inputs for density, alignment, layout and highlighting; the variant owns no interaction or lifecycle state.
 /// Reactive visual choices for a canonical item row.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ItemLook {
+    // xtask-allow(state-fields): builder option - density
     pub(crate) density: Option<Value<ItemDensity>>,
+    // xtask-allow(state-fields): builder option - align
     pub(crate) align: Option<Value<ItemAlign>>,
+    // xtask-allow(state-fields): builder option - layout
     pub(crate) layout: Option<Value<ItemLayout>>,
     pub(crate) highlighted: Value<bool>,
 }

@@ -27,12 +27,10 @@ pub(super) struct Level<K: kivact_core::state::ItemKey> {
     pub(super) depth: usize,
     /// The keys of the submenu items that lead to this level.
     pub(super) prefix: Value<Vec<K>>,
-    // xtask-allow(state-fields): Read-only projection of session topology, not a separate open state.
     pub(super) shown: Value<bool>,
     pub(super) rows: Value<Rows<K>>,
     group: ListApi<K>,
     anchors: Signal<Vec<(K, Rect)>>,
-    // xtask-allow(state-fields): Read-only corridor-machine observation.
     aiming: Value<bool>,
     timing: SubmenuTiming,
     // xtask-allow(state-fields): Independent structural theme option captured during setup.

@@ -56,10 +56,8 @@ pub(super) struct State<K: kivact_core::state::ItemKey, C: kivact_core::state::I
     /// The mounted cells, the cell the keyboard or pointer last moved to and
     /// the focus bookkeeping.
     pub(super) roving: Roving<Target<K, C>>,
-    // xtask-allow(state-fields): Pure projection of canonical order and registry, not a stored focus request.
     pub(super) tab_stop: Value<Option<Target<K, C>>>,
     /// The cell holding the tab stop.
-    // xtask-allow(state-fields): Pure projection of the canonical order, selection, and mounted registry.
     pub(super) active: Value<Option<(K, C)>>,
 }
 

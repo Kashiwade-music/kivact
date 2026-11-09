@@ -177,7 +177,6 @@ pub fn button_group_text(label: impl IntoText) -> ButtonGroupCell {
 /// Ordinary buttons can also be supplied directly to [`button_group`].
 pub struct ButtonGroupMember {
     button: crate::Button,
-    // xtask-allow(state-fields): Independent presentation or construction input, not interaction state.
     solid: Value<bool>,
     // xtask-allow(state-fields): Independent presentation or construction input, not interaction state.
     keep_size: bool,

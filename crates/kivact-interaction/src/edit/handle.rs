@@ -82,6 +82,7 @@ use kivact_core::view::{EditPhase, HandlerResult};
 pub struct EditSession<T: 'static> {
     session: MachineHandle<machine::Machine<T>>,
     restore: Callback<T>,
+    // xtask-allow(state-fields): builder option - the observer callback a setter supplied, absent until set
     observer: Var<Option<Callback<EditPhase>>>,
     /// Passes an error of the observer on, as the session's owner reports it.
     failed: Callback<UiError>,

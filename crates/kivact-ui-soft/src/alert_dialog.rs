@@ -26,14 +26,12 @@ use std::rc::Rc;
 // Immutable canonical Dialog plus its same caller-owned open binding, action/cancel configuration and independent application loading input; no local dialog lifecycle is stored.
 pub struct AlertDialog {
     dialog: kivact::ui::Dialog,
-    // xtask-allow(state-fields): The same caller-owned visibility binding supplied to canonical Dialog; no local open copy.
     open: Binding<bool>,
     // xtask-allow(state-fields): Optional application action configuration, independent of canonical Dialog visibility.
     action: Option<(String, Rc<dyn Fn()>)>,
     // xtask-allow(state-fields): Optional cancel-button text configuration, not an operation phase.
     cancel: Option<String>,
     variant: ButtonVariant,
-    // xtask-allow(state-fields): Application-owned loading input independent of the Dialog visibility source.
     loading: Value<bool>,
 }
 

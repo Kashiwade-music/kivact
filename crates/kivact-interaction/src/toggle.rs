@@ -29,7 +29,9 @@ use kivact_core::view::{A11yAction, CheckedState, Handled, Key, KeyEvent, Modifi
 /// else's (a canvas region, a native control).
 #[derive(Clone, Copy)]
 pub struct ButtonApi {
+    // xtask-allow(state-fields): independent fact - the observation of the attached part, absent until it attaches
     observed: Signal<Option<Value<PartState>>>,
+    // xtask-allow(state-fields): builder option - the disabled value a setter supplied, absent until set
     disabled: Signal<Option<Value<bool>>>,
 }
 
@@ -110,10 +112,8 @@ pub struct ToggleState {
 /// What every toggle shares: the binding, the kind and the disabled value.
 #[derive(Clone, Copy)]
 struct Core {
-    // xtask-allow(state-fields): The checked binding is caller-owned input, independent of mount observation.
     checked: Binding<bool>,
     kind: Kind,
-    // xtask-allow(state-fields): EditSession already owns the edit lifecycle machine; bool is its payload type.
     edit: crate::EditSession<bool>,
     observed: Signal<Option<Value<ToggleState>>>,
     options: OptionsCell<ToggleOptions>,

@@ -11,7 +11,6 @@ struct NavigationGroup(NavigationMenuApi);
 pub(crate) fn with_navigation_group<V: IntoView>(content: impl FnOnce() -> V + 'static) -> View {
     provide(NavigationGroup(use_navigation_menu()), content)
 }
-// xtask-allow(state-fields): Immutable actual panel identity, accepted binding and independent eligibility/delay inputs; NavOpen is the sole lifecycle state.
 #[derive(Clone, Copy)]
 pub(crate) struct NavPanel {
     api: NavigationMenuApi,

@@ -24,7 +24,6 @@ pub enum NativeSelectSize {
     Sm,
 }
 
-// xtask-allow(state-fields): Independent collection, caller selection binding, placeholder and size inputs; use_select owns all focus, popup and keyboard state.
 /// A select drawn like the browser's native select (`NativeSelect`).
 ///
 /// Created by [`native_select`]. Behavior (keys, typeahead, the open list)

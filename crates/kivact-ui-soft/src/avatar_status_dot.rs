@@ -66,13 +66,14 @@ pub(crate) fn status_metrics(side: f64) -> StatusMetrics {
     }
 }
 
-// xtask-allow(state-fields): Independent construction-time visual meaning, diameter, optional label and glyph; this content has no presence lifecycle or label cache.
 /// A small presence indicator, usable with or without an avatar.
 pub struct AvatarStatusDot {
     root: Node,
     status: AvatarStatus,
     avatar_size: crate::AvatarSize,
+    // xtask-allow(state-fields): builder option - label
     label: Option<Value<String>>,
+    // xtask-allow(state-fields): builder option - icon
     icon: Option<View>,
 }
 

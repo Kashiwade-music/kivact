@@ -6,7 +6,6 @@ use kivact_core::view::Orientation;
 #[derive(Clone, Debug, PartialEq)]
 pub struct ButtonGroupTokens {
     pub gap: f64,
-    // xtask-allow(state-fields): Independent presentation or construction input, not interaction state.
     pub joined: bool,
     pub radius: f64,
     pub divider: Color,

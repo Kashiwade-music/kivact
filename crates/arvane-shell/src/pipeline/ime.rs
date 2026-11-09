@@ -9,7 +9,6 @@ pub trait ImePort {
     fn cursor_area(&mut self, area: Rect);
     fn surrounding(&mut self, text: Option<&ShellImeText>);
 }
-// xtask-allow(state-fields): Sent caches independent output values (S-9).
 /// Output caches: each value reaches the platform only when it changes (S-9).
 #[derive(Default)]
 pub struct ImeDriver {

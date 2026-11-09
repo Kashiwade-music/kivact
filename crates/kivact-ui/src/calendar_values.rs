@@ -20,7 +20,6 @@ pub struct CalendarEvent {
     pub color: kivact_core::style::Color,
 }
 
-// xtask-allow(state-fields): Drawing projection of independent date membership, today and semantic mark facts.
 /// The logical state supplied to a calendar day recipe.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct CalendarDayVisual {

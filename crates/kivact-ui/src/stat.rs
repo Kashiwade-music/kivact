@@ -5,17 +5,21 @@ use kivact_core::state::{IntoText, IntoValue, Value};
 use kivact_core::view::{IntoView, Node, NodeBuilder, Role, View, node, text};
 
 use crate::component_values::{StatState, Trend};
-// xtask-allow(state-fields): Optional views and text are builder slots, not runtime phases; trend is application-owned reactive input.
 /// A statistic labelled by its visible label, created by [`stat`].
 pub struct Stat {
     root: Node,
     label: Value<String>,
     value: Value<String>,
+    // xtask-allow(state-fields): builder option - delta
     delta: Option<Value<String>>,
     trend: Value<Trend>,
+    // xtask-allow(state-fields): builder option - icon
     icon: Option<View>,
+    // xtask-allow(state-fields): builder option - chart
     chart: Option<View>,
+    // xtask-allow(state-fields): builder option - label content
     label_content: Option<View>,
+    // xtask-allow(state-fields): builder option - value content
     value_content: Option<View>,
     variants: Variants,
 }

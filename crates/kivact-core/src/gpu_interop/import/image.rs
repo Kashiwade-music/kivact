@@ -28,6 +28,7 @@ pub struct ExternalImage {
     status: Signal<ImportPhase>,
     /// The size in pixels of the imported textures.
     size: (u32, u32),
+    // xtask-allow(state-fields): delivery record - the newest frame a FramePublisher published, independent of the import status
     /// The newest frame a [`FramePublisher`] published.
     latest: Signal<Option<GpuFrame>>,
     published: Arc<Inbox<Published>>,

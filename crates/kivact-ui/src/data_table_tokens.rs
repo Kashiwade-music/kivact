@@ -34,7 +34,6 @@ impl Default for DataTableRowStatusPaint {
     }
 }
 
-// xtask-allow(state-fields): Independent immutable paint colors and optional transitions supplied by the theme.
 /// Theme-owned paint for pinned table columns.
 #[derive(Clone, Debug, PartialEq)]
 pub struct DataTableStickyPaint {
@@ -43,7 +42,9 @@ pub struct DataTableStickyPaint {
     pub selected: Color,
     pub shadow: Color,
     pub shadow_width: f64,
+    // xtask-allow(state-fields): passive record - shadow transition
     pub shadow_transition: Option<Transition>,
+    // xtask-allow(state-fields): passive record - overlay transition
     pub overlay_transition: Option<Transition>,
 }
 

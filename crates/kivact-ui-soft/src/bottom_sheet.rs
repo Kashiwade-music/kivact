@@ -120,12 +120,10 @@ pub struct BottomSheet {
     purpose: DialogPurpose,
     height: SheetHeight,
     snap_points: Vec<SnapPoint>,
-    // xtask-allow(state-fields): Read-only scrim input sampled when mounted; it is independent of the sheet open binding.
     scrim: kivact::state::Value<bool>,
     padding: kivact::state::Value<f64>,
     // xtask-allow(state-fields): Optional caller-selected focus destination, not a pending focus phase.
     final_focus: Option<NodeRef>,
-    // xtask-allow(state-fields): Optional per-opening body factory, independent of dismissal and dragging.
     content: Option<ViewFn>,
 }
 

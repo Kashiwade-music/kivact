@@ -5,7 +5,6 @@ use kivact_core::custom::PartState;
 use kivact_core::custom::Reactive;
 use kivact_core::view::SortDirection;
 
-// xtask-allow(state-fields): Derived column metadata; width bounds and sort capability are independent immutable inputs.
 /// The row-erased projection of a [`ColumnDef`](crate::ColumnDef) that a
 /// [`DataTableApi`](crate::DataTableApi) reads: its key, label, whether a header
 /// activation sorts by it and its starting width. It is derived from the
@@ -14,9 +13,12 @@ use kivact_core::view::SortDirection;
 pub(super) struct Header<C> {
     pub(super) key: C,
     pub(super) label: Reactive<String>,
+    // xtask-allow(state-fields): passive record - sortable
     pub(super) sortable: bool,
+    // xtask-allow(state-fields): passive record - The starting width in the caller's unit;
     /// The starting width in the caller's unit; `None` leaves it to layout.
     pub(super) width: Option<f64>,
+    // xtask-allow(state-fields): passive record - min width
     pub(super) min_width: Option<f64>,
 }
 
@@ -76,36 +78,40 @@ impl Default for TableFocus {
     }
 }
 
-// xtask-allow(state-fields): Public drawing snapshot of input, sort direction, sort capability, and priority.
 /// The sort state and actual input state of a column header.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct TableHeaderState {
     pub input: PartState,
+    // xtask-allow(state-fields): passive record - The column's sort direction;
     /// The column's sort direction; `None` while the table is not sorted by it.
     pub sort: Option<SortOrder>,
+    // xtask-allow(state-fields): passive record - sortable
     pub sortable: bool,
+    // xtask-allow(state-fields): passive record - One-based priority in an active multi-column sort
     /// One-based priority in an active multi-column sort.
     pub sort_rank: Option<usize>,
 }
 
-// xtask-allow(state-fields): Public drawing snapshot of independently observed input, selection, and active-cell facts.
 /// The selection, roving focus and actual input state of a row.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct TableRowState {
     pub input: PartState,
+    // xtask-allow(state-fields): passive record - selected
     pub selected: bool,
+    // xtask-allow(state-fields): passive record - The row holds the tab stop: itself with [`TableFocus::Rows`], one of its cells with [`TableFocus::Cells`]
     /// The row holds the tab stop: itself with [`TableFocus::Rows`], one of
     /// its cells with [`TableFocus::Cells`].
     pub active: bool,
 }
 
-// xtask-allow(state-fields): Public drawing snapshot of independently observed input, row selection, and active-cell facts.
 /// The row selection, roving focus and actual input state of a cell.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct TableCellState {
     pub input: PartState,
+    // xtask-allow(state-fields): passive record - The cell's row is selected
     /// The cell's row is selected.
     pub selected: bool,
+    // xtask-allow(state-fields): passive record - The cell holds the tab stop only with [`TableFocus::Cells`]
     /// The cell holds the tab stop only with [`TableFocus::Cells`].
     pub active: bool,
 }

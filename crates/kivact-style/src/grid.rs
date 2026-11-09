@@ -257,18 +257,26 @@ pub enum GridAutoFlow {
     ColumnDense,
 }
 
-// xtask-allow(state-fields): Independent authored grid properties use None for unspecified cascading values.
 /// The grid props a style sets (boxed in `Style`: most styles set none).
 #[derive(Clone, Debug, PartialEq, Default)]
 pub(crate) struct GridStyle {
+    // xtask-allow(state-fields): passive record - columns
     pub(crate) columns: Option<Tracks>,
+    // xtask-allow(state-fields): passive record - rows
     pub(crate) rows: Option<Tracks>,
+    // xtask-allow(state-fields): passive record - auto columns
     pub(crate) auto_columns: Option<Tracks>,
+    // xtask-allow(state-fields): passive record - auto rows
     pub(crate) auto_rows: Option<Tracks>,
+    // xtask-allow(state-fields): passive record - flow
     pub(crate) flow: Option<GridAutoFlow>,
+    // xtask-allow(state-fields): passive record - column
     pub(crate) column: Option<GridPlacement>,
+    // xtask-allow(state-fields): passive record - row
     pub(crate) row: Option<GridPlacement>,
+    // xtask-allow(state-fields): passive record - justify items
     pub(crate) justify_items: Option<Align>,
+    // xtask-allow(state-fields): passive record - justify self
     pub(crate) justify_self: Option<Align>,
 }
 

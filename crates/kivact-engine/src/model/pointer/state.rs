@@ -13,9 +13,7 @@ use kivact_types::{FocusTarget, NodeId, Point, PointerButtons, PointerKind};
 pub(crate) struct Pointer {
     pub(super) state: PointerState,
     pub(super) file_target: Option<NodeId>,
-    // xtask-allow(state-fields): Sent is the last hover report, independent of file drag state.
     pub(super) hover_sent: kivact_types::cell::Sent<Option<FocusTarget>>,
-    // xtask-allow(state-fields): Sent is the last mouse position report (none: outside the window), independent of the mouse track's last event position.
     pub(super) position_sent: kivact_types::cell::Sent<Option<Point>>,
     pub(super) shown: kivact_types::Cursor,
 }

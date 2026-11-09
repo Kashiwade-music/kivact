@@ -21,7 +21,6 @@ pub enum FocusTrigger {
     /// Only pointer or explicit opening requests open the preview.
     Never,
 }
-// xtask-allow(state-fields): Setup-only builder options; structural presentation and binding inputs are independent.
 /// A floating preview with shared pointer corridor, focus, and dismissal behavior.
 pub struct HoverCard {
     content: ViewFn,
@@ -31,8 +30,11 @@ pub struct HoverCard {
     timing: HoverCardTiming,
     enabled: Value<bool>,
     focus: FocusTrigger,
+    // xtask-allow(state-fields): builder option - open
     open: Option<Binding<bool>>,
+    // xtask-allow(state-fields): builder option - default open
     default_open: bool,
+    // xtask-allow(state-fields): builder option - label
     label: Option<Value<String>>,
     on_open_change: Option<kivact_core::state::Callback<bool>>,
 }

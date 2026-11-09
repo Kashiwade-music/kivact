@@ -2462,6 +2462,8 @@ dependencies = [
  "gpu-interop-producer",
  "image",
  "kivact",
+ "kivact-devtools-client",
+ "kivact-devtools-protocol",
  "kivact-gpu-share",
  "kivact-ui-basic",
  "kivact-ui-creative",

@@ -134,7 +134,9 @@ fn now_ns() -> u64 {
 #[derive(Clone, Copy)]
 pub struct TooltipApi {
     options: OptionsCell<TooltipOptions>,
+    // xtask-allow(state-fields): independent fact - the observation of the attached trigger part, absent until it attaches
     trigger_state: Signal<Option<Value<PopupState>>>,
+    // xtask-allow(state-fields): independent fact - the observation of the attached content part, absent until it attaches
     content_state: Signal<Option<Value<PopupState>>>,
     delayed: DelayedApi,
     visible: Value<bool>,

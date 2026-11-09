@@ -44,7 +44,6 @@ use super::sheet::{Direction, Overflow, Position, ScrollbarWidth, Sides, Style};
 use super::theme::value::Theme;
 use super::transform::Transform;
 
-// xtask-allow(state-fields): This compilation result independently contains optional text, state deltas and retained paint.
 /// A [`Style`] compiled against a theme: the engine's node props and the
 /// diagnostics of the compilation, made by [`crate::internal::compile_style`].
 ///
@@ -58,15 +57,18 @@ use super::transform::Transform;
 /// [`paint_retained`]: CompiledStyle::paint_retained
 #[derive(Clone)]
 pub struct CompiledStyle {
+    // xtask-allow(state-fields): passive record - retained paint
     retained_paint: Option<LocalPaint>,
     /// Layout props.
     pub layout: LayoutProps,
     /// Paint props.
     pub paint: PaintProps,
+    // xtask-allow(state-fields): passive record - Text props: when the style sets any (only what it sets: the rest is inherited property by property), and always for the root, which carries the theme's text defaults that every node inherits
     /// Text props: when the style sets any (only what it sets: the rest
     /// is inherited property by property), and always for the root, which
     /// carries the theme's text defaults that every node inherits.
     pub text: Option<TextStyle>,
+    // xtask-allow(state-fields): passive record - Hover/pressed/focus/disabled overrides, if any
     /// Hover/pressed/focus/disabled overrides, if any.
     pub states: Option<StateStyles>,
     /// Properties set more than once (reported as diagnostics).
@@ -236,7 +238,6 @@ impl ForcedStates {
     }
 }
 
-// xtask-allow(state-fields): Independent input facts select compiled style defaults; this value owns no transitions.
 /// How a node takes part in the theme's defaults for interactive elements,
 /// the input of [`crate::internal::compile_style`] next to the style and the theme.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]

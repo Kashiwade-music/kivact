@@ -10,7 +10,6 @@ use crate::theme::value::ThemeColor;
 use kivact_runtime::UiError;
 use kivact_types::{BackgroundClip, BackgroundOrigin, BlendMode};
 
-// xtask-allow(state-fields): A paint layer independently authors its image, size, position, repeat, clip, origin and blend (CSS background longhands).
 /// One fill: a color, a gradient or an image, with the size, position and
 /// repetition of its tiles in the area it fills (one CSS background layer).
 ///
@@ -36,8 +35,10 @@ pub struct Paint {
     pub(crate) image: PaintImage,
     pub(crate) size: PaintSize,
     pub(crate) position: (Length, Length),
+    // xtask-allow(state-fields): // xtask-allow(state-fields): passive record - repeat
     pub(crate) repeat: (bool, bool),
     pub(crate) clip: BackgroundClip,
+    // xtask-allow(state-fields): passive record - origin
     pub(crate) origin: Option<BackgroundOrigin>,
     pub(crate) blend: BlendMode,
 }

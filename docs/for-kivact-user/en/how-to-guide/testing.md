@@ -333,8 +333,7 @@ the test entry point.
 
 A window is a `Screen` of its own. `screen.window("Settings")` waits for that
 window to open (the same time limit as `find_by_*`) and returns its handle;
-`screen.windows()` returns every open window in id order. Keep the handle in a
-`let` before you take an `Element` from it:
+`screen.windows()` returns every open window in id order. `Screen::has_window()` is now `is_mirrored()` (a public rename; the meaning, whether this window is shown in a real window, is unchanged). `RenderOptions::default().single_window()` models an environment that cannot open more windows, such as an embedded editor. Keep the handle in a `let` before you take an `Element` from it:
 
 ```rust,no_run
 # use kivact::prelude::*;

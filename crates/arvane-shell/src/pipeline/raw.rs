@@ -7,12 +7,14 @@ pub enum RawInput {
     Ime(RawIme),
     Drop(RawDrop),
 }
-// xtask-allow(state-fields): Raw key records carry independent input facts, not retained state.
 #[derive(Clone, Debug, PartialEq)]
 pub struct RawKey {
     pub key: PlatformKey,
+    // xtask-allow(state-fields): input record - pressed
     pub pressed: bool,
+    // xtask-allow(state-fields): input record - repeat
     pub repeat: Option<bool>,
+    // xtask-allow(state-fields): input record - text
     pub text: Option<String>,
 }
 #[derive(Clone, Debug, PartialEq)]

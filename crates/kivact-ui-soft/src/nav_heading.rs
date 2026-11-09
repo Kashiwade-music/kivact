@@ -38,13 +38,14 @@ use kivact::view::overlay;
 use std::rc::Rc;
 use std::time::Duration;
 
-// xtask-allow(state-fields): Independent immutable label, icon, description, caller availability and action metadata; Menu owns interaction state.
 #[derive(Clone)]
 /// An action entry for a navigation heading menu, with optional supporting content.
 pub struct NavHeadingMenuItem {
     pub(crate) label: Value<String>,
+    // xtask-allow(state-fields): builder option - description
     pub(crate) description: Option<Value<String>>,
     pub(crate) icon: Option<ViewFn>,
+    // xtask-allow(state-fields): builder option - disabled
     pub(crate) disabled: bool,
     pub(crate) action: Option<Callback<()>>,
 }

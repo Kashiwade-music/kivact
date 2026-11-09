@@ -64,7 +64,6 @@ pub(crate) trait Canvas {
     fn fill_pattern(&mut self, path: &BezPath, pattern: &PatternFill, visible: Rect);
 }
 
-// xtask-allow(state-fields): Drawing options for one borrowed glyph run; hinting and atlas eligibility are independent rendering facts.
 /// How a run of glyphs is drawn.
 pub(crate) struct GlyphRun<'a> {
     /// The font the glyph ids index.
@@ -75,8 +74,10 @@ pub(crate) struct GlyphRun<'a> {
     pub(crate) coords: &'a [i16],
     /// Stem darkening of the run.
     pub(crate) embolden: glifo::FontEmbolden,
+    // xtask-allow(state-fields): drawing options - Hint vertically (only under a translation and a uniform scale)
     /// Hint vertically (only under a translation and a uniform scale).
     pub(crate) hint: bool,
+    // xtask-allow(state-fields): drawing options - cached
     /// May come from a glyph atlas (only under a translation and a uniform
     /// scale; rotated glyphs are drawn from their outlines).
     #[cfg_attr(

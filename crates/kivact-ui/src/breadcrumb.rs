@@ -19,7 +19,6 @@ pub struct Breadcrumb<K: 'static> {
     root: Node,
     items: Value<Vec<ListItem<K>>>,
     current: CurrentPage<K>,
-    // xtask-allow(state-fields): Optional construction-time activation callback, independent of the presentation slot.
     activate: Option<Rc<dyn Fn(K)>>,
     // xtask-allow(state-fields): Optional presentation slot selected during construction; breadcrumbs store no interaction state.
     item: Option<ItemSlot<K>>,

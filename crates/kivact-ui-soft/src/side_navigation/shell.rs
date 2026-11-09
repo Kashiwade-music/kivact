@@ -370,7 +370,6 @@ fn sidebar_collapse(
         })
 }
 
-// xtask-allow(state-fields): Independent retained construction slots; sidebar collapse and resizing are owned by their existing bindings and splitter.
 struct SideNavSlots {
     children: View,
     // xtask-allow(state-fields): Independent retained header content slot; this record owns no sidebar phase.

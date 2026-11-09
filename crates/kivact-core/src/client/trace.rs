@@ -18,11 +18,13 @@ pub(crate) struct Trace {
     sink: Option<RefCell<Sink>>,
 }
 
-// xtask-allow(state-fields): These immutable diagnostic category switches independently enable trace output streams.
 struct Sink {
     file: BufWriter<File>,
+    // xtask-allow(state-fields): immutable config switches + diff cache (HOST-REWRITE module) - stage
     stage: bool,
+    // xtask-allow(state-fields): immutable config switches + diff cache (HOST-REWRITE module) - semantics
     semantics: bool,
+    // xtask-allow(state-fields): immutable config switches + diff cache (HOST-REWRITE module) - host events
     host_events: bool,
     previous: Vec<(NodeId, String)>,
 }

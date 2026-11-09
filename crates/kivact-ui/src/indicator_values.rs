@@ -18,14 +18,16 @@ pub enum AvatarShape {
     Square,
 }
 kivact_core::state::constant_value!(AvatarShape);
-// xtask-allow(state-fields): Read-only recipe projection of actual input and independent construction facts for activation and leading/trailing content.
 #[derive(Clone, Debug, PartialEq)]
 pub struct BadgeState {
     pub tone: Tone,
     pub input: kivact_core::custom::PartState,
+    // xtask-allow(state-fields): passive record - Whether the badge has an activation callback
     /// Whether the badge has an activation callback.
     pub actionable: bool,
+    // xtask-allow(state-fields): passive record - leading icon
     pub leading_icon: bool,
+    // xtask-allow(state-fields): passive record - trailing icon
     pub trailing_icon: bool,
 }
 #[derive(Clone, Debug, PartialEq)]

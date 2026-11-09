@@ -13,7 +13,6 @@ use kivact_core::view::{
 use kivact_core::view::{Node, NodeBuilder, node};
 use kivact_interaction::{ScalarRange, ScalarRangeError, use_splitter};
 
-// xtask-allow(state-fields): Setup-only NodeBuilder options; optional panes and observer are independent construction inputs.
 /// Two panes and a handle between them, created by [`splitter`].
 pub struct Splitter {
     root: Node,
@@ -21,14 +20,20 @@ pub struct Splitter {
     size: Binding<f64>,
     range: Value<ScalarRange>,
     orientation: Orientation,
+    // xtask-allow(state-fields): builder option - start
     start: Option<View>,
+    // xtask-allow(state-fields): builder option - end
     end: Option<View>,
     on_edit: Option<Callback<EditPhase>>,
     variants: Variants,
+    // xtask-allow(state-fields): builder option - collapse
     collapse: Option<f64>,
+    // xtask-allow(state-fields): builder option - snaps
     snaps: Option<Value<Vec<f64>>>,
     pointer_scale: Value<f64>,
+    // xtask-allow(state-fields): builder option - key step
     key_step: Option<f64>,
+    // xtask-allow(state-fields): builder option - handle
     handle: Option<View>,
 }
 

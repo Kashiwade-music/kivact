@@ -12,19 +12,22 @@ pub struct AppOptions {
     pub(super) settings: AppSettings,
 }
 
-// xtask-allow(state-fields): Independent application construction options do not encode runtime lifecycle.
 /// Canonical application settings that can cross the embedded UI thread boundary.
 #[derive(Clone)]
 pub(crate) struct AppSettings {
     pub(super) title: String,
+    // xtask-allow(state-fields): construction option - `None`: the system's locale (`App::locale`)
     /// `None`: the system's locale (`App::locale`).
     pub(super) locale: Option<Locale>,
     pub(super) messages: Messages,
+    // xtask-allow(state-fields): construction option - The window's first size (`window_size`);
     /// The window's first size (`window_size`); the engine's default when
     /// `None`.
     pub(super) window_size: Option<Size>,
+    // xtask-allow(state-fields): construction option - The window's minimum size (`min_window_size`)
     /// The window's minimum size (`min_window_size`).
     pub(super) min_window_size: Option<Size>,
+    // xtask-allow(state-fields): construction option - blocking threads
     pub(super) blocking_threads: Option<usize>,
     pub(super) fonts: Vec<(Asset, &'static Location<'static>)>,
     /// How the window's GPU device is made (`gpu_preference`).

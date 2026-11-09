@@ -13,13 +13,14 @@ pub fn trace(children: impl IntoView) -> Node {
     column(children).style(style().width(pct(100)).min_width(0).gap(8))
 }
 
-// xtask-allow(state-fields): Builder inputs and optional content are independent configuration; the line owns no interaction phase.
 /// One line of a [`trace`]: an optional icon, a title and a description.
 /// Created by [`trace_line`].
 pub struct TraceLine {
     root: Node,
     title: Value<String>,
+    // xtask-allow(state-fields): builder option - icon
     icon: Option<View>,
+    // xtask-allow(state-fields): builder option - description
     description: Option<Value<String>>,
 }
 

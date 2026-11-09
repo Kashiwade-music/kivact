@@ -97,11 +97,8 @@ pub struct Outline {
     // xtask-allow(state-fields): Optional mounted content reference used for geometry observation.
     content: Option<NodeRef>,
     scroll_on_press: Value<bool>,
-    // xtask-allow(state-fields): Optional application notification callback.
     change: Option<Callback<String>>,
-    // xtask-allow(state-fields): Optional navigation-start callback.
     start: Option<Callback<String>>,
-    // xtask-allow(state-fields): Optional navigation-completion callback.
     end: Option<Callback<String>>,
 }
 
@@ -262,9 +259,7 @@ struct Navigation {
     // xtask-allow(state-fields): Optional caller-owned active-heading binding; pending lifecycle belongs to ScrollMachine.
     controlled: Option<Binding<Option<String>>>,
     pending: MachineHandle<ScrollMachine>,
-    // xtask-allow(state-fields): Optional navigation-start callback.
     start: Option<Callback<String>>,
-    // xtask-allow(state-fields): Optional navigation-completion callback.
     end: Option<Callback<String>>,
 }
 
@@ -499,13 +494,10 @@ fn outline_row(level: u8, density: OutlineDensity, active: bool) -> kivact::styl
 kivact::state::constant_value!(OutlineDensity);
 
 fn active_heading(
-    // xtask-allow(state-fields): Optional caller-owned active-heading binding.
     active: Option<Binding<Option<String>>>,
     pending: MachineHandle<ScrollMachine>,
     items: Value<Vec<OutlineItem>>,
-    // xtask-allow(state-fields): Optional mounted scroll-viewport reference, not scroll phase.
     viewport: Option<NodeRef>,
-    // xtask-allow(state-fields): Optional mounted content reference used for geometry observation.
     content: Option<NodeRef>,
     offset: Value<f64>,
 ) -> Value<Option<String>> {

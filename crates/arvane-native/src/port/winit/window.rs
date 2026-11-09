@@ -29,7 +29,6 @@ pub(super) enum Surface {
     },
 }
 
-// xtask-allow(state-fields): Native resources and monitor cache; optional Windows subclass and last observed monitor are independent platform facts.
 /// Native window and CPU surface; deliberately !Send and !Sync through Rc.
 pub struct WinitWindow {
     // xtask-allow(state-fields): RAII guard + monitor cache (HOST-REWRITE module) - the Windows subclass held for its drop, which removes it before the window goes

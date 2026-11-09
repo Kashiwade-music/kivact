@@ -50,15 +50,16 @@ pub(crate) enum RecordState {
 #[derive(Clone, Debug, Default)]
 pub(crate) struct ChildCursor(Cell<Option<Counted>>);
 
-// xtask-allow(state-fields): Disposable traversal cache holds a count, filtering fact and optional lookup position (S-9).
 /// A cursor as counted at one epoch.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct Counted {
     pub(crate) epoch: Epoch,
     /// The children in flow (the viewport's: its attached fixed boxes).
     pub(crate) count: usize,
+    // xtask-allow(state-fields): pure cache - Whether no child is filtered out
     /// Whether no child is filtered out.
     pub(crate) unfiltered: bool,
+    // xtask-allow(state-fields): pure cache - The last (filtered, raw) position looked up
     /// The last (filtered, raw) position looked up.
     pub(crate) at: Option<(usize, usize)>,
 }
@@ -102,7 +103,6 @@ pub(crate) struct NodeLayoutState {
     pub(crate) measured: Record,
 }
 
-// xtask-allow(state-fields): Independent slot-indexed measurement, geometry and layout input caches (S-9).
 /// Style, caches and optional geometry borrowed for one root computation.
 #[derive(Clone, Debug)]
 pub(crate) struct NodeLayoutValues {

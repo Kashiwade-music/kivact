@@ -38,21 +38,30 @@ pub(crate) fn variation_bits(variations: &[FontVariation]) -> Vec<VariationBits>
         .collect()
 }
 
-// xtask-allow(state-fields): Immutable paragraph cache key; optional span overrides are independent style properties.
 /// What a span sets that shaping reads; floats compare by bit pattern.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 struct SpanKey {
     start: usize,
     end: usize,
+    // xtask-allow(state-fields): cache key - font size
     font_size: Option<u64>,
+    // xtask-allow(state-fields): cache key - weight
     weight: Option<u16>,
+    // xtask-allow(state-fields): cache key - family
     family: Option<String>,
+    // xtask-allow(state-fields): cache key - italic
     italic: Option<bool>,
+    // xtask-allow(state-fields): cache key - letter spacing
     letter_spacing: Option<u64>,
+    // xtask-allow(state-fields): cache key - word spacing
     word_spacing: Option<u64>,
+    // xtask-allow(state-fields): cache key - kerning
     kerning: Option<FontKerning>,
+    // xtask-allow(state-fields): cache key - features
     features: Option<Vec<FontFeature>>,
+    // xtask-allow(state-fields): cache key - variations
     variations: Option<Vec<VariationBits>>,
+    // xtask-allow(state-fields): cache key - font width
     font_width: Option<u64>,
 }
 
@@ -101,7 +110,6 @@ struct RichKey {
     spans: Vec<SpanKey>,
 }
 
-// xtask-allow(state-fields): Immutable paragraph cache key; style and wrapping options are independent inputs.
 /// What a shaped layout depends on: the text, the paragraph style that
 /// shaping reads (see the module invariant) and its spans' ranges and
 /// shaping styles; floats compare by bit pattern.
@@ -111,12 +119,17 @@ pub(crate) struct Key {
     font_size: u64,
     weight: u16,
     line_height: u64,
+    // xtask-allow(state-fields): cache key - wrap
     wrap: bool,
+    // xtask-allow(state-fields): cache key - family
     family: Option<String>,
+    // xtask-allow(state-fields): cache key - italic
     italic: bool,
     variations: Vec<VariationBits>,
     font_width: u64,
+    // xtask-allow(state-fields): cache key - optical sizing
     optical_sizing: bool,
+    // xtask-allow(state-fields): cache key - rich
     rich: Option<Box<RichKey>>,
 }
 

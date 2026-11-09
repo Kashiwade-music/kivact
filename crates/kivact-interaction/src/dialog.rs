@@ -57,13 +57,14 @@ pub enum DialogMode {
     Popover,
 }
 
-// xtask-allow(state-fields): Independent dismissal options, not lifecycle state.
 /// Which requests close a [`DialogApi`]. Assistive technology's DismissOn always
 /// does.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct DismissOn {
+    // xtask-allow(state-fields): builder option - An unhandled Escape closes it
     /// An unhandled Escape closes it.
     pub escape: bool,
+    // xtask-allow(state-fields): builder option - A pointer press outside it (and outside its anchor) closes it
     /// A pointer press outside it (and outside its anchor) closes it.
     pub outside: bool,
 }

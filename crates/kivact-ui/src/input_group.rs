@@ -12,16 +12,19 @@ enum Controls<C> {
     Built(C),
     Scoped(Box<dyn FnOnce() -> C>),
 }
-// xtask-allow(state-fields): Builder-only optional adornments and scoped initializer; no coupled runtime state.
 /// A labelled group of adjacent inputs and adornments.
 pub struct InputGroup<C> {
     root: Node,
     label: Value<String>,
     controls: Controls<C>,
     size: Value<ControlSize>,
+    // xtask-allow(state-fields): builder option - start
     start: Option<View>,
+    // xtask-allow(state-fields): builder option - end
     end: Option<View>,
+    // xtask-allow(state-fields): builder option - block start
     block_start: Option<View>,
+    // xtask-allow(state-fields): builder option - block end
     block_end: Option<View>,
     variants: Variants,
 }

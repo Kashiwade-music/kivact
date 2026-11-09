@@ -63,11 +63,12 @@ fn paints(fill: &Fill) -> bool {
     }
 }
 
-// xtask-allow(state-fields): The two axes are independent geometric limit facts; every combination is valid.
 /// The axes a limit holds on.
 #[derive(Clone, Copy)]
 pub(super) struct Axes {
+    // xtask-allow(state-fields): independent geometric facts - x
     x: bool,
+    // xtask-allow(state-fields): independent geometric facts - y
     y: bool,
 }
 

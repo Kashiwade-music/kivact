@@ -138,10 +138,11 @@ impl<K: ItemKey> IntoView for PowerSearch<K> {
     }
 }
 
-// xtask-allow(state-fields): Field and operator are independent incomplete form inputs.
 #[derive(Clone, PartialEq)]
 struct FilterDraft<K> {
+    // xtask-allow(state-fields): passive record - field
     field: Option<K>,
+    // xtask-allow(state-fields): passive record - operator
     operator: Option<SearchOperator>,
     value: String,
 }

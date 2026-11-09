@@ -257,15 +257,16 @@ impl<'a> Windows<'a> {
     }
 }
 
-// xtask-allow(state-fields): Construction options: GPU preference and optional observer are independent caller choices, not lifecycle state.
 /// The main-thread window loop: one native window whose frames Arvane
 /// draws on the GPU when it can (started with the window, on a worker
 /// thread; the first frames are drawn on the CPU), else on the CPU.
 /// Construct and run on the application's main thread.
 pub struct Shell {
     shell: Box<dyn Backend>,
+    // xtask-allow(state-fields): construction option - prefer gpu
     prefer_gpu: bool,
     gpu_preference: GpuPreference,
+    // xtask-allow(state-fields): construction option - observer
     observer: Option<crate::presentation::Observer>,
 }
 
@@ -318,11 +319,12 @@ impl Shell {
     }
 }
 
-// xtask-allow(state-fields): Construction options: GPU preference and optional observer are independent caller choices, not lifecycle state.
 /// Presenter configuration shared by synchronous and stepped shells.
 pub struct ShellSetup {
+    // xtask-allow(state-fields): construction option - prefer gpu
     pub prefer_gpu: bool,
     pub gpu_preference: GpuPreference,
+    // xtask-allow(state-fields): construction option - observer
     pub observer: Option<Observer>,
 }
 impl Default for ShellSetup {
