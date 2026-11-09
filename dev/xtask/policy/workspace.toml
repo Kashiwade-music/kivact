@@ -15,8 +15,8 @@ targets = "lib-bin"
 
 [visible_to]
 
-# ----- Shader validation: naga is confined to kivact-shader, which style (kivact-style) and the compositor (arvane-compose) use.
-kivact-shader = ["kivact-style", "arvane-compose"]
+# ----- Shader validation: naga is confined to kivact-shader, which style (kivact-style) uses.
+kivact-shader = ["kivact-style"]
 
 # ----- Kivact の内部 crate: host を知らない反応の核は kivact-core だけが使う。アプリと部品は
 # kivact facade だけに依存する。
@@ -55,7 +55,7 @@ arvane-shell = ["arvane", "arvane-native", "kivact-engine", "arvane-virtual"]
 arvane-native = ["kivact-engine", "arvane-virtual", "arvane", "kivact"]
 # Engine testing owns the stepped Script/Probe bridge; core uses its public test host.
 arvane-virtual = ["kivact-engine", "arvane", "kivact-test"]
-arvane-text = ["arvane"]
+arvane-text = ["arvane", "kivact"]
 arvane-render = ["arvane", "arvane-compose", "kivact"]
 # The compositor plan: Composition to draw operations, owned by the window (arvane) and the facade (kivact).
 arvane-compose = ["arvane", "kivact"]

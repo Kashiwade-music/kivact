@@ -15,7 +15,6 @@ use crate::svg::{FontDb, Svg};
 use kivact_types::Asset;
 use kivact_types::Pixels;
 use kivact_types::{Rgba, Size};
-use resvg::usvg;
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::num::NonZeroU64;
@@ -80,11 +79,9 @@ impl AssetStore {
     }
 
     fn with_runner(runner: Runner) -> AssetStore {
-        let mut fonts = usvg::fontdb::Database::new();
-        fonts.load_system_fonts();
         AssetStore {
             runner,
-            fonts: Arc::new(fonts),
+            fonts: Arc::new(crate::svg::SvgFonts::new()),
             entries: HashMap::new(),
             frame: None,
             tick: 0,
@@ -156,7 +153,7 @@ impl AssetStore {
     /// and the results of the parses of the old fonts are dropped when they
     /// land).
     pub fn register_font(&mut self, bytes: Arc<[u8]>) {
-        Arc::make_mut(&mut self.fonts).load_font_data(bytes.to_vec());
+        self.fonts = Arc::new(self.fonts.with_font(bytes.to_vec()));
         let stale: Vec<Asset> = self
             .entries
             .iter()

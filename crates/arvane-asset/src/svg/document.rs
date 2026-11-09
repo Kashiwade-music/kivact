@@ -10,7 +10,7 @@ use kivact_types::color::unpremultiply;
 use resvg::{tiny_skia, usvg};
 
 /// The font database an SVG's `<text>` is shaped with.
-pub(crate) type FontDb = Arc<usvg::fontdb::Database>;
+pub(crate) type FontDb = Arc<super::SvgFonts>;
 
 /// A parsed SVG takes at most `budget / SVG_SHARE` of the store's budget.
 const SVG_SHARE: usize = 4;
@@ -41,7 +41,7 @@ pub(crate) fn parse(bytes: &[u8], fonts: &FontDb, budget: usize) -> Result<Svg, 
     super::nesting::check(bytes).map_err(ParseError::Malformed)?;
     let options = usvg::Options {
         resources_dir: None,
-        fontdb: Arc::clone(fonts),
+        fontdb: fonts.for_document(bytes),
         image_href_resolver: usvg::ImageHrefResolver {
             resolve_string: Box::new(|_, _| None),
             ..usvg::ImageHrefResolver::default()

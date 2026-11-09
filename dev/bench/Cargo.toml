@@ -7,14 +7,14 @@ publish = false
 description = "Manual KPI probes (startup, memory, CPU, frame time, update latency) for the slim-fast refactor; never run by CI"
 
 [features]
-# The App configurations K1/K6 compare. `complex-scripts` is forwarded once
-# the facade has the feature (W1/U11); until then this list is empty.
-default = []
+# The App configurations K1/K6 compare.
+default = ["complex-scripts"]
+complex-scripts = ["kivact/complex-scripts"]
 # `kv_latency` drives the test driver.
 latency = ["kivact/test"]
 
 [dependencies]
-kivact = { path = "../../crates/kivact" }
+kivact = { path = "../../crates/kivact", default-features = false, features = ["gpu"] }
 # Resolves allocation sites for `kv_heap` (build it with line tables, see README).
 backtrace = "=0.3.76"
 

@@ -7,7 +7,8 @@ license.workspace = true
 description = "The Kivact DevTools app."
 
 [features]
-default = ["gpu"]
+default = ["gpu", "complex-scripts"]
+complex-scripts = ["kivact/complex-scripts"]
 gpu = ["kivact/gpu"]
 
 [dependencies]

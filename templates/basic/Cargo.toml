@@ -6,7 +6,8 @@ edition = "2024"
 publish = false
 
 [features]
-default = ["gpu"]
+default = ["gpu", "complex-scripts"]
+complex-scripts = ["kivact/complex-scripts"]
 # Applications choose the renderer; component libraries leave it to their consumer.
 gpu = ["kivact/gpu"]
 
@@ -18,3 +19,41 @@ kivact = { path = "../../crates/kivact", default-features = false, features = ["
 
 [lints]
 workspace = true
+
+# A standalone App reads profiles only from its own root manifest; these are Kivact's recommended release settings (size and speed; fat LTO lengthens release builds).
+[profile.release]
+lto = "fat"
+codegen-units = 1
+opt-level = "s"
+strip = "symbols"
+# panic は unwind のまま: embed（DAW の plugin）は panic を host の外へ出さない。
+
+# 描画・shaping・layout の hot path は速度を優先する。
+[profile.release.package.vello_cpu]
+opt-level = 3
+[profile.release.package.vello_common]
+opt-level = 3
+[profile.release.package.fearless_simd]
+opt-level = 3
+[profile.release.package.kurbo]
+opt-level = 3
+[profile.release.package.skrifa]
+opt-level = 3
+[profile.release.package.read-fonts]
+opt-level = 3
+[profile.release.package.harfrust]
+opt-level = 3
+[profile.release.package.parley]
+opt-level = 3
+[profile.release.package.taffy]
+opt-level = 3
+[profile.release.package.kivact-layout]
+opt-level = 3
+[profile.release.package.kivact-engine]
+opt-level = 3
+[profile.release.package.arvane-render]
+opt-level = 3
+[profile.release.package.arvane-compose]
+opt-level = 3
+[profile.release.package.arvane-text]
+opt-level = 3

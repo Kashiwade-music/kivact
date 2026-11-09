@@ -11,7 +11,8 @@ description = "Public Kivact API consumer tests: one real-window E2E binary and 
 # Starts the DevTools agent of the test App (tests/e2e/devtools.rs).
 devtools = ["kivact/devtools"]
 embed = ["kivact/embed"]
-default = ["gpu"]
+default = ["gpu", "complex-scripts"]
+complex-scripts = ["kivact/complex-scripts"]
 tokio = ["kivact/tokio"]
 # The consumer selects the renderer independently of the testing API.
 gpu = ["kivact/gpu"]
