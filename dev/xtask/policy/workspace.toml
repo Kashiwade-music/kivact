@@ -95,11 +95,11 @@ trusted_macros = [
     "debug_assert_ne", "eprintln", "format", "include_bytes", "include_str", "line",
     "concat", "matches", "panic", "println", "unreachable", "vec", "write", "writeln", "env", "file",
     "thread_local", "tracing::debug", "tracing::error", "tracing::info", "tracing::trace",
-    "tracing::warn",
+    "tracing::warn", "quote", "format_ident",
     # workspace の macro_rules と、それを呼ぶ path は dev/xtask（macros.rs）が自動で足す。
     # item を生成する macro は、呼んだ module を解析の外に置く。
 ]
-trusted_attributes = ["serde"]
+trusted_attributes = ["serde", "component"]
 trusted_derives = [
     "Clone", "Copy", "Debug", "Default", "Eq", "Hash", "Ord", "PartialEq", "PartialOrd",
     "Deserialize", "Serialize",
@@ -114,7 +114,7 @@ trusted_derives = [
 # 使われない例外も error にする。
 [module_rules.kivact-core]
 # Canonical facades reexport owner access; the motion boundary adapter accepts the public NodeRef handle.
-except = ["style -> view::boundary", "state -> view::boundary", "state -> view::owner", "motion::frame_loop -> view::node_ref", "view::elements::viewport -> platform::env", "view::elements::viewport -> gpu_interop::import::registry"]
+except = ["style -> view::boundary", "state -> view::boundary", "state -> view::owner", "motion::frame_loop -> view::node_ref", "view::elements::viewport -> platform::env", "view::elements::viewport -> gpu_interop", "view::drawable::requests -> gpu_interop"]
 
 [module_rules.kivact-core.uses]
 state = []
@@ -373,6 +373,22 @@ reason = "The app template starts from `use kivact::prelude::*`, as the guides t
 rule = "glob-imports"
 path = "dev/tests/kivact-public-api/*"
 reason = "Public API E2E tests are written from the user's side and import `kivact::prelude::*`."
+
+[[style.exceptions]]
+rule = "glob-imports"
+path = "dev/bench/src/bin/*"
+reason = "The bench binaries are measurement programs written from the user's side and start from `use kivact::prelude::*`."
+
+[[style.exceptions]]
+rule = "poison-access"
+path = "crates/arvane-asset/src/svg/fonts.rs"
+reason = "The locked value is a pure cache of immutable font data. Recovering a poisoned guard cannot expose a half-updated value, and the asset worker must keep parsing after an unrelated panic."
+
+[[style.exceptions]]
+rule = "non-leaf-implementation"
+path = "crates/kivact-macros/src/lib.rs"
+item = "component"
+reason = "The proc-macro entry is the crate's only export; the parsing and expansion live in the child modules."
 
 [[style.exceptions]]
 rule = "glob-imports"

@@ -1,4 +1,4 @@
-//! Role: Heap probe: live bytes per allocation site after mounting `ROWS` items of `MODE`.
+//! Role: Heap probe: live bytes per site after mounting `ROWS` items of `MODE`.
 //!
 //! A counting global allocator records the call stack of every allocation
 //! made after `main` starts; `SETTLE_SECS` (3) after the root mounted (the
