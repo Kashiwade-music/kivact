@@ -7,11 +7,11 @@
 //! Invariants:
 //! - The host owns hit testing and the hover chain; this module only holds
 //!   its last report. The client records it inside the turn.
-//! - Before the first `NodeRef::hovered` the last report is a plain value
-//!   (`PointerObservation::Plain`); that call turns it into a graph source under the root
-//!   owner (`PointerObservation::Reactive`), which holds every later report for the App's
-//!   lifetime. An App that never calls it writes nothing to the graph. The
-//!   source starts at the node reported so far.
+//! - The window installs the last report as a graph source under its root
+//!   owner (`PointerObservation::Reactive`), as it does the mouse source: it
+//!   exists before any view mounts and holds every later report for the
+//!   window's lifetime. A record still holding `PointerObservation::Plain`
+//!   is turned into one on first use.
 //! - Once it exists, it is written only when a report arrives.
 //!   `hovered` walks the core tree's parent chain of that node, which a
 //!   later turn does not change for a live node: the core never reparents a
@@ -22,14 +22,29 @@ use std::panic::Location;
 
 use crate::geometry::Point;
 use kivact_runtime::Runtime;
-use kivact_runtime::{Signal, Value};
+use kivact_runtime::{Owner, Signal, Value};
 use kivact_types::{FocusTarget, WindowId};
 
 use crate::view::state::{PointerObservation, ViewState, current_window};
 
-/// The hover source of `window`'s App, created under the window's root
-/// owner by the first call (at the node the host reported last) and kept for
-/// the window's lifetime.
+/// Install the hover source of `window` under its root `owner`: a window
+/// resource, like the mouse source, that exists before any view mounts and is
+/// disposed with the window. Keeps an existing source.
+pub(crate) fn install(
+    rt: &Runtime,
+    window: WindowId,
+    owner: Owner,
+    at: &'static Location<'static>,
+) {
+    let state = ViewState::of(rt);
+    if let PointerObservation::Plain(last) = state.hover(window) {
+        state.set_hover(window, PointerObservation::Reactive(owner.signal(last, at)));
+    }
+}
+
+/// The hover source of `window`'s App, installed with the window under its
+/// root owner and kept for the window's lifetime. A plain record is turned
+/// into the source on first use, starting at the node the host reported last.
 pub(crate) fn source(
     rt: &Runtime,
     window: WindowId,

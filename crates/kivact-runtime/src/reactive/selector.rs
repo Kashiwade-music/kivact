@@ -1,7 +1,8 @@
 //! Role: `Selector`: O(1) "is this key selected" reads (Solid `createSelector`).
 //! One internal effect follows the source; each key read so far has its own
-//! value-less node, and a change notifies only the nodes of the previous and
-//! the next key. Unread key nodes are pruned as the key set grows.
+//! value-less node per reading owner, and a change notifies only the nodes of
+//! the previous and the next key. An owner's disposal releases the key nodes
+//! its computations read. Unread key nodes are pruned as the key set grows.
 
 use crate::reactive::AppId;
 use std::cell::RefCell;
@@ -18,7 +19,9 @@ use crate::reactive::registry::{runtime, try_runtime};
 /// What the selector's effect and its readers share.
 struct SelectorCache<K> {
     current: Option<K>,
-    nodes: HashMap<K, Key>,
+    /// The value-less node of each key for each owner that read it: an
+    /// owner's disposal releases its nodes.
+    nodes: HashMap<K, Vec<(Key, Key)>>,
     prune: PruneSchedule,
 }
 struct PruneSchedule {
@@ -90,7 +93,8 @@ pub(crate) fn create_selector<K: crate::ItemKey>(
                 [prev, next]
                     .iter()
                     .flatten()
-                    .filter_map(|k| nodes.get(k).copied())
+                    .filter_map(|k| nodes.get(k))
+                    .flat_map(|list| list.iter().map(|(_, node)| *node))
                     .collect()
             };
             let _g = rt.untracked_frame();
@@ -129,7 +133,8 @@ pub fn selector<K: crate::ItemKey>(source: impl IntoValue<Option<K>>) -> Selecto
 
 impl<K: crate::ItemKey> Selector<K> {
     /// Whether `k` is the selected key; subscribes the current computation
-    /// to changes of that answer only.
+    /// to changes of that answer only. The node is owned by the owner of that
+    /// computation, so unmounting it releases the node.
     #[track_caller]
     pub fn is(&self, k: &K) -> bool {
         let at = Location::caller();
@@ -140,18 +145,36 @@ impl<K: crate::ItemKey> Selector<K> {
         if rt.needs_run(state.effect) {
             rt.run_effect(state.effect);
         }
-        let existing = state.cache.borrow().nodes.get(k).copied();
-        let node = match existing.filter(|n| rt.node_alive(*n)) {
+        // A reader outside a live owner (setup, or a disposing frame) reads
+        // the selector's own owner: its node lives as long as the selector.
+        let reader = rt
+            .current_owner()
+            .filter(|owner| rt.owner_live(*owner))
+            .unwrap_or(state.owner);
+        let existing = state.cache.borrow().nodes.get(k).and_then(|nodes| {
+            nodes
+                .iter()
+                .rev()
+                .find(|(owner, node)| *owner == reader && rt.node_alive(*node))
+                .map(|(_, node)| *node)
+        });
+        let node = match existing {
             Some(n) => n,
             None => {
-                let n = rt.create_source(state.owner, (), at);
+                let n = rt.create_source(reader, (), at);
                 let len = state.cache.borrow().nodes.len();
                 if state.cache.borrow().prune.due(len) {
                     self.prune(&rt, &state);
                     let left = state.cache.borrow().nodes.len();
                     state.cache.borrow_mut().prune.retained(left);
                 }
-                state.cache.borrow_mut().nodes.insert(k.clone(), n);
+                state
+                    .cache
+                    .borrow_mut()
+                    .nodes
+                    .entry(k.clone())
+                    .or_default()
+                    .push((reader, n));
                 n
             }
         };
@@ -173,15 +196,26 @@ impl<K: crate::ItemKey> Selector<K> {
             let cache = state.cache.borrow();
             let keys = &cache.nodes;
             let g = rt.graph.borrow();
-            keys.iter()
-                .filter(|(_, n)| {
-                    !reading.contains(*n) && g.get(**n).is_none_or(|x| x.subs().is_empty())
-                })
-                .map(|(k, n)| (k.clone(), *n))
-                .collect()
+            let mut dead = Vec::new();
+            for (k, nodes) in keys.iter() {
+                for (_, n) in nodes {
+                    if !reading.contains(n) && g.get(*n).is_none_or(|x| x.subs().is_empty()) {
+                        dead.push((k.clone(), *n));
+                    }
+                }
+            }
+            dead
         };
         for (k, n) in dead {
-            state.cache.borrow_mut().nodes.remove(&k);
+            {
+                let mut cache = state.cache.borrow_mut();
+                if let Some(nodes) = cache.nodes.get_mut(&k) {
+                    nodes.retain(|(_, node)| *node != n);
+                    if nodes.is_empty() {
+                        cache.nodes.remove(&k);
+                    }
+                }
+            }
             let removed = rt.remove_owned_node(n);
             drop(removed);
         }

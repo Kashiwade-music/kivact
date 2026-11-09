@@ -88,6 +88,10 @@ pub(crate) fn mount_window_root(
         Some(root) => root,
         None => ViewState::tree_mut(rt).create_root(window, owner),
     };
+    // The hover source is a window resource (like the mouse source): it is
+    // installed with the root, before any view mounts, so a mount/unmount
+    // cycle leaves the live counts where it found them.
+    crate::view::hover::install(rt, window, owner, at);
     let style = NodeStyle {
         layers: vec![crate::view::element_data::StyleLayer {
             f: Rc::new(|| {
