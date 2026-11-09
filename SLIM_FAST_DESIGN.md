@@ -1,6 +1,6 @@
 # Kivact Slim-Fast 設計書
 
-版 1.0（2026-11-09）。作業ブランチ `refactor/kashiwade/slim-fast`、基点 `main@31a7ebe`。
+版 1.1（2026-11-09、`20261109_2107_CODEX_REVIEW.md` の妥当な指摘を反映）。作業ブランチ `refactor/kashiwade/slim-fast`、基点 `main@31a7ebe`。
 
 手順は [SLIM_FAST_WORK_ORDER.md](SLIM_FAST_WORK_ORDER.md)（作業指示書）に書く。本書は「何を、なぜ、どの形にするか」を決める。実装者は本書の決定を変えない。本書に無い判断が必要になったら作業指示書 0.4 の「停止して報告」に従う。
 
@@ -32,6 +32,37 @@
 | item | 計測の 1 行（`kv_stress` の 1 項目） |
 | 既定 renderer | 何も指定しない App の描画経路 |
 
+### 0.4 版 1.1 の変更（`20261109_2107_CODEX_REVIEW.md` の扱い）
+
+指摘はすべてコードで確かめ、実装方針（公開 API の書きやすさと統一、内部の単純さ、保守性、strategy.md、境界の明確な crate 分割、暗黙の状態機械の解消）に照らして採否を決めた。
+
+| 指摘 | 扱い | 本書での反映 |
+|---|---|---|
+| R01 Style の履歴の再生が merge で指数的 | 採用 | MEM-1 を群ごとの疎な struct に変えた（履歴を持たない） |
+| R02 LAY-1/PNT-1 は完全な O(changed) ではない | 一部採用 | 計算量の説明を実態に合わせ（1.4、2.2、4.4、4.5 節）、同じ値の印付けと facts の全走査をやめた。アルゴリズム自体は維持（親の子の比較は Taffy の layout と同じ大きさで安価） |
+| R03 flat cache の削除済み entry の残留 | 採用 | `remove_with` で個別に消す（4.5 節） |
+| R04 display:contents の印の混入 | 採用 | 印の正規化（4.5 節） |
+| R05 OnDemand と GPU 共有の循環 | 採用 | `HostRequest::DemandGpu` で需要を明示（4.3 節） |
+| R06 埋込み SVG の文字 | 採用 | `has_text` が `svg+xml` の data URL も見る（4.1 節）、E2E を追加 |
+| R07 children の再 mount の契約 | 採用 | `#[component]` に `ViewFn` の prop を足した（5.2 節） |
+| R08〜R11 付録 A の誤った enum 化・偽の独立 | 採用 | 全行の書き手と到達する組合せを調べ直し、付録 A を確定した型で書き直した（「確かめる」を残さない） |
+| R10 の AsyncCell | 一部採用 | ADR-21 の通知の粒度を保ち、単一の書き手 `publish` の投影（SM-12）として明示した |
+| R12 lint だけでは「全て」を判定できない | 採用 | 監査を主にし（6.1、6.4 節）、閉じ方を 4 種類に限定、SL-8 で理由の書式を検査 |
+| R13 pipeline の遅延生成が初回操作を止める | 採用 | GPU-2 を撤回（4.3 節） |
+| R14 wave の依存の不整合 | 採用 | DevTools を W5 の U51 へ、A-EC を W6 へ置いたまま移行期の gate を定義、U45 から facade の check を外した |
+| R15 complex-scripts の転送漏れ | 採用 | consumer に転送を足し（4.8 節）、`run.sh` は package を一つずつ build |
+| R16 workspace の no-default は GPU なしの確認にならない | 採用 | package ごとの feature の組合せの確認（7 章） |
+| R17、R18 計測が全行を出さない・失敗が良い値に化ける | 採用 | `run.sh` を作り直した（1.1 節。INVALID、小数の CPU、mount 後の heap、item あたりの WS 差分） |
+| R19 未達でも完了できる手順 | 採用 | 受入れの条件（1.6 節）。満たさなければ W7 で止める |
+| R20 macro が `'static` を要求する | 採用 | owner の要らない変換を呼出し時に行う（5.2 節） |
+| R21 `Binding::update` の意味 | 採用 | Signal 由来と `binding(get, set)` 由来の意味を定義（5.4 節） |
+| R22 Lightbox・SM-9・GPU 設定の優先順位 | 採用 | Lightbox は builder を変えず投影として扱う、SM-9 の初期値と書き戻し、優先順位の表（4.3 節） |
+| R23 computed text の共有が深さの二乗 | 採用 | 既に cache にある親とだけ比べる（MEM-5） |
+| R24 一時の Frame の縮小・EventSink の揺れ | 採用 | Frame を対象外にし、M-R4 に履歴の閾値を入れた |
+| R25 撤退規則が chunk を不透明とみなす | 採用 | 撤退は高速経路を全部止める |
+| R26 独立したアプリへ profile が届かない | 採用 | 雛形に profile、ビルド時間を記録（4.8 節） |
+| 「維持すべき判断」（crate の分割、改名、ARG-1、既定値を保持しない、B0/B1 の比較、a11y の Geometry 経路） | 維持 | — |
+
 ---
 
 ## 1. KPI：現状の分析と改善目標
@@ -42,24 +73,27 @@
 
 | ID | KPI | 計測（`dev/bench`） | 判定に使う値 |
 |---|---|---|---|
-| K1 | 起動時間 | `kv_startup`（counter と同じ画面、800×600）。`T main`（`main` の先頭）から `KIVACT_FRAME_LOG` の最初の `F` 行（最初の present の完了）まで。5 回の中央値 | main→初回 present（ms） |
-| K2 | メモリ | アイドル 3 秒後の Working Set と private bytes（counter、basic catalog、3000 行の静止画面）。`kv_heap` で item あたりの生存 heap byte と割当て元 | MiB、KiB/item |
-| K3 | CPU | アイドル 10 秒の CPU 時間（ms/s）とアイドル中の frame 数。`kv_stress`（毎 frame 1 つの text を書き換える）の CPU 使用率 | ms/s、1 core に対する % |
-| K4 | フレーム時間 | `kv_stress` の `KIVACT_FRAME_LOG`：frame の UI thread 時間（work）の p50/p95/p99、描画間隔の p99 | ms |
+| K1 | 起動時間 | `kv_startup`（counter と同じ画面、800×600）：`T main`（`main` の先頭）から `KIVACT_FRAME_LOG` の最初の `F` 行（最初の present の完了）まで、5 回の中央値。basic catalog：起動から最初の `F` 行まで（catalog は `T main` を出さないので OS のプロセス生成を含む）、5 回の中央値 | ms |
+| K2 | メモリ | アイドル 3 秒後の Working Set と private bytes（counter と同じ画面、basic catalog、3000 行の静止画面）。item あたり＝`kv_stress STILL=1 MODE=<種類>` の (WS(3000 個) − WS(0 個)) ÷ 3000（CPU） | KiB、KiB/item |
+| K3 | CPU | アイドル 10 秒の CPU 時間（小数の ms/s と元の tick）とアイドル中の frame 数。`kv_stress`（毎 frame 1 つの text を書き換える）の CPU 使用率（小数の %） | ms/s、1 core に対する % |
+| K4 | フレーム時間 | `kv_stress` の `KIVACT_FRAME_LOG`：frame の UI thread 時間（work）の p50/p95/p99、描画間隔の p99。CPU の全画面 frame＝`kv_startup`（CPU 強制）の最初の frame の raster 時間 | ms |
 | K5 | UI 更新レイテンシ | `kv_latency`：試験 driver（CPU、`KIVACT_TEST_MIRROR=off`、a11y 公開あり）で、座標 click・pointer 移動・wheel の入力から描画と a11y 公開の完了まで | ms（p50/p95） |
-| K6 | バイナリサイズ | `kivact-example-counter` と `kivact-ui-basic-catalog` の release の実行ファイル（既定 feature） | byte |
+| K6 | バイナリサイズ | release の実行ファイル：`kivact-example-counter`（既定 feature）、`kv_startup`（`--no-default-features`、U11 の後は `complex-scripts` なし）、`kivact-ui-basic-catalog`（既定 feature）。package は 1 つずつ build する（feature の統合で他の package の feature が混ざらないため） | byte |
+
+`kv_heap`（割当て元ごとの生存 heap byte、0 個と 3000 個の差）は原因の診断用で、KPI の行には使わない（WS と allocator の生存 byte は別の量）。
 
 注意：
 
-- `spawn→main`（OS のプロセス生成）は K1 に含めない。この機械では Hello World でも bash 経由で約 52 ms かかり、Kivact の責任ではない。`run.sh` は参考値として記録しない。
-- Windows の計測は `wmic` を image 名で引く。MSYS の `/proc/<pid>/winpid` は別プロセスを指すことがあり、CPU 時間を誤る（分析中に実際に誤った）。
+- `spawn→main`（OS のプロセス生成）は K1 の counter に含めない。この機械では Hello World でも bash 経由で約 52 ms かかり、Kivact の責任ではない。
+- Windows の計測は `wmic`（無ければ PowerShell の CIM）を image 名で引く。MSYS の `/proc/<pid>/winpid` は別プロセスを指すことがあり、CPU 時間を誤る（分析中に実際に誤った）。
 - K5 の試験 driver は毎 settle で a11y の木を公開する。したがって K5 は「支援技術が有効なときの更新」に近い値になる。支援技術なしの本番経路の更新コストは K4 の work が表す。
+- **有効な計測の条件**：`run.sh` は build の失敗、frame の出ない probe、`T main` の欠落、5 秒で 100 frame 未満の `kv_stress`、17 個の場面を出さない `kv_latency`、heap の失敗のどれかで `INVALID:` を書いて非 0 で終わる。INVALID の report は B0 にも B1 にも使わない。B0 は 1.4 節のすべての行を計算できる `run.sh` で取る（項目の欠けた B0 と比べない）。
 
 ### 1.2 ベースライン（分析機での実測）
 
 分析機：Windows 11 Enterprise、Intel Core i9-14900K、32 GB、Intel UHD Graphics 770（wgpu は Vulkan を選んだ）、Rust 1.98.1。`main@31a7ebe` に release ビルドの不具合修正（1.3 節 R-0）だけを当てた release ビルド。
 
-`dev/bench/results/analysis-machine.md` は、完成した `run.sh` を分析機で通しで実行した結果（参考値。下の表は分析中の個別の計測）。両者はおおむね一致するが、通し実行では既定（GPU）の `kv_stress` が 35 fps（work p50 30 ms、present の待ち）になった。個別の実行では 64 fps だった。GPU の frame 時間は機械の他の GPU の利用に左右されるので、B0 と B1 は他の描画を止めて同じ条件で取る。
+`dev/bench/results/analysis-machine.md` は、完成した `run.sh`（1.1 節のすべての行を出す版）を分析機で通しで実行した結果（参考値。下の表は分析中の個別の計測）。両者はおおむね一致する。ただしその実行の間、OS が window の表示を約 32 fps に間引いた（個別の実行では 64 fps）。frame の work 時間は有効だが、fps と描画間隔は使えない。`run.sh` は表示周期に対して fps が 8 割未満なら WARNING を書く。B0 と B1 は、他の描画を止め、画面を点けたまま同じ条件で取る。
 
 #### K1 起動
 
@@ -158,14 +192,15 @@ R-2 は特に大きい。初回 frame の 99 ms、CPU 描画時の全画面 fram
 
 ### 1.4 改善目標（B0 に対する倍率）
 
-倍率は「B0 の値 ÷ B1 の値」（大きいほど良い）。「必達」は W7 の判定に使う。「見込み」は設計から見積もった到達点で、判定には使わない。
+倍率は「B0 の値 ÷ B1 の値」（大きいほど良い）。「必達」は 1.6 節の受入れの条件である。「見込み」は設計から見積もった到達点で、判定には使わない。
 
 | KPI | 指標 | 分析機の B0 | 必達 | 見込み | 主な手段 |
 |---|---|---|---|---|---|
 | K1 | main→初回 present（`kv_startup` 800×600、既定 renderer） | 約 390 ms | **≥ 5×** | 6〜8×（50〜65 ms） | R-1 遅延 font DB、R-2 CPU 合成の高速経路 |
-| K1 | basic catalog の main→初回 present | 約 630 ms | ≥ 3× | 3〜4× | 同上 |
+| K1 | basic catalog の起動→初回 present（プロセス生成を含む） | 680〜900 ms | ≥ 2.5× | 3× | 同上 |
 | K2 | counter のアイドル WS（既定 renderer） | 196 MiB | **≥ 5×** | 6〜7×（約 30 MiB） | R-3 GPU を必要時に起動、R-1、R-8 |
 | K2 | counter のアイドル WS（CPU 強制） | 47 MiB | ≥ 1.4× | 1.5〜1.7× | R-1、R-8 |
+| K2 | counter のアイドル WS（`ARVANE_RENDERER=gpu`） | 183〜196 MiB | 悪化させない（≤ 1.05×B0） | 1.1× | R-8（ドライバ分は対象外） |
 | K2 | 3000 行のアイドル WS（既定 renderer） | 611 MiB | **≥ 5×** | 6〜7× | R-3、R-8、R-9、R-10 |
 | K2 | item あたり：空 box / text / button / 行 | 30 / 12 / 117 / 141 KB | ≥ 5× / ≥ 4× / ≥ 5× / ≥ 5× | 7× / 5× / 6× / 6× | R-8、R-9、R-10 |
 | K2 | 3000 行のアイドル WS（CPU 強制） | 472 MiB | ≥ 3.5× | 4× | R-8、R-9、R-10 |
@@ -174,7 +209,7 @@ R-2 は特に大きい。初回 frame の 99 ms、CPU 描画時の全画面 fram
 | K4 | 3000 行の work p95 / p99 | 9.5 / 10 ms | **≥ 6× / ≥ 5×** | 7〜9× | R-4、R-5 |
 | K4 | 0 行の work p95 | 2.0〜2.5 ms | 悪化させない（≤ 1.05×B0） | 1.2× | R-2（CPU） |
 | K4 | 描画間隔 p99（3000 行） | 18.4〜19.5 ms | ≤ 1.15 × frame 周期 | 同左 | 上記 |
-| K4 | CPU の全画面 frame（800×600） | 69 ms | **≥ 6×** | 8〜12× | R-2 |
+| K4 | CPU の全画面 frame（`kv_startup` の最初の frame の raster、800×600、CPU 強制） | 69 ms | **≥ 6×** | 8〜12× | R-2 |
 | K5 | 無関係な 1 text の更新、n=3000 | 50〜72 ms | **≥ 8×** | 10〜15× | R-4、R-5、R-7 |
 | K5 | 1 行の更新、n=3000 | 83〜113 ms | ≥ 6× | 8〜10× | 同上 |
 | K5 | pointer 移動 p95、n=3000 | 69〜95 ms | **≥ 10×** | 15〜25× | R-5 |
@@ -182,23 +217,37 @@ R-2 は特に大きい。初回 frame の 99 ms、CPU 描画時の全画面 fram
 | K5 | mount、n=3000 | 1,040〜1,140 ms | ≥ 2× | 2.5〜3× | R-6、R-8、R-9、R-10 |
 | K5 | counter の click | 1.6 ms | ≥ 1.2× | 1.3× | R-2（damage の合成） |
 | K6 | counter（既定 feature） | 24.6 MB | **≥ 1.7×** | 1.7〜1.8×（約 14 MB） | R-11 |
-| K6 | counter（`default-features = false, features = ["gpu"]`） | 24.6 MB | ≥ 2.2× | 2.3×（約 11 MB） | R-11 の `complex-scripts` |
+| K6 | `kv_startup`（`--no-default-features`。B0 は同じ build の既定） | 24.6 MB 前後 | ≥ 2.2× | 2.3×（約 11 MB） | R-11 の `complex-scripts` |
 | K6 | basic catalog（既定 feature） | 54.3 MB | ≥ 1.7× | 1.8× | R-11 |
 
 目標の根拠：
 
 - **K1**：B0 の 390 ms のうち 282 ms が R-1、約 69 ms が R-2 である。両方を除くと window 作成 23 ms、mount と layout 約 10 ms、最初の font 読込みと shaping、raster と present が残る。R-2 の高速経路で 800×600 の全画面 frame は 5〜10 ms に下がる（vello_cpu の塗りと行の複写）。合計 50〜65 ms。
 - **K2**：既定 renderer のアイドル WS の大半は GPU ドライバである。GPU を必要時に起動する（R-3）と、counter のような画面は CPU の WS（47 MiB）になり、さらに R-1（system font の DB）と R-8 で約 30 MiB に下がる。item あたりは 1.2 節の割当て元から積み上げた。空 box は `StateStyles` 5.9 KB、`resolve` の残留、`Style` 1.9 KB、`ComputedTextStyle` 0.47 KB がほぼ消え、layout 列（約 1〜2.7 KB）と `LayoutProps` 0.7 KB と `HostNode` が残るので 4〜5 KB（6〜7×）。button は reactive node を 40 から 12 以下にし（R-10）、状態 style を box の delta だけにし（hover・pressed・focus_visible の `PaintDelta` 約 2.2 KB は残る）、resolve の残留と recipe の `Style` 3 層（5.7 KB）を除いて 18〜22 KB（5〜6×）。
-- **K3/K4**：3000 行で scene が 7.1 ms、毎 frame の O(N) は R-4（layout の丸め・比較・走査）と R-5（`layer_facts`）である。これを O(changed) にすると、見えている 30 行程度の lower と raster（約 1 ms）が残る。
+- **K3/K4**：3000 行で scene が 7.1 ms、毎 frame の O(N) は R-4（layout の丸め・比較・走査）と R-5（`layer_facts`）である。これを変わったノードとその祖先だけの処理にすると、見えている 30 行程度の lower と raster（約 1 ms）が残る。ただし完全な O(changed) ではない：変わった祖先の子の一覧を一度ずつ見る比較（LAY-1）と、事実が変わった親の子の集計（PNT-1）は、その親の子の数に比例する。これは Taffy 自身がその親を layout し直すときの子の走査と同じ大きさで、1 子あたり数 ns の比較である。幅（兄弟の数）を増やした時の伸びは `kv_stress` の 0 行と 3000 行の差で確かめる。
 - **K5**：試験 driver は a11y を毎回公開する。R-7 で geometry だけの変化は identity metadata を作り直さない経路にするが、走査自体（全ノードの stack 移動）は O(N) のまま残るため、無関係な更新でも 3000 行で 2〜4 ms は残る。wheel は scroll container の subtree の a11y payload を作り直すので、改善は小さい（1.5 節）。
 - **K6**：profile だけで 14.5 MB（1.7×）。速度に効く crate だけ opt-level=3 に戻す（4.8 節）ので既定 feature で約 14 MB。`complex-scripts` を外せる構成で約 11 MB。
+
+### 1.6 受入れの条件
+
+次の 4 つをすべて満たしたときだけ、本 refactor を完了とする。どれかを満たさない場合は、作業指示書の W7 で完了を宣言せず、満たさない項目と原因を設計者（人間）に報告して止める。設計書と作業指示書は削除せず、architecture.md と decisions.md にも書き戻さない。
+
+| ID | 条件 | 確かめ方 |
+|---|---|---|
+| AC-1 正しさ | CP3 の gate（fmt、xtask、clippy、workspace の test、kivact-docs、gpu-interop-producer、feature の組合せ）がすべて成功する。既存の E2E の期待値を緩めていない | 作業指示書 11 章 |
+| AC-2 KPI | 有効な B0 と B1（1.1 節）で、1.4 節の「必達」の行がすべて満たされる。満たさない行は、同じ条件で 2 回測り直し、3 回中 2 回以上満たせば満たしたとする（雑音の扱い。未達を許す判断ではない） | `dev/bench/results/RESULT.md` |
+| AC-3 状態 | 6.4 節の状態の監査で、未解決の項目が 0 件 | `cargo xtask check --only state-fields`（W6 の後）と `dev/xtask/state-audit.md` |
+| AC-4 未実施 | 実装者の STOP で実施しなかった項目と撤退規則を適用した項目のうち、AC-1〜AC-3 と 5 章の公開 API に影響するものが 0 件（影響しない小さな最適化の撤退は記録して残してよい） | PR 説明の下書き |
+
+Linux の確認は、実機（WSL を含む）があれば行い、無ければ「Linux 未確認」と報告する。未確認のまま Linux の品質を適合とは書かない。
 
 ### 1.5 目標に含めないもの（理由）
 
 | 項目 | 理由と再検討の条件 |
 |---|---|
-| GPU を強制した時のメモリ | ドライバ依存（分析機の Vulkan で +150〜250 MiB、DX12 はさらに大きい）。Kivact が持つ texture と pipeline は R-3 の遅延生成で減るが、倍率の目標にはしない。悪化（+5% 超）は不可 |
+| GPU を強制した時のメモリ | ドライバ依存（分析機の Vulkan で +150〜250 MiB、DX12 はさらに大きい）。Kivact が持つ texture は R-8 で減るが、倍率の目標にはしない。悪化（+5% 超）は不可（1.4 節の行） |
 | scroll 時の a11y payload の作り直し | a11y の bounds を絶対座標で公開しているため、scroll container の子孫すべての payload が変わる。親に対する相対座標と AccessKit の transform で公開する設計が必要で、本 refactor の範囲外。支援技術が無効の本番経路には影響しない |
+| programmatic な `scroll_to` の a11y | `model/apply.rs:138` の `scroll_to` は今も Metadata の dirt を出すので、A11Y-1 の Geometry の経路を通らない。wheel と programmatic scroll は別々に測り、scroll 全般が速くなったとは書かない |
 | engine の lower（描画命令の生成）の node 単位の保持 | 見えている entry だけを毎 frame lower しており O(visible)。3000 行でも 30 行分で、計測では scene 7.1 ms のほぼすべてが R-4/R-5 だった。保持は SceneOut の作り直しを要し、危険に見合わない |
 | GPU 合成の部分描画・部分 present | wgpu に部分 present が無い。GPU では全画面の合成でも 1 ms 未満 |
 | CPU raster の命令ごとの culling | 部分 raster の矩形は小さく、命令の走査は 0.1 ms 程度 |
@@ -218,7 +267,7 @@ R-2 は特に大きい。初回 frame の 99 ms、CPU 描画時の全画面 fram
 | JS・Python を書く人でも容易に記述できる | 既定値の props、名前付きの任意 props、`on_*` の closure の型推論を壊さない（5.1 節）。`Binding::update` を足し、`open.set(!open.get())` を不要にする |
 | 内部が統一的でシンプル | 1 ノードの style を一か所にだけ持つ（4.7 節）。暗黙の状態機械を enum と Machine にする（6 章）。O(N) の再計算をやめ、「変わったものだけを処理する」という一つの規則にする（PERF-1） |
 | 長期保守性 | 性能を `dev/bench` で測れるようにする。型の大きさの上限をコンパイル時に検査する（MEM-7）。状態の lint の抜け穴を塞ぐ（6.2 節） |
-| strategy.md を簡単に遂行できる | 9 章の「実行時品質」の指標を K1〜K6 として定義し測れるようにする。P-05（全体の費用で最適化）を、測定に基づく原因（1.3 節）だけを直す形で守る。G-04（資源を測る）を `kv_heap` で満たす |
+| strategy.md を簡単に遂行できる | 9 章の「実行時品質」の指標を K1〜K6 として定義し測れるようにする。P-05（全体の費用で最適化）を、測定に基づく原因（1.3 節）だけを直す形で守る。G-04（資源を測る）のうち、mount した画面の資源は K2 で、アンマウント後の回収は E2E の資源の検査（7 章）で確かめる |
 
 ### 2.2 新しい設計規則
 
@@ -226,13 +275,13 @@ R-2 は特に大きい。初回 frame の 99 ms、CPU 描画時の全画面 fram
 
 | ID | 規則 |
 |---|---|
-| PERF-1 | frame・turn・layout pass・a11y 公開の処理は O(changed) にする。全ノードの走査は、構造の初期化・font の登録・環境の変化・明示的な全体の再構築（`Full`）だけに使う。新しい O(N) の処理を足すときは、その理由を関数の doc comment に書く |
+| PERF-1 | frame・turn・layout pass・a11y 公開の処理は、変わったノードとその祖先（と、その祖先の子の一覧の安価な比較）だけを処理する。全ノードの走査は、構造の初期化・font の登録・環境の変化・明示的な全体の再構築（`Full`）だけに使う。新しい O(N) の処理を足すときは、その理由を関数の doc comment に書く |
 | PERF-2 | 一度しか要らない重い初期化（system font の DB、GPU、pipeline、ICU の formatter）は、使う時に作る。起動の critical path（main→初回 present）に新しい同期処理を足さない |
 | PERF-3 | CPU 合成は、平行移動だけ・不透明度 1・Normal と SrcOver・mask と cover なしの描画に整数の高速経路を使う。汎用 loop はそれ以外にだけ使う |
 | MEM-1 | ノードごとに保持する値は、既定値なら保持しない（`None`）。読む側は `None` を既定値として扱う |
 | MEM-2 | 64 byte を超える値を `Rc<RefCell<Option<T>>>`・`Rc<Cell<Option<T>>>`・`Option<T>` の field として多数のノードに持たせない。`Option<Box<T>>` にする |
 | MEM-3 | 多数のノードが同じ値を持つ場合（継承した computed text style など）は、親と同じなら `Rc` を共有する |
-| MEM-4 | authored `Style` は宣言の列（疎）で持つ。密な struct はコンパイル中の一時値だけにする |
+| MEM-4 | authored `Style` は field の群ごとの疎な struct で持つ（使った群だけを確保する）。操作の履歴を保持しない |
 | MEM-5 | 部品 1 つの reactive node は、その部品が実際に独立して変わる値の数までにする。同じ source から導く複数の `memo<bool>` は、`Copy` な struct を返す一つの `memo` にする |
 | MEM-6 | ノードごとの主要な型に、`const` の大きさの上限を置く（4.7 節 MEM-7 の表）。上限を超える変更はコンパイルできない |
 | DEP-5 | 重い任意機能（ICU の分かち書き辞書）は facade の feature にし、末端の crate が実装する（DEP-4 の形）。既定では有効 |
@@ -328,10 +377,13 @@ impl SvgFonts {
     }
 }
 
-/// Whether the SVG source may contain a text element (`<text`, or a
-/// prefixed `:text`); a false positive only loads the fonts.
+/// Whether the SVG may draw text with these fonts: a text element (`<text`,
+/// or a prefixed `:text`), or an embedded SVG image (a `data:` URL of type
+/// `image/svg+xml`, base64 or percent-encoded, whose inner document uses
+/// the same font database). A false positive only loads the fonts.
 fn has_text(svg: &[u8]) -> bool {
-    svg.windows(5).any(|w| w == b"<text") || svg.windows(5).any(|w| w == b":text")
+    let has = |needle: &[u8]| svg.windows(needle.len()).any(|w| w.eq_ignore_ascii_case(needle));
+    has(b"<text") || has(b":text") || has(b"svg+xml") || has(b"svg%2bxml")
 }
 ```
 
@@ -340,6 +392,7 @@ fn has_text(svg: &[u8]) -> bool {
 - `svg/document.rs` の `pub(crate) type FontDb = Arc<usvg::fontdb::Database>;` を `pub(crate) type FontDb = std::sync::Arc<SvgFonts>;` に変える。`parse(bytes, fonts, budget)` の `fontdb: Arc::clone(fonts)` を `fontdb: fonts.for_document(bytes)` に変える。
 - `AssetStore` の `fonts` の初期化は `Arc::new(SvgFonts::new())`（`load_system_fonts` を呼ばない）。font の登録（`asset_store.rs:159`）は `self.fonts = Arc::new(self.fonts.with_font(bytes.to_vec()));`。
 - 圧縮 SVG（SVGZ）は展開後の byte が `parse` に渡る（`job.rs:229-248`）ので、`has_text` は展開後に判定される。
+- 埋込みの SVG（`<image href="data:image/svg+xml;..">`）の内側の文字も、外側と同じ font DB を使う（usvg 0.46 の `parser/image.rs`）。中身を decode せずに判定するため、`svg+xml` の data URL があれば保守的に DB を用意する。
 - 結果：起動時の system font の走査が無くなる。text を含む SVG を最初に decode する worker thread の上で一度だけ走査する（試験の inline 実行では UI thread、許容する）。
 
 ### 4.2 CPU 合成の高速経路（CPU-1、R-2、PERF-3）
@@ -392,18 +445,26 @@ pub struct GpuPreference {
 }
 ```
 
-- `ARVANE_RENDERER` に `auto`（= `GpuStart::OnDemand`）を足す。`gpu` は `AtLaunch`、`cpu` は GPU を使わない（今と同じ）。
 - `App::gpu_preference` はそのまま（`GpuStart` も `kivact::gpu_interop` から再公開する）。
+- 優先順位（上が強い。一つの表で決め、他の場所に別の規則を書かない）：
+
+| 入力 | 結果 |
+|---|---|
+| `ARVANE_RENDERER=cpu`、または `Shell::prefer_gpu(false)` | GPU を使わない（今と同じ） |
+| `ARVANE_RENDERER=gpu` | `AtLaunch` |
+| `ARVANE_RENDERER=auto` | `OnDemand` |
+| 環境変数なし | `App::gpu_preference` の `start`（既定 `OnDemand`） |
+| 試験の host で GPU を要求するもの（`RenderOptions::gpu`、`GpuMode::Required`） | `AtLaunch`（GPU の lane の E2E）。OnDemand の経路は 7 章の別の E2E で確かめる |
 
 #### 状態
 
-`arvane/src/presenter/gpu.rs` の `enum State` に variant を一つ足す。bool や counter を別の field に置かない（6 章）。
+GPU の起動は presenter の `Gpu`（`arvane/src/presenter/gpu.rs`）だけが持つ。`enum State` に variant を一つ足す。bool や counter を別の field に置かない（6 章）。
 
 ```rust
 enum State {
     /// Not started and never will be (CPU only).
     Off,
-    /// Not started yet: started by `want`, when a frame needs the GPU or
+    /// Not started yet: started on the first GPU demand (`demand`), or when
     /// `slow` consecutive CPU frames missed half the display period.
     Deferred { slow: u8, waker: ShellWaker },
     Background(Background),
@@ -411,22 +472,41 @@ enum State {
 }
 ```
 
-- `Driver::start`：`GpuStart::AtLaunch` なら今どおり `start_gpu(waker)`。`OnDemand` なら `State::Deferred { slow: 0, waker }`。CPU 指定なら `Off`。
-- CPU で frame を描いた後（`frame_policy.rs` の CPU frame の終わり）に `Presenter::note_cpu_frame(raster_ns, period_ns, composition)` を呼ぶ。`Deferred` のとき：
-  - `composition` が GPU を要する（4.3.1）なら直ちに `start_gpu(waker)`。
-  - `raster_ns + present_ns > period_ns / 2` なら `slow += 1`、そうでなければ `slow = 0`。`slow >= 8` で `start_gpu(waker)`。
-- `Gpu::start`（`presenter/gpu.rs:346`）は今 `State::Off` の時だけ始める。`Off` と `Deferred { .. }` の両方で始めるようにする。CPU 指定（`ARVANE_RENDERER=cpu`、`prefer_gpu(false)`）は `start` を呼ばない（今と同じ）。
-- 二つ目以降の window（`Windows::open`、`arvane/src/window.rs:224-226`）も同じ規則（`AtLaunch` なら始める、`OnDemand` なら `Deferred`）。
-- 試験の host で GPU を要求するもの（`GpuMode::Required`、`RenderOptions::gpu`、`kivact-engine/src/host/testing/test_host.rs:203`、`arvane/tests/e2e/support.rs:390`）は `AtLaunch` を使う（ADR-03 の「GPU 非同期初期化は本番と同じ」を保ち、GPU の E2E が CPU で待たないようにする）。
-- `start_gpu` 以後は今の `Background` の遷移（Starting → Waiting → Configuring → Ready）と失敗時の CPU fallback をそのまま使う。GPU から CPU に自動で戻ることはしない（往復させない）。
+- `Driver::start` と二つ目以降の window（`Windows::open`）：`AtLaunch` なら今どおり始める。`OnDemand` なら `State::Deferred { slow: 0, waker }`。CPU 指定なら `Off`。
+- 起動の入口は二つだけで、どちらも `Gpu::start` を呼ぶ（`Off` と `Deferred` で始め、それ以外では何もしない。何度呼んでも同じ）：
+  1. **需要**（`Presenter::demand_gpu`）。次の三つの場合に呼ばれる。
+     - CPU の frame の composition が GPU を要する（4.3.1）。
+     - core の GPU 共有の利用（下の「GPU の需要の伝達」）。
+     - drawable の GPU の export の要求。
+  2. **遅い CPU frame**（`Presenter::note_cpu_frame`）：`raster + present > period / 2` の frame が 8 回続いたら始める（`period / 2` 以下の frame で `slow = 0`）。
+- `start` は今どおり device の作成と pipeline の compile を worker thread で行い、その間も CPU で描き続ける（UI thread を止めない）。GPU が Ready になってから GPU で描く。GPU から CPU に自動で戻ることはしない（失敗時の CPU fallback は今どおり）。
+
+#### GPU の需要の伝達（GPU 共有の循環を断つ）
+
+GPU 共有（`gpu-interop`）の利用は、GPU が Ready になる前には composition に現れない。
+
+- `kivact-core/src/gpu_interop/import/registry.rs:135` の `adapter()` は Ready 前には `None` を返す。
+- `share/app_side.rs:78`、`:99` は、adapter が無ければ Pixels を要求する。
+- `view/elements/viewport.rs:131`、`:164` は、adapter が無ければ GPU frame を載せない。
+- `kivact-engine/src/model/drawables/export.rs:52` は、pool が無ければ GPU export を出さない。
+
+そのため「composition に GPU の処理が出たら始める」だけでは、GPU がいつまでも始まらない。core の側で需要を明示的に届ける：
+
+- engine の `HostRequest` に `DemandGpu { window: WindowId }` を足す。engine の host はそれを受けて arvane の `Windows::demand_gpu(window)` を呼び、arvane はその window の presenter の `demand_gpu` を呼ぶ。
+- core の次の場所で、その window について一度 `DemandGpu` を出す（同じ owner からの二度目以降は出さない。presenter の側も冪等）。
+  - GPU 共有の import registry を作る時。
+  - shared image を作る時（`share/app_side.rs`）。
+  - viewport に `gpu_frame` を設定する時。
+  - drawable の export を GPU の texture で要求する時。
+- これで「需要 → GPU 起動 → adapter と pool の用意 → GPU frame/export」の順になる。重複した需要は `Gpu::start` の冪等性で吸収する。
 
 #### 4.3.1 GPU を要する composition
 
-`kivact-types/src/render/` の `Composition` に `pub fn needs_gpu(&self) -> bool` を足す。次のどれかがあれば true：user shader を参照する layer の effect（`LayerFilter` の shader と paint shader）、外部の GPU texture を描く item（`LayerItem::External` で GPU の frame を持つもの）、GPU の export 要求（`exports` のうち GPU の共有を要するもの）。実際の variant 名は `kivact-types/src/render/` を読んで、この三つの意味に当たるものを列挙する（列挙できない意味があれば停止して報告）。
+`kivact-types/src/render/` の `Composition` に `pub fn needs_gpu(&self) -> bool` を足す。user shader を参照する layer の effect（`LayerFilter` の shader と paint shader）があれば true。外部の GPU texture と GPU export は上の需要の伝達で扱うので、ここでは判定しない。
 
-#### pipeline の遅延生成（GPU-2）
+#### pipeline の作成は今どおり worker で行う
 
-`arvane-compose/src/gpu/pipelines.rs` の `Pipelines::new` は、`draw: Vec<wgpu::RenderPipeline>`（12）と 6 つの pipeline（graph、filter、mask_step、apply_acc、apply_alpha、clear）を一度に compile する。shader module と pipeline layout と bind group layout は今どおり `new` で作って field に持つ（軽い）。重い pipeline の compile だけを遅らせる：各 pipeline を `RefCell<Option<wgpu::RenderPipeline>>`（`draw` は `Vec<RefCell<Option<..>>>`）にし、最初に使う時に作って保持する（`wgpu::RenderPipeline` は clone できる handle なので、読む側は clone を受け取る）。present の pipeline は既に遅延している（`pipelines.rs:475`）ので同じ形に揃える。`OnceCell` は `clippy.toml` で禁止なので使わない。vello_hybrid の内部の pipeline は変えない。
+pipeline を初回の draw まで遅らせる案（GPU-2）は採らない。UI thread の描画中に compile が走り、初回の shader・filter・mask の操作が止まるため。pipeline は今どおり GPU の起動時に worker thread で作る。`OnDemand` では起動そのものが遅れるので、使わない GPU の pipeline のメモリは GPU を使わない画面では発生しない。
 
 ### 4.4 layout の O(changed) 化（LAY-1、LAY-2、R-4）
 
@@ -444,7 +524,7 @@ enum State {
 
 `NodeLayoutColumns` に pass の番号 `stamp: u32` を足す（`compute` の最初と、engine が直接呼ぶ `Layout::compute_overlay` の最初に `wrapping_add(1)`、0 は使わない）。
 
-`LayoutPass::set_unrounded_layout` で `touched[i] = pass` とし、`i` から親へ `below[j] = pass` を、既に `pass` の祖先に着くまで書く（親は `tree.parent(slot)`、viewport の slot 0 まで）。
+`LayoutPass::set_unrounded_layout` は値を保存し、**値が前と違うか、その slot がまだ一度も丸められていない（`origin` が NaN）ときだけ** `touched[i] = stamp` とし、`i` から親へ `below[j] = stamp` を、既に `stamp` の祖先に着くまで書く（親は `tree.parent(slot)`、viewport の slot 0 まで）。Taffy は子の cache が当たっても、親を layout し直すと各子の `set_unrounded_layout` を呼ぶので、同じ値で印を付けない。
 
 ```rust
 /// Round the subtrees whose unrounded layout or position changed in this
@@ -475,6 +555,7 @@ fn round_changed(pass: &mut LayoutPass<'_, impl LayoutTree + ?Sized>, node: TId,
 - `compute_overlay` と `compute_at` の両方の `round_layout` を置き換える。overlay の root も root と同じ規則。
 - `set_final_layout` は変えない（変わった時だけ `geometry_changed` に積む）。
 - 正しさの理由：丸めの結果はノード自身の unrounded layout と累積座標だけで決まる。どちらも変わらない subtree は前回の結果と同じである。
+- 計算量：丸めは、印の付いたノードとその祖先、および印の付いた祖先の子の一覧の比較（1 子あたり数 ns）に比例する。親の位置が本当に変わった場合は、その子孫すべての丸めが変わるので、その subtree の大きさに比例する（これは避けられない）。
 
 #### LAY-2 presence の scale を疎に持つ
 
@@ -524,11 +605,14 @@ refresh_facts(facts):
         if new != old:  id の flat parent（layer node なら止める）を queue に足す
 ```
 
+- **印の正規化**：事実は flat な木（`display: contents` の透明なノードを飛ばした木）で計算する（`layer.rs:229`、`node_tree.rs:94`）。`stale_fact(id)` は、`id` が透明なノードなら、代わりに最も近い透明でない祖先（flat な親）に印を付ける。子を追加・移動したときは、変わった flat な親と、追加・移動した子自身の両方に印を付ける（子の `own_layer` は flat な親の look を読むため）。
+- **削除**：削除した subtree の各 id の事実を `facts` から個別に消す（engine の `Removed` の id の列、ADR-29）。毎回 `facts` 全体を `retain` で走査しない。
+- **計算量**：stale なノードごとに、そのノードの flat な子の事実を集計する（子の数に比例）。事実が変わったときだけ親へ伝える。事実が変わる場合（hover で filter が付く等）に幅の広い親を集計し直すのは、その親の子の数に比例する。
 - 印を付ける場所（`StaleFacts::Nodes` に足す、`All` ならそのまま）：
   - `Model::derive`（`sync.rs`）で `Look` が変わったノード `id` と、その `flat_children` すべて（子の `own_layer` は親の look を読むため）。`Look` に `PartialEq` を derive する。
   - `sync` の `restyled`（状態 style を持つノードの再描画、`sync.rs:163-166`）の各ノードとその `flat_children`（hover などの状態の delta が `drawn_look` を変えるため）。
   - motion の tick（`ticks.rs:159` の `restack |= motion.is_active()`）：動いているノードの一覧が手元にあれば各ノードとその `flat_children`、無ければ `All`。
-  - 子の追加・削除・並べ替えの親（PNT-2 と同じ箇所）。削除されたノードの事実は、`All` 以外の更新の最後の `facts.retain(|id, _| tree.contains(*id))` で消える。
+  - 子の追加・削除・並べ替えの親（PNT-2 と同じ箇所）と、追加・移動した子（印の正規化を通す）。
   - canvas・draw の scene が変わったノード（`scene_facts` の入力が変わる箇所）。
   - `hidden`・`visibility` の変化、`display: contents` の変化（`apply.rs` の reflatten）、root・overlay・fixed の集合の変化は `All`（まれで、子孫の事実が一度に変わるため）。
 - `changes.restack = true` を書く既存の箇所はそのまま残す（list の作り直しは O(visible) の walk で、facts の更新とは別）。上のどれにも当たらない `restack` の箇所は、対象のノードが分かれば印を付け、分からなければ `All` にする。
@@ -560,6 +644,7 @@ pub(crate) fn forget_flat_around(&self, id: NodeId) {
 
 - `insert`（子を親につなぐ）と `detach`（子を親から外す）では、変わった親 `p` について `forget_flat_around(p)` を呼ぶ（`detach` は外す前に親を読んでおく）。移動では元の親と新しい親の両方。
 - `install` で既存の id を置き換える場合（同じ id が既にある）は `forget_flat_around(id)`。新しい id の `install` では何もしない（まだどの親にもつながっていない）。
+- ノードを tree から消す `remove_with`（`node_tree.rs:472`）は、今は `detach` の全消去が削除した subtree の entry の掃除も兼ねている。部分的な破棄にした後は、`remove_with` が削除する各 id の entry（その id の flat な子の一覧）を `flat` から消す。cache はノードの寿命と同時に終わる（mount と unmount を繰り返しても entry が増えない）。
 - ノードの透明さ（`display: contents`）が変わる箇所の `forget_flat()`（全消去、`model/apply.rs`）は残す（まれ）。
 
 ### 4.6 a11y：geometry だけの変化（A11Y-1、R-7）
@@ -593,64 +678,59 @@ pub(super) enum Dirt {
 
 #### MEM-1 疎な `Style`（kivact-style）
 
-公開 API（`style().padding(24).gap(12)` などの builder の method 名と引数、`Style::merge`、`compile_style` 等の hidden bridge の署名）は変えない。内部表現だけを変える。
+公開 API（`style().padding(24).gap(12)` などの builder の method 名と引数、`Style::merge`、`compile_style` 等の hidden bridge の署名）は変えない。内部表現だけを、**field の群ごとの疎な struct** に変える（Servo の style struct と同じ考え方）。操作の履歴は持たない。同じ field への上書きは値を置き換えるだけで、`merge` も今と同じ field ごとの合成である。
 
-- 今の `pub struct Style { ...約 60 field... }`（`sheet.rs:177`）を `pub(crate) struct StyleFields`（同じ field、同じ型、同じ derive）に改名する。今の `Style::merge` の本体は `StyleFields::merge(mut self, o: &StyleFields) -> StyleFields` に移す（中身は変えない）。`compile_style`・`resolve.rs`・`text.rs` など field を読むコードは `&StyleFields` を受け取る。
-- 新しい `Style` は setter の呼び出しの列である。`merge` も一つの宣言として列に入る。
+- 今の `Style` の約 75 field を、次の 8 つの群の struct に分ける。field 名・型・既定値・`merge` の規則は今のまま、所属だけが変わる。
+
+| 群（`Style` の field） | struct | 入る field |
+|---|---|---|
+| `size` | `SizeFields` | width、height、min_width、min_height、max_width、max_height、basis、aspect_ratio、grow、shrink |
+| `spacing` | `SpacingFields` | padding、margin、inset、row_gap、column_gap |
+| `flow` | `FlowFields` | direction、align、align_self、justify、align_content、display、visibility、grid、wrap、position、overflow、scroll_axes、scroll_snap、z_index |
+| `paint` | `PaintFields` | local_paint、background、border_width、border_color、border_style、ring、radius、shadows、opacity、isolation、border_image、scrollbar、cursor、clip、filter、backdrop_filter、blend、mask、clip_path |
+| `transform` | `TransformFields` | translate、rotate、scale、transform、transform_origin、translate_z、rotate_x、rotate_y、transform_origin_z、perspective、perspective_origin、transform_style、backface、will_change |
+| `text` | `TextFields` | font_size、weight、color、line_height、text_wrap、text_align、font_family、italic、text |
+| `states` | `StateFields` | hover、group、group_hover、group_focus、pressed、focus、focus_visible、disabled、selected、enter、exit |
+| `motion` | `MotionFields` | enter_size、exit_size、layout_transition、transitions |
 
 ```rust
-/// One setter call (or one merge), replayed on the dense fields.
-type Decl = std::rc::Rc<dyn Fn(&mut StyleFields)>;
-
-/// An authored style: its setter calls and merges in order. Its value is
-/// them replayed on the default fields, exactly what the dense style held.
-/// Small: a box with a size is two calls.
-#[derive(Clone, Default)]
+/// An authored style: each group of properties is allocated only when one
+/// of its properties is set. Values and merge rules are the dense style's.
+#[derive(Clone, Debug, Default)]
 pub struct Style {
-    decls: Vec<Decl>,
-}
-
-impl Style {
-    /// Record one setter call.
-    fn edit(mut self, decl: impl Fn(&mut StyleFields) + 'static) -> Self {
-        self.decls.push(std::rc::Rc::new(decl));
-        self
-    }
-
-    /// Merge `o` over this style (the dense merge, replayed in place).
-    pub fn merge(self, o: &Style) -> Style {
-        let o = o.clone();
-        self.edit(move |s| *s = std::mem::take(s).merge(&o.fields()))
-    }
-
-    /// The dense value: every call replayed on the default, in order.
-    pub(crate) fn fields(&self) -> StyleFields {
-        let mut dense = StyleFields::default();
-        for decl in &self.decls {
-            decl(&mut dense);
-        }
-        dense
-    }
-}
-
-impl PartialEq for Style {
-    fn eq(&self, other: &Self) -> bool {
-        self.fields() == other.fields()
-    }
-}
-
-impl std::fmt::Debug for Style {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.fields().fmt(f)
-    }
+    size: Option<Box<SizeFields>>,
+    spacing: Option<Box<SpacingFields>>,
+    flow: Option<Box<FlowFields>>,
+    paint: Option<Box<PaintFields>>,
+    transform: Option<Box<TransformFields>>,
+    text: Option<Box<TextFields>>,
+    states: Option<Box<StateFields>>,
+    motion: Option<Box<MotionFields>>,
+    /// Setter calls that replaced an earlier value (the diagnostics count).
+    duplicates: u32,
 }
 ```
 
-- 各 setter は、引数の変換（`self` に触れない部分）を先に行い、`self` への代入を `edit` の closure に移す。closure の中では `self.` を `s.` に読み替え、捕まえた値は毎回 `.clone()` する（closure は何度も呼ばれる）。例：`pub fn width(self, w: impl Into<Length>) -> Self { let w = w.into(); self.edit(move |s| s.width = Some(w.clone())) }`。一つの setter が複数の field を書く場合も、同じ代入を closure の中にそのまま写す。
-- 入れ子の状態 style（`hover`、`pressed`、`focus`、`enter`、`exit` など、`StyleFields` の `Option<Box<Style>>` の field）は新しい `Style` のまま持つ。dense な値が要る読み手は `.fields()` を呼ぶ。`StyleFields::merge` の中で入れ子の `Style` を合成している箇所は、新しい `Style::merge` を使う（意味は同じ）。
-- 正しさの理由：dense な `Style` は、builder の setter と `merge` を順に適用した結果だった。新しい `Style` は同じ操作を同じ順に記録し、`fields()` で同じ順に replay する。`merge` の後に setter を呼ぶ場合も順が保たれる。したがって `compile_style` に渡る dense な値は今と一致する。
-- `Style` は今も `local_paint: Option<LocalPaint>`（`Rc`）を持つので `Send` ではない。`Rc` の decl は `Send` の性質を変えない。
-- `size_of::<Style>()` は 24 byte になる。box の大きさを設定する style は、heap に 2 つの decl で約 100 byte。
+- 各群の struct は `#[derive(Clone, Debug, Default, PartialEq)]` と `fn merge(&mut self, o: &Self)` を持つ。`merge` の本体は今の `Style::merge` と `merge_compound_properties`（`sheet.rs:1144`、`:1222`）の、その群の field の部分をそのまま移したもの。
+- `Style` は群ごとに `fn size_mut(&mut self) -> &mut SizeFields { self.size.get_or_insert_with(Default::default) }` を持つ（8 つ）。setter は `self.width = ..` を `self.size_mut().width = ..` にする（duplicates の数え方も同じ式を群の field に対して行う）。
+- `Style::merge(mut self, o: &Style) -> Style`：各群について、`o` がその群を持てば `self.<群>_mut().merge(o_group)`、持たなければ何もしない。`duplicates` の扱いは今の `merge` と同じ。
+- 読み手（`resolve.rs`、`text.rs` など）は群ごとに読む。群が `None` なら既定値の群を読む：
+
+```rust
+let size_default;
+let size = match style.size.as_deref() {
+    Some(group) => group,
+    None => {
+        size_default = SizeFields::default();
+        &size_default
+    }
+};
+```
+
+  この形を `macro_rules! group_or_default` に一度だけ書き、各読み手が使う。
+- 入れ子の状態 style（`StateFields` の `hover`、`pressed`、`focus`、`enter`、`exit` など、型は `Option<Box<Style>>`）は新しい `Style` のまま持つ。
+- 正しさの理由：dense な `Style` の各 field は、新しい `Style` の群の同じ field に一対一で対応する。群が無い状態は、その群のすべての field が既定値の状態と同じ。setter と `merge` は同じ式を同じ field に適用する。したがって `compile_style` が読む値は今と一致する。比較（`PartialEq`）は「群が無い」と「既定値の群がある」を区別するが、今の dense な比較と結果を一致させるため、`PartialEq` は derive せず「各群を、無ければ既定値として比べる」手書きの実装にする。
+- 大きさ：`size_of::<Style>()` は 72 byte（8 つの box と `u32`）。box の大きさだけを設定する style は `SizeFields` 一つ（約 250 byte）を確保する。同じ field を何度上書きしても大きさは増えない。
 
 #### MEM-2 `StateStyles` を必要な時だけ持つ（kivact-types、engine）
 
@@ -670,14 +750,14 @@ engine の `host/write/typed.rs:166-171` の `set_layout`・`set_paint` は `box
 | M-R1 | `Rc<RefCell<Option<T>>>`、`Rc<Cell<Option<T>>>`、`RefCell<Option<T>>` で `size_of::<T>() > 64` | `Option<Box<T>>` を中に持つ |
 | M-R2 | ノードごとの記録が既定値と等しい | 保持しない（`None`） |
 | M-R3 | ノードごとに同じ不変の値（親から継承した `ComputedTextStyle` など） | 親の `Rc` を `Rc::clone` で共有する（親と等しいときだけ） |
-| M-R4 | mount 後に `capacity` が `len` の 4 倍を超えて残る `Vec`/`VecDeque`（event の queue など） | commit の最後に `shrink_to(len.max(16))` |
+| M-R4 | 長く生きる queue（event の queue など）で、mount の burst の後に大きな `capacity` が残る | drain の後、`capacity > 4 * max(len, 1024)` のときだけ `shrink_to(max(len, 1024))`（同じ規模の burst が続いても縮小と拡張を繰り返さない）。関数の中で作って捨てる一時の `Vec` には当てはめない |
 | M-R5 | mount の後も全ノード分の要素を持ち続ける `Vec`（分析機では button 1 個あたり 14 KB の `Vec<SemanticsPatch>`） | 消してよいかは設計の判断なので、実装者は STOP で報告し、Orchestrator は未実施に記録する |
 
 規則に当てはまらない上位の割当て元は「停止して報告」する。
 
 #### MEM-5 `ComputedTextStyle` を共有する
 
-`kivact-engine/src/measure/inherited_text.rs` の `computed_text` は全ノードに新しい `Rc<ComputedTextStyle>` を作る。ノード自身の `TextStyle` が無い（`None`）とき、`text_props(tree, id)` の結果が親の `computed_text` と等しければ、親の `Rc` を `Rc::clone` して保持する（M-R3）。等しさで判断するので、継承の規則を知らなくても結果は変わらない。
+`kivact-engine/src/measure/inherited_text.rs` の `computed_text` は全ノードに新しい `Rc<ComputedTextStyle>` を作る。`text_props(tree, id)`（祖先を一度だけ反復で辿る今の計算）の結果が、**既に cache にある**親の `computed_text` と等しければ、親の `Rc` を `Rc::clone` して保持する（M-R3）。親の cache が無ければ共有せず今どおり作る（親を再帰で計算しない。再帰すると深さ D の鎖で D² の計算と深い call stack になる）。等しさで判断するので、`capsize` のような継承しない規則があっても結果は変わらない。
 
 #### MEM-6 部品の reactive node を減らす（R-10）
 
@@ -693,7 +773,7 @@ const _: () = assert!(std::mem::size_of::<HostNode>() <= 384, "HostNode grew: bo
 
 | 型 | crate | B0 | 上限 | 意味 |
 |---|---|---|---|---|
-| `Style` | kivact-style | 1,928 | 24 | MEM-1 の結果を固定する |
+| `Style` | kivact-style | 1,928 | 72 | MEM-1 の結果を固定する |
 | `StateStyles` | kivact-types | 6,024 | 80 | MEM-2 の結果を固定する |
 | `HostNode` | kivact-engine | 464 | 464 | 増やさない（増やす field は `Option<Box<_>>`） |
 | `NodeProperties` | kivact-engine | 240 | 240 | 同上 |
@@ -747,13 +827,15 @@ opt-level = 3
 
 - `panic = "abort"` にしない（embed の `catch_unwind` が使えなくなり、DAW を落とす）。
 - `complex-scripts` は facade の既定 feature のまま（多言語対応の既定の挙動を変えない）。サイズを優先するアプリは `default-features = false, features = ["gpu"]` にできる。README と利用者ガイドに書く。
+- **feature の転送**：`kivact` に `default-features = false` で依存し `gpu` を転送しているアプリ・雛形・試験の consumer（`templates/basic`、5 つの catalog、`dev/tests/docs`、`dev/tests/kivact-public-api`、`kivact-devtools`、`dev/bench`）は、`complex-scripts = ["kivact/complex-scripts"]` を足し、既定の feature に入れる（今の既定の分かち書きを保つ）。kit の library（`kivact-ui-*`）は feature を強制しない（選ぶのはアプリ）。
+- **独立したアプリへの profile**：profile は workspace の root の manifest からしか読まれないので（`templates/basic/README.md:19`）、雛形の `Cargo.toml` に同じ `[profile.release]` を書き、配布のガイドに理由（サイズと速度、ビルド時間が延びること）を書く。fat LTO と codegen-units=1 の release ビルドの時間は `run.sh` が記録する（P-05 の全体の費用）。
 
 ### 4.9 その他の小さい改善
 
 | ID | 内容 |
 |---|---|
 | TXT-1 | `arvane-text/src/cache.rs` の `TextKey` の検索で `String` と `Vec` を確保しない。`hashbrown` の `Equivalent` を使い、借用の `TextKeyRef<'a>`（`&str`、`&[..]`、`Option<&RichKey>`）で検索する。`TextKeyRef` は `TextKey` と同じ順の field を `#[derive(Hash)]` し、同じ hash を出す（`String` と `str`、`Vec<T>` と `[T]`、`Box<T>` と `T` の `Hash` は同じ）。確保は miss の時の insert だけ |
-| EVT-1 | `EventSink` の queue（3000 ノードの mount 後に 3.8 MB の capacity が残った）に M-R4 を適用する |
+| EVT-1 | `EventSink` の queue（3000 ノードの mount 後に 3.8 MB の capacity が残った）に M-R4 を適用する。`model/drawables/place.rs:79` の `frames` は scene ごとの一時の `Vec` で残留しないので対象外 |
 
 ---
 
@@ -801,47 +883,48 @@ card("About", text("Kivact"))   // on_close と gap は既定値
 1. 関数の位置にそのまま、同じ名前・同じ可視性の関数を生成する。引数は「`#[prop(..)]` の無い引数」を宣言順に並べたもの。戻り値は生成する struct。
 2. struct の名前は関数名を UpperCamelCase にしたもの（`card` → `Card`、`user_row` → `UserRow`）。`#[must_use]` を付ける。関数の doc comment を struct にも写す。
 3. 任意の props（`#[prop(optional)]` と `#[prop(default = expr)]`）は struct の method（setter）になる。名前は引数名。
-4. 引数の宣言型と、生成する引数・setter の受け取り型・変換：
+4. 引数の宣言型と、生成する引数・setter の受け取り型・保持する型・変換。**owner の要らない変換は呼ばれた時に行い、owner の要る変換だけを mount の時（`scope` の中）に行う。** 通常の部品（`text`、`button` など）と同じ入力を受け取る（`&str` も受け取れる。`'static` を要求しない）。
 
-| 宣言型 | 受け取る型 | 変換 |
-|---|---|---|
-| `Value<String>` | `impl ::kivact::state::IntoText` | `IntoText::into_text_value(x)` |
-| `Value<T>`（T が String 以外） | `impl ::kivact::state::IntoValue<T>` | `IntoValue::into_value(x)` |
-| `Binding<T>` | `impl ::kivact::state::IntoBinding<T>` | `IntoBinding::into_binding(x)` |
-| `Callback<()>` | `impl Into<::kivact::state::Callback<()>>` | `Into::into(x)` |
-| `Callback<E>`（E が `()` 以外） | `impl Fn(E) -> R + 'static`（生成した setter に型引数 `R: ::kivact::state::HandlerResult`） | `::kivact::state::callback(x)` |
-| `View` | `impl ::kivact::view::IntoView` | `IntoView::into_view(x)` |
-| `Vec<View>`（複数の子、KIT-5） | `impl ::kivact::view::IntoChildren` | `IntoChildren::into_views(x)` |
-| `Option<X>`（`#[prop(optional)]` のみ） | X の受け取る型 | `Some(X の変換)`、既定は `None` |
-| その他の `T` | `impl Into<T>` | `Into::into(x)` |
+| 宣言型 | 受け取る型 | 保持する型（呼ばれた時の変換） | mount の時 |
+|---|---|---|---|
+| `Value<String>` | `impl ::kivact::state::IntoText` | `Reactive<String>`（`Reactive::from_text(x)`、owner 不要） | `.into_value()` |
+| `Value<T>`（T が String 以外） | `impl ::kivact::state::IntoValue<T>` | `Reactive<T>`（`Reactive::new(x)`、owner 不要） | `.into_value()` |
+| `Binding<T>` | `impl ::kivact::state::IntoBinding<T>` | `Binding<T>`（`into_binding()`、owner 不要） | そのまま |
+| `Callback<()>` | `impl Into<::kivact::state::Callback<()>> + 'static` | `Box<dyn FnOnce() -> Callback<()>>`（変換しない） | `f()`（ここで `into()`） |
+| `Callback<E>`（E が `()` 以外） | `impl Fn(E) -> R + 'static`（setter に型引数 `R: HandlerResult`） | `Box<dyn FnOnce() -> Callback<E>>` | `f()`（ここで `callback(..)`） |
+| `View`（一度 mount する slot） | `impl ::kivact::view::IntoView` | `View`（`into_view()`、owner 不要） | そのまま |
+| `Vec<View>`（複数の子、KIT-5） | `impl ::kivact::view::IntoChildren` | `Vec<View>`（`into_views()`） | そのまま |
+| `ViewFn`（開くたびに作り直す content、API-6） | `impl ::kivact::view::IntoViewFn<V>`（生成する関数・setter に型引数 `V: IntoView`） | `ViewFn<()>`（`into_view_fn()`） | そのまま |
+| `Option<X>`（`#[prop(optional)]` のみ） | X の受け取る型 | `Option<X の保持する型>`、既定は `None` | X と同じ |
+| その他の `T` | `impl Into<T>` | `T`（`into()`） | そのまま |
 
-5. `#[prop(default = expr)]` の既定値は、上の表の変換に `expr` を通した値。
-6. **変換は mount の時に行う。** `into_value`・`into_text_value`・`callback`・`Callback::from` は現在の setup の owner を要する（`kivact-runtime/src/reactive/props.rs:179-190`）。呼び出し側で変換すると memo の持ち主が呼び出し側になり、setup の外では `SetupOnly` で panic する。そこで struct の各 field は「変換を行う closure」`Box<dyn FnOnce() -> T>`（任意の props は `Option<Box<dyn FnOnce() -> X>>`）として受け取った値を保持し、`scope` の中（component の owner の下）で呼ぶ。受け取る型には `+ 'static` を付ける。
-7. 生成する関数と setter に `#[track_caller]` を付ける（API-12）。
-8. `IntoView` の実装は次の形。
+   callback だけは、closure 自体が `'static`（handler の規則）なので `'static` を付けても利用者の負担は増えない。
+5. `#[prop(default = expr)]` の既定値は、上の表の「呼ばれた時の変換」に `expr` を通した値。`expr` は位置引数の関数が呼ばれた時に評価する。
+6. 生成する関数と setter に `#[track_caller]` を付ける（API-12）。
+7. `IntoView` の実装は次の形。
 
 ```rust
 impl ::kivact::view::IntoView for Card {
     fn into_view(self) -> ::kivact::view::View {
         let Card { title, children, on_close, gap } = self;
         ::kivact::view::scope(move || {
-            let title = title();
-            let children = children();
+            let title = ::kivact::state::IntoValue::into_value(title);
+            let gap = ::kivact::state::IntoValue::into_value(gap);
             let on_close = on_close.map(|f| f());
-            let gap = gap();
-            /* 元の関数本体 */
+            /* 元の関数本体（children は ViewFn のまま） */
         })
     }
 }
 ```
 
+8. 足す公開 API（runtime と core、W2 の U25）：`impl Reactive<String> { pub fn from_text(input: impl IntoText) -> Self }`（owner 不要、`into_text()` を包む）。`impl IntoViewFn<View> for ViewFn<()>`（と sealed の impl）。これで本体は受け取った `ViewFn` を `show(open, children)` にそのまま渡せる（`show` は `IntoViewFn` を受け取る、`view/flow/branch.rs:168`）。
 9. 診断（`compile_error!`）：型引数や lifetime を持つ関数、`impl IntoView` 以外の戻り値、`self` を取る関数、`#[prop]` の未知の key、`optional` で `Option` でない型、`optional` と `default` の併用。各 message は修正方法を一文で示す（API-12 と同じ）。
 
 #### 適用範囲
 
 - アプリ、kit、catalog、例が使う。`kivact-ui`・`kivact-interaction` の内部は facade に依存しないので使わない（今の具体 builder を保つ）。
 - 生成された struct は `Element`（下記）を実装しない。React の component と同じく、外から style を当てたいなら props で受ける。
-- `examples/kivact/component` と `templates/basic` と利用者ガイドの「部品を作る」を `#[component]` で書き直す。kit の既存の公開 builder は `#[component]` に書き換えない（kit の公開 API の形を本 refactor の規約以外の理由で変えないため）。
+- `examples/kivact/component` と `templates/basic` と利用者ガイドの「部品を作る」を `#[component]` で書き直す。`examples/kivact/component` の `card` は今 `show(open, children)` で開閉のたびに children を作り直し（`main.rs:22`）、Collapse の後の Expand を試験している（`main.rs:77`）。書き直しでは children を `ViewFn` で宣言し、この契約と試験をそのまま保つ。kit の既存の公開 builder は `#[component]` に書き換えない（kit の公開 API の形を本 refactor の規約以外の理由で変えないため）。
 
 ### 5.3 一つの名前に一つの意味（改名）
 
@@ -883,9 +966,9 @@ prelude：`Element`、`scope`、`component`（attribute macro）を入れ、`Nod
 | `kivact-ui` `alert.visible(binding)` | `visible` | `.open(binding)`（ARG-4。既存の `.open` と重なる場合は一つにまとめる） |
 | `kivact-ui-game` `icon_menu.on_select` | | `on_activate`（ARG-5） |
 | `kivact-ui-creative` `SplitButton.on_select`、`picker` の `on_pick`、`outliner` の `on_item_activate` | | `on_activate`（ARG-5） |
-| `kivact-ui-soft` `lightbox.open(self, index)`、`mobile_nav.open(self)` | 命令 | `show(index)`、`show()`（ARG-6） |
+| `kivact-ui-soft` `LightboxHandle::open(self, index)`、`mobile_nav.open(self)` | 命令 | `show(index)`、`show()`（ARG-6）。`lightbox(open, media)` の builder（`open` は位置引数の bool の binding、ARG-4 に既に合う）と `LightboxState` の非公開は変えない |
 | `kivact-ui-soft` `mobile_nav.width(IntoValue<f64>)` | | `IntoValue<Length>`（`layout.width` と同じ） |
-| `Binding` | `update` が無い | `pub fn update(&self, f: impl FnOnce(&mut T)) where T: Clone`（`get` → 変更 → `set`。`Signal::update` と同じ名前と意味） |
+| `Binding` | `update` が無い | `pub fn update<R>(&self, f: impl FnOnce(&mut T) -> R) -> R`。`Signal` から作った binding は `Signal::update` に委ねる（その場で変更し、同じ値でも通知する。`handles.rs:148`）。`binding(get, set)` で作った binding は、`get_untracked()` の値を clone して `f` を適用し、`set` を一度呼ぶ（通知するかは `set` が決める。setter が正規の書込み口であることを保つ）。rustdoc にこの二つの違いを書く |
 
 kit の他の公開 setter も ARG-1〜6 に照らし、合わないものは同じ表の形で直す（作業指示書 U51〜U55 の手順）。
 
@@ -899,10 +982,11 @@ API の調査で見つかった、文書とコードの不一致を直す（W7�
 
 ### 6.1 方針
 
-1. xtask の `state-fields` の抜け穴を塞ぐ（6.2 節）。移行中は新しい検査を `state-fields-strict` という別名の rule にし、各 wave の unit が自分の crate で 0 件にする。W7 で `state-fields` に統合し、`state-fields-strict` を消す。
-2. 見つかったものを、6.3 節の変換規則で機械的に直す。規則に当てはまらないものは「停止して報告」。
-3. 分析で見つけた具体的な項目は作業指示書の付録 A に、直した後の enum の形まで書いてある。
-
+1. **監査が主、lint は補助。** 名前と型の構文を見る lint は、関数・object・crate をまたぐ意味の制約を網羅できない。そこで、状態の持ち主・不変条件・有効な組合せ・event・初期化・期限・破棄を、作業指示書の付録 A に**直した後の型まで設計者が確定した表**として持つ。実装者はその表を写すだけにし、確かめてから設計する手順（「確かめる、合わなければ STOP」）を残さない。
+2. lint の抜け穴を塞ぐ（6.2 節）。移行中は新しい検査を `state-fields-strict` という別名の rule にし、各 wave の unit が自分の crate で 0 件にする。W6 で `state-fields` に統合し、`state-fields-strict` を消す。
+3. 付録 A に無いもので lint が見つけたものは、6.3 節の規則のうち形がそのまま当てはまるものだけを実装者が直す。当てはまらないもの、組合せの意味を読まないと決められないものは STOP し、設計者（人間）が付録 A に行を足して確定する。STOP の項目は「未実施」として完了扱いにしない（1.6 節 AC-3）。
+4. 閉じ方は四つだけ：**型で表す**（enum、単一の Machine）、**導出して保持しない**、**単一の書き手の投影**（SM-12）、**真に独立**（SM-11、すべての組合せが有効と示せるもの）。
+5. 限界：静的な検査と台帳では、意味の上で隠れた状態を「全て」見つけたとは証明できない。完了の条件は「既知の項目が 0 件」と「監査の報告（6.4 節）を人間が確認した」ことである。
 ### 6.2 lint の変更（`dev/xtask/src/state_fields/`）
 
 | ID | 変更 |
@@ -913,6 +997,7 @@ API の調査で見つかった、文書とコードの不一致を直す（W7�
 | SL-4 | role の接尾辞による除外（`Input`、`Report` など）は、`Cell`・`RefCell`・`Signal`・`Var`・`Mutex` を field に持つ struct には適用しない |
 | SL-5 | `kivact-engine::contract` の除外をやめる（`bool` と `Option` を持つ struct を検査する） |
 | SL-6 | 名前が `pending*`・`dirty*`・`awaiting*`・`relayout*`・`stale*` の `Vec`・`VecDeque`・`BTreeSet`・`HashSet` を stored に数える |
+| SL-8 | marker の理由は `independent:`、`projection:`、`cache:`、`identity:`、`statistic:`、`option:` のどれかで始める（それ以外は error）。`independent:` は「全組合せが有効」の理由を、`projection:` は書き手の関数名を書く |
 | SL-7 | 関数内の local（`signal(false)`、`signal(None)`、`signal(<整数>)`、`var(..)`、`Cell::new`、`RefCell::new(None)`、`Rc::new(Cell::new(..))`、`Rc::new(RefCell::new(None))`）が同じ関数に 2 個以上あるとき、`--report` だけでなく error にする。例外は local の直前の `// xtask-allow(state-fields): <理由>` |
 
 ### 6.3 変換規則
@@ -927,27 +1012,37 @@ API の調査で見つかった、文書とコードの不一致を直す（W7�
 | SM-6 | 古い仕事を捨てるための `Generation`/`epoch` の比較 | 仕事の識別子を `Running { id }` の variant に持たせ、完了は id の一致で受ける |
 | SM-7 | 期限の時刻を保存し、読む時に比べる（`Warm { until_ns }`） | Machine の `Step::after(期間, Event::Expire)` |
 | SM-8 | effect が別の signal を補修する（`effect(move \|\| if !a.get() { b.set(None) })`） | 二つを一つの Machine の状態にし、effect を消す |
-| SM-9 | caller の `open: Binding<bool>` と部品内の Machine が同じ開閉を持つ | Machine が正本。binding は `feed` で `Event::OpenRequested(bool)` として入れ、Machine の effect が binding に書き戻す |
+| SM-9 | caller の `open: Binding<bool>` と部品内の Machine が同じ開閉を持つ | Machine が正本。(1) Machine の初期状態は構築時の `open.get_untracked()` から作る（`feed` は最初の値を配らない、`machine.rs:237`）。(2) 以後の変化は `feed(open, Event::OpenRequested)` で入れる。今の状態と同じ値の event は `stay`。(3) Machine の開閉の遷移は `Effect::WriteOpen(bool)` を出し、effect は `open.get_untracked() != v` のときだけ `open.set(v)` を呼ぶ（書き戻しは feed で同じ値として戻り `stay` になるので再入しない）。(4) owner の破棄で Machine も破棄される。E2E：初期 `open = true` で開いて描かれる、外から binding を変えると開閉する、部品の操作で閉じると binding が false になる |
 | SM-10 | drag の session と並べて、同じ gesture を別の signal で追う | drag の Start/Update/End/Cancel を一つの domain の Machine に送る |
-| SM-11 | 本当に独立した一つの事実 | 直さない。field の直前に `xtask-allow(state-fields): independent - <なぜ他の field と組合せの制約が無いか>` を書く。「passive record - <field 名>」のような field 名の繰り返しは理由として認めない |
+| SM-11 | 本当に独立した事実（すべての組合せが有効） | 直さない。field の直前に `xtask-allow(state-fields): independent: <すべての組合せが有効である理由>` を書く。「排他でない」は独立の理由にならない（一方が他方を含意するなら SM-1・SM-2）。field 名の繰り返しは理由として認めない |
+| SM-12 | 同じ事実の公開の投影（通知の粒度のために別の signal に持つ等） | 書き手を一つの private な関数（例：`publish(next)`）に集め、その関数だけが両方を書く。marker は `projection: written only by <関数名>` |
 
 SM-11 の「本当に独立」は、「すべての組合せが有効である」ことを理由に書けるものに限る。
 
 ---
 
+### 6.4 状態の監査（受入れ）
+
+- `cargo xtask check --only state-fields --report-audit`（W6 の U61 が作る）は、state の lint が数える field を 2 つ以上持つ struct・variant・関数の local を、field と marker の理由と閉じ方（SL-8 の接頭辞）ごとに `dev/xtask/state-audit.md` に書き出す。
+- CP3 で、この報告に「閉じ方が無い」行が 0 件で、付録 A の全行が実装済みであることを確かめる。人間（設計者）がこの報告を読んで確認するまで、1.6 節 AC-3 は満たされない。
+
 ## 7. 検証
 
 | 段階 | 行うこと | 行わないこと |
 |---|---|---|
-| unit の完了 | `cargo fmt`、指定された crate の `cargo check`/`cargo clippy -p <crate> --all-targets -- -D warnings`、指定された `cargo xtask check --no-write --only <rule> --crate <crate>` | workspace 全体の test、E2E、window を開く試験 |
-| checkpoint（CP1、CP2、CP3） | 作業指示書 9 章の gate（fmt、xtask、workspace の clippy、workspace の test、kivact-docs、gpu-interop-producer）と `dev/bench/run.sh` | — |
-| 最終（CP3） | 上記に加えて WSL の Linux の gate（任意、実機がある場合）。B1 と B0 の比で 1.4 節の「必達」を判定 | — |
+| unit の完了 | `cargo fmt`、指定された crate の `cargo check`/`cargo clippy -p <crate> --all-targets -- -D warnings`、指定された `cargo xtask check --no-write --only <rule> --crate <crate>`、本書・作業指示書が名前を挙げた試験 | workspace 全体の test、E2E の一括実行 |
+| checkpoint（CP1、CP2、CP3） | 作業指示書 9 章の gate と `dev/bench/run.sh` | — |
+| 最終（CP3） | 上記に加えて feature の組合せ、WSL の Linux の gate（実機があれば）、1.6 節の受入れの判定 | — |
 
 - 性能の変更で振る舞いは変わらない。既存の E2E がそのまま通ることを確かめる。期待値を緩めて通すことはしない。
-- 新しい公開 API には E2E を足す（`dev/tests/kivact-public-api/tests/e2e/`）：`#[component]`（必須・任意・既定値の props、children、payload ありの callback）、`Binding::update`、`GpuStart::OnDemand` の既定（`RenderOptions` で GPU を使わない試験で composition に shader があっても CPU の fallback を描くこと、既存の試験の確認で足りれば追加しない）。
+- **feature の組合せ**：`cargo test --workspace --no-default-features` は、他の package の依存が facade の既定 feature を有効にするので GPU なしの確認にならない。package を一つずつ指定して確かめる：`cargo check -p kivact --no-default-features`、`cargo check -p kivact --no-default-features --features gpu`、`cargo check -p kivact --features gpu-interop`、`cargo test -p kivact-public-api-tests --no-default-features`（この package は facade の feature を転送する）。加えて `cargo tree -p kivact --no-default-features -e features -i arvane-compose` の出力に `"gpu"` が無いことを確かめる。
+- **新しい E2E**（`dev/tests/kivact-public-api/tests/e2e/`）：
+  - `#[component]`：必須・任意・既定値の props、`&str` の引数、`Binding`・`Vec<View>`・`ViewFn` の props、payload ありの callback の型推論、root の setup の外で作った builder を mount すること、`ViewFn` の children を閉じて開くと作り直されること、unmount で component の owner が破棄されること（`Screen::stats().live_owners` が元に戻る）。
+  - `Binding::update`：`Signal` 由来と `binding(get, set)` 由来の両方。
+  - **資源の回収**：3000 行の list を mount して unmount し settle した後、`Screen::stats()` の `live_reactive`・`live_owners`・`frame_loops`・`tree_nodes` が mount の前の値に戻ること（G-01/G-04、R-3 の flat cache と PNT-1 の facts の eviction を含む）。
+  - **GPU の OnDemand**（GPU のある機械だけ、GPU の lane）：shader の composition で GPU が始まること、shared image（gpu-interop）を作ると GPU が始まり GPU frame が届くこと、`ARVANE_RENDERER=cpu` で始まらないこと。
+  - **SVG の埋込み文字**：外側に `data:image/svg+xml` の image だけがあり、内側に text がある SVG を描き、text の無い同じ SVG と画素が異なること（`Screenshot::raster_difference`）。
 - 型の大きさは MEM-7 の `const` 検査がコンパイル時に確かめる。
-
----
 
 ## 8. 決定、非目標、危険
 
@@ -970,7 +1065,10 @@ SM-11 の「本当に独立」は、「すべての組合せが有効である�
 | SLIM-04 | props の builder をどう作るか | `#[component]` が関数から生成する | 手書きの builder（約 80 行）は Rust 未経験者の障壁 |
 | SLIM-05 | 名前の衝突をどう解くか | `NodeBuilder`→`Element`、`Component` 削除、`component()`→`scope()`、試験の `Element`→`Locator` | 一つの名前に一つの意味（P-02、6 章の 4） |
 | SLIM-06 | `complex-scripts` を任意にするか | facade の既定 feature のまま任意にする | 多言語の既定の挙動を保ちつつ、3 MB を外せるようにする |
-| SLIM-07 | release の profile | fat LTO、codegen-units=1、opt-level="s"、hot path の crate だけ 3、strip、panic は unwind | サイズと速度の両立。embed の安全 |
+| SLIM-07 | release の profile | fat LTO、codegen-units=1、opt-level="s"、hot path の crate だけ 3、strip、panic は unwind。雛形にも同じ profile を書く | サイズと速度の両立。embed の安全。profile は root の manifest からしか読まれない |
+| SLIM-08 | authored `Style` の表現 | 8 つの群の疎な struct（操作の履歴を持たない） | 履歴の再生は merge で指数的に増え、上書きで肥大する |
+| SLIM-09 | GPU の需要をどう届けるか | shader は composition から、GPU 共有と GPU export は core が `HostRequest::DemandGpu` で明示する。起動は presenter の `Gpu` だけが持つ | GPU 共有は GPU の準備の後でないと composition に現れない |
+| SLIM-10 | 完了の判定 | 1.6 節の AC-1〜AC-4 をすべて満たしたときだけ完了。未達・未実施は報告して止める | 「試して報告した」と「達成した」を区別する |
 
 ### 8.3 危険と対策
 
@@ -982,4 +1080,5 @@ SM-11 の「本当に独立」は、「すべての組合せが有効である�
 | CPU 合成の高速経路の丸め差 | 汎用 loop との差は ±1。画素比較の試験の許容差の範囲 |
 | `#[component]` の診断が分かりにくい | `compile_error!` の文言で直し方を示す。展開の規則を利用者ガイドに書く |
 | 改名の取りこぼし | W3 の一括置換の後に workspace 全体の `cargo check` を CP で行う |
-| Haiku 相当の実装者が規則に無い判断をする | 作業指示書 0.4 の「停止して報告」。判断は orchestrator が行う |
+| Haiku 相当の実装者が規則に無い判断をする | 作業指示書 0.4 の「停止して報告」。設計の判断は設計者（人間）が付録 A・本書に書き足して行い、Orchestrator は設計の判断をしない |
+| OnDemand の初回 GPU の切替で操作が止まる | device と pipeline は worker で作り、その間は CPU で描き続ける。`renderer=gpu init_ms=..` を `run.sh` が記録する |

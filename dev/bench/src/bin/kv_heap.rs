@@ -1,8 +1,9 @@
 //! Role: Heap probe: live bytes per allocation site after mounting `ROWS` items of `MODE`.
 //!
 //! A counting global allocator records the call stack of every allocation
-//! made after `main` starts; 6 s later (the window is idle) it prints the
-//! live bytes per first Kivact/Arvane function and exits. Build with line
+//! made after `main` starts; `SETTLE_SECS` (3) after the root mounted (the
+//! window is idle) it prints the live bytes per first Kivact/Arvane function
+//! and exits. Build with line
 //! tables and no strip (`CARGO_PROFILE_RELEASE_STRIP=none CARGO_PROFILE_RELEASE_DEBUG=line-tables-only`) so sites resolve.
 //! Modes are those of `kv_stress` (`box`, `text`, `button`, `row`).
 
@@ -159,13 +160,18 @@ fn dump(rows: u32) -> ! {
 fn main() -> kivact::Result<()> {
     let rows: u32 = env_or("ROWS", 3000);
     let mode: String = env_or("MODE", "box".to_owned());
-    std::thread::spawn(move || {
-        std::thread::sleep(std::time::Duration::from_secs(6));
-        dump(rows);
-    });
+    let settle: u64 = env_or("SETTLE_SECS", 3);
     TRACKING.store(true, Ordering::SeqCst);
     App::new("kv_heap").run(move || {
         let mode = mode.clone();
+        // Measure the finished screen: the timer starts once the root has
+        // mounted (the first frame follows within the settle time).
+        on_mount(move || {
+            std::thread::spawn(move || {
+                std::thread::sleep(std::time::Duration::from_secs(settle));
+                dump(rows);
+            });
+        });
         column((
             text("Header"),
             scroll(column(for_index(

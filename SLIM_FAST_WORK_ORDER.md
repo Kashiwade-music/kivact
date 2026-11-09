@@ -1,6 +1,6 @@
 # Kivact Slim-Fast 作業指示書
 
-版 1.0（2026-11-09）。設計は [SLIM_FAST_DESIGN.md](SLIM_FAST_DESIGN.md)（以下「設計書」）。本書は手順だけを書く。設計の判断は設計書が持つ。
+版 1.1（2026-11-09、`20261109_2107_CODEX_REVIEW.md` の妥当な指摘を反映）。設計は [SLIM_FAST_DESIGN.md](SLIM_FAST_DESIGN.md)（以下「設計書」）。本書は手順だけを書く。設計の判断は設計書が持つ。
 
 ---
 
@@ -46,7 +46,7 @@
 
 - 本書の手順が、実際のコードと合わない（関数が無い、型が違う、行番号の内容が違う）。
 - 手順を行うと、所有 file の外を変える必要がある（「追従してよい」の範囲を除く）。
-- 規則（SM-1〜SM-11、M-R1〜M-R4、ARG-1〜ARG-6）のどれにも当てはまらない。
+- 規則（SM-1〜SM-12、M-R1〜M-R4、ARG-1〜ARG-6）のどれにも当てはまらない。
 - 同じ compile error を 3 回直しても消えない。
 - 既存の E2E の期待値を変えないと通らないと分かった。
 
@@ -54,14 +54,14 @@
 
 ### 0.5 Orchestrator の既定の判断表
 
-subagent の `STOP:` に対し、Orchestrator は次の順で判断する。どれにも当たらなければ、その項目を実施せず、最終報告（W7-3）の「未実施」に記録して先へ進む。
+Orchestrator は設計の判断をしない。subagent の `STOP:` に対し、次の表のどれかに当たればその判断をする。当たらなければ、その項目を **設計者への差戻し**（`dev/bench/results/OPEN.md` に 1 行で追記：unit、file:line、STOP の文、影響する設計書の節）とし、他の作業を続ける。差戻しの項目が残っている限り、設計書 1.6 節の受入れは満たされず、W7 で完了を宣言しない。
 
 | 状況 | 判断 |
 |---|---|
 | 行番号がずれているが、同じ名前の関数・型が近くにある | その関数・型に対して手順を行うよう指示する |
-| 所有 file の外の 1〜3 file を変える必要がある | 同じ wave の他の unit の所有 file でなければ許可する。他の unit の所有なら、その項目を次の wave に回す |
-| 規則に当てはまらない状態の組合せ | SM-11（独立した事実として理由を書く）にせず、未実施に記録する |
-| 性能の変更で既存の E2E が失敗し、2 回直しても通らない | その性能の変更だけを元に戻す（撤退規則）。正しさを優先する |
+| 所有 file の外の 1〜3 file を変える必要がある | 同じ wave の他の unit の所有 file でなければ許可する。他の unit の所有なら、その項目を次の wave の同じ crate の所有 unit に回す |
+| 付録 A に無い状態の組合せを lint が見つけ、6.3 節の規則の形に当てはまらない | 差戻し（推測で enum にしない、SM-11 にもしない） |
+| 性能の変更で既存の E2E が失敗し、2 回直しても通らない | その unit の撤退規則を適用する（撤退規則が無ければ差戻し）。適用したことを `OPEN.md` に記録する |
 | 改名で取りこぼしたコンパイル error | 改名表（付録 B）に従って直すよう指示する |
 
 ### 0.6 unit で実行してよいコマンド
@@ -138,7 +138,7 @@ git merge --squash wt/<unit> && git commit -m "<unit ID>: <要約>"
 | **CP1** | Orchestrator | W2 | — |
 | W3 | U31（A）、U32（B）、U33（C）、U34（D）、U35（E） | CP1 | `kivact`、`kivact-interaction`、`kivact-ui`、5 つの kit、catalog、例、雛形、`kivact-devtools`、`kivact-devtools-mcp`、`dev/tests/*`、`dev/bench` |
 | W4 | U41（A）、U42（B）、U43（C）、U44（D）、U45（E） | W3 | 5 つの kit、catalog、例、雛形、`kivact-devtools`、`dev/tests/*` |
-| W5 | U51（A）、U52（B）、U53（C）、U54（D）、U55（E）、U56（F） | W4 | `kivact-devtools`（W6 の U63 が直す） |
+| W5 | U51（A）、U52（B）、U53（C）、U54（D）、U55（E）、U56（F） | W4 | なし |
 | **CP2** | Orchestrator | W5 | — |
 | W6 | U61（A）、U62（B）、U63（C） | CP2 | なし |
 | **CP3** | Orchestrator | W6 | — |
@@ -159,7 +159,8 @@ dev/tools/window-lock.sh --timeout 1800 -- dev/bench/run.sh B0
 ```
 
 4. `dev/bench/results/B0.md` を commit する：`git add dev/bench/results/B0.md && git commit -m "U00: KPI baseline B0"`。
-5. B0 の値が設計書 1.2 節と大きく違っても（別の機械なので当然）、そのまま進む。倍率はこの B0 に対して判定する。
+5. `run.sh` が `INVALID:` で終わったら、原因（build の失敗、frame の出ない probe など）を直してから取り直す。INVALID の report を B0 にしない。
+6. B0 の値が設計書 1.2 節と大きく違っても（別の機械なので当然）、そのまま進む。倍率はこの B0 に対して判定する。
 
 ---
 
@@ -168,7 +169,7 @@ dev/tools/window-lock.sh --timeout 1800 -- dev/bench/run.sh B0
 ### U11 build の設定・依存の整理・SVG の font DB の遅延生成（lane A）
 
 - **目的**：設計書 3.4 節、4.1 節（ST-1）、4.8 節。
-- **所有 file**：root `Cargo.toml`、`Cargo.lock`、`crates/kivact/Cargo.toml`、`crates/arvane/Cargo.toml`、`crates/arvane-text/Cargo.toml`、`crates/arvane-compose/Cargo.toml`、`crates/arvane-asset/src/**`、`dev/xtask/policy/workspace.toml`（`[visible_to]` の 3 行だけ）。
+- **所有 file**：root `Cargo.toml`、`Cargo.lock`、`crates/kivact/Cargo.toml`、`crates/arvane/Cargo.toml`、`crates/arvane-text/Cargo.toml`、`crates/arvane-compose/Cargo.toml`、`crates/arvane-asset/src/**`、`dev/xtask/policy/workspace.toml`（`[visible_to]` の 3 行だけ）、`dev/bench/Cargo.toml`、`templates/basic/Cargo.toml`、手順 9 が挙げる manifest。
 
 手順：
 
@@ -193,13 +194,16 @@ complex-scripts = ["parley/complex-scripts"]
    - `kivact-shader = ["kivact-style", "arvane-compose"]` を `kivact-shader = ["kivact-style"]` にし、その直前の comment 行（`# ----- Shader validation: naga is confined to kivact-shader, which style (kivact-style) and the compositor (arvane-compose) use.`）を `# ----- Shader validation: naga is confined to kivact-shader, which style (kivact-style) uses.` にする。
    - `arvane-text = ["arvane"]` を `arvane-text = ["arvane", "kivact"]` にする。
 8. SVG の font DB（設計書 4.1 節）：
-   1. `crates/arvane-asset/src/svg/fonts.rs` を新規に作り、設計書 4.1 節の `SvgFonts` と `has_text` をそのまま書く（`//! Role:` 行も）。`OnceLock` と `static` は使わない。marker は付けない。
+   1. `crates/arvane-asset/src/svg/fonts.rs` を新規に作り、設計書 4.1 節の `SvgFonts` と `has_text`（埋込み SVG の `svg+xml` も見る版）をそのまま書く（`//! Role:` 行も）。`OnceLock` と `static` は使わない。marker は付けない。
    2. `crates/arvane-asset/src/svg.rs` に `pub(crate) mod fonts;` を足し、`pub(crate) use fonts::SvgFonts;` を足す。
    3. `crates/arvane-asset/src/svg/document.rs` の `pub(crate) type FontDb = Arc<usvg::fontdb::Database>;` を `pub(crate) type FontDb = Arc<super::SvgFonts>;` にする。同じ file の `parse` の `fontdb: Arc::clone(fonts),` を `fontdb: fonts.for_document(bytes),` にする。
    4. `crates/arvane-asset/src/store/asset_store.rs` の `with_runner`：`let mut fonts = usvg::fontdb::Database::new(); fonts.load_system_fonts();` の 2 行を消し、`fonts: Arc::new(fonts),` を `fonts: Arc::new(crate::svg::SvgFonts::new()),` にする。
    5. 同じ file の 159 行付近の `Arc::make_mut(&mut self.fonts).load_font_data(bytes.to_vec());` を `self.fonts = Arc::new(self.fonts.with_font(bytes.to_vec()));` にする。
    6. `fonts` の型が `FontDb` のまま他の場所（`job.rs`）で `Arc::clone(&self.fonts)` されていることを確かめる（変更不要）。
-9. `cargo fmt -p arvane-asset -p arvane-text -p kivact`。
+9. `complex-scripts` の転送（設計書 4.8 節）。`kivact` に `default-features = false` で依存し `gpu` を転送している次の manifest に、`complex-scripts = ["kivact/complex-scripts"]` を `[features]` に足し、`default` の配列に `"complex-scripts"` を足す：`templates/basic/Cargo.toml`、`examples/kivact-ui-basic/Cargo.toml`、`examples/kivact-ui-pop/Cargo.toml`、`examples/kivact-ui-game/Cargo.toml`、`examples/kivact-ui-creative/Cargo.toml`、`examples/kivact-ui-soft/Cargo.toml`、`dev/tests/docs/Cargo.toml`、`dev/tests/kivact-public-api/Cargo.toml`、`crates/kivact-devtools/Cargo.toml`（`grep -rlE 'kivact = \{[^}]*default-features = false' --include=Cargo.toml . | grep -v '/crates/kivact-ui'` で漏れが無いことを確かめる。kit の library `crates/kivact-ui-*` には足さない）。
+10. `dev/bench/Cargo.toml`：依存を `kivact = { path = "../../crates/kivact", default-features = false, features = ["gpu"] }` にし、`[features]` を `default = ["complex-scripts"]`、`complex-scripts = ["kivact/complex-scripts"]`、`latency = ["kivact/test"]` にする（`--no-default-features` の build が K6 の「complex-scripts なし」になる）。
+11. 雛形の release profile（設計書 4.8 節）：`templates/basic/Cargo.toml` に root の `Cargo.toml` と同じ `[profile.release]` と `[profile.release.package.*]` の block を写し、その上に `# A standalone App reads profiles only from its own root manifest; these are Kivact's recommended release settings (size and speed; fat LTO lengthens release builds).` の comment を書く。
+12. `cargo fmt -p arvane-asset -p arvane-text -p kivact`。
 
 完了条件：
 
@@ -207,6 +211,8 @@ complex-scripts = ["parley/complex-scripts"]
 cargo check -p arvane-asset --all-targets
 cargo check -p kivact --all-targets
 cargo check -p kivact --no-default-features --features gpu
+cargo check -p kivact-template-basic
+cargo check -p kivact-bench --no-default-features
 cargo clippy -p arvane-asset --all-targets -- -D warnings
 cargo build --release -p kivact-example-counter
 ```
@@ -230,6 +236,7 @@ cargo build --release -p kivact-example-counter
    - SL-5：value module の除外の一覧から `kivact-engine::contract` を除く（`kivact-types` と `kivact-devtools-protocol` は除外のまま）。
    - SL-6：`Vec`・`VecDeque`・`BTreeSet`・`HashSet` の field で、名前が `pending`・`dirty`・`awaiting`・`relayout`・`stale` で始まるものを stored に数える。
    - SL-7：`locals.rs` の local の検出（今は `--report` で note を出すだけ）を、`Strict` では、同じ関数の中に検出対象の local が 2 個以上あるとき error にする。各 local の直前の行に `// xtask-allow(state-fields): <理由>` があれば、その local を数えない。検出対象に `var(..)`、`Rc::new(RefCell::new(None))`、`signal(<f64 の literal>)` を足す。
+   - SL-8：marker の理由が `independent:`、`projection:`、`cache:`、`identity:`、`statistic:`、`option:` のどれかで始まらなければ error（設計書 6.2 節）。
 4. error の message は今の `state-fields` と同じ書式にし、先頭の rule 名だけ `state-fields-strict` にする。
 5. marker の「使われていない」判定（`state_fields/check.rs:297-313`）：`Current` でも、`Strict` の規則がその field を数えるなら、その marker は使われているとみなす（W3〜W5 で strict のために付ける marker が、`--only state-fields` と CP の `cargo xtask check` で unused の error にならないようにする）。
 6. 既存の xtask の試験（`dev/xtask/src/**` の `#[cfg(test)]`）を壊さない。新しい試験は足さない（xtask は開発道具なので、既存の試験の書き方に合わせて 1 つだけ足してよい：`Strict` で `OnceCell` が数えられること）。
@@ -283,8 +290,13 @@ fn touch(tree: &(impl LayoutTree + ?Sized), touched: &mut [u32], below: &mut [u3
 ```rust
 fn set_unrounded_layout(&mut self, t: TId, layout: &Layout) {
     let index = usize::from(t);
+    // Taffy sets every child again when it lays out the parent: mark only a
+    // new value, or a slot that was never rounded (its origin is NaN).
+    let changed = self.unrounded[index] != *layout || self.origin[index].0.is_nan();
     self.unrounded[index] = *layout;
-    touch(self.tree, self.touched, self.below, self.stamp, index);
+    if changed {
+        touch(self.tree, self.touched, self.below, self.stamp, index);
+    }
 }
 ```
 
@@ -308,9 +320,9 @@ cargo xtask check --no-write --only state-fields --crate kivact-layout
 
 撤退規則：CP1 で layout の E2E が 1 px 単位で失敗し、2 回直しても通らない場合は、手順 8 を `taffy::round_layout` に戻す（手順 1〜6 は残してよい）。LAY-2 は残す。
 
-### U14 CPU 合成の高速経路と GPU pipeline の遅延生成（lane D）
+### U14 CPU 合成の高速経路（lane D）
 
-- **目的**：設計書 4.2 節（CPU-1）、4.3 節の GPU-2。
+- **目的**：設計書 4.2 節（CPU-1）。
 - **所有 file**：`crates/arvane-compose/src/**`。
 
 手順（CPU-1）：
@@ -415,19 +427,9 @@ pub(crate) fn blend_src_over(&mut self, x: u32, y: u32, s: [u8; 4]) {
 5. `paint` の先頭（`let (w, h) = dst.size();` の前）に `if paint_fast(dst, op, texture, cover).is_some() { return Ok(()); }` を足す。
 6. `paint_fast` が 80 code 行を超えたら、行の loop を `fn blend_row(..)` に分ける。
 
-手順（GPU-2）：
+GPU-2（pipeline の遅延生成）は行わない（設計書 4.3 節。初回の描画中に compile が走るため）。
 
-7. `gpu/pipelines.rs` の `Pipelines::new` を読み、`draw: Vec<wgpu::RenderPipeline>`（12）と 6 つの pipeline（graph、filter、mask_step、apply_acc、apply_alpha、clear）の生成の箇所を確かめる。shader module、pipeline layout、bind group layout は今どおり `new` で作り、`Pipelines` の field に持つ（`new` の局所変数なら field に移す）。
-8. 各 pipeline の field を `std::cell::RefCell<Option<wgpu::RenderPipeline>>` に（`draw` は `Vec<RefCell<Option<wgpu::RenderPipeline>>>`、長さは今と同じ 12）し、`Pipelines` に `device: wgpu::Device`（clone できる handle）を持たせる。生成の code をそのまま private な `fn make_<name>(&self) -> wgpu::RenderPipeline` に移し、読む側は次の形の method で取る：
-
-```rust
-fn graph(&self) -> wgpu::RenderPipeline {
-    self.graph.borrow_mut().get_or_insert_with(|| self.make_graph()).clone()
-}
-```
-
-9. `OnceCell` は使わない（`clippy.toml` で禁止）。marker は lint が報告した field にだけ付ける（0.2 の 9）。
-10. `cargo fmt -p arvane-compose`。
+7. `cargo fmt -p arvane-compose`。
 
 完了条件：
 
@@ -439,27 +441,29 @@ cargo clippy -p arvane-compose --all-targets --all-features -- -D warnings
 cargo xtask check --no-write --only state-fields --crate arvane-compose
 ```
 
-撤退規則：CP1 で画素比較の E2E が高速経路のせいで失敗し、2 回直しても通らない場合は、`blend_src_over` の `a != 255` の場合に `paint_fast` 全体を使わない（op の texture に半透明の画素がある可能性があるので、`paint_fast` の先頭で `None` を返す条件に「`op` の source が chunk でない」を足す）。それでも失敗するなら手順 5 の 1 行を消す。
+撤退規則：CP1 で画素比較の E2E が高速経路のせいで失敗し、2 回直しても通らない場合は、手順 5 の 1 行を消して高速経路をすべて止める（chunk の種類で不透明を推測して部分的に残すことはしない）。`OPEN.md` に記録する（K1・K4 の必達に影響するので、受入れの前に設計者が判断する）。
 
 ### U15 疎な `Style`（lane E）
 
-- **目的**：設計書 4.7 節 MEM-1、MEM-7（`Style` の上限）。
+- **目的**：設計書 4.7 節 MEM-1（8 つの群の疎な struct）、MEM-7（`Style` の上限）。
 - **所有 file**：`crates/kivact-style/src/**`。
 
 手順：
 
-1. `sheet.rs`：
-   1. `pub struct Style {`（177 行）を `pub(crate) struct StyleFields {` に改名する。derive（`Clone, Debug, PartialEq, Default`）はそのまま。field の `pub(super)` は `pub(crate)` にする。
-   2. 今の `impl Style { pub fn merge(mut self, o: &Style) -> Style {..} }`（1144 行）を `impl StyleFields { pub(crate) fn merge(mut self, o: &StyleFields) -> StyleFields {..} }` に移す。中で呼ぶ `merge_compound_properties` なども `StyleFields` の method にする。
-   3. 設計書 4.7 節 MEM-1 の `Decl`、`Style`、`edit`、`merge`、`fields`、`PartialEq`、`Debug` をそのまま書く。
-   4. `impl Style` の各 setter（`pub fn` と macro で作る setter）を、設計書 MEM-1 の規則で書き換える：引数の変換を先に行い、`self` の field への代入を `self.edit(move |s| { .. })` の中に移す。closure の中では `self.` を `s.` に置き換える。closure が使う捕まえた値は `.clone()` する（`Copy` の値は不要）。setter が `self` の現在の値を読む場合（`get_or_insert_with` など）も、同じ式を `s` に対して書く。
-   5. macro で setter を作っている箇所（`sheet.rs` の `macro_rules!`）は、macro の本体を同じ規則で一度だけ書き換える。
-   6. setter 以外で `Style` の field を直接読む・書く method（`impl Style` の中で `self.<field>` を使うもの）は、`self.fields().<field>` で読む。書く method は setter と同じく `edit` を使う。
-2. `resolve.rs`、`text.rs`、`internal.rs`、`facade.rs`、その他 `kivact-style` の中で `Style` の field を読む関数は、引数を `&StyleFields` に変える。外部に公開されている入口（`internal::compile_style(&Style, ..)` など、`kivact_style::internal::*` と `pub fn`）の署名は変えず、入口の最初で `let s = style.fields();` を作って内部の関数に `&s` を渡す。
-3. `Style` の `PartialEq` を使う既存の code はそのまま動く（dense の比較）。
-4. `sheet.rs` の `Style` の定義の直後に `const _: () = assert!(std::mem::size_of::<Style>() <= 24, "Style must stay a list of layers");` を足す。
-5. `StyleFields` の field に付いていた `xtask-allow(state-fields): passive record - <field 名>` の行は、`StyleFields` が 1 つの値（`Style::fields` が作る一時値）なので、すべて `// xtask-allow(state-fields): independent - one authored property; every combination is a valid style` に置き換える（文言はすべて同じでよい）。
-6. `cargo fmt -p kivact-style`。
+1. `sheet.rs` に、設計書 MEM-1 の表の 8 つの struct（`SizeFields`、`SpacingFields`、`FlowFields`、`PaintFields`、`TransformFields`、`TextFields`、`StateFields`、`MotionFields`）を作る。各 struct の field は、表の「入る field」の今の `Style` の field を、名前・型・doc comment・`xtask-allow` の行ごとそのまま移したもの。`#[derive(Clone, Debug, Default, PartialEq)]`。field は `pub(crate)`。
+2. 今の `Style` の struct を設計書 MEM-1 の形（8 つの `Option<Box<..>>` と `duplicates: u32`）にする。derive は `Clone, Debug, Default` だけにする。
+3. `PartialEq for Style` を手で書く：各群について `self.<群>.as_deref().cloned().unwrap_or_default() == other.<群>.as_deref().cloned().unwrap_or_default()`、かつ `self.duplicates == other.duplicates`（今の dense な derive の比較と同じ結果）。
+4. 各群の struct に `pub(crate) fn merge(&mut self, o: &Self)` を書く。本体は今の `Style::merge`（`sheet.rs:1144`）の `take!` の並びと `merge_compound_properties`（`:1222`）のうち、その群の field の行をそのまま移したもの（`self.x` と `o.x` はそのまま）。
+5. `Style` に群ごとの `fn <群>_mut(&mut self) -> &mut <群>Fields { self.<群>.get_or_insert_with(Default::default) }` を 8 つ足す。
+6. `Style::merge(mut self, o: &Style) -> Style` を書き直す：各群について `if let Some(group) = o.<群>.as_deref() { self.<群>_mut().merge(group); }`。`duplicates` は今の `merge` と同じ扱い（今の本体を読み、同じ式を残す）。
+7. setter：
+   - 手で書いた setter は、`self.<field>` を、その field の群の `self.<群>_mut().<field>` にする。`self.<field>.is_some()` を見て `self.duplicates += 1` とする行は、`self.<群>.as_deref().is_some_and(|g| g.<field>.is_some())` にする（群を作らずに調べる）。
+   - macro（`setter!`、`color_setter!`、`sides!` など）は、引数に群の名前を足し（`setter!(width, size, width, ..)`）、本体を同じ規則で一度だけ書き換える。macro の呼び出しの各行に、設計書の表の群の名前を足す。
+8. 読み手（`resolve.rs`、`text.rs`、`internal.rs` など `kivact-style` の中で `Style` の field を読む関数）：`sheet.rs` に設計書 MEM-1 の `group_or_default!` の macro を一度書き、各関数の最初で必要な群を取り出し（`let size = group_or_default!(style.size, SizeFields);` の形）、`s.width` を `size.width` のように読む。外部に公開されている入口（`kivact_style::internal::*`、`pub fn`）の署名は変えない。
+9. 入れ子の状態 style（`StateFields` の `hover` など、`Option<Box<Style>>`）は新しい `Style` のまま。
+10. `sheet.rs` の `Style` の定義の直後に `const _: () = assert!(std::mem::size_of::<Style>() <= 72, "Style keeps its groups boxed");` を足す。
+11. 群の struct に移した field の `xtask-allow(state-fields): passive record - <field 名>` の行は、`// xtask-allow(state-fields): option: one authored property; absent means the inherited or default value` に置き換える（lint が報告する field だけ。0.2 の 9）。
+12. `cargo fmt -p kivact-style`。
 
 完了条件：
 
@@ -471,7 +475,7 @@ cargo clippy -p kivact-style --all-targets -- -D warnings
 cargo xtask check --no-write --only state-fields --crate kivact-style
 ```
 
-撤退規則：`Style` の field を外部の crate（core、ui、kit）が直接読んでいて compile が通らない場合（`pub(super)` なので無いはず）は STOP。
+撤退規則：無し（意味は今と同じになる設計なので、compile が通らなければ STOP）。
 
 ### U16 runtime：`Binding::update` と runtime の状態機械（lane F）
 
@@ -480,21 +484,40 @@ cargo xtask check --no-write --only state-fields --crate kivact-style
 
 手順：
 
-1. `reactive/handles.rs` の `impl<T: crate::PropValue> Binding<T>`（`get`・`set` がある impl）に足す：
+1. `reactive/handles.rs` の `impl<T: crate::PropValue> Binding<T>`（`get`・`set` がある impl）に足す（設計書 5.4 節）：
 
 ```rust
-/// Change the value in place and write it back (`Signal::update` for a binding).
+/// Change the value and write it back. A binding of a `Signal` changes it
+/// in place and notifies even when the value is equal (`Signal::update`);
+/// a `binding(get, set)` reads the current value, applies `f` to a clone
+/// and calls `set` once (the setter decides whether readers are notified).
 #[track_caller]
-pub fn update(&self, f: impl FnOnce(&mut T)) {
-    let mut value = self.get_untracked();
-    f(&mut value);
-    self.set(value);
+pub fn update<R>(&self, f: impl FnOnce(&mut T) -> R) -> R {
+    match &self.repr {
+        BindingRepr::Signal(signal) => signal.update(f),
+        _ => {
+            let mut value = self.get_untracked();
+            let result = f(&mut value);
+            self.set(value);
+            result
+        }
+    }
 }
 ```
 
-   `PropValue` が `Clone` を含まない場合は `where T: Clone` を足す。
-2. 付録 A の「A-RT」の表の各行を、表の「直した形」のとおりに直す。表が「SM-11（理由）」と書いた行は、field の直前の marker の理由を表の文言に置き換えるだけにする（marker が無く、lint も報告しない field には付けない）。`AnimInfo` の `running`・`paused` は `crates/kivact-core/src/devtools/motion.rs:37-38`（feature `devtools`）が読むので、その file を追従してよい。
-3. `cargo fmt -p kivact-runtime`。
+   `BindingRepr` の variant の名前が違えば、`Signal` を持つ variant に合わせる。`Signal::update` の署名（`handles.rs:148`）が `R` を返さなければ STOP。
+2. `reactive/props.rs` の `impl<T: 'static> Reactive<T>` の後に足す（`#[component]` が owner なしで text を保持するため、設計書 5.2 節）：
+
+```rust
+impl Reactive<String> {
+    /// A text input (as `text(..)` takes it), stored without an owner.
+    pub fn from_text(input: impl IntoText) -> Self {
+        Reactive(input.into_text())
+    }
+}
+```
+3. 付録 A の「A-RT」の表の各行を、表の「直した形」のとおりに直す。表が「SM-11（理由）」と書いた行は、field の直前の marker の理由を表の文言に置き換えるだけにする（marker が無く、lint も報告しない field には付けない）。`AnimInfo` の `running`・`paused` は `crates/kivact-core/src/devtools/motion.rs:37-38`（feature `devtools`）が読むので、その file を追従してよい。
+4. `cargo fmt -p kivact-runtime`。
 
 完了条件：
 
@@ -522,13 +545,14 @@ cargo xtask check --no-write --only state-fields --crate kivact-runtime
    - `install`（`node_tree.rs:320`）の `self.flat.get_mut().clear();` を、`if self.nodes.index_of(id).is_some() { self.forget_flat_around(id); }` にする（既存の id の置き換えだけ捨てる。存在を調べる method の名前が違えば、`NodeStore` の同じ意味の method を使う）。この行は、置き換えの前の node が tree にあるうちに実行する（`install` の先頭）。
    - `insert`（`:415`）の `self.flat.get_mut().clear();` を、子をつないだ後に `self.forget_flat_around(<つないだ親の NodeId>)` にする。
    - `detach`（`:446`）の `self.flat.get_mut().clear();` を、外す前に親の id を読んでおき、外した後に `self.forget_flat_around(<元の親の NodeId>)` にする。
+   - `remove_with`（`:472`、`detach` の後に subtree を消す）で、消す各 id について `self.flat.borrow_mut().remove(&id);` を呼ぶ（今は `detach` の全消去がこの掃除を兼ねていた。部分的な破棄にすると、消したノードの entry が残り続けるため）。
 3. 他に親子をつなぎ変える `NodeTree` の method（`grep -rnE "\.parent = |ChildOrder|child_order" crates/kivact-engine/src/tree` で探す）があれば、変わった親（移動なら両方）について同じく呼ぶ。
 4. `forget_flat()`（`node_tree.rs:111`、全消去）とその呼び出し（`model/apply.rs`、透明さが変わるとき）は残す。
 
 手順（PNT-1）：
 
 5. `paint/state.rs`（`PaintState` がある file）に設計書 4.5 節の `StaleFacts` を足し、`PaintState` に `pub(crate) stale_facts: StaleFacts` を足す（既定は `All`）。marker は付けない。
-6. `PaintState` に method を足す：
+6. `PaintState` に method を足す（`stale_fact` の引数は呼び出し側で「印の正規化」をした id。下の手順 10 の前置きを参照）：
 
 ```rust
 /// Derive `id`'s subtree facts again before the next list (and its ancestors as they change).
@@ -571,7 +595,6 @@ pub(crate) fn refresh_facts(&self, stale: StaleFacts, facts: &mut HashMap<NodeId
                     queue.push((tree.depth(p), p));
                 }
             }
-            facts.retain(|id, _| tree.contains(*id));
         }
     }
     #[cfg(debug_assertions)]
@@ -582,7 +605,7 @@ pub(crate) fn refresh_facts(&self, stale: StaleFacts, facts: &mut HashMap<NodeId
    - `tree.depth(id)`（root からの祖先の数）が無ければ `NodeTree` に足す（`parent_id` を辿って数える）。
    - `drawn_look`、`is_layer_node` は `LayerView` の実装（`Model`）の method を使う。名前が違えば同じ意味の method を使う。
 9. `paint/list/self_check.rs` の self-check（空の `PaintList` から `paint_list()` を呼んで参照の list を作る箇所）で、`paint_list()` を呼ぶ前に `let kept = std::mem::replace(&mut self.paint.stale_facts, StaleFacts::All);` とし、self-check の最後に `self.paint.stale_facts = kept;` で戻す（`paint_list()` を複数回呼ぶなら、各呼び出しの前に `All` にする）。
-10. 印を付ける（設計書 4.5 節の一覧）：
+10. 印を付ける（設計書 4.5 節の一覧）。**印の正規化**：`Model` に `fn stale_fact(&mut self, id: NodeId)` を置き、`id` が透明なノード（`is_transparent()`、`display: contents`）なら最も近い透明でない祖先（`self.tree.flat_parent(n)`）に、そうでなければ `id` に `self.paint.stale_fact(..)` を呼ぶ。以下の印はすべてこの `Model::stale_fact` を通す。子を追加・移動した箇所では、変わった親と、追加・移動した子自身の両方に印を付ける。削除では、`Removed` の id の列（ADR-29）の各 id を `list.facts` から `remove` する（`refresh_facts` の外で、削除を処理する箇所で行う。`facts` 全体の `retain` はしない）。
     1. `model/interact/sync.rs` の `derive(id)`：`self.paint.look[..].replace(look)` の結果 `kept` が `Some(look)` と違うとき（`kept != Some(look)`）、`self.paint.stale_fact(id)` と、`let children: Vec<NodeId> = self.tree.flat_children(id).collect();` の各 `child` に `self.paint.stale_fact(child)` を呼ぶ。
     2. 同じ `sync` の `restyled`（`sync.rs:163-166`、`changes.marked(Dirty::REDRAW)` のうち `states()` を持つノード）の各ノードとその `flat_children` に stale_fact を呼ぶ。
     3. `model/frame/ticks.rs:159` の `restack |= motion.is_active()`：motion の state が動いているノードの一覧を持っていれば各ノードとその `flat_children` に stale_fact、持っていなければ `self.paint.stale_all_facts()`。
@@ -661,14 +684,14 @@ cargo xtask check --no-write --only state-fields,effect-writes --crate kivact-co
 ### U24 GPU を必要時に起動する（lane D）
 
 - **目的**：設計書 4.3 節（GPU-1、4.3.1）。
-- **所有 file**：`crates/kivact-types/src/gpu.rs`、`crates/kivact-types/src/render/**`、`crates/arvane/src/**`、`crates/arvane/tests/**`、`crates/kivact-core/src/gpu_interop.rs`、`crates/kivact-core/src/gpu_interop/**`、`crates/kivact-engine/src/host/testing/test_host.rs`（GPU の要求の 1 か所だけ）。
+- **所有 file**：`crates/kivact-types/src/gpu.rs`、`crates/kivact-types/src/render/**`、`crates/arvane/src/**`、`crates/arvane/tests/**`、`crates/kivact-core/src/gpu_interop.rs`、`crates/kivact-core/src/gpu_interop/**`、`crates/kivact-core/src/view/elements/viewport.rs`、`crates/kivact-core/src/view/drawable*.rs`、`crates/kivact-core/src/view/drawable/**`、`crates/kivact-engine/src/contract/host.rs`、`crates/kivact-engine/src/host/**`。
 
 手順：
 
 1. `kivact-types/src/gpu.rs` に設計書 4.3 節の `GpuStart` を足し、`GpuPreference` に `pub start: GpuStart` を足す（`Default` は derive のままで `OnDemand` になる）。`GpuPreference` を struct の literal で作っている箇所（`grep -rnE "GpuPreference \{" crates dev docs examples templates`。分析機では `docs/for-kivact-user/en/how-to-guide/gpu-texture-sharing.md:351`、`jp/..:284` にもある）に `start: GpuStart::OnDemand`（または `..Default::default()`）を足す。この追従は所有外の file（文書を含む）でも行ってよい。
 2. `kivact-core/src/gpu_interop.rs`：`GpuPreference` を再公開している `pub use` に `GpuStart` を足す。
-3. `kivact-types/src/render/` の `Composition` に `pub fn needs_gpu(&self) -> bool` を足す（設計書 4.3.1 節）。`Composition` の layer、item、export の型を読み、(a) user shader（paint shader と filter shader）、(b) GPU の外部 texture の item、(c) GPU の共有を要する export に当たる variant を列挙して `matches!` で判定する。三つのどれかに当たる variant が見つからなければ、その意味は判定に入れず STOP で報告する。
-4. `arvane/src/env.rs` の `ARVANE_RENDERER` の解釈に `auto` を足す。`gpu` は「起動時に始める」（`AtLaunch`）、`auto` と未設定は `GpuPreference.start` に従う、`cpu` は GPU を使わない（今と同じ）。
+3. `kivact-types/src/render/` の `Composition` に `pub fn needs_gpu(&self) -> bool` を足す（設計書 4.3.1 節）：user shader を参照する layer の effect（`LayerFilter` の shader の variant と paint shader）があれば true。外部の GPU texture と GPU export は判定しない（手順 10 の需要の伝達で扱う）。
+4. `arvane/src/env.rs` の `ARVANE_RENDERER` の解釈を設計書 4.3 節の優先順位の表のとおりにする：`cpu` は GPU を使わない（今と同じ）、`gpu` は `AtLaunch`、`auto` は `OnDemand`、未設定は `GpuPreference.start`。
 5. `arvane/src/presenter/gpu.rs`：
    - `enum State` に設計書 4.3 節の `Deferred { slow: u8, waker: ShellWaker }` を足す（`waker` の型は `start_gpu` が受け取る wake の型に合わせる）。
    - `Gpu::start`（346 行）の先頭の `if !matches!(self.state, State::Off) { return; }` を `if !matches!(self.state, State::Off | State::Deferred { .. }) { return; }` にする。
@@ -678,8 +701,12 @@ cargo xtask check --no-write --only state-fields,effect-writes --crate kivact-co
    - `Windows::open`（224〜226 行付近、二つ目以降の window）の `start_gpu` の呼び出しも同じ規則にする。
 7. `arvane/src/presenter/frame_policy.rs` の CPU の frame を present した後（`draw_cpu_native` の後、raster と present の時間を測っている箇所）で、`self.gpu.note_cpu_frame(raster + present, period, composition.needs_gpu(), notes)` を呼ぶ。`period` は presenter が持つ display の周期。composition が届いていない箇所なら、composition を持つ呼び出し元で `needs_gpu()` を計算して引数で渡す。
 8. 試験の host で GPU を要求するもの（`GpuMode::Required`、`RenderOptions::gpu`、`kivact-engine/src/host/testing/test_host.rs:203` 付近、`crates/arvane/tests/e2e/support.rs:390` 付近、`gpu_interop` の `.gpu()`）は `start: GpuStart::AtLaunch` を使う（GPU の E2E が CPU で待たないため）。
-9. `RendererChange` の note（frame log の `renderer=..`）は今のまま。`Deferred` から始めたときは `RendererChange::Start { gpu: false }` 相当で書く。frame log の書式は変えない。
-10. `cargo fmt -p kivact-types -p arvane -p kivact-core -p kivact-engine`。
+10. GPU の需要の伝達（設計書 4.3 節）：
+    - `kivact-engine/src/contract/host.rs` の `HostRequest` に `DemandGpu { window: WindowId }` を足す。engine の host で `HostRequest` を処理している `match`（`grep -rnE "HostRequest::" crates/kivact-engine/src/host`）に腕を足し、arvane の `Windows::demand_gpu(window)` を呼ぶ。
+    - `arvane/src/window.rs` の `Windows` に `pub fn demand_gpu(&mut self, id: WindowId)` を足し、その window の presenter の `demand_gpu`（`Gpu::start` を呼ぶ。`Off` と `Deferred` 以外では何もしない）を呼ぶ。
+    - core で、GPU の import registry を作る時（`gpu_interop/import/registry.rs`）、shared image を作る時（`gpu_interop/share/app_side.rs`）、viewport に `gpu_frame` を設定する時（`view/elements/viewport.rs`）、drawable の export を GPU の texture で要求する時（`view/drawable*`）に、その window の `HostRequest::DemandGpu` を一度だけ出す（同じ object からの二度目は出さない。object の field に `demanded: bool` を置かず、作る時に一度出す形にする）。host request を出す既存の関数（`grep -rnE "HostRequest::" crates/kivact-core/src`）と同じ方法で出す。
+11. `RendererChange` の note（frame log の `renderer=..`）は今のまま。`Deferred` から始めたときは `RendererChange::Start { gpu: false }` 相当で書く。frame log の書式は変えない。
+12. `cargo fmt -p kivact-types -p arvane -p kivact-core -p kivact-engine`。
 
 完了条件：
 
@@ -699,7 +726,7 @@ cargo xtask check --no-write --only state-fields --crate arvane
 ### U25 `#[component]`（lane E）
 
 - **目的**：設計書 3.2 節、5.2 節。
-- **所有 file**：`crates/kivact-macros/**`（新規）、root `Cargo.toml`（`members` と `[workspace.dependencies]` の 3 行だけ）、`crates/kivact/Cargo.toml`、`crates/kivact/src/lib.rs`、`crates/kivact/src/prelude.rs`、`dev/xtask/policy/workspace.toml`（`visible_to` の 1 行）、`dev/tests/kivact-public-api/tests/e2e/component_macro.rs`（新規）、`dev/tests/kivact-public-api/tests/e2e/main.rs`（1 行）。
+- **所有 file**：`crates/kivact-macros/**`（新規）、`crates/kivact-core/src/view/descriptor/factory.rs` と `IntoViewFn` の sealed の trait がある file、root `Cargo.toml`（`members` と `[workspace.dependencies]` の 3 行だけ）、`crates/kivact/Cargo.toml`、`crates/kivact/src/lib.rs`、`crates/kivact/src/prelude.rs`、`dev/xtask/policy/workspace.toml`（`visible_to` の 1 行）、`dev/tests/kivact-public-api/tests/e2e/component_macro.rs`（新規）、`dev/tests/kivact-public-api/tests/e2e/main.rs`（1 行）。
 
 手順：
 
@@ -735,17 +762,20 @@ workspace = true
      - 診断（`syn::Error::new_spanned(.., "<文言>")`）：型引数・lifetime・where 句（「#[component] functions cannot be generic; take `Value<T>` props instead」）、戻り値が `impl IntoView` でない（「a #[component] function returns `impl IntoView`」）、`self`（「a #[component] is a free function」）、`#[prop(..)]` の未知の key（「#[prop] accepts `optional` or `default = <expr>`」）、`optional` で型が `Option<..>` でない（「an optional prop has type `Option<..>`」）、`optional` と `default` の併用（「use either `optional` or `default`」）。
    - `expand.rs`：設計書 5.2 節の展開の規則 1〜8 の token を出す。名前の path は `::kivact::state::{IntoText, IntoValue, IntoBinding, Callback, HandlerResult, callback}`、`::kivact::view::{IntoView, IntoChildren, View}`。setup の境界は、この unit の時点では `::kivact::view::component`（W3 の U31 が `scope` に置き換える）。
      - struct 名：関数名を `_` で区切り、各部分の先頭を大文字にして連結する。
-     - struct の各 field の型は `Box<dyn FnOnce() -> T>`（`T` は宣言型。任意の props は `Option<Box<dyn FnOnce() -> X>>`）。
-     - 位置引数の関数（`#[track_caller]` 付き）：`pub fn card(title: impl ::kivact::state::IntoText + 'static, children: impl ::kivact::view::IntoView) -> Card { Card { title: Box::new(move || ::kivact::state::IntoText::into_text_value(title)), children: Box::new(move || ::kivact::view::IntoView::into_view(children)), on_close: None, gap: Box::new(move || ::kivact::state::IntoValue::into_value(12.0)) } }`。
-     - 任意の props の setter（`#[track_caller]` 付き）：`pub fn on_close(mut self, f: impl Into<::kivact::state::Callback<()>> + 'static) -> Self { self.on_close = Some(Box::new(move || f.into())); self }`。`Callback(E)` の setter は `pub fn on_pick<R: ::kivact::state::HandlerResult>(mut self, f: impl Fn(E) -> R + 'static) -> Self { self.on_pick = Some(Box::new(move || ::kivact::state::callback(f))); self }`。`default` の props は `Some(..)` なしで同じ形。
-     - `IntoView` の実装：`let Card { a, b, .. } = self;`（全 field を名前で分解する）の後、`::kivact::view::component(move || { let a = a(); let b = b(); let c = c.map(|f| f()); <元の関数本体> })`。
+     - struct の各 field の型は、設計書 5.2 節の表の「保持する型」（`Reactive<T>`、`Binding<T>`、`Box<dyn FnOnce() -> Callback<..>>`、`View`、`Vec<View>`、`ViewFn<()>`、その他の `T`、任意の props は `Option<..>`）。
+     - 位置引数の関数（`#[track_caller]` 付き、例）：`pub fn card(title: impl ::kivact::state::IntoText, children: impl ::kivact::view::IntoView) -> Card { Card { title: ::kivact::view::Reactive::from_text(title), children: ::kivact::view::IntoView::into_view(children), on_close: None, gap: ::kivact::view::Reactive::new(12.0) } }`。`'static` を付けるのは callback の引数だけ。
+     - `ViewFn` の prop は、生成する関数・setter に型引数 `V: ::kivact::view::IntoView` を足し、`impl ::kivact::view::IntoViewFn<V>` を受け取って `::kivact::view::IntoViewFn::into_view_fn(x)` で保持する。
+     - 任意の props の setter（`#[track_caller]` 付き）：`pub fn on_close(mut self, f: impl Into<::kivact::state::Callback<()>> + 'static) -> Self { self.on_close = Some(Box::new(move || f.into())); self }`。`Callback(E)` の setter は `pub fn on_pick<R: ::kivact::state::HandlerResult>(mut self, f: impl Fn(E) -> R + 'static) -> Self { self.on_pick = Some(Box::new(move || ::kivact::state::callback(f))); self }`。`Value` の setter は `Some(Reactive::new(x))`（`default` の props は `Some` なし）。
+     - `IntoView` の実装：`let Card { a, b, .. } = self;`（全 field を名前で分解する）の後、`::kivact::view::component(move || { .. })` の中で、`Reactive` の field は `::kivact::state::IntoValue::into_value(a)`、callback の field は `a()`（任意なら `a.map(|f| f())`）にしてから元の関数本体を置く。他の field はそのまま。
      - doc comment（`#[doc = ..]` の attribute）を struct と関数の両方に写す。struct に `#[must_use]`。
-4. `crates/kivact/Cargo.toml` の `[dependencies]` に `kivact-macros = { path = "../kivact-macros", version = "0.1.0" }` を足す。`description` に macro を持たないという文言があれば「and the `#[component]` attribute」を足す。
+4. `crates/kivact-core/src/view/descriptor/factory.rs` に `impl IntoViewFn<View> for ViewFn<()> { fn into_view_fn(self) -> ViewFn<()> { self } }` と、sealed の trait（`super::sealed_view_fn::Sealed<V>`）の `impl Sealed<View> for ViewFn<()> {}` を足す（設計書 5.2 節の規則 8）。`crates/kivact/Cargo.toml` の `[dependencies]` に `kivact-macros = { path = "../kivact-macros", version = "0.1.0" }` を足す。`description` に macro を持たないという文言があれば「and the `#[component]` attribute」を足す。
 5. `crates/kivact/src/lib.rs`：`pub use kivact_macros::component;` を、facade の root の再公開の並びに足す（rustdoc：`/// Turn a component function into its props builder (see the guide "Writing components").`）。`crates/kivact/src/prelude.rs` に `pub use crate::component;` を足す（attribute macro。今の関数 `component` と同じ名前だが名前空間が違うので両立する。関数は W3 で `scope` に改名する）。
 6. `dev/xtask/policy/workspace.toml` の `[visible_to]` に `kivact-macros = ["kivact"]` を足す。
 7. E2E `dev/tests/kivact-public-api/tests/e2e/component_macro.rs`（`main.rs` に `mod component_macro;` を足す）。既存の e2e の file の書き方（`use kivact::prelude::*;`、`kivact::test::render`）に合わせ、次の 3 つの試験を書く：
    - `required_props_are_positional`：`#[component] fn card(title: Value<String>, children: View) -> impl IntoView { column((text(title), children)) }` を `card("Title", text("Body"))` で描き、`get_by_text("Title")` と `get_by_text("Body")` が見つかる。
    - `optional_and_default_props_use_setters`：`#[prop(optional)] on_close: Option<Callback<()>>` と `#[prop(default = 3)] count: Value<i32>`（本体で `text(move || format!("n={}", count.get()))`）を持つ component。既定で `n=3` が出る。`.count(5)` で `n=5`。`.on_close(move || closed.set(true))` を渡したとき、本体の「Close」button（`on_close` が `Some` の時だけ置く）の click で `closed` が true になる（`closed` は試験の root で作った `signal(false)`、表示は `text(move || format!("closed={}", closed.get()))` で確かめる）。
+   - `borrowed_text_and_recreated_content`：`#[component] fn panel(title: Value<String>, open: Binding<bool>, content: ViewFn) -> impl IntoView { column((text(title), show(open, content))) }`。試験の root で `let name = String::from("Panel");` を作り `panel(name.as_str(), open, || text("Body"))` で描く（`&str` を渡せる）。`open` を false にして `Body` が消え、true に戻すと `Body` が再び現れる（作り直される）。
+   - `component_owner_is_disposed_on_unmount`：`show(visible, move || card("T", text("B")))` で描き、`visible` を false にした後の `screen.stats().live_owners` が、描く前の値に戻る。
    - `payload_callback_infers_the_argument`：`#[prop(optional)] on_pick: Option<Callback<i32>>`。setter に `move |n| picked.set(n)`（型注釈なし）を渡し、本体の button の `on_press` で `if let Some(cb) = on_pick { let _ = cb.call(7); }` を呼ぶと `picked=7` が表示される。
 8. `cargo fmt -p kivact-macros -p kivact -p kivact-public-api-tests`。
 
@@ -839,7 +869,7 @@ cargo clippy -p kivact-core --all-targets --all-features -- -D warnings
 手順：
 
 1. 付録 A の「A-AR」の表の各行を直す。Linux 専用の行（`x11`）は 0.6 節の方法で確かめる。
-2. 各 crate で `cargo xtask check --no-write --only state-fields-strict --crate <crate>` を実行し、残った error を SM-1〜SM-11 で直す。規則に当てはまらないものは STOP。
+2. 各 crate で `cargo xtask check --no-write --only state-fields-strict --crate <crate>` を実行し、残った error を SM-1〜SM-12 で直す。規則に当てはまらないものは STOP。
 3. `cargo fmt` を各 crate に。
 
 完了条件（各 crate について）：
@@ -874,8 +904,8 @@ cargo xtask check --no-write --only state-fields-strict --crate <crate>    # 0 �
    - `host/write/typed.rs:166-171` の `set_layout`・`set_paint` の `boxed(Some(v), ..)` を `boxed((v != LayoutProps::default()).then_some(v), ..)`（Paint は `PaintProps::default()`）にする。
    - `model/states.rs:147` の `Some(states)` を `(states != StateStyles::default()).then_some(states)` にする。
    - 読み手が `None` を既定値として扱うことを確かめる：`grep -rnE "\.layout\(\)|\.paint\(\)|\.states\(\)|layout_props\(" crates/kivact-engine/src crates/kivact-layout/src`。`None` を既定値（`unwrap_or_default`、`map_or(default, ..)`、`PaintProps::default()`）か「無い」として扱っていれば変えない。`None` を「まだ書かれていない」として別の処理をする読み手があれば STOP。
-4. MEM-5：`measure/inherited_text.rs` の `computed_text`：`let resolved = Rc::new(text_props(tree, id));` の前に、ノードが自分の `TextStyle` を持たない（`n.text()` 相当が `None`）なら、`let value = text_props(tree, id);`、親（`tree.parent_id(n)`）の `computed_text(tree, columns, parent)` を得て、`*parent_rc == value` なら `Rc::clone(&parent_rc)` を `columns.set_computed_text(..)` に入れて返す。等しくなければ今どおり `Rc::new(value)`。
-5. EVT-1：`model/events.rs` の `EventSink` の queue を取り出す method（drain・take の類）の後で、`if queue.capacity() > 4 * queue.len().max(16) { queue.shrink_to(queue.len().max(16)); }` を行う（M-R4）。同じ規則を `crates/kivact-engine/src/model/drawables/place.rs` の `Frame` の `Vec`（分析機で button 1 個あたり 2.9 KB の capacity が残った）にも当てはめる。
+4. MEM-5：`measure/inherited_text.rs` の `computed_text`：`let resolved = Rc::new(text_props(tree, id));` を、`let value = text_props(tree, id);` と、親（`tree.parent_id(n)`）の slot の cache（`columns.computed_text(parent_slot)`、**既にある場合だけ**。無ければ計算しない）が `Some(parent_rc)` で `*parent_rc == value` なら `Rc::clone(&parent_rc)`、そうでなければ `Rc::new(value)`、にする。親の `computed_text` を再帰で呼ばない（深い鎖で D² になるため）。
+5. EVT-1：`model/events.rs` の `EventSink` の queue を取り出す method（drain・take の類）の後で、`if queue.capacity() > 4 * queue.len().max(1024) { queue.shrink_to(queue.len().max(1024)); }` を行う（M-R4。同じ規模の burst が続いても縮小と拡張を繰り返さない）。`model/drawables/place.rs` の `frames` は一時の `Vec` なので触らない。
 6. `tree/node.rs` の `HostNode` の定義の直後に `const _: () = assert!(std::mem::size_of::<HostNode>() <= 464, "HostNode grew: box the new rare field");`、`contract/node.rs` の `NodeProperties` の直後に同じ形で 240 を足す。
 7. `cargo fmt -p kivact-types -p kivact-engine -p kivact-style`。
 
@@ -922,12 +952,13 @@ cargo xtask check --no-write --only state-fields --crate arvane-text
 
 - A. W3 の改名と署名の変更（付録 B）に、自分の crate を追従させて compile を通す。
 - B. 付録 A の自分の表の各行を直す。
-- C. `cargo xtask check --no-write --only state-fields-strict --crate <crate>` の残りを SM-1〜SM-11 で 0 件にする。field 名を繰り返すだけの既存の marker の理由（`passive record - <名前>`、`builder option - <名前>`、`cache key - <名前>`、`mount config - <名前>`）は、6.3 節 SM-11 の形の理由に書き直すか、SM-1〜SM-10 で直す。書き直しの理由は、次の 4 つの雛形のどれかを使う：
-  - `independent - builder option: absent means the component's default`
-  - `independent - cache key component: equality of the whole key is what matters`
-  - `independent - readonly snapshot of <持ち主の型名>'s state for recipes`
-  - `independent - measured value: any value is valid on its own`
+- C. `cargo xtask check --no-write --only state-fields-strict --crate <crate>` の残りを SM-1〜SM-12 で 0 件にする。field 名を繰り返すだけの既存の marker の理由（`passive record - <名前>`、`builder option - <名前>`、`cache key - <名前>`、`mount config - <名前>`）は、6.3 節 SM-11 の形の理由に書き直すか、SM-1〜SM-10 で直す。書き直しの理由は、次の 4 つの雛形のどれかを使う：
+  - `option: absent means the component's default`
+  - `cache: one component of a cache key; equality of the whole key is what matters`
+  - `projection: readonly snapshot of <持ち主の型名>'s state for recipes, written only by <書き手の関数>`
+  - `independent: a measured value; any value is valid on its own`
   どの雛形にも当たらない field は SM-1〜SM-10 を当てはめる。当てはまらなければ STOP。
+- 移行期の gate：付録 A の A-EC の行（`TurnOutput`、`Routed`、`ImeStateInfo`、`RawKey`）は W6 の U63 が直すので、この wave の strict の 0 件の判定から除く（その field の error だけが残っていればよい。報告に一覧を書く）。
 - D. 完了条件：`cargo check -p <crate> --all-targets --all-features`、`cargo clippy -p <crate> --all-targets --all-features -- -D warnings`、`cargo xtask check --no-write --only state-fields-strict,effect-writes,api-shape --crate <crate>`（0 件）。
 
 ### U41 interaction（lane A）
@@ -945,7 +976,7 @@ cargo xtask check --no-write --only state-fields --crate arvane-text
   2. `kivact-ui` の他の公開の部品の setter を ARG-1〜ARG-6 に照らし、合わないものを直す。直したものの一覧を報告に書く（kit の unit が追従に使う）。
   3. `PartState` の focus の変更（U31 手順 7）に、recipe の state の利用箇所を追従させる（`state.focused` → `state.is_focused()`、`state.focus_visible` → `state.is_focus_visible()`）。
   4. MEM-6：`button.rs:241` の `let state = memo(move || ButtonState {..})` の中で読む part の状態が、それぞれ別の `memo` から来ている場合、part の状態を一度だけ読む（`let part = part_state.get();`）形にし、追加の `memo` を作らない。`loading`（`button.rs:389`）は `busy_machine.feed` に渡すので memo のまま残す。
-  5. MEM-6（busy）：今は busy を使わない button も、`finish`（`button.rs:265`）で `busy_animation`（signal、memo 2 つ、`frame_loop`、Machine と feed 2 つ）と `busy_indicator` を必ず作る（分析機の計測で、3000 個の button に 3000 個の `frame_loop` があった）。`Button` の `busy: Value<bool>`（既定 `false.into_value()`）を `busy: Option<Value<bool>>`（既定 `None`、field の直前に `// xtask-allow(state-fields): independent - builder option: absent means the component's default`）にし、`.busy(..)` が `Some` を入れる。`finish` は、`busy` が `None` なら `busy_animation` と `busy_indicator` を呼ばず、`phase` は `0.0.into_value()`、`reveal_pending` は `false.into_value()`、`ButtonState.busy` は `false` にする。`Some` なら今どおり。
+  5. MEM-6（busy）：今は busy を使わない button も、`finish`（`button.rs:265`）で `busy_animation`（signal、memo 2 つ、`frame_loop`、Machine と feed 2 つ）と `busy_indicator` を必ず作る（分析機の計測で、3000 個の button に 3000 個の `frame_loop` があった）。`Button` の `busy: Value<bool>`（既定 `false.into_value()`）を `busy: Option<Value<bool>>`（既定 `None`、field の直前に `// xtask-allow(state-fields): option: absent means the component's default`）にし、`.busy(..)` が `Some` を入れる。`finish` は、`busy` が `None` なら `busy_animation` と `busy_indicator` を呼ばず、`phase` は `0.0.into_value()`、`reveal_pending` は `false.into_value()`、`ButtonState.busy` は `false` にする。`Some` なら今どおり。
   6. 確認：`dev/bench` の `kv_latency` を 1 回だけ実行してよい（`KIVACT_TEST_MIRROR=off cargo run --release -p kivact-bench --bin kv_latency`）。`S stats_n3000` の行の `frame_loops` が 10 以下、`live_reactive` が `analysis-machine.md` の値（168150）の 0.6 倍以下であることを報告する（満たさなくても STOP にはしない。値を報告する）。
 
 ### U43 engine（lane C）
@@ -962,8 +993,7 @@ cargo xtask check --no-write --only state-fields --crate arvane-text
 
 ### U45 runtime・style・i18n・types など残りの crate の lint（lane E）
 
-- **所有 file**：`crates/kivact-runtime/src/**`、`crates/kivact-style/src/**`、`crates/kivact-i18n/src/**`、`crates/kivact-types/src/**`、`crates/kivact-editing/src/**`、`crates/kivact-layout/src/**`、`crates/kivact-shader/src/**`、`crates/kivact-gpu-share/src/**`、`crates/kivact-devtools-protocol/src/**`、`crates/kivact-devtools-client/src/**`、`crates/kivact-devtools-mcp/src/**`、`crates/kivact-devtools-agent/src/**`、`crates/kivact/src/**`。
-- 所有 file に `crates/arvane-text/src/**`、`crates/kivact-macros/src/**`、`dev/xtask/src/**` を加える。
+- **所有 file**：`crates/kivact-runtime/src/**`、`crates/kivact-style/src/**`、`crates/kivact-i18n/src/**`、`crates/kivact-types/src/**`、`crates/kivact-editing/src/**`、`crates/kivact-layout/src/**`、`crates/kivact-shader/src/**`、`crates/kivact-gpu-share/src/**`、`crates/kivact-devtools-protocol/src/**`、`crates/kivact-devtools-client/src/**`、`crates/kivact-devtools-mcp/src/**`、`crates/kivact-devtools-agent/src/**`、`crates/arvane-text/src/**`、`crates/kivact-macros/src/**`、`dev/xtask/src/**`。facade の `crates/kivact` は同じ wave の U42 の変更（`PartState.focus` への追従）が無いと compile できないので、この unit の完了条件に `cargo check -p kivact` を含めない（W4 の merge の後に Orchestrator が確かめる）。
 - 共通の手順 C と D だけ（A は不要、B は W1・W3 で済み）。
 - 追加：U31 の置換の対象外だった crate の doc comment で、試験の locator を指す `` `Element` `` と `` `Element::.. `` を `` `Locator` `` に直す（`grep -rnE '`Element(::|`)' crates/kivact-style crates/kivact-types crates/kivact-runtime` で探す。例：`kivact-style/src/draw.rs:40`、`kivact-style/src/text.rs:48`）。kivact-engine の同じ doc comment は U43 が直す。
 
@@ -979,7 +1009,7 @@ cargo xtask check --no-write --only state-fields --crate arvane-text
 
 | unit | lane | 所有 file | 付録 A の表 |
 |---|---|---|---|
-| U51 | A | `crates/kivact-ui-basic/**`、`examples/kivact-ui-basic/**` | A-KB |
+| U51 | A | `crates/kivact-ui-basic/**`、`examples/kivact-ui-basic/**`、`crates/kivact-devtools/**`（basic kit の利用者。basic の API の変更と同じ unit で追従させる） | A-KB、A-DT |
 | U52 | B | `crates/kivact-ui-pop/**`、`examples/kivact-ui-pop/**` | A-KP |
 | U53 | C | `crates/kivact-ui-game/**`、`examples/kivact-ui-game/**` | A-KG |
 | U54 | D | `crates/kivact-ui-creative/**`、`examples/kivact-ui-creative/**` | A-KC |
@@ -988,11 +1018,16 @@ cargo xtask check --no-write --only state-fields --crate arvane-text
 
 U56 の追加の手順：
 
-1. `examples/kivact/component/src/main.rs` を `#[component]` で書き直す。今の `card` を設計書 5.2 節の書き方にし、`IntoViewFn` と `impl Component` を使わない形にする。同じ file の試験（`#[cfg(test)] mod tests`）が通る形を保つ。
+1. `examples/kivact/component/src/main.rs` を `#[component]` で書き直す。`card` の children は `content: ViewFn` で宣言し、本体の `show(open, content)` で開閉のたびに作り直す今の契約を保つ。同じ file の試験（Collapse の後の Expand を含む `#[cfg(test)] mod tests`）を変えずに通す。
 2. `templates/basic` の部品を `#[component]` で書く（部品が無ければ、`App` の root を一つの `#[component]` にする）。
 3. `dev/tests/kivact-public-api/tests/e2e/` に `binding_update.rs` を足し、`main.rs` に登録する：`Binding` を受け取る部品（`switch` など、`Binding<bool>` を受けるもの）を描き、試験の中の button の `on_press` で `binding.update(|v| *v = !*v)` を呼んで、表示と a11y の状態が反転することを確かめる。
-4. `dev/tests` の既存の試験を改名（付録 B）と U42〜U55 の API の変更に追従させる（期待値は変えない）。
-5. `kivact-public-api-tests`、`kivact-docs`、`kivact-bench`、`gpu-interop-producer`、例と雛形の crate で、共通の手順 D の strict lint を 0 件にする。
+4. `dev/tests/kivact-public-api/tests/e2e/` に次を足し、`main.rs` に登録する（設計書 7 章）：
+   - `binding_update.rs` に、`binding(get, set)` で作った binding の `update` が `set` を一度呼ぶ試験も足す（`set` の中で数を数える `var`）。
+   - `resource_reclaim.rs`：`signal(true)` の `show` の中に、`for_each` で 3000 行（各行 `row((text(..), button(..)))`）の list を描く。描く前の `screen.stats()` を記録し、`show` を false にして `run_until_idle()` した後、`live_reactive`・`live_owners`・`frame_loops`・`tree_nodes` が描く前の値と同じになる。これを 3 回繰り返す。
+   - `svg_embedded_text.rs`：内側の SVG に大きな `<text>` があり、外側には `<image href="data:image/svg+xml;base64,...">` だけがある SVG を `image(..)` で描き、内側の text を空にした同じ SVG と比べて `Screenshot::raster_difference` が 0 でない（文字が描かれている）。
+   - `gpu_on_demand.rs`（GPU の lane。`kivact::test::gpu_unavailable()` なら skip）：既定の `GpuStart::OnDemand` の試験の host（`RenderOptions` で GPU を要求しない設定）で、(a) shader を使う style の node を描くと GPU の renderer に切り替わる、(b) feature `gpu-interop` で shared image を作ると GPU が始まり、GPU frame が届く、を確かめる。renderer の確認には既存の GPU 試験が使う方法（`kivact-test/src/screen/gpu_tests.rs`）を使う。
+5. `dev/tests` の既存の試験を改名（付録 B）と U42〜U55 の API の変更に追従させる（期待値は変えない）。
+6. `kivact-public-api-tests`、`kivact-docs`、`kivact-bench`、`gpu-interop-producer`、例と雛形の crate で、共通の手順 D の strict lint を 0 件にする。
 
 U56 の完了条件：
 
@@ -1007,16 +1042,25 @@ cargo clippy --workspace --all-targets --all-features --keep-going -- -D warning
 
 ## 9. CP2（Orchestrator）
 
-W5 の merge の後に、CP1 と同じコマンドを実行する（`run.sh` の label は `CP2`）。ただし `kivact-docs` の試験は実行しない（文書の中の Rust は W6 の U62 で新しい API に直すため、CP3 で実行する）。`kivact-devtools` は W6 の U63 で直すので、workspace の test と clippy から `--exclude kivact-devtools` で外す。加えて：
+W5 の merge の後に、CP1 と同じコマンドを実行する（`run.sh` の label は `CP2`）。ただし `kivact-docs` の試験は実行しない（文書の中の Rust は W6 の U62 で新しい API に直すため、CP3 で実行する）。加えて：
+feature の組合せ（設計書 7 章。package を一つずつ指定する。workspace の `--no-default-features` は GPU なしの確認にならないので使わない）：
 
 ```bash
-KIVACT_TEST_MIRROR=off dev/tools/window-lock.sh --timeout 5400 -- cargo test --workspace --exclude gpu-interop-producer --exclude kivact-docs --no-default-features
+cargo check -p kivact --no-default-features
+cargo check -p kivact --no-default-features --features gpu
+cargo check -p kivact --features gpu-interop
+cargo tree -p kivact --no-default-features -e features -i arvane-compose | grep -E '"gpu"' && echo "NG: gpu leaked" || echo ok
+KIVACT_TEST_MIRROR=off dev/tools/window-lock.sh --timeout 5400 -- cargo test -p kivact-public-api-tests --no-default-features
+```
+
+
+```bash
 KIVACT_TEST_MIRROR=off dev/tools/window-lock.sh --timeout 5400 -- cargo test -p gpu-interop-producer --all-features -- --test-threads=1
-cargo xtask check --no-write --only state-fields-strict      # workspace 全体で 0 件
+cargo xtask check --no-write --only state-fields-strict      # A-EC の行の field を除いて 0 件
 ```
 
 - 失敗は CP1 と同じ扱い。kit の試験の失敗は、その kit の unit（U51〜U55）の subagent に直させる。
-- `dev/bench/results/CP2.md` を設計書 1.4 節の「必達」と比べ、満たしていない KPI を一覧にする（W6 では直さない。W7-3 の報告に書く）。
+- `dev/bench/results/CP2.md` を設計書 1.4 節の「必達」と比べ、満たしていない KPI を `OPEN.md` に書く。必達に届かない KPI は、原因の調査と設計の見直しを設計者に差し戻す（実装者が目標を下げたり、測定の条件を変えたりしない）。
 - 通ったら push する。
 
 ---
@@ -1031,7 +1075,8 @@ cargo xtask check --no-write --only state-fields-strict      # workspace 全体�
 
 1. `state-fields-strict` の検査を `state-fields` に統合する：`Strictness` を消し、`Strict` の検査を常に行う。`RULES` から `state-fields-strict` を消す。`dev/xtask/strict-report.txt` を消す。
 2. `api-shape` に ARG-1 の検査を足す：公開の method で名前が `on_` で始まるものの最後の引数の型が、`impl Into<Callback<()>>` か、`impl Fn(..) -> R`（`R` が `HandlerResult` を bound に持つ型引数）でなければ error。例外は `on_mount`・`on_cleanup`（`FnOnce` の lifecycle、architecture.md の規則どおり）と `on_attach`。
-3. `cargo fmt -p xtask`。
+3. `--report-audit`（設計書 6.4 節）：`state-fields` の検査が数える field を 2 つ以上持つ struct・named-field の variant・関数（local）ごとに、file:line、field、marker の理由、閉じ方（理由の接頭辞。marker が無く enum・Machine にしたものは `type`）を 1 行ずつ `dev/xtask/state-audit.md` に書く。閉じ方が無い行（marker も型も無いのに数えられた field）は `OPEN` と書き、そのときは非 0 で終わる。
+4. `cargo fmt -p xtask`。
 
 完了条件：
 
@@ -1050,13 +1095,8 @@ cargo xtask check --no-write      # workspace 全体で 0 件
 
 手順：
 
-1. `docs/for-kivact-developer/architecture.md`：
-   - crate の表に `kivact-macros` と `kivact-bench` を足す（設計書 3.2 節の理由）。package の数を数え直す。
-   - 「境界を作る規則」の後に、設計書 2.2 節の PERF-1〜3、MEM-1〜6、DEP-5 を表で足す。
-   - DEP の feature の表：`kivact` の default を `gpu, complex-scripts` に、`arvane-text` の行（`complex-scripts`）を足す。
-   - 公開 API の 15 規則の API-1・API-3・API-6・API-13 の中の `NodeBuilder`、`Component`、`component` を新しい名前にし、ARG-1〜ARG-6 を表で足す。
-   - 「状態と事実の所有」の S 規則の表に、SM-1〜SM-11 と lint の変更（SL-1〜SL-7）を要約して足す。
-2. `docs/for-kivact-developer/decisions.md`：設計書 8.1 節の置き換え（CONTRACT-01、ADR-34、ADR-47 の行の「決定」を新しい名前に書き換え、末尾に「2026-11-09 SLIM-05 で改名」と足す）と、8.2 節の SLIM-01〜07 を「実装の決定」の表の末尾に足す。
+1. `docs/for-kivact-developer/architecture.md` と `decisions.md` には、この unit では触れない（受入れを満たしたときだけ W7 で書き戻す）。ただし、改名した名前（`NodeBuilder`、`Component`、`component(`、`kivact::test::Element`）が rustdoc の link として壊れる箇所だけは新しい名前に直す。
+2. `templates/basic/README.md` の profile の説明に、U11 で雛形に書いた `[profile.release]` の理由（サイズと速度、release ビルドが延びること）を足す。
 3. `docs/for-kivact-user/en` と `jp`：
    - 「部品を作る」系のガイドを `#[component]` で書き直す（手書きの builder の例は消す）。
    - `NodeBuilder`、`Component`、`component(`、`kivact::test::Element` を新しい名前にする。
@@ -1079,22 +1119,19 @@ grep -rnE "NodeBuilder|impl Component|kivact::test::Element|view::component\b" d
 
 ### U63 crate をまたぐ状態機械と DevTools アプリ（lane C）
 
-- **目的**：付録 A の A-EC と A-DT。W2〜W5 では、型の変更が同じ wave の複数の unit の file にまたがるため、ここでまとめて行う。
-- **所有 file**：`crates/kivact-engine/**`、`crates/kivact-core/**`、`crates/kivact-test/**`、`crates/arvane-shell/**`、`crates/arvane-native/**`、`crates/arvane-virtual/**`、`crates/kivact-devtools/**`、`dev/tests/**`（追従のみ）。
+- **目的**：付録 A の A-EC。型の変更が W2〜W5 の同じ wave の複数の unit の file にまたがるため、ここでまとめて行う（DevTools アプリ（A-DT）は W5 の U51 が行う）。
+- **所有 file**：`crates/kivact-engine/**`、`crates/kivact-core/**`、`crates/kivact-test/**`、`crates/arvane-shell/**`、`crates/arvane-native/**`、`crates/arvane-virtual/**`、`crates/kivact-devtools/**`（追従のみ）、`dev/tests/**`（追従のみ）。
 
 手順：
 
 1. 付録 A の A-EC の各行を直す。型の利用箇所（`grep -rnE "<型名>" crates dev`）をすべて直す。Linux 専用の利用箇所は 0.6 節の方法で確かめる。
-2. `kivact-devtools`：W3〜W5 の改名と kit の API の変更（付録 B、U42・U51 の報告の一覧）に追従させて compile を通す。付録 A の A-DT の各行を直す。
-3. W4 の共通の手順 C（strict lint の残り、marker の理由の書き直し）を `kivact-devtools` に行う。
-4. `cargo fmt -p kivact-engine -p kivact-core -p kivact-test -p arvane-shell -p arvane-native -p arvane-virtual -p kivact-devtools`。
+2. `cargo fmt -p kivact-engine -p kivact-core -p kivact-test -p arvane-shell -p arvane-native -p arvane-virtual -p kivact-devtools`。
 
 完了条件：
 
 ```bash
 cargo check --workspace --all-targets --all-features
 cargo clippy --workspace --all-targets --all-features -- -D warnings
-cargo xtask check --no-write --only state-fields-strict --crate kivact-devtools
 cargo xtask check --no-write --only state-fields-strict --crate kivact-engine
 cargo xtask check --no-write --only state-fields-strict --crate kivact-core
 ```
@@ -1106,11 +1143,22 @@ cargo fmt --all -- --check
 cargo xtask check                 # --no-write を付けない：architecture/ の図を生成する
 cargo clippy --workspace --all-targets --all-features -- -D warnings
 KIVACT_TEST_MIRROR=off dev/tools/window-lock.sh --timeout 5400 -- cargo test --workspace --exclude gpu-interop-producer --exclude kivact-docs --all-features
-KIVACT_TEST_MIRROR=off dev/tools/window-lock.sh --timeout 5400 -- cargo test --workspace --exclude gpu-interop-producer --exclude kivact-docs --no-default-features
 KIVACT_TEST_MIRROR=off dev/tools/window-lock.sh --timeout 5400 -- cargo test -p gpu-interop-producer --all-features -- --test-threads=1
 KIVACT_TEST_MIRROR=off dev/tools/window-lock.sh --timeout 5400 -- cargo test -p kivact-docs --all-features -- --test-threads=1
+cargo xtask check --no-write --only state-fields --report-audit   # dev/xtask/state-audit.md を書く
 dev/tools/window-lock.sh --timeout 1800 -- dev/bench/run.sh B1
 ```
+
+feature の組合せ（設計書 7 章。package を一つずつ指定する。workspace の `--no-default-features` は GPU なしの確認にならないので使わない）：
+
+```bash
+cargo check -p kivact --no-default-features
+cargo check -p kivact --no-default-features --features gpu
+cargo check -p kivact --features gpu-interop
+cargo tree -p kivact --no-default-features -e features -i arvane-compose | grep -E '"gpu"' && echo "NG: gpu leaked" || echo ok
+KIVACT_TEST_MIRROR=off dev/tools/window-lock.sh --timeout 5400 -- cargo test -p kivact-public-api-tests --no-default-features
+```
+
 
 - WSL があれば、WSL の中（`wsl -d "${KIVACT_WSL_DISTRO:-Ubuntu-24.04}"`）で、上の clippy と `cargo test --workspace --exclude gpu-interop-producer --exclude kivact-docs --all-features` を同じ形で実行する（Linux の desktop の環境が要る試験は、WSLg が無ければ skip されてよい）。無ければ報告に「Linux 未確認」と書く。
 - `architecture/` の変更を commit する。
@@ -1119,24 +1167,27 @@ dev/tools/window-lock.sh --timeout 1800 -- dev/bench/run.sh B1
 
 ## 12. W7（Orchestrator）
 
-### W7-1 KPI の判定
+### W7-1 受入れの判定
 
-`dev/bench/results/B1.md` と `B0.md` から、設計書 1.4 節の各行の倍率（B0 ÷ B1。K3 のアイドルは B1 の値そのもの）を計算し、`dev/bench/results/RESULT.md` に表で書く：KPI、指標、B0、B1、倍率、必達、判定（達成／未達）。
+1. `dev/bench/results/B1.md` と `B0.md`（どちらも INVALID でないこと）から、設計書 1.4 節の各行の倍率（B0 ÷ B1。K3 のアイドルは B1 の値そのもの）を計算し、`dev/bench/results/RESULT.md` に表で書く：KPI、指標、B0、B1、倍率、必達、判定。必達に届かない行は、同じ条件で 2 回測り直し（`run.sh B1-r2`、`B1-r3`）、3 回中 2 回以上満たせば満たしたとする（設計書 1.6 節 AC-2）。
+2. 設計書 1.6 節の AC-1〜AC-4 を確かめ、`RESULT.md` に AC ごとの結果を書く。AC-3 は `dev/xtask/state-audit.md` に `OPEN` が無いことと、`OPEN.md` に状態の項目が無いこと。
+3. **AC-1〜AC-4 のどれかを満たさない場合**は、ここで止める：`RESULT.md` と `OPEN.md` を commit して push し、満たさない項目を設計者（人間）に報告する。W7-2 と W7-3 は行わない（設計書・作業指示書を消さず、architecture.md と decisions.md にも書き戻さない）。
 
-### W7-2 後片付け
+### W7-2 書き戻しと後片付け（AC をすべて満たしたときだけ）
 
-1. 設計書 2.2 節、3 章、8 章の内容が `architecture.md` と `decisions.md` に入っていることを確かめる（U62）。
-2. `SLIM_FAST_DESIGN.md` と `SLIM_FAST_WORK_ORDER.md` を削除する（`git rm`）。`dev/bench/results/` は残す。
-3. commit し、push する。
+1. `docs/for-kivact-developer/architecture.md`：crate の表に `kivact-macros` と `kivact-bench` を足す（設計書 3.2 節の理由）。設計書 2.2 節の PERF-1〜3、MEM-1〜6、DEP-5 を「境界を作る規則」の後に表で足す。DEP の feature の表で `kivact` の default を `gpu, complex-scripts` にし、`arvane-text`（`complex-scripts`）と、`complex-scripts` を転送する consumer を足す。公開 API の規則（API-1・API-3・API-6・API-13）の旧名を新しい名前にし、ARG-1〜ARG-6 を表で足す。「状態と事実の所有」に SM-1〜SM-12、SL-1〜SL-8、6.4 節の監査を要約して足す。
+2. `docs/for-kivact-developer/decisions.md`：設計書 8.1 節の置き換え（CONTRACT-01、ADR-34、ADR-47 の「決定」を新しい名前に書き換え、末尾に「2026-11-09 SLIM-05 で改名」と足す）と、8.2 節の SLIM-01〜SLIM-10 を「実装の決定」の表の末尾に足す。
+3. `SLIM_FAST_DESIGN.md`、`SLIM_FAST_WORK_ORDER.md`、`20261109_2107_CODEX_REVIEW.md` を削除する（追跡されている file は `git rm`、されていなければ `rm`）。`dev/bench/results/` と `dev/xtask/state-audit.md` は残す。
+4. commit し、push する。
 
-### W7-3 PR の説明の下書き
+### W7-3 PR の説明の下書き（AC をすべて満たしたときだけ）
 
 `dev/bench/results/PR_DRAFT.md` に次を書いて commit し、push する（PR は作らない）：
 
 - 概要（設計書 1.3 節の原因と、直した内容を 10 行以内）
 - KPI の表（W7-1 の RESULT.md の表をそのまま）
 - 公開 API の変更（付録 B の B.1 の表、ARG-1〜6、`#[component]`、`GpuStart`、`Binding::update`、`complex-scripts`）
-- 未実施（STOP で実施しなかった項目、撤退規則を適用した項目、未達の KPI）
+- 撤退規則を適用した項目（受入れに影響しないもの）
 - 確認の状況（CP3 の各コマンドの結果、Linux の確認の有無）
 
 ---
@@ -1145,7 +1196,7 @@ dev/tools/window-lock.sh --timeout 1800 -- dev/bench/run.sh B1
 
 各行の「直した形」は、その field を置き換える型。行の「規則」は設計書 6.3 節の番号。直したら、その field に付いていた `xtask-allow(state-fields)` の行も消す。「SM-11（理由）」の行は直さず、marker の理由を書いてある文言に置き換える。
 
-「確かめる」と書いた行は、まず書いてある条件（組合せの制約）が実際のコードで成り立つかを、その field を書くすべての箇所（`grep -rnE "\.<field> =" <crate>/src`）で確かめる。成り立てば直す。成り立たなければ STOP。
+各行は、その field を書くすべての箇所と到達する組合せを設計者が調べて確定したもの（2026-11-09）。実装者は「直した形」を写す。行の前提がコードと合わない（書く箇所が増えている等）場合は STOP（設計者に差し戻す）。
 
 ### A-RT（U16、kivact-runtime）
 
@@ -1154,27 +1205,27 @@ dev/tools/window-lock.sh --timeout 1800 -- dev/bench/run.sh B1
 | `motion/state.rs:96-99` | `AnimInfo` | `running: bool`、`paused: bool` | SM-1 | `status: RunStatus`、`enum RunStatus { Idle, Running, Paused }`。`is_running()` は `status == Running`、`is_paused()` は `status == Paused` の投影 |
 | `reactive/detail.rs:139` | `DetailBuilder` | `cause: Option<u32>`（None が「まだ無い」と「上限で捨てた」の二つの意味） | SM-4 | `cause: CauseSlot`、`enum CauseSlot { Empty, At(u32), Dropped }` |
 | `task/worker_pool.rs:24` | `Pool` | `tx: Mutex<Option<Sender<..>>>`、`handles` | SM-2 | `workers: Mutex<Workers>`、`enum Workers { Unspawned, Running { tx: Sender<..>, handles: Vec<JoinHandle<()>> }, Closed }`（型引数は今の `tx` と `handles` の型） |
-| `task/action.rs:112` | `Queue` | `worker_ids: Cell<Generation>`（古い worker を止めるための比較） | SM-6 | `ActionPhase`（同じ file）の開いている variant に `worker: Worker`、`enum Worker { Idle, Running { id: u64 } }` を持たせ、`worker_ids` を消す。worker は自分の id と `Running { id }` を比べ、違えば終わる（今の比較と同じ意味）。確かめる |
-| `task/action.rs:249` | `ActionCell` | `last: RefCell<Option<Submitted>>`（最初の実行の前は None） | SM-2 | `last` を、async の phase の Idle 以外の variant の field に移す。確かめる（phase の型が別 crate なら STOP） |
+| `task/action.rs:112` | `Queue` | `worker_ids: Cell<Generation>` | SM-11 | id の割当て器（`ensure_worker` が Stopped の時だけ進める。今の worker の id は `Worker::Picking/Running{id}` が持つ）。名前を `next_worker_id` にし、理由 `identity: allocates worker ids; the current worker's id lives in Worker` |
+| `task/action.rs:249` | `ActionCell` | `last: RefCell<Option<Submitted<I>>>` | SM-12 | 最後に始まった実行の入力（queue では enqueue と最初の poll の間は None、消されない）。書き手は Latest の `make`（`:515`）と worker の pop（`:585`）だけ。型は変えず、理由 `projection: the input of the latest started run, written only when a run starts (Latest make, worker pop)` |
 | `motion/state.rs:425` | `LoopCell` | `rate: Cell<Option<Value<..>>>`（最初の呼び出しで埋める） | SM-5 | constructor（`frame_loop` の setup）で rate の `Value` を作って渡す。setup で作れない場合は STOP |
 | `motion/state.rs:434` | `LoopRun` | `index`、`last_tick: Option<u64>`（一緒に reset） | SM-2 | `cadence: Cadence`、`enum Cadence { Fresh { start_ns: u64 }, Ticking { start_ns: u64, index: u64, last_tick: u64 } }`（今の `start_ns` の field があればそれを移す。型は今の型） |
-| `reactive/data.rs:77` | `Runtime` | `ext: OnceCell<Extensions>` | SM-11 | 理由：`independent - ADR-17: filled by the constructor before it returns; never observed empty` |
-| `task/state.rs:95` | `TaskCell` | `task: OnceCell<RawTask>` | SM-11 | 理由：`independent - ADR-21: set before the first poll` |
-| `reactive/data.rs:79-81` | `Runtime` | `mount_revision`、`unstamped`、`awaiting` | SM-11 | 理由：`independent - ADR-18: typed queues of unstamped and awaiting mounts` |
-| `reactive/data.rs:83-84` | `Runtime` | `state: TurnState`、`exit: ExitState` | SM-11 | 理由：`independent - ADR-18: the turn state and the exit state are separate facts` |
-| `reactive/host_types.rs:80` | `TurnReport` | `next_deadline`、`exit` | SM-11 | 理由：`independent - ADR-18: the report carries the deadline and the exit state` |
-| `task/async_state.rs:66` | `AsyncCell` | `state`、`latest: Signal<Option<T>>` | SM-11 | 理由：`independent - ADR-21: the latest success is kept through pending and failure` |
-| `reactive/data.rs:362` | `Frame` | `owner`、`pure`、`writer`、`tracking` | SM-11 | 理由：`independent - ADR-20: the frame kind and pure/tracking/owner/writer are separate facts` |
-| `reactive/data.rs:171` | `MemoCell` | `value: RefCell<Option<T>>` | SM-11 | 理由：`independent - S-9 cache: the memo's last computed value; the graph state is CompState` |
+| `reactive/data.rs:77` | `Runtime` | `ext: OnceCell<Extensions>` | SM-11 | 理由：`independent: ADR-17: filled by the constructor before it returns; never observed empty` |
+| `task/state.rs:95` | `TaskCell` | `task: OnceCell<RawTask>` | SM-11 | 理由：`independent: ADR-21: set before the first poll` |
+| `reactive/data.rs:79-81` | `Runtime` | `mount_revision`、`unstamped`、`awaiting` | SM-11 | 理由：`independent: ADR-18: typed queues of unstamped and awaiting mounts` |
+| `reactive/data.rs:83-84` | `Runtime` | `state: TurnState`、`exit: ExitState` | SM-11 | 理由：`independent: ADR-18: the turn state and the exit state are separate facts` |
+| `reactive/host_types.rs:80` | `TurnReport` | `next_deadline`、`exit` | SM-11 | 理由：`independent: ADR-18: the report carries the deadline and the exit state` |
+| `task/async_state.rs:66` | `AsyncCell` | `state`、`latest: Signal<Option<T>>` | SM-12 | ADR-21 の通知の粒度（`latest` の読み手を Pending・Failed で起こさない）を保つため二つの signal のまま。`fn publish(&self, next: AsyncState<T>)` を一つ作り、`start`・`finish` は必ずそれを通す：`next` が `Ready(v)` なら先に `latest` に `Some(v.clone())` を書き、次に `state` を書く。他の箇所は二つの signal を書かない。`latest` の marker の理由は `projection: written only by AsyncCell::publish (Ready(v) implies latest == Some(v))` |
+| `reactive/data.rs:362` | `Frame` | `owner`、`pure`、`writer`、`tracking` | SM-11 | 理由：`independent: ADR-20: the frame kind and pure/tracking/owner/writer are separate facts` |
+| `reactive/data.rs:171` | `MemoCell` | `value: RefCell<Option<T>>` | SM-11 | 理由：`cache: the memo's last computed value; the graph state is CompState` |
 
 ### A-EC（U63、crate をまたぐもの）
 
 | file:行 | 型 | 今の field | 規則 | 直した形 |
 |---|---|---|---|---|
 | `kivact-engine/src/contract/host.rs:25` | `TurnOutput` | `next_wake_ns: Option<u64>`、`exit: bool` | SM-2 | `pub enum TurnOutput { Continue { next_wake_ns: Option<u64> }, Exit }`。読む側（`host/pump.rs` など）は `match` にする。他の field があれば `Continue` の variant に入れる |
-| `kivact-engine/src/contract/routed.rs:7` | `Routed<T>` | `target`、`region`、`captured`、`activation` | SM-4 | `target: RouteTarget`、`pub enum RouteTarget { Window, Node { id: NodeId, via: Via }, Region { id: NodeId, region: RegionId, via: Via } }`、`pub enum Via { Hit, Capture }`。`activation` と event の payload はそのまま。確かめる（`region` が `target` 無しで設定される箇所があれば STOP） |
+| `kivact-engine/src/contract/routed.rs:7` | `Routed<T>` | `target: Option<NodeId>`、`region: Option<RegionId>`、`captured: bool`、`activation` | SM-3 | `target: Option<RouteTarget>`、`pub struct RouteTarget { pub node: NodeId, pub region: Option<RegionId> }`（region は target がある時だけ）。`captured` は読み手が無いので削除する（構築箇所：`model/pointer/machine.rs:62,702`、`pointer/shell.rs:401,417,439`、`keys.rs:183,415`、`kivact-test` の `host_sync_tests.rs:156,415`）。書換え：`part_pointer.rs:127`、`client/dispatch/key.rs:33`、`host/write/writer.rs:88`。`activation` はそのまま |
 | `kivact-engine/src/contract/devtools.rs:123` | `ImeStateInfo` | `node`、`composing: bool`、`preedit: Option<..>`、`cursor_area` | SM-2 | `pub enum ImeStateInfo { Inactive, Focused { node, purpose, cursor_area, composition: Option<String> } }`（`composing` ⇔ `composition.is_some()`）。core の devtools の変換（protocol の型への写し）を直す。protocol の型（`kivact-devtools-protocol`）は変えない |
-| `kivact-engine/src/host/pump.rs:57` | `Host` | `close: CloseSignal`、`phase: HostPhase` | SM-11 | 理由：`independent - ADR-09: the thread-safe close inbox; the host phase is drained from it` |
+| `kivact-engine/src/host/pump.rs:57` | `Host` | `close: CloseSignal`、`phase: HostPhase` | SM-11 | 理由：`independent: ADR-09: the thread-safe close inbox; the host phase is drained from it` |
 | `arvane-shell/src/pipeline/raw.rs:13` | `RawKey` | `pressed: bool`、`repeat: Option<bool>`、`text` | SM-2 | `phase: RawKeyPhase`、`pub enum RawKeyPhase { Down { repeat: Option<bool>, text: <今の text の型> }, Up }`。`RawKey` を作る・読む箇所（native の port、virtual、`crates/kivact-test/src/raw.rs`、`crates/kivact-core/src/devtools/input.rs`、`crates/kivact-engine/src/contract.rs`、`host/testing.rs`）をすべて直す |
 
 ### A-PS（U31、kivact-core）
@@ -1187,27 +1238,24 @@ dev/tools/window-lock.sh --timeout 1800 -- dev/bench/run.sh B1
 
 | file:行 | 型 | 今の field | 規則 | 直した形 |
 |---|---|---|---|---|
-| `arvane-virtual/src/window.rs:146-180` | `VirtualWindow` | `ime`、`ime_text` | SM-2 | `ime: RefCell<VirtualIme>`、`enum VirtualIme { None, Focused { area: <今の ime の型の中身>, text: <今の ime_text の型の中身> } }` |
-| 同上 | 同上 | `occluded`、`failing`（と、surface の可否を表す field があればそれも） | SM-4 | `surface: Cell<SurfaceCondition>`、`enum SurfaceCondition { Visible, Occluded, Failing(u32) }`（`Failing` の payload は今の `failing` の数） |
-| 同上 | 同上 | `redraw: Cell<bool>` | SM-11 | 理由：`independent - one pending redraw request of the script` |
-| 同上 | 同上 | `soft_keyboard: (Cell<bool>, Cell<u32>)` | SM-11 | 二つの field `soft_keyboard_shown: Cell<bool>`（理由 `independent - whether the soft keyboard is shown`）と `soft_keyboard_requests: Cell<u32>`（理由 `independent - S-8 statistic: requests counted for tests`）に分ける |
+| `arvane-virtual/src/window.rs:146-180` | `VirtualWindow` | `ime`、`ime_text`、`occluded`、`failing`、`redraw`、`soft_keyboard` | SM-11 | すべて試験の台本が別々に入れる独立した入力（`ime = None` でも `ime_text` は消えない、遮蔽中は失敗の回数を消費しない `window.rs:474-479`）。型は変えない。各 field の理由は `independent: <この field を書く script の操作> is recorded separately; every combination is a valid script state`。`soft_keyboard: (Cell<bool>, Cell<u32>)` だけは `soft_keyboard_shown: Cell<bool>`（independent）と `soft_keyboard_requests: Cell<u32>`（`statistic: requests counted for tests`）の二つの field に分ける |
 | `arvane-native/src/port/x11/notifier.rs:12` | `Notifier` | `thread: Mutex<Option<JoinHandle>>` | SM-2 | `thread: Mutex<UiThread>`、`enum UiThread { Unspawned, Running(JoinHandle<()>), Joined }`（Linux） |
-| `arvane-native/src/port/x11/ime.rs:102` | `XimConnection` | `phase: Connection { Handshake, Established }`、`session.context: Context { Connecting, Open, Ready, Disconnected }`、`flight`、`pending` | SM-4 | 一つの `enum XimPhase { Handshake(<今の Handshake の payload>), Connecting, Open, Ready { flight, pending }, Disconnected }` にし、`Connection` と `Context` と、Ready の時だけ意味のある `flight`・`pending` を消す（Linux、確かめる） |
+| `arvane-native/src/port/x11/ime.rs:102` | `XimConnection` | `phase: Connection`、`session.context: Context`、`flight`、`pending` | SM-2 | `enum Connection { Handshake { protocol_window: u32 }, Established { protocol_window: u32, server_window: u32 } }`（今の Handshake は server_window が None でしか作られない）。`enum Context { Connecting, Open, Ready { im, ic, keys: Keys }, Disconnected { keys: Keys } }`、`enum Keys { Idle, Waiting { flight: Flight, pending: VecDeque<(KeyPressEvent, bool)> } }`（flight がある時だけ pending が意味を持つ。`degrade` は keys を keyboard に返すので Disconnected も keys を持つ）。型の名前（`im`、`ic`、`Flight`）は今の型。Linux 専用（0.6 節） |
 | `arvane-shell/src/pipeline/ime.rs:14` | `ImeDriver` | `allowed: Sent<bool>`、`text: Sent<Option<ShellImeText>>`、`area` | SM-2 | `offer: Sent<ImeOffer>`、`enum ImeOffer { Disallowed, Allowed { area: <今の area の型>, text: Option<ShellImeText> } }` |
-| `arvane-asset/src/store/entry.rs:50` | `Entry`（と `Job`、`Done`） | `generation`、`state: State` | SM-6 | `generation` を `State::Pending { job: u64 }` に移し、完了の結果は `job` の一致で受ける |
+| `arvane-asset/src/store/entry.rs:50` | `Entry` | `generation`、`state` | SM-11 | `generation` は entry の一つの世代の識別子で、load・reload・recheck・raster のすべての job に付き、結果の受取りで照合する（`asset_store.rs:360,375,397,413` と `:432,489,504`）。型は変えず、理由 `identity: one incarnation of the entry, stamped on every job and checked on every result` |
 | `arvane-asset/src/store/asset_store.rs:49` | `AssetStore` | `frame: Option<NonZeroU64>`（最初の `begin_frame` の前は None） | SM-4 | `frame: FrameClock`、`enum FrameClock { BeforeFirstFrame, Frame(NonZeroU64) }` |
-| `arvane-asset/src/store/worker.rs:73` | `Worker` | `stop: Arc<AtomicBool>`、`done` | SM-11 | 理由：`independent - the cross-thread stop request; the thread's lifetime is its handle` |
+| `arvane-asset/src/store/worker.rs:73` | `Worker` | `stop: Arc<AtomicBool>`、`done` | SM-11 | 理由：`independent: the cross-thread stop request; the thread's lifetime is its handle` |
 | `arvane/src/presenter/frame_policy.rs:18` | `Drawn` | `shown: bool`、`raster`、`present` | SM-2 | `enum Drawn { Shown { renderer, raster, present, report }, NoBuffer { renderer, report } }`（`renderer` と `report` は今の field。型は今の型） |
-| `arvane-compose/src/cache.rs:96` | `CacheIndex` | `invalidated: bool`、`frame` | SM-2 | `epoch: CacheEpoch`、`enum CacheEpoch { Invalidated, Valid { frame: u64 } }`（`frame` の型は今の型）。確かめる |
-| `arvane-render/src/derived.rs:52` | `Derived` | `context: Option<(RenderContext, Resources)>` | SM-11 | 理由：`independent - S-9 cache: built on the first raster` |
+| `arvane-compose/src/cache.rs:96` | `CacheIndex` | `invalidated: bool`、`frame`、記録の map | SM-2 | `struct CacheIndex { frame: u64, records: Records }`、`enum Records { Kept { chunks, layers }, Invalidated }`（`clear` は `Invalidated` にする。`store` は `Kept` に戻す。`plan/damage.rs:217` は `Invalidated` のとき `Damage::Full`）。`frame` は独立のまま |
+| `arvane-render/src/derived.rs:52` | `Derived` | `context: Option<(RenderContext, Resources)>` | SM-11 | 理由：`cache: built on the first raster` |
 
 ### A-LE（U33）
 
 | file:行 | 型 | 今の field | 規則 | 直した形 |
 |---|---|---|---|---|
-| `kivact-layout/src/pass_state.rs:29` | `LayoutState` | `changed: bool`、`relayout: Vec<NodeId>` | SM-2 | `relayout` が `changed` が真の時だけ処理されること（`Layout::compute` の `take_changed`）を確かめ、成り立てば `pending: Pending`、`enum Pending { Clean, Changed { relayout: Vec<NodeId> } }`。`epoch` はそのまま（理由 `independent - S-9 generation of the traversal cursors`） |
-| `kivact-layout/src/style/node.rs:69` | `NodeStyle` | `display`、`grid: Option<Box<TStyle>>`（Grid ⇔ Some） | SM-2 | `container: Container`、`enum Container { None, Block, Flex, Grid(Box<TStyle>) }` と `fn display(&self) -> taffy::Display`。今の `display` の値の種類に合わせる（確かめる） |
-| `kivact-editing/src/edit_state.rs:54` | `EditState` | `damage`、`base`（と `revision`） | SM-2 | 「`damage` が Some ⇔ consumer が受け取った後に revision が進んだ」を確かめ、成り立てば `sync: Sync`、`enum Sync { Synced, Pending(<今の damage の型の中身>) }` で `damage` と `base` を置き換える。`revision` は他の読み手がいれば残す |
+| `kivact-layout/src/pass_state.rs:29` | `LayoutState` | `changed: bool`、`relayout: Vec<NodeId>` | SM-2 | まず `layout.rs:67` の `if !self.state.take_changed() || tree.root().is_none()` を `if tree.root().is_none() || !self.state.take_changed()` にする（root の無い時に changed を消費しない。今はこの経路で relayout だけが残る）。その後 `pending: Pending`、`enum Pending { Clean, Dirty { relayout: Vec<NodeId> } }` で二つを置き換える（印を付ける関数は `Dirty` にし、push は `Dirty` の relayout に足す。`take_changed` は `Dirty` を取り出す）。`epoch` は独立のまま（理由 `identity: generation of the traversal cursors`） |
+| `kivact-layout/src/style/node.rs:69` | `NodeStyle` | `display: taffy::Display`、`grid: Option<Box<TStyle>>` | SM-2 | `display: NodeDisplay`、`enum NodeDisplay { None, Flex, Grid(Option<Box<TStyle>>) }`（grid の style は Grid の時だけ。Grid で container の prop が無ければ `None`）。taffy に渡す `display()` は `NodeDisplay` から作る。書き手：`convert.rs:185-190,302-310`。読み手：`tree.rs:334-338,423-426` |
+| `kivact-editing/src/edit_state.rs:54` | `EditState` | `base`、`log`（と `revision`、`damage`） | SM-3 | 「log が空 ⇔ base == revision」を型にする：`log: Option<Log>`、`struct Log { base: u64, entries: Vec<Logged> }`（entries は空にしない）。`base` の field を消し、`recorded_since(r)` は `log.as_ref().map_or(revision, |l| l.base) == r`。`damage: Option<Damage>` は別の consumer（行の cache）の事実なので独立のまま（理由 `independent: line-cache damage is taken by the editor, separately from the edit log`） |
 | `kivact-devtools-agent/src/agent.rs:30` | `Agent` | `stop: Sender<..>`、`listener: Option<JoinHandle>` | SM-2 | `listener: Listener`、`enum Listener { Running { stop: Sender<..>, thread: JoinHandle<()> }, Stopped }` |
 
 ### A-EN（U43、kivact-engine）
@@ -1216,12 +1264,12 @@ dev/tools/window-lock.sh --timeout 1800 -- dev/bench/run.sh B1
 |---|---|---|---|---|
 | `tree/node.rs:132-137` | `Place` | `sticky: bool`、`fixed: bool` | SM-1 | `positioning: Positioning`、`enum Positioning { InFlow, Sticky, Fixed }`。読む側の `place.fixed` は `place.positioning == Positioning::Fixed` |
 | `tree/child_order.rs:19`、`:184` | `Editing`、`Children` | `first`、`last`（両方 Some か両方 None） | SM-3 | `ends: Option<(NodeIndex, NodeIndex)>` |
-| `host/window.rs:61` | `HostWindow` | `last_stats`、`last_present` | SM-11 | 理由：`independent - the stats of the last shown frame stay readable while later presents are skipped` |
-| `paint/state.rs:175-189` | `Step` | `own`、`grouped`、`group` | SM-1 / SM-11 | 三つの bool が排他であることを確かめる。排他なら `role: GroupRole`、`enum GroupRole { None, Member, Owner }`（名前は今の bool の意味に合わせる）。排他でなければ（分析では排他でない可能性が高い）各 field を SM-11 にし、理由に各 bool の意味を書く |
-| `text_input/records.rs:76` | `Kept` | `run_id`、`run` | SM-3 | 一緒に書かれることを確かめ、`run: Option<RunRecord>`、`struct RunRecord { id: <今の型>, run: <今の型> }` |
-| `measure/state.rs:14`、`model/aggregate.rs` の `editors` | `MeasureColumns`、`Model` | `natural`、`extents`、`editors[i]`（ノードの種類で排他） | SM-4 | 一つのノードで二つ以上が Some にならないことを確かめ、`slots: Vec<MeasureSlot>`、`enum MeasureSlot { None, Natural(<型>), Text(Box<<extents の型>>), Editor(Box<EditorNode>) }`。`computed_text` は全ノードにあるのでそのまま |
-| `model/pointer/state.rs:93` | `MouseTrack` | `at: Option<Point>`、`over`、`hover` | SM-2 | window の外で三つとも空になることを確かめ、`presence: MousePresence`、`enum MousePresence { Outside, Inside { at: Point, over: <型>, hover: <型> } }` |
-| `lower/assets.rs:49`、`paint/list/walk.rs:85`、`model/events.rs:15` | `ArvaneAssets`、`Walk`、`EventQueue` | `Generation`/`Revision` の counter | SM-11 | 理由：`independent - S-9 generation that versions <対象>; readers compare it with their own` |
+| `host/window.rs:61` | `HostWindow` | `last_stats`、`last_present` | SM-11 | 理由：`independent: the stats of the last shown frame stay readable while later presents are skipped` |
+| `paint/state.rs:175-189` | `Step` | `own`、`grouped`、`group` | SM-1 | `grouping: Grouping`、`enum Grouping { None, Effects, Opacity }`（今の (group, grouped) の (F,F)、(F,T)、(T,T)。(T,F) は作られない。`walk.rs:551-552` で作る。`grouped` の読み手は `grouping != None`、`group` の読み手は `grouping == Opacity`）。`own` は独立（理由 `independent: whether the node draws itself; any grouping can hold either`） |
+| `text_input/records.rs:76` | `Kept` | `run_id: Option<u64>`、`run: Option<(Point, Arc<SemanticsTextRun>)>` | SM-4 | `run: Run`、`enum Run { Unassigned, Id(u64), Published { origin: Point, run: Arc<SemanticsTextRun> } }`（Published の id は `run.id.0`）。書き手：`shaping.rs:477,545,586`、`a11y/text.rs:77` |
+| `measure/state.rs:14`、`model/aggregate.rs` の `editors` | `MeasureColumns` | `natural`（Image）、`extents`（Text） | SM-4 | `leaf: Vec<LeafMeasure>`、`enum LeafMeasure { None, Natural(<今の natural の型>), Text(Box<<今の extents の型>>) }`（ノードの種類で排他。種類は作った後に変わらない）。editor を設定する `set_edit`（`inputs.rs:32`）で、その slot の `leaf` を `LeafMeasure::None` にする。`editors` と `computed_text` は独立のまま（理由 `independent: an editor overrides any node kind` と `cache: inherited text style of every node`） |
+| `model/pointer/state.rs:93` | `MouseTrack` | `at: Option<Point>`、`over`、`hover` | — | `at` を `Point` にする（一度 Some になると None に戻らず、読み手はすべて `unwrap_or_default`）。`over` と `hover` は独立（`clear_hover` は chain だけを空にする。理由 `independent: the pointer's target and the hover chain are cleared separately`） |
+| `lower/assets.rs:49`、`paint/list/walk.rs:85`、`model/events.rs:15` | `ArvaneAssets`、`Walk`、`EventQueue` | `Generation`/`Revision` の counter | SM-11 | 理由：`identity: generation that versions <対象>; readers compare it with their own` |
 
 ### A-CO（U44、kivact-core・kivact-test）
 
@@ -1229,10 +1277,10 @@ dev/tools/window-lock.sh --timeout 1800 -- dev/bench/run.sh B1
 |---|---|---|---|---|
 | `view/tree.rs:255-262` | `NodeObservation` | `rect`、`layout_rect`（最初の layout の前は両方 None） | SM-3 | `measured: Signal<Option<Measured>>`、`struct Measured { rect: Rect, layout_rect: Rect }`（型は今の型）。`NodeRef` の読み手を追従させる |
 | `view/devtools_state.rs:64-66` | `SessionData` | `highlight`、`pick` | SM-4 | `inspector: Inspector`、`enum Inspector { Idle { highlight: Option<Highlight> }, Picking { window: WindowId, hover: Option<Highlight> } }`（`Highlight` は今の highlight の型）。engine 側の写しは変えない |
-| `gpu_interop/share/app_side.rs:31` | `SharedImage` | `current`、`pixels`（`Inbox<LinkState>` の UI 側の写し） | SM-8 | 二つの field を消し、受け取った `LinkState` から `enum UiLink { Waiting, Gpu(<current の型>), Pixels(<pixels の型>), Failed }` を一つの signal で持つ。確かめる |
+| `gpu_interop/share/app_side.rs:31` | `SharedImage` | `current`、`pixels` | SM-12 | `current` は engine と共有する `Inbox<LinkState>` の phase の UI 側の投影（thread をまたぐので同じ容器に入れられない）。書き手は `import`（`:208`）と `renew`（`:177`）だけにし、理由 `projection: written only by import and renew from the link phase`。`pixels` は独立（理由 `independent: the last pixels delivered, kept for every phase`） |
 | `view/state.rs:151` | `FocusKeys` | `node`、`visible`（`visible` は `node` が Some の時だけ） | SM-2 | `focus: Signal<Option<(FocusTarget, bool)>>`、または `struct KeyFocus { target: FocusTarget, visible: bool }` の Option |
-| `view/mount/part_pointer.rs:431` | 関数の引数 | `delivery: (bool, bool)`、`&mut bool` | SM-1 | 組合せの意味を読み、`enum Delivery { .. }` にする（variant 名は意味）。確かめる |
-| `view/state.rs:229` | `ViewState` | `initial_render: Signal<bool>` | SM-11 | 理由：`independent - one-way latch: the first frame was drawn` |
+| `view/mount/part_pointer.rs:431` | 関数の引数 | `delivery: (bool, bool)`、`&mut bool` | SM-1 | `enum Delivery { NoRaw, Raw, RawFinishingFallback }`（(deliver_raw, finish_fallback) の (F,F)、(T,F)、(T,T)。(F,T) は作られない。`select_pointer` `:331-335` が作る）。`&mut bool` の代わりに、fallback に届いたかを戻り値 `Result<FinishReached, UiError>`、`struct FinishReached(bool)` で返す |
+| `view/state.rs:229` | `ViewState` | `initial_render: Signal<bool>` | SM-11 | 理由：`independent: one-way latch: the first frame was drawn` |
 
 ### A-IN（U41、kivact-interaction）
 
@@ -1248,9 +1296,9 @@ dev/tools/window-lock.sh --timeout 1800 -- dev/bench/run.sh B1
 | `select/handle.rs:784-810` | `track_preview` | `reported: Var<Sent>` と effect と on_cleanup | SM-8 | `State::Open { previewed }` と `Effect::Preview` |
 | `calendar/data.rs` | `CalendarDayState` | `selected`、`edge`（edge なら selected） | SM-1 | `selection: DaySelection`、`enum DaySelection { None, Inside, Edge }` |
 | `table/data.rs` | `TableHeaderState` | `sort`、`sortable`、`sort_rank` | SM-2 | `sorting: HeaderSort`、`enum HeaderSort { Unsortable, Sortable, Sorted { direction: <今の型>, rank: <今の型> } }` |
-| `popup/machine.rs` | `Machine` の input | `focused`、`focus_inside`（inside なら Some） | SM-2 | 組合せを確かめ、`focus: PopupFocus`、`enum PopupFocus { Elsewhere, Trigger, Inside }`（名前は意味） |
-| `text_edit/handle.rs:94, 432-437, 505-513` | `TextEditApi` | `next_control: Cell<Generation>` と `is_mounted(id)` | SM-6 | mount の id を Machine が割り当てる（`State` に `control: u64`）。確かめる。合わなければ SM-11（理由 `independent - S-9 generation of control ids`） |
-| `list/state.rs:56,85,92,132` | `ListApi` | `typed`、`pending`、`roving.requested`、anchor | — | 確かめる。三つの owner が同じ focus を持つなら list の Machine に入れる。持たないなら各 field を SM-11 |
+| `popup/machine.rs:81-83` | `Machine` の input | `focused: Option<NodeToken>`、`focus_inside: bool` | SM-2 | `focus: HostFocus`、`enum HostFocus { Nowhere, Inside, Elsewhere(NodeToken) }`（`focus_inside` なら focused は Some で、その token は読まない）。`may_restore` は `!matches!(focus, HostFocus::Elsewhere(t) if Some(t) != target)`。書き手は `popup/api.rs:144-149` だけ |
+| `text_edit/handle.rs:94, 505` | `TextEditApi` | `next_control: Cell<Generation>` | SM-11 | id の割当て器（古い control を捨てる判定は既に `machine::State::Mounted { id }`）。名前を `next_control_id` にし、理由 `identity: allocates control ids; the mounted id lives in the machine state` |
+| `list/state.rs:56,85,92,132` | `ListApi` | `typed`、`pending`、`roving.requested`、anchor | SM-11 | 四つは別の事実（検索の buffer、mount 待ちの活性化、tab stop、選択の anchor）で、それぞれ別の操作で動く（`requested` は Cancel なしで動き、anchor は `requested` と独立に動く）。各 field の理由に、その事実を書く（`independent: ..`）。`pending` の Machine の状態の `focus: Physical | Retained` は独立の mode なので、状態の中の field のままにする |
 
 ### A-UI（U42、kivact-ui）
 
@@ -1267,10 +1315,10 @@ dev/tools/window-lock.sh --timeout 1800 -- dev/bench/run.sh B1
 | `data_table/rows.rs:901-917` | row の drag | `DragApi.on_start` で始める domain の Machine | SM-10 | drag の 4 つの event を Machine に送る |
 | `component_values.rs:11, 30` | recipe の state | `expanded: Option<bool>`、`selected: Option<bool>` | SM-4 | `expansion: Expansion { NotExpandable, Collapsed, Expanded }`、`selection: Selectable { NotSelectable, Unselected, Selected }` |
 | `data_table/types.rs:55-62` | `DataTable` の option | `page`、`page_size`、`has_more` | SM-4 | `paging: Paging`、`enum Paging { Off, Local { page: usize, page_size: usize }, Remote { page: usize, has_more: bool } }`（型は今の型） |
-| `values.rs` | `SwitchDragState` | `offset`、`touch`、`tracking`、`lifted`、`released` | SM-1 | `enum SwitchDrag { Idle, Tracking { offset, touch }, Lifted { offset }, Released }`。payload は確かめる |
-| `chat_values.rs` | `ChatComposerState` | `stopped`、`status` | SM-2 | 組合せを確かめて enum に。独立なら SM-11 |
+| `values.rs:245-260` | `SwitchDragState`（公開） | `offset`、`touch`、`tracking`、`lifted`、`released` | SM-1 | `pub enum SwitchDragState { TouchPressed, Tracking(TrackInput), TouchReleased(Lift) }`、`pub enum TrackInput { Touch { offset: f64 }, Pointer }`、`pub enum Lift { Raised, Settled }`（到達する 5 通りだけ。それ以外は今どおり `None`）。書き手は `switch_drag/machine.rs:93-126` の `visual()` だけ。読み手：`machine.rs:223`、`kivact-ui-soft/src/recipes_controls_choice.rs:188-283`（U55 が追従） |
+| `chat_values.rs:98-103` | `ChatComposerState` | `stopped`、`status` | SM-11 | どちらも caller の値の写し（`chat_composer.rs:353-356`）で、すべての組合せが有効。理由 `independent: copied from the caller's stop_shown and status` |
 | `hover_card.rs` | `HoverCard` | `open`、`default_open` | SM-4 | `open: CardOpen`、`enum CardOpen { Controlled(Binding<bool>), Uncontrolled(bool) }` |
-| `code_values.rs` | `CodeBlockState` | `expanded`、`copied` | SM-11 | 理由：`independent - the disclosure and the copy feedback are separate parts` |
+| `code_values.rs` | `CodeBlockState` | `expanded`、`copied` | SM-11 | 理由：`independent: the disclosure and the copy feedback are separate parts` |
 | `button.rs:241, 389, 395` | button の memo | 設計書 MEM-6 | — | U42 の追加手順 4 |
 
 ### A-DT（U63、kivact-devtools）
@@ -1281,16 +1329,16 @@ dev/tools/window-lock.sh --timeout 1800 -- dev/bench/run.sh B1
 | `panels/review.rs:10-12, 40-55` | comment の編集 | `editing: Option<String>`、`draft: String` | SM-2 | `edit: Signal<CommentEdit>`、`enum CommentEdit { Idle, Editing { id: String, draft: String } }` |
 | `panels/elements/styles.rs:263-275`、`panels/theme.rs:48-60` | override の行 | `enabled`、`value`、捕まえた `existing_id`、`effect_on(enabled)` | SM-8 | Machine `enum Override { Off { value }, On { id: Option<<型>>, value } }`。effect を消す |
 | `panels/scripts.rs:45-51, 80-85, 195, 224, 251` | `Runner` | `state: Signal<ScriptRun>`、`child: Rc<RefCell<Option<Child>>>` | SM-2 | `ScriptRun::Running { child }` に child を持たせる（`Child` が `Clone` でなければ `Rc<RefCell<Child>>` を payload にする） |
-| `session.rs:29-31` | `Session` | `panel`、`popped: Vec<Panel>`、`status` | SM-11 | 確かめる。選択中の panel が popped にも入れるなら SM-11（理由 `independent - a popped-out panel may also be the selected tab`） |
+| `session.rs:29-31` | `Session` | `panel`、`popped`、`status` | SM-11 | Pop out は `panel` を変えないので、選択中の panel が popped に入る・入らないの両方が有効。`status` は RPC の失敗の報告で独立。各 field に理由を書く |
 | `panels/performance.rs:24-27`、`animations.rs:10`、`input.rs:10-11`、`tasks.rs:10`、`theme.rs:11`、`elements/styles.rs:117` | data の panel | `signal(None::<T>)` を「読み込み中」に使う | SM-4 | `resource(..)` の `AsyncState` |
-| `panels/elements/view.rs:21-28`、`widgets/virtual_tree.rs:21` | view | effect が highlight を送り直す、`scroll_to` が保留の Option | SM-8 | highlight は表示の状態から導く memo にする。`scroll_to` は SM-11（理由 `independent - one pending scroll request`） |
+| `panels/elements/view.rs:21-28`、`widgets/virtual_tree.rs:21` | view | effect が highlight を送り直す、`scroll_to` が保留の Option | SM-8 | highlight は表示の状態から導く memo にする。`scroll_to` は SM-11（理由 `independent: one pending scroll request`） |
 
 ### A-KB（U51、kivact-ui-basic と catalog）
 
 | file:行 | 対象 | 今 | 規則 | 直した形 |
 |---|---|---|---|---|
-| `crates/kivact-ui-basic/src/chart/view.rs:205-247` | chart の hover | `hit: Option<Hit>`、`at: Point`、`plot: Rc<Cell<Size>>` | SM-2 | `hover: Signal<ChartHover>`、`enum ChartHover { Away, Over { hit: Hit, at: Point } }`。`plot` は SM-11（理由 `independent - measured plot size`） |
-| `examples/kivact-ui-basic/src/docs/dialog.rs:122-150`、`alert_dialog.rs:78-79` | catalog | `open`、`deleted` | SM-2 | 組合せを確かめ、`enum DeleteFlow { Idle, Confirming, Deleted }` |
+| `crates/kivact-ui-basic/src/chart/view.rs:205-247` | chart の hover | `hit: Option<Hit>`、`at: Point`、`plot: Rc<Cell<Size>>` | SM-2 | `hover: Signal<ChartHover>`、`enum ChartHover { Away, Over { hit: Hit, at: Point } }`。`plot` は SM-11（理由 `independent: measured plot size`） |
+| `examples/kivact-ui-basic/src/docs/dialog.rs:122-123`、`alert_dialog.rs:78-79` | catalog | `open`、`deleted` | SM-11 | 削除の後も trigger で開けるので 4 通りすべてが有効。`deleted` は一度だけ true になる記録。各 local に理由を書く |
 
 ### A-KP（U52、kivact-ui-pop と catalog）
 
@@ -1319,22 +1367,22 @@ dev/tools/window-lock.sh --timeout 1800 -- dev/bench/run.sh B1
 | `arrangement/gesture.rs:72`、`graph/gesture.rs:92`、`node/gesture.rs:232`、`time/gesture.rs:56` | editor の State | `active: Signal<Option<Target>>` | SM-8 | `shared/targets.rs:89` の `TargetState` の Machine に入れる |
 | `numeric/implementation.rs:377-379, 655-700` | `NumericField` | `typing` と `scrub_phase` と drag の session | SM-10 | `enum NumericMode { Idle, Scrubbing { moved: bool }, Typing }` |
 | `dock/data.rs:60`、`chrome.rs:194, 532-544` | dock の tab | `drag: Signal<Option<TabDrag>>` と `rename` | SM-4 | `enum DockGesture { Idle, Dragging(TabDrag), Renaming(<key の型>) }` |
-| `dock/data.rs:22-27`、`operations.rs:102-115` | tab の rect | `next_rect: Cell<Generation>` | SM-11 | 理由：`independent - S-9 generation of registered tab rects` |
+| `dock/data.rs:22-27`、`operations.rs:102-115` | tab の rect | `next_rect: Cell<Generation>` | SM-11 | 理由：`identity: generation of registered tab rects` |
 | `outliner/view.rs:219, 466-467, 505-525` | row の registry | `Rc<Cell<Generation>>` | SM-11 | 理由：同上の形（`registered rows`） |
 | `outliner/view.rs:228, 363, 381-388, 468` | drop の計画 | `plan: Signal<Option<Plan>>`（drag 中だけ） | SM-10 | drag の payload に入れる |
 | `tabs.rs:104-127` | document tab | `consumed: f64` | SM-10 | `enum Reorder { Idle, Dragging { consumed: f64 } }` |
 | `panel_group/implementation.rs:38-45, 172-176` | panel の並べ替え | Machine を `on_start` で始める | SM-10 | drag の 4 つの event を Machine に送る |
 | `picker.rs:526-543, 570, 609, 623` | `Picker` | `phase: Var<PickerPhase>` と `ColumnMachine` | SM-8 | `PickerPhase` を `ColumnMachine` の状態に入れる |
-| `audio/transport.rs:14-21, 104-117` | `TransportState` | `playing`、`recording`、`cycling` | SM-1 | `transport: Transport`、`enum Transport { Stopped, Playing, Recording }` と `cycling: bool`（理由 `independent - loop playback is on or off in every transport state`） |
+| `audio/transport.rs:14-21, 104-117` | `TransportState`（公開） | `playing`、`recording`、`cycling` | SM-11 | Stop は再生だけを止め、Play と Record はそれぞれ独立に切り替える（`:104,110,117`）ので 4 通りすべてが有効。型は変えない。各 field の理由 `independent: <Stop/Play/Record のどの操作で変わるか>` |
 | `feedback.rs:459-460, 668` | tool window | `collapsed`、`offset`、cleanup の `open=false` | SM-8 | `enum ToolWindow { Closed, Open { collapsed: bool, offset: <型> } }` |
 | `editors/shared/model.rs:21-23` | `EditorContext` | `item: Option<u64>`、`lane: Option<u64>` | SM-4 | `enum EditorFocus { Canvas, Lane(u64), Item { lane: u64, item: u64 } }` |
-| `dock/items.rs` | `Item` | `shown`、`maximized` | SM-2 | 組合せを確かめ、`enum ItemView { Hidden, Shown, Maximized }` |
-| `editors/node/gesture.rs` | `DragMode` | `rewire`、`released` | SM-2 | 確かめて enum に |
+| `dock/items.rs:10-17, 92-106` | `Item::Chrome` | `shown`、`maximized` | SM-1 | `display: ChromeDisplay`、`enum ChromeDisplay { Normal, Maximized, Hidden }`（(shown=F, maximized=T) は作られない）。`Item::shown()` は `display != Hidden` |
+| `editors/node/gesture.rs:190-198` | `DragMode::Link` | `rewire: Option<NodeLink>`、`from`、`output`、`released` | SM-4 | `source: LinkSource`、`enum LinkSource { Output { from, output }, Rewire(NodeLink) }`（rewire の時の from/output は link から写した重複）。`released` は独立のまま（理由 `independent: the socket under the pointer at release, for either source`） |
 | `examples/kivact-ui-creative/src/creative/arrangement_model.rs:10-35`、`node_model.rs:97`、`animation_model.rs:171`、`editors.rs:33, 556-580` | 編集の transaction | Begin で snapshot、Commit/Cancel で消す | SM-2 | 共通の `enum Txn<T> { Idle, Editing { snapshot: T } }`（catalog の中の一つの module に置く） |
 | `examples/kivact-ui-creative/src/creative/jobs.rs:24-70` | job | `running` と clock の effect と完了の確認 | SM-8 | Machine |
-| `examples/kivact-ui-creative/src/creative/audio_values.rs:14-18, 57-75` | transport | 上の `Transport` と同じ | SM-1 | 上と同じ |
+| `examples/kivact-ui-creative/src/creative/audio_values.rs:14-18, 57-75` | transport | 上と同じ | SM-11 | 上と同じ |
 | `examples/kivact-ui-creative/src/creative/editors.rs:90-91` | `bypass`、`wipe` | SM-1 | `enum Grade { Graded, Bypassed, Wipe }` |
-| `examples/kivact-ui-creative/src/creative/shell.rs:815-856` | `compact`、`sidebar_open`、`search`、`category` | — | 組合せを確かめ、排他なら enum、独立なら SM-11（各 field の理由を書く） |
+| `examples/kivact-ui-creative/src/creative/shell.rs:815-856` | shell | `compact`、`sidebar_open`、`search`、`category` | SM-11 | 三つの bool は別の操作で切り替わり、すべての組合せが有効（各 local に理由を書く）。`category: Signal<Option<Category>>` は None に一度もならない（`unwrap_or(All)` で読む）ので `Signal<Category>`（初期値 `Category::All`）にする |
 
 ### A-KS（U55、kivact-ui-soft と catalog）
 
@@ -1344,13 +1392,13 @@ dev/tools/window-lock.sh --timeout 1800 -- dev/bench/run.sh B1
 | `rich_blocks.rs:171, 182-190, 233-245` | block の field | `command: Rc<Cell<Option<Command>>>` | SM-8 | `BlockEvent::Command` を BlockMachine に送る |
 | `side_navigation/shell.rs:237-244, 489-510` | sidebar の resize | `collapsed: Option<Binding<bool>>`、`expanded_width` | SM-2 | `enum SidebarWidth { Collapsed { restore: f64 }, Expanded(f64) }` |
 | `bottom_sheet.rs:237, 334-360` | `BottomSheet` | `Signal<Sheet { Resting, Dragging }>` を drag の callback で手で遷移 | SM-10 | drag の event で動く Machine |
-| `soft_chat_tools.rs:62-81` | `ToolCall`（公開） | `status: ToolStatus`、`duration: Option`、`error: Option` | SM-2 | `pub enum ToolStatus { Running, Complete { duration: <型> }, Error { message: String, duration: Option<<型>> } }` で 3 つを置き換える（公開 API の変更。catalog と README を直す） |
+| `soft_chat_tools.rs:47-125` | `ToolCall`・`ToolStatus`（公開） | `status`、`duration`、`error` | SM-2 | `pub enum ToolStatus { Pending, Running, Complete { duration: Option<Duration> }, Error { message: Option<String> } }`（`Copy` でなくなる）。`ToolCall` の `duration` と `error` の field を消す。`ToolCall::new` は `Complete { duration: None }`。builder の `.duration(..)` と `.error(..)` は消し、`.status(ToolStatus::Complete { duration: Some(d) })`・`.status(ToolStatus::Error { message: Some(m) })` の一つの経路にする。描画：duration は Complete の時（`:291`）、error の文言は Error の時だけ（`:722-732`）。catalog・試験（`chat_keyboard.rs:73,154`、`collections.rs:356-357`）と README を直す |
 | `soft_chat_tools.rs:741-760` | tool の詳細 | `expanded`、`rows_visible` | SM-8 | `rows_visible` を `expanded` と表示から導く |
-| `chat_dictation.rs:16-26` | `DictationState`（公開） | `supported`、`listening`、`volume` | SM-2 | `pub enum DictationState { Unsupported, Idle, Listening { volume: f64 } }` |
-| `lightbox.rs:70-79, 116` | `Lightbox` の builder | `open`、`index: Option<Binding>`、`view: Option<Binding<LightboxView>>` が `LightboxState` を分割 | SM-4 | builder は `state: impl IntoBinding<LightboxState>` だけを受ける。`show(index)`（ARG-6）は state に `Open { index, view: Fit }` を書く |
+| `chat_dictation.rs:18-29` | `DictationState`（公開） | `supported`、`listening`、`volume`、`bands` | SM-2 | `pub enum DictationState { #[default] Unsupported, Idle, Listening { volume: f64, bands: Vec<f64> } }`（listening は supported を含意し、volume と bands は聞いている時だけ描く `:134-142`）。catalog（`examples/kivact-ui-soft/src/docs/collections.rs:344-347` は `Idle`）と README を直す |
+| `lightbox.rs:70-79, 110-160` | `Lightbox`、`LightboxHandle` | builder の `open`、`index`、`view` | SM-12 | `lightbox(open, media)` は caller の binding（ARG-4）で、`LightboxHandle` の経路では `index`・`view` の binding は handle の一つの `Signal<LightboxState>` の投影。型は変えない。各 field の理由 `projection: written only through LightboxHandle's state` か `option: caller binding`。`LightboxHandle::open(self, index)` を `show(index)` に改名する（ARG-6） |
 | `mobile_nav.rs:55-60, 110-125` | `AppShellMobile` | `{Desktop, Mobile}` の Machine と外の `open`、effect の補修 | SM-9 | `Mobile { open: bool }` を Machine の状態に入れる |
-| `side_navigation/items.rs:431-434` | items | `expansion`、`flyout` | SM-11 | 確かめて、独立なら理由を書く |
-| `side_navigation/context.rs` | `SideNavCx` | `collapsed`、`popup` | SM-2 | 確かめて enum に |
+| `side_navigation/items.rs:429-435` | `ItemBranch::Parent` | `expansion`、`flyout` | SM-11 | `expansion` は item ごとの AlwaysOpen の有無、`flyout` は shell の collapsible の有無で決まり、4 通りすべてが有効。理由を書く |
+| `side_navigation/context.rs:8-14` | `SideNavCx` | `collapsed`、`popup` | SM-4 | `surface: NavSurface`、`enum NavSurface { Fixed, Collapsible(Binding<bool>), Flyout { open: Binding<bool> } }`（(Some, Some) は作られない。構築：`shell.rs:240`、`items.rs:763,809`）。`depth` はそのまま |
 
 ## 付録 B 改名
 
