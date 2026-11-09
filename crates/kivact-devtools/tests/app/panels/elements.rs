@@ -3,6 +3,7 @@
 use std::rc::Rc;
 
 use kivact::prelude::*;
+use kivact::test::Screen;
 use kivact_devtools::source::Fixture;
 
 use crate::support;
@@ -84,6 +85,120 @@ fn owners_replace_the_tree_and_select_the_first_node() {
     screen.get_by_role(Role::TreeItem, "Child owner");
     screen.get_by_role(Role::TreeItem, "Root owner").click();
     assert!(called(&fixture, "get_node", |params| params["node"] == 2));
+}
+
+/// The button's detail with one base layer: a row that can be overridden (`padding`), a row whose
+/// value names a color token (`background` = `accent`), and a read-only row (`border_top_width`).
+fn styled_detail() -> serde_json::Value {
+    let mut detail =
+        serde_json::to_value(support::detail()).expect("invariant: the test detail serializes");
+    detail["styles"] = serde_json::json!([{
+        "origin": "base",
+        "properties": [
+            {"name": "padding", "value": "12", "overridden": false},
+            {"name": "background", "value": "accent", "overridden": false},
+            {"name": "border_top_width", "value": "1", "overridden": false}
+        ]
+    }]);
+    detail
+}
+
+/// The fixture with the styled button selected in the Elements panel.
+fn open_styled(answers: Vec<(&str, serde_json::Value)>) -> (Rc<Fixture>, Screen) {
+    let mut all = vec![("get_node", styled_detail())];
+    all.extend(answers);
+    let fixture = support::fixture_with(all);
+    let screen = support::open(&fixture, "Elements");
+    screen
+        .get_by_role(Role::TreeItem, "Button \"Save\"")
+        .click();
+    (fixture, screen)
+}
+
+#[test]
+fn ticking_a_style_row_sets_an_override_for_this_node() {
+    let (fixture, screen) = open_styled(Vec::new());
+    screen.get_by_role(Role::CheckBox, "padding").click();
+    assert!(called(&fixture, "set_style_override", |params| {
+        params
+            == &serde_json::json!({
+                "scope": {"kind": "node", "node": 2},
+                "property": "padding",
+                "value": "12"
+            })
+    }));
+}
+
+#[test]
+fn committing_an_existing_override_resends_it_and_unticking_clears_its_id() {
+    let (fixture, screen) = open_styled(vec![(
+        "list_style_overrides",
+        serde_json::json!({
+            "overrides": [{
+                "id": 9,
+                "scope": {"kind": "node", "node": 2},
+                "property": "padding",
+                "value": "12"
+            }]
+        }),
+    )]);
+    let input = screen.get_by_role(Role::TextBox, "padding");
+    input.press_key(Key::End);
+    input.press_key(Key::Backspace);
+    input.type_text("6");
+    input.press_key(Key::Enter);
+    assert!(called(&fixture, "set_style_override", |params| {
+        params
+            == &serde_json::json!({
+                "scope": {"kind": "node", "node": 2},
+                "property": "padding",
+                "value": "16"
+            })
+    }));
+    screen.get_by_role(Role::CheckBox, "padding").click();
+    assert!(called(&fixture, "clear_style_overrides", |params| {
+        params == &serde_json::json!({"id": 9})
+    }));
+}
+
+#[test]
+fn the_token_scope_applies_only_to_rows_that_name_a_token() {
+    let (fixture, screen) = open_styled(vec![(
+        "list_theme_tokens",
+        serde_json::json!({
+            "tokens": [{"name": "colors.accent", "kind": "color", "value": "#2563eb"}]
+        }),
+    )]);
+    screen.run_until_idle();
+    screen.get_by_role(Role::ComboBox, "Override scope").click();
+    screen.get_by_role(Role::Option, "Theme token").click();
+    assert!(screen.get_by_role(Role::CheckBox, "padding").is_disabled());
+    screen.get_by_role(Role::CheckBox, "background").click();
+    assert!(called(&fixture, "set_style_override", |params| {
+        params
+            == &serde_json::json!({
+                "scope": {"kind": "token", "token": "colors.accent"},
+                "property": "colors.accent",
+                "value": "#2563eb"
+            })
+    }));
+}
+
+#[test]
+fn recording_a_change_adds_a_review_comment_with_a_screenshot() {
+    let (fixture, screen) = open_styled(Vec::new());
+    screen
+        .get_by_role(Role::Button, "Record change to review")
+        .click();
+    assert!(called(&fixture, "add_comment", |params| {
+        params
+            == &serde_json::json!({
+                "window": 1,
+                "node": 2,
+                "text": "Style change",
+                "screenshot": true
+            })
+    }));
 }
 
 fn called(fixture: &Rc<Fixture>, method: &str, check: impl Fn(&serde_json::Value) -> bool) -> bool {

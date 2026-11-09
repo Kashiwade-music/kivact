@@ -147,7 +147,8 @@ fn text_node() -> p::ElementInfo {
     .expect("invariant: the test text is valid")
 }
 
-fn detail() -> p::NodeDetail {
+/// The detail of the button (node 2) without style layers.
+pub(crate) fn detail() -> p::NodeDetail {
     serde_json::from_value(serde_json::json!({
         "node": button(),
         "bounds": {

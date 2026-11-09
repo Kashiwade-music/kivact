@@ -52,11 +52,7 @@ fn open_target(
 > {
     let file = client::read_target(path).map_err(|error| error.to_string())?;
     if file.protocol != p::PROTOCOL_VERSION {
-        return Err(format!(
-            "version differs (target v{}, DevTools v{})",
-            file.protocol,
-            p::PROTOCOL_VERSION
-        ));
+        return Err(version_differs(file.protocol));
     }
     let (connection, initialized) = client::Connection::open(
         &file,
@@ -66,7 +62,7 @@ fn open_target(
             kind: p::ClientKind::Devtools,
         },
     )
-    .map_err(|error| error.to_string())?;
+    .map_err(|error| open_failure(file.protocol, error))?;
     let windows = connection
         .call::<p::ListWindows>(p::Empty {})
         .map_err(|error| error.to_string())?;
@@ -74,6 +70,25 @@ fn open_target(
         .call::<p::GetConfig>(p::Empty {})
         .map_err(|error| error.to_string())?;
     Ok((connection, initialized.app, windows.windows, config))
+}
+
+/// The reason a target with protocol `target` cannot be used: the protocol versions differ.
+fn version_differs(target: u32) -> String {
+    format!(
+        "version differs (target v{target}, DevTools v{})",
+        p::PROTOCOL_VERSION
+    )
+}
+
+/// The reason opening a connection failed. An answer with `VERSION_MISMATCH` gives the same
+/// reason as the discovery file check.
+fn open_failure(target: u32, error: client::ClientError) -> String {
+    match error {
+        client::ClientError::Rpc(error) if error.code == p::code::VERSION_MISMATCH => {
+            version_differs(target)
+        }
+        error => error.to_string(),
+    }
 }
 
 /// List the running targets and connect to the preferred one, or let the user choose.
@@ -203,6 +218,27 @@ mod tests {
     fn choose_gives_up_with_two_targets() {
         let list = vec![target("a.json", "A"), target("b.json", "B")];
         assert_eq!(choose(&list, None), None);
+    }
+
+    #[test]
+    fn a_version_mismatch_answer_names_both_versions() {
+        let error = client::ClientError::Rpc(p::RpcError::new(
+            p::code::VERSION_MISMATCH,
+            "protocol version mismatch",
+        ));
+        assert_eq!(
+            open_failure(3, error),
+            format!(
+                "version differs (target v3, DevTools v{})",
+                p::PROTOCOL_VERSION
+            )
+        );
+    }
+
+    #[test]
+    fn other_open_failures_keep_their_message() {
+        let error = client::ClientError::Rpc(p::RpcError::new(p::code::INVALID_PARAMS, "bad"));
+        assert_eq!(open_failure(3, error.clone()), error.to_string());
     }
 
     fn target(path: &str, app_name: &str) -> (PathBuf, p::DiscoveryFile) {

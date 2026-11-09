@@ -101,21 +101,31 @@ pub(crate) fn view(session: Session) -> impl IntoView {
         show_some(
             move || session.emulation.latest(),
             move |emulation| {
-                let locale = signal(
-                    emulation.with(|emulation| emulation.locale.clone().unwrap_or_default()),
-                );
-                let scale = signal(emulation.with(|emulation| {
-                    emulation
-                        .scale
-                        .map(|scale| scale.to_string())
-                        .unwrap_or_default()
-                }));
+                let locale = signal(String::new());
+                let scale = signal(String::new());
+                // The inputs follow the target's value, so a reset clears what they show.
+                effect(move || {
+                    let (next_locale, next_scale) = emulation.with(|emulation| {
+                        (
+                            emulation.locale.clone().unwrap_or_default(),
+                            emulation
+                                .scale
+                                .map(|scale| scale.to_string())
+                                .unwrap_or_default(),
+                        )
+                    });
+                    locale.set(next_locale);
+                    scale.set(next_scale);
+                });
                 column((locale_input(session, locale), scale_input(session, scale)))
                     .style(style().gap(12).align_items(Align::Start))
             },
         ),
         pseudo_select(session),
         touch_switch(session),
+        button("Reset")
+            .disabled(unavailable(session))
+            .on_press(move || reset(session)),
     ))
     .style(style().gap(12).padding(12).align_items(Align::Start))
 }
@@ -158,7 +168,7 @@ fn motion_switch(session: Session) -> impl IntoView {
             },
             move |on: bool| {
                 update(session, move |emulation| {
-                    emulation.reduced_motion = Some(on);
+                    emulation.reduced_motion = on.then_some(true);
                 });
             },
         ),
@@ -202,14 +212,21 @@ fn pseudo_select(session: Session) -> impl IntoView {
     .disabled(unavailable(session))
 }
 
-/// The DPI-scale input.
+/// The DPI-scale input; an empty text removes the emulated scale.
 fn scale_input(session: Session, scale: Signal<String>) -> impl IntoView {
     text_input("DPI scale", scale)
-        .on_draft_commit(move |text| match text.trim().parse::<f64>() {
-            Ok(scale) if scale.is_finite() && scale > 0.0 => {
-                update(session, move |emulation| emulation.scale = Some(scale));
+        .on_draft_commit(move |draft| {
+            let draft = draft.trim();
+            if draft.is_empty() {
+                update(session, |emulation| emulation.scale = None);
+                return;
             }
-            _ => session.report("the DPI scale must be a positive number".to_owned()),
+            match draft.parse::<f64>() {
+                Ok(scale) if scale.is_finite() && scale > 0.0 => {
+                    update(session, move |emulation| emulation.scale = Some(scale));
+                }
+                _ => session.report("the DPI scale must be a positive number".to_owned()),
+            }
         })
         .disabled(unavailable(session))
 }
@@ -226,7 +243,9 @@ fn touch_switch(session: Session) -> impl IntoView {
                     .is_some_and(|emulation| emulation.touch == Some(true))
             },
             move |on: bool| {
-                update(session, move |emulation| emulation.touch = Some(on));
+                update(session, move |emulation| {
+                    emulation.touch = on.then_some(true)
+                });
             },
         ),
     )
@@ -245,6 +264,21 @@ fn update(session: Session, edit: impl FnOnce(&mut p::Emulation)) {
     };
     edit(&mut emulation);
     session.send::<p::SetEmulation>(emulation, move |_| session.emulation.refetch());
+}
+
+/// Send an emulation with no setting: the target shows its real environment again.
+fn reset(session: Session) {
+    session.send::<p::SetEmulation>(
+        p::Emulation {
+            theme: None,
+            reduced_motion: None,
+            locale: None,
+            pseudo_locale: p::PseudoLocale::Off,
+            scale: None,
+            touch: None,
+        },
+        move |_| session.emulation.refetch(),
+    );
 }
 
 /// The options of the theme select.

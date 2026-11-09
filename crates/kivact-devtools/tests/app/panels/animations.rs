@@ -5,6 +5,16 @@ use kivact::prelude::*;
 use crate::support;
 
 #[test]
+fn a_time_scale_that_is_no_toggle_value_is_shown_as_current() {
+    let fixture = support::fixture_with(vec![(
+        "list_animations",
+        serde_json::json!({"animations": [], "time_scale": 2.0}),
+    )]);
+    let screen = support::open(&fixture, "Animations");
+    screen.get_by_text("Current: 2×");
+}
+
+#[test]
 fn animations_are_listed_and_the_time_scale_is_sent() {
     let fixture = support::fixture_with(vec![(
         "list_animations",

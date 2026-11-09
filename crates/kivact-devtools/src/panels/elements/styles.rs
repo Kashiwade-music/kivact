@@ -3,8 +3,47 @@
 use kivact::prelude::*;
 use kivact_devtools_protocol as p;
 
-use crate::state::Session;
-use crate::widgets::property_row::{color_property_row, property_row};
+use crate::state::{Inspected, Session};
+use crate::widgets::property_row::{RowAccess, color_property_row, property_row};
+
+/// The properties the override syntax (design 4.4.5) can set; every other row is read-only.
+const EDITABLE: &[&str] = &[
+    "width",
+    "height",
+    "min_width",
+    "min_height",
+    "max_width",
+    "max_height",
+    "padding",
+    "padding_top",
+    "padding_right",
+    "padding_bottom",
+    "padding_left",
+    "margin",
+    "margin_top",
+    "margin_right",
+    "margin_bottom",
+    "margin_left",
+    "gap",
+    "row_gap",
+    "column_gap",
+    "grow",
+    "shrink",
+    "opacity",
+    "background",
+    "color",
+    "border_color",
+    "border_width",
+    "radius",
+    "font_size",
+    "line_height",
+    "weight",
+    "text_align",
+    "display",
+];
+
+/// The hint of a row whose value names no theme token while the token scope is selected.
+const NOT_A_TOKEN: &str = "This property does not use a theme token";
 
 /// What a new style override applies to.
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
@@ -17,7 +56,7 @@ enum Scope {
     Token,
 }
 
-/// One interactive state a row can force.
+/// One interactive state a row can force (the toggle group's key).
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 enum ForcedState {
     /// Hovered.
@@ -34,12 +73,51 @@ enum ForcedState {
     Selected,
 }
 
+impl ForcedState {
+    /// The state the protocol names.
+    fn from_protocol(state: p::InteractiveState) -> ForcedState {
+        match state {
+            p::InteractiveState::Hovered => ForcedState::Hovered,
+            p::InteractiveState::Pressed => ForcedState::Pressed,
+            p::InteractiveState::Focused => ForcedState::Focused,
+            p::InteractiveState::FocusVisible => ForcedState::FocusVisible,
+            p::InteractiveState::Disabled => ForcedState::Disabled,
+            p::InteractiveState::Selected => ForcedState::Selected,
+        }
+    }
+
+    /// The protocol value of this state.
+    fn protocol(self) -> p::InteractiveState {
+        match self {
+            ForcedState::Hovered => p::InteractiveState::Hovered,
+            ForcedState::Pressed => p::InteractiveState::Pressed,
+            ForcedState::Focused => p::InteractiveState::Focused,
+            ForcedState::FocusVisible => p::InteractiveState::FocusVisible,
+            ForcedState::Disabled => p::InteractiveState::Disabled,
+            ForcedState::Selected => p::InteractiveState::Selected,
+        }
+    }
+}
+
+/// The override a row edits: the scope it applies to and the property it sets.
+#[derive(Clone, PartialEq)]
+struct OverrideKey {
+    /// What the override applies to.
+    scope: p::OverrideScope,
+    /// The property the override sets (the token name under the token scope).
+    property: String,
+}
+
 /// The style layers and overrides of the selected node.
 pub(crate) fn styles_tab(
     session: Session,
     detail: Resource<Option<p::NodeDetail>>,
 ) -> impl IntoView {
     let scope_signal = signal(Some(Scope::Node));
+    let tokens = signal(None::<p::ThemeTokenList>);
+    on_mount(move || {
+        session.send::<p::ListThemeTokens>(p::Empty {}, move |list| tokens.set(Some(list)));
+    });
     let state = memo(move || {
         (
             detail.latest().flatten(),
@@ -49,14 +127,15 @@ pub(crate) fn styles_tab(
                 .map(|list| list.overrides)
                 .unwrap_or_default(),
             scope_signal.get(),
+            tokens.get().map(|list| list.tokens).unwrap_or_default(),
         )
     });
-    dynamic(state, move |(detail, overrides, selected)| {
+    dynamic(state, move |(detail, overrides, selected, tokens)| {
         let scope = selected.unwrap_or(Scope::Node);
         match detail {
             None => text("Select a node to edit its styles").into_view(),
             Some(detail) => {
-                styles_body(session, detail, overrides, scope_signal, scope).into_view()
+                styles_body(session, detail, overrides, tokens, scope_signal, scope).into_view()
             }
         }
     })
@@ -67,12 +146,19 @@ fn styles_body(
     session: Session,
     detail: p::NodeDetail,
     overrides: Vec<p::StyleOverride>,
+    tokens: Vec<p::ThemeToken>,
     scope_signal: Signal<Option<Scope>>,
     scope: Scope,
 ) -> impl IntoView {
     let node = detail.node.id;
     let call_site = call_site(&detail);
-    let forced = signal(forced_states(&detail));
+    let forced = signal(
+        detail
+            .forced
+            .iter()
+            .map(|state| ForcedState::from_protocol(*state))
+            .collect::<Vec<_>>(),
+    );
     effect_on(forced, move |states| force_states(session, node, states));
     let mut sections: Vec<View> = Vec::new();
     for layer in &detail.styles {
@@ -80,6 +166,7 @@ fn styles_body(
             session,
             node,
             &overrides,
+            &tokens,
             scope,
             call_site.clone(),
             layer,
@@ -92,6 +179,9 @@ fn styles_body(
         row((
             text("Override scope").style(style().font_size(12.0)),
             select("Override scope", scope_items(), scope_signal).style(style().width(230)),
+            button("Record change to review")
+                .disabled(move || session.inspected.with(Inspected::selected).is_none())
+                .on_press(move || record_change(session)),
         ))
         .style(style().gap(8).align_items(Align::Center)),
         toggle_group("Forced states", state_items(), forced).style(style().min_width(0)),
@@ -105,6 +195,7 @@ fn layer_section(
     session: Session,
     node: p::NodeId,
     overrides: &[p::StyleOverride],
+    tokens: &[p::ThemeToken],
     scope: Scope,
     call_site: Option<p::SourceLocation>,
     layer: &p::StyleLayerInfo,
@@ -113,7 +204,15 @@ fn layer_section(
         .properties
         .iter()
         .map(|property| {
-            property_row_view(session, node, overrides, scope, call_site.clone(), property)
+            property_row_view(
+                session,
+                node,
+                overrides,
+                tokens,
+                scope,
+                call_site.clone(),
+                property,
+            )
         })
         .collect();
     if rows.is_empty() {
@@ -131,89 +230,122 @@ fn layer_section(
     .into_view()
 }
 
-/// One property row; color properties get the color input.
+/// One property row; color properties get the color input. A row the design cannot
+/// override is read-only, and under the token scope a row whose value names no token is unavailable.
 fn property_row_view(
     session: Session,
     node: p::NodeId,
     overrides: &[p::StyleOverride],
+    tokens: &[p::ThemeToken],
     scope: Scope,
     call_site: Option<p::SourceLocation>,
     property: &p::StyleProperty,
 ) -> View {
     let name = property.name.clone();
-    let existing = find_override(overrides, &name, scope, node, call_site.as_ref());
-    let enabled = signal(existing.is_some());
-    let value = signal(property.value.clone());
-    let existing_id = existing.map(|entry| entry.id);
-    let toggle_scope = override_scope(scope, node, call_site.clone(), &name);
-    let toggle_property = name.clone();
-    let toggle_value = value;
+    let editable = EDITABLE.contains(&name.as_str());
+    let target = if editable {
+        override_target(scope, node, call_site, property, tokens)
+    } else {
+        None
+    };
+    let access = match (editable, &target) {
+        (false, _) => RowAccess::ReadOnly,
+        (true, None) => RowAccess::Unavailable(NOT_A_TOKEN),
+        (true, Some(_)) => RowAccess::Editable,
+    };
+    let (key, start) = match target {
+        Some((key, start)) => (Some(key), start),
+        None => (None, property.value.clone()),
+    };
+    let existing_id = key
+        .as_ref()
+        .and_then(|key| find_override_id(overrides, key));
+    let enabled = signal(existing_id.is_some());
+    let value = signal(start);
+    let toggle_key = key.clone();
     effect_on(enabled, move |on| {
+        let Some(key) = &toggle_key else {
+            return;
+        };
         if *on {
-            set_override(
-                session,
-                toggle_scope.clone(),
-                toggle_property.clone(),
-                toggle_value.get_untracked(),
-            );
+            set_override(session, key.clone(), value.get_untracked());
         } else if let Some(id) = existing_id {
             clear_override(session, id);
         }
     });
-    let commit_name = name.clone();
-    let commit_scope = override_scope(scope, node, call_site, &commit_name);
     let commit = move |text: String| {
-        set_override(session, commit_scope.clone(), commit_name.clone(), text);
+        if let Some(key) = &key {
+            set_override(session, key.clone(), text);
+        }
     };
     if is_color_property(&name) {
-        color_property_row(name, value, enabled, commit).into_view()
+        color_property_row(name, value, enabled, access, commit).into_view()
     } else {
-        property_row(name, value, enabled, commit).into_view()
+        property_row(name, value, enabled, access, commit).into_view()
     }
 }
 
-/// The override for `property` under the current scope, if any.
-fn find_override(
-    overrides: &[p::StyleOverride],
-    property: &str,
-    scope: Scope,
-    node: p::NodeId,
-    call_site: Option<&p::SourceLocation>,
-) -> Option<p::StyleOverride> {
-    overrides
-        .iter()
-        .rev()
-        .find(|entry| {
-            entry.property == property
-                && match (&entry.scope, scope) {
-                    (p::OverrideScope::Node { node: target }, Scope::Node) => *target == node,
-                    (p::OverrideScope::CallSite { location }, Scope::CallSite) => {
-                        call_site == Some(location)
-                    }
-                    (p::OverrideScope::Token { token }, Scope::Token) => token == property,
-                    _ => false,
-                }
-        })
-        .cloned()
-}
-
-/// The scope a new override of `property` gets.
-fn override_scope(
+/// The override a row of `property` edits under `scope`, with the value a new one starts with.
+/// `None` when the scope cannot apply to the row (the token scope and a value that names no token).
+fn override_target(
     scope: Scope,
     node: p::NodeId,
     call_site: Option<p::SourceLocation>,
-    property: &str,
-) -> p::OverrideScope {
+    property: &p::StyleProperty,
+    tokens: &[p::ThemeToken],
+) -> Option<(OverrideKey, String)> {
+    let name = property.name.clone();
     match scope {
-        Scope::Node => p::OverrideScope::Node { node },
-        Scope::CallSite => match call_site {
-            Some(location) => p::OverrideScope::CallSite { location },
-            None => p::OverrideScope::Node { node },
-        },
-        Scope::Token => p::OverrideScope::Token {
-            token: property.to_owned(),
-        },
+        Scope::Node => Some((
+            OverrideKey {
+                scope: p::OverrideScope::Node { node },
+                property: name,
+            },
+            property.value.clone(),
+        )),
+        Scope::CallSite => {
+            let scope = match call_site {
+                Some(location) => p::OverrideScope::CallSite { location },
+                None => p::OverrideScope::Node { node },
+            };
+            Some((
+                OverrideKey {
+                    scope,
+                    property: name,
+                },
+                property.value.clone(),
+            ))
+        }
+        Scope::Token => token_named(&property.value, tokens).map(|token| {
+            (
+                OverrideKey {
+                    scope: p::OverrideScope::Token {
+                        token: token.name.clone(),
+                    },
+                    property: token.name.clone(),
+                },
+                token.value.clone(),
+            )
+        }),
     }
+}
+
+/// The theme token a row value names: the token of that exact name, or the color token `<name>`
+/// whose name is `colors.<name>` (the form the override values use).
+fn token_named<'a>(value: &str, tokens: &'a [p::ThemeToken]) -> Option<&'a p::ThemeToken> {
+    let value = value.trim();
+    tokens
+        .iter()
+        .find(|token| token.name == value || token.name.strip_prefix("colors.") == Some(value))
+}
+
+/// The id of the override that `key` edits, if the agent has one.
+fn find_override_id(overrides: &[p::StyleOverride], key: &OverrideKey) -> Option<u64> {
+    overrides
+        .iter()
+        .rev()
+        .find(|entry| entry.scope == key.scope && entry.property == key.property)
+        .map(|entry| entry.id)
 }
 
 /// The first app-code frame of the call chain, else its first frame.
@@ -224,40 +356,6 @@ fn call_site(detail: &p::NodeDetail) -> Option<p::SourceLocation> {
         .find(|frame| frame.app_code)
         .or_else(|| detail.call_chain.first())
         .map(|frame| frame.location.clone())
-}
-
-/// The states the style layers mark as forced.
-fn forced_states(detail: &p::NodeDetail) -> Vec<ForcedState> {
-    let mut states = Vec::new();
-    for layer in &detail.styles {
-        let Some(name) = layer
-            .name
-            .as_deref()
-            .and_then(|name| name.strip_suffix(" (forced)"))
-        else {
-            continue;
-        };
-        let Some(state) = state_named(name) else {
-            continue;
-        };
-        if !states.contains(&state) {
-            states.push(state);
-        }
-    }
-    states
-}
-
-/// The interactive state a style layer name stands for.
-fn state_named(name: &str) -> Option<ForcedState> {
-    Some(match name {
-        "hover" => ForcedState::Hovered,
-        "pressed" => ForcedState::Pressed,
-        "focus" => ForcedState::Focused,
-        "focus_visible" => ForcedState::FocusVisible,
-        "disabled" => ForcedState::Disabled,
-        "selected" => ForcedState::Selected,
-        _ => return None,
-    })
 }
 
 /// The toggle items of the forced states.
@@ -311,12 +409,13 @@ fn is_color_property(name: &str) -> bool {
     matches!(name, "background" | "color" | "border_color")
 }
 
-/// Add one override and refresh the facts the panel shows.
-fn set_override(session: Session, scope: p::OverrideScope, property: String, value: String) {
+/// Set one override (the agent replaces an override of the same scope and property) and refresh
+/// the facts the panel shows.
+fn set_override(session: Session, key: OverrideKey, value: String) {
     session.send::<p::SetStyleOverride>(
         p::SetStyleOverrideParams {
-            scope,
-            property,
+            scope: key.scope,
+            property: key.property,
             value,
         },
         move |_| {
@@ -348,16 +447,18 @@ fn force_states(session: Session, node: p::NodeId, states: &[ForcedState]) {
     );
 }
 
-impl ForcedState {
-    /// The protocol value of this state.
-    fn protocol(self) -> p::InteractiveState {
-        match self {
-            ForcedState::Hovered => p::InteractiveState::Hovered,
-            ForcedState::Pressed => p::InteractiveState::Pressed,
-            ForcedState::Focused => p::InteractiveState::Focused,
-            ForcedState::FocusVisible => p::InteractiveState::FocusVisible,
-            ForcedState::Disabled => p::InteractiveState::Disabled,
-            ForcedState::Selected => p::InteractiveState::Selected,
-        }
-    }
+/// Add the selected node's change to the review, with a screenshot.
+fn record_change(session: Session) {
+    let Some(node) = session.inspected.with(Inspected::selected) else {
+        return;
+    };
+    session.send::<p::AddComment>(
+        p::AddCommentParams {
+            window: session.window(),
+            node: Some(node),
+            text: "Style change".to_owned(),
+            screenshot: true,
+        },
+        move |_| session.review.refetch(),
+    );
 }

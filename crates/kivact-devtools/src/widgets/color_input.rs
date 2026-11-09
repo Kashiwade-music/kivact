@@ -2,10 +2,12 @@
 
 use kivact::prelude::*;
 
-/// A hex text field, three HSL sliders and a preview swatch for one color.
+/// A hex text field, three HSL sliders and a preview swatch for one color; `disabled` turns the
+/// text field and the sliders off.
 pub(crate) fn color_input(
     label: &str,
     value: Signal<String>,
+    disabled: bool,
     on_commit: impl Fn(String) + 'static,
 ) -> impl IntoView {
     let label = label.to_owned();
@@ -30,6 +32,7 @@ pub(crate) fn color_input(
     );
     let hex = text_input(label.clone(), value)
         .style(style().grow(1).min_width(0).font_size(12.0))
+        .disabled(disabled)
         .on_submit(move || {
             let text = value.get_untracked();
             if let Some((h, s, l)) = hsl_of(&text) {
@@ -41,9 +44,23 @@ pub(crate) fn color_input(
         });
     column((
         row((preview(&label, value), hex)).style(style().gap(6).align_items(Align::Center)),
-        slider_row("H", hue_name, hue, 0.0..=360.0, commit_hsl),
-        slider_row("S", saturation_name, saturation, 0.0..=100.0, commit_hsl),
-        slider_row("L", lightness_name, lightness, 0.0..=100.0, commit_hsl),
+        slider_row("H", hue_name, hue, 0.0..=360.0, disabled, commit_hsl),
+        slider_row(
+            "S",
+            saturation_name,
+            saturation,
+            0.0..=100.0,
+            disabled,
+            commit_hsl,
+        ),
+        slider_row(
+            "L",
+            lightness_name,
+            lightness,
+            0.0..=100.0,
+            disabled,
+            commit_hsl,
+        ),
     ))
     .style(style().gap(2).min_width(0))
 }
@@ -54,6 +71,7 @@ fn slider_row(
     name: String,
     value: Signal<f64>,
     range: std::ops::RangeInclusive<f64>,
+    disabled: bool,
     commit: Callback<()>,
 ) -> impl IntoView {
     row((
@@ -61,6 +79,7 @@ fn slider_row(
         slider(name, value)
             .range(range)
             .step(1.0)
+            .disabled(disabled)
             .style(style().grow(1).min_width(0))
             .on_edit(move |phase| {
                 if phase == EditPhase::Commit {

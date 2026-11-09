@@ -12,6 +12,12 @@ pub(crate) fn view(session: Session) -> impl IntoView {
     on_mount(move || refresh(session, data, scale));
 
     let rows = memo(move || data.get().map(|list| list.animations).unwrap_or_default());
+    // The clock's scale when it is not one of the toggle values (set over MCP, say).
+    let custom_scale = memo(move || {
+        data.get()
+            .map(|list| list.time_scale)
+            .filter(|scale| !is_preset(*scale))
+    });
     column((
         row((
             text("Animations"),
@@ -28,7 +34,11 @@ pub(crate) fn view(session: Session) -> impl IntoView {
                     move |_| refresh(session, data, scale),
                 );
             }),
-        )),
+            show_some(custom_scale, |scale: Value<f64>| {
+                text(format!("Current: {}×", format_scale(scale.get())))
+            }),
+        ))
+        .style(style().gap(8).align_items(Align::Center)),
         data_table(
             rows,
             |animation: &p::AnimationInfo| animation.id,
@@ -72,18 +82,35 @@ fn refresh(
     });
 }
 
+/// The choices of the time scale toggle group: the key of each and its label.
+const SCALES: [(&str, &str); 5] = [
+    ("0", "Stop"),
+    ("0.1", "0.1x"),
+    ("0.25", "0.25x"),
+    ("0.5", "0.5x"),
+    ("1", "1x"),
+];
+
 /// The choices of the time scale toggle group.
 fn scale_items() -> Vec<ListItem<String>> {
-    [
-        ("0", "Stop"),
-        ("0.1", "0.1x"),
-        ("0.25", "0.25x"),
-        ("0.5", "0.5x"),
-        ("1", "1x"),
-    ]
-    .into_iter()
-    .map(|(key, label)| ListItem::new(key.to_owned(), label))
-    .collect()
+    SCALES
+        .into_iter()
+        .map(|(key, label)| ListItem::new(key.to_owned(), label))
+        .collect()
+}
+
+/// Whether a time scale is one of the toggle values.
+fn is_preset(scale: f64) -> bool {
+    let key = scale_key(scale);
+    SCALES.iter().any(|(preset, _)| *preset == key)
+}
+
+/// A time scale with up to two decimals and no trailing zeros.
+fn format_scale(scale: f64) -> String {
+    format!("{scale:.2}")
+        .trim_end_matches('0')
+        .trim_end_matches('.')
+        .to_owned()
 }
 
 /// The key of the toggle group for a time scale.
@@ -109,5 +136,27 @@ fn yes_no(value: bool) -> String {
         "yes".to_owned()
     } else {
         "no".to_owned()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    //! Role: Tests of the time scale text.
+
+    use super::*;
+
+    #[test]
+    fn scales_show_up_to_two_decimals_without_trailing_zeros() {
+        assert_eq!(format_scale(2.0), "2");
+        assert_eq!(format_scale(1.5), "1.5");
+        assert_eq!(format_scale(0.333), "0.33");
+        assert_eq!(format_scale(100.0), "100");
+    }
+
+    #[test]
+    fn the_toggle_values_are_presets() {
+        assert!(is_preset(0.0));
+        assert!(is_preset(0.25));
+        assert!(!is_preset(2.0));
     }
 }
