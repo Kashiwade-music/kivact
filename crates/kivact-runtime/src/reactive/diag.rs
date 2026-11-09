@@ -248,6 +248,8 @@ impl Runtime {
     }
 
     /// Turn the detailed turn trace on or off; the DevTools reads it.
+    // xtask-allow(internal-contract): the core's DevTools reads the detailed trace.
+    #[doc(hidden)]
     pub fn set_detailed_trace(&self, on: bool) {
         if on {
             self.diag.borrow_mut().detail.start();
@@ -257,6 +259,8 @@ impl Runtime {
     }
 
     /// Take the finished turns' detailed records, oldest first; the DevTools reads them.
+    // xtask-allow(internal-contract): the core's DevTools reads the detailed trace.
+    #[doc(hidden)]
     pub fn take_turn_details(&self) -> Vec<TurnDetail> {
         self.diag.borrow_mut().detail.take()
     }

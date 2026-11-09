@@ -161,12 +161,19 @@ impl Runner<'_> {
         }
     }
 
-    /// Deliver one callback to the handler; `None` is its `start`.
+    /// Deliver one callback to the handler; `None` is its `start`. An event for
+    /// a window that an earlier callback closed is dropped: no event follows
+    /// `close_window`.
     fn dispatch(&mut self, el: &ActiveEventLoop, target: EventTarget, event: Option<ShellEvent>) {
         let result = {
             let LoopPhase::Running(table) = &mut self.phase else {
                 return;
             };
+            if let EventTarget::Window(id) = target
+                && table.get(id).is_none()
+            {
+                return;
+            }
             let mut lp = NativeLoop {
                 el,
                 table,

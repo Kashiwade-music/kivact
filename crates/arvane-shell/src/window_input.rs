@@ -15,6 +15,7 @@ const WHEEL_LINE_PX: f64 = 20.0;
 /// The input normalization of one window: the same for the native port, the
 /// virtual backend and injected input. The IME driver stays with its owner
 /// (the native window's `NativeInput`, the virtual window's input record).
+#[derive(Default)]
 pub struct WindowInput {
     mouse: Mouse,
     modifiers: ModifierState,
@@ -22,25 +23,6 @@ pub struct WindowInput {
     contacts: Contacts,
     keys: KeyPipeline,
     dnd: DropSession,
-    /// The clock of the last event `platform` saw.
-    last_now_ns: u64,
-    /// The double-click settings of the last event `platform` saw.
-    last_double_click: (u64, (f64, f64)),
-}
-
-impl Default for WindowInput {
-    fn default() -> Self {
-        Self {
-            mouse: Mouse::default(),
-            modifiers: ModifierState::default(),
-            clicks: ClickCounter::default(),
-            contacts: Contacts::default(),
-            keys: KeyPipeline::default(),
-            dnd: DropSession::default(),
-            last_now_ns: 0,
-            last_double_click: kivact_types::defaults::DOUBLE_CLICK,
-        }
-    }
 }
 
 impl WindowInput {
@@ -127,8 +109,6 @@ impl WindowInput {
         now_ns: u64,
         double_click: (u64, (f64, f64)),
     ) -> ShellEvent {
-        self.last_now_ns = now_ns;
-        self.last_double_click = double_click;
         match &mut event {
             ShellEvent::Pointer(sample) => {
                 sample.modifiers = self.modifiers.current();
@@ -143,15 +123,15 @@ impl WindowInput {
         event
     }
 
-    /// The window lost focus: release keys, contacts and the mouse buttons, and
-    /// return the release events to deliver.
-    pub fn focus_lost(&mut self) -> Vec<ShellEvent> {
+    /// The window lost focus at `now_ns`: release keys, contacts and the mouse
+    /// buttons, and return the release events to deliver. `double_click` is the
+    /// platform's double-click time and distance, as `mouse` takes it.
+    pub fn focus_lost(&mut self, now_ns: u64, double_click: (u64, (f64, f64))) -> Vec<ShellEvent> {
         let mut events = Vec::new();
         if self.modifiers.current() != Modifiers::default() {
             events.extend(self.modifiers.update(Modifiers::default()));
         }
         self.keys.focus_lost();
-        let (now_ns, double_click) = (self.last_now_ns, self.last_double_click);
         events.extend(
             self.contacts
                 .cancel()
