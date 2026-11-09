@@ -28,6 +28,8 @@ pub(crate) mod focus;
 pub(crate) mod handler_layers;
 pub(crate) mod hover;
 pub(crate) mod input;
+#[cfg(feature = "devtools")]
+pub(crate) mod inspect_mode;
 pub(crate) mod modifier_keys;
 pub(crate) mod modifiers;
 pub(crate) mod mount;

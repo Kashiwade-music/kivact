@@ -14,6 +14,8 @@ use kivact_style::internal::ForcedStates;
 use kivact_types::cell::{LocalMailbox, ReportOnce, Sent};
 use kivact_types::{FocusTarget, NodeId, RequestId, Revision, WindowId};
 
+use super::inspect_mode;
+
 /// The DevTools state of an App: off, or the running agent and its data.
 pub(crate) enum DevtoolsState {
     Off,
@@ -61,7 +63,7 @@ pub(crate) struct SessionData {
     pub(crate) update_counts: RefCell<HashMap<NodeId, u32>>,
     // xtask-allow(state-fields): identity: allocates style override ids
     pub(crate) next_override: Cell<u64>,
-    pub(crate) inspector: Cell<inspect::Inspector>,
+    pub(crate) inspector: Cell<inspect_mode::Inspector>,
     pub(crate) overlays: RefCell<p::OverlaySettings>,
     pub(crate) sent_overlays: RefCell<BTreeMap<WindowId, DevtoolsOverlay>>,
     pub(crate) snapshots: RefCell<VecDeque<(u64, LiveSnapshot)>>,
@@ -75,48 +77,14 @@ pub(crate) struct SessionData {
     pub(crate) open_failed: ReportOnce,
 }
 
-/// The DevTools highlight and pick mode: the one node the user inspects,
-/// either chosen in a panel or hovered while picking.
-pub(crate) mod inspect {
-    use kivact_types::WindowId;
-
-    use super::Highlight;
-
-    #[derive(Clone, Copy)]
-    pub(crate) enum Inspector {
-        Idle {
-            highlight: Option<Highlight>,
-        },
-        Picking {
-            window: WindowId,
-            hover: Option<Highlight>,
-        },
-    }
-
-    impl Inspector {
-        /// The node the DevTools draws as highlighted.
-        pub(crate) fn highlight(&self) -> Option<Highlight> {
-            match self {
-                Self::Idle { highlight } => *highlight,
-                Self::Picking { hover, .. } => *hover,
-            }
-        }
-    }
-}
-
 impl SessionData {
     /// Leave pick mode; the node the pointer last hovered stays the
     /// highlight, as it did before pick mode began.
     pub(crate) fn end_pick(&self) {
         let highlight = self.inspector.get().highlight();
-        self.inspector.set(inspect::Inspector::Idle { highlight });
+        self.inspector
+            .set(inspect_mode::Inspector::Idle { highlight });
     }
-}
-
-#[derive(Clone, Copy)]
-pub(crate) struct Highlight {
-    pub(crate) node: NodeId,
-    pub(crate) layout: bool,
 }
 
 pub(crate) struct PropWrite {
@@ -240,7 +208,7 @@ impl DevtoolsState {
                 frames: RefCell::new(BTreeMap::new()),
                 update_counts: RefCell::new(HashMap::new()),
                 next_override: Cell::new(0),
-                inspector: Cell::new(inspect::Inspector::Idle { highlight: None }),
+                inspector: Cell::new(inspect_mode::Inspector::Idle { highlight: None }),
                 overlays: RefCell::new(overlays_off()),
                 sent_overlays: RefCell::new(BTreeMap::new()),
                 snapshots: RefCell::new(VecDeque::new()),
