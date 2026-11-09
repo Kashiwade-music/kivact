@@ -46,25 +46,29 @@ pub(super) enum ImeAllowed {
 pub(super) struct HostWindow {
     /// What became of the last frame presented (`Presented`).
     pub(super) last_present: LastPresent,
+    // xtask-allow(state-fields): projection: the environment last reported to the client, written only by Host::environment_changed
     /// The window's environment as last read: a change of the system's
     /// theme is found by comparing with it (the theme reported at start is
     /// the host's own, not the snapshot's).
     pub(super) environment: Sent<kivact_types::Environment>,
     pub(super) surface: Surface,
+    // xtask-allow(state-fields): projection: the software keyboard state last sent to the platform, written only by Host::synchronize_ime
     /// The software keyboard was asked for (an editable text input has
     /// the focus).
     pub(super) soft_keyboard: Sent<SoftKeyboard>,
+    // xtask-allow(state-fields): projection: the IME permission last sent to the platform, written only by Host::synchronize_ime
     pub(super) ime_allowed: Sent<ImeAllowed>,
+    // xtask-allow(state-fields): projection: the adapter last reported to the client, written only by Host::adapter_changed
     /// The window's adapter the client was told of last
     /// (`HostEvent::GpuAdapterChanged`).
     pub(super) adapter: Sent<kivact_types::GpuAdapter>,
-    // xtask-allow(state-fields): delivery record - last presented frame's report; not used for control
+    // xtask-allow(state-fields): independent: the stats of the last shown frame stay readable while later presents are skipped
     /// The work counts of the last frame presented (`Presented::Shown`),
     /// overwritten by every one; `None` before the first.
     pub(super) last_stats: Option<kivact_types::render::FrameStats>,
     /// The kind of window this is.
     pub(super) mode: WindowMode,
-    // xtask-allow(state-fields): independent fact - the parent window fixed when the window opened; modal input routing reads it
+    // xtask-allow(state-fields): independent: the parent window fixed when the window opened; modal input routing reads it
     /// The window the request was declared in.
     pub(super) parent: Option<WindowId>,
 }

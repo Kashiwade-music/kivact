@@ -5,9 +5,9 @@ use std::collections::HashMap;
 
 #[derive(Clone, Debug)]
 struct Link {
-    // xtask-allow(state-fields): topology links - previous
+    // xtask-allow(state-fields): independent: the neighbor links of one child; each side is absent at an end of the order
     previous: Option<NodeIndex>,
-    // xtask-allow(state-fields): topology links - next
+    // xtask-allow(state-fields): independent: the neighbor links of one child; each side is absent at an end of the order
     next: Option<NodeIndex>,
 }
 
@@ -16,10 +16,8 @@ struct Editing {
     // Empty while editing: capacity only, never a shadow child sequence.
     packed: Vec<NodeIndex>,
     links: HashMap<usize, Link>,
-    // xtask-allow(state-fields): topology endpoints - first
-    first: Option<NodeIndex>,
-    // xtask-allow(state-fields): topology endpoints - last
-    last: Option<NodeIndex>,
+    /// The first and last child of the order; `None` while it is empty.
+    ends: Option<(NodeIndex, NodeIndex)>,
 }
 
 impl Editing {
@@ -36,7 +34,9 @@ impl Editing {
     }
     fn insert(&mut self, child: NodeIndex, before: Option<NodeIndex>) {
         let before = before.filter(|index| self.links.contains_key(&index.0));
-        let previous = before.map_or(self.last, |index| self.links[&index.0].previous);
+        let previous = before.map_or(self.ends.map(|ends| ends.1), |index| {
+            self.links[&index.0].previous
+        });
         debug_assert!(!self.links.contains_key(&child.0));
         self.links.insert(
             child.0,
@@ -50,17 +50,21 @@ impl Editing {
                 .get_mut(&previous.0)
                 .expect("invariant: previous sibling")
                 .next = Some(child);
-        } else {
-            self.first = Some(child);
         }
         if let Some(before) = before {
             self.links
                 .get_mut(&before.0)
                 .expect("invariant: next sibling")
                 .previous = Some(child);
-        } else {
-            self.last = Some(child);
         }
+        let (first, last) = match self.ends {
+            None => (child, child),
+            Some((first, last)) => (
+                if previous.is_none() { child } else { first },
+                if before.is_none() { child } else { last },
+            ),
+        };
+        self.ends = Some((first, last));
     }
     fn remove(&mut self, child: NodeIndex) {
         let Some(link) = self.links.remove(&child.0) else {
@@ -71,21 +75,23 @@ impl Editing {
                 .get_mut(&previous.0)
                 .expect("invariant: previous sibling")
                 .next = link.next;
-        } else {
-            self.first = link.next;
         }
         if let Some(next) = link.next {
             self.links
                 .get_mut(&next.0)
                 .expect("invariant: next sibling")
                 .previous = link.previous;
-        } else {
-            self.last = link.previous;
         }
+        self.ends = match (link.previous, link.next) {
+            (None, None) => None,
+            (None, Some(next)) => self.ends.map(|ends| (next, ends.1)),
+            (Some(previous), None) => self.ends.map(|ends| (ends.0, previous)),
+            (Some(_), Some(_)) => self.ends,
+        };
     }
     fn into_packed(mut self) -> Vec<NodeIndex> {
         let count = self.links.len();
-        let mut at = self.first;
+        let mut at = self.ends.map(|ends| ends.0);
         while let Some(child) = at {
             let link = self
                 .links
@@ -165,15 +171,14 @@ impl ChildOrder {
         matches!(&self.0, Order::Editing(_))
     }
     pub(crate) fn iter(&self) -> Children<'_> {
-        let (first, last) = match &self.0 {
-            Order::Packed(_) => (None, None),
-            Order::Editing(order) => (order.first, order.last),
+        let ends = match &self.0 {
+            Order::Packed(_) => None,
+            Order::Editing(order) => order.ends,
         };
         Children {
             order: self,
             range: 0..self.len(),
-            first,
-            last,
+            ends,
         }
     }
 }
@@ -181,10 +186,8 @@ impl ChildOrder {
 pub(crate) struct Children<'a> {
     order: &'a ChildOrder,
     range: std::ops::Range<usize>,
-    // xtask-allow(state-fields): iterator cursors - first
-    first: Option<NodeIndex>,
-    // xtask-allow(state-fields): iterator cursors - last
-    last: Option<NodeIndex>,
+    /// The first and last child not yielded yet.
+    ends: Option<(NodeIndex, NodeIndex)>,
 }
 impl Iterator for Children<'_> {
     type Item = NodeIndex;
@@ -193,9 +196,9 @@ impl Iterator for Children<'_> {
         match &self.order.0 {
             Order::Packed(packed) => Some(packed[at]),
             Order::Editing(order) => {
-                let child = self.first.expect("invariant: next child exists");
-                self.first = order.links[&child.0].next;
-                Some(child)
+                let (first, last) = self.ends.expect("invariant: next child exists");
+                self.ends = order.links[&first.0].next.map(|next| (next, last));
+                Some(first)
             }
         }
     }
@@ -209,9 +212,11 @@ impl DoubleEndedIterator for Children<'_> {
         match &self.order.0 {
             Order::Packed(packed) => Some(packed[at]),
             Order::Editing(order) => {
-                let child = self.last.expect("invariant: previous child exists");
-                self.last = order.links[&child.0].previous;
-                Some(child)
+                let (first, last) = self.ends.expect("invariant: previous child exists");
+                self.ends = order.links[&last.0]
+                    .previous
+                    .map(|previous| (first, previous));
+                Some(last)
             }
         }
     }

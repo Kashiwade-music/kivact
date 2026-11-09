@@ -8,7 +8,7 @@ use std::ops::Range;
 /// The lines of a text input (see the module invariants).
 #[derive(Clone, Debug)]
 pub(crate) struct EditLines {
-    // xtask-allow(state-fields): Pending damage is a consumed cache payload.
+    // xtask-allow(state-fields): cache: the damage the next shaping applies, from the refresh that made these lines
     pub(crate) damage: Option<kivact_editing::Damage>,
     pub(crate) key: Key,
     pub(crate) align: kivact_types::TextAlign,

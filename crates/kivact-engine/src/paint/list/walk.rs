@@ -11,7 +11,8 @@ use crate::layer::LayerView;
 use crate::model::Model;
 use crate::model::transform::map_rect;
 use crate::paint::state::{
-    ChildIndex, Entry, LayerSpec, ListState, Look, PaintList, StaleFacts, Step, SubtreeFacts,
+    ChildIndex, Entry, Grouping, LayerSpec, ListState, Look, PaintList, StaleFacts, Step,
+    SubtreeFacts,
 };
 use crate::tree::node::HostNode;
 use kivact_types::cell::Generation;
@@ -153,7 +154,7 @@ impl Walk<'_> {
         };
         let clips = n.clips();
         let presence_clip = presence_clip(host, id, clip, o, layout.size);
-        let (group, grouped, alpha) = opacity(host, id, n, &look, parent_alpha);
+        let (grouping, alpha) = opacity(host, id, n, &look, parent_alpha);
         // A layer applies its node's opacity itself.
         let alpha = if layer.is_some() { parent_alpha } else { alpha };
         let step = Step {
@@ -165,12 +166,12 @@ impl Walk<'_> {
             presence_clip,
             rounded: look.rounded,
             own: visible,
-            grouped,
-            group,
+            grouping,
             clip,
             layer,
         };
-        let listed = visible || grouped || transform.is_some() || layer.is_some();
+        let listed =
+            visible || grouping != Grouping::None || transform.is_some() || layer.is_some();
         if listed {
             self.out.push(Entry::Open(step));
         }
@@ -387,7 +388,10 @@ impl Walk<'_> {
             reached.sort_by_key(|(_, c, _)| host.stack_key(*c));
         }
         for (_, child, at) in reached {
-            let at = match host.node(child).filter(|c| c.place.sticky) {
+            let at = match host
+                .node(child)
+                .filter(|c| c.place.positioning == crate::tree::node::Positioning::Sticky)
+            {
                 Some(c) => Point {
                     x: at.x + c.shift.x,
                     y: at.y + c.shift.y,
@@ -597,7 +601,7 @@ fn opacity(
     n: &HostNode,
     look: &Look,
     parent_alpha: f64,
-) -> (bool, bool, f64) {
+) -> (Grouping, f64) {
     // Group opacity over more than one thing it draws.
     let content = match n.kind() {
         _ if host.editors[n.index.0].is_some() => 2,
@@ -609,11 +613,15 @@ fn opacity(
         || look.items + content > 1
         || look.grouped;
     let group = look.opacity < 1.0 && more;
-    let grouped = group || look.grouped;
+    let grouping = match (group, look.grouped) {
+        (true, _) => Grouping::Opacity,
+        (false, true) => Grouping::Effects,
+        (false, false) => Grouping::None,
+    };
     let alpha = if group {
         parent_alpha
     } else {
         parent_alpha * look.opacity
     };
-    (group, grouped, alpha)
+    (grouping, alpha)
 }

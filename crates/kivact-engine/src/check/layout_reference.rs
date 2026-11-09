@@ -8,9 +8,7 @@ impl Model {
         let mut columns = self.layout.clone();
         columns.rebuild_all(&fresh);
         let cache = self.measure.clone();
-        for extents in &cache.extents {
-            *extents.borrow_mut() = None;
-        }
+        cache.forget_extents();
         let editors = self.editors.clone();
         let mut differences = {
             let mut assets = self.assets.borrow_mut();

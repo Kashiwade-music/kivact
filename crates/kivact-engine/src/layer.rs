@@ -57,48 +57,48 @@ pub(crate) struct Look {
     pub(crate) border: Edges<f64>,
     /// How far its layer filters draw beyond what they filter.
     pub(crate) fx: f64,
-    // xtask-allow(state-fields): derived paint record (pure cache) - Its effects need a group (clip path, blend), whatever its opacity
+    // xtask-allow(state-fields): cache: Its effects need a group (clip path, blend), whatever its opacity
     /// Its effects need a group (clip path, blend), whatever its opacity.
     pub(crate) grouped: bool,
-    // xtask-allow(state-fields): derived paint record (pure cache) - It clips its children to its padding box
+    // xtask-allow(state-fields): cache: It clips its children to its padding box
     /// It clips its children to its padding box.
     pub(crate) clip: bool,
     /// How many of a background, a border, shadows and a ring it draws.
     pub(crate) items: u8,
-    // xtask-allow(state-fields): derived paint record (pure cache) - Its corners are rounded
+    // xtask-allow(state-fields): cache: Its corners are rounded
     /// Its corners are rounded.
     pub(crate) rounded: bool,
-    // xtask-allow(state-fields): derived paint record (pure cache) - It has a CSS filter, masks or a backdrop filter (each needs a layer)
+    // xtask-allow(state-fields): cache: It has a CSS filter, masks or a backdrop filter (each needs a layer)
     /// It has a CSS filter, masks or a backdrop filter (each needs a layer).
     pub(crate) filtered: bool,
-    // xtask-allow(state-fields): derived paint record (pure cache) - masked
+    // xtask-allow(state-fields): cache: masked
     pub(crate) masked: bool,
-    // xtask-allow(state-fields): derived paint record (pure cache) - backdropped
+    // xtask-allow(state-fields): cache: backdropped
     pub(crate) backdropped: bool,
-    // xtask-allow(state-fields): derived paint record (pure cache) - Its blend mode is not normal
+    // xtask-allow(state-fields): cache: Its blend mode is not normal
     /// Its blend mode is not normal.
     pub(crate) blended: bool,
-    // xtask-allow(state-fields): derived paint record (pure cache) - It isolates its group (`isolation: isolate`)
+    // xtask-allow(state-fields): cache: It isolates its group (`isolation: isolate`)
     /// It isolates its group (`isolation: isolate`).
     pub(crate) isolated: bool,
     /// Its `will-change` value.
     pub(crate) will_change: WillChange,
-    // xtask-allow(state-fields): derived paint record (pure cache) - Its `transform-style` is `preserve-3d`
+    // xtask-allow(state-fields): cache: Its `transform-style` is `preserve-3d`
     /// Its `transform-style` is `preserve-3d`.
     pub(crate) preserves: bool,
-    // xtask-allow(state-fields): derived paint record (pure cache) - Its element transform has no z component and no perspective
+    // xtask-allow(state-fields): cache: Its element transform has no z component and no perspective
     /// Its element transform has no z component and no perspective.
     pub(crate) flat: bool,
-    // xtask-allow(state-fields): derived paint record (pure cache) - Its element transform is not the identity
+    // xtask-allow(state-fields): cache: Its element transform is not the identity
     /// Its element transform is not the identity.
     pub(crate) transformed: bool,
-    // xtask-allow(state-fields): derived paint record (pure cache) - Its children are in a perspective
+    // xtask-allow(state-fields): cache: Its children are in a perspective
     /// Its children are in a perspective.
     pub(crate) perspective: bool,
-    // xtask-allow(state-fields): derived paint record (pure cache) - Its back face is hidden
+    // xtask-allow(state-fields): cache: Its back face is hidden
     /// Its back face is hidden.
     pub(crate) backface_hidden: bool,
-    // xtask-allow(state-fields): derived paint record (pure cache) - One of its background layers is a shader
+    // xtask-allow(state-fields): cache: One of its background layers is a shader
     /// One of its background layers is a shader.
     pub(crate) shader: bool,
 }
@@ -112,19 +112,19 @@ const _: () = assert!(
 /// itself is a layer, and what its subtree contains.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub(crate) struct SubtreeFacts {
-    // xtask-allow(state-fields): derived record - The node is a compositor layer
+    // xtask-allow(state-fields): cache: The node is a compositor layer
     /// The node is a compositor layer.
     pub(crate) layer: bool,
-    // xtask-allow(state-fields): derived record - A layer is in the subtree (the node's own included)
+    // xtask-allow(state-fields): cache: A layer is in the subtree (the node's own included)
     /// A layer is in the subtree (the node's own included).
     pub(crate) has_layer: bool,
-    // xtask-allow(state-fields): derived record - An external frame or a shader is in the subtree
+    // xtask-allow(state-fields): cache: An external frame or a shader is in the subtree
     /// An external frame or a shader is in the subtree.
     pub(crate) has_item: bool,
-    // xtask-allow(state-fields): derived record - A backdrop filter is in the subtree
+    // xtask-allow(state-fields): cache: A backdrop filter is in the subtree
     /// A backdrop filter is in the subtree.
     pub(crate) has_backdrop: bool,
-    // xtask-allow(state-fields): derived record - A non-normal blend mode is in the subtree
+    // xtask-allow(state-fields): cache: A non-normal blend mode is in the subtree
     /// A non-normal blend mode is in the subtree.
     pub(crate) has_blend: bool,
 }

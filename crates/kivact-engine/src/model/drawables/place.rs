@@ -61,12 +61,12 @@ struct LayerFrame {
     own: Matrix4,
     /// The accumulated 4×4 of its 3D context (`own` in a flat parent).
     context: Matrix4,
-    // xtask-allow(state-fields): Membership fact read from the parent; independent of the layer's own `preserves` setting.
+    // xtask-allow(state-fields): independent: a membership fact read from the parent; every combination with `preserves` is valid
     /// Whether the layer is inside a `Preserve3d` parent.
     in_3d: bool,
     /// The layer's backface visibility.
     backface: BackfaceVisibility,
-    // xtask-allow(state-fields): Setting from the command; independent of `in_3d`, which is the parent's fact, not this layer's.
+    // xtask-allow(state-fields): independent: a setting from the command; every combination with `in_3d` is valid
     /// Whether the layer's children share a 3D context.
     preserves: bool,
 }

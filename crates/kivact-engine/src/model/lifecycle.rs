@@ -11,9 +11,12 @@ impl Model {
         let (index, fresh) = self.tree.nodes.reserve();
         if fresh {
             self.layout.push();
-            self.measure.push();
+            self.measure.push(&kind);
             self.paint.push_slot();
             self.editors.push(None);
+        } else {
+            // A reused slot measures the new node's kind, never the old one's.
+            self.measure.set_measure(index.0, &kind, false);
         }
         self.tree.install(id, HostNode::new(kind, index), index);
         if self.tree.root() == Some(id) {
@@ -55,9 +58,9 @@ impl Model {
 )]
 struct RemovedPayload {
     node: HostNode,
-    // xtask-allow(state-fields): drop-order payload - editor
+    // xtask-allow(state-fields): independent: a value held only to be dropped after the node, in declaration order
     editor: Option<Box<crate::measure::editor::EditorNode>>,
-    // xtask-allow(state-fields): drop-order payload - extents
+    // xtask-allow(state-fields): independent: a value held only to be dropped after the node, in declaration order
     extents: Option<Box<crate::measure::state::TextExtents>>,
 }
 impl Drop for Model {

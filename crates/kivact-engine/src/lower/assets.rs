@@ -47,8 +47,10 @@ use kivact_types::{Asset, ComputedTextStyle, NodeId, PlatformResult, Rgba, Size}
 /// UI-thread resource owner with image and font diagnostic deduplication.
 /// Owner keys are supplied by the caller; this manager never traverses a tree.
 pub(crate) struct ArvaneAssets {
+    // xtask-allow(state-fields): identity: the generation that versions the registered fonts; readers compare it with their own
     fonts: kivact_types::cell::Generation,
     store: AssetStore,
+    // xtask-allow(state-fields): identity: the generation that versions the store's contents; readers compare it with their own
     revision: kivact_types::cell::Generation,
     /// Families of the registered font files, in registration order (for
     /// the missing-family diagnostic).
@@ -58,6 +60,7 @@ pub(crate) struct ArvaneAssets {
     reported_images: kivact_types::cell::ReportOnceSet<(NodeId, Asset)>,
     /// Missing families already reported (lowercase).
     reported_families: kivact_types::cell::ReportOnceSet<String>,
+    // xtask-allow(state-fields): independent: diagnostics found but not yet reported; any content is valid on its own
     /// Reports found during a layout pass (missing families).
     pending: Vec<AssetEvent>,
 }

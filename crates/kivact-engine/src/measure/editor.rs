@@ -11,11 +11,11 @@ pub(crate) enum ControlledValue {
 pub(crate) struct EditorNode {
     /// Document and host-only journal/damage controls.
     pub(crate) editor: Editor,
-    // xtask-allow(state-fields): Shaping cache is independent of controlled-value state.
+    // xtask-allow(state-fields): cache: the shaped lines of the input, built on its first layout
     /// Shaping cache (`None` until the input is first laid out), kept outside Editor to
     /// preserve the future crate DAG.
     pub(crate) lines: RefCell<Option<crate::text_input::EditLines>>,
-    // xtask-allow(state-fields): Measurement cache is independent of controlled-value state.
+    // xtask-allow(state-fields): cache: the width-probe lines of the input, kept apart from its visible rows
     /// Width probes must not evict the geometry of the visible wrapped rows.
     pub(crate) measure_lines: RefCell<Option<crate::text_input::EditLines>>,
     /// A controlled value given while the IME composes, taken when the

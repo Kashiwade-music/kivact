@@ -275,7 +275,7 @@ impl Model {
             let loc = self.location(node);
             x += loc.x;
             y += loc.y;
-            if node.place.fixed {
+            if node.place.positioning == crate::tree::node::Positioning::Fixed {
                 // At its window position.
                 break;
             }
@@ -305,7 +305,7 @@ impl Model {
             .layout_at(n.index)
             .map(|l| l.location)
             .unwrap_or_default();
-        if n.place.sticky {
+        if n.place.positioning == crate::tree::node::Positioning::Sticky {
             Point {
                 x: loc.x + n.shift.x,
                 y: loc.y + n.shift.y,
@@ -356,7 +356,11 @@ impl Model {
                 .chain(Some(x))
                 .into_iter()
                 .find(|c| self.tree.get(*c).is_some_and(|n| n.is_layer()))
-                .filter(|c| self.tree.get(*c).is_some_and(|n| !n.place.fixed))
+                .filter(|c| {
+                    self.tree.get(*c).is_some_and(|n| {
+                        n.place.positioning != crate::tree::node::Positioning::Fixed
+                    })
+                })
             else {
                 return false;
             };
@@ -733,11 +737,14 @@ impl Model {
         let mut cur = self
             .tree
             .get(id)
-            .filter(|n| !n.place.fixed)
+            .filter(|n| n.place.positioning != crate::tree::node::Positioning::Fixed)
             .and_then(|n| self.tree.flat_parent(n));
         while let Some(p) = cur {
             let Some(n) = self.tree.get(p) else { break };
-            let parent = self.tree.flat_parent(n).filter(|_| !n.place.fixed);
+            let parent = self
+                .tree
+                .flat_parent(n)
+                .filter(|_| n.place.positioning != crate::tree::node::Positioning::Fixed);
             let axes = n.scroll_axes();
             if axes != (false, false)
                 && let Some(view) = self.rect(p)

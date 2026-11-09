@@ -138,7 +138,7 @@ impl<'a> Measure<'a> {
         // Colors and decorations never change an extent.
         style.color = kivact_types::ComputedTextStyle::default().color;
         style.decoration = kivact_types::TextDecoration::default();
-        let mut extents = self.cache.extents[node.index.0].borrow_mut();
+        let mut extents = self.cache.extents(node.index.0);
         if extents.as_ref().is_none_or(|e| e.style != style) {
             let single = self.engine.text_metrics(text, &style, None).ok();
             *extents = Some(Box::new(TextExtents {
@@ -345,7 +345,7 @@ impl Measure<'_> {
         let Some(n) = tree.get(id) else {
             return true;
         };
-        self.cache.extents[n.index.0].replace(None);
+        *self.cache.extents(n.index.0) = None;
         if n.kind() == NodeType::Image {
             return false;
         }
@@ -363,7 +363,7 @@ impl Measure<'_> {
     pub(crate) fn natural_size(&mut self, tree: &NodeTree, id: NodeId) -> Option<Size> {
         let n = tree.get(id)?;
         let natural = self.assets.natural_size(n.image());
-        self.cache.natural[n.index.0].set(natural);
+        self.cache.set_natural(n.index.0, natural);
         natural
     }
 }

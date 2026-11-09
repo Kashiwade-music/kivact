@@ -262,7 +262,7 @@ impl Model {
         if changed {
             for id in &images {
                 let node = self.tree.get(*id);
-                let used = node.and_then(|n| self.measure.natural[n.index.0].get());
+                let used = node.and_then(|n| self.measure.natural(n.index.0));
                 let image = node.and_then(|n| n.image());
                 if self.assets.borrow_mut().natural_changed(image, used) {
                     self.remeasure(*id);

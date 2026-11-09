@@ -28,9 +28,9 @@ use std::sync::Arc;
 /// Turns and frame ticks the client was given.
 #[derive(Default)]
 struct Counts {
-    // xtask-allow(state-fields): diagnostic statistics; never used to control scheduling.
+    // xtask-allow(state-fields): statistic: turns counted for diagnostics; never used to control scheduling
     turns: Cell<u64>,
-    // xtask-allow(state-fields): diagnostic statistics; never used as an event or generation.
+    // xtask-allow(state-fields): statistic: frame ticks counted for diagnostics; never used as an event or generation
     frame_ticks: Cell<u64>,
 }
 

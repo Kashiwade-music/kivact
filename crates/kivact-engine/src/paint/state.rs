@@ -152,10 +152,12 @@ impl PaintState {
 /// module invariants).
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct Ink {
+    // xtask-allow(state-fields): cache: the drawn area of the node; absent means nothing is drawn
     /// `None`: nothing (hidden).
     pub(super) rect: Option<Rect>,
     pub(super) size: Size,
     pub(super) content: Size,
+    // xtask-allow(state-fields): identity: the layout generation the ink was found for; readers compare it with their own
     pub(super) generation: Generation,
 }
 
@@ -188,6 +190,18 @@ pub(crate) enum Opening {
     ClipGroup,
 }
 
+/// How one listed node is drawn with its group.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(crate) enum Grouping {
+    /// Neither composited in a group nor faded by the group's opacity.
+    #[default]
+    None,
+    /// Composited in a group (a clip, a filter, a blend): the group opens.
+    Effects,
+    /// Its opacity is the group's (applied by its group).
+    Opacity,
+}
+
 /// How one listed node is drawn.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) struct Step {
@@ -196,35 +210,31 @@ pub(crate) struct Step {
     /// transforms pushed around it (its own and its ancestors'
     /// translations below them applied). A layer's origin is its own box.
     pub(super) origin: Point,
-    // xtask-allow(state-fields): passive record - The transform it is drawn through (an index into [`PaintList::transforms`])
+    // xtask-allow(state-fields): projection: readonly snapshot of the node's draw state for the frame's scene, written only by the paint list walk
     /// The transform it is drawn through (an index into
     /// [`PaintList::transforms`]).
     pub(super) transform: Option<u32>,
     /// The alpha its colors are faded by (outside a group: its opacity
     /// times its ancestors'; inside a layer: its ancestors' only).
     pub(super) alpha: f64,
-    // xtask-allow(state-fields): passive record - clips
+    // xtask-allow(state-fields): projection: readonly snapshot of the node's draw state for the frame's scene, written only by the paint list walk
     pub(super) clips: bool,
-    // xtask-allow(state-fields): passive record - presence clip
+    // xtask-allow(state-fields): projection: readonly snapshot of the node's draw state for the frame's scene, written only by the paint list walk
     pub(super) presence_clip: Option<Rect>,
-    // xtask-allow(state-fields): passive record - Its corners are rounded (a clip is a layer clipped to its rounded padding box, not a rect clip)
+    // xtask-allow(state-fields): projection: readonly snapshot of the node's draw state for the frame's scene, written only by the paint list walk
     /// Its corners are rounded (a clip is a layer clipped to its rounded
     /// padding box, not a rect clip).
     pub(super) rounded: bool,
-    // xtask-allow(state-fields): passive record - It draws itself (else it is listed for its group only)
+    // xtask-allow(state-fields): independent: whether the node draws itself; any grouping can hold either
     /// It draws itself (else it is listed for its group only).
     pub(super) own: bool,
-    // xtask-allow(state-fields): passive record - It is composited in a group
-    /// It is composited in a group.
-    pub(super) grouped: bool,
-    // xtask-allow(state-fields): passive record - Its opacity is the group's (applied by its group)
-    /// Its opacity is the group's (applied by its group).
-    pub(super) group: bool,
+    /// How it is composited in a group.
+    pub(super) grouping: Grouping,
     /// The area its ancestors let it draw in (grown by the culling
     /// margin), in the space of its origin: a text input draws only the
     /// lines that reach it.
     pub(super) clip: Rect,
-    // xtask-allow(state-fields): passive record - Its compositor layer (an index into [`PaintList::layers`])
+    // xtask-allow(state-fields): projection: readonly snapshot of the node's draw state for the frame's scene, written only by the paint list walk
     /// Its compositor layer (an index into [`PaintList::layers`]).
     pub(super) layer: Option<u32>,
 }
@@ -241,7 +251,7 @@ impl Step {
             if self.transform.is_some() {
                 out.push(Opening::Transform);
             }
-            if self.grouped {
+            if self.grouping != Grouping::None {
                 out.push(Opening::Group);
             }
         }
@@ -328,6 +338,7 @@ pub(crate) enum Axis {
 #[derive(Clone, Debug)]
 pub(crate) struct ChildIndex {
     pub(super) entries: Vec<Indexed>,
+    // xtask-allow(state-fields): cache: the axis the reaches are sorted along; absent means they are not sorted
     /// The axis every reach is sorted along (by its start), if any.
     pub(super) axis: Option<Axis>,
     /// Along `axis`, per entry: where its reach starts (a hidden entry
@@ -337,6 +348,7 @@ pub(crate) struct ChildIndex {
     pub(super) furthest: Vec<f64>,
     /// The entries of the sticky children.
     pub(super) sticky: Vec<usize>,
+    // xtask-allow(state-fields): identity: the layout pass the entries' geometry is from; readers compare it with their own
     /// The layout pass the entries' geometry is from.
     pub(super) pass: Generation,
     /// Children whose own drawing changed since.

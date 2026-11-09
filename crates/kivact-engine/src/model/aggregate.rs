@@ -38,6 +38,7 @@ pub(crate) struct Model {
     pub(crate) pointer: super::pointer::state::Pointer,
     /// The drags admitted before a modal opened (`modal`).
     pub(crate) admission: super::modal::state::Admission,
+    // xtask-allow(state-fields): projection: the modifiers last reported to the client, written only by Model::report_modifiers
     /// The keyboard modifiers the shell reports held.
     pub(crate) modifiers: kivact_types::cell::Sent<Modifiers>,
     pub(crate) key_down_targets: super::focus::state::KeyDownTargets,
@@ -50,6 +51,7 @@ pub(crate) struct Model {
     pub(crate) paint: PaintState,
     pub(crate) a11y: A11yState,
     pub(crate) frame: super::frame::state::Frame,
+    // xtask-allow(state-fields): independent: the window change queued for after the turn; absent until a write queues it
     /// The window title and minimum size to set after the turn.
     pub(crate) window_request: Option<(String, Option<Size>)>,
     /// The platform effects to carry out after the turn.

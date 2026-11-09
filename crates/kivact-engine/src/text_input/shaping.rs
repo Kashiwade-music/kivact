@@ -2,7 +2,7 @@
 
 use crate::text_input::EditLines;
 use crate::text_input::pieces::shape_long;
-use crate::text_input::records::{Colored, Shape, Shown};
+use crate::text_input::records::{Colored, Run, Shape, Shown};
 use kivact_editing::{LineColors, LineState, Lines, TextGeometry, caret_at};
 use kivact_types::text_utf::floor_char_boundary as floor;
 use kivact_types::{Point, Rect};
@@ -474,7 +474,16 @@ impl EditLines {
         let Some(line) = self.line_mut(i) else {
             return ids();
         };
-        *line.kept().run_id.get_or_insert_with(ids)
+        let kept = line.kept();
+        match &mut kept.run {
+            Run::Id(id) => *id,
+            Run::Published { run, .. } => run.id.0,
+            Run::Unassigned => {
+                let id = ids();
+                kept.run = Run::Id(id);
+                id
+            }
+        }
     }
 
     /// The lines published to assistive technology: those around the
@@ -549,7 +558,10 @@ impl EditLines {
             .line_mut(i)
             .expect("invariant: published lines exist")
             .kept();
-        if let Some((placed, run)) = &kept.run
+        if let Run::Published {
+            origin: placed,
+            run,
+        } = &kept.run
             && *placed == origin
         {
             return run.clone();
@@ -583,7 +595,10 @@ impl EditLines {
             bounds,
             carets,
         });
-        kept.run = Some((origin, run.clone()));
+        kept.run = Run::Published {
+            origin,
+            run: run.clone(),
+        };
         run
     }
 }

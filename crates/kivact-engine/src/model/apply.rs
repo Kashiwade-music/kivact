@@ -329,10 +329,12 @@ impl Model {
         let stacks = parent.filter(|_| n.place.has_z());
         if style {
             let place = n.place;
-            let was = (old_place.sticky, old_place.fixed);
+            let was = old_place.positioning;
+            let fixed = place.positioning == crate::tree::node::Positioning::Fixed;
+            let was_fixed = was == crate::tree::node::Positioning::Fixed;
             let parent = parent.map(|index| self.tree.nodes.id_at(index));
             self.changes.mark(id, Dirty::LAYOUT_STYLE);
-            if place.fixed != was.1 {
+            if fixed != was_fixed {
                 // A fixed box came or went: it is a layer root of its own.
                 self.paint.stale_all_facts();
                 self.changes
@@ -340,19 +342,19 @@ impl Model {
                     .insert(crate::model::changes::LayoutReasons::STYLE);
             }
             if let Some(parent) = parent {
-                if place.fixed != was.1 {
+                if fixed != was_fixed {
                     // It moves between its parent's layout and the window's.
                     self.changes.mark(parent, Dirty::LAYOUT_CHAIN);
                     self.changes.outdate_viewport();
                 }
-                if (place.sticky, place.fixed) != was {
+                if place.positioning != was {
                     // Its parent draws it differently (in flow, stuck, or as a
                     // layer of its own).
                     self.changes.regroup(parent);
                     self.a11y.node(parent);
                 }
             }
-            if !place.sticky
+            if place.positioning != crate::tree::node::Positioning::Sticky
                 && let Some(n) = self.tree.get_mut(id)
             {
                 n.shift = Point::default();

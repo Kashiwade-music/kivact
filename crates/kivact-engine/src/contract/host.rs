@@ -91,15 +91,19 @@ pub enum HostRequest {
     /// follows the window's scale.
     DrawableExport {
         id: kivact_types::DrawableId,
+        // xtask-allow(state-fields): independent: the generation of the export request; every combination with its other fields is valid
         generation: u64,
         mode: ExportRequestMode,
+        // xtask-allow(state-fields): option: absent follows the window's scale
         scale: Option<f64>,
     },
     /// Where the app shows a drawable (drawable box → the viewport's local
     /// logical px), for the request of `generation`; `None` hides it.
     SetDrawableGeometry {
         id: kivact_types::DrawableId,
+        // xtask-allow(state-fields): independent: the generation of the placement request; every combination with its other fields is valid
         generation: u64,
+        // xtask-allow(state-fields): option: absent hides the drawable
         geometry: Option<kivact_types::geometry3d::Matrix4>,
     },
 }

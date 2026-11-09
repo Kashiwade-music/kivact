@@ -12,8 +12,11 @@ use kivact_types::{FocusTarget, NodeId, Point, PointerButtons, PointerKind};
 /// kept once in its track's source.
 pub(crate) struct Pointer {
     pub(super) state: PointerState,
+    // xtask-allow(state-fields): independent: the file drop target under the pointer; its own drag events clear it
     pub(super) file_target: Option<NodeId>,
+    // xtask-allow(state-fields): projection: the hover last reported to the client, written only by Model::report_hover
     pub(super) hover_sent: kivact_types::cell::Sent<Option<FocusTarget>>,
+    // xtask-allow(state-fields): projection: the mouse position last reported to the client, written only by Model::report_mouse_position
     pub(super) position_sent: kivact_types::cell::Sent<Option<Point>>,
     pub(super) shown: kivact_types::Cursor,
 }
@@ -88,9 +91,9 @@ pub(crate) struct Hover {
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct MouseTrack {
     pub(crate) source: PointerSource,
-    // xtask-allow(state-fields): entered listener and primary hover are independent input facts.
+    // xtask-allow(state-fields): independent: the pointer's target and the hover chain are cleared separately
     pub(crate) over: Option<NodeId>,
-    pub(crate) at: Option<Point>,
+    pub(crate) at: Point,
     pub(crate) hover: Hover,
     pub(crate) gesture: MouseGesture,
 }
@@ -98,7 +101,7 @@ pub(crate) struct MouseTrack {
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct TouchTrack {
     pub(crate) source: PointerSource,
-    // xtask-allow(state-fields): entered listener and primary hover are independent input facts.
+    // xtask-allow(state-fields): independent: the pointer's target and the hover chain are cleared separately
     pub(crate) over: Option<NodeId>,
     pub(crate) at: Point,
     pub(crate) hover: Option<Hover>,
@@ -108,7 +111,7 @@ pub(crate) struct TouchTrack {
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct PenTrack {
     pub(crate) source: PointerSource,
-    // xtask-allow(state-fields): entered listener and primary hover are independent input facts.
+    // xtask-allow(state-fields): independent: the pointer's target and the hover chain are cleared separately
     pub(crate) over: Option<NodeId>,
     pub(crate) at: Point,
     pub(crate) hover: Option<Hover>,
@@ -147,7 +150,7 @@ impl Default for TouchGesture {
 /// Capture and primary press are independent facts of a routed gesture.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub(crate) struct Route {
-    // xtask-allow(state-fields): capture and primary press have independent lifetimes.
+    // xtask-allow(state-fields): independent: capture and primary press have independent lifetimes
     pub(crate) capture: Option<Capture>,
     pub(crate) press: Option<Press>,
 }
@@ -220,7 +223,7 @@ impl Track {
             PointerKind::Mouse => Self::Mouse(MouseTrack {
                 source,
                 over: None,
-                at: None,
+                at: Point::default(),
                 hover: Hover::default(),
                 gesture: MouseGesture::default(),
             }),
@@ -259,7 +262,7 @@ impl Track {
 
     pub(crate) fn at(&self) -> Point {
         match self {
-            Self::Mouse(t) => t.at.unwrap_or_default(),
+            Self::Mouse(t) => t.at,
             Self::Touch(t) => t.at,
             Self::Pen(t) => t.at,
         }
@@ -267,7 +270,7 @@ impl Track {
 
     pub(super) fn set_at(&mut self, at: Point) {
         match self {
-            Self::Mouse(t) => t.at = Some(at),
+            Self::Mouse(t) => t.at = at,
             Self::Touch(t) => t.at = at,
             Self::Pen(t) => t.at = at,
         }
@@ -375,10 +378,10 @@ pub(crate) struct PointerSource {
     pub(crate) id: PointerId,
     /// Mouse, touch or pen.
     pub(crate) kind: PointerKind,
-    // xtask-allow(state-fields): optional shell sample data, independent of primary identity.
+    // xtask-allow(state-fields): option: absent means the event reported no pressure
     /// The pressure at its last event, when reported.
     pub(crate) pressure: Option<f64>,
-    // xtask-allow(state-fields): optional shell sample data, independent of pressure.
+    // xtask-allow(state-fields): option: absent means the event reported no tilt
     /// The pen's tilt at its last event, when reported.
     pub(crate) tilt: Option<(f64, f64)>,
     /// The buttons held after its last event (none after a `Cancel`).

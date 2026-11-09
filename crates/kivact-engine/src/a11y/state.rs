@@ -216,9 +216,9 @@ impl A11yState {
 /// Monotonic synthetic identities; consumers reject live authored node IDs.
 #[derive(Clone)]
 pub(super) struct SemanticsIdAllocator {
-    // xtask-allow(state-fields): S-8 ID - the next synthetic semantics id, counting down
+    // xtask-allow(state-fields): identity: the next synthetic semantics id, counting down
     next: u64,
-    // xtask-allow(state-fields): S-8 ID - the id reserved for the empty root, independent of the published tree
+    // xtask-allow(state-fields): identity: the id reserved for the empty root, independent of the published tree
     /// Reserved across authored roots, independently of the published tree.
     pub(super) empty_root: Option<SemanticsId>,
 }

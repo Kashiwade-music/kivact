@@ -92,35 +92,35 @@ impl Writes {
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(crate) struct Mutation {
-    // xtask-allow(state-fields): report value - The layout style is built again (and a layout pass runs)
+    // xtask-allow(state-fields): independent: a fact reported by the write; any set of them can be reported
     /// The layout style is built again (and a layout pass runs).
     pub(super) style: bool,
-    // xtask-allow(state-fields): report value - The node is measured again
+    // xtask-allow(state-fields): independent: a fact reported by the write; any set of them can be reported
     /// The node is measured again.
     pub(super) measure: bool,
-    // xtask-allow(state-fields): report value - An inherited text style: the texts, text inputs and images below are measured or drawn again
+    // xtask-allow(state-fields): independent: a fact reported by the write; any set of them can be reported
     /// An inherited text style: the texts, text inputs and images below
     /// are measured or drawn again.
     pub(super) text: bool,
-    // xtask-allow(state-fields): report value - Its transform or z-index may have moved it without a layout
+    // xtask-allow(state-fields): independent: a fact reported by the write; any set of them can be reported
     /// Its transform or z-index may have moved it without a layout.
     pub(super) placed: bool,
-    // xtask-allow(state-fields): report value - The paint list is built again
+    // xtask-allow(state-fields): independent: a fact reported by the write; any set of them can be reported
     /// The paint list is built again.
     pub(super) restack: bool,
-    // xtask-allow(state-fields): report value - Its base paint: a state transition is retargeted and its place read
+    // xtask-allow(state-fields): independent: a fact reported by the write; any set of them can be reported
     /// Its base paint: a state transition is retargeted and its place read.
     pub(super) paint: bool,
-    // xtask-allow(state-fields): report value - Its state styles: like `paint`
+    // xtask-allow(state-fields): independent: a fact reported by the write; any set of them can be reported
     /// Its state styles: like `paint`.
     pub(super) states: bool,
-    // xtask-allow(state-fields): report value - A composition is committed under the old read-only policy first
+    // xtask-allow(state-fields): independent: a fact reported by the write; any set of them can be reported
     /// A composition is committed under the old read-only policy first.
     pub(super) read_only: bool,
-    // xtask-allow(state-fields): report value - Inherited semantic state changes throughout the subtree
+    // xtask-allow(state-fields): independent: a fact reported by the write; any set of them can be reported
     /// Inherited semantic state changes throughout the subtree.
     pub(super) subtree: bool,
-    // xtask-allow(state-fields): report value - Existing plain text content or native document/session only
+    // xtask-allow(state-fields): independent: a fact reported by the write; any set of them can be reported
     /// Existing plain text content or native document/session only.
     pub(super) local_text: bool,
 }

@@ -518,7 +518,10 @@ impl Model {
     /// is sticky (CSS paints positioned boxes over the in-flow ones of the
     /// same z-index).
     pub(crate) fn stack_key(&self, id: NodeId) -> (i32, bool) {
-        let sticky = self.tree.get(id).is_some_and(|n| n.place.sticky);
+        let sticky = self
+            .tree
+            .get(id)
+            .is_some_and(|n| n.place.positioning == crate::tree::node::Positioning::Sticky);
         (self.z_index(id), sticky)
     }
 

@@ -54,10 +54,10 @@ pub(crate) struct Context<'a> {
     pub(crate) dependencies: RefCell<Vec<Dependency>>,
     /// The shader clock of what is painted.
     pub(crate) time: ShaderTime,
-    // xtask-allow(state-fields): operation-scoped borrows + statistics - dropped
+    // xtask-allow(state-fields): statistic: the items dropped while lowering, counted for diagnostics
     dropped: Cell<u32>,
     failures: RefCell<Vec<kivact_types::Failure>>,
-    // xtask-allow(state-fields): operation-scoped borrows + statistics - The canvas drawables of the host scene being lowered, if it is one
+    // xtask-allow(state-fields): option: absent unless the host scene being lowered is a canvas
     /// The canvas drawables of the host scene being lowered, if it is one.
     pub(crate) drawables: Option<DrawableSite<'a>>,
 }

@@ -2,7 +2,7 @@
 
 use super::store::NodeStore;
 use crate::contract::NodeType;
-use crate::tree::node::{HostNode, NodeIndex, NodePresence, Place};
+use crate::tree::node::{HostNode, NodeIndex, NodePresence, Place, Positioning};
 use kivact_types::NodeId;
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
@@ -12,9 +12,11 @@ use std::rc::Rc;
 #[derive(Clone, Debug, Default)]
 pub(crate) struct NodeTree {
     flat: RefCell<BTreeMap<NodeId, Rc<[NodeId]>>>,
+    // xtask-allow(state-fields): independent: a queue of child orders to pack; any set of parents can be pending
     /// Derived packing work only; the child order remains solely in NodeLinks.
     pending_child_order: BTreeSet<NodeId>,
     pub(crate) nodes: NodeStore,
+    // xtask-allow(state-fields): option: absent means the tree has no root
     pub(crate) root: Option<NodeId>,
     pub(crate) overlays: Vec<NodeId>,
     pub(crate) scrollers: BTreeSet<NodeId>,
@@ -363,7 +365,7 @@ impl NodeTree {
         let place = node.place;
         self.nodes.install(id, node, slot);
         self.track_scroller(id, scrolls);
-        self.track_position(id, place.sticky, place.fixed);
+        self.track_position(id, place.positioning);
     }
 
     /// Derive the place of the node at `index` again from its props, keeping the
@@ -382,7 +384,7 @@ impl NodeTree {
         n.update_place(moving, under_perspective);
         let (place, scrolls) = (n.place, n.scroll_axes() != (false, false));
         self.track_scroller(id, scrolls);
-        self.track_position(id, place.sticky, place.fixed);
+        self.track_position(id, place.positioning);
         old
     }
 
@@ -401,9 +403,12 @@ impl NodeTree {
         true
     }
 
-    /// Note whether `id` is sticky or fixed.
-    fn track_position(&mut self, id: NodeId, sticky: bool, fixed: bool) {
-        for (set, on) in [(&mut self.sticky, sticky), (&mut self.fixed, fixed)] {
+    /// Note where `id`'s `position` places it.
+    fn track_position(&mut self, id: NodeId, positioning: Positioning) {
+        for (set, on) in [
+            (&mut self.sticky, positioning == Positioning::Sticky),
+            (&mut self.fixed, positioning == Positioning::Fixed),
+        ] {
             if on {
                 set.insert(id);
             } else {

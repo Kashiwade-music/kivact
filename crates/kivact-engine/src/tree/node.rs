@@ -122,33 +122,43 @@ pub(crate) enum Notify {
 /// z-indexed children at no cost.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub(crate) struct Place {
-    // xtask-allow(state-fields): derived cache - Its base paint or a state style transforms it
+    // xtask-allow(state-fields): cache: its base paint or a state style transforms it
     /// Its base paint or a state style transforms it.
     pub(crate) transformed: bool,
     /// Its base paint's z-index.
     pub(crate) z: i32,
-    // xtask-allow(state-fields): derived cache - A state style sets its z-index
+    // xtask-allow(state-fields): cache: a state style sets its z-index
     /// A state style sets its z-index.
     pub(crate) z_states: bool,
     /// One of its children has (or had) a z-index or a state style that
     /// sets one: its children are ordered by z-index (`Model::stacked`).
     /// Kept once set.
     pub(crate) stacks: Stacking,
-    // xtask-allow(state-fields): derived cache - `position: sticky`: moved by its scrollport's scroll, and drawn and hit over its in-flow siblings of the same z-index (CSS paints positioned boxes after in-flow ones)
+    /// Where its `position` places it: in the flow, moved by its
+    /// scrollport's scroll (drawn and hit over its in-flow siblings of the
+    /// same z-index, as CSS paints positioned boxes after in-flow ones), or
+    /// a layer of its own at its window position.
+    pub(crate) positioning: Positioning,
+}
+
+/// Where a node's `position` places it.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(crate) enum Positioning {
+    /// In flow, in its parent's layout, scroll and clip.
+    #[default]
+    InFlow,
     /// `position: sticky`: moved by its scrollport's scroll, and drawn and
-    /// hit over its in-flow siblings of the same z-index (CSS paints
-    /// positioned boxes after in-flow ones).
-    pub(crate) sticky: bool,
-    // xtask-allow(state-fields): derived cache - `position: fixed`: a layer of its own at its window position
+    /// hit over its in-flow siblings of the same z-index.
+    Sticky,
     /// `position: fixed`: a layer of its own at its window position.
-    pub(crate) fixed: bool,
+    Fixed,
 }
 
 impl Place {
     /// It may be ordered among its siblings by a z-index (or by being
     /// sticky).
     pub(crate) fn has_z(&self) -> bool {
-        self.z != 0 || self.z_states || self.sticky
+        self.z != 0 || self.z_states || self.positioning == Positioning::Sticky
     }
 }
 
@@ -195,8 +205,11 @@ impl HostNode {
             ..self.place
         };
         let position = self.layout().map(|l| l.position);
-        self.place.sticky = position == Some(Position::Sticky);
-        self.place.fixed = position == Some(Position::Fixed);
+        self.place.positioning = match position {
+            Some(Position::Sticky) => Positioning::Sticky,
+            Some(Position::Fixed) => Positioning::Fixed,
+            _ => Positioning::InFlow,
+        };
     }
 
     /// Whether its base paint or one of its state styles sets a transform
@@ -344,7 +357,7 @@ impl HostNode {
     /// It starts a layer of its own (an overlay, or a fixed box): placed in
     /// the window, not in its parent's layout, scroll, clip or transforms.
     pub(crate) fn is_layer(&self) -> bool {
-        self.kind() == NodeType::Overlay || self.place.fixed
+        self.kind() == NodeType::Overlay || self.place.positioning == Positioning::Fixed
     }
 
     /// An overlay that confines input while shown.

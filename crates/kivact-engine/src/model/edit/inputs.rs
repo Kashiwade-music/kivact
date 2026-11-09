@@ -29,10 +29,18 @@ impl Model {
             self.edits.inputs.remove(&id);
         }
         slot.and_then(|slot| {
-            std::mem::replace(
+            let installed = edit.is_some();
+            let editor = std::mem::replace(
                 &mut self.editors[slot.0],
                 edit.map(|state| Box::new(EditorNode::new(state))),
-            )
+            );
+            // An editor measures itself; a node that stops editing is
+            // measured by its kind again.
+            if let Some(node) = self.tree.get(id) {
+                self.measure
+                    .set_measure(slot.0, &node.properties.kind, installed);
+            }
+            editor
         })
     }
 

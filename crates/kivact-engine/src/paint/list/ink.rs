@@ -132,7 +132,7 @@ pub(super) fn ink_local(
                     y: r.y - scroll.y + l.location.y,
                     ..r
                 };
-                if c.place.sticky {
+                if c.place.positioning == crate::tree::node::Positioning::Sticky {
                     // Wherever its scrollport may stick it.
                     at = sticky_reach(n, layout, &l, at);
                 }

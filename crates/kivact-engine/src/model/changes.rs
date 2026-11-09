@@ -133,11 +133,11 @@ pub(crate) struct Changes {
     /// again).
     pub(super) geometry: Geometry,
     pub(super) layout: LayoutReasons,
-    // xtask-allow(state-fields): dirty set (invalidation facts) - paint
+    // xtask-allow(state-fields): independent: an invalidation fact; any set of them can be pending
     pub(super) paint: bool,
-    // xtask-allow(state-fields): dirty set (invalidation facts) - restack
+    // xtask-allow(state-fields): independent: an invalidation fact; any set of them can be pending
     pub(super) restack: bool,
-    // xtask-allow(state-fields): dirty set (invalidation facts) - fonts
+    // xtask-allow(state-fields): independent: an invalidation fact; any set of them can be pending
     pub(super) fonts: bool,
 }
 
@@ -145,11 +145,11 @@ pub(crate) struct Changes {
 pub(crate) struct Dispatched {
     dirty: HashMap<NodeId, Dirty>,
     pub(crate) geometry: Geometry,
-    // xtask-allow(state-fields): consumed work record - paint
+    // xtask-allow(state-fields): independent: a work fact of this dispatch; any set of them can be pending
     pub(crate) paint: bool,
-    // xtask-allow(state-fields): consumed work record - restack
+    // xtask-allow(state-fields): independent: a work fact of this dispatch; any set of them can be pending
     pub(crate) restack: bool,
-    // xtask-allow(state-fields): consumed work record - fonts
+    // xtask-allow(state-fields): independent: a work fact of this dispatch; any set of them can be pending
     pub(crate) fonts: bool,
 }
 

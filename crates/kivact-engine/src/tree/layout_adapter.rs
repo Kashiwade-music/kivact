@@ -2,7 +2,7 @@
 
 use crate::contract::NodeType;
 use crate::tree::NodeTree;
-use crate::tree::node::NodeIndex;
+use crate::tree::node::{NodeIndex, Positioning};
 use kivact_layout::{Flow, LayoutTree};
 use kivact_types::{LayoutProps, NodeId, OverlayAt, OverlayFit};
 
@@ -52,7 +52,7 @@ impl LayoutTree for NodeTree {
         let n = self.nodes.at(NodeIndex(slot));
         if n.kind() == NodeType::Overlay {
             Flow::Overlay
-        } else if n.place.fixed {
+        } else if n.place.positioning == Positioning::Fixed {
             Flow::Fixed
         } else {
             Flow::Normal

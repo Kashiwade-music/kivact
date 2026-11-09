@@ -66,9 +66,9 @@ fn paints(fill: &Fill) -> bool {
 /// The axes a limit holds on.
 #[derive(Clone, Copy)]
 pub(super) struct Axes {
-    // xtask-allow(state-fields): independent geometric facts - x
+    // xtask-allow(state-fields): independent: a limit may hold on either axis alone; every combination is a valid limit
     x: bool,
-    // xtask-allow(state-fields): independent geometric facts - y
+    // xtask-allow(state-fields): independent: a limit may hold on either axis alone; every combination is a valid limit
     y: bool,
 }
 
