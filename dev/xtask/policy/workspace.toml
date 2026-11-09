@@ -451,6 +451,11 @@ path = "crates/kivact-devtools/src/main.rs"
 item = "main"
 reason = "Glue: the DevTools binary entry only parses arguments and runs the app root."
 
+[[style.exceptions]]
+rule = "non-leaf-implementation"
+path = "crates/kivact-devtools/tests/app.rs"
+reason = "Glue: the integration test root registers the shared support module and the per-panel test modules, then holds the shell tests."
+
 [state_fields]
 role_suffixes = ["Options", "Event", "Phase", "Reason", "Input", "Report", "Tokens", "Recipes"]
 record_types = ["SemanticNode", "LayoutViolation", "ListItem", "MenuEntry", "Command", "TreeNode", "DataColumn", "ToastOptions", "CalendarOptions", "StepperItem"]
