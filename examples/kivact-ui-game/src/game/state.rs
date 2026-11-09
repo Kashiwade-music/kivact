@@ -1,19 +1,58 @@
 //! Role: Shared signal handles for Game catalog specimen commands.
 
-use kivact::state::Signal;
+use kivact::state::{Binding, Signal, binding};
+
+/// The one overlay the catalog shows; opening another replaces the open one.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(super) enum Overlay {
+    None,
+    Create,
+    Delete,
+    Drawer,
+    Palette,
+}
 
 #[derive(Clone, Copy)]
 pub(super) struct Demo {
-    // xtask-allow(state-fields): Caller-owned open binding for the independent create dialog.
-    pub(super) create: Signal<bool>,
-    // xtask-allow(state-fields): Caller-owned open binding for the independent delete dialog.
-    pub(super) delete: Signal<bool>,
-    // xtask-allow(state-fields): Caller-owned open binding for the independent details drawer.
-    pub(super) drawer: Signal<bool>,
-    // xtask-allow(state-fields): Caller-owned open binding for the independent command palette.
-    pub(super) palette: Signal<bool>,
+    pub(super) overlay: Signal<Overlay>,
     pub(super) rows: Signal<Vec<Record>>,
     pub(super) selected: Signal<Vec<String>>,
+}
+
+impl Demo {
+    /// The overlay's open binding, for a dialog, drawer or command palette
+    /// (ARG-4: a component that is meaningless while closed takes `open`).
+    pub(super) fn open(self, which: Overlay) -> Binding<bool> {
+        let overlay = self.overlay;
+        binding(
+            move || overlay.get() == which,
+            move |open| {
+                if open {
+                    overlay.set(which);
+                } else if overlay.get_untracked() == which {
+                    overlay.set(Overlay::None);
+                }
+            },
+        )
+    }
+
+    /// Show `which`, closing the overlay that was open.
+    pub(super) fn show(self, which: Overlay) {
+        self.overlay.set(which);
+    }
+
+    /// Close `which` when it is the open overlay.
+    pub(super) fn hide(self, which: Overlay) {
+        if self.overlay.get_untracked() == which {
+            self.overlay.set(Overlay::None);
+        }
+    }
+
+    /// Open `which` when another overlay is open, close it when it is open.
+    pub(super) fn toggle(self, which: Overlay) {
+        self.overlay
+            .update(|open| *open = if *open == which { Overlay::None } else { which });
+    }
 }
 
 /// One production order of the table specimen.

@@ -2,7 +2,7 @@
 use kivact::view::IntoView;
 
 use super::common::{cards, line, list, segmented, specimen};
-use super::state::{Demo, Record};
+use super::state::{Demo, Overlay, Record};
 use kivact::interaction::{MenuEntry, Toast, Tone, toaster};
 use kivact::platform;
 use kivact::prelude::{ColorToken, Element, Node, column, node, rgb, row, signal, spacer, text};
@@ -324,7 +324,7 @@ pub(super) fn table(scene: Demo) -> impl kivact::view::Element {
                             .group_hover(style().opacity(1.))
                             .focus_visible(style().opacity(1.)),
                     )
-                    .on_press(move || scene.drawer.set(true))
+                    .on_press(move || scene.show(Overlay::Drawer))
             })
             .toolbar(move |context| table_toolbar(context, scene)),
     )))
@@ -639,7 +639,7 @@ fn feature_cards(scene: Demo) -> crate::game::specimens::Specimen<impl kivact::v
                 .variant(kivact_ui_game::Slant)
                 .size(kivact::ui::ControlSize::Small)
                 .variant(kivact::ui::ButtonVariant::Secondary)
-                .on_press(move || scene.drawer.set(true)),
+                .on_press(move || scene.show(Overlay::Drawer)),
         )
         .child(
             kivact::ui::badge("ON")
@@ -790,7 +790,7 @@ fn table_bulk_actions(selected: kivact::state::Value<Vec<String>>, scene: Demo) 
             .icon(kivact::view::icon("trash"))
             .size(kivact::ui::ControlSize::Small)
             .variant(kivact::ui::ButtonVariant::Danger)
-            .on_press(move || scene.delete.set(true)),
+            .on_press(move || scene.show(Overlay::Delete)),
     ))
     .style(style().gap(10).align_items(Align::Center))
 }
@@ -859,7 +859,7 @@ fn table_filters(
             .variant(kivact_ui_game::Slant)
             .icon(kivact::view::icon("plus"))
             .size(kivact::ui::ControlSize::Small)
-            .on_press(move || scene.create.set(true)),
+            .on_press(move || scene.show(Overlay::Create)),
     ))
     .style(
         style()

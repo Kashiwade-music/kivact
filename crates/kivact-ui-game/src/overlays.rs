@@ -15,17 +15,17 @@ pub struct IconMenu<K: 'static> {
     icon: Value<Icon>,
     choose: Callback<K>,
 }
-/// Required menu label and entries; the default icon is `menu`.
+/// The required menu label and items; the default icon is `menu`.
 #[track_caller]
 pub fn icon_menu<K: kivact::state::ItemKey>(
     label: impl IntoText,
-    entries: impl IntoValue<Vec<MenuEntry<K>>>,
+    items: impl IntoValue<Vec<MenuEntry<K>>>,
 ) -> IconMenu<K> {
     let label = label.into_text_value();
     IconMenu {
         root: crate::button::tool_button(label).hide_label(true),
         label,
-        entries: entries.into_value(),
+        entries: items.into_value(),
         icon: Icon::named("menu").into_value(),
         choose: callback(|_| ()),
     }
@@ -36,13 +36,13 @@ impl<K: 'static> IconMenu<K> {
         self.icon = value.into_value();
         self
     }
-    /// Selection callback; no action by default.
-    pub fn on_select<R: HandlerResult>(mut self, choose: impl Fn(K) -> R + 'static) -> Self {
-        self.choose = callback(choose);
+    /// Activation callback: the key of the chosen item; no action by default.
+    pub fn on_activate<R: HandlerResult>(mut self, activate: impl Fn(K) -> R + 'static) -> Self {
+        self.choose = callback(activate);
         self
     }
 }
-impl<K: 'static> Element for IconMenu<K> {
+impl<K: kivact::state::ItemKey> Element for IconMenu<K> {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         self.root.node_mut()

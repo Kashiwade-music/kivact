@@ -4,7 +4,7 @@ use super::controls::{buttons, inputs, navigation, selection};
 use super::data::{display, records, table};
 use super::effects::effects;
 use super::foundations::foundations;
-use super::state::Demo;
+use super::state::{Demo, Overlay};
 use super::system::{create_dialog, delete_dialog, drawer_body, feedback, layout, overlays};
 use kivact::draw::Transform;
 use kivact::geometry::Point;
@@ -141,10 +141,7 @@ pub fn catalog() -> impl IntoView {
     let density = signal(g::Density::Comfortable);
     let theme = kivact::state::memo(move || catalog_theme(mode.get(), density.get()));
     let scene = Demo {
-        create: signal(false),
-        delete: signal(false),
-        drawer: signal(false),
-        palette: signal(false),
+        overlay: signal(Overlay::None),
         rows: signal(records()),
         selected: signal(Vec::new()),
     };
@@ -391,7 +388,7 @@ fn command_handler(
                 g::Density::Comfortable
             }
         }),
-        PaletteCommand::Create => scene.create.set(true),
+        PaletteCommand::Create => scene.show(Overlay::Create),
         PaletteCommand::Notify => {
             toaster().push(
                 Toast::new("通知")
@@ -400,7 +397,7 @@ fn command_handler(
                     .duration(Some(Duration::from_secs(4))),
             );
         }
-        PaletteCommand::Drawer => scene.drawer.set(true),
+        PaletteCommand::Drawer => scene.show(Overlay::Drawer),
     })
 }
 
@@ -482,7 +479,7 @@ fn catalog_topbar(
 
 fn catalog_key(e: kivact::view::KeyEvent, scene: Demo, search: NodeRef) -> Handled {
     if (e.modifiers().ctrl || e.modifiers().meta) && e.key() == Key::Char('k') {
-        scene.palette.update(|v| *v = !*v);
+        scene.toggle(Overlay::Palette);
         Handled::Yes
     } else if e.key() == Key::Char('/')
         && !matches!(
@@ -496,9 +493,7 @@ fn catalog_key(e: kivact::view::KeyEvent, scene: Demo, search: NodeRef) -> Handl
                     | Role::SpinButton
             )
         )
-        && !scene.create.get()
-        && !scene.delete.get()
-        && !scene.palette.get()
+        && matches!(scene.overlay.get(), Overlay::None | Overlay::Drawer)
     {
         search.scroll_into_view();
         search.focus();
@@ -519,7 +514,7 @@ fn catalog_layers(
         kivact::ui::toast_region(toaster()),
         create_dialog(scene),
         delete_dialog(scene),
-        kivact::ui::dialog("案件詳細", scene.drawer)
+        kivact::ui::dialog("案件詳細", scene.open(Overlay::Drawer))
             .mode(kivact::interaction::DialogMode::Drawer(
                 kivact::geometry::Edge::Right,
             ))
@@ -530,14 +525,14 @@ fn catalog_layers(
                         .variant(kivact_ui_game::Slant)
                         .test_id("game-drawer-footer-close")
                         .variant(kivact::ui::ButtonVariant::Ghost)
-                        .on_press(move || scene.drawer.set(false)),
+                        .on_press(move || scene.hide(Overlay::Drawer)),
                     kivact::ui::button("編集")
                         .variant(kivact_ui_game::Slant)
                         .test_id("game-drawer-footer-edit")
-                        .on_press(move || scene.drawer.set(false)),
+                        .on_press(move || scene.hide(Overlay::Drawer)),
                 )
             }),
-        kivact::ui::command_palette(commands, scene.palette)
+        kivact::ui::command_palette(commands, scene.open(Overlay::Palette))
             .on_activate(move |value| run_command.try_call(value))
             .footer({
                 g::mono(kivact::i18n::message(
@@ -720,7 +715,7 @@ fn palette_search(scene: Demo) -> Node {
         .role(Role::Button)
         .name("コマンドパレットを開く")
         .focusable(true)
-        .on_press(move || scene.palette.set(true))
+        .on_press(move || scene.show(Overlay::Palette))
         .child(
             row((
                 kivact::view::icon("search"),
@@ -786,8 +781,8 @@ fn operator_menu(scene: Demo) -> impl IntoView {
         ],
     )
     .on_activate(move |key: &'static str| match key {
-        "profile" => scene.drawer.set(true),
-        "settings" => scene.palette.set(true),
+        "profile" => scene.show(Overlay::Drawer),
+        "settings" => scene.show(Overlay::Palette),
         _ => {
             toaster().push(
                 Toast::new("サインアウト")

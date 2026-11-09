@@ -3,7 +3,7 @@
 use super::common::{
     cards, line, list, meta, segmented, specimen, strings, suppress_search_shortcut, wide,
 };
-use super::state::Demo;
+use super::state::{Demo, Overlay};
 use kivact::interaction::{ListItem, MenuEntry, Toast, Tone, toaster};
 use kivact::platform;
 use kivact::prelude::{
@@ -11,12 +11,45 @@ use kivact::prelude::{
     signal, spacer, text,
 };
 use kivact::state::IntoValue;
-use kivact::state::binding;
+use kivact::state::{Machine, MachineHandle, Step, binding, machine, memo};
 use kivact::style::use_theme;
 use kivact::style::{Align, auto, pct, style};
 use kivact::task::spawn;
 use kivact_ui_game as g;
 use std::time::Duration;
+
+/// Whether a button's one-shot task runs.
+#[derive(Clone, Copy, PartialEq)]
+enum Task {
+    Idle,
+    Running,
+}
+enum TaskEvent {
+    Start,
+    Expire,
+}
+struct TaskInput;
+impl Machine for TaskInput {
+    type State = Task;
+    type Event = TaskEvent;
+    type Effect = ();
+    fn transition(&self, state: &Task, event: TaskEvent) -> Step<Task, TaskEvent, ()> {
+        match (event, state) {
+            (TaskEvent::Start, Task::Idle) => {
+                Step::to(Task::Running).after(Duration::from_millis(1400), TaskEvent::Expire)
+            }
+            (TaskEvent::Expire, Task::Running) => Step::to(Task::Idle),
+            _ => Step::stay(),
+        }
+    }
+}
+
+/// A task's machine and the busy value its button shows.
+fn task() -> (MachineHandle<TaskInput>, Value<bool>) {
+    let task = machine(Task::Idle, || TaskInput, |_, ()| {});
+    let busy = memo(move || task.get() == Task::Running);
+    (task, busy)
+}
 
 pub(super) fn choice_options(items: &[(&str, &str)]) -> Vec<ListItem<String>> {
     items
@@ -26,16 +59,18 @@ pub(super) fn choice_options(items: &[(&str, &str)]) -> Vec<ListItem<String>> {
 }
 
 pub(super) fn buttons(scene: Demo) -> Node {
-    let busy = signal(false);
-    let verify = signal(false);
+    let (sync, sync_busy) = task();
+    let (verify, verify_busy) = task();
     let period = signal(Some("7d".to_owned()));
+    // xtask-allow(state-fields): independent: the grid and filter toggles belong to their own toolbar buttons
     let grid_on = signal(true);
+    // xtask-allow(state-fields): independent: the grid and filter toggles belong to their own toolbar buttons
     let filter_on = signal(false);
     cards(
         (
             button_variants(scene),
             button_sizes(scene),
-            button_states(busy, verify),
+            button_states(sync, sync_busy, verify, verify_busy),
             button_group(scene, period),
             button_toolbar(scene, grid_on, filter_on),
             chevron_action().note({
@@ -126,7 +161,9 @@ pub(super) fn setting(title: &str, description: &str, control: impl IntoView) ->
 pub(super) fn navigation() -> Node {
     let underline = signal("summary".to_owned());
     let boxed_tabs = signal("metrics".to_owned());
+    // xtask-allow(state-fields): independent: the wizard's step and the pagination's page are separate controls
     let step = signal(1_usize);
+    // xtask-allow(state-fields): independent: the wizard's step and the pagination's page are separate controls
     let page = signal(2_usize);
     cards(
         (
@@ -166,12 +203,12 @@ fn button_variants(scene: Demo) -> crate::game::specimens::Specimen<impl kivact:
                 .variant(kivact_ui_game::Slant)
                 .icon(kivact::view::icon("trash"))
                 .variant(kivact::ui::ButtonVariant::Danger)
-                .on_press(move || scene.delete.set(true)),
+                .on_press(move || scene.show(Overlay::Delete)),
             kivact::ui::button("コンソール")
                 .variant(kivact_ui_game::Slant)
                 .icon(kivact::view::icon("terminal-2"))
                 .variant(kivact_ui_game::ButtonTone::Dark)
-                .on_press(move || scene.palette.set(true)),
+                .on_press(move || scene.show(Overlay::Palette)),
         )),
     )
 }
@@ -189,7 +226,7 @@ fn button_sizes(scene: Demo) -> crate::game::specimens::Specimen<impl kivact::vi
                 .variant(kivact_ui_game::Slant)
                 .icon(kivact::view::icon("plus"))
                 .size(kivact::ui::ControlSize::Large)
-                .on_press(move || scene.create.set(true)),
+                .on_press(move || scene.show(Overlay::Create)),
             kivact::ui::tooltip("ダウンロード")
                 .placement(kivact::view::Placement::Below)
                 .align(kivact::view::OverlayAlign::Center)
@@ -218,8 +255,10 @@ fn button_sizes(scene: Demo) -> crate::game::specimens::Specimen<impl kivact::vi
 }
 
 fn button_states(
-    busy: kivact::state::Signal<bool>,
-    verify: kivact::state::Signal<bool>,
+    sync: MachineHandle<TaskInput>,
+    sync_busy: Value<bool>,
+    verify: MachineHandle<TaskInput>,
+    verify_busy: Value<bool>,
 ) -> crate::game::specimens::Specimen<impl kivact::view::Element> {
     specimen(
         "BTN-03",
@@ -229,25 +268,13 @@ fn button_states(
                 .variant(kivact_ui_game::Slant)
                 .test_id("game-busy")
                 .icon(kivact::view::icon("refresh"))
-                .busy(busy)
-                .on_press(move || {
-                    busy.set(true);
-                    spawn(async move {
-                        kivact::task::sleep(Duration::from_millis(1400)).await;
-                        busy.set(false);
-                    });
-                }),
+                .busy(sync_busy)
+                .on_press(move || sync.send(TaskEvent::Start)),
             kivact::ui::button("検証を実行")
                 .variant(kivact_ui_game::Slant)
                 .variant(kivact::ui::ButtonVariant::Secondary)
-                .busy(verify)
-                .on_press(move || {
-                    verify.set(true);
-                    spawn(async move {
-                        kivact::task::sleep(Duration::from_millis(1400)).await;
-                        verify.set(false);
-                    });
-                }),
+                .busy(verify_busy)
+                .on_press(move || verify.send(TaskEvent::Start)),
             kivact::ui::button("無効")
                 .variant(kivact_ui_game::Slant)
                 .test_id("game-disabled")
@@ -285,7 +312,7 @@ fn button_group(
                         MenuEntry::item("draft", "下書きとして保存"),
                     ],
                 )
-                .on_activate(move |_: &'static str| scene.create.set(true))
+                .on_activate(move |_: &'static str| scene.show(Overlay::Create))
                 .offset(0.)
                 .attach(
                     kivact::ui::button("▾")
@@ -341,12 +368,12 @@ fn button_toolbar(
                 g::tool_button("削除")
                     .icon(kivact::view::icon("trash"))
                     .hide_label(true)
-                    .on_press(move || scene.delete.set(true)),
+                    .on_press(move || scene.show(Overlay::Delete)),
             )),
             kivact::ui::button("詳細を表示 ↗")
                 .variant(kivact_ui_game::Slant)
                 .variant(kivact::ui::ButtonVariant::Ghost)
-                .on_press(move || scene.drawer.set(true)),
+                .on_press(move || scene.show(Overlay::Drawer)),
         )),
     )
 }

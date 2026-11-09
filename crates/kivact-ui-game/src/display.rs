@@ -59,11 +59,11 @@ impl ActivityEntry {
 }
 
 /// Diamond-marked activity timeline.
-/// Entries own non-cloneable views and are consumed once as composition.
+/// Items own non-cloneable views and are consumed once as composition.
 #[track_caller]
-pub fn activity(entries: Vec<ActivityEntry>) -> impl kivact::view::Element {
+pub fn activity(items: Vec<ActivityEntry>) -> impl kivact::view::Element {
     column(
-        entries
+        items
             .into_iter()
             .map(
                 |ActivityEntry {

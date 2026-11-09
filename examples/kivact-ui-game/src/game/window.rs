@@ -5,6 +5,31 @@ use kivact_ui_game as g;
 
 const INITIAL_SOURCE: &str = "# checklist.yaml\ntargets: PB-01..PB-12";
 
+/// What the editor chrome's run commands do; the status texts come from it.
+#[derive(Clone, Copy, PartialEq)]
+enum Run {
+    Idle,
+    Running,
+    Paused,
+}
+impl Run {
+    /// The status bar's activity word.
+    fn activity(self) -> &'static str {
+        match self {
+            Run::Running => "RUNNING",
+            Run::Idle | Run::Paused => "IDLE",
+        }
+    }
+    /// The status bar's message while `Run` explains it; `None` for a notice.
+    fn message(self) -> Option<&'static str> {
+        match self {
+            Run::Running => Some("Running"),
+            Run::Paused => Some("Paused"),
+            Run::Idle => None,
+        }
+    }
+}
+
 pub(super) fn frame(
     document: Signal<String>,
     title: Signal<String>,
@@ -14,10 +39,12 @@ pub(super) fn frame(
 ) -> impl IntoView {
     let mode = signal(Some("preview"));
     let status = signal("Ready".to_owned());
-    let running = signal(false);
+    let run = signal(Run::Idle);
     let content = signal(INITIAL_SOURCE.to_owned());
+    // xtask-allow(state-fields): independent: the explorer width set by its divider; any width is valid
     let width = signal(240_f64);
     let saved = signal(content.get_untracked());
+    // xtask-allow(state-fields): independent: the About dialog opens from its own menu item
     let help = signal(false);
     let command = move |key: &'static str| match key {
         "new" => {
@@ -39,14 +66,8 @@ pub(super) fn frame(
         }
         "edit" => mode.set(Some("edit")),
         "preview" => mode.set(Some("preview")),
-        "run" => {
-            running.set(true);
-            status.set("Running".to_owned());
-        }
-        "pause" => {
-            running.set(false);
-            status.set("Paused".to_owned());
-        }
+        "run" => run.set(Run::Running),
+        "pause" => run.set(Run::Paused),
         "help" => help.set(true),
         _ => (),
     };
@@ -82,7 +103,7 @@ pub(super) fn frame(
         )
         .menu_bar(menu)
         .toolbar(tools)
-        .status_bar(window_status(status, content, saved, running)),
+        .status_bar(window_status(status, content, saved, run)),
         kivact::ui::dialog("About this example", help)
             .content(|| text("Application-owned menus and editor state.")),
     ))
@@ -209,10 +230,15 @@ fn window_status(
     status: Signal<String>,
     content: Signal<String>,
     saved: Signal<String>,
-    running: Signal<bool>,
+    run: Signal<Run>,
 ) -> Node {
     row((
-        g::mono(status).test_id("game-window-status"),
+        g::mono(move || {
+            run.get()
+                .message()
+                .map_or_else(|| status.get(), str::to_owned)
+        })
+        .test_id("game-window-status"),
         g::mono(message("game.window.branch", "main")),
         g::mono(move || {
             if content.get() == saved.get() {
@@ -224,7 +250,7 @@ fn window_status(
         })
         .test_id("game-window-save-state"),
         spacer(),
-        g::mono(move || if running.get() { "RUNNING" } else { "IDLE" }.to_owned()),
+        g::mono(move || run.get().activity().to_owned()),
         g::mono(message("game.window.status", "UTF-8 · LF · Markdown")),
     ))
     .style(
