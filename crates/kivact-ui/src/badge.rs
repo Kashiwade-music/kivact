@@ -9,9 +9,7 @@ pub struct Badge {
     label: Value<String>,
     tone: Value<Tone>,
     variants: Variants,
-    // xtask-allow(state-fields): builder option - icon
     icon: Option<View>,
-    // xtask-allow(state-fields): builder option - trailing
     trailing: Option<View>,
     on_press: Option<Callback<()>>,
 }

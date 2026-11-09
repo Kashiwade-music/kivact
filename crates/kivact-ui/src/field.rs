@@ -23,11 +23,8 @@ pub struct Field<C> {
     root: Node,
     label: Value<String>,
     control: C,
-    // xtask-allow(state-fields): builder option - hint
     hint: Option<Value<String>>,
-    // xtask-allow(state-fields): builder option - required
     required: Option<Value<bool>>,
-    // xtask-allow(state-fields): builder option - error
     error: Option<Value<Option<String>>>,
     variants: Variants,
 }

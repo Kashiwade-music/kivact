@@ -18,13 +18,9 @@ pub struct InputGroup<C> {
     label: Value<String>,
     controls: Controls<C>,
     size: Value<ControlSize>,
-    // xtask-allow(state-fields): builder option - start
     start: Option<View>,
-    // xtask-allow(state-fields): builder option - end
     end: Option<View>,
-    // xtask-allow(state-fields): builder option - block start
     block_start: Option<View>,
-    // xtask-allow(state-fields): builder option - block end
     block_end: Option<View>,
     variants: Variants,
 }

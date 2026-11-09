@@ -50,19 +50,15 @@ pub enum LinkColor {
 /// Inline-sized link or link-shaped action.
 pub struct Link {
     root: Node,
-    // xtask-allow(state-fields): Optional accessible label input, independent of activation.
     label: Option<Value<String>>,
     content: View,
     press: Option<Callback<()>>,
-    // xtask-allow(state-fields): Optional localized external-link suffix input.
     new_tab_label: Option<Value<String>>,
     underline: Value<bool>,
     external: Value<bool>,
     standalone: Value<bool>,
     kind: Value<TextKind>,
-    // xtask-allow(state-fields): Optional readonly font-size override.
     size: Option<Value<f64>>,
-    // xtask-allow(state-fields): Optional immutable font-weight override.
     weight: Option<u16>,
     color: Value<LinkColor>,
     max_lines: Value<u32>,

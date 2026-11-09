@@ -31,11 +31,9 @@ pub struct Tabs<K: kivact_core::state::ItemKey> {
     on_edit: Option<kivact_core::state::Callback<kivact_core::view::EditPhase>>,
     activation: ListActivation,
     orientation: Orientation,
-    // xtask-allow(state-fields): builder option - item
     item: Option<TabContent<K>>,
     content: Option<kivact_core::view::ViewFn<K>>,
     variants: Variants,
-    // xtask-allow(state-fields): builder option - keep mounted
     keep_mounted: bool,
 }
 /// A themed tab list whose selected key is `binding`; give it

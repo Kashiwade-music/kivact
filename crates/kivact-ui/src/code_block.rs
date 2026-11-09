@@ -17,9 +17,7 @@ use std::time::Duration;
 pub struct CodeBlock {
     root: Node,
     code: Value<String>,
-    // xtask-allow(state-fields): builder option - title
     title: Option<Value<String>>,
-    // xtask-allow(state-fields): builder option - language
     language: Option<Value<String>>,
     language_label: Value<bool>,
     line_numbers: Value<bool>,
@@ -27,18 +25,13 @@ pub struct CodeBlock {
     diff: Value<bool>,
     copy_button: Value<bool>,
     on_copy: Option<Callback<()>>,
-    // xtask-allow(state-fields): builder option - end content
     end_content: Option<View>,
-    // xtask-allow(state-fields): builder option - footer
     footer: Option<View>,
     wrap: Value<bool>,
-    // xtask-allow(state-fields): builder option - max height
     max_height: Option<Value<Length>>,
     collapsible: Value<bool>,
     collapsible_threshold: Value<usize>,
-    // xtask-allow(state-fields): builder option - expanded
     expanded: Option<Binding<bool>>,
-    // xtask-allow(state-fields): builder option - highlight
     highlight: Option<Highlight>,
     variants: Variants,
 }

@@ -81,13 +81,10 @@ pub struct Token {
     label: Value<String>,
     size: Value<ControlSize>,
     color: Value<TokenColor>,
-    // xtask-allow(state-fields): builder option - icon
     icon: Option<View>,
-    // xtask-allow(state-fields): builder option - end
     end: Option<View>,
     press: Option<Callback<()>>,
     remove: Option<Callback<()>>,
-    // xtask-allow(state-fields): builder option - description
     description: Option<Value<String>>,
     label_hidden: Value<bool>,
     as_link: Value<bool>,

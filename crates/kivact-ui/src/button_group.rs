@@ -116,7 +116,6 @@ impl<C: IntoChildren> IntoView for ButtonGroup<C> {
 /// or [`button_group_text`].
 pub struct ButtonGroupCell {
     root: Node,
-    // xtask-allow(state-fields): Independent presentation or construction input, not interaction state.
     separator: bool,
 }
 impl NodeBuilder for ButtonGroupCell {

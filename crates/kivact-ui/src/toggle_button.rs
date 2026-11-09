@@ -87,9 +87,7 @@ pub struct ToggleButton {
     label: Value<String>,
     pressed: Binding<bool>,
     on_edit: Option<kivact_core::state::Callback<kivact_core::view::EditPhase>>,
-    // xtask-allow(state-fields): builder option - icon
     icon: Option<View>,
-    // xtask-allow(state-fields): builder option - hide label
     hide_label: Option<Value<bool>>,
     size: Value<ControlSize>,
     variants: Variants,

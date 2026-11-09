@@ -11,9 +11,7 @@ use kivact::view::{IntoView, Node, NodeBuilder, View, column, node, row, text};
 pub struct CardHeader {
     root: Node,
     title: Value<String>,
-    // xtask-allow(state-fields): builder option - description
     description: Option<Value<String>>,
-    // xtask-allow(state-fields): builder option - action
     action: Option<View>,
 }
 

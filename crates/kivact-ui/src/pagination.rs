@@ -15,16 +15,13 @@ pub struct Pagination {
     first_last: Value<bool>,
     step: Value<usize>,
     has_more: Value<bool>,
-    // xtask-allow(state-fields): Optional caller binding for page-size selection, independent of page draft state.
     page_size: Option<Binding<u32>>,
     size_options: Value<Vec<u32>>,
     page_label: Value<String>,
     mode: PaginationMode,
     window: PaginationWindow,
-    // xtask-allow(state-fields): Optional caller-provided presentation slot selected only during construction.
     item: Option<PageSlot>,
     format: Rc<dyn Fn(usize) -> String>,
-    // xtask-allow(state-fields): Immutable optional presentation factory over the canonical derived page facts.
     summary: Option<SummarySlot>,
     variants: crate::variants::Variants,
 }

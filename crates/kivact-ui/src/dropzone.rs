@@ -12,15 +12,12 @@ type FileValidator = Rc<dyn Fn(&FileInfo) -> Option<String>>;
 pub struct Dropzone {
     root: Node,
     variants: crate::variants::Variants,
-    // xtask-allow(state-fields): builder option - icon
     icon: Option<View>,
     label: Value<String>,
     hint: Value<String>,
     filters: Value<Vec<(String, Vec<String>)>>,
-    // xtask-allow(state-fields): builder option - multiple
     multiple: bool,
     accept_drop: Value<bool>,
-    // xtask-allow(state-fields): builder option - pick on press
     pick_on_press: bool,
     validate: FileValidator,
     on_files: Rc<dyn Fn(Vec<FileInfo>) -> kivact_core::Result<()>>,

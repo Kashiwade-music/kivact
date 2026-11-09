@@ -72,24 +72,15 @@ pub enum LayoutHeight {
 /// Page regions arranged around a central content area.
 pub struct Layout {
     root: Node,
-    // xtask-allow(state-fields): Optional header content slot.
     header: Option<LayoutRegion>,
-    // xtask-allow(state-fields): Optional footer content slot.
     footer: Option<LayoutRegion>,
-    // xtask-allow(state-fields): Optional logical leading panel slot.
     start: Option<LayoutRegion>,
-    // xtask-allow(state-fields): Optional logical trailing panel slot.
     end: Option<LayoutRegion>,
-    // xtask-allow(state-fields): Optional central content slot.
     content: Option<LayoutRegion>,
-    // xtask-allow(state-fields): Optional caller-owned leading resize handle view.
     start_resize: Option<View>,
-    // xtask-allow(state-fields): Optional caller-owned trailing resize handle view.
     end_resize: Option<View>,
     height: Value<LayoutHeight>,
-    // xtask-allow(state-fields): Optional theme spacing construction override.
     padding: Option<Space>,
-    // xtask-allow(state-fields): Optional readonly content-width input.
     content_width: Option<Value<Length>>,
     default_dividers: Value<bool>,
 }
@@ -285,14 +276,10 @@ pub struct LayoutRegion {
     root: Node,
     children: View,
     kind: Region,
-    // xtask-allow(state-fields): Optional independent divider configuration.
     divider: Option<bool>,
-    // xtask-allow(state-fields): Optional uniform theme spacing override.
     padding: Option<Space>,
-    // xtask-allow(state-fields): Optional bottom spacing override.
     padding_bottom: Option<Space>,
     scrollable: Value<bool>,
-    // xtask-allow(state-fields): Optional readonly panel-width input.
     width: Option<Value<Length>>,
 }
 

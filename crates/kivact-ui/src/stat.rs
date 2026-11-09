@@ -10,16 +10,11 @@ pub struct Stat {
     root: Node,
     label: Value<String>,
     value: Value<String>,
-    // xtask-allow(state-fields): builder option - delta
     delta: Option<Value<String>>,
     trend: Value<Trend>,
-    // xtask-allow(state-fields): builder option - icon
     icon: Option<View>,
-    // xtask-allow(state-fields): builder option - chart
     chart: Option<View>,
-    // xtask-allow(state-fields): builder option - label content
     label_content: Option<View>,
-    // xtask-allow(state-fields): builder option - value content
     value_content: Option<View>,
     variants: Variants,
 }

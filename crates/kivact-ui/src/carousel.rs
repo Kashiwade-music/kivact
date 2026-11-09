@@ -19,13 +19,9 @@ pub struct Carousel {
     orientation: Value<Orientation>,
     snap: Value<Snap>,
     mode: CarouselMode,
-    // xtask-allow(state-fields): builder option - looping
     looping: bool,
-    // xtask-allow(state-fields): builder option - per view
     per_view: Option<Value<f64>>,
-    // xtask-allow(state-fields): builder option - gap
     gap: Option<Value<f64>>,
-    // xtask-allow(state-fields): builder option - padding
     padding: Option<Value<f64>>,
     buttons: Value<bool>,
     edge_fade: Value<bool>,

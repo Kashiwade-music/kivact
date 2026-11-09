@@ -311,6 +311,7 @@ where
 pub trait ActionFn<T, M>: crate::task::sealed::ActionFnSeal<M> + 'static {
     /// What `Action::run` takes: `()` for a closure without an argument.
     type Input: 'static;
+    // xtask-allow(api-shape): sealed hidden contract - the type-erased future of an action run closure.
     #[doc(hidden)]
     fn start(&self, input: &Self::Input) -> Pin<Box<dyn Future<Output = Result<T, UiError>>>>;
 }

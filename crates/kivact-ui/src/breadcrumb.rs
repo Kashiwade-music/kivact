@@ -20,7 +20,6 @@ pub struct Breadcrumb<K: 'static> {
     items: Value<Vec<ListItem<K>>>,
     current: CurrentPage<K>,
     activate: Option<Rc<dyn Fn(K)>>,
-    // xtask-allow(state-fields): Optional presentation slot selected during construction; breadcrumbs store no interaction state.
     item: Option<ItemSlot<K>>,
     separator: Rc<dyn Fn() -> View>,
     variants: crate::variants::Variants,

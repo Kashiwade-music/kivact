@@ -23,14 +23,11 @@ pub struct Tree<K: kivact_core::state::ItemKey> {
     nodes: Value<Vec<TreeNode<K>>>,
     selection: Selection<K>,
     expanded: Binding<Vec<K>>,
-    // xtask-allow(state-fields): Optional custom row content chosen during construction.
     item: Option<RowContent<K>>,
     marker_content: Option<kivact_core::view::ViewFn<Value<TreeRowRecipeState>>>,
     variants: Variants,
     activate: Option<kivact_core::state::Callback<K>>,
-    // xtask-allow(state-fields): Optional construction slot independent of tree navigation.
     header: Option<View>,
-    // xtask-allow(state-fields): Optional construction transition independent of expansion bindings.
     reveal: Option<(f64, Transition)>,
 }
 
