@@ -193,7 +193,7 @@ pub struct Windows<'a> {
     /// How the windows start the GPU renderer (`None`: they draw on the CPU
     /// only).
     gpu: Option<GpuStart>,
-    // xtask-allow(state-fields): construction option - the renderer observer from ShellSetup, cloned into every presenter's Notes
+    // xtask-allow(state-fields): option: the renderer observer from ShellSetup, cloned into every presenter's Notes
     /// The renderer observer, cloned into the notes of every presenter.
     observer: Option<Observer>,
 }
@@ -282,10 +282,10 @@ impl<'a> Windows<'a> {
 /// application's main thread.
 pub struct Shell {
     shell: Box<dyn Backend>,
-    // xtask-allow(state-fields): construction option - prefer gpu
+    // xtask-allow(state-fields): option: prefer gpu
     prefer_gpu: bool,
     gpu_preference: GpuPreference,
-    // xtask-allow(state-fields): construction option - observer
+    // xtask-allow(state-fields): option: observer
     observer: Option<crate::presentation::Observer>,
 }
 
@@ -342,10 +342,10 @@ impl Shell {
 
 /// Presenter configuration shared by synchronous and stepped shells.
 pub struct ShellSetup {
-    // xtask-allow(state-fields): construction option - prefer gpu
+    // xtask-allow(state-fields): option: prefer gpu
     pub prefer_gpu: bool,
     pub gpu_preference: GpuPreference,
-    // xtask-allow(state-fields): construction option - observer
+    // xtask-allow(state-fields): option: observer
     pub observer: Option<Observer>,
 }
 impl Default for ShellSetup {
@@ -409,7 +409,7 @@ pub(crate) struct Driver<H> {
     gpu: Option<GpuStart>,
     /// The renderers' environment, read once per loop.
     env: crate::env::Env,
-    // xtask-allow(state-fields): construction option - the renderer observer from ShellSetup, cloned into every presenter's Notes
+    // xtask-allow(state-fields): option: the renderer observer from ShellSetup, cloned into every presenter's Notes
     /// The renderer observer, cloned into the notes of every presenter.
     observer: Option<Observer>,
 }

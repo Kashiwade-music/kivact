@@ -74,10 +74,10 @@ pub(crate) struct GlyphRun<'a> {
     pub(crate) coords: &'a [i16],
     /// Stem darkening of the run.
     pub(crate) embolden: glifo::FontEmbolden,
-    // xtask-allow(state-fields): drawing options - Hint vertically (only under a translation and a uniform scale)
+    // xtask-allow(state-fields): option: hint vertically (only under a translation and a uniform scale)
     /// Hint vertically (only under a translation and a uniform scale).
     pub(crate) hint: bool,
-    // xtask-allow(state-fields): drawing options - cached
+    // xtask-allow(state-fields): option: may come from a glyph atlas (the cached flag of this draw command)
     /// May come from a glyph atlas (only under a translation and a uniform
     /// scale; rotated glyphs are drawn from their outlines).
     #[cfg_attr(

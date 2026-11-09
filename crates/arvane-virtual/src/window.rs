@@ -131,7 +131,7 @@ pub(crate) struct VirtualPlatform {
     pub(crate) opened: RefCell<Vec<PathBuf>>,
     /// Paths asked to be revealed, in order.
     pub(crate) revealed: RefCell<Vec<PathBuf>>,
-    // xtask-allow(state-fields): mailbox - the service failure the test fills and the window drains
+    // xtask-allow(state-fields): option: the service failure the test fills and the window drains; absent when none is pending
     /// The service failure the next effect consumes.
     pub(crate) fail_next: RefCell<Option<ShellError>>,
 }
@@ -143,41 +143,44 @@ pub(crate) struct VirtualWindow {
     /// The single snapshot of the window's environment and preferences.
     pub(crate) env: RefCell<Environment>,
     pub(crate) requested_sizes: Vec<Size>,
-    // xtask-allow(state-fields): independent fact - a scripted backend fact the test controls (a test input, not a lifecycle)
+    // xtask-allow(state-fields): independent: the script's redraw request is recorded separately; every combination is a valid script state
     /// A redraw was requested and not delivered yet.
     pub(crate) redraw: Cell<bool>,
     pub(crate) title: RefCell<String>,
-    // xtask-allow(state-fields): independent fact - a scripted backend fact the test controls (a test input, not a lifecycle)
+    // xtask-allow(state-fields): independent: the size the application sets is recorded separately; every combination is a valid script state
     /// The minimum content size the application set.
     pub(crate) min_size: Cell<Option<Size>>,
     /// The content purpose the focused text input set.
     pub(crate) ime_purpose: Cell<InputPurpose>,
-    // xtask-allow(state-fields): independent fact - a scripted backend fact the test controls (a test input, not a lifecycle)
+    // xtask-allow(state-fields): independent: the script's IME caret area is recorded separately; every combination is a valid script state
     /// The IME caret area while a text input has the focus.
     pub(crate) ime: Cell<Option<Rect>>,
-    // xtask-allow(state-fields): independent fact - a scripted backend fact the test controls (a test input, not a lifecycle)
+    // xtask-allow(state-fields): independent: the script's surrounding text is recorded separately; every combination is a valid script state
     /// What the focused text input shows the IME.
     pub(crate) ime_text: RefCell<Option<ShellImeText>>,
     /// The cursor shown over the content.
     pub(crate) cursor: Cell<Cursor>,
-    // xtask-allow(state-fields): independent fact - a scripted backend fact the test controls (a test input, not a lifecycle)
-    /// The software keyboard is shown; how often it was shown or hidden.
-    pub(crate) soft_keyboard: (Cell<bool>, Cell<u32>),
+    // xtask-allow(state-fields): independent: the script's soft keyboard request is recorded separately; every combination is a valid script state
+    /// The software keyboard is shown.
+    pub(crate) soft_keyboard_shown: Cell<bool>,
+    // xtask-allow(state-fields): statistic: soft keyboard requests counted for tests
+    /// How often the software keyboard was shown or hidden.
+    pub(crate) soft_keyboard_requests: Cell<u32>,
     /// What the window shows of the frames presented to it.
     pub(crate) shown: Shown,
-    // xtask-allow(state-fields): independent fact - a scripted backend fact the test controls (a test input, not a lifecycle)
+    // xtask-allow(state-fields): independent: the renderer the script requires is recorded separately; every combination is a valid script state
     /// Frames are drawn on the GPU.
     pub(crate) gpu: bool,
     /// Where the window's accessibility tree and frames go.
     pub(crate) display: Display,
-    // xtask-allow(state-fields): independent fact - a scripted backend fact the test controls (a test input, not a lifecycle)
+    // xtask-allow(state-fields): independent: the script's occlusion is recorded separately; every combination is a valid script state
     /// The platform hides the window: it has no buffer for frames.
     pub(crate) occluded: bool,
     /// Presentations that are to fail as a lost surface does.
     pub(crate) failing: u32,
     /// The window's surface.
     pub(crate) surface: TestSurface,
-    // xtask-allow(state-fields): independent fact - a scripted backend fact the test controls (a test input, not a lifecycle)
+    // xtask-allow(state-fields): statistic: focus requests counted for tests
     /// How often the application asked to bring this window to the front.
     pub(crate) focus_requests: Cell<u32>,
 }
@@ -214,7 +217,8 @@ impl VirtualWindow {
             ime: Cell::new(None),
             ime_text: RefCell::new(None),
             cursor: Cell::new(Cursor::Default),
-            soft_keyboard: (Cell::new(false), Cell::new(0)),
+            soft_keyboard_shown: Cell::new(false),
+            soft_keyboard_requests: Cell::new(0),
             shown: Shown::Nothing,
             gpu: options.gpu == GpuMode::Required,
             display,
@@ -419,8 +423,9 @@ impl ShellWindow for VirtualWindow {
         }
     }
     fn set_soft_keyboard(&self, shown: bool) {
-        if self.soft_keyboard.0.replace(shown) != shown {
-            self.soft_keyboard.1.set(self.soft_keyboard.1.get() + 1);
+        if self.soft_keyboard_shown.replace(shown) != shown {
+            self.soft_keyboard_requests
+                .set(self.soft_keyboard_requests.get() + 1);
         }
     }
     fn set_ime_cursor_area(&self, area: Rect) {

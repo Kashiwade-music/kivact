@@ -635,7 +635,12 @@ impl WindowProbe {
         self.with(|window| window.cursor.get())
     }
     pub fn soft_keyboard(&self) -> (bool, u32) {
-        self.with(|window| (window.soft_keyboard.0.get(), window.soft_keyboard.1.get()))
+        self.with(|window| {
+            (
+                window.soft_keyboard_shown.get(),
+                window.soft_keyboard_requests.get(),
+            )
+        })
     }
     pub fn ime_text(&self) -> Option<ShellImeText> {
         self.with(|window| window.ime_text.borrow().clone())

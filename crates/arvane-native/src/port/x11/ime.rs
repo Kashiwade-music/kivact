@@ -74,7 +74,6 @@ enum Xim {
 enum Connection {
     Handshake {
         protocol_window: u32,
-        server_window: Option<u32>,
     },
     Established {
         protocol_window: u32,
@@ -84,9 +83,7 @@ enum Connection {
 impl Connection {
     fn protocol_window(&self) -> u32 {
         match self {
-            Self::Handshake {
-                protocol_window, ..
-            }
+            Self::Handshake { protocol_window }
             | Self::Established {
                 protocol_window, ..
             } => *protocol_window,
@@ -94,7 +91,7 @@ impl Connection {
     }
     fn server_window(&self) -> Option<u32> {
         match self {
-            Self::Handshake { server_window, .. } => *server_window,
+            Self::Handshake { .. } => None,
             Self::Established { server_window, .. } => Some(*server_window),
         }
     }
@@ -104,8 +101,6 @@ struct XimConnection {
     protocol: u32,
     xconnect: u32,
     phase: Connection,
-    pending: VecDeque<(KeyPressEvent, bool)>,
-    flight: Option<Flight>,
     session: Session,
 }
 /// What the server's callbacks change.
@@ -122,16 +117,87 @@ enum Context {
     Ready {
         im: u16,
         ic: u16,
+        keys: Keys,
     },
     /// The server ended the connection (`handle_disconnect`); `filter` degrades.
-    Disconnected,
+    Disconnected {
+        keys: Keys,
+    },
+}
+/// The keys of a ready context: at most one synchronous forward waits for its
+/// acknowledgement, and later keys wait behind it.
+#[derive(Default)]
+enum Keys {
+    /// No forward waits and no key waits behind one.
+    #[default]
+    Idle,
+    /// A forward waits for its acknowledgement; `pending` waits behind it.
+    Waiting {
+        flight: Flight,
+        pending: VecDeque<(KeyPressEvent, bool)>,
+    },
+}
+impl Keys {
+    fn flight(&self) -> Option<&Flight> {
+        match self {
+            Self::Idle => None,
+            Self::Waiting { flight, .. } => Some(flight),
+        }
+    }
+    fn pending_len(&self) -> usize {
+        match self {
+            Self::Idle => 0,
+            Self::Waiting { pending, .. } => pending.len(),
+        }
+    }
+    fn push(&mut self, key: (KeyPressEvent, bool)) {
+        if let Self::Waiting { pending, .. } = self {
+            pending.push_back(key);
+        }
+    }
+    fn into_parts(self) -> (Option<Flight>, VecDeque<(KeyPressEvent, bool)>) {
+        match self {
+            Self::Idle => (None, VecDeque::new()),
+            Self::Waiting { flight, pending } => (Some(flight), pending),
+        }
+    }
 }
 impl Context {
     /// The input method and context ids, once the context exists.
     fn ids(&self) -> Option<(u16, u16)> {
         match self {
-            Self::Ready { im, ic } => Some((*im, *ic)),
-            Self::Connecting | Self::Open | Self::Disconnected => None,
+            Self::Ready { im, ic, .. } => Some((*im, *ic)),
+            Self::Connecting | Self::Open | Self::Disconnected { .. } => None,
+        }
+    }
+    /// The keys a ready context keeps, or the keys of a disconnected one.
+    fn keys(&self) -> Option<&Keys> {
+        match self {
+            Self::Ready { keys, .. } | Self::Disconnected { keys } => Some(keys),
+            Self::Connecting | Self::Open => None,
+        }
+    }
+    fn keys_mut(&mut self) -> Option<&mut Keys> {
+        match self {
+            Self::Ready { keys, .. } | Self::Disconnected { keys } => Some(keys),
+            Self::Connecting | Self::Open => None,
+        }
+    }
+    /// Replace the keys of a context that keeps them (ready or disconnected).
+    fn set_keys(&mut self, next: Keys) {
+        if let Some(keys) = self.keys_mut() {
+            *keys = next;
+        }
+    }
+    /// Take the keys out of a context that keeps them (ready or disconnected).
+    fn take_keys(&mut self) -> Keys {
+        self.keys_mut().map_or(Keys::Idle, std::mem::take)
+    }
+    /// The flight and the keys behind it, for a context that is being dropped.
+    fn into_keys(self) -> (Option<Flight>, VecDeque<(KeyPressEvent, bool)>) {
+        match self {
+            Self::Ready { keys, .. } | Self::Disconnected { keys } => keys.into_parts(),
+            Self::Connecting | Self::Open => (None, VecDeque::new()),
         }
     }
 }
@@ -194,20 +260,27 @@ impl Ime {
     /// connection, reports IME disabled and hands the in-flight and queued keys to
     /// Keyboard in their original order.
     pub(super) fn degrade(&mut self, reason: &str) {
+        self.degrade_with(reason, VecDeque::new());
+    }
+    /// [`Ime::degrade`], with `extra` keys (not yet in the connection) going
+    /// back to Keyboard after the flight and before the queued keys.
+    fn degrade_with(&mut self, reason: &str, extra: VecDeque<(KeyPressEvent, bool)>) {
         let Xim::On(connection) = std::mem::replace(&mut self.xim, Xim::Off) else {
             return;
         };
         tracing::warn!(target: "kivact", "X11 IME disabled, using the keyboard directly: {reason}");
         self.app.events.push(RawIme::End);
-        let XimConnection {
-            flight, pending, ..
-        } = *connection;
+        let XimConnection { session, .. } = *connection;
+        let (flight, pending) = session.context.into_keys();
         if let Some(Flight::Live { event, .. }) = flight
             // A server that already returned the key must not have it twice.
             && !self.app.returned.iter().any(|key| same_key(key, &event))
         {
             self.app.returned.push(event);
         }
+        self.app
+            .returned
+            .extend(extra.into_iter().map(|(event, _)| event));
         self.app
             .returned
             .extend(pending.into_iter().map(|(event, _)| event));
@@ -228,7 +301,7 @@ impl Ime {
         let Xim::On(connection) = &self.xim else {
             return None;
         };
-        let flight = connection.flight.as_ref()?;
+        let flight = connection.session.context.keys()?.flight()?;
         let remaining = flight.deadline().saturating_duration_since(Instant::now());
         Some(u64::try_from(remaining.as_nanos()).unwrap_or(u64::MAX))
     }
@@ -236,7 +309,11 @@ impl Ime {
         let Xim::On(connection) = &mut self.xim else {
             return false;
         };
-        let observe = connection.flight.is_some()
+        let observe = connection
+            .session
+            .context
+            .keys()
+            .is_some_and(|keys| keys.flight().is_some())
             && matches!(event, Event::ClientMessage(message)
             if message.window == connection.phase.protocol_window());
         let (reply, filtered) = match feed(connection, &mut self.app, event, observe) {
@@ -246,7 +323,7 @@ impl Ime {
                 return false;
             }
         };
-        if matches!(connection.session.context, Context::Disconnected) {
+        if matches!(connection.session.context, Context::Disconnected { .. }) {
             self.degrade("XIM server disconnected");
             return filtered;
         }
@@ -261,14 +338,18 @@ impl Ime {
                     protocol_window: message.window,
                     server_window,
                 },
-                server_window => Connection::Handshake {
+                None => Connection::Handshake {
                     protocol_window: message.window,
-                    server_window,
                 },
             };
         }
         // A canceled request's delayed output must not edit the newly focused input.
-        if matches!(connection.flight, Some(Flight::Canceled { .. })) {
+        if connection
+            .session
+            .context
+            .keys()
+            .is_some_and(|keys| matches!(keys.flight(), Some(Flight::Canceled { .. })))
+        {
             self.app.events.retain(|event| matches!(event, RawIme::End));
             // Known canceled releases were reconciled at cancellation time.
             // Delayed output must not release a newer local down of that key.
@@ -278,12 +359,15 @@ impl Ime {
         if filtered
             && let Some(replied) = reply
             && connection
-                .flight
-                .as_ref()
+                .session
+                .context
+                .keys()
+                .and_then(Keys::flight)
                 .is_some_and(|flight| flight.ids() == replied)
         {
-            connection.flight = None;
-            self.advance();
+            let (_, pending) = connection.session.context.take_keys().into_parts();
+            connection.session.context.set_keys(Keys::Idle);
+            self.advance(pending);
         }
         filtered
     }
@@ -299,31 +383,39 @@ impl Ime {
             return false;
         }
         let mask = if down { 1 } else { 2 };
-        if connection.flight.is_none()
-            && connection.pending.is_empty()
+        let Some(keys) = connection.session.context.keys() else {
+            return false;
+        };
+        if keys.flight().is_none()
+            && keys.pending_len() == 0
             && connection.session.forward & mask == 0
         {
             return false;
         }
-        if connection.pending.len() >= 1024 {
+        if keys.pending_len() >= 1024 {
             // The new key follows the queued ones it was waiting behind.
             self.degrade("XIM pending key queue exceeded 1024 events");
             self.app.returned.push(*event);
             return true;
         }
-        connection.pending.push_back((*event, down));
-        self.advance();
+        if keys.flight().is_some() {
+            // A forward waits: the key waits behind it.
+            if let Some(keys) = connection.session.context.keys_mut() {
+                keys.push((*event, down));
+            }
+            return true;
+        }
+        self.advance(VecDeque::from([(*event, down)]));
         true
     }
-    fn advance(&mut self) {
+    /// Start synchronous forwards from `pending` while no flight waits: keys
+    /// whose event mask is not forwarded go back to Keyboard in order.
+    fn advance(&mut self, mut pending: VecDeque<(KeyPressEvent, bool)>) {
         loop {
             let Xim::On(connection) = &mut self.xim else {
                 return;
             };
-            if connection.flight.is_some() {
-                return;
-            }
-            let Some((event, down)) = connection.pending.pop_front() else {
+            let Some((event, down)) = pending.pop_front() else {
                 return;
             };
             let ids = connection.session.context.ids().filter(|_| {
@@ -331,7 +423,6 @@ impl Ime {
                     && self.app.focused == WindowFocus::Focused
             });
             let Some((im, ic)) = ids else {
-                connection.pending.clear();
                 return;
             };
             let mask = if down { 1 } else { 2 };
@@ -349,17 +440,21 @@ impl Ime {
             };
             match forward() {
                 Ok(()) => {
-                    connection.flight = Some(Flight::Live {
-                        im,
-                        ic,
-                        event,
-                        down,
-                        deadline: Instant::now() + FLIGHT_TIMEOUT,
+                    connection.session.context.set_keys(Keys::Waiting {
+                        flight: Flight::Live {
+                            im,
+                            ic,
+                            event,
+                            down,
+                            deadline: Instant::now() + FLIGHT_TIMEOUT,
+                        },
+                        pending,
                     });
+                    return;
                 }
                 Err(error) => {
-                    connection.pending.push_front((event, down));
-                    self.degrade(&error.to_string());
+                    pending.push_front((event, down));
+                    self.degrade_with(&error.to_string(), pending);
                     return;
                 }
             }
@@ -375,8 +470,10 @@ impl Ime {
     fn cancel_pending(&mut self) {
         // The in-flight event precedes the queued events; preserve release
         // order so their native modifier masks are applied in the same order.
+        let mut queued = VecDeque::new();
         if let Xim::On(connection) = &mut self.xim {
-            connection.flight = match connection.flight.take() {
+            let (flight, pending) = connection.session.context.take_keys().into_parts();
+            let flight = match flight {
                 Some(Flight::Live {
                     im,
                     ic,
@@ -391,15 +488,22 @@ impl Ime {
                 }
                 other => other,
             };
+            connection.session.context.set_keys(match flight {
+                Some(flight) => Keys::Waiting {
+                    flight,
+                    pending: VecDeque::new(),
+                },
+                None => Keys::Idle,
+            });
+            queued = pending;
         }
         self.collect_returned_releases();
+        self.app.cancelled_releases.extend(
+            queued
+                .into_iter()
+                .filter_map(|(event, down)| (!down).then_some(event)),
+        );
         if let Xim::On(connection) = &mut self.xim {
-            self.app.cancelled_releases.extend(
-                connection
-                    .pending
-                    .drain(..)
-                    .filter_map(|(event, down)| (!down).then_some(event)),
-            );
             connection.session.preedit.clear();
         }
         self.app.events.retain(|event| matches!(event, RawIme::End));
@@ -409,8 +513,10 @@ impl Ime {
         // a reply that never comes is noticed here.
         if let Xim::On(connection) = &self.xim
             && connection
-                .flight
-                .as_ref()
+                .session
+                .context
+                .keys()
+                .and_then(Keys::flight)
                 .is_some_and(|flight| Instant::now() >= flight.deadline())
         {
             self.degrade("XIM server did not answer");
@@ -574,10 +680,7 @@ fn connect(native: &Native) -> Result<Option<XimConnection>, ShellError> {
         phase: Connection::Handshake {
             // Zero is not an X window; no protocol message has been observed yet.
             protocol_window: 0,
-            server_window: None,
         },
-        pending: VecDeque::new(),
-        flight: None,
         session: Session {
             context: Context::Connecting,
             forward: u32::from(x11rb::protocol::xproto::EventMask::KEY_PRESS),
@@ -669,7 +772,11 @@ impl ClientHandler<ClientConnection> for Callbacks<'_> {
         im: u16,
         ic: u16,
     ) -> Result<(), ClientError> {
-        self.session.context = Context::Ready { im, ic };
+        self.session.context = Context::Ready {
+            im,
+            ic,
+            keys: Keys::Idle,
+        };
         if self.app.allowed == ImeAllowance::Allowed && self.app.focused == WindowFocus::Focused {
             client.set_focus(im, ic)?;
         }
@@ -789,7 +896,14 @@ impl ClientHandler<ClientConnection> for Callbacks<'_> {
     // We never send Disconnect, so this is the server ending the connection.
     // The handler cannot degrade the Ime that owns it; `filter` does.
     fn handle_disconnect(&mut self) {
-        self.session.context = Context::Disconnected;
+        let context = std::mem::replace(&mut self.session.context, Context::Connecting);
+        self.session.context = match context {
+            Context::Ready { keys, .. } | Context::Disconnected { keys } => {
+                Context::Disconnected { keys }
+            }
+            // No context existed: no key could be queued without its ids.
+            Context::Connecting | Context::Open => Context::Disconnected { keys: Keys::Idle },
+        };
     }
 }
 

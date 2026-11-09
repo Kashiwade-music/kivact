@@ -153,7 +153,7 @@ impl<'a> Builder<'a> {
             .collect();
         let index: Arc<[(u64, Option<PixelRect>)]> = pairs.into();
         let cache = self.cache;
-        let previous = cache.chunks.get(&key).filter(|_| cached);
+        let previous = cache.chunk(&key).filter(|_| cached);
         let redraw = match previous {
             Some(prev)
                 if prev.scale == grid.scale
@@ -214,11 +214,11 @@ impl<'a> Builder<'a> {
     pub(super) fn finish_damage(&mut self) -> Damage {
         let cache = self.cache;
         // After a resize, `invalidate()` or a failed frame, the whole output is redrawn.
-        if cache.invalidated {
+        let crate::cache::Records::Kept { layers, .. } = &cache.records else {
             return Damage::Full;
-        }
+        };
         // A layer recorded last frame and not this frame vanished: its old place changes.
-        for (key, prev) in &cache.layers {
+        for (key, prev) in layers {
             if !self.seen.contains(key) {
                 self.damage.extend(prev.window_bounds);
             }
@@ -256,8 +256,11 @@ impl<'a> Builder<'a> {
     pub(super) fn carry_reused(&mut self) {
         let cache = self.cache;
         let frame = self.frame;
+        let crate::cache::Records::Kept { chunks, layers } = &cache.records else {
+            return;
+        };
         for key in &self.reused {
-            if let Some(prev) = cache.layers.get(key) {
+            if let Some(prev) = layers.get(key) {
                 let record = LayerRecord {
                     frame,
                     ..prev.clone()
@@ -265,7 +268,7 @@ impl<'a> Builder<'a> {
                 self.layer_records.push((*key, record));
             }
         }
-        for (key, prev) in &cache.chunks {
+        for (key, prev) in chunks {
             if self.reused_chunks.contains(&key.layer) {
                 let record = ChunkRecord {
                     frame,

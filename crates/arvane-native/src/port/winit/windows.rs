@@ -21,7 +21,9 @@ pub(super) struct NativeWindow {
 pub(super) struct WindowTable {
     by_id: BTreeMap<WindowId, NativeWindow>,
     ids: HashMap<WinitWindowId, WindowId>,
+    // xtask-allow(state-fields): independent: the windows to show when the current callback returns; any set of windows may wait and any placement is valid
     pending_show: Vec<WindowId>,
+    // xtask-allow(state-fields): option: whether the platform honours explicit window placement (false on Wayland)
     placement: bool,
 }
 

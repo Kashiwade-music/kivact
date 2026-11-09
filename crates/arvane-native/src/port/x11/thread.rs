@@ -2,7 +2,7 @@
 use super::conn::Native;
 use super::event::Input;
 use super::keyboard::Keyboard;
-use super::notifier::{MAX_DIMENSION, Notifier};
+use super::notifier::{MAX_DIMENSION, Notifier, UiThread};
 use super::poll::Waiter;
 use super::window::{ChildRedraw, Window};
 use crate::port::embed::child::{ChildPort, Command, Handle, Shared};
@@ -12,7 +12,6 @@ use arvane_shell::{
     ShellWindow,
 };
 use std::sync::{Arc, mpsc};
-use std::thread::JoinHandle;
 use x11rb::connection::Connection;
 
 impl ChildPort for Arc<Notifier> {
@@ -25,7 +24,16 @@ impl ChildPort for Arc<Notifier> {
         if shared.alive() {
             self.wake();
         }
-        let thread = self.thread.lock().expect(LOCK_POISONED).take();
+        let mut slot = self.thread.lock().expect(LOCK_POISONED);
+        let thread = match std::mem::replace(&mut *slot, UiThread::Joined) {
+            UiThread::Running(thread) => Some(thread),
+            // Nothing was spawned, or the handle was already taken.
+            unspawned @ (UiThread::Unspawned | UiThread::Joined) => {
+                *slot = unspawned;
+                None
+            }
+        };
+        drop(slot);
         if let Some(thread) = thread {
             // The callback must return before its own event loop can close.
             if thread.thread().id() == std::thread::current().id() {
@@ -46,11 +54,17 @@ impl ChildPort for Arc<Notifier> {
     }
     fn collect_panic(&self, shared: &Shared) {
         let mut slot = self.thread.lock().expect(LOCK_POISONED);
-        if slot.as_ref().is_some_and(JoinHandle::is_finished)
-            && let Some(thread) = slot.take()
-            && let Err(payload) = thread.join()
-        {
-            shared.keep_panic(payload);
+        let finished = match &*slot {
+            UiThread::Running(thread) => thread.is_finished(),
+            UiThread::Unspawned | UiThread::Joined => false,
+        };
+        if finished {
+            let UiThread::Running(thread) = std::mem::replace(&mut *slot, UiThread::Joined) else {
+                unreachable!("just saw a running UI thread");
+            };
+            if let Err(payload) = thread.join() {
+                shared.keep_panic(payload);
+            }
         }
     }
 }
@@ -84,7 +98,7 @@ pub(in crate::port) fn open(
     let backend = Arc::new(Notifier {
         wake: super::poll::eventfd()?,
         reasons: std::sync::atomic::AtomicU8::new(0),
-        thread: std::sync::Mutex::new(None),
+        thread: std::sync::Mutex::new(UiThread::Unspawned),
     });
     let ui_backend = backend.clone();
     let (sender, receiver) = mpsc::sync_channel(1);
@@ -109,7 +123,7 @@ pub(in crate::port) fn open(
             }
         })
         .map_err(super::error::platform)?;
-    *backend.thread.lock().expect(LOCK_POISONED) = Some(thread);
+    *backend.thread.lock().expect(LOCK_POISONED) = UiThread::Running(thread);
     let child = Handle { shared, backend };
     match receiver.recv() {
         Ok(Ok(())) => Ok(Box::new(child)),
@@ -117,7 +131,12 @@ pub(in crate::port) fn open(
         Err(_) => {
             // The UI thread ended without answering: it failed (see below) or
             // it panicked, and its payload is kept for the host to resume.
-            let thread = child.backend.thread.lock().expect(LOCK_POISONED).take();
+            let mut slot = child.backend.thread.lock().expect(LOCK_POISONED);
+            let thread = match std::mem::replace(&mut *slot, UiThread::Joined) {
+                UiThread::Running(thread) => Some(thread),
+                _ => None,
+            };
+            drop(slot);
             if let Some(thread) = thread
                 && let Err(payload) = thread.join()
             {

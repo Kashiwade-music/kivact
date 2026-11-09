@@ -152,11 +152,11 @@ pub struct PlatformTree {
 /// update separately carries only the text runs that changed.
 pub struct PlatformUpdate<'a> {
     tree: &'a state::AcceptedTree,
-    // xtask-allow(state-fields): borrowed snapshot - focus
+    // xtask-allow(state-fields): option: the focus the latest accepted update supplies; absent when no node has the focus
     focus: Option<SemanticsId>,
     nodes: Vec<&'a kivact_types::render::SemanticsNode>,
     runs: &'a [Arc<SemanticsTextRun>],
-    // xtask-allow(state-fields): borrowed snapshot - all runs
+    // xtask-allow(state-fields): independent: whether every text run is carried; any focus and node selection can carry all runs or only the changed ones
     all_runs: bool,
     scale: f64,
 }

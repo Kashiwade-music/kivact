@@ -269,12 +269,12 @@ pub enum Step {
 #[derive(Clone, Debug)]
 pub enum StepOutcome {
     Idle {
-        // xtask-allow(state-fields): passive record - the next timer deadline the backend reports
+        // xtask-allow(state-fields): option: the next timer deadline the backend reports; absent when the backend wants no timer
         next_deadline: Option<u64>,
-        // xtask-allow(state-fields): passive record - whether a redraw was asked during the turn
+        // xtask-allow(state-fields): independent: whether any window asked for a redraw during the turn; a turn may have a deadline, a redraw or a wake in any combination
         /// Whether any window asked for a redraw during the turn.
         redraw_requested: bool,
-        // xtask-allow(state-fields): passive record - whether the turn handled a wake
+        // xtask-allow(state-fields): independent: whether the turn handled a wake; a turn may have a deadline, a redraw or a wake in any combination
         woken: bool,
     },
     Exited,

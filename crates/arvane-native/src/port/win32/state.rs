@@ -56,9 +56,9 @@ impl Drop for Hold<'_> {
 
 #[derive(Default)]
 pub(super) struct Utf16Decoder {
-    // xtask-allow(state-fields): stream decoder buffers (HOST-REWRITE module) - pending
+    // xtask-allow(state-fields): option: the unpaired high surrogate waiting for its pair; absent when none waits
     pending: Option<u16>,
-    // xtask-allow(state-fields): stream decoder buffers (HOST-REWRITE module) - tail
+    // xtask-allow(state-fields): option: the incomplete character waiting for its second unit; absent when none waits
     tail: Option<char>,
 }
 impl Utf16Decoder {

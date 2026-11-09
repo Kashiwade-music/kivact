@@ -45,9 +45,9 @@ enum Drag {
     /// XdndPosition (`None` before the first one, so no status was sent yet).
     Hovering {
         source: NonZeroU32,
-        // xtask-allow(state-fields): independent fact - whether the source offers a URI list we take, decided at XdndEnter
+        // xtask-allow(state-fields): independent: whether the source offers a URI list we take, decided at XdndEnter
         accepts: bool,
-        // xtask-allow(state-fields): independent fact - the last XdndPosition, absent before the first one
+        // xtask-allow(state-fields): option: the last XdndPosition; absent before the first one
         point: Option<Point>,
     },
     /// `source` dropped at `point`; its selection is being converted, given up at `deadline`.

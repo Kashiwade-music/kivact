@@ -31,7 +31,7 @@ pub(super) enum Surface {
 
 /// Native window and CPU surface; deliberately !Send and !Sync through Rc.
 pub struct WinitWindow {
-    // xtask-allow(state-fields): RAII guard + monitor cache (HOST-REWRITE module) - the Windows subclass held for its drop, which removes it before the window goes
+    // xtask-allow(state-fields): option: the window's subclass, held for its drop, which removes it before the window goes; absent when it is not installed
     /// The window's subclass (Windows), held for its drop, which removes
     /// it before the window goes (fields drop in order).
     #[cfg(windows)]
@@ -49,7 +49,7 @@ pub struct WinitWindow {
     pub(super) affinity: Rc<()>,
     pub(super) accessibility: NativeAccessibility,
     pub(super) services: Services,
-    // xtask-allow(state-fields): RAII guard + monitor cache (HOST-REWRITE module) - the monitor the window was last seen on
+    // xtask-allow(state-fields): cache: the monitor the window was last seen on; absent before the first report
     /// The monitor the window was last seen on.
     pub(super) monitor: Option<winit::monitor::MonitorHandle>,
     /// The refresh period of that monitor (`frame_period_ns`).

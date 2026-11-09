@@ -72,9 +72,8 @@ struct Stores {
 impl Stores {
     /// Drop the pixels whose records the cache no longer holds, and the exports of sinks that are gone.
     fn prune(&mut self, cache: &CacheIndex, composition: &Composition) {
-        self.chunks.retain(|key, _| cache.chunks.contains_key(key));
-        self.surfaces
-            .retain(|key, _| cache.layers.contains_key(key));
+        self.chunks.retain(|key, _| cache.keeps_chunk(key));
+        self.surfaces.retain(|key, _| cache.keeps_layer(key));
         self.exports
             .retain(|sink, _| composition.exports.iter().any(|e| e.sink == *sink));
     }

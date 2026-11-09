@@ -385,10 +385,7 @@ impl<'a> Builder<'a> {
         let cache = self.cache;
         let reuse = self.cacheable()
             && !subtree_has_backdrop(self.comp, index)
-            && cache
-                .layers
-                .get(&layer.key)
-                .is_some_and(|r| r.signature == sig);
+            && cache.layer(&layer.key).is_some_and(|r| r.signature == sig);
         let surface = if self.cacheable() {
             self.push_target(
                 geo.size,
@@ -650,7 +647,7 @@ impl<'a> Builder<'a> {
         }
         let own = own_hash(layer, to_win, clips);
         let cache = self.cache;
-        match cache.layers.get(&layer.key) {
+        match cache.layer(&layer.key) {
             None => self.damage.extend(win),
             Some(prev) if prev.own != own => {
                 self.damage.extend(prev.window_bounds);

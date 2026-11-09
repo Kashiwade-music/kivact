@@ -12,7 +12,7 @@ use kivact_types::{Environment, PointerSettings};
 /// What the window's subclass shares with the window and the runner.
 pub(crate) struct NativeInput {
     pub(crate) ime: RefCell<arvane_shell::pipeline::ImeDriver>,
-    // xtask-allow(state-fields): independent fact - the focused text input's state as the application last set it
+    // xtask-allow(state-fields): independent: the focused text input's state as the application last set it; any combination with the system settings is valid
     /// The focused text input's state, as the application last set it.
     pub(crate) text: RefCell<Option<ShellImeText>>,
     /// Physical pixels per logical pixel of the window.
@@ -28,12 +28,12 @@ pub(crate) struct NativeInput {
     /// subclass reads it.
     #[cfg(windows)]
     pub(crate) subclass_installed: Cell<Subclass>,
-    // xtask-allow(state-fields): measurement - the system reduce-motion preference as last read
+    // xtask-allow(state-fields): cache: the system's reduce-motion preference as last read
     /// The system's reduce-motion preference as last read.
     pub(crate) reduced_motion: Cell<bool>,
     /// The system's mouse settings as last read.
     pub(crate) mouse: Cell<PointerSettings>,
-    // xtask-allow(state-fields): measurement - the system locale as last read
+    // xtask-allow(state-fields): option: the system's locale as last read; absent when the system reports none
     /// The system's locale as last read (`system_locale`).
     pub(crate) locale: RefCell<Option<String>>,
     /// The reduce-motion preference, the mouse settings or the locale
@@ -59,10 +59,10 @@ pub(crate) struct ContactNote {
     pub(crate) id: u64,
     /// Touch or pen.
     pub(crate) kind: kivact_types::PointerKind,
-    // xtask-allow(state-fields): platform snapshot - The contact ended without a release (the system took it over)
+    // xtask-allow(state-fields): independent: the contact ended without a release; it is recorded separately from the pen's tilt
     /// The contact ended without a release (the system took it over).
     pub(crate) canceled: bool,
-    // xtask-allow(state-fields): platform snapshot - The pen's tilt (degrees along x and y), when reported
+    // xtask-allow(state-fields): option: the pen's tilt in degrees along x and y; absent when the platform reports none
     /// The pen's tilt (degrees along x and y), when reported.
     pub(crate) tilt: Option<(f64, f64)>,
 }

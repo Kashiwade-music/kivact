@@ -37,13 +37,13 @@ struct Tap {
 /// Counts the presses of the pointer events a window delivers.
 #[derive(Clone, Debug, Default)]
 pub struct ClickCounter {
-    // xtask-allow(state-fields): independent histories - The last mouse press
+    // xtask-allow(state-fields): independent: the last mouse press; the tap and the held buttons are kept separately and every combination is a valid history
     /// The last mouse press.
     last: Option<Press>,
     /// The count each held button was pressed with (`None`: not held), by
     /// [`slot`].
     pressed: [Option<u8>; 5],
-    // xtask-allow(state-fields): independent histories - The last contact's `Down`
+    // xtask-allow(state-fields): independent: the last touch or pen contact's `Down`; the mouse history and the held buttons are kept separately
     /// The last contact's `Down`.
     tap: Option<Tap>,
     /// The count each live contact went down with, for its `Up`.

@@ -12,12 +12,14 @@
 
 #[cfg(any(windows, target_os = "linux"))]
 use std::sync::atomic::{AtomicBool, Ordering};
+// xtask-allow(state-fields): cache: the result of retaining the module, computed once for the process
 #[cfg(any(windows, target_os = "linux"))]
 #[expect(
     clippy::disallowed_types,
     reason = "process-wide module mapping initialized once"
 )]
 static MAPPING: std::sync::OnceLock<Option<&'static str>> = std::sync::OnceLock::new();
+// xtask-allow(state-fields): statistic: the module retention was reported, at most once per process
 #[cfg(any(windows, target_os = "linux"))]
 static REPORTED: AtomicBool = AtomicBool::new(false);
 

@@ -15,7 +15,7 @@ use kivact_types::Rect;
 /// mapping back into the complete document.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct ShellImeText {
-    // xtask-allow(state-fields): snapshot value - Password input: no surrounding text is supplied to native reconversion
+    // xtask-allow(state-fields): independent: the input is a password; a password field can still compose, so every combination with the other snapshot values is valid
     /// Password input: no surrounding text is supplied to native reconversion.
     pub password: bool,
     /// The text around the caret (all of the input's text when short).
@@ -29,7 +29,7 @@ pub struct ShellImeText {
     /// The caret in UTF-16 code units: the selection's end, or its start
     /// when the selection was made backwards.
     pub caret: usize,
-    // xtask-allow(state-fields): snapshot value - The composition, `[start, end)` in UTF-16 code units, if any
+    // xtask-allow(state-fields): option: the composition's `[start, end)` in UTF-16 code units; absent when not composing
     /// The composition, `[start, end)` in UTF-16 code units, if any.
     pub composition: Option<(usize, usize)>,
     /// The UTF-16 offset of the character `rects` starts with: the

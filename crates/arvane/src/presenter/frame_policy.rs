@@ -15,14 +15,35 @@ use std::collections::HashSet;
 use std::time::{Duration, Instant};
 
 /// What drawing one frame did, before the frame policy.
-pub(super) struct Drawn {
-    pub(super) renderer: Renderer,
-    /// `false`: the window had no buffer to give.
-    pub(super) shown: bool,
-    pub(super) raster: Duration,
-    pub(super) present: Duration,
+pub(super) enum Drawn {
+    /// The window showed the frame.
+    Shown {
+        renderer: Renderer,
+        raster: Duration,
+        present: Duration,
+        /// The frame's exports, missed external frames, shader failures and stats.
+        report: FrameReport,
+    },
+    /// The window had no buffer to give: the frame is drawn again later.
+    NoBuffer {
+        /// The rasterizer that drew the frame, kept as [`Drawn::Shown`] keeps it.
+        #[expect(
+            dead_code,
+            reason = "the design keeps the renderer in both variants; the skip path treats every renderer alike"
+        )]
+        renderer: Renderer,
+        /// The frame's exports, missed external frames, shader failures and stats.
+        report: FrameReport,
+    },
+}
+
+impl Drawn {
     /// The frame's exports, missed external frames, shader failures and stats.
-    pub(super) report: FrameReport,
+    fn report(&self) -> &FrameReport {
+        match self {
+            Self::Shown { report, .. } | Self::NoBuffer { report, .. } => report,
+        }
+    }
 }
 
 /// The renderers of one window and its frame policy.
@@ -234,29 +255,34 @@ impl Presenter {
         // Every frame that was drawn notes its report, including one drawn
         // after a surface loss on the CPU.
         if let Ok(drawn) = &drawn {
-            self.note_report(&drawn.report);
+            self.note_report(drawn.report());
         }
         // A frame that was not shown leaves the compositor's records ahead
         // of what the window holds: the next frame redraws everything.
-        if !matches!(&drawn, Ok(drawn) if drawn.shown) {
+        if !matches!(&drawn, Ok(Drawn::Shown { .. })) {
             self.cpu.invalidate();
         }
         match drawn {
-            Ok(drawn) if drawn.shown => {
+            Ok(Drawn::Shown {
+                renderer,
+                raster,
+                present,
+                report,
+            }) => {
                 self.health.shown();
                 Ok(Presented::Shown {
-                    renderer: drawn.renderer,
-                    raster: drawn.raster,
-                    present: drawn.present,
-                    exports: drawn.report.exports,
-                    pending_exports: drawn.report.pending_exports,
-                    stats: drawn.report.stats,
+                    renderer,
+                    raster,
+                    present,
+                    exports: report.exports,
+                    pending_exports: report.pending_exports,
+                    stats: report.stats,
                 })
             }
             // The surface had no buffer (timed out, occluded): the picture
             // is drawn again a display period later, backing off to 16
             // periods while it stays so.
-            Ok(_) => {
+            Ok(Drawn::NoBuffer { .. }) => {
                 let wait = self.health.skipped(period_ns);
                 Ok(Presented::Skipped {
                     retry_at_ns: now_ns.saturating_add(wait),
@@ -299,12 +325,15 @@ impl Presenter {
         let was_ready = self.gpu.ready();
         let drawn = self.draw_native(window, composition, plan);
         let (now, period) = (window.now_ns(), window.frame_period_ns());
-        if let Ok(drawn) = &drawn
-            && drawn.renderer == Renderer::Cpu
-            && drawn.shown
+        if let Ok(Drawn::Shown {
+            renderer: Renderer::Cpu,
+            raster,
+            present,
+            ..
+        }) = &drawn
         {
             self.gpu.note_cpu_frame(
-                drawn.raster + drawn.present,
+                *raster + *present,
                 Duration::from_nanos(period),
                 composition.needs_gpu(),
                 &mut self.notes,
@@ -381,11 +410,8 @@ impl Presenter {
         // the frame is drawn again later (the first GPU frame follows
         // the configuration at once).
         if self.gpu.configuring() && window.shows_cpu_frame() {
-            return Ok(Drawn {
+            return Ok(Drawn::NoBuffer {
                 renderer: Renderer::Cpu,
-                shown: false,
-                raster: Duration::ZERO,
-                present: Duration::ZERO,
                 report: FrameReport::default(),
             });
         }
@@ -395,12 +421,15 @@ impl Presenter {
                 window.release_cpu_surface();
                 if presentation == Presentation::Shown {
                     self.keep_shown_frame(window);
+                    return Ok(Drawn::Shown {
+                        renderer: Renderer::Gpu,
+                        raster: started.elapsed().saturating_sub(present),
+                        present,
+                        report,
+                    });
                 }
-                return Ok(Drawn {
+                return Ok(Drawn::NoBuffer {
                     renderer: Renderer::Gpu,
-                    shown: presentation == Presentation::Shown,
-                    raster: started.elapsed().saturating_sub(present),
-                    present,
                     report,
                 });
             }
@@ -418,12 +447,15 @@ impl Presenter {
                         window.release_cpu_surface();
                         if presentation == Presentation::Shown {
                             self.keep_shown_frame(window);
+                            return Ok(Drawn::Shown {
+                                renderer: Renderer::Cpu,
+                                raster,
+                                present,
+                                report,
+                            });
                         }
-                        return Ok(Drawn {
+                        return Ok(Drawn::NoBuffer {
                             renderer: Renderer::Cpu,
-                            shown: presentation == Presentation::Shown,
-                            raster,
-                            present,
                             report,
                         });
                     }
@@ -501,13 +533,20 @@ impl Presenter {
             true
         });
         let shown = backend.map_err(|e| Failure::new(FailureKind::Surface, e.to_string()))?;
-        Ok(Drawn {
-            renderer: Renderer::Cpu,
-            shown,
-            raster,
-            present: started.elapsed().saturating_sub(raster),
-            report,
-        })
+        let present = started.elapsed().saturating_sub(raster);
+        if shown {
+            Ok(Drawn::Shown {
+                renderer: Renderer::Cpu,
+                raster,
+                present,
+                report,
+            })
+        } else {
+            Ok(Drawn::NoBuffer {
+                renderer: Renderer::Cpu,
+                report,
+            })
+        }
     }
 
     /// Keep a copy of the GPU frame just shown when `window` keeps frames. A failed read-back

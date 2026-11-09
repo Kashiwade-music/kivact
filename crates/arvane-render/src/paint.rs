@@ -46,10 +46,10 @@ pub(crate) struct PatternFill {
     pub(crate) image: Pixels,
     /// From the image's pixel grid to the current coordinates.
     pub(crate) transform: Affine,
-    // xtask-allow(state-fields): drawing options - Repeat along x (else the edge pixels extend)
+    // xtask-allow(state-fields): option: repeat along x (else the edge pixels extend)
     /// Repeat along x (else the edge pixels extend).
     pub(crate) repeat_x: bool,
-    // xtask-allow(state-fields): drawing options - Repeat along y
+    // xtask-allow(state-fields): option: repeat along y (else the edge pixels extend)
     /// Repeat along y.
     pub(crate) repeat_y: bool,
     /// The area of one tile in the current coordinates.

@@ -29,6 +29,7 @@ pub(in crate::port) struct Shared {
 struct Inner {
     state: ChildStatus,
     applied: Applied,
+    // xtask-allow(state-fields): identity: advanced by every host size; a negotiated size is accepted only at its generation
     /// Advanced by every host size (`queue_host_size`); negotiated sizes carry the generation they
     /// were accepted at.
     generation: u64,

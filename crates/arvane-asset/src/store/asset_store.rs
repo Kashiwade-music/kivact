@@ -37,6 +37,26 @@ pub(super) enum Runner {
     Worker(Worker),
 }
 
+/// The host's frame clock (`begin_frame`, counted from 1).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(super) enum FrameClock {
+    /// Before the host's first `begin_frame`: nothing is protected.
+    #[default]
+    BeforeFirstFrame,
+    /// The host's current frame.
+    Frame(NonZeroU64),
+}
+
+impl FrameClock {
+    /// The frame's number, when the host has begun one.
+    pub(super) fn number(self) -> Option<NonZeroU64> {
+        match self {
+            Self::BeforeFirstFrame => None,
+            Self::Frame(frame) => Some(frame),
+        }
+    }
+}
+
 /// Loads, decodes and keeps images for one host instance (see the module
 /// invariants).
 pub struct AssetStore {
@@ -45,15 +65,13 @@ pub struct AssetStore {
     /// registered ones (`register_font`).
     pub(super) fonts: FontDb,
     pub(super) entries: HashMap<Asset, Entry>,
-    // xtask-allow(state-fields): measurement - the host's frame clock written by begin_frame; the cache protects what the current and the previous frame used
-    /// The host's current frame (`begin_frame`, counted from 1); `None`
-    /// before the first: nothing is protected.
-    pub(super) frame: Option<NonZeroU64>,
+    /// The host's frame clock written by `begin_frame`.
+    pub(super) frame: FrameClock,
     /// Ticks once per use; orders uses within a frame.
     pub(super) tick: u64,
-    // xtask-allow(state-fields): S-8 ID - the next image id
+    // xtask-allow(state-fields): identity: the next image id, given to each image the store makes
     pub(super) next_id: u64,
-    // xtask-allow(state-fields): S-8 ID - the next entry generation; a job result of another generation is dropped
+    // xtask-allow(state-fields): identity: the next entry generation; a job result of another generation is dropped
     pub(super) next_generation: u64,
     pub(super) budget: usize,
     pub(super) bytes: usize,
@@ -83,7 +101,7 @@ impl AssetStore {
             runner,
             fonts: Arc::new(crate::svg::SvgFonts::new()),
             entries: HashMap::new(),
-            frame: None,
+            frame: FrameClock::BeforeFirstFrame,
             tick: 0,
             next_id: 1,
             next_generation: 1,
@@ -102,9 +120,9 @@ impl AssetStore {
     /// Until the first call nothing is protected: the cache is a plain LRU
     /// within its budget.
     pub fn begin_frame(&mut self) {
-        self.frame = Some(match self.frame {
-            Some(frame) => frame.checked_add(1).expect("invariant: frames fit u64"),
-            None => NonZeroU64::MIN,
+        self.frame = FrameClock::Frame(match self.frame {
+            FrameClock::Frame(frame) => frame.checked_add(1).expect("invariant: frames fit u64"),
+            FrameClock::BeforeFirstFrame => NonZeroU64::MIN,
         });
     }
 
@@ -326,7 +344,7 @@ impl AssetStore {
     fn stamp(&mut self) -> Stamp {
         self.tick += 1;
         Stamp {
-            frame: self.frame,
+            frame: self.frame.number(),
             tick: self.tick,
         }
     }

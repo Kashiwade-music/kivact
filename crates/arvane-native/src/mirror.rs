@@ -103,27 +103,27 @@ pub struct MirrorStats {
 
 #[derive(Default)]
 struct Counters {
-    // xtask-allow(state-fields): statistics - native windows created
+    // xtask-allow(state-fields): statistic: native windows created
     created: AtomicU64,
-    // xtask-allow(state-fields): statistics - pooled windows handed to a new test
+    // xtask-allow(state-fields): statistic: pooled windows handed to a new test
     reused: AtomicU64,
-    // xtask-allow(state-fields): statistics - frames shown after coalescing
+    // xtask-allow(state-fields): statistic: frames shown after coalescing
     presented: AtomicU64,
 }
 
 /// What a test window shows next; the UI thread takes it all at once.
 #[derive(Default)]
 struct MirrorBatch {
-    // xtask-allow(state-fields): mailbox - frame
+    // xtask-allow(state-fields): option: the frame a test window shows next; absent when none is pending
     frame: Option<Frame>,
-    // xtask-allow(state-fields): mailbox - The accessibility tree changed: hand the platform what it lacks
+    // xtask-allow(state-fields): independent: whether the accessibility tree changed, taken with the batch; any combination with the other batch values is valid
     /// The accessibility tree changed: hand the platform what it lacks.
     accessibility: bool,
-    // xtask-allow(state-fields): mailbox - title
+    // xtask-allow(state-fields): option: the title a test window shows next; absent when none is pending
     title: Option<String>,
-    // xtask-allow(state-fields): mailbox - resize
+    // xtask-allow(state-fields): option: the size a test window resizes to; absent when none is pending
     resize: Option<(u32, u32, f64)>,
-    // xtask-allow(state-fields): mailbox - A GPU surface presents to the window from now on
+    // xtask-allow(state-fields): independent: whether a GPU surface presents from now on, taken with the batch; any combination with the other batch values is valid
     /// A GPU surface presents to the window from now on.
     gpu: bool,
 }
