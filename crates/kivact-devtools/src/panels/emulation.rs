@@ -101,24 +101,22 @@ pub(crate) fn view(session: Session) -> impl IntoView {
         show_some(
             move || session.emulation.latest(),
             move |emulation| {
-                let locale = signal(String::new());
-                let scale = signal(String::new());
-                // The inputs follow the target's value, so a reset clears what they show.
-                effect(move || {
-                    let (next_locale, next_scale) = emulation.with(|emulation| {
-                        (
-                            emulation.locale.clone().unwrap_or_default(),
+                dynamic(
+                    move || emulation.get(),
+                    move |emulation| {
+                        // Each value of the target's emulation starts the inputs
+                        // from it, so a reset clears what they show.
+                        let locale = signal(emulation.locale.clone().unwrap_or_default());
+                        let scale = signal(
                             emulation
                                 .scale
                                 .map(|scale| scale.to_string())
                                 .unwrap_or_default(),
-                        )
-                    });
-                    locale.set(next_locale);
-                    scale.set(next_scale);
-                });
-                column((locale_input(session, locale), scale_input(session, scale)))
-                    .style(style().gap(12).align_items(Align::Start))
+                        );
+                        column((locale_input(session, locale), scale_input(session, scale)))
+                            .style(style().gap(12).align_items(Align::Start))
+                    },
+                )
             },
         ),
         pseudo_select(session),

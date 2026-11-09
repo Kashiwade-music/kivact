@@ -48,21 +48,30 @@ pub(crate) fn cause_graph(
     on_open: impl Fn(p::SourceLocation) + 'static,
 ) -> impl IntoView {
     let causes = causes.into_value();
-    let expanded = signal(BTreeSet::<u32>::new());
-    effect_on(causes, move |_| expanded.set(BTreeSet::new()));
     let on_highlight: Rc<dyn Fn(p::NodeId)> = Rc::new(on_highlight);
     let on_open: Rc<dyn Fn(p::SourceLocation)> = Rc::new(on_open);
     dynamic(
-        move || (causes.get(), expanded.get()),
-        move |(causes, open)| match causes {
-            Some(causes) => graph_body(
-                causes,
-                open,
-                expanded,
-                on_highlight.clone(),
-                on_open.clone(),
-            )
-            .into_view(),
+        move || causes.get(),
+        move |causes| match causes {
+            Some(causes) => {
+                // Each graph starts with every group closed.
+                let expanded = signal(BTreeSet::<u32>::new());
+                let (on_highlight, on_open) = (on_highlight.clone(), on_open.clone());
+                dynamic(
+                    move || expanded.get(),
+                    move |open| {
+                        graph_body(
+                            causes.clone(),
+                            open,
+                            expanded,
+                            on_highlight.clone(),
+                            on_open.clone(),
+                        )
+                        .into_view()
+                    },
+                )
+                .into_view()
+            }
             None => empty("Select a turn to see its causes").into_view(),
         },
     )
