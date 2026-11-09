@@ -324,7 +324,8 @@ A few rules:
 - `screen.window(..)` returns a temporary. Store the handle in a `let` before
   you take an `Element` from it: `let save =
   screen.window("Settings").get_by_role(..);` does not compile (E0716). The
-  handle keeps the window alive.
+  `let` only keeps the handle value alive; it does not keep the window open
+  (writing `false` to `open` still closes it, and `is_open()` turns false).
 - `is_open()` says whether the window is still open. `request_close()` makes
   the same close request as the title bar, so `on_dismiss` runs. On a closed
   handle, the window methods fail with "window <id> is closed".

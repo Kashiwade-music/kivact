@@ -5,6 +5,7 @@
 
 use kivact::prelude::*;
 use kivact::test::Screen;
+use kivact::view::MouseButton;
 use kivact_ui_creative as ui;
 
 fn scene() -> Vec<ui::TreeItem> {
@@ -141,6 +142,79 @@ fn rename_is_f2_and_a_double_click_unless_the_item_is_activated() {
     screen.press_key(Key::Enter);
     assert_eq!(data.get_untracked()[2].label, "Mesh");
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+/// A restriction paint from the visibility toggle of row 1, over rows 2 and 3.
+/// The log of the outliner's restriction events is returned.
+fn paint_log(escape_before_release: bool) -> Vec<ui::EditorEvent<ui::Restriction>> {
+    let (screen, log) = kivact::test::render_with_handle(crate::support::options(), || {
+        let data = signal(scene());
+        let log = signal(Vec::<ui::EditorEvent<ui::Restriction>>::new());
+        (
+            log,
+            ui::outliner(data, ui::OutlinerState::new(ids(data))).on_restriction(move |event| {
+                log.update(|all| all.push(event));
+            }),
+        )
+    });
+    let toggle = item(&screen, "Scene").get_by_role(Role::Button, "Tree visibility");
+    let (x, y) = centre(&toggle);
+    screen.mouse_move(x, y);
+    screen.mouse_down(MouseButton::Primary);
+    for name in ["Group", "Cube"] {
+        let (x, y) = centre(&item(&screen, name));
+        screen.mouse_move(x, y);
+    }
+    if escape_before_release {
+        screen.press_key(Key::Escape);
+    }
+    screen.mouse_up(MouseButton::Primary);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+    log.get_untracked()
+}
+
+/// The centre of an element's published window bounds.
+fn centre(element: &kivact::test::Element<'_>) -> (f64, f64) {
+    let rect = element.accessibility_bounds().expect("published bounds");
+    (rect.x + rect.width / 2.0, rect.y + rect.height / 2.0)
+}
+
+/// A proposal that hides the given items.
+fn hide(ids: &[u64]) -> ui::EditorEvent<ui::Restriction> {
+    ui::EditorEvent::Request(ui::Restriction {
+        ids: ids.to_vec(),
+        flag: ui::RestrictionFlag::Visible,
+        value: false,
+    })
+}
+
+#[test]
+fn a_paint_proposes_the_rows_it_passes_and_commits_on_release() {
+    assert_eq!(
+        paint_log(false),
+        [
+            ui::EditorEvent::Begin,
+            hide(&[1]),
+            hide(&[1, 2]),
+            hide(&[1, 2, 3]),
+            ui::EditorEvent::Commit,
+        ]
+    );
+}
+
+#[test]
+fn escape_during_a_paint_cancels_it() {
+    let log = paint_log(true);
+    assert_eq!(
+        log,
+        [
+            ui::EditorEvent::Begin,
+            hide(&[1]),
+            hide(&[1, 2]),
+            hide(&[1, 2, 3]),
+            ui::EditorEvent::Cancel,
+        ]
+    );
 }
 
 /// Every item's ID, which an outliner state opens.

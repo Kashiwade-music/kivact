@@ -86,8 +86,8 @@ fn ask_platform(
     )
 }
 
-/// Request a content size in logical pixels, clamped to the window's
-/// minimum. A desktop window asks the OS for that size. Embedded windows
+/// Request a content size in logical pixels for the window of the calling
+/// owner, clamped to that window's minimum. A desktop window asks the OS for that size. Embedded windows
 /// ask `Parent::on_resize_request` in physical pixels. A refusal is a
 /// platform error; an absent callback is unsupported. Invalid dimensions
 /// return a message error. Await the future to observe the result.
@@ -128,7 +128,7 @@ pub fn request_window_size(
     async move { result?.await.and_then(platform_result).map(|_| ()) }
 }
 
-/// Enter or leave borderless fullscreen on this window.
+/// Enter or leave borderless fullscreen on the window of the calling owner.
 ///
 /// Like every service of this module, it sends the request at the call for
 /// the nearest owner (setup, handler, task or effect); the request fails
@@ -197,7 +197,8 @@ pub fn read_text() -> impl Future<Output = Result<String, UiError>> + 'static {
     }
 }
 
-/// `Ok(None)` when the user cancels.
+/// Select one file in a native dialog whose parent is the window of the
+/// calling owner. `Ok(None)` when the user cancels.
 #[track_caller]
 pub fn pick_file(
     opts: FileDialog,
@@ -215,7 +216,8 @@ pub fn pick_file(
     }
 }
 
-/// Select multiple files in one native dialog. `Ok(None)` when cancelled.
+/// Select multiple files in one native dialog whose parent is the window
+/// of the calling owner. `Ok(None)` when cancelled.
 /// The returned order is the order supplied by the platform picker.
 #[track_caller]
 pub fn pick_files(
@@ -234,8 +236,8 @@ pub fn pick_files(
     }
 }
 
-/// Select a folder in one native dialog. `Ok(None)` when the user
-/// cancels. Of `opts`, `title` and `directory` apply; `file_name` and
+/// Select a folder in one native dialog whose parent is the window of the
+/// calling owner. `Ok(None)` when the user cancels. Of `opts`, `title` and `directory` apply; `file_name` and
 /// `filters` do not apply to a folder and are ignored (they are still
 /// checked like a file dialog's). The test host answers it from the
 /// same script as the file dialogs (`Screen::respond_file_dialog`).
@@ -256,7 +258,8 @@ pub fn pick_folder(
     }
 }
 
-/// Shows a save dialog. `Ok(None)` when the user cancels.
+/// Shows a save dialog whose parent is the window of the calling owner.
+/// `Ok(None)` when the user cancels.
 #[track_caller]
 pub fn save_file(
     opts: FileDialog,
