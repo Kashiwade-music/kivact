@@ -106,6 +106,9 @@ pub struct CauseNode {
     pub count: u32,
     /// Whether the work changed nothing.
     pub wasted: bool,
+    /// For a merged node (`count` > 1): the element nodes of the merged members, in first-seen order without duplicates; empty otherwise.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub members: Vec<NodeId>,
 }
 
 /// An edge of a cause graph.

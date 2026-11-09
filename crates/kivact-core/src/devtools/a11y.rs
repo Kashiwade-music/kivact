@@ -448,6 +448,14 @@ pub(super) fn audit_a11y(
     })
 }
 
+/// Whether the focus ring of `window` is visible.
+pub(super) fn focus_visible(rt: &Runtime, window: WindowId) -> bool {
+    ViewState::of(rt)
+        .focus_keys(window)
+        .and_then(|keys| keys.visible.try_get_untracked())
+        .unwrap_or(false)
+}
+
 pub(super) fn get_focus(
     rt: &Runtime,
     params: p::WindowParams,
@@ -463,10 +471,7 @@ pub(super) fn get_focus(
         .get(&window)
         .map(|moves| moves.iter().cloned().collect())
         .unwrap_or_default();
-    let visible = ViewState::of(rt)
-        .focus_keys(window)
-        .and_then(|keys| keys.visible.try_get_untracked())
-        .unwrap_or(false);
+    let visible = focus_visible(rt, window);
     Ok(p::FocusInfo {
         window: params.window,
         node: reader.focused(window).map(|target| target.node.0),

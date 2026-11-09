@@ -25,6 +25,8 @@ pub struct OverlaySettings {
     pub update_heatmap: bool,
     /// Show the Tab order.
     pub tab_order: bool,
+    /// Draw paint flashing and the update heatmap only for the highlighted node and its descendants; nothing when no node is highlighted.
+    pub selected_only: bool,
 }
 
 /// The parameters of `start_pick`.

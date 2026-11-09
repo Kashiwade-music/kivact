@@ -9,6 +9,7 @@ use kivact_types::{NodeId, WindowId};
 
 use super::convert;
 use super::node;
+use super::styles;
 use super::tree;
 use crate::view::devtools_apply;
 use crate::view::devtools_state::{DevtoolsState, Inspector};
@@ -189,11 +190,17 @@ fn node_style_changes(rt: &Runtime, id: NodeId) -> Vec<p::StyleChange> {
     };
     all.into_iter()
         .filter(|entry| scope_applies(&entry.scope, id, &sites))
-        .map(|entry| p::StyleChange {
-            scope: entry.scope,
-            property: entry.property,
-            before: None,
-            after: entry.value,
+        .map(|entry| {
+            let before = match &entry.scope {
+                p::OverrideScope::Token { .. } => None,
+                _ => styles::base_value(rt, id, &entry.property),
+            };
+            p::StyleChange {
+                scope: entry.scope,
+                property: entry.property,
+                before,
+                after: entry.value,
+            }
         })
         .collect()
 }

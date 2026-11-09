@@ -32,7 +32,8 @@ pub(crate) fn fixture() -> Fixture {
                 "paint_flashing": false,
                 "layout_lint": false,
                 "update_heatmap": false,
-                "tab_order": false
+                "tab_order": false,
+                "selected_only": false
             }),
         )],
         notifications: Vec::new(),

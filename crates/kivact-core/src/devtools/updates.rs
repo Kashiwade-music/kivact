@@ -110,10 +110,10 @@ fn select_turns(
 /// Finish the graphs whose frame arrived, and record this turn's graph.
 pub(super) fn after_turn(rt: &Runtime, records: &EngineRecords) {
     let i = DevtoolsState::inspector(rt);
+    apply_records(i, records);
     if i.hooks.recording.borrow().updates {
         record_turn(rt, i);
     }
-    apply_records(i, records);
     answer_pending_turns(rt, i);
 }
 
@@ -139,10 +139,23 @@ fn record_turn(rt: &Runtime, i: &Inspector) {
     };
     let revision = Revision(ViewState::tree(rt).engine().stats().revision);
     let graph = build_graph(rt, i, &detail, &writes);
-    i.session
-        .pending_graphs
-        .borrow_mut()
-        .push_back(PendingGraph { revision, graph });
+    queue_pending(i, PendingGraph { revision, graph });
+}
+
+/// Wait for a new graph's frame, completing the oldest waiting graph when
+/// `TURN_CAP` graphs already wait.
+fn queue_pending(i: &Inspector, item: PendingGraph) {
+    let oldest = {
+        let mut pending = i.session.pending_graphs.borrow_mut();
+        let oldest = (pending.len() >= TURN_CAP)
+            .then(|| pending.pop_front())
+            .flatten();
+        pending.push_back(item);
+        oldest
+    };
+    if let Some(oldest) = oldest {
+        push_completed(i, vec![oldest.graph]);
+    }
 }
 
 /// Build one turn's cause graph from the detailed trace (design 4.2.4 steps 1-3, 5-8).
@@ -241,6 +254,7 @@ impl GraphBuilder {
                 window: None,
                 count: 1,
                 wasted: false,
+                members: Vec::new(),
             });
             self.causes.push(id);
         }
@@ -259,6 +273,7 @@ impl GraphBuilder {
                 window: None,
                 count: 1,
                 wasted: !write.changed,
+                members: Vec::new(),
             });
             if !write.changed {
                 self.wasted.equal_writes = self.wasted.equal_writes.saturating_add(1);
@@ -286,6 +301,7 @@ impl GraphBuilder {
                 window: None,
                 count: 1,
                 wasted: !run.changed,
+                members: Vec::new(),
             });
             if run.kind == "memo" && !run.changed {
                 self.wasted.equal_memos = self.wasted.equal_memos.saturating_add(1);
@@ -317,6 +333,7 @@ impl GraphBuilder {
                 window,
                 count: 1,
                 wasted: !write.changed,
+                members: Vec::new(),
             });
             if write.changed {
                 let mut counts = i.session.update_counts.borrow_mut();
@@ -462,12 +479,24 @@ fn merge_nodes(nodes: &mut Vec<p::CauseNode>) -> HashMap<u32, u32> {
         merged.count = members
             .iter()
             .fold(0u32, |count, index| count.saturating_add(old[*index].count));
+        if members.len() > 1 {
+            merged.members = merged_members(members.iter().map(|index| &old[*index]));
+        }
         for index in &members {
             remap.insert(old[*index].id, new_id);
         }
         nodes.push(merged);
     }
     remap
+}
+
+/// The element nodes of the merged members, in first-seen order without duplicates.
+fn merged_members<'a>(members: impl Iterator<Item = &'a p::CauseNode>) -> Vec<u64> {
+    let mut seen = BTreeSet::new();
+    members
+        .filter_map(|member| member.node)
+        .filter(|node| seen.insert(*node))
+        .collect()
 }
 
 /// The reasons of a `SyncRecord` as protocol layout reasons.
@@ -550,6 +579,7 @@ fn push_graph_node(
         window: Some(window),
         count,
         wasted: false,
+        members: Vec::new(),
     });
     id
 }

@@ -96,13 +96,13 @@ fn click_inputs(
     let Some(model) = reader.box_model(node) else {
         return Err(node_not_found(raw));
     };
-    let content = model.content;
-    if content.width <= 0.0 || content.height <= 0.0 {
+    let border = model.border;
+    if border.width <= 0.0 || border.height <= 0.0 {
         return Err(node_not_found(raw));
     }
     let center = Point::new(
-        content.x + content.width / 2.0,
-        content.y + content.height / 2.0,
+        border.x + border.width / 2.0,
+        border.y + border.height / 2.0,
     );
     if let Some(record) = ViewState::of(rt).window_record(window) {
         let size = record.env.environment().window_size;

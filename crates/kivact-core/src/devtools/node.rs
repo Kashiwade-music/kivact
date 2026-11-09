@@ -8,6 +8,7 @@ use kivact_engine::api::Reader;
 use kivact_runtime::{LiveOwner, OwnerId, Runtime, Turn};
 use kivact_types::{CheckedState, FocusTarget, NodeId};
 
+use super::a11y;
 use super::convert;
 use super::styles;
 use super::tree;
@@ -38,10 +39,11 @@ pub(super) fn states(rt: &Runtime, id: NodeId) -> Vec<p::InteractiveState> {
     let reader = tree.reader();
     let semantics = reader.semantics(id);
     let (hovered, pressed) = reader.pointer_state(id);
-    let focused = reader
-        .window_of(id)
+    let window = reader.window_of(id);
+    let focused = window
         .and_then(|window| reader.focused(window))
         .is_some_and(|target| target.node == id);
+    let focus_visible = focused && window.is_some_and(|window| a11y::focus_visible(rt, window));
     let mut states = Vec::new();
     if hovered {
         states.push(p::InteractiveState::Hovered);
@@ -51,6 +53,9 @@ pub(super) fn states(rt: &Runtime, id: NodeId) -> Vec<p::InteractiveState> {
     }
     if focused {
         states.push(p::InteractiveState::Focused);
+    }
+    if focus_visible {
+        states.push(p::InteractiveState::FocusVisible);
     }
     if semantics
         .as_ref()
@@ -92,8 +97,28 @@ pub(super) fn get_node(
         semantics,
         handlers,
         states: states(rt, id),
+        forced: forced_states(rt, id),
         why,
     })
+}
+
+/// The states DevTools forces on `id`, in `InteractiveState` order.
+fn forced_states(rt: &Runtime, id: NodeId) -> Vec<p::InteractiveState> {
+    let all = DevtoolsState::inspector(rt).hooks.forced.get_untracked();
+    let Some(forced) = all.get(&id) else {
+        return Vec::new();
+    };
+    [
+        p::InteractiveState::Hovered,
+        p::InteractiveState::Pressed,
+        p::InteractiveState::Focused,
+        p::InteractiveState::FocusVisible,
+        p::InteractiveState::Disabled,
+        p::InteractiveState::Selected,
+    ]
+    .into_iter()
+    .filter(|state| forced.contains(convert::forced_state(*state)))
+    .collect()
 }
 
 fn empty_box_model() -> p::BoxModel {
@@ -495,7 +520,7 @@ fn build_owner_tree(
     }
     let mut built: HashMap<OwnerId, p::OwnerNode> = HashMap::new();
     for id in order.into_iter().rev() {
-        let node = owner_node(id, children, owners, nodes, &built);
+        let node = owner_node(id, children, owners, nodes, &mut built);
         built.insert(id, node);
     }
     built
@@ -508,7 +533,7 @@ fn owner_node(
     children: &HashMap<OwnerId, Vec<OwnerId>>,
     owners: &HashMap<OwnerId, &LiveOwner>,
     nodes: &HashMap<OwnerId, Vec<NodeId>>,
-    built: &HashMap<OwnerId, p::OwnerNode>,
+    built: &mut HashMap<OwnerId, p::OwnerNode>,
 ) -> p::OwnerNode {
     let owner = owners.get(&id).copied();
     p::OwnerNode {
@@ -523,7 +548,7 @@ fn owner_node(
             .get(&id)
             .map(|list| {
                 list.iter()
-                    .filter_map(|child| built.get(child).cloned())
+                    .filter_map(|child| built.remove(child))
                     .collect()
             })
             .unwrap_or_default(),

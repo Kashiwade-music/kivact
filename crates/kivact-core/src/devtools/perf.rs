@@ -20,21 +20,30 @@ pub(super) fn list_frames(
 ) -> Result<p::FrameList, p::RpcError> {
     let i = DevtoolsState::inspector(rt);
     let since = params.since.unwrap_or(0);
+    let window = params
+        .window
+        .map(|raw| {
+            convert::window_from(raw)
+                .filter(|window| ViewState::tree(rt).reader().windows().contains(window))
+                .ok_or_else(|| window_not_found(raw))
+        })
+        .transpose()?;
     let mut frames = Vec::new();
     {
         let history = i.session.frames.borrow();
-        if params.window.is_none() {
-            frames.extend(
+        match window {
+            None => frames.extend(
                 history
                     .values()
                     .flat_map(|queue| queue.iter())
                     .filter(|frame| frame.end_ns > since)
                     .cloned(),
-            );
-        } else if let Some(window) = params.window.and_then(convert::window_from)
-            && let Some(queue) = history.get(&window)
-        {
-            frames.extend(queue.iter().filter(|frame| frame.end_ns > since).cloned());
+            ),
+            Some(window) => {
+                if let Some(queue) = history.get(&window) {
+                    frames.extend(queue.iter().filter(|frame| frame.end_ns > since).cloned());
+                }
+            }
         }
     }
     frames.sort_by_key(|frame| frame.end_ns);
@@ -45,6 +54,13 @@ pub(super) fn list_frames(
         }
     }
     Ok(p::FrameList { frames })
+}
+
+fn window_not_found(raw: p::WindowId) -> p::RpcError {
+    p::RpcError::new(
+        p::code::WINDOW_NOT_FOUND,
+        format!("window {raw} does not exist"),
+    )
 }
 
 pub(super) fn get_counters(rt: &Runtime, params: p::Empty) -> Result<p::Counters, p::RpcError> {
