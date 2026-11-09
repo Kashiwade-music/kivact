@@ -4,3 +4,31 @@
 - CP1 K5 `wheel_n3000` — B0 mean 24.436 ms / p95 28.291 ms、CP1 mean 27.555 ms / p95 29.168 ms（mean +12.8%、p95 +3.1%）。K1・K4 とほかの K5 行は改善。関連 unit: U21（paint facts）・U22（a11y geometry）。CP1 の規則に従い記録して先へ進む（W7 の B1 で再判定）。
 - CP1 環境メモ — Windows のリンカ PDB 上限とディスク不足のため、checkpoint のテストは `CARGO_PROFILE_DEV_DEBUG=0 CARGO_PROFILE_TEST_DEBUG=0` で実行した（debug assertions は有効のまま。試験の内容・期待値は変えていない）。
 - U56 `dev/tests/kivact-public-api/tests/e2e/gpu_on_demand.rs` — STOP: `RenderOptions` で `GpuStart::OnDemand` を要求できず（gpu を要求しない設定は `GpuMode::Off` / `prefer_gpu = false` で GPU を起動せず）、`Screen` にも公開の renderer 取得が無いため、設計書 7 章の GPU OnDemand の E2E を公開 API だけで書けない。影響する設計書の節: 4.3、7 章。`kivact-test` に公開の renderer 観測（または OnDemand を選べる test host の option）が必要。
+
+## CP2 KPI 未達（設計者への差戻し、2026-11-10）
+
+B0 と CP2（`dev/bench/results/CP2.md`、どちらも有効）の比較。倍率は B0 ÷ CP2。設計書 1.4 節の「必達」に対して未達の行：
+
+| KPI | 指標 | B0 | CP2 | 倍率 | 必達 |
+|---|---|---|---|---|---|
+| K2 | counter idle WS（default） | 136068 KiB | 35068 KiB | 3.88× | ≥ 5× |
+| K2 | counter idle WS（CPU） | 37372 KiB | 35076 KiB | 1.07× | ≥ 1.4× |
+| K2 | 3000 行 idle WS（default） | 649944 KiB | 275332 KiB | 2.36× | ≥ 5× |
+| K2 | item box / text / button / row | 32.52 / 14.57 / 123.75 / 172.24 KiB | 11.33 / 9.56 / 62.55 / 79.80 KiB | 2.87× / 1.52× / 1.98× / 2.16× | ≥ 5× / ≥ 4× / ≥ 5× / ≥ 5× |
+| K2 | 3000 行 idle WS（CPU） | 554676 KiB | 275880 KiB | 2.01× | ≥ 3.5× |
+| K3 | 3000 行・毎 frame 更新の CPU | 99.37% | 99.95% | 1.00× | ≥ 5× |
+| K4 | 3000 行 work p95 / p99 | 21.99 / 24.71 ms | 18.82 / 21.39 ms | 1.17× / 1.16× | ≥ 6× / ≥ 5× |
+| K4 | 描画間隔 p99（3000 行） | 27.13 ms | 22.14 ms | — | ≤ 19.17 ms（1.15 × 16.67） |
+| K5 | mount n=3000 | 1627.5 ms | 1459.3 ms | 1.12× | ≥ 2× |
+| K5 | 無関係な 1 text 更新 n=3000 | 75.68 ms | 58.71 ms | 1.29× | ≥ 8× |
+| K5 | 1 行の更新 n=3000 | 101.74 ms | 79.28 ms | 1.28× | ≥ 6× |
+| K5 | pointer 移動 p95 n=3000 | 105.99 ms | 87.92 ms | 1.21× | ≥ 10× |
+| K5 | wheel n=3000 | 24.44 ms | 22.93 ms | 1.07× | ≥ 1.5× |
+| K6 | counter（default） | 24594432 B | 18978816 B | 1.30× | ≥ 1.7× |
+| K6 | kv_startup（no-default-features） | 24590848 B | 15922176 B | 1.54× | ≥ 2.2× |
+| K6 | basic catalog（default） | 54251520 B | 43090944 B | 1.26× | ≥ 1.7× |
+
+達成した主な行：K1 startup 461.8 → 40.9 ms（11.3×、必達 5×）、K1 catalog spawn 654.0 → 196.8 ms（3.3×、必達 2.5×）、K4 first-frame raster 30.7 → 3.2 ms（9.6×、必達 6×）、K4 0 行 work p95 3.54 → 1.86 ms（悪化なし）、K5 counter click 2.29 → 1.78 ms（1.28×、必達 1.2×）、K2 counter（GPU 強制）136444 → 94704 KiB（悪化なし）、K3 アイドル 0 frame。
+
+原因の調査と設計の見直しを設計者に差し戻す。実装者は目標を下げず、測定条件も変えない。AC-2 はこのままでは満たされないため、W7 で完了を宣言しない。
+
