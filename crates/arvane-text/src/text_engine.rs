@@ -1,6 +1,6 @@
 //! Role: TextEngine: font registration, and cached measuring and shaping of text.
 
-use crate::cache::{Cache, TextKey};
+use crate::cache::{Cache, TextKeyRef};
 use crate::error::TextError;
 use crate::metrics::line_height;
 use crate::{build, layouts, output, transform};
@@ -156,12 +156,13 @@ impl TextEngine {
         style: &ComputedTextStyle,
         max_width: Option<f64>,
     ) -> Result<TextMetrics, TextError> {
-        let key = TextKey::new(text, style, max_width, false);
-        self.cache.measured.get(key).unwrap_or_else(|key| {
-            let result = self.measure_uncached(text, style, max_width);
-            self.cache.measured.insert(key, result.clone());
-            result
-        })
+        let key = TextKeyRef::new(text, style, max_width, false);
+        if let Some(result) = self.cache.measured.get(&key) {
+            return result;
+        }
+        let result = self.measure_uncached(text, style, max_width);
+        self.cache.measured.insert(key.to_owned(), result.clone());
+        result
     }
 
     /// Measures the extent `shape` would produce without building glyph runs or carets.
@@ -246,14 +247,15 @@ impl TextEngine {
         max_width: Option<f64>,
         carets: bool,
     ) -> Result<kivact_types::ShapedTextSnapshot, TextError> {
-        let key = TextKey::new(text, style, max_width, true).with_carets(carets);
-        self.cache.shaped.get(key).unwrap_or_else(|key| {
-            let result = self
-                .shape_with(text, style, max_width, carets)
-                .map(kivact_types::ShapedTextSnapshot::new);
-            self.cache.shaped.insert(key, result.clone());
-            result
-        })
+        let key = TextKeyRef::new(text, style, max_width, true).with_carets(carets);
+        if let Some(result) = self.cache.shaped.get(&key) {
+            return result;
+        }
+        let result = self
+            .shape_with(text, style, max_width, carets)
+            .map(kivact_types::ShapedTextSnapshot::new);
+        self.cache.shaped.insert(key.to_owned(), result.clone());
+        result
     }
 
     /// The ellipsis a paragraph cuts its lines with, shaped once per
