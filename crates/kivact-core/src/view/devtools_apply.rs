@@ -660,7 +660,9 @@ fn accent_char(c: char) -> char {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    //! Role: Tests for the override syntax and its round trip.
+
+    use super::{editable_value, override_style};
     use kivact_style::internal::describe_style;
 
     /// One sample value for each property of the table that `describe_style`

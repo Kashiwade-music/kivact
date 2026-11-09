@@ -212,16 +212,3 @@ pub(crate) fn adapter_changed(rt: &Runtime, window: WindowId, adapter: Option<&G
         }
     })
 }
-
-/// The window closed: its device is gone, so is its adapter.
-pub(crate) fn forget_window(rt: &Runtime, window: WindowId) {
-    let signal = State::of(rt).adapter;
-    // Only the adapter is written here: no owner applies.
-    rt.enter(|| {
-        if signal.with_untracked(|adapters| adapters.contains_key(&window)) {
-            let mut adapters = signal.get_untracked();
-            adapters.remove(&window);
-            signal.set(adapters);
-        }
-    })
-}

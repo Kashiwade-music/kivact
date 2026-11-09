@@ -29,4 +29,4 @@ mod registry;
 pub(crate) use image::import_in;
 pub use image::{ExternalImage, FramePublisher, import};
 pub use registry::{ImportStatus, adapter};
-pub(crate) use registry::{State, adapter_changed, forget_window, imported};
+pub(crate) use registry::{State, adapter_changed, imported};

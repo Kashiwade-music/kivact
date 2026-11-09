@@ -412,7 +412,10 @@ fn invalid_params(message: impl Into<String>) -> p::RpcError {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    //! Role: Tests for the style override table.
+
+    use super::store_override;
+    use kivact_devtools_protocol as p;
 
     #[test]
     fn a_repeated_override_keeps_its_id_and_takes_the_new_value() {

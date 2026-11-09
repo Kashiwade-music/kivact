@@ -496,7 +496,11 @@ pub(super) fn route(rt: &Runtime, call: p::Call, reply: Responder) -> Option<(p:
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    //! Role: Tests for the overlay scope of the selected node.
+
+    use super::Scope;
+    use kivact_types::NodeId;
+    use std::collections::BTreeSet;
 
     #[test]
     fn selected_scope_admits_the_subtree_only() {

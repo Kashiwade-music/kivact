@@ -104,6 +104,8 @@ fn probe(port: u32) -> Probe {
 
 #[cfg(test)]
 mod tests {
+    //! Role: Tests for discovery file probing.
+
     use std::fs;
     use std::net::TcpListener;
 

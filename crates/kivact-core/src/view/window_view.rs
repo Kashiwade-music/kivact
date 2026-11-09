@@ -227,7 +227,6 @@ impl WindowSlot {
             ViewState::tree(rt).engine().close_window(id);
         }
         ViewState::of(rt).remove_window(id);
-        crate::gpu_interop::forget_window(rt, id);
         *self.arm.borrow_mut() = WindowArm::Closed;
     }
 }
