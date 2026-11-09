@@ -47,7 +47,7 @@ pub(crate) fn scene(
     visible: Value<Vec<VisibleKey>>,
     selected: Binding<Vec<u64>>,
     lanes: Value<Vec<Lane>>,
-) -> Value<Result<Rc<crate::editors::shared::targets::Scene<Target>>, kivact::UiError>> {
+) -> crate::editors::shared::targets::Targets<Target, Target> {
     crate::editors::shared::targets::targets(move || {
         let mut unique = std::collections::HashSet::new();
         if curves

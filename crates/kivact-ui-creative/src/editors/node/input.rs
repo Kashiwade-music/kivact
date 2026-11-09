@@ -1,6 +1,6 @@
 //! Role: Node canvas pointer, keyboard and drag finalization.
 use crate::editors::node::gesture::Target;
-use crate::editors::node::gesture::{DragMode, DragSnapshot, NodeMode, State};
+use crate::editors::node::gesture::{DragMode, DragSnapshot, LinkSource, State};
 use crate::editors::node::layout as geometry;
 use crate::editors::node::model::{NodeControlValue, NodeLink, NodeRequest};
 use crate::editors::shared::selection;
@@ -177,13 +177,14 @@ pub(crate) fn drag(state: State) -> Gesture<DragSnapshot> {
 fn finish_fields(state: State) {
     let point = state.point(state.press.current());
     if let Some(DragMode::Link {
-        from,
-        output,
-        rewire,
-        released,
-        ..
+        source, released, ..
     }) = state.drag_state()
     {
+        let (from, output) = source.output();
+        let rewire = match source {
+            LinkSource::Rewire(link) => Some(link),
+            LinkSource::Output { .. } => None,
+        };
         let input = match released {
             Some(socket) => Some(socket),
             None => state.data().with(|nodes| {
@@ -294,10 +295,11 @@ fn pressed_target(
         }
         Some(Target::Socket(id, true, index)) => {
             drag = Some(DragMode::Link {
-                from: id,
-                output: index,
                 to: point,
-                rewire: None,
+                source: LinkSource::Output {
+                    from: id,
+                    output: index,
+                },
                 released: None,
             });
         }
@@ -310,10 +312,8 @@ fn pressed_target(
                 .copied()
             {
                 drag = Some(DragMode::Link {
-                    from: link.from,
-                    output: link.output,
                     to: point,
-                    rewire: Some(link),
+                    source: LinkSource::Rewire(link),
                     released: None,
                 });
             }
@@ -341,7 +341,7 @@ fn pressed_target(
 fn pressed_item(state: State, event: &PointerEvent, id: u64) -> (Option<DragMode>, Option<u64>) {
     let mut pending = None;
     state.active.set(None);
-    state.mode.set(NodeMode::Idle);
+    state.mode.cancel();
     match selection::press(
         &state.selected.get(),
         id,

@@ -170,7 +170,7 @@ fn reorder_gesture(
 ) -> kivact::interaction::DragApi<u64> {
     use_drag(DragCoordinates::Window)
         .on_start(move |_| {
-            drag.send(machine::Event::Begin(id));
+            drag.send(machine::Event::Start(id));
         })
         .on_update(move |update: DragUpdate<u64>| {
             let order = data.get();
@@ -187,7 +187,11 @@ fn reorder_gesture(
             drag.send(machine::Event::Target(found));
         })
         .on_end(move |update: DragUpdate<u64>| {
-            drag.send(machine::Event::End(update.phase == DragPhase::End));
+            drag.send(if update.phase == DragPhase::End {
+                machine::Event::End
+            } else {
+                machine::Event::Cancel
+            });
         })
 }
 /// Render a separate reorder target with assistive up/down movement.

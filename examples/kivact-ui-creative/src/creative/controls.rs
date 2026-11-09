@@ -377,7 +377,7 @@ fn buttons_split_menu_button(status: Signal<String>) -> Node {
             )
             .on_press(move || status.set("Queued render".into()))
             .on_press(move || status.set("Queued render".into()))
-            .on_select(move |key: &'static str| status.set(format!("Queue {key}")))
+            .on_activate(move |key: &'static str| status.set(format!("Queue {key}")))
             .style(style().width(197)),
             line((
                 kivact::ui::menu(

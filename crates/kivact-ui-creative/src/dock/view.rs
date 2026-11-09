@@ -1,7 +1,7 @@
 //! Role: The Dock builder and the chrome, content and dividers it lays out.
 
 use super::chrome::AppMenu;
-use super::data::{DockCx, MenuBuilder, Shared, Texts};
+use super::data::{DockCx, DockGesture, MenuBuilder, Shared, Texts};
 use super::geometry::{Divider, MIN_EXTENT, STRIP};
 use super::items::Item;
 use super::items::{ItemKey, build_items};
@@ -144,12 +144,22 @@ impl<K: kivact::state::ItemKey> IntoView for Dock<K> {
             layout
         });
         let reference = node_ref();
+        let gesture = signal(DockGesture::Idle);
+        let rename = kivact::interaction::use_inline_edit(binding(
+            move || match gesture.get() {
+                DockGesture::Renaming(key) => Some(key),
+                DockGesture::Idle | DockGesture::Dragging(_) => None,
+            },
+            move |key: Option<K>| {
+                gesture.set(key.map_or(DockGesture::Idle, DockGesture::Renaming));
+            },
+        ));
         let cx = DockCx {
             layout,
             on_edit,
             current,
-            drag: signal(None),
-            rename: kivact::interaction::use_inline_edit(signal(None)),
+            gesture,
+            rename,
             root: reference.rect(),
             shared: var(Rc::new(Shared {
                 rects: RefCell::new(HashMap::new()),
@@ -325,13 +335,12 @@ fn divider<K: kivact::state::ItemKey>(
 /// Project the dock's current drop target into a noninteractive preview overlay.
 fn drop_preview<K: kivact::state::ItemKey>(cx: DockCx<K>) -> Node {
     let preview = memo(move || {
-        cx.drag.with(|drag| {
-            drag.as_ref()
-                .and_then(|drag| drag.target.as_ref())
-                .map(|target| {
-                    let edge = matches!(target.placement, DockPlacement::Edge(_));
-                    (target.preview, target.bar, edge)
-                })
+        cx.gesture.with(|gesture| match gesture {
+            DockGesture::Dragging(drag) => drag.target.as_ref().map(|target| {
+                let edge = matches!(target.placement, DockPlacement::Edge(_));
+                (target.preview, target.bar, edge)
+            }),
+            DockGesture::Idle | DockGesture::Renaming(_) => None,
         })
     });
     node()

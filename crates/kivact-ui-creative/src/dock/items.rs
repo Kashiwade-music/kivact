@@ -10,10 +10,7 @@ pub(super) enum Item<K> {
     Chrome {
         tabs: DockTabs<K>,
         frame: Frame,
-        // xtask-allow(state-fields): passive record - whether the container is shown in the flattened layout
-        shown: bool,
-        // xtask-allow(state-fields): passive record - whether the container is maximized in the flattened layout
-        maximized: bool,
+        display: ChromeDisplay,
     },
     Content {
         title: String,
@@ -26,6 +23,17 @@ pub(super) enum Item<K> {
         trailing: String,
         shown: bool,
     },
+}
+
+/// How a container is shown in the flattened layout.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum ChromeDisplay {
+    /// Shown at its own place.
+    Normal,
+    /// Shown in the whole dock and hiding the other containers.
+    Maximized,
+    /// Not drawn because another container is maximized.
+    Hidden,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -47,9 +55,8 @@ impl<K> Item<K> {
     }
     pub(super) fn shown(&self) -> bool {
         match self {
-            Self::Chrome { shown, .. }
-            | Self::Content { shown, .. }
-            | Self::Divider { shown, .. } => *shown,
+            Self::Chrome { display, .. } => *display != ChromeDisplay::Hidden,
+            Self::Content { shown, .. } | Self::Divider { shown, .. } => *shown,
         }
     }
 }
@@ -90,18 +97,17 @@ pub(super) fn build_items<K: Clone + Eq + Hash>(layout: &DockLayout<K>) -> Vec<E
             continue;
         };
         let this = maximized.is_some_and(|max| std::ptr::eq(max, region.tabs));
-        let (frame, shown) = match maximized {
-            Some(_) if this => (Frame::FULL, true),
-            Some(_) => (region.frame, false),
-            None => (region.frame, true),
+        let (frame, display) = match maximized {
+            Some(_) if this => (Frame::FULL, ChromeDisplay::Maximized),
+            Some(_) => (region.frame, ChromeDisplay::Hidden),
+            None => (region.frame, ChromeDisplay::Normal),
         };
         items.push((
             ItemKey::Chrome(first.id.clone()),
             Item::Chrome {
                 tabs: region.tabs.clone(),
                 frame,
-                shown,
-                maximized: this,
+                display,
             },
         ));
         for tab in &region.tabs.tabs {
@@ -110,7 +116,8 @@ pub(super) fn build_items<K: Clone + Eq + Hash>(layout: &DockLayout<K>) -> Vec<E
                 Item::Content {
                     title: tab.title.clone(),
                     frame,
-                    shown: shown && region.tabs.active.as_ref() == Some(&tab.id),
+                    shown: display != ChromeDisplay::Hidden
+                        && region.tabs.active.as_ref() == Some(&tab.id),
                 },
             ));
         }

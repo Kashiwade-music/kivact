@@ -37,8 +37,8 @@ pub(crate) fn create(
     tracks: Value<Vec<TimelineTrack>>,
     clips: Value<Vec<Clip>>,
     selected: Value<Vec<u64>>,
-) -> Value<Regions> {
-    let scene = targets::targets(move || {
+) -> (Value<Regions>, kivact::state::Binding<Option<(u64, u64)>>) {
+    let targets = targets::targets::<Target, (u64, u64)>(move || {
         let mut targets = vec![
             Target::LoopCreate,
             Target::LoopStart,
@@ -74,5 +74,10 @@ pub(crate) fn create(
         }
         Ok::<_, UiError>(targets)
     });
-    kivact::state::memo(move || Regions(scene.get().ok()))
+    let scene = targets.scene();
+    let active = targets.active();
+    (
+        kivact::state::memo(move || Regions(scene.get().ok())),
+        active,
+    )
 }

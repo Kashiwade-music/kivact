@@ -19,6 +19,14 @@ pub(super) struct TabDrag<K> {
     pub(super) target: Option<DropTarget<K>>,
 }
 
+/// What a dock's tabs are doing: nothing, dragging a tab or renaming one.
+#[derive(Clone, Debug, PartialEq)]
+pub(super) enum DockGesture<K> {
+    Idle,
+    Dragging(TabDrag<K>),
+    Renaming(K),
+}
+
 /// Registered tab rectangles with the generation of their registering row.
 pub(super) type TabRects<K> = RefCell<HashMap<K, (Generation, Value<Option<Rect>>)>>;
 
@@ -57,7 +65,8 @@ pub(super) struct DockCx<K: kivact::state::ItemKey> {
     pub(super) on_edit: Option<Callback<EditPhase>>,
     /// The normalized layout.
     pub(super) current: Value<DockLayout<K>>,
-    pub(super) drag: Signal<Option<TabDrag<K>>>,
+    /// The tab drag or rename in progress.
+    pub(super) gesture: Signal<DockGesture<K>>,
     pub(super) rename: InlineEditApi<K>,
     pub(super) root: Value<Option<Rect>>,
     pub(super) shared: Var<Rc<Shared<K>>>,

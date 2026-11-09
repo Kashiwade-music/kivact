@@ -43,10 +43,10 @@ pub struct NodeData {
     pub parameters: Vec<String>,
     /// Editable controls are stored in the application's node model.
     pub controls: Vec<NodeControl>,
-    // xtask-allow(state-fields): Independent optional application-owned image and mute flag.
+    // xtask-allow(state-fields): option: absent means the node shows no preview image
     /// Application-provided image displayed within the node preview rectangle.
     pub preview: Option<Pixels>,
-    // xtask-allow(state-fields): Independent optional application-owned image and mute flag.
+    // xtask-allow(state-fields): independent: the application's mute flag; either value is valid
     pub muted: bool,
 }
 impl Default for NodeData {

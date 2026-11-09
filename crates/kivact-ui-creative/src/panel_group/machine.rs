@@ -27,9 +27,10 @@ pub(crate) struct Machine {
     pub(crate) panels: Vec<InspectorPanel>,
 }
 pub(crate) enum Event {
-    Begin(u64),
+    Start(u64),
     Target(Option<(u64, bool)>),
-    End(bool),
+    End,
+    Cancel,
     Removed(u64),
 }
 impl kivact::state::Machine for Machine {
@@ -38,7 +39,7 @@ impl kivact::state::Machine for Machine {
     type Effect = Vec<InspectorPanel>;
     fn transition(&self, state: &State, event: Event) -> Step<State, Event, Self::Effect> {
         match (*state, event) {
-            (_, Event::Begin(panel)) => Step::to(State::Dragging {
+            (_, Event::Start(panel)) => Step::to(State::Dragging {
                 panel,
                 target: None,
             }),
@@ -50,7 +51,7 @@ impl kivact::state::Machine for Machine {
                     panel,
                     target: Some((destination, after)),
                 },
-                Event::End(true),
+                Event::End,
             ) => {
                 let mut next = self.panels.clone();
                 if let Some(index) = next.iter().position(|item| item.id == panel) {
@@ -62,7 +63,7 @@ impl kivact::state::Machine for Machine {
                 }
                 Step::to(State::Idle)
             }
-            (_, Event::End(_)) => Step::to(State::Idle),
+            (_, Event::End | Event::Cancel) => Step::to(State::Idle),
             (State::Dragging { panel, .. }, Event::Removed(id)) if panel == id => {
                 Step::to(State::Idle)
             }

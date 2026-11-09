@@ -14,8 +14,8 @@ use kivact::interaction::{
     ComboboxApi, PopupApi, PopupCloseReason, Selection, use_combobox, use_popup,
 };
 use kivact::state::{
-    Callback, Machine, MachineHandle, Step, Value, Var, binding, effect, machine, memo, on_cleanup,
-    signal, untrack, var,
+    Callback, Machine, MachineHandle, Step, Value, binding, effect, machine, memo, on_cleanup,
+    signal, untrack,
 };
 use kivact::state::{IntoText, IntoValue, callback};
 use kivact::style::{Align, Icon, pct, style};
@@ -57,20 +57,20 @@ pub struct PickerItem<K> {
     pub key: K,
     /// What the row says; also its accessible name.
     pub label: Reactive<String>,
-    // xtask-allow(state-fields): Optional immutable item description.
+    // xtask-allow(state-fields): option: absent means the run has no heading
     /// The heading of the run of rows this one belongs to. Rows with no
     /// section have no heading.
     pub section: Option<Reactive<String>>,
-    // xtask-allow(state-fields): Optional immutable item description.
+    // xtask-allow(state-fields): option: absent means the row has no detail line
     /// A line of detail after the label; also the row's accessible description.
     pub description: Option<Reactive<String>>,
-    // xtask-allow(state-fields): Optional immutable shortcut hint.
+    // xtask-allow(state-fields): option: absent means the row has no shortcut hint
     /// A shortcut hint at the end of the row. It does not bind a key.
     pub shortcut: Option<Reactive<String>>,
-    // xtask-allow(state-fields): Optional immutable icon.
+    // xtask-allow(state-fields): option: absent means the row has no icon
     /// An icon before the label: a name in the theme's icon set or an image.
     pub icon: Option<Icon>,
-    // xtask-allow(state-fields): Independent item availability input.
+    // xtask-allow(state-fields): independent: the application's availability input; an enabled and a disabled item are both valid
     /// A disabled item stays in the list but is never active and cannot be
     /// picked.
     pub enabled: bool,
@@ -129,7 +129,7 @@ impl<K> PickerItem<K> {
 ///
 /// Build it with [`search_picker`] and open it from a button with
 /// [`attach`](Self::attach), or at a window point with [`at`](Self::at). The
-/// application owns what a pick means: [`on_pick`](Self::on_pick) receives the
+/// application owns what a pick means: [`on_activate`](Self::on_activate) receives the
 /// key, and [`on_preview`](Self::on_preview) lets it try an item out before.
 ///
 /// The popup is a non-modal `Role::Dialog` named like the search field. Its
@@ -169,7 +169,7 @@ impl<K> PickerItem<K> {
 ///         ui::PickerItem::new("blur", "Blur").section("Filter"),
 ///     ])
 ///     .placeholder("Type a layer name")
-///     .on_pick(move |key| layers.update(|all| all.push(key)))
+///     .on_activate(move |key| layers.update(|all| all.push(key)))
 ///     .attach(kivact::ui::button("Add layer").hide_label(true).icon(kivact::view::icon("plus")))
 /// }
 /// ```
@@ -241,18 +241,18 @@ impl<K: kivact::state::ItemKey> SearchPicker<K> {
         self
     }
 
-    /// Receive the key of the item the user picks (Enter, a click or an
+    /// Receive the key of the item the user activates (Enter, a click or an
     /// assistive technology's Activate).
-    pub fn on_pick<R: HandlerResult>(mut self, f: impl Fn(K) -> R + 'static) -> Self {
+    pub fn on_activate<R: HandlerResult>(mut self, f: impl Fn(K) -> R + 'static) -> Self {
         self.parts.pick = Some(callback(f));
         self
     }
 
     /// Try the active item out: `f` receives `Some(key)` each time the active
     /// row changes, and `None` when nothing is active any more and when the
-    /// popup ends, so the application can restore what it showed. A pick calls
-    /// [`on_pick`](Self::on_pick) first and then `f(None)` once; a cancel calls
-    /// [`on_cancel`](Self::on_cancel) first and then `f(None)`.
+    /// popup ends, so the application can restore what it showed. An activation
+    /// calls [`on_activate`](Self::on_activate) first and then `f(None)` once; a
+    /// cancel calls [`on_cancel`](Self::on_cancel) first and then `f(None)`.
     pub fn on_preview<R: HandlerResult>(mut self, f: impl Fn(Option<K>) -> R + 'static) -> Self {
         self.parts.preview = Some(callback(f));
         self
@@ -424,35 +424,64 @@ enum ColumnEvent<K> {
     Activate(usize),
     Preview(Option<(usize, K)>),
     Pick(usize, K),
+    Cancel,
 }
 enum ColumnEffect<K> {
     Preview(Option<K>),
-    Pick(K),
+    Settle(PickerOutcome<K>),
 }
+
+/// One opening of the picker: which column is active and whether it is still
+/// open.
+#[derive(Clone, PartialEq)]
+struct PickerState<K> {
+    column: PickerColumn,
+    phase: PickerPhase<K>,
+}
+
+impl<K> PickerState<K> {
+    fn index(&self) -> Option<usize> {
+        self.column.index()
+    }
+}
+
 struct ColumnMachine<K>(std::marker::PhantomData<K>);
 impl<K: kivact::state::ItemKey> Machine for ColumnMachine<K> {
-    type State = PickerColumn;
+    type State = PickerState<K>;
     type Event = ColumnEvent<K>;
     type Effect = ColumnEffect<K>;
     fn transition(
         &self,
-        state: &PickerColumn,
+        state: &PickerState<K>,
         event: ColumnEvent<K>,
-    ) -> Step<PickerColumn, ColumnEvent<K>, ColumnEffect<K>> {
+    ) -> Step<PickerState<K>, ColumnEvent<K>, ColumnEffect<K>> {
+        let mut next = state.clone();
         let (available, movement) = match event {
             ColumnEvent::Preview(item) => {
-                return Step::stay().with(ColumnEffect::Preview(
-                    item.and_then(|(index, key)| (state.index() == Some(index)).then_some(key)),
-                ));
+                let key =
+                    item.and_then(|(index, key)| (state.index() == Some(index)).then_some(key));
+                let PickerPhase::Open { previewed } = &mut next.phase else {
+                    return Step::stay();
+                };
+                if *previewed == key {
+                    return Step::stay();
+                }
+                *previewed = key.clone();
+                return Step::to(next).with(ColumnEffect::Preview(key));
             }
             ColumnEvent::Pick(index, key) => {
-                return if state.index() == Some(index) {
-                    Step::stay().with(ColumnEffect::Pick(key))
-                } else {
-                    Step::stay()
-                };
+                if state.index() != Some(index) {
+                    return Step::stay();
+                }
+                return settle(next, PickerOutcome::Picked(key));
             }
-            ColumnEvent::Activate(index) => return Step::to(PickerColumn::Active(index)),
+            ColumnEvent::Cancel => return settle(next, PickerOutcome::Canceled),
+            ColumnEvent::Activate(index) => {
+                return Step::to(PickerState {
+                    column: PickerColumn::Active(index),
+                    ..next
+                });
+            }
             ColumnEvent::QueryChanged(available) | ColumnEvent::ItemsChanged(available) => {
                 (available, None)
             }
@@ -466,7 +495,7 @@ impl<K: kivact::state::ItemKey> Machine for ColumnMachine<K> {
                 direction,
             )
         });
-        let next = (0..count)
+        let next_column = (0..count)
             .map(|offset| {
                 if direction > 0 {
                     (start + offset) % count
@@ -476,7 +505,27 @@ impl<K: kivact::state::ItemKey> Machine for ColumnMachine<K> {
             })
             .find(|index| available[*index])
             .map_or(PickerColumn::Empty, PickerColumn::Active);
+        next.column = next_column;
         Step::to(next)
+    }
+}
+
+/// Settle `next`'s opening once, reporting the outcome and ending a preview
+/// that is still showing.
+fn settle<K: kivact::state::ItemKey>(
+    mut next: PickerState<K>,
+    outcome: PickerOutcome<K>,
+) -> Step<PickerState<K>, ColumnEvent<K>, ColumnEffect<K>> {
+    let PickerPhase::Open { previewed } = &next.phase else {
+        return Step::stay();
+    };
+    let showing = previewed.is_some();
+    next.phase = PickerPhase::Settled;
+    let step = Step::to(next).with(ColumnEffect::Settle(outcome));
+    if showing {
+        step.with(ColumnEffect::Preview(None))
+    } else {
+        step
     }
 }
 
@@ -505,7 +554,6 @@ enum PickerPhase<K> {
 
 /// What the picker reports to the application, once per opening.
 struct Outcomes<K: kivact::state::PropValue> {
-    phase: Var<PickerPhase<K>>,
     pick: Option<Callback<K>>,
     preview: Option<Callback<Option<K>>>,
     cancel: Option<Callback<()>>,
@@ -519,28 +567,16 @@ impl<K: kivact::state::PropValue> Clone for Outcomes<K> {
 impl<K: kivact::state::PropValue> Copy for Outcomes<K> {}
 
 impl<K: kivact::state::PropValue> Outcomes<K> {
-    /// While open: report `key` when it differs from the one last reported.
+    /// Report the active key to `on_preview`.
     fn preview(self, key: Option<K>) {
-        let changed = self
-            .phase
-            .with(|phase| matches!(phase, PickerPhase::Open { previewed } if *previewed != key));
-        if changed {
-            self.phase.set(PickerPhase::Open {
-                previewed: key.clone(),
-            });
-            if let Some(preview) = self.preview {
-                preview.call(key);
-            }
+        if let Some(preview) = self.preview {
+            preview.call(key);
         }
     }
 
-    /// Once: settle the opening. A pick reports `on_pick`, a cancel
-    /// `on_cancel`; then a preview that is still showing ends.
+    /// Report the settled opening once: a pick to `on_activate`, a cancel to
+    /// `on_cancel`.
     fn settle(self, outcome: PickerOutcome<K>) {
-        let PickerPhase::Open { previewed } = self.phase.get() else {
-            return;
-        };
-        self.phase.set(PickerPhase::Settled);
         match outcome {
             PickerOutcome::Picked(key) => {
                 if let Some(pick) = self.pick {
@@ -553,11 +589,6 @@ impl<K: kivact::state::PropValue> Outcomes<K> {
                 }
             }
         }
-        if previewed.is_some()
-            && let Some(preview) = self.preview
-        {
-            preview.call(None);
-        }
     }
 }
 
@@ -565,9 +596,8 @@ impl<K: kivact::state::PropValue> Outcomes<K> {
 struct Session<K: kivact::state::ItemKey> {
     active: Value<Option<K>>,
     combo: ComboboxApi<K>,
-    outcomes: Outcomes<K>,
     field: NodeRef,
-    // xtask-allow(state-fields): Optional multi-column setup capability.
+    // xtask-allow(state-fields): option: absent means a single column
     column: Option<MachineHandle<ColumnMachine<K>>>,
 }
 
@@ -606,7 +636,6 @@ impl<K: kivact::state::ItemKey> Parts<K> {
             memo(move || lists.with(|lists| lists.iter().flatten().cloned().collect::<Vec<_>>()));
         let empty = message("creative.picker.empty", "No matches");
         let outcomes = Outcomes {
-            phase: var(PickerPhase::Open { previewed: None }),
             pick,
             preview,
             cancel,
@@ -620,17 +649,7 @@ impl<K: kivact::state::ItemKey> Parts<K> {
                     .collect::<Vec<_>>()
             })
         });
-        let columns = machine(
-            PickerColumn::Active(0),
-            || ColumnMachine(std::marker::PhantomData),
-            move |_, effect| match effect {
-                ColumnEffect::Preview(key) => outcomes.preview(key),
-                ColumnEffect::Pick(key) => {
-                    outcomes.settle(PickerOutcome::Picked(key));
-                    popup.close(PopupCloseReason::Selection);
-                }
-            },
-        );
+        let columns = column_machine(outcomes, popup);
         let combo = column_combobox(options, lists, columns);
         let query = combo.query();
         follow_columns(multiple, lists, query, columns);
@@ -650,19 +669,41 @@ impl<K: kivact::state::ItemKey> Parts<K> {
         let session = Session {
             active: combo.active(),
             combo,
-            outcomes,
             field,
             column: multiple.then_some(columns),
         };
         follow_active(session.active, lists, columns);
         // Closing without a pick is a cancel.
-        on_cleanup(move || session.outcomes.settle(PickerOutcome::Canceled));
+        on_cleanup(move || columns.send(ColumnEvent::Cancel));
         let search = search_field(session, placeholder, move |event| {
             column_key(event, multiple, lists, query, columns)
         });
         let list = picker_list(session, shown, titles, placeholder, multiple);
         picker_panel(search, list, shown, empty, field)
     }
+}
+
+/// One opening's column state machine; a pick settles it and closes the popup.
+fn column_machine<K: kivact::state::ItemKey>(
+    outcomes: Outcomes<K>,
+    popup: PopupApi,
+) -> MachineHandle<ColumnMachine<K>> {
+    machine(
+        PickerState {
+            column: PickerColumn::Active(0),
+            phase: PickerPhase::Open { previewed: None },
+        },
+        || ColumnMachine(std::marker::PhantomData),
+        move |_, effect| match effect {
+            ColumnEffect::Preview(key) => outcomes.preview(key),
+            ColumnEffect::Settle(outcome) => {
+                if let PickerOutcome::Picked(_) = &outcome {
+                    popup.close(PopupCloseReason::Selection);
+                }
+                outcomes.settle(outcome);
+            }
+        },
+    )
 }
 
 fn follow_active<K: kivact::state::ItemKey>(

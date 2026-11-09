@@ -372,11 +372,7 @@ impl Numeric {
             mixed,
         } = self;
         let value = state.into_value();
-        // Whether the text field is open. It ends itself on Enter, Escape
-        // and when it is removed.
-        let typing = kivact::interaction::use_inline_edit(signal(None::<()>));
-        // The value a scrub's delta is measured from.
-        let scrub_phase = machine(machine::State::Idle, || machine::Machine, |_, ()| {});
+        let (mode, typing) = mode_and_typing();
         let scalar = use_scalar(state, move || {
             ScalarRange::new(min.get(), max.get()).expect("invariant: numeric bounds are finite")
         })
@@ -417,7 +413,7 @@ impl Numeric {
             mixed,
             value,
             typing,
-            scrub_phase,
+            mode,
             scalar,
             pointer,
             reference,
@@ -430,6 +426,26 @@ impl Numeric {
     }
 }
 
+/// Typing text and scrubbing the value are one mode; the text field follows
+/// the mode's `Typing` state.
+fn mode_and_typing() -> (
+    kivact::state::MachineHandle<machine::Machine>,
+    kivact::interaction::InlineEditApi<()>,
+) {
+    let mode = machine(machine::State::Idle, || machine::Machine, |_, ()| {});
+    let typing = kivact::interaction::use_inline_edit(binding(
+        move || matches!(mode.get(), machine::State::Typing).then_some(()),
+        move |key: Option<()>| {
+            mode.send(if key.is_some() {
+                machine::Event::BeginText
+            } else {
+                machine::Event::EndText
+            });
+        },
+    ));
+    (mode, typing)
+}
+
 struct NumericView {
     label: Value<String>,
     kind: NumericKind,
@@ -439,17 +455,17 @@ struct NumericView {
     reset: Value<f64>,
     precision: Value<usize>,
     tint: Value<PropertyState>,
-    // xtask-allow(state-fields): builder option - timecode
+    // xtask-allow(state-fields): option: absent means the field shows its value with the default format
     timecode: Option<Value<u32>>,
     label_visible: Value<bool>,
-    // xtask-allow(state-fields): builder option - accent
+    // xtask-allow(state-fields): option: absent means the theme's accent
     accent: Option<Value<Color>>,
     bipolar: Value<bool>,
     horizontal: Value<bool>,
     mixed: Value<bool>,
     value: Value<f64>,
     typing: kivact::interaction::InlineEditApi<()>,
-    scrub_phase: kivact::state::MachineHandle<machine::Machine>,
+    mode: kivact::state::MachineHandle<machine::Machine>,
     scalar: kivact::interaction::ScalarApi,
     pointer: kivact::interaction::DragApi<f64>,
     reference: kivact::view::NodeRef,
@@ -510,9 +526,9 @@ impl NumericView {
         let label = self.label;
         let kind = self.kind;
         let label_visible = self.label_visible;
-        let typing = self.typing;
+        let mode = self.mode;
         let shown = self.shown;
-        let text_open = move || typing.is_open(&());
+        let text_open = move || matches!(mode.get(), machine::State::Typing);
         show(
             move || !text_open(),
             move || {
@@ -557,8 +573,8 @@ impl NumericView {
         )
     }
     fn editor(&self) -> impl IntoView {
-        let typing = self.typing;
-        let text_open = move || typing.is_open(&());
+        let mode = self.mode;
+        let text_open = move || matches!(mode.get(), machine::State::Typing);
         let label = self.label;
         let precision = self.precision;
         let timecode = self.timecode;
@@ -646,8 +662,8 @@ impl NumericView {
         let kind = self.kind;
         let step = self.step;
         let horizontal = self.horizontal;
+        let mode = self.mode;
         let typing = self.typing;
-        let scrub_phase = self.scrub_phase;
         let scalar = self.scalar;
         let pointer = self.pointer;
         let rect = self.rect;
@@ -657,7 +673,7 @@ impl NumericView {
         let from_n = move |v| mapping.value_from_fraction(v);
         pointer
             .on_start(move |_| {
-                scrub_phase.send(machine::Event::Press);
+                mode.send(machine::Event::Press);
             })
             .on_update(move |update: DragUpdate<f64>| {
                 let horizontal = horizontal.get();
@@ -691,12 +707,12 @@ impl NumericView {
                             .max(60.0);
                         scalar.set(from_n(normalized(start) + (delta / extent) * factor));
                     }
-                    scrub_phase.send(machine::Event::Move);
+                    mode.send(machine::Event::Move);
                 }
             })
             .on_end(move |update: DragUpdate<f64>| {
-                let moved = matches!(scrub_phase.get(), machine::State::Moved);
-                scrub_phase.send(machine::Event::End);
+                let moved = matches!(mode.get(), machine::State::Scrubbing { moved: true });
+                mode.send(machine::Event::End);
                 if update.phase != DragPhase::Cancel
                     && !moved
                     && matches!(kind, NumericKind::Number | NumericKind::Slider)
@@ -795,10 +811,11 @@ impl NumericView {
         let reset = self.reset;
         let mixed = self.mixed;
         let value = self.value;
+        let mode = self.mode;
         let typing = self.typing;
         let scalar = self.scalar;
         let pointer = self.pointer;
-        let text_open = move || typing.is_open(&());
+        let text_open = move || matches!(mode.get(), machine::State::Typing);
         let begin_text = move || typing.open(());
         let set = move |v: f64| {
             scalar.once(|| scalar.set(v));
@@ -852,10 +869,10 @@ impl NumericView {
         let step = self.step;
         let mixed = self.mixed;
         let value = self.value;
-        let typing = self.typing;
+        let mode = self.mode;
         let scalar = self.scalar;
         let pointer = self.pointer;
-        let text_open = move || typing.is_open(&());
+        let text_open = move || matches!(mode.get(), machine::State::Typing);
         let set = move |v: f64| {
             scalar.once(|| scalar.set(v));
         };
@@ -874,10 +891,11 @@ impl NumericView {
         let kind = self.kind;
         let reset = self.reset;
         let mixed = self.mixed;
+        let mode = self.mode;
         let typing = self.typing;
         let scalar = self.scalar;
         let pointer = self.pointer;
-        let text_open = move || typing.is_open(&());
+        let text_open = move || matches!(mode.get(), machine::State::Typing);
         let begin_text = move || typing.open(());
         let set = move |v: f64| {
             scalar.once(|| scalar.set(v));

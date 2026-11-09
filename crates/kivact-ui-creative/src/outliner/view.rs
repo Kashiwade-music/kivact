@@ -1,6 +1,6 @@
 //! Role: The Outliner builder and the tree rows, filter and drag view it builds.
 
-use super::drop_plan::{Placement, Plan, plan_drop};
+use super::drop_plan::{Drag, DragEvent, DragMachine, Placement, plan_drop};
 use crate::editors::shared::model::EditorEvent;
 use crate::outliner_data::{Restriction, RestrictionFlag, TreeDrop, TreeItem};
 use crate::{ColorName, LabelTone};
@@ -13,7 +13,7 @@ use kivact::interaction::{
 use kivact::view::{Element, Node, column, icon, node, row, text};
 
 use kivact::interaction::TreeNode;
-use kivact::state::{Callback, Value, memo, signal};
+use kivact::state::{Callback, Value, machine, memo, signal};
 use kivact::state::{IntoValue, callback};
 use kivact::style::use_theme;
 use kivact::style::{Align, ColorToken, Cursor, Overflow, Position, pct, style};
@@ -39,7 +39,7 @@ type CellRenderer = kivact::view::ViewFn<Value<TreeItem>>;
 /// visibility (so typing `h` does not jump to a label).
 ///
 /// A double click renames the row, unless
-/// [`on_item_activate`](Self::on_item_activate) is set: then a double click
+/// [`on_activate`](Self::on_activate) is set: then a double click
 /// and Enter activate the item and only F2 renames. An item that is not
 /// `selectable` is shown as a disabled row. The toggles at the end of a row
 /// are not tab stops (they have their accessibility actions, and a press
@@ -127,7 +127,7 @@ impl Outliner {
     }
     /// Call `f` with the item on Enter and on a double click, instead
     /// of renaming on a double click. F2 still renames.
-    pub fn on_item_activate<R: HandlerResult>(mut self, f: impl Fn(u64) -> R + 'static) -> Self {
+    pub fn on_activate<R: HandlerResult>(mut self, f: impl Fn(u64) -> R + 'static) -> Self {
         self.activation = Some(callback(f));
         self
     }
@@ -216,6 +216,7 @@ struct RowFactory {
     by_id: Value<HashMap<u64, TreeItem>>,
     data: Value<Vec<TreeItem>>,
     rename_edit: kivact::interaction::InlineEditApi<u64>,
+    // xtask-allow(state-fields): identity: generation of registered rows
     generation: Rc<Cell<Generation>>,
     mounted: super::controls::Rows,
     reveal: kivact::state::MachineHandle<super::reveal::Reveal>,
@@ -225,15 +226,14 @@ struct RowFactory {
     painter: super::controls::Painter,
     on_restriction: Option<Callback<EditorEvent<Restriction>>>,
     cells: Vec<(Value<f64>, CellRenderer)>,
-    // xtask-allow(state-fields): independent fact - the drop plan shared between the dragger and the rows
-    plan: kivact::state::Signal<Option<Plan>>,
+    drag: kivact::state::MachineHandle<DragMachine>,
     active: Value<Option<u64>>,
     restrictions: Value<bool>,
-    // xtask-allow(state-fields): builder option - the row height a setter supplied
+    // xtask-allow(state-fields): option: absent means the theme's row height
     row_height: Option<Value<f64>>,
     levels: Value<HashMap<u64, u32>>,
     item_drop: Option<Callback<TreeDrop>>,
-    // xtask-allow(state-fields): builder option - whether an activation callback was set
+    // xtask-allow(state-fields): option: absent means a double click renames instead of activating
     has_activation: bool,
 }
 impl RowFactory {
@@ -254,11 +254,12 @@ impl RowFactory {
                 .unwrap_or_else(|| fallback.clone())
         });
         let reference = self.register(id);
-        let plan = self.plan;
-        let mark = memo(move || {
-            plan.get()
-                .filter(|plan| plan.over == id)
-                .map(|plan| plan.placement)
+        let drag = self.drag;
+        let mark = memo(move || match drag.get() {
+            Drag::Dragging {
+                plan: Some(plan), ..
+            } if plan.over == id => Some(plan.placement),
+            _ => None,
         });
         let body = self.chrome(item, entry, reference, mark);
         self.behavior(body, part, id, reference)
@@ -360,7 +361,7 @@ fn row_drag(
     id: u64,
     data: Value<Vec<TreeItem>>,
     mounted: super::controls::Rows,
-    plan: kivact::state::Signal<Option<Plan>>,
+    drag: kivact::state::MachineHandle<DragMachine>,
     item_drop: Option<Callback<TreeDrop>>,
     dragger: kivact::interaction::DragApi<u64>,
 ) -> kivact::interaction::DragApi<u64> {
@@ -377,15 +378,20 @@ fn row_drag(
     let moved_drop = drop_at.clone();
     let dragged = |update: &DragUpdate<u64>| update.delta.x.hypot(update.delta.y) > 4.0;
     dragger
+        .on_start(move |_| drag.send(DragEvent::Start(id)))
         .on_update(move |update: DragUpdate<u64>| {
-            plan.set(if dragged(&update) {
+            drag.send(DragEvent::Plan(if dragged(&update) {
                 moved_drop(update.pos).map(|(plan, _)| plan)
             } else {
                 None
-            });
+            }));
         })
         .on_end(move |update: DragUpdate<u64>| {
-            plan.set(None);
+            drag.send(if update.phase == DragPhase::End {
+                DragEvent::End
+            } else {
+                DragEvent::Cancel
+            });
             if update.phase != DragPhase::End {
                 return;
             }
@@ -465,7 +471,7 @@ impl Outliner {
         }
         let mounted: super::controls::Rows = Rc::new(RefCell::new(HashMap::new()));
         let generation = Rc::new(Cell::new(Generation::new()));
-        let plan = signal(None::<Plan>);
+        let drag = machine(Drag::Idle, || DragMachine, |_, ()| {});
         let reveal = super::reveal::observe(active, reveal_active, data, expanded, mounted.clone());
         let painter = restriction_painter(on_restriction);
         let levels = memo(move || {
@@ -488,7 +494,7 @@ impl Outliner {
             painter,
             on_restriction,
             cells,
-            plan,
+            drag,
             active,
             restrictions,
             row_height,
@@ -616,7 +622,7 @@ impl RowFactory {
         let data = self.data;
         let mounted = self.mounted.clone();
         let reveal = self.reveal;
-        let plan = self.plan;
+        let drag = self.drag;
         let item_drop = self.item_drop;
         let has_activation = self.has_activation;
         let rename_edit = self.rename_edit;
@@ -631,7 +637,7 @@ impl RowFactory {
             rows: mounted.clone(),
         };
         let start_rename = move || rename_edit.open(id);
-        let dragger = row_drag(id, data, mounted.clone(), plan, item_drop, dragger);
+        let dragger = row_drag(id, data, mounted.clone(), drag, item_drop, dragger);
         // Consume the drag Part after the Tree Part so selection runs
         // before a drag or double-click rename can handle the press.
         let body = body

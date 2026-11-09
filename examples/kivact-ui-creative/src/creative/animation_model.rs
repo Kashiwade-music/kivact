@@ -168,16 +168,17 @@ pub(super) fn apply_graph(curves: &mut Vec<ui::Curve>, request: &ui::GraphReques
 pub(super) fn graph_edits(
     curves: Signal<Vec<ui::Curve>>,
 ) -> impl Fn(ui::EditorEvent<ui::GraphRequest>) + 'static {
-    let initial = kivact::state::signal(None);
+    let txn = super::txn::Txn::signal();
     move |event| match event {
-        ui::EditorEvent::Begin => initial.set(Some(curves.get_untracked())),
+        ui::EditorEvent::Begin => {
+            super::txn::Txn::begin(txn, curves.get_untracked());
+        }
         ui::EditorEvent::Request(request) => curves.update(|curves| apply_graph(curves, &request)),
-        ui::EditorEvent::Commit => initial.set(None),
+        ui::EditorEvent::Commit => super::txn::Txn::commit(txn),
         ui::EditorEvent::Cancel => {
-            if let Some(snapshot) = initial.get_untracked() {
+            if let Some(snapshot) = super::txn::Txn::cancel(txn) {
                 curves.set(snapshot);
             }
-            initial.set(None);
         }
     }
 }

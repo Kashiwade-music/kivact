@@ -113,8 +113,10 @@ impl IntoView for GradientEditor {
         let stops = self.stops.into_value();
         let selection = self.selection;
         let selected = selection.into_value();
-        let scene =
-            crate::editors::shared::targets::targets(move || Ok((0..stops.get().len()).collect()));
+        let targets = crate::editors::shared::targets::targets::<usize, ()>(move || {
+            Ok((0..stops.get().len()).collect())
+        });
+        let scene = targets.scene();
         let valid = memo(move || scene.get().is_ok());
         let root_part = part(|input| input);
         let input = root_part.state();

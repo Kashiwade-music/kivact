@@ -20,5 +20,6 @@ mod media_pool;
 mod node_model;
 mod numeric_samples;
 mod shell;
+mod txn;
 
 pub use shell::catalog;

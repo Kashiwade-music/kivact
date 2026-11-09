@@ -164,9 +164,9 @@ belong to the application. Loop, playhead, tool and view values are the bindings
 `zoom_range`, `min_duration` and `loop_min_duration` configure proposals;
 `automation_label` supplies the optional lane heading. Track regions
 are allocated independently of model identities, including large knot IDs.
-`document_tabs(label, options, selected).on_reorder(on_reorder).on_close(on_close)` is `kivact::ui::tabs`
+`document_tabs(label, items, selected).on_reorder(on_reorder).on_close(on_close)` is `kivact::ui::tabs`
 with a tab slot that closes a tab and drags it 60 px to swap with a
-neighbor; the application applies both to its options. `.content(|key| ..)`
+neighbor; the application applies both to its items. `.content(|key| ..)`
 and `.keep_mounted(true)` are the standard tabs'.
 The standard `kivact::ui::data_table(rows, key, columns)` is drawn dense in this
 kit's theme (its `DataTableRecipes`): `.focus(TableFocus::Rows(ListPolicy::default()))` makes the rows
@@ -195,7 +195,7 @@ its color when hovered, pressed or focused, and retains its accessible name.
 `PickerItem`s (label, section, description, shortcut, icon, enabled): `.attach(button)`
 opens it below a button and `.at(anchor, position)` at a window point. The focus stays
 in the search field, Up and Down move the active row over the enabled items and stop at
-the ends, Enter or a click picks (`on_pick`), Escape, an outside press and Tab cancel
+the ends, Enter or a click activates (`on_activate`), Escape, an outside press and Tab cancel
 (`on_cancel`), and `on_preview` reports the active key for a live preview and `None`
 when it ends.
 `popup_button` and `dialog_button` open a popover below the button and a modal
@@ -290,7 +290,7 @@ press on an end or on the movable interval drags it, and the keys edit what
 was pressed, selected or moved last. Context menus are
 `kivact::ui::menu(label, entries, choose).attach_context(target)`.
 
-`arrangement(clips, tracks, state).length(beats)` defaults to 16 beats. `split_button(label, primary, entries).on_select(choose)` keeps the primary action required. `tool_window(anchor, open, options).content(factory)` rebuilds content on opening and defaults to empty content. Document-tab close/reorder callbacks default to no action. Mixer inserts/routes and pie-menu entries accept reactive read-only lists. Segmented radio groups use the standard item slot.
+`arrangement(clips, tracks, state).length(beats)` defaults to 16 beats. `split_button(label, primary, items).on_activate(choose)` keeps the primary action required. `tool_window(anchor, open, options).content(factory)` rebuilds content on opening and defaults to empty content. Document-tab close/reorder callbacks default to no action. Mixer inserts/routes and pie-menu entries accept reactive read-only lists. Segmented radio groups use the standard item slot.
 
 ## Migrating from the previous release
 
@@ -304,9 +304,9 @@ names and their replacements:
 | `Color` | `creative::ColorName` |
 | Cargo feature `gpu-interop` of `kivact-ui-creative` | Removed: enable the `gpu-interop` feature of the `kivact` dependency and call `kivact::view::viewport(pixels).gpu_frame(move \|\| image.frame())` with `kivact::gpu_interop::shared_image(..)` |
 | `notice(tone, title, message)`, `Notice` (`.dismissible`) | `kivact::ui::alert(title).tone(tone).description(message).variant(creative::NoticeVariant).dismissible(true)`, with `.icon(..)`, `.dismiss_content(..)`, `.dismiss_label(..)` |
-| `pie_menu(entries, state, choose)` | `creative::pie_menu(entries, state).on_activate(choose)` (returns `creative::PieMenu`); `PieState` is `Closed` or `Open { mode: creative::PieMode, center, hot }` |
+| `pie_menu(entries, state, choose)` | `creative::pie_menu(items, state).on_activate(choose)` (returns `creative::PieMenu`); `PieState` is `Closed` or `Open { mode: creative::PieMode, center, hot }` |
 | `Segmented` | `kivact::ui::radio_group(..).variant(kivact::ui::RadioGroupVariant::Segmented)` |
-| `split_button(label, primary, entries)` | `creative::split_button(label, entries).on_press(primary).on_select(..)` |
+| `split_button(label, primary, entries)` | `creative::split_button(label, items).on_press(primary).on_activate(..)` |
 | `SurfacePointer` | Standard pointer events: `viewport(..).with_node(\|n\| n.on_pointer(..))`, mapped to image coordinates with `kivact::interaction::use_zoom_pan(..).to_content(event.pos())` |
 | `SurfaceRegion` | Canvas regions: `Node::region(id, part)` / `Node::regions(..)`, with the geometry painted by `Draw::region(id, rect)` |
 | `SurfaceSize` | `kivact::view::SurfaceSize` (from `viewport(..).on_resize(..)`) |

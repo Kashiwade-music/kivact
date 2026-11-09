@@ -52,7 +52,7 @@ impl Log {
         let log = *self;
         picker
             .placeholder("Find")
-            .on_pick(move |key: &'static str| log.push(format!("pick {key}")))
+            .on_activate(move |key: &'static str| log.push(format!("pick {key}")))
             .on_preview(move |key: Option<&'static str>| log.push(format!("preview {key:?}")))
             .on_cancel(move || log.push("cancel".to_owned()))
     }

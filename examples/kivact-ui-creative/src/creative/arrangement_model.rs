@@ -1,42 +1,65 @@
 //! Role: Application reducer and gesture snapshots for arrangement requests.
-use kivact::state::{Signal, signal};
+use super::txn::Txn;
+use kivact::state::Signal;
 use kivact_ui_creative as ui;
+
+/// The application's arrangement items and the provisional automation point
+/// one drag creates, kept for the length of the edit.
+#[derive(Clone, PartialEq)]
+pub(super) struct ArrangementEdit {
+    clips: Vec<ui::Clip>,
+    tracks: Vec<ui::TimelineTrack>,
+    provisional: Option<u64>,
+}
 
 pub(super) fn edits(
     clips: Signal<Vec<ui::Clip>>,
     tracks: Signal<Vec<ui::TimelineTrack>>,
     observe: impl Fn(kivact::view::EditPhase) + 'static,
 ) -> impl Fn(ui::EditorEvent<ui::ArrangementRequest>) + 'static {
-    let snapshot = signal(None::<(Vec<ui::Clip>, Vec<ui::TimelineTrack>)>);
-    let point = signal(None::<u64>);
+    let txn = Txn::signal();
     move |event| {
         use kivact::view::EditPhase;
         match event {
             ui::EditorEvent::Begin => {
-                snapshot.set(Some((clips.get_untracked(), tracks.get_untracked())));
-                point.set(None);
+                Txn::begin(
+                    txn,
+                    ArrangementEdit {
+                        clips: clips.get_untracked(),
+                        tracks: tracks.get_untracked(),
+                        provisional: None,
+                    },
+                );
                 observe(EditPhase::Begin);
             }
             ui::EditorEvent::Request(request) => {
-                clips.update(|clips| tracks.update(|tracks| apply(clips, tracks, &request, point)));
+                clips.update(|clips| tracks.update(|tracks| apply(clips, tracks, &request, txn)));
             }
             ui::EditorEvent::Commit => {
-                snapshot.set(None);
-                point.set(None);
+                Txn::commit(txn);
                 observe(EditPhase::Commit);
             }
             ui::EditorEvent::Cancel => {
-                if let Some((old_clips, old_tracks)) = snapshot.get_untracked() {
-                    clips.set(old_clips);
-                    tracks.set(old_tracks);
+                if let Some(edit) = Txn::cancel(txn) {
+                    clips.set(edit.clips);
+                    tracks.set(edit.tracks);
                 }
-                snapshot.set(None);
-                point.set(None);
                 observe(EditPhase::Cancel);
             }
         }
     }
 }
+/// The provisional automation point of the running edit, created once.
+fn provisional_id(txn: Signal<Txn<ArrangementEdit>>, tracks: &[ui::TimelineTrack]) -> u64 {
+    Txn::snapshot(txn)
+        .and_then(|edit| edit.provisional)
+        .unwrap_or_else(|| {
+            let id = next_id(tracks.iter().flat_map(|t| &t.automation).map(|p| p.id));
+            Txn::update_snapshot(txn, |edit| edit.provisional = Some(id));
+            id
+        })
+}
+
 fn next_id(ids: impl Iterator<Item = u64>) -> u64 {
     let used = ids.collect::<std::collections::HashSet<_>>();
     let mut id = used.iter().copied().max().unwrap_or(0).wrapping_add(1);
@@ -49,7 +72,7 @@ fn apply(
     clips: &mut Vec<ui::Clip>,
     tracks: &mut [ui::TimelineTrack],
     request: &ui::ArrangementRequest,
-    provisional: Signal<Option<u64>>,
+    txn: Signal<Txn<ArrangementEdit>>,
 ) {
     use ui::ArrangementRequest as R;
     match request {
@@ -95,11 +118,7 @@ fn apply(
             }
         }
         R::AddPoint { track, beat, value } => {
-            let id = provisional.get_untracked().unwrap_or_else(|| {
-                let id = next_id(tracks.iter().flat_map(|t| &t.automation).map(|p| p.id));
-                provisional.set(Some(id));
-                id
-            });
+            let id = provisional_id(txn, tracks);
             if let Some(t) = tracks.iter_mut().find(|t| t.id == *track) {
                 if let Some(p) = t.automation.iter_mut().find(|p| p.id == id) {
                     p.beat = *beat;

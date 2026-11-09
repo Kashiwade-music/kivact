@@ -9,20 +9,20 @@ use kivact::style::Icon;
 #[derive(Clone, Debug, PartialEq)]
 pub struct TreeItem {
     pub id: u64,
-    // xtask-allow(state-fields): passive record - parent
+    // xtask-allow(state-fields): independent: the application's hierarchy; any parent or none is valid
     pub parent: Option<u64>,
     pub label: String,
     /// The icon before the label: a name in the theme's icon set or an image.
     pub icon: Icon,
-    // xtask-allow(state-fields): passive record - visible
+    // xtask-allow(state-fields): independent: the application's visibility; either value is valid with every other flag
     pub visible: bool,
-    // xtask-allow(state-fields): passive record - selectable
+    // xtask-allow(state-fields): independent: the application's selectability; either value is valid with every other flag
     pub selectable: bool,
-    // xtask-allow(state-fields): passive record - rendered
+    // xtask-allow(state-fields): independent: the application's rendering; either value is valid with every other flag
     pub rendered: bool,
     /// The label color, resolved against the current theme.
     pub tone: LabelTone,
-    // xtask-allow(state-fields): passive record - An unresolved item, drawn italic and muted while remaining operable
+    // xtask-allow(state-fields): independent: whether the item is unresolved; any item may be unresolved
     /// An unresolved item, drawn italic and muted while remaining operable.
     pub placeholder: bool,
 }
@@ -69,10 +69,10 @@ impl TreeItem {
 pub struct TreeDrop {
     /// The item that was dragged.
     pub id: u64,
-    // xtask-allow(state-fields): passive record - Its new parent;
+    // xtask-allow(state-fields): independent: the application's new parent; any parent or none is valid
     /// Its new parent; `None` makes it a root.
     pub target: Option<u64>,
-    // xtask-allow(state-fields): passive record - The sibling it lands right after, among the children of `target` without the dragged item;
+    // xtask-allow(state-fields): independent: the sibling the item lands after; any sibling or none is valid
     /// The sibling it lands right after, among the children of `target`
     /// without the dragged item; `None` puts it first.
     pub after: Option<u64>,

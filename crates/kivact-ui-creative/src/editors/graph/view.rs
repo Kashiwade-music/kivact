@@ -219,7 +219,9 @@ impl GraphEditor {
         let lanes = graph_lanes(lanes, curves);
         let visible = crate::editors::graph::a11y::visible(curves, lanes, settings.clone());
         let choose = graph_selection(visible, selected);
-        let scene = crate::editors::graph::a11y::scene(curves, visible, selected, lanes);
+        let targets = crate::editors::graph::a11y::scene(curves, visible, selected, lanes);
+        let scene = targets.scene();
+        let active = targets.active();
         let (cells, child_focus) = crate::editors::shared::lane::lane_cells(
             lanes,
             &extensions,
@@ -259,7 +261,7 @@ impl GraphEditor {
             edit,
             press,
             gesture,
-            active: signal(None),
+            active,
             space: use_space_pan(),
             lane_activate: extensions.lane_activate,
             item_activate: extensions.item_activate,

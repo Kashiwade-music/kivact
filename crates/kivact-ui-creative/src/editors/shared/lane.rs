@@ -14,7 +14,7 @@ pub(crate) struct LaneExtensions {
     pub(crate) cells: Vec<(Value<f64>, CellRenderer)>,
     pub(crate) lane_activate: Option<Callback<u64>>,
     pub(crate) item_activate: Option<Callback<u64>>,
-    // xtask-allow(state-fields): Independent optional setup callback or menu factory.
+    // xtask-allow(state-fields): option: absent means the editor has no context menu
     pub(crate) menu: Option<MenuFactory>,
 }
 pub(crate) const GRAPH_LANE_WIDTH: f64 = crate::editors::shared::metrics::SIDEBAR - 72.0;
@@ -64,7 +64,7 @@ let width = kivact::state::memo(move || { let width = width.get(); if width.is_f
         }
         /// Run on an item, trim handle, key or tangent's Enter or stationary double click.
         /// Accessibility Activate activates the corresponding domain target.
-        pub fn on_item_activate<R: kivact::view::HandlerResult>(mut self, f: impl Fn(u64) -> R + 'static) -> Self {
+        pub fn on_activate<R: kivact::view::HandlerResult>(mut self, f: impl Fn(u64) -> R + 'static) -> Self {
             self.$($field).+.item_activate = Some(kivact::state::callback(f));
             self
         }

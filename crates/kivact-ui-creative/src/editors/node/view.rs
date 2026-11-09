@@ -182,7 +182,12 @@ impl NodeEditor {
                 .collect::<Vec<_>>()
         });
         let choose = selection::controller(order, selected);
-        let scene = targets::targets(move || targets(&data.get(), &edges.get()));
+        let targets =
+            targets::targets::<crate::editors::node::gesture::Target, (u64, usize)>(move || {
+                targets(&data.get(), &edges.get())
+            });
+        let scene = targets.scene();
+        let active = targets.active();
         let reference = node_ref();
         let phase = phase_observer(observer);
         let edit =
@@ -224,7 +229,7 @@ impl NodeEditor {
             transform,
             scene,
             snap,
-            active: signal(None),
+            active,
             mode: crate::editors::node::gesture::NodeController::new(),
             reference,
             texts: crate::editors::shared::texts::Texts::new(),
@@ -276,10 +281,13 @@ fn observe_inputs(state: State) {
                 crate::editors::node::gesture::DragMode::Items { ids } => {
                     ids.iter().all(|id| nodes.iter().any(|node| node.id == *id))
                 }
-                crate::editors::node::gesture::DragMode::Link { from, output, .. } => nodes
-                    .iter()
-                    .find(|node| node.id == from)
-                    .is_some_and(|node| output < node.outputs.len()),
+                crate::editors::node::gesture::DragMode::Link { source, .. } => {
+                    let (from, output) = source.output();
+                    nodes
+                        .iter()
+                        .find(|node| node.id == from)
+                        .is_some_and(|node| output < node.outputs.len())
+                }
                 _ => true,
             });
         state.mode.inputs(

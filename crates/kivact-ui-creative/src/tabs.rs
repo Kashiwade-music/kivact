@@ -17,26 +17,26 @@ use kivact::view::{HandlerResult, IntoView, View};
 const SWAP_DISTANCE: f64 = 60.0;
 
 /// Document tabs: [`kivact::ui::tabs`] named `label` (for assistive
-/// technology) of `options` choosing `selected`, in
+/// technology) of `items` choosing `selected`, in
 /// the kit's theme, where each tab has a close button and is dragged sideways
 /// to swap with its neighbor.
 ///
 /// The tabs, their keys, selection and keyboard navigation are the standard
 /// component's; this is its tab slot ([`Tabs::item`]). Dragging a tab 60
 /// pixels toward a neighbor calls `on_reorder((moved, neighbor))`, and the
-/// close button calls `on_close(key)`: the application changes `options`,
+/// close button calls `on_close(key)`: the application changes `items`,
 /// which the tabs follow, and keeps the selection. Give the returned tabs
 /// `.content(..)` to show the selected document's panel.
 #[track_caller]
 pub fn document_tabs<K: kivact::state::ItemKey>(
     label: impl IntoText,
-    options: impl IntoValue<Vec<ListItem<K>>>,
+    items: impl IntoValue<Vec<ListItem<K>>>,
     selected: impl IntoBinding<K>,
 ) -> DocumentTabs<K> {
-    let options = options.into_value();
+    let items = items.into_value();
     DocumentTabs {
-        tabs: tabs(label, options, selected),
-        options,
+        tabs: tabs(label, items, selected),
+        options: items,
         on_reorder: callback(|_| ()),
         on_close: callback(|_| ()),
     }
@@ -90,10 +90,17 @@ impl<K: kivact::state::ItemKey> IntoView for DocumentTabs<K> {
     }
 }
 
+/// The travel a tab's reorder drag has used up, between swaps.
+#[derive(Clone, Copy, PartialEq)]
+enum Reorder {
+    Idle,
+    Dragging { consumed: f64 },
+}
+
 /// One tab's label and close button, which a horizontal drag swaps with a
 /// neighbor.
 fn document_tab<K: kivact::state::ItemKey>(
-    options: Value<Vec<ListItem<K>>>,
+    items: Value<Vec<ListItem<K>>>,
     item: Value<ListItem<K>>,
     on_reorder: Callback<(K, K)>,
     on_close: Callback<K>,
@@ -101,18 +108,22 @@ fn document_tab<K: kivact::state::ItemKey>(
 ) -> View {
     let key = item.with_untracked(|item| item.key().clone());
     // The travel the last swap used up, so each swap takes another 60 px.
-    let consumed = signal(0.0_f64);
+    let reorder_state = signal(Reorder::Idle);
     let reorder = use_drag::<K>(DragCoordinates::Window)
-        .on_start(move |_| consumed.set(0.0))
+        .on_start(move |_| reorder_state.set(Reorder::Dragging { consumed: 0.0 }))
         .on_update(move |update: DragUpdate<K>| -> kivact::Result<()> {
             if disabled.get() {
                 return Ok(());
             }
-            let delta = update.delta.x - consumed.get();
+            let consumed = match reorder_state.get_untracked() {
+                Reorder::Dragging { consumed } => consumed,
+                Reorder::Idle => 0.0,
+            };
+            let delta = update.delta.x - consumed;
             if delta.abs() <= SWAP_DISTANCE {
                 return Ok(());
             }
-            let neighbor = options.with(|items| {
+            let neighbor = items.with(|items| {
                 let index = items
                     .iter()
                     .position(|item| *item.key() == update.payload)?;
@@ -124,11 +135,14 @@ fn document_tab<K: kivact::state::ItemKey>(
                 items.get(next).map(|item| item.key().clone())
             });
             if let Some(neighbor) = neighbor {
-                consumed.set(update.delta.x);
+                reorder_state.set(Reorder::Dragging {
+                    consumed: update.delta.x,
+                });
                 on_reorder.try_call((update.payload, neighbor))?;
             }
             Ok(())
-        });
+        })
+        .on_end(move |_| reorder_state.set(Reorder::Idle));
     let close = key.clone();
     row((
         text(move || item.with(|item| item.label())),

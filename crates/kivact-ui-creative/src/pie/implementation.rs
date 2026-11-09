@@ -23,12 +23,12 @@ use kivact::view::{ButtonPress, MouseButton, Placement, PointerPhase, overlay_at
 /// commit its `hot` choice on key-up using the same application command callback.
 #[track_caller]
 pub fn pie_menu(
-    entries: impl IntoValue<Vec<PieEntry>>,
+    items: impl IntoValue<Vec<PieEntry>>,
     state: impl IntoBinding<PieState>,
 ) -> PieMenu {
     PieMenu {
         root: column(()).style(style().height(0).gap(0)),
-        entries: entries.into_value(),
+        entries: items.into_value(),
         state: state.into_binding(),
         choose: None,
     }

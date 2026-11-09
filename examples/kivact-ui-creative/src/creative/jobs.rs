@@ -20,8 +20,41 @@ struct LogLine {
     text: String,
 }
 
+/// Whether the catalog's job queue is rendering.
+#[derive(Clone, Copy, PartialEq)]
+enum JobRun {
+    Idle,
+    Running,
+}
+
+struct JobMachine;
+enum JobEvent {
+    Start,
+    Stop,
+    Finished,
+}
+impl kivact::state::Machine for JobMachine {
+    type State = JobRun;
+    type Event = JobEvent;
+    type Effect = ();
+    fn transition(
+        &self,
+        state: &JobRun,
+        event: JobEvent,
+    ) -> kivact::state::Step<JobRun, JobEvent, ()> {
+        match event {
+            JobEvent::Start if *state == JobRun::Idle => kivact::state::Step::to(JobRun::Running),
+            JobEvent::Stop | JobEvent::Finished if *state == JobRun::Running => {
+                kivact::state::Step::to(JobRun::Idle)
+            }
+            _ => kivact::state::Step::stay(),
+        }
+    }
+}
+
 pub(super) fn jobs(status: Signal<String>) -> impl IntoView {
-    let running = signal(false);
+    let job = kivact::state::machine(JobRun::Idle, || JobMachine, |_, ()| {});
+    let running = kivact::state::memo(move || job.get() == JobRun::Running);
     let progress = signal(vec![1.0_f64, 0.0, 0.0, 0.0]);
     let rows = signal(queue_rows());
     let log=signal("04:00:49  ›  Accent: lime\n04:00:50  ›  Compact rows (20 px)\n04:01:02  ›  Accent: iris\n04:01:03  ›  Regular rows (24 px)\n04:01:22  ›  Accent: lime\n04:01:23  ›  Compact rows (20 px)\n04:01:25  ›  Accent: iris\n04:01:26  ›  Regular rows (24 px)".split('\n').map(|text|LogLine{level:0,text:text.to_owned()}).collect::<Vec<_>>());
@@ -42,7 +75,7 @@ pub(super) fn jobs(status: Signal<String>) -> impl IntoView {
             rows.iter()
                 .all(|row| progress.with_untracked(|p| p[row.id as usize - 1] >= 1.0))
         }) {
-            running.set(false);
+            job.send(JobEvent::Finished);
             toaster().push(
                 kivact::interaction::Toast::new("Catalog report")
                     .tone(kivact::interaction::Tone::Info)
@@ -65,7 +98,7 @@ pub(super) fn jobs(status: Signal<String>) -> impl IntoView {
         }
     });
     specs((
-        queue_view(status, running, progress, rows),
+        queue_view(status, running, job, progress, rows),
         progress_view(running, amount),
         log_view(log, severity),
         report_view(status, log),
@@ -257,7 +290,7 @@ fn log_view(log: Signal<Vec<LogLine>>, severity: Signal<Vec<bool>>) -> Node {
     )
 }
 
-fn progress_view(running: Signal<bool>, amount: Signal<f64>) -> Node {
+fn progress_view(running: kivact::state::Value<bool>, amount: Signal<f64>) -> Node {
     spec(
         "Progress",
         "進捗",
@@ -288,13 +321,13 @@ fn progress_view(running: Signal<bool>, amount: Signal<f64>) -> Node {
 
 fn queue_view(
     status: Signal<String>,
-    running: Signal<bool>,
+    running: kivact::state::Value<bool>,
+    job: kivact::state::MachineHandle<JobMachine>,
     progress: Signal<Vec<f64>>,
     rows: Signal<Vec<TextRow>>,
 ) -> Node {
     col((
-        queue_toolbar(status, running, progress, rows)
-            .style(style().height(40).padding_x(10).gap(8)),
+        queue_toolbar(status, job, progress, rows).style(style().height(40).padding_x(10).gap(8)),
         text_table(
             &[
                 ("#", 30.0),
@@ -362,7 +395,7 @@ fn queue_view(
 
 fn queue_toolbar(
     status: Signal<String>,
-    running: Signal<bool>,
+    job: kivact::state::MachineHandle<JobMachine>,
     progress: Signal<Vec<f64>>,
     rows: Signal<Vec<TextRow>>,
 ) -> Node {
@@ -373,13 +406,13 @@ fn queue_toolbar(
             .variant(kivact::ui::ButtonVariant::Primary)
             .size(kivact::ui::ControlSize::Small)
             .test_id("creative-start-job")
-            .on_press(move || running.set(true)),
+            .on_press(move || job.send(JobEvent::Start)),
         kivact::ui::button("Stop")
             .variant(kivact::ui::ButtonVariant::Secondary)
             .icon(kivact::view::icon("stop"))
             .size(kivact::ui::ControlSize::Small)
             .on_press(move || {
-                running.set(false);
+                job.send(JobEvent::Stop);
                 status.set("Render cancelled".into());
             }),
         spacer(),

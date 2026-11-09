@@ -114,7 +114,7 @@ pub fn catalog() -> impl IntoView {
 fn topbar(
     accent: Signal<ui::Accent>,
     compact: Signal<bool>,
-    category: Signal<Option<Category>>,
+    category: Signal<Category>,
     sidebar: Signal<bool>,
     search: Signal<bool>,
     status: Signal<String>,
@@ -153,10 +153,7 @@ fn topbar(
                 kivact::interaction::ListItem::new(Category::Compositing, "Compositing 4"),
                 kivact::interaction::ListItem::new(Category::Feedback, "Feedback 3"),
             ],
-            kivact::state::binding(
-                move || category.get().unwrap_or(Category::All),
-                move |next| category.set(Some(next)),
-            ),
+            kivact::state::binding(move || category.get(), move |next| category.set(next)),
         )
         .style(style().margin_left(10)),
         spacer(),
@@ -252,7 +249,7 @@ fn toolbar(state: Signal<TransportState>, status: Signal<String>) -> impl IntoVi
 }
 
 fn sidebar(
-    category: Signal<Option<Category>>,
+    category: Signal<Category>,
     filter: Signal<String>,
     current: Signal<usize>,
     rects: std::rc::Rc<Vec<Value<Option<Rect>>>>,
@@ -363,8 +360,7 @@ fn section_icon(i: usize) -> &'static str {
 
 #[derive(Clone)]
 struct CatalogNavigation {
-    // xtask-allow(state-fields): Existing application category binding supplied to navigation presentation.
-    category: Signal<Option<Category>>,
+    category: Signal<Category>,
     filter: Signal<String>,
     current: Signal<usize>,
     rects: std::rc::Rc<Vec<Value<Option<Rect>>>>,
@@ -438,9 +434,8 @@ fn sidebar_group(g: usize, title: &'static str, navigation: CatalogNavigation) -
     ))
     .style(style().shrink(0))
     .hidden(move || {
-        category.get().is_some_and(|selected| {
-            selected != Category::All && selected != category_for_group(g + 1)
-        })
+        let selected = category.get();
+        selected != Category::All && selected != category_for_group(g + 1)
     })
 }
 
@@ -478,7 +473,7 @@ fn sidebar_rows(g: usize, collapsed: Signal<bool>, navigation: CatalogNavigation
             .hidden(move || collapsed.get() || !query.contains(&filter.get().to_lowercase()))
             .on_press(move || {
                 current.set(i);
-                category.set(Some(Category::All));
+                category.set(Category::All);
                 if let Some(rect) = rect.get() {
                     main_scroll.scroll_to(
                         Point::new(0.0, (main_offset.get().y + rect.y - 100.0).max(0.0)),
@@ -564,7 +559,7 @@ fn catalog_section(
     i: usize,
     body: kivact::view::View,
     reference: NodeRef,
-    category: Signal<Option<Category>>,
+    category: Signal<Category>,
     filter: Signal<String>,
     status: Signal<String>,
 ) -> Node {
@@ -578,9 +573,9 @@ fn catalog_section(
     .with_node(|node| node.node_ref(reference))
     .test_id(format!("creative-section-{}", i + 1))
     .hidden(move || {
-        category.get().is_some_and(|selected| {
-            selected != Category::All && selected != category_for_group(group)
-        }) || !query_title.contains(&filter.get().to_lowercase())
+        let selected = category.get();
+        (selected != Category::All && selected != category_for_group(group))
+            || !query_title.contains(&filter.get().to_lowercase())
     })
     .style(
         style()
@@ -812,26 +807,25 @@ fn catalog_frame(
 #[derive(Clone, Copy)]
 struct CatalogControls {
     accent: Signal<ui::Accent>,
-    // xtask-allow(state-fields): Existing application binding captured for presentation and event dispatch; no additional state owner.
+    // xtask-allow(state-fields): independent: the catalog's compact-row toggle; its own controls write it
     compact: Signal<bool>,
-    // xtask-allow(state-fields): Existing application binding captured for presentation and event dispatch; no additional state owner.
-    category: Signal<Option<Category>>,
+    category: Signal<Category>,
     filter: Signal<String>,
-    // xtask-allow(state-fields): Existing application binding captured for presentation and event dispatch; no additional state owner.
+    // xtask-allow(state-fields): independent: the selected chapter index; any chapter is valid
     current: Signal<usize>,
-    // xtask-allow(state-fields): Existing application binding captured for presentation and event dispatch; no additional state owner.
+    // xtask-allow(state-fields): independent: the sidebar's visibility; either value is valid
     sidebar_open: Signal<bool>,
     status: Signal<String>,
     transport: Signal<TransportState>,
-    // xtask-allow(state-fields): Existing application binding captured for presentation and event dispatch; no additional state owner.
+    // xtask-allow(state-fields): independent: the search overlay's visibility; either value is valid
     search: Signal<bool>,
     pie: Signal<ui::PieState>,
     pointer: Signal<Point>,
     pie_zone: NodeRef,
     viewport_ref: NodeRef,
-    // xtask-allow(state-fields): Existing application binding captured for presentation and event dispatch; no additional state owner.
+    // xtask-allow(state-fields): independent: the viewport shading mode; any mode is valid
     shading: Signal<usize>,
-    // xtask-allow(state-fields): Existing application binding captured for presentation and event dispatch; no additional state owner.
+    // xtask-allow(state-fields): independent: the viewport grid toggle; either value is valid
     viewport_grid: Signal<bool>,
     main_scroll: NodeRef,
     main_offset: Value<Point>,
@@ -839,20 +833,26 @@ struct CatalogControls {
 impl CatalogControls {
     fn new() -> Self {
         let accent = signal(ui::Accent::Iris);
+        // xtask-allow(state-fields): independent: the compact-row toggle; its own control writes it
         let compact = signal(false);
-        let category = signal(Some(Category::All));
+        let category = signal(Category::All);
         let filter = signal(String::new());
+        // xtask-allow(state-fields): independent: the selected chapter index; any chapter is valid
         let current = signal(0_usize);
+        // xtask-allow(state-fields): independent: the sidebar's visibility; either value is valid
         let sidebar_open = signal(true);
         let status = signal("Ready — Space: Play · F3: Search · F12: Render".to_string());
         let transport = signal(TransportState::default());
         super::audio_values::playback(transport);
+        // xtask-allow(state-fields): independent: the search overlay's visibility; either value is valid
         let search = signal(false);
         let pie = signal(ui::PieState::default());
         let pointer = signal(Point::new(0.0, 0.0));
         let pie_zone = node_ref();
         let viewport_ref = node_ref();
+        // xtask-allow(state-fields): independent: the viewport shading mode; any mode is valid
         let shading = signal(1_usize);
+        // xtask-allow(state-fields): independent: the viewport grid toggle; either value is valid
         let viewport_grid = signal(true);
         let main_scroll = node_ref();
         let main_offset = main_scroll.scroll_offset();

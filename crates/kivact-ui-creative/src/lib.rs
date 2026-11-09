@@ -62,7 +62,7 @@ pub use crate::editors::node::model::{
     NodeControl, NodeControlValue, NodeData, NodeLink, NodeRequest, NodeSocket,
 };
 pub use crate::editors::node::view_state::NodeState;
-pub use crate::editors::shared::model::{Clip, EditorContext, ItemTime, Lane};
+pub use crate::editors::shared::model::{Clip, EditorContext, EditorFocus, ItemTime, Lane};
 pub use crate::editors::time::model::{Keyframe, TimeRequest};
 pub use crate::editors::time::view_state::TimeState;
 pub use crate::outliner::view_state::OutlinerState;

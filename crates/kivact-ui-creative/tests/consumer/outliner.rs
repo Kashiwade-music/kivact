@@ -84,7 +84,7 @@ fn rename_is_f2_and_a_double_click_unless_the_item_is_activated() {
             let activated = signal(Vec::<u64>::new());
             (
                 (data, activated),
-                app_outliner(data, ui::OutlinerState::new(ids(data))).on_item_activate(move |id| {
+                app_outliner(data, ui::OutlinerState::new(ids(data))).on_activate(move |id| {
                     activated.update(|all| all.push(id));
                 }),
             )

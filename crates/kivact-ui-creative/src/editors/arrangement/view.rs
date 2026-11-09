@@ -8,7 +8,7 @@ use crate::editors::arrangement::model::{ArrangementRequest, TimelineMarker, Tim
 use kivact::custom::NodeRefExt;
 
 use kivact::interaction::EditSession;
-use kivact::state::{Callback, Value, signal};
+use kivact::state::{Callback, Value};
 use kivact::state::{IntoValue, callback};
 use kivact::style::{Cursor, Overflow, pct, style};
 use kivact::view::{A11yAction, HandlerResult, IntoView, Role, View, node_ref};
@@ -243,7 +243,6 @@ impl Arrangement {
         let pixels = kivact::state::memo(move || transform.get().scale);
         let offset = kivact::state::memo(move || transform.get().offset);
         let tool = tool_binding.into_value();
-        let active_auto = signal(None::<(u64, u64)>);
         let reference = node_ref();
         let rect = reference.rect();
         let edit = arrangement_edit(playhead, loop_range, cycling, transform, on_edit);
@@ -275,7 +274,7 @@ impl Arrangement {
             markers,
             snap,
             step,
-            active_auto,
+            active_auto: collection.active_auto,
             edit,
             press,
             gesture,
@@ -347,6 +346,7 @@ fn validated_length(length: Value<f64>) -> Value<f64> {
 struct CollectionInputs {
     selection: Value<Vec<u64>>,
     regions: Value<crate::editors::arrangement::a11y::targets::Regions>,
+    active_auto: kivact::state::Binding<Option<(u64, u64)>>,
     choose: kivact::interaction::ListApi<u64>,
 }
 fn collection_inputs(
@@ -355,7 +355,8 @@ fn collection_inputs(
     selected: kivact::state::Binding<Vec<u64>>,
 ) -> CollectionInputs {
     let selection = selected.into_value();
-    let regions = crate::editors::arrangement::a11y::targets::create(track_data, data, selection);
+    let (regions, active_auto) =
+        crate::editors::arrangement::a11y::targets::create(track_data, data, selection);
     let order = kivact::state::memo(move || {
         data.get()
             .into_iter()
@@ -367,6 +368,7 @@ fn collection_inputs(
     CollectionInputs {
         selection,
         regions,
+        active_auto,
         choose,
     }
 }

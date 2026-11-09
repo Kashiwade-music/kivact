@@ -332,7 +332,7 @@ impl<T: TimeItem> State<T> {
         }
     }
     fn context_for(self, target: Option<Target>) -> crate::editors::shared::model::EditorContext {
-        use crate::editors::shared::model::EditorContext;
+        use crate::editors::shared::model::{EditorContext, EditorFocus};
         match target {
             Some(Target::Item(id) | Target::Trim(id, _)) => {
                 if let Some(item) = self
@@ -340,24 +340,24 @@ impl<T: TimeItem> State<T> {
                     .with_untracked(|items| items.iter().find(|item| item.id() == id).cloned())
                 {
                     return EditorContext {
-                        item: Some(id),
-                        lane: Some(item.lane()),
+                        focus: EditorFocus::Item {
+                            lane: item.lane(),
+                            item: id,
+                        },
                         time: item.time(),
                     };
                 }
             }
             Some(Target::Lane(id)) => {
                 return EditorContext {
-                    item: None,
-                    lane: Some(id),
+                    focus: EditorFocus::Lane(id),
                     time: self.playhead.get_untracked(),
                 };
             }
             _ => {}
         }
         EditorContext {
-            item: None,
-            lane: None,
+            focus: EditorFocus::Canvas,
             time: self.playhead.get_untracked(),
         }
     }

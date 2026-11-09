@@ -6,7 +6,7 @@ use kivact::UiError;
 use kivact::draw::RegionId;
 use kivact::geometry::Point;
 use kivact::interaction::{DragApi as Gesture, EditSession, ListApi, ViewTransform, ZoomPanApi};
-use kivact::state::{Binding, Callback, Machine, MachineHandle, Signal, Step, Value, machine};
+use kivact::state::{Binding, Callback, Machine, MachineHandle, Step, Value, machine};
 use kivact::view::{NodeRef, Role};
 use std::rc::Rc;
 
@@ -55,10 +55,10 @@ pub(crate) struct Info {
     pub(crate) name: String,
     pub(crate) value: String,
     pub(crate) role: Role,
-    // xtask-allow(state-fields): Independent optional accessibility checked output.
+    // xtask-allow(state-fields): option: a target reports a checked state only when its role has one
     pub(crate) checked: Option<bool>,
     pub(crate) selected: bool,
-    // xtask-allow(state-fields): Independent optional accessibility numeric range output.
+    // xtask-allow(state-fields): option: a target reports a numeric range only when its role has one
     pub(crate) range: Option<(f64, f64, f64)>,
 }
 
@@ -84,7 +84,21 @@ pub(crate) enum NodeMode {
 }
 
 enum ModeEvent {
-    Choose(NodeMode),
+    BeginConnect {
+        from: u64,
+        output: usize,
+    },
+    OpenPopup {
+        node: u64,
+        index: usize,
+        at: Point,
+        slot: NodeControl,
+    },
+    ClosePopup,
+    UpdatePopupSlot {
+        slot: NodeControl,
+    },
+    Cancel,
     Inputs {
         focused: bool,
         blocked: bool,
@@ -105,7 +119,39 @@ impl Machine for ModeMachine {
         event: ModeEvent,
     ) -> Step<NodeMode, ModeEvent, Self::Effect> {
         match event {
-            ModeEvent::Choose(mode) => Step::to(mode),
+            ModeEvent::BeginConnect { from, output } => {
+                Step::to(NodeMode::Connecting { from, output })
+            }
+            ModeEvent::OpenPopup {
+                node,
+                index,
+                at,
+                slot,
+            } => Step::to(NodeMode::Popup {
+                node,
+                index,
+                at,
+                slot,
+            }),
+            ModeEvent::ClosePopup => {
+                if matches!(state, NodeMode::Popup { .. }) {
+                    Step::to(NodeMode::Idle)
+                } else {
+                    Step::stay()
+                }
+            }
+            ModeEvent::UpdatePopupSlot { slot } => match state {
+                NodeMode::Popup {
+                    node, index, at, ..
+                } => Step::to(NodeMode::Popup {
+                    node: *node,
+                    index: *index,
+                    at: *at,
+                    slot,
+                }),
+                _ => Step::stay(),
+            },
+            ModeEvent::Cancel => Step::to(NodeMode::Idle),
             ModeEvent::Inputs {
                 focused,
                 blocked,
@@ -135,13 +181,25 @@ impl NodeController {
             machine: machine(NodeMode::Idle, || ModeMachine, |_, rollback| rollback()),
         }
     }
-    pub(crate) fn set(self, mode: NodeMode) {
-        self.machine.send(ModeEvent::Choose(mode));
+    pub(crate) fn begin_connect(self, from: u64, output: usize) {
+        self.machine.send(ModeEvent::BeginConnect { from, output });
     }
-    pub(crate) fn update(self, change: impl FnOnce(&mut NodeMode)) {
-        let mut mode = self.get_untracked();
-        change(&mut mode);
-        self.set(mode);
+    pub(crate) fn open_popup(self, node: u64, index: usize, at: Point, slot: NodeControl) {
+        self.machine.send(ModeEvent::OpenPopup {
+            node,
+            index,
+            at,
+            slot,
+        });
+    }
+    pub(crate) fn close_popup(self) {
+        self.machine.send(ModeEvent::ClosePopup);
+    }
+    pub(crate) fn update_popup_slot(self, slot: NodeControl) {
+        self.machine.send(ModeEvent::UpdatePopupSlot { slot });
+    }
+    pub(crate) fn cancel(self) {
+        self.machine.send(ModeEvent::Cancel);
     }
     pub(crate) fn with<R>(self, read: impl FnOnce(&NodeMode) -> R) -> R {
         self.machine.state().with(read)
@@ -184,22 +242,38 @@ pub(crate) enum DragMode {
         node: u64,
         index: usize,
     },
-    /// A link from an output socket to `to`; `rewire` is the link re-routed
-    /// from its input socket; `released` is the input socket under the
-    /// release.
+    /// A link from an output socket to `to`; `released` is the input socket
+    /// under the release.
     Link {
-        from: u64,
-        output: usize,
         to: Point,
-        // xtask-allow(state-fields): independent fact - the link re-routed from its input socket, fixed at the press
-        rewire: Option<NodeLink>,
-        // xtask-allow(state-fields): independent fact - the input socket under the release
+        source: LinkSource,
+        // xtask-allow(state-fields): independent: the socket under the pointer at release, for either source
         released: Option<(u64, usize)>,
     },
     Marquee {
         from: Point,
         to: Point,
     },
+}
+
+/// Where a link drag starts: at an output socket, or at the input socket of
+/// an existing link, which it re-routes.
+#[derive(Clone, PartialEq)]
+pub(crate) enum LinkSource {
+    /// A new link from this output socket.
+    Output { from: u64, output: usize },
+    /// The link drawn again from its own output socket.
+    Rewire(NodeLink),
+}
+
+impl LinkSource {
+    /// The output socket the dragged link starts from.
+    pub(crate) fn output(&self) -> (u64, usize) {
+        match self {
+            Self::Output { from, output } => (*from, *output),
+            Self::Rewire(link) => (link.from, link.output),
+        }
+    }
 }
 
 #[derive(Clone, PartialEq)]
@@ -229,8 +303,7 @@ pub(crate) struct State {
     pub(crate) transform: Binding<ViewTransform>,
     pub(crate) scene: Value<Result<Rc<Scene<Target>>, UiError>>,
     pub(crate) snap: Value<bool>,
-    // xtask-allow(state-fields): Application bindings, immutable callbacks and mounted input facts are independent of the gesture and connection machines.
-    pub(crate) active: Signal<Option<(u64, usize)>>,
+    pub(crate) active: kivact::state::Binding<Option<(u64, usize)>>,
     pub(crate) mode: NodeController,
     pub(crate) reference: NodeRef,
     pub(crate) texts: crate::editors::shared::texts::Texts,
@@ -279,7 +352,10 @@ impl State {
     pub(crate) fn rewired(self) -> Option<NodeLink> {
         self.press
             .with_payload(|payload| match payload {
-                DragMode::Link { rewire, .. } => *rewire,
+                DragMode::Link {
+                    source: LinkSource::Rewire(link),
+                    ..
+                } => Some(*link),
                 _ => None,
             })
             .flatten()

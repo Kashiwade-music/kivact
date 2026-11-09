@@ -17,6 +17,43 @@ pub(super) struct Plan {
     pub(super) placement: Placement,
 }
 
+/// One row drag: idle, or dragging a row with the place it would land.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(super) enum Drag {
+    Idle,
+    Dragging { id: u64, plan: Option<Plan> },
+}
+
+pub(super) enum DragEvent {
+    Start(u64),
+    Plan(Option<Plan>),
+    End,
+    Cancel,
+}
+
+pub(super) struct DragMachine;
+impl kivact::state::Machine for DragMachine {
+    type State = Drag;
+    type Event = DragEvent;
+    type Effect = ();
+    fn transition(
+        &self,
+        state: &Drag,
+        event: DragEvent,
+    ) -> kivact::state::Step<Drag, DragEvent, ()> {
+        match event {
+            DragEvent::Start(id) => kivact::state::Step::to(Drag::Dragging { id, plan: None }),
+            DragEvent::Plan(plan) => match state {
+                Drag::Dragging { id, .. } => {
+                    kivact::state::Step::to(Drag::Dragging { id: *id, plan })
+                }
+                Drag::Idle => kivact::state::Step::stay(),
+            },
+            DragEvent::End | DragEvent::Cancel => kivact::state::Step::to(Drag::Idle),
+        }
+    }
+}
+
 /// The drop for `dragged` released over `over`, `fraction` of the way down
 /// that row (0 at its top edge). `None` when the item cannot go there.
 pub(super) fn plan_drop(

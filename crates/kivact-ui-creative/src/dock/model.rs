@@ -53,9 +53,9 @@ impl DockSide {
 pub struct DockTab<K> {
     pub id: K,
     pub title: String,
-    // xtask-allow(state-fields): passive record - icon
+    // xtask-allow(state-fields): option: absent means the tab shows no icon
     pub icon: Option<Icon>,
-    // xtask-allow(state-fields): passive record - Whether the tab shows a close button and the close commands remove it
+    // xtask-allow(state-fields): independent: whether the application allows closing this tab; either value is valid
     /// Whether the tab shows a close button and the close commands remove it.
     pub closable: bool,
 }

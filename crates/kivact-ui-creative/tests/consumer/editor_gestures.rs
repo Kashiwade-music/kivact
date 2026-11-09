@@ -258,7 +258,7 @@ fn gesture_view(model: Model, snap: bool) -> View {
                 playhead: model.frame.into_binding(),
             },
         )
-        .on_item_activate(move |id| model.activated.update(|ids| ids.push(id)))
+        .on_activate(move |id| model.activated.update(|ids| ids.push(id)))
         .snap(snap)
         .lanes(lanes)
         .name("Gesture editor")
@@ -272,7 +272,7 @@ fn gesture_view(model: Model, snap: bool) -> View {
                 playhead: model.frame.into_binding(),
             },
         )
-        .on_item_activate(move |id| model.activated.update(|ids| ids.push(id)))
+        .on_activate(move |id| model.activated.update(|ids| ids.push(id)))
         .snap(snap)
         .lanes(lanes)
         .name("Gesture editor")
@@ -286,7 +286,7 @@ fn gesture_view(model: Model, snap: bool) -> View {
                 playhead: model.frame.into_binding(),
             },
         )
-        .on_item_activate(move |id| model.activated.update(|ids| ids.push(id)))
+        .on_activate(move |id| model.activated.update(|ids| ids.push(id)))
         .snap(snap)
         .step(10.0, 0.01)
         .time_format(|time| format!("{time}"))

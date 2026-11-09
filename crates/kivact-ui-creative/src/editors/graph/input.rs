@@ -265,7 +265,7 @@ impl State {
         }
     }
     fn context_for(self, target: Option<Target>) -> crate::editors::shared::model::EditorContext {
-        use crate::editors::shared::model::EditorContext;
+        use crate::editors::shared::model::{EditorContext, EditorFocus};
         match target {
             Some(Target::Key(id) | Target::Tangent(id, _)) => {
                 if let Some(key) = self
@@ -273,24 +273,24 @@ impl State {
                     .with_untracked(|keys| keys.iter().find(|key| key.key.id == id).cloned())
                 {
                     return EditorContext {
-                        item: Some(id),
-                        lane: Some(key.curve),
+                        focus: EditorFocus::Item {
+                            lane: key.curve,
+                            item: id,
+                        },
                         time: key.key.time,
                     };
                 }
             }
             Some(Target::Lane(id)) => {
                 return EditorContext {
-                    item: None,
-                    lane: Some(id),
+                    focus: EditorFocus::Lane(id),
                     time: self.playhead.get_untracked(),
                 };
             }
             _ => {}
         }
         EditorContext {
-            item: None,
-            lane: None,
+            focus: EditorFocus::Canvas,
             time: self.playhead.get_untracked(),
         }
     }

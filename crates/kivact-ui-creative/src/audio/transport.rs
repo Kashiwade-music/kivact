@@ -12,11 +12,11 @@ use kivact::view::{IntoView, Role, View};
 /// Playback button state; the application owns its clock.
 #[derive(Clone, Debug, PartialEq)]
 pub struct TransportState {
-    // xtask-allow(state-fields): caller binding - playing
+    // xtask-allow(state-fields): independent: Play toggles playing and Stop clears it; Record and Cycle leave it
     pub playing: bool,
-    // xtask-allow(state-fields): caller binding - recording
+    // xtask-allow(state-fields): independent: Record toggles recording; Play, Stop and Cycle leave it
     pub recording: bool,
-    // xtask-allow(state-fields): caller binding - cycling
+    // xtask-allow(state-fields): independent: Cycle toggles cycling; Play, Stop and Record leave it
     pub cycling: bool,
 }
 

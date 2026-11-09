@@ -22,9 +22,9 @@ pub(crate) struct RegionInfo {
     pub(crate) kind: Kind,
     pub(crate) name: String,
     pub(crate) value: String,
-    // xtask-allow(state-fields): Independent accessibility output facts, recomputed from domain data.
+    // xtask-allow(state-fields): independent: the a11y checked output, recomputed from the domain for any node
     pub(crate) checked: bool,
-    // xtask-allow(state-fields): Independent accessibility output facts, recomputed from domain data.
+    // xtask-allow(state-fields): independent: the a11y selected output, recomputed from the domain for any node
     pub(crate) selected: bool,
     pub(crate) min: f64,
     pub(crate) max: f64,

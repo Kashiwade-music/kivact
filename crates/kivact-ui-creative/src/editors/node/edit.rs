@@ -67,7 +67,7 @@ impl State {
         self.press.cancel(|| self.reset_fields());
     }
     pub(crate) fn reset_fields(self) {
-        self.mode.set(NodeMode::Idle);
+        self.mode.cancel();
         self.active.set(None);
     }
     pub(crate) fn select(self, id: u64, gesture: ListGesture) {
@@ -133,11 +133,7 @@ impl State {
     }
     /// Close the parameter popup, if one is open.
     pub(crate) fn close_popup(self) {
-        self.mode.update(|mode| {
-            if matches!(mode, NodeMode::Popup { .. }) {
-                *mode = NodeMode::Idle;
-            }
-        });
+        self.mode.close_popup();
     }
     pub(crate) fn change_raw(self, id: u64, index: usize, value: Option<f64>, delta: f64) {
         let original = self.slot_of(id, index).or_else(|| self.control(id, index));
@@ -169,11 +165,7 @@ impl State {
         match phase {
             EditPhase::Begin if !self.busy() && self.popup_is(id, index) => {
                 if let Some(control) = self.control(id, index) {
-                    self.mode.update(|mode| {
-                        if let NodeMode::Popup { slot, .. } = mode {
-                            *slot = control.clone();
-                        }
-                    });
+                    self.mode.update_popup_slot(control.clone());
                     self.edit.begin(());
                 }
             }
@@ -205,12 +197,8 @@ impl State {
                 .transform
                 .get_untracked()
                 .to_view(Point::new(local.x, local.y + local.height));
-            self.mode.set(NodeMode::Popup {
-                node: id,
-                index,
-                at: Point::new(r.x + p.x, r.y + p.y),
-                slot: control,
-            });
+            self.mode
+                .open_popup(id, index, Point::new(r.x + p.x, r.y + p.y), control);
         }
     }
     pub(crate) fn activate(self, id: u64, index: usize) {
@@ -270,14 +258,11 @@ impl State {
                 self.selected_link.set(target.as_link());
                 self.choose.clear();
             }
-            Target::Socket(id, true, index) => self.mode.set(NodeMode::Connecting {
-                from: id,
-                output: index,
-            }),
+            Target::Socket(id, true, index) => self.mode.begin_connect(id, index),
             Target::Socket(id, false, index) => {
                 if let NodeMode::Connecting { from, output } = self.mode.get_untracked() {
                     self.connect(from, output, id, index);
-                    self.mode.set(NodeMode::Idle);
+                    self.mode.cancel();
                 }
             }
         }

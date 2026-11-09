@@ -4,7 +4,7 @@ use kivact::UiError;
 use kivact::custom::Generation;
 use kivact::draw::RegionId;
 use kivact::state::callback;
-use kivact::state::{Machine, Step, Value, effect, machine, memo};
+use kivact::state::{Machine, MachineHandle, Step, Value, effect, machine, memo};
 use std::collections::{HashMap, HashSet};
 use std::hash::Hash;
 use std::rc::Rc;
@@ -80,48 +80,101 @@ impl<T: Eq + Hash + Clone> TargetTable<T> {
 }
 
 #[derive(Clone, PartialEq)]
-struct TargetState<T: kivact::state::ItemKey> {
+struct TargetState<T: kivact::state::ItemKey, A> {
     table: TargetTable<T>,
+    active: Option<A>,
     result: Result<(), UiError>,
 }
-struct TargetController<T>(std::marker::PhantomData<T>);
-impl<T: kivact::state::ItemKey> Machine for TargetController<T> {
-    type State = TargetState<T>;
-    type Event = Result<Vec<T>, UiError>;
+enum TargetEvent<T, A> {
+    Synchronize(Result<Vec<T>, UiError>),
+    Activate(Option<A>),
+}
+struct TargetController<T: kivact::state::ItemKey, A: kivact::state::PropValue>(
+    std::marker::PhantomData<(T, A)>,
+);
+impl<T: kivact::state::ItemKey, A: kivact::state::PropValue> Machine for TargetController<T, A> {
+    type State = TargetState<T, A>;
+    type Event = TargetEvent<T, A>;
     type Effect = UiError;
     fn transition(
         &self,
         state: &Self::State,
-        source: Self::Event,
+        event: Self::Event,
     ) -> Step<Self::State, Self::Event, Self::Effect> {
-        let mut table = state.table.clone();
-        match source.and_then(|targets| table.synchronize(targets)) {
-            Ok(_) => Step::to(TargetState {
-                table,
-                result: Ok(()),
-            }),
-            Err(error) => Step::to(TargetState {
-                table: state.table.clone(),
-                result: Err(error.clone()),
-            })
-            .with(error),
+        match event {
+            TargetEvent::Activate(active) => {
+                if state.active == active {
+                    Step::stay()
+                } else {
+                    Step::to(TargetState {
+                        active,
+                        ..state.clone()
+                    })
+                }
+            }
+            TargetEvent::Synchronize(source) => {
+                let mut table = state.table.clone();
+                match source.and_then(|targets| table.synchronize(targets)) {
+                    Ok(_) => Step::to(TargetState {
+                        table,
+                        active: state.active.clone(),
+                        result: Ok(()),
+                    }),
+                    Err(error) => Step::to(TargetState {
+                        table: state.table.clone(),
+                        active: state.active.clone(),
+                        result: Err(error.clone()),
+                    })
+                    .with(error),
+                }
+            }
         }
     }
 }
 
-pub(crate) fn targets<T: kivact::state::ItemKey>(
+/// The targets of one editor: the live scene and the target the keyboard acts on.
+pub(crate) struct Targets<T: kivact::state::ItemKey, A: kivact::state::PropValue> {
+    controller: MachineHandle<TargetController<T, A>>,
+}
+
+impl<T: kivact::state::ItemKey, A: kivact::state::PropValue> Clone for Targets<T, A> {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+impl<T: kivact::state::ItemKey, A: kivact::state::PropValue> Copy for Targets<T, A> {}
+
+impl<T: kivact::state::ItemKey, A: kivact::state::PropValue> Targets<T, A> {
+    /// The target scene, or the error of the last source.
+    pub(crate) fn scene(self) -> Value<Result<Rc<Scene<T>>, UiError>> {
+        let state = self.controller.state();
+        memo(move || state.with(|state| state.result.clone().map(|()| state.table.scene.clone())))
+    }
+
+    /// The target the keyboard acts on; any live target or none is valid.
+    pub(crate) fn active(self) -> kivact::state::Binding<Option<A>> {
+        let state = self.controller.state();
+        let controller = self.controller;
+        kivact::state::binding(
+            move || state.with(|state| state.active.clone()),
+            move |active| controller.send(TargetEvent::Activate(active)),
+        )
+    }
+}
+
+pub(crate) fn targets<T: kivact::state::ItemKey, A: kivact::state::PropValue>(
     source: impl Fn() -> Result<Vec<T>, UiError> + 'static,
-) -> Value<Result<Rc<Scene<T>>, UiError>> {
+) -> Targets<T, A> {
     let report = callback(|error| -> kivact::Result<()> { Err(error) });
     let controller = machine(
         TargetState {
             table: TargetTable::default(),
+            active: None,
             result: Ok(()),
         },
         || TargetController(std::marker::PhantomData),
         move |_, error| report.call(error),
     );
-    effect(move || controller.send(source()));
-    let state = controller.state();
-    memo(move || state.with(|state| state.result.clone().map(|()| state.table.scene.clone())))
+    effect(move || controller.send(TargetEvent::Synchronize(source())));
+    Targets { controller }
 }
