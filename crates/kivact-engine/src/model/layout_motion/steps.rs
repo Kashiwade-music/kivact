@@ -134,6 +134,7 @@ impl Model {
         if self.frame.reduced_motion() && timing.decorative {
             self.layout_motion.runs.remove(&id);
             self.stale_fact(id);
+            self.mark_corrected_below(id);
             return;
         }
         let start = self.frame.request_motion_frame();
@@ -151,6 +152,28 @@ impl Model {
         );
         self.changes.restack = true;
         self.stale_fact(id);
+        // A descendant with a layout transition cancels this new run (it is a
+        // layer while the run moves), so its facts are derived again.
+        self.mark_corrected_below(id);
+    }
+
+    /// Mark the nodes below `id` in its layer that have a layout transition:
+    /// their own `layout_motion_transform` cancels the motion of `id`, so they
+    /// are layers while it runs and stop being layers when it ends.
+    fn mark_corrected_below(&mut self, id: NodeId) {
+        let mut stack: Vec<NodeId> = self.tree.flat_children(id).collect();
+        while let Some(child) = stack.pop() {
+            let Some(n) = self.tree.get(child) else {
+                continue;
+            };
+            if n.is_layer() {
+                continue;
+            }
+            if self.has_layout_transition(child) {
+                self.stale_fact(child);
+            }
+            stack.extend(self.tree.flat_children(child));
+        }
     }
 
     /// Step every run to `now`; a finished run is dropped at its goal.
@@ -175,8 +198,10 @@ impl Model {
         });
         for id in before {
             if !self.layout_motion.runs.contains_key(&id) {
-                // A run that ended may stop making its node a layer.
+                // A run that ended may stop making its node a layer (and the
+                // nodes that cancelled it stop being layers too).
                 self.stale_fact(id);
+                self.mark_corrected_below(id);
             }
         }
         self.changes.restack = true;
