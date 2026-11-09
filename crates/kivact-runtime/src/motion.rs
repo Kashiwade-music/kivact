@@ -70,7 +70,7 @@ pub use animated::{Animated, animated};
 pub use frame_loop::{FrameLoop, frame_loop};
 pub use kivact_types::motion::{Easing, Keyframe, Repeat, Retarget, Spring, StepPosition};
 pub use stagger::{Stagger, StaggerFrom};
-pub use state::{AnimInfo, AnimKind, MotionEnv, MotionState, MotionStats};
+pub use state::{AnimInfo, AnimKind, MotionEnv, MotionState, MotionStats, RunStatus};
 pub use timeline::{At, Segment, Timeline, TimelineTrack, timeline};
 pub use transition::Transition;
 pub use values::{Animatable, FrameInfo, FrameRate};

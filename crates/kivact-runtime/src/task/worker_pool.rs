@@ -18,11 +18,24 @@ pub(crate) fn lock<T>(m: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
         .expect("blocking pool lock poisoned: a panic already happened")
 }
 
+/// Lifecycle of the pool's worker threads and their job channel.
+pub(crate) enum Workers {
+    /// No worker thread could be started.
+    Unspawned,
+    /// The workers receive jobs through `tx`.
+    Running {
+        tx: mpsc::Sender<Job>,
+        handles: Vec<JoinHandle<()>>,
+    },
+    /// The pool stopped accepting jobs.
+    Closed,
+}
+
 /// Fixed pool of worker threads (default `min(4, CPUs)`).
 pub(crate) struct Pool {
-    handles: Mutex<Vec<JoinHandle<()>>>,
-    // xtask-allow(state-fields): owned resource - the job channel sender, dropped at shutdown so the workers end
-    tx: Mutex<Option<mpsc::Sender<Job>>>,
+    workers: Mutex<Workers>,
+    /// Threads started for jobs when no worker could take them.
+    fallbacks: Mutex<Vec<JoinHandle<()>>>,
     // xtask-allow(state-fields): statistics - the number of submitted jobs not yet finished, which the shutdown waits on
     pub(crate) outstanding: Arc<AtomicUsize>,
 }
@@ -49,10 +62,14 @@ impl Pool {
                 handles.push(handle);
             }
         }
-        let tx = if !handles.is_empty() { Some(tx) } else { None };
+        let workers = if handles.is_empty() {
+            Workers::Unspawned
+        } else {
+            Workers::Running { tx, handles }
+        };
         Arc::new(Pool {
-            handles: Mutex::new(handles),
-            tx: Mutex::new(tx),
+            workers: Mutex::new(workers),
+            fallbacks: Mutex::new(Vec::new()),
             outstanding: Arc::new(AtomicUsize::new(0)),
         })
     }
@@ -65,10 +82,12 @@ impl Pool {
     }
 
     pub(crate) fn submit(&self, job: Job) {
-        let tx = lock(&self.tx).clone();
-        let sent = match tx {
-            Some(tx) => tx.send(job).map_err(|e| e.0),
-            None => Err(job),
+        let sent = {
+            let workers = lock(&self.workers);
+            match &*workers {
+                Workers::Running { tx, .. } => tx.send(job).map_err(|e| e.0),
+                Workers::Unspawned | Workers::Closed => Err(job),
+            }
         };
         if let Err(job) = sent {
             // No worker available: retain the fallback for App shutdown.
@@ -76,10 +95,10 @@ impl Pool {
                 .name("kivact-blocking-fallback".into())
                 .spawn(job)
             {
-                let mut handles = lock(&self.handles);
+                let mut fallbacks = lock(&self.fallbacks);
                 // Finished fallbacks need no join; keep the list bounded.
-                handles.retain(|h| !h.is_finished());
-                handles.push(handle);
+                fallbacks.retain(|h| !h.is_finished());
+                fallbacks.push(handle);
             }
         }
     }
@@ -87,18 +106,35 @@ impl Pool {
     /// Join the dead worker thread `id` and take the payload of the panic
     /// that ended it; `None` if the thread is not (or no longer) here.
     pub(crate) fn take_panic(&self, id: ThreadId) -> Option<Box<dyn Any + Send>> {
-        let handle = {
-            let mut handles = lock(&self.handles);
-            let at = handles.iter().position(|h| h.thread().id() == id)?;
-            handles.swap_remove(at)
+        let from_workers = {
+            let mut workers = lock(&self.workers);
+            match &mut *workers {
+                Workers::Running { handles, .. } => handles
+                    .iter()
+                    .position(|h| h.thread().id() == id)
+                    .map(|at| handles.swap_remove(at)),
+                Workers::Unspawned | Workers::Closed => None,
+            }
+        };
+        let handle = match from_workers {
+            Some(handle) => handle,
+            None => {
+                let mut fallbacks = lock(&self.fallbacks);
+                let at = fallbacks.iter().position(|h| h.thread().id() == id)?;
+                fallbacks.swap_remove(at)
+            }
         };
         handle.join().err()
     }
 
     /// Stop accepting jobs; idle workers exit.
     pub(crate) fn shutdown(&self) {
-        lock(&self.tx).take();
-        wait_for_threads(std::mem::take(&mut *lock(&self.handles)));
+        let handles = match std::mem::replace(&mut *lock(&self.workers), Workers::Closed) {
+            Workers::Running { handles, .. } => handles,
+            Workers::Unspawned | Workers::Closed => Vec::new(),
+        };
+        wait_for_threads(handles);
+        wait_for_threads(std::mem::take(&mut *lock(&self.fallbacks)));
     }
 }
 

@@ -109,7 +109,7 @@ struct Queue<I: 'static> {
     mode: QueueMode,
     phase: RefCell<ActionPhase<I>>,
     /// Id of the last worker spawned: a worker whose id is not current returns.
-    worker_ids: Cell<Generation>,
+    next_worker_id: Cell<Generation>,
 }
 
 /// Queue ownership and lifecycle retain work together through close and detach.
@@ -161,7 +161,7 @@ impl<I: 'static> Queue<I> {
                 worker: Worker::Stopped,
                 waiting: VecDeque::new(),
             }),
-            worker_ids: Cell::new(Generation::new()),
+            next_worker_id: Cell::new(Generation::new()),
         }
     }
 
@@ -246,6 +246,7 @@ pub(crate) struct ActionCell<T: 'static, I: 'static> {
     run: RunFn<T, I>,
     runner: Runner<I>,
     async_state: AsyncCell<T>,
+    // xtask-allow(state-fields): projection: the input of the latest started run, written only when a run starts (Latest make, worker pop)
     /// The run `state` describes; `None` before the first run.
     last: RefCell<Option<Submitted<I>>>,
     /// Wakers of the `close` futures waiting for the action to drain.
@@ -556,9 +557,9 @@ impl<T: Clone + 'static, I: 'static> ActionCell<T, I> {
         if !matches!(*queue.phase.borrow().parts().0, Worker::Stopped) {
             return;
         }
-        let mut generation = queue.worker_ids.get();
+        let mut generation = queue.next_worker_id.get();
         let id = generation.next();
-        queue.worker_ids.set(generation);
+        queue.next_worker_id.set(generation);
         let weak = Rc::downgrade(self);
         // The worker runs for the action's owner (see the module doc); once
         // the owner is disposed that owner is dead and owner-relative

@@ -565,6 +565,23 @@ impl<T: crate::PropValue> Binding<T> {
         }
     }
 
+    /// Change the value and write it back. A binding of a `Signal` changes it
+    /// in place and notifies even when the value is equal (`Signal::update`);
+    /// a `binding(get, set)` reads the current value, applies `f` to a clone
+    /// and calls `set` once (the setter decides whether readers are notified).
+    #[track_caller]
+    pub fn update<R>(&self, f: impl FnOnce(&mut T) -> R) -> R {
+        match &self.repr {
+            BindingRepr::Signal(signal) => signal.update(f),
+            _ => {
+                let mut value = self.get_untracked();
+                let result = f(&mut value);
+                self.set(value);
+                result
+            }
+        }
+    }
+
     /// A two-way binding to one field of this binding's value (setup
     /// only), like [`Signal::project`]: reading projects the field, writing
     /// it writes the whole value back with the field replaced (nothing is

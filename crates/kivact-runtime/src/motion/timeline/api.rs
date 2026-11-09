@@ -18,7 +18,9 @@ use kivact_types::motion::{PlayDirection, Transition};
 
 use super::super::Repeat;
 use super::super::animated::shift;
-use super::super::state::{Anim, AnimInfo, AnimKind, LoopMotion, MotionState, motion_now};
+use super::super::state::{
+    Anim, AnimInfo, AnimKind, LoopMotion, MotionState, RunStatus, motion_now,
+};
 use super::super::transition::Kind;
 use super::super::values::Animatable;
 use super::calls::{Move, Reach, Reps};
@@ -961,12 +963,18 @@ impl Anim for TimelineCell {
     }
 
     fn info(&self) -> AnimInfo {
+        let status = match self.phase.get_untracked() {
+            TimelinePhase::Playing { .. } => RunStatus::Running,
+            TimelinePhase::Paused { .. } => RunStatus::Paused,
+            TimelinePhase::Idle { .. } | TimelinePhase::Finished { .. } | TimelinePhase::Driven => {
+                RunStatus::Idle
+            }
+        };
         AnimInfo {
             kind: AnimKind::Timeline,
             created_at: super::super::state::owner_source(self.owner),
             owner: self.owner.id(),
-            running: self.is_running(),
-            paused: matches!(self.phase.get_untracked(), TimelinePhase::Paused { .. }),
+            status,
             decorative: self.motion.get() == LoopMotion::Decorative,
         }
     }

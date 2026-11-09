@@ -7,7 +7,7 @@ use std::panic::Location;
 use std::rc::Rc;
 
 use super::Repeat;
-use super::state::{Anim, AnimInfo, AnimKind, MotionState, motion_now};
+use super::state::{Anim, AnimInfo, AnimKind, MotionState, RunStatus, motion_now};
 use super::transition::{Kind, Transition, settles_at_start};
 use super::values::Animatable;
 use crate::Prop as InputProp;
@@ -234,12 +234,16 @@ impl<T: Animatable> Anim for AnimCell<T> {
     }
 
     fn info(&self) -> AnimInfo {
+        let status = match self.phase.get_untracked() {
+            AnimPhase::Running { .. } => RunStatus::Running,
+            AnimPhase::Paused { .. } => RunStatus::Paused,
+            AnimPhase::Idle | AnimPhase::Completed { .. } => RunStatus::Idle,
+        };
         AnimInfo {
             kind: AnimKind::Animated,
             created_at: super::state::owner_source(self.owner),
             owner: self.owner.id(),
-            running: self.is_running(),
-            paused: matches!(self.phase.get_untracked(), AnimPhase::Paused { .. }),
+            status,
             decorative: self.transition.decorative,
         }
     }

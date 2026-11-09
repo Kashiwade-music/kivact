@@ -383,6 +383,13 @@ impl<T: 'static> Reactive<T> {
     }
 }
 
+impl Reactive<String> {
+    /// A text input (as `text(..)` takes it), stored without an owner.
+    pub fn from_text(input: impl IntoText) -> Self {
+        Reactive(input.into_text())
+    }
+}
+
 /// Equal constants are equal; a `Value` or `Signal` is equal to the same
 /// node, and a closure to a clone of itself. Different kinds of input are
 /// never equal, even when they currently read the same value.

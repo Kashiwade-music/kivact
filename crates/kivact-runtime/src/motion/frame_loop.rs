@@ -7,7 +7,9 @@ use std::cell::Cell;
 use std::panic::Location;
 use std::rc::Rc;
 
-use super::state::{LoopCell, LoopGate, LoopMotion, LoopRun, LoopState, MotionState, motion_now};
+use super::state::{
+    Cadence, LoopCell, LoopGate, LoopMotion, LoopRun, LoopState, MotionState, motion_now,
+};
 use super::values::{FrameInfo, FrameRate};
 
 use crate::{ErrorKind, HandlerResult, Owned, Owner, Runtime, UiError, Value, require_effectful};
@@ -27,13 +29,18 @@ pub fn frame_loop<R: HandlerResult>(f: impl Fn(FrameInfo) -> R + 'static) -> Fra
     let at = Location::caller();
     let owner = Owner::current("frame_loop", at);
     let rt = owner.runtime();
+    let state = owner.signal(LoopState::Stopped, at);
+    let rate = crate::memo(move || match state.get() {
+        LoopState::Stopped => None,
+        LoopState::Running(run) => Some(run.rate),
+    });
     let cell = Rc::new(LoopCell {
         owner,
         f: crate::reactive::Handler::from_fn(f),
-        state: owner.signal(LoopState::Stopped, at),
+        state,
         frames: Cell::new(0),
         gate: Cell::new(LoopGate::Always),
-        rate: Cell::new(None),
+        rate,
         motion: Cell::new(LoopMotion::Decorative),
     });
     MotionState::of(&rt).register_loop(&cell);
@@ -109,12 +116,15 @@ impl FrameLoop {
         let now = motion_now(&rt);
         // A new rate counts from now; the time of the last callback stays
         // (`FrameInfo::delta`).
-        cell.set_run(Some(LoopRun {
-            rate,
-            start_ns: now,
-            index: 0,
-            last_tick: current.and_then(|r| r.last_tick),
-        }));
+        let cadence = match current.and_then(|r| r.last_tick()) {
+            Some(last_tick) => Cadence::Ticking {
+                start_ns: now,
+                index: 0,
+                last_tick,
+            },
+            None => Cadence::Fresh { start_ns: now },
+        };
+        cell.set_run(Some(LoopRun { rate, cadence }));
         rt.request_turn();
     }
 
@@ -131,18 +141,6 @@ impl FrameLoop {
     /// Current rate (`None` when stopped).
     #[track_caller]
     pub fn rate(&self) -> Value<Option<FrameRate>> {
-        let cell = self.cell(Location::caller()).1;
-        if let Some(rate) = cell.rate.get() {
-            return rate;
-        }
-        let state = cell.state;
-        let rate = cell.owner.with_setup(|| {
-            crate::memo(move || match state.get() {
-                LoopState::Stopped => None,
-                LoopState::Running(run) => Some(run.rate),
-            })
-        });
-        cell.rate.set(Some(rate));
-        rate
+        self.cell(Location::caller()).1.rate
     }
 }

@@ -17,8 +17,9 @@ pub use host::RuntimeConfig;
 pub use machine::{Machine, MachineCx, MachineHandle, Step, machine};
 pub use motion::{
     AnimInfo, AnimKind, Animatable, Animated, At, Easing, FrameInfo, FrameLoop, FrameRate,
-    Keyframe, MotionEnv, MotionState, MotionStats, Repeat, Retarget, Segment, Spring, Stagger,
-    StaggerFrom, StepPosition, Timeline, TimelineTrack, Transition, animated, frame_loop, timeline,
+    Keyframe, MotionEnv, MotionState, MotionStats, Repeat, Retarget, RunStatus, Segment, Spring,
+    Stagger, StaggerFrom, StepPosition, Timeline, TimelineTrack, Transition, animated, frame_loop,
+    timeline,
 };
 pub use reactive::{
     AppId, Binding, Callback, CauseEntry, CauseTag, DetailEdge, DetailRun, DetailWrite, EffectKind,

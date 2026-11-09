@@ -168,7 +168,7 @@ pub(crate) struct SourceCell<T> {
 }
 
 pub(crate) struct MemoCell<T> {
-    // xtask-allow(state-fields): cache + config - value
+    // xtask-allow(state-fields): cache: the memo's last computed value; the graph state is CompState
     pub(crate) value: RefCell<Option<T>>,
     pub(crate) f: Box<dyn Fn(Option<&T>) -> T>,
     // xtask-allow(state-fields): cache + config - eq
@@ -359,14 +359,14 @@ pub(crate) struct Object {
 /// One execution context. Copies never own dependency storage.
 #[derive(Clone, Copy, Default)]
 pub(crate) struct Frame {
-    // xtask-allow(state-fields): execution-context value - owner
+    // xtask-allow(state-fields): independent: ADR-20: the frame kind and pure/tracking/owner/writer are separate facts
     pub(crate) owner: Option<Key>,
     pub(crate) kind: FrameKind,
-    // xtask-allow(state-fields): execution-context value - pure
+    // xtask-allow(state-fields): independent: ADR-20: the frame kind and pure/tracking/owner/writer are separate facts
     pub(crate) pure: bool,
-    // xtask-allow(state-fields): execution-context value - writer
+    // xtask-allow(state-fields): independent: ADR-20: the frame kind and pure/tracking/owner/writer are separate facts
     pub(crate) writer: Option<Key>,
-    // xtask-allow(state-fields): execution-context value - tracking
+    // xtask-allow(state-fields): independent: ADR-20: the frame kind and pure/tracking/owner/writer are separate facts
     pub(crate) tracking: Option<CollectorSlot>,
 }
 
