@@ -3,9 +3,7 @@ use crate::draw::{ImageOptions, Pixels};
 use crate::geometry::{Rect, Size};
 use crate::gpu_interop::GpuFrame;
 use crate::state::{IntoValue, Value, callback, effect, memo};
-use crate::view::{
-    HandlerResult, ImageFit, IntoView, Node, NodeBuilder, Role, View, node, node_ref,
-};
+use crate::view::{Element, HandlerResult, ImageFit, IntoView, Node, Role, View, node, node_ref};
 use kivact_style::{Overflow, style};
 use kivact_types::ViewTransform;
 use kivact_types::cell::Sent;
@@ -94,7 +92,7 @@ impl Viewport {
         self
     }
 }
-impl NodeBuilder for Viewport {
+impl Element for Viewport {
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }

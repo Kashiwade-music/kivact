@@ -1,7 +1,7 @@
 //! Role: Render stable keyed page controls and an atomic editable page draft.
 use kivact_core::state::{Binding, IntoBinding, IntoText, IntoValue, Value, memo};
 use kivact_core::view::{
-    CurrentItem, IntoView, Node, NodeBuilder, Orientation, Role, View, for_each, node, text,
+    CurrentItem, Element, IntoView, Node, Orientation, Role, View, for_each, node, text,
 };
 use std::rc::Rc;
 
@@ -128,7 +128,7 @@ impl Pagination {
         self
     }
 }
-impl NodeBuilder for Pagination {
+impl Element for Pagination {
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }

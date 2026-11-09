@@ -12,8 +12,8 @@ use kivact::ui::ButtonBusyMotion;
 use kivact::ui::UiRecipes;
 use kivact::ui::button;
 use kivact::ui::tooltip;
+use kivact::view::Element;
 use kivact::view::Key;
-use kivact::view::NodeBuilder;
 use kivact::view::Role;
 use std::time::Duration;
 

@@ -140,7 +140,7 @@ pub fn safe_area() -> Value<Insets> {
 /// # use kivact_core as kivact;
 /// use kivact::state::{memo};
 /// use kivact::style::{Direction, style};
-/// use kivact::view::{IntoView, NodeBuilder, column, row};
+/// use kivact::view::{IntoView, Element, column, row};
 /// fn shell(sidebar: impl IntoView, main: impl IntoView) -> impl IntoView {
 ///     // @media (max-width: 860px) { .shell { flex-direction: column } }
 ///     let narrow = memo(move || kivact::platform::window_size().get().width < 860.0);

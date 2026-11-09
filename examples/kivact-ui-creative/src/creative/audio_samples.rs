@@ -7,8 +7,8 @@ use super::controls::chip;
 use kivact::geometry::Point;
 use kivact::geometry::Rect;
 use kivact::prelude::{
-    ColorToken, IntoText, IntoView, Node, NodeBuilder, Orientation, Signal, column, effect, grid,
-    node, rgb, row, signal, spacer, text,
+    ColorToken, Element, IntoText, IntoView, Node, Orientation, Signal, column, effect, grid, node,
+    rgb, row, signal, spacer, text,
 };
 use kivact::state::{Binding, Machine, Step, machine};
 use kivact::style::{Align, Color, Justify, pct, style};

@@ -3,7 +3,7 @@
 use crate::parts::{pressable, sized_icon};
 use kivact::ui::spinner;
 
-use kivact::view::{Node, NodeBuilder, Scroll, ScrollAxes, column, node, row, scroll, text};
+use kivact::view::{Element, Node, Scroll, ScrollAxes, column, node, row, scroll, text};
 
 use kivact::state::{Callback, Value};
 use kivact::state::{IntoText, IntoValue};
@@ -161,7 +161,7 @@ impl Attachment {
     }
 }
 
-impl NodeBuilder for Attachment {
+impl Element for Attachment {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root

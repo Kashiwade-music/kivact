@@ -9,7 +9,7 @@ use kivact::ui::{
 };
 use kivact::ui::{RadioGroupVariant, toolbar};
 use kivact::view::Orientation;
-use kivact::view::{Node, NodeBuilder, column, icon, row};
+use kivact::view::{Element, Node, column, icon, row};
 use kivact_ui_soft::{check_indicator, keyboard_hint, radio_indicator, with_key_hints};
 
 pub(super) fn examples(slug: &str) -> Option<Node> {

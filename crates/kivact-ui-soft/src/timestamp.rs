@@ -9,9 +9,9 @@ use kivact::state::Value;
 use kivact::state::machine;
 use kivact::state::memo;
 use kivact::ui::tooltip;
+use kivact::view::Element;
 use kivact::view::IntoView;
 use kivact::view::Node;
-use kivact::view::NodeBuilder;
 use kivact::view::View;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -318,7 +318,7 @@ impl Timestamp {
     }
 }
 
-impl NodeBuilder for Timestamp {
+impl Element for Timestamp {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         self.text.node_mut()

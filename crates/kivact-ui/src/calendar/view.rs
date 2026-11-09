@@ -7,8 +7,8 @@ use kivact_core::state::IntoBinding;
 use kivact_core::state::IntoValue;
 use kivact_core::state::{Binding, Callback, Value, on_mount, signal};
 use kivact_core::style::style;
+use kivact_core::view::{Element, Node, node, row};
 use kivact_core::view::{IntoView, Role, View, dynamic};
-use kivact_core::view::{Node, NodeBuilder, node, row};
 use kivact_interaction::{CalendarOptions, CalendarSelection, use_calendar_grid};
 use std::rc::Rc;
 
@@ -286,7 +286,7 @@ impl Calendar {
     }
 }
 
-impl NodeBuilder for Calendar {
+impl Element for Calendar {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root

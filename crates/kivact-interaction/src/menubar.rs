@@ -40,14 +40,14 @@ use super::{
 /// # pub mod prelude {
 /// # //! Role: Supply the canonical imports used by this documentation example.
 /// # pub use kivact_core::state::{Binding, Callback, IntoBinding, IntoText, IntoValue, Signal, Value, binding, effect, memo, on_cleanup, on_mount, signal};
-/// # pub use kivact_core::view::{EditPhase, Component, IntoView, NodeBuilder, Orientation, Role, column, for_each, node, node_ref, row, show, text};
+/// # pub use kivact_core::view::{EditPhase, Component, IntoView, Element, Orientation, Role, column, for_each, node, node_ref, row, show, text};
 /// # pub use kivact_core::style::{ColorToken, Cursor, Style, style};
 /// # }
 /// #     pub extern crate kivact_interaction as interaction;
 /// # }
 /// use kivact::interaction::{MenuEntry, use_menu, use_menubar};
 /// use kivact::prelude::*;
-/// use kivact_core::view::NodeBuilder;
+/// use kivact_core::view::Element;
 ///
 /// fn bar() -> impl IntoView {
 ///     let file = use_menu(vec![MenuEntry::item("new", "New")]).on_activate(|_| {});

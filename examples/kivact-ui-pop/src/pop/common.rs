@@ -1,6 +1,6 @@
 //! Role: Shared layout and text builders for Pop catalog specimens.
 
-use kivact::prelude::{ColorToken, IntoView, Node, NodeBuilder, column, grid, row, text};
+use kivact::prelude::{ColorToken, Element, IntoView, Node, column, grid, row, text};
 use kivact::style::{Align, style};
 use kivact::style::{GridPlacement, Track};
 use kivact_ui_pop as ui;
@@ -36,11 +36,11 @@ pub(super) fn card(title: &str, content: impl IntoView) -> kivact::ui::Card {
     ))
 }
 
-pub(super) fn half<C: kivact::view::Component>(v: C) -> C {
+pub(super) fn half<C: kivact::view::Element>(v: C) -> C {
     v.style(style().grid_column(GridPlacement::span(6)))
 }
 
-pub(super) fn third<C: kivact::view::Component>(v: C) -> C {
+pub(super) fn third<C: kivact::view::Element>(v: C) -> C {
     v.style(style().grid_column(GridPlacement::span(4)))
 }
 

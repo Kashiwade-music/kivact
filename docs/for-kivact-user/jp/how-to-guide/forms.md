@@ -396,7 +396,7 @@ fn editor_actions() -> impl IntoView {
 `button_group` は `IntoChildren` を通して任意の操作部品を受け取ります。
 `button_group_separator()` と `button_group_text(..)` はフォーカスを取りません。
 どのグループでも `.orientation(Orientation::Vertical)` で配置と操作の向きを
-変えられます。無効化には共通の `NodeBuilder` の `.disabled(source)` を使います。
+変えられます。無効化には共通の `Element` の `.disabled(source)` を使います。
 テーマは対応する `UiTokens` と `UiRecipes` の表で見た目を変えます。
 呼び出し側のスタイルは recipe より優先します。
 

@@ -10,7 +10,7 @@ use kivact_core::view::{
     CheckedState, HandlerResult, IntoView, Orientation, ReadingDirection, Role, View, for_each,
     show, use_direction,
 };
-use kivact_core::view::{Node, NodeBuilder, icon, node};
+use kivact_core::view::{Element, Node, icon, node};
 use kivact_interaction::{EditSession, ListItem, ListOptions, Selection, use_list};
 use std::rc::Rc;
 
@@ -169,7 +169,7 @@ impl<K: kivact_core::state::ItemKey> RadioGroup<K> {
     }
 }
 
-impl<K: kivact_core::state::ItemKey> NodeBuilder for RadioGroup<K> {
+impl<K: kivact_core::state::ItemKey> Element for RadioGroup<K> {
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }

@@ -5,7 +5,7 @@ use crate::ColorName;
 
 use crate::typography::MONO;
 use kivact::geometry::{Point, Size};
-use kivact::prelude::NodeBuilder;
+use kivact::prelude::Element;
 use kivact::state::Signal;
 use kivact::style::{Align, Direction, Justify, Position, style};
 use kivact::view::{IntoView, Role};

@@ -4,7 +4,7 @@ use crate::variants::{Variant, Variants};
 use crate::{ItemListMarker, ItemPosition};
 use kivact_core::custom::part;
 use kivact_core::state::{IntoValue, Value, provide};
-use kivact_core::view::{IntoChildren, IntoView, Node, NodeBuilder, Role, View, node, node_ref};
+use kivact_core::view::{Element, IntoChildren, IntoView, Node, Role, View, node, node_ref};
 /// A semantic list; fixed direct children receive readonly positions at mount.
 pub struct ItemList {
     root: Node,
@@ -47,7 +47,7 @@ impl ItemList {
         self
     }
 }
-impl NodeBuilder for ItemList {
+impl Element for ItemList {
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }

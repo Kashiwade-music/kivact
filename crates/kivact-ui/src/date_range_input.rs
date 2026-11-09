@@ -5,7 +5,7 @@ use crate::date_range_draft::{
 use crate::{Calendar, DatePresentation, button, calendar, date_input, dialog};
 use kivact_core::i18n::{CalendarDate, DateRange, DateStyle, Weekday, message};
 use kivact_core::state::{Binding, IntoBinding, IntoText, IntoValue, Value, binding, signal};
-use kivact_core::view::{IntoView, Node, NodeBuilder, View, column, node, row};
+use kivact_core::view::{Element, IntoView, Node, View, column, node, row};
 use std::rc::Rc;
 /// A named range evaluated when the user activates it.
 #[derive(Clone)]
@@ -170,7 +170,7 @@ impl DateRangeInput {
         self
     }
 }
-impl NodeBuilder for DateRangeInput {
+impl Element for DateRangeInput {
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -182,7 +182,7 @@ impl IntoView for DateRangeInput {
 }
 impl DateRangeInput {
     /// Open the shared range picker from a caller-owned trigger, without endpoint editors.
-    pub fn attach<T: NodeBuilder + IntoView + 'static>(self, trigger: T) -> View {
+    pub fn attach<T: Element + IntoView + 'static>(self, trigger: T) -> View {
         self.render(crate::date_trigger::FieldPresentation::trigger(trigger))
     }
     fn render(self, field: crate::date_trigger::FieldPresentation) -> View {

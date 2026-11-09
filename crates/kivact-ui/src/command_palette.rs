@@ -6,7 +6,7 @@ use kivact_core::i18n::message;
 use kivact_core::state::{Binding, Value, memo};
 use kivact_core::state::{IntoText, IntoValue};
 use kivact_core::style::{Icon, style, use_theme};
-use kivact_core::view::NodeBuilder;
+use kivact_core::view::Element;
 use kivact_core::view::{
     HandlerResult, IntoView, KeyEvent, Placement, View, dynamic, for_each, node_ref, overlay, show,
 };

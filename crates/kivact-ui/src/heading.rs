@@ -2,7 +2,7 @@
 use crate::layer::with_base_recipe_style;
 use crate::variants::{Variant, Variants};
 use kivact_core::state::IntoText;
-use kivact_core::view::{IntoView, Node, NodeBuilder, Role, View, text};
+use kivact_core::view::{Element, IntoView, Node, Role, View, text};
 
 use crate::component_values::HeadingState;
 /// A semantic heading whose typography comes from the theme.
@@ -32,7 +32,7 @@ impl Heading {
         self
     }
 }
-impl NodeBuilder for Heading {
+impl Element for Heading {
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }

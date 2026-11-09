@@ -16,11 +16,11 @@ use kivact::style::Direction;
 use kivact::style::TextDecorationLine;
 use kivact::style::pct;
 use kivact::style::style;
+use kivact::view::Element;
 use kivact::view::Handled;
 use kivact::view::IntoView;
 use kivact::view::Key;
 use kivact::view::Node;
-use kivact::view::NodeBuilder;
 use kivact::view::ReadingDirection;
 use kivact::view::Role;
 use kivact::view::View;
@@ -170,7 +170,7 @@ impl Link {
     }
 }
 
-impl NodeBuilder for Link {
+impl Element for Link {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root

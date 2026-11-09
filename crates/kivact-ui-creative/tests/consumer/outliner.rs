@@ -18,7 +18,7 @@ fn scene() -> Vec<ui::TreeItem> {
     ]
 }
 
-fn item<'a>(screen: &'a Screen, name: &str) -> kivact::test::Element<'a> {
+fn item<'a>(screen: &'a Screen, name: &str) -> kivact::test::Locator<'a> {
     screen.get_by_role(Role::TreeItem, name)
 }
 
@@ -174,7 +174,7 @@ fn paint_log(escape_before_release: bool) -> Vec<ui::EditorEvent<ui::Restriction
 }
 
 /// The centre of an element's published window bounds.
-fn centre(element: &kivact::test::Element<'_>) -> (f64, f64) {
+fn centre(element: &kivact::test::Locator<'_>) -> (f64, f64) {
     let rect = element.accessibility_bounds().expect("published bounds");
     (rect.x + rect.width / 2.0, rect.y + rect.height / 2.0)
 }

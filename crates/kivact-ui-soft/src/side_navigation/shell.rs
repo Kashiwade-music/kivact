@@ -31,9 +31,9 @@ use kivact::ui::ButtonVariant;
 use kivact::ui::ControlSize;
 use kivact::ui::button;
 use kivact::ui::tooltip;
+use kivact::view::Element;
 use kivact::view::IntoView;
 use kivact::view::Node;
-use kivact::view::NodeBuilder;
 use kivact::view::Orientation;
 use kivact::view::Placement;
 use kivact::view::Role;
@@ -179,7 +179,7 @@ impl SideNav {
     }
 }
 
-impl NodeBuilder for SideNav {
+impl Element for SideNav {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
@@ -303,7 +303,7 @@ impl SideNavCollapseButton {
     }
 }
 
-impl NodeBuilder for SideNavCollapseButton {
+impl Element for SideNavCollapseButton {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
@@ -318,7 +318,7 @@ impl IntoView for SideNavCollapseButton {
             size,
             label,
         } = self;
-        kivact::view::component(move || {
+        kivact::view::scope(move || {
             let Some(collapsed) = binding.or(nav_cx().collapsed) else {
                 return View::empty();
             };

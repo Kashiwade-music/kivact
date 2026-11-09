@@ -39,7 +39,7 @@ pub struct ButtonApi {
 ///
 /// ```no_run
 /// use kivact_core::view::node;
-/// use kivact_core::view::NodeBuilder;
+/// use kivact_core::view::Element;
 /// use kivact_interaction::use_button;
 /// let control = use_button().control();
 /// let view = node().part(control).name("Save").on_press(|| {});
@@ -171,7 +171,7 @@ struct ToggleOptions {
 /// ```no_run
 /// use kivact_core::state::{signal};
 /// use kivact_core::{view::node};
-/// use kivact_core::view::NodeBuilder;
+/// use kivact_core::view::Element;
 /// use kivact_interaction::use_checkbox;
 /// let checked = signal(false);
 /// let control = use_checkbox(checked).control();

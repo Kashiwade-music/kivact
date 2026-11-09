@@ -2,7 +2,7 @@
 
 [English](../../en/how-to-guide/feedback.md)
 
-empty state、alert、card、input group は `kivact::ui` を使います。各部品の recipe は適用中の theme が提供します。root には `.name(..)` や `.style(..)` などの `NodeBuilder` modifier も指定できます。
+empty state、alert、card、input group は `kivact::ui` を使います。各部品の recipe は適用中の theme が提供します。root には `.name(..)` や `.style(..)` などの `Element` modifier も指定できます。
 
 ```rust,no_run
 use kivact::prelude::*;

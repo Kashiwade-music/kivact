@@ -11,7 +11,7 @@ use kivact::i18n::{message, message_with};
 use kivact::interaction::use_splitter;
 use kivact::state::IntoBinding;
 use kivact::state::IntoValue;
-use kivact::view::{Node, NodeBuilder, node, text};
+use kivact::view::{Element, Node, node, text};
 
 use kivact::interaction::{MenuEntry, ScalarRange};
 use kivact::state::callback;
@@ -120,7 +120,7 @@ impl<K: kivact::state::ItemKey> Dock<K> {
     }
 }
 
-impl<K: kivact::state::ItemKey> NodeBuilder for Dock<K> {
+impl<K: kivact::state::ItemKey> Element for Dock<K> {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root

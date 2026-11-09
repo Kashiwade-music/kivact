@@ -8,10 +8,10 @@ use kivact_core::motion::Transition;
 use kivact_core::state::{Binding, Value, signal};
 use kivact_core::state::{IntoText, IntoValue};
 use kivact_core::style::{TransitionProp, style};
+use kivact_core::view::{Element, Node, column, node, text};
 use kivact_core::view::{
     HandlerResult, IntoView, Orientation, ReadingDirection, Role, View, for_each, use_direction,
 };
-use kivact_core::view::{Node, NodeBuilder, column, node, text};
 use kivact_interaction::{Selection, TreeApi, TreeItemState, TreeNode, TreeRow, use_tree};
 use std::rc::Rc;
 
@@ -105,7 +105,7 @@ impl<K: kivact_core::state::ItemKey> Tree<K> {
     }
 }
 
-impl<K: kivact_core::state::ItemKey> NodeBuilder for Tree<K> {
+impl<K: kivact_core::state::ItemKey> Element for Tree<K> {
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }

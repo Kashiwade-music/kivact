@@ -5,8 +5,8 @@ use crate::variants::{Variant, Variants};
 use kivact_core::state::Value;
 use kivact_core::state::{IntoValue, callback};
 use kivact_core::style::Color;
+use kivact_core::view::{Element, Node, column};
 use kivact_core::view::{HandlerResult, IntoView, Role};
-use kivact_core::view::{Node, NodeBuilder, column};
 use kivact_interaction::{ScalarRange, SortOrder, TableFocus};
 use std::rc::Rc;
 
@@ -516,7 +516,7 @@ impl<R: 'static, K: 'static> DataTable<R, K> {
     }
 }
 
-impl<R: 'static, K: 'static> NodeBuilder for DataTable<R, K> {
+impl<R: 'static, K: 'static> Element for DataTable<R, K> {
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }

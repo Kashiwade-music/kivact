@@ -4,7 +4,7 @@ use super::common::section;
 use kivact::draw::linear_gradient;
 use kivact::geometry::Rect;
 use kivact::prelude::{
-    ColorToken, Node, NodeBuilder, column, dynamic, for_each, node, rgb, row, show, signal, text,
+    ColorToken, Element, Node, column, dynamic, for_each, node, rgb, row, show, signal, text,
 };
 use kivact::state::callback;
 use kivact::style::use_theme;

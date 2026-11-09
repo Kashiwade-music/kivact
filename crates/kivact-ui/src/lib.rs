@@ -78,7 +78,7 @@
 //! `interaction::use_text_edit` and the unstyled [`interaction`](kivact_interaction)
 //! behaviors, through the public API only. [`Button`], [`Checkbox`], [`Switch`],
 //! [`Select`], [`Tabs`] and [`TextInput`] (the native field itself) take
-//! [`NodeBuilder`](kivact_core::view::NodeBuilder) modifiers on their roots.
+//! [`Element`](kivact_core::view::Element) modifiers on their roots.
 //! Overlays attach the same way everywhere: [`Menu::attach`],
 //! [`Menu::attach_context`] and [`Tooltip::attach`] take the caller's trigger,
 //! [`Dialog::content`]/[`Dialog::footer`], [`Tabs::content`] and

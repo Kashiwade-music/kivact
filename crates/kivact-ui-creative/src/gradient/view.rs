@@ -18,7 +18,7 @@ use kivact::view::HandlerResult;
 use kivact::view::{
     A11yAction, A11yEvent, A11yRequest, Handled, IntoView, Key, KeyEvent, Role, View, node_ref,
 };
-use kivact::view::{Node, NodeBuilder, column, node, row};
+use kivact::view::{Element, Node, column, node, row};
 use std::rc::Rc;
 
 /// An inline ramp, selected position field and color wheel. Stops use vector indices.
@@ -42,7 +42,7 @@ pub struct GradientEditor {
 
 /// Edit gradient `stops` by vector index; `selection` is the index of the
 /// selected stop, which selecting alone does not report to `on_edit`. The
-/// root name is set with NodeBuilder::name.
+/// root name is set with Element::name.
 #[track_caller]
 pub fn gradient_editor(
     stops: impl IntoBinding<Vec<GradientStop>>,
@@ -80,7 +80,7 @@ impl GradientEditor {
     }
 }
 
-impl NodeBuilder for GradientEditor {
+impl Element for GradientEditor {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root

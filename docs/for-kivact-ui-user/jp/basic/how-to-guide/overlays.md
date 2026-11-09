@@ -133,7 +133,7 @@ fn move_goal() -> impl IntoView {
 }
 ```
 
-`kivact::ui::dialog` と `kivact::ui::hover_card` は `NodeBuilder` ではありません。置いた場所には何も描かないので、`.style(..)` や `.test_id(..)` は使えません。
+`kivact::ui::dialog` と `kivact::ui::hover_card` は `Element` ではありません。置いた場所には何も描かないので、`.style(..)` や `.test_id(..)` は使えません。
 
 ## ボタンにポップオーバーを付ける
 

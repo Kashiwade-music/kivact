@@ -12,11 +12,11 @@ use kivact::style::Justify;
 use kivact::style::TransitionProp;
 use kivact::style::style;
 use kivact::view::Asset;
+use kivact::view::Element;
 use kivact::view::HandlerResult;
 use kivact::view::ImageFit;
 use kivact::view::IntoView;
 use kivact::view::Node;
-use kivact::view::NodeBuilder;
 use kivact::view::ReadingDirection;
 use kivact::view::Role;
 use kivact::view::View;
@@ -87,7 +87,7 @@ impl Citation {
     }
 }
 
-impl NodeBuilder for Citation {
+impl Element for Citation {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root

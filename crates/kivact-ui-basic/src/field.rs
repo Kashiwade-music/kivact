@@ -1,7 +1,7 @@
 //! Role: Field-set, grouping and separator layouts of field.tsx.
 
 use kivact::state::Value;
-use kivact::view::{Node, NodeBuilder, column, node, text};
+use kivact::view::{Element, Node, column, node, text};
 
 use kivact::state::IntoText;
 use kivact::style::{Direction, Justify, Position, pct, style};
@@ -65,7 +65,7 @@ impl FieldSet {
     }
 }
 
-impl NodeBuilder for FieldSet {
+impl Element for FieldSet {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
@@ -115,13 +115,13 @@ impl IntoView for FieldSet {
 
 /// A column of fields spaced 20 px (`FieldGroup`).
 #[track_caller]
-pub fn field_group(children: impl IntoView) -> impl kivact::view::Component {
+pub fn field_group(children: impl IntoView) -> impl kivact::view::Element {
     column(children).style(style().width(pct(100)).gap(20))
 }
 
 /// A column that stacks a label and its description tightly (`FieldContent`).
 #[track_caller]
-pub fn field_content(children: impl IntoView) -> impl kivact::view::Component {
+pub fn field_content(children: impl IntoView) -> impl kivact::view::Element {
     column(children).style(style().grow(1).min_width(0).gap(2).line_height(1.375))
 }
 
@@ -157,7 +157,7 @@ impl FieldSeparator {
     }
 }
 
-impl NodeBuilder for FieldSeparator {
+impl Element for FieldSeparator {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root

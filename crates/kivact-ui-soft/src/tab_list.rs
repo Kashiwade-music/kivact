@@ -11,9 +11,9 @@ use kivact::interaction::use_tabs;
 use kivact::motion::Transition;
 use kivact::state::IntoBinding;
 use kivact::state::ItemKey;
+use kivact::view::Element;
 use kivact::view::IntoViewFn;
 use kivact::view::Node;
-use kivact::view::NodeBuilder;
 use kivact::view::ScrollAxes;
 use kivact::view::ViewFn;
 use kivact::view::column;
@@ -138,7 +138,7 @@ impl<K> Tab<K> {
     }
     /// Mount trailing tab content once.
     pub fn end_content(mut self, end: impl IntoView) -> Self {
-        self.end = Some(kivact::view::component(move || end.into_view()));
+        self.end = Some(kivact::view::scope(move || end.into_view()));
         self
     }
     /// Associate the tab with an existing panel node reference.
@@ -148,7 +148,7 @@ impl<K> Tab<K> {
     }
 }
 
-impl<K> NodeBuilder for Tab<K> {
+impl<K> Element for Tab<K> {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
@@ -203,7 +203,7 @@ pub fn tab_menu<K>(label: impl IntoText, options: Vec<TabMenuOption<K>>) -> TabM
     }
 }
 
-impl<K> NodeBuilder for TabMenu<K> {
+impl<K> Element for TabMenu<K> {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
@@ -322,7 +322,7 @@ impl<K: ItemKey> TabList<K> {
     }
 }
 
-impl<K: ItemKey> NodeBuilder for TabList<K> {
+impl<K: ItemKey> Element for TabList<K> {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
@@ -446,7 +446,7 @@ impl<K: ItemKey> IntoView for TabList<K> {
             full_bleed,
             content,
         } = self;
-        kivact::view::component(move || {
+        kivact::view::scope(move || {
             if pattern.get() == TabPattern::Tabs {
                 entries.retain(|entry| matches!(entry, TabEntry::Tab(_)));
             }

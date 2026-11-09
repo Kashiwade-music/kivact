@@ -57,7 +57,7 @@ mod tests {
 
 | 概念 | React | SolidJS | Kivact |
 | --- | --- | --- | --- |
-| コンポーネント | JSX を返す関数 | JSX を返す関数 | 一つのルートは `impl Component`、複数のルートは `impl IntoView` を返す関数 |
+| コンポーネント | JSX を返す関数 | JSX を返す関数 | 一つのルートは `impl Element`、複数のルートは `impl IntoView` を返す関数 |
 | props | props オブジェクト | props オブジェクト | 関数の引数。文字には `impl IntoText`、変化しうる値には `impl IntoValue<T>` |
 | 子 | `children` | `props.children` | `V: IntoView` 型の引数 |
 | コールバックの prop | `onSave` prop | `onSave` prop | 引数なしは `impl Into<Callback<()>>`。payload 付きは `Fn(T) -> R` と `HandlerResult`。`callback(..)` は共有できる `Copy` ハンドルを返す |
@@ -164,7 +164,7 @@ mod tests {
 use kivact::prelude::*;
 
 fn tracker(query: Signal<String>) -> impl IntoView {
-    component(move || {
+    scope(move || {
         // mount 後に実行され、`query` が変わるたびに再実行される。
         effect(move || {
             println!("検索語: {}", query.get());
@@ -440,7 +440,7 @@ Rust は名前に最も近い束縛を使います。`let text = signal(String::
 ```rust,no_run
 use kivact::prelude::*;
 
-fn heading_row(label: String) -> impl Component {
+fn heading_row(label: String) -> impl Element {
     row((text(label), button("Open")))
 }
 ```

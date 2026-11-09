@@ -4,7 +4,7 @@ use crate::theme_access::{CHECK, list_row, lit_row, popover_surface, shadow_md, 
 use crate::tokens::Tokens;
 use kivact::geometry::Point;
 use kivact::interaction::{ListItemState, SelectApi};
-use kivact::prelude::NodeBuilder;
+use kivact::prelude::Element;
 use kivact::state::Value;
 use kivact::view::{column, node, scroll, text};
 

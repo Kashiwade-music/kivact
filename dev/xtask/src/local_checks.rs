@@ -140,9 +140,7 @@ pub(crate) fn model_types(
         for item in &source.items {
             if let syn::Item::Impl(item) = item
                 && item.trait_.as_ref().is_some_and(|(_, path, _)| {
-                    path.segments
-                        .last()
-                        .is_some_and(|s| s.ident == "NodeBuilder")
+                    path.segments.last().is_some_and(|s| s.ident == "Element")
                 })
                 && let Some(identity) = surface.resolve_type(source, &item.self_ty)
             {

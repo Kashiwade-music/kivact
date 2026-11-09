@@ -5,7 +5,7 @@ use kivact_core::i18n::{
 };
 use kivact_core::state::{Binding, Value, binding, machine, memo};
 use kivact_core::view::{
-    Handled, IntoView, Key, Node, NodeBuilder, View, column, dynamic, node_ref, row,
+    Element, Handled, IntoView, Key, Node, View, column, dynamic, node_ref, row,
 };
 pub(crate) struct Inputs {
     pub root: Node,

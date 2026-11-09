@@ -9,7 +9,7 @@ fn card<V: IntoView>(
     title: impl IntoText,
     on_close: impl Into<Callback<()>>,
     children: impl kivact::view::IntoViewFn<V>,
-) -> impl Component {
+) -> impl Element {
     let open = signal(true);
     column((
         row((

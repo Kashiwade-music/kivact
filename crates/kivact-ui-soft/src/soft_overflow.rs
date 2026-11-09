@@ -5,8 +5,8 @@ use kivact::state::PropValue;
 use std::collections::HashMap;
 use std::rc::Rc;
 
+use kivact::view::Element;
 use kivact::view::Node;
-use kivact::view::NodeBuilder;
 use kivact::view::node;
 use kivact::view::text;
 
@@ -152,7 +152,7 @@ where
     }
 }
 
-impl<T: PropValue, K: ItemKey> NodeBuilder for OverflowList<T, K> {
+impl<T: PropValue, K: ItemKey> Element for OverflowList<T, K> {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root

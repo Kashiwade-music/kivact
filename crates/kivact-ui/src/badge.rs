@@ -2,7 +2,7 @@
 use crate::variants::Variants;
 use crate::{BadgeState, Variant};
 use kivact_core::state::{Callback, IntoText, IntoValue, Value};
-use kivact_core::view::{IntoView, Node, NodeBuilder, View, row, text};
+use kivact_core::view::{Element, IntoView, Node, View, row, text};
 use kivact_interaction::Tone;
 pub struct Badge {
     root: Node,
@@ -47,7 +47,7 @@ impl Badge {
         self
     }
 }
-impl NodeBuilder for Badge {
+impl Element for Badge {
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }

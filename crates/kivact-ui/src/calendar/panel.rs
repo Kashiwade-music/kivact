@@ -7,8 +7,8 @@ use crate::{ButtonVariant, ControlSize};
 use kivact_core::custom::{Part, PartState};
 use kivact_core::i18n::{CalendarDate, CalendarMonth, Weekday};
 use kivact_core::style::{Align, Direction, Justify, Position, TextAlign, pct, style};
+use kivact_core::view::{Element, Node, column, node, row, text};
 use kivact_core::view::{IntoView, Role, View, show};
-use kivact_core::view::{Node, NodeBuilder, column, node, row, text};
 use std::rc::Rc;
 
 /// A ghost icon button of the caption row, 28 px square, behind a paging part.

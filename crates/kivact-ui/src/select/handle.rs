@@ -7,10 +7,10 @@ use kivact_core::state::{Binding, Callback, Value, binding};
 use kivact_core::state::{IntoText, IntoValue, callback};
 use kivact_core::style::style;
 use kivact_core::view::HandlerResult;
+use kivact_core::view::{Element, Node, column, node, scroll, text};
 use kivact_core::view::{
     Handled, IntoView, NodeRef, Placement, PopupKind, View, for_each, overlay, show,
 };
-use kivact_core::view::{Node, NodeBuilder, column, node, scroll, text};
 use kivact_interaction::{ListItem, ListItemState, PopupState};
 use std::rc::Rc;
 
@@ -202,7 +202,7 @@ impl<K: kivact_core::state::ItemKey> Select<K> {
         self
     }
 }
-impl<K: kivact_core::state::ItemKey> NodeBuilder for Select<K> {
+impl<K: kivact_core::state::ItemKey> Element for Select<K> {
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }

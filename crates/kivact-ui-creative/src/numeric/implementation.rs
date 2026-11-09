@@ -8,7 +8,7 @@ use kivact::interaction::{
     DragCoordinates, DragPhase, DragUpdate, FocusReturn, use_drag, use_popup, use_scalar,
 };
 use kivact::state::IntoBinding;
-use kivact::view::{Node, NodeBuilder, node, row, text};
+use kivact::view::{Element, Node, node, row, text};
 
 use kivact::interaction::ScalarRange;
 use kivact::state::{Binding, Callback, Value, binding, machine, memo, signal};
@@ -307,7 +307,7 @@ impl Numeric {
         self
     }
 }
-impl NodeBuilder for Numeric {
+impl Element for Numeric {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root

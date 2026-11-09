@@ -6,7 +6,7 @@
 
 use crate::ColorName;
 
-use kivact::prelude::NodeBuilder;
+use kivact::prelude::Element;
 use kivact::view::{Node, column, node, row, text};
 
 use kivact::state::{IntoText, IntoValue};
@@ -26,7 +26,7 @@ fn styled(value: impl IntoText, look: fn(&crate::Tokens) -> Style) -> Node {
 
 /// `leading-7`: a 16 px paragraph.
 #[track_caller]
-pub fn paragraph(value: impl IntoText) -> impl kivact::view::Component {
+pub fn paragraph(value: impl IntoText) -> impl kivact::view::Element {
     styled(value, |p| {
         style()
             .font_size(16)
@@ -37,7 +37,7 @@ pub fn paragraph(value: impl IntoText) -> impl kivact::view::Component {
 
 /// `text-xl text-muted-foreground`: an introductory paragraph.
 #[track_caller]
-pub fn lead(value: impl IntoText) -> impl kivact::view::Component {
+pub fn lead(value: impl IntoText) -> impl kivact::view::Element {
     styled(value, |p| {
         style()
             .font_size(20)
@@ -48,7 +48,7 @@ pub fn lead(value: impl IntoText) -> impl kivact::view::Component {
 
 /// `text-lg font-semibold`: emphasized text.
 #[track_caller]
-pub fn large(value: impl IntoText) -> impl kivact::view::Component {
+pub fn large(value: impl IntoText) -> impl kivact::view::Element {
     styled(value, |p| {
         style()
             .font_size(18)
@@ -60,7 +60,7 @@ pub fn large(value: impl IntoText) -> impl kivact::view::Component {
 
 /// `text-sm leading-none font-medium`: small print.
 #[track_caller]
-pub fn small(value: impl IntoText) -> impl kivact::view::Component {
+pub fn small(value: impl IntoText) -> impl kivact::view::Element {
     styled(value, |p| {
         style()
             .font_size(14)
@@ -72,7 +72,7 @@ pub fn small(value: impl IntoText) -> impl kivact::view::Component {
 
 /// `text-sm text-muted-foreground`: secondary text.
 #[track_caller]
-pub fn muted(value: impl IntoText) -> impl kivact::view::Component {
+pub fn muted(value: impl IntoText) -> impl kivact::view::Element {
     styled(value, |p| {
         style()
             .font_size(14)
@@ -83,7 +83,7 @@ pub fn muted(value: impl IntoText) -> impl kivact::view::Component {
 
 /// `border-l-2 pl-6 italic`: a quotation.
 #[track_caller]
-pub fn blockquote(value: impl IntoText) -> impl kivact::view::Component {
+pub fn blockquote(value: impl IntoText) -> impl kivact::view::Element {
     styled(value, |p| {
         style()
             .font_size(16)
@@ -100,7 +100,7 @@ pub fn blockquote(value: impl IntoText) -> impl kivact::view::Component {
 /// The node stands on its own; inside a paragraph's text use a
 /// `kivact::view::span` with the same family and background instead.
 #[track_caller]
-pub fn inline_code(value: impl IntoText) -> impl kivact::view::Component {
+pub fn inline_code(value: impl IntoText) -> impl kivact::view::Element {
     node()
         .style(
             style()
@@ -120,7 +120,7 @@ pub fn inline_code(value: impl IntoText) -> impl kivact::view::Component {
 
 /// `ml-6 list-disc [&>li]:mt-2`: a bulleted list of `items` (`Role::List`).
 #[track_caller]
-pub fn bullet_list(items: impl IntoValue<Vec<String>>) -> impl kivact::view::Component {
+pub fn bullet_list(items: impl IntoValue<Vec<String>>) -> impl kivact::view::Element {
     let items = items.into_value();
     column(for_index(items, |_, item| {
         row((

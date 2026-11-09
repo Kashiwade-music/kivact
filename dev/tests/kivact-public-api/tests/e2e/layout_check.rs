@@ -5,7 +5,7 @@
 //! sits above the middle of its row or is cut by a clip is found with where
 //! it was created; an ellipsis, a scrolling axis and an ignored test id are
 //! not violations; a text of white space alone is one line high in any
-//! width; `Element::check_layout` looks at a subtree; and
+//! width; `Locator::check_layout` looks at a subtree; and
 //! `assert_layout` fails listing every violation.
 
 use kivact::prelude::*;

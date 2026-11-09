@@ -15,7 +15,7 @@ use kivact::style::{
 };
 use kivact::ui::{button, heading};
 use kivact::view::{
-    IntoView, Node, NodeBuilder, NodeRef, Orientation, canvas, column, drawable, node, node_ref,
+    Element, IntoView, Node, NodeRef, Orientation, canvas, column, drawable, node, node_ref,
     pointer_position, row, scroll, scroll_progress, text,
 };
 use kivact_ui_game::{ColorName, Tokens, cut_corner, mono};

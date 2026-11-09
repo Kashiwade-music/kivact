@@ -4,7 +4,7 @@ use super::common::{card, cards_grid, half, muted, section, third, wrap};
 use kivact::i18n::{CalendarDate, Weekday};
 use kivact::interaction::MenuEntry;
 use kivact::prelude::{
-    ColorToken, IntoView, Node, NodeBuilder, Signal, column, dynamic, rgb, row, show, signal, text,
+    ColorToken, Element, IntoView, Node, Signal, column, dynamic, rgb, row, show, signal, text,
 };
 use kivact::state::Callback;
 use kivact::style::GridPlacement;
@@ -499,7 +499,7 @@ fn toast_examples(notify: Callback<(ui::Hue, String, String)>) -> kivact::ui::Ca
     )
 }
 
-fn agenda_panel(date: Signal<CalendarDate>) -> impl kivact::view::Component {
+fn agenda_panel(date: Signal<CalendarDate>) -> impl kivact::view::Element {
     kivact::ui::card(
         column((
             row((
@@ -567,7 +567,7 @@ fn agenda_panel(date: Signal<CalendarDate>) -> impl kivact::view::Component {
     .style(style().grid_column(GridPlacement::span(7)))
 }
 
-fn calendar_panel(date: Signal<CalendarDate>) -> impl kivact::view::Component {
+fn calendar_panel(date: Signal<CalendarDate>) -> impl kivact::view::Element {
     kivact::ui::card(
         {
             let selected: kivact::state::Binding<kivact::i18n::CalendarDate> =

@@ -5,8 +5,8 @@ use crate::{AvatarShape, AvatarState, ControlSize, Variant};
 use kivact_core::state::{Callback, IntoText, IntoValue, Value};
 use kivact_core::style::{Align, Justify, Position, pct, style};
 use kivact_core::view::{
-    Asset, ImageFit, ImageStatus, IntoView, IntoViewFn, Node, NodeBuilder, Role, View, ViewFn,
-    dynamic, node, node_ref, text,
+    Asset, Element, ImageFit, ImageStatus, IntoView, IntoViewFn, Node, Role, View, ViewFn, dynamic,
+    node, node_ref, text,
 };
 use kivact_interaction::Tone;
 /// The source of the mounted presence label, without an effect-copied string.
@@ -98,7 +98,7 @@ impl Avatar {
         result
     }
 }
-impl NodeBuilder for Avatar {
+impl Element for Avatar {
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }

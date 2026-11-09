@@ -7,7 +7,7 @@ use kivact::interaction::use_splitter;
 use kivact::state::signal;
 use kivact::style::{ColorToken, Cursor, Position, pct, style};
 use kivact::view::{ButtonPress, Handled, MouseButton, Orientation, PointerPhase, node_ref};
-use kivact::view::{NodeBuilder, node};
+use kivact::view::{Element, node};
 
 /// The tallest a resizable field becomes, in logical pixels. A minimum above
 /// this raises the maximum to the minimum.
@@ -38,7 +38,7 @@ pub fn resizable_text_area(
     field: kivact::ui::TextInput,
     initial_height: f64,
     min_height: f64,
-) -> impl kivact::view::Component {
+) -> impl kivact::view::Element {
     let min = if min_height.is_finite() && min_height > 0.0 {
         min_height
     } else {

@@ -9,7 +9,7 @@
 ```rust,no_run
 use kivact::prelude::*;
 
-fn header() -> impl Component {
+fn header() -> impl Element {
     column((
         text("タスク"),
         text("今日やること"),
@@ -17,11 +17,11 @@ fn header() -> impl Component {
     .style(style().gap(4))
 }
 
-fn task_row(title: impl IntoText) -> impl Component {
+fn task_row(title: impl IntoText) -> impl Element {
     row((text("-"), text(title))).style(style().gap(8))
 }
 
-fn task_list() -> impl Component {
+fn task_list() -> impl Element {
     column((
         task_row("牛乳を買う"),
         task_row("チュートリアルを書く"),
@@ -41,15 +41,15 @@ fn main() -> kivact::Result<()> {
 
 ## 新しく出てきたもの
 
-**view の helper は普通の関数です。** `header`、`task_row`、`task_list` は、呼び出し側が呼んだ時点で実行されます。`task_row` は `impl IntoText` を受け取るので、固定の文字列と、文字を返すリアクティブな値のどちらも渡せます。これらの helper は `impl Component` を返します。修飾できる単一のルートを持つ view なので、呼び出し側で `.style(..)`、`.name(..)` などの標準のノードの修飾を付けられます。分岐や fragment など、修飾できる単一のルートを持たない view を返す場合は `impl IntoView` を使います。
+**view の helper は普通の関数です。** `header`、`task_row`、`task_list` は、呼び出し側が呼んだ時点で実行されます。`task_row` は `impl IntoText` を受け取るので、固定の文字列と、文字を返すリアクティブな値のどちらも渡せます。これらの helper は `impl Element` を返します。修飾できる単一のルートを持つ view なので、呼び出し側で `.style(..)`、`.name(..)` などの標準のノードの修飾を付けられます。分岐や fragment など、修飾できる単一のルートを持たない view を返す場合は `impl IntoView` を使います。
 
-**セットアップの境界は明示します。** Rust の helper を呼んでも、その状態に新しいライフサイクルは作られません。`App::run(app)` はルートを一度だけセットアップします。状態が変わると、次のステップで扱うリアクティブなクロージャだけが再評価されます。React の render 関数のように、画面全体の関数を毎回呼び直す仕組みではありません。自分専用のシグナル、effect、後片付けを持つ再利用可能な view は `component(move || { .. })` を返します。
+**セットアップの境界は明示します。** Rust の helper を呼んでも、その状態に新しいライフサイクルは作られません。`App::run(app)` はルートを一度だけセットアップします。状態が変わると、次のステップで扱うリアクティブなクロージャだけが再評価されます。React の render 関数のように、画面全体の関数を毎回呼び直す仕組みではありません。自分専用のシグナル、effect、後片付けを持つ再利用可能な view は `scope(move || { .. })` を返します。
 
 ```rust,no_run
 use kivact::prelude::*;
 
 fn click_counter() -> impl IntoView {
-    component(move || {
+    scope(move || {
         let count = signal(0);
         column((
             text(move || format!("{} 回押しました", count.get())),

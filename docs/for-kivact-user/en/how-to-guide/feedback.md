@@ -2,7 +2,7 @@
 
 [日本語](../../jp/how-to-guide/feedback.md)
 
-Use `kivact::ui` for empty states, alerts, cards, and input groups. The installed theme supplies each component's recipes. Root `NodeBuilder` modifiers, including `.name(..)` and `.style(..)`, remain available.
+Use `kivact::ui` for empty states, alerts, cards, and input groups. The installed theme supplies each component's recipes. Root `Element` modifiers, including `.name(..)` and `.style(..)`, remain available.
 
 ```rust,no_run
 use kivact::prelude::*;

@@ -7,8 +7,8 @@ use kivact_core::state::{
     effect, machine, signal,
 };
 use kivact_core::view::{
-    IntoView, IntoViewFn, LiveRegion, Node, NodeBuilder, NodeRef, Role, View, ViewFn, node,
-    node_ref, show, text,
+    Element, IntoView, IntoViewFn, LiveRegion, Node, NodeRef, Role, View, ViewFn, node, node_ref,
+    show, text,
 };
 use kivact_interaction::Tone;
 
@@ -165,7 +165,7 @@ impl Alert {
         self
     }
 }
-impl NodeBuilder for Alert {
+impl Element for Alert {
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }

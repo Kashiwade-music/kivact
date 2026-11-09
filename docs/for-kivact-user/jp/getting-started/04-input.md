@@ -9,7 +9,7 @@
 ```rust,no_run
 use kivact::prelude::*;
 
-fn header() -> impl Component {
+fn header() -> impl Element {
     column((
         text("タスク"),
         text("今日やること"),
@@ -17,11 +17,11 @@ fn header() -> impl Component {
     .style(style().gap(4))
 }
 
-fn task_row(title: impl IntoText) -> impl Component {
+fn task_row(title: impl IntoText) -> impl Element {
     row((text("-"), text(title))).style(style().gap(8))
 }
 
-fn task_list() -> impl Component {
+fn task_list() -> impl Element {
     column((
         task_row("牛乳を買う"),
         task_row("チュートリアルを書く"),

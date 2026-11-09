@@ -5,7 +5,7 @@ use kivact::state::{Binding, Value};
 use kivact::state::{IntoText, IntoValue};
 use kivact::style::{Align, ColorToken, pct, style};
 use kivact::view::IntoView;
-use kivact::view::{Node, NodeBuilder, column, row, scroll};
+use kivact::view::{Element, Node, column, row, scroll};
 use kivact_ui_game::ColorName;
 /// A window frame with application-owned panes and optional chrome slots.
 pub(super) struct NativeWindow {
@@ -77,7 +77,7 @@ impl NativeWindow {
         self
     }
 }
-impl NodeBuilder for NativeWindow {
+impl Element for NativeWindow {
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }

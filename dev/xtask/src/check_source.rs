@@ -481,7 +481,7 @@ mod tests {
             "pub struct Shared { pub x: f32 } pub struct State { a: bool, b: bool }",
         )
         .unwrap();
-        std::fs::write(directory.join("src/main.rs"), "pub struct Shared { pub y: f32 } pub struct State { a: bool, b: bool } impl NodeBuilder for State {}").unwrap();
+        std::fs::write(directory.join("src/main.rs"), "pub struct Shared { pub y: f32 } pub struct State { a: bool, b: bool } impl Element for State {}").unwrap();
         for path in ["tool.rs", "src/bin/helper.rs", "src/bin/nested/main.rs"] {
             std::fs::write(directory.join(path), "struct Model { a: bool, b: bool }").unwrap();
         }

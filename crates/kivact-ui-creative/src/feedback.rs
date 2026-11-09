@@ -8,7 +8,7 @@ use kivact::geometry::{Point, Rect};
 use kivact::i18n::{message, message_with};
 use kivact::interaction::{DragCoordinates, DragUpdate, use_drag};
 use kivact::platform;
-use kivact::view::{Node, NodeBuilder, column, icon, node, row, text};
+use kivact::view::{Element, Node, column, icon, node, row, text};
 
 use kivact::state::{Binding, Value, signal};
 use kivact::state::{IntoText, IntoValue};
@@ -124,7 +124,7 @@ impl<K: 'static> SplitButton<K> {
         self
     }
 }
-impl<K: 'static> NodeBuilder for SplitButton<K> {
+impl<K: 'static> Element for SplitButton<K> {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
@@ -318,7 +318,7 @@ pub fn tool_window_button<V: IntoView>(
     label: impl IntoText,
     options: ToolWindowOptions,
     content: impl Fn(ToolWindowApi) -> V + 'static,
-) -> impl kivact::view::Component {
+) -> impl kivact::view::Element {
     let label = label.into_text_value();
     let title = options.title.clone().map_or(label, IntoValue::into_value);
     let open = signal(false);
@@ -405,7 +405,7 @@ impl ToolWindow {
         self
     }
 }
-impl NodeBuilder for ToolWindow {
+impl Element for ToolWindow {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root

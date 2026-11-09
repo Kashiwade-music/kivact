@@ -31,7 +31,7 @@ fn main() -> kivact::Result<()> {
 ```
 
 The root setup runs once when the App mounts it. Use
-`component(move || view)` for a child that needs its own once-mounted setup
+`scope(move || view)` for a child that needs its own once-mounted setup
 and cleanup owner. Dynamic properties read signals inside closures.
 Runtime image and font inputs accept owned `Vec<u8>` or `AssetBytes`; keep
 an asset and clone it when reused so its cache identity stays stable.

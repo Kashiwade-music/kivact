@@ -22,11 +22,11 @@ use kivact::ui::ControlSize;
 use kivact::ui::button;
 use kivact::ui::tooltip;
 use kivact::view::Asset;
+use kivact::view::Element;
 use kivact::view::ImageFit;
 use kivact::view::IntoView;
 use kivact::view::LiveRegion;
 use kivact::view::Node;
-use kivact::view::NodeBuilder;
 use kivact::view::ReadingDirection;
 use kivact::view::Role;
 use kivact::view::View;
@@ -117,7 +117,7 @@ impl Thumbnail {
     }
 }
 
-impl NodeBuilder for Thumbnail {
+impl Element for Thumbnail {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root

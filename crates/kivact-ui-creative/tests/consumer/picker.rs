@@ -86,7 +86,7 @@ fn closed(screen: &Screen) -> bool {
     screen.query_by_role(Role::Dialog, "Find").is_none()
 }
 
-fn row<'a>(screen: &'a Screen, name: &str) -> kivact::test::Element<'a> {
+fn row<'a>(screen: &'a Screen, name: &str) -> kivact::test::Locator<'a> {
     screen.get_by_role(Role::Option, name)
 }
 

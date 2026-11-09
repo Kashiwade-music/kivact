@@ -2,8 +2,8 @@
 use crate::stack::{ContainerInset, Padding, Space, padding_options};
 
 use kivact::state::IntoValue;
+use kivact::view::Element;
 use kivact::view::Node;
-use kivact::view::NodeBuilder;
 use kivact::view::ScrollAxes;
 use kivact::view::column;
 use kivact::view::node;
@@ -100,7 +100,7 @@ impl ScrollableArea {
     }
 }
 
-impl NodeBuilder for ScrollableArea {
+impl Element for ScrollableArea {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
@@ -119,7 +119,7 @@ impl IntoView for ScrollableArea {
             bleed_bottom,
             force_focusable,
         } = self;
-        kivact::view::component(move || {
+        kivact::view::scope(move || {
             let viewport = node_ref();
             let content = node_ref();
             let state = viewport.scroll_state();

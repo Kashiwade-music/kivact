@@ -28,7 +28,7 @@ pub fn cut_corner(cut: impl Into<f64>) -> Shape {
 
 /// Monospaced caption used for IDs, shortcuts and machine-readable values.
 #[track_caller]
-pub fn mono(label: impl IntoText) -> impl kivact::view::Component {
+pub fn mono(label: impl IntoText) -> impl kivact::view::Element {
     text(label).style(move || {
         let t = &use_theme().get();
         style()
@@ -40,7 +40,7 @@ pub fn mono(label: impl IntoText) -> impl kivact::view::Component {
 
 /// Surface with opposing 10 px HUD brackets.
 #[track_caller]
-pub fn hud(content: impl IntoView) -> impl kivact::view::Component {
+pub fn hud(content: impl IntoView) -> impl kivact::view::Element {
     node()
         .style(
             style()
@@ -69,7 +69,7 @@ pub fn hud(content: impl IntoView) -> impl kivact::view::Component {
 
 /// Concentric command halo with built-in decorative rotation, respecting reduced motion.
 #[track_caller]
-pub fn halo() -> impl kivact::view::Component {
+pub fn halo() -> impl kivact::view::Element {
     let time = signal(0_f64);
     let node_ref = node_ref();
     let clock = frame_loop(move |frame| time.set(frame.now.as_secs_f64())).while_present(node_ref);

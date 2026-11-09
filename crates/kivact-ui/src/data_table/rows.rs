@@ -10,8 +10,8 @@ use crate::variants::Variants;
 use crate::{DataColumn, DataTableCellState, DataTableCheckState, DataTableRowState, checkbox};
 use kivact_core::custom::{NodeRefExt, Part};
 use kivact_core::draw::linear_gradient;
+use kivact_core::view::Element;
 use kivact_core::view::IntoView;
-use kivact_core::view::NodeBuilder;
 
 use kivact_core::geometry::Rect;
 use kivact_core::i18n::message_with;

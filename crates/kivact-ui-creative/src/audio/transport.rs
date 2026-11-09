@@ -6,8 +6,8 @@ use kivact::state::IntoValue;
 use kivact::state::{Binding, Callback};
 use kivact::style::{Align, style};
 use kivact::ui::ButtonVariant;
+use kivact::view::{Element, Node, row};
 use kivact::view::{IntoView, Role, View};
-use kivact::view::{Node, NodeBuilder, row};
 
 /// Playback button state; the application owns its clock.
 #[derive(Clone, Debug, PartialEq)]
@@ -65,7 +65,7 @@ impl Transport {
     }
 }
 
-impl NodeBuilder for Transport {
+impl Element for Transport {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root

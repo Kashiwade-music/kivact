@@ -10,7 +10,7 @@ use kivact::i18n::message;
 use kivact::interaction::{
     DragCoordinates, DragPhase, DragUpdate, EditSession, Selection, use_drag, use_tree,
 };
-use kivact::view::{Node, NodeBuilder, column, icon, node, row, text};
+use kivact::view::{Element, Node, column, icon, node, row, text};
 
 use kivact::interaction::TreeNode;
 use kivact::state::{Callback, Value, memo, signal};
@@ -183,7 +183,7 @@ impl Outliner {
     }
 }
 
-impl NodeBuilder for Outliner {
+impl Element for Outliner {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root

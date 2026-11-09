@@ -3,7 +3,7 @@ use kivact_core::platform::{FileDialog, pick_file, pick_files};
 use kivact_core::state::{IntoText, IntoValue, Value};
 use kivact_core::task::spawn;
 use kivact_core::view::{
-    FilePhase, Handled, HandlerResult, IntoView, Node, NodeBuilder, Role, View, node, text,
+    Element, FilePhase, Handled, HandlerResult, IntoView, Node, Role, View, node, text,
 };
 use kivact_interaction::{DropzoneState, FileInfo, use_dropzone};
 use std::rc::Rc;
@@ -90,7 +90,7 @@ impl Dropzone {
         self
     }
 }
-impl NodeBuilder for Dropzone {
+impl Element for Dropzone {
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }

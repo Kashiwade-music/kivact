@@ -10,7 +10,7 @@ until you type something, and it clears the field after adding.
 ```rust,no_run
 use kivact::prelude::*;
 
-fn header() -> impl Component {
+fn header() -> impl Element {
     column((
         text("Tasks"),
         text("Things to do today"),
@@ -18,11 +18,11 @@ fn header() -> impl Component {
     .style(style().gap(4))
 }
 
-fn task_row(title: impl IntoText) -> impl Component {
+fn task_row(title: impl IntoText) -> impl Element {
     row((text("-"), text(title))).style(style().gap(8))
 }
 
-fn task_list() -> impl Component {
+fn task_list() -> impl Element {
     column((
         task_row("Buy milk"),
         task_row("Write the tutorial"),

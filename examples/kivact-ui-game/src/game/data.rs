@@ -5,9 +5,7 @@ use super::common::{cards, line, list, segmented, specimen};
 use super::state::{Demo, Record};
 use kivact::interaction::{MenuEntry, Toast, Tone, toaster};
 use kivact::platform;
-use kivact::prelude::{
-    ColorToken, Node, NodeBuilder, column, node, rgb, row, signal, spacer, text,
-};
+use kivact::prelude::{ColorToken, Element, Node, column, node, rgb, row, signal, spacer, text};
 use kivact::style::{Align, Justify, pct, style};
 use kivact::style::{Position, TextAlign};
 use kivact::task::spawn;
@@ -289,7 +287,7 @@ fn columns() -> Vec<kivact::ui::DataColumn<Record>> {
     ]
 }
 
-pub(super) fn table(scene: Demo) -> impl kivact::view::Component {
+pub(super) fn table(scene: Demo) -> impl kivact::view::Element {
     let query = signal(String::new());
     let filter = signal(Some("all".to_owned()));
     let page_size = signal(Some(25_usize));
@@ -356,7 +354,7 @@ fn format_count(value: f64, decimals: usize) -> String {
     grouped
 }
 
-fn kpi_tiles() -> crate::game::specimens::Specimen<impl kivact::view::Component> {
+fn kpi_tiles() -> crate::game::specimens::Specimen<impl kivact::view::Element> {
     specimen(
         "DSP-01",
         "KPI タイル",
@@ -373,7 +371,7 @@ fn kpi_tiles() -> crate::game::specimens::Specimen<impl kivact::view::Component>
     )
 }
 
-fn status_badges() -> crate::game::specimens::Specimen<impl kivact::view::Component> {
+fn status_badges() -> crate::game::specimens::Specimen<impl kivact::view::Element> {
     specimen(
         "DSP-02",
         "バッジ / ステータス",
@@ -407,7 +405,7 @@ fn status_badges() -> crate::game::specimens::Specimen<impl kivact::view::Compon
     )
 }
 
-fn progress_bars() -> crate::game::specimens::Specimen<impl kivact::view::Component> {
+fn progress_bars() -> crate::game::specimens::Specimen<impl kivact::view::Element> {
     specimen(
         "DSP-03",
         "プログレス",
@@ -439,7 +437,7 @@ fn progress_bars() -> crate::game::specimens::Specimen<impl kivact::view::Compon
     )
 }
 
-fn progress_gauges() -> crate::game::specimens::Specimen<impl kivact::view::Component> {
+fn progress_gauges() -> crate::game::specimens::Specimen<impl kivact::view::Element> {
     specimen(
         "DSP-04",
         "ゲージ / リング",
@@ -494,7 +492,7 @@ fn progress_gauges() -> crate::game::specimens::Specimen<impl kivact::view::Comp
     )
 }
 
-fn avatars() -> crate::game::specimens::Specimen<impl kivact::view::Component> {
+fn avatars() -> crate::game::specimens::Specimen<impl kivact::view::Element> {
     specimen(
         "DSP-05",
         "アバター",
@@ -558,7 +556,7 @@ fn avatars() -> crate::game::specimens::Specimen<impl kivact::view::Component> {
     )
 }
 
-fn activity_feed() -> crate::game::specimens::Specimen<impl kivact::view::Component> {
+fn activity_feed() -> crate::game::specimens::Specimen<impl kivact::view::Element> {
     specimen(
         "DSP-06",
         "アクティビティ",
@@ -593,7 +591,7 @@ fn activity_feed() -> crate::game::specimens::Specimen<impl kivact::view::Compon
     )
 }
 
-fn property_list() -> crate::game::specimens::Specimen<impl kivact::view::Component> {
+fn property_list() -> crate::game::specimens::Specimen<impl kivact::view::Element> {
     specimen(
         "DSP-07",
         "プロパティリスト",
@@ -630,7 +628,7 @@ fn property_list() -> crate::game::specimens::Specimen<impl kivact::view::Compon
     )
 }
 
-fn feature_cards(scene: Demo) -> crate::game::specimens::Specimen<impl kivact::view::Component> {
+fn feature_cards(scene: Demo) -> crate::game::specimens::Specimen<impl kivact::view::Element> {
     specimen(
         "DSP-08",
         "機能カード",

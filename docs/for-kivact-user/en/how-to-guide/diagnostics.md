@@ -314,7 +314,7 @@ To see the same causes in a running app, record with DevTools and read the
 Updates panel; see
 [See why the screen updated](devtools.md#see-why-the-screen-updated).
 
-In a test you do not need a `NodeRef`: `Element::why()` does the same for any
+In a test you do not need a `NodeRef`: `Locator::why()` does the same for any
 element you found.
 
 ```rust,test_harness

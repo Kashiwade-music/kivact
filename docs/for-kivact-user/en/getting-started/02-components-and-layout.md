@@ -10,7 +10,7 @@ small components: a header and a placeholder list of tasks.
 ```rust,no_run
 use kivact::prelude::*;
 
-fn header() -> impl Component {
+fn header() -> impl Element {
     column((
         text("Tasks"),
         text("Things to do today"),
@@ -18,11 +18,11 @@ fn header() -> impl Component {
     .style(style().gap(4))
 }
 
-fn task_row(title: impl IntoText) -> impl Component {
+fn task_row(title: impl IntoText) -> impl Element {
     row((text("-"), text(title))).style(style().gap(8))
 }
 
-fn task_list() -> impl Component {
+fn task_list() -> impl Element {
     column((
         task_row("Buy milk"),
         task_row("Write the tutorial"),
@@ -44,7 +44,7 @@ fn main() -> kivact::Result<()> {
 
 **View helpers are plain functions.** `header`, `task_row` and `task_list` run
 when their caller calls them. `task_row` accepts `impl IntoText`, so callers can
-supply a string or a reactive text value. These helpers return `impl Component`:
+supply a string or a reactive text value. These helpers return `impl Element`:
 a view with one modifiable root, so callers can add `.style(..)`, `.name(..)` or
 other standard node modifiers. Use `impl IntoView` when the result can be a
 branch, a fragment or another view without one modifiable root.
@@ -54,13 +54,13 @@ lifetime for its state. `App::run(app)` sets up the root once. When state
 changes, only the reactive closures introduced in the next step run again;
 unlike a React render function, the whole screen function is not called again.
 For a reusable view that should own its own signals, effects and cleanup,
-return `component(move || { .. })`:
+return `scope(move || { .. })`:
 
 ```rust,no_run
 use kivact::prelude::*;
 
 fn click_counter() -> impl IntoView {
-    component(move || {
+    scope(move || {
         let count = signal(0);
         column((
             text(move || format!("Pressed {} times", count.get())),

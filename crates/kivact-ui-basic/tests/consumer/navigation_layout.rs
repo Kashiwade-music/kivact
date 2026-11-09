@@ -13,7 +13,7 @@ fn near(a: f64, b: f64, tolerance: f64) -> bool {
 }
 
 /// Drag `element` by `dx` along x from its own center (points are local to the element).
-fn drag_by(element: &kivact::test::Element<'_>, dx: f64) {
+fn drag_by(element: &kivact::test::Locator<'_>, dx: f64) {
     let rect = element.rect().expect("laid out");
     let from = kivact::geometry::Point::new(rect.width / 2.0, rect.height / 2.0);
     element.drag(from, kivact::geometry::Point::new(from.x + dx, from.y));
@@ -253,7 +253,7 @@ fn line_tabs_select_move_and_mark_the_selected_tab_with_an_underline() {
     assert!(screen.get_by_role(Role::Tab, "Reports").is_disabled());
     screen.get_by_text("Panel overview");
     // The underline sits under the selected tab only.
-    let under = |tab: &kivact::test::Element<'_>| {
+    let under = |tab: &kivact::test::Locator<'_>| {
         let rect = tab.rect().expect("laid out");
         pixel(
             &screen,

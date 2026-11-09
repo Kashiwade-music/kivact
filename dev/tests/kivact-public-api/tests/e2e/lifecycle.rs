@@ -123,7 +123,7 @@ fn component_initializes_once_in_mounting_context_and_cleans_up_on_removal() {
             show(shown, move || {
                 let starts = starts.clone();
                 let cleanups = cleanups.clone();
-                component(move || {
+                scope(move || {
                     starts.set(starts.get() + 1);
                     let context = use_context::<String>();
                     on_cleanup(move || cleanups.set(cleanups.get() + 1));

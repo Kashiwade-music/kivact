@@ -17,10 +17,10 @@ use kivact::view::{
     A11yAction, A11yEvent, A11yRequest, Handled, IntoView, Key, KeyEvent, Role, View, node_ref,
     show,
 };
-use kivact::view::{Node, NodeBuilder, column, node};
+use kivact::view::{Element, Node, column, node};
 
 /// A hue wheel, saturation/value square, optional alpha strip, model fields
-/// and optional swatches. NodeBuilder modifiers apply to the whole group.
+/// and optional swatches. Element modifiers apply to the whole group.
 /// RGB fields use normalized channels, HSV uses hue degrees and normalized
 /// saturation/value. HEX accepts #RRGGBB and #RRGGBBAA; invalid drafts stay
 /// visible without writing, Enter confirms and Escape discards the draft.
@@ -101,7 +101,7 @@ impl ColorWheel {
     }
 }
 
-impl NodeBuilder for ColorWheel {
+impl Element for ColorWheel {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root

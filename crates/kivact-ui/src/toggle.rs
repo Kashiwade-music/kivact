@@ -10,8 +10,8 @@ use super::values::{CheckableState, ControlSize};
 use super::variants::{Variant, Variants};
 use kivact_core::state::{Binding, Value};
 use kivact_core::state::{IntoText, IntoValue};
+use kivact_core::view::{Element, Node, node};
 use kivact_core::view::{IntoView, View};
-use kivact_core::view::{Node, NodeBuilder, node};
 use kivact_interaction::{CheckboxApi, SwitchApi, ToggleState, use_checkbox, use_switch};
 macro_rules! toggle_builder {
     ($(#[$doc:meta])* $name:ident, $kind:ident, $recipe:ident, $parts:ident, $gesture:ident, $text:expr) => {
@@ -83,7 +83,7 @@ macro_rules! toggle_builder {
             }
         }
 
-        impl NodeBuilder for $name {
+        impl Element for $name {
             fn node_mut(&mut self) -> &mut Node {
                 &mut self.root
             }

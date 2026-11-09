@@ -8,12 +8,12 @@
 
 | 形 | 使う場面 |
 |---|---|
-| `impl Component` を返す関数 | props が少なく、すべて必須のとき。 |
+| `impl Element` を返す関数 | props が少なく、すべて必須のとき。 |
 | ルートの `Node` を持つビルダー構造体 | 省略可能な props、スロット、メソッドにしたほうが読みやすい設定があるとき。 |
 
 ## まずは関数で書く
 
-再利用できる最小のコンポーネントは、props を引数で受け取り `impl Component` を返します。
+再利用できる最小のコンポーネントは、props を引数で受け取り `impl Element` を返します。
 
 ```rust,no_run
 use kivact::prelude::*;
@@ -27,7 +27,7 @@ pub fn chip(
     label: impl IntoText,
     tone: impl IntoValue<ChipTone>,
     on_press: impl Into<Callback<()>>,
-) -> impl Component {
+) -> impl Element {
     let tone = tone.into_value();
     button(label)
         .on_press(on_press)
@@ -55,7 +55,7 @@ fn main() -> kivact::Result<()> {
 `impl IntoValue<ChipTone>` ならシグナルやクロージャーも渡せます。先頭で一度だけ
 `into_value()` に変換すると、小さな `Copy` ハンドルの `Value` を共有できます。
 payload のないコールバックは `impl Into<Callback<()>>` で受け取り、クロージャーも既存の
-コールバックも渡せます。`impl Component` を返すと呼び出し側はルートの modifier を
+コールバックも渡せます。`impl Element` を返すと呼び出し側はルートの modifier を
 続けられます。複数のルートには `impl IntoView` を使います。
 
 独自の型を prop にするときは、その型を定義したクレートで一度だけ登録すると、定数をそのまま渡せるようになります。
@@ -72,7 +72,7 @@ pub enum Tone {
 
 constant_value!(Tone);
 
-pub fn badge(label: impl IntoText, tone: impl IntoValue<Tone>) -> impl Component {
+pub fn badge(label: impl IntoText, tone: impl IntoValue<Tone>) -> impl Element {
     let label = label.into_text_value();
     let tone = tone.into_value();
     node()
@@ -102,14 +102,14 @@ fn main() -> kivact::Result<()> {
 
 ## setup に独立した寿命を持たせる
 
-普通の Rust 関数は、呼び出し側が評価した時点で呼ばれるだけです。その関数が、mount された 1 つのインスタンスに属するべきシグナル、effect、cleanup を作る場合は `component(move || ...)` を返します。Kivact はこの初期化処理を、そのインスタンスが mount されるときに、専用の owner と mount 先の親の context の下で一度だけ呼びます。インスタンスが取り除かれるとそれらを破棄します。レイアウトの箱は追加しません。
+普通の Rust 関数は、呼び出し側が評価した時点で呼ばれるだけです。その関数が、mount された 1 つのインスタンスに属するべきシグナル、effect、cleanup を作る場合は `scope(move || ...)` を返します。Kivact はこの初期化処理を、そのインスタンスが mount されるときに、専用の owner と mount 先の親の context の下で一度だけ呼びます。インスタンスが取り除かれるとそれらを破棄します。レイアウトの箱は追加しません。
 
 ```rust,no_run
 use kivact::prelude::*;
 
 fn local_counter(label: impl IntoText) -> impl IntoView {
     let label = label.into_text_value();
-    component(move || {
+    scope(move || {
         let count = signal(0);
         on_cleanup(|| println!("Counter removed"));
         column((
@@ -121,7 +121,7 @@ fn local_counter(label: impl IntoText) -> impl IntoView {
 }
 ```
 
-`count` を変えると文字が更新されますが、初期化処理は再び呼ばれません。この境界には `impl IntoView` を返します。透過的な `View` は modifier を付けるルートのノードを公開しないためです。見えるルートが必要なら内側に置きます。`component` 自体は context の値を登録しません。子へ値を渡す目的なら `provide(value, factory)` を使います。ビルダーでは、呼び出し側が先にその `Node` を設定し、`IntoView` の実装が `component(move || ...)` を返して最後の setup を mount 時まで遅らせられます。
+`count` を変えると文字が更新されますが、初期化処理は再び呼ばれません。この境界には `impl IntoView` を返します。透過的な `View` は modifier を付けるルートのノードを公開しないためです。見えるルートが必要なら内側に置きます。`component` 自体は context の値を登録しません。子へ値を渡す目的なら `provide(value, factory)` を使います。ビルダーでは、呼び出し側が先にその `Node` を設定し、`IntoView` の実装が `scope(move || ...)` を返して最後の setup を mount 時まで遅らせられます。
 
 ## 子要素とスロットを受け取る
 
@@ -131,7 +131,7 @@ fn local_counter(label: impl IntoText) -> impl IntoView {
 use kivact::prelude::*;
 
 /// タイトルつきの箱。`body` は呼び出し側が入れたいもの、`footer` は `()` でもかまいません。
-pub fn card(title: impl IntoText, body: impl IntoView, footer: impl IntoView) -> impl Component {
+pub fn card(title: impl IntoText, body: impl IntoView, footer: impl IntoView) -> impl Element {
     column((
         text(title).style(style().padding_bottom(4)),
         body,
@@ -164,7 +164,7 @@ pub fn collapsible<V: IntoView>(
     title: impl IntoText,
     open: impl IntoBinding<bool>,
     content: impl kivact::view::IntoViewFn<V>,
-) -> impl Component {
+) -> impl Element {
     let title = title.into_text_value();
     let open = open.into_binding();
     column((
@@ -200,7 +200,7 @@ use kivact::prelude::*;
 use kivact::view::{Handled, KeyEvent};
 
 /// 削除ボタンつきのチップ。Delete キーでも削除できます。
-pub fn removable_chip(label: impl IntoText, on_remove: impl Into<Callback<()>>) -> impl Component {
+pub fn removable_chip(label: impl IntoText, on_remove: impl Into<Callback<()>>) -> impl Element {
     let label = label.into_text_value();
     // `on_remove` は 2 つのハンドラーが使います。素のクロージャーは片方にしか
     // move できませんが、この変換は保存して Copy のハンドルを返します。
@@ -243,7 +243,7 @@ use kivact::prelude::*;
 use kivact::view::modifiers;
 
 /// Opens its panel; Ctrl+click (Cmd+click) opens only this one.
-fn open_button<R: kivact::view::HandlerResult>(open: impl Fn(bool) -> R + 'static) -> impl Component {
+fn open_button<R: kivact::view::HandlerResult>(open: impl Fn(bool) -> R + 'static) -> impl Element {
     button("Open").on_press(move || {
         let held = modifiers().get();
         open(held.ctrl || held.meta)
@@ -259,7 +259,7 @@ fn main() -> kivact::Result<()> {
 
 ## props が増えたらビルダーにする
 
-省略可能な props、スロット、設定が増えたら、長い引数リストよりビルダーのほうが読みやすくなります。ビルダーはルートの `Node` を持つ構造体で、`NodeBuilder` を実装して日常的な modifier をすべて受け取り、`IntoView` を実装して仕上げを担当します。
+省略可能な props、スロット、設定が増えたら、長い引数リストよりビルダーのほうが読みやすくなります。ビルダーはルートの `Node` を持つ構造体で、`Element` を実装して日常的な modifier をすべて受け取り、`IntoView` を実装して仕上げを担当します。
 
 ```rust,test_harness
 use kivact::state::Callback;
@@ -316,7 +316,7 @@ impl Notice {
     }
 }
 
-impl NodeBuilder for Notice {
+impl Element for Notice {
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -324,7 +324,7 @@ impl NodeBuilder for Notice {
 
 impl IntoView for Notice {
     fn into_view(self) -> View {
-        component(move || {
+        scope(move || {
             let Notice { root, message, tone, action, on_dismiss } = self;
             // 既定の見た目。呼び出し側が足すどのスタイルよりも下に置かれます。
             let mut root = root.base_style(move || {
@@ -398,9 +398,9 @@ mod tests {
 
 この形で知っておきたい点です。
 
-- **`NodeBuilder` はメソッド 1 つ。** `fn node_mut(&mut self) -> &mut Node` を書くだけで、`style`、`name`、`disabled`、`test_id`、`on_key`、`on_press`、`draw` などがビルダーで使えます。コンストラクターのあとで呼び出し側が書いた modifier は、コンストラクターが設定した値に勝ちます。
+- **`Element` はメソッド 1 つ。** `fn node_mut(&mut self) -> &mut Node` を書くだけで、`style`、`name`、`disabled`、`test_id`、`on_key`、`on_press`、`draw` などがビルダーで使えます。コンストラクターのあとで呼び出し側が書いた modifier は、コンストラクターが設定した値に勝ちます。
 - **ルートを変えるには `with_node` を使う。** `role`、`checked`、`expanded`、`selected`、`value_text`、`base_style` は `Node` の固有メソッドです。ビルダーでは `.with_node(|root| root.role(Role::Alert))` と書きます。
-- **仕上げは `into_view` で行う。** その時点でビルダーのすべての setter は実行済みです。変換自体は mount 時の callback ではありません。setup を mount まで待たせる必要があるときは、その中で `component(move || ...)` を使います。setter とスタイルのクロージャーのあいだで `Cell` を共有するのではなく、最終的なフィールドを読みます。
+- **仕上げは `into_view` で行う。** その時点でビルダーのすべての setter は実行済みです。変換自体は mount 時の callback ではありません。setup を mount まで待たせる必要があるときは、その中で `scope(move || ...)` を使います。setter とスタイルのクロージャーのあいだで `Cell` を共有するのではなく、最終的なフィールドを読みます。
 - **状態は setup の owner に属する。** インスタンスのリソースは `component` の初期化処理の中で作ります。コンストラクターで作ると、呼び出し側の現在の setup の owner に属します。このコンポーネントを取り除いたときに effect と callback も破棄する必要があるなら、この境界を使います。そうすれば同じ画面の 2 つの通知は何も共有しません。文字列キーやグローバルな ID は要りません。
 - **`#[track_caller]` で各インスタンスに名前がつく。** 診断やテスト失敗のレポートは、ノードをビルダーが呼ばれた位置で呼びます。コンストラクターにこの属性を付ければ、各インスタンスは自分の呼び出し位置で報告されます。コンポーネントは、追跡するコンストラクターの中で `.located_at_caller()` を使ってルートの位置を記録できます。
 
@@ -436,7 +436,7 @@ impl ThemeExtension for StatusColors {
     }
 }
 
-pub fn status_dot(online: impl IntoValue<bool>) -> impl Component {
+pub fn status_dot(online: impl IntoValue<bool>) -> impl Element {
     let online = online.into_value();
     node()
         .role(Role::Status)
@@ -501,7 +501,7 @@ use kivact::prelude::*;
 use kivact::test::{RenderOptions, render_with};
 
 /// `name` という名前のアイコンを表示する正方形のボタン。
-pub fn icon_button(name: impl IntoValue<Icon>, label: impl IntoText) -> impl Component {
+pub fn icon_button(name: impl IntoValue<Icon>, label: impl IntoText) -> impl Element {
     node()
         .role(Role::Button)
         .focusable(true)
@@ -570,7 +570,7 @@ pub fn search_box(value: impl IntoBinding<String>) -> SearchBox {
     }
 }
 
-impl NodeBuilder for SearchBox {
+impl Element for SearchBox {
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -578,7 +578,7 @@ impl NodeBuilder for SearchBox {
 
 impl IntoView for SearchBox {
     fn into_view(self) -> View {
-        component(move || {
+        scope(move || {
             let SearchBox { mut root, value } = self;
 
             // 呼び出し側がコンポーネント全体について指定したこと。
@@ -660,7 +660,7 @@ use kivact::prelude::*;
 use kivact::custom::raise;
 
 #[track_caller]
-pub fn progress_ring(done: u32, total: u32) -> impl Component {
+pub fn progress_ring(done: u32, total: u32) -> impl Element {
     if total == 0 {
         raise(
             ErrorKind::Message,
@@ -683,4 +683,4 @@ fn main() -> kivact::Result<()> {
 - [独自の見た目のコントロールを作る](custom-controls.md): 標準の振る舞い (選択、メニュー、ドラッグ、テキスト編集) に自前の見た目を付けたいコンポーネント。
 - [テーマとコンポーネントの見た目を変える](theming.md): アプリ側から見たトークン、recipe、アイコン。
 - [画面をレイアウトする](layout.md): base style で設定できるスタイルのプロパティ。
-- `cargo doc -p kivact --open`: `kivact::view::NodeBuilder`、`kivact::view::Node`、`kivact::style::{Theme, ThemeExtension, IconSet}`。
+- `cargo doc -p kivact --open`: `kivact::view::Element`、`kivact::view::Node`、`kivact::style::{Theme, ThemeExtension, IconSet}`。

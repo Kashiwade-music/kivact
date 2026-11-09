@@ -8,7 +8,7 @@ use kivact_core::state::{
 };
 use kivact_core::style::{Length, StyledRange, style};
 use kivact_core::view::{
-    IntoView, Node, NodeBuilder, Orientation, Role, ScrollAxes, View, node, node_ref, scroll, show,
+    Element, IntoView, Node, Orientation, Role, ScrollAxes, View, node, node_ref, scroll, show,
     text,
 };
 use kivact_interaction::{CopyFeedbackApi, DisclosureApi, use_copy_feedback, use_disclosure};
@@ -168,7 +168,7 @@ impl CodeBlock {
         self
     }
 }
-impl NodeBuilder for CodeBlock {
+impl Element for CodeBlock {
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }

@@ -18,7 +18,7 @@ struct Task {
     done: bool,
 }
 
-fn header(dark: Signal<bool>) -> impl Component {
+fn header(dark: Signal<bool>) -> impl Element {
     row((
         image(LOGO).name("Tasks logo").style(style().size(32, 32)),
         column((
@@ -31,7 +31,7 @@ fn header(dark: Signal<bool>) -> impl Component {
     .style(style().gap(12).align_items(Align::Center))
 }
 
-fn task_row(tasks: Signal<Vec<Task>>, task: Binding<Task>) -> impl Component {
+fn task_row(tasks: Signal<Vec<Task>>, task: Binding<Task>) -> impl Element {
     let id = task.get_untracked().id;
     let done = bind!(task.done);
     row((
@@ -45,7 +45,7 @@ fn task_row(tasks: Signal<Vec<Task>>, task: Binding<Task>) -> impl Component {
     .style(style().gap(8).align_items(Align::Center).justify_content(Justify::SpaceBetween))
 }
 
-fn task_list(tasks: Signal<Vec<Task>>) -> impl Component {
+fn task_list(tasks: Signal<Vec<Task>>) -> impl Element {
     column(for_each(
         tasks,
         |task| task.id,
@@ -63,7 +63,7 @@ fn task_list(tasks: Signal<Vec<Task>>) -> impl Component {
     )
 }
 
-fn tasks_screen(dark: Signal<bool>) -> impl Component {
+fn tasks_screen(dark: Signal<bool>) -> impl Element {
     let tasks = signal(vec![
         Task { id: 1, title: "Buy milk".to_owned(), done: false },
         Task { id: 2, title: "Write the tutorial".to_owned(), done: false },

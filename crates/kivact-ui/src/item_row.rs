@@ -6,8 +6,7 @@ use kivact_core::custom::{Part, part};
 use kivact_core::state::{Callback, IntoText, IntoValue, Value, callback};
 use kivact_core::style::{Style, TextOverflow, style};
 use kivact_core::view::{
-    HandlerResult, IntoChildren, IntoView, Node, NodeBuilder, NodeRef, Role, View, node, node_ref,
-    text,
+    Element, HandlerResult, IntoChildren, IntoView, Node, NodeRef, Role, View, node, node_ref, text,
 };
 /// A semantic item row; its description and activation share the actual root.
 pub struct ItemRow {
@@ -130,7 +129,7 @@ impl ItemRow {
         self
     }
 }
-impl NodeBuilder for ItemRow {
+impl Element for ItemRow {
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }

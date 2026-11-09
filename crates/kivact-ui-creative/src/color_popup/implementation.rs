@@ -3,7 +3,7 @@ use super::machine;
 use kivact::state::IntoBinding;
 use kivact::state::IntoValue;
 use kivact::ui::button;
-use kivact::view::NodeBuilder;
+use kivact::view::Element;
 
 use crate::color_wheel;
 use kivact::interaction::use_popup;
@@ -20,7 +20,7 @@ use kivact::view::{DismissReason, Placement, overlay};
 pub fn color_popup(
     label: impl IntoText,
     color: impl IntoBinding<Color>,
-) -> impl kivact::view::Component {
+) -> impl kivact::view::Element {
     let label = label.into_text_value();
     let color = color.into_binding();
     let value = color.into_value();

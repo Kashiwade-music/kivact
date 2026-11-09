@@ -9,10 +9,10 @@ use kivact_core::state::{Binding, Callback, Value};
 use kivact_core::state::{IntoText, IntoValue, callback};
 use kivact_core::style::{Length, Position, Style, TransitionProp, style, use_theme};
 use kivact_core::view::EditPhase;
+use kivact_core::view::{Element, Node, node};
 use kivact_core::view::{
     HandlerResult, IntoView, Orientation, ReadingDirection, Role, View, node_ref, use_direction,
 };
-use kivact_core::view::{Node, NodeBuilder, node};
 use kivact_interaction::SliderTouchMotion;
 use kivact_interaction::{RangeThumb, ScalarApi, ScalarRange, use_range_scalar, use_scalar};
 
@@ -162,7 +162,7 @@ impl Slider {
     }
 }
 
-impl NodeBuilder for Slider {
+impl Element for Slider {
     /// The track, so modifiers (a width, a test id) apply to it.
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root

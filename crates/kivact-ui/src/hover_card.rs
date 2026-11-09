@@ -2,7 +2,7 @@
 use kivact_core::state::{Binding, IntoBinding, IntoText, IntoValue, Value, effect_on, signal};
 use kivact_core::style::use_theme;
 use kivact_core::view::{
-    HandlerResult, IntoView, NodeBuilder, OverlayAlign, Placement, Role, View, ViewFn, column,
+    Element, HandlerResult, IntoView, OverlayAlign, Placement, Role, View, ViewFn, column,
     node_ref, overlay, show,
 };
 use kivact_interaction::{HoverCardTiming, InteractionPolicy, use_hover_card};
@@ -114,7 +114,7 @@ impl HoverCard {
         self
     }
     /// Attach without replacing the trigger's role or existing handlers.
-    pub fn attach<T: NodeBuilder + IntoView>(self, trigger: T) -> View {
+    pub fn attach<T: Element + IntoView>(self, trigger: T) -> View {
         let anchor = node_ref();
         let card = node_ref();
         let anchor_focus = anchor.focus_within();

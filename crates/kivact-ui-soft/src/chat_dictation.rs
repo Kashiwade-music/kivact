@@ -3,7 +3,7 @@ use kivact::i18n::message;
 use kivact::state::{Callback, IntoText, IntoValue, Value, callback};
 use kivact::style::{Align, Direction, Justify, style};
 use kivact::ui::ControlSize;
-use kivact::view::{IntoView, Node, NodeBuilder, Role, View, node, row, text};
+use kivact::view::{Element, IntoView, Node, Role, View, node, row, text};
 fn control_side(size: ControlSize) -> i32 {
     match size {
         ControlSize::ExtraSmall => 24,
@@ -50,7 +50,7 @@ pub fn chat_dictation_button(state: impl IntoValue<DictationState>) -> ChatDicta
     }
 }
 
-impl NodeBuilder for ChatDictationButton {
+impl Element for ChatDictationButton {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root

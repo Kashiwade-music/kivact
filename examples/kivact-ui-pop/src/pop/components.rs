@@ -5,7 +5,7 @@ use kivact::draw::Shadow;
 use kivact::i18n::CalendarDate;
 use kivact::interaction::{ListItem, MenuEntry, ScalarRange};
 use kivact::prelude::{
-    ColorToken, IntoView, Node, NodeBuilder, Role, column, for_each, grid, memo, node, rgb, row,
+    ColorToken, Element, IntoView, Node, Role, column, for_each, grid, memo, node, rgb, row,
     signal, text,
 };
 use kivact::state::Callback;
@@ -164,7 +164,7 @@ struct IconInput {
     glyph: &'static str,
     trailing: View,
 }
-impl NodeBuilder for IconInput {
+impl Element for IconInput {
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -920,7 +920,7 @@ fn button_groups(
     )
 }
 
-fn date_editor() -> impl kivact::view::Component {
+fn date_editor() -> impl kivact::view::Element {
     let date = signal(CalendarDate::new(2026, 10, 3));
     kivact::ui::field(
         "実施日",
@@ -947,7 +947,7 @@ fn date_editor() -> impl kivact::view::Component {
     )
 }
 
-fn reward_editor() -> impl kivact::view::Component {
+fn reward_editor() -> impl kivact::view::Element {
     kivact::ui::field(
         "報酬額",
         row((

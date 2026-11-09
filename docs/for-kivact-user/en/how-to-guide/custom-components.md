@@ -15,12 +15,12 @@ everything:
 
 | Shape | Use it when |
 |---|---|
-| A function returning `impl Component` | There are a few props, all of them needed. |
+| A function returning `impl Element` | There are a few props, all of them needed. |
 | A builder struct that holds a root `Node` | There are optional props, slots or settings that read better as methods. |
 
 ## Start with a function
 
-The shortest reusable component takes its props as arguments and returns `impl Component`.
+The shortest reusable component takes its props as arguments and returns `impl Element`.
 
 ```rust,no_run
 use kivact::prelude::*;
@@ -34,7 +34,7 @@ pub fn chip(
     label: impl IntoText,
     tone: impl IntoValue<ChipTone>,
     on_press: impl Into<Callback<()>>,
-) -> impl Component {
+) -> impl Element {
     let tone = tone.into_value();
     button(label)
         .on_press(on_press)
@@ -62,7 +62,7 @@ fn main() -> kivact::Result<()> {
 `impl IntoValue<ChipTone>` also accepts a signal or a closure. Convert reactive
 props once with `into_value()`; the resulting `Value` is a small `Copy` handle.
 Payload-free callbacks take `impl Into<Callback<()>>`, so callers can pass a
-closure or an existing callback. Returning `impl Component` keeps the root's
+closure or an existing callback. Returning `impl Element` keeps the root's
 common modifiers available. Use `impl IntoView` for several roots.
 
 If a prop has a type of your own, register it once so a constant can be passed
@@ -80,7 +80,7 @@ pub enum Tone {
 
 constant_value!(Tone);
 
-pub fn badge(label: impl IntoText, tone: impl IntoValue<Tone>) -> impl Component {
+pub fn badge(label: impl IntoText, tone: impl IntoValue<Tone>) -> impl Element {
     let label = label.into_text_value();
     let tone = tone.into_value();
     node()
@@ -115,7 +115,7 @@ change.
 
 A plain Rust function is called when its caller evaluates it. When the function
 creates signals, effects or cleanup callbacks that should belong to one mounted
-instance, return `component(move || ...)`. Kivact calls this initializer once
+instance, return `scope(move || ...)`. Kivact calls this initializer once
 when that instance mounts, under its own owner and the mounting parent's context.
 It disposes those resources when the instance is removed. It adds no layout box.
 
@@ -124,7 +124,7 @@ use kivact::prelude::*;
 
 fn local_counter(label: impl IntoText) -> impl IntoView {
     let label = label.into_text_value();
-    component(move || {
+    scope(move || {
         let count = signal(0);
         on_cleanup(|| println!("Counter removed"));
         column((
@@ -142,7 +142,7 @@ root node for modifiers. Put a visible root inside it when you need one.
 `component` itself provides no context value; use `provide(value, factory)` to
 pass a value to its children. For a
 builder, callers configure its `Node` first; its `IntoView` implementation can
-return `component(move || ...)` to defer final setup until mounting.
+return `scope(move || ...)` to defer final setup until mounting.
 
 ## Take children and slots
 
@@ -154,7 +154,7 @@ doubles as an empty slot. A component with named slots takes one parameter per s
 use kivact::prelude::*;
 
 /// A titled box. `body` is whatever the caller wants inside, `footer` may be `()`.
-pub fn card(title: impl IntoText, body: impl IntoView, footer: impl IntoView) -> impl Component {
+pub fn card(title: impl IntoText, body: impl IntoView, footer: impl IntoView) -> impl Element {
     column((
         text(title).style(style().padding_bottom(4)),
         body,
@@ -189,7 +189,7 @@ pub fn collapsible<V: IntoView>(
     title: impl IntoText,
     open: impl IntoBinding<bool>,
     content: impl kivact::view::IntoViewFn<V>,
-) -> impl Component {
+) -> impl Element {
     let title = title.into_text_value();
     let open = open.into_binding();
     column((
@@ -228,7 +228,7 @@ use kivact::prelude::*;
 use kivact::view::{Handled, KeyEvent};
 
 /// A chip with a remove button. Delete removes it too.
-pub fn removable_chip(label: impl IntoText, on_remove: impl Into<Callback<()>>) -> impl Component {
+pub fn removable_chip(label: impl IntoText, on_remove: impl Into<Callback<()>>) -> impl Element {
     let label = label.into_text_value();
     // `on_remove` is used by two handlers. A plain closure can be moved into only
     // one of them; the conversion stores it and gives back a Copy handle.
@@ -276,7 +276,7 @@ use kivact::prelude::*;
 use kivact::view::modifiers;
 
 /// Opens its panel; Ctrl+click (Cmd+click) opens only this one.
-fn open_button<R: kivact::view::HandlerResult>(open: impl Fn(bool) -> R + 'static) -> impl Component {
+fn open_button<R: kivact::view::HandlerResult>(open: impl Fn(bool) -> R + 'static) -> impl Element {
     button("Open").on_press(move || {
         let held = modifiers().get();
         open(held.ctrl || held.meta)
@@ -298,7 +298,7 @@ updated](diagnostics.md)).
 
 Once a component has optional props, slots or settings, a builder reads better than a
 long argument list. A builder is a struct that holds its root `Node`, implements
-`NodeBuilder` to get all the everyday modifiers for free, and implements `IntoView`
+`Element` to get all the everyday modifiers for free, and implements `IntoView`
 to finish the job.
 
 ```rust,test_harness
@@ -356,7 +356,7 @@ impl Notice {
     }
 }
 
-impl NodeBuilder for Notice {
+impl Element for Notice {
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -364,7 +364,7 @@ impl NodeBuilder for Notice {
 
 impl IntoView for Notice {
     fn into_view(self) -> View {
-        component(move || {
+        scope(move || {
             let Notice { root, message, tone, action, on_dismiss } = self;
             // The default look. It goes below every style the caller adds.
             let mut root = root.base_style(move || {
@@ -438,7 +438,7 @@ mod tests {
 
 Points worth knowing about this shape:
 
-- **`NodeBuilder` is one method.** `fn node_mut(&mut self) -> &mut Node` gives
+- **`Element` is one method.** `fn node_mut(&mut self) -> &mut Node` gives
   `style`, `name`, `disabled`, `test_id`, `on_key`, `on_press`, `draw` and the rest
   to your builder. A modifier the caller writes after your constructor wins over
   what the constructor set.
@@ -447,7 +447,7 @@ Points worth knowing about this shape:
   `.with_node(|root| root.role(Role::Alert))` to configure them.
 
 - **Finish configuration in `into_view`.** All builder setters have run by then.
-  Conversion itself is not a mount callback: use `component(move || ...)` inside
+  Conversion itself is not a mount callback: use `scope(move || ...)` inside
   it when setup must wait for mounting. Read the final fields rather than sharing
   a `Cell` between setters and style closures.
 - **State belongs to its setup owner.** Create instance resources inside the
@@ -501,7 +501,7 @@ impl ThemeExtension for StatusColors {
     }
 }
 
-pub fn status_dot(online: impl IntoValue<bool>) -> impl Component {
+pub fn status_dot(online: impl IntoValue<bool>) -> impl Element {
     let online = online.into_value();
     node()
         .role(Role::Status)
@@ -576,7 +576,7 @@ use kivact::prelude::*;
 use kivact::test::{RenderOptions, render_with};
 
 /// A square button that shows the icon named `name`.
-pub fn icon_button(name: impl IntoValue<Icon>, label: impl IntoText) -> impl Component {
+pub fn icon_button(name: impl IntoValue<Icon>, label: impl IntoText) -> impl Element {
     node()
         .role(Role::Button)
         .focusable(true)
@@ -654,7 +654,7 @@ pub fn search_box(value: impl IntoBinding<String>) -> SearchBox {
     }
 }
 
-impl NodeBuilder for SearchBox {
+impl Element for SearchBox {
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -662,7 +662,7 @@ impl NodeBuilder for SearchBox {
 
 impl IntoView for SearchBox {
     fn into_view(self) -> View {
-        component(move || {
+        scope(move || {
             let SearchBox { mut root, value } = self;
 
             // What the caller said about the component as a whole.
@@ -749,7 +749,7 @@ use kivact::prelude::*;
 use kivact::custom::raise;
 
 #[track_caller]
-pub fn progress_ring(done: u32, total: u32) -> impl Component {
+pub fn progress_ring(done: u32, total: u32) -> impl Element {
     if total == 0 {
         raise(
             ErrorKind::Message,
@@ -776,5 +776,5 @@ is a `Result` that your component shows, not a misuse.
 - [Change the theme and the look of components](theming.md) for tokens, recipes and icons
   from the app's side.
 - [Lay out a screen](layout.md) for the style properties a base style can set.
-- `cargo doc -p kivact --open`: `kivact::view::NodeBuilder`,
+- `cargo doc -p kivact --open`: `kivact::view::Element`,
   `kivact::view::Node`, `kivact::style::{Theme, ThemeExtension, IconSet}`.

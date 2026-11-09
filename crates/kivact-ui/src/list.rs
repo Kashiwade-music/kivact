@@ -5,8 +5,8 @@ use super::variants::{Variant, Variants};
 use kivact_core::state::{Binding, Callback, Value, binding};
 use kivact_core::state::{IntoText, IntoValue, callback};
 use kivact_core::view::EditPhase;
+use kivact_core::view::{Element, Node, node};
 use kivact_core::view::{HandlerResult, IntoView, View, for_each};
-use kivact_core::view::{Node, NodeBuilder, node};
 use kivact_interaction::{EditSession, ListItem, ListItemState, ListOptions, Selection, use_list};
 
 /// What an item shows, from its data and its state.
@@ -128,7 +128,7 @@ impl<K: kivact_core::state::ItemKey> List<K> {
     }
 }
 
-impl<K: kivact_core::state::ItemKey> NodeBuilder for List<K> {
+impl<K: kivact_core::state::ItemKey> Element for List<K> {
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }

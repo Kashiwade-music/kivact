@@ -21,9 +21,9 @@ use kivact::ui::button;
 use kivact::ui::dialog;
 use kivact::ui::select;
 use kivact::ui::text_input;
+use kivact::view::Element;
 use kivact::view::IntoView;
 use kivact::view::Node;
-use kivact::view::NodeBuilder;
 use kivact::view::View;
 use kivact::view::for_each;
 use kivact::view::icon;
@@ -75,7 +75,7 @@ pub fn power_search<K: ItemKey>(
     }
 }
 
-impl<K: ItemKey> NodeBuilder for PowerSearch<K> {
+impl<K: ItemKey> Element for PowerSearch<K> {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root

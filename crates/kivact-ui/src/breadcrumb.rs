@@ -1,9 +1,7 @@
 //! Role: Render keyed breadcrumb navigation with one current page.
 use crate::BreadcrumbItemState;
 use kivact_core::state::{IntoValue, Value};
-use kivact_core::view::{
-    CurrentItem, IntoView, Node, NodeBuilder, Role, View, dynamic, node, text,
-};
+use kivact_core::view::{CurrentItem, Element, IntoView, Node, Role, View, dynamic, node, text};
 use kivact_interaction::ListItem;
 use std::rc::Rc;
 
@@ -69,7 +67,7 @@ impl<K: Clone + PartialEq + 'static> Breadcrumb<K> {
         self
     }
 }
-impl<K: 'static> NodeBuilder for Breadcrumb<K> {
+impl<K: 'static> Element for Breadcrumb<K> {
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }

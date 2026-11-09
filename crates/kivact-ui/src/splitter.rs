@@ -7,10 +7,10 @@ use kivact_core::state::{Binding, Callback, Value};
 use kivact_core::state::{IntoText, callback};
 use kivact_core::style::{Direction, style};
 use kivact_core::view::EditPhase;
+use kivact_core::view::{Element, Node, node};
 use kivact_core::view::{
     HandlerResult, IntoView, Orientation, ReadingDirection, Role, View, node_ref, use_direction,
 };
-use kivact_core::view::{Node, NodeBuilder, node};
 use kivact_interaction::{ScalarRange, ScalarRangeError, use_splitter};
 
 /// Two panes and a handle between them, created by [`splitter`].
@@ -162,7 +162,7 @@ impl Splitter {
     }
 }
 
-impl NodeBuilder for Splitter {
+impl Element for Splitter {
     /// The row (or column) of the panes.
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root

@@ -2,8 +2,8 @@
 use kivact::state::IntoValue;
 use kivact::state::Value;
 
+use kivact::view::Element;
 use kivact::view::Node;
-use kivact::view::NodeBuilder;
 use kivact::view::ScrollAxes;
 use kivact::view::node;
 use kivact::view::scroll;
@@ -405,7 +405,7 @@ impl FlexStack {
     }
 }
 
-impl NodeBuilder for FlexStack {
+impl Element for FlexStack {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
@@ -520,7 +520,7 @@ impl StackItem {
     }
 }
 
-impl NodeBuilder for StackItem {
+impl Element for StackItem {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root

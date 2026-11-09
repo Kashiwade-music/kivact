@@ -75,7 +75,7 @@
 | 2026-11-05 | ADR-31 | Part が独自 hover を保存するか | engine の FocusTarget(node,region) をそのまま読み、正確に一致する region だけ hovered | node だけの比較や第二の hover state は region の意味を失うため |
 | 2026-11-05 | ADR-32 | handler の返り値をどう揃えるか | HandlerResult 一つに ()、Handled、Result<(),UiError>、Result<Handled,UiError> の四実装。Handled の PreventDefault を合成でも保つ | 処理済みと既定動作の禁止を区別し、error も同じ入口で扱うため |
 | 2026-11-05 | ADR-33 | Callback の構築は setup に限るか | payload なし Callback は現在の owner があれば handler/effect 下でも構築可能。owner がなければ misuse | 正当な owner-bound callback の利用を不必要に制限しないため |
-| 2026-11-05 | ADR-34 | 外部 NodeBuilder 実装を閉じるか | node_mut は公開だが doc(hidden)、trait は seal しない。with_node は普通の公開 API | 外部 builder が標準 setter を継承できる実装用の口が必要だから |
+| 2026-11-05 | ADR-34 | 外部 Element 実装を閉じるか | node_mut は公開だが doc(hidden)、trait は seal しない。with_node は普通の公開 API | 外部 builder が標準 setter を継承できる実装用の口が必要だから |
 | 2026-11-05 | ADR-35 | 公開 API の改名をどう進めるか | 層をまたぐ署名は family 単位で一度に変え、改名と振る舞いの変更は別の変更に分ける | 同じ利用箇所を何度も書き直すことと、改名に紛れた振る舞い変更を避けるため |
 | 2026-11-05 | ADR-36 | InteractionPolicy の所属と形はどうするか | interaction に inputs/menu/tooltip/button/slider/switch/toast/select/hover_card/drawer の nested policy を置く。ui が依存し、逆向きにしない。tooltip に第二の context config を残さない | behavior の設定の正本を一つにするため |
 | 2026-11-05 | ADR-37 | UiTokens にすべての recipe 値を移すか | 部品ごとの nested tokens に、kit が上書きする値と theme 依存値だけを置く。形は recipes。data table の sticky/status paint 値も Tokens | recipe の値を無差別に token 化すると設定面が増え、形と値の境界も失われるため |
@@ -88,7 +88,7 @@
 | 2026-11-05 | ADR-44 | text 色の Transition と未確認の option を増やすか | Paint が text color を担うため新 Color TransitionProp は不要。Combobox/Select の option は kit の利用者が実際に使っていた option の和集合だけを実装 | 同義の表現と要求のない knob を増やさないため |
 | 2026-11-05 | ADR-45 | touch の日付入力は kit 固有か | DatePresentation Adaptive/Desktop/BottomSheet を構造 option とし、Adaptive は capabilities.touch。calendar/date/time/wheel は標準 UI と scalar に統合し kit の option をすべて維持 | 同じ日付入力の behavior と OS 判断を kit に重複させないため |
 | 2026-11-05 | ADR-46 | Creative picker を全て標準 combobox に置換するか | 共通 body は標準 API を使うが、Creative 固有の column-follow picker は kit に残す | column に追従する domain の意味が一般の選択 field と異なるため |
-| 2026-11-05 | ADR-47 | 一度だけ mount する setup closure をどう渡すか | view::component(FnOnce→IntoView) と prelude を公開。mount 時に child owner/transparent fragment の下で一度実行し、context を登録しない。Variant Default は通常値、reactive 値は明示 setter | eager 評価、provide(())、recipe 評価中の hook で owner と cleanup の寿命を変えないため |
+| 2026-11-05 | ADR-47 | 一度だけ mount する setup closure をどう渡すか | view::scope(FnOnce→IntoView) と prelude を公開。mount 時に child owner/transparent fragment の下で一度実行し、context を登録しない。Variant Default は通常値、reactive 値は明示 setter | eager 評価、provide(())、recipe 評価中の hook で owner と cleanup の寿命を変えないため |
 | 2026-11-08 | ADR-48 | 複数の window を扱う shell の境界をどうするか | 一つの handler が loop 全体と複数の window を相手にし、backend の event を `EventTarget::{Loop, Window(WindowId)}` で分ける。handler の口は `ShellLoop`・`ShellWindow` とし、`open_window`・`close_window` を持つ | window ごとに backend と handler の組を増やさず、loop 全体の event（SaveState・Wake など）と window の event を一つの型で区別するため |
 | 2026-11-08 | ADR-49 | engine の model を App 全体で一つにするか window ごとに分けるか | 一つの window の `Model` と App 全体の `AppModel` に分ける。`AppModel` が `windows`・`window_changes`・`AppClock`・`client_frames`・共有の `EventSink` と assets と writes を持つ | window ごとの tree・focus・surface を保ちながら、motion の時計と frame の要求を App に一つにし、ある window の surface が止まっても他の window の animated が進むようにするため |
 | 2026-11-08 | ADR-50 | OS の window を公開 API でどう表すか | `window(title, open)` を `overlay` と同じ構造の view とし、content は宣言した場所の context を引き継ぐ（React の Portal と同じ）。閉じる操作は `on_dismiss` が取り消さない限り既定で window を閉じる（`dialog` と同じ） | open の binding で寿命を表し、overlay・dialog と同じ組み立てと dismiss の規則を共有するため |
@@ -130,7 +130,7 @@
 - ADR-27: theme install/query、style/span compile、record、scroll-axis adapter は hidden internal free function とする。THEMED は縮まない ThemeColor interning cache であり theme ごとの可変状態ではない。
 - ADR-29: Removed の ids は論理削除した subtree の前順。handler records は tree borrow が終わってから drop。退場 paint が残っていても core handler、asset failure と NodeRef の detach は論理削除で処理する。
 - ADR-30: flow の show/dynamic/for_each/for_index/virtual-list行/error-boundary/provide は Contents の実箱を作る。箱自体にsemantics/hit/focusを付けず、未挿入の部分木も親なしの実箱として構築可能。a11y の論理 hierarchy は BOUNDARY-05 を参照する。
-- ADR-32〜34: HandlerResult の変換 method と NodeBuilder.node_mut は hidden な実装口。外部 builder の実装可能性は維持する。payloadなしcallbackをownerの種類で不当に制限しない。
+- ADR-32〜34: HandlerResult の変換 method と Element.node_mut は hidden な実装口。外部 builder の実装可能性は維持する。payloadなしcallbackをownerの種類で不当に制限しない。
 - ADR-36: policy は Clone/Debug/PartialEq/Default と公開 field を持つ FRU 値。tooltip delay/skip は500/300ms、hover card open/close は600/300msで部品別上書きも残す。toast slop8px、select slop10px、menu drift context10/other13px。drawer close fraction0.3、flick speed0.6、distance4。現在の追加 field と正確な署名はrustdocを参照する。
 - ADR-37: 初期 tokens は button busy、progress motion、toast row motion、toggle label reservation、dialog center、disclosure motion、data table sticky/row-status。各部品が所有する nested struct を追加して拡張する。値だけが違う recipe を token へ移すことはしない。
 - ADR-39: overlay margin は inset の数値で既定0。負数/NaN、未設定modeを no-fit sentinel として使わない。
@@ -159,7 +159,7 @@
 
 | 日付 | ID | 問い | 決定 | 理由 |
 |---|---|---|---|---|
-| 2026-11-05 | CONTRACT-01 | 部品の constructor は opaque な Component を返すか、具体 builder を返すか | 固有 option を持たない合成部品は impl Component を返す。固有 option を持つ標準・kit の constructor は具体 builder を返し、fluent API を保つ | opaque な型は固有 option を呼び出し側から隠してしまうため |
+| 2026-11-05 | CONTRACT-01 | 部品の constructor は opaque な Component を返すか、具体 builder を返すか | 固有 option を持たない合成部品は impl Element を返す。固有 option を持つ標準・kit の constructor は具体 builder を返し、fluent API を保つ | opaque な型は固有 option を呼び出し側から隠してしまうため |
 | 2026-11-05 | CONTRACT-02 | ScrollSnap をどう表すか | ScrollSnap は None/Start/Center/End とし、ScrollAxes の方向で子を整列する。可変サイズの子を扱い、raw pixel の停止位置の別設定は増やさない。nearest_snap と DragVelocity は types の一つの純粋実装を interaction が再公開する | snap の位置を子の配置から導き、同じ計算を二か所に持たないため |
 | 2026-11-05 | CONTRACT-03 | window の寸法をどこまで受け入れるか | window の寸法は少なくとも 1 logical pixel、有限、unsigned の native extent 内とし、App の起動と resize が同じ判定を使う。native は scale 後の physical size も検証する | f64 で有限になったことを理由に不正な寸法を通さず、f32 の underflow に共有 API を依存させないため |
 | 2026-11-05 | CONTRACT-04 | reactive な theme を thread をまたいで渡すか | 固定の theme と Send な起動用 data だけを UI thread に渡す。embed の reactive theme は root factory の中で provide_theme し、App 側の呼出し元で作った reactive theme は明示的に Unsupported とする | Rc や owner に束縛された Value は Send でなく、unsafe や snapshot で偽装しないため |

@@ -133,7 +133,7 @@ fn move_goal() -> impl IntoView {
 }
 ```
 
-`kivact::ui::dialog` and `kivact::ui::hover_card` are not `NodeBuilder`s: they draw nothing where you place them, so `.style(..)` and `.test_id(..)` do not apply to them.
+`kivact::ui::dialog` and `kivact::ui::hover_card` are not `Element`s: they draw nothing where you place them, so `.style(..)` and `.test_id(..)` do not apply to them.
 
 ## Anchor a popover to a button
 

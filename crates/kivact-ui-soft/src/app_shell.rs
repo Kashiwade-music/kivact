@@ -7,9 +7,9 @@ use crate::stack::{ContainerInset, Space, rtl};
 
 use kivact::state::IntoBinding;
 use kivact::state::Value;
+use kivact::view::Element;
 use kivact::view::IntoViewFn;
 use kivact::view::Node;
-use kivact::view::NodeBuilder;
 use kivact::view::ViewFn;
 use kivact::view::column;
 use kivact::view::node;
@@ -223,7 +223,7 @@ impl AppShell {
     }
 }
 
-impl NodeBuilder for AppShell {
+impl Element for AppShell {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
@@ -243,7 +243,7 @@ impl IntoView for AppShell {
             variant,
             mobile,
         } = self;
-        kivact::view::component(move || {
+        kivact::view::scope(move || {
             let (mobile, config, custom) =
                 configure_mobile(mobile, top.is_some() || side.is_some());
             let presentation = ShellPresentation {

@@ -40,7 +40,7 @@ use kivact::prelude::*;
 use kivact::style::Direction;
 
 /// オンのとき右へつまみが動く、ピル型のスイッチ。
-pub fn pill_switch(label: impl IntoText, on: impl IntoBinding<bool>) -> impl Component {
+pub fn pill_switch(label: impl IntoText, on: impl IntoBinding<bool>) -> impl Element {
     let api = use_switch(on);
     let state = api.control_state();
     let control = api.control();
@@ -127,7 +127,7 @@ use kivact::custom::Part;
 use kivact::interaction::use_switch;
 
 fn custom_switch() -> impl IntoView {
-    component(|| {
+    scope(|| {
         let enabled = signal(false);
         let api = use_switch(enabled);
         let state = api.control_state();
@@ -146,9 +146,9 @@ fn custom_switch() -> impl IntoView {
 }
 ```
 
-キーボード、ポインター、アクセシビリティの振る舞いは引き続きスイッチのコントローラーが持ちます。合成した Part は同じ事実を読むだけで、チェックや押下の状態を表す別のシグナルを持ちません。`role` や `checked` のような意味の設定には `Node` 固有のメソッドを使います。ビルダーからは `.with_node(|host| ...)` でそれらのメソッドに届きます。`style`、`disabled`、`name` などの共通の modifier は `NodeBuilder` が提供します。
+キーボード、ポインター、アクセシビリティの振る舞いは引き続きスイッチのコントローラーが持ちます。合成した Part は同じ事実を読むだけで、チェックや押下の状態を表す別のシグナルを持ちません。`role` や `checked` のような意味の設定には `Node` 固有のメソッドを使います。ビルダーからは `.with_node(|host| ...)` でそれらのメソッドに届きます。`style`、`disabled`、`name` などの共通の modifier は `Element` が提供します。
 
-この例のように、部品専用の owner が必要ならコントローラーの作成を `component(move || ...)` の中に置きます。その setup は mount 時に一度だけ実行され、破棄時にはコントローラーの cleanup や timer も同じ寿命で終わります。[コンポーネントの寿命](custom-components.md#setup-に独立した寿命を持たせる)を参照してください。
+この例のように、部品専用の owner が必要ならコントローラーの作成を `scope(move || ...)` の中に置きます。その setup は mount 時に一度だけ実行され、破棄時にはコントローラーの cleanup や timer も同じ寿命で終わります。[コンポーネントの寿命](custom-components.md#setup-に独立した寿命を持たせる)を参照してください。
 
 ## キーボード操作つきでリストから選ぶ
 
@@ -166,7 +166,7 @@ pub fn segmented<K: ItemKey>(
     label: impl IntoText,
     options: Vec<ListItem<K>>,
     selected: impl IntoBinding<Option<K>>,
-) -> impl Component {
+) -> impl Element {
     let options = options.into_value();
     let list = use_list(
         options,
@@ -372,7 +372,7 @@ use kivact::view::{EditPhase};
 use kivact::prelude::*;
 
 /// 横にドラッグして変える数値。
-pub fn scrub(label: impl IntoText, value: Signal<f64>, history: Rc<RefCell<Vec<EditPhase>>>) -> impl Component {
+pub fn scrub(label: impl IntoText, value: Signal<f64>, history: Rc<RefCell<Vec<EditPhase>>>) -> impl Element {
     let edit = EditSession::new(move |initial| value.set(initial))
         .on_edit(move |phase| history.borrow_mut().push(phase));
     let drag = use_drag::<f64>(DragCoordinates::Window)
@@ -466,7 +466,7 @@ use kivact::view::{A11yAction, Handled, KeyEvent, PointerEvent, PointerPhase};
 const CELL: f64 = 20.0;
 
 /// `max` 個の点の列。点灯している点の数が評価です。
-pub fn rating(max: u32, value: impl IntoBinding<u32>) -> impl Component {
+pub fn rating(max: u32, value: impl IntoBinding<u32>) -> impl Element {
     let value = value.into_binding();
     primitive()
         // サイズは `max` だけで決まります。変わるとレイアウトが測り直します。
@@ -557,7 +557,7 @@ use kivact::prelude::*;
 use kivact::style::Align;
 
 /// 文字数カウンターつきの入力欄。`max` はエディターが強制します。
-pub fn limited_input(label: impl IntoText, value: impl IntoBinding<String>, max: usize) -> impl Component {
+pub fn limited_input(label: impl IntoText, value: impl IntoBinding<String>, max: usize) -> impl Element {
     let value = value.into_binding();
     let api = use_text_edit(value).max_length(max).placeholder("Type here");
     let state = api.control_state();
@@ -659,7 +659,7 @@ impl Machine for CopyButton {
 
 fn copy_button(text: impl IntoValue<String>) -> impl IntoView {
     let text = text.into_value();
-    component(move || {
+    scope(move || {
         let m = machine(CopyState::Idle, move || CopyButton { text: text.get() }, |_, effect| match effect {
             CopyEffect::Write(s) => { spawn(kivact::platform::copy_text(s)); }
         });

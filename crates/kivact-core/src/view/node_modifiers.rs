@@ -2,9 +2,9 @@
 
 use crate::state::{IntoText, IntoValue};
 use crate::view::element_data::Common;
+use crate::view::element_data::Element;
 use crate::view::element_data::Modifier;
 use crate::view::element_data::Node;
-use crate::view::element_data::NodeBuilder;
 use crate::view::ime_session::{ImeInput, ImeSession};
 use crate::view::input::{FileEvent, KeyEvent, PointerEvent, WheelEvent};
 use crate::view::node_ref::NodeRef;
@@ -27,21 +27,21 @@ impl Node {
     /// narrow it with `Screen::within`.
     #[track_caller]
     pub fn test_id(self, id: impl Into<String>) -> Self {
-        NodeBuilder::test_id(self, id)
+        Element::test_id(self, id)
     }
 
     /// Bind `r` to this node once it is mounted. Several refs can be
     /// bound to one node (a component's own and the user's): each
     /// `.node_ref(..)` adds one, none replaces another.
     pub fn node_ref(self, r: NodeRef) -> Self {
-        NodeBuilder::node_ref(self, r)
+        Element::node_ref(self, r)
     }
 
     /// Animate from the last box of the node that had the same id (Framer
     /// Motion `layoutId`). Uses this node's layout transition; without one
     /// nothing animates. A node's id is an attribute, not a style property.
     pub fn layout_id(self, id: impl Into<String>) -> Self {
-        NodeBuilder::layout_id(self, id)
+        Element::layout_id(self, id)
     }
 
     /// Add a style layer, constant or reactive. Layers merge in
@@ -54,19 +54,19 @@ impl Node {
     /// `.style(move || { let t = &use_theme(); style().padding(t.space().md) })`.
     #[track_caller]
     pub fn style(self, s: impl IntoValue<Style>) -> Self {
-        NodeBuilder::style(self, s)
+        Element::style(self, s)
     }
 
     /// Accessible name.
     #[track_caller]
     pub fn name(self, v: impl IntoText) -> Self {
-        NodeBuilder::name(self, v)
+        Element::name(self, v)
     }
 
     /// Accessible description.
     #[track_caller]
     pub fn description(self, v: impl IntoText) -> Self {
-        NodeBuilder::description(self, v)
+        Element::description(self, v)
     }
 
     /// Disabled state (semantics and the `disabled` style). A component
@@ -81,7 +81,7 @@ impl Node {
     /// Unhandled wheels continue to enabled ancestors and native scrolling.
     #[track_caller]
     pub fn disabled(self, v: impl IntoValue<bool>) -> Self {
-        NodeBuilder::disabled(self, v)
+        Element::disabled(self, v)
     }
 
     /// Report an invalid value to assistive technology. A component that
@@ -89,13 +89,13 @@ impl Node {
     /// [`accessible_invalid`](crate::view::Node::accessible_invalid).
     #[track_caller]
     pub fn invalid(self, value: impl IntoValue<bool>) -> Self {
-        NodeBuilder::invalid(self, value)
+        Element::invalid(self, value)
     }
 
     /// Set how this node lays out when it is the root of a removed subtree.
     /// Absolute, fixed and overlay nodes already occupy no slot in normal flow.
     pub fn exit_layout(self, layout: ExitLayout) -> Self {
-        NodeBuilder::exit_layout(self, layout)
+        Element::exit_layout(self, layout)
     }
 
     /// Run after this node, when directly removed, is no longer drawn.
@@ -104,13 +104,13 @@ impl Node {
     /// branch so its owner can still be alive when the exit finishes.
     #[track_caller]
     pub fn on_exit_complete(self, callback: impl Into<Callback<()>>) -> Self {
-        NodeBuilder::on_exit_complete(self, callback)
+        Element::on_exit_complete(self, callback)
     }
 
     /// Hide the node and its subtree.
     #[track_caller]
     pub fn hidden(self, v: impl IntoValue<bool>) -> Self {
-        NodeBuilder::hidden(self, v)
+        Element::hidden(self, v)
     }
 
     /// Whether the pointer hits the node and its subtree (default `true`).
@@ -119,7 +119,7 @@ impl Node {
     /// them, which suits a floating card that follows the pointer.
     /// Keyboard focus and assistive technology are unaffected.
     pub fn hit_testable(self, on: impl IntoValue<bool>) -> Self {
-        NodeBuilder::hit_testable(self, on)
+        Element::hit_testable(self, on)
     }
 
     /// Whether the node takes keyboard focus, overriding the builder's default.
@@ -128,14 +128,14 @@ impl Node {
     /// while the nodes stay.
     #[track_caller]
     pub fn focusable(self, on: impl IntoValue<bool>) -> Self {
-        NodeBuilder::focusable(self, on)
+        Element::focusable(self, on)
     }
 
     /// Keep an otherwise focusable control in keyboard focus order while it
     /// is disabled, so users can reach its label and any attached tooltip.
     /// Activation and editing remain disabled.
     pub fn focusable_when_disabled(self, on: impl IntoValue<bool>) -> Self {
-        NodeBuilder::focusable_when_disabled(self, on)
+        Element::focusable_when_disabled(self, on)
     }
 
     /// Give this group one Tab stop and move between its eligible controls
@@ -143,7 +143,7 @@ impl Node {
     /// keeps arrows that still move its caret or selection.
     #[track_caller]
     pub fn roving_focus(self, orientation: impl IntoValue<crate::view::Orientation>) -> Self {
-        NodeBuilder::roving_focus(self, orientation)
+        Element::roving_focus(self, orientation)
     }
 
     /// Handle keys reported by the host before existing key handlers,
@@ -166,7 +166,7 @@ impl Node {
         F: Fn(KeyEvent) -> R + 'static,
         R: HandlerResult,
     {
-        NodeBuilder::on_key(self, f)
+        Element::on_key(self, f)
     }
 
     /// Key release handler; releases do not edit or activate controls.
@@ -175,7 +175,7 @@ impl Node {
         F: Fn(KeyEvent) -> R + 'static,
         R: HandlerResult,
     {
-        NodeBuilder::on_key_up(self, f)
+        Element::on_key_up(self, f)
     }
 
     /// Run before existing pointer behavior, in node-local coordinates.
@@ -188,7 +188,7 @@ impl Node {
         F: Fn(PointerEvent) -> R + 'static,
         R: HandlerResult,
     {
-        NodeBuilder::on_pointer(self, f)
+        Element::on_pointer(self, f)
     }
 
     /// Handle an unconsumed secondary pointer release in node-local coordinates.
@@ -210,7 +210,7 @@ impl Node {
         F: Fn(WheelEvent) -> R + 'static,
         R: HandlerResult,
     {
-        NodeBuilder::on_wheel(self, f)
+        Element::on_wheel(self, f)
     }
 
     /// Set the shared pointer, Enter/Space and accessibility Activate action.
@@ -218,7 +218,7 @@ impl Node {
     /// Attached part defaults continue to run after the caller action.
     #[track_caller]
     pub fn on_press(self, f: impl Into<kivact_runtime::Callback<()>>) -> Self {
-        NodeBuilder::on_press(self, f)
+        Element::on_press(self, f)
     }
 
     /// OS file drag handler, with node-local and window positions.
@@ -227,19 +227,19 @@ impl Node {
         F: Fn(FileEvent) -> R + 'static,
         R: HandlerResult,
     {
-        NodeBuilder::on_file(self, f)
+        Element::on_file(self, f)
     }
 
     /// Local draw layer behind the children (node-local coordinates).
     /// Callers use this layer; recipes and themes use `Style::paint`
     /// so style merging retains their drawing.
     pub fn draw(self, f: impl Fn(&mut Draw, Size) + 'static) -> Self {
-        NodeBuilder::draw(self, f)
+        Element::draw(self, f)
     }
 
     /// Size hints used by layout when the node has no children to measure.
     pub fn intrinsic_size(self, s: IntrinsicSize) -> Self {
-        NodeBuilder::intrinsic_size(self, s)
+        Element::intrinsic_size(self, s)
     }
 }
 
@@ -426,7 +426,7 @@ impl Node {
     /// this is true (the mixed state wins over `.checked(..)`); the
     /// binary `.checked(..)` value of the App is preserved. The
     /// component decides how to draw and clear its mixed state (a
-    /// click clearing it, say). `kivact::test`'s `Element::checked` reads
+    /// click clearing it, say). `kivact::test`'s `Locator::checked` reads
     /// `Some(CheckedState::Indeterminate)`.
     #[track_caller]
     pub fn indeterminate(mut self, value: impl IntoValue<bool>) -> Self {
@@ -552,7 +552,7 @@ impl Node {
     /// Set the depth of this node in a hierarchy (`aria-level`), counted
     /// from 1: a heading's level, or a tree item's depth. Constant or
     /// reactive. `0` means "not set" and is not published.
-    /// `kivact::test`'s `Element::level` reads what the host published
+    /// `kivact::test`'s `Locator::level` reads what the host published
     /// (`set_size`, `pos_in_set` and `is_multiselectable` likewise).
     #[track_caller]
     pub fn level(mut self, value: impl IntoValue<u32>) -> Self {
@@ -644,7 +644,7 @@ impl Node {
     /// the relation again whenever a target mounts or is disposed, so a
     /// removed, moved or re-roled target leaves no stale relation (an
     /// unbound or disposed one is no error). `kivact::test`'s
-    /// `Element::described_by` (and `controls`, `labelled_by`) returns
+    /// `Locator::described_by` (and `controls`, `labelled_by`) returns
     /// the elements the host published.
     #[track_caller]
     pub fn described_by(mut self, target: NodeRef) -> Self {

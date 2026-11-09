@@ -20,7 +20,7 @@ pub(super) fn page(child: impl IntoView) -> Node {
     )
 }
 
-pub(super) fn open_button(name: &'static str) -> impl Component {
+pub(super) fn open_button(name: &'static str) -> impl Element {
     button(name).variant(ButtonVariant::Outline)
 }
 
@@ -92,7 +92,7 @@ fn mount_dropdown() -> (Screen, Rig) {
     })
 }
 
-fn menu_item<'a>(screen: &'a Screen, name: &str) -> kivact::test::Element<'a> {
+fn menu_item<'a>(screen: &'a Screen, name: &str) -> kivact::test::Locator<'a> {
     screen.get_by_role(Role::MenuItem, name)
 }
 

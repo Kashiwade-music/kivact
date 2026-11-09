@@ -1,8 +1,8 @@
 //! Role: The element type and the modifier contract of every element builder.
 //!
-//! `Node` and `NodeBuilder` are defined here, below the element builders in
+//! `Node` and `Element` are defined here, below the element builders in
 //! `view` (`overlay`, `virtual_list`) that hold a `Node` and implement
-//! `NodeBuilder`; `kivact::view` re-exports them and holds the primitives
+//! `Element`; `kivact::view` re-exports them and holds the primitives
 //! that construct a `Node`.
 //!
 //! Invariant: what a node is (a box, a text, an image) is fixed by the
@@ -67,7 +67,7 @@ impl Content {
 /// An element: a box (`node()`, `column`, `row`, `stack`, `grid`,
 /// `scroll`, `spacer`, `canvas`), a text (`text`, `rich_text`) or an image
 /// (`image`). Its everyday modifiers (`style`, `name`, `on_press`, `draw`,
-/// ...) are the methods of [`NodeBuilder`] (in the prelude), which a
+/// ...) are the methods of [`Element`] (in the prelude), which a
 /// component holding a root `Node` implements to get them. The semantics a
 /// node of your own declares ([`role`](Self::role), [`checked`](Self::checked),
 /// [`expanded`](Self::expanded), [`selected`](Self::selected),
@@ -107,7 +107,7 @@ impl Node {
 impl Node {
     /// The modifiers of an element builder that mounts its own host node
     /// (`overlay`, `virtual_list`) and keeps them in a `Node` it holds for
-    /// `NodeBuilder`. The node's content and children are unused. A draw
+    /// `Element`. The node's content and children are unused. A draw
     /// layer or size hint that such a builder cannot show is reported once,
     /// located at the builder, and dropped.
     pub(crate) fn into_modifiers(
@@ -167,12 +167,12 @@ impl Node {
 /// ```
 /// # use kivact_core as kivact;
 /// use kivact::style::{style};
-/// use kivact::view::{IntoView, Node, NodeBuilder, node};
+/// use kivact::view::{IntoView, Node, Element, node};
 /// use kivact::view::View;
 ///
 /// pub struct Card { root: Node }
 ///
-/// impl NodeBuilder for Card {
+/// impl Element for Card {
 ///     fn node_mut(&mut self) -> &mut Node { &mut self.root }
 /// }
 /// impl IntoView for Card {
@@ -194,7 +194,11 @@ impl Node {
 ///
 /// Every `on_*` handler runs untracked: a `get` in it reads the current
 /// value and subscribes nothing, so it needs no `get_untracked`.
-pub trait NodeBuilder: Sized {
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` is not an element: it needs IntoView and Element",
+    note = "implement IntoView and Element for the builder holding your root Node"
+)]
+pub trait Element: crate::view::descriptor::IntoView + Sized {
     /// The root node the modifiers apply to.
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node;
@@ -499,19 +503,11 @@ pub trait NodeBuilder: Sized {
     }
 }
 
-impl NodeBuilder for Node {
+impl Element for Node {
     fn node_mut(&mut self) -> &mut Node {
         self
     }
 }
-
-/// Return a builder implementing `IntoView` and `NodeBuilder` for a component with one root.
-#[diagnostic::on_unimplemented(
-    message = "a component needs IntoView and NodeBuilder",
-    note = "implement IntoView and NodeBuilder for the builder holding your root Node"
-)]
-pub trait Component: crate::view::descriptor::IntoView + NodeBuilder {}
-impl<T: crate::view::descriptor::IntoView + NodeBuilder> Component for T {}
 
 pub(crate) type LayoutDrawFn = Rc<dyn Fn(&mut Draw, &kivact_editing::TextLayout)>;
 

@@ -6,7 +6,7 @@ use crate::parts::pressable;
 use kivact::draw::Shadow;
 use kivact::geometry::Rect;
 use kivact::i18n::message;
-use kivact::view::{Node, NodeBuilder, column, node, row, scroll};
+use kivact::view::{Element, Node, column, node, row, scroll};
 
 use kivact::state::Value;
 use kivact::state::{IntoValue, callback};
@@ -94,7 +94,7 @@ impl Sidebar {
     }
 }
 
-impl NodeBuilder for Sidebar {
+impl Element for Sidebar {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
@@ -311,7 +311,7 @@ pub fn sidebar_provider(
     open: impl kivact::state::IntoBinding<bool>,
     sidebar: Sidebar,
     page: impl IntoView,
-) -> impl kivact::view::Component {
+) -> impl kivact::view::Element {
     let open = open.into_binding();
     let cx = SidebarCx {
         open,

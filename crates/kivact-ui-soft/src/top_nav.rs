@@ -12,9 +12,9 @@ use crate::stack::{Space, rtl};
 
 use kivact::interaction::Delays;
 use kivact::interaction::use_dialog;
+use kivact::view::Element;
 use kivact::view::IntoViewFn;
 use kivact::view::Node;
-use kivact::view::NodeBuilder;
 use kivact::view::ViewFn;
 use kivact::view::column;
 use kivact::view::icon;
@@ -112,7 +112,7 @@ impl TopNav {
     }
 }
 
-impl NodeBuilder for TopNav {
+impl Element for TopNav {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
@@ -232,7 +232,7 @@ impl TopNavItem {
     }
     /// Mount replacement visible label content once.
     pub fn content(mut self, content: impl IntoView) -> Self {
-        self.content = Some(kivact::view::component(move || content.into_view()));
+        self.content = Some(kivact::view::scope(move || content.into_view()));
         self
     }
     /// Set whether this item is the current navigation destination.
@@ -253,7 +253,7 @@ impl TopNavItem {
     }
 }
 
-impl NodeBuilder for TopNavItem {
+impl Element for TopNavItem {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
@@ -276,7 +276,7 @@ impl IntoView for TopNavItem {
             action,
             size,
         } = self;
-        kivact::view::component(move || {
+        kivact::view::scope(move || {
             let mode = shell_nav_mode();
             let mobile = use_app_shell_mobile();
             let drawer = mode == ShellNavMode::Drawer;
@@ -407,7 +407,7 @@ impl TopNavMenu {
     }
 }
 
-impl NodeBuilder for TopNavMenu {
+impl Element for TopNavMenu {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
@@ -422,7 +422,7 @@ impl IntoView for TopNavMenu {
             items,
             delays,
         } = self;
-        kivact::view::component(move || {
+        kivact::view::scope(move || {
             if shell_nav_mode() == ShellNavMode::Drawer {
                 let item = side_nav_item(label)
                     .children(move || items.iter().map(drawer_menu_item).collect::<Vec<_>>());
@@ -529,7 +529,7 @@ impl TopNavMegaMenu {
     }
 }
 
-impl NodeBuilder for TopNavMegaMenu {
+impl Element for TopNavMegaMenu {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
@@ -549,7 +549,7 @@ impl IntoView for TopNavMegaMenu {
             delays,
             on_change,
         } = self;
-        kivact::view::component(move || {
+        kivact::view::scope(move || {
             if shell_nav_mode() == ShellNavMode::Drawer {
                 let disclosure = side_nav_item(label).children(move || {
                     column((
@@ -643,7 +643,7 @@ impl TopNavMegaMenuItem {
     }
 }
 
-impl NodeBuilder for TopNavMegaMenuItem {
+impl Element for TopNavMegaMenuItem {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
@@ -659,7 +659,7 @@ impl IntoView for TopNavMegaMenuItem {
             icon,
             action,
         } = self;
-        kivact::view::component(move || {
+        kivact::view::scope(move || {
             let drawer = shell_nav_mode() == ShellNavMode::Drawer;
             let mobile = use_app_shell_mobile();
             let popup = try_use_context::<MegaClose>().map(|value| value.get());
@@ -776,7 +776,7 @@ impl TopNavMegaMenuFeaturedCard {
     }
 }
 
-impl NodeBuilder for TopNavMegaMenuFeaturedCard {
+impl Element for TopNavMegaMenuFeaturedCard {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
@@ -793,7 +793,7 @@ impl IntoView for TopNavMegaMenuFeaturedCard {
             content,
             link,
         } = self;
-        kivact::view::component(move || {
+        kivact::view::scope(move || {
             let drawer = shell_nav_mode() == ShellNavMode::Drawer;
             let mobile = use_app_shell_mobile();
             let popup = try_use_context::<MegaClose>().map(|value| value.get());

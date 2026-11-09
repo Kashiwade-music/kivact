@@ -4,7 +4,7 @@ use kivact::interaction::Tone;
 use kivact::motion::{Animated, Easing, Transition};
 use kivact::state::{IntoText, IntoValue, Machine, Step, Value, effect, machine, memo};
 use kivact::style::{Align, ColorToken, style};
-use kivact::view::{IntoView, Node, NodeBuilder, NodeRef, Role, View, node, node_ref, row, text};
+use kivact::view::{Element, IntoView, Node, NodeRef, Role, View, node, node_ref, row, text};
 
 /// A KPI tile: a standard `kivact::ui::stat` in [`StatVariant::Kpi`] whose
 /// number counts up from zero once the tile is in view. Created by [`kpi`].
@@ -93,7 +93,7 @@ impl Kpi {
     }
 }
 
-impl NodeBuilder for Kpi {
+impl Element for Kpi {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root

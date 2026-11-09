@@ -87,7 +87,7 @@ impl Model {
         }
     }
 }
-fn item(screen: &Screen, model: Model, index: usize) -> kivact::test::Element<'_> {
+fn item(screen: &Screen, model: Model, index: usize) -> kivact::test::Locator<'_> {
     screen.get_by_role(Role::Button, &model.name(index))
 }
 fn fixture(kind: Kind, snap: bool) -> (Screen, Model) {

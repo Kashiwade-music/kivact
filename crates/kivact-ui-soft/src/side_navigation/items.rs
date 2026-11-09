@@ -32,10 +32,10 @@ use kivact::ui::ButtonVariant;
 use kivact::ui::ControlSize;
 use kivact::ui::button;
 use kivact::ui::tooltip;
+use kivact::view::Element;
 use kivact::view::IntoView;
 use kivact::view::IntoViewFn;
 use kivact::view::Node;
-use kivact::view::NodeBuilder;
 use kivact::view::Placement;
 use kivact::view::Role;
 use kivact::view::View;
@@ -123,12 +123,12 @@ impl SideNavItem {
     }
     /// Mount trailing row content once; hide it in the collapsed rail.
     pub fn end_content(mut self, content: impl IntoView) -> Self {
-        self.end = Some(kivact::view::component(move || content.into_view()));
+        self.end = Some(kivact::view::scope(move || content.into_view()));
         self
     }
     /// Mount additional row action controls once; hide them in the collapsed rail.
     pub fn actions(mut self, actions: impl IntoView) -> Self {
-        self.actions = Some(kivact::view::component(move || actions.into_view()));
+        self.actions = Some(kivact::view::scope(move || actions.into_view()));
         self
     }
     /// Build nested entries on expansion or when the collapsed-rail flyout opens.
@@ -149,7 +149,7 @@ impl SideNavItem {
     }
 }
 
-impl NodeBuilder for SideNavItem {
+impl Element for SideNavItem {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
@@ -175,7 +175,7 @@ impl IntoView for SideNavItem {
             size,
             action,
         } = self;
-        kivact::view::component(move || {
+        kivact::view::scope(move || {
             let context = ItemContext::new(
                 label,
                 selected,
@@ -320,7 +320,7 @@ impl SideNavSection {
     }
     /// Mount content once at the logical end of the section header.
     pub fn end_content(mut self, content: impl IntoView) -> Self {
-        self.end = Some(kivact::view::component(move || content.into_view()));
+        self.end = Some(kivact::view::scope(move || content.into_view()));
         self
     }
     /// Hide the section header while keeping its entries available.
@@ -330,7 +330,7 @@ impl SideNavSection {
     }
 }
 
-impl NodeBuilder for SideNavSection {
+impl Element for SideNavSection {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
@@ -347,7 +347,7 @@ impl IntoView for SideNavSection {
             children,
             header_hidden,
         } = self;
-        kivact::view::component(move || {
+        kivact::view::scope(move || {
             let cx = nav_cx();
             let title = text(title).style(|| {
                 style()

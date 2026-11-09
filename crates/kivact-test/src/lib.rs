@@ -46,7 +46,7 @@
 //!   failure artifacts are written. Test a detected misuse with
 //!   `#[should_panic(expected = "..")]`.
 //! - Layout check: [`Screen::check_layout`], `check_layout_with` and
-//!   `Element::check_layout` turn the engine's findings into
+//!   `Locator::check_layout` turn the engine's findings into
 //!   [`LayoutViolation`]s; `assert_layout` fails with all of them and keeps
 //!   the frame in [`failure_dir`]. [`Screen::assert_layout_with`] preserves
 //!   explicit check options and the same failure artifacts. A Japanese label needs Noto Sans JP given
@@ -61,7 +61,7 @@
 //! # #[cfg(all(feature = "embed", any(windows, target_os = "linux")))]
 //! # fn example() -> kivact_core::Result<()> {
 //! use kivact_core::{App, Result};
-//! use kivact_core::view::{NodeBuilder, text};
+//! use kivact_core::view::{Element, text};
 //! use kivact_test::TestParent;
 //! let parent = TestParent::open(320, 240)?;
 //! let editor = App::new("Editor").window_size(320, 240)
@@ -96,7 +96,7 @@ pub use options::{MirrorMode, RenderOptions, TestFonts};
 pub use render::{gpu_unavailable, native_unavailable, render, render_with, render_with_handle};
 
 pub use screen::{
-    Contact, Element, ImeText, LayoutCheck, LayoutLimit, LayoutRule, LayoutViolation,
+    Contact, ImeText, LayoutCheck, LayoutLimit, LayoutRule, LayoutViolation, Locator,
     RasterDifference, Screen, Screenshot, SemanticNode, Within, failure_dir,
 };
 

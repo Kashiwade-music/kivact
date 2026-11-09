@@ -2,9 +2,7 @@
 
 use super::common::{card, cards_grid, half, section, wrap};
 use kivact::interaction::ListItem;
-use kivact::prelude::{
-    ColorToken, IntoText, IntoValue, Node, NodeBuilder, column, row, signal, text,
-};
+use kivact::prelude::{ColorToken, Element, IntoText, IntoValue, Node, column, row, signal, text};
 use kivact::style::{Align, style};
 use kivact::ui::RadioGroup;
 use kivact::view::Orientation;

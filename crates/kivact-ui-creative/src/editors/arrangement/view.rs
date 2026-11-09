@@ -12,7 +12,7 @@ use kivact::state::{Callback, Value, signal};
 use kivact::state::{IntoValue, callback};
 use kivact::style::{Cursor, Overflow, pct, style};
 use kivact::view::{A11yAction, HandlerResult, IntoView, Role, View, node_ref};
-use kivact::view::{Node, NodeBuilder, node};
+use kivact::view::{Element, Node, node};
 
 /// A complete arrange surface with loop locators, markers, tracks, clips and automation.
 pub struct Arrangement {
@@ -127,7 +127,7 @@ impl Arrangement {
     }
 }
 
-impl NodeBuilder for Arrangement {
+impl Element for Arrangement {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root

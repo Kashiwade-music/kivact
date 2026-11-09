@@ -23,8 +23,8 @@ use kivact_core::motion::{Animated, Easing, FrameRate, Transition, frame_loop};
 use kivact_core::state::{IntoText, IntoValue};
 use kivact_core::state::{Machine, Step, Value, machine, memo, signal};
 use kivact_core::style::{style, use_theme};
+use kivact_core::view::{Element, Node, node, row};
 use kivact_core::view::{IntoView, View, show};
-use kivact_core::view::{Node, NodeBuilder, node, row};
 use kivact_interaction::DisabledButtonFocus;
 use kivact_interaction::use_button;
 use std::time::Duration;
@@ -210,7 +210,7 @@ impl Button {
         self
     }
 }
-impl NodeBuilder for Button {
+impl Element for Button {
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }

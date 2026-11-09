@@ -9,7 +9,7 @@ use crate::support::mount_with;
 use kivact::interaction::TreeNode;
 use kivact::interaction::{TreeApi, TreeBranch};
 use kivact::prelude::*;
-use kivact::test::{Element, MirrorMode, RenderOptions, Screen};
+use kivact::test::{Locator, MirrorMode, RenderOptions, Screen};
 
 type FileNode = TreeNode<&'static str>;
 
@@ -127,7 +127,7 @@ fn button(name: &'static str) -> Node {
         .style(style().size(120, 28))
 }
 
-fn item<'a>(screen: &'a Screen, name: &str) -> Element<'a> {
+fn item<'a>(screen: &'a Screen, name: &str) -> Locator<'a> {
     screen.get_by_role(Role::TreeItem, name)
 }
 

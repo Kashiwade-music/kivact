@@ -15,8 +15,8 @@ use super::variants::{Variant, Variants};
 use kivact_core::state::{Binding, Value};
 use kivact_core::state::{IntoText, IntoValue};
 use kivact_core::style::use_theme;
+use kivact_core::view::{Element, Node, column, node, row, text};
 use kivact_core::view::{IntoView, Orientation, View, dynamic, for_each, show};
-use kivact_core::view::{Node, NodeBuilder, column, node, row, text};
 use kivact_interaction::TabState;
 use kivact_interaction::{ListActivation, ListItem, TabsApi as Behavior};
 use std::rc::Rc;
@@ -283,7 +283,7 @@ impl<K: kivact_core::state::ItemKey> Tabs<K> {
         }
     }
 }
-impl<K: kivact_core::state::ItemKey> NodeBuilder for Tabs<K> {
+impl<K: kivact_core::state::ItemKey> Element for Tabs<K> {
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }

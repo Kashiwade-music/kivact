@@ -4,7 +4,7 @@ use crate::parts::sized_icon;
 use kivact::state::{IntoBinding, IntoText, Value};
 use kivact::style::{Align, Cursor, Direction, Style, Theme, pct, style, use_tokens};
 use kivact::view::{
-    Component, IntoView, IntoViewFn, Node, NodeBuilder, View, column, icon, node, text,
+    Component, Element, IntoView, IntoViewFn, Node, View, column, icon, node, text,
 };
 
 /// A stack of trace lines and collapsibles with 8 px between them.
@@ -95,7 +95,7 @@ impl TraceLine {
     }
 }
 
-impl NodeBuilder for TraceLine {
+impl Element for TraceLine {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
@@ -130,7 +130,7 @@ pub fn trace_collapsible<V: IntoView>(
     open: impl IntoBinding<bool>,
     line: TraceLine,
     content: impl IntoViewFn<V>,
-) -> impl Component {
+) -> impl Element {
     let open = open.into_binding();
     let title = line.title;
     let chevron = node()

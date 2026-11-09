@@ -8,7 +8,7 @@ use super::controls::num;
 use super::controls::slide;
 use kivact::geometry::Point;
 use kivact::prelude::{
-    IntoView, Key, Node, NodeBuilder, Orientation, Signal, column, dynamic, grid, node, rgb, row,
+    Element, IntoView, Key, Node, Orientation, Signal, column, dynamic, grid, node, rgb, row,
     scroll, signal, spacer, text,
 };
 use kivact::style::{Align, Color, pct, style};

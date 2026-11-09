@@ -9,9 +9,7 @@ use kivact_core::custom::PartState;
 use kivact_core::geometry::Edge;
 use kivact_core::i18n::{CalendarDate, DateStyle, Weekday, message, use_locale};
 use kivact_core::state::{Binding, IntoBinding, IntoText, IntoValue, Value, binding, machine};
-use kivact_core::view::{
-    Handled, IntoView, Key, KeyEvent, Node, NodeBuilder, View, icon, node, row,
-};
+use kivact_core::view::{Element, Handled, IntoView, Key, KeyEvent, Node, View, icon, node, row};
 use kivact_interaction::DialogMode;
 use std::rc::Rc;
 /// The surface used for date and time picking.
@@ -140,7 +138,7 @@ impl DateInput {
         self
     }
 }
-impl NodeBuilder for DateInput {
+impl Element for DateInput {
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -153,7 +151,7 @@ impl IntoView for DateInput {
 impl DateInput {
     /// Open the configured picker from a caller-owned button, without a text editor.
     /// The trigger keeps its handlers, focus identity and accessible name.
-    pub fn attach<T: NodeBuilder + IntoView + 'static>(self, trigger: T) -> View {
+    pub fn attach<T: Element + IntoView + 'static>(self, trigger: T) -> View {
         self.render(crate::date_trigger::FieldPresentation::trigger(trigger))
     }
     fn render(self, field: crate::date_trigger::FieldPresentation) -> View {

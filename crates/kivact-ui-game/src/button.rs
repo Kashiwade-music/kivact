@@ -5,7 +5,7 @@ use kivact::state::IntoText;
 use kivact::style::{Align, ColorToken, Justify, pct, style, use_theme};
 use kivact::ui::{Button, ButtonVariant, button};
 
-use kivact::view::{NodeBuilder, row, text};
+use kivact::view::{Element, row, text};
 /// Square toolbar action, composed from the standard button.
 pub fn tool_button(label: impl IntoText) -> Button {
     button(label).variant(ButtonVariant::Ghost).style(

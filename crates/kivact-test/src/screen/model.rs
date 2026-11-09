@@ -69,7 +69,7 @@ impl Contact {
 
 /// A node (or a scene region) found by a query.
 #[derive(Clone, Copy)]
-pub struct Element<'a> {
+pub struct Locator<'a> {
     pub(super) screen: &'a Screen,
     pub(super) node: NodeId,
     pub(super) region: Option<RegionId>,

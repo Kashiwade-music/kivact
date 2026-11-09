@@ -26,7 +26,7 @@ fn main() -> kivact::Result<()> {
 ```
 
 App の root setup は mount 時に一度だけ実行されます。子の setup と cleanup を
-独立した owner に置くには `component(move || view)` を使います。変化する property は
+独立した owner に置くには `scope(move || view)` を使います。変化する property は
 closure の中で signal を読みます。実行時の画像・font の入力には所有する `Vec<u8>` や
 `AssetBytes` を渡せます。同じ asset を再利用するときは保持した値を clone し、cache の
 identity を維持します。

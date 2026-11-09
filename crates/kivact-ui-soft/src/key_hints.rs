@@ -5,8 +5,8 @@ use kivact::state::{
 };
 use kivact::style::{Align, TransitionProp, style};
 use kivact::view::{
-    Handled, IntoView, Key, NodeBuilder, NodeRef, Orientation, OverlayAlign, Placement, View,
-    node_ref, overlay, row, show_some, text,
+    Element, Handled, IntoView, Key, NodeRef, Orientation, OverlayAlign, Placement, View, node_ref,
+    overlay, row, show_some, text,
 };
 use std::time::Duration;
 
@@ -104,7 +104,7 @@ pub fn with_key_hints<V: IntoView>(
 }
 /// Observe this actual target's keyboard focus without changing its role or
 /// navigation behavior. Outside [`with_key_hints`] this attachment is inert.
-pub fn keyboard_hint<T: NodeBuilder>(target: T) -> T {
+pub fn keyboard_hint<T: Element>(target: T) -> T {
     let reference = node_ref();
     target.with_node(move |node| {
         node.node_ref(reference)

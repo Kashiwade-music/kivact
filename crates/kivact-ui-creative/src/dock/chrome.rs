@@ -2,8 +2,8 @@
 use crate::ColorName;
 use kivact::interaction::{ListItem, MenuEntry};
 use kivact::ui::ButtonVariant;
+use kivact::view::Element;
 use kivact::view::IntoView;
-use kivact::view::NodeBuilder;
 
 use kivact::style::use_theme;
 use std::hash::Hash;

@@ -31,7 +31,7 @@ pub use kivact_types::ImeInput;
 /// ```no_run
 /// # use kivact_core as kivact;
 /// use kivact::state::{signal};
-/// use kivact::view::{IntoView, NodeBuilder, Role, node, text};
+/// use kivact::view::{IntoView, Element, Role, node, text};
 /// use kivact::geometry::Rect;
 /// use kivact::custom::{ImeInput, ImeSession};
 ///

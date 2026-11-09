@@ -7,7 +7,7 @@ use super::state::Demo;
 use kivact::interaction::{ListItem, MenuEntry, Toast, Tone, toaster};
 use kivact::platform;
 use kivact::prelude::{
-    ColorToken, IntoView, Node, NodeBuilder, NodeRef, Value, column, dynamic, for_index, node, row,
+    ColorToken, Element, IntoView, Node, NodeRef, Value, column, dynamic, for_index, node, row,
     signal, spacer, text,
 };
 use kivact::state::IntoValue;
@@ -140,7 +140,7 @@ pub(super) fn navigation() -> Node {
     )
 }
 
-fn button_variants(scene: Demo) -> crate::game::specimens::Specimen<impl kivact::view::Component> {
+fn button_variants(scene: Demo) -> crate::game::specimens::Specimen<impl kivact::view::Element> {
     specimen(
         "BTN-01",
         "バリアント",
@@ -176,7 +176,7 @@ fn button_variants(scene: Demo) -> crate::game::specimens::Specimen<impl kivact:
     )
 }
 
-fn button_sizes(scene: Demo) -> crate::game::specimens::Specimen<impl kivact::view::Component> {
+fn button_sizes(scene: Demo) -> crate::game::specimens::Specimen<impl kivact::view::Element> {
     specimen(
         "BTN-02",
         "サイズ / アイコン",
@@ -220,7 +220,7 @@ fn button_sizes(scene: Demo) -> crate::game::specimens::Specimen<impl kivact::vi
 fn button_states(
     busy: kivact::state::Signal<bool>,
     verify: kivact::state::Signal<bool>,
-) -> crate::game::specimens::Specimen<impl kivact::view::Component> {
+) -> crate::game::specimens::Specimen<impl kivact::view::Element> {
     specimen(
         "BTN-03",
         "状態",
@@ -263,7 +263,7 @@ fn button_states(
 fn button_group(
     scene: Demo,
     period: kivact::state::Signal<Option<String>>,
-) -> crate::game::specimens::Specimen<impl kivact::view::Component> {
+) -> crate::game::specimens::Specimen<impl kivact::view::Element> {
     specimen(
         "BTN-04",
         "ボタングループ",
@@ -301,7 +301,7 @@ fn button_toolbar(
     scene: Demo,
     grid_on: kivact::state::Signal<bool>,
     filter_on: kivact::state::Signal<bool>,
-) -> crate::game::specimens::Specimen<impl kivact::view::Component> {
+) -> crate::game::specimens::Specimen<impl kivact::view::Element> {
     specimen(
         "BTN-05",
         "ツールバー",
@@ -351,7 +351,7 @@ fn button_toolbar(
     )
 }
 
-fn chevron_action() -> crate::game::specimens::Specimen<impl kivact::view::Component> {
+fn chevron_action() -> crate::game::specimens::Specimen<impl kivact::view::Element> {
     specimen(
         "BTN-06",
         "シェブロン CTA",
@@ -369,7 +369,7 @@ fn chevron_action() -> crate::game::specimens::Specimen<impl kivact::view::Compo
 fn text_fields(
     code: kivact::state::Signal<String>,
     invalid: impl Fn() -> bool + Copy + 'static,
-) -> crate::game::specimens::Specimen<impl kivact::view::Component> {
+) -> crate::game::specimens::Specimen<impl kivact::view::Element> {
     specimen(
         "INP-01",
         "テキストフィールド",
@@ -426,7 +426,7 @@ fn text_fields(
 
 fn validated_fields(
     search: NodeRef,
-) -> crate::game::specimens::Specimen<impl kivact::view::Component> {
+) -> crate::game::specimens::Specimen<impl kivact::view::Element> {
     specimen(
         "INP-02",
         "装飾付き入力",
@@ -486,7 +486,7 @@ fn validated_fields(
 
 fn text_and_numbers(
     memo: kivact::state::Signal<String>,
-) -> crate::game::specimens::Specimen<impl kivact::view::Component> {
+) -> crate::game::specimens::Specimen<impl kivact::view::Element> {
     specimen(
         "INP-03",
         "テキストエリア / 数値",
@@ -523,7 +523,7 @@ fn text_and_numbers(
 
 fn file_upload(
     files: kivact::state::Signal<Vec<(String, f64)>>,
-) -> crate::game::specimens::Specimen<impl kivact::view::Component> {
+) -> crate::game::specimens::Specimen<impl kivact::view::Element> {
     specimen(
         "INP-04",
         "ファイルアップロード",
@@ -600,7 +600,7 @@ fn file_upload(
 
 fn tag_entry(
     tags: kivact::state::Signal<Vec<String>>,
-) -> crate::game::specimens::Specimen<impl kivact::view::Component> {
+) -> crate::game::specimens::Specimen<impl kivact::view::Element> {
     specimen(
         "INP-05",
         "タグ入力",
@@ -623,7 +623,7 @@ fn checkbox_choices(
     permissions: kivact::state::Signal<(bool, bool, bool)>,
     all: kivact::state::Binding<bool>,
     mixed: impl Fn() -> bool + Copy + 'static,
-) -> crate::game::specimens::Specimen<impl kivact::view::Component> {
+) -> crate::game::specimens::Specimen<impl kivact::view::Element> {
     specimen(
         "SEL-01",
         "チェックボックス",
@@ -641,7 +641,7 @@ fn checkbox_choices(
     )
 }
 
-fn radio_choices() -> crate::game::specimens::Specimen<impl kivact::view::Component> {
+fn radio_choices() -> crate::game::specimens::Specimen<impl kivact::view::Element> {
     specimen(
         "SEL-02",
         "ラジオ（ダイヤ）",
@@ -668,7 +668,7 @@ fn radio_choices() -> crate::game::specimens::Specimen<impl kivact::view::Compon
     )
 }
 
-fn switch_choices() -> crate::game::specimens::Specimen<impl kivact::view::Component> {
+fn switch_choices() -> crate::game::specimens::Specimen<impl kivact::view::Element> {
     specimen(
         "SEL-03",
         "スイッチ",
@@ -694,7 +694,7 @@ fn switch_choices() -> crate::game::specimens::Specimen<impl kivact::view::Compo
     )
 }
 
-fn select_choices() -> crate::game::specimens::Specimen<impl kivact::view::Component> {
+fn select_choices() -> crate::game::specimens::Specimen<impl kivact::view::Element> {
     specimen(
         "SEL-04",
         "セレクト",
@@ -736,7 +736,7 @@ fn select_choices() -> crate::game::specimens::Specimen<impl kivact::view::Compo
 
 fn slider_choices(
     cpu: kivact::state::Signal<f64>,
-) -> crate::game::specimens::Specimen<impl kivact::view::Component> {
+) -> crate::game::specimens::Specimen<impl kivact::view::Element> {
     specimen(
         "SEL-05",
         "スライダー / セグメント",
@@ -773,7 +773,7 @@ fn slider_choices(
     )
 }
 
-fn selectable_cards() -> crate::game::specimens::Specimen<impl kivact::view::Component> {
+fn selectable_cards() -> crate::game::specimens::Specimen<impl kivact::view::Element> {
     specimen(
         "SEL-06",
         "選択カード",
@@ -803,7 +803,7 @@ fn selectable_cards() -> crate::game::specimens::Specimen<impl kivact::view::Com
 
 fn underline_tabs(
     underline: kivact::state::Signal<String>,
-) -> crate::game::specimens::Specimen<impl kivact::view::Component> {
+) -> crate::game::specimens::Specimen<impl kivact::view::Element> {
     specimen(
         "NAV-01",
         "タブ（下線）",
@@ -832,7 +832,7 @@ fn underline_tabs(
 
 fn boxed_tab_examples(
     boxed_tabs: kivact::state::Signal<String>,
-) -> crate::game::specimens::Specimen<impl kivact::view::Component> {
+) -> crate::game::specimens::Specimen<impl kivact::view::Element> {
     specimen(
         "NAV-02",
         "タブ（ボックス）",
@@ -860,7 +860,7 @@ fn boxed_tab_examples(
 
 fn wizard_steps(
     step: kivact::state::Signal<usize>,
-) -> crate::game::specimens::Specimen<impl kivact::view::Component> {
+) -> crate::game::specimens::Specimen<impl kivact::view::Element> {
     specimen(
         "NAV-03",
         "ステッパー（ウィザード）",
@@ -924,7 +924,7 @@ fn wizard_steps(
 
 fn pagination_controls(
     page: kivact::state::Signal<usize>,
-) -> crate::game::specimens::Specimen<impl kivact::view::Component> {
+) -> crate::game::specimens::Specimen<impl kivact::view::Element> {
     specimen(
         "NAV-04",
         "パンくず / ページネーション",
@@ -962,7 +962,7 @@ fn pagination_controls(
     )
 }
 
-fn vertical_navigation() -> crate::game::specimens::Specimen<impl kivact::view::Component> {
+fn vertical_navigation() -> crate::game::specimens::Specimen<impl kivact::view::Element> {
     specimen(
         "NAV-05",
         "縦ナビゲーション",

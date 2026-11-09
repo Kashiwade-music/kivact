@@ -187,7 +187,7 @@ fn effects() -> impl IntoView {
         .style(style().size(480, 360).background(rgb(0xffffff)))
 }
 
-/// Element transforms: rotated text (unhinted outlines), a skewed button
+/// Locator transforms: rotated text (unhinted outlines), a skewed button
 /// with its counter-skewed label (hinted again), a rotated image, a world
 /// scaled 1.5× holding text, an SVG (rasterized for the zoom) and a
 /// rounded, shadowed card, and boxes ordered by z-index.

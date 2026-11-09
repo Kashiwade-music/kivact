@@ -98,7 +98,7 @@ fn into_view(model: &Model) -> TokenStream {
         impl ::kivact::view::IntoView for #struct_name {
             fn into_view(self) -> ::kivact::view::View {
                 let #struct_name { #(#names),* } = self;
-                ::kivact::view::component(move || {
+                ::kivact::view::scope(move || {
                     #(#mounts)*
                     #(#statements)*
                 })

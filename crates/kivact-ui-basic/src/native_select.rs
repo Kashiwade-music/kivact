@@ -5,7 +5,7 @@ use crate::list_popup::select_popup;
 use crate::theme_access::field_fill;
 use kivact::interaction::use_select;
 use kivact::view::icon;
-use kivact::view::{Node, NodeBuilder, node, text};
+use kivact::view::{Element, Node, node, text};
 
 use kivact::interaction::ListItem;
 use kivact::state::{Binding, Value, memo};
@@ -82,7 +82,7 @@ impl<K: kivact::state::ItemKey> NativeSelect<K> {
     }
 }
 
-impl<K: kivact::state::ItemKey> NodeBuilder for NativeSelect<K> {
+impl<K: kivact::state::ItemKey> Element for NativeSelect<K> {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root

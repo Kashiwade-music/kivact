@@ -11,8 +11,8 @@ use kivact::geometry::Rect;
 use kivact::geometry::{Point, Size};
 use kivact::interaction::MenuEntry;
 use kivact::prelude::{
-    IntoView, Node, NodeBuilder, NodeRef, Role, Signal, dynamic, memo, node, rgb, row, signal,
-    spacer, text,
+    Element, IntoView, Node, NodeRef, Role, Signal, dynamic, memo, node, rgb, row, signal, spacer,
+    text,
 };
 use kivact::state::Binding;
 use kivact::style::Position;

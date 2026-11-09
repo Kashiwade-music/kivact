@@ -2,7 +2,7 @@
 use crate::TypingIndicatorState;
 use crate::variants::{Variant, Variants};
 use kivact_core::motion::{Animated, Easing, Repeat, Transition};
-use kivact_core::view::{IntoView, LiveRegion, Node, NodeBuilder, Role, View, node};
+use kivact_core::view::{Element, IntoView, LiveRegion, Node, Role, View, node};
 /// A polite status whose presence is controlled by its caller.
 pub struct TypingIndicator {
     root: Node,
@@ -35,7 +35,7 @@ impl TypingIndicator {
         self
     }
 }
-impl NodeBuilder for TypingIndicator {
+impl Element for TypingIndicator {
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }

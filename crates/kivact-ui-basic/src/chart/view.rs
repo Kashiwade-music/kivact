@@ -9,8 +9,8 @@ use kivact::i18n::{message, message_with};
 use kivact::state::IntoValue;
 use kivact::state::{Value, memo, signal};
 use kivact::style::{Direction, Length, pct, style};
+use kivact::view::{Element, Node, column, node};
 use kivact::view::{IntoView, Orientation, PointerEvent, PointerPhase, Role, View, dynamic, show};
-use kivact::view::{Node, NodeBuilder, column, node};
 use std::cell::Cell;
 use std::rc::Rc;
 
@@ -162,7 +162,7 @@ impl Chart {
     }
 }
 
-impl NodeBuilder for Chart {
+impl Element for Chart {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root

@@ -9,7 +9,7 @@
 ```rust,no_run
 use kivact::prelude::*;
 
-fn header() -> impl Component {
+fn header() -> impl Element {
     column((
         text("タスク"),
         text("今日やること"),
@@ -17,11 +17,11 @@ fn header() -> impl Component {
     .style(style().gap(4))
 }
 
-fn task_row(title: impl IntoText) -> impl Component {
+fn task_row(title: impl IntoText) -> impl Element {
     row((text("-"), text(title))).style(style().gap(8))
 }
 
-fn task_list() -> impl Component {
+fn task_list() -> impl Element {
     column((
         task_row("牛乳を買う"),
         task_row("チュートリアルを書く"),
@@ -71,7 +71,7 @@ fn main() -> kivact::Result<()> {
 
 **なぜ `move` なのか。** これらのクロージャは、`app` が戻った後でも使われるため、ローカル変数を借用できません。`move` は、ハンドルをクロージャの中へコピーします。`Signal` は `Copy` なので、同じ `completed` を複数の `move` クロージャに渡せます。`move` がないと、借用した値よりクロージャが長く生きる可能性がある、というコンパイルエラーになります。
 
-**セットアップはマウントごとに一度だけ実行されます。** `App::run` はルートのセットアップを一度だけ呼びます。普通の helper は呼び出し側のセットアップの中で実行され、`component(move || ..)` はステップ 2 で紹介した明示的なセットアップと後片付けの境界を作ります。React の render 関数より Solid のコンポーネントに近い仕組みです。状態が変わると、セットアップ全体ではなく、その状態を読む小さなリアクティブな式だけが再実行されます。シグナル、memo、binding はセットアップの中で作り、イベントハンドラはそこで作ったハンドルを更新します。
+**セットアップはマウントごとに一度だけ実行されます。** `App::run` はルートのセットアップを一度だけ呼びます。普通の helper は呼び出し側のセットアップの中で実行され、`scope(move || ..)` はステップ 2 で紹介した明示的なセットアップと後片付けの境界を作ります。React の render 関数より Solid のコンポーネントに近い仕組みです。状態が変わると、セットアップ全体ではなく、その状態を読む小さなリアクティブな式だけが再実行されます。シグナル、memo、binding はセットアップの中で作り、イベントハンドラはそこで作ったハンドルを更新します。
 
 ## React／Solid との対応
 

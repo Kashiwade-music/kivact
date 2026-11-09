@@ -1,6 +1,6 @@
 //! Role: Display a round accent icon for navigation headings.
 
-use kivact::view::NodeBuilder;
+use kivact::view::Element;
 use kivact::view::node;
 
 use kivact::style::Align;
@@ -10,7 +10,7 @@ use kivact::style::style;
 use kivact::view::IntoView;
 
 /// Mount an icon once inside the round accent badge used by navigation headings.
-pub fn nav_icon(icon: impl IntoView) -> impl kivact::view::Component {
+pub fn nav_icon(icon: impl IntoView) -> impl kivact::view::Element {
     node()
         .with_node(move |node| {
             node.base_style(|| {

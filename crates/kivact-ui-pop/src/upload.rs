@@ -6,7 +6,7 @@ use kivact::state::{IntoText, IntoValue};
 use kivact::style::{Align, ColorToken, Justify, style};
 use kivact::ui::spinner;
 use kivact::view::IntoView;
-use kivact::view::{NodeBuilder, column, icon, node, row, text};
+use kivact::view::{Element, column, icon, node, row, text};
 use kivact::view::{Role, dynamic};
 
 /// A file row with an actual byte count and a percentage supplied by its owner.
@@ -19,7 +19,7 @@ pub fn upload_row(
     name: impl IntoText,
     bytes: impl IntoValue<Option<u64>>,
     percentage: impl IntoValue<f64>,
-) -> impl kivact::view::Component {
+) -> impl kivact::view::Element {
     let name = name.into_text_value();
     let bytes = bytes.into_value();
     let percentage = percentage.into_value();

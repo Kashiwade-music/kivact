@@ -1,7 +1,7 @@
 //! Role: Dense creative-tool controls, panels and editor surfaces.
 //!
 //! The only dependency is the public `kivact` facade. Components expose
-//! their root through `NodeBuilder`, so ordinary `NodeBuilder` modifiers
+//! their root through `Element`, so ordinary `Element` modifiers
 //! apply to official and third-party components in exactly the same way.
 //! Install [`theme`] on an App or with `kivact::style::provide_theme`.
 //!

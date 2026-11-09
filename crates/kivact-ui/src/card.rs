@@ -3,7 +3,7 @@ use super::layer::{with_base_recipe_style, with_recipe_style};
 use super::variants::{Variant, Variants};
 use kivact_core::state::{Binding, IntoBinding, IntoValue, Value};
 use kivact_core::view::{
-    Handled, IntoView, Key, KeyEvent, Modifiers, Node, NodeBuilder, View, node, node_ref,
+    Element, Handled, IntoView, Key, KeyEvent, Modifiers, Node, View, node, node_ref,
 };
 use kivact_interaction::{use_button, use_checkbox};
 
@@ -78,7 +78,7 @@ impl Card {
         self
     }
 }
-impl NodeBuilder for Card {
+impl Element for Card {
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }

@@ -6,8 +6,8 @@ use kivact::geometry::Point;
 use kivact::motion::Transition;
 use kivact::motion::animated;
 use kivact::state::IntoBinding;
+use kivact::view::Element;
 use kivact::view::Node;
-use kivact::view::NodeBuilder;
 use kivact::view::column;
 use kivact::view::node;
 use kivact::view::row;
@@ -178,7 +178,7 @@ impl Outline {
     }
 }
 
-impl NodeBuilder for Outline {
+impl Element for Outline {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
@@ -322,7 +322,7 @@ impl IntoView for Outline {
             start,
             end,
         } = self;
-        kivact::view::component(move || {
+        kivact::view::scope(move || {
             let pending = machine(
                 OutlineScroll::Idle,
                 || ScrollMachine,

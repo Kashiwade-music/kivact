@@ -6,9 +6,9 @@ use kivact::interaction::use_dialog;
 use kivact::motion::Transition;
 use kivact::state::IntoBinding;
 use kivact::state::IntoValue;
+use kivact::view::Element;
 use kivact::view::IntoViewFn;
 use kivact::view::Node;
-use kivact::view::NodeBuilder;
 use kivact::view::ViewFn;
 use kivact::view::icon;
 use kivact::view::node;
@@ -247,7 +247,7 @@ impl MobileNav {
     }
 }
 
-impl NodeBuilder for MobileNav {
+impl Element for MobileNav {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
@@ -266,7 +266,7 @@ impl IntoView for MobileNav {
             header_view,
             content,
         } = self;
-        kivact::view::component(move || {
+        kivact::view::scope(move || {
             let mobile = use_app_shell_mobile();
             let open = open
                 .or(mobile.context.map(|context| context.open))
@@ -332,7 +332,7 @@ impl MobileNavToggle {
     }
 }
 
-impl NodeBuilder for MobileNavToggle {
+impl Element for MobileNavToggle {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
@@ -346,7 +346,7 @@ impl IntoView for MobileNavToggle {
             label,
             icon: glyph,
         } = self;
-        kivact::view::component(move || {
+        kivact::view::scope(move || {
             let mobile = use_app_shell_mobile();
             if !mobile.is_enabled() {
                 return View::empty();

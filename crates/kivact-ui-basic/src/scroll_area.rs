@@ -1,8 +1,8 @@
 //! Role: The Lyra scroll area: a scroll container with a slim border-colored bar.
 
 use kivact::style::{Color, Direction, pct, style};
+use kivact::view::{Element, Node, Scroll, ScrollAxes, node, scroll};
 use kivact::view::{IntoView, View};
-use kivact::view::{Node, NodeBuilder, Scroll, ScrollAxes, node, scroll};
 
 /// A scrolling region (scroll-area.tsx). Created by [`scroll_area`].
 ///
@@ -50,7 +50,7 @@ impl ScrollArea {
     }
 }
 
-impl NodeBuilder for ScrollArea {
+impl Element for ScrollArea {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         self.viewport.node_mut()

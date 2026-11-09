@@ -378,7 +378,7 @@ fn keyboard_activation_disabled_and_bubbling() {
 
 #[test]
 fn counter_example_end_to_end() {
-    fn counter(initial: i32) -> impl Component {
+    fn counter(initial: i32) -> impl Element {
         let count = signal(initial);
         let doubled = memo(move || count.get() * 2);
         column((

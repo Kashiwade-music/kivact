@@ -3,7 +3,7 @@ use crate::variants::{Variant, Variants};
 use kivact_core::state::{IntoValue, Value, memo};
 use kivact_core::style::style;
 use kivact_core::view::{
-    IntoChildren, IntoView, Node, NodeBuilder, Orientation, Role, View, node, row, show, text,
+    Element, IntoChildren, IntoView, Node, Orientation, Role, View, node, row, show, text,
 };
 use std::rc::Rc;
 pub struct AvatarGroup {
@@ -58,7 +58,7 @@ impl AvatarGroup {
         self
     }
 }
-impl NodeBuilder for AvatarGroup {
+impl Element for AvatarGroup {
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }

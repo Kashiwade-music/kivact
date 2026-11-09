@@ -2,8 +2,8 @@
 
 use crate::{Tokens, TypeStyle, TypeTokens};
 use kivact::state::Value;
+use kivact::view::Element;
 use kivact::view::Node;
-use kivact::view::NodeBuilder;
 use kivact::view::text as control_text;
 
 use kivact::state::IntoText;
@@ -275,7 +275,7 @@ impl StyledText {
     }
 }
 
-impl NodeBuilder for StyledText {
+impl Element for StyledText {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root

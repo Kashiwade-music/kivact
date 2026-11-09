@@ -23,12 +23,12 @@ use kivact::style::Direction;
 use kivact::style::TransitionProp;
 use kivact::style::style;
 use kivact::ui::{ControlSize, spinner};
+use kivact::view::Element;
 use kivact::view::Handled;
 use kivact::view::IntoView;
 use kivact::view::Key;
 use kivact::view::KeyEvent;
 use kivact::view::Node;
-use kivact::view::NodeBuilder;
 use kivact::view::Role;
 use kivact::view::Span;
 use kivact::view::View;
@@ -147,7 +147,7 @@ pub fn chat_tool_calls(calls: impl IntoValue<Vec<ToolCall>>) -> ChatToolCalls {
     }
 }
 
-impl NodeBuilder for ChatToolCalls {
+impl Element for ChatToolCalls {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
@@ -433,7 +433,7 @@ fn token_colors(tone: ChatTokenTone) -> (kivact::style::Color, kivact::style::Co
 }
 
 /// Render a standalone styled chat token label.
-pub fn chat_token(token: ChatToken) -> impl kivact::view::Component {
+pub fn chat_token(token: ChatToken) -> impl kivact::view::Element {
     let tone = token.tone;
     text(token.label).with_node(move |node| {
         node.base_style(move || {
@@ -485,7 +485,7 @@ fn tokenize(source: &str, tokens: &[ChatToken]) -> Vec<Span> {
 pub fn chat_tokenized_text(
     source: impl IntoText,
     tokens: impl IntoValue<Vec<ChatToken>>,
-) -> impl kivact::view::Component {
+) -> impl kivact::view::Element {
     let source = source.into_text_value();
     let tokens = tokens.into_value();
     rich_text(move || source.with(|source| tokens.with(|tokens| tokenize(source, tokens))))

@@ -7,8 +7,8 @@ use crate::{ButtonVariant, button, text_input};
 use kivact_core::custom::PartState;
 use kivact_core::state::{IntoBinding, IntoValue, ItemKey, Value, binding, memo, signal};
 use kivact_core::view::{
-    Handled, IntoView, Key, NodeBuilder, Placement, PointerKind, PointerPhase, View, column,
-    for_each, icon, node, node_ref, overlay, row, scroll, show, text,
+    Element, Handled, IntoView, Key, Placement, PointerKind, PointerPhase, View, column, for_each,
+    icon, node, node_ref, overlay, row, scroll, show, text,
 };
 use kivact_interaction::{ComboboxApi, ComboboxMode, ListItem, Selection, use_combobox};
 

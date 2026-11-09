@@ -3,7 +3,7 @@ use super::data::Combobox;
 use crate::SelectPresentation;
 use crate::variants::{Variant, Variants};
 use kivact_core::state::{IntoBinding, IntoText, IntoValue, ItemKey};
-use kivact_core::view::{IntoView, Node, NodeBuilder, View, node};
+use kivact_core::view::{Element, IntoView, Node, View, node};
 use kivact_interaction::{ComboboxMode, IntoSelection, ListItem};
 use std::future::Future;
 use std::rc::Rc;
@@ -135,7 +135,7 @@ impl<K: ItemKey> Combobox<K> {
         self
     }
 }
-impl<K: ItemKey> NodeBuilder for Combobox<K> {
+impl<K: ItemKey> Element for Combobox<K> {
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }

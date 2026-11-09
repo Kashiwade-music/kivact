@@ -57,7 +57,7 @@ use kivact_types::{A11yRequest, NodeId, OverlayProps};
 use kivact_runtime::{IntoValue, Prop as InputProp};
 
 use crate::view::descriptor::{IntoView, View, mount, view_fn};
-use crate::view::element_data::{Content, Node, NodeBuilder};
+use crate::view::element_data::{Content, Element, Node};
 use crate::view::input::{DismissReason, Key, KeyEvent, Modifiers};
 use crate::view::mount::mount_host;
 use crate::view::node_ref::{self, NodeRef};
@@ -124,7 +124,7 @@ pub struct Overlay {
     keep_anchor_clear: bool,
     modal: bool,
     child: View,
-    /// Holds the modifiers (`NodeBuilder`); its content and children are unused.
+    /// Holds the modifiers (`Element`); its content and children are unused.
     root: Node,
     at: &'static Location<'static>,
 }
@@ -140,7 +140,7 @@ pub struct Overlay {
 /// ```
 /// # use kivact_core as kivact;
 /// use kivact::state::{signal};
-/// use kivact::view::{IntoView, NodeBuilder, Role, node, node_ref, show, text};
+/// use kivact::view::{IntoView, Element, Role, node, node_ref, show, text};
 /// use kivact::view::{OverlayAlign, Placement, overlay};
 /// fn menu_button() -> impl IntoView {
 ///     let open = signal(false);
@@ -198,7 +198,7 @@ pub fn overlay(
 /// ```
 /// # use kivact_core as kivact;
 /// use kivact::state::{signal};
-/// use kivact::view::{IntoView, MouseButton, Node, NodeBuilder, show_some};
+/// use kivact::view::{IntoView, MouseButton, Node, Element, show_some};
 /// use kivact::geometry::{Point};
 /// use kivact::view::{Placement, PointerEvent};
 /// use kivact::view::{View, overlay_at};
@@ -359,7 +359,7 @@ fn dismiss_reason(event: &crate::view::A11yEvent) -> DismissReason {
     }
 }
 
-impl NodeBuilder for Overlay {
+impl Element for Overlay {
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }

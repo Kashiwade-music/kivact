@@ -2,7 +2,7 @@
 use crate::layer::with_base_recipe_style;
 use crate::variants::{Variant, Variants};
 use kivact_core::state::{IntoText, IntoValue, Value};
-use kivact_core::view::{IntoView, Node, NodeBuilder, Role, View, node, text};
+use kivact_core::view::{Element, IntoView, Node, Role, View, node, text};
 
 use crate::component_values::{StatState, Trend};
 /// A statistic labelled by its visible label, created by [`stat`].
@@ -71,7 +71,7 @@ impl Stat {
         self
     }
 }
-impl NodeBuilder for Stat {
+impl Element for Stat {
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }

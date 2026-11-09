@@ -64,8 +64,8 @@ reports copy presses through callbacks; persistence and business rules remain
 application concerns. `kivact::view::provide_direction` provides a
 reading direction that the kit's direction-aware components honor; standard `kivact::ui` components read the same direction context.
 
-Builder components implement `NodeBuilder` and `IntoView` and install their
-own default style and semantics first, so ordinary `NodeBuilder` modifiers
+Builder components implement `Element` and `IntoView` and install their
+own default style and semantics first, so ordinary `Element` modifiers
 such as `.style(...)`, `.test_id(...)`, `.disabled(...)` and `.name(...)` win
 over the kit's defaults. Parts without options return a `Node`. A slot
 method that places content in a component (`.content(..)`, `.header(..)`,

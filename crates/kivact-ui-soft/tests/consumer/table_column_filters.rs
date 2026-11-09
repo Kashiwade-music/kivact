@@ -5,7 +5,7 @@ use kivact::test::render_with;
 use kivact::ui::DataColumn;
 use kivact::ui::button;
 use kivact::ui::data_table;
-use kivact::view::NodeBuilder;
+use kivact::view::Element;
 use kivact::view::Role;
 use kivact::view::column;
 use kivact::view::text;

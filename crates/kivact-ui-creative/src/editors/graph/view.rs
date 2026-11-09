@@ -13,7 +13,7 @@ use kivact::state::{Callback, Value, signal};
 use kivact::state::{IntoValue, callback};
 use kivact::style::{ColorToken, Overflow, style};
 use kivact::view::{A11yAction, IntoView, Role, View, node_ref};
-use kivact::view::{Node, NodeBuilder, node};
+use kivact::view::{Element, Node, node};
 use std::rc::Rc;
 
 /// An editable graph whose curves and view intervals use application domain units.
@@ -115,7 +115,7 @@ impl GraphEditor {
     }
 }
 
-impl NodeBuilder for GraphEditor {
+impl Element for GraphEditor {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root

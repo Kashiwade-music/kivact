@@ -37,7 +37,7 @@ pub struct DisclosureState {
 /// disclosure accepts no input or assistive technology action.
 ///
 /// ```no_run
-/// use kivact_core::{state::signal, view::{NodeBuilder, column, node, text, show}};
+/// use kivact_core::{state::signal, view::{Element, column, node, text, show}};
 /// use kivact_interaction::use_disclosure;
 /// let open = signal(false);
 /// let details = use_disclosure(open);

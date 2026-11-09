@@ -3,7 +3,7 @@ use crate::layer::with_base_recipe_style;
 use crate::variants::{Variant, Variants};
 use kivact_core::state::{IntoValue, Value};
 use kivact_core::style::{Justify, Length, TextAlign, style};
-use kivact_core::view::{IntoChildren, IntoView, Node, NodeBuilder, Role, View, node};
+use kivact_core::view::{Element, IntoChildren, IntoView, Node, Role, View, node};
 
 /// A structural part of a static table.
 pub struct Table {
@@ -59,7 +59,7 @@ impl Table {
         self
     }
 }
-impl NodeBuilder for Table {
+impl Element for Table {
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -98,7 +98,7 @@ impl TableRow {
         self
     }
 }
-impl NodeBuilder for TableRow {
+impl Element for TableRow {
     fn node_mut(&mut self) -> &mut Node {
         self.table.node_mut()
     }
@@ -162,7 +162,7 @@ impl TableCell {
         self
     }
 }
-impl NodeBuilder for TableCell {
+impl Element for TableCell {
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }

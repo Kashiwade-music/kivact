@@ -19,9 +19,9 @@ use kivact::ui::ButtonVariant;
 use kivact::ui::ControlSize;
 use kivact::ui::button;
 use kivact::ui::text_area;
+use kivact::view::Element;
 use kivact::view::IntoView;
 use kivact::view::Node;
-use kivact::view::NodeBuilder;
 use kivact::view::NodeRef;
 use kivact::view::Role;
 use kivact::view::View;
@@ -64,12 +64,12 @@ enum EditorMode {
 }
 
 /// Render the supported Markdown blocks and inline marks.
-pub fn rich_text_view(source: impl IntoText) -> impl kivact::view::Component {
+pub fn rich_text_view(source: impl IntoText) -> impl kivact::view::Element {
     node().child(markdown(source.into_text_value()))
 }
 
 /// A toolbar for switching the Markdown editor between source and preview.
-pub fn rich_text_toolbar(preview: impl IntoBinding<bool>) -> impl kivact::view::Component {
+pub fn rich_text_toolbar(preview: impl IntoBinding<bool>) -> impl kivact::view::Element {
     let preview = preview.into_binding();
     let mode = binding(
         move || {
@@ -245,7 +245,7 @@ impl RichTextEditor {
     }
 }
 
-impl NodeBuilder for RichTextEditor {
+impl Element for RichTextEditor {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root

@@ -10,7 +10,7 @@ use kivact::i18n::message;
 use kivact::interaction::use_popup;
 use kivact::state::IntoValue;
 use kivact::style::{ColorToken, style};
-use kivact::view::{IntoView, Key, Node, NodeBuilder, Role, column, node, text};
+use kivact::view::{Element, IntoView, Key, Node, Role, column, node, text};
 
 use kivact::state::binding;
 use kivact::state::callback;
@@ -48,7 +48,7 @@ impl PieMenu {
         self
     }
 }
-impl NodeBuilder for PieMenu {
+impl Element for PieMenu {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root

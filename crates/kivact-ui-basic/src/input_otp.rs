@@ -3,7 +3,7 @@
 use crate::theme_access::field_fill;
 use kivact::interaction::use_text_edit;
 use kivact::view::icon;
-use kivact::view::{Node, NodeBuilder, node, row, text};
+use kivact::view::{Element, Node, node, row, text};
 
 use kivact::state::{Binding, Callback, Value, binding, memo};
 use kivact::state::{IntoText, IntoValue, callback};
@@ -111,7 +111,7 @@ impl InputOtp {
     }
 }
 
-impl NodeBuilder for InputOtp {
+impl Element for InputOtp {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root

@@ -12,7 +12,7 @@ use kivact::geometry::Point;
 use kivact::interaction::{MenuApi, MenuItemKind, MenuOrigin, MenuRow, use_menu};
 use kivact::prelude::*;
 use kivact::style::Align;
-use kivact::test::{Element, MirrorMode, RenderOptions, Screen};
+use kivact::test::{Locator, MirrorMode, RenderOptions, Screen};
 use kivact::view::{A11yAction, Placement, overlay};
 use kivact::view::{Modifiers, MouseButton, overlay_at};
 
@@ -159,7 +159,7 @@ fn mount_button(
     })
 }
 
-fn item<'a>(screen: &'a Screen, name: &str) -> Element<'a> {
+fn item<'a>(screen: &'a Screen, name: &str) -> Locator<'a> {
     screen.get_by_role(Role::MenuItem, name)
 }
 
@@ -174,7 +174,7 @@ fn shift() -> Modifiers {
     }
 }
 
-fn center(element: &Element<'_>) -> Point {
+fn center(element: &Locator<'_>) -> Point {
     let rect = element.rect().expect("invariant: the element is laid out");
     Point::new(rect.x + rect.width / 2.0, rect.y + rect.height / 2.0)
 }

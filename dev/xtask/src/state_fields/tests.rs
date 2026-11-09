@@ -357,7 +357,7 @@ fn builder_errors(struct_body: &str) -> Vec<String> {
     let mut root = source_in("", "mod m; pub use m::{T, m};");
     root.module.clear();
     let module = source_in("m", &format!("{struct_body}\npub fn m() {{}}"));
-    let user = source_in("user", "use crate::T; impl NodeBuilder for T {}");
+    let user = source_in("user", "use crate::T; impl Element for T {}");
     let sources = [root, module, user];
     let surface = crate::public_surface::build(&sources);
     let (builders, enums) = crate::local_checks::model_types(&sources, &surface);

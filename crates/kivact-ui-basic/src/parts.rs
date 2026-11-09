@@ -1,7 +1,7 @@
 //! Role: Shared parts of display components: pressable surfaces and resized icons.
 
 use kivact::custom::{PartState, part};
-use kivact::prelude::NodeBuilder;
+use kivact::prelude::Element;
 use kivact::state::{Callback, Value};
 use kivact::style::style;
 use kivact::view::{IntoView, Role};

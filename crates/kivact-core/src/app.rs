@@ -118,7 +118,7 @@ impl App {
     /// ```no_run
     /// # use kivact_core as kivact;
     /// use kivact::{App, Result};
-    /// use kivact::view::{IntoView, NodeBuilder, text};
+    /// use kivact::view::{IntoView, Element, text};
     ///
     /// fn app() -> impl IntoView {
     ///     text("Hello")

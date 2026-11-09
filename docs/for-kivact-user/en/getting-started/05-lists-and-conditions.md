@@ -16,7 +16,7 @@ struct Task {
     done: bool,
 }
 
-fn header() -> impl Component {
+fn header() -> impl Element {
     column((
         text("Tasks"),
         text("Things to do today"),
@@ -24,7 +24,7 @@ fn header() -> impl Component {
     .style(style().gap(4))
 }
 
-fn task_row(tasks: Signal<Vec<Task>>, task: Binding<Task>) -> impl Component {
+fn task_row(tasks: Signal<Vec<Task>>, task: Binding<Task>) -> impl Element {
     let id = task.get_untracked().id;
     let done = bind!(task.done);
     row((
@@ -34,7 +34,7 @@ fn task_row(tasks: Signal<Vec<Task>>, task: Binding<Task>) -> impl Component {
     .style(style().gap(8))
 }
 
-fn task_list(tasks: Signal<Vec<Task>>) -> impl Component {
+fn task_list(tasks: Signal<Vec<Task>>) -> impl Element {
     column(for_each(
         tasks,
         |task| task.id,

@@ -7,9 +7,9 @@ use kivact::interaction::Delays;
 use kivact::interaction::use_menu_with_open;
 use kivact::motion::Transition;
 use kivact::state::IntoValue;
+use kivact::view::Element;
 use kivact::view::IntoViewFn;
 use kivact::view::Node;
-use kivact::view::NodeBuilder;
 use kivact::view::ViewFn;
 use kivact::view::column;
 use kivact::view::icon;
@@ -321,7 +321,7 @@ impl SideNavHeading {
     }
 }
 
-impl NodeBuilder for SideNavHeading {
+impl Element for SideNavHeading {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
@@ -342,7 +342,7 @@ impl IntoView for SideNavHeading {
             super_action,
             sub_action,
         } = self;
-        kivact::view::component(move || {
+        kivact::view::scope(move || {
             let rail = crate::side_navigation::context::nav_is_rail();
             let has_icon = glyph.is_some();
             let interactive = menu.is_some() || heading_action.is_some();

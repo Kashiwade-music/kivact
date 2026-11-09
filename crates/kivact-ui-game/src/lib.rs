@@ -5,7 +5,7 @@
 //! [`theme_with`] and [`ThemeOptions`] for the compact metrics), then compose the
 //! constructors.
 //! Constructors returning `Node` accept all ordinary Kivact modifiers.
-//! Builders implement `NodeBuilder` and therefore `NodeBuilder` as well.
+//! Builders implement `Element` and therefore `Element` as well.
 //!
 //! The standard controls of `kivact::ui` (button, checkbox, switch, text
 //! input, select, menu, dialog, tooltip, tabs, radio group, slider,

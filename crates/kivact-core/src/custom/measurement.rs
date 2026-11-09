@@ -54,7 +54,7 @@ impl Constraints<'_> {
     /// ```no_run
     /// # use kivact_core as kivact;
     /// use kivact::state::{Signal};
-    /// use kivact::view::{IntoView, NodeBuilder};
+    /// use kivact::view::{IntoView, Element};
     /// use kivact::geometry::{Size};
     /// use kivact::draw::TextFormat;
     /// use kivact::custom::{Constraints, Measurement, primitive};
@@ -87,7 +87,7 @@ impl Constraints<'_> {
     /// ```no_run
     /// # use kivact_core as kivact;
     /// use kivact::state::{Signal};
-    /// use kivact::view::{IntoView, NodeBuilder, text};
+    /// use kivact::view::{IntoView, Element, text};
     /// use kivact::draw::{TextFormat};
     /// use kivact::geometry::{Size};
     /// use kivact::custom::{Constraints, Measurement, primitive};

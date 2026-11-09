@@ -51,7 +51,7 @@ use kivact::prelude::*;
 use kivact::style::Direction;
 
 /// A pill with a knob that slides to the right when on.
-pub fn pill_switch(label: impl IntoText, on: impl IntoBinding<bool>) -> impl Component {
+pub fn pill_switch(label: impl IntoText, on: impl IntoBinding<bool>) -> impl Element {
     let api = use_switch(on);
     let state = api.control_state();
     let control = api.control();
@@ -154,7 +154,7 @@ use kivact::custom::Part;
 use kivact::interaction::use_switch;
 
 fn custom_switch() -> impl IntoView {
-    component(|| {
+    scope(|| {
         let enabled = signal(false);
         let api = use_switch(enabled);
         let state = api.control_state();
@@ -177,9 +177,9 @@ The switch controller still owns keyboard, pointer and accessibility behavior.
 The composed Part reads the same facts; it does not maintain a second checked or
 pressed signal. Use `Node`'s inherent methods for semantics such as `role` and
 `checked`. A builder reaches those methods with `.with_node(|host| ...)`;
-`NodeBuilder` supplies its common modifiers such as `style`, `disabled` and `name`.
+`Element` supplies its common modifiers such as `style`, `disabled` and `name`.
 
-As in this example, create the controller inside `component(move || ...)` when the
+As in this example, create the controller inside `scope(move || ...)` when the
 control needs its own owner. That setup runs once at mounting, and the controller's
 cleanup and timers end with the same lifetime when it is removed. See
 [component lifetimes](custom-components.md#give-setup-its-own-lifetime).
@@ -202,7 +202,7 @@ pub fn segmented<K: ItemKey>(
     label: impl IntoText,
     options: Vec<ListItem<K>>,
     selected: impl IntoBinding<Option<K>>,
-) -> impl Component {
+) -> impl Element {
     let options = options.into_value();
     let list = use_list(
         options,
@@ -428,7 +428,7 @@ use kivact::view::{EditPhase};
 use kivact::prelude::*;
 
 /// A number you change by dragging sideways.
-pub fn scrub(label: impl IntoText, value: Signal<f64>, history: Rc<RefCell<Vec<EditPhase>>>) -> impl Component {
+pub fn scrub(label: impl IntoText, value: Signal<f64>, history: Rc<RefCell<Vec<EditPhase>>>) -> impl Element {
     let edit = EditSession::new(move |initial| value.set(initial))
         .on_edit(move |phase| history.borrow_mut().push(phase));
     let drag = use_drag::<f64>(DragCoordinates::Window)
@@ -535,7 +535,7 @@ use kivact::view::{A11yAction, Handled, KeyEvent, PointerEvent, PointerPhase};
 const CELL: f64 = 20.0;
 
 /// A row of `max` dots; the number of lit dots is the rating.
-pub fn rating(max: u32, value: impl IntoBinding<u32>) -> impl Component {
+pub fn rating(max: u32, value: impl IntoBinding<u32>) -> impl Element {
     let value = value.into_binding();
     primitive()
         // The size depends only on `max`: the layout measures again when it changes.
@@ -643,7 +643,7 @@ use kivact::prelude::*;
 use kivact::style::Align;
 
 /// A field with a character counter. `max` is enforced by the editor.
-pub fn limited_input(label: impl IntoText, value: impl IntoBinding<String>, max: usize) -> impl Component {
+pub fn limited_input(label: impl IntoText, value: impl IntoBinding<String>, max: usize) -> impl Element {
     let value = value.into_binding();
     let api = use_text_edit(value).max_length(max).placeholder("Type here");
     let state = api.control_state();
@@ -761,7 +761,7 @@ impl Machine for CopyButton {
 
 fn copy_button(text: impl IntoValue<String>) -> impl IntoView {
     let text = text.into_value();
-    component(move || {
+    scope(move || {
         let m = machine(CopyState::Idle, move || CopyButton { text: text.get() }, |_, effect| match effect {
             CopyEffect::Write(s) => { spawn(kivact::platform::copy_text(s)); }
         });
@@ -772,7 +772,7 @@ fn copy_button(text: impl IntoValue<String>) -> impl IntoView {
 ```
 
 Create the machine in the component's setup owner. For a reusable component with
-its own mount lifetime, convert `text` once, then return `component(move || { ... })`
+its own mount lifetime, convert `text` once, then return `scope(move || { ... })`
 and create the machine inside that initializer. Its pending timer is cancelled
 when that instance is removed. Keep the transition pure: it chooses a next state
 and describes work; the effect runner performs the clipboard write.

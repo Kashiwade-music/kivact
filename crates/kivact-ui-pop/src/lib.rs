@@ -2,7 +2,7 @@
 //!
 //! The only dependency is the public `kivact` facade. Components use its
 //! normal style, input, drawing, theme and overlay contracts. Every
-//! builder accepts the public [`kivact::view::NodeBuilder`] modifiers.
+//! builder accepts the public [`kivact::view::Element`] modifiers.
 //! Install [`theme`] or add [`Tokens`] to an existing Kivact theme.
 //!
 //! The theme supplies the Pop appearance for standard controls, collections,

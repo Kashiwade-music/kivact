@@ -134,10 +134,10 @@ impl AppNodeEditor {
         self
     }
 }
-impl kivact::view::NodeBuilder for AppNodeEditor {
+impl kivact::view::Element for AppNodeEditor {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut kivact::view::Node {
-        kivact::view::NodeBuilder::node_mut(&mut self.editor)
+        kivact::view::Element::node_mut(&mut self.editor)
     }
 }
 impl kivact::view::IntoView for AppNodeEditor {

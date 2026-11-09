@@ -1,8 +1,8 @@
 //! Role: Present a quotation and optional attribution with a logical start rule.
 use crate::{TextColor, TextKind, styled_text};
 use kivact::state::Value;
+use kivact::view::Element;
 use kivact::view::Node;
-use kivact::view::NodeBuilder;
 use kivact::view::node;
 
 use kivact::state::IntoText;
@@ -43,7 +43,7 @@ impl Blockquote {
     }
 }
 
-impl NodeBuilder for Blockquote {
+impl Element for Blockquote {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root

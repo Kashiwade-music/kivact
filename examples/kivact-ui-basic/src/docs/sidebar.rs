@@ -45,7 +45,7 @@ pub(crate) fn page() -> Page {
 // example: basic
 fn basic() -> impl IntoView {
     /// A bounded frame for a sidebar demo.
-    fn frame(provider: impl kivact::view::Component) -> impl kivact::view::Component {
+    fn frame(provider: impl kivact::view::Element) -> impl kivact::view::Element {
         column(provider).style(
             style()
                 .width(580)
@@ -121,7 +121,7 @@ fn basic() -> impl IntoView {
 // example: icon
 fn icon() -> impl IntoView {
     /// A bounded frame for a sidebar demo.
-    fn frame(provider: impl kivact::view::Component) -> impl kivact::view::Component {
+    fn frame(provider: impl kivact::view::Element) -> impl kivact::view::Element {
         column(provider).style(
             style()
                 .width(580)
@@ -187,7 +187,7 @@ fn icon() -> impl IntoView {
 // example: submenu
 fn submenu() -> impl IntoView {
     /// A bounded frame for a sidebar demo.
-    fn frame(provider: impl kivact::view::Component) -> impl kivact::view::Component {
+    fn frame(provider: impl kivact::view::Element) -> impl kivact::view::Element {
         column(provider).style(
             style()
                 .width(580)
@@ -261,7 +261,7 @@ fn submenu() -> impl IntoView {
 // example: floating
 fn floating() -> impl IntoView {
     /// A bounded frame for a sidebar demo.
-    fn frame(provider: impl kivact::view::Component) -> impl kivact::view::Component {
+    fn frame(provider: impl kivact::view::Element) -> impl kivact::view::Element {
         column(provider).style(
             style()
                 .width(580)

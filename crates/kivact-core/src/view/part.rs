@@ -16,7 +16,7 @@ use std::rc::Rc;
 use crate::state::{Value, memo, on_cleanup, signal};
 use crate::view::element_data::Common;
 use crate::view::owner::Owner;
-use crate::view::part_data::{PartBinding, PartMount};
+use crate::view::part_data::{Focus, PartBinding, PartMount};
 use crate::view::{ButtonPress, Key, MouseButton, PointerPhase, node_ref};
 use kivact_runtime::EffectKind;
 
@@ -78,8 +78,11 @@ pub fn part<S: kivact_runtime::PropValue>(state: impl Fn(PartState) -> S + 'stat
         state(PartState {
             pressed: !disabled && !hidden && input.press != Press::Idle,
             hovered: !disabled && !hidden && input.hover == Hover::Inside,
-            focused: focused.get(),
-            focus_visible: focus_visible.get(),
+            focus: match (focused.get(), focus_visible.get()) {
+                (_, true) => Focus::FocusedVisible,
+                (true, false) => Focus::Focused,
+                _ => Focus::None,
+            },
             disabled,
             hidden,
         })

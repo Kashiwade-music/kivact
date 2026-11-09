@@ -43,6 +43,20 @@ pub(crate) struct PartBinding {
     pub(crate) hooks: Vec<Rc<dyn Fn(PartMount) -> Result<(), UiError>>>,
 }
 
+/// Whether this exact target has keyboard focus, and whether the host asks
+/// for a visible focus indication.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Focus {
+    /// The target does not have keyboard focus.
+    #[default]
+    None,
+    /// The target has keyboard focus.
+    Focused,
+    /// The target has keyboard focus and the host requests a visible
+    /// focus indication.
+    FocusedVisible,
+}
+
 /// Actual input and availability state of an attached node or canvas region.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct PartState {
@@ -54,17 +68,25 @@ pub struct PartState {
     /// The pointer is over this exact target. Always `false` while the
     /// target is disabled or hidden.
     pub hovered: bool,
-    // xtask-allow(state-fields): public observation snapshot - This exact target has keyboard focus
-    /// This exact target has keyboard focus.
-    pub focused: bool,
-    // xtask-allow(state-fields): public observation snapshot - The host requests a visible focus indication for this exact target
-    /// The host requests a visible focus indication for this exact target.
-    /// Implies `focused`.
-    pub focus_visible: bool,
+    /// This exact target's keyboard focus; [`Focus::FocusedVisible`] also
+    /// means the host requests a visible focus indication.
+    pub focus: Focus,
     // xtask-allow(state-fields): public observation snapshot - A caller or attached behavior disables this target
     /// A caller or attached behavior disables this target.
     pub disabled: bool,
     // xtask-allow(state-fields): public observation snapshot - A caller or attached behavior hides this target
     /// A caller or attached behavior hides this target.
     pub hidden: bool,
+}
+
+impl PartState {
+    /// This exact target has keyboard focus.
+    pub fn is_focused(&self) -> bool {
+        self.focus != Focus::None
+    }
+
+    /// The host requests a visible focus indication for this exact target.
+    pub fn is_focus_visible(&self) -> bool {
+        self.focus == Focus::FocusedVisible
+    }
 }

@@ -3,7 +3,7 @@ use crate::support::mount;
 use kivact::interaction::{ListItem, use_combobox, use_text_edit};
 use kivact::prelude::*;
 
-fn picker() -> impl Component {
+fn picker() -> impl Element {
     let options = vec![ListItem::new("a", "Apple"), ListItem::new("b", "Banana")];
     let combo = use_combobox(options, signal(None::<&str>)).popup(signal(false));
     column((

@@ -2,7 +2,7 @@
 
 use kivact::interaction::MenuEntry;
 use kivact::interaction::{MenuApi, use_menubar};
-use kivact::prelude::NodeBuilder;
+use kivact::prelude::Element;
 use kivact::state::memo;
 use kivact::state::{IntoValue, callback};
 use kivact::style::{Align, Color, Direction, style};
@@ -66,7 +66,7 @@ impl<K: kivact::state::ItemKey> Menubar<K> {
         self
     }
 }
-impl<K: kivact::state::ItemKey> NodeBuilder for Menubar<K> {
+impl<K: kivact::state::ItemKey> Element for Menubar<K> {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root

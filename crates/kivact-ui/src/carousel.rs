@@ -4,7 +4,7 @@ use kivact_core::geometry::Point;
 use kivact_core::state::{Binding, IntoBinding, IntoValue, Value, effect, memo};
 use kivact_core::style::{Direction, Overflow, pct, style};
 use kivact_core::view::{
-    Handled, IntoChildren, IntoView, Key, Node, NodeBuilder, Orientation, ReadingDirection, Role,
+    Element, Handled, IntoChildren, IntoView, Key, Node, Orientation, ReadingDirection, Role,
     ScrollBehavior, View, node, node_ref, use_direction,
 };
 pub use kivact_interaction::Snap;
@@ -102,7 +102,7 @@ impl Carousel {
         self
     }
 }
-impl NodeBuilder for Carousel {
+impl Element for Carousel {
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }

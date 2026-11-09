@@ -16,7 +16,7 @@ use kivact::view::{
     A11yAction, A11yEvent, A11yRequest, Handled, HandlerResult, IntoView, Key, Orientation, Role,
     View,
 };
-use kivact::view::{Node, NodeBuilder, node};
+use kivact::view::{Element, Node, node};
 
 /// The side of an end's square region, which the pointer grabs.
 const THUMB: f64 = 20.0;
@@ -113,7 +113,7 @@ impl Range {
     }
 }
 
-impl NodeBuilder for Range {
+impl Element for Range {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root

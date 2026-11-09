@@ -3,7 +3,7 @@ use crate::variants::{Variant, Variants};
 use crate::{SkeletonShape, SkeletonState};
 use kivact_core::motion::{Animated, Easing, Repeat, Stagger, Transition};
 use kivact_core::state::{IntoValue, Value, effect};
-use kivact_core::view::{IntoView, Node, NodeBuilder, View, column, for_index, node};
+use kivact_core::view::{Element, IntoView, Node, View, column, for_index, node};
 pub struct Skeleton {
     root: Node,
     lines: Value<usize>,
@@ -39,7 +39,7 @@ impl Skeleton {
         self
     }
 }
-impl NodeBuilder for Skeleton {
+impl Element for Skeleton {
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }

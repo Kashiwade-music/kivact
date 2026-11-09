@@ -8,7 +8,7 @@ use kivact::prelude::{Signal, rgb};
 use kivact::style::{Align, ColorToken, style};
 use kivact::task::spawn;
 use kivact::view::IntoView;
-use kivact::view::{Node, NodeBuilder, row, text};
+use kivact::view::{Element, Node, row, text};
 use kivact_ui_game as g;
 use std::time::Duration;
 

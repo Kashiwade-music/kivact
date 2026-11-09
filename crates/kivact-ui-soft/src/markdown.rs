@@ -18,10 +18,10 @@ use kivact::task::spawn;
 use kivact::ui::ButtonVariant;
 use kivact::ui::ControlSize;
 use kivact::ui::button;
+use kivact::view::Element;
 use kivact::view::HandlerResult;
 use kivact::view::IntoView;
 use kivact::view::Node;
-use kivact::view::NodeBuilder;
 use kivact::view::Role;
 use kivact::view::ScrollAxes;
 use kivact::view::Span;
@@ -214,7 +214,7 @@ impl Markdown {
     }
 }
 
-impl NodeBuilder for Markdown {
+impl Element for Markdown {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root

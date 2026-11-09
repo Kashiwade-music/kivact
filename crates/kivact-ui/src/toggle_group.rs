@@ -7,8 +7,8 @@ use kivact_core::state::{
     Binding, Callback, IntoText, IntoValue, ItemKey, Value, binding, callback,
 };
 use kivact_core::view::{
-    EditPhase, HandlerResult, IntoView, Node, NodeBuilder, Orientation, ReadingDirection, Role,
-    View, ViewFn, for_each, node, use_direction,
+    EditPhase, Element, HandlerResult, IntoView, Node, Orientation, ReadingDirection, Role, View,
+    ViewFn, for_each, node, use_direction,
 };
 use kivact_interaction::{IntoSelection, ListItem, Selection};
 
@@ -94,7 +94,7 @@ impl<K: ItemKey> ToggleGroup<K> {
         self
     }
 }
-impl<K: ItemKey> NodeBuilder for ToggleGroup<K> {
+impl<K: ItemKey> Element for ToggleGroup<K> {
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }

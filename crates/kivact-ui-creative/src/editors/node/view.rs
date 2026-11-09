@@ -17,7 +17,7 @@ use kivact::style::{ColorToken, Overflow, style};
 use kivact::view::EditPhase;
 use kivact::view::HandlerResult;
 use kivact::view::{A11yAction, A11yRequest, Handled, IntoView, Role, View, node_ref};
-use kivact::view::{Node, NodeBuilder, node};
+use kivact::view::{Element, Node, node};
 
 /// An editor for typed nodes, sockets, controls and links.
 pub struct NodeEditor {
@@ -85,7 +85,7 @@ impl NodeEditor {
     }
 }
 
-impl NodeBuilder for NodeEditor {
+impl Element for NodeEditor {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root

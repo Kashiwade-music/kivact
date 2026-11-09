@@ -29,7 +29,7 @@ pub(super) struct Mission {
     pub locked: bool,
 }
 #[track_caller]
-pub(super) fn mission_card(mission: Mission, action: impl Into<Callback<()>>) -> impl Component {
+pub(super) fn mission_card(mission: Mission, action: impl Into<Callback<()>>) -> impl Element {
     kivact::ui::card((
         mission_banner(&mission),
         mission_details(&mission),

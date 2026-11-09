@@ -5,7 +5,7 @@ use super::state::Demo;
 use kivact::interaction::{MenuEntry, Toast, Tone, toaster};
 use kivact::platform;
 use kivact::prelude::{
-    ColorToken, IntoView, Node, NodeBuilder, Role, column, node, rgb, row, signal, spacer, text,
+    ColorToken, Element, IntoView, Node, Role, column, node, rgb, row, signal, spacer, text,
 };
 use kivact::state::{binding, memo};
 use kivact::style::{Align, Justify, pct, style};
@@ -189,7 +189,7 @@ pub(super) fn drawer_body() -> Node {
         ]),
     ))
 }
-pub(super) fn layout() -> impl kivact::view::Component {
+pub(super) fn layout() -> impl kivact::view::Element {
     let document = signal("OPS-2042.md".to_owned());
     let document_title = signal("第 3 区画 定期点検".to_owned());
     let selection = binding(
@@ -243,7 +243,7 @@ fn inspector_row(label: &str, control: impl IntoView) -> Node {
     .style(style().align_items(Align::Center).gap(6).width(pct(100)))
 }
 
-fn system_banners() -> crate::game::specimens::Specimen<impl kivact::view::Component> {
+fn system_banners() -> crate::game::specimens::Specimen<impl kivact::view::Element> {
     specimen(
         "FBK-01",
         "システムバナー",
@@ -287,7 +287,7 @@ fn inline_alerts(
     success: kivact::state::Signal<bool>,
     warning: kivact::state::Signal<bool>,
     danger: kivact::state::Signal<bool>,
-) -> crate::game::specimens::Specimen<impl kivact::view::Component> {
+) -> crate::game::specimens::Specimen<impl kivact::view::Element> {
     specimen(
         "FBK-02",
         "インラインアラート",
@@ -365,7 +365,7 @@ fn inline_alerts(
     )
 }
 
-fn toast_actions() -> crate::game::specimens::Specimen<impl kivact::view::Component> {
+fn toast_actions() -> crate::game::specimens::Specimen<impl kivact::view::Element> {
     specimen(
         "FBK-03",
         "トースト",
@@ -401,7 +401,7 @@ fn toast_actions() -> crate::game::specimens::Specimen<impl kivact::view::Compon
     )
 }
 
-fn loading_skeletons() -> crate::game::specimens::Specimen<impl kivact::view::Component> {
+fn loading_skeletons() -> crate::game::specimens::Specimen<impl kivact::view::Element> {
     specimen(
         "FBK-04",
         "スケルトン",
@@ -421,7 +421,7 @@ fn loading_skeletons() -> crate::game::specimens::Specimen<impl kivact::view::Co
     )
 }
 
-fn empty_content(scene: Demo) -> crate::game::specimens::Specimen<impl kivact::view::Component> {
+fn empty_content(scene: Demo) -> crate::game::specimens::Specimen<impl kivact::view::Element> {
     specimen(
                 "FBK-05",
                 "空状態",
@@ -443,7 +443,7 @@ fn dropdown_menu(
     scene: Demo,
     pinned: kivact::state::Signal<bool>,
     archived: kivact::state::Signal<bool>,
-) -> crate::game::specimens::Specimen<impl kivact::view::Component> {
+) -> crate::game::specimens::Specimen<impl kivact::view::Element> {
     specimen(
         "OVL-01",
         "ドロップダウンメニュー",
@@ -493,7 +493,7 @@ fn dropdown_menu(
     )
 }
 
-fn modal_dialog(scene: Demo) -> crate::game::specimens::Specimen<impl kivact::view::Component> {
+fn modal_dialog(scene: Demo) -> crate::game::specimens::Specimen<impl kivact::view::Element> {
     specimen(
         "OVL-02",
         "モーダルダイアログ",
@@ -512,7 +512,7 @@ fn modal_dialog(scene: Demo) -> crate::game::specimens::Specimen<impl kivact::vi
     )
 }
 
-fn drawer_commands(scene: Demo) -> crate::game::specimens::Specimen<impl kivact::view::Component> {
+fn drawer_commands(scene: Demo) -> crate::game::specimens::Specimen<impl kivact::view::Element> {
     specimen(
         "OVL-03",
         "ドロワー / パレット",
@@ -531,7 +531,7 @@ fn drawer_commands(scene: Demo) -> crate::game::specimens::Specimen<impl kivact:
     )
 }
 
-fn tooltip_anchors() -> crate::game::specimens::Specimen<impl kivact::view::Component> {
+fn tooltip_anchors() -> crate::game::specimens::Specimen<impl kivact::view::Element> {
     specimen(
         "OVL-04",
         "ツールチップ",
@@ -573,7 +573,7 @@ fn tooltip_anchors() -> crate::game::specimens::Specimen<impl kivact::view::Comp
 fn user_popover(
     scene: Demo,
     user_open: kivact::state::Signal<bool>,
-) -> crate::game::specimens::Specimen<impl kivact::view::Component> {
+) -> crate::game::specimens::Specimen<impl kivact::view::Element> {
     specimen(
         "OVL-05",
         "ユーザーポップオーバー",

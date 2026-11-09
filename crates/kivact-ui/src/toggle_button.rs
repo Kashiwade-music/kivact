@@ -15,8 +15,8 @@ use kivact_core::state::Binding;
 use kivact_core::state::Value;
 use kivact_core::state::{IntoText, IntoValue};
 use kivact_core::style::{Align, TextAlign, style, use_theme};
+use kivact_core::view::{Element, Node, column, node, text};
 use kivact_core::view::{IntoView, View, dynamic, show};
-use kivact_core::view::{Node, NodeBuilder, column, node, text};
 use kivact_interaction::{ToggleState, use_toggle_button};
 
 fn toggle_label(
@@ -180,7 +180,7 @@ impl ToggleButton {
     }
 }
 
-impl NodeBuilder for ToggleButton {
+impl Element for ToggleButton {
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }

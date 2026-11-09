@@ -3,7 +3,7 @@
 use crate::ColorName;
 
 use kivact::state::Value;
-use kivact::view::{Node, NodeBuilder, icon, node, row, text};
+use kivact::view::{Element, Node, icon, node, row, text};
 
 use kivact::state::{IntoText, IntoValue};
 use kivact::style::{Align, Direction, Justify, TextAlign, pct, style};
@@ -66,7 +66,7 @@ impl Label {
     }
 }
 
-impl NodeBuilder for Label {
+impl Element for Label {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
@@ -113,7 +113,7 @@ impl Separator {
     }
 }
 
-impl NodeBuilder for Separator {
+impl Element for Separator {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root

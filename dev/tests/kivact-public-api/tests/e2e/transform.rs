@@ -3,7 +3,7 @@
 //! Element transforms (CSS `transform`, `translate`, `rotate`, `scale`,
 //! `transform-origin`) and `z-index`: a transform maps the element's box
 //! and its whole subtree, and the element is hit, pointed at, reported
-//! (`NodeRef::rect`, `Element::rect`) and exposed to assistive technology
+//! (`NodeRef::rect`, `Locator::rect`) and exposed to assistive technology
 //! where it is drawn (G-07: hit testing and semantics never contradict the
 //! drawing); z-index orders painting and hit testing
 //! among siblings, also from a hover state style. Checked on the frame's

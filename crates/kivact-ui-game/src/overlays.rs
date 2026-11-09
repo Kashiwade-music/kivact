@@ -1,5 +1,5 @@
 //! Role: The icon menu in the console's look.
-use kivact::view::{Node, NodeBuilder, icon};
+use kivact::view::{Element, Node, icon};
 
 use kivact::interaction::MenuEntry;
 use kivact::state::{Callback, Value};
@@ -42,7 +42,7 @@ impl<K: 'static> IconMenu<K> {
         self
     }
 }
-impl<K: 'static> NodeBuilder for IconMenu<K> {
+impl<K: 'static> Element for IconMenu<K> {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         self.root.node_mut()

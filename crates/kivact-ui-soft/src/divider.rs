@@ -3,8 +3,8 @@ use crate::stack::ContainerInset;
 
 use kivact::state::IntoValue;
 use kivact::state::Value;
+use kivact::view::Element;
 use kivact::view::Node;
-use kivact::view::NodeBuilder;
 use kivact::view::node;
 use kivact::view::text;
 
@@ -68,7 +68,7 @@ impl Divider {
     }
     /// Insert custom content between rule segments; `label_text` also supplies a text name.
     pub fn label(mut self, label: impl IntoView) -> Self {
-        self.label = Some(kivact::view::component(move || label.into_view()));
+        self.label = Some(kivact::view::scope(move || label.into_view()));
         self
     }
     /// Insert constant or reactive text and use it as the accessible name.
@@ -80,7 +80,7 @@ impl Divider {
     }
 }
 
-impl NodeBuilder for Divider {
+impl Element for Divider {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
@@ -96,7 +96,7 @@ impl IntoView for Divider {
             label,
             full_bleed,
         } = self;
-        kivact::view::component(move || {
+        kivact::view::scope(move || {
             let vertical = orientation.get() == Orientation::Vertical;
             let mut root = root.orientation(orientation.get()).with_node(move |node| {
                 node.base_style(move || {

@@ -49,7 +49,7 @@
 //! use std::time::Duration;
 //!
 //! use kivact::gpu_interop::{self, ShareMode};
-//! use kivact::view::{IntoView, NodeBuilder, image};
+//! use kivact::view::{IntoView, Element, image};
 //! use kivact::view::viewport;
 //!
 //! fn viewport() -> impl IntoView {

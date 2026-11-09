@@ -9,8 +9,8 @@ use kivact::state::IntoValue;
 use kivact::state::{Binding, Value};
 use kivact::style::use_theme;
 use kivact::style::{Align, Color, Direction, Justify, pct, style};
+use kivact::view::{Element, Node, column, node, row, text};
 use kivact::view::{IntoView, Role, View};
-use kivact::view::{Node, NodeBuilder, column, node, row, text};
 
 /// A channel strip with application-provided routing, inserts and meter level.
 pub struct MixerStrip {
@@ -91,7 +91,7 @@ impl MixerStrip {
     }
 }
 
-impl NodeBuilder for MixerStrip {
+impl Element for MixerStrip {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root

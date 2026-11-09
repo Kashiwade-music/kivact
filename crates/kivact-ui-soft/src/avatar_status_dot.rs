@@ -1,7 +1,7 @@
 //! Role: Draw presence indicators and report their labels to the containing avatar.
 
+use kivact::view::Element;
 use kivact::view::Node;
-use kivact::view::NodeBuilder;
 use kivact::view::node;
 
 use kivact::state::IntoText;
@@ -106,7 +106,7 @@ impl AvatarStatusDot {
     }
 }
 
-impl NodeBuilder for AvatarStatusDot {
+impl Element for AvatarStatusDot {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root

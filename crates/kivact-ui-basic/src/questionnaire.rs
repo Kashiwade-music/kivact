@@ -9,8 +9,8 @@ use kivact::state::{Machine, Step, machine};
 use kivact::style::{Align, Color, Direction, Justify, Position, pct, style};
 use kivact::ui::{ButtonVariant, button, text_input};
 use kivact::view::HandlerResult;
+use kivact::view::{Element, Node, column, node, row, text};
 use kivact::view::{IntoView, Role, View, dynamic, for_each};
-use kivact::view::{Node, NodeBuilder, column, node, row, text};
 
 /// One choice of a [`QuestionnaireStep`].
 #[derive(Clone, Debug, PartialEq)]
@@ -232,7 +232,7 @@ impl Questionnaire {
     }
 }
 
-impl NodeBuilder for Questionnaire {
+impl Element for Questionnaire {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root

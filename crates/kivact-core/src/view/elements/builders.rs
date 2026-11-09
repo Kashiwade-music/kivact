@@ -8,7 +8,7 @@
 //! focusability, base style) first, so the caller's modifiers win. The
 //! standard components
 //! (`kivact::ui`) and those of the official UI kits hold a root `Node` and
-//! implement [`NodeBuilder`] like any external component — role, focus,
+//! implement [`Element`] like any external component — role, focus,
 //! key/pointer/a11y input, draw layers, regions and size hints are all
 //! public.
 //!
@@ -387,7 +387,7 @@ static NO_ICON: &[u8] = br#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0
 ///
 /// ```no_run
 /// # use kivact_core as kivact;
-/// use kivact::view::{NodeBuilder, icon};
+/// use kivact::view::{Element, icon};
 /// use kivact::style::{ColorToken, style};
 /// let check = icon("check").style(style().color(ColorToken::Accent));
 /// # let _ = check;

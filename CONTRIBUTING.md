@@ -18,7 +18,7 @@
   - 公開 enum と field を公開した struct への `#[non_exhaustive]`（`non-exhaustive`。policy の `extra_rules` に入れていません）。互換を残さない初期開発版では利点がなく、workspace の中の `match` から網羅性の検査を奪うためです。
 - 関数は Clippy の 80 行の上限に収めます。長い処理は責務を持つ helper に分け、lint の無効化や行の詰め込みで回避しません。
 - 所有と状態は `Machine`・binding・読み取り専用の投影で表します。公開 API の field に `Arc`・`Rc`・lock を漏らさず、asset は所有する byte 列や `AssetBytes`、保持する描画結果は snapshot の型で渡します。
-- 一度だけ mount する slot は `impl IntoView`、開くたびに作り直す内容は `impl Fn() -> V` で受け取ります。子の mount 時に setup と cleanup owner を作る場合は `component(move || view)` を使います。
+- 一度だけ mount する slot は `impl IntoView`、開くたびに作り直す内容は `impl Fn() -> V` で受け取ります。子の mount 時に setup と cleanup owner を作る場合は `scope(move || view)` を使います。
 - panic は不具合です。`catch_unwind` で隔離せず、毒された lock の中身にも触れません。
 - glob import は使いません（例・雛形・利用者側の E2E での `kivact::prelude::*` は除きます）。
 

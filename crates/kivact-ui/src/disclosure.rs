@@ -12,8 +12,8 @@ use kivact_core::motion::{Easing, Transition};
 use kivact_core::state::IntoText;
 use kivact_core::state::{Binding, Value};
 use kivact_core::style::{TransitionProp, style, use_theme};
+use kivact_core::view::{Element, Node, icon, node, text};
 use kivact_core::view::{IntoView, Orientation, View, show};
-use kivact_core::view::{Node, NodeBuilder, icon, node, text};
 use kivact_interaction::use_disclosure;
 
 /// A trigger and the content it opens, created by [`disclosure`].
@@ -131,10 +131,7 @@ impl Disclosure {
     }
 
     /// Attach disclosure behavior to a caller-owned trigger.
-    pub fn attach<T: NodeBuilder + IntoView>(
-        mut self,
-        trigger: T,
-    ) -> impl kivact_core::view::Component {
+    pub fn attach<T: Element + IntoView>(mut self, trigger: T) -> impl kivact_core::view::Element {
         let open = if self.always_open {
             kivact_core::state::binding(|| true, |_| ())
         } else {
@@ -195,7 +192,7 @@ impl Disclosure {
     }
 }
 
-impl NodeBuilder for Disclosure {
+impl Element for Disclosure {
     /// The column of the trigger over the content.
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root

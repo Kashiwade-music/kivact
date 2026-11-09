@@ -7,7 +7,7 @@ use kivact::style::style;
 use kivact::ui::{
     ButtonVariant, button, command_palette, dialog, hover_card, menu, toast_region, tooltip,
 };
-use kivact::view::{Node, NodeBuilder, row, text};
+use kivact::view::{Element, Node, row, text};
 use kivact_ui_soft::{
     LightboxMedia, alert_dialog, bottom_sheet, bottom_sheet_flow, dialog_header, drawer_header,
     lightbox, media_overlay,

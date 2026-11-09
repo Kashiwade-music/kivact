@@ -5,7 +5,7 @@ use kivact::interaction::TreeNode;
 use kivact::state::signal;
 use kivact::style::style;
 use kivact::ui::{DataColumn, DataTableDensity, FilterField, button, card, data_table};
-use kivact::view::{Node, NodeBuilder, column, row, text};
+use kivact::view::{Element, Node, column, row, text};
 use kivact_ui_soft::{
     DictationState, FormDirection, GridColumns, Space, ToolCall, ToolStatus, aspect_ratio, center,
     chat_dictation_button, chat_tool_calls, divider, form_layout, form_row, hstack, layout,

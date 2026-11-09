@@ -10,7 +10,7 @@ it. The screen updates by itself when the state changes.
 ```rust,no_run
 use kivact::prelude::*;
 
-fn header() -> impl Component {
+fn header() -> impl Element {
     column((
         text("Tasks"),
         text("Things to do today"),
@@ -18,11 +18,11 @@ fn header() -> impl Component {
     .style(style().gap(4))
 }
 
-fn task_row(title: impl IntoText) -> impl Component {
+fn task_row(title: impl IntoText) -> impl Element {
     row((text("-"), text(title))).style(style().gap(8))
 }
 
-fn task_list() -> impl Component {
+fn task_list() -> impl Element {
     column((
         task_row("Buy milk"),
         task_row("Write the tutorial"),
@@ -92,7 +92,7 @@ closures. Without `move` the compiler reports that the closure may outlive
 the borrowed value.
 
 **Setup runs once per mount.** `App::run` calls the root setup once. Ordinary
-helpers execute in their caller’s setup scope; `component(move || ..)` creates
+helpers execute in their caller’s setup scope; `scope(move || ..)` creates
 the explicit setup and cleanup boundary introduced in step 2. This resembles a
 Solid component more than a React render function. State changes rerun the
 small reactive expressions that read that state, rather than the whole setup.

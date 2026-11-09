@@ -43,8 +43,8 @@ A segmented control is the standard radio group in the kit's look:
 kit; tool toggles, progress bars, inspector sections and split panes are the
 standard `kivact::ui::toggle`, `progress`, `disclosure` and `split` in its look.
 
-Components implement `kivact::control::NodeBuilder` and `IntoView`.
-Use ordinary `NodeBuilder` modifiers for layout, styles, names, IDs and callbacks.
+Components implement `kivact::control::Element` and `IntoView`.
+Use ordinary `Element` modifiers for layout, styles, names, IDs and callbacks.
 There is no official-component-only rendering or input route.
 
 Icons are names in the theme's `IconSet`, drawn with

@@ -184,7 +184,7 @@ mod tests {
 use kivact::prelude::*;
 
 fn tracker(query: Signal<String>) -> impl IntoView {
-    component(move || {
+    scope(move || {
         // Runs once the screen is built, then again whenever `query` changes.
         effect(move || {
             println!("searching for {}", query.get());
@@ -525,7 +525,7 @@ item. If a name must stay, qualify it, such as `kivact::view::text("Hello")`,
 ```rust,no_run
 use kivact::prelude::*;
 
-fn heading_row(label: String) -> impl Component {
+fn heading_row(label: String) -> impl Element {
     row((text(label), button("Open")))
 }
 ```

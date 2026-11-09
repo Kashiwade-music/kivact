@@ -9,7 +9,7 @@ use crate::support::mount_with;
 use kivact::interaction::ListItem;
 use kivact::interaction::{SelectApi, use_select};
 use kivact::prelude::*;
-use kivact::test::{Element, MirrorMode, RenderOptions, Screen};
+use kivact::test::{Locator, MirrorMode, RenderOptions, Screen};
 use kivact::view::Modifiers;
 use kivact::view::{A11yAction, Placement, overlay};
 
@@ -108,7 +108,7 @@ fn mount_select(
     })
 }
 
-fn option<'a>(screen: &'a Screen, name: &str) -> Element<'a> {
+fn option<'a>(screen: &'a Screen, name: &str) -> Locator<'a> {
     screen.get_by_role(Role::Option, name)
 }
 
@@ -116,7 +116,7 @@ fn closed(screen: &Screen) -> bool {
     screen.query_by_role(Role::ListBox, "Fruit").is_none()
 }
 
-fn trigger(screen: &Screen) -> Element<'_> {
+fn trigger(screen: &Screen) -> Locator<'_> {
     screen.get_by_role(Role::ComboBox, "Fruit")
 }
 

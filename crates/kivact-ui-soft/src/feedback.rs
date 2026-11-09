@@ -6,8 +6,8 @@ use kivact::motion::Repeat;
 use kivact::motion::Transition;
 use kivact::state::IntoValue;
 use kivact::state::Value;
+use kivact::view::Element;
 use kivact::view::Node;
-use kivact::view::NodeBuilder;
 use kivact::view::node;
 use kivact::view::row;
 
@@ -73,7 +73,7 @@ impl StatusDot {
     }
 }
 
-impl NodeBuilder for StatusDot {
+impl Element for StatusDot {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root

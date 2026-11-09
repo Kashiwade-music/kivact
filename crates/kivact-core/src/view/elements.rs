@@ -3,7 +3,7 @@
 //! Primitive elements and layout containers, all of the one element type
 //! `Node`: `node`, `canvas`, `image` (with `ImageFit`), `text` and
 //! `rich_text` (with `span`), `column`/`row`/`grid`/`stack`/`scroll`/`spacer`;
-//! the text inputs; and `NodeBuilder`, the standard modifiers of `Node` and
+//! the text inputs; and `Element`, the standard modifiers of `Node` and
 //! of a component builder holding a root `Node`. Host node kinds are limited to Root, Box, Text,
 //! Image and Overlay. The standard components (`button`,
 //! `checkbox`, ...) are `kivact::ui`, and the components of a UI kit are in
@@ -30,7 +30,7 @@ pub use viewport::ViewportTransform;
 pub use viewport::{SurfaceSize, Viewport, viewport};
 
 #[doc(inline)]
-pub use crate::view::element_data::{Node, NodeBuilder};
+pub use crate::view::element_data::Node;
 #[doc(inline)]
 pub use crate::view::span::{Span, span};
 pub use builders::{canvas, icon, image, node};

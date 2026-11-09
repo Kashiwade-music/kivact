@@ -10,7 +10,7 @@ use kivact::state::IntoBinding;
 use kivact::state::IntoValue;
 use kivact::state::{Value, machine, memo};
 use kivact::style::{ColorToken, style};
-use kivact::view::NodeBuilder;
+use kivact::view::Element;
 use kivact::view::icon;
 use kivact::view::{IntoView, Role, column, node, node_ref, row, text};
 
@@ -29,7 +29,7 @@ use std::rc::Rc;
 pub fn panel_group<V: IntoView>(
     panels: impl IntoBinding<Vec<InspectorPanel>>,
     content: impl Fn(Value<InspectorPanel>) -> V + 'static,
-) -> impl kivact::view::Component {
+) -> impl kivact::view::Element {
     let content: Rc<dyn Fn(Value<InspectorPanel>) -> kivact::view::View> =
         Rc::new(move |panel| content(panel).into_view());
     let panels = panels.into_binding();

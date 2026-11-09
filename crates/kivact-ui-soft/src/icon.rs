@@ -5,9 +5,9 @@ use kivact::state::IntoValue;
 use kivact::style::Icon as IconSource;
 use kivact::style::Style;
 use kivact::style::style;
+use kivact::view::Element;
 use kivact::view::IntoView;
 use kivact::view::Node;
-use kivact::view::NodeBuilder;
 use kivact::view::View;
 use kivact::view::icon as control_icon;
 use std::cell::Cell;
@@ -111,7 +111,7 @@ impl IconView {
     }
 }
 
-impl NodeBuilder for IconView {
+impl Element for IconView {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root

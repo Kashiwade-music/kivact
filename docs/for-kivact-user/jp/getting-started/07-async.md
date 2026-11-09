@@ -20,7 +20,7 @@ struct Task {
     done: bool,
 }
 
-fn header(dark: Signal<bool>) -> impl Component {
+fn header(dark: Signal<bool>) -> impl Element {
     row((
         image(LOGO).name("タスクのロゴ").style(style().size(32, 32)),
         column((
@@ -33,7 +33,7 @@ fn header(dark: Signal<bool>) -> impl Component {
     .style(style().gap(12).align_items(Align::Center))
 }
 
-fn task_row(tasks: Signal<Vec<Task>>, task: Binding<Task>) -> impl Component {
+fn task_row(tasks: Signal<Vec<Task>>, task: Binding<Task>) -> impl Element {
     let id = task.get_untracked().id;
     let done = bind!(task.done);
     row((
@@ -47,7 +47,7 @@ fn task_row(tasks: Signal<Vec<Task>>, task: Binding<Task>) -> impl Component {
     .style(style().gap(8).align_items(Align::Center).justify_content(Justify::SpaceBetween))
 }
 
-fn task_list(tasks: Signal<Vec<Task>>) -> impl Component {
+fn task_list(tasks: Signal<Vec<Task>>) -> impl Element {
     column(for_each(
         tasks,
         |task| task.id,
@@ -65,7 +65,7 @@ fn task_list(tasks: Signal<Vec<Task>>) -> impl Component {
     )
 }
 
-fn tasks_screen(dark: Signal<bool>, saved: Vec<Task>) -> impl Component {
+fn tasks_screen(dark: Signal<bool>, saved: Vec<Task>) -> impl Element {
     let next_id = var(saved.iter().map(|task| task.id).max().unwrap_or(0) + 1);
     let tasks = signal(saved);
     let draft = signal(String::new());

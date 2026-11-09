@@ -5,7 +5,7 @@
 #![warn(redundant_imports)]
 
 use kivact::geometry::Point;
-use kivact::test::{Element, LayoutCheck, RenderOptions, Screen, TestFonts, render_with};
+use kivact::test::{LayoutCheck, Locator, RenderOptions, Screen, TestFonts, render_with};
 use kivact::view::{Key, Modifiers, Role};
 use kivact_ui_creative_catalog::{catalog, fonts};
 use std::time::Duration;
@@ -148,7 +148,7 @@ fn chapter(screen: &Screen, name: &str) {
     screen.assert_layout_with(&layout_check());
 }
 
-fn local(screen: &Screen, canvas: &str, region: Element<'_>) -> Point {
+fn local(screen: &Screen, canvas: &str, region: Locator<'_>) -> Point {
     let root = screen.get_by_test_id(canvas).rect().expect("canvas");
     let region = region.rect().expect("region");
     Point::new(region.center().x - root.x, region.center().y - root.y)

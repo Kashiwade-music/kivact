@@ -5,7 +5,7 @@
 #![warn(redundant_imports)]
 
 use kivact::geometry::Point;
-use kivact::test::{Element, LayoutCheck, RenderOptions, Screen, TestFonts, render_with};
+use kivact::test::{LayoutCheck, Locator, RenderOptions, Screen, TestFonts, render_with};
 use kivact::view::{CheckedState, Key, Modifiers, Role, SortDirection};
 use kivact_ui_game_catalog::{catalog, fonts, locale, messages};
 use std::time::Duration;
@@ -109,7 +109,7 @@ fn chapter(screen: &Screen, name: &str) {
     screen.assert_layout_with(&layout_check());
 }
 
-fn fill(input: Element<'_>, value: &str) {
+fn fill(input: Locator<'_>, value: &str) {
     input.press_key_with(
         Key::Char('a'),
         Modifiers {

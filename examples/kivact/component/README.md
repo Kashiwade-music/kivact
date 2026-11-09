@@ -6,4 +6,4 @@ Compose a reusable card with props, children and a close callback.
 cargo run -p kivact-example-component
 ```
 
-`card(title, on_close, children)` は、題名（`impl IntoText`）、閉じる通知（`impl Into<Callback<()>>`）、子（`impl IntoViewFn<V>`）を受け、`impl Component` を返す部品です。本体は `show` で折りたたみ、`app()` が別の子を渡して 2 回使います。"Close" は親の signal を更新して card を取り除きます。依存は `kivact` だけです。試験は `cargo test -p kivact-example-component` です。
+`card(title, on_close, children)` は、題名（`impl IntoText`）、閉じる通知（`impl Into<Callback<()>>`）、子（`impl IntoViewFn<V>`）を受け、`impl Element` を返す部品です。本体は `show` で折りたたみ、`app()` が別の子を渡して 2 回使います。"Close" は親の signal を更新して card を取り除きます。依存は `kivact` だけです。試験は `cargo test -p kivact-example-component` です。

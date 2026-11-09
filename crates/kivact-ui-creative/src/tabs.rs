@@ -4,7 +4,7 @@ use kivact::state::IntoBinding;
 
 use kivact::i18n::message;
 use kivact::interaction::{DragCoordinates, DragUpdate, TabState, use_drag};
-use kivact::view::{NodeBuilder, row, text};
+use kivact::view::{Element, row, text};
 
 use kivact::interaction::ListItem;
 use kivact::state::{Callback, Value, signal};
@@ -65,7 +65,7 @@ impl<K: kivact::state::ItemKey> DocumentTabs<K> {
         self
     }
 }
-impl<K: kivact::state::ItemKey> NodeBuilder for DocumentTabs<K> {
+impl<K: kivact::state::ItemKey> Element for DocumentTabs<K> {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut kivact::view::Node {
         self.tabs.node_mut()

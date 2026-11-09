@@ -16,9 +16,9 @@ use kivact::ui::CheckableState;
 use kivact::ui::ControlSize;
 use kivact::ui::Look;
 use kivact::view::CheckedState;
+use kivact::view::Element;
 use kivact::view::IntoView;
 use kivact::view::Node;
-use kivact::view::NodeBuilder;
 use kivact::view::View;
 use kivact::view::icon;
 use kivact::view::node;
@@ -98,7 +98,7 @@ impl Indicator {
     }
 }
 
-impl NodeBuilder for Indicator {
+impl Element for Indicator {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root

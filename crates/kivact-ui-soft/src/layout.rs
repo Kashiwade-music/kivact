@@ -42,8 +42,8 @@ impl LayoutInset {
 
 use crate::stack::{Space, rtl};
 
+use kivact::view::Element;
 use kivact::view::Node;
-use kivact::view::NodeBuilder;
 use kivact::view::column;
 use kivact::view::node;
 use kivact::view::scroll;
@@ -161,7 +161,7 @@ impl Layout {
     }
 }
 
-impl NodeBuilder for Layout {
+impl Element for Layout {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
@@ -200,7 +200,7 @@ impl IntoView for Layout {
             content_width,
             default_dividers,
         } = self;
-        kivact::view::component(move || {
+        kivact::view::scope(move || {
             let parent = try_use_context::<ContainerInset>()
                 .map(|value| value.get())
                 .unwrap_or_default();
@@ -351,7 +351,7 @@ impl LayoutRegion {
     }
 }
 
-impl NodeBuilder for LayoutRegion {
+impl Element for LayoutRegion {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
@@ -370,7 +370,7 @@ impl IntoView for LayoutRegion {
             scrollable,
             width,
         } = self;
-        kivact::view::component(move || {
+        kivact::view::scope(move || {
             let slots = try_use_context::<LayoutSlots>()
                 .map(|value| value.get())
                 .unwrap_or_default();

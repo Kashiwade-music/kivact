@@ -1,8 +1,8 @@
 //! Role: Compose exclusive navigation panels around the canonical navigation machine.
 use kivact_core::state::{IntoText, IntoValue, Value, binding, memo};
 use kivact_core::view::{
-    Handled, IntoView, Key, Node, NodeBuilder, OverlayAlign, Placement, PointerPhase, Role, View,
-    node, node_ref, overlay, show,
+    Element, Handled, IntoView, Key, Node, OverlayAlign, Placement, PointerPhase, Role, View, node,
+    node_ref, overlay, show,
 };
 use kivact_interaction::{NavOpen, use_navigation_menu, use_popup};
 use std::rc::Rc;
@@ -101,7 +101,7 @@ impl NavigationMenu {
         self
     }
 }
-impl NodeBuilder for NavigationMenu {
+impl Element for NavigationMenu {
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }

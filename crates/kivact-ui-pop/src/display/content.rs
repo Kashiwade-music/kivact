@@ -7,7 +7,7 @@ use kivact::style::{Color, pct, style};
 use kivact::view::node;
 
 #[track_caller]
-pub fn sparkline(points: impl IntoValue<Vec<f64>>) -> impl kivact::view::Component {
+pub fn sparkline(points: impl IntoValue<Vec<f64>>) -> impl kivact::view::Element {
     let points = points.into_value();
     node()
         .style(style().height(52).min_width(1))

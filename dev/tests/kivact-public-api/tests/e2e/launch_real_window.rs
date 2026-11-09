@@ -19,7 +19,7 @@ use kivact::prelude::{Component, Role, column, node, node_ref, row, show, style,
 use kivact::test::Screen;
 use kivact::test::{MirrorMode, RenderOptions, render, render_with};
 
-fn counter() -> impl Component {
+fn counter() -> impl Element {
     let count = signal(1);
     let draft = signal(String::new());
     column((

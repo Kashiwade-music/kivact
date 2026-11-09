@@ -14,7 +14,7 @@
 
 use kivact_types::NodeId;
 
-use super::model::{Element, Screen};
+use super::model::{Locator, Screen};
 use super::results::{LayoutCheck, LayoutViolation};
 
 impl Screen {
@@ -76,7 +76,7 @@ impl Screen {
         findings
             .into_iter()
             .map(|f| {
-                let element = Element {
+                let element = Locator {
                     screen: self,
                     node: f.node,
                     region: None,
@@ -116,7 +116,7 @@ impl Screen {
     }
 }
 
-impl Element<'_> {
+impl Locator<'_> {
     /// The layout defects of the texts in this element's subtree
     /// ([`Screen::check_layout`] with the default options, for the subtree
     /// only).

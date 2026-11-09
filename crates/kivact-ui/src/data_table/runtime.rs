@@ -4,7 +4,7 @@ use super::rows::{self, Grid};
 use super::types::{DataTable, DataTableContext, RowName};
 use kivact_core::i18n::message;
 use kivact_core::state::{IntoBinding, IntoValue};
-use kivact_core::view::NodeBuilder;
+use kivact_core::view::Element;
 
 use kivact_core::state::{Binding, binding, memo, signal};
 use kivact_core::style::{Length, pct, style};

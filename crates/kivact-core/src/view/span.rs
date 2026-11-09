@@ -22,7 +22,7 @@ use kivact_style::{Color, Theme, ThemeColor};
 /// ```
 /// # use kivact_core as kivact;
 /// use kivact::view::{rich_text, span};
-/// use kivact::view::{NodeBuilder};
+/// use kivact::view::{Element};
 /// use kivact::style::{rgba};
 /// // <p>Open <mark>fi</mark>le</p>, the match bold and highlighted
 /// let line = rich_text(vec![

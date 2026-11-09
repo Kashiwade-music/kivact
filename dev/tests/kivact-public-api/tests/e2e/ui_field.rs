@@ -15,7 +15,7 @@ fn unnamed_input() -> Node {
     node().role(Role::TextBox).focusable(true)
 }
 
-fn texts(elements: Vec<kivact::test::Element<'_>>) -> Vec<String> {
+fn texts(elements: Vec<kivact::test::Locator<'_>>) -> Vec<String> {
     elements.iter().map(|e| e.text()).collect()
 }
 

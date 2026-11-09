@@ -2,9 +2,7 @@
 use crate::layer::with_base_recipe_style;
 use crate::variants::{Variant, Variants};
 use kivact_core::state::{IntoText, Value};
-use kivact_core::view::{
-    IntoChildren, IntoView, Node, NodeBuilder, Role, View, node, node_ref, text,
-};
+use kivact_core::view::{Element, IntoChildren, IntoView, Node, Role, View, node, node_ref, text};
 
 /// A list of term-detail pairs.
 pub struct DescriptionList {
@@ -26,7 +24,7 @@ impl DescriptionList {
         self
     }
 }
-impl NodeBuilder for DescriptionList {
+impl Element for DescriptionList {
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -73,7 +71,7 @@ impl Description {
         self
     }
 }
-impl NodeBuilder for Description {
+impl Element for Description {
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }

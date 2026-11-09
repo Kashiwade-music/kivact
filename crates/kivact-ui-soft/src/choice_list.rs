@@ -2,8 +2,8 @@
 
 use kivact::state::IntoBinding;
 use kivact::state::ItemKey;
+use kivact::view::Element;
 use kivact::view::Node;
-use kivact::view::NodeBuilder;
 use kivact::view::column;
 use kivact::view::node;
 use kivact::view::row;
@@ -59,7 +59,7 @@ pub fn radio_list<K: ItemKey>(
     radio_group(label, options, value)
 }
 
-impl<K: ItemKey> NodeBuilder for CheckboxList<K> {
+impl<K: ItemKey> Element for CheckboxList<K> {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root

@@ -4,7 +4,7 @@ use crate::editors::node::gesture::{NodeMode, State};
 use crate::editors::node::model::{NodeControlValue, NodeRequest};
 use kivact::state::IntoValue;
 use kivact::state::binding;
-use kivact::view::NodeBuilder;
+use kivact::view::Element;
 use kivact::view::{column, node};
 
 use kivact::style::{ColorToken, style};

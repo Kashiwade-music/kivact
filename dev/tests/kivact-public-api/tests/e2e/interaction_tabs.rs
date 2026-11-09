@@ -74,7 +74,7 @@ fn mount_tabs_mode(
     })
 }
 
-fn tab_of<'a>(screen: &'a Screen, name: &str) -> kivact::test::Element<'a> {
+fn tab_of<'a>(screen: &'a Screen, name: &str) -> kivact::test::Locator<'a> {
     screen.get_by_role(Role::Tab, name)
 }
 

@@ -88,7 +88,7 @@ VOC-1 は一つの意味に一つの型、VOC-2 は値を types、closure・動�
 | S-8 | 通知には Notifier を使う。counter は件数・ID・統計の意味がある場合だけ |
 | S-9 | ReportOnce、Sent、Generation、Mailbox、純粋 cache、統計を区別する。異なる事実を無理に一つの phase にしない |
 
-Options/Event/Phase/Reason/Input/Report/Tokens/Recipes、NodeBuilder の builder、Api、policy、純粋値は、それ自体では lifecycle を表さない。passive な record を検査から除くときは、各 field の直前に `xtask-allow(state-fields)` とその field が状態でない正確な理由を書く。型全体の曖昧なコメント、名前による広い除外は使わない。
+Options/Event/Phase/Reason/Input/Report/Tokens/Recipes、Element の builder、Api、policy、純粋値は、それ自体では lifecycle を表さない。passive な record を検査から除くときは、各 field の直前に `xtask-allow(state-fields)` とその field が状態でない正確な理由を書く。型全体の曖昧なコメント、名前による広い除外は使わない。
 
 Creative jobs の run/stop は独立した一つの入力であり、progress/amount は数値の測定事実である。effect が実 FrameLoop の start/stop だけを行う場合、bool を置換するだけの第二の Machine は不要である。
 
@@ -169,11 +169,11 @@ state の on_mount/on_cleanup は FnOnce の lifecycle 登録であり、node �
 
 ListItem、MenuEntry、Command、TreeNode、DataColumn、ToastOptions、StepperItem は passive な値として構築し、collection の reactive 性は外側に持つ。RenderOptions と AppOptions は private field と setter にまとめる。ThemeOptions と InteractionPolicy のような FRU の設定値は公開 field を持ち、構築前の通常値として渡す。variant の Default では owner を要する reactive 値を作らず、必要な reactive 値は明示 setter に渡す。
 
-`view::component(FnOnce → IntoView)` は mount 時に一度だけ実行する setup の境界。新しい child owner と透明な fragment の下で hook/cleanup を保つ。eager に factory を呼ぶことや、`provide(())` で空の context を置いて owner を偽造することでは代用しない。再度開く content は必要な factory を保ち、捨てた editor owner を再利用しない。
+`view::scope(FnOnce → IntoView)` は mount 時に一度だけ実行する setup の境界。新しい child owner と透明な fragment の下で hook/cleanup を保つ。eager に factory を呼ぶことや、`provide(())` で空の context を置いて owner を偽造することでは代用しない。再度開く content は必要な factory を保ち、捨てた editor owner を再利用しない。
 
 API-11 の診断は blanket impl の内側の bound を rustc が先に報告する場合もある。診断属性に加えて rustdoc の冒頭とガイドにも同じ修正 hint を記し、属性の文言が常に表示されることまでは前提にしない。
 
-API-8 は診断と標準 Rust Error の実際の境界にも限定例外を持つ。UiError/ErrorKind と diagnostics の Trace/NodeInfo/Snapshot の source location、および UiError.from_boxed の Error interop は元の意味を保ち、通常の部品へ拡大しない。理由は定義の直前に記す。__private や cross-crate bridge の到達性を止めるのは doc(hidden) と理由付き internal-contract の両方がある実装 edge だけである。IntoValue/IntoText の内部変換、Value/Binding の runtime/location、TextParagraph の backend adapter が該当する。外部部品の契約である NodeBuilder.node_mut は単に hidden であることだけでは検査対象から外さない。
+API-8 は診断と標準 Rust Error の実際の境界にも限定例外を持つ。UiError/ErrorKind と diagnostics の Trace/NodeInfo/Snapshot の source location、および UiError.from_boxed の Error interop は元の意味を保ち、通常の部品へ拡大しない。理由は定義の直前に記す。__private や cross-crate bridge の到達性を止めるのは doc(hidden) と理由付き internal-contract の両方がある実装 edge だけである。IntoValue/IntoText の内部変換、Value/Binding の runtime/location、TextParagraph の backend adapter が該当する。外部部品の契約である Element.node_mut は単に hidden であることだけでは検査対象から外さない。
 
 ### 共有データの境界
 
@@ -190,7 +190,7 @@ ShapedTextSnapshot と GlyphRunSnapshot は不変描画データを安価に clo
 | KIT-3 | UiTokens は元の kit override と theme に依存する値、recipes は形の差。全 recipe の値を無差別に token 化しない。README の実際の一覧と UiRecipes.filled/theme_conformance を一致させ、未実装は中核の既定を使う |
 | KIT-4 | 公開名は API-10 に従う |
 | KIT-5 | slot は API-6、children は IntoChildren。kit 私有の同義 slot/children trait を作らない |
-| KIT-6 | 見た目の選択は一つの Variant にまとめる。標準 NodeBuilder の disabled を隠さず、option 束は private field/setter、同義 alias は置かない |
+| KIT-6 | 見た目の選択は一つの Variant にまとめる。標準 Element の disabled を隠さず、option 束は private field/setter、同義 alias は置かない |
 | KIT-7 | kit の use_ は固有 domain に限る。共通 hook は core/interaction、状態は Machine |
 | KIT-8 | 標準 message は component.key、kit 固有は kit.component.name。共通意味に複数 key を作らない |
 | KIT-9 | kit の E2E は tests/consumer.rs と topic module の一つの binary。Screen.evidence、RenderOptions.with_theme/reduced_motion、Screen.assert_layout_clean を使い、意図した clip の例外は具体的に保つ |
@@ -381,7 +381,7 @@ pointer/focusによるpreviewとcaller bindingの確定値を区別する小さ�
 |---|---|
 | `crates/kivact-interaction/src/rating.rs`（新規） | use_rating、Api、previewのState/Event/遷移とPartを定義。callerの確定bindingと実previewの単一ownerを持ち、選択値のmirrorを作らない |
 | `crates/kivact-interaction/src/lib.rs` | 新しいbehaviorのmodule宣言と正準再公開 |
-| `crates/kivact-ui/src/rating.rs`（新規） | label/bindingを取る具体Rating builder、NodeBuilder/IntoView、slotと既存behaviorの配線 |
+| `crates/kivact-ui/src/rating.rs`（新規） | label/bindingを取る具体Rating builder、Element/IntoView、slotと既存behaviorの配線 |
 | `crates/kivact-ui/src/rating_values.rs`（新規） | 実behaviorからのreadonly recipe stateと部品固有Tokensを定義 |
 | `crates/kivact-ui/src/look_rating.rs`（新規） | root/itemの既定recipeをthemeと実stateから作る。viewや選択controllerは作らない |
 | `crates/kivact-ui/src/recipes.rs` | RatingRecipesの表、既定、override/read getterとUiRecipesへの登録 |

@@ -6,7 +6,7 @@ use kivact_core::custom::Reactive;
 use kivact_core::state::{IntoText, IntoValue, Value, memo};
 use kivact_core::style::{Direction, style};
 use kivact_core::view::{
-    CurrentItem, IntoView, Node, NodeBuilder, Orientation, Role, View, column, for_index, node,
+    CurrentItem, Element, IntoView, Node, Orientation, Role, View, column, for_index, node,
     node_ref, show, text,
 };
 use std::rc::Rc;
@@ -160,7 +160,7 @@ impl Stepper {
         self
     }
 }
-impl NodeBuilder for Stepper {
+impl Element for Stepper {
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }

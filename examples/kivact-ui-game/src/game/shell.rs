@@ -11,7 +11,7 @@ use kivact::geometry::Point;
 use kivact::geometry::Rect;
 use kivact::interaction::{Command, MenuEntry, Toast, Tone, toaster};
 use kivact::platform;
-use kivact::prelude::NodeBuilder;
+use kivact::prelude::Element;
 use kivact::prelude::{Key, Role, Signal, Theme, Value, effect, rgb, signal, spacer, text};
 use kivact::state::callback;
 use kivact::style::ThemeMode;

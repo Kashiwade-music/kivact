@@ -2,7 +2,7 @@
 //!
 //! Two bool/Option/counter fields, or an Option beside a State/Phase enum,
 //! require an explicit state model. Role suffixes, records, value modules,
-//! NodeBuilder implementations and Api option builders describe data instead.
+//! Element implementations and Api option builders describe data instead.
 //! `Strictness::Strict` closes the known gaps of that rule (SL-1 to SL-8).
 
 mod check;

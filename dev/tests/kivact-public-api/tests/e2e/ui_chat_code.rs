@@ -256,7 +256,7 @@ fn code_block_numbers_follow_native_wrapped_rows_and_recipe_line_height() {
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 
-fn gutter(root: kivact::test::Element<'_>) -> kivact::test::Element<'_> {
+fn gutter(root: kivact::test::Locator<'_>) -> kivact::test::Locator<'_> {
     let mut pending = vec![root];
     while let Some(element) = pending.pop() {
         if element.text().starts_with("1\n") {

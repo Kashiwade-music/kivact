@@ -108,7 +108,7 @@ fn single(
     )
 }
 
-fn cell<'a>(screen: &'a Screen, date: &str) -> kivact::test::Element<'a> {
+fn cell<'a>(screen: &'a Screen, date: &str) -> kivact::test::Locator<'a> {
     screen.get_by_role(Role::GridCell, date)
 }
 

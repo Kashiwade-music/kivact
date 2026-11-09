@@ -7,7 +7,7 @@ use kivact_core::state::{
 };
 use kivact_core::style::{Length, style};
 use kivact_core::view::{
-    Handled, IntoView, Node, NodeBuilder, View, ViewFn, icon, node, node_ref, scroll, text,
+    Element, Handled, IntoView, Node, View, ViewFn, icon, node, node_ref, scroll, text,
 };
 use kivact_interaction::{DialogMode, PopupState};
 
@@ -62,7 +62,7 @@ impl SelectionField {
         self
     }
 }
-impl NodeBuilder for SelectionField {
+impl Element for SelectionField {
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }

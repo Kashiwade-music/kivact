@@ -2,7 +2,7 @@
 //! The `IntoView` implementations for strings mount a plain text node.
 //!
 //! Invariant: a rich text is one text node whose `Content` is its spans'
-//! text joined (its accessible name and `Element::text`, one text for
+//! text joined (its accessible name and `Locator::text`, one text for
 //! assistive technology) and whose `TextSpans` style their ranges; one
 //! render effect writes both, so they always agree.
 //!
@@ -48,7 +48,7 @@ pub(crate) fn string_child(content: impl IntoText) -> Node {
 /// use kivact::view::{Span, rich_text, span};
 /// use kivact::state::{Signal};
 /// use kivact::style::{ColorToken};
-/// use kivact::view::{IntoView, NodeBuilder};
+/// use kivact::view::{IntoView, Element};
 ///
 /// /// `label` with the first match of `query` bold and highlighted.
 /// fn highlight(label: &str, query: &str) -> Vec<Span> {

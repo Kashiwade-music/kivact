@@ -85,7 +85,7 @@ impl Count {
 }
 
 /// A menu button toggling a menu overlay below it, and another button.
-fn menu(dismissed: Count, other: Count) -> impl Component {
+fn menu(dismissed: Count, other: Count) -> impl Element {
     let open = signal(false);
     let anchor = node_ref();
     column((

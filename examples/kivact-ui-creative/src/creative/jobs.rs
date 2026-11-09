@@ -8,7 +8,7 @@ use kivact::interaction::toaster;
 use kivact::motion::FrameRate;
 use kivact::motion::frame_loop;
 use kivact::prelude::{
-    IntoValue, IntoView, Node, NodeBuilder, Signal, effect, node, row, signal, spacer, text,
+    Element, IntoValue, IntoView, Node, Signal, effect, node, row, signal, spacer, text,
 };
 use kivact::style::GridPlacement;
 use kivact::style::style;

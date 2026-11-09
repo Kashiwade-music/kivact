@@ -13,10 +13,10 @@ use kivact::ui::Menu;
 use kivact::ui::button;
 use kivact::ui::menu;
 use kivact::ui::tooltip;
+use kivact::view::Element;
 use kivact::view::HandlerResult;
 use kivact::view::IntoView;
 use kivact::view::Node;
-use kivact::view::NodeBuilder;
 use kivact::view::OverlayAlign;
 use kivact::view::Placement;
 use kivact::view::View;
@@ -94,7 +94,7 @@ struct MoreTrigger {
     label: Value<String>,
 }
 
-impl NodeBuilder for MoreTrigger {
+impl Element for MoreTrigger {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         self.button.node_mut()
@@ -117,7 +117,7 @@ impl<K: ItemKey> IntoView for MoreMenu<K> {
     }
 }
 
-impl<K: ItemKey> NodeBuilder for MoreMenu<K> {
+impl<K: ItemKey> Element for MoreMenu<K> {
     fn node_mut(&mut self) -> &mut Node {
         self.button.node_mut()
     }

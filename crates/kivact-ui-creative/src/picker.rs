@@ -19,11 +19,11 @@ use kivact::state::{
 };
 use kivact::state::{IntoText, IntoValue, callback};
 use kivact::style::{Align, Icon, pct, style};
+use kivact::view::{Element, Node, column, icon, node, row, scroll, text};
 use kivact::view::{
     Handled, HandlerResult, IntoView, Key, KeyEvent, NodeRef, Overlay, Placement, PointerEvent,
     PointerPhase, Role, View, dynamic, for_each, node_ref, overlay, overlay_at,
 };
-use kivact::view::{Node, NodeBuilder, column, icon, node, row, scroll, text};
 
 use crate::feedback::glass_style;
 
@@ -275,7 +275,7 @@ impl<K: kivact::state::ItemKey> SearchPicker<K> {
     /// closes it. A press handler the trigger already has runs before the
     /// popup toggles; add it before calling `attach`. Setup only.
     #[track_caller]
-    pub fn attach<T: IntoView + NodeBuilder>(self, trigger: T) -> View {
+    pub fn attach<T: IntoView + Element>(self, trigger: T) -> View {
         let field = node_ref();
         let popup = use_popup(signal(false)).initial_focus(field);
         let part = popup.trigger();

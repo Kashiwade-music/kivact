@@ -5,7 +5,7 @@ use crate::parts::pressable;
 use kivact::ui::skeleton;
 
 use kivact::interaction::use_tooltip;
-use kivact::view::{Node, NodeBuilder, column, node, row, text};
+use kivact::view::{Element, Node, column, node, row, text};
 
 use kivact::state::{Callback, Value};
 use kivact::state::{IntoText, IntoValue, callback};
@@ -62,7 +62,7 @@ impl SidebarGroup {
     }
 }
 
-impl NodeBuilder for SidebarGroup {
+impl Element for SidebarGroup {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
@@ -123,7 +123,7 @@ impl IntoView for SidebarGroup {
 
 /// A list of menu buttons (`SidebarMenu`): a `Role::List` column of full-width rows.
 #[track_caller]
-pub fn sidebar_menu(children: impl IntoView) -> impl kivact::view::Component {
+pub fn sidebar_menu(children: impl IntoView) -> impl kivact::view::Element {
     column(children)
         .with_node(|root| root.role(Role::List))
         .style(style().width(pct(100)).min_width(0))
@@ -261,7 +261,7 @@ impl SidebarMenuButton {
     }
 }
 
-impl NodeBuilder for SidebarMenuButton {
+impl Element for SidebarMenuButton {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
@@ -444,7 +444,7 @@ impl SidebarMenuSubButton {
     }
 }
 
-impl NodeBuilder for SidebarMenuSubButton {
+impl Element for SidebarMenuSubButton {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
@@ -497,7 +497,7 @@ impl IntoView for SidebarMenuSubButton {
 
 /// A horizontal rule in the sidebar color (`SidebarSeparator`), inset by 8 px.
 #[track_caller]
-pub fn sidebar_separator() -> impl kivact::view::Component {
+pub fn sidebar_separator() -> impl kivact::view::Element {
     node()
         .with_node(|root| root.role(Role::Separator))
         .orientation(Orientation::Horizontal)
@@ -529,7 +529,7 @@ pub fn sidebar_input(
 /// A loading placeholder for a menu row (`SidebarMenuSkeleton`): a 16 px
 /// bar of a width between 50 % and 90 % that depends on where it was written.
 #[track_caller]
-pub fn sidebar_menu_skeleton() -> impl kivact::view::Component {
+pub fn sidebar_menu_skeleton() -> impl kivact::view::Element {
     let at = std::panic::Location::caller();
     let width = 50.0 + ((at.line() * 7 + at.column()) % 41) as f64;
     row(skeleton().style(style().height(16).grow(1).max_width(pct(width)))).style(
