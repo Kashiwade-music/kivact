@@ -1,11 +1,11 @@
 //! Role: Find implicit state combinations in structs, enum variants and statics.
 
+use super::classify::{Class, RuleContext, classify};
+use super::locals;
+use super::mode::{Mode, Strictness};
 use crate::check_policy::strings;
 use crate::check_source::Source;
 use crate::public_surface::definition;
-use crate::state_fields::classify::{Class, RuleContext, classify};
-use crate::state_fields::locals;
-use crate::state_fields::{Mode, Strictness};
 use std::collections::BTreeSet;
 use syn::spanned::Spanned;
 

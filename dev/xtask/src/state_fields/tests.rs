@@ -1,7 +1,8 @@
 //! Role: Verify state-field classification, markers and module statics.
 
+use super::check::check;
+use super::mode::{Mode, Strictness};
 use crate::check_source::fixture;
-use crate::state_fields::{Mode, Strictness, check};
 use std::collections::BTreeSet;
 
 fn run(text: &str, policy: &str, enums: &[&str]) -> Vec<String> {

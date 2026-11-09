@@ -1,9 +1,9 @@
 //! Role: Classify a field or static type as phase, stored state or neither.
 
+use super::mode::Strictness;
 use crate::check_policy::strings;
 use crate::check_source::Source;
 use crate::public_surface::Surface;
-use crate::state_fields::Strictness;
 use std::collections::BTreeSet;
 
 /// How a field or static takes part in a state combination.
