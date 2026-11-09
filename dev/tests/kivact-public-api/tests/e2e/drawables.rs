@@ -129,7 +129,10 @@ fn next_frame(screen: &Screen, share: &DrawableShare, after: u64) -> DrawableFra
         screen.run_until_idle();
         match share.wait(after, Duration::from_millis(5)) {
             Ok(ShareUpdate::Frame(frame)) => return frame,
-            #[cfg(feature = "gpu-interop")]
+            #[allow(
+                unreachable_patterns,
+                reason = "the textures variant exists only with the gpu-interop feature"
+            )]
             Ok(other) => panic!("a pixel export gave {other:?}"),
             Err(ShareError::Timeout) => {}
             Err(error) => panic!("the export failed: {error}"),
@@ -152,7 +155,10 @@ fn wait_on_thread(
     std::thread::spawn(move || {
         let result = match share.wait(after, timeout) {
             Ok(ShareUpdate::Frame(frame)) => Ok(frame),
-            #[cfg(feature = "gpu-interop")]
+            #[allow(
+                unreachable_patterns,
+                reason = "the textures variant exists only with the gpu-interop feature"
+            )]
             Ok(other) => panic!("a pixel export gave {other:?}"),
             Err(error) => Err(error),
         };

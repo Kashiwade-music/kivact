@@ -50,6 +50,8 @@ fn two_snapshots_are_differed_into_the_table() {
         ),
     ]);
     let screen = support::open(&fixture, "Performance");
+    screen.mouse_move(400.0, 300.0);
+    screen.scroll(0.0, 1000.0);
     let take = screen.get_by_role(Role::Button, "Take snapshot");
     take.click();
     take.click();
