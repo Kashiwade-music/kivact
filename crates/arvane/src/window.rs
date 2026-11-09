@@ -213,15 +213,18 @@ impl<'a> Windows<'a> {
     /// shell window.
     pub fn open(&mut self, request: WindowRequest) -> Result<(), ShellError> {
         let id = request.id;
-        let mut presenter = Presenter::new(Notes::new(self.observer.clone(), id), &self.env);
-        presenter.note(RendererChange::Start { gpu: self.gpu });
-        if self.gpu {
-            presenter.start_gpu(self.shell.waker());
-        }
+        let presenter = Presenter::new(Notes::new(self.observer.clone(), id), &self.env);
         self.presenters.insert(id, presenter);
         if let Err(error) = self.shell.open_window(request) {
             self.presenters.remove(&id);
             return Err(error);
+        }
+        // Only an opened window starts its renderer.
+        if let Some(presenter) = self.presenters.get_mut(&id) {
+            presenter.note(RendererChange::Start { gpu: self.gpu });
+            if self.gpu {
+                presenter.start_gpu(self.shell.waker());
+            }
         }
         Ok(())
     }

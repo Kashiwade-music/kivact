@@ -33,7 +33,7 @@
 use crate::contract::{HostEvent, NodeType, SyncRecord};
 use crate::lower::AssetEvent;
 use crate::model::Model;
-use crate::model::changes::{Dirty, Geometry};
+use crate::model::changes::{Dirty, Dispatched, Geometry};
 use kivact_types::{NodeId, Size};
 
 /// Whether settling performed pending layout and geometry work.
@@ -154,8 +154,7 @@ impl Model {
         touched.sort_unstable();
         self.report_images(&touched);
         let changes = self.changes.dispatch();
-        let redrawn: Vec<NodeId> = changes.marked(Dirty::REDRAW).collect();
-        self.record_sync(reasons, redrawn);
+        self.record_sync(reasons, &changes);
         let moved = changes.geometry != Geometry::Kept;
         let redraw = changes.paint
             || changes.fonts
@@ -170,8 +169,13 @@ impl Model {
         self.report_sessions();
     }
 
-    /// Keep one sync record for the DevTools when the sync dispatched work.
-    fn record_sync(&self, reasons: u8, redrawn: Vec<NodeId>) {
+    /// Keep one sync record for the DevTools when the sync dispatched work
+    /// and the DevTools records syncs (nothing is collected otherwise).
+    fn record_sync(&self, reasons: u8, changes: &Dispatched) {
+        if !self.log.syncs_recording() {
+            return;
+        }
+        let redrawn: Vec<NodeId> = changes.marked(Dirty::REDRAW).collect();
         if reasons == 0 && redrawn.is_empty() {
             return;
         }

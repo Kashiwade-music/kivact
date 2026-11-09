@@ -1,25 +1,29 @@
-//! Role: The App's record of its imports and the adapter signal.
+//! Role: The App's record of its imports and the adapters of its windows.
 
+use crate::view::state::current_window;
 use kivact_runtime::Signal;
 use kivact_runtime::{ErrorKind, UiError};
 use kivact_runtime::{Owner, Runtime};
-use kivact_types::{ExternalImageId, ExternalImport, GpuAdapter};
+use kivact_types::{ExternalImageId, ExternalImport, GpuAdapter, WindowId};
 use std::cell::RefCell;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::panic::Location;
 
-/// What `gpu_interop` keeps per App: its imports. The client installs it as
-/// a runtime extension when the App is created.
+/// What `gpu_interop` keeps per App: its imports and the adapter of each
+/// window's device. The client installs it as a runtime extension when the
+/// App is created.
 pub(crate) struct State {
     imports: RefCell<Imports>,
-    adapter: Signal<Option<GpuAdapter>>,
+    /// The adapter of the device drawing each window; a window without an
+    /// entry draws on the CPU or has no device yet.
+    adapter: Signal<BTreeMap<WindowId, GpuAdapter>>,
 }
 
 impl State {
     pub(crate) fn new(owner: Owner, at: &'static Location<'static>) -> Self {
         Self {
             imports: RefCell::default(),
-            adapter: owner.signal(None, at),
+            adapter: owner.signal(BTreeMap::new(), at),
         }
     }
 
@@ -65,22 +69,25 @@ impl ImportPhase {
 
 /// One import the App asked for and has not dropped.
 struct Import {
+    /// The window whose device imports the textures.
+    window: WindowId,
     status: Signal<ImportPhase>,
     /// Where `import` was called: its failure is located there.
     at: &'static Location<'static>,
 }
 
 impl State {
-    /// Record a new import with `status` and give it its id.
+    /// Record a new import into `window`'s device with `status` and give it its id.
     pub(super) fn register(
         &self,
+        window: WindowId,
         status: Signal<ImportPhase>,
         at: &'static Location<'static>,
     ) -> ExternalImageId {
         let mut imports = self.imports.borrow_mut();
         imports.last += 1;
         let id = ExternalImageId(imports.last);
-        imports.images.insert(id, Import { status, at });
+        imports.images.insert(id, Import { window, status, at });
         id
     }
 
@@ -124,24 +131,25 @@ pub enum ImportStatus {
     Dropped,
 }
 
-/// The adapter of the GPU device drawing the App's window, when the
-/// device can import shared textures (`None` until it is ready, while the
-/// window draws on the CPU, and on platforms other than Windows and
-/// Linux), tracked: a view or effect that reads it follows its changes.
-/// Make the engine's device on this adapter, with its graphics API
-/// ([`GpuAdapter::backend`]), then [`import`](super::import) its textures. A new
-/// [`GpuAdapter::generation`] means a new device: every import before it
-/// is `Lost`.
+/// The adapter of the GPU device drawing the window the call belongs to
+/// (`None` until its device is ready, while the window draws on the CPU,
+/// and on platforms other than Windows and Linux), tracked: a view or
+/// effect that reads it follows its changes. Make the engine's device on
+/// this adapter, with its graphics API ([`GpuAdapter::backend`]), then
+/// [`import`](super::import) its textures. A new [`GpuAdapter::generation`]
+/// means a new device: every import of the window before it is `Lost`.
 ///
 /// Like `platform::window_size`, it resolves the nearest owner at the
 /// call (setup, handler, task or effect); a located `SetupOnly` misuse
 /// outside every owner.
 #[track_caller]
 pub fn adapter() -> Option<GpuAdapter> {
-    let rt = kivact_runtime::Owner::ambient("adapter", Location::caller()).runtime();
+    let owner = Owner::ambient("adapter", Location::caller());
+    let window = current_window(owner);
+    let rt = owner.runtime();
     let signal = State::of(&rt).adapter;
     drop(rt);
-    signal.get()
+    signal.with(|adapters| adapters.get(&window).cloned())
 }
 
 /// The window answered the import `image` (`HostEvent::ExternalImported`).
@@ -173,21 +181,27 @@ pub(crate) fn imported(rt: &Runtime, image: ExternalImageId, result: &ExternalIm
     })
 }
 
-/// The window's adapter changed (`HostEvent::GpuAdapterChanged`): the
-/// imports of another device are lost.
-pub(crate) fn adapter_changed(rt: &Runtime, adapter: Option<&GpuAdapter>) {
+/// The adapter of `window`'s device changed (`HostEvent::GpuAdapterChanged`):
+/// its imports of another device are lost. The other windows keep theirs.
+pub(crate) fn adapter_changed(rt: &Runtime, window: WindowId, adapter: Option<&GpuAdapter>) {
     let generation = adapter.map(|a| a.generation);
     let statuses: Vec<Signal<ImportPhase>> = State::of(rt)
         .imports
         .borrow()
         .images
         .values()
+        .filter(|import| import.window == window)
         .map(|import| import.status)
         .collect();
     let signal = State::of(rt).adapter;
     // Only the adapter and the statuses are written here: no owner applies.
     rt.enter(|| {
-        signal.set(adapter.cloned());
+        let mut adapters = signal.get_untracked();
+        match adapter {
+            Some(adapter) => adapters.insert(window, adapter.clone()),
+            None => adapters.remove(&window),
+        };
+        signal.set(adapters);
         for status in statuses {
             let lost = status.with_untracked(|phase| {
                 matches!(phase, ImportPhase::Ready { generation: g } if Some(*g) != generation)
@@ -195,6 +209,19 @@ pub(crate) fn adapter_changed(rt: &Runtime, adapter: Option<&GpuAdapter>) {
             if lost {
                 status.set(ImportPhase::Lost);
             }
+        }
+    })
+}
+
+/// The window closed: its device is gone, so is its adapter.
+pub(crate) fn forget_window(rt: &Runtime, window: WindowId) {
+    let signal = State::of(rt).adapter;
+    // Only the adapter is written here: no owner applies.
+    rt.enter(|| {
+        if signal.with_untracked(|adapters| adapters.contains_key(&window)) {
+            let mut adapters = signal.get_untracked();
+            adapters.remove(&window);
+            signal.set(adapters);
         }
     })
 }

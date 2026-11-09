@@ -55,7 +55,8 @@ pub(super) fn frame_tick(
     estimated_present_ns: u64,
     clock: &MotionClock,
 ) {
-    rt.advance_clock(now_ns);
+    // The turn advanced the App's clock with host time; `now_ns` is the
+    // frame (motion) clock and is not applied to the App's clock again.
     MotionState::of(rt).on_frame_tick(rt, now_ns, estimated_present_ns, clock);
 }
 
