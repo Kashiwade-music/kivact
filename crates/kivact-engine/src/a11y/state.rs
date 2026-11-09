@@ -26,6 +26,13 @@ pub(super) enum Dirt {
     /// Only the payloads of `nodes` changed, by proven local text writes: the
     /// accepted identity metadata is reused.
     LocalText { nodes: BTreeSet<NodeId> },
+    /// Only geometry changed since the last accepted tree: the payloads of
+    /// `nodes` and of every node under `subtrees` are built again; the
+    /// accepted identity metadata is reused when the clipped rows are the same.
+    Geometry {
+        nodes: BTreeSet<NodeId>,
+        subtrees: BTreeSet<NodeId>,
+    },
     /// The identity and order metadata is enumerated again; besides what it
     /// finds, `nodes` (own payloads), `subtrees` (whole subtrees) and `removed`
     /// are dirty.
@@ -97,11 +104,47 @@ impl A11yState {
                     nodes: BTreeSet::from([id]),
                 };
             }
-            Dirt::LocalText { nodes } | Dirt::Metadata { nodes, .. } => {
+            Dirt::LocalText { nodes }
+            | Dirt::Geometry { nodes, .. }
+            | Dirt::Metadata { nodes, .. } => {
                 nodes.insert(id);
             }
             Dirt::Full => {}
         }
+    }
+    /// Note that `id` moved with its subtree: only geometry changed.
+    pub(crate) fn moved(&mut self, id: NodeId) {
+        let dirt = std::mem::replace(&mut self.dirt, Dirt::Clean);
+        self.dirt = match dirt {
+            Dirt::Clean => Dirt::Geometry {
+                nodes: BTreeSet::new(),
+                subtrees: BTreeSet::from([id]),
+            },
+            Dirt::LocalText { nodes } => Dirt::Geometry {
+                nodes,
+                subtrees: BTreeSet::from([id]),
+            },
+            Dirt::Geometry {
+                nodes,
+                mut subtrees,
+            } => {
+                subtrees.insert(id);
+                Dirt::Geometry { nodes, subtrees }
+            }
+            Dirt::Metadata {
+                nodes,
+                mut subtrees,
+                removed,
+            } => {
+                subtrees.insert(id);
+                Dirt::Metadata {
+                    nodes,
+                    subtrees,
+                    removed,
+                }
+            }
+            Dirt::Full => Dirt::Full,
+        };
     }
     pub(crate) fn node(&mut self, id: NodeId) {
         if let Some((nodes, _, _)) = self.metadata_dirt() {
@@ -139,6 +182,13 @@ impl A11yState {
                 self.dirt = Dirt::Metadata {
                     nodes,
                     subtrees: BTreeSet::new(),
+                    removed: BTreeSet::new(),
+                };
+            }
+            Dirt::Geometry { nodes, subtrees } => {
+                self.dirt = Dirt::Metadata {
+                    nodes,
+                    subtrees,
                     removed: BTreeSet::new(),
                 };
             }

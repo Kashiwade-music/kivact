@@ -172,7 +172,7 @@ impl Model {
         if computed || fitted {
             let geometry: Vec<_> = self.layout.drain_geometry_changes().collect();
             for change in &geometry {
-                self.a11y.subtree(change.id);
+                self.a11y.moved(change.id);
             }
             if recording {
                 laid_out = geometry.iter().map(|change| change.id).collect();
@@ -657,7 +657,7 @@ impl Model {
             n.scroll = o;
         }
         self.changes.scrolled(id);
-        self.a11y.subtree(id);
+        self.a11y.moved(id);
         true
     }
 

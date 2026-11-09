@@ -10,6 +10,7 @@ use arvane as a;
 use kivact_types as types;
 use std::collections::BTreeSet;
 use std::hash::{DefaultHasher, Hash, Hasher};
+use std::rc::Rc;
 
 /// A semantics tree built for publication and the identity metadata it was
 /// built with (`None`: a local text build reused the accepted metadata).
@@ -29,7 +30,8 @@ impl Model {
     }
 
     /// Build the payloads `dirt` asks for, with the identity metadata the
-    /// build used (`None`: a local text build reused the accepted one).
+    /// build used (`None`: a local text or geometry build reused the accepted
+    /// one).
     pub(in crate::a11y) fn build_semantics_for(
         &mut self,
         engine: &mut a::Engine,
@@ -44,6 +46,9 @@ impl Model {
                 tree: self.build_local_text(root, nodes, engine),
                 metadata: None,
             };
+        }
+        if let Dirt::Geometry { nodes, subtrees } = dirt {
+            return self.build_geometry_semantics(root, nodes, subtrees, engine);
         }
         let empty = BTreeSet::new();
         let (own, subtrees, removed) = match dirt {
@@ -75,6 +80,52 @@ impl Model {
                 }
             }
         }
+        let tree = self.build_semantics_tail(root, full, &metadata, subtree_roots, dirty, engine);
+        Built {
+            tree,
+            metadata: Some(metadata),
+        }
+    }
+
+    /// Geometry-only dirt: reuse the accepted identity metadata when the
+    /// clipped rows are the same, else enumerate the identity again first.
+    fn build_geometry_semantics(
+        &mut self,
+        root: types::NodeId,
+        nodes: &BTreeSet<types::NodeId>,
+        subtrees: &BTreeSet<types::NodeId>,
+        engine: &mut a::Engine,
+    ) -> Built {
+        let clipped = self.clipped_rows();
+        if clipped != self.a11y.metadata.clipped {
+            let promoted = Dirt::Metadata {
+                nodes: nodes.clone(),
+                subtrees: subtrees.clone(),
+                removed: BTreeSet::new(),
+            };
+            return self.build_semantics_for(engine, &promoted);
+        }
+        let metadata = Rc::clone(&self.a11y.metadata);
+        let tree =
+            self.build_semantics_tail(root, false, &metadata, subtrees, nodes.clone(), engine);
+        Built {
+            tree,
+            metadata: None,
+        }
+    }
+
+    /// Expand `dirty` and build the payloads; `subtree_roots` are rebuilt with
+    /// everything under them, and a changed modal dirties all descendants.
+    fn build_semantics_tail(
+        &mut self,
+        root: types::NodeId,
+        full: bool,
+        metadata: &Metadata,
+        subtree_roots: &BTreeSet<types::NodeId>,
+        mut dirty: BTreeSet<types::NodeId>,
+        engine: &mut a::Engine,
+    ) -> kivact_types::render::SemanticsTree {
+        let order = self.semantic_order();
         let modal_changed = metadata.modal != self.a11y.metadata.modal;
         let mut inherited = BTreeSet::new();
         for &id in &order {
@@ -89,21 +140,18 @@ impl Model {
             }
         }
         self.expand_overlay_dirt(&order, &inherited, &mut dirty);
-        self.expand_relation_dirt(&metadata, &mut dirty);
+        self.expand_relation_dirt(metadata, &mut dirty);
         self.invalidate_boxless_ancestors(&mut dirty);
-        let nodes = self.build_dirty_nodes(root, full, &dirty, &metadata, engine);
+        let nodes = self.build_dirty_nodes(root, full, &dirty, metadata, engine);
         #[cfg(feature = "testing")]
         {
             self.a11y.constructed += nodes.len() as u64;
         }
         let focus = self.semantics_focus(&metadata.clipped);
-        Built {
-            tree: kivact_types::render::SemanticsTree {
-                root: kivact_types::SemanticsId(root.0),
-                focus,
-                nodes,
-            },
-            metadata: Some(metadata),
+        kivact_types::render::SemanticsTree {
+            root: kivact_types::SemanticsId(root.0),
+            focus,
+            nodes,
         }
     }
     fn build_empty_semantics(&mut self) -> Built {
