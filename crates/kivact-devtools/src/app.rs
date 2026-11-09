@@ -62,16 +62,22 @@ fn screen(state: Connection, connection: Signal<Connection>) -> View {
     }
 }
 
-/// The toolbar, the panel tabs, the status bar and the popped-out windows.
+/// The toolbar, the panel tabs, the selected panel, the status bar and the popped-out windows.
+///
+/// The selected panel sits in a column that takes the rest of the window, so that its body can scroll.
 fn session_view(session: Session) -> impl IntoView {
     column((
         toolbar::view(session),
-        tabs("Panels", panel_items(), session.panel)
-            .content(move |panel| panel_view(panel, session))
-            .style(style().grow(1).min_height(0)),
+        tabs("Panels", panel_items(), session.panel),
+        column(dynamic(
+            move || session.panel.get(),
+            move |panel| panel_view(panel, session),
+        ))
+        .style(style().grow(1).shrink(1).min_height(0)),
         status_bar::view(session),
         popped_windows(session),
     ))
+    .style(style().size(pct(100), pct(100)).min_height(0))
 }
 
 /// The tabs of every panel.
@@ -121,7 +127,10 @@ fn popped_windows(session: Session) -> impl IntoView {
                 ),
             )
             .size(900, 600)
-            .content(move || panel_view(panel, session))
+            .content(move || {
+                column((panel_view(panel, session),))
+                    .style(style().size(pct(100), pct(100)).min_height(0))
+            })
         },
     )
 }

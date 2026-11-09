@@ -3,7 +3,6 @@
 use kivact::draw::{Draw, Stroke, TextFormat};
 use kivact::geometry::Rect;
 use kivact::prelude::*;
-use kivact::style::Length;
 use kivact_devtools_protocol as p;
 use kivact_ui_basic as basic;
 
@@ -37,10 +36,6 @@ pub(crate) fn view(session: Session) -> impl IntoView {
                 .collect::<Vec<_>>()
         })
     });
-    // The toolbar, the tab list and the status bar around the panel.
-    let height = memo(move || {
-        Length::from((kivact::platform::window_size().get().height - 120.0).max(160.0))
-    });
     scroll(
         column((
             controls(session, window, frames),
@@ -51,7 +46,7 @@ pub(crate) fn view(session: Session) -> impl IntoView {
         ))
         .style(style().gap(12).padding(12).width(pct(100))),
     )
-    .style(move || style().height(height.get()).width(pct(100)).min_height(0))
+    .style(style().grow(1.0).min_height(0.0).width(pct(100)))
 }
 
 /// The window select, the renderer, the trace export and the paint flashing toggle.
@@ -82,7 +77,7 @@ fn controls(
         ),
         text(move || frame_summary(&frames.get())),
         spacer(),
-        button("Export trace").on_press(move || export_trace(session)),
+        button("Export as Perfetto").on_press(move || export_trace(session)),
         paint_flashing_toggle(session),
     ))
     .style(style().gap(8).align_items(Align::Center))

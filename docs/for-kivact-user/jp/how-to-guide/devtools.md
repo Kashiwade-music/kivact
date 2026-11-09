@@ -70,13 +70,13 @@ Elements パネルは、toolbar で選んだウィンドウの要素ツリーを
 
 ## スタイルを編集する
 
-Styles タブはスタイルの層を優先の高い順に並べます。checkbox で各 override を有効・無効にし、値の入力は Enter で適用します。override の範囲は次の 3 つです。
+Styles タブはスタイルの層を優先の高い順に並べます。各行には、override を有効・無効にする checkbox と、Enter で新しい値を適用する値の入力があります。scope の select で、override が届く範囲を選びます。
 
 - このノードだけ
 - 同じ呼び出し位置から作られたすべてのノード
-- theme token
+- theme token（値が theme token の行だけに出ます）
 
-同じタブで、hover や pressed などの interactive state を強制することもできます。空の一覧にすると解除されます。「Record changes in review」をオンにすると、変更が review の item に記録されます。
+「Forced states」の toggle で、hover や pressed などの interactive state を強制できます。空の一覧にすると解除されます。「Record change to review」を押すと、変更が review の item に記録されます。
 
 ## review にコメントして書き出す
 
@@ -170,11 +170,11 @@ Styles タブはスタイルの層を優先の高い順に並べます。checkbo
 
 ## 画面が更新された理由を見る
 
-toolbar で記録を始めてからアプリを操作します。Updates パネルは、入力・更新・frame のレーンを持つ時間軸を表示します。turn はきっかけで色分けされ、frame の予算線と比べられます。範囲を選ぶと拡大できます。下には選んだ turn の原因グラフが出て、きっかけから状態の変化、再計算、変わった要素、layout/paint/frame の帯へと進みます。カードをクリックすると target の要素が強調され、ダブルクリックで editor が開きます。まとめた node は「×N」で展開できます。「画面で点滅」と「選んだ要素だけ」を切り替えられ、画面上のヒートマップも使えます。
+toolbar で記録を始めてからアプリを操作します。Updates パネルは、入力・更新・frame のレーンを持つ時間軸を表示します。turn はきっかけで色分けされ、frame の予算線と比べられます。時間軸の上でドラッグすると、その範囲に拡大されます。「Reset zoom」を押すか、時間軸をダブルクリックすると全体に戻ります。下には選んだ turn の原因グラフが出て、きっかけから状態の変化、再計算、変わった要素、layout/paint/frame の帯へと進みます。カードをクリックすると target の要素が強調され、ダブルクリックで editor が開きます。まとめたカードには「×N」が出て、押すとまとめた要素の一覧が開き、行をクリックするとその要素が強調されます。toggle は「Paint flashing」（描き直した箱を点滅させる）、「Layout lint」（layout の問題を縁取る）、「Update heatmap」（描き直された回数で要素に色を付ける）、「Selected element only」（点滅とヒートマップを、強調した要素とその子だけにする）です。
 
 ## パフォーマンスを測る
 
-Performance パネルは、frame の時間をウィンドウごとの予算線付きの棒で表示し、turn の Stage と frame の段階を flame chart にし、GPU と CPU のどちらで描いたか（fallback を含む）を示します。Counters は折れ線で、snapshot を取って 2 つの差分を見れば、何が増えて何が消えたかが分かります。paint flashing の toggle は、描き直した箱を点滅させます。「Perfetto 形式で書き出す」は `.kivact/traces/` に番号付きの名前で file を書きます。
+Performance パネルは、frame の時間をウィンドウごとの予算線付きの棒で表示し、turn の Stage と frame の段階を flame chart にし、GPU と CPU のどちらで描いたか（fallback を含む）を示します。Counters は折れ線で、snapshot を取って 2 つの差分を見れば、何が増えて何が消えたかが分かります。paint flashing の toggle は、描き直した箱を点滅させます。「Export as Perfetto」は `.kivact/traces/` に番号付きの名前で file を書きます。
 
 ## アクセシビリティを確かめる
 

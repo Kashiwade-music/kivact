@@ -106,17 +106,17 @@ in the target to select it.
 
 ## Edit styles
 
-The Styles tab lists the style layers from the highest priority down. A
-checkbox turns each override on and off, and the value input applies a new value
-on Enter. An override has one of three scopes:
+The Styles tab lists the style layers from the highest priority down. Each row has a
+checkbox that turns its override on and off, and a value input that applies a new
+value on Enter. The scope select sets which elements an override reaches:
 
 - this node only;
 - every node created from the same call site;
-- a theme token.
+- a theme token, offered only for rows whose value is a theme token.
 
-The same tab toggles forced interactive states such as hover and pressed; an
-empty list releases them. Turn on "Record changes in review" to record the
-changes in the review item.
+The "Forced states" toggles force interactive states such as hover and pressed; an
+empty list releases them. Click "Record change to review" to record the change in
+the review item.
 
 ## Comment and export a review
 
@@ -217,12 +217,17 @@ The matching `review.md`:
 
 Start recording from the toolbar, then use the app. The Updates panel shows a
 timeline with lanes for input, updates and frames. Each turn is colored by its
-cause and drawn against the frame budget; select a range to zoom. Below it, the
-cause graph of the selected turn goes from the cause to the state changes, the
-recalculation, the elements that changed, and the layout, paint and frame bands.
-Click a card to highlight the element in the target, or double-click it to open
-the editor. A grouped set of nodes expands with "×N". You can switch between
-"flash on screen" and "selected element only", and draw a heatmap on the screen.
+cause and drawn against the frame budget. Drag across the timeline to zoom to that
+time range; "Reset zoom", or a double click on the timeline, returns to the full
+range. Below it, the cause graph of the selected turn goes from the cause to the
+state changes, the recalculation, the elements that changed, and the layout, paint
+and frame bands. Click a card to highlight the element in the target, or
+double-click it to open the editor. A grouped card shows "×N"; press it to list the
+elements in the group, and click one to highlight it. The toggles are "Paint
+flashing" (flash the boxes that were redrawn), "Layout lint" (outline layout
+problems), "Update heatmap" (color the elements by how often they are redrawn),
+and "Selected element only" (limit paint flashing and the heatmap to the
+highlighted element and its descendants).
 
 ## Measure performance
 

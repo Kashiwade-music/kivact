@@ -17,13 +17,17 @@ pub(crate) fn view(session: Session) -> impl IntoView {
             .turns
             .with(|turns| selected.and_then(|turn| turns.iter().find(|t| t.turn == turn).cloned()))
     });
+    let causes = memo(move || {
+        turn.with(|turn| {
+            turn.as_ref().map(|turn| graph::Causes {
+                nodes: turn.nodes.clone(),
+                edges: turn.edges.clone(),
+            })
+        })
+    });
     let graph = graph::cause_graph(
-        turn,
-        move |cause| {
-            if let Some(node) = cause.node {
-                session.highlight(Some(node), false);
-            }
-        },
+        causes,
+        move |node| session.highlight(Some(node), false),
         move |source| session.open_source(source),
     );
     column((
@@ -168,6 +172,12 @@ fn overlays(session: Session) -> impl IntoView {
             "Paint flashing",
             |settings| settings.paint_flashing,
             |settings, on| settings.paint_flashing = on,
+        ),
+        overlay_toggle(
+            session,
+            "Selected element only",
+            |settings| settings.selected_only,
+            |settings, on| settings.selected_only = on,
         ),
         overlay_toggle(
             session,

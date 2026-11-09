@@ -1,5 +1,7 @@
 //! Role: The Accessibility panel.
 
+use std::collections::HashMap;
+
 use kivact::interaction::{ListOptions, TableFocus, TreeNode};
 use kivact::prelude::*;
 use kivact_devtools_protocol as p;
@@ -17,7 +19,11 @@ pub(crate) fn view(session: Session) -> impl IntoView {
     let tree_selected = signal(None::<p::NodeId>);
     let audit_selected = signal(Vec::<usize>::new());
 
-    on_mount(move || load(session, tree, audit, focus, tab_order, expanded));
+    let window = memo(move || session.window());
+    effect(move || {
+        let window = window.get();
+        load(session, window, tree, audit, focus, tab_order, expanded);
+    });
     effect_on(audit_selected, move |keys| {
         let Some(index) = keys.first().copied() else {
             return;
@@ -33,11 +39,22 @@ pub(crate) fn view(session: Session) -> impl IntoView {
         }
     });
 
-    column((
-        tree_section(session, tree, tab_order, expanded, tree_selected),
-        audit_section(audit, audit_selected),
-        focus_section(focus),
-    ))
+    scroll(
+        column((
+            row((
+                spacer(),
+                button("Refresh").on_press(move || {
+                    let window = session.window();
+                    load(session, window, tree, audit, focus, tab_order, expanded);
+                }),
+            ))
+            .style(style().align_items(Align::Center)),
+            tree_section(session, tree, tab_order, expanded, tree_selected),
+            audit_section(audit, audit_selected),
+            focus_section(focus),
+        ))
+        .style(style().gap(8)),
+    )
     .style(style().grow(1.0).min_height(0.0))
 }
 
@@ -49,15 +66,22 @@ fn tree_section(
     expanded: Signal<Vec<p::NodeId>>,
     selected: Signal<Option<p::NodeId>>,
 ) -> impl IntoView {
-    let nodes = memo(move || match tree.get() {
-        Some(tree) => tree
-            .nodes
-            .iter()
-            .map(|node| TreeNode::new(node.node, node.parent, node_label(&tree, node.node)))
-            .collect(),
-        None => Vec::new(),
+    let labels = memo(move || tree.with(|tree| tree.as_ref().map(label_map).unwrap_or_default()));
+    let nodes = memo(move || {
+        tree.with(|tree| match tree {
+            Some(tree) => labels.with(|labels| {
+                tree.nodes
+                    .iter()
+                    .map(|node| {
+                        let label = labels.get(&node.node).cloned().unwrap_or_default();
+                        TreeNode::new(node.node, node.parent, label)
+                    })
+                    .collect()
+            }),
+            None => Vec::new(),
+        })
     });
-    let row_tree = tree;
+    let row_labels = labels;
     let tree_view = virtual_tree(
         "Accessibility tree",
         nodes,
@@ -66,10 +90,11 @@ fn tree_section(
         move |node| {
             let node = *node;
             text(move || {
-                row_tree.with(|tree| {
-                    tree.as_ref()
-                        .map(|tree| node_label(tree, node))
-                        .unwrap_or_default()
+                row_labels.with(|labels| {
+                    labels
+                        .get(&node)
+                        .cloned()
+                        .unwrap_or_else(|| node.to_string())
                 })
             })
             .into_view()
@@ -121,13 +146,13 @@ fn focus_section(focus: Signal<Option<p::FocusInfo>>) -> impl IntoView {
 /// Load the accessibility tree, audit, focus and Tab order of the window.
 fn load(
     session: Session,
+    window: p::WindowId,
     tree: Signal<Option<p::A11yTree>>,
     audit: Signal<Option<p::AuditReport>>,
     focus: Signal<Option<p::FocusInfo>>,
     tab_order: Signal<Option<p::TabOrder>>,
     expanded: Signal<Vec<p::NodeId>>,
 ) {
-    let window = session.window();
     let params = p::WindowParams { window };
     session.send::<p::GetA11yTree>(params.clone(), move |result| {
         expanded.set(
@@ -221,11 +246,16 @@ fn focus_view(info: Value<p::FocusInfo>) -> impl IntoView {
     ))
 }
 
+/// The label of every node of the tree, built once per tree so that the rows look them up.
+fn label_map(tree: &p::A11yTree) -> HashMap<p::NodeId, String> {
+    tree.nodes
+        .iter()
+        .map(|node| (node.node, node_label(node)))
+        .collect()
+}
+
 /// The label of one accessibility node: its role and its name.
-fn node_label(tree: &p::A11yTree, id: p::NodeId) -> String {
-    let Some(node) = tree.nodes.iter().find(|node| node.node == id) else {
-        return id.to_string();
-    };
+fn node_label(node: &p::A11yNode) -> String {
     let role = node
         .semantics
         .role
