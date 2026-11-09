@@ -150,6 +150,83 @@ fn make_host(
     Ok(Rc::new(RefCell::new(host)))
 }
 
+/// The virtual platform of a test window as `options` says.
+fn virtual_options(options: &TestHostOptions) -> VirtualOptions {
+    let default_capabilities = VirtualOptions::default().capabilities;
+    VirtualOptions {
+        main: WindowRequest::main(
+            options.title.clone(),
+            Size {
+                width: options.width,
+                height: options.height,
+            },
+        ),
+        scale: options.scale,
+        frame_period_ns: options.frame_period_ns,
+        reduced_motion: options.reduced_motion,
+        dark: options.theme == ThemeHint::Dark,
+        locale: options.locale.clone(),
+        mirror: options.mirror,
+        gpu: options.gpu,
+        capabilities: Capabilities {
+            multi_window: !options.single_window,
+            window_placement: !options.single_window,
+            ..default_capabilities
+        },
+        restored_state: options.restored_state.clone(),
+    }
+}
+
+/// The GPU wish of a test: a GPU test starts the device with its window.
+fn gpu_preference(options: &TestHostOptions) -> kivact_types::GpuPreference {
+    kivact_types::GpuPreference {
+        // A GPU test draws its first frames on the GPU.
+        start: if options.gpu == GpuMode::Required {
+            kivact_types::gpu::GpuStart::AtLaunch
+        } else {
+            options.gpu_preference.start
+        },
+        ..options.gpu_preference
+    }
+}
+
+/// Note each window's renderer state in `observed`.
+fn renderer_observer(
+    observed: Rc<RefCell<BTreeMap<WindowId, RendererState>>>,
+) -> Option<arvane::Observer> {
+    Some(Rc::new(RefCell::new(
+        move |window, change: &RendererChange| {
+            let state = match change {
+                RendererChange::Start { .. } => RendererState::Ready(Renderer::Cpu),
+                RendererChange::Gpu { .. } => RendererState::Ready(Renderer::Gpu),
+                RendererChange::Cpu { reason } => RendererState::Failed(reason.clone()),
+                RendererChange::ExternalFrameMissed { .. }
+                | RendererChange::ShaderFailed { .. }
+                | RendererChange::LimitExceeded { .. } => return,
+            };
+            observed.borrow_mut().insert(window, state);
+        },
+    )))
+}
+
+/// Start the stepped shell of `backend` with the test's GPU wish.
+fn start_shell(
+    backend: VirtualBackend,
+    options: &TestHostOptions,
+    shared: SharedHost,
+    observer: Option<arvane::Observer>,
+) -> Result<SteppedShell, ShellError> {
+    Shell::start_stepped(
+        Box::new(backend),
+        ShellSetup {
+            prefer_gpu: options.gpu == GpuMode::Required,
+            gpu_preference: gpu_preference(options),
+            observer,
+        },
+        shared,
+    )
+}
+
 impl ArvaneTestHost {
     /// Engine mutation access for existing backend contract E2E tests.
     pub fn writer(&self) -> crate::api::Writer {
@@ -166,69 +243,23 @@ impl ArvaneTestHost {
     /// first revision asks for).
     pub fn new(client: Client, options: TestHostOptions) -> Result<Self, HostError> {
         let error = |e: &dyn std::fmt::Display| HostError::new(e.to_string());
-        let default_capabilities = VirtualOptions::default().capabilities;
-        let backend = VirtualBackend::new(VirtualOptions {
-            main: WindowRequest::main(
-                options.title.clone(),
-                Size {
-                    width: options.width,
-                    height: options.height,
-                },
-            ),
-            scale: options.scale,
-            frame_period_ns: options.frame_period_ns,
-            reduced_motion: options.reduced_motion,
-            dark: options.theme == ThemeHint::Dark,
-            locale: options.locale.clone(),
-            mirror: options.mirror,
-            gpu: options.gpu,
-            capabilities: Capabilities {
-                multi_window: !options.single_window,
-                window_placement: !options.single_window,
-                ..default_capabilities
-            },
-            restored_state: options.restored_state.clone(),
-        });
+        let backend = VirtualBackend::new(virtual_options(&options));
         let script = backend.script();
         let probe = backend.probe();
         let counts = Rc::new(Counts::default());
         let host = make_host(client, &options, counts.clone())?;
         let renderer = Rc::new(RefCell::new(BTreeMap::new()));
-        let observed = renderer.clone();
         let injected = Rc::new(RefCell::new(Vec::new()));
         let controls = Rc::new(RefCell::new(Vec::new()));
-        let shell = Shell::start_stepped(
-            Box::new(backend),
-            ShellSetup {
-                prefer_gpu: options.gpu == GpuMode::Required,
-                gpu_preference: kivact_types::GpuPreference {
-                    // A GPU test draws its first frames on the GPU.
-                    start: if options.gpu == GpuMode::Required {
-                        kivact_types::gpu::GpuStart::AtLaunch
-                    } else {
-                        options.gpu_preference.start
-                    },
-                    ..options.gpu_preference
-                },
-                observer: Some(Rc::new(RefCell::new(
-                    move |window, change: &RendererChange| {
-                        let state = match change {
-                            RendererChange::Start { .. } => RendererState::Ready(Renderer::Cpu),
-                            RendererChange::Gpu { .. } => RendererState::Ready(Renderer::Gpu),
-                            RendererChange::Cpu { reason } => RendererState::Failed(reason.clone()),
-                            RendererChange::ExternalFrameMissed { .. }
-                            | RendererChange::ShaderFailed { .. }
-                            | RendererChange::LimitExceeded { .. } => return,
-                        };
-                        observed.borrow_mut().insert(window, state);
-                    },
-                ))),
-            },
+        let shell = start_shell(
+            backend,
+            &options,
             SharedHost {
                 host: host.clone(),
                 injected: injected.clone(),
                 controls: controls.clone(),
             },
+            renderer_observer(renderer.clone()),
         )
         .map_err(|e| error(&e))?;
         let mut driver = Self {
