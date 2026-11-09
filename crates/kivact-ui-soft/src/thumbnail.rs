@@ -53,11 +53,8 @@ pub enum RemoveReveal {
 /// A preview of an image attachment.
 pub struct Thumbnail {
     root: Node,
-    // xtask-allow(state-fields): Optional immutable image asset, independent of upload status.
     source: Option<Asset>,
-    // xtask-allow(state-fields): Optional read-only image alternative text.
     alt: Option<Value<String>>,
-    // xtask-allow(state-fields): Optional read-only attachment label.
     label: Option<Value<String>>,
     press: Option<Box<dyn Fn()>>,
     remove: Option<Box<dyn Fn()>>,

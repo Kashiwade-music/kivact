@@ -24,15 +24,10 @@ pub struct Disclosure {
     content: kivact_core::view::ViewFn,
     motion: DisclosureMotion,
     variants: Variants,
-    // xtask-allow(state-fields): builder option - always open
     always_open: bool,
-    // xtask-allow(state-fields): builder option - keep mounted
     keep_mounted: bool,
-    // xtask-allow(state-fields): builder option - heading level
     heading_level: Option<u32>,
-    // xtask-allow(state-fields): builder option - animation
     animation: Option<Value<bool>>,
-    // xtask-allow(state-fields): builder option - group
     group: Option<crate::DisclosureGroupPosition>,
 }
 

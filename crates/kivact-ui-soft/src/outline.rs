@@ -88,13 +88,10 @@ pub enum OutlineDensity {
 pub struct Outline {
     root: Node,
     items: Value<Vec<OutlineItem>>,
-    // xtask-allow(state-fields): Optional caller-owned active-heading binding.
     active: Option<Binding<Option<String>>>,
     density: Value<OutlineDensity>,
     offset: Value<f64>,
-    // xtask-allow(state-fields): Optional mounted scroll-viewport reference, not scroll phase.
     viewport: Option<NodeRef>,
-    // xtask-allow(state-fields): Optional mounted content reference used for geometry observation.
     content: Option<NodeRef>,
     scroll_on_press: Value<bool>,
     change: Option<Callback<String>>,

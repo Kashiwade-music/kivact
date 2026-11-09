@@ -58,23 +58,17 @@ use crate::component_values::AlertState;
 pub struct Alert {
     root: Node,
     title: Value<String>,
-    // xtask-allow(state-fields): builder option - description
     description: Option<Value<String>>,
-    // xtask-allow(state-fields): builder option - icon
     icon: Option<View>,
-    // xtask-allow(state-fields): builder option - actions
     actions: Option<View>,
     content: Option<ViewFn>,
     collapsible: Value<bool>,
-    // xtask-allow(state-fields): builder option - open
     open: Option<Binding<bool>>,
     tone: Value<Tone>,
     dismissible: Value<bool>,
     dismiss_label: Value<String>,
-    // xtask-allow(state-fields): builder option - dismiss content
     dismiss_content: Option<View>,
     dismiss: Option<Callback<()>>,
-    // xtask-allow(state-fields): builder option - visible
     visible: Option<Binding<bool>>,
     variants: Variants,
 }

@@ -56,12 +56,9 @@ pub struct Attachment {
     size: Value<AttachmentSize>,
     orientation: Value<Orientation>,
     state: Value<AttachmentState>,
-    // xtask-allow(state-fields): builder option - media
     media: Option<kivact::view::View>,
     media_variant: AttachmentMediaVariant,
-    // xtask-allow(state-fields): builder option - description
     description: Option<Value<String>>,
-    // xtask-allow(state-fields): builder option - actions
     actions: Option<kivact::view::View>,
     on_press: Option<Callback<()>>,
 }

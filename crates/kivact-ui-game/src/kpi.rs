@@ -13,12 +13,9 @@ pub struct Kpi {
     label: Value<String>,
     target: f64,
     unit: Value<String>,
-    // xtask-allow(state-fields): builder option - change
     change: Option<Value<String>>,
     tone: Tone,
-    // xtask-allow(state-fields): builder option - heading
     heading: Option<View>,
-    // xtask-allow(state-fields): builder option - trend
     trend: Option<Value<Vec<f64>>>,
     format: Box<dyn Fn(f64) -> String>,
 }

@@ -11,33 +11,20 @@ pub struct ChatMessage {
     root: Node,
     author: Value<String>,
     sender: Value<ChatSender>,
-    // xtask-allow(state-fields): builder option - status
     status: Option<Value<ChatMessageStatus>>,
-    // xtask-allow(state-fields): builder option - time
     time: Option<Value<String>>,
-    // xtask-allow(state-fields): builder option - content
     content: Option<View>,
-    // xtask-allow(state-fields): builder option - avatar
     avatar: Option<View>,
-    // xtask-allow(state-fields): builder option - header
     header: Option<View>,
-    // xtask-allow(state-fields): builder option - footer
     footer: Option<View>,
-    // xtask-allow(state-fields): builder option - metadata
     metadata: Option<View>,
-    // xtask-allow(state-fields): builder option - media
     media: Option<View>,
-    // xtask-allow(state-fields): builder option - icon
     icon: Option<View>,
-    // xtask-allow(state-fields): builder option - actions
     actions: Option<View>,
-    // xtask-allow(state-fields): builder option - reactions
     reactions: Option<View>,
-    // xtask-allow(state-fields): builder option - align
     align: Option<Value<ChatAlign>>,
     group: ChatBubbleGroup,
     reactions_side: Value<ChatReactionsSide>,
-    // xtask-allow(state-fields): builder option - bubble width
     bubble_width: Option<Value<kivact_core::style::Length>>,
     on_press: Option<Callback<()>>,
     variants: Variants,

@@ -18,9 +18,7 @@ pub fn trace(children: impl IntoView) -> Node {
 pub struct TraceLine {
     root: Node,
     title: Value<String>,
-    // xtask-allow(state-fields): builder option - icon
     icon: Option<View>,
-    // xtask-allow(state-fields): builder option - description
     description: Option<Value<String>>,
 }
 

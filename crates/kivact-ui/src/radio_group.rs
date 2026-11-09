@@ -28,9 +28,7 @@ pub struct RadioGroup<K: kivact_core::state::ItemKey> {
     orientation: Orientation,
     size: Value<ControlSize>,
     on_edit: Option<Callback<EditPhase>>,
-    // xtask-allow(state-fields): builder option - the item builder a setter supplied
     item: Option<OptionContent<K>>,
-    // xtask-allow(state-fields): builder option - the shared per-item node a setter supplied
     item_node: Option<ItemNode<K>>,
     variants: Variants,
 }

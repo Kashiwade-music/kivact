@@ -107,7 +107,7 @@ fn validate_policy(policy: &toml::Table) -> Result<(), String> {
     Ok(())
 }
 
-fn model_types(
+pub(crate) fn model_types(
     sources: &[crate::check_source::Source],
     surface: &crate::public_surface::Surface,
 ) -> (BTreeSet<String>, BTreeSet<String>) {

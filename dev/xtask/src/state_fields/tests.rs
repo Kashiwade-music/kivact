@@ -314,3 +314,52 @@ fn local_variables_are_reported_only_in_report_mode() {
     assert!(reported.iter().all(|line| !line.ends_with(" plain")));
     assert!(run_with_report(text, "", &[], false).is_empty());
 }
+
+fn source_in(module: &str, text: &str) -> crate::check_source::Source {
+    let mut source = fixture(text);
+    source.module = module.into();
+    source
+}
+
+/// Runs the state-fields rule over a workspace-shaped fixture; the root module re-exports the struct and a same-named function.
+fn builder_errors(struct_body: &str) -> Vec<String> {
+    let mut root = source_in("", "mod m; pub use m::{T, m};");
+    root.module.clear();
+    let module = source_in("m", &format!("{struct_body}\npub fn m() {{}}"));
+    let user = source_in("user", "use crate::T; impl NodeBuilder for T {}");
+    let sources = [root, module, user];
+    let surface = crate::public_surface::build(&sources);
+    let (builders, enums) = crate::local_checks::model_types(&sources, &surface);
+    assert!(
+        builders.contains("kivact_ui_soft::m::T"),
+        "builders: {builders:?}"
+    );
+    let mut errors = Vec::new();
+    for source in &sources {
+        check(
+            source,
+            &toml::Table::new(),
+            &builders,
+            &enums,
+            &surface,
+            false,
+            &mut errors,
+        );
+    }
+    errors
+}
+
+#[test]
+fn builder_exemption_survives_function_reexport_with_module_name() {
+    let errors = builder_errors("pub struct T {\na: bool,\nb: bool,\n}");
+    assert!(errors.is_empty(), "{errors:?}");
+}
+
+#[test]
+fn marker_inside_builder_struct_is_unused() {
+    let errors = builder_errors(
+        "pub struct T {\n// xtask-allow(state-fields): Fixture fact.\na: bool,\nb: bool,\n}",
+    );
+    assert_eq!(errors.len(), 1, "{errors:?}");
+    assert!(errors[0].contains("unused marker"), "{errors:?}");
+}

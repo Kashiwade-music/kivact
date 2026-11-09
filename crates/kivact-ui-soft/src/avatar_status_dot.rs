@@ -71,9 +71,7 @@ pub struct AvatarStatusDot {
     root: Node,
     status: AvatarStatus,
     avatar_size: crate::AvatarSize,
-    // xtask-allow(state-fields): builder option - label
     label: Option<Value<String>>,
-    // xtask-allow(state-fields): builder option - icon
     icon: Option<View>,
 }
 

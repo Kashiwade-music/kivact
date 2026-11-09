@@ -114,7 +114,6 @@ pub struct Stepper {
     orientation: Value<Orientation>,
     collapsed_steps: CollapsedSteps,
     activate: Option<Rc<dyn Fn(usize)>>,
-    // xtask-allow(state-fields): Independent setup-only override of the passive minimum width token.
     min_step_width: Option<Value<f64>>,
     variants: crate::variants::Variants,
 }

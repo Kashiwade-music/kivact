@@ -18,11 +18,8 @@ use crate::component_values::EmptyStateState;
 pub struct EmptyState {
     root: Node,
     title: Value<String>,
-    // xtask-allow(state-fields): builder option - description
     description: Option<Value<String>>,
-    // xtask-allow(state-fields): builder option - icon
     icon: Option<View>,
-    // xtask-allow(state-fields): builder option - actions
     actions: Option<View>,
     heading_level: Value<u8>,
     announce: AnnouncePolicy,

@@ -190,13 +190,10 @@ pub enum DrawerSide {
 /// A modal navigation drawer whose content is rebuilt on each opening.
 pub struct MobileNav {
     root: Node,
-    // xtask-allow(state-fields): Optional binding to the existing dialog open owner, not mirrored state.
     open: Option<Binding<bool>>,
     width: Value<f64>,
     side: Value<DrawerSide>,
-    // xtask-allow(state-fields): Optional accessible navigation-label input.
     label: Option<Value<String>>,
-    // xtask-allow(state-fields): Optional plain-text heading input.
     header: Option<Value<String>>,
     header_view: Option<ViewFn>,
     content: ViewFn,
@@ -309,9 +306,7 @@ impl IntoView for MobileNav {
 /// An app-shell drawer toggle with an optional custom icon.
 pub struct MobileNavToggle {
     root: Node,
-    // xtask-allow(state-fields): Optional accessible-label override.
     label: Option<Value<String>>,
-    // xtask-allow(state-fields): Optional caller-supplied icon view.
     icon: Option<View>,
 }
 

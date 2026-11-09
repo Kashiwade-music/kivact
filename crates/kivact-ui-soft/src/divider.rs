@@ -35,7 +35,6 @@ pub struct Divider {
     root: Node,
     orientation: Value<Orientation>,
     variant: Value<DividerVariant>,
-    // xtask-allow(state-fields): Optional once-mounted separator content slot.
     label: Option<View>,
     full_bleed: Value<bool>,
 }

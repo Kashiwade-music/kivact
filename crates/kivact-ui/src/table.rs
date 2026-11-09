@@ -111,10 +111,8 @@ impl IntoView for TableRow {
 /// A header or data cell with proportional or fixed width.
 pub struct TableCell {
     root: Node,
-    // xtask-allow(state-fields): Header versus data role is a fixed cell construction option.
     header: bool,
     align: Value<TextAlign>,
-    // xtask-allow(state-fields): Optional fixed width is independent of the cell role and never changes interaction phase.
     width: Option<Value<Length>>,
     span: Value<usize>,
     variants: Variants,

@@ -21,11 +21,9 @@ pub struct ToggleGroup<K: ItemKey> {
     selection: Selection<K>,
     orientation: Value<Orientation>,
     size: Value<ControlSize>,
-    // xtask-allow(state-fields): Independent presentation or construction input, not interaction state.
     spacing: Option<Value<f64>>,
     icon_only: Value<bool>,
     on_edit: Option<Callback<EditPhase>>,
-    // xtask-allow(state-fields): Independent presentation or construction input, not interaction state.
     item: Option<ToggleItemSlot<K>>,
     variants: Variants,
 }

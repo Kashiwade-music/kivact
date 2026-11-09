@@ -197,9 +197,7 @@ impl IntoView for TopNav {
 pub struct TopNavItem {
     root: Node,
     label: Value<String>,
-    // xtask-allow(state-fields): builder option - content
     content: Option<View>,
-    // xtask-allow(state-fields): builder option - icon
     icon: Option<View>,
     icon_only: Value<bool>,
     selected: Value<bool>,
@@ -610,9 +608,7 @@ impl IntoView for TopNavMegaMenu {
 pub struct TopNavMegaMenuItem {
     root: Node,
     title: Value<String>,
-    // xtask-allow(state-fields): builder option - description
     description: Option<Value<String>>,
-    // xtask-allow(state-fields): builder option - icon
     icon: Option<View>,
     action: Option<Callback<()>>,
 }
@@ -738,13 +734,9 @@ fn title_style() -> kivact::style::Style {
 pub struct TopNavMegaMenuFeaturedCard {
     root: Node,
     title: Value<String>,
-    // xtask-allow(state-fields): builder option - description
     description: Option<Value<String>>,
-    // xtask-allow(state-fields): builder option - image
     image: Option<View>,
-    // xtask-allow(state-fields): builder option - content
     content: Option<View>,
-    // xtask-allow(state-fields): builder option - link
     link: Option<(Value<String>, Callback<()>)>,
 }
 

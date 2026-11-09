@@ -16,8 +16,11 @@ pub(crate) struct Surface {
 struct Binding {
     path: String,
     target: String,
+    // xtask-allow(state-fields): passive record - whether the binding is public
     public: bool,
     origin: (String, String, proc_macro2::Span),
+    // xtask-allow(state-fields): passive record - whether the binding names a value item
+    value: bool,
 }
 
 pub(crate) fn definition(source: &Source, name: &str) -> String {
@@ -42,7 +45,7 @@ pub(crate) fn build_for(sources: &[Source], public_needed: bool) -> Surface {
         .map(|b| (b.path.clone(), b.target.clone()))
         .collect();
     let mut surface = Surface {
-        aliases: aliases.clone(),
+        aliases: type_aliases(&bindings),
         ..Surface::default()
     };
     if !public_needed {
@@ -97,6 +100,16 @@ pub(crate) fn build_for(sources: &[Source], public_needed: bool) -> Surface {
     crate::public_type_edges::extend(&mut surface.reachable, edges);
     surface
 }
+
+/// Aliases used to resolve type paths; value re-exports must not rewrite module or type prefixes.
+fn type_aliases(bindings: &[Binding]) -> BTreeMap<String, String> {
+    bindings
+        .iter()
+        .filter(|b| !b.value)
+        .map(|b| (b.path.clone(), b.target.clone()))
+        .collect()
+}
+
 fn internal_item(source: &Source, item: &syn::Item) -> bool {
     let attrs = match item {
         syn::Item::Mod(item) => &item.attrs,
@@ -240,6 +253,7 @@ fn source_bindings(sources: &[Source]) -> (Vec<Binding>, Globs, BTreeSet<String>
     let mut bindings = Vec::new();
     let mut globs = Vec::new();
     let mut modules = BTreeSet::new();
+    let values = value_items(sources);
     for source in sources {
         let scope = definition(source, "").trim_end_matches("::").to_owned();
         modules.insert(scope.clone());
@@ -258,6 +272,7 @@ fn source_bindings(sources: &[Source]) -> (Vec<Binding>, Globs, BTreeSet<String>
                     } else {
                         bindings.push(Binding {
                             path: format!("{scope}::{alias}"),
+                            value: values.contains(&target),
                             target,
                             public: matches!(item.vis, syn::Visibility::Public(_)),
                             origin: (source.package.clone(), source.module.clone(), item.span()),
@@ -273,11 +288,33 @@ fn source_bindings(sources: &[Source]) -> (Vec<Binding>, Globs, BTreeSet<String>
                     path,
                     public: public && !internal_item(source, item),
                     origin: (source.package.clone(), source.module.clone(), item.span()),
+                    value: matches!(
+                        item,
+                        syn::Item::Fn(_) | syn::Item::Const(_) | syn::Item::Static(_)
+                    ),
                 });
             }
         }
     }
     (bindings, globs, modules)
+}
+
+/// Definition paths of the value items (functions, constants and statics) across every source.
+fn value_items(sources: &[Source]) -> BTreeSet<String> {
+    let mut values = BTreeSet::new();
+    for source in sources {
+        let scope = definition(source, "").trim_end_matches("::").to_owned();
+        for item in &source.items {
+            let name = match item {
+                syn::Item::Fn(item) => &item.sig.ident,
+                syn::Item::Const(item) => &item.ident,
+                syn::Item::Static(item) => &item.ident,
+                _ => continue,
+            };
+            values.insert(format!("{scope}::{name}"));
+        }
+    }
+    values
 }
 
 fn expand_globs(source_count: usize, bindings: &mut Vec<Binding>, globs: &Globs) {
@@ -306,6 +343,7 @@ fn expand_globs(source_count: usize, bindings: &mut Vec<Binding>, globs: &Globs)
                             target: binding.target.clone(),
                             public: *public,
                             origin: binding.origin.clone(),
+                            value: binding.value,
                         });
                     }
                 }

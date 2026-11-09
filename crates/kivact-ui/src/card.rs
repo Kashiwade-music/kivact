@@ -13,11 +13,8 @@ use crate::component_values::CardState;
 pub struct Card {
     root: Node,
     content: View,
-    // xtask-allow(state-fields): builder option - header
     header: Option<View>,
-    // xtask-allow(state-fields): builder option - media
     media: Option<View>,
-    // xtask-allow(state-fields): builder option - footer
     footer: Option<View>,
     action: CardAction,
     disabled: Value<bool>,

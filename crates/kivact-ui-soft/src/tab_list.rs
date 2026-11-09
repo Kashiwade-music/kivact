@@ -99,14 +99,10 @@ pub struct Tab<K> {
     root: Node,
     key: K,
     label: Value<String>,
-    // xtask-allow(state-fields): Independent retained leading-icon slot.
     icon: Option<View>,
-    // xtask-allow(state-fields): Independent retained alternative icon slot.
     selected_icon: Option<View>,
     label_hidden: Value<bool>,
-    // xtask-allow(state-fields): Independent retained trailing-content slot.
     end: Option<View>,
-    // xtask-allow(state-fields): Reference to the actual associated panel, not its lifecycle state.
     panel: Option<NodeRef>,
 }
 

@@ -27,9 +27,7 @@ pub struct Slider {
     root: Node,
     label: Value<String>,
     values: Values,
-    // xtask-allow(state-fields): builder option - range
     range: Option<Value<ScalarRange>>,
-    // xtask-allow(state-fields): builder option - step
     step: Option<f64>,
     orientation: Orientation,
     size: Value<ControlSize>,

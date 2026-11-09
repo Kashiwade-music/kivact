@@ -20,9 +20,7 @@ pub struct PropertyRow {
     root: Node,
     label: Value<String>,
     value: View,
-    // xtask-allow(state-fields): builder option - leading
     leading: Option<View>,
-    // xtask-allow(state-fields): builder option - trailing
     trailing: Option<View>,
     label_width: Value<f64>,
     row_height: Value<f64>,
