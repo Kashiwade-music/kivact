@@ -17,6 +17,7 @@ targets = "lib-bin"
 
 # ----- Shader validation: naga is confined to kivact-shader, which style (kivact-style) uses.
 kivact-shader = ["kivact-style"]
+kivact-macros = ["kivact"]
 
 # ----- Kivact の内部 crate: host を知らない反応の核は kivact-core だけが使う。アプリと部品は
 # kivact facade だけに依存する。

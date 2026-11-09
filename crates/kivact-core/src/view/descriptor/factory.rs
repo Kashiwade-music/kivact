@@ -45,3 +45,8 @@ impl<F: Fn() -> V + 'static, V: IntoView> IntoViewFn<V> for F {
         ViewFn::from(move |()| self())
     }
 }
+impl IntoViewFn<View> for ViewFn<()> {
+    fn into_view_fn(self) -> ViewFn<()> {
+        self
+    }
+}

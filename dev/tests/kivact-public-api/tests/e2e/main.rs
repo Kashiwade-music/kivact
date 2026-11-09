@@ -26,6 +26,7 @@ mod borders_backgrounds;
 mod canvas;
 mod canvas_worker;
 mod color_spaces;
+mod component_macro;
 mod components;
 mod compositor;
 mod custom_text_field;

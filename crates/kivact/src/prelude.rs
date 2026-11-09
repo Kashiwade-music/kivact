@@ -2,6 +2,8 @@
 
 pub use crate::{App, UiError};
 
+pub use crate::component;
+
 pub use crate::state::use_context;
 
 pub use crate::state::{

@@ -2300,6 +2300,7 @@ dependencies = [
  "arvane-text",
  "kivact-core",
  "kivact-interaction",
+ "kivact-macros",
  "kivact-test",
  "kivact-ui",
 ]
@@ -2490,6 +2491,15 @@ version = "0.1.0"
 dependencies = [
  "kivact-types",
  "taffy",
+]
+
+[[package]]
+name = "kivact-macros"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.119",
 ]
 
 [[package]]
