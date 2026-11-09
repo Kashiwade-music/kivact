@@ -66,7 +66,7 @@ pub struct DetailWrite {
     /// Where it was written.
     // xtask-allow(api-shape): diagnostic source positions retain Rust caller locations.
     pub at: &'static Location<'static>,
-    // xtask-allow(state-fields): passive record - one write or run for DevTools; both fields are independent facts of it.
+    // xtask-allow(state-fields): independent: a read-only DevTools record of one write; whether it changed the value is a fact of its own
     /// Whether the write changed the value.
     pub changed: bool,
 }
@@ -84,7 +84,7 @@ pub struct DetailRun {
     /// Where the memo or effect was created.
     // xtask-allow(api-shape): diagnostic source positions retain Rust caller locations.
     pub at: &'static Location<'static>,
-    // xtask-allow(state-fields): passive record - one write or run for DevTools; both fields are independent facts of it.
+    // xtask-allow(state-fields): independent: a read-only DevTools record of one run; whether it changed the value is a fact of its own
     /// Whether the run changed its value.
     pub changed: bool,
 }

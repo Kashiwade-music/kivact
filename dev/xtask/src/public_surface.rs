@@ -16,10 +16,10 @@ pub(crate) struct Surface {
 struct Binding {
     path: String,
     target: String,
-    // xtask-allow(state-fields): passive record - whether the binding is public
+    // xtask-allow(state-fields): independent: whether a binding is public is a fixed fact, separate from whether it names a value
     public: bool,
     origin: (String, String, proc_macro2::Span),
-    // xtask-allow(state-fields): passive record - whether the binding names a value item
+    // xtask-allow(state-fields): independent: whether a binding names a value is a fixed fact, separate from its visibility
     value: bool,
 }
 

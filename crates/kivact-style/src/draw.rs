@@ -37,7 +37,7 @@
 //!   and input come from that part. A switch track, a selectable item or a
 //!   disclosure on a canvas is thus its own native accessibility leaf, and a
 //!   state change is published by the next drawing; `kivact::test`'s
-//!   `Element` state queries read the region's published state. This is
+//!   `Locator` state queries read the region's published state. This is
 //!   meaning only: the pointer and the state updates are the component's
 //!   handlers.
 //! - A region keeps the transform at registration and its original shape:

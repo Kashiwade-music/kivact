@@ -66,10 +66,12 @@ pub struct Runtime {
     pub(crate) collectors: RefCell<Vec<Collector>>,
     pub(crate) sched: RefCell<Sched>,
     pub(crate) scratch: RefCell<Vec<(Key, Staleness)>>,
-    // xtask-allow(state-fields): S-8 ID - the effect creation-order ID allocator
+    // xtask-allow(state-fields): statistic: the effect creation-order ID counter; any value is valid on its own
     pub(crate) seq: Cell<u64>,
+    // xtask-allow(state-fields): independent: the write counter labels every notification; it is valid at any value beside the extension set
     pub(crate) write_epoch: Cell<kivact_types::cell::Generation>,
     pub(crate) root: Key,
+    // xtask-allow(state-fields): independent: the extensions installed when the App is created; the write counter is unrelated
     #[expect(
         clippy::disallowed_types,
         reason = "Construction fills this cell before returning or polling; its empty state is inaccessible."
@@ -82,7 +84,7 @@ pub struct Runtime {
     pub(crate) host: Rc<dyn crate::reactive::host_types::Host>,
     pub(crate) state: Cell<crate::reactive::host_types::TurnState>,
     pub(crate) exit: Cell<crate::reactive::host_types::ExitState>,
-    // xtask-allow(state-fields): measurement - the runtime's time measurement
+    // xtask-allow(state-fields): statistic: the runtime's clock reading in nanoseconds; any value is valid on its own
     pub(crate) clock: Cell<u64>,
     pub(crate) diag: RefCell<Diag>,
     /// Errors raised where no user code may run (inside the engine's
@@ -171,7 +173,7 @@ pub(crate) struct MemoCell<T> {
     // xtask-allow(state-fields): cache: the memo's last computed value; the graph state is CompState
     pub(crate) value: RefCell<Option<T>>,
     pub(crate) f: Box<dyn Fn(Option<&T>) -> T>,
-    // xtask-allow(state-fields): cache + config - eq
+    // xtask-allow(state-fields): cache: part of the memo's cache entry; the value and its equality function are used only together
     pub(crate) eq: Option<fn(&T, &T) -> bool>,
 }
 
@@ -203,8 +205,10 @@ pub(crate) enum NodeData {
 pub(crate) struct SourceNode {
     /// (subscriber, index of this node in subscriber.deps).
     pub(crate) subs: Vec<(Key, u32)>,
+    // xtask-allow(state-fields): independent: the write version the graph comparisons read; the diagnostic record below may be absent
     /// Write generation of the last change.
     pub(crate) changed_at: kivact_types::cell::Generation,
+    // xtask-allow(state-fields): independent: the diagnostic record of the last value-changing write; absent until one happens
     /// Location and turn of the last value-changing write (why chains).
     pub(crate) written: Option<(&'static Location<'static>, Turn)>,
 }
@@ -313,7 +317,7 @@ pub struct NodeInfo {
 }
 
 pub(crate) struct OwnerEntry {
-    // xtask-allow(state-fields): config; lifecycle in OwnerPhase - parent
+    // xtask-allow(state-fields): option: absent means the root owner, which has no parent
     pub(crate) parent: Option<Key>,
     pub(crate) parent_index: u32,
     pub(crate) children: Vec<Key>,

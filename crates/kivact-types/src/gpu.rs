@@ -70,10 +70,10 @@ pub enum GpuStart {
 pub struct GpuPreference {
     /// The kind of adapter.
     pub power: GpuPower,
-    // xtask-allow(state-fields): construction preference - The graphics API (`None`: Arvane's order)
+    // xtask-allow(state-fields): option: absent means the default (Arvane's backend order)
     /// The graphics API (`None`: Arvane's order).
     pub backend: Option<GpuBackend>,
-    // xtask-allow(state-fields): construction preference - The adapter (`None`: as `power` picks)
+    // xtask-allow(state-fields): option: absent means the default (as `power` picks)
     /// The adapter (`None`: as `power` picks). Only builds with GPU
     /// texture sharing look adapters up by identity; others ignore it.
     pub adapter: Option<AdapterMatch>,
@@ -90,16 +90,16 @@ pub struct GpuAdapter {
     pub backend: GpuBackend,
     /// The adapter's name, for diagnostics.
     pub name: String,
-    // xtask-allow(state-fields): identity value - DXGI's (or Vulkan's) adapter LUID ([`AdapterMatch::Luid`]'s bytes)
+    // xtask-allow(state-fields): identity: DXGI's (or Vulkan's) adapter LUID, in `AdapterMatch::Luid`'s bytes
     /// DXGI's (or Vulkan's) adapter LUID ([`AdapterMatch::Luid`]'s bytes).
     pub luid: Option<[u8; 8]>,
-    // xtask-allow(state-fields): identity value - Vulkan's `deviceUUID`
+    // xtask-allow(state-fields): identity: Vulkan's `deviceUUID`
     /// Vulkan's `deviceUUID`.
     pub device_uuid: Option<[u8; 16]>,
-    // xtask-allow(state-fields): identity value - Vulkan's `driverUUID`
+    // xtask-allow(state-fields): identity: Vulkan's `driverUUID`
     /// Vulkan's `driverUUID`.
     pub driver_uuid: Option<[u8; 16]>,
-    // xtask-allow(state-fields): identity value - The device's generation: 1 for the process's first GPU device, one more for each device made after it
+    // xtask-allow(state-fields): identity: the device instance; a new generation means every image imported before is gone
     /// The device's generation: 1 for the process's first GPU device, one
     /// more for each device made after it. A new generation means every
     /// image imported into the window before is gone.

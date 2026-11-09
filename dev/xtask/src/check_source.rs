@@ -13,9 +13,9 @@ use syn::spanned::Spanned;
 
 pub(crate) struct Source {
     pub(crate) package: String,
-    // xtask-allow(state-fields): Optional immutable Cargo target identity recorded while parsing source metadata.
+    // xtask-allow(state-fields): option: absent means the source was not reached through a declared Cargo target
     pub(crate) target: Option<String>,
-    // xtask-allow(state-fields): Immutable target-kind metadata, independent of optional target naming.
+    // xtask-allow(state-fields): independent: a fixed target-kind fact recorded while parsing; any value is valid beside the target name
     pub(crate) library: bool,
     pub(crate) module: String,
     pub(crate) path: PathBuf,

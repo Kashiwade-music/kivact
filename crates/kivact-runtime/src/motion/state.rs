@@ -98,7 +98,7 @@ pub enum RunStatus {
 pub struct AnimInfo {
     /// What kind of animation it is.
     pub kind: AnimKind,
-    // xtask-allow(state-fields): passive record - a snapshot of one animation for DevTools; the fields are independent facts read once.
+    // xtask-allow(state-fields): option: absent means the owner is gone (its App is no longer registered)
     // xtask-allow(api-shape): diagnostic source positions retain Rust caller locations.
     /// Where the owner that owns it was created.
     pub created_at: Option<&'static std::panic::Location<'static>>,
@@ -106,7 +106,7 @@ pub struct AnimInfo {
     pub owner: crate::OwnerId,
     /// The status of its latest run.
     pub status: RunStatus,
-    // xtask-allow(state-fields): passive record - a snapshot of one animation for DevTools; the fields are independent facts read once.
+    // xtask-allow(state-fields): independent: a fixed property of the animation; any value is valid beside its status
     /// Whether reduced motion stops it (the default) or it is essential.
     pub decorative: bool,
 }
@@ -440,7 +440,7 @@ pub(crate) struct LoopCell {
     pub(crate) owner: Owner,
     pub(crate) f: Handler<FrameInfo>,
     pub(crate) state: Signal<LoopState>,
-    // xtask-allow(state-fields): count + gate + lazy memo (ADR-19) - frames
+    // xtask-allow(state-fields): statistic: the number of frames this loop has run; a count, valid at any value beside the loop's state
     pub(crate) frames: Cell<u64>,
     pub(crate) gate: Cell<LoopGate>,
     /// The memo `FrameLoop::rate` returns, created in `frame_loop`'s setup.

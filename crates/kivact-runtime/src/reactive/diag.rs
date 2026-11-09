@@ -31,7 +31,7 @@ const PER_TURN: usize = 64;
 pub struct Reported {
     /// The report sequence number (the rings share one counter).
     pub seq: u64,
-    // xtask-allow(state-fields): passive record - one reported error for DevTools; seq and handled are independent facts of it.
+    // xtask-allow(state-fields): independent: a read-only error report; whether a handler handled it is a separate fact from the sequence number
     /// Whether an error handler handled it (`false` when it reached the default sink).
     pub handled: bool,
     /// The error.

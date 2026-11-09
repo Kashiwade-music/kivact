@@ -36,7 +36,7 @@ pub(crate) struct Pool {
     workers: Mutex<Workers>,
     /// Threads started for jobs when no worker could take them.
     fallbacks: Mutex<Vec<JoinHandle<()>>>,
-    // xtask-allow(state-fields): statistics - the number of submitted jobs not yet finished, which the shutdown waits on
+    // xtask-allow(state-fields): statistic: the number of submitted jobs not yet finished, which the shutdown waits on
     pub(crate) outstanding: Arc<AtomicUsize>,
 }
 

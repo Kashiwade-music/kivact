@@ -3,16 +3,16 @@
 /// What a runtime has queued, as one snapshot ([`Runtime::pending`](crate::reactive::Runtime::pending)).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Pending {
-    // xtask-allow(state-fields): report snapshot - User effects wait for [`Runtime::run_user_effects`](crate::reactive::Runtime::run_user_effects)
+    // xtask-allow(state-fields): independent: one of four independent wake facts; any combination can be pending
     /// User effects wait for [`Runtime::run_user_effects`](crate::reactive::Runtime::run_user_effects).
     pub user: bool,
-    // xtask-allow(state-fields): report snapshot - Render or Internal effects wait for [`Runtime::stabilize`](crate::reactive::Runtime::stabilize)
+    // xtask-allow(state-fields): independent: one of four independent wake facts; any combination can be pending
     /// Render or Internal effects wait for [`Runtime::stabilize`](crate::reactive::Runtime::stabilize).
     pub render: bool,
-    // xtask-allow(state-fields): report snapshot - Errors wait for [`Runtime::deliver_later`](crate::reactive::Runtime::deliver_later)
+    // xtask-allow(state-fields): independent: one of four independent wake facts; any combination can be pending
     /// Errors wait for [`Runtime::deliver_later`](crate::reactive::Runtime::deliver_later).
     pub later: bool,
-    // xtask-allow(state-fields): report snapshot - A turn was requested of the driver and has not started
+    // xtask-allow(state-fields): independent: one of four independent wake facts; any combination can be pending
     /// A turn was requested of the driver and has not started.
     pub turn_requested: bool,
 }

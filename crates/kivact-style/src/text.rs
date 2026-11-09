@@ -45,7 +45,7 @@
 //!   do not apply to text (`Unsupported`). An editor can set its caret,
 //!   selection background and placeholder colors.
 //! - Case conversion, the ellipsis and the clamp change only what is drawn:
-//!   the name, `Element::text` and `get_by_text` use the whole text.
+//!   the name, `Locator::text` and `get_by_text` use the whole text.
 //! - Rare properties live in the boxed `TextExtras`, so an unused style
 //!   pays no size or merge cost for them.
 //! - Rich text (`rich_text`, `IntoValue<Vec<Span>>`) writes one text
@@ -197,7 +197,7 @@ pub use kivact_types::TextDecorationStyle;
 pub use kivact_types::TextOverflow;
 
 /// Case conversion when text is drawn (CSS `text-transform`). The text's
-/// accessible name and `Element::text` keep the text as written.
+/// accessible name and `Locator::text` keep the text as written.
 #[doc(inline)]
 pub use kivact_types::TextTransform;
 
