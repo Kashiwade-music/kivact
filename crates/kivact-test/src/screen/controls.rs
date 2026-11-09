@@ -147,9 +147,11 @@ impl Screen {
         self.run_until_idle();
     }
 
-    /// Ask the App to close; returns whether it exited (queued actions
-    /// drained or abandoned after the 3 s deadline, advancing virtual time
-    /// as needed).
+    /// Make the close request of this handle's window. For the main window
+    /// it asks the App to close and returns whether the App exited (queued
+    /// actions drained or abandoned after the 3 s deadline, advancing
+    /// virtual time as needed); for another window it returns whether that
+    /// window closed.
     pub fn request_close(&self) -> bool {
         self.log("close requested".into());
         if self.window == p::WindowId::MAIN {

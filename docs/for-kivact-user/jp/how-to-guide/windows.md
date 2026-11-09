@@ -265,7 +265,7 @@ mod tests {
 
 規則:
 
-- `screen.window(..)` の戻り値は一時値です。`Element` を取る前にハンドルを `let` に入れてください。`let save = screen.window("設定").get_by_role(..);` はコンパイルできません（E0716）。ハンドルがウィンドウを生かします。
+- `screen.window(..)` の戻り値は一時値です。`Element` を取る前にハンドルを `let` に入れてください。`let save = screen.window("設定").get_by_role(..);` はコンパイルできません（E0716）。`let` が生かすのはハンドルの値だけで、ウィンドウを開いたままにはしません（`open` に `false` を書けば閉じ、`is_open()` は false になります）。
 - `is_open()` はウィンドウがまだ開いているかを返します。`request_close()` はタイトルバーと同じ閉じる要求なので、`on_dismiss` が実行されます。閉じたハンドルでウィンドウ向けの method を呼ぶと、「window <id> is closed」で失敗します。
 - 同じ title のウィンドウが 2 つ開いていると、`window(title)` は曖昧な `get_by_*` と同じように失敗します。
 - `RenderOptions::default().single_window()` は、追加のウィンドウを開けない環境を表します。どの `window` も `ErrorKind::Unsupported` を報告して開きません。ウィンドウを開けない経路をテストするときに使います。

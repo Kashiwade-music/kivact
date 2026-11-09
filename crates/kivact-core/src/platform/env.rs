@@ -72,7 +72,8 @@ pub fn is_fullscreen() -> Value<bool> {
     env_field("is_fullscreen", |e| e.fullscreen)
 }
 
-/// Whether reduced motion is active, tracked. Uses the system preference
+/// Whether reduced motion is active in the window of the calling owner,
+/// tracked. Uses the system preference
 /// unless the app sets an override with [`super::set_reduced_motion`].
 #[track_caller]
 pub fn is_motion_reduced() -> Value<bool> {
@@ -94,8 +95,9 @@ pub fn is_surface_active() -> Value<bool> {
         .into()
 }
 
-/// The part of each window edge that system UI may cover (a notch, a
-/// status bar, rounded corners, a home indicator), tracked: pad
+/// The part of each edge of the window of the calling owner that system
+/// UI may cover (a notch, a status bar, rounded corners, a home
+/// indicator), tracked: pad
 /// content that must stay visible and touchable by it. Zero on
 /// desktops, and wherever the platform does not report one
 /// ([`Capabilities::safe_area`]).
