@@ -50,3 +50,4 @@ impl IntoViewFn<View> for ViewFn<()> {
         self
     }
 }
+impl super::sealed_view_fn::Sealed<View> for ViewFn<()> {}
