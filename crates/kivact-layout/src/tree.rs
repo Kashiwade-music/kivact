@@ -73,6 +73,7 @@ struct LayoutPass<'a, Tree: LayoutTree + ?Sized> {
     below: &'a mut [u32],
     origin: &'a mut [(f32, f32)],
     stamp: u32,
+    never_rounded: &'a mut BTreeSet<usize>,
     measure: &'a mut dyn LeafMeasurer,
 }
 
@@ -159,11 +160,29 @@ impl<Tree: LayoutTree + ?Sized> LayoutPass<'_, Tree> {
             let layout = rounded(unrounded, cum);
             self.set_final_layout(node, &layout);
             self.origin[i] = cum;
+            self.never_rounded.remove(&i);
         }
         let child_cum = (cum.0 + unrounded.location.x, cum.1 + unrounded.location.y);
         for index in 0..self.child_count(node) {
             let child = self.get_child_id(node, index);
             self.round_changed(child, child_cum, stamp);
+        }
+    }
+
+    /// Round `node` and every descendant (taffy's `round_layout`): the
+    /// fallback for a subtree that no changed path reached because a cached
+    /// ancestor skipped it, so its nodes never got a rounded layout.
+    fn round_all(&mut self, node: TId, cum: (f32, f32)) {
+        let i = usize::from(node);
+        let unrounded = self.unrounded[i];
+        let layout = rounded(unrounded, cum);
+        self.set_final_layout(node, &layout);
+        self.origin[i] = cum;
+        self.never_rounded.remove(&i);
+        let child_cum = (cum.0 + unrounded.location.x, cum.1 + unrounded.location.y);
+        for index in 0..self.child_count(node) {
+            let child = self.get_child_id(node, index);
+            self.round_all(child, child_cum);
         }
     }
 }
@@ -814,6 +833,7 @@ impl NodeLayoutColumns {
             below,
             origin,
             scaled,
+            never_rounded,
         } = values;
         let mut pass_calcs = std::borrow::Cow::Borrowed(&*calcs);
         let item_styles =
@@ -841,6 +861,7 @@ impl NodeLayoutColumns {
             below,
             origin,
             stamp: *stamp,
+            never_rounded,
             measure,
         };
         f(&mut pass)
@@ -876,7 +897,73 @@ impl NodeLayoutColumns {
             if traversal.child_count(viewport()) != 0 {
                 self.compute_at(tree, state, viewport(), available, true, measure);
             }
+            self.finish_rounding(tree, state, measure);
         }
+    }
+    /// Round the live slots no pass has rounded since they were allocated or
+    /// reset. A cached ancestor can keep taffy from laying a new subtree out;
+    /// taffy's whole-tree rounding still rounded those slots from the
+    /// unrounded layout they hold, and skipping them leaves `final_layout`
+    /// unset. The walk runs only while such a slot exists.
+    fn finish_rounding<Tree: LayoutTree + ?Sized>(
+        &mut self,
+        tree: &Tree,
+        state: &LayoutState,
+        measure: &mut dyn LeafMeasurer,
+    ) {
+        if !self.has_never_rounded(tree) {
+            return;
+        }
+        let mut roots: Vec<TId> = tree
+            .root()
+            .and_then(|id| tree.index_of(id))
+            .map(taffy_id)
+            .into_iter()
+            .collect();
+        roots.extend(
+            tree.overlays()
+                .iter()
+                .filter_map(|id| tree.index_of(*id))
+                .map(taffy_id),
+        );
+        let traversal = Traversal {
+            tree,
+            cursors: &self.cursors,
+            state,
+        };
+        if traversal.child_count(viewport()) != 0 {
+            roots.push(viewport());
+        }
+        for root in roots {
+            self.with_pass(tree, state, measure, |pass| {
+                pass.round_all(root, (0.0, 0.0))
+            });
+        }
+    }
+    /// Round the live slots no pass has rounded below the overlay `id`.
+    pub(crate) fn finish_rounding_at<Tree: LayoutTree + ?Sized>(
+        &mut self,
+        tree: &Tree,
+        state: &LayoutState,
+        id: NodeId,
+        measure: &mut dyn LeafMeasurer,
+    ) {
+        if !self.has_never_rounded(tree) {
+            return;
+        }
+        let Some(slot) = tree.index_of(id) else {
+            return;
+        };
+        self.with_pass(tree, state, measure, |pass| {
+            pass.round_all(taffy_id(slot), (0.0, 0.0));
+        });
+    }
+    /// Whether a live slot has never been rounded (vacant slots are dropped).
+    fn has_never_rounded<Tree: LayoutTree + ?Sized>(&mut self, tree: &Tree) -> bool {
+        self.values
+            .never_rounded
+            .retain(|&index| index > 0 && tree.id_at(index - 1).is_some());
+        !self.values.never_rounded.is_empty()
     }
     /// Compute one overlay root again with an optional limit from anchor placement.
     pub(crate) fn compute_overlay<Tree: LayoutTree + ?Sized>(

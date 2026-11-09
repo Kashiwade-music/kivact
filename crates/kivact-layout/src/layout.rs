@@ -88,6 +88,8 @@ impl Layout {
         self.columns.next_stamp();
         self.columns
             .compute_overlay(tree, &self.state, id, available, limit, measure);
+        self.columns
+            .finish_rounding_at(tree, &self.state, id, measure);
     }
     /// Drain rounded geometry observations, discarding unread entries on drop.
     pub fn drain_geometry_changes(&mut self) -> GeometryChanges<'_> {

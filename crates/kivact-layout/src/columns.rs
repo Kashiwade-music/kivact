@@ -130,6 +130,10 @@ pub(crate) struct NodeLayoutValues {
     /// The slots (`position + 1`) whose presence scale is set (LAY-2): the
     /// sparse index `scale_item_styles` walks instead of every slot.
     pub(crate) scaled: BTreeSet<usize>,
+    /// The live slots (`position + 1`) no pass has rounded since they were
+    /// allocated or reset: a subtree taffy skips under a cached ancestor
+    /// still needs a final layout, as its whole-tree rounding gave it.
+    pub(crate) never_rounded: BTreeSet<usize>,
 }
 
 impl Default for NodeLayoutValues {
@@ -147,6 +151,7 @@ impl Default for NodeLayoutValues {
             below: vec![0],
             origin: vec![(f32::NAN, f32::NAN)],
             scaled: BTreeSet::new(),
+            never_rounded: BTreeSet::new(),
         }
     }
 }
@@ -206,6 +211,7 @@ impl NodeLayoutColumns {
     /// The new slot must match the next newly allocated slot of this instance's
     /// tree domain; reusing an existing reset slot does not append columns.
     pub(crate) fn push(&mut self) {
+        let index = self.states.len();
         self.cursors.push(ChildCursor::default());
         self.states.push(NodeLayoutState::default());
         let values = &mut self.values;
@@ -219,6 +225,7 @@ impl NodeLayoutColumns {
         values.touched.push(0);
         values.below.push(0);
         values.origin.push((f32::NAN, f32::NAN));
+        values.never_rounded.insert(index);
     }
 
     /// Release calcs and reset every derived component before a slot is reused.
@@ -244,6 +251,7 @@ impl NodeLayoutColumns {
         values.below[index] = 0;
         values.origin[index] = (f32::NAN, f32::NAN);
         values.scaled.remove(&index);
+        values.never_rounded.insert(index);
     }
 }
 
