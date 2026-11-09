@@ -212,6 +212,9 @@ impl Model {
     fn capture_state_motion(&mut self, id: NodeId, entering: bool) {
         if let Some(a) = self.motion.0.get_mut(&id) {
             a.capture();
+            // A running opacity or transform track is captured: it moves the
+            // node no more, so its layer facts and the list are derived again.
+            self.motion_changed(id);
             return;
         }
         let (paint, text) = if entering {
@@ -242,6 +245,20 @@ impl Model {
                 colors,
             },
         );
+        // An entrance is drawn at its enter paint from now on.
+        self.motion_changed(id);
+    }
+
+    /// The state motion of `id` changed what it draws or whether it moves as
+    /// a layer: it is drawn again, and its facts and the list are derived again.
+    fn motion_changed(&mut self, id: NodeId) {
+        self.repaint(id);
+        self.stale_fact(id);
+        let children: Vec<NodeId> = self.tree.flat_children(id).collect();
+        for child in children {
+            self.stale_fact(child);
+        }
+        self.changes.restack = true;
     }
 
     /// Retarget pending captures after input or a prop commit, not every frame.
@@ -273,6 +290,9 @@ impl Model {
             a.retarget(target, c, now, reduced);
             let moving = !a.current_paint().transform.is_none();
             self.refresh_place(*id, moving);
+            // The retarget may start or settle an opacity or transform track,
+            // which decides whether the node is a layer now.
+            self.motion_changed(*id);
             !a.settled()
         });
         let active = !animations.is_empty();
