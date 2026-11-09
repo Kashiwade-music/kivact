@@ -14,18 +14,18 @@ pub(super) struct Mission {
     pub rank_tone: Hue,
     pub banner_icon: &'static str,
     pub progress: f64,
-    // xtask-allow(state-fields): passive catalog record - The progress caption;
+    // xtask-allow(state-fields): option: absent shows the message mission.progress
     /// The progress caption; `None` shows the message `mission.progress`.
     pub progress_label: Option<String>,
     pub progress_value: String,
     pub rewards: Vec<String>,
     pub reward_icons: Vec<&'static str>,
     pub footer: String,
-    // xtask-allow(state-fields): passive catalog record - The action button's label;
+    // xtask-allow(state-fields): option: absent shows the message mission.open
     /// The action button's label; `None` shows the message `mission.open`.
     pub action_label: Option<String>,
     pub action_tone: kivact_ui_pop::ButtonTone,
-    // xtask-allow(state-fields): passive catalog record - locked
+    // xtask-allow(state-fields): independent: a mission is locked or open independently of its content
     pub locked: bool,
 }
 #[track_caller]

@@ -6,10 +6,9 @@ use kivact::geometry::Rect;
 use kivact::prelude::{
     ColorToken, Element, Node, column, dynamic, for_each, node, rgb, row, show, signal, text,
 };
-use kivact::state::callback;
+use kivact::state::{Machine, MachineHandle, Step, callback, machine};
 use kivact::style::use_theme;
 use kivact::style::{Align, Color, Justify, pct, style};
-use kivact::task::spawn;
 use kivact::view::IntoView;
 use kivact::view::node_ref;
 use kivact_ui_pop as ui;
@@ -28,17 +27,91 @@ enum ChatContent {
     Typing,
 }
 
+/// The pending reply: none, waiting for the typing placeholder, or showing it.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+enum Reply {
+    #[default]
+    Idle,
+    Waiting {
+        id: u64,
+    },
+    Typing {
+        id: u64,
+    },
+}
+
+enum ReplyEvent {
+    Sent { id: u64 },
+    ShowTyping,
+    Arrive,
+}
+
+/// What the reply machine asks the page to change in the message list.
+enum ReplyEffect {
+    ShowTyping { id: u64 },
+    Arrived { id: u64 },
+}
+
+struct ReplyMachine;
+
+impl Machine for ReplyMachine {
+    type State = Reply;
+    type Event = ReplyEvent;
+    type Effect = ReplyEffect;
+    fn transition(&self, state: &Reply, event: ReplyEvent) -> Step<Reply, ReplyEvent, ReplyEffect> {
+        match (state, event) {
+            (Reply::Idle, ReplyEvent::Sent { id }) => Step::to(Reply::Waiting { id })
+                .after(Duration::from_millis(400), ReplyEvent::ShowTyping),
+            (Reply::Waiting { id }, ReplyEvent::ShowTyping) => Step::to(Reply::Typing { id: *id })
+                .with(ReplyEffect::ShowTyping { id: *id })
+                .after(Duration::from_millis(1300), ReplyEvent::Arrive),
+            (Reply::Typing { id }, ReplyEvent::Arrive) => {
+                Step::to(Reply::Idle).with(ReplyEffect::Arrived { id: *id })
+            }
+            _ => Step::stay(),
+        }
+    }
+}
+
+const ANSWERS: [&str; 4] = [
+    "わかりました！すぐに確認しますね。",
+    "先生、ありがとうございます♪",
+    "えへへ……がんばります！",
+    "了解です。他にお手伝いできることはありますか？",
+];
+
 pub(super) fn messaging() -> Node {
     let active = signal(0usize);
     let draft = signal(String::new());
     let messages = signal(Vec::<ChatEntry>::new());
-    let serial = signal(0u64);
     let unread = signal([2usize, 1, 0, 0]);
-    let replies = signal(true);
+    let reply = machine(
+        Reply::Idle,
+        || ReplyMachine,
+        move |_, effect| match effect {
+            ReplyEffect::ShowTyping { id } => messages.update(|entries| {
+                entries.push(ChatEntry {
+                    id: id + 1,
+                    mine: false,
+                    content: ChatContent::Typing,
+                })
+            }),
+            ReplyEffect::Arrived { id } => messages.update(|entries| {
+                entries.retain(|entry| entry.id != id + 1);
+                entries.push(ChatEntry {
+                    id: id + 2,
+                    mine: false,
+                    content: ChatContent::Message(
+                        ANSWERS[((id / 3) as usize) % ANSWERS.len()].into(),
+                    ),
+                })
+            }),
+        },
+    );
     let chat_scroll = node_ref();
-    let send = callback(move |s: String| send_message(s, replies, serial, messages, draft));
+    let send = callback(move |s: String| send_message(s, reply, messages, draft));
     let list = thread_sidebar(active, unread);
-    let body = chat_body(messages, chat_scroll, replies, send);
+    let body = chat_body(messages, chat_scroll, reply, send);
     let main = chat_main(active, draft, send, body);
     section(
         "10",
@@ -51,15 +124,17 @@ pub(super) fn messaging() -> Node {
 
 fn send_message(
     s: String,
-    replies: kivact::state::Signal<bool>,
-    serial: kivact::state::Signal<u64>,
+    reply: MachineHandle<ReplyMachine>,
     messages: kivact::state::Signal<Vec<ChatEntry>>,
     draft: kivact::state::Signal<String>,
 ) {
     if !s.trim().is_empty() {
-        replies.set(false);
-        let id = serial.get();
-        serial.set(id + 3);
+        let sent = messages
+            .get_untracked()
+            .iter()
+            .filter(|entry| entry.mine)
+            .count() as u64;
+        let id = sent * 3;
         messages.update(|entries| {
             entries.push(ChatEntry {
                 id,
@@ -68,33 +143,7 @@ fn send_message(
             })
         });
         draft.set(String::new());
-        spawn(async move {
-            kivact::task::sleep(Duration::from_millis(400)).await;
-            messages.update(|entries| {
-                entries.push(ChatEntry {
-                    id: id + 1,
-                    mine: false,
-                    content: ChatContent::Typing,
-                })
-            });
-            kivact::task::sleep(Duration::from_millis(1300)).await;
-            let replies = [
-                "わかりました！すぐに確認しますね。",
-                "先生、ありがとうございます♪",
-                "えへへ……がんばります！",
-                "了解です。他にお手伝いできることはありますか？",
-            ];
-            messages.update(|entries| {
-                entries.retain(|entry| entry.id != id + 1);
-                entries.push(ChatEntry {
-                    id: id + 2,
-                    mine: false,
-                    content: ChatContent::Message(
-                        replies[(id / 3) as usize % replies.len()].into(),
-                    ),
-                });
-            });
-        });
+        reply.send(ReplyEvent::Sent { id });
     }
 }
 
@@ -212,50 +261,51 @@ fn live_messages(messages: kivact::state::Signal<Vec<ChatEntry>>) -> impl IntoVi
 }
 
 fn quick_replies(
-    replies: kivact::state::Signal<bool>,
+    reply: MachineHandle<ReplyMachine>,
     send: kivact::state::Callback<String>,
 ) -> impl IntoView {
-    show(replies, move || {
-        column((
-            text("返信を選択")
-                .style(style().font_size(12).weight(500).padding_left(4))
-                .style(move || {
-                    let t = &use_theme().get();
-                    style().color(t.ext::<ui::Tokens>().hue(ui::Hue::Pink).1)
-                }),
-            kivact::ui::button("もちろん、一緒に食べよう")
-                .variant(kivact::ui::ButtonVariant::Secondary)
-                .style(style().justify_content(Justify::Start))
-                .on_press(move || {
-                    send.call("もちろん、一緒に食べよう".into());
-                    replies.set(false);
-                }),
-            kivact::ui::button("ごめん、会議が入ってる")
-                .variant(kivact::ui::ButtonVariant::Secondary)
-                .style(style().justify_content(Justify::Start))
-                .on_press(move || {
-                    send.call("ごめん、会議が入ってる".into());
-                    replies.set(false);
-                }),
-        ))
-        .test_id("pop-reply-card")
-        .style(
-            style()
-                .gap(6)
-                .padding(10)
-                .width(300)
-                .max_width(pct(90))
-                .align_self(Align::End)
-                .radius(8),
-        )
-        .style(move || {
-            let t = &use_theme().get();
-            let p = t.ext::<ui::Tokens>();
-            style()
-                .background(p.hue(ui::Hue::Pink).0)
-                .border(1, p.pink.mix_in(Color::TRANSPARENT, 0.7, t))
-        })
-    })
+    show(
+        move || reply.get() == Reply::Idle,
+        move || {
+            column((
+                text("返信を選択")
+                    .style(style().font_size(12).weight(500).padding_left(4))
+                    .style(move || {
+                        let t = &use_theme().get();
+                        style().color(t.ext::<ui::Tokens>().hue(ui::Hue::Pink).1)
+                    }),
+                kivact::ui::button("もちろん、一緒に食べよう")
+                    .variant(kivact::ui::ButtonVariant::Secondary)
+                    .style(style().justify_content(Justify::Start))
+                    .on_press(move || {
+                        send.call("もちろん、一緒に食べよう".into());
+                    }),
+                kivact::ui::button("ごめん、会議が入ってる")
+                    .variant(kivact::ui::ButtonVariant::Secondary)
+                    .style(style().justify_content(Justify::Start))
+                    .on_press(move || {
+                        send.call("ごめん、会議が入ってる".into());
+                    }),
+            ))
+            .test_id("pop-reply-card")
+            .style(
+                style()
+                    .gap(6)
+                    .padding(10)
+                    .width(300)
+                    .max_width(pct(90))
+                    .align_self(Align::End)
+                    .radius(8),
+            )
+            .style(move || {
+                let t = &use_theme().get();
+                let p = t.ext::<ui::Tokens>();
+                style()
+                    .background(p.hue(ui::Hue::Pink).0)
+                    .border(1, p.pink.mix_in(Color::TRANSPARENT, 0.7, t))
+            })
+        },
+    )
 }
 
 fn morning_report() -> impl IntoView {
@@ -317,7 +367,7 @@ fn morning_report() -> impl IntoView {
 fn chat_body(
     messages: kivact::state::Signal<Vec<ChatEntry>>,
     chat_scroll: kivact::view::NodeRef,
-    replies: kivact::state::Signal<bool>,
+    reply: MachineHandle<ReplyMachine>,
     send: kivact::state::Callback<String>,
 ) -> kivact::ui::ChatThread {
     kivact::ui::chat_thread(
@@ -379,7 +429,7 @@ fn chat_body(
                             .status_content(look.decorations())
                     })
             },
-            quick_replies(replies, send),
+            quick_replies(reply, send),
             live_messages(messages),
         ))
         .style(style().gap(14).padding_x(20).padding_y(18)),

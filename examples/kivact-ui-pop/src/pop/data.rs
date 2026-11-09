@@ -3,7 +3,9 @@ use kivact::state::IntoValue;
 
 use super::common::{card, cards_grid, columns, muted, section, third, wrap};
 use kivact::interaction::ListItem;
-use kivact::prelude::{ColorToken, Element, Node, Signal, column, node, rgb, row, signal, text};
+use kivact::prelude::{
+    Binding, ColorToken, Element, Node, Signal, column, node, rgb, row, signal, text,
+};
 use kivact::state::{Callback, Value};
 use kivact::style::Direction;
 use kivact::style::GridPlacement;
@@ -36,7 +38,9 @@ pub(super) fn display(notify: Callback<(ui::Hue, String, String)>) -> Node {
     })
     .collect::<Vec<_>>();
     let chip_tags = signal(vec!["爆発".to_string(), "貫通".into(), "神秘".into()]);
+    // xtask-allow(state-fields): independent: the chip suggestion index and the animated progress are unrelated
     let next_chip = signal(0usize);
+    // xtask-allow(state-fields): independent: the chip suggestion index and the animated progress are unrelated
     let live = signal(35.0f64);
     spawn::<()>(async move {
         loop {
@@ -63,10 +67,12 @@ pub(super) fn display(notify: Callback<(ui::Hue, String, String)>) -> Node {
     )
 }
 
-pub(super) fn table(sheet: Signal<bool>, drawer_title: Signal<String>) -> Node {
+pub(super) fn table(sheet: Binding<bool>, drawer_title: Signal<String>) -> Node {
     let rows = signal(STUDENT_FIXTURE.to_vec());
     let status = signal(Some("all"));
+    // xtask-allow(state-fields): independent: the page and the sort order are changed by separate controls
     let page = signal(0usize);
+    // xtask-allow(state-fields): independent: the page and the sort order are changed by separate controls
     let sort = signal(None::<(usize, kivact::interaction::SortOrder)>);
     let selected = signal(Vec::<usize>::new());
     let query = signal(String::new());
@@ -496,7 +502,7 @@ fn student_toolbar(
     status: Signal<Option<&'static str>>,
     page: Signal<usize>,
     query: Signal<String>,
-    sheet: Signal<bool>,
+    sheet: Binding<bool>,
     visible: impl Fn() -> Vec<Student> + Copy + 'static,
 ) -> Node {
     let filters = kivact::ui::radio_group(
@@ -555,7 +561,13 @@ fn student_toolbar(
 }
 
 fn student_footer(context: kivact::ui::DataTableContext<Student, usize>) -> Node {
-    let (page, size) = context.page.expect("the table pages");
+    let kivact::ui::Paging::Local {
+        page,
+        page_size: size,
+    } = context.paging
+    else {
+        panic!("the table pages");
+    };
     let (count, pages) = (context.model.row_count(), context.model.page_count());
     let current = move || page.get().min(pages.get().saturating_sub(1));
     let range = kivact::i18n::message_with(
@@ -787,7 +799,7 @@ fn request_summary(notify: Callback<(ui::Hue, String, String)>) -> kivact::ui::C
 
 fn student_actions(
     visible: impl Fn() -> Vec<Student> + Copy + 'static,
-    sheet: Signal<bool>,
+    sheet: Binding<bool>,
 ) -> Node {
     row((
         kivact::ui::button("TSV")

@@ -2,6 +2,7 @@
 use crate::{Hue, Tokens};
 use kivact::custom::PartState;
 use kivact::i18n::Weekday;
+use kivact::interaction::DaySelection;
 use kivact::style::{Color, Direction, Theme, style};
 use kivact::ui::{
     CalendarDayVisual, CalendarRecipes, DateInputRecipes, DateRangeInputRecipes, Look, Variant,
@@ -46,10 +47,10 @@ pub(crate) fn calendar(r: CalendarRecipes) -> CalendarRecipes {
                 .radius(8)
                 .font_size(14)
                 .hover(style().background(p.surface_active));
-            if s.day.edge {
+            if s.day.selection == DaySelection::Edge {
                 return result.background(p.blue).color(Color::WHITE);
             }
-            result = result.background(if s.day.selected {
+            result = result.background(if s.day.selection != DaySelection::None {
                 p.hue(Hue::Blue).0
             } else if s.today {
                 p.surface_active

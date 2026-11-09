@@ -8,7 +8,7 @@ use kivact::prelude::{
     ColorToken, Element, IntoView, Node, Role, column, for_each, grid, memo, node, rgb, row,
     signal, text,
 };
-use kivact::state::Callback;
+use kivact::state::{Callback, Machine, Step, machine};
 use kivact::style::use_theme;
 use kivact::style::{Align, Color, Justify, pct, rgba, style};
 use kivact::style::{GridPlacement, Track};
@@ -23,6 +23,47 @@ struct UploadEntry {
     name: String,
     bytes: Option<u64>,
     progress: f64,
+}
+
+/// The sync button: idle, or busy until the delayed finish event arrives.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+enum SyncPhase {
+    #[default]
+    Idle,
+    Running,
+}
+
+enum SyncEvent {
+    Start,
+    Finish,
+}
+
+/// What the sync machine asks the page to do after a transition.
+enum SyncEffect {
+    Finished,
+}
+
+struct SyncMachine;
+
+impl Machine for SyncMachine {
+    type State = SyncPhase;
+    type Event = SyncEvent;
+    type Effect = SyncEffect;
+    fn transition(
+        &self,
+        state: &SyncPhase,
+        event: SyncEvent,
+    ) -> Step<SyncPhase, SyncEvent, SyncEffect> {
+        match (state, event) {
+            (SyncPhase::Idle, SyncEvent::Start) => {
+                Step::to(SyncPhase::Running).after(Duration::from_millis(1600), SyncEvent::Finish)
+            }
+            (SyncPhase::Running, SyncEvent::Finish) => {
+                Step::to(SyncPhase::Idle).with(SyncEffect::Finished)
+            }
+            _ => Step::stay(),
+        }
+    }
 }
 
 pub(super) fn tokens(notify: Callback<(ui::Hue, String, String)>) -> Node {
@@ -66,7 +107,6 @@ pub(super) fn tokens(notify: Callback<(ui::Hue, String, String)>) -> Node {
 }
 
 pub(super) fn buttons(notify: Callback<(ui::Hue, String, String)>) -> Node {
-    let loading = signal(false);
     use kivact::ui::ButtonVariant;
     use kivact_ui_pop::ButtonTone;
     let variants = [
@@ -120,7 +160,7 @@ pub(super) fn buttons(notify: Callback<(ui::Hue, String, String)>) -> Node {
                 )),
             )),
             half(button_sizes()),
-            half(button_groups(notify, loading)),
+            half(button_groups(notify)),
             half(card(
                 "標準部品（kivact::ui）— テーマの recipe でこのキットの見た目になる",
                 column((
@@ -537,7 +577,9 @@ fn upload_controls() -> kivact::ui::Card {
 }
 
 fn switch_controls() -> kivact::ui::Card {
+    // xtask-allow(state-fields): independent: the two sliders are adjusted separately
     let volume = signal(64.0f64);
+    // xtask-allow(state-fields): independent: the two sliders are adjusted separately
     let difficulty = signal(2.0f64);
     card(
         "スイッチ・スライダー",
@@ -593,7 +635,9 @@ fn switch_controls() -> kivact::ui::Card {
 }
 
 fn check_controls() -> kivact::ui::Card {
+    // xtask-allow(state-fields): independent: each checkbox is checked on its own
     let notifications = signal(true);
+    // xtask-allow(state-fields): independent: each checkbox is checked on its own
     let reports = signal(false);
     let mode = signal(Some("normal".to_owned()));
     let modes = signal(vec![
@@ -844,17 +888,25 @@ fn button_sizes() -> kivact::ui::Card {
     )
 }
 
-fn button_groups(
-    notify: Callback<(ui::Hue, String, String)>,
-    loading: kivact::state::Signal<bool>,
-) -> kivact::ui::Card {
+fn button_groups(notify: Callback<(ui::Hue, String, String)>) -> kivact::ui::Card {
+    let sync = machine(
+        SyncPhase::Idle,
+        || SyncMachine,
+        move |_, effect| match effect {
+            SyncEffect::Finished => notify.call((
+                ui::Hue::Mint,
+                "同期完了".into(),
+                "最新のデータを取得しました。".into(),
+            )),
+        },
+    );
     card(
         "グループ・ローディング",
         column((
             wrap((
                 view_mode_buttons(),
                 kivact::ui::button(move || {
-                    if loading.get() {
+                    if sync.get() == SyncPhase::Running {
                         "同期中…"
                     } else {
                         "同期する"
@@ -862,19 +914,8 @@ fn button_groups(
                     .to_string()
                 })
                 .icon(kivact::view::icon("refresh"))
-                .busy(loading)
-                .on_press(move || {
-                    loading.set(true);
-                    spawn(async move {
-                        kivact::task::sleep(Duration::from_millis(1600)).await;
-                        loading.set(false);
-                        notify.call((
-                            ui::Hue::Mint,
-                            "同期完了".into(),
-                            "最新のデータを取得しました。".into(),
-                        ));
-                    });
-                }),
+                .busy(move || sync.get() == SyncPhase::Running)
+                .on_press(move || sync.send(SyncEvent::Start)),
             )),
             wrap((
                 row((

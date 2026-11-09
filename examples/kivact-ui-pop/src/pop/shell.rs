@@ -19,8 +19,8 @@ use kivact::geometry::Point;
 use kivact::i18n::CalendarDate;
 use kivact::interaction::{Command, ListItem, Toast, toaster};
 use kivact::prelude::{
-    ColorToken, Element, IntoView, Key, Node, NodeRef, Role, Signal, column, effect, node, rgb,
-    row, scroll, signal, text,
+    Binding, ColorToken, Element, IntoView, Key, Node, NodeRef, Role, Signal, binding, column,
+    effect, node, rgb, row, scroll, signal, text,
 };
 use kivact::state::callback;
 use kivact::style::{Align, Color, Justify, pct, rgba, style};
@@ -45,6 +45,26 @@ enum PaletteCommand {
     Start,
     Profile,
     Reward,
+}
+
+/// The one modal overlay the catalogue has open; never two at once.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum Overlay {
+    None,
+    Confirm,
+    Form,
+    Sheet,
+    Command,
+}
+
+impl Overlay {
+    /// The `open` binding of this overlay: true while it is the open one.
+    fn open(self, overlay: Signal<Overlay>) -> Binding<bool> {
+        binding(
+            move || overlay.get() == self,
+            move |open| overlay.set(if open { self } else { Overlay::None }),
+        )
+    }
 }
 
 const SECTIONS: [(&str, &str, &str); 13] = [
@@ -73,16 +93,18 @@ fn catalog_with_mode(initial: kivact::style::ThemeMode) -> impl IntoView {
     let dark = signal(initial == kivact::style::ThemeMode::Dark);
     let theme = catalog_theme(dark);
     toaster().max_visible(4);
+    // xtask-allow(state-fields): independent: the scroll-spy section is unrelated to which overlay is open
     let selected = signal(0usize);
     let activity_points = activity_counter();
     let scroll_ref = node_ref();
     let content_ref = node_ref();
     let refs: Rc<Vec<NodeRef>> = Rc::new((0..SECTIONS.len()).map(|_| node_ref()).collect());
-    let confirm = signal(false);
-    let form_dialog = signal(false);
-    let sheet = signal(false);
+    let overlay = signal(Overlay::None);
+    let confirm = Overlay::Confirm.open(overlay);
+    let form_dialog = Overlay::Form.open(overlay);
+    let sheet = Overlay::Sheet.open(overlay);
     let drawer_title = signal("空崎 ミナト".to_string());
-    let command = signal(false);
+    let command = Overlay::Command.open(overlay);
 
     let notify = notification_callback();
     let section_views = catalog_sections(
@@ -154,7 +176,7 @@ fn is_palette_shortcut(key: &KeyEvent) -> bool {
         && matches!(key.key(), Key::Char(character) if character.eq_ignore_ascii_case(&'k'))
 }
 
-fn overview(action: impl Into<kivact::state::Callback<()>>, command: Signal<bool>) -> Node {
+fn overview(action: impl Into<kivact::state::Callback<()>>, command: Binding<bool>) -> Node {
     let stats = [
         ("在籍生徒", "124", "+6 今週"),
         ("進行中の依頼", "18", "3件 期限間近"),
@@ -254,10 +276,10 @@ fn activity_counter() -> Signal<u16> {
 }
 
 fn catalog_sections(
-    confirm: Signal<bool>,
-    form_dialog: Signal<bool>,
-    command: Signal<bool>,
-    sheet: Signal<bool>,
+    confirm: Binding<bool>,
+    form_dialog: Binding<bool>,
+    command: Binding<bool>,
+    sheet: Binding<bool>,
     drawer_title: Signal<String>,
     notify: kivact::state::Callback<(ui::Hue, String, String)>,
     refs: Rc<Vec<NodeRef>>,
@@ -452,7 +474,7 @@ fn catalog_sidebar(nav: Vec<Node>, activity_points: Signal<u16>) -> Node {
     )
 }
 
-fn catalog_topbar(selected: Signal<usize>, command: Signal<bool>, dark: Signal<bool>) -> Node {
+fn catalog_topbar(selected: Signal<usize>, command: Binding<bool>, dark: Signal<bool>) -> Node {
     let notices = catalog_notices();
     row((
         kivact::ui::breadcrumb(
@@ -610,10 +632,12 @@ fn palette_commands() -> Vec<Command<PaletteCommand>> {
 
 fn student_drawer(
     drawer_title: Signal<String>,
-    sheet: Signal<bool>,
+    sheet: Binding<bool>,
     notify: kivact::state::Callback<(ui::Hue, String, String)>,
 ) -> kivact::ui::Dialog {
+    // xtask-allow(state-fields): independent: the two switches are set separately
     let pin_student = signal(true);
+    // xtask-allow(state-fields): independent: the two switches are set separately
     let auto_skill = signal(false);
     kivact::ui::dialog(drawer_title, sheet)
         .mode(kivact::interaction::DialogMode::Drawer(
@@ -674,7 +698,7 @@ fn student_drawer(
 }
 
 fn request_dialog(
-    form_dialog: Signal<bool>,
+    form_dialog: Binding<bool>,
     notify: kivact::state::Callback<(ui::Hue, String, String)>,
 ) -> kivact::ui::Dialog {
     let request_title = signal(String::new());
@@ -714,7 +738,7 @@ fn request_dialog(
 }
 
 fn operation_confirmation(
-    confirm: Signal<bool>,
+    confirm: Binding<bool>,
     notify: kivact::state::Callback<(ui::Hue, String, String)>,
 ) -> kivact::ui::Dialog {
     let remember_confirmation = signal(false);
@@ -902,7 +926,7 @@ fn request_fields(
     request_priority: Signal<Option<&'static str>>,
     request_date: Signal<CalendarDate>,
     request_detail: Signal<String>,
-    form_dialog: Signal<bool>,
+    form_dialog: Binding<bool>,
     notify: kivact::state::Callback<(ui::Hue, String, String)>,
 ) -> Node {
     column((
