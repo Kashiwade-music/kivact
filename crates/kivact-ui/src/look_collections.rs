@@ -10,7 +10,7 @@ use kivact_core::style::{
     Align, ColorToken, Direction, Justify, Overflow, Style, Theme, pct, style,
 };
 use kivact_core::view::{ReadingDirection, use_direction};
-use kivact_interaction::{ListItemState, TableHeaderState};
+use kivact_interaction::{HeaderSort, ListItemState, TableHeaderState};
 
 pub(super) fn group_header(_: &Theme, _: &DataTableGroupState) -> Style {
     style()
@@ -118,10 +118,10 @@ pub(super) fn header(t: &Theme, state: &TableHeaderState) -> Style {
         .weight(t.text().weight_strong)
         .color(ColorToken::TextMuted)
         .border_bottom(1, ColorToken::Border);
-    if state.sortable {
-        s.hover(style().background(ColorToken::Hover))
-    } else {
+    if matches!(state.sorting, HeaderSort::Unsortable) {
         s
+    } else {
+        s.hover(style().background(ColorToken::Hover))
     }
 }
 
@@ -176,9 +176,12 @@ pub(super) fn check(t: &Theme, _: &DataTableCheckState) -> Style {
 /// the column is sorted in, and nothing for a column that is not sorted or
 /// does not sort.
 pub(super) fn sort(_: &Theme, state: &TableHeaderState) -> Style {
-    let order = state.sort;
+    let order = match state.sorting {
+        HeaderSort::Sorted { direction, .. } => Some(direction),
+        _ => None,
+    };
     let s = style().size(12, 12).shrink(0);
-    if !state.sortable {
+    if matches!(state.sorting, HeaderSort::Unsortable) {
         return style().size(0, 0).shrink(0);
     }
     s.paint(move |d, size| {

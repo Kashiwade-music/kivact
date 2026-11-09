@@ -154,8 +154,11 @@ fn day_node(shared: &Rc<Shared>, month: CalendarMonth, day: CalendarDate) -> Nod
             && day >= range.start()
             && day <= range.end()
         {
-            state.selected = true;
-            state.edge = day == range.start() || day == range.end();
+            state.selection = if day == range.start() || day == range.end() {
+                kivact_interaction::DaySelection::Edge
+            } else {
+                kivact_interaction::DaySelection::Inside
+            };
             state.span = if range.start() == range.end() {
                 kivact_interaction::CalendarSpan::None
             } else if day == range.start() {
@@ -176,7 +179,7 @@ fn day_node(shared: &Rc<Shared>, month: CalendarMonth, day: CalendarDate) -> Nod
     let button = with_recipe_style(
         interactive_day(swipe)
             .with_node(|root| root.part(cell))
-            .selected(move || marked.get().selected)
+            .selected(move || marked.get().selection != kivact_interaction::DaySelection::None)
             .child(text(day.day().to_string()))
             .child(event_marks(shared, day, marked)),
         |r| r.calendar_recipes().day_recipe(),
@@ -231,7 +234,8 @@ fn event_marks(
                         &variants,
                         move || crate::calendar_tokens::CalendarEventVisual {
                             color: event.color,
-                            selected: marked.get().edge,
+                            selected: marked.get().selection
+                                == kivact_interaction::DaySelection::Edge,
                         },
                     )
                     .into_view()
