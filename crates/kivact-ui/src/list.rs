@@ -28,7 +28,7 @@ pub struct List<K: kivact_core::state::ItemKey> {
 ///
 /// Each item is a `Role::Option` named by its label, showing its icon, its
 /// label and its description. The arrow keys move the focus and select
-/// (Shift extends when `.selection(..)` receives multiple keys), Tab enters at the
+/// (Shift extends when `selected` is a multiple selection), Tab enters at the
 /// selected item, a press or Space selects, typing a name jumps to the item
 /// that starts with it, and a disabled item is skipped. The label is the
 /// list's accessible name; it is not drawn. [`item`](List::item) replaces
@@ -42,22 +42,22 @@ pub struct List<K: kivact_core::state::ItemKey> {
 ///     list(
 ///         "Colors",
 ///         vec![ListItem::new("red", "Red"), ListItem::new("blue", "Blue")],
-///     ).selection(selected)
+///         selected,
+///     )
 /// }
 /// ```
 #[track_caller]
 pub fn list<K: kivact_core::state::ItemKey>(
     label: impl IntoText,
     items: impl IntoValue<Vec<ListItem<K>>>,
+    selected: impl kivact_interaction::IntoSelection<K>,
 ) -> List<K> {
     // The variants are shared: `.variant` adds to them before mount.
     let variants = Variants::default();
     List {
         root: node().name(label),
         items: items.into_value(),
-        selection: Selection::Single(kivact_core::state::IntoBinding::into_binding(
-            kivact_core::state::signal(None),
-        )),
+        selection: selected.into_selection(),
         on_edit: None,
         item: None,
         variants,
@@ -77,12 +77,6 @@ impl<K: kivact_core::state::ItemKey> List<K> {
     /// reads, or a reactive `.style(..)` of the caller's.
     pub fn variant(mut self, v: impl Variant) -> Self {
         self.variants.add(v);
-        self
-    }
-
-    /// Bind a single or multiple selection.
-    pub fn selection(mut self, selection: impl kivact_interaction::IntoSelection<K>) -> Self {
-        self.selection = selection.into_selection();
         self
     }
 
@@ -108,7 +102,8 @@ impl<K: kivact_core::state::ItemKey> List<K> {
     ///     list(
     ///         "Files",
     ///         vec![ListItem::new(1, "notes.txt"), ListItem::new(2, "plan.md")],
-    ///     ).selection(selected)
+    ///         selected,
+    ///     )
     ///     .item(|item, state| {
     ///         text(move || {
     ///             let mark = if state.get().selected { "> " } else { "" };

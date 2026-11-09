@@ -70,13 +70,13 @@ pub(super) enum Event {
     Entered,
 }
 pub(super) struct SwipeSnapshot {
-    // xtask-allow(state-fields): passive record - rtl
+    // xtask-allow(state-fields): independent: a derived request fact; every combination is valid
     pub(super) rtl: bool,
     pub(super) now: u64,
-    // xtask-allow(state-fields): passive record - The first shown month is the earliest the bounds allow
+    // xtask-allow(state-fields): independent: a derived request fact; every combination is valid
     /// The first shown month is the earliest the bounds allow.
     pub(super) at_min: bool,
-    // xtask-allow(state-fields): passive record - The first shown month is the latest the bounds allow
+    // xtask-allow(state-fields): independent: a derived request fact; every combination is valid
     /// The first shown month is the latest the bounds allow.
     pub(super) at_max: bool,
 }

@@ -3,7 +3,7 @@ use crate::navigation_values::{
     CollapsedSteps, StepIndicatorKind, StepStatus, StepperItemState, StepperState,
 };
 use kivact_core::custom::Reactive;
-use kivact_core::state::{IntoText, IntoValue, Value, memo};
+use kivact_core::state::{Callback, IntoText, IntoValue, Value, callback, memo};
 use kivact_core::style::{Direction, style};
 use kivact_core::view::{
     CurrentItem, Element, IntoView, Node, Orientation, Role, View, column, for_index, node,
@@ -113,7 +113,7 @@ pub struct Stepper {
     current: Value<usize>,
     orientation: Value<Orientation>,
     collapsed_steps: CollapsedSteps,
-    activate: Option<Rc<dyn Fn(usize)>>,
+    activate: Option<Callback<usize>>,
     min_step_width: Option<Value<f64>>,
     variants: crate::variants::Variants,
 }
@@ -150,8 +150,11 @@ impl Stepper {
         self
     }
     /// Activate an enabled step without changing the caller-owned current value.
-    pub fn on_step_press(mut self, f: impl Fn(usize) + 'static) -> Self {
-        self.activate = Some(Rc::new(f));
+    pub fn on_step_press<R: kivact_core::view::HandlerResult>(
+        mut self,
+        f: impl Fn(usize) -> R + 'static,
+    ) -> Self {
+        self.activate = Some(callback(f));
         self
     }
     /// Add kit-defined visual metadata.
@@ -179,22 +182,9 @@ impl IntoView for Stepper {
         } = self;
         let reference = node_ref();
         let layout = responsive_layout(items, current, orientation, min_step_width, reference);
-        let previous = collapsed_navigation(
-            activate.clone(),
-            items,
-            current,
-            layout,
-            variants.clone(),
-            true,
-        );
-        let next = collapsed_navigation(
-            activate.clone(),
-            items,
-            current,
-            layout,
-            variants.clone(),
-            false,
-        );
+        let previous =
+            collapsed_navigation(activate, items, current, layout, variants.clone(), true);
+        let next = collapsed_navigation(activate, items, current, layout, variants.clone(), false);
         let child_variants = variants.clone();
         let children = for_index(items, move |index, item| {
             step_row(
@@ -203,7 +193,7 @@ impl IntoView for Stepper {
                 current,
                 layout,
                 collapsed_steps,
-                activate.clone(),
+                activate,
                 child_variants.clone(),
             )
         });
@@ -260,7 +250,7 @@ fn responsive_layout(
     })
 }
 fn collapsed_navigation(
-    activate: Option<Rc<dyn Fn(usize)>>,
+    activate: Option<Callback<usize>>,
     items: Value<Vec<StepperItem>>,
     current: Value<usize>,
     layout: Value<StepperState>,
@@ -289,7 +279,7 @@ fn collapsed_navigation(
         show(
             move || layout.get().collapsed,
             move || {
-                let activate = activate.clone();
+                let activate = activate;
                 let label = if previous {
                     kivact_core::i18n::message("stepper.previous", "Previous step")
                 } else {
@@ -300,7 +290,7 @@ fn collapsed_navigation(
                         .disabled(move || target.get().is_none())
                         .on_press(move || {
                             if let Some(target) = target.get_untracked() {
-                                activate(target);
+                                activate.call(target);
                             }
                         }),
                     recipe,
@@ -318,7 +308,7 @@ fn step_row(
     current: Value<usize>,
     layout: Value<StepperState>,
     collapsed_steps: CollapsedSteps,
-    activate: Option<Rc<dyn Fn(usize)>>,
+    activate: Option<Callback<usize>>,
     variants: crate::variants::Variants,
 ) -> impl IntoView {
     let interactive = activate.is_some();
@@ -354,11 +344,10 @@ fn step_row(
         })
         .name(move || item.with(StepperItem::label))
         .current_item(move || (index == current.get()).then_some(CurrentItem::Step));
-    let row = if let Some(activate) = &activate {
-        let activate = activate.clone();
+    let row = if let Some(activate) = activate {
         row.focusable(move || !state().disabled).on_press(move || {
             if !state().disabled {
-                activate(index);
+                activate.call(index);
             }
         })
     } else {

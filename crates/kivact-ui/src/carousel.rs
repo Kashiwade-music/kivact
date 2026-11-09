@@ -140,7 +140,7 @@ struct Layout {
     api: kivact_interaction::CarouselApi,
     navigation: Value<kivact_interaction::CarouselState>,
     mode: CarouselMode,
-    // xtask-allow(state-fields): passive record - looping
+    // xtask-allow(state-fields): independent: a construction option; every combination is valid
     looping: bool,
     snap: Value<Snap>,
     vertical: Value<bool>,
@@ -154,11 +154,11 @@ struct Layout {
     disabled: Value<bool>,
     buttons: Value<bool>,
     edge_fade: Value<bool>,
-    // xtask-allow(state-fields): passive record - per view
+    // xtask-allow(state-fields): option: absent means the component's default
     per_view: Option<Value<f64>>,
-    // xtask-allow(state-fields): passive record - gap
+    // xtask-allow(state-fields): option: absent means the component's default
     gap: Option<Value<f64>>,
-    // xtask-allow(state-fields): passive record - padding
+    // xtask-allow(state-fields): option: absent means the component's default
     padding: Option<Value<f64>>,
 }
 impl Layout {

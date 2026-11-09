@@ -95,7 +95,7 @@ pub struct Button {
     children: Vec<View>,
     size: ButtonSize,
     variants: Variants,
-    busy: Value<bool>,
+    busy: Option<Value<bool>>,
     input: Value<PartState>,
     hide_label: Option<Value<bool>>,
 }
@@ -138,7 +138,7 @@ pub fn button(label: impl IntoText) -> Button {
         children: Vec::new(),
         size: ButtonSize::Default(super::values::default_control_size()),
         variants: Variants::default(),
-        busy: false.into_value(),
+        busy: None,
         input,
         hide_label: None,
     }
@@ -162,7 +162,7 @@ impl Button {
     pub fn busy(mut self, busy: impl IntoValue<bool>) -> Self {
         let busy = busy.into_value();
         self.root = self.root.busy(busy);
-        self.busy = busy;
+        self.busy = Some(busy);
         self
     }
     /// A view before the label, in a box the theme's
@@ -235,13 +235,15 @@ impl Button {
         let expanded = root.accessible_expanded();
         // Busy ignores presses as the caller's `.disabled(..)` does.
         let disabled = root.accessible_disabled();
-        let root = root.disabled(move || busy.get() || disabled.is_some_and(|d| d.get()));
+        let root = root.disabled(move || {
+            busy.is_some_and(|busy| busy.get()) || disabled.is_some_and(|d| d.get())
+        });
         let size = size.value();
         let (leading_icon, trailing_icon) = (icon.is_some(), trailing.is_some());
         let state = memo(move || ButtonState {
             input: input.get(),
             size: size.get(),
-            busy: busy.get(),
+            busy: busy.is_some_and(|busy| busy.get()),
             expanded: expanded.map(|open| open.get()),
             leading_icon,
             trailing_icon,
@@ -262,7 +264,12 @@ impl Button {
                 move || state.get(),
             )
         };
-        let (phase, reveal_pending) = busy_animation(state);
+        // Only a button the caller gave `.busy(..)` creates the busy clock, its
+        // machine and its indicator (MEM-6): the others keep `phase` still.
+        let (phase, reveal_pending) = busy.map_or_else(
+            || (0.0.into_value(), false.into_value()),
+            |_| busy_animation(state),
+        );
         let content = with_recipe_style(
             row((
                 icon.map(slot),
@@ -278,7 +285,7 @@ impl Button {
                 state
             },
         );
-        let indicator = busy_indicator(state, &variants, phase);
+        let indicator = busy.map(|_| busy_indicator(state, &variants, phase));
         root.child(content).child(indicator)
     }
 }

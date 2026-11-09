@@ -7,7 +7,7 @@ use kivact_core::view::{
 };
 use kivact_interaction::{use_button, use_checkbox};
 
-use crate::component_values::CardState;
+use crate::component_values::{CardState, Selectable};
 
 /// A surface containing optional header, media, content and footer regions.
 pub struct Card {
@@ -95,7 +95,10 @@ impl IntoView for Card {
         let has_footer = self.footer.is_some();
         let (root, input) = card_target(self.root, self.action, disabled);
         let state = move || CardState {
-            selected: selected.map(|selected| selected.get()),
+            selection: Selectable::new(
+                selected.is_some(),
+                selected.is_some_and(|selected| selected.get()),
+            ),
             input: input.map(|input| input.get()),
             disabled: disabled.get(),
             interactive,

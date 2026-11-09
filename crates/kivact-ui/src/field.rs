@@ -107,7 +107,7 @@ impl<C> Field<C> {
     }
 }
 
-impl<C> Element for Field<C> {
+impl<C: Element + IntoView> Element for Field<C> {
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }

@@ -38,11 +38,11 @@ impl Default for ToolbarTokens {
 pub struct ToolbarState {
     pub orientation: Orientation,
     pub size: ControlSize,
-    // xtask-allow(state-fields): Independent presentation or construction input, not interaction state.
+    // xtask-allow(state-fields): option: absent means the component's default
     pub gap: Option<f64>,
-    // xtask-allow(state-fields): Independent presentation or construction input, not interaction state.
+    // xtask-allow(state-fields): independent: a construction option; every combination is valid
     pub centered: bool,
-    // xtask-allow(state-fields): Independent presentation or construction input, not interaction state.
+    // xtask-allow(state-fields): independent: a construction option; every combination is valid
     pub rtl: bool,
     pub dividers: Vec<ToolbarEdge>,
 }
@@ -79,17 +79,17 @@ pub struct TableTokens {
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct ItemRowState {
     pub input: kivact_core::custom::PartState,
-    // xtask-allow(state-fields): passive record - has description
+    // xtask-allow(state-fields): projection: readonly snapshot of the item's state for recipes, written only by its render function
     pub has_description: bool,
-    // xtask-allow(state-fields): passive record - actionable
+    // xtask-allow(state-fields): projection: readonly snapshot of the item's state for recipes, written only by its render function
     pub actionable: bool,
-    // xtask-allow(state-fields): passive record - position
+    // xtask-allow(state-fields): projection: readonly snapshot of the item's state for recipes, written only by its render function
     pub position: Option<ItemPosition>,
     pub marker: ItemListMarker,
     pub start: u32,
-    // xtask-allow(state-fields): passive record - title lines
+    // xtask-allow(state-fields): projection: readonly snapshot of the item's state for recipes, written only by its render function
     pub title_lines: Option<u32>,
-    // xtask-allow(state-fields): passive record - description lines
+    // xtask-allow(state-fields): projection: readonly snapshot of the item's state for recipes, written only by its render function
     pub description_lines: Option<u32>,
 }
 impl std::ops::Deref for ItemRowState {

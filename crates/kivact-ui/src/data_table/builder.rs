@@ -516,7 +516,7 @@ impl<R: 'static, K: 'static> DataTable<R, K> {
     }
 }
 
-impl<R: 'static, K: 'static> Element for DataTable<R, K> {
+impl<R: kivact_core::state::PropValue, K: kivact_core::state::ItemKey> Element for DataTable<R, K> {
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }

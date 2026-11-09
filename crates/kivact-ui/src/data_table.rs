@@ -28,4 +28,4 @@ pub use crate::data_table_tokens::{
 pub use builder::data_table;
 pub use filter_value::{FilterField, FilterUi};
 
-pub use types::{DataTable, DataTableContext, DataTableDensity, DataTableTreeIndent};
+pub use types::{DataTable, DataTableContext, DataTableDensity, DataTableTreeIndent, Paging};

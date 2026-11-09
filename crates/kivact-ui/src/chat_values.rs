@@ -74,20 +74,20 @@ kivact_core::state::constant_value!(
 #[derive(Clone, Debug, PartialEq)]
 pub struct ChatMessageState {
     pub sender: ChatSender,
-    // xtask-allow(state-fields): passive record - status
+    // xtask-allow(state-fields): projection: readonly snapshot of the chat part's state for recipes, written only by its render function
     pub status: Option<ChatMessageStatus>,
     pub align: ChatAlign,
     pub group: ChatBubbleGroup,
     pub reactions_side: ChatReactionsSide,
-    // xtask-allow(state-fields): passive record - has reactions
+    // xtask-allow(state-fields): projection: readonly snapshot of the chat part's state for recipes, written only by its render function
     pub has_reactions: bool,
-    // xtask-allow(state-fields): passive record - actionable
+    // xtask-allow(state-fields): projection: readonly snapshot of the chat part's state for recipes, written only by its render function
     pub actionable: bool,
-    // xtask-allow(state-fields): passive record - has header
+    // xtask-allow(state-fields): projection: readonly snapshot of the chat part's state for recipes, written only by its render function
     pub has_header: bool,
-    // xtask-allow(state-fields): passive record - has footer
+    // xtask-allow(state-fields): projection: readonly snapshot of the chat part's state for recipes, written only by its render function
     pub has_footer: bool,
-    // xtask-allow(state-fields): passive record - has avatar
+    // xtask-allow(state-fields): projection: readonly snapshot of the chat part's state for recipes, written only by its render function
     pub has_avatar: bool,
 }
 /// Scroll-follow facts supplied by the shared follow behavior.
@@ -98,9 +98,9 @@ pub struct ChatThreadState {
 /// Composer facts supplied to its recipes.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ChatComposerState {
-    // xtask-allow(state-fields): passive record - stopped
+    // xtask-allow(state-fields): independent: copied from the caller's stop_shown and status
     pub stopped: bool,
-    // xtask-allow(state-fields): passive record - status
+    // xtask-allow(state-fields): independent: copied from the caller's stop_shown and status
     pub status: Option<ComposerStatus>,
 }
 /// The repeating typing phase supplied to recipes.

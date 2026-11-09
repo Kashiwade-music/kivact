@@ -11,6 +11,7 @@ pub(super) enum RowDragEvent {
     Start,
     Update(f64),
     End,
+    Cancel,
 }
 /// The dragged row's place among the caller's rows, read for each event.
 pub(super) struct RowPlace {
@@ -28,7 +29,7 @@ impl Machine for RowPlace {
     ) -> Step<RowDrag, RowDragEvent, usize> {
         match (*state, event) {
             (_, RowDragEvent::Start) => Step::to(RowDrag::Dragging { applied: 0.0 }),
-            (_, RowDragEvent::End) => Step::to(RowDrag::Idle),
+            (_, RowDragEvent::End | RowDragEvent::Cancel) => Step::to(RowDrag::Idle),
             (RowDrag::Dragging { applied }, RowDragEvent::Update(offset)) => {
                 let dy = offset - applied;
                 match self.at {

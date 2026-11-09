@@ -7,35 +7,77 @@ use kivact_interaction::Tone;
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct AlertState {
     pub tone: Tone,
-    // xtask-allow(state-fields): passive record - expanded
-    pub expanded: Option<bool>,
-    // xtask-allow(state-fields): passive record - dismissible
+    pub expansion: Expansion,
+    // xtask-allow(state-fields): projection: readonly snapshot of the component's state for recipes, written only by its render function
     pub dismissible: bool,
-    // xtask-allow(state-fields): passive record - has icon
+    // xtask-allow(state-fields): projection: readonly snapshot of the component's state for recipes, written only by its render function
     pub has_icon: bool,
-    // xtask-allow(state-fields): passive record - has actions
+    // xtask-allow(state-fields): projection: readonly snapshot of the component's state for recipes, written only by its render function
     pub has_actions: bool,
-    // xtask-allow(state-fields): passive record - has description
+    // xtask-allow(state-fields): projection: readonly snapshot of the component's state for recipes, written only by its render function
     pub has_description: bool,
-    // xtask-allow(state-fields): passive record - has content
+    // xtask-allow(state-fields): projection: readonly snapshot of the component's state for recipes, written only by its render function
     pub has_content: bool,
 }
 
 /// Card semantics supplied to recipes.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct CardState {
-    // xtask-allow(state-fields): passive record - input
+    // xtask-allow(state-fields): projection: readonly snapshot of the component's state for recipes, written only by its render function
     pub input: Option<kivact_core::custom::PartState>,
-    // xtask-allow(state-fields): passive record - selected
-    pub selected: Option<bool>,
-    // xtask-allow(state-fields): passive record - disabled
+    pub selection: Selectable,
+    // xtask-allow(state-fields): projection: readonly snapshot of the component's state for recipes, written only by its render function
     pub disabled: bool,
-    // xtask-allow(state-fields): passive record - interactive
+    // xtask-allow(state-fields): projection: readonly snapshot of the component's state for recipes, written only by its render function
     pub interactive: bool,
-    // xtask-allow(state-fields): passive record - has media
+    // xtask-allow(state-fields): projection: readonly snapshot of the component's state for recipes, written only by its render function
     pub has_media: bool,
-    // xtask-allow(state-fields): passive record - has footer
+    // xtask-allow(state-fields): projection: readonly snapshot of the component's state for recipes, written only by its render function
     pub has_footer: bool,
+}
+
+/// Whether a part can expand and, if so, whether it is expanded.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Expansion {
+    /// The part has no expandable content.
+    NotExpandable,
+    /// The part has content and shows it closed.
+    Collapsed,
+    /// The part shows its content.
+    Expanded,
+}
+
+impl Expansion {
+    /// The expansion of a part which may have content, open or closed.
+    pub fn new(expandable: bool, open: bool) -> Self {
+        match (expandable, open) {
+            (false, _) => Self::NotExpandable,
+            (true, false) => Self::Collapsed,
+            (true, true) => Self::Expanded,
+        }
+    }
+}
+
+/// Whether a part can be selected and, if so, whether it is selected.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Selectable {
+    /// The part has no selected state.
+    NotSelectable,
+    /// The part can be selected and is not.
+    Unselected,
+    /// The part is selected.
+    Selected,
+}
+
+impl Selectable {
+    /// The selection of a part which may be selectable, selected or not.
+    pub fn new(selectable: bool, selected: bool) -> Self {
+        match (selectable, selected) {
+            (false, _) => Self::NotSelectable,
+            (true, false) => Self::Unselected,
+            (true, true) => Self::Selected,
+        }
+    }
 }
 
 /// The semantic state passed to every empty-state recipe.
@@ -48,17 +90,17 @@ pub struct EmptyStateState {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct InputGroupState {
     pub input: kivact_core::custom::PartState,
-    // xtask-allow(state-fields): passive record - focused
+    // xtask-allow(state-fields): projection: readonly snapshot of the component's state for recipes, written only by its render function
     pub focused: bool,
-    // xtask-allow(state-fields): passive record - invalid
+    // xtask-allow(state-fields): projection: readonly snapshot of the component's state for recipes, written only by its render function
     pub invalid: bool,
-    // xtask-allow(state-fields): passive record - has start
+    // xtask-allow(state-fields): projection: readonly snapshot of the component's state for recipes, written only by its render function
     pub has_start: bool,
-    // xtask-allow(state-fields): passive record - has end
+    // xtask-allow(state-fields): projection: readonly snapshot of the component's state for recipes, written only by its render function
     pub has_end: bool,
-    // xtask-allow(state-fields): passive record - has block start
+    // xtask-allow(state-fields): projection: readonly snapshot of the component's state for recipes, written only by its render function
     pub has_block_start: bool,
-    // xtask-allow(state-fields): passive record - has block end
+    // xtask-allow(state-fields): projection: readonly snapshot of the component's state for recipes, written only by its render function
     pub has_block_end: bool,
     pub size: ControlSize,
     pub direction: ReadingDirection,
@@ -68,11 +110,11 @@ pub struct InputGroupState {
 pub struct InputGroupMemberState {
     pub kind: InputGroupMemberKind,
     pub group: InputGroupState,
-    // xtask-allow(state-fields): passive record - first
+    // xtask-allow(state-fields): projection: readonly snapshot of the component's state for recipes, written only by its render function
     pub first: bool,
-    // xtask-allow(state-fields): passive record - last
+    // xtask-allow(state-fields): projection: readonly snapshot of the component's state for recipes, written only by its render function
     pub last: bool,
-    // xtask-allow(state-fields): passive record - focused
+    // xtask-allow(state-fields): projection: readonly snapshot of the component's state for recipes, written only by its render function
     pub focused: bool,
 }
 /// Semantic heading level passed to its recipe.

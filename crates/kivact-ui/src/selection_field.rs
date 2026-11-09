@@ -1,20 +1,110 @@
 //! Role: Present caller-owned chooser content in a popup or touch drawer.
 use crate::layer::{with_base_recipe_style, with_recipe_style};
 use crate::variants::Variants;
+use kivact_core::geometry::Rect;
 use kivact_core::state::{
-    Binding, IntoBinding, IntoText, IntoValue, Value, binding, effect_on, machine, memo, signal,
-    untrack,
+    Binding, IntoBinding, IntoText, IntoValue, Machine as MachineTrait, Step, Value, binding,
+    machine, signal,
 };
-use kivact_core::style::{Length, style};
+use kivact_core::style::{Length, style, use_theme};
 use kivact_core::view::{
-    Element, Handled, IntoView, Node, View, ViewFn, icon, node, node_ref, scroll, text,
+    Element, Handled, IntoView, Node, PointerEvent, View, ViewFn, icon, node, node_ref, scroll,
+    text,
 };
-use kivact_interaction::{DialogMode, PopupState};
+use kivact_interaction::{DialogMode, InteractionPolicy, PopupState};
 
-#[derive(Clone, Copy, PartialEq, Eq)]
-enum Surface {
+use crate::select::machine::{Outcome, Readiness, SheetGesture, gesture};
+
+/// The surface the current opening shows.
+#[derive(Clone, Copy, PartialEq)]
+pub(crate) enum Surface {
     Popup,
     Sheet,
+}
+
+/// The chooser's open state: closed with the gesture it last saw, or open on
+/// the surface that opening chose.
+#[derive(Clone, Copy, PartialEq)]
+pub(crate) enum FieldState {
+    Closed { gesture: SheetGesture },
+    Open { surface: Surface },
+}
+
+pub(crate) enum FieldEvent {
+    /// The caller's binding became this value.
+    OpenRequested(bool),
+    /// A pointer event on the trigger, while closed.
+    Pointer(PointerEvent),
+    /// Discard the last completed tap.
+    Reset,
+}
+
+pub(crate) enum FieldEffect {
+    /// Make the caller's binding this value.
+    WriteOpen(bool),
+}
+
+/// The construction constants of one chooser's machine.
+pub(crate) struct FieldMachine {
+    presentation: crate::SelectPresentation,
+    // xtask-allow(state-fields): independent: the trigger's measured bounds, separately from its availability
+    bounds: Option<Rect>,
+    // xtask-allow(state-fields): independent: the caller's availability, separately from the measured bounds
+    disabled: bool,
+    slop: f64,
+}
+
+impl MachineTrait for FieldMachine {
+    type State = FieldState;
+    type Event = FieldEvent;
+    type Effect = FieldEffect;
+    fn transition(
+        &self,
+        state: &FieldState,
+        event: FieldEvent,
+    ) -> Step<FieldState, FieldEvent, FieldEffect> {
+        match (*state, event) {
+            (FieldState::Open { .. }, FieldEvent::OpenRequested(true)) => Step::stay(),
+            (FieldState::Closed { gesture }, FieldEvent::OpenRequested(true)) => {
+                let tap = matches!(gesture, SheetGesture::Released(Outcome::Tap));
+                let surface = if tap && self.presentation.uses_sheet() {
+                    Surface::Sheet
+                } else {
+                    Surface::Popup
+                };
+                Step::to(FieldState::Open { surface }).with(FieldEffect::WriteOpen(true))
+            }
+            (FieldState::Closed { .. }, FieldEvent::OpenRequested(false)) => Step::stay(),
+            (FieldState::Open { .. }, FieldEvent::OpenRequested(false)) => {
+                Step::to(FieldState::Closed {
+                    gesture: SheetGesture::Idle,
+                })
+                .with(FieldEffect::WriteOpen(false))
+            }
+            (FieldState::Open { .. }, FieldEvent::Pointer(_)) => Step::stay(),
+            (FieldState::Closed { gesture: current }, FieldEvent::Pointer(event)) => {
+                let readiness = if self.disabled {
+                    Readiness::Unavailable
+                } else {
+                    Readiness::Ready
+                };
+                match gesture(current, readiness, self.bounds, self.slop, event) {
+                    Some(next) => Step::to(FieldState::Closed { gesture: next }),
+                    None => Step::stay(),
+                }
+            }
+            (FieldState::Open { .. }, FieldEvent::Reset) => Step::stay(),
+            (FieldState::Closed { gesture }, FieldEvent::Reset) => {
+                if matches!(gesture, SheetGesture::Released(_)) {
+                    Step::to(FieldState::Closed {
+                        gesture: SheetGesture::Idle,
+                    })
+                } else {
+                    Step::stay()
+                }
+            }
+        }
+    }
 }
 
 /// A custom chooser whose content can contain a search editor or arbitrary controls.
@@ -67,18 +157,56 @@ impl Element for SelectionField {
         &mut self.root
     }
 }
+/// Own the chooser's open state, its chosen surface and its tap gesture.
+fn controller(
+    root: &mut Node,
+    target: kivact_core::view::NodeRef,
+    open: Binding<bool>,
+    presentation: Value<crate::SelectPresentation>,
+) -> kivact_core::state::MachineHandle<FieldMachine> {
+    let bounds = target.rect();
+    let disabled = root
+        .accessible_disabled()
+        .unwrap_or_else(|| false.into_value());
+    let initial = if open.get_untracked() {
+        FieldState::Open {
+            surface: Surface::Popup,
+        }
+    } else {
+        FieldState::Closed {
+            gesture: SheetGesture::Idle,
+        }
+    };
+    let slop = use_theme()
+        .get()
+        .ext::<InteractionPolicy>()
+        .select
+        .sheet_slop;
+    let field = machine(
+        initial,
+        move || FieldMachine {
+            presentation: presentation.get(),
+            bounds: bounds.get(),
+            disabled: disabled.get(),
+            slop,
+        },
+        move |_, effect| match effect {
+            FieldEffect::WriteOpen(write) => {
+                if open.get_untracked() != write {
+                    open.set(write);
+                }
+            }
+        },
+    );
+    field.feed(open.into_value(), FieldEvent::OpenRequested);
+    field
+}
+
 impl IntoView for SelectionField {
     fn into_view(mut self) -> View {
         let open = self.open.unwrap_or_else(|| signal(false).into_binding());
         let target = node_ref();
-        let bounds = target.rect();
-        let disabled = self
-            .root
-            .accessible_disabled()
-            .unwrap_or_else(|| false.into_value());
-        let gesture = sheet_gesture(bounds, disabled, open);
-        let presentation = self.presentation;
-        let surface = opening_surface(open, presentation, gesture);
+        let field = controller(&mut self.root, target, open, self.presentation);
         let part = kivact_core::custom::part(|input| input);
         let input = part.state();
         let trigger = with_base_recipe_style(
@@ -87,7 +215,7 @@ impl IntoView for SelectionField {
             &self.variants,
             move || crate::SelectTriggerState {
                 input: input.get(),
-                open: open.get(),
+                open: matches!(field.get(), FieldState::Open { .. }),
                 placeholder: false,
                 size: crate::ControlSize::Medium,
             },
@@ -98,16 +226,23 @@ impl IntoView for SelectionField {
         .child(text(self.value_label).style(style().grow(1).single_line()))
         .child(indicator(open, &self.variants))
         .on_pointer(move |event| {
-            gesture.send(crate::select::machine::Event::Pointer(event));
+            field.send(FieldEvent::Pointer(event));
             Handled::No
         })
         .on_key(move |_| {
-            gesture.send(crate::select::machine::Event::Reset);
+            field.send(FieldEvent::Reset);
             Handled::No
         });
         let popup_open = binding(
-            move || open.get() && surface.get() == Surface::Popup,
-            move |shown| open.set(shown),
+            move || {
+                matches!(
+                    field.get(),
+                    FieldState::Open {
+                        surface: Surface::Popup
+                    }
+                )
+            },
+            move |shown| field.send(FieldEvent::OpenRequested(shown)),
         );
         let content = self.content;
         let popup_body = content.clone();
@@ -123,45 +258,27 @@ impl IntoView for SelectionField {
                     &variants,
                     move || PopupState {
                         input: Default::default(),
-                        open: open.get(),
+                        open: matches!(field.get(), FieldState::Open { .. }),
                     },
                 )
             })
             .attach(trigger);
         let sheet_open = binding(
-            move || open.get() && surface.get() == Surface::Sheet,
-            move |shown| open.set(shown),
+            move || {
+                matches!(
+                    field.get(),
+                    FieldState::Open {
+                        surface: Surface::Sheet
+                    }
+                )
+            },
+            move |shown| field.send(FieldEvent::OpenRequested(shown)),
         );
         let sheet = crate::dialog(self.label, sheet_open)
             .mode(DialogMode::Drawer(kivact_core::geometry::Edge::Bottom))
             .content(move || content.call(()));
         (popup, sheet).into_view()
     }
-}
-
-/// Recognize touch taps from current chooser availability and measured bounds.
-fn sheet_gesture(
-    bounds: Value<Option<kivact_core::geometry::Rect>>,
-    disabled: Value<bool>,
-    open: Binding<bool>,
-) -> kivact_core::state::MachineHandle<crate::select::machine::Machine> {
-    machine(
-        crate::select::machine::SheetGesture::Idle,
-        move || crate::select::machine::Machine {
-            readiness: if !disabled.get() && !open.get() {
-                crate::select::machine::Readiness::Ready
-            } else {
-                crate::select::machine::Readiness::Unavailable
-            },
-            bounds: bounds.get(),
-            slop: kivact_core::style::use_theme()
-                .get()
-                .ext::<kivact_interaction::InteractionPolicy>()
-                .select
-                .sheet_slop,
-        },
-        |_, effect| match effect {},
-    )
 }
 
 /// Draw the chooser indicator using the shared popup recipe state.
@@ -177,37 +294,4 @@ fn indicator(open: Binding<bool>, variants: &Variants) -> View {
     )
     .child(icon("chevron-down"))
     .into_view()
-}
-
-/// The surface of the current opening, a snapshot taken when the caller's
-/// `open` changes. A touch tap on the trigger opens the sheet when the
-/// presentation uses one. Every other opening (keyboard, mouse, the caller's
-/// binding) opens the popup. Only `open` is tracked, so the snapshot holds for
-/// the whole opening. Closing feeds `Reset` to the trigger gesture, so the next
-/// opening never reuses the previous tap.
-fn opening_surface(
-    open: Binding<bool>,
-    presentation: Value<crate::SelectPresentation>,
-    gesture: kivact_core::state::MachineHandle<crate::select::machine::Machine>,
-) -> Value<Surface> {
-    effect_on(open, move |open| {
-        if !*open {
-            gesture.send(crate::select::machine::Event::Reset);
-        }
-    });
-    memo(move || {
-        if !open.get() {
-            return Surface::Popup;
-        }
-        let (gesture, presentation) = untrack(|| (gesture.get(), presentation.get()));
-        let tap = matches!(
-            gesture,
-            crate::select::machine::SheetGesture::Released(crate::select::machine::Outcome::Tap)
-        );
-        if tap && presentation.uses_sheet() {
-            Surface::Sheet
-        } else {
-            Surface::Popup
-        }
-    })
 }

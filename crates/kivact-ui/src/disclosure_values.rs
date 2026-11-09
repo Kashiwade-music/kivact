@@ -11,9 +11,9 @@ pub struct DisclosureGroupPosition {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct DisclosureRecipeState {
     pub input: kivact_core::custom::PartState,
-    // xtask-allow(state-fields): passive record - open
+    // xtask-allow(state-fields): projection: readonly snapshot of the disclosure's state for recipes, written only by Disclosure::into_view
     pub open: bool,
-    // xtask-allow(state-fields): passive record - group
+    // xtask-allow(state-fields): projection: readonly snapshot of the disclosure's state for recipes, written only by Disclosure::into_view
     pub group: Option<DisclosureGroupPosition>,
 }
 impl DisclosureRecipeState {

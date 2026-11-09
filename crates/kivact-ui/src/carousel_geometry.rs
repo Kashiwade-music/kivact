@@ -3,13 +3,13 @@ use kivact_core::geometry::Point;
 use kivact_core::view::{NodeRef, ScrollBehavior};
 use kivact_interaction::Snap;
 pub(super) struct PageRequest {
-    // xtask-allow(state-fields): passive record - vertical
+    // xtask-allow(state-fields): independent: a request fact; every combination is valid
     pub(super) vertical: bool,
-    // xtask-allow(state-fields): passive record - rtl
+    // xtask-allow(state-fields): independent: a request fact; every combination is valid
     pub(super) rtl: bool,
-    // xtask-allow(state-fields): passive record - next
+    // xtask-allow(state-fields): independent: a request fact; every combination is valid
     pub(super) next: bool,
-    // xtask-allow(state-fields): passive record - looping
+    // xtask-allow(state-fields): independent: a request fact; every combination is valid
     pub(super) looping: bool,
     pub(super) snap: Snap,
     pub(super) padding: f64,

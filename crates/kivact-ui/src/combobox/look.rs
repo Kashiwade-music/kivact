@@ -16,7 +16,7 @@ pub(crate) fn frame(t: &Theme, state: &PartState) -> Style {
         .background(tokens.background)
         .color(tokens.foreground)
         .disabled(style().opacity(tokens.disabled_opacity.unwrap_or(t.disabled_opacity())));
-    if state.focused {
+    if state.is_focused() {
         s.border_color(tokens.focus)
             .ring(tokens.focus_ring.unwrap_or(t.focus_ring()), tokens.focus)
     } else {

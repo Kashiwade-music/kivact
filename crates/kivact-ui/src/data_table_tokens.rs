@@ -42,9 +42,9 @@ pub struct DataTableStickyPaint {
     pub selected: Color,
     pub shadow: Color,
     pub shadow_width: f64,
-    // xtask-allow(state-fields): passive record - shadow transition
+    // xtask-allow(state-fields): option: absent means the theme's default
     pub shadow_transition: Option<Transition>,
-    // xtask-allow(state-fields): passive record - overlay transition
+    // xtask-allow(state-fields): option: absent means the theme's default
     pub overlay_transition: Option<Transition>,
 }
 

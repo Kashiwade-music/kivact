@@ -174,9 +174,9 @@ impl Element for Slider {
 struct Geometry {
     track: Value<Option<Rect>>,
     thumb: Value<Option<Rect>>,
-    // xtask-allow(state-fields): independent fact - vertical
+    // xtask-allow(state-fields): independent: a construction option; every combination is valid
     vertical: bool,
-    // xtask-allow(state-fields): independent fact - rtl
+    // xtask-allow(state-fields): independent: a construction option; every combination is valid
     rtl: bool,
 }
 

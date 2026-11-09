@@ -1,6 +1,6 @@
 //! Role: Decide switch direct manipulation and owner-scoped release timing.
 use super::geometry::Geometry;
-use crate::values::SwitchDragState;
+use crate::values::{Lift, SwitchDragState, TrackInput};
 use kivact_core::geometry::Point;
 use kivact_core::state::{Machine as MachineTrait, Step};
 use kivact_core::view::{MouseButton, PointerEvent, PointerId, PointerKind, PointerPhase};
@@ -75,11 +75,6 @@ pub(super) enum SwitchGesture {
     },
 }
 #[derive(Clone, Copy, PartialEq)]
-pub(super) enum Lift {
-    Raised,
-    Settled,
-}
-#[derive(Clone, Copy, PartialEq)]
 pub(super) enum State {
     Gesture(SwitchGesture),
     Obscured(SwitchGesture),
@@ -91,39 +86,30 @@ pub(super) enum State {
 }
 impl State {
     pub(super) fn visual(self) -> Option<SwitchDragState> {
-        let (offset, on, touch, tracking, lifted, released) = match self {
+        match self {
             Self::Gesture(SwitchGesture::Pressed { contact })
                 if contact.kind == PointerKind::Touch =>
             {
-                (None, contact.started_on, true, false, true, false)
+                Some(SwitchDragState::TouchPressed)
             }
             Self::Gesture(SwitchGesture::Dragging {
                 contact,
                 axis: Axis::Horizontal { offset },
-                latch,
-            }) => (
-                (contact.kind == PointerKind::Touch).then_some(offset),
-                latch.on(contact.started_on),
-                contact.kind == PointerKind::Touch,
-                true,
-                contact.kind == PointerKind::Touch,
-                false,
-            ),
+                ..
+            }) => Some(SwitchDragState::Tracking(
+                if contact.kind == PointerKind::Touch {
+                    TrackInput::Touch { offset }
+                } else {
+                    TrackInput::Pointer
+                },
+            )),
             Self::Released {
-                on,
                 kind: PointerKind::Touch,
                 lift,
-            } => (None, on, true, false, lift == Lift::Raised, true),
-            _ => return None,
-        };
-        Some(SwitchDragState {
-            offset,
-            visually_on: on,
-            touch,
-            tracking,
-            lifted,
-            released,
-        })
+                ..
+            } => Some(SwitchDragState::TouchReleased(lift)),
+            _ => None,
+        }
     }
     pub(super) fn contact(self) -> Option<Contact> {
         match self {
@@ -220,7 +206,7 @@ impl MachineTrait for Machine {
         let Some(contact) = state.contact().filter(|c| c.pointer == event.id()) else {
             return if !touch
                 && matches!(event.phase(), PointerPhase::Enter | PointerPhase::Move)
-                && state.visual().is_some_and(|visual| visual.touch)
+                && state.visual().is_some_and(|visual| visual.is_touch())
             {
                 match *state {
                     State::Gesture(gesture) => {

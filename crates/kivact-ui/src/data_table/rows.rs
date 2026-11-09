@@ -25,8 +25,8 @@ use kivact_core::view::{
 };
 use kivact_core::view::{Node, column, icon, node, row, text};
 use kivact_interaction::{
-    DataTableApi, DragCoordinates, DragState, DragUpdate, ListGesture, TableCellState, TableFocus,
-    TableRowState, use_disclosure, use_drag,
+    DataTableApi, DragCoordinates, DragPhase, DragState, DragUpdate, ListGesture, TableCellState,
+    TableFocus, TableRowState, use_disclosure, use_drag,
 };
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -68,50 +68,50 @@ fn navigation_content(root: Node, content: View, enabled: bool, enter: bool) -> 
 
 /// What the header and the rows of one table share.
 pub(super) struct Grid<R: 'static, K: kivact_core::state::ItemKey> {
-    // xtask-allow(state-fields): passive record - tree
+    // xtask-allow(state-fields): option: absent means the component's default
     pub(super) tree: Option<super::tree::Plan<K>>,
     pub(super) behavior: DataTableApi<K, usize>,
     pub(super) navigation: super::navigation::NavigationCache<K>,
     pub(super) row_metadata: Value<super::metadata::Rows<K>>,
     pub(super) column_metadata: Value<(Option<u32>, HashMap<usize, u32>)>,
-    // xtask-allow(state-fields): passive record - filters
+    // xtask-allow(state-fields): option: absent means the component's default
     pub(super) filters: Option<super::filters::Filters>,
     /// The keys of the rows of the page.
     pub(super) keys: Value<Vec<K>>,
-    // xtask-allow(state-fields): passive record - indexed
+    // xtask-allow(state-fields): option: absent means the component's default
     pub(super) indexed: Option<Value<HashMap<K, usize>>>,
     pub(super) columns: Rc<Vec<DataColumn<R>>>,
     /// The positions of the columns that are shown.
     pub(super) visible: Value<Vec<usize>>,
-    // xtask-allow(state-fields): passive record - selection
+    // xtask-allow(state-fields): option: absent means the component's default
     pub(super) selection: Option<Binding<Vec<K>>>,
-    // xtask-allow(state-fields): passive record - row selectable
+    // xtask-allow(state-fields): option: absent means the component's default
     pub(super) row_selectable: Option<RowSelectable<R>>,
-    // xtask-allow(state-fields): passive record - sticky
+    // xtask-allow(state-fields): option: absent means the component's default
     pub(super) sticky: Option<Rc<StickyColumns>>,
-    // xtask-allow(state-fields): passive record - widths
+    // xtask-allow(state-fields): option: absent means the component's default
     pub(super) widths: Option<Binding<Vec<f64>>>,
-    // xtask-allow(state-fields): passive record - actions
+    // xtask-allow(state-fields): option: absent means the component's default
     pub(super) actions: Option<(f64, RowSlot<R>)>,
-    // xtask-allow(state-fields): passive record - row context menu
+    // xtask-allow(state-fields): option: absent means the component's default
     pub(super) row_context_menu: Option<RowContextMenu<R>>,
     pub(super) row_label: RowName<R>,
-    // xtask-allow(state-fields): passive record - cells
+    // xtask-allow(state-fields): option: absent means the component's default
     pub(super) cells: Option<CellSlot<R>>,
-    // xtask-allow(state-fields): passive record - details
+    // xtask-allow(state-fields): option: absent means the component's default
     pub(super) details: Option<RowSlot<R>>,
-    // xtask-allow(state-fields): passive record - expanded rows
+    // xtask-allow(state-fields): option: absent means the component's default
     pub(super) expanded_rows: Option<Binding<Vec<K>>>,
     pub(super) reorder: Option<Callback<kivact_interaction::Reorder<K>>>,
     pub(super) source: Value<Vec<R>>,
     pub(super) key: Key<R, K>,
     pub(super) sort: Sort,
     pub(super) focus: TableFocus,
-    // xtask-allow(state-fields): passive record - row height
+    // xtask-allow(state-fields): option: absent means the component's default
     pub(super) row_height: Option<Value<f64>>,
-    // xtask-allow(state-fields): passive record - row status
+    // xtask-allow(state-fields): option: absent means the component's default
     pub(super) row_status: Option<RowStatusOf<R>>,
-    // xtask-allow(state-fields): passive record - row color
+    // xtask-allow(state-fields): option: absent means the component's default
     pub(super) row_color: Option<RowColor<R>>,
     pub(super) variants: Variants,
 }
@@ -918,7 +918,12 @@ where
         .on_update(move |update: DragUpdate<()>| {
             row_drag.send(RowDragEvent::Update(update.delta.y))
         })
-        .on_end(move |_| row_drag.send(RowDragEvent::End));
+        .on_end(move |update: DragUpdate<()>| {
+            row_drag.send(match update.phase {
+                DragPhase::Cancel => RowDragEvent::Cancel,
+                _ => RowDragEvent::End,
+            })
+        });
     drag.source(())
 }
 

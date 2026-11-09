@@ -1,5 +1,5 @@
 //! Role: Compose exclusive navigation panels around the canonical navigation machine.
-use kivact_core::state::{IntoText, IntoValue, Value, binding, memo};
+use kivact_core::state::{Callback, IntoText, IntoValue, Value, binding, callback, memo};
 use kivact_core::view::{
     Element, Handled, IntoView, Key, Node, OverlayAlign, Placement, PointerPhase, Role, View, node,
     node_ref, overlay, show,
@@ -27,7 +27,7 @@ pub struct NavigationMenu {
     placement: Placement,
     align: OverlayAlign,
     variants: crate::variants::Variants,
-    changed: Option<Rc<dyn Fn(bool)>>,
+    changed: Option<Callback<bool>>,
 }
 /// Construct a navigation landmark under an accessible label.
 #[track_caller]
@@ -45,8 +45,11 @@ pub fn navigation_menu(label: impl IntoText) -> NavigationMenu {
 }
 impl NavigationMenu {
     /// Report accepted opening and closing transitions.
-    pub fn on_open_change(mut self, f: impl Fn(bool) + 'static) -> Self {
-        self.changed = Some(Rc::new(f));
+    pub fn on_open_change<R: kivact_core::view::HandlerResult>(
+        mut self,
+        f: impl Fn(bool) -> R + 'static,
+    ) -> Self {
+        self.changed = Some(callback(f));
         self
     }
     /// Add a panel trigger. Keys belong to the application's navigation data.
@@ -120,7 +123,7 @@ impl IntoView for NavigationMenu {
         } = self;
         let api = use_navigation_menu();
         let api = if let Some(changed) = changed {
-            api.on_open_change(move |open| changed(open))
+            api.on_open_change(move |open| changed.call(open))
         } else {
             api
         };

@@ -66,7 +66,11 @@ pub(super) fn render<K: ItemKey>(mut field: Combobox<K>) -> View {
         |r| r.combobox_recipes().frame_recipe(),
         &variants,
         move || PartState {
-            focused: within.get(),
+            focus: if within.get() {
+                kivact_core::view::Focus::Focused
+            } else {
+                kivact_core::view::Focus::None
+            },
             disabled: disabled.get(),
             ..PartState::default()
         },

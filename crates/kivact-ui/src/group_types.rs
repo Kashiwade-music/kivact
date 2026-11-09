@@ -32,7 +32,7 @@ impl Default for ButtonGroupTokens {
 pub struct ButtonGroupState {
     pub orientation: Orientation,
     pub size: ControlSize,
-    // xtask-allow(state-fields): Independent presentation or construction input, not interaction state.
+    // xtask-allow(state-fields): independent: a derived position or construction input; every combination is valid
     pub rtl: bool,
 }
 
@@ -40,9 +40,9 @@ pub struct ButtonGroupState {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ButtonGroupMemberState {
     pub layout: ButtonGroupState,
-    // xtask-allow(state-fields): Independent presentation or construction input, not interaction state.
+    // xtask-allow(state-fields): independent: a derived position or construction input; every combination is valid
     pub first: bool,
-    // xtask-allow(state-fields): Independent presentation or construction input, not interaction state.
+    // xtask-allow(state-fields): independent: a derived position or construction input; every combination is valid
     pub last: bool,
 }
 
@@ -62,9 +62,9 @@ impl Default for ToggleGroupTokens {
 pub struct ToggleGroupState {
     pub orientation: Orientation,
     pub size: ControlSize,
-    // xtask-allow(state-fields): Independent presentation or construction input, not interaction state.
+    // xtask-allow(state-fields): option: absent means the component's default
     pub spacing: Option<f64>,
-    // xtask-allow(state-fields): Independent presentation or construction input, not interaction state.
+    // xtask-allow(state-fields): independent: a derived position or construction input; every combination is valid
     pub rtl: bool,
 }
 
@@ -73,9 +73,9 @@ pub struct ToggleGroupState {
 pub struct ToggleGroupItemState {
     pub toggle: ToggleButtonState,
     pub layout: ToggleGroupState,
-    // xtask-allow(state-fields): Derived position within the current options, not owned selection state.
+    // xtask-allow(state-fields): independent: a derived position or construction input; every combination is valid
     pub first: bool,
-    // xtask-allow(state-fields): Derived position within the current options, not owned selection state.
+    // xtask-allow(state-fields): independent: a derived position or construction input; every combination is valid
     pub last: bool,
 }
 impl std::ops::Deref for ToggleGroupItemState {

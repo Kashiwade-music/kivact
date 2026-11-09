@@ -1,7 +1,7 @@
 //! Role: Configure one shared model and table and compose the retained regions.
 use super::column_keys;
 use super::rows::{self, Grid};
-use super::types::{DataTable, DataTableContext, RowName};
+use super::types::{DataTable, DataTableContext, Paging, RowName};
 use kivact_core::i18n::message;
 use kivact_core::state::{IntoBinding, IntoValue};
 use kivact_core::view::Element;
@@ -31,18 +31,18 @@ where
 
 struct ModelPlan<R: 'static, K: 'static> {
     model: kivact_interaction::DataTableModelApi<R, K, usize>,
-    // xtask-allow(state-fields): passive record - tree
+    // xtask-allow(state-fields): option: absent means the component's default
     tree: Option<super::tree::Plan<K>>,
-    // xtask-allow(state-fields): passive record - page
-    page: Option<super::types::Paging>,
-    // xtask-allow(state-fields): passive record - page size
+    // xtask-allow(state-fields): option: absent means the component's default
+    page: Option<super::types::PagePlan>,
+    // xtask-allow(state-fields): option: absent means the component's default
     page_size: Option<Binding<usize>>,
-    // xtask-allow(state-fields): passive record - groups
+    // xtask-allow(state-fields): option: absent means the component's default
     groups: Option<super::grouped::Plan<R>>,
     display: kivact_core::state::Value<Vec<R>>,
     page_rows: kivact_core::state::Value<Vec<R>>,
     shown: kivact_core::state::Value<Vec<kivact_interaction::ColumnDef<R, usize>>>,
-    // xtask-allow(state-fields): passive record - grouping key
+    // xtask-allow(state-fields): option: absent means the component's default
     grouping_key: Option<super::types::Key<R, String>>,
 }
 struct NavigationPlan<R: 'static, K: kivact_core::state::ItemKey> {
@@ -61,6 +61,7 @@ where
 {
     let plan = model_plan(&mut table);
     let navigation = navigation_plan(&table, &plan);
+    let paging = table_paging(&plan, table.has_more);
     let context = DataTableContext {
         model: plan.model,
         selection: table.selection,
@@ -68,9 +69,7 @@ where
         filter: table.filter,
         column_filters: table.column_filters,
         typed_column_filters: table.typed_column_filters,
-        page: plan.page,
-        page_size: plan.page_size,
-        has_more: table.has_more,
+        paging,
     };
     let toolbar = table.toolbar.take().map_or_else(
         || super::chrome::toolbar(context, &table.variants),
@@ -175,7 +174,7 @@ where
         grouping_key,
     }
 }
-fn paging<R, K>(table: &DataTable<R, K>) -> (Option<super::types::Paging>, Option<Binding<usize>>)
+fn paging<R, K>(table: &DataTable<R, K>) -> (Option<super::types::PagePlan>, Option<Binding<usize>>)
 where
     R: kivact_core::state::PropValue,
     K: kivact_core::state::ItemKey,
@@ -192,6 +191,23 @@ where
         .page
         .map(|(index, size)| (index, page_size.map_or(size, |size| size.into_value())));
     (page, page_size)
+}
+
+/// The public paging view of the internal page plan.
+fn table_paging<R, K>(
+    plan: &ModelPlan<R, K>,
+    has_more: Option<kivact_core::state::Value<bool>>,
+) -> Paging {
+    match (plan.page, has_more) {
+        (Some((page, _)), Some(has_more)) => Paging::Remote { page, has_more },
+        (Some((page, size)), None) => Paging::Local {
+            page,
+            page_size: plan
+                .page_size
+                .unwrap_or_else(|| binding(move || size.get(), |_| ())),
+        },
+        _ => Paging::Off,
+    }
 }
 fn ordered_columns<R: kivact_core::state::PropValue>(
     shown: kivact_core::state::Value<Vec<kivact_interaction::ColumnDef<R, usize>>>,
@@ -392,7 +408,7 @@ where
 fn sorting<R, K>(
     table: &DataTable<R, K>,
     model: kivact_interaction::DataTableModelApi<R, K, usize>,
-    page: Option<super::types::Paging>,
+    page: Option<super::types::PagePlan>,
     mut behavior: kivact_interaction::DataTableApi<K, usize>,
 ) -> (
     kivact_interaction::DataTableApi<K, usize>,

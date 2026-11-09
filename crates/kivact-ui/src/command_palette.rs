@@ -25,15 +25,15 @@ pub struct CommandPalette<K: kivact_core::state::ItemKey> {
     open: Binding<bool>,
     commands: Value<Vec<Command<K>>>,
     run: Rc<dyn Fn(K) -> kivact_core::Result<()>>,
-    // xtask-allow(state-fields): builder option - filter
+    // xtask-allow(state-fields): option: absent means the component's default
     filter: Option<Filter<K>>,
-    // xtask-allow(state-fields): builder option - close on
+    // xtask-allow(state-fields): option: absent means the component's default
     close_on: Option<fn(&KeyEvent) -> bool>,
-    // xtask-allow(state-fields): builder option - placeholder
+    // xtask-allow(state-fields): option: absent means the component's default
     placeholder: Option<Value<String>>,
-    // xtask-allow(state-fields): builder option - empty
+    // xtask-allow(state-fields): option: absent means the component's default
     empty: Option<Value<String>>,
-    // xtask-allow(state-fields): builder option - footer
+    // xtask-allow(state-fields): option: absent means the component's default
     footer: Option<Footer>,
     variants: Variants,
 }

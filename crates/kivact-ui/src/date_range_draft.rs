@@ -1,4 +1,5 @@
 //! Role: Own typed range endpoint candidates while the public binding stays ordered.
+use crate::date_input::{OpenedBy, Picker};
 use kivact_core::i18n::{CalendarDate, DateRange};
 use kivact_core::state::{Machine, Step};
 use std::rc::Rc;
@@ -11,33 +12,51 @@ pub(super) enum FieldValidity {
     BothInvalid,
 }
 #[derive(Clone, Copy, PartialEq)]
-pub(super) enum RangeDraft {
+enum Draft {
     Following(Option<DateRange>),
     Editing {
-        // xtask-allow(state-fields): independent fact - the typed start endpoint, absent while that field is empty
+        // xtask-allow(state-fields): independent: the typed start endpoint, absent while that field is empty
         start: Option<CalendarDate>,
-        // xtask-allow(state-fields): independent fact - the typed end endpoint, absent while that field is empty
+        // xtask-allow(state-fields): independent: the typed end endpoint, absent while that field is empty
         end: Option<CalendarDate>,
         fields: FieldValidity,
     },
 }
+/// The range draft and its picker, one machine state.
+#[derive(Clone, Copy, PartialEq)]
+pub(super) struct RangeDraft {
+    draft: Draft,
+    picker: Picker,
+}
 impl RangeDraft {
+    pub(super) fn following(range: Option<DateRange>) -> Self {
+        Self {
+            draft: Draft::Following(range),
+            picker: Picker::Closed,
+        }
+    }
     pub(super) fn endpoints(self) -> (Option<CalendarDate>, Option<CalendarDate>) {
-        match self {
-            Self::Following(range) => (range.map(DateRange::start), range.map(DateRange::end)),
-            Self::Editing { start, end, .. } => (start, end),
+        match self.draft {
+            Draft::Following(range) => (range.map(DateRange::start), range.map(DateRange::end)),
+            Draft::Editing { start, end, .. } => (start, end),
         }
     }
     pub(super) fn fields(self) -> FieldValidity {
-        match self {
-            Self::Following(_) => FieldValidity::Valid,
-            Self::Editing { fields, .. } => fields,
+        match self.draft {
+            Draft::Following(_) => FieldValidity::Valid,
+            Draft::Editing { fields, .. } => fields,
         }
     }
     pub(super) fn order_invalid(self) -> bool {
         let (start, end) = self.endpoints();
         self.fields() == FieldValidity::Valid
             && matches!((start,end),(Some(start),Some(end)) if start>end)
+    }
+    pub(super) fn is_open(self) -> bool {
+        matches!(self.picker, Picker::Open { .. })
+    }
+    fn with_picker(self, picker: Picker) -> Self {
+        Self { picker, ..self }
     }
     fn candidate(self) -> Option<Option<DateRange>> {
         if self.fields() != FieldValidity::Valid {
@@ -56,6 +75,8 @@ pub(super) enum Event {
     End(Option<CalendarDate>),
     StartValid(bool),
     EndValid(bool),
+    Open(OpenedBy),
+    Close,
 }
 pub(super) enum Effect {
     Publish(Option<DateRange>),
@@ -69,11 +90,21 @@ impl Machine for Policy {
     type Event = Event;
     type Effect = Effect;
     fn transition(&self, state: &RangeDraft, event: Event) -> Step<RangeDraft, Event, Effect> {
+        if let Event::Open(opened_by) = event {
+            return Step::to(state.with_picker(Picker::Open { opened_by }));
+        }
+        if let Event::Close = event {
+            return Step::to(state.with_picker(Picker::Closed));
+        }
         let (mut start, mut end) = state.endpoints();
         let mut fields = state.fields();
         let commit = match event {
             Event::External(value) => {
-                return Step::to(RangeDraft::Following(value)).with(Effect::Validity(
+                return Step::to(RangeDraft {
+                    draft: Draft::Following(value),
+                    picker: state.picker,
+                })
+                .with(Effect::Validity(
                     value.is_none_or(|range| (self.accept)(range)),
                 ));
             }
@@ -95,8 +126,12 @@ impl Machine for Policy {
                 fields = field_validity(fields, false, valid);
                 false
             }
+            Event::Open(_) | Event::Close => unreachable!("handled above"),
         };
-        let next = RangeDraft::Editing { start, end, fields };
+        let next = RangeDraft {
+            draft: Draft::Editing { start, end, fields },
+            picker: state.picker,
+        };
         let accepted = next
             .candidate()
             .filter(|candidate| candidate.is_none_or(|range| (self.accept)(range)));

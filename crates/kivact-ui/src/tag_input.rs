@@ -220,7 +220,11 @@ fn with_tag_box(
         |r| r.tag_input_recipes().root_recipe(),
         variants,
         move || PartState {
-            focused: within.get(),
+            focus: if within.get() {
+                kivact_core::view::Focus::Focused
+            } else {
+                kivact_core::view::Focus::None
+            },
             ..PartState::default()
         },
     )

@@ -33,8 +33,8 @@ pub struct RadioGroup<K: kivact_core::state::ItemKey> {
     variants: Variants,
 }
 
-/// A themed radio group named `label` over `options` that writes the
-/// chosen key to `value`.
+/// A themed radio group named `label` over `items` that writes the
+/// chosen key to `selected`.
 ///
 /// Each option is a `Role::RadioButton` named by its label, showing the
 /// theme's indicator (the `dot` icon while chosen), its icon and its label
@@ -64,13 +64,13 @@ pub struct RadioGroup<K: kivact_core::state::ItemKey> {
 #[track_caller]
 pub fn radio_group<K: kivact_core::state::ItemKey>(
     label: impl IntoText,
-    options: impl IntoValue<Vec<ListItem<K>>>,
-    value: impl kivact_core::state::IntoBinding<Option<K>>,
+    items: impl IntoValue<Vec<ListItem<K>>>,
+    selected: impl kivact_core::state::IntoBinding<Option<K>>,
 ) -> RadioGroup<K> {
     RadioGroup {
         root: node().role(Role::RadioGroup).name(label),
-        options: options.into_value(),
-        value: value.into_binding(),
+        options: items.into_value(),
+        value: selected.into_binding(),
         orientation: Orientation::Vertical,
         size: super::values::default_control_size().into_value(),
         on_edit: None,

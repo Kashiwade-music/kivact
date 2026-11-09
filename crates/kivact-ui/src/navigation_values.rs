@@ -20,12 +20,13 @@ pub struct StepperItemState {
     pub current: usize,
     pub status: StepStatus,
     pub indicator: StepIndicatorKind,
+    // xtask-allow(state-fields): independent: whether the caller supplied an activation handler; any status can have one
     pub interactive: bool,
-    // xtask-allow(state-fields): Derived width fit shared by the root and all recipe parts.
+    // xtask-allow(state-fields): projection: readonly snapshot of the stepper's state for recipes, written only by its render function
     pub collapsed: bool,
-    // xtask-allow(state-fields): Independent caller availability projected into a passive recipe snapshot.
+    // xtask-allow(state-fields): projection: readonly snapshot of the stepper's state for recipes, written only by its render function
     pub disabled: bool,
-    // xtask-allow(state-fields): Independent optional-step metadata projected into a passive recipe snapshot.
+    // xtask-allow(state-fields): projection: readonly snapshot of the stepper's state for recipes, written only by its render function
     pub optional: bool,
 }
 /// Actual responsive layout projected from the mounted root and caller data.
@@ -71,9 +72,9 @@ pub struct PaginationItemState {
 /// Actual entry semantics and input from its single activation part.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct BreadcrumbItemState {
-    // xtask-allow(state-fields): passive record - current
+    // xtask-allow(state-fields): projection: readonly snapshot of the stepper's state for recipes, written only by its render function
     pub current: bool,
-    // xtask-allow(state-fields): passive record - input
+    // xtask-allow(state-fields): projection: readonly snapshot of the stepper's state for recipes, written only by its render function
     pub input: Option<kivact_core::custom::PartState>,
 }
 
@@ -112,10 +113,10 @@ pub struct PaginationSummary {
     /// Zero-based actual page index.
     pub page: usize,
     pub count: usize,
-    // xtask-allow(state-fields): passive record - total items
+    // xtask-allow(state-fields): projection: readonly snapshot of the stepper's state for recipes, written only by its render function
     pub total_items: Option<u64>,
     pub page_size: u32,
-    // xtask-allow(state-fields): passive record - has more
+    // xtask-allow(state-fields): projection: readonly snapshot of the stepper's state for recipes, written only by its render function
     pub has_more: bool,
 }
 

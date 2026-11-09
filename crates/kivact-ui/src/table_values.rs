@@ -16,9 +16,9 @@ pub struct DataTableGroupState {
 pub struct RowStatus {
     pub(crate) label: String,
     pub(crate) tone: Tone,
-    // xtask-allow(state-fields): passive record - icon
+    // xtask-allow(state-fields): projection: readonly snapshot of the row's state for recipes, written only by its render function
     pub(crate) icon: Option<Icon>,
-    // xtask-allow(state-fields): passive record - color
+    // xtask-allow(state-fields): projection: readonly snapshot of the row's state for recipes, written only by its render function
     pub(crate) color: Option<Color>,
 }
 

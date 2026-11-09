@@ -34,14 +34,14 @@ type ItemContent<K> = kivact_core::view::ViewFn<(Value<MenuEntry<K>>, Value<Menu
 pub struct Menu<K: kivact_core::state::ItemKey> {
     label: Value<String>,
     behavior: Behavior<K>,
-    // xtask-allow(state-fields): Independent builder placement option, consumed when rendering.
+    // xtask-allow(state-fields): option: absent means the component's default
     offset: Option<f64>,
     placement: Placement,
-    // xtask-allow(state-fields): Independent builder alignment option, consumed when rendering.
+    // xtask-allow(state-fields): option: absent means the component's default
     align: Option<OverlayAlign>,
-    // xtask-allow(state-fields): Independent immutable layout option.
+    // xtask-allow(state-fields): independent: a construction option; every combination is valid
     at_least_anchor_width: bool,
-    // xtask-allow(state-fields): Optional immutable caller renderer, not interaction state.
+    // xtask-allow(state-fields): option: absent means the component's default
     item: Option<ItemContent<K>>,
     variants: Variants,
 }
@@ -60,11 +60,11 @@ pub struct Menu<K: kivact_core::state::ItemKey> {
 #[track_caller]
 pub fn menu<K: kivact_core::state::ItemKey>(
     label: impl IntoText,
-    entries: impl IntoValue<Vec<MenuEntry<K>>>,
+    items: impl IntoValue<Vec<MenuEntry<K>>>,
 ) -> Menu<K> {
     Menu {
         label: label.into_text_value(),
-        behavior: kivact_interaction::use_menu(entries),
+        behavior: kivact_interaction::use_menu(items),
         offset: None,
         placement: Placement::Below,
         align: None,
@@ -135,7 +135,7 @@ impl<K: kivact_core::state::ItemKey> Menu<K> {
     ///     let entries = vec![MenuEntry::item("new", "New"), MenuEntry::item("open", "Open")];
     ///     menu("File", entries).on_activate(|_key| {}).item(|entry, state| {
     ///         text(move || {
-    ///             let mark = if state.get().input.focused { "> " } else { "" };
+    ///             let mark = if state.get().input.is_focused() { "> " } else { "" };
     ///             format!("{mark}{}", entry.get().label())
     ///         })
     ///     })
@@ -273,9 +273,9 @@ struct Level<K: kivact_core::state::ItemKey> {
     behavior: Behavior<K>,
     anchor: NodeRef,
     placement: Placement,
-    // xtask-allow(state-fields): Independent builder alignment option, consumed when rendering.
+    // xtask-allow(state-fields): option: absent means the component's default
     align: Option<OverlayAlign>,
-    // xtask-allow(state-fields): Independent immutable layout option.
+    // xtask-allow(state-fields): independent: a construction option; every combination is valid
     at_least_anchor_width: bool,
     kind: LevelKind,
     label: Value<String>,

@@ -27,9 +27,9 @@ pub struct CalendarDayVisual {
     /// Date represented by this recipe projection.
     pub date: CalendarDate,
     pub day: kivact_interaction::CalendarDayState,
-    // xtask-allow(state-fields): Independent drawing fact for today.
+    // xtask-allow(state-fields): independent: a measured value; any value is valid on its own
     pub today: bool,
-    // xtask-allow(state-fields): Independent drawing fact for month membership.
+    // xtask-allow(state-fields): independent: a measured value; any value is valid on its own
     pub in_month: bool,
     pub mark: Option<kivact_interaction::Tone>,
 }

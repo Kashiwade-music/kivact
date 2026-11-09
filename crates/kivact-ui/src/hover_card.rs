@@ -21,6 +21,15 @@ pub enum FocusTrigger {
     /// Only pointer or explicit opening requests open the preview.
     Never,
 }
+/// Whether the preview is open, and who decides it.
+#[derive(Clone, Copy)]
+enum CardOpen {
+    /// The caller's binding is the sole authority.
+    Controlled(Binding<bool>),
+    /// The preview starts at this value and then follows its own behavior.
+    Uncontrolled(bool),
+}
+
 /// A floating preview with shared pointer corridor, focus, and dismissal behavior.
 pub struct HoverCard {
     content: ViewFn,
@@ -30,11 +39,8 @@ pub struct HoverCard {
     timing: HoverCardTiming,
     enabled: Value<bool>,
     focus: FocusTrigger,
-    // xtask-allow(state-fields): builder option - open
-    open: Option<Binding<bool>>,
-    // xtask-allow(state-fields): builder option - default open
-    default_open: bool,
-    // xtask-allow(state-fields): builder option - label
+    open: CardOpen,
+    // xtask-allow(state-fields): option: absent means the component's default
     label: Option<Value<String>>,
     on_open_change: Option<kivact_core::state::Callback<bool>>,
 }
@@ -48,8 +54,7 @@ pub fn hover_card<V: IntoView>(content: impl Fn() -> V + 'static) -> HoverCard {
         timing: use_theme().get().ext::<InteractionPolicy>().hover_card,
         enabled: true.into_value(),
         focus: FocusTrigger::Auto,
-        open: None,
-        default_open: false,
+        open: CardOpen::Uncontrolled(false),
         label: None,
         on_open_change: None,
     }
@@ -85,12 +90,14 @@ impl HoverCard {
     /// Pointer entry, departure and dismissal request writes; rejected writes
     /// are respected. An external close suppresses the current engagement.
     pub fn open(mut self, open: impl IntoBinding<bool>) -> Self {
-        self.open = Some(open.into_binding());
+        self.open = CardOpen::Controlled(open.into_binding());
         self
     }
     /// Start visible until the first completed visit, unless an open binding is supplied.
     pub fn default_open(mut self, open: bool) -> Self {
-        self.default_open = open;
+        if !matches!(self.open, CardOpen::Controlled(_)) {
+            self.open = CardOpen::Uncontrolled(open);
+        }
         self
     }
     /// Gate all opening requests with a reactive condition.
@@ -120,9 +127,10 @@ impl HoverCard {
         let anchor_focus = anchor.focus_within();
         let card_focus = card.focus_within();
         let focus = self.focus;
-        let requested = self
-            .open
-            .unwrap_or_else(|| signal(self.default_open).into_binding());
+        let requested = match self.open {
+            CardOpen::Controlled(binding) => binding,
+            CardOpen::Uncontrolled(initial) => signal(initial).into_binding(),
+        };
         let behavior = use_hover_card(
             anchor,
             card,

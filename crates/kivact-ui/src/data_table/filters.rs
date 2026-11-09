@@ -5,7 +5,7 @@ use crate::{ButtonVariant, ControlSize, button, checkbox, dialog, select, tag_in
 use kivact_core::custom::Sent;
 use kivact_core::i18n::{CalendarDate, message, message_with};
 use kivact_core::state::IntoValue;
-use kivact_core::state::{Binding, Machine, Step, Value, binding, machine, memo, signal, var};
+use kivact_core::state::{Binding, Machine, Step, Value, binding, machine, memo, signal};
 use kivact_core::style::{ColorToken, Justify, Length, pct, style};
 use kivact_core::view::Element;
 use kivact_core::view::IntoView;
@@ -233,20 +233,48 @@ fn editor(
     (view, true.into_value())
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone)]
 enum FilterDraft {
     Valid {
         text: String,
         value: Option<FilterValue>,
+        // xtask-allow(state-fields): cache: the last value handed to the caller; the transition compares it to ignore its own echo
+        sent: Sent<Option<FilterValue>>,
     },
     Invalid {
         text: String,
     },
 }
+impl PartialEq for FilterDraft {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (
+                Self::Valid {
+                    text: text_a,
+                    value: value_a,
+                    ..
+                },
+                Self::Valid {
+                    text: text_b,
+                    value: value_b,
+                    ..
+                },
+            ) => text_a == text_b && value_a == value_b,
+            (Self::Invalid { text: text_a }, Self::Invalid { text: text_b }) => text_a == text_b,
+            _ => false,
+        }
+    }
+}
 impl FilterDraft {
     fn text(&self) -> &str {
         match self {
             Self::Valid { text, .. } | Self::Invalid { text } => text,
+        }
+    }
+    fn sent(&self) -> Option<&Sent<Option<FilterValue>>> {
+        match self {
+            Self::Valid { sent, .. } => Some(sent),
+            Self::Invalid { .. } => None,
         }
     }
 }
@@ -256,7 +284,6 @@ enum FilterEvent {
 }
 struct FilterInput {
     field: FilterField,
-    sent: Sent<Option<FilterValue>>,
 }
 impl Machine for FilterInput {
     type State = FilterDraft;
@@ -264,22 +291,36 @@ impl Machine for FilterInput {
     type Effect = (bool, Option<FilterValue>);
     fn transition(
         &self,
-        _state: &FilterDraft,
+        state: &FilterDraft,
         event: FilterEvent,
     ) -> Step<FilterDraft, FilterEvent, Self::Effect> {
         match event {
-            FilterEvent::External(value) if self.sent.get() == Some(&value) => Step::stay(),
-            FilterEvent::External(value) => Step::to(FilterDraft::Valid {
-                text: format_value(value.as_ref()),
-                value: value.clone(),
-            })
-            .with((false, value)),
-            FilterEvent::Typed(text) => match parse_value(&self.field, &text) {
-                Ok(value) => Step::to(FilterDraft::Valid {
-                    text,
+            FilterEvent::External(value)
+                if state.sent().is_some_and(|sent| sent.get() == Some(&value)) =>
+            {
+                Step::stay()
+            }
+            FilterEvent::External(value) => {
+                let mut sent = state.sent().cloned().unwrap_or_default();
+                sent.update(value.clone());
+                Step::to(FilterDraft::Valid {
+                    text: format_value(value.as_ref()),
                     value: value.clone(),
+                    sent,
                 })
-                .with((true, value)),
+                .with((false, value))
+            }
+            FilterEvent::Typed(text) => match parse_value(&self.field, &text) {
+                Ok(value) => {
+                    let mut sent = state.sent().cloned().unwrap_or_default();
+                    sent.update(value.clone());
+                    Step::to(FilterDraft::Valid {
+                        text,
+                        value: value.clone(),
+                        sent,
+                    })
+                    .with((true, value))
+                }
                 Err(()) => Step::to(FilterDraft::Invalid { text }),
             },
         }
@@ -292,23 +333,19 @@ fn text_editor(
     size: ControlSize,
 ) -> (View, Value<bool>) {
     let initial = value.get_untracked();
-    let mut last = Sent::new();
-    last.update(initial.clone());
-    let sent = var(last);
+    let mut sent = Sent::new();
+    sent.update(initial.clone());
     let input = field.clone();
     let draft = machine(
         FilterDraft::Valid {
             text: format_value(initial.as_ref()),
             value: initial,
+            sent,
         },
         move || FilterInput {
             field: input.clone(),
-            sent: sent.get(),
         },
         move |_, (write, next)| {
-            sent.update(|sent| {
-                sent.update(next.clone());
-            });
             if write {
                 value.set(next);
             }

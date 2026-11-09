@@ -34,11 +34,11 @@ pub(super) enum Event {
     External(Option<TimeOfDay>),
 }
 pub(super) struct Snapshot {
-    // xtask-allow(state-fields): passive record - seconds
+    // xtask-allow(state-fields): independent: a construction snapshot; every combination is valid
     pub(super) seconds: bool,
-    // xtask-allow(state-fields): passive record - min
+    // xtask-allow(state-fields): option: absent means the component's default
     pub(super) min: Option<TimeOfDay>,
-    // xtask-allow(state-fields): passive record - max
+    // xtask-allow(state-fields): option: absent means the component's default
     pub(super) max: Option<TimeOfDay>,
 }
 fn key(time: TimeOfDay) -> (u8, u8, u8) {

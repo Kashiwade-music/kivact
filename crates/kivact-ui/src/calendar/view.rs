@@ -29,17 +29,17 @@ pub struct Calendar {
     cell_size: Value<f64>,
     variants: crate::variants::Variants,
     selection: CalendarSelection,
-    // xtask-allow(state-fields): Independent setup or presentation option, not a lifecycle flag.
+    // xtask-allow(state-fields): option: absent means the component's default
     month: Option<CalendarMonth>,
     disabled: Rc<dyn Fn(CalendarDate) -> bool>,
     count: Value<usize>,
     caption: Value<CalendarCaption>,
     outside: Value<bool>,
-    // xtask-allow(state-fields): Independent setup or presentation option, not a lifecycle flag.
+    // xtask-allow(state-fields): option: absent means the component's default
     week_start: Option<Value<Weekday>>,
     on_commit: Option<Callback<()>>,
     autofocus: Value<bool>,
-    // xtask-allow(state-fields): Independent setup or presentation option, not a lifecycle flag.
+    // xtask-allow(state-fields): option: absent means the component's default
     displayed_month: Option<Binding<CalendarMonth>>,
     today: Value<CalendarDate>,
     min: Value<Option<CalendarDate>>,

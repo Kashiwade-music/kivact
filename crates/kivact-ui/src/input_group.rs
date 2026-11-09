@@ -87,7 +87,7 @@ impl<C> InputGroup<C> {
         self
     }
 }
-impl<C> Element for InputGroup<C> {
+impl<C: IntoChildren + 'static> Element for InputGroup<C> {
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }

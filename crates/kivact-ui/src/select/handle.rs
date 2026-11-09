@@ -57,7 +57,7 @@ struct SelectOptions<K: kivact_core::state::ItemKey> {
 /// included.
 pub fn select<K: kivact_core::state::ItemKey>(
     label: impl IntoText,
-    options: impl IntoValue<Vec<ListItem<K>>>,
+    items: impl IntoValue<Vec<ListItem<K>>>,
     selected: impl kivact_core::state::IntoBinding<Option<K>>,
 ) -> Select<K> {
     let label = label.into_text_value();
@@ -66,7 +66,7 @@ pub fn select<K: kivact_core::state::ItemKey>(
         root: node().name(label),
         settings: SelectOptions {
             label,
-            options: options.into_value(),
+            options: items.into_value(),
             selected: selected.into_binding(),
             placeholder: None,
             on_edit: None,

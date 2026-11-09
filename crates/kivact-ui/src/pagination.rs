@@ -481,9 +481,9 @@ fn dot_control(
         })
 }
 struct ControlContent {
-    // xtask-allow(state-fields): passive record - summary
+    // xtask-allow(state-fields): option: absent means the component's default
     summary: Option<View>,
-    // xtask-allow(state-fields): passive record - input
+    // xtask-allow(state-fields): option: absent means the component's default
     input: Option<View>,
 }
 fn render_controls(
@@ -692,9 +692,9 @@ fn control_disabled(
 }
 
 struct PageExtras {
-    // xtask-allow(state-fields): passive record - summary
+    // xtask-allow(state-fields): option: absent means the component's default
     summary: Option<SummarySlot>,
-    // xtask-allow(state-fields): passive record - page size
+    // xtask-allow(state-fields): option: absent means the component's default
     page_size: Option<Binding<u32>>,
     size_options: Value<Vec<u32>>,
     page_label: Value<String>,

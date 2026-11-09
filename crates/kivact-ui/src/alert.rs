@@ -17,42 +17,26 @@ enum LocalBannerState {
     Shown { restore: Option<NodeToken> },
     Dismissed,
 }
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 enum BannerState {
     Local(LocalBannerState),
+    /// Application-owned visibility, mirrored from its binding.
     Shared {
-        visible: Binding<bool>,
+        shown: bool,
+        // xtask-allow(state-fields): independent: records where the focus was before the banner took it, separately from the current visibility
         restore: Option<NodeToken>,
     },
-}
-impl PartialEq for BannerState {
-    fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (Self::Local(a), Self::Local(b)) => a == b,
-            (
-                Self::Shared {
-                    visible: a,
-                    restore: ar,
-                },
-                Self::Shared {
-                    visible: b,
-                    restore: br,
-                },
-            ) => a.into_value() == b.into_value() && ar == br,
-            _ => false,
-        }
-    }
 }
 impl BannerState {
     fn visible(self) -> bool {
         match self {
             Self::Local(LocalBannerState::Shown { .. }) => true,
             Self::Local(LocalBannerState::Dismissed) => false,
-            Self::Shared { visible, .. } => visible.get(),
+            Self::Shared { shown, .. } => shown,
         }
     }
 }
-use crate::component_values::AlertState;
+use crate::component_values::{AlertState, Expansion};
 
 /// An urgent, persistent message with optional actions and details.
 pub struct Alert {
@@ -63,13 +47,12 @@ pub struct Alert {
     actions: Option<View>,
     content: Option<ViewFn>,
     collapsible: Value<bool>,
-    open: Option<Binding<bool>>,
     tone: Value<Tone>,
     dismissible: Value<bool>,
     dismiss_label: Value<String>,
     dismiss_content: Option<View>,
     dismiss: Option<Callback<()>>,
-    visible: Option<Binding<bool>>,
+    open: Option<Binding<bool>>,
     variants: Variants,
 }
 /// Display an alert without moving keyboard focus or automatically hiding it.
@@ -86,13 +69,12 @@ pub fn alert(title: impl IntoText) -> Alert {
         actions: None,
         content: None,
         collapsible: false.into_value(),
-        open: None,
         tone: Tone::Neutral.into_value(),
         dismissible: false.into_value(),
         dismiss_label: "Dismiss notification".into_text_value(),
         dismiss_content: None,
         dismiss: None,
-        visible: None,
+        open: None,
         variants: Variants::default(),
     }
 }
@@ -127,11 +109,6 @@ impl Alert {
         self.collapsible = value.into_value();
         self
     }
-    /// Bind expanded details to application state.
-    pub fn open(mut self, value: impl IntoBinding<bool>) -> Self {
-        self.open = Some(value.into_binding());
-        self
-    }
     /// Show a dismiss control; dismissal lasts until remount.
     pub fn dismissible(mut self, value: impl IntoValue<bool>) -> Self {
         self.dismissible = value.into_value();
@@ -155,8 +132,8 @@ impl Alert {
     }
     /// Use application-owned visibility. A refused false write keeps the alert visible;
     /// completed dismissal and focus restoration happen only after acceptance.
-    pub fn visible(mut self, visible: impl IntoBinding<bool>) -> Self {
-        self.visible = Some(visible.into_binding());
+    pub fn open(mut self, open: impl IntoBinding<bool>) -> Self {
+        self.open = Some(open.into_binding());
         self
     }
     /// Set a structural or theme-defined appearance.
@@ -173,25 +150,25 @@ impl Element for Alert {
 impl IntoView for Alert {
     fn into_view(mut self) -> View {
         let reference = node_ref();
-        let phase = banner_dismissal(reference, self.dismiss.take(), self.visible);
+        let phase = banner_dismissal(reference, self.dismiss.take(), self.open);
         let tone = self.tone;
         let dismissible = self.dismissible;
         let collapsible = self.collapsible;
         let has_details = self.content.is_some();
-        let open = self.open.unwrap_or_else(|| signal(false).into_binding());
+        let details = signal(false).into_binding();
         let has_icon = self.icon.is_some();
         let has_actions = self.actions.is_some();
         let has_description = self.description.is_some();
         let state = move || AlertState {
             tone: tone.get(),
-            expanded: (has_details && collapsible.get()).then(|| open.get()),
+            expansion: Expansion::new(has_details && collapsible.get(), details.get()),
             dismissible: dismissible.get(),
             has_icon,
             has_actions,
             has_description,
             has_content: has_details,
         };
-        let contents = self.render_contents(state, collapsible, open, phase);
+        let contents = self.render_contents(state, collapsible, details, phase);
         with_base_recipe_style(
             self.root,
             |r| r.alert_recipes().root_recipe(),
@@ -342,6 +319,7 @@ fn expansion_toggle(
 }
 
 enum BannerEvent {
+    Visibility(bool),
     ExternalFocus {
         focused: Option<NodeToken>,
         within: bool,
@@ -351,12 +329,11 @@ enum BannerEvent {
 enum BannerEffect {
     RestoreFocus(NodeToken),
     NotifyDismiss,
-    RequestDismiss {
-        visible: Binding<bool>,
-        restore: Option<NodeToken>,
-    },
+    RequestDismiss { restore: Option<NodeToken> },
 }
-struct BannerMachine;
+struct BannerMachine {
+    visible: Option<Binding<bool>>,
+}
 impl Machine for BannerMachine {
     type State = BannerState;
     type Event = BannerEvent;
@@ -367,6 +344,10 @@ impl Machine for BannerMachine {
         event: BannerEvent,
     ) -> Step<BannerState, BannerEvent, BannerEffect> {
         match (*state, event) {
+            (BannerState::Local(_), BannerEvent::Visibility(_)) => Step::stay(),
+            (BannerState::Shared { restore, .. }, BannerEvent::Visibility(shown)) => {
+                Step::to(BannerState::Shared { shown, restore })
+            }
             (
                 state,
                 BannerEvent::ExternalFocus {
@@ -377,8 +358,8 @@ impl Machine for BannerMachine {
                 BannerState::Local(_) => BannerState::Local(LocalBannerState::Shown {
                     restore: Some(target),
                 }),
-                BannerState::Shared { visible, .. } => BannerState::Shared {
-                    visible,
+                BannerState::Shared { shown, .. } => BannerState::Shared {
+                    shown,
                     restore: Some(target),
                 },
             }),
@@ -391,8 +372,14 @@ impl Machine for BannerMachine {
                 };
                 step.with(BannerEffect::NotifyDismiss)
             }
-            (BannerState::Shared { visible, restore }, BannerEvent::Dismiss) if visible.get() => {
-                Step::stay().with(BannerEffect::RequestDismiss { visible, restore })
+            (
+                BannerState::Shared {
+                    shown: true,
+                    restore,
+                },
+                BannerEvent::Dismiss,
+            ) if self.visible.is_some_and(|visible| visible.get_untracked()) => {
+                Step::stay().with(BannerEffect::RequestDismiss { restore })
             }
             _ => Step::stay(),
         }
@@ -407,16 +394,18 @@ fn banner_dismissal(
         visible.map_or(
             BannerState::Local(LocalBannerState::Shown { restore: None }),
             |visible| BannerState::Shared {
-                visible,
+                shown: visible.get_untracked(),
                 restore: None,
             },
         ),
-        || BannerMachine,
+        move || BannerMachine { visible },
         move |_, command| match command {
             BannerEffect::RestoreFocus(target) => target.restore_focus(),
-            BannerEffect::RequestDismiss { visible, restore } => {
-                visible.set(false);
-                if !visible.get_untracked() {
+            BannerEffect::RequestDismiss { restore } => {
+                if let Some(visible) = visible {
+                    visible.set(false);
+                }
+                if visible.is_none_or(|visible| !visible.get_untracked()) {
                     if let Some(target) = restore {
                         target.restore_focus();
                     }
@@ -432,6 +421,9 @@ fn banner_dismissal(
             }
         },
     );
+    if let Some(visible) = visible {
+        phase.feed(visible.into_value(), BannerEvent::Visibility);
+    }
     let owner = Owner::current();
     let within = reference.focus_within();
     effect(move || {

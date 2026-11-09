@@ -19,28 +19,28 @@ pub struct Combobox<K: ItemKey> {
     pub(super) label: Value<String>,
     pub(super) options: Value<Vec<ListItem<K>>>,
     pub(super) selection: Selection<K>,
-    // xtask-allow(state-fields): builder option - query
+    // xtask-allow(state-fields): option: absent means the component's default
     pub(super) query: Option<Binding<String>>,
-    // xtask-allow(state-fields): builder option - open
+    // xtask-allow(state-fields): option: absent means the component's default
     pub(super) open: Option<Binding<bool>>,
     pub(super) on_edit: Option<kivact_core::state::Callback<kivact_core::view::EditPhase>>,
-    // xtask-allow(state-fields): builder option - free text
+    // xtask-allow(state-fields): independent: a construction option; every combination is valid
     pub(super) free_text: bool,
-    // xtask-allow(state-fields): builder option - mode
+    // xtask-allow(state-fields): option: absent means the component's default
     pub(super) mode: Option<ComboboxMode>,
-    // xtask-allow(state-fields): builder option - chips
+    // xtask-allow(state-fields): independent: a construction option; every combination is valid
     pub(super) chips: bool,
-    // xtask-allow(state-fields): builder option - placeholder
+    // xtask-allow(state-fields): option: absent means the component's default
     pub(super) placeholder: Option<Value<String>>,
-    // xtask-allow(state-fields): builder option - empty
+    // xtask-allow(state-fields): option: absent means the component's default
     pub(super) empty: Option<Value<String>>,
     pub(super) clear: Value<bool>,
-    // xtask-allow(state-fields): builder option - matcher
+    // xtask-allow(state-fields): option: absent means the component's default
     pub(super) matcher: Option<Matcher<K>>,
-    // xtask-allow(state-fields): builder option - search
+    // xtask-allow(state-fields): option: absent means the component's default
     pub(super) search: Option<Search<K>>,
     pub(super) debounce: Value<Duration>,
-    // xtask-allow(state-fields): builder option - exclude selected
+    // xtask-allow(state-fields): independent: a construction option; every combination is valid
     pub(super) exclude_selected: bool,
     pub(super) presentation: SelectPresentation,
     pub(super) variants: Variants,

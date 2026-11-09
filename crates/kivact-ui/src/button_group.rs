@@ -57,7 +57,7 @@ impl<C> ButtonGroup<C> {
         self
     }
 }
-impl<C> Element for ButtonGroup<C> {
+impl<C: IntoChildren> Element for ButtonGroup<C> {
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -177,7 +177,7 @@ pub fn button_group_text(label: impl IntoText) -> ButtonGroupCell {
 pub struct ButtonGroupMember {
     button: crate::Button,
     solid: Value<bool>,
-    // xtask-allow(state-fields): Independent presentation or construction input, not interaction state.
+    // xtask-allow(state-fields): independent: a construction option; every combination is valid
     keep_size: bool,
 }
 impl From<crate::Button> for ButtonGroupMember {

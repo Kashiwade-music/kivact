@@ -185,11 +185,11 @@ struct CodePresentation {
 /// Inputs consumed together when constructing the one native source editor.
 struct CodeSource {
     code: Value<String>,
-    // xtask-allow(state-fields): passive record - highlight
+    // xtask-allow(state-fields): option: absent means the component's default
     highlight: Option<Highlight>,
     highlight_lines: Value<Vec<u32>>,
     diff: Value<bool>,
-    // xtask-allow(state-fields): passive record - max height
+    // xtask-allow(state-fields): option: absent means the component's default
     max_height: Option<Value<Length>>,
 }
 impl CodeBlock {

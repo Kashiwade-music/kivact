@@ -1,7 +1,9 @@
 //! Role: Render keyed breadcrumb navigation with one current page.
 use crate::BreadcrumbItemState;
-use kivact_core::state::{IntoValue, Value};
-use kivact_core::view::{CurrentItem, Element, IntoView, Node, Role, View, dynamic, node, text};
+use kivact_core::state::{Callback, IntoValue, Value, callback};
+use kivact_core::view::{
+    CurrentItem, Element, HandlerResult, IntoView, Node, Role, View, dynamic, node, text,
+};
 use kivact_interaction::ListItem;
 use std::rc::Rc;
 
@@ -17,7 +19,7 @@ pub struct Breadcrumb<K: 'static> {
     root: Node,
     items: Value<Vec<ListItem<K>>>,
     current: CurrentPage<K>,
-    activate: Option<Rc<dyn Fn(K)>>,
+    activate: Option<Callback<K>>,
     item: Option<ItemSlot<K>>,
     separator: Rc<dyn Fn() -> View>,
     variants: crate::variants::Variants,
@@ -47,8 +49,8 @@ impl<K: Clone + PartialEq + 'static> Breadcrumb<K> {
         self
     }
     /// Activate a non-current item by key.
-    pub fn on_activate(mut self, f: impl Fn(K) + 'static) -> Self {
-        self.activate = Some(Rc::new(f));
+    pub fn on_activate<R: HandlerResult>(mut self, f: impl Fn(K) -> R + 'static) -> Self {
+        self.activate = Some(callback(f));
         self
     }
     /// Replace the visible contents of each item, retaining its semantics.
@@ -67,7 +69,7 @@ impl<K: Clone + PartialEq + 'static> Breadcrumb<K> {
         self
     }
 }
-impl<K: 'static> Element for Breadcrumb<K> {
+impl<K: Clone + PartialEq + 'static> Element for Breadcrumb<K> {
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -142,7 +144,7 @@ impl<K: Clone + PartialEq + 'static> IntoView for Breadcrumb<K> {
 fn breadcrumb_entry<K: Clone + PartialEq + 'static>(
     entry: ListItem<K>,
     current: bool,
-    activate: Option<&Rc<dyn Fn(K)>>,
+    activate: Option<&Callback<K>>,
     item: Option<&ItemSlot<K>>,
     variants: &crate::variants::Variants,
 ) -> View {
@@ -192,7 +194,7 @@ fn breadcrumb_entry<K: Clone + PartialEq + 'static>(
                 .role(Role::Link)
                 .on_press(move || {
                     if let Some(f) = &f {
-                        f(key.clone());
+                        f.call(key.clone());
                     }
                 })
                 .child(body),

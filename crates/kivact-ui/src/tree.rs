@@ -35,11 +35,11 @@ pub struct Tree<K: kivact_core::state::ItemKey> {
 #[track_caller]
 pub fn tree<K: kivact_core::state::ItemKey>(
     label: impl IntoText,
-    nodes: impl IntoValue<Vec<TreeNode<K>>>,
+    items: impl IntoValue<Vec<TreeNode<K>>>,
 ) -> Tree<K> {
     Tree {
         root: node().name(label),
-        nodes: nodes.into_value(),
+        nodes: items.into_value(),
         selection: kivact_interaction::IntoSelection::into_selection(signal(None)),
         expanded: kivact_core::state::IntoBinding::into_binding(signal(Vec::new())),
         item: None,

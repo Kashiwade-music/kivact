@@ -6,10 +6,10 @@ pub struct DisclosureTokens {
 }
 #[derive(Clone, Debug, PartialEq)]
 pub struct DisclosureMotion {
-    // xtask-allow(state-fields): passive record - animate
+    // xtask-allow(state-fields): independent: a theme option; every combination is valid
     pub animate: bool,
     pub duration: Duration,
-    // xtask-allow(state-fields): passive record - Optional theme transition;
+    // xtask-allow(state-fields): independent: a theme option; every combination is valid
     /// Optional theme transition; absent uses the duration-based ease-out tween.
     pub transition: Option<kivact_core::motion::Transition>,
 }

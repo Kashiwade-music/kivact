@@ -114,9 +114,9 @@ pub struct ButtonState {
     /// decoration is not a state style property).
     pub input: PartState,
     pub size: ControlSize,
-    // xtask-allow(state-fields): passive record - busy
+    // xtask-allow(state-fields): projection: readonly snapshot of the component's state for recipes, written only by its render function
     pub busy: bool,
-    // xtask-allow(state-fields): passive record - Whether the button opens something and whether that is open: `None` for a plain button, `Some(open)` when the button publishes an expanded state (a popup, menu or disclosure attached its trigger to it, or the caller set `.expanded(..)`)
+    // xtask-allow(state-fields): projection: readonly snapshot of the component's state for recipes, written only by its render function
     /// Whether the button opens something and whether that is open: `None`
     /// for a plain button, `Some(open)` when the button publishes an
     /// expanded state (a popup, menu or disclosure attached its trigger to
@@ -124,14 +124,14 @@ pub struct ButtonState {
     /// trigger as such (shadcn's `aria-expanded:bg-muted`) and does not
     /// nudge a popup trigger while pressed.
     pub expanded: Option<bool>,
-    // xtask-allow(state-fields): passive record - Whether the button shows a leading icon ([`Button::icon`](super::Button::icon))
+    // xtask-allow(state-fields): projection: readonly snapshot of the component's state for recipes, written only by its render function
     /// Whether the button shows a leading icon ([`Button::icon`](super::Button::icon)).
     pub leading_icon: bool,
-    // xtask-allow(state-fields): passive record - Whether the button shows a trailing icon ([`Button::trailing`](super::Button::trailing))
+    // xtask-allow(state-fields): projection: readonly snapshot of the component's state for recipes, written only by its render function
     /// Whether the button shows a trailing icon
     /// ([`Button::trailing`](super::Button::trailing)).
     pub trailing_icon: bool,
-    // xtask-allow(state-fields): passive record - Whether the button shows only its leading icon: it has one and its label is hidden ([`Button::hide_label`](super::Button::hide_label))
+    // xtask-allow(state-fields): projection: readonly snapshot of the component's state for recipes, written only by its render function
     /// Whether the button shows only its leading icon: it has one and its
     /// label is hidden ([`Button::hide_label`](super::Button::hide_label)).
     /// A look draws it as a square of the button's height.
@@ -162,15 +162,15 @@ impl ButtonState {
 pub struct ToggleButtonState {
     /// The actual input state of the toggle.
     pub input: PartState,
-    // xtask-allow(state-fields): passive record - Whether it is pressed (on)
+    // xtask-allow(state-fields): projection: readonly snapshot of the component's state for recipes, written only by its render function
     /// Whether it is pressed (on).
     pub pressed: bool,
     /// The size the caller chose with `.size(..)` (default `Medium`).
     pub size: ControlSize,
-    // xtask-allow(state-fields): passive record - Whether the toggle shows a leading icon ([`ToggleButton::icon`](super::ToggleButton::icon))
+    // xtask-allow(state-fields): projection: readonly snapshot of the component's state for recipes, written only by its render function
     /// Whether the toggle shows a leading icon ([`ToggleButton::icon`](super::ToggleButton::icon)).
     pub leading_icon: bool,
-    // xtask-allow(state-fields): passive record - Whether the toggle shows only its leading icon: it has one and its label is hidden ([`ToggleButton::hide_label`](super::ToggleButton::hide_label))
+    // xtask-allow(state-fields): projection: readonly snapshot of the component's state for recipes, written only by its render function
     /// Whether the toggle shows only its leading icon: it has one and its
     /// label is hidden ([`ToggleButton::hide_label`](super::ToggleButton::hide_label)).
     /// A look draws it as a square of the toggle's height.
@@ -241,22 +241,50 @@ pub struct FieldState {
 }
 
 /// The visual position of a switch thumb during an opt-in gesture.
+///
+/// Only the combinations the gesture machine reaches exist: a touch press, a
+/// tracked contact (touch with its offset, or a pointer), and a released touch
+/// thumb which is still raised or has settled.
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub struct SwitchDragState {
-    // xtask-allow(state-fields): passive record - Physical translation along the writing direction, in logical pixels
-    /// Physical translation along the writing direction, in logical pixels.
-    pub offset: Option<f64>,
-    // xtask-allow(state-fields): passive record - The side the thumb is showing, before the binding commits
-    /// The side the thumb is showing, before the binding commits.
-    pub visually_on: bool,
-    // xtask-allow(state-fields): passive record - touch
-    pub touch: bool,
-    // xtask-allow(state-fields): passive record - tracking
-    pub tracking: bool,
-    // xtask-allow(state-fields): passive record - lifted
-    pub lifted: bool,
-    // xtask-allow(state-fields): passive record - released
-    pub released: bool,
+pub enum SwitchDragState {
+    /// A touch contact pressed the switch before moving it.
+    TouchPressed,
+    /// The contact moves the thumb.
+    Tracking(TrackInput),
+    /// A touch contact was released.
+    TouchReleased(Lift),
+}
+
+impl SwitchDragState {
+    /// Whether the gesture follows a touch contact.
+    pub fn is_touch(self) -> bool {
+        match self {
+            Self::TouchPressed | Self::TouchReleased(_) => true,
+            Self::Tracking(TrackInput::Touch { .. }) => true,
+            Self::Tracking(TrackInput::Pointer) => false,
+        }
+    }
+}
+
+/// What a tracked switch gesture follows.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum TrackInput {
+    /// A touch contact, at a physical offset along the writing direction.
+    Touch {
+        /// Physical translation along the writing direction, in logical pixels.
+        offset: f64,
+    },
+    /// A mouse or pen pointer.
+    Pointer,
+}
+
+/// Whether a released touch thumb is still raised or has settled.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Lift {
+    /// The thumb is still raised above the track.
+    Raised,
+    /// The thumb has settled back onto the track.
+    Settled,
 }
 
 /// The state of a check box, a switch or a radio item for its recipe.
@@ -269,17 +297,17 @@ pub struct CheckableState {
     pub checked: CheckedState,
     /// The size the caller chose with `.size(..)` (default `Medium`).
     pub size: ControlSize,
-    // xtask-allow(state-fields): passive record - Whether the caller marked the value invalid (`.invalid(..)`)
+    // xtask-allow(state-fields): projection: readonly snapshot of the component's state for recipes, written only by its render function
     /// Whether the caller marked the value invalid (`.invalid(..)`).
     pub invalid: bool,
-    // xtask-allow(state-fields): passive record - The localized word for the state, for a recipe that paints it: a switch's `switch.on` ("ON") or `switch.off` ("OFF") message, `None` for a check box and a radio item
+    // xtask-allow(state-fields): projection: readonly snapshot of the component's state for recipes, written only by its render function
     /// The localized word for the state, for a recipe that paints it: a
     /// switch's `switch.on` ("ON") or `switch.off` ("OFF") message, `None`
     /// for a check box and a radio item. The handle is made at setup and
     /// stays the same for the mounted control; read it in the paint, which
     /// follows its text. It is not part of the state's equality.
     pub text: Option<kivact_core::state::Value<String>>,
-    // xtask-allow(state-fields): passive record - Live visual state for an opted-in Switch gesture
+    // xtask-allow(state-fields): projection: readonly snapshot of the component's state for recipes, written only by its render function
     /// Live visual state for an opted-in Switch gesture.
     pub switch_drag: Option<SwitchDragState>,
 }
@@ -297,10 +325,10 @@ impl PartialEq for CheckableState {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct DialogState {
     pub input: PartState,
-    // xtask-allow(state-fields): passive record - open
+    // xtask-allow(state-fields): projection: readonly snapshot of the component's state for recipes, written only by its render function
     pub open: bool,
     pub kind: DialogMode,
-    // xtask-allow(state-fields): passive record - The dialog has a [`media`](super::Dialog::media) view in its header, which the header recipe lays out beside or above the title
+    // xtask-allow(state-fields): projection: readonly snapshot of the component's state for recipes, written only by its render function
     /// The dialog has a [`media`](super::Dialog::media) view in its header,
     /// which the header recipe lays out beside or above the title.
     pub media: bool,
@@ -325,10 +353,10 @@ pub struct TooltipArrowState {
 pub struct SelectTriggerState {
     /// The actual input state of the trigger.
     pub input: PartState,
-    // xtask-allow(state-fields): passive record - Whether the list is open
+    // xtask-allow(state-fields): projection: readonly snapshot of the component's state for recipes, written only by its render function
     /// Whether the list is open.
     pub open: bool,
-    // xtask-allow(state-fields): passive record - Whether the trigger shows the placeholder: no option is selected (the selected key is `None` or not among the options)
+    // xtask-allow(state-fields): projection: readonly snapshot of the component's state for recipes, written only by its render function
     /// Whether the trigger shows the placeholder: no option is selected
     /// (the selected key is `None` or not among the options).
     pub placeholder: bool,
@@ -375,12 +403,12 @@ pub struct DataTableRowState {
     /// The actual state of the row's attached table part: its input state,
     /// whether it is selected and whether it holds the tab stop.
     pub interaction: kivact_interaction::TableRowState,
-    // xtask-allow(state-fields): passive record - The accent the caller gave the row with [`DataTable::row_color`](super::DataTable::row_color);
+    // xtask-allow(state-fields): projection: readonly snapshot of the component's state for recipes, written only by its render function
     /// The accent the caller gave the row with
     /// [`DataTable::row_color`](super::DataTable::row_color); the recipe
     /// resolves it in the theme in effect.
     pub color: Option<kivact_core::style::Color>,
-    // xtask-allow(state-fields): passive record - The height the caller gave the rows with [`DataTable::row_height`](super::DataTable::row_height), at least 18
+    // xtask-allow(state-fields): projection: readonly snapshot of the component's state for recipes, written only by its render function
     /// The height the caller gave the rows with
     /// [`DataTable::row_height`](super::DataTable::row_height), at least 18.
     pub height: Option<f64>,
@@ -400,7 +428,7 @@ pub struct DataTableCellState {
 /// [`data_table`](super::data_table), for its recipe.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct DataTableCheckState {
-    // xtask-allow(state-fields): passive record - recipe projection: the box is in the header
+    // xtask-allow(state-fields): projection: readonly snapshot of the component's state for recipes, written only by its render function
     /// The box is in the header and checks the rows of the page.
     pub header: bool,
     /// Whether the check box is on; the header's is mixed while some of the

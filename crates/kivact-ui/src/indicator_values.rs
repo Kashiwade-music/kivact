@@ -22,12 +22,12 @@ kivact_core::state::constant_value!(AvatarShape);
 pub struct BadgeState {
     pub tone: Tone,
     pub input: kivact_core::custom::PartState,
-    // xtask-allow(state-fields): passive record - Whether the badge has an activation callback
+    // xtask-allow(state-fields): projection: readonly snapshot of the indicator's state for recipes, written only by its render function
     /// Whether the badge has an activation callback.
     pub actionable: bool,
-    // xtask-allow(state-fields): passive record - leading icon
+    // xtask-allow(state-fields): projection: readonly snapshot of the indicator's state for recipes, written only by its render function
     pub leading_icon: bool,
-    // xtask-allow(state-fields): passive record - trailing icon
+    // xtask-allow(state-fields): projection: readonly snapshot of the indicator's state for recipes, written only by its render function
     pub trailing_icon: bool,
 }
 #[derive(Clone, Debug, PartialEq)]

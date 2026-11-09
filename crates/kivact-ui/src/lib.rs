@@ -164,7 +164,7 @@ mod column_values;
 pub use column_values::DataColumn;
 pub use data_table::{
     DataTable, DataTableContext, DataTableDensity, DataTableRowStatusPaint, DataTableStickyPaint,
-    DataTableTokens, DataTableTreeIndent, FilterField, FilterUi, data_table,
+    DataTableTokens, DataTableTreeIndent, FilterField, FilterUi, Paging, data_table,
 };
 pub use disclosure::{Disclosure, DisclosureMotion, DisclosureTokens, disclosure};
 pub use field::{Field, field};
@@ -186,9 +186,9 @@ pub use toggle_button::{ToggleButton, ToggleButtonTokens, ToggleLabelReservation
 pub use tree::{Tree, TreeRows, tree, tree_rows};
 pub use values::{
     AxisState, ButtonState, ButtonVariant, CheckableState, ControlSize, DataTableCellState,
-    DataTableCheckState, DataTablePageState, DataTableRowState, DialogState, FieldState,
+    DataTableCheckState, DataTablePageState, DataTableRowState, DialogState, FieldState, Lift,
     ProgressState, RadioGroupVariant, SelectTriggerState, SwitchDragState, TextInputState,
-    ToastGroupState, ToggleButtonState, TooltipArrowState, provide_control_size,
+    ToastGroupState, ToggleButtonState, TooltipArrowState, TrackInput, provide_control_size,
 };
 pub use variants::{Look, Variant};
 
@@ -422,8 +422,8 @@ pub use collection_values::{
     ItemListTokens, ItemRowState, TableTokens, ToolbarEdge, ToolbarState, ToolbarTokens, TreeTokens,
 };
 pub use component_values::{
-    AlertState, CardState, EmptyStateState, HeadingState, InputGroupMemberKind,
-    InputGroupMemberState, InputGroupState, StatState, Trend,
+    AlertState, CardState, EmptyStateState, Expansion, HeadingState, InputGroupMemberKind,
+    InputGroupMemberState, InputGroupState, Selectable, StatState, Trend,
 };
 pub use hover_card_values::{HoverCardSurfaceState, HoverCardTokens};
 
