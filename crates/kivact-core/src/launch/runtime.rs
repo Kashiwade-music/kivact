@@ -109,7 +109,6 @@ impl Launch {
 /// Set up and mount an App whose runtime is built.
 fn start_mount(
     rt: &Rc<Runtime>,
-    info: &HostInfo,
     writer: &Writer,
     mut options: AppOptions,
     root: Box<dyn FnOnce() -> View>,
@@ -118,8 +117,6 @@ fn start_mount(
     let setup = rt.begin_setup();
     let root_owner = rt.root();
     root_owner.provide(WindowScope(WindowId::MAIN));
-    #[cfg(debug_assertions)]
-    crate::client::trace::event(rt, format_args!("host_events start {info:?}"));
     writer.set_window(
         WindowId::MAIN,
         std::mem::take(&mut options.settings.title),
@@ -158,6 +155,7 @@ impl Launch {
             LaunchState::Waiting { options, root } => (options, root),
             LaunchState::Started(_) => unreachable!("invariant: host starts an App once"),
         };
+        #[cfg(debug_assertions)]
         let trace_name = match &self.mode {
             ClientMode::Test { name, .. } => Some(name.clone()),
             _ => None,
@@ -210,7 +208,9 @@ impl Launch {
             LaunchState::Waiting { options, root } => (*options, root),
             LaunchState::Started(_) => unreachable!("invariant: host starts an App once"),
         };
-        start_mount(&rt, info, &writer, options, root, at);
+        #[cfg(debug_assertions)]
+        crate::client::trace::event(&rt, format_args!("host_events start {info:?}"));
+        start_mount(&rt, &writer, options, root, at);
         #[cfg(debug_assertions)]
         crate::client::trace::record(&rt);
     }

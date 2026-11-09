@@ -47,6 +47,7 @@ members = [
     "crates/kivact-gpu-share",
     "dev/tests/gpu-interop-producer",
     "dev/xtask",
+    "dev/bench",
 ]
 exclude = ["vendor"]
 resolver = "2"

@@ -82,6 +82,7 @@ kivact-devtools-mcp = []
 # Public API tests consume all five official kits for theme conformance.
 kivact-public-api-tests = []
 xtask = []
+kivact-bench = []
 
 # xtask-core は、外部 crate の glob import（`use kivact::prelude::*` など）がある module で、
 # macro と derive の提供元を決められない。標準の macro と derive は glob で上書きされない前提で信頼する。

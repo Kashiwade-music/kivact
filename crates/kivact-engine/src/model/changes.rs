@@ -294,7 +294,8 @@ impl Changes {
         self.mark(id, Dirty::STUCK);
     }
 
-    /// Whether the last layout pass computed the tree.
+    /// Whether the last layout pass computed the tree (read by the debug layout lint).
+    #[cfg(debug_assertions)]
     pub(crate) fn was_laid_out(&self) -> bool {
         self.geometry == Geometry::LaidOut
     }

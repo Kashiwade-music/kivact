@@ -1,0 +1,15 @@
+[package]
+name = "kivact-bench"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+description = "Manual KPI probes (startup, memory, CPU, frame time, update latency) for the slim-fast refactor; never run by CI"
+
+[dependencies]
+kivact = { path = "../../crates/kivact", features = ["test"] }
+# Resolves allocation sites for `kv_heap` (build it with line tables, see README).
+backtrace = "=0.3.76"
+
+[lints]
+workspace = true

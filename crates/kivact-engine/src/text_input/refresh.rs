@@ -14,6 +14,13 @@ pub(crate) enum RefreshMode {
     /// This expensive checkpoint is useful after a source batch or adoption.
     /// In release builds it performs ordinary reconciliation only; no integrity
     /// scan, reference allocation or diagnostic assurance is provided.
+    #[cfg_attr(
+        not(any(debug_assertions, feature = "testing")),
+        expect(
+            dead_code,
+            reason = "only the testing self-check requests a verification"
+        )
+    )]
     Verify,
 }
 
