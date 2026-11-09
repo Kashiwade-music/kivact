@@ -138,7 +138,7 @@ impl<'a> Measure<'a> {
         // Colors and decorations never change an extent.
         style.color = kivact_types::ComputedTextStyle::default().color;
         style.decoration = kivact_types::TextDecoration::default();
-        let mut extents = self.cache.extents(node.index.0);
+        let mut extents = self.cache.extents(node.index.0)?;
         if extents.as_ref().is_none_or(|e| e.style != style) {
             let single = self.engine.text_metrics(text, &style, None).ok();
             *extents = Some(Box::new(TextExtents {
@@ -334,8 +334,9 @@ impl Measure<'_> {
 
     /// Whether the new content measures exactly as before under every
     /// recorded request, so the previous layout and measurements hold.
-    /// Clear old text extents before comparing the complete LeafSize.
-    /// Images always invalidate layout when their natural size changes.
+    /// Clear old text extents (a text leaf's; an image and a measured leaf
+    /// keep none) before comparing the complete LeafSize. Images always
+    /// invalidate layout when their natural size changes.
     pub(crate) fn measures_same(
         &mut self,
         tree: &NodeTree,
@@ -345,7 +346,9 @@ impl Measure<'_> {
         let Some(n) = tree.get(id) else {
             return true;
         };
-        *self.cache.extents(n.index.0) = None;
+        if let Some(mut extents) = self.cache.extents(n.index.0) {
+            *extents = None;
+        }
         if n.kind() == NodeType::Image {
             return false;
         }

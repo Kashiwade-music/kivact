@@ -85,11 +85,12 @@ impl MeasureColumns {
         }
     }
 
-    /// The shaped extents of the text at `slot`.
-    pub(crate) fn extents(&self, slot: usize) -> RefMut<'_, Option<Box<TextExtents>>> {
+    /// The shaped extents of the text at `slot`, when its leaf measures
+    /// text; an image and a measured leaf keep none.
+    pub(crate) fn extents(&self, slot: usize) -> Option<RefMut<'_, Option<Box<TextExtents>>>> {
         match &self.leaf[slot] {
-            LeafMeasure::Text(extents) => extents.borrow_mut(),
-            _ => panic!("invariant: a text node's leaf keeps its extents"),
+            LeafMeasure::Text(extents) => Some(extents.borrow_mut()),
+            _ => None,
         }
     }
 
