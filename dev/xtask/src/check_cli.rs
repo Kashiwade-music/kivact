@@ -1,7 +1,8 @@
 //! Role: Parse local check selection independently of the shared xtask CLI.
 
-pub(crate) const RULES: [&str; 9] = [
+pub(crate) const RULES: [&str; 10] = [
     "state-fields",
+    "state-fields-strict",
     "effect-writes",
     "api-shape",
     "canonical-path",

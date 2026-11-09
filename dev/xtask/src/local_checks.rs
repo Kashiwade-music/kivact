@@ -1,6 +1,7 @@
 //! Role: Run the workspace's local architectural checks under shared selectors.
 use crate::check_cli::{Options, RULES};
 use crate::check_policy::is_kit;
+use crate::state_fields::{Mode, Strictness};
 use std::collections::BTreeSet;
 use std::path::Path;
 
@@ -40,6 +41,10 @@ pub(crate) fn check(root: &Path, policy: &Path, options: &Options) -> Result<Vec
         if !options.selected(rule) {
             continue;
         }
+        // The widened rule is opt-in until its migration finishes (design 6.1).
+        if rule == "state-fields-strict" && options.only.is_none() {
+            continue;
+        }
         if rule == "devtools-codegen" {
             if options
                 .package
@@ -50,7 +55,11 @@ pub(crate) fn check(root: &Path, policy: &Path, options: &Options) -> Result<Vec
             }
             continue;
         }
-        let key = rule.replace('-', "_");
+        let key = if rule == "state-fields-strict" {
+            "state_fields".to_owned()
+        } else {
+            rule.replace('-', "_")
+        };
         let settings = policy
             .get(&key)
             .and_then(toml::Value::as_table)
@@ -159,9 +168,30 @@ fn run_rule(
     errors: &mut Vec<String>,
 ) {
     match rule {
-        "state-fields" => {
-            crate::state_fields::check(source, settings, builders, enums, surface, report, errors)
-        }
+        "state-fields" => crate::state_fields::check(
+            source,
+            settings,
+            builders,
+            enums,
+            surface,
+            Mode {
+                strictness: Strictness::Current,
+                report,
+            },
+            errors,
+        ),
+        "state-fields-strict" => crate::state_fields::check(
+            source,
+            settings,
+            builders,
+            enums,
+            surface,
+            Mode {
+                strictness: Strictness::Strict,
+                report,
+            },
+            errors,
+        ),
         "effect-writes" => crate::effect_writes::check(source, errors),
         "api-shape" => crate::api_shape::check(source, surface, errors),
         "canonical-path" => crate::canonical_path::check(source, surface, errors),

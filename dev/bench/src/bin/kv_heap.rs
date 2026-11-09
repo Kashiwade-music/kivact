@@ -32,9 +32,13 @@ struct Site {
     ips: [usize; DEPTH],
 }
 
+// xtask-allow(state-fields): independent: allocation telemetry of the probe; its allocator wrapper is the only writer and reader, and every combination is a valid measurement.
 static PTRS: Mutex<Option<HashMap<usize, (usize, u64)>>> = Mutex::new(None);
+// xtask-allow(state-fields): independent: allocation telemetry of the probe; its allocator wrapper is the only writer and reader, and every combination is a valid measurement.
 static SITES: Mutex<Option<HashMap<u64, Site>>> = Mutex::new(None);
+// xtask-allow(state-fields): independent: allocation telemetry of the probe; its allocator wrapper is the only writer and reader, and every combination is a valid measurement.
 static TRACKING: AtomicBool = AtomicBool::new(false);
+// xtask-allow(state-fields): independent: allocation telemetry of the probe; its allocator wrapper is the only writer and reader, and every combination is a valid measurement.
 thread_local! { static INSIDE: Cell<bool> = const { Cell::new(false) }; }
 
 fn record(ptr: usize, size: usize) {

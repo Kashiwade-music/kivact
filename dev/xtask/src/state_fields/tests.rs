@@ -1,7 +1,7 @@
 //! Role: Verify state-field classification, markers and module statics.
 
 use crate::check_source::fixture;
-use crate::state_fields::check;
+use crate::state_fields::{Mode, Strictness, check};
 use std::collections::BTreeSet;
 
 fn run(text: &str, policy: &str, enums: &[&str]) -> Vec<String> {
@@ -9,6 +9,30 @@ fn run(text: &str, policy: &str, enums: &[&str]) -> Vec<String> {
 }
 
 fn run_with_report(text: &str, policy: &str, enums: &[&str], report: bool) -> Vec<String> {
+    run_mode(
+        text,
+        policy,
+        enums,
+        Mode {
+            strictness: Strictness::Current,
+            report,
+        },
+    )
+}
+
+fn run_strict(text: &str, policy: &str, enums: &[&str]) -> Vec<String> {
+    run_mode(
+        text,
+        policy,
+        enums,
+        Mode {
+            strictness: Strictness::Strict,
+            report: false,
+        },
+    )
+}
+
+fn run_mode(text: &str, policy: &str, enums: &[&str], mode: Mode) -> Vec<String> {
     let source = fixture(text);
     let policy: toml::Table = policy.parse().unwrap();
     let enums: BTreeSet<String> = enums.iter().map(|name| (*name).to_owned()).collect();
@@ -19,7 +43,7 @@ fn run_with_report(text: &str, policy: &str, enums: &[&str], report: bool) -> Ve
         &Default::default(),
         &enums,
         &Default::default(),
-        report,
+        mode,
         &mut errors,
     );
     errors
@@ -49,7 +73,10 @@ fn exempts_roles_and_builder_implementations() {
         &["kivact_ui_soft::widgets::Widget".into()].into(),
         &Default::default(),
         &Default::default(),
-        false,
+        Mode {
+            strictness: Strictness::Current,
+            report: false,
+        },
         &mut errors,
     );
     assert!(errors.is_empty(), "{errors:?}");
@@ -77,7 +104,10 @@ fn enum_and_builder_identities_do_not_leak_across_modules() {
         &["kivact_ui_soft::other::Widget".into()].into(),
         &["kivact_ui_soft::other::LoadState".into()].into(),
         &Default::default(),
-        false,
+        Mode {
+            strictness: Strictness::Current,
+            report: false,
+        },
         &mut errors,
     );
     assert_eq!(errors.len(), 1, "{errors:?}");
@@ -342,7 +372,10 @@ fn builder_errors(struct_body: &str) -> Vec<String> {
             &builders,
             &enums,
             &surface,
-            false,
+            Mode {
+                strictness: Strictness::Current,
+                report: false,
+            },
             &mut errors,
         );
     }
@@ -362,4 +395,17 @@ fn marker_inside_builder_struct_is_unused() {
     );
     assert_eq!(errors.len(), 1, "{errors:?}");
     assert!(errors[0].contains("unused marker"), "{errors:?}");
+}
+
+#[test]
+fn strict_counts_slots_filled_after_construction() {
+    let text = "struct Probe { job: OnceCell<Job>, other: OnceLock<Job> }";
+    assert!(run(text, "", &[]).is_empty());
+    let errors = run_strict(text, "", &[]);
+    assert_eq!(errors.len(), 1, "{errors:?}");
+    assert!(errors[0].starts_with("state-fields-strict:"), "{errors:?}");
+    assert!(
+        errors[0].contains("Probe combines state fields: job, other"),
+        "{errors:?}"
+    );
 }

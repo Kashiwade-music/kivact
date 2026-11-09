@@ -3,6 +3,7 @@
 use crate::check_policy::strings;
 use crate::check_source::Source;
 use crate::public_surface::Surface;
+use crate::state_fields::Strictness;
 use std::collections::BTreeSet;
 
 /// How a field or static takes part in a state combination.
@@ -11,6 +12,18 @@ pub(super) enum Class {
     None,
     Phase,
     Stored,
+    /// A named counter that counts only beside another stored field (SL-3).
+    Helper,
+}
+
+/// The workspace facts that classify one field.
+#[derive(Clone, Copy)]
+pub(super) struct RuleContext<'a> {
+    pub(super) source: &'a Source,
+    pub(super) surface: &'a Surface,
+    pub(super) enums: &'a BTreeSet<String>,
+    pub(super) policy: &'a toml::Table,
+    pub(super) strictness: Strictness,
 }
 
 /// The outermost type name, ignoring references and `Box`.
@@ -43,24 +56,32 @@ pub(super) fn peel(ty: &syn::Type, names: &[&str]) -> syn::Type {
 }
 
 /// Classify one field or static, honouring Api/role/record exemptions.
-pub(super) fn classify(
-    source: &Source,
-    surface: &Surface,
-    name: &str,
-    ty: &syn::Type,
-    exempt: bool,
-    enums: &BTreeSet<String>,
-    policy: &toml::Table,
-) -> Class {
+pub(super) fn classify(rules: &RuleContext<'_>, name: &str, ty: &syn::Type, exempt: bool) -> Class {
     let bare = peel(ty, &["Cell", "RefCell", "Rc", "Arc"]);
     let bare_name = outer(&bare);
-    if matches!(bare_name.as_str(), "Value" | "Binding")
-        || strings(policy, "named_helpers").contains(&bare_name)
-    {
+    if matches!(bare_name.as_str(), "Value" | "Binding") {
         return Class::None;
     }
+    if strings(rules.policy, "named_helpers").contains(&bare_name) {
+        return if rules.strictness == Strictness::Strict && is_named_counter_helper(&bare_name) {
+            Class::Helper
+        } else {
+            Class::None
+        };
+    }
+    if rules.strictness == Strictness::Strict && is_lazy_slot(&bare_name) {
+        return Class::Stored;
+    }
     let phase = peel(ty, &["Cell", "RefCell", "Signal", "Var", "Rc"]);
-    if !exempt && is_phase(&phase, source, surface, enums) {
+    if !exempt
+        && is_phase(
+            &phase,
+            rules.source,
+            rules.surface,
+            rules.enums,
+            rules.strictness,
+        )
+    {
         return Class::Phase;
     }
     if exempt {
@@ -75,17 +96,44 @@ pub(super) fn classify(
         || is_atomic(ty)
         || is_counted_mutable(ty)
         || is_named_counter(name, ty)
+        || (rules.strictness == Strictness::Strict && is_state_collection(name, ty))
     {
         return Class::Stored;
     }
     Class::None
 }
 
-fn is_phase(ty: &syn::Type, source: &Source, surface: &Surface, enums: &BTreeSet<String>) -> bool {
+/// The named counters that count beside another stored field (SL-3).
+fn is_named_counter_helper(name: &str) -> bool {
+    matches!(name, "Generation" | "Sent" | "Revision" | "Epoch")
+}
+
+/// A slot filled after construction (SL-1).
+fn is_lazy_slot(name: &str) -> bool {
+    matches!(name, "OnceCell" | "OnceLock" | "LazyCell" | "LazyLock")
+}
+
+/// A queue of work to do, such as `pending` or `dirty` plans (SL-6).
+fn is_state_collection(name: &str, ty: &syn::Type) -> bool {
+    matches!(
+        outer(ty).as_str(),
+        "Vec" | "VecDeque" | "BTreeSet" | "HashSet"
+    ) && ["pending", "dirty", "awaiting", "relayout", "stale"]
+        .iter()
+        .any(|prefix| name.starts_with(prefix))
+}
+
+fn is_phase(
+    ty: &syn::Type,
+    source: &Source,
+    surface: &Surface,
+    enums: &BTreeSet<String>,
+    strictness: Strictness,
+) -> bool {
     if outer(ty) == "MachineHandle" {
         return true;
     }
-    phase_identity(source, surface, ty, enums).is_some()
+    phase_identity(source, surface, ty, enums, strictness).is_some()
 }
 
 fn phase_identity(
@@ -93,10 +141,11 @@ fn phase_identity(
     surface: &Surface,
     ty: &syn::Type,
     enums: &BTreeSet<String>,
+    strictness: Strictness,
 ) -> Option<String> {
     let name = outer(ty);
     if let Some(identity) = surface.resolve_type(source, ty)
-        && is_phase_enum(&identity, enums)
+        && is_phase_enum(&identity, enums, strictness)
     {
         return Some(identity);
     }
@@ -108,7 +157,7 @@ fn phase_identity(
         .any(|item| matches!(item, syn::Item::Enum(item) if item.ident == name))
     {
         let identity = crate::public_surface::definition(source, &name);
-        if is_phase_enum(&identity, enums) {
+        if is_phase_enum(&identity, enums, strictness) {
             return Some(identity);
         }
     }
@@ -128,7 +177,7 @@ fn phase_identity(
             } else {
                 target
             };
-            if is_phase_enum(&identity, enums) {
+            if is_phase_enum(&identity, enums, strictness) {
                 return Some(identity);
             }
         }
@@ -136,8 +185,24 @@ fn phase_identity(
     None
 }
 
-fn is_phase_enum(identity: &str, enums: &BTreeSet<String>) -> bool {
-    (identity.ends_with("State") || identity.ends_with("Phase")) && enums.contains(identity)
+/// Whether `identity` names a workspace enum that is a phase (SL-2 widens the names).
+fn is_phase_enum(identity: &str, enums: &BTreeSet<String>, strictness: Strictness) -> bool {
+    let named = match strictness {
+        Strictness::Current => identity.ends_with("State") || identity.ends_with("Phase"),
+        Strictness::Strict => [
+            "State",
+            "Phase",
+            "Status",
+            "Stage",
+            "Connection",
+            "Lifecycle",
+            "Run",
+            "Present",
+        ]
+        .iter()
+        .any(|suffix| identity.ends_with(suffix)),
+    };
+    named && enums.contains(identity)
 }
 
 fn flatten_use(tree: &syn::UseTree, prefix: &str, output: &mut Vec<(String, String)>) {
