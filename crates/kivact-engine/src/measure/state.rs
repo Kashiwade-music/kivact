@@ -94,6 +94,7 @@ impl MeasureColumns {
     }
 
     /// Forget the shaped extents of every text.
+    #[cfg(all(debug_assertions, feature = "testing"))]
     pub(crate) fn forget_extents(&self) {
         for leaf in &self.leaf {
             if let LeafMeasure::Text(extents) = leaf {
