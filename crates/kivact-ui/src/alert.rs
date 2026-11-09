@@ -130,8 +130,10 @@ impl Alert {
         self.dismiss = Some(f.into());
         self
     }
-    /// Use application-owned visibility. A refused false write keeps the alert visible;
-    /// completed dismissal and focus restoration happen only after acceptance.
+    /// Use application-owned open state: the expanded details when the alert
+    /// has collapsible details, otherwise the alert's visibility. A refused
+    /// false visibility write keeps the alert visible; completed dismissal and
+    /// focus restoration happen only after acceptance.
     pub fn open(mut self, open: impl IntoBinding<bool>) -> Self {
         self.open = Some(open.into_binding());
         self
@@ -150,12 +152,21 @@ impl Element for Alert {
 impl IntoView for Alert {
     fn into_view(mut self) -> View {
         let reference = node_ref();
-        let phase = banner_dismissal(reference, self.dismiss.take(), self.open);
         let tone = self.tone;
         let dismissible = self.dismissible;
         let collapsible = self.collapsible;
         let has_details = self.content.is_some();
-        let details = signal(false).into_binding();
+        // The alert has one open state: its disclosure when it has collapsible
+        // details, otherwise its visibility.
+        let (details, visible) = if has_details && collapsible.get_untracked() {
+            (
+                self.open.unwrap_or_else(|| signal(false).into_binding()),
+                None,
+            )
+        } else {
+            (signal(false).into_binding(), self.open)
+        };
+        let phase = banner_dismissal(reference, self.dismiss.take(), visible);
         let has_icon = self.icon.is_some();
         let has_actions = self.actions.is_some();
         let has_description = self.description.is_some();
