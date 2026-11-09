@@ -148,9 +148,9 @@ impl NumberSymbols {
 /// Observe ICU's resolved data requests, preserving locale and numbering-system fallback.
 #[derive(Default)]
 struct SymbolCapture {
-    // xtask-allow(state-fields): construction-time capture - symbols
+    // xtask-allow(state-fields): cache: the provider response, captured once when the formatter is built
     symbols: RefCell<Option<DataPayload<DecimalSymbolsV1>>>,
-    // xtask-allow(state-fields): construction-time capture - digits
+    // xtask-allow(state-fields): cache: the provider response, captured once when the formatter is built
     digits: RefCell<Option<DataPayload<DecimalDigitsV1>>>,
 }
 

@@ -17,13 +17,13 @@ use crate::transform::Transform;
 
 #[derive(Clone, Copy, Debug, PartialEq, Default)]
 pub(crate) struct Sides {
-    // xtask-allow(state-fields): passive record - top
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
     pub(crate) top: Option<Length>,
-    // xtask-allow(state-fields): passive record - right
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
     pub(crate) right: Option<Length>,
-    // xtask-allow(state-fields): passive record - bottom
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
     pub(crate) bottom: Option<Length>,
-    // xtask-allow(state-fields): passive record - left
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
     pub(crate) left: Option<Length>,
 }
 
@@ -488,9 +488,9 @@ impl From<i32> for ScrollbarWidth {
 }
 #[derive(Clone, Debug, Default, PartialEq)]
 pub(crate) struct ScrollbarStyle {
-    // xtask-allow(state-fields): passive record - width
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
     pub(crate) width: Option<ScrollbarWidth>,
-    // xtask-allow(state-fields): passive record - colors
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
     pub(crate) colors: Option<(Color, Color)>,
 }
 /// A style value. Build with [`style()`].

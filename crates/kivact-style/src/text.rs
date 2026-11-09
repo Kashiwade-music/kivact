@@ -259,51 +259,51 @@ impl From<&str> for FontFeature {
 /// line (boxed in `Style`).
 #[derive(Clone, Debug, PartialEq, Default)]
 pub(crate) struct TextExtras {
-    // xtask-allow(state-fields): passive record - letter spacing
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
     pub(crate) letter_spacing: Option<TextLength>,
-    // xtask-allow(state-fields): passive record - word spacing
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
     pub(crate) word_spacing: Option<TextLength>,
-    // xtask-allow(state-fields): passive record - kerning
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
     pub(crate) kerning: Option<FontKerning>,
-    // xtask-allow(state-fields): passive record - features
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
     pub(crate) features: Option<Vec<FontFeature>>,
-    // xtask-allow(state-fields): passive record - tabular nums
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
     pub(crate) tabular_nums: Option<bool>,
-    // xtask-allow(state-fields): passive record - decoration line
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
     pub(crate) decoration_line: Option<TextDecorationLine>,
-    // xtask-allow(state-fields): passive record - decoration style
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
     pub(crate) decoration_style: Option<DecorationStyleValue>,
-    // xtask-allow(state-fields): passive record - decoration color
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
     pub(crate) decoration_color: Option<Color>,
-    // xtask-allow(state-fields): passive record - decoration thickness
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
     pub(crate) decoration_thickness: Option<TextLength>,
-    // xtask-allow(state-fields): passive record - underline offset
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
     pub(crate) underline_offset: Option<TextLength>,
-    // xtask-allow(state-fields): passive record - overflow
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
     pub(crate) overflow: Option<TextOverflow>,
-    // xtask-allow(state-fields): passive record - line clamp
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
     pub(crate) line_clamp: Option<u32>,
-    // xtask-allow(state-fields): passive record - capsize
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
     pub(crate) capsize: Option<bool>,
-    // xtask-allow(state-fields): passive record - transform
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
     pub(crate) transform: Option<TextTransform>,
-    // xtask-allow(state-fields): passive record - shadows
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
     pub(crate) shadows: Option<Vec<Shadow>>,
-    // xtask-allow(state-fields): passive record - caret color
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
     pub(crate) caret_color: Option<Color>,
-    // xtask-allow(state-fields): passive record - selection color
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
     pub(crate) selection_color: Option<Color>,
-    // xtask-allow(state-fields): passive record - placeholder color
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
     pub(crate) placeholder_color: Option<Color>,
-    // xtask-allow(state-fields): passive record - stroke
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
     pub(crate) stroke: Option<(TextLength, Color)>,
-    // xtask-allow(state-fields): passive record - paint order
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
     pub(crate) paint_order: Option<PaintOrder>,
-    // xtask-allow(state-fields): passive record - variations
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
     pub(crate) variations: Option<Vec<FontVariation>>,
-    // xtask-allow(state-fields): passive record - optical sizing
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
     pub(crate) optical_sizing: Option<bool>,
-    // xtask-allow(state-fields): passive record - font width
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
     pub(crate) font_width: Option<f64>,
 }
 
@@ -468,58 +468,58 @@ pub(crate) fn resolve_extras(t: &mut p::TextStyle, x: &TextExtras, theme: &Theme
 /// it, and [`crate::internal::compile_span_style`] turns it into the engine's form.
 #[derive(Clone, Debug, PartialEq, Default)]
 pub struct SpanStyle {
-    // xtask-allow(state-fields): passive record - Font size in logical px
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
     /// Font size in logical px.
     pub font_size: Option<f64>,
-    // xtask-allow(state-fields): passive record - Font weight
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
     /// Font weight.
     pub weight: Option<u16>,
-    // xtask-allow(state-fields): passive record - Color of the glyphs
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
     /// Color of the glyphs.
     pub color: Option<Color>,
-    // xtask-allow(state-fields): passive record - Font family: a name, a generic family or an ordered list
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
     /// Font family: a name, a generic family or an ordered list.
     pub family: Option<String>,
-    // xtask-allow(state-fields): passive record - Italic, or upright with `false`
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
     /// Italic, or upright with `false`.
     pub italic: Option<bool>,
-    // xtask-allow(state-fields): passive record - Space after each character
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
     /// Space after each character.
     pub letter_spacing: Option<TextLength>,
-    // xtask-allow(state-fields): passive record - Space after each word
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
     /// Space after each word.
     pub word_spacing: Option<TextLength>,
-    // xtask-allow(state-fields): passive record - Pair kerning
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
     /// Pair kerning.
     pub kerning: Option<FontKerning>,
-    // xtask-allow(state-fields): passive record - OpenType features replacing the paragraph's
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
     /// OpenType features replacing the paragraph's.
     pub features: Option<Vec<FontFeature>>,
-    // xtask-allow(state-fields): passive record - Tabular figures (adds the `tnum` feature when `true`)
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
     /// Tabular figures (adds the `tnum` feature when `true`).
     pub tabular_nums: Option<bool>,
-    // xtask-allow(state-fields): passive record - Decoration lines replacing the paragraph's
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
     /// Decoration lines replacing the paragraph's.
     pub decoration_line: Option<TextDecorationLine>,
-    // xtask-allow(state-fields): passive record - Decoration color (default: the text color)
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
     /// Decoration color (default: the text color).
     pub decoration_color: Option<Color>,
-    // xtask-allow(state-fields): passive record - Decoration thickness
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
     /// Decoration thickness.
     pub decoration_thickness: Option<TextLength>,
-    // xtask-allow(state-fields): passive record - Underline offset from its normal place
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
     /// Underline offset from its normal place.
     pub underline_offset: Option<TextLength>,
-    // xtask-allow(state-fields): passive record - A band behind the glyphs on each line the span is on
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
     /// A band behind the glyphs on each line the span is on.
     pub background: Option<Paint>,
-    // xtask-allow(state-fields): passive record - OpenType variation axis settings replacing the paragraph's
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
     /// OpenType variation axis settings replacing the paragraph's.
     pub variations: Option<Vec<FontVariation>>,
-    // xtask-allow(state-fields): passive record - CSS font-width (font-stretch) in percent, 50 to 200
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
     /// CSS font-width (font-stretch) in percent, 50 to 200.
     pub font_width: Option<f64>,
-    // xtask-allow(state-fields): passive record - Outline of its glyphs (CSS `-webkit-text-stroke`): width and color
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
     /// Outline of its glyphs (CSS `-webkit-text-stroke`): width and color.
     pub stroke: Option<(TextLength, Color)>,
 }
@@ -572,11 +572,11 @@ impl PartialEq for DecorationStyleValue {
 #[derive(Clone, Debug, PartialEq)]
 pub struct StyledRange {
     pub range: std::ops::Range<usize>,
-    // xtask-allow(state-fields): passive record - color
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
     pub color: Option<Color>,
-    // xtask-allow(state-fields): passive record - background
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
     pub background: Option<Color>,
-    // xtask-allow(state-fields): passive record - decoration
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
     pub decoration: Option<TextDecoration>,
 }
 
@@ -584,9 +584,9 @@ pub struct StyledRange {
 #[derive(Clone, Copy, Debug, PartialEq, Default)]
 pub struct TextDecoration {
     pub lines: TextDecorationLine,
-    // xtask-allow(state-fields): passive record - color
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
     pub color: Option<Color>,
-    // xtask-allow(state-fields): passive record - thickness
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
     pub thickness: Option<TextLength>,
     pub underline_offset: TextLength,
     pub style: TextDecorationStyle,

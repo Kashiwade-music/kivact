@@ -57,10 +57,10 @@ pub(crate) struct Counted {
     pub(crate) epoch: Epoch,
     /// The children in flow (the viewport's: its attached fixed boxes).
     pub(crate) count: usize,
-    // xtask-allow(state-fields): pure cache - Whether no child is filtered out
+    // xtask-allow(state-fields): cache: whether no child is filtered out, counted at one epoch
     /// Whether no child is filtered out.
     pub(crate) unfiltered: bool,
-    // xtask-allow(state-fields): pure cache - The last (filtered, raw) position looked up
+    // xtask-allow(state-fields): cache: the last filtered position looked up at that epoch
     /// The last (filtered, raw) position looked up.
     pub(crate) at: Option<(usize, usize)>,
 }

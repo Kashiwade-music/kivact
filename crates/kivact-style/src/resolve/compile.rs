@@ -28,18 +28,18 @@ use crate::theme::value::Theme;
 /// [`paint_retained`]: CompiledStyle::paint_retained
 #[derive(Clone)]
 pub struct CompiledStyle {
-    // xtask-allow(state-fields): passive record - retained paint
+    // xtask-allow(state-fields): option: absent means the style has no retained paint
     retained_paint: Option<LocalPaint>,
     /// Layout props.
     pub layout: LayoutProps,
     /// Paint props.
     pub paint: PaintProps,
-    // xtask-allow(state-fields): passive record - Text props: when the style sets any (only what it sets: the rest is inherited property by property), and always for the root, which carries the theme's text defaults that every node inherits
+    // xtask-allow(state-fields): option: absent means every text property is inherited
     /// Text props: when the style sets any (only what it sets: the rest
     /// is inherited property by property), and always for the root, which
     /// carries the theme's text defaults that every node inherits.
     pub text: Option<TextStyle>,
-    // xtask-allow(state-fields): passive record - Hover/pressed/focus/disabled overrides, if any
+    // xtask-allow(state-fields): option: absent means the style has no state overrides
     /// Hover/pressed/focus/disabled overrides, if any.
     pub states: Option<StateStyles>,
     /// Properties set more than once (reported as diagnostics).
@@ -220,19 +220,19 @@ impl ForcedStates {
 /// the input of [`crate::internal::compile_style`] next to the style and the theme.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Interactive {
-    // xtask-allow(state-fields): passive record (compile input) - The node is a focus stop (focusable, or a native editor): it gets the theme's focus ring and disabled opacity unless its style sets its own.
+    // xtask-allow(state-fields): independent: compile inputs; every combination is valid
     /// The node is a focus stop (focusable, or a native editor): it gets
     /// the theme's focus ring and disabled opacity unless its style sets
     /// its own.
     pub focusable: bool,
-    // xtask-allow(state-fields): passive record (compile input) - Apply the style's `disabled` state style, and take no hover or pressed look.
+    // xtask-allow(state-fields): independent: compile inputs; every combination is valid
     /// Apply the style's `disabled` state style, and take no hover or pressed
     /// look.
     pub disabled: bool,
-    // xtask-allow(state-fields): passive record (compile input) - Apply the style's `selected` state style.
+    // xtask-allow(state-fields): independent: compile inputs; every combination is valid
     /// Apply the style's `selected` state style.
     pub selected: bool,
-    // xtask-allow(state-fields): passive record (compile input) - The node is the root of the App: its text props always carry the theme's text defaults, which every node inherits.
+    // xtask-allow(state-fields): independent: compile inputs; every combination is valid
     /// The node is the root of the App: its text props always carry the
     /// theme's text defaults, which every node inherits.
     pub root: bool,

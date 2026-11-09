@@ -37,23 +37,23 @@ use kivact_types::{BackfaceVisibility, TransformStyle};
 /// ```
 #[derive(Clone, Debug)]
 pub struct Layer {
-    // xtask-allow(state-fields): builder option - area
+    // xtask-allow(state-fields): option: an authored layer property; absent means the layer has none
     pub(super) area: Option<Rect>,
-    // xtask-allow(state-fields): builder option - transform
+    // xtask-allow(state-fields): option: an authored layer property; absent means the layer has none
     pub(super) transform: Option<Transform>,
     pub(super) transform_style: TransformStyle,
     pub(super) backface: BackfaceVisibility,
-    // xtask-allow(state-fields): builder option - clip rect
+    // xtask-allow(state-fields): option: an authored layer property; absent means the layer has none
     pub(super) clip_rect: Option<Rect>,
-    // xtask-allow(state-fields): builder option - clip
+    // xtask-allow(state-fields): option: an authored layer property; absent means the layer has none
     pub(super) clip: Option<Shape>,
     pub(super) opacity: f64,
     pub(super) blend: BlendMode,
     pub(super) composite: Composite,
     pub(super) filter: Filter,
-    // xtask-allow(state-fields): builder option - mask
+    // xtask-allow(state-fields): option: an authored layer property; absent means the layer has none
     pub(super) mask: Option<Mask>,
-    // xtask-allow(state-fields): builder option - shadow
+    // xtask-allow(state-fields): option: an authored layer property; absent means the layer has none
     pub(super) shadow: Option<Shadow>,
 }
 

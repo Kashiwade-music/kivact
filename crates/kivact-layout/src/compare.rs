@@ -105,7 +105,7 @@ impl NodeLayoutColumns {
         for cursor in &self.cursors {
             cursor.forget();
         }
-        state.relayout.clear();
+        state.clear_relayout();
         for record in &mut self.states {
             record.measured = Default::default();
         }

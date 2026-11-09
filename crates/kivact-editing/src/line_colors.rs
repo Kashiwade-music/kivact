@@ -65,11 +65,11 @@ impl std::fmt::Debug for LineState {
 #[derive(Clone, Debug, PartialEq)]
 pub struct LineStyle {
     pub range: Range<usize>,
-    // xtask-allow(state-fields): passive value - color
+    // xtask-allow(state-fields): independent: a resolved line paints each part on its own; every combination is valid
     pub color: Option<Rgba>,
-    // xtask-allow(state-fields): passive value - background
+    // xtask-allow(state-fields): independent: a resolved line paints each part on its own; every combination is valid
     pub background: Option<Rgba>,
-    // xtask-allow(state-fields): passive value - decoration
+    // xtask-allow(state-fields): independent: a resolved line paints each part on its own; every combination is valid
     pub decoration: Option<TextDecoration>,
 }
 

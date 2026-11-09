@@ -260,23 +260,23 @@ pub enum GridAutoFlow {
 /// The grid props a style sets (boxed in `Style`: most styles set none).
 #[derive(Clone, Debug, PartialEq, Default)]
 pub(crate) struct GridStyle {
-    // xtask-allow(state-fields): passive record - columns
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
     pub(crate) columns: Option<Tracks>,
-    // xtask-allow(state-fields): passive record - rows
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
     pub(crate) rows: Option<Tracks>,
-    // xtask-allow(state-fields): passive record - auto columns
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
     pub(crate) auto_columns: Option<Tracks>,
-    // xtask-allow(state-fields): passive record - auto rows
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
     pub(crate) auto_rows: Option<Tracks>,
-    // xtask-allow(state-fields): passive record - flow
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
     pub(crate) flow: Option<GridAutoFlow>,
-    // xtask-allow(state-fields): passive record - column
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
     pub(crate) column: Option<GridPlacement>,
-    // xtask-allow(state-fields): passive record - row
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
     pub(crate) row: Option<GridPlacement>,
-    // xtask-allow(state-fields): passive record - justify items
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
     pub(crate) justify_items: Option<Align>,
-    // xtask-allow(state-fields): passive record - justify self
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
     pub(crate) justify_self: Option<Align>,
 }
 

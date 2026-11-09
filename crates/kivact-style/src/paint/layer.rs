@@ -35,10 +35,10 @@ pub struct Paint {
     pub(crate) image: PaintImage,
     pub(crate) size: PaintSize,
     pub(crate) position: (Length, Length),
-    // xtask-allow(state-fields): // xtask-allow(state-fields): passive record - repeat
+    // xtask-allow(state-fields): independent: the two axes of one authored repeat; every combination is valid
     pub(crate) repeat: (bool, bool),
     pub(crate) clip: BackgroundClip,
-    // xtask-allow(state-fields): passive record - origin
+    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
     pub(crate) origin: Option<BackgroundOrigin>,
     pub(crate) blend: BlendMode,
 }

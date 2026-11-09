@@ -40,7 +40,7 @@ impl Layout {
         // ancestors' cached outputs.
         self.columns
             .clear_caches_through(tree, &mut self.state, slot);
-        self.state.changed = true;
+        self.state.mark_dirty();
     }
     /// Rebuild one live node style from its authoritative properties.
     pub fn rebuild_style<T: LayoutTree + ?Sized>(&mut self, tree: &T, id: NodeId) {
@@ -69,11 +69,20 @@ impl Layout {
         available: Size,
         measure: &mut dyn LeafMeasurer,
     ) -> bool {
-        if !self.state.take_changed() || tree.root().is_none() {
+        if tree.root().is_none() {
+            // Nothing to compute: keep the pending work for the first root.
             return false;
         }
-        self.columns
-            .compute(tree, &mut self.state, available, measure);
+        let Some(pending) = self.state.take_changed() else {
+            return false;
+        };
+        self.columns.compute(
+            tree,
+            &mut self.state,
+            pending.into_relayout(),
+            available,
+            measure,
+        );
         true
     }
     /// Compute one overlay with an optional anchor placement limit.

@@ -47,13 +47,23 @@ pub struct EditState {
     text: String,
     revision: u64,
     session: TextSession,
+    // xtask-allow(state-fields): option: absent means the editor has no scalar limit
+    /// The scalar limit of the edits, if any.
     max_length: Option<usize>,
-    /// The revision the log starts from.
-    base: u64,
-    log: Vec<Logged>,
-    // xtask-allow(state-fields): Damage is an independently consumed line cache payload.
+    /// The changes recorded since the log started; `None` when they cover
+    /// nothing, which is the same as "the log starts at `revision`".
+    log: Option<Log>,
+    // xtask-allow(state-fields): independent: line-cache damage is taken by the editor, separately from the edit log
     /// What changed since the editor's lines last took the damage.
     damage: Option<Damage>,
+}
+
+/// The changes recorded since `base`, never empty: a log of no change is
+/// absent (`EditState::log`).
+#[derive(Clone, Debug)]
+struct Log {
+    base: u64,
+    entries: Vec<Logged>,
 }
 
 impl PartialEq for EditState {
@@ -77,8 +87,7 @@ impl EditState {
             revision,
             session: TextSession::caret_at(value.len()),
             max_length: None,
-            base: revision,
-            log: Vec::new(),
+            log: None,
             damage: None,
         }
     }
@@ -266,13 +275,22 @@ impl EditState {
         let before = self.revision;
         self.revision = next_revision();
         self.damaged(before, r.clone(), text.len());
-        self.log.push(Logged {
+        let entries = vec![Logged {
             change: TextChange {
                 range: r,
                 text: text.to_string(),
             },
             removed,
-        });
+        }];
+        match &mut self.log {
+            Some(log) => log.entries.extend(entries),
+            None => {
+                self.log = Some(Log {
+                    base: before,
+                    entries,
+                });
+            }
+        }
     }
 
     /// Replace `range` with `text`; the caret follows it and any
@@ -367,39 +385,42 @@ impl EditState {
 
     /// Start recording changes from the current text.
     pub(crate) fn start_log(&mut self) {
-        self.log.clear();
-        self.base = self.revision;
+        self.log = None;
     }
 
     /// Whether this state recorded every change since the text at
     /// `revision` (it was read from a text at that revision).
     pub(crate) fn recorded_since(&self, revision: u64) -> bool {
-        self.base == revision
+        self.log.as_ref().map_or(self.revision, |log| log.base) == revision
     }
 
     /// Whether the log recorded a change since it started.
     pub(crate) fn has_changes(&self) -> bool {
-        !self.log.is_empty()
+        self.log.is_some()
     }
 
     /// The recorded changes, starting a new log.
     pub(crate) fn take_changes(&mut self) -> Vec<TextChange> {
-        let log = std::mem::take(&mut self.log);
-        self.base = self.revision;
-        log.into_iter().map(|l| l.change).collect()
+        self.log
+            .take()
+            .map(|log| log.entries)
+            .unwrap_or_default()
+            .into_iter()
+            .map(|l| l.change)
+            .collect()
     }
 
     /// Undo the recorded changes, back to the text at `revision` (where
     /// the log started), with `session`.
     pub(crate) fn revert(&mut self, revision: u64, session: TextSession) {
-        for logged in std::mem::take(&mut self.log).into_iter().rev() {
+        let entries = self.log.take().map(|log| log.entries).unwrap_or_default();
+        for logged in entries.into_iter().rev() {
             let start = logged.change.range.start;
             let range = start..start + logged.change.text.len();
             self.text.replace_range(range.clone(), &logged.removed);
             self.damaged(self.revision, range, logged.removed.len());
         }
         self.revision = revision;
-        self.base = revision;
         self.session = session;
     }
 
@@ -413,23 +434,42 @@ impl EditState {
                 return;
             }
             Taken::Recorded => {
-                for logged in &state.log {
-                    let change = &logged.change;
-                    self.damaged(before, change.range.clone(), change.text.len());
+                let incoming = state.log;
+                if let Some(log) = &incoming {
+                    for logged in &log.entries {
+                        let change = &logged.change;
+                        self.damaged(before, change.range.clone(), change.text.len());
+                    }
                 }
                 self.text = state.text;
-                self.log.extend(state.log);
+                if let Some(log) = incoming {
+                    match &mut self.log {
+                        Some(mine) => mine.entries.extend(log.entries),
+                        None => {
+                            self.log = Some(log);
+                        }
+                    }
+                }
             }
             Taken::Whole => {
                 let old = std::mem::replace(&mut self.text, state.text);
                 self.damaged(before, 0..old.len(), self.text.len());
-                self.log.push(Logged {
+                let entries = vec![Logged {
                     change: TextChange {
                         range: 0..old.len(),
                         text: self.text.clone(),
                     },
                     removed: old,
-                });
+                }];
+                match &mut self.log {
+                    Some(log) => log.entries.extend(entries),
+                    None => {
+                        self.log = Some(Log {
+                            base: before,
+                            entries,
+                        });
+                    }
+                }
             }
         }
         self.revision = state.revision;

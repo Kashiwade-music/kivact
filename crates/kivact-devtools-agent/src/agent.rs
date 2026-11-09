@@ -30,14 +30,23 @@ pub struct AgentConfig {
 pub struct Agent {
     shared: Arc<Shared>,
     incoming: mpsc::Receiver<Incoming>,
-    stop: mpsc::Sender<()>,
-    listener: Option<std::thread::JoinHandle<()>>,
+    listener: Listener,
     port: u16,
     discovery_path: PathBuf,
     workspace_root: PathBuf,
     review: ReviewStore,
     names: SourceCache,
     session: String,
+}
+
+/// The listener thread of the agent: running with its stop request, or
+/// stopped (joined and gone).
+enum Listener {
+    Running {
+        stop: mpsc::Sender<()>,
+        thread: std::thread::JoinHandle<()>,
+    },
+    Stopped,
 }
 
 impl Agent {
@@ -92,8 +101,10 @@ impl Agent {
         Ok(Agent {
             shared,
             incoming,
-            stop,
-            listener: Some(listener_thread),
+            listener: Listener::Running {
+                stop,
+                thread: listener_thread,
+            },
             port,
             discovery_path,
             workspace_root,
@@ -177,11 +188,14 @@ impl Agent {
 
 impl Drop for Agent {
     fn drop(&mut self) {
-        let _ = self.stop.send(());
+        let Listener::Running { stop, thread } =
+            std::mem::replace(&mut self.listener, Listener::Stopped)
+        else {
+            return;
+        };
+        let _ = stop.send(());
         let _ = std::net::TcpStream::connect(("127.0.0.1", self.port));
-        if let Some(listener) = self.listener.take() {
-            let _ = listener.join();
-        }
+        let _ = thread.join();
         self.shared.peers.shutdown_all();
         discovery::remove(&self.discovery_path);
     }

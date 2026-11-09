@@ -440,10 +440,8 @@ impl<Tree: LayoutTree + ?Sized> LayoutPartialTree for LayoutPass<'_, Tree> {
                     *known = Some(natural);
                 }
             }
-            let mut output = match (
-                pass.styles[usize::from(t)].display,
-                pass.child_count(t) == 0,
-            ) {
+            let display = pass.styles[usize::from(t)].display.taffy();
+            let mut output = match (display, pass.child_count(t) == 0) {
                 (Display::None, _) => taffy::compute_hidden_layout(pass, t),
                 (Display::Grid, false) => taffy::compute_grid_layout(pass, t, natural_inputs),
                 (_, false) => taffy::compute_flexbox_layout(pass, t, natural_inputs),
@@ -531,8 +529,8 @@ impl<Tree: LayoutTree + ?Sized> LayoutGridContainer for LayoutPass<'_, Tree> {
     #[inline(always)]
     fn get_grid_container_style(&self, t: TId) -> Self::GridContainerStyle<'_> {
         self.styles[usize::from(t)]
-            .grid
-            .as_deref()
+            .display
+            .grid()
             .unwrap_or(self.no_grid)
     }
 
@@ -676,7 +674,7 @@ impl NodeLayoutColumns {
         let root = self.values.styles[index].position == taffy::Position::Absolute
             && style.position == taffy::Position::Absolute;
         self.values.styles[index] = style;
-        state.changed = true;
+        state.mark_dirty();
         self.states[index].measured = Default::default();
         if root {
             self.clear_caches_up(tree, state, slot);
@@ -693,7 +691,7 @@ impl NodeLayoutColumns {
         state: &mut LayoutState,
         id: NodeId,
     ) {
-        state.changed = true;
+        state.mark_dirty();
         if let Some(slot) = tree.index_of(id) {
             self.states[slot + 1].measured = Default::default();
             self.clear_caches_up(tree, state, slot);
@@ -701,7 +699,7 @@ impl NodeLayoutColumns {
     }
     /// Invalidate the shared viewport's layout (the container of the fixed boxes).
     pub(crate) fn invalidate_viewport(&mut self, state: &mut LayoutState) {
-        state.changed = true;
+        state.mark_dirty();
         self.values.caches[0].clear();
     }
     fn clear_caches_up<Tree: LayoutTree + ?Sized>(
@@ -738,9 +736,7 @@ impl NodeLayoutColumns {
             if values.styles[slot + 1].position == taffy::Position::Absolute
                 && let Some(parent) = parent
             {
-                state
-                    .relayout
-                    .push(tree.id_at(parent).expect("invariant: layout parent exists"));
+                state.queue_relayout(tree.id_at(parent).expect("invariant: layout parent exists"));
                 break;
             }
             at = parent;
@@ -768,9 +764,18 @@ impl NodeLayoutColumns {
         &mut self,
         tree: &Tree,
         state: &mut LayoutState,
+        mut queued: Vec<kivact_types::NodeId>,
         measure: &mut dyn LeafMeasurer,
     ) {
-        while let Some(id) = state.relayout.pop() {
+        loop {
+            let id = match queued.pop() {
+                Some(id) => id,
+                // Parents queued while laying these out go in this pass too.
+                None => match state.relayout_pop() {
+                    Some(id) => id,
+                    None => break,
+                },
+            };
             let Some(slot) = tree.index_of(id) else {
                 continue;
             };
@@ -876,13 +881,14 @@ impl NodeLayoutColumns {
         &mut self,
         tree: &Tree,
         state: &mut LayoutState,
+        relayout: Vec<kivact_types::NodeId>,
         available: Size,
         measure: &mut dyn LeafMeasurer,
     ) {
         self.values.geometry_changed.clear();
         self.next_stamp();
         state.fixed_cursor.set(None);
-        self.relayout_parents(tree, state, measure);
+        self.relayout_parents(tree, state, relayout, measure);
         if let Some(root) = tree.root() {
             let root = taffy_id(tree.index_of(root).expect("invariant: layout node exists"));
             self.compute_at(tree, state, root, available, true, measure);
@@ -1038,7 +1044,7 @@ impl NodeLayoutColumns {
                 height: taffy::Dimension::length(available.height as f32),
             };
             style.size = size;
-            if let Some(grid) = style.grid.as_mut() {
+            if let Some(grid) = style.display.grid_mut() {
                 grid.size = size;
             }
             values.caches[usize::from(root)].clear();

@@ -128,10 +128,10 @@ const FIRST_FRAME: NonZeroU64 = match NonZeroU64::new(kivact_types::SHARED_PREPA
 pub(crate) struct Slots {
     /// The value of the last frame drawn into each texture.
     drawn: Vec<SlotState>,
-    // xtask-allow(state-fields): cursor - the texture of the next frame, round robin
+    // xtask-allow(state-fields): cache: the cursor of the round robin; the next texture to draw
     /// The texture of the next frame.
     next: usize,
-    // xtask-allow(state-fields): S-8 ID - the last frame value given out
+    // xtask-allow(state-fields): identity: the last frame value given out
     /// The last value given out.
     last: Option<NonZeroU64>,
 }

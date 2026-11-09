@@ -104,19 +104,19 @@ pub enum PluralCategory {
 /// Message templates for the cardinal plural categories.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct PluralForms {
-    // xtask-allow(state-fields): passive value - Optional zero template
+    // xtask-allow(state-fields): option: absent means the locale has no form for this category
     /// Optional zero template.
     pub zero: Option<String>,
-    // xtask-allow(state-fields): passive value - Optional one template
+    // xtask-allow(state-fields): option: absent means the locale has no form for this category
     /// Optional one template.
     pub one: Option<String>,
-    // xtask-allow(state-fields): passive value - Optional two template
+    // xtask-allow(state-fields): option: absent means the locale has no form for this category
     /// Optional two template.
     pub two: Option<String>,
-    // xtask-allow(state-fields): passive value - Optional few template
+    // xtask-allow(state-fields): option: absent means the locale has no form for this category
     /// Optional few template.
     pub few: Option<String>,
-    // xtask-allow(state-fields): passive value - Optional many template
+    // xtask-allow(state-fields): option: absent means the locale has no form for this category
     /// Optional many template.
     pub many: Option<String>,
     /// Required fallback template.

@@ -13,10 +13,10 @@ use crate::source::Placement;
 /// What the first parse of a user source declares.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct Interface {
-    // xtask-allow(state-fields): Independent fact read from the declarations; the entry signature is reported by `takes_params` separately.
+    // xtask-allow(state-fields): independent: read separately from the struct declaration and the entry signature; every combination is valid
     /// Whether the user declares a `Params` struct.
     pub(crate) params_declared: bool,
-    // xtask-allow(state-fields): Independent fact read from the entry signature; the struct declaration is reported by `params_declared` separately.
+    // xtask-allow(state-fields): independent: read separately from the struct declaration and the entry signature; every combination is valid
     /// Whether the entry function takes `Params` as its third argument.
     pub(crate) takes_params: bool,
 }

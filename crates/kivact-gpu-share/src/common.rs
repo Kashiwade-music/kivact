@@ -10,13 +10,13 @@ use std::fmt;
 pub struct Identity {
     /// The graphics API.
     pub backend: GpuBackend,
-    // xtask-allow(state-fields): identity value - DXGI's (or Vulkan's) adapter LUID
+    // xtask-allow(state-fields): identity: part of the adapter identity its graphics API reports
     /// DXGI's (or Vulkan's) adapter LUID.
     pub luid: Option<[u8; 8]>,
-    // xtask-allow(state-fields): identity value - Vulkan's `deviceUUID`
+    // xtask-allow(state-fields): identity: part of the adapter identity its graphics API reports
     /// Vulkan's `deviceUUID`.
     pub device_uuid: Option<[u8; 16]>,
-    // xtask-allow(state-fields): identity value - Vulkan's `driverUUID`
+    // xtask-allow(state-fields): identity: part of the adapter identity its graphics API reports
     /// Vulkan's `driverUUID`.
     pub driver_uuid: Option<[u8; 16]>,
 }
