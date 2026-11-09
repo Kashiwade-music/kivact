@@ -1,6 +1,8 @@
 //! Role: Table options, sorting, widths and grid, row and cell parts.
 
-use super::data::{SortOrder, TableCellState, TableFocus, TableHeaderState, TableRowState};
+use super::data::{
+    HeaderSort, SortOrder, TableCellState, TableFocus, TableHeaderState, TableRowState,
+};
 use super::model::ColumnDef;
 use super::state::{State, Target};
 use super::{cells, sort as sorting, state};
@@ -52,7 +54,7 @@ use std::rc::Rc;
 /// # pub mod prelude {
 /// # //! Role: Supply the canonical imports used by this documentation example.
 /// # pub use kivact_core::state::{Callback, IntoBinding, IntoText, IntoValue, Signal, Value, binding, effect, memo, on_cleanup, on_mount, signal};
-/// # pub use kivact_core::view::{EditPhase, Component, IntoView, Element, Orientation, Role, column, for_each, node, node_ref, row, show, text};
+/// # pub use kivact_core::view::{EditPhase, IntoView, Element, Orientation, Role, column, for_each, node, node_ref, row, show, text};
 /// # pub use kivact_core::style::{ColorToken, Cursor, Style, style};
 /// # }
 /// #     pub extern crate kivact_interaction as interaction;
@@ -160,9 +162,7 @@ impl<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey> DataTableAp
                 .map(|state| state.get())
                 .unwrap_or(TableHeaderState {
                     input: PartState::default(),
-                    sort: None,
-                    sortable: false,
-                    sort_rank: None,
+                    sorting: HeaderSort::Unsortable,
                 })
         })
     }
@@ -389,9 +389,11 @@ impl<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey> DataTableAp
         let mounted = state.clone();
         let input = part(move |input| TableHeaderState {
             input,
-            sort: direction.get(),
-            sortable: sortable.get(),
-            sort_rank: rank.get().map(|(rank, _)| rank),
+            sorting: header_sorting(
+                sortable.get(),
+                direction.get(),
+                rank.get().map(|(rank, _)| rank),
+            ),
         });
         let part_state = input.state();
         observe_header(&state, key, part_state);
@@ -526,12 +528,12 @@ impl<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey> DataTableAp
     }
 }
 
-type HeaderSort = (Value<Option<SortOrder>>, Value<Option<(usize, usize)>>);
+type HeaderSortBindings = (Value<Option<SortOrder>>, Value<Option<(usize, usize)>>);
 
 fn header_sort<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey>(
     state: &State<K, C>,
     key: kivact_core::state::Var<C>,
-) -> HeaderSort {
+) -> HeaderSortBindings {
     let sort = state.sort();
     let multi_sort = state.multi_sort();
     let direction = memo(move || {
@@ -568,6 +570,15 @@ fn header_sort<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey>(
         })
     });
     (direction, rank)
+}
+
+/// The drawing state of a header from whether it can sort and its sort.
+fn header_sorting(sortable: bool, direction: Option<SortOrder>, rank: Option<usize>) -> HeaderSort {
+    match (sortable, direction) {
+        (_, Some(direction)) => HeaderSort::Sorted { direction, rank },
+        (true, None) => HeaderSort::Sortable,
+        (false, None) => HeaderSort::Unsortable,
+    }
 }
 
 fn activate_header<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey>(

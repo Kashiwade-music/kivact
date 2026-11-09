@@ -85,7 +85,7 @@ pub struct SplitterState {
 /// # pub mod prelude {
 /// # //! Role: Supply the canonical imports used by this documentation example.
 /// # pub use kivact_core::state::{Callback, IntoText, IntoValue, Signal, Value, binding, effect, memo, on_cleanup, on_mount, signal};
-/// # pub use kivact_core::view::{EditPhase, Component, IntoView, Element, Orientation, Role, column, for_each, node, node_ref, row, show, text};
+/// # pub use kivact_core::view::{EditPhase, IntoView, Element, Orientation, Role, column, for_each, node, node_ref, row, show, text};
 /// # pub use kivact_core::style::{ColorToken, Cursor, Style, style};
 /// # }
 /// #     pub extern crate kivact_interaction as interaction;
@@ -113,6 +113,7 @@ pub struct SplitterState {
 /// ```
 #[derive(Clone, Copy)]
 pub struct SplitterApi {
+    // xtask-allow(state-fields): independent: the observation of the attached handle part, absent until it attaches
     observed: Signal<Option<Value<SplitterState>>>,
     ops: ScalarOps,
     axis: Axis,

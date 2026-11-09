@@ -15,6 +15,7 @@ use kivact_core::view::{Handled, Key, KeyEvent, NodeRef, PointerEvent, PointerPh
 /// ```
 #[derive(Clone, Copy)]
 pub struct SpacePanApi {
+    // xtask-allow(state-fields): independent: the observation of the attached surface part, absent until it attaches
     observed: Signal<Option<Value<PartState>>>,
     held: MachineHandle<machine::Machine>,
     armed: Value<bool>,

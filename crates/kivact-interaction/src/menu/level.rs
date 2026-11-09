@@ -20,7 +20,7 @@ pub use crate::menu_policy::{DisabledMenuFocus, SubmenuTiming};
 
 /// One level of a menu: the top level or a submenu. All handles are `Copy`.
 pub(super) struct Level<K: kivact_core::state::ItemKey> {
-    // xtask-allow(state-fields): Mounted view registry, never used to repair behavior state.
+    // xtask-allow(state-fields): independent: the observation of the attached content part, absent until it attaches
     pub(super) content_state: Signal<Option<Value<PopupState>>>,
     pub(super) item_states: Signal<std::collections::HashMap<K, Value<MenuItemState>>>,
     session: Session<K>,
@@ -33,7 +33,7 @@ pub(super) struct Level<K: kivact_core::state::ItemKey> {
     anchors: Signal<Vec<(K, Rect)>>,
     aiming: Value<bool>,
     timing: SubmenuTiming,
-    // xtask-allow(state-fields): Independent structural theme option captured during setup.
+    // xtask-allow(state-fields): option: the theme's disabled-focus policy, read when the level is built
     retain_disabled_focus: bool,
 }
 
@@ -247,7 +247,7 @@ impl<K: kivact_core::state::ItemKey> Level<K> {
         submenu: bool,
         item_ref: kivact_core::view::NodeRef,
         disabled: Value<bool>,
-        pressed_over: Value<Option<bool>>,
+        pressed_over: Value<super::state::PressOver>,
     ) {
         let Self {
             session,
@@ -261,41 +261,20 @@ impl<K: kivact_core::state::ItemKey> Level<K> {
         // The pointer focuses the item it rests on; a submenu opens after a rest.
         let timing = self.timing;
         let aiming = self.aiming;
-        if submenu {
-            if !timing.close.is_zero() {
-                observe_rect(self.anchors, key.clone(), item_ref.rect());
-            }
-            let key = key.clone();
-            let resting = memo(move || {
-                pressed_over.get().unwrap_or_else(|| hovered.get()) && !disabled.get()
-            });
-            effect(move || {
-                session.machine.send(super::machine::Event::Rest(
-                    depth,
-                    key.clone(),
-                    resting.get() && !aiming.get(),
-                    true,
-                ));
-            });
-        } else {
-            let key = key.clone();
-            effect(move || {
-                session.machine.send(super::machine::Event::Rest(
-                    depth,
-                    key.clone(),
-                    pressed_over.get().unwrap_or_else(|| hovered.get())
-                        && !aiming.get()
-                        && shown.get(),
-                    false,
-                ));
-            });
+        if submenu && !timing.close.is_zero() {
+            observe_rect(self.anchors, key.clone(), item_ref.rect());
         }
-
-        let hover_key = key.clone();
+        // One event carries the pointer's whole observation of the row: the
+        // hover that moves the focus and starts or stops a submenu timer, and
+        // the press the row is under. The machine decides what they mean.
+        let key = key.clone();
         effect(move || {
-            if hovered.get() && !aiming.get() && !disabled.get() && shown.get() {
-                session.hover(depth, hover_key.clone());
-            }
+            session.machine.send(super::machine::Event::Pointer {
+                depth,
+                key: key.clone(),
+                hovered: hovered.get() && !aiming.get() && !disabled.get() && shown.get(),
+                press: pressed_over.get(),
+            });
         });
     }
 
@@ -377,7 +356,13 @@ impl<K: kivact_core::state::ItemKey> Level<K> {
             press.row(item_ref, disabled);
         }
         let pressed_over =
-            memo(move || session.press.and_then(|press| press.highlighted(item_ref)));
+            memo(
+                move || match session.press.and_then(|press| press.highlighted(item_ref)) {
+                    None => super::state::PressOver::None,
+                    Some(true) => super::state::PressOver::Over,
+                    Some(false) => super::state::PressOver::Away,
+                },
+            );
 
         self.watch_item(key.clone(), submenu, item_ref, disabled, pressed_over);
         let observed_key = key.clone();

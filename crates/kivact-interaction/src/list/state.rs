@@ -10,7 +10,7 @@ use crate::options_cell::OptionsCell;
 use crate::roving::{Observation, Roving};
 use kivact_core::ErrorKind;
 use kivact_core::custom::{NodeRefExt, Owned, Owner, Sent};
-use kivact_core::state::{Binding, Callback, Signal, Value, effect, memo, signal};
+use kivact_core::state::{Binding, Callback, Signal, Value, binding, effect, memo, signal};
 use kivact_core::state::{IntoBinding, IntoValue};
 use kivact_core::state::{MachineHandle, machine};
 use kivact_core::view::NodeRef;
@@ -35,7 +35,7 @@ pub(super) struct ListSetupOptions<K: kivact_core::state::ItemKey> {
 
 pub(super) struct State<K: kivact_core::state::ItemKey> {
     pub(super) item_states: Signal<std::collections::HashMap<K, Value<super::data::ListItemState>>>,
-    // xtask-allow(state-fields): Mounted container registry metadata, independent of focus transitions.
+    // xtask-allow(state-fields): independent: the observation of the attached container part, absent until it attaches
     pub(super) container_state: Signal<Option<Value<kivact_core::custom::PartState>>>,
     pub(super) owner: Owner,
     /// The App's root when the list was created: an item of another App has
@@ -93,9 +93,16 @@ pub(super) fn create<K: kivact_core::state::ItemKey>(
         machine::State {
             pending: machine::Pending::Nothing,
             focus: machine::Focus::Physical,
+            typed: Typeahead::Idle,
         },
         || machine::Machine::new(),
         |_, ()| {},
+    );
+    // The type-to-find buffer is the machine's: the machine ends the prefix
+    // after its window, and a shared slot (a select or a menu) owns its own.
+    let typed = binding(
+        memo(move || pending.state().with(|state| state.typed.clone())),
+        move |typed| pending.send(machine::Event::Typeahead(typed)),
     );
     // Where a search for the tab stop starts: the requested row's ordinal in
     // the current order, else the first row. A pure projection; no history.
@@ -129,7 +136,7 @@ pub(super) fn create<K: kivact_core::state::ItemKey>(
         mode,
         policy,
         options,
-        typed: Cell::new(signal(Typeahead::default()).into_binding()),
+        typed: Cell::new(typed),
         pending,
     });
     let stored = owner.store("ListApi", state.clone());

@@ -38,9 +38,9 @@ pub(super) enum Event {
 }
 pub(super) enum Effect {
     Dismiss {
-        // xtask-allow(state-fields): passive record - the focus target to restore, absent when there is none
+        // xtask-allow(state-fields): independent: the focus target to restore, absent when there is none
         previous: Option<NodeToken>,
-        // xtask-allow(state-fields): passive record - the caller's dismiss callback, absent when there is none
+        // xtask-allow(state-fields): option: the caller's dismiss callback, absent when there is none
         callback: Option<DismissHandler>,
         reason: DismissReason,
     },

@@ -75,12 +75,20 @@ pub(super) enum Effect {
     Return(NodeToken),
     Unmounted,
 }
+/// Where the host's focus is for one event, never retained as popup
+/// lifecycle state.
+#[derive(Clone, Copy, PartialEq)]
+pub(super) enum HostFocus {
+    /// No node has the focus.
+    Nowhere,
+    /// The focus is inside the mounted content.
+    Inside,
+    /// Another node has the focus.
+    Elsewhere(NodeToken),
+}
 /// Per-event host observation, never retained as popup lifecycle state.
 pub(super) struct Machine {
-    // xtask-allow(state-fields): Current host focus is an immutable event input, not retained popup state.
-    pub(super) focused: Option<NodeToken>,
-    // xtask-allow(state-fields): Current membership in the mounted content is a derived host observation.
-    pub(super) focus_inside: bool,
+    pub(super) focus: HostFocus,
 }
 impl Machine {
     fn closing(
@@ -95,7 +103,7 @@ impl Machine {
         Step::to(State::Closing { reason, opener })
     }
     fn may_restore(&self, target: Option<NodeToken>) -> bool {
-        self.focused.is_none() || self.focus_inside || target == self.focused
+        !matches!(self.focus, HostFocus::Elsewhere(token) if Some(token) != target)
     }
     fn close_effect(&self, state: &State, reason: PopupCloseReason) -> Effect {
         let opening = match state {

@@ -22,7 +22,6 @@ use crate::options_cell::OptionsCell;
 use kivact_core::custom::{Part, part};
 use kivact_core::state::{MachineHandle, binding, machine};
 use kivact_core::view::HandlerResult;
-use kivact_types::cell::Sent;
 
 use crate::{
     ListApi, ListItem, ListItemState, ListOptions, PopupApi, PopupCloseReason, PopupState,
@@ -30,7 +29,7 @@ use crate::{
 };
 use kivact_core::i18n::message;
 use kivact_core::state::{
-    Binding, Callback, Signal, Value, Var, effect, memo, on_cleanup, on_mount, signal, untrack, var,
+    Binding, Callback, Signal, Value, Var, effect, memo, on_cleanup, on_mount, signal, var,
 };
 use kivact_core::state::{IntoText, IntoValue, callback};
 use kivact_core::view::{Handled, Key, KeyEvent, PointerEvent, PointerPhase, Role};
@@ -90,7 +89,7 @@ struct SelectOptions {
 /// # pub mod prelude {
 /// # //! Role: Supply the canonical imports used by this documentation example.
 /// # pub use kivact_core::state::{Binding, Callback, IntoBinding, IntoText, IntoValue, Signal, Value, binding, effect, memo, on_cleanup, on_mount, signal};
-/// # pub use kivact_core::view::{EditPhase, Component, IntoView, Element, Orientation, Role, column, for_each, node, node_ref, row, show, text};
+/// # pub use kivact_core::view::{EditPhase, IntoView, Element, Orientation, Role, column, for_each, node, node_ref, row, show, text};
 /// # pub use kivact_core::style::{ColorToken, Cursor, Style, style};
 /// # }
 /// #     pub extern crate kivact_interaction as interaction;
@@ -129,11 +128,11 @@ pub struct SelectApi<K: kivact_core::state::ItemKey> {
     options: Value<Vec<ListItem<K>>>,
     selected: Binding<Option<K>>,
     edit: crate::EditSession<Option<K>>,
-    // xtask-allow(state-fields): independent fact - the observation of the attached content part, absent until it attaches
+    // xtask-allow(state-fields): independent: the observation of the attached content part, absent until it attaches
     content_state: Signal<Option<Value<PopupState>>>,
     /// What the trigger shows while nothing is selected; read tracked.
     placeholder: Signal<Value<String>>,
-    // xtask-allow(state-fields): builder option - the preview callback a setter supplied, absent until set
+    // xtask-allow(state-fields): option: the preview callback a setter supplied, absent until set
     /// Reports the option being tried out; read when the surface binds.
     preview: Var<Option<Callback<Option<K>>>>,
     popup: PopupApi,
@@ -166,12 +165,19 @@ pub fn use_select<K: kivact_core::state::ItemKey>(
     let selected = kivact_core::state::binding(original.into_value(), move |value: Option<K>| {
         edit.once(original.get_untracked(), || original.set(value))
     });
+    let preview: Var<Option<kivact_core::state::Callback<Option<K>>>> = var(None);
     let session = machine(
         machine::State::Closed {
             typeahead: Typeahead::default(),
         },
         || machine::Machine::<K>::new(),
-        |_, ()| {},
+        move |_, effect| match effect {
+            machine::Effect::Preview(key) => {
+                if let Some(callback) = preview.get() {
+                    callback.call(key);
+                }
+            }
+        },
     );
     let open = binding(
         memo(move || {
@@ -215,7 +221,7 @@ pub fn use_select<K: kivact_core::state::ItemKey>(
         options,
         selected,
         placeholder: signal(message("select.placeholder", "Select…")),
-        preview: var(None),
+        preview,
         popup: use_popup(open).anchor_starts_focus_range(true),
         // The closed trigger moves the selection through the logical order,
         // including options that are not mounted.
@@ -308,7 +314,7 @@ impl<K: kivact_core::state::ItemKey> SelectApi<K> {
     /// # pub mod prelude {
     /// # //! Role: Supply the canonical imports used by this documentation example.
     /// # pub use kivact_core::state::{Binding, Callback, IntoBinding, IntoText, IntoValue, Signal, Value, binding, effect, memo, on_cleanup, on_mount, signal};
-    /// # pub use kivact_core::view::{EditPhase, Component, IntoView, Element, Orientation, Role, column, for_each, node, node_ref, row, show, text};
+    /// # pub use kivact_core::view::{EditPhase, IntoView, Element, Orientation, Role, column, for_each, node, node_ref, row, show, text};
     /// # pub use kivact_core::style::{ColorToken, Cursor, Style, style};
     /// # }
     /// #     pub extern crate kivact_interaction as interaction;
@@ -615,8 +621,8 @@ impl<K: kivact_core::state::ItemKey> SelectApi<K> {
                     if sheet {
                         session.send(machine::Event::OpenSheet);
                     }
-                    if let Some(preview) = preview.get() {
-                        track_preview(list, hovered, preview);
+                    if preview.get().is_some() {
+                        track_preview(list, hovered, session);
                     }
                     if keep_trigger_focus.get() {
                         on_cleanup(move || list.reset_highlight());
@@ -778,33 +784,18 @@ fn group<K: kivact_core::state::ItemKey>(
     use_list(options, Selection::Single(selected), ListOptions::listbox())
 }
 
-/// Report the previewed option to `preview` while the list is open: the row
-/// the pointer rests on, else the focused one. The list closing ends the
-/// preview with `None`. Setup only, under the mounted surface's owner.
+/// Report the previewed option while the list is open: the row the pointer
+/// rests on, else the focused one. The machine holds the last reported key and
+/// reports `None` when the list closes. Setup only, under the mounted
+/// surface's owner.
 fn track_preview<K: kivact_core::state::ItemKey>(
     list: ListApi<K>,
     hovered: Binding<Option<K>>,
-    preview: Callback<Option<K>>,
+    session: MachineHandle<machine::Machine<K>>,
 ) {
     let active = list.active();
-    let mut initial = Sent::new();
-    initial.update(None::<K>);
-    let reported = var(initial);
     effect(move || {
         let key = hovered.get().or_else(|| active.get());
-        untrack(|| {
-            // xtask-allow(effect-writes): S-9 (a sent-marker stays apart from authoritative state): the Sent cache suppresses duplicate preview notifications; it does not own selection or focus.
-            if reported.update(|last| last.update(key.clone()).is_some()) {
-                preview.call(key);
-            }
-        });
-    });
-    on_cleanup(move || {
-        if reported.with(|sent| sent.get().is_some_and(Option::is_some)) {
-            reported.update(|sent| {
-                sent.update(None);
-            });
-            preview.call(None);
-        }
+        session.send(machine::Event::Preview(key));
     });
 }

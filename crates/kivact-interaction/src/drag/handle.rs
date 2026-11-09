@@ -108,9 +108,9 @@ enum Step<T> {
     /// invalid coordinates).
     Stop {
         stop: Stop,
-        // xtask-allow(state-fields): passive record - whether the ended drag owned the edit session
+        // xtask-allow(state-fields): independent: whether the ended drag owned the edit session
         owns_edit: bool,
-        // xtask-allow(state-fields): passive record - what on_end receives, absent for an event with invalid coordinates
+        // xtask-allow(state-fields): independent: what on_end receives, absent for an event with invalid coordinates
         update: Option<DragUpdate<T>>,
     },
 }
@@ -143,7 +143,7 @@ enum Step<T> {
 /// without calling a callback. The setters work in any order, before or
 /// after the sources are made.
 pub struct DragApi<T: 'static> {
-    // xtask-allow(state-fields): independent fact - the observation of the attached source part, absent until it attaches
+    // xtask-allow(state-fields): independent: the observation of the attached source part, absent until it attaches
     observed: Signal<Option<Value<DragState>>>,
     session: MachineHandle<machine::Machine<T>>,
     /// The source of the active drag, derived from `session`.
@@ -151,7 +151,7 @@ pub struct DragApi<T: 'static> {
     sources: Var<Generation>,
     coordinates: DragCoordinates,
     settings: OptionsCell<DragOptions<T>>,
-    // xtask-allow(state-fields): builder option - the disabled value a setter supplied, absent until set
+    // xtask-allow(state-fields): option: the disabled value a setter supplied, absent until set
     disabled: Signal<Option<Value<bool>>>,
 }
 
@@ -173,7 +173,7 @@ impl<T: 'static> Copy for DragApi<T> {}
 /// # pub mod prelude {
 /// # //! Role: Supply the canonical imports used by this documentation example.
 /// # pub use kivact_core::state::{Binding, Callback, IntoBinding, IntoText, IntoValue, Signal, Value, binding, effect, memo, on_cleanup, on_mount, signal};
-/// # pub use kivact_core::view::{EditPhase, Component, IntoView, Element, Orientation, Role, column, for_each, node, node_ref, row, show, text};
+/// # pub use kivact_core::view::{EditPhase, IntoView, Element, Orientation, Role, column, for_each, node, node_ref, row, show, text};
 /// # pub use kivact_core::style::{ColorToken, Cursor, Style, style};
 /// # }
 /// #     pub extern crate kivact_interaction as interaction;
@@ -315,7 +315,7 @@ impl<T: Clone + 'static> DragApi<T> {
     /// # pub mod prelude {
     /// # //! Role: Supply the canonical imports used by this documentation example.
     /// # pub use kivact_core::state::{Binding, Callback, IntoBinding, IntoText, IntoValue, Signal, Value, binding, effect, memo, on_cleanup, on_mount, signal};
-    /// # pub use kivact_core::view::{EditPhase, Component, IntoView, Element, Orientation, Role, column, for_each, node, node_ref, row, show, text};
+    /// # pub use kivact_core::view::{EditPhase, IntoView, Element, Orientation, Role, column, for_each, node, node_ref, row, show, text};
     /// # pub use kivact_core::style::{ColorToken, Cursor, Style, style};
     /// # }
     /// #     pub extern crate kivact_interaction as interaction;
@@ -361,7 +361,7 @@ impl<T: Clone + 'static> DragApi<T> {
     /// # pub mod prelude {
     /// # //! Role: Supply the canonical imports used by this documentation example.
     /// # pub use kivact_core::state::{Binding, Callback, IntoBinding, IntoText, IntoValue, Signal, Value, binding, effect, memo, on_cleanup, on_mount, signal};
-    /// # pub use kivact_core::view::{EditPhase, Component, IntoView, Element, Orientation, Role, column, for_each, node, node_ref, row, show, text};
+    /// # pub use kivact_core::view::{EditPhase, IntoView, Element, Orientation, Role, column, for_each, node, node_ref, row, show, text};
     /// # pub use kivact_core::style::{ColorToken, Cursor, Style, style};
     /// # }
     /// #     pub extern crate kivact_interaction as interaction;

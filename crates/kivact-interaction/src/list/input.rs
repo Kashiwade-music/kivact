@@ -219,7 +219,7 @@ pub(super) fn typed<K: kivact_core::state::ItemKey>(
 ) -> Handled {
     let slot = state.typed.get();
     let mut typed = slot.get_untracked();
-    let query = typed.push(c, kivact_core::custom::clock_now());
+    let query = typed.push(c);
     slot.set(typed);
     let items = state.items.with_untracked(|items| {
         let mut seen = std::collections::HashSet::new();

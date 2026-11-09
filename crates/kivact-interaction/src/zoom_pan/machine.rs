@@ -8,6 +8,8 @@ use std::rc::Rc;
 #[derive(Clone)]
 pub(super) enum Gesture {
     Idle {
+        /// Space is held on the surface; a primary press pans while it is.
+        space: bool,
         touches: Vec<(PointerId, Point)>,
     },
     Pan {
@@ -24,7 +26,16 @@ pub(super) enum Gesture {
 impl PartialEq for Gesture {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
-            (Self::Idle { touches: a }, Self::Idle { touches: b }) => a == b,
+            (
+                Self::Idle {
+                    space: a,
+                    touches: at,
+                },
+                Self::Idle {
+                    space: b,
+                    touches: bt,
+                },
+            ) => a == b && at == bt,
             (
                 Self::Pan {
                     pan: a,
@@ -57,11 +68,15 @@ impl Gesture {
     pub(super) fn active(&self) -> bool {
         !matches!(self, Self::Idle { .. })
     }
+    /// Whether Space is held while no gesture runs: a primary press pans.
+    pub(super) fn space(&self) -> bool {
+        matches!(self, Self::Idle { space: true, .. })
+    }
     fn touches(&mut self) -> &mut Vec<(PointerId, Point)> {
         match self {
-            Self::Idle { touches } | Self::Pan { touches, .. } | Self::Pinch { touches, .. } => {
-                touches
-            }
+            Self::Idle { touches, .. }
+            | Self::Pan { touches, .. }
+            | Self::Pinch { touches, .. } => touches,
         }
     }
     fn session(&self) -> Option<Rc<EditSession<ViewTransform>>> {
@@ -76,6 +91,8 @@ pub(super) enum Event {
     Pointer(PointerEvent),
     Stop(bool),
     Available(bool),
+    /// Space is pressed (`true`) or released on the surface.
+    Space(bool),
 }
 pub(super) enum Effect {
     Begin(Rc<EditSession<ViewTransform>>, ViewTransform),
@@ -85,7 +102,6 @@ pub(super) enum Effect {
 pub(super) struct Machine {
     pub options: ZoomPanOptions,
     pub transform: ViewTransform,
-    pub armed: bool,
     pub session: Rc<EditSession<ViewTransform>>,
 }
 impl MachineTrait for Machine {
@@ -96,12 +112,39 @@ impl MachineTrait for Machine {
         match event {
             Event::Pointer(event) => self.pointer(state, event).0,
             Event::Stop(commit) => self.stop(state, commit, None),
-            Event::Available(false) => self.stop(state, false, None),
+            Event::Available(false) => self.unavailable(state),
             Event::Available(true) => Step::stay(),
+            Event::Space(held) => {
+                if let State::Idle { space, .. } = state {
+                    if *space == held {
+                        return Step::stay();
+                    }
+                    let mut next = state.clone();
+                    if let State::Idle { space: current, .. } = &mut next {
+                        *current = held;
+                    }
+                    return Step::to(next);
+                }
+                Step::stay()
+            }
         }
     }
 }
 impl Machine {
+    /// The surface lost the focus or became unavailable: discard the gesture
+    /// and Space, which the host will not report as released.
+    fn unavailable(&self, state: &State) -> Step<State, Event, Effect> {
+        match state {
+            State::Idle { space: true, .. } => {
+                let mut next = state.clone();
+                if let State::Idle { space, .. } = &mut next {
+                    *space = false;
+                }
+                Step::to(next)
+            }
+            _ => self.stop(state, false, None),
+        }
+    }
     fn stop(
         &self,
         state: &State,
@@ -113,7 +156,10 @@ impl Machine {
         };
         let mut snapshot = state.clone();
         let touches = std::mem::take(snapshot.touches());
-        let mut step = Step::to(State::Idle { touches });
+        let mut step = Step::to(State::Idle {
+            space: false,
+            touches,
+        });
         if let Some(value) = write {
             step = step.with(Effect::Write(value));
         }
@@ -231,7 +277,8 @@ impl Machine {
             let button = press.button;
             if !state.active()
                 && valid
-                && (button == MouseButton::Middle || (button == MouseButton::Primary && self.armed))
+                && (button == MouseButton::Middle
+                    || (button == MouseButton::Primary && state.space()))
             {
                 let touches = std::mem::take(next.touches());
                 let pan = Pan {

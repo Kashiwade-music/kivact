@@ -100,9 +100,9 @@ pub struct PopupState {
 #[derive(Clone, Copy)]
 pub struct PopupApi {
     disclosure: DisclosureApi,
-    // xtask-allow(state-fields): independent fact - the observation of the attached content part, absent until it attaches
+    // xtask-allow(state-fields): independent: the observation of the attached content part, absent until it attaches
     content_state: kivact_core::state::Signal<Option<Value<PopupState>>>,
-    // xtask-allow(state-fields): independent fact - the observation of the attached trigger part, absent until it attaches
+    // xtask-allow(state-fields): independent: the observation of the attached trigger part, absent until it attaches
     trigger_state: kivact_core::state::Signal<Option<Value<PopupState>>>,
     /// The reference the trigger part binds.
     own_anchor: NodeRef,
@@ -142,11 +142,18 @@ pub fn use_popup(open: impl kivact_core::state::IntoBinding<bool>) -> PopupApi {
     let machine = machine(
         State::Closed,
         move || Machine {
-            focused: focused_node(),
-            focus_inside: disclosure
-                .content
-                .mounted_node()
-                .is_some_and(|panel| disclosure.content.focus_was_in(panel)),
+            focus: match focused_node() {
+                Some(_)
+                    if disclosure
+                        .content
+                        .mounted_node()
+                        .is_some_and(|panel| disclosure.content.focus_was_in(panel)) =>
+                {
+                    machine::HostFocus::Inside
+                }
+                Some(token) => machine::HostFocus::Elsewhere(token),
+                None => machine::HostFocus::Nowhere,
+            },
         },
         move |cx, effect| match effect {
             machine::Effect::Misuse => raise(

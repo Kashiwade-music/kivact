@@ -1,6 +1,6 @@
 //! Role: The `CalendarGridApi` handle: grid, rows, paging buttons and day cells.
 
-use super::data::{CalendarDayState, CalendarSpan};
+use super::data::{CalendarDayState, CalendarSpan, DaySelection};
 use super::policy::{CalendarOptions, CalendarSelection};
 use super::state;
 use super::state::{Choice, State};
@@ -76,11 +76,10 @@ impl CalendarGridApi {
                 .with(|states| states.get(&day).copied())
                 .map(|state| state.get())
                 .unwrap_or_else(|| {
-                    let (selected, edge, span) = marks(shared.choice, day);
+                    let (selection, span) = marks(shared.choice, day);
                     CalendarDayState {
                         input: PartState::default(),
-                        selected,
-                        edge,
+                        selection,
                         span,
                         disabled: shared.disabled(day),
                     }
@@ -187,11 +186,10 @@ impl CalendarGridApi {
         let choice = state.choice;
         let marks = memo(move || marks(choice, day));
         let input = part(move |input| {
-            let (selected, edge, span) = marks.get();
+            let (selection, span) = marks.get();
             CalendarDayState {
                 input,
-                selected,
-                edge,
+                selection,
                 span,
                 disabled: disabled.get(),
             }
@@ -215,7 +213,7 @@ impl CalendarGridApi {
                 .part(input)
                 .role(Role::GridCell)
                 .name(day.to_string())
-                .selected(memo(move || marks.get().0))
+                .selected(memo(move || marks.get().0 != DaySelection::None))
                 .disabled(disabled);
             let pointers = state.clone();
             let preview = state.clone();
@@ -247,11 +245,18 @@ impl CalendarGridApi {
 }
 
 /// Whether the day is selected, drawn solid, and where it lies in a range.
-fn marks(choice: Choice, day: CalendarDate) -> (bool, bool, CalendarSpan) {
+fn marks(choice: Choice, day: CalendarDate) -> (DaySelection, CalendarSpan) {
     match choice {
         Choice::Single(value) => {
             let chosen = value.with(|value| *value == Some(day));
-            (chosen, chosen, CalendarSpan::None)
+            (
+                if chosen {
+                    DaySelection::Edge
+                } else {
+                    DaySelection::None
+                },
+                CalendarSpan::None,
+            )
         }
         Choice::Range { value, pick } => {
             let range = match pick.get() {
@@ -274,9 +279,14 @@ fn marks(choice: Choice, day: CalendarDate) -> (bool, bool, CalendarSpan) {
                     } else {
                         CalendarSpan::Middle
                     };
-                    (true, day == range.start() || day == range.end(), span)
+                    let selection = if day == range.start() || day == range.end() {
+                        DaySelection::Edge
+                    } else {
+                        DaySelection::Inside
+                    };
+                    (selection, span)
                 }
-                _ => (false, false, CalendarSpan::None),
+                _ => (DaySelection::None, CalendarSpan::None),
             }
         }
     }

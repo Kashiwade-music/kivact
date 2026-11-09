@@ -33,7 +33,7 @@ pub(super) struct DataTableOptions<K: kivact_core::state::ItemKey, C: kivact_cor
 }
 
 pub(super) struct State<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey> {
-    // xtask-allow(state-fields): Optional mounted-part drawing observation, independent of behavior phase.
+    // xtask-allow(state-fields): independent: the observation of the attached grid part, absent until it attaches
     pub(super) grid_state: Signal<Option<Value<kivact_core::custom::PartState>>>,
     pub(super) header_states:
         Signal<std::collections::HashMap<C, Value<super::data::TableHeaderState>>>,

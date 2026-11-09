@@ -61,10 +61,10 @@ pub enum DialogMode {
 /// does.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct DismissOn {
-    // xtask-allow(state-fields): builder option - An unhandled Escape closes it
+    // xtask-allow(state-fields): option: an unhandled Escape closes it
     /// An unhandled Escape closes it.
     pub escape: bool,
-    // xtask-allow(state-fields): builder option - A pointer press outside it (and outside its anchor) closes it
+    // xtask-allow(state-fields): option: a pointer press outside it (and outside its anchor) closes it
     /// A pointer press outside it (and outside its anchor) closes it.
     pub outside: bool,
 }

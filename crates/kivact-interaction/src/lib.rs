@@ -75,7 +75,7 @@ mod zoom_pan;
 pub use announcer::{Announcer, announcer};
 pub use calendar::{
     CalendarDayState, CalendarGridApi, CalendarOptions, CalendarSelection, CalendarSpan,
-    use_calendar_grid,
+    DaySelection, use_calendar_grid,
 };
 pub use combobox::{ComboboxApi, ComboboxMode, use_combobox};
 pub use delayed::{DelayedApi, DelayedPhase, Delays, use_delayed};
@@ -97,7 +97,7 @@ pub use list::{
 };
 pub use menu::{
     DisabledMenuFocus, MenuApi, MenuCheck, MenuEntry, MenuItemKind, MenuItemState, MenuOrigin,
-    MenuPress, MenuRow, SubmenuTiming, use_menu, use_menu_with_open,
+    MenuPress, MenuRow, PressOver, SubmenuTiming, use_menu, use_menu_with_open,
 };
 pub use menubar::{MenubarApi, use_menubar};
 pub use palette::{Command, CommandGroup, CommandPaletteApi, filter_commands, use_command_palette};
@@ -111,8 +111,8 @@ pub use select::{SelectApi, use_select};
 pub use space_pan::{SpacePanApi, use_space_pan};
 pub use splitter::{SplitterApi, SplitterState, use_splitter};
 pub use table::{
-    ColumnDef, DataTableApi, DataTableModelApi, FilterValue, SortOrder, TableCellState, TableFocus,
-    TableHeaderState, TableRowState, use_data_table, use_data_table_model,
+    ColumnDef, DataTableApi, DataTableModelApi, FilterValue, HeaderSort, SortOrder, TableCellState,
+    TableFocus, TableHeaderState, TableRowState, use_data_table, use_data_table_model,
 };
 pub use tabs::{TabListState, TabState, TabsApi, use_tabs};
 pub use toaster::{Toast, ToastId, ToastOptions, ToastState, ToasterApi, toaster};

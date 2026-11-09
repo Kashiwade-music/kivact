@@ -228,7 +228,10 @@ impl NavigationMenuApi {
         key
     }
     /// Observe accepted open/closed changes. Setup only.
-    pub fn on_open_change(self, f: impl Fn(bool) + 'static) -> Self {
+    pub fn on_open_change<R: kivact_core::view::HandlerResult>(
+        self,
+        f: impl Fn(bool) -> R + 'static,
+    ) -> Self {
         self.changed.update(|changed| *changed = Some(callback(f)));
         self
     }

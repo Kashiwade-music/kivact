@@ -236,7 +236,7 @@ type CloseOn = fn(&KeyEvent) -> bool;
 /// # pub mod prelude {
 /// # //! Role: Supply the canonical imports used by this documentation example.
 /// # pub use kivact_core::state::{Binding, Callback, IntoBinding, IntoText, IntoValue, Signal, Value, binding, effect, memo, on_cleanup, on_mount, signal};
-/// # pub use kivact_core::view::{EditPhase, Component, IntoView, Element, Orientation, Role, column, for_each, node, node_ref, row, show, text};
+/// # pub use kivact_core::view::{EditPhase, IntoView, Element, Orientation, Role, column, for_each, node, node_ref, row, show, text};
 /// # pub use kivact_core::style::{ColorToken, Cursor, Style, style};
 /// # }
 /// #     pub extern crate kivact_interaction as interaction;
@@ -331,14 +331,9 @@ pub fn use_command_palette<K: kivact_core::state::ItemKey>(
                 .is_some_and(|command| filter.with(|filter| filter(query, command)))
         })
     });
-    // The caller's `open` is the only open state. Each change to closed
-    // resets the query and the highlight; a notification whose value the
-    // binding no longer holds is ignored.
-    kivact_core::state::effect_on(open, move |&shown| {
-        if !shown && !open.get_untracked() {
-            combobox.reset();
-        }
-    });
+    // The caller's `open` is the one opening input: the combobox machine keeps
+    // the query and the highlight, and its close transition resets both.
+    combobox.follow_open(open);
     let visible = combobox.visible();
     let groups = memo(move || command_groups(visible, commands));
     CommandPaletteApi {

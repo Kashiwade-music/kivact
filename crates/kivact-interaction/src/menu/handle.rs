@@ -3,7 +3,7 @@
 use super::level::Level;
 use super::session::Session;
 use super::state::Edge;
-use super::state::{MenuEntry, MenuItemState, MenuOrigin, MenuRow};
+use super::state::{MenuEntry, MenuItemState, MenuOrigin, MenuRow, PressOver};
 use crate::focus_return::PopupCloseReason;
 use crate::popup::PopupState;
 use kivact_core::ErrorKind;
@@ -69,7 +69,7 @@ use kivact_core::view::{
 /// # pub mod prelude {
 /// # //! Role: Supply the canonical imports used by this documentation example.
 /// # pub use kivact_core::state::{Binding, Callback, IntoBinding, IntoText, IntoValue, Signal, Value, binding, effect, memo, on_cleanup, on_mount, signal};
-/// # pub use kivact_core::view::{EditPhase, Component, IntoView, Element, Orientation, Role, column, for_each, node, node_ref, row, show, text};
+/// # pub use kivact_core::view::{EditPhase, IntoView, Element, Orientation, Role, column, for_each, node, node_ref, row, show, text};
 /// # pub use kivact_core::style::{ColorToken, Cursor, Style, style};
 /// # }
 /// #     pub extern crate kivact_interaction as interaction;
@@ -177,7 +177,7 @@ impl<K: kivact_core::state::ItemKey> MenuApi<K> {
                 .map(|state| state.get())
                 .unwrap_or(MenuItemState {
                     input: PartState::default(),
-                    pressed_over: None,
+                    pressed_over: PressOver::None,
                     check: None,
                     expanded: false,
                     destructive: false,

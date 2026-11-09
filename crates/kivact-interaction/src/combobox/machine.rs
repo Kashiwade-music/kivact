@@ -43,19 +43,43 @@ impl ComboMode {
             Self::Closed => Surface::Popover,
         }
     }
+    pub(super) fn is_open(self) -> bool {
+        !matches!(self, Self::Closed)
+    }
+}
+/// The close transition's reset of the query and the highlight.
+fn reset<K: Clone>(state: &ComboboxState<K>, next: &mut ComboboxState<K>) -> Option<Effect> {
+    next.highlight = None;
+    match state.query {
+        Query::Shared(source) => Some(Effect::Query(source, String::new())),
+        Query::Local(_) => {
+            next.query = Query::Local(String::new());
+            None
+        }
+    }
 }
 pub(super) enum Event<K> {
     Open,
     OpenSheet,
     Close,
+    /// The caller's open binding changed; the machine is its source of truth.
+    OpenRequested(bool),
+    /// The attached field lost the focus; `transferred` keeps the popup open
+    /// for a presentation that owns the focus instead.
+    FocusLeft {
+        transferred: bool,
+    },
     Share(Binding<String>),
     Query(String),
     QueryChanged,
     Highlight(K),
+    /// Clear the query and the highlight without closing (a multiple choice
+    /// clears the search and keeps the list open).
     Reset,
 }
 pub(super) enum Effect {
     Query(Binding<String>, String),
+    WriteOpen(bool),
 }
 pub(super) struct Machine<K>(PhantomData<fn() -> K>);
 impl<K> Machine<K> {
@@ -82,9 +106,44 @@ impl<K: Clone + PartialEq + 'static> MachineTrait for Machine<K> {
                 next.mode = ComboMode::Filtering(state.mode.surface());
                 next.highlight = None;
             }
-            Event::Open => next.mode = ComboMode::Browsing(Surface::Popover),
-            Event::OpenSheet => next.mode = ComboMode::Browsing(Surface::Sheet),
-            Event::Close => next.mode = ComboMode::Closed,
+            Event::Open => {
+                next.mode = ComboMode::Browsing(Surface::Popover);
+                return Step::to(next).with(Effect::WriteOpen(true));
+            }
+            Event::OpenSheet => {
+                next.mode = ComboMode::Browsing(Surface::Sheet);
+                return Step::to(next).with(Effect::WriteOpen(true));
+            }
+            Event::OpenRequested(true) if state.mode.is_open() => return Step::stay(),
+            Event::OpenRequested(true) => {
+                next.mode = ComboMode::Browsing(Surface::Popover);
+                return Step::to(next).with(Effect::WriteOpen(true));
+            }
+            Event::OpenRequested(false) | Event::Close => {
+                let write = state.mode.is_open();
+                let reset = reset(state, &mut next);
+                next.mode = ComboMode::Closed;
+                let mut step = Step::to(next);
+                if let Some(effect) = reset {
+                    step = step.with(effect);
+                }
+                if write {
+                    step = step.with(Effect::WriteOpen(false));
+                }
+                return step;
+            }
+            Event::FocusLeft { transferred } => {
+                if transferred || !state.mode.is_open() {
+                    return Step::stay();
+                }
+                let reset = reset(state, &mut next);
+                next.mode = ComboMode::Closed;
+                let mut step = Step::to(next);
+                if let Some(effect) = reset {
+                    step = step.with(effect);
+                }
+                return step.with(Effect::WriteOpen(false));
+            }
             Event::Highlight(key) => next.highlight = Some(key),
             Event::Query(text) => {
                 next.mode = ComboMode::Filtering(state.mode.surface());
@@ -97,12 +156,8 @@ impl<K: Clone + PartialEq + 'static> MachineTrait for Machine<K> {
                 }
             }
             Event::Reset => {
-                next.highlight = None;
-                match state.query {
-                    Query::Shared(source) => {
-                        return Step::to(next).with(Effect::Query(source, String::new()));
-                    }
-                    Query::Local(_) => next.query = Query::Local(String::new()),
+                if let Some(effect) = reset(state, &mut next) {
+                    return Step::to(next).with(effect);
                 }
             }
         }

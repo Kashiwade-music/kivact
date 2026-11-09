@@ -48,21 +48,32 @@ pub enum MenuItemKind {
     Submenu,
 }
 
+/// Which row the pointer is over while a menu press is tracked.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum PressOver {
+    /// No press is tracked; ordinary focus and hover decide.
+    #[default]
+    None,
+    /// The tracked press is over this row.
+    Over,
+    /// The tracked press is elsewhere.
+    Away,
+}
+
 /// The state of a menu item for the caller's drawing.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct MenuItemState {
-    // xtask-allow(state-fields): Derived drawing projection of the independent press machine.
-    /// Which row is under the held pointer during menu press tracking.
-    /// None leaves highlighting to the ordinary focus and hover states.
-    pub pressed_over: Option<bool>,
+    /// Which row the tracked menu press is over; [`PressOver::None`] leaves
+    /// highlighting to the ordinary focus and hover states.
+    pub pressed_over: PressOver,
     pub input: PartState,
-    // xtask-allow(state-fields): Immutable entry check configuration projected for drawing.
+    // xtask-allow(state-fields): projection: readonly snapshot of the entry for recipes, written only by MenuApi::item
     /// The checked state of a check or radio item; `None` for other items.
     pub check: Option<MenuCheck>,
-    // xtask-allow(state-fields): Derived submenu state for drawing, never written as behavior state.
+    // xtask-allow(state-fields): projection: readonly snapshot of the session path for recipes, written only by MenuApi::item
     /// A submenu item whose submenu is open.
     pub expanded: bool,
-    // xtask-allow(state-fields): Independent author appearance option, not a transition phase.
+    // xtask-allow(state-fields): option: the entry's authored destructive mark, read for a warning color
     /// The entry is marked destructive ([`MenuEntry::destructive`]), for a
     /// warning color.
     pub destructive: bool,
@@ -146,21 +157,21 @@ struct ItemEntry<K> {
     role: ItemRole<K>,
     /// The shortcut text, published as the item's accessible description.
     shortcut: String,
-    // xtask-allow(state-fields): Independent immutable author option; entry modifiers run before publication.
+    // xtask-allow(state-fields): option: whether the entry is disabled, fixed by its author modifiers
     /// A disabled item cannot be chosen.
     disabled: bool,
-    // xtask-allow(state-fields): Independent immutable author tooltip option.
+    // xtask-allow(state-fields): option: the entry's authored disabled reason
     disabled_reason: Option<Reactive<String>>,
-    // xtask-allow(state-fields): Independent immutable author appearance option.
+    // xtask-allow(state-fields): option: the entry's authored icon
     /// An icon shown before the label: a name the theme resolves or an image.
     icon: Option<Icon>,
-    // xtask-allow(state-fields): Independent immutable author description option.
+    // xtask-allow(state-fields): option: the entry's authored description
     /// A secondary line under the label.
     description: Option<Reactive<String>>,
-    // xtask-allow(state-fields): Independent immutable author appearance option.
+    // xtask-allow(state-fields): option: the entry's authored destructive mark
     /// A destructive item (delete, remove): only the drawing reads it.
     destructive: bool,
-    // xtask-allow(state-fields): Independent immutable author activation option.
+    // xtask-allow(state-fields): option: whether choosing the entry leaves the menu open
     /// Choosing the item leaves the menu open (a check item toggled in a
     /// row of several).
     keep_open: bool,

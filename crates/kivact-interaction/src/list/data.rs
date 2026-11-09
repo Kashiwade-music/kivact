@@ -303,6 +303,6 @@ impl ListOptions {
 pub struct ListItemState {
     pub input: PartState,
     pub selected: bool,
-    // xtask-allow(state-fields): Public derived part output, independent of selection.
+    // xtask-allow(state-fields): projection: readonly snapshot of the row for recipes, written only by ListApi::item_state
     pub active: bool,
 }

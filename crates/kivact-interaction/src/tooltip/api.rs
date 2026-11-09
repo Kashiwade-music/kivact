@@ -62,21 +62,14 @@ impl Hub {
     fn warm_for(&self, id: TooltipId) -> bool {
         let hub = self.machine.state().get_untracked();
         hub.stack.last().is_some_and(|visible| *visible != id)
-            || matches!(hub.warmth, Warmth::Warm { until_ns, excluded } if excluded != id && now_ns() <= until_ns)
+            || matches!(hub.warmth, Warmth::Warm { excluded } if excluded != id)
     }
     fn want(&self, id: TooltipId) {
         self.machine.send(Event::Want(id));
     }
     fn release(&self, id: TooltipId, within: Duration) {
-        self.machine.send(Event::Release {
-            id,
-            until_ns: now_ns().saturating_add(within.as_nanos().min(u128::from(u64::MAX)) as u64),
-        });
+        self.machine.send(Event::Release { id, within });
     }
-}
-
-fn now_ns() -> u64 {
-    kivact_core::custom::clock_now()
 }
 
 /// Copy handle for a tooltip: when a hint shows and what it describes.
@@ -134,9 +127,9 @@ fn now_ns() -> u64 {
 #[derive(Clone, Copy)]
 pub struct TooltipApi {
     options: OptionsCell<TooltipOptions>,
-    // xtask-allow(state-fields): independent fact - the observation of the attached trigger part, absent until it attaches
+    // xtask-allow(state-fields): independent: the observation of the attached trigger part, absent until it attaches
     trigger_state: Signal<Option<Value<PopupState>>>,
-    // xtask-allow(state-fields): independent fact - the observation of the attached content part, absent until it attaches
+    // xtask-allow(state-fields): independent: the observation of the attached content part, absent until it attaches
     content_state: Signal<Option<Value<PopupState>>>,
     delayed: DelayedApi,
     visible: Value<bool>,
