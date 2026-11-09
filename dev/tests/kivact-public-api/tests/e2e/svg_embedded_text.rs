@@ -1,24 +1,35 @@
 //! Role: Tests that text of an SVG embedded in another SVG is drawn.
 //!
 //! The outer document has no text of its own: it only holds an
-//! `<image href="data:image/svg+xml,..">` whose inner document draws a large
-//! text. The font database of the outer SVG must be the one the inner parse
-//! uses, or the text silently disappears (4.1 節, R06).
+//! `<image href="data:image/svg+xml;base64,..">` whose inner document draws a
+//! large text. The font database of the outer SVG must be the one the inner
+//! parse uses, or the text silently disappears (4.1 節, R06).
 
 use kivact::prelude::*;
 use kivact::test::render;
 use kivact::view::Asset;
 use kivact::view::ImageFit;
 
-fn percent_encode(text: &str) -> String {
-    let mut encoded = String::new();
-    for byte in text.bytes() {
-        match byte {
-            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'.' | b'_' | b'~' => {
-                encoded.push(char::from(byte));
-            }
-            _ => encoded.push_str(&format!("%{byte:02X}")),
-        }
+/// The standard base64 alphabet, padded as a data URL needs.
+fn base64(bytes: &[u8]) -> String {
+    const ALPHABET: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let mut encoded = String::with_capacity(bytes.len().div_ceil(3) * 4);
+    for chunk in bytes.chunks(3) {
+        let second = chunk.get(1).copied().unwrap_or(0);
+        let third = chunk.get(2).copied().unwrap_or(0);
+        let bits = (u32::from(chunk[0]) << 16) | (u32::from(second) << 8) | u32::from(third);
+        encoded.push(char::from(ALPHABET[(bits >> 18) as usize & 63]));
+        encoded.push(char::from(ALPHABET[(bits >> 12) as usize & 63]));
+        encoded.push(if chunk.len() > 1 {
+            char::from(ALPHABET[(bits >> 6) as usize & 63])
+        } else {
+            '='
+        });
+        encoded.push(if chunk.len() > 2 {
+            char::from(ALPHABET[bits as usize & 63])
+        } else {
+            '='
+        });
     }
     encoded
 }
@@ -32,9 +43,9 @@ fn svg_with_embedded_text(text: &str) -> Vec<u8> {
     );
     format!(
         "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"240\" height=\"120\">\
-         <image width=\"240\" height=\"120\" href=\"data:image/svg+xml;utf8,{}\"/>\
+         <image width=\"240\" height=\"120\" href=\"data:image/svg+xml;base64,{}\"/>\
          </svg>",
-        percent_encode(&inner)
+        base64(inner.as_bytes())
     )
     .into_bytes()
 }
