@@ -6,7 +6,7 @@ use crate::devtools_codegen::model::{
     ErrorCode, Field, Item, MethodDecl, NotificationDecl, Protocol, Reference, Ty,
 };
 
-/// Files of the protocol crate that hold no wire types (design 4.2.3).
+/// Files of the protocol crate that hold no wire types.
 const SKIPPED_FILES: [&str; 7] = [
     "lib.rs",
     "rpc.rs",
@@ -54,7 +54,7 @@ pub(super) fn read_protocol(root: &Path) -> Result<Protocol, String> {
     Ok(protocol)
 }
 
-/// Every type name that the protocol names must be a type of the protocol (design 4.2.3).
+/// Every type name that the protocol names must be a type of the protocol.
 pub(super) fn check_references(protocol: &Protocol) -> Result<(), String> {
     for reference in &protocol.references {
         let known = protocol
@@ -63,7 +63,7 @@ pub(super) fn check_references(protocol: &Protocol) -> Result<(), String> {
             .any(|item| item.name() == reference.name);
         if !known {
             return Err(format!(
-                "{}: {}: unknown type {} (design 4.2.3)",
+                "{}: {}: unknown type {}",
                 reference.file, reference.context, reference.name
             ));
         }
@@ -91,7 +91,7 @@ fn read_struct(file: &str, item: &syn::ItemStruct, out: &mut Protocol) -> Result
     let name = item.ident.to_string();
     let syn::Fields::Named(fields) = &item.fields else {
         return Err(format!(
-            "{file}: {name}: a tuple or unit struct is not a wire type; use named fields (design 4.2.3)"
+            "{file}: {name}: a tuple or unit struct is not a wire type; use named fields"
         ));
     };
     expect_serde(file, &name, &item.attrs, &[])?;
@@ -179,7 +179,7 @@ fn read_enum(file: &str, item: &syn::ItemEnum, out: &mut Protocol) -> Result<(),
                 syn::Fields::Unit => Vec::new(),
                 syn::Fields::Unnamed(_) => {
                     return Err(format!(
-                        "{file}: {context}: unsupported fields in a tagged union (design 4.2.3)"
+                        "{file}: {context}: unsupported fields in a tagged union"
                     ));
                 }
             };
@@ -197,7 +197,7 @@ fn read_enum(file: &str, item: &syn::ItemEnum, out: &mut Protocol) -> Result<(),
             let variant_name = variant.ident.to_string();
             if !matches!(variant.fields, syn::Fields::Unit) {
                 return Err(format!(
-                    "{file}: {name}.{variant_name}: unsupported fields in a choice (design 4.2.3)"
+                    "{file}: {name}.{variant_name}: unsupported fields in a choice"
                 ));
             }
             expect_serde(file, &format!("{name}.{variant_name}"), &variant.attrs, &[])?;
@@ -425,7 +425,7 @@ fn convert_type(file: &str, context: &str, ty: &syn::Type) -> Result<Ty, String>
 }
 
 fn unsupported(file: &str, context: &str) -> String {
-    format!("{file}: {context}: unsupported type in a protocol type (design 4.2.3)")
+    format!("{file}: {context}: unsupported type in a protocol type")
 }
 
 /// The `serde(..)` entries of `attrs` as `name` or `name = "value"`, sorted.

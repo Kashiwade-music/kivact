@@ -319,7 +319,7 @@ fn removing_the_focused_row_moves_the_tab_stop_to_the_first_row_without_a_leave_
     screen.run_until_idle();
     assert!(
         row(&screen, "Apple").is_focused(),
-        "the search starts at the first row (before SM-INT-12 it was Date, at Cherry's old ordinal)"
+        "the search starts at the first row, not at Cherry's old ordinal (Date)"
     );
     no_errors(&screen);
 }

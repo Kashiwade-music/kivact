@@ -4,7 +4,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::common::{BuildKind, Rect, WindowId, WindowMode};
 
-/// The wire version; see design 4.2.1 for when to bump it.
+/// The wire version. Bump it when a wire type loses, renames or retypes a
+/// field, or a method or notification is removed or renamed; additions keep it.
 pub const PROTOCOL_VERSION: u32 = 1;
 
 /// The app behind the agent.

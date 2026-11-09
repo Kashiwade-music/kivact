@@ -158,7 +158,7 @@ fn queue_pending(i: &Inspector, item: PendingGraph) {
     }
 }
 
-/// Build one turn's cause graph from the detailed trace (design 4.2.4 steps 1-3, 5-8).
+/// Build one turn's cause graph from the detailed trace.
 fn build_graph(
     rt: &Runtime,
     i: &Inspector,
@@ -417,7 +417,7 @@ struct FinishedGraph {
     truncated: bool,
 }
 
-/// The key nodes are merged by (design 4.2.4 step 5).
+/// The key nodes are merged by: kind, source and window.
 type GroupKey = (u8, Option<(String, u32, u32)>, Option<u64>);
 
 fn group_key(node: &p::CauseNode) -> GroupKey {

@@ -1,4 +1,4 @@
-"""Discovery of running DevTools targets (design 4.2.2)."""
+"""Discovery of running DevTools targets."""
 from __future__ import annotations
 
 import contextlib

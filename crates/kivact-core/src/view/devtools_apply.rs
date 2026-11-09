@@ -9,7 +9,7 @@ use kivact_style::{Color, ColorToken, Length, LineHeight, Style, TextAlign, Them
 
 use kivact_types::{Display, NodeId};
 
-/// The property table of design 4.4.5: one layout property.
+/// The DevTools override properties: one layout property.
 fn override_layout(property: &str, value: &str) -> Option<Result<Style, String>> {
     let result = match property {
         "width" => length(value).map(|v| Style::default().width(v)),
@@ -39,7 +39,7 @@ fn override_layout(property: &str, value: &str) -> Option<Result<Style, String>>
     Some(with_property(property, result))
 }
 
-/// The property table of design 4.4.5: one paint property.
+/// The DevTools override properties: one paint property.
 fn override_paint(property: &str, value: &str) -> Option<Result<Style, String>> {
     let result = match property {
         "background" => color(value).map(|v| Style::default().background(v)),
@@ -53,7 +53,7 @@ fn override_paint(property: &str, value: &str) -> Option<Result<Style, String>> 
     Some(with_property(property, result))
 }
 
-/// The property table of design 4.4.5: one text property.
+/// The DevTools override properties: one text property.
 fn override_text(property: &str, value: &str) -> Option<Result<Style, String>> {
     let result = match property {
         "font_size" => number(value).map(|v| Style::default().font_size(v)),
@@ -135,7 +135,8 @@ fn text_align(value: &str) -> Result<TextAlign, String> {
     }
 }
 
-/// The override syntax (design 4.4.5) of one property value, given as
+/// The override syntax (`12`, `50%`, `auto`, `#2563eb`, a token name, ...) of
+/// one property value, given as
 /// `describe_style` wrote it: the `Debug` text of the value, wrapped in
 /// `Some(...)` for an optional field. `None` when `property` is not in that
 /// table or the value has no such syntax. The edges and corners that
@@ -599,7 +600,7 @@ fn hex([r, g, b, a]: [f64; 4]) -> String {
     }
 }
 
-/// The pseudo-locale transformation of design 4.2.4; `{name}` placeholders
+/// The DevTools pseudo-locale transformation; `{name}` placeholders
 /// keep their positions.
 pub(crate) fn pseudo_locale(mode: p::PseudoLocale, text: &str) -> String {
     let accented = match mode {

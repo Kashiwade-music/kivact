@@ -1,4 +1,4 @@
-"""Connect to a running Kivact app and drive it from Python (design 4.7.3)."""
+"""Connect to a running Kivact app and drive it from Python."""
 from __future__ import annotations
 
 import base64

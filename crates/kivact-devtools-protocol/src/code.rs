@@ -1,4 +1,4 @@
-//! Role: JSON-RPC error codes of the DevTools protocol (design 4.2.1).
+//! Role: JSON-RPC error codes of the DevTools protocol.
 
 /// The line is not JSON.
 pub const PARSE_ERROR: i32 = -32700;

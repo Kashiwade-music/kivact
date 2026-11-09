@@ -544,7 +544,7 @@ pub enum ClientMode {
 pub struct TestTiming(pub Rc<dyn Fn(u64)>);
 
 impl ClientMode {
-    /// Whether the DevTools agent may run for this launch (design 4.2.2).
+    /// Whether the DevTools agent may run for this launch.
     #[cfg(feature = "devtools")]
     fn devtools_allowed(&self, in_tests: bool) -> bool {
         match self {

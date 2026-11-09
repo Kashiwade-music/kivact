@@ -152,7 +152,7 @@ pub(crate) fn rect(rect: Rect) -> p::Rect {
 /// The wire kind of a host node type.
 #[allow(
     dead_code,
-    reason = "the DevTools tree conversion (devtools::tree) maps engine kinds inline; this shared conversion has no caller among T12.1's files"
+    reason = "the DevTools tree conversion (devtools::tree) maps engine kinds inline; this shared conversion has no caller yet"
 )]
 pub(crate) fn node_kind(kind: NodeType) -> p::NodeKind {
     match kind {
@@ -242,7 +242,7 @@ pub(crate) fn turn_stage(stage: Stage) -> p::TurnStage {
     }
 }
 
-/// The key named by the design 4.2.7 rules, if it names one.
+/// The key a `.kivact/devtools.json` key name names, if it names one.
 pub(crate) fn parse_key(text: &str) -> Option<Key> {
     if text.chars().count() == 1 {
         return Some(Key::Char(text.chars().next()?));
@@ -274,7 +274,7 @@ pub(crate) fn parse_key(text: &str) -> Option<Key> {
     })
 }
 
-/// The chord named by the design 4.2.7 rules, if it names one.
+/// The chord a `.kivact/devtools.json` shortcut names, if it names one.
 pub(crate) fn parse_chord(text: &str) -> Option<KeyChord> {
     let mut modifiers = Modifiers::default();
     let mut parts = text.split('+');
@@ -295,7 +295,8 @@ pub(crate) fn parse_chord(text: &str) -> Option<KeyChord> {
     Some(KeyChord { key, modifiers })
 }
 
-/// Whether a file is app code rather than Kivact or Arvane (design 4.2.4).
+/// Whether a file is app code rather than Kivact or Arvane: no path segment
+/// names a `kivact`, `kivact-*` or `arvane*` crate.
 pub(crate) fn app_code(file: &str) -> bool {
     !file
         .split(['/', '\\'])

@@ -63,7 +63,7 @@ pub(crate) struct SessionData {
     pub(crate) next_override: Cell<u64>,
     // xtask-allow(state-fields): independent fact - the node the DevTools user highlights (with the layout overlay choice).
     pub(crate) highlight: Cell<Option<Highlight>>,
-    // xtask-allow(state-fields): independent fact - the window in pick mode; the core owns it and the engine holds an applied copy (design 4.4.1).
+    // xtask-allow(state-fields): independent fact - the window in pick mode; the core owns it and the engine holds an applied copy.
     pub(crate) pick: Cell<Option<WindowId>>,
     pub(crate) overlays: RefCell<p::OverlaySettings>,
     pub(crate) sent_overlays: RefCell<BTreeMap<WindowId, DevtoolsOverlay>>,
@@ -128,8 +128,7 @@ pub(crate) enum QueryBy {
 }
 
 /// A turn graph waiting for the layout and frame of its revision (completed by
-/// the rule of 4.2.4 step 4: its frame, or any record of a newer revision, or
-/// `stop_recording`).
+/// its frame, by any record of a newer revision, or by `stop_recording`).
 pub(crate) struct PendingGraph {
     pub(crate) revision: Revision,
     pub(crate) graph: p::TurnGraph,

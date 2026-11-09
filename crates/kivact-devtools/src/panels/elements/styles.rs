@@ -6,7 +6,7 @@ use kivact_devtools_protocol as p;
 use crate::state::{Inspected, Session};
 use crate::widgets::property_row::{RowAccess, color_property_row, property_row};
 
-/// The properties the override syntax (design 4.4.5) can set; every other row is read-only.
+/// The properties a style override can set; every other row is read-only.
 const EDITABLE: &[&str] = &[
     "width",
     "height",
@@ -230,8 +230,8 @@ fn layer_section(
     .into_view()
 }
 
-/// One property row; color properties get the color input. A row the design cannot
-/// override is read-only, and under the token scope a row whose value names no token is unavailable.
+/// One property row; color properties get the color input. A row no override can
+/// set is read-only, and under the token scope a row whose value names no token is unavailable.
 fn property_row_view(
     session: Session,
     node: p::NodeId,
