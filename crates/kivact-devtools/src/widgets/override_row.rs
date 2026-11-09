@@ -79,7 +79,11 @@ impl Machine for OverrideMachine {
                 },
             }),
             OverrideEvent::Commit => match state {
-                Override::Off { .. } => Step::stay(),
+                Override::Off { value } => Step::to(Override::On {
+                    id: None,
+                    value: value.clone(),
+                })
+                .with(OverrideEffect::Set(value.clone())),
                 Override::On { value, .. } => Step::stay().with(OverrideEffect::Set(value.clone())),
             },
         }
