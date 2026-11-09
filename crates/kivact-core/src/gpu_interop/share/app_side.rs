@@ -74,6 +74,10 @@ impl PartialEq for Current {
 pub fn shared_image(width: u32, height: u32) -> SharedImage {
     let at = Location::caller();
     let owner = kivact_runtime::Owner::current("shared_image", at);
+    let rt = owner.runtime();
+    // The App shares a GPU texture with the window: it needs the device (the
+    // renewal effect below makes a GPU request once it is ready).
+    crate::gpu_interop::demand_gpu(&rt, crate::view::state::current_window(owner));
     let size = (width.max(1), height.max(1));
     let mode = mode_of(adapter());
     let state = Arc::new(Inbox::new(LinkState::new(ShareRequest {

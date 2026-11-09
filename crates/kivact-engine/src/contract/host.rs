@@ -79,6 +79,13 @@ pub enum HostRequest {
     Emulate(EngineEmulation),
     /// Multiply the motion clock of every window.
     TimeScale(f64),
+    /// Start `window`'s GPU device now: the App needs it (a composition
+    /// with a user shader, or a GPU texture it shares with the window).
+    /// Starting again changes nothing.
+    DemandGpu {
+        /// The window whose device is needed.
+        window: kivact_types::WindowId,
+    },
     /// What a drawable's export asks of the window: its frames of
     /// `generation`, as `mode`, at `scale` device px per logical px. `None`
     /// follows the window's scale.

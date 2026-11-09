@@ -342,7 +342,7 @@ To make the window choose a graphics API, a kind of adapter or an exact adapter,
 useful when the engine needs a specific one, set a wish:
 
 ```rust,no_run
-use kivact::gpu_interop::{GpuBackend, GpuPower, GpuPreference};
+use kivact::gpu_interop::{GpuBackend, GpuPower, GpuPreference, GpuStart};
 use kivact::prelude::*;
 # fn app() -> impl IntoView { text("Viewport") }
 
@@ -352,6 +352,7 @@ fn main() -> kivact::Result<()> {
             backend: Some(GpuBackend::Vulkan),
             power: GpuPower::HighPerformance,
             adapter: None,
+            start: GpuStart::OnDemand,
         })
         .run(app)
 }

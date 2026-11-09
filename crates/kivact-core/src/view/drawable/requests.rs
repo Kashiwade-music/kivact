@@ -8,7 +8,7 @@ use std::sync::Arc;
 
 use kivact_engine::contract::{ExportRequestMode, HostRequest};
 use kivact_runtime::{AppId, Notifier, Runtime};
-use kivact_types::DrawableId;
+use kivact_types::{DrawableId, WindowId};
 
 use crate::sync::Inbox;
 use crate::view::drawable_share::ExportLink;
@@ -31,6 +31,7 @@ type Sent = kivact_types::cell::Sent<(ExportRequestMode, u64, Option<f64>)>;
 pub(super) fn send_requests(
     app: AppId,
     id: DrawableId,
+    window: WindowId,
     inbox: &Inbox<ExportLink>,
     sent: &RefCell<Sent>,
 ) {
@@ -49,6 +50,10 @@ pub(super) fn send_requests(
         && sent.borrow_mut().update(now.clone()).is_some()
     {
         let (mode, generation, scale) = now;
+        // The App exports as a GPU texture: it needs the window's device.
+        if matches!(mode, ExportRequestMode::Gpu(_)) {
+            crate::gpu_interop::demand_gpu(&rt, window);
+        }
         writer.drawable_request(HostRequest::DrawableExport {
             id,
             generation,

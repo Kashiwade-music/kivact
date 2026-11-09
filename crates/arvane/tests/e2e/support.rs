@@ -374,6 +374,11 @@ impl Harness {
         preference: kivact_types::GpuPreference,
     ) -> Result<Self, ShellError> {
         let gpu = options.gpu == GpuMode::Required;
+        let mut preference = preference;
+        if gpu {
+            // A GPU test draws its first frames on the GPU.
+            preference.start = kivact_types::gpu::GpuStart::AtLaunch;
+        }
         let backend = VirtualBackend::new(options);
         let script = backend.script();
         let probe = backend.probe();

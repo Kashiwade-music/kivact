@@ -45,6 +45,19 @@ pub enum AdapterMatch {
     },
 }
 
+/// When the window's GPU device is started.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub enum GpuStart {
+    /// Frames are drawn on the CPU until the window needs the GPU: a
+    /// composition with a user shader or a GPU export, or CPU frames that
+    /// keep missing half the display period (the default).
+    #[default]
+    OnDemand,
+    /// Start the device with the window (frames are drawn on the CPU until
+    /// it is ready), as before.
+    AtLaunch,
+}
+
 /// What an application wishes of the GPU device Arvane makes. A wish, not
 /// a requirement: Arvane takes the adapter asked for when it has one, else
 /// the one the power preference picks, and reports what it took
@@ -52,7 +65,7 @@ pub enum AdapterMatch {
 /// `WGPU_POWER_PREF` override `backend` and `power`.
 ///
 /// The default is Arvane's own choice: low power, any backend (Vulkan,
-/// then Direct3D 12 on Windows), any adapter.
+/// then Direct3D 12 on Windows), any adapter, started when it is needed.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 pub struct GpuPreference {
     /// The kind of adapter.
@@ -64,6 +77,8 @@ pub struct GpuPreference {
     /// The adapter (`None`: as `power` picks). Only builds with GPU
     /// texture sharing look adapters up by identity; others ignore it.
     pub adapter: Option<AdapterMatch>,
+    /// When the device is started.
+    pub start: GpuStart,
 }
 
 /// The adapter a window's GPU device is on, when the device can import

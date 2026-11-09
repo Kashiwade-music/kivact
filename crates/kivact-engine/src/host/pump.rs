@@ -192,6 +192,10 @@ impl Host {
                         }
                         PlatformResult::Done
                     }
+                    DeferredRequest::DemandGpu => {
+                        windows.demand_gpu(id);
+                        continue;
+                    }
                 };
                 if self.observe_close() {
                     return;

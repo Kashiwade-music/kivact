@@ -458,6 +458,11 @@ impl Writer {
             HostRequest::TimeScale(scale) => {
                 queue_main(&mut app, request, DeferredRequest::TimeScale(scale))
             }
+            HostRequest::DemandGpu { window } => {
+                if let Some(model) = app.windows.get_mut(&window) {
+                    model.effects.push((request, DeferredRequest::DemandGpu));
+                }
+            }
         }
     }
 

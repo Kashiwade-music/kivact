@@ -17,6 +17,8 @@ pub(crate) enum DeferredRequest {
     Inject(Vec<arvane::InjectedInput>),
     Emulate(EngineEmulation),
     TimeScale(f64),
+    /// Start the model's window GPU device (nothing is answered).
+    DemandGpu,
 }
 
 /// The engine's state: the node tree and one field per state group.

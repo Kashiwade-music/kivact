@@ -201,7 +201,15 @@ impl ArvaneTestHost {
             Box::new(backend),
             ShellSetup {
                 prefer_gpu: options.gpu == GpuMode::Required,
-                gpu_preference: options.gpu_preference,
+                gpu_preference: kivact_types::GpuPreference {
+                    // A GPU test draws its first frames on the GPU.
+                    start: if options.gpu == GpuMode::Required {
+                        kivact_types::gpu::GpuStart::AtLaunch
+                    } else {
+                        options.gpu_preference.start
+                    },
+                    ..options.gpu_preference
+                },
                 observer: Some(Rc::new(RefCell::new(
                     move |window, change: &RendererChange| {
                         let state = match change {

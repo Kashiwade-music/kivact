@@ -188,10 +188,19 @@ impl Presenter {
     /// wakes the window's thread when a start step finishes
     /// ([`Presenter::prepare`] then).
     pub(crate) fn start_gpu(&mut self, waker: ShellWaker) {
-        self.gpu.start(
-            std::sync::Arc::new(move || waker.wake(crate::WakeReasons::GPU_STEP)),
-            &mut self.notes,
-        );
+        self.gpu.start(waker, &mut self.notes);
+    }
+
+    /// Defer the GPU start until the window needs it (the first demand, or
+    /// slow CPU frames; `GpuStart::OnDemand`).
+    pub(crate) fn defer_gpu(&mut self, waker: ShellWaker) {
+        self.gpu.defer(waker);
+    }
+
+    /// Start the GPU device now: the window needs it (a composition with a
+    /// user shader, or a GPU texture the App shares). Nothing once started.
+    pub(crate) fn demand_gpu(&mut self, waker: ShellWaker) {
+        self.gpu.start(waker, &mut self.notes);
     }
 
     /// Move a GPU start along for `window` without drawing: once the
@@ -290,6 +299,17 @@ impl Presenter {
         let was_ready = self.gpu.ready();
         let drawn = self.draw_native(window, composition, plan);
         let (now, period) = (window.now_ns(), window.frame_period_ns());
+        if let Ok(drawn) = &drawn
+            && drawn.renderer == Renderer::Cpu
+            && drawn.shown
+        {
+            self.gpu.note_cpu_frame(
+                drawn.raster + drawn.present,
+                Duration::from_nanos(period),
+                composition.needs_gpu(),
+                &mut self.notes,
+            );
+        }
         let renderer = if self.gpu.ready() {
             Renderer::Gpu
         } else {
