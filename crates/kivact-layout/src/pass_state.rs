@@ -1,4 +1,4 @@
-//! Role: Layout state kept between passes: topology epoch, pending work and relayout requests.
+//! Role: Layout state between passes: epoch, pending work and relayout requests.
 
 use crate::style::node::TStyle;
 use kivact_types::NodeId;

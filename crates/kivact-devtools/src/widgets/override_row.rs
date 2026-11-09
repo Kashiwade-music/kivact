@@ -1,4 +1,4 @@
-//! Role: One override row: a checkbox turns the override on and off and the editor edits its value.
+//! Role: One override row: a checkbox toggles it; the editor edits its value.
 
 use kivact::prelude::*;
 use kivact::state::{Machine, Step, machine};

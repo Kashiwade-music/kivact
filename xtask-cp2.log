@@ -1,0 +1,477 @@
+source-only macro assumptions: attributes {"component", "serde"}, derives {"Clone", "Copy", "Debug", "Default", "Deserialize", "Eq", "Hash", "Ord", "PartialEq", "PartialOrd", "Serialize"}, macros {"assert", "assert_eq", "assert_ne", "asset_into_value", "bind", "cfg", "changed", "classify_properties", "color_setter", "concat", "constant_value", "content_commands", "copy_handle", "crate::editors::shared::lane::lane_extension_methods", "debug_assert", "debug_assert_eq", "debug_assert_ne", "env", "eprintln", "file", "filter_fn", "format", "format_ident", "generated_guides", "grid_setter", "group_commands", "group_or_default", "icon_into_value", "image_commands", "include_bytes", "include_str", "keyed_element", "kivact::state::bind", "kivact::state::constant_value", "kivact_core::state::constant_value", "kivact_runtime::constant_value", "lane_extension_methods", "layers", "line", "mask_tuple", "matches", "one_track", "padding_options", "panic", "path_commands", "primitive_commands", "println", "props", "protocol_methods", "protocol_notifications", "quote", "radius_from", "recipe_table", "replace_fields", "setter", "sides", "take", "text_color_setter", "text_setter", "thread_local", "time_editor_builder", "toggle_builder", "tracing::debug", "tracing::error", "tracing::info", "tracing::trace", "tracing::warn", "track_from_number", "track_list", "tuple_animatable", "tuple_children", "tuple_into_view", "unreachable", "vec", "write", "writeln"}; generated code is not analyzed
+style exception [glob-imports] crates/kivact-core/src/style.rs: The facade forwards only kivact_style::facade, an explicitly curated app vocabulary owned by kivact-style. Its single definition avoids a duplicate cross-crate export list; the implementation crate root and hidden backend bridge are never glob-exported.
+style exception [glob-imports] crates/kivact-devtools/src/app.rs: The DevTools app is written as a Kivact user writes an app (dogfooding P-07): it starts from `use kivact::prelude::*`.
+style exception [glob-imports] crates/kivact-devtools/src/connection.rs: The DevTools app is written as a Kivact user writes an app (dogfooding P-07): it starts from `use kivact::prelude::*`.
+style exception [glob-imports] crates/kivact-devtools/src/main.rs: The DevTools app is written as a Kivact user writes an app (dogfooding P-07): it starts from `use kivact::prelude::*`.
+style exception [glob-imports] crates/kivact-devtools/src/panels/accessibility.rs: The DevTools app is written as a Kivact user writes an app (dogfooding P-07): it starts from `use kivact::prelude::*`.
+style exception [glob-imports] crates/kivact-devtools/src/panels/animations.rs: The DevTools app is written as a Kivact user writes an app (dogfooding P-07): it starts from `use kivact::prelude::*`.
+style exception [glob-imports] crates/kivact-devtools/src/panels/console.rs: The DevTools app is written as a Kivact user writes an app (dogfooding P-07): it starts from `use kivact::prelude::*`.
+style exception [glob-imports] crates/kivact-devtools/src/panels/elements/details.rs: The DevTools app is written as a Kivact user writes an app (dogfooding P-07): it starts from `use kivact::prelude::*`.
+style exception [glob-imports] crates/kivact-devtools/src/panels/elements/owners.rs: The DevTools app is written as a Kivact user writes an app (dogfooding P-07): it starts from `use kivact::prelude::*`.
+style exception [glob-imports] crates/kivact-devtools/src/panels/elements/styles.rs: The DevTools app is written as a Kivact user writes an app (dogfooding P-07): it starts from `use kivact::prelude::*`.
+style exception [glob-imports] crates/kivact-devtools/src/panels/elements/view.rs: The DevTools app is written as a Kivact user writes an app (dogfooding P-07): it starts from `use kivact::prelude::*`.
+style exception [glob-imports] crates/kivact-devtools/src/panels/emulation.rs: The DevTools app is written as a Kivact user writes an app (dogfooding P-07): it starts from `use kivact::prelude::*`.
+style exception [glob-imports] crates/kivact-devtools/src/panels/input.rs: The DevTools app is written as a Kivact user writes an app (dogfooding P-07): it starts from `use kivact::prelude::*`.
+style exception [glob-imports] crates/kivact-devtools/src/panels/performance.rs: The DevTools app is written as a Kivact user writes an app (dogfooding P-07): it starts from `use kivact::prelude::*`.
+style exception [glob-imports] crates/kivact-devtools/src/panels/review.rs: The DevTools app is written as a Kivact user writes an app (dogfooding P-07): it starts from `use kivact::prelude::*`.
+style exception [glob-imports] crates/kivact-devtools/src/panels/scripts.rs: The DevTools app is written as a Kivact user writes an app (dogfooding P-07): it starts from `use kivact::prelude::*`.
+style exception [glob-imports] crates/kivact-devtools/src/panels/tasks.rs: The DevTools app is written as a Kivact user writes an app (dogfooding P-07): it starts from `use kivact::prelude::*`.
+style exception [glob-imports] crates/kivact-devtools/src/panels/theme.rs: The DevTools app is written as a Kivact user writes an app (dogfooding P-07): it starts from `use kivact::prelude::*`.
+style exception [glob-imports] crates/kivact-devtools/src/panels/updates.rs: The DevTools app is written as a Kivact user writes an app (dogfooding P-07): it starts from `use kivact::prelude::*`.
+style exception [glob-imports] crates/kivact-devtools/src/session.rs: The DevTools app is written as a Kivact user writes an app (dogfooding P-07): it starts from `use kivact::prelude::*`.
+style exception [glob-imports] crates/kivact-devtools/src/source.rs: The DevTools app is written as a Kivact user writes an app (dogfooding P-07): it starts from `use kivact::prelude::*`.
+style exception [glob-imports] crates/kivact-devtools/src/state.rs: The DevTools app is written as a Kivact user writes an app (dogfooding P-07): it starts from `use kivact::prelude::*`.
+style exception [glob-imports] crates/kivact-devtools/src/status_bar.rs: The DevTools app is written as a Kivact user writes an app (dogfooding P-07): it starts from `use kivact::prelude::*`.
+style exception [glob-imports] crates/kivact-devtools/src/toolbar.rs: The DevTools app is written as a Kivact user writes an app (dogfooding P-07): it starts from `use kivact::prelude::*`.
+style exception [glob-imports] crates/kivact-devtools/src/widgets/box_model.rs: The DevTools app is written as a Kivact user writes an app (dogfooding P-07): it starts from `use kivact::prelude::*`.
+style exception [glob-imports] crates/kivact-devtools/src/widgets/color_input.rs: The DevTools app is written as a Kivact user writes an app (dogfooding P-07): it starts from `use kivact::prelude::*`.
+style exception [glob-imports] crates/kivact-devtools/src/widgets/flame.rs: The DevTools app is written as a Kivact user writes an app (dogfooding P-07): it starts from `use kivact::prelude::*`.
+style exception [glob-imports] crates/kivact-devtools/src/widgets/graph.rs: The DevTools app is written as a Kivact user writes an app (dogfooding P-07): it starts from `use kivact::prelude::*`.
+style exception [glob-imports] crates/kivact-devtools/src/widgets/override_row.rs: The DevTools app is written as a Kivact user writes an app (dogfooding P-07): it starts from `use kivact::prelude::*`.
+style exception [glob-imports] crates/kivact-devtools/src/widgets/property_row.rs: The DevTools app is written as a Kivact user writes an app (dogfooding P-07): it starts from `use kivact::prelude::*`.
+style exception [glob-imports] crates/kivact-devtools/src/widgets/source_link.rs: The DevTools app is written as a Kivact user writes an app (dogfooding P-07): it starts from `use kivact::prelude::*`.
+style exception [glob-imports] crates/kivact-devtools/src/widgets/timeline.rs: The DevTools app is written as a Kivact user writes an app (dogfooding P-07): it starts from `use kivact::prelude::*`.
+style exception [glob-imports] crates/kivact-devtools/src/widgets/virtual_tree.rs: The DevTools app is written as a Kivact user writes an app (dogfooding P-07): it starts from `use kivact::prelude::*`.
+style exception [glob-imports] crates/kivact-devtools/tests/app/panels/accessibility.rs: The DevTools app is written as a Kivact user writes an app (dogfooding P-07): it starts from `use kivact::prelude::*`.
+style exception [glob-imports] crates/kivact-devtools/tests/app/panels/animations.rs: The DevTools app is written as a Kivact user writes an app (dogfooding P-07): it starts from `use kivact::prelude::*`.
+style exception [glob-imports] crates/kivact-devtools/tests/app/panels/console.rs: The DevTools app is written as a Kivact user writes an app (dogfooding P-07): it starts from `use kivact::prelude::*`.
+style exception [glob-imports] crates/kivact-devtools/tests/app/panels/elements.rs: The DevTools app is written as a Kivact user writes an app (dogfooding P-07): it starts from `use kivact::prelude::*`.
+style exception [glob-imports] crates/kivact-devtools/tests/app/panels/emulation.rs: The DevTools app is written as a Kivact user writes an app (dogfooding P-07): it starts from `use kivact::prelude::*`.
+style exception [glob-imports] crates/kivact-devtools/tests/app/panels/input.rs: The DevTools app is written as a Kivact user writes an app (dogfooding P-07): it starts from `use kivact::prelude::*`.
+style exception [glob-imports] crates/kivact-devtools/tests/app/panels/performance.rs: The DevTools app is written as a Kivact user writes an app (dogfooding P-07): it starts from `use kivact::prelude::*`.
+style exception [glob-imports] crates/kivact-devtools/tests/app/panels/review.rs: The DevTools app is written as a Kivact user writes an app (dogfooding P-07): it starts from `use kivact::prelude::*`.
+style exception [glob-imports] crates/kivact-devtools/tests/app/panels/scripts.rs: The DevTools app is written as a Kivact user writes an app (dogfooding P-07): it starts from `use kivact::prelude::*`.
+style exception [glob-imports] crates/kivact-devtools/tests/app/panels/tasks.rs: The DevTools app is written as a Kivact user writes an app (dogfooding P-07): it starts from `use kivact::prelude::*`.
+style exception [glob-imports] crates/kivact-devtools/tests/app/panels/theme.rs: The DevTools app is written as a Kivact user writes an app (dogfooding P-07): it starts from `use kivact::prelude::*`.
+style exception [glob-imports] crates/kivact-devtools/tests/app/panels/updates.rs: The DevTools app is written as a Kivact user writes an app (dogfooding P-07): it starts from `use kivact::prelude::*`.
+style exception [glob-imports] crates/kivact-devtools/tests/app/support.rs: The DevTools app is written as a Kivact user writes an app (dogfooding P-07): it starts from `use kivact::prelude::*`.
+style exception [glob-imports] crates/kivact-devtools/tests/app.rs: The DevTools app is written as a Kivact user writes an app (dogfooding P-07): it starts from `use kivact::prelude::*`.
+style exception [glob-imports] crates/kivact-ui-basic/tests/consumer/code_block.rs: Kit E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] crates/kivact-ui-basic/tests/consumer/data.rs: Kit E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] crates/kivact-ui-basic/tests/consumer/display.rs: Kit E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] crates/kivact-ui-basic/tests/consumer/forms.rs: Kit E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] crates/kivact-ui-basic/tests/consumer/foundation.rs: Kit E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] crates/kivact-ui-basic/tests/consumer/navigation.rs: Kit E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] crates/kivact-ui-basic/tests/consumer/navigation_layout.rs: Kit E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] crates/kivact-ui-basic/tests/consumer/overlays.rs: Kit E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] crates/kivact-ui-basic/tests/consumer/toasts.rs: Kit E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] crates/kivact-ui-creative/tests/consumer/advanced.rs: Kit E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] crates/kivact-ui-creative/tests/consumer/arrangement_edit.rs: Kit E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] crates/kivact-ui-creative/tests/consumer/bezier.rs: Kit E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] crates/kivact-ui-creative/tests/consumer/color_wheel.rs: Kit E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] crates/kivact-ui-creative/tests/consumer/dock.rs: Kit E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] crates/kivact-ui-creative/tests/consumer/editor_gestures.rs: Kit E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] crates/kivact-ui-creative/tests/consumer/glyphs.rs: Kit E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] crates/kivact-ui-creative/tests/consumer/gradient.rs: Kit E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] crates/kivact-ui-creative/tests/consumer/graph_domain.rs: Kit E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] crates/kivact-ui-creative/tests/consumer/interactions.rs: Kit E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] crates/kivact-ui-creative/tests/consumer/layout_parts.rs: Kit E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] crates/kivact-ui-creative/tests/consumer/node_editor.rs: Kit E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] crates/kivact-ui-creative/tests/consumer/numeric_edit.rs: Kit E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] crates/kivact-ui-creative/tests/consumer/outliner.rs: Kit E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] crates/kivact-ui-creative/tests/consumer/picker.rs: Kit E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] crates/kivact-ui-creative/tests/consumer/range.rs: Kit E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] crates/kivact-ui-creative/tests/consumer/table_rows.rs: Kit E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] crates/kivact-ui-creative/tests/consumer/time_support.rs: Kit E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] crates/kivact-ui-game/tests/consumer/controls.rs: Kit E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] crates/kivact-ui-game/tests/consumer/interactions.rs: Kit E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] crates/kivact-ui-game/tests/consumer/overlays.rs: Kit E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] crates/kivact-ui-game/tests/consumer/theme.rs: Kit E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] crates/kivact-ui-pop/tests/consumer/controls.rs: Kit E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] crates/kivact-ui-pop/tests/consumer/data.rs: Kit E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] crates/kivact-ui-pop/tests/consumer/dates.rs: Kit E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] crates/kivact-ui-pop/tests/consumer/forms.rs: Kit E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] crates/kivact-ui-pop/tests/consumer/interactions.rs: Kit E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] crates/kivact-ui-pop/tests/consumer/overlays.rs: Kit E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/bench/src/bin/kv_heap.rs: The bench binaries are measurement programs written from the user's side and start from `use kivact::prelude::*`.
+style exception [glob-imports] dev/bench/src/bin/kv_latency.rs: The bench binaries are measurement programs written from the user's side and start from `use kivact::prelude::*`.
+style exception [glob-imports] dev/bench/src/bin/kv_startup.rs: The bench binaries are measurement programs written from the user's side and start from `use kivact::prelude::*`.
+style exception [glob-imports] dev/bench/src/bin/kv_stress.rs: The bench binaries are measurement programs written from the user's side and start from `use kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/apg_accordion.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/apg_alert.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/apg_breadcrumb.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/apg_carousel.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/apg_combobox.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/apg_date_picker.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/apg_grid.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/apg_listbox.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/apg_menu.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/apg_menu_button.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/apg_menubar.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/apg_radio_group.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/apg_slider.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/apg_spinbutton.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/apg_tabs.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/apg_toolbar.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/apg_tooltip.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/apg_tree_view.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/apg_window_splitter.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/assets.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/async_tests.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/binding_update.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/borders_backgrounds.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/canvas.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/canvas_worker.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/color_spaces.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/component_macro.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/components.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/compositor.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/custom_text_field.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/devtools.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/diagnostics.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/disposal.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/drawable_export_gpu.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/drawables.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/effects_filters.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/embed/contract.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/embed/support.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/embed/uia.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/embed/windows.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/embed/x11.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/environment.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/feedback.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/flows.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/focus.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/gpu_interop.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/grid.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/hover.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/i18n.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/image_semantics.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/images_animated.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/indicators.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/input_platform.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/interaction_calendar.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/interaction_combobox.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/interaction_delayed.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/interaction_dialog.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/interaction_drag_edit.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/interaction_edit.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/interaction_list_nav.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/interaction_menu.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/interaction_palette.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/interaction_select.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/interaction_slider.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/interaction_splitter.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/interaction_state.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/interaction_table.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/interaction_tabs.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/interaction_toast.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/interaction_toggle.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/interaction_tooltip.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/interaction_tree.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/interaction_zoom_pan.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/keyboard.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/landmark_roles.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/layout.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/layout_check.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/layout_scroll.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/layout_units.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/lifecycle.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/machine.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/metrics_and_description.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/motion.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/motion_easing.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/node_ref.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/offscreen.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/overlay.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/paint.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/parts.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/path_algebra.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/platform_paths.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/pointer.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/presence.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/presence_modes.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/primitive.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/reactive_props.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/relations.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/resource_reclaim.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/runtime.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/scroll_timeline.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/setup_functions.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/shaders.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/shared_layout.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/style_paint.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/support/mount.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/svg_embedded_text.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/task.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/text_editing.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/text_effects.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/text_primitives.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/text_style.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/theme_conformance.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/timeline.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/touch_scroll.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/transform.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/transform_3d.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/ui_calendar.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/ui_carousel.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/ui_chat_code.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/ui_collections.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/ui_combobox.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/ui_command_palette.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/ui_components.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/ui_controls.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/ui_data_table.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/ui_disclosure_surfaces.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/ui_dropzone.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/ui_field.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/ui_navigation.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/ui_standard.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/ui_theming.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/ui_toolbar.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/view.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/viewport.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/viewport_gpu_interop.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/e2e/windows.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] dev/tests/kivact-public-api/tests/offscreen.rs: Public API E2E tests are written from the user's side and import `kivact::prelude::*`.
+style exception [glob-imports] examples/kivact/async/src/main.rs: Examples are written as Kivact users write apps: they start from `use kivact::prelude::*`.
+style exception [glob-imports] examples/kivact/component/src/main.rs: Examples are written as Kivact users write apps: they start from `use kivact::prelude::*`.
+style exception [glob-imports] examples/kivact/counter/src/main.rs: Examples are written as Kivact users write apps: they start from `use kivact::prelude::*`.
+style exception [glob-imports] examples/kivact/form/src/main.rs: Examples are written as Kivact users write apps: they start from `use kivact::prelude::*`.
+style exception [glob-imports] examples/kivact/list/src/main.rs: Examples are written as Kivact users write apps: they start from `use kivact::prelude::*`.
+style exception [glob-imports] examples/kivact-ui-basic/src/docs/accordion.rs: Examples are written as Kivact users write apps: they start from `use kivact::prelude::*`.
+style exception [glob-imports] examples/kivact-ui-basic/src/docs/alert.rs: Examples are written as Kivact users write apps: they start from `use kivact::prelude::*`.
+style exception [glob-imports] examples/kivact-ui-basic/src/docs/alert_dialog.rs: Examples are written as Kivact users write apps: they start from `use kivact::prelude::*`.
+style exception [glob-imports] examples/kivact-ui-basic/src/docs/aspect_ratio.rs: Examples are written as Kivact users write apps: they start from `use kivact::prelude::*`.
+style exception [glob-imports] examples/kivact-ui-basic/src/docs/attachment.rs: Examples are written as Kivact users write apps: they start from `use kivact::prelude::*`.
+style exception [glob-imports] examples/kivact-ui-basic/src/docs/avatar.rs: Examples are written as Kivact users write apps: they start from `use kivact::prelude::*`.
+style exception [glob-imports] examples/kivact-ui-basic/src/docs/badge.rs: Examples are written as Kivact users write apps: they start from `use kivact::prelude::*`.
+style exception [glob-imports] examples/kivact-ui-basic/src/docs/breadcrumb.rs: Examples are written as Kivact users write apps: they start from `use kivact::prelude::*`.
+style exception [glob-imports] examples/kivact-ui-basic/src/docs/bubble.rs: Examples are written as Kivact users write apps: they start from `use kivact::prelude::*`.
+style exception [glob-imports] examples/kivact-ui-basic/src/docs/button.rs: Examples are written as Kivact users write apps: they start from `use kivact::prelude::*`.
+style exception [glob-imports] examples/kivact-ui-basic/src/docs/button_group.rs: Examples are written as Kivact users write apps: they start from `use kivact::prelude::*`.
+style exception [glob-imports] examples/kivact-ui-basic/src/docs/calendar.rs: Examples are written as Kivact users write apps: they start from `use kivact::prelude::*`.
+style exception [glob-imports] examples/kivact-ui-basic/src/docs/card.rs: Examples are written as Kivact users write apps: they start from `use kivact::prelude::*`.
+style exception [glob-imports] examples/kivact-ui-basic/src/docs/carousel.rs: Examples are written as Kivact users write apps: they start from `use kivact::prelude::*`.
+style exception [glob-imports] examples/kivact-ui-basic/src/docs/chart.rs: Examples are written as Kivact users write apps: they start from `use kivact::prelude::*`.
+style exception [glob-imports] examples/kivact-ui-basic/src/docs/checkbox.rs: Examples are written as Kivact users write apps: they start from `use kivact::prelude::*`.
+style exception [glob-imports] examples/kivact-ui-basic/src/docs/code_block.rs: Examples are written as Kivact users write apps: they start from `use kivact::prelude::*`.
+style exception [glob-imports] examples/kivact-ui-basic/src/docs/collapsible.rs: Examples are written as Kivact users write apps: they start from `use kivact::prelude::*`.
+style exception [glob-imports] examples/kivact-ui-basic/src/docs/combobox.rs: Examples are written as Kivact users write apps: they start from `use kivact::prelude::*`.
+style exception [glob-imports] examples/kivact-ui-basic/src/docs/command.rs: Examples are written as Kivact users write apps: they start from `use kivact::prelude::*`.
+style exception [glob-imports] examples/kivact-ui-basic/src/docs/context_menu.rs: Examples are written as Kivact users write apps: they start from `use kivact::prelude::*`.
+style exception [glob-imports] examples/kivact-ui-basic/src/docs/data_table.rs: Examples are written as Kivact users write apps: they start from `use kivact::prelude::*`.
+style exception [glob-imports] examples/kivact-ui-basic/src/docs/date_picker.rs: Examples are written as Kivact users write apps: they start from `use kivact::prelude::*`.
+style exception [glob-imports] examples/kivact-ui-basic/src/docs/dialog.rs: Examples are written as Kivact users write apps: they start from `use kivact::prelude::*`.
+style exception [glob-imports] examples/kivact-ui-basic/src/docs/direction.rs: Examples are written as Kivact users write apps: they start from `use kivact::prelude::*`.
+style exception [glob-imports] examples/kivact-ui-basic/src/docs/drawer.rs: Examples are written as Kivact users write apps: they start from `use kivact::prelude::*`.
+style exception [glob-imports] examples/kivact-ui-basic/src/docs/dropdown_menu.rs: Examples are written as Kivact users write apps: they start from `use kivact::prelude::*`.
+style exception [glob-imports] examples/kivact-ui-basic/src/docs/empty.rs: Examples are written as Kivact users write apps: they start from `use kivact::prelude::*`.
+style exception [glob-imports] examples/kivact-ui-basic/src/docs/field.rs: Examples are written as Kivact users write apps: they start from `use kivact::prelude::*`.
+style exception [glob-imports] examples/kivact-ui-basic/src/docs/hover_card.rs: Examples are written as Kivact users write apps: they start from `use kivact::prelude::*`.
+style exception [glob-imports] examples/kivact-ui-basic/src/docs/input.rs: Examples are written as Kivact users write apps: they start from `use kivact::prelude::*`.
+style exception [glob-imports] examples/kivact-ui-basic/src/docs/input_group.rs: Examples are written as Kivact users write apps: they start from `use kivact::prelude::*`.
+style exception [glob-imports] examples/kivact-ui-basic/src/docs/input_otp.rs: Examples are written as Kivact users write apps: they start from `use kivact::prelude::*`.
+style exception [glob-imports] examples/kivact-ui-basic/src/docs/item.rs: Examples are written as Kivact users write apps: they start from `use kivact::prelude::*`.
+style exception [glob-imports] examples/kivact-ui-basic/src/docs/kbd.rs: Examples are written as Kivact users write apps: they start from `use kivact::prelude::*`.
+style exception [glob-imports] examples/kivact-ui-basic/src/docs/label.rs: Examples are written as Kivact users write apps: they start from `use kivact::prelude::*`.
+style exception [glob-imports] examples/kivact-ui-basic/src/docs/marker.rs: Examples are written as Kivact users write apps: they start from `use kivact::prelude::*`.
+style exception [glob-imports] examples/kivact-ui-basic/src/docs/menubar.rs: Examples are written as Kivact users write apps: they start from `use kivact::prelude::*`.
+style exception [glob-imports] examples/kivact-ui-basic/src/docs/message.rs: Examples are written as Kivact users write apps: they start from `use kivact::prelude::*`.
+style exception [glob-imports] examples/kivact-ui-basic/src/docs/message_scroller.rs: Examples are written as Kivact users write apps: they start from `use kivact::prelude::*`.
+style exception [glob-imports] examples/kivact-ui-basic/src/docs/native_select.rs: Examples are written as Kivact users write apps: they start from `use kivact::prelude::*`.
+style exception [glob-imports] examples/kivact-ui-basic/src/docs/navigation_menu.rs: Examples are written as Kivact users write apps: they start from `use kivact::prelude::*`.
+style exception [glob-imports] examples/kivact-ui-basic/src/docs/pagination.rs: Examples are written as Kivact users write apps: they start from `use kivact::prelude::*`.
+style exception [glob-imports] examples/kivact-ui-basic/src/docs/popover.rs: Examples are written as Kivact users write apps: they start from `use kivact::prelude::*`.
+style exception [glob-imports] examples/kivact-ui-basic/src/docs/progress.rs: Examples are written as Kivact users write apps: they start from `use kivact::prelude::*`.
+style exception [glob-imports] examples/kivact-ui-basic/src/docs/questionnaire.rs: Examples are written as Kivact users write apps: they start from `use kivact::prelude::*`.
+style exception [glob-imports] examples/kivact-ui-basic/src/docs/radio_group.rs: Examples are written as Kivact users write apps: they start from `use kivact::prelude::*`.
+style exception [glob-imports] examples/kivact-ui-basic/src/docs/resizable.rs: Examples are written as Kivact users write apps: they start from `use kivact::prelude::*`.
+style exception [glob-imports] examples/kivact-ui-basic/src/docs/scroll_area.rs: Examples are written as Kivact users write apps: they start from `use kivact::prelude::*`.
+style exception [glob-imports] examples/kivact-ui-basic/src/docs/select.rs: Examples are written as Kivact users write apps: they start from `use kivact::prelude::*`.
+style exception [glob-imports] examples/kivact-ui-basic/src/docs/separator.rs: Examples are written as Kivact users write apps: they start from `use kivact::prelude::*`.
+style exception [glob-imports] examples/kivact-ui-basic/src/docs/sheet.rs: Examples are written as Kivact users write apps: they start from `use kivact::prelude::*`.
+style exception [glob-imports] examples/kivact-ui-basic/src/docs/sidebar.rs: Examples are written as Kivact users write apps: they start from `use kivact::prelude::*`.
+style exception [glob-imports] examples/kivact-ui-basic/src/docs/skeleton.rs: Examples are written as Kivact users write apps: they start from `use kivact::prelude::*`.
+style exception [glob-imports] examples/kivact-ui-basic/src/docs/slider.rs: Examples are written as Kivact users write apps: they start from `use kivact::prelude::*`.
+style exception [glob-imports] examples/kivact-ui-basic/src/docs/spinner.rs: Examples are written as Kivact users write apps: they start from `use kivact::prelude::*`.
+style exception [glob-imports] examples/kivact-ui-basic/src/docs/switch.rs: Examples are written as Kivact users write apps: they start from `use kivact::prelude::*`.
+style exception [glob-imports] examples/kivact-ui-basic/src/docs/table.rs: Examples are written as Kivact users write apps: they start from `use kivact::prelude::*`.
+style exception [glob-imports] examples/kivact-ui-basic/src/docs/tabs.rs: Examples are written as Kivact users write apps: they start from `use kivact::prelude::*`.
+style exception [glob-imports] examples/kivact-ui-basic/src/docs/textarea.rs: Examples are written as Kivact users write apps: they start from `use kivact::prelude::*`.
+style exception [glob-imports] examples/kivact-ui-basic/src/docs/toast.rs: Examples are written as Kivact users write apps: they start from `use kivact::prelude::*`.
+style exception [glob-imports] examples/kivact-ui-basic/src/docs/toggle.rs: Examples are written as Kivact users write apps: they start from `use kivact::prelude::*`.
+style exception [glob-imports] examples/kivact-ui-basic/src/docs/toggle_group.rs: Examples are written as Kivact users write apps: they start from `use kivact::prelude::*`.
+style exception [glob-imports] examples/kivact-ui-basic/src/docs/tooltip.rs: Examples are written as Kivact users write apps: they start from `use kivact::prelude::*`.
+style exception [glob-imports] examples/kivact-ui-basic/src/docs/trace.rs: Examples are written as Kivact users write apps: they start from `use kivact::prelude::*`.
+style exception [glob-imports] examples/kivact-ui-basic/src/docs/typography.rs: Examples are written as Kivact users write apps: they start from `use kivact::prelude::*`.
+style exception [glob-imports] examples/kivact-ui-basic/src/main.rs: Examples are written as Kivact users write apps: they start from `use kivact::prelude::*`.
+style exception [glob-imports] examples/kivact-ui-basic/src/page.rs: Examples are written as Kivact users write apps: they start from `use kivact::prelude::*`.
+style exception [glob-imports] examples/kivact-ui-basic/src/shell.rs: Examples are written as Kivact users write apps: they start from `use kivact::prelude::*`.
+style exception [glob-imports] examples/kivact-ui-basic/tests/catalog.rs: Examples are written as Kivact users write apps: they start from `use kivact::prelude::*`.
+style exception [glob-imports] examples/kivact-ui-creative/src/main.rs: Examples are written as Kivact users write apps: they start from `use kivact::prelude::*`.
+style exception [glob-imports] examples/kivact-ui-game/src/game/window.rs: Examples are written as Kivact users write apps: they start from `use kivact::prelude::*`.
+style exception [glob-imports] examples/kivact-ui-game/src/main.rs: Examples are written as Kivact users write apps: they start from `use kivact::prelude::*`.
+style exception [glob-imports] examples/kivact-ui-pop/src/main.rs: Examples are written as Kivact users write apps: they start from `use kivact::prelude::*`.
+style exception [glob-imports] examples/kivact-ui-pop/src/pop/mission.rs: Examples are written as Kivact users write apps: they start from `use kivact::prelude::*`.
+style exception [glob-imports] examples/kivact-ui-pop/tests/catalog.rs: Examples are written as Kivact users write apps: they start from `use kivact::prelude::*`.
+style exception [glob-imports] templates/basic/src/main.rs: The app template starts from `use kivact::prelude::*`, as the guides teach.
+style exception [non-leaf-implementation] crates/kivact-core/src/view/mount.rs::view::mount::mount_host: The stage sequence of mount_host_with without a layout fix-up; glue over the mounting stages.
+style exception [non-leaf-implementation] crates/kivact-core/src/view/mount.rs::view::mount::mount_host_with: Glue that ties the mounting stages together: it runs the child modules' stages in the one order mounting requires and implements none of them.
+style exception [non-leaf-implementation] crates/kivact-devtools/tests/app.rs::shell_shows_the_toolbar_and_every_tab: Glue: the integration test root registers the shared support module and the per-panel test modules, then holds the shell tests.
+style exception [non-leaf-implementation] crates/kivact-devtools/tests/app.rs::lost_offers_reconnect_and_another_target: Glue: the integration test root registers the shared support module and the per-panel test modules, then holds the shell tests.
+style exception [non-leaf-implementation] crates/kivact-devtools/tests/app.rs::choosing_lists_every_target: Glue: the integration test root registers the shared support module and the per-panel test modules, then holds the shell tests.
+style exception [non-leaf-implementation] crates/kivact-devtools/tests/app.rs::target: Glue: the integration test root registers the shared support module and the per-panel test modules, then holds the shell tests.
+style exception [non-leaf-implementation] crates/kivact-devtools-mcp/src/main.rs::main: Glue: the MCP binary entry only reads the embedded schema and starts the stdio server.
+style exception [non-leaf-implementation] crates/kivact-macros/src/lib.rs::component: The proc-macro entry is the crate's only export; the parsing and expansion live in the child modules.
+style exception [non-leaf-implementation] dev/xtask/src/main.rs::main: Glue: the binary entry only wires xtask-core's run to this workspace's module-rule and impl-model checks.
+style exception [non-leaf-implementation] examples/kivact-ui-basic/src/docs.rs::docs::PAGES: Glue: the page registry only lists each child page module's `page()` in navigation order.
+style exception [catch-unwind] crates/arvane-native/src/port/win32/proc.rs::port::win32::proc::wndproc: Defense in depth at a foreign frame: Win32 calls this subclassed window procedure from the embedding host's message loop, so a panic must not unwind into it. The payload is kept in the child's PanicSlot, the App stops without running more App code, and the host's next call on Embedded resumes it (resume_unwind); it is never swallowed.
+style exception [poison-access] crates/arvane-asset/src/svg/fonts.rs::svg::fonts::SvgFonts::for_document: The locked value is a pure cache of immutable font data. Recovering a poisoned guard cannot expose a half-updated value, and the asset worker must keep parsing after an unrelated panic.
+unused style exception [non-leaf-implementation] crates/kivact-core/src/client/dispatch.rs::client::dispatch::dispatch
+unused style exception [non-leaf-implementation] crates/arvane-native/src/port/embed/open.rs::port::embed::open::open
+unused style exception [non-leaf-implementation] crates/kivact-devtools/src/main.rs::main
+checked 18 style rules; source checks include inactive source syntax, compiler checks cover the configured Cargo target/features
+validated W:\w\kivact\architecture\modules\arvane\arvane-lib-normal.svg (no-write)
+validated W:\w\kivact\architecture\modules\arvane\arvane-lib-test.svg (no-write)
+validated W:\w\kivact\architecture\modules\arvane-asset\arvane_asset-lib-normal.svg (no-write)
+validated W:\w\kivact\architecture\modules\arvane-asset\arvane_asset-lib-test.svg (no-write)
+validated W:\w\kivact\architecture\modules\arvane-compose\arvane_compose-lib-normal.svg (no-write)
+validated W:\w\kivact\architecture\modules\arvane-compose\arvane_compose-lib-test.svg (no-write)
+validated W:\w\kivact\architecture\modules\arvane-native\arvane_native-lib-normal.svg (no-write)
+validated W:\w\kivact\architecture\modules\arvane-native\arvane_native-lib-test.svg (no-write)
+validated W:\w\kivact\architecture\modules\arvane-render\arvane_render-lib-normal.svg (no-write)
+validated W:\w\kivact\architecture\modules\arvane-render\arvane_render-lib-test.svg (no-write)
+validated W:\w\kivact\architecture\modules\arvane-shell\arvane_shell-lib-normal.svg (no-write)
+validated W:\w\kivact\architecture\modules\arvane-shell\arvane_shell-lib-test.svg (no-write)
+validated W:\w\kivact\architecture\modules\arvane-text\arvane_text-lib-normal.svg (no-write)
+validated W:\w\kivact\architecture\modules\arvane-text\arvane_text-lib-test.svg (no-write)
+validated W:\w\kivact\architecture\modules\arvane-virtual\arvane_virtual-lib-normal.svg (no-write)
+validated W:\w\kivact\architecture\modules\arvane-virtual\arvane_virtual-lib-test.svg (no-write)
+validated W:\w\kivact\architecture\modules\gpu-interop-producer\gpu_interop_producer-lib-normal.svg (no-write)
+validated W:\w\kivact\architecture\modules\gpu-interop-producer\gpu_interop_producer-lib-test.svg (no-write)
+validated W:\w\kivact\architecture\modules\kivact\kivact-lib-normal.svg (no-write)
+validated W:\w\kivact\architecture\modules\kivact\kivact-lib-test.svg (no-write)
+validated W:\w\kivact\architecture\modules\kivact-bench\kivact_bench-lib-normal.svg (no-write)
+validated W:\w\kivact\architecture\modules\kivact-bench\kivact_bench-lib-test.svg (no-write)
+validated W:\w\kivact\architecture\modules\kivact-bench\kv_heap-bin-normal.svg (no-write)
+validated W:\w\kivact\architecture\modules\kivact-bench\kv_heap-bin-test.svg (no-write)
+validated W:\w\kivact\architecture\modules\kivact-bench\kv_latency-bin-normal.svg (no-write)
+validated W:\w\kivact\architecture\modules\kivact-bench\kv_latency-bin-test.svg (no-write)
+validated W:\w\kivact\architecture\modules\kivact-bench\kv_startup-bin-normal.svg (no-write)
+validated W:\w\kivact\architecture\modules\kivact-bench\kv_startup-bin-test.svg (no-write)
+validated W:\w\kivact\architecture\modules\kivact-bench\kv_stress-bin-normal.svg (no-write)
+validated W:\w\kivact\architecture\modules\kivact-bench\kv_stress-bin-test.svg (no-write)
+validated W:\w\kivact\architecture\modules\kivact-core\kivact_core-lib-normal.svg (no-write)
+validated W:\w\kivact\architecture\modules\kivact-core\kivact_core-lib-test.svg (no-write)
+validated W:\w\kivact\architecture\modules\kivact-devtools\kivact_devtools-lib-normal.svg (no-write)
+validated W:\w\kivact\architecture\modules\kivact-devtools\kivact_devtools-lib-test.svg (no-write)
+validated W:\w\kivact\architecture\modules\kivact-devtools\kivact-devtools-bin-normal.svg (no-write)
+validated W:\w\kivact\architecture\modules\kivact-devtools\kivact-devtools-bin-test.svg (no-write)
+validated W:\w\kivact\architecture\modules\kivact-devtools-agent\kivact_devtools_agent-lib-normal.svg (no-write)
+validated W:\w\kivact\architecture\modules\kivact-devtools-agent\kivact_devtools_agent-lib-test.svg (no-write)
+validated W:\w\kivact\architecture\modules\kivact-devtools-client\kivact_devtools_client-lib-normal.svg (no-write)
+validated W:\w\kivact\architecture\modules\kivact-devtools-client\kivact_devtools_client-lib-test.svg (no-write)
+validated W:\w\kivact\architecture\modules\kivact-devtools-mcp\kivact-devtools-mcp-bin-normal.svg (no-write)
+validated W:\w\kivact\architecture\modules\kivact-devtools-mcp\kivact-devtools-mcp-bin-test.svg (no-write)
+validated W:\w\kivact\architecture\modules\kivact-devtools-protocol\kivact_devtools_protocol-lib-normal.svg (no-write)
+validated W:\w\kivact\architecture\modules\kivact-devtools-protocol\kivact_devtools_protocol-lib-test.svg (no-write)
+validated W:\w\kivact\architecture\modules\kivact-docs\kivact_docs-lib-normal.svg (no-write)
+validated W:\w\kivact\architecture\modules\kivact-docs\kivact_docs-lib-test.svg (no-write)
+validated W:\w\kivact\architecture\modules\kivact-editing\kivact_editing-lib-normal.svg (no-write)
+validated W:\w\kivact\architecture\modules\kivact-editing\kivact_editing-lib-test.svg (no-write)
+validated W:\w\kivact\architecture\modules\kivact-engine\kivact_engine-lib-normal.svg (no-write)
+validated W:\w\kivact\architecture\modules\kivact-engine\kivact_engine-lib-test.svg (no-write)
+validated W:\w\kivact\architecture\modules\kivact-example-async\kivact-example-async-bin-normal.svg (no-write)
+validated W:\w\kivact\architecture\modules\kivact-example-async\kivact-example-async-bin-test.svg (no-write)
+validated W:\w\kivact\architecture\modules\kivact-example-component\kivact-example-component-bin-normal.svg (no-write)
+validated W:\w\kivact\architecture\modules\kivact-example-component\kivact-example-component-bin-test.svg (no-write)
+validated W:\w\kivact\architecture\modules\kivact-example-counter\kivact-example-counter-bin-normal.svg (no-write)
+validated W:\w\kivact\architecture\modules\kivact-example-counter\kivact-example-counter-bin-test.svg (no-write)
+validated W:\w\kivact\architecture\modules\kivact-example-form\kivact-example-form-bin-normal.svg (no-write)
+validated W:\w\kivact\architecture\modules\kivact-example-form\kivact-example-form-bin-test.svg (no-write)
+validated W:\w\kivact\architecture\modules\kivact-example-list\kivact-example-list-bin-normal.svg (no-write)
+validated W:\w\kivact\architecture\modules\kivact-example-list\kivact-example-list-bin-test.svg (no-write)
+validated W:\w\kivact\architecture\modules\kivact-gpu-share\kivact_gpu_share-lib-normal.svg (no-write)
+validated W:\w\kivact\architecture\modules\kivact-gpu-share\kivact_gpu_share-lib-test.svg (no-write)
+validated W:\w\kivact\architecture\modules\kivact-i18n\kivact_i18n-lib-normal.svg (no-write)
+validated W:\w\kivact\architecture\modules\kivact-i18n\kivact_i18n-lib-test.svg (no-write)
+validated W:\w\kivact\architecture\modules\kivact-interaction\kivact_interaction-lib-normal.svg (no-write)
+validated W:\w\kivact\architecture\modules\kivact-interaction\kivact_interaction-lib-test.svg (no-write)
+validated W:\w\kivact\architecture\modules\kivact-layout\kivact_layout-lib-normal.svg (no-write)
+validated W:\w\kivact\architecture\modules\kivact-layout\kivact_layout-lib-test.svg (no-write)
+validated W:\w\kivact\architecture\modules\kivact-macros\kivact_macros-proc-macro-normal.svg (no-write)
+validated W:\w\kivact\architecture\modules\kivact-macros\kivact_macros-proc-macro-test.svg (no-write)
+validated W:\w\kivact\architecture\modules\kivact-public-api-tests\kivact_public_api_tests-lib-normal.svg (no-write)
+validated W:\w\kivact\architecture\modules\kivact-public-api-tests\kivact_public_api_tests-lib-test.svg (no-write)
+validated W:\w\kivact\architecture\modules\kivact-runtime\kivact_runtime-lib-normal.svg (no-write)
+validated W:\w\kivact\architecture\modules\kivact-runtime\kivact_runtime-lib-test.svg (no-write)
+validated W:\w\kivact\architecture\modules\kivact-shader\kivact_shader-lib-normal.svg (no-write)
+validated W:\w\kivact\architecture\modules\kivact-shader\kivact_shader-lib-test.svg (no-write)
+validated W:\w\kivact\architecture\modules\kivact-style\kivact_style-lib-normal.svg (no-write)
+validated W:\w\kivact\architecture\modules\kivact-style\kivact_style-lib-test.svg (no-write)
+validated W:\w\kivact\architecture\modules\kivact-template-basic\kivact-template-basic-bin-normal.svg (no-write)
+validated W:\w\kivact\architecture\modules\kivact-template-basic\kivact-template-basic-bin-test.svg (no-write)
+validated W:\w\kivact\architecture\modules\kivact-test\kivact_test-lib-normal.svg (no-write)
+validated W:\w\kivact\architecture\modules\kivact-test\kivact_test-lib-test.svg (no-write)
+validated W:\w\kivact\architecture\modules\kivact-types\kivact_types-lib-normal.svg (no-write)
+validated W:\w\kivact\architecture\modules\kivact-types\kivact_types-lib-test.svg (no-write)
+validated W:\w\kivact\architecture\modules\kivact-ui\kivact_ui-lib-normal.svg (no-write)
+validated W:\w\kivact\architecture\modules\kivact-ui\kivact_ui-lib-test.svg (no-write)
+validated W:\w\kivact\architecture\modules\kivact-ui-basic\kivact_ui_basic-lib-normal.svg (no-write)
+validated W:\w\kivact\architecture\modules\kivact-ui-basic\kivact_ui_basic-lib-test.svg (no-write)
+validated W:\w\kivact\architecture\modules\kivact-ui-basic-catalog\kivact_ui_basic_catalog-lib-normal.svg (no-write)
+validated W:\w\kivact\architecture\modules\kivact-ui-basic-catalog\kivact_ui_basic_catalog-lib-test.svg (no-write)
+validated W:\w\kivact\architecture\modules\kivact-ui-basic-catalog\kivact-ui-basic-catalog-bin-normal.svg (no-write)
+validated W:\w\kivact\architecture\modules\kivact-ui-basic-catalog\kivact-ui-basic-catalog-bin-test.svg (no-write)
+validated W:\w\kivact\architecture\modules\kivact-ui-creative\kivact_ui_creative-lib-normal.svg (no-write)
+validated W:\w\kivact\architecture\modules\kivact-ui-creative\kivact_ui_creative-lib-test.svg (no-write)
+validated W:\w\kivact\architecture\modules\kivact-ui-creative-catalog\kivact_ui_creative_catalog-lib-normal.svg (no-write)
+validated W:\w\kivact\architecture\modules\kivact-ui-creative-catalog\kivact_ui_creative_catalog-lib-test.svg (no-write)
+validated W:\w\kivact\architecture\modules\kivact-ui-creative-catalog\kivact-ui-creative-catalog-bin-normal.svg (no-write)
+validated W:\w\kivact\architecture\modules\kivact-ui-creative-catalog\kivact-ui-creative-catalog-bin-test.svg (no-write)
+validated W:\w\kivact\architecture\modules\kivact-ui-game\kivact_ui_game-lib-normal.svg (no-write)
+validated W:\w\kivact\architecture\modules\kivact-ui-game\kivact_ui_game-lib-test.svg (no-write)
+validated W:\w\kivact\architecture\modules\kivact-ui-game-catalog\kivact_ui_game_catalog-lib-normal.svg (no-write)
+validated W:\w\kivact\architecture\modules\kivact-ui-game-catalog\kivact_ui_game_catalog-lib-test.svg (no-write)
+validated W:\w\kivact\architecture\modules\kivact-ui-game-catalog\kivact-ui-game-catalog-bin-normal.svg (no-write)
+validated W:\w\kivact\architecture\modules\kivact-ui-game-catalog\kivact-ui-game-catalog-bin-test.svg (no-write)
+validated W:\w\kivact\architecture\modules\kivact-ui-pop\kivact_ui_pop-lib-normal.svg (no-write)
+validated W:\w\kivact\architecture\modules\kivact-ui-pop\kivact_ui_pop-lib-test.svg (no-write)
+validated W:\w\kivact\architecture\modules\kivact-ui-pop-catalog\kivact_ui_pop_catalog-lib-normal.svg (no-write)
+validated W:\w\kivact\architecture\modules\kivact-ui-pop-catalog\kivact_ui_pop_catalog-lib-test.svg (no-write)
+validated W:\w\kivact\architecture\modules\kivact-ui-pop-catalog\kivact-ui-pop-catalog-bin-normal.svg (no-write)
+validated W:\w\kivact\architecture\modules\kivact-ui-pop-catalog\kivact-ui-pop-catalog-bin-test.svg (no-write)
+validated W:\w\kivact\architecture\modules\kivact-ui-soft\kivact_ui_soft-lib-normal.svg (no-write)
+validated W:\w\kivact\architecture\modules\kivact-ui-soft\kivact_ui_soft-lib-test.svg (no-write)
+validated W:\w\kivact\architecture\modules\kivact-ui-soft-catalog\kivact_ui_soft_catalog-lib-normal.svg (no-write)
+validated W:\w\kivact\architecture\modules\kivact-ui-soft-catalog\kivact_ui_soft_catalog-lib-test.svg (no-write)
+validated W:\w\kivact\architecture\modules\kivact-ui-soft-catalog\kivact-ui-soft-catalog-bin-normal.svg (no-write)
+validated W:\w\kivact\architecture\modules\kivact-ui-soft-catalog\kivact-ui-soft-catalog-bin-test.svg (no-write)
+validated W:\w\kivact\architecture\modules\xtask\xtask-bin-normal.svg (no-write)
+validated W:\w\kivact\architecture\modules\xtask\xtask-bin-test.svg (no-write)
+validated W:\w\kivact\architecture\crates.svg (no-write)
+analyzed 49 workspace crates and 142 target/configuration graphs
+error: kivact-core::kivact_core (lib): \\?\W:\w\kivact\crates\kivact-core\src\view\devtools_state.rs (crate::view::devtools_state::inspect): missing module role; add //! Role: <description>
+error: kivact-core::kivact_core (lib): module reference cycle among: crate::view::devtools_state, crate::view::devtools_state::inspect
+error: kivact-core::kivact_core (lib, cfg(test)): \\?\W:\w\kivact\crates\kivact-core\src\view\devtools_state.rs (crate::view::devtools_state::inspect): missing module role; add //! Role: <description>
+error: kivact-core::kivact_core (lib, cfg(test)): module reference cycle among: crate::view::devtools_state, crate::view::devtools_state::inspect
+error: kivact-devtools::kivact_devtools (lib): \\?\W:\w\kivact\crates\kivact-devtools\src\widgets\override_row.rs (crate::widgets::override_row): malformed module Role declaration: description must be at most 80 Unicode characters
+error: kivact-devtools::kivact_devtools (lib, cfg(test)): \\?\W:\w\kivact\crates\kivact-devtools\src\widgets\override_row.rs (crate::widgets::override_row): malformed module Role declaration: description must be at most 80 Unicode characters
+error: kivact-layout::kivact_layout (lib): \\?\W:\w\kivact\crates\kivact-layout\src\pass_state.rs (crate::pass_state): malformed module Role declaration: description must be at most 80 Unicode characters
+error: kivact-layout::kivact_layout (lib, cfg(test)): \\?\W:\w\kivact\crates\kivact-layout\src\pass_state.rs (crate::pass_state): malformed module Role declaration: description must be at most 80 Unicode characters
+error: kivact-ui::kivact_ui (lib): crate::selection_field: ambiguous local path resolution: {Item("crate::select::handle", Value), Item("crate::select::machine", Value)}
+error: kivact-ui::kivact_ui (lib, cfg(test)): crate::selection_field: ambiguous local path resolution: {Item("crate::select::handle", Value), Item("crate::select::machine", Value)}
+error: kivact-ui-creative-catalog::kivact_ui_creative_catalog (lib): \\?\W:\w\kivact\examples\kivact-ui-creative\src\creative\txn.rs (crate::creative::txn): malformed module Role declaration: description must be at most 80 Unicode characters
+error: kivact-ui-creative-catalog::kivact_ui_creative_catalog (lib, cfg(test)): \\?\W:\w\kivact\examples\kivact-ui-creative\src\creative\txn.rs (crate::creative::txn): malformed module Role declaration: description must be at most 80 Unicode characters
+error: \\?\W:\w\kivact\examples\kivact-ui-pop\src\pop\components.rs: 1016 code lines (limit 1000); split by responsibility
+error: W:\w\kivact\crates\kivact-core\src\view\devtools_state.rs:17:1: [style/non-leaf-implementation] non-leaf modules contain only module declarations and re-exports; declare a reasoned exception for glue code
+error: W:\w\kivact\crates\kivact-core\src\view\devtools_state.rs:23:1: [style/non-leaf-implementation] non-leaf modules contain only module declarations and re-exports; declare a reasoned exception for glue code
+error: W:\w\kivact\crates\kivact-core\src\view\devtools_state.rs:33:1: [style/non-leaf-implementation] non-leaf modules contain only module declarations and re-exports; declare a reasoned exception for glue code
+error: W:\w\kivact\crates\kivact-core\src\view\devtools_state.rs:42:1: [style/non-leaf-implementation] non-leaf modules contain only module declarations and re-exports; declare a reasoned exception for glue code
+error: W:\w\kivact\crates\kivact-core\src\view\devtools_state.rs:55:1: [style/non-leaf-implementation] non-leaf modules contain only module declarations and re-exports; declare a reasoned exception for glue code
+error: W:\w\kivact\crates\kivact-core\src\view\devtools_state.rs:78:1: [style/non-leaf-implementation] non-leaf modules contain only module declarations and re-exports; declare a reasoned exception for glue code
+error: W:\w\kivact\crates\kivact-core\src\view\devtools_state.rs:107:1: [style/non-leaf-implementation] non-leaf modules contain only module declarations and re-exports; declare a reasoned exception for glue code
+error: W:\w\kivact\crates\kivact-core\src\view\devtools_state.rs:116:1: [style/non-leaf-implementation] non-leaf modules contain only module declarations and re-exports; declare a reasoned exception for glue code
+error: W:\w\kivact\crates\kivact-core\src\view\devtools_state.rs:122:1: [style/non-leaf-implementation] non-leaf modules contain only module declarations and re-exports; declare a reasoned exception for glue code
+error: W:\w\kivact\crates\kivact-core\src\view\devtools_state.rs:130:1: [style/non-leaf-implementation] non-leaf modules contain only module declarations and re-exports; declare a reasoned exception for glue code
+error: W:\w\kivact\crates\kivact-core\src\view\devtools_state.rs:151:1: [style/non-leaf-implementation] non-leaf modules contain only module declarations and re-exports; declare a reasoned exception for glue code
+error: W:\w\kivact\crates\kivact-core\src\view\devtools_state.rs:161:1: [style/non-leaf-implementation] non-leaf modules contain only module declarations and re-exports; declare a reasoned exception for glue code
+error: W:\w\kivact\crates\kivact-core\src\view\devtools_state.rs:167:1: [style/non-leaf-implementation] non-leaf modules contain only module declarations and re-exports; declare a reasoned exception for glue code
+error: W:\w\kivact\crates\kivact-core\src\view\devtools_state.rs:174:1: [style/non-leaf-implementation] non-leaf modules contain only module declarations and re-exports; declare a reasoned exception for glue code
+error: W:\w\kivact\crates\kivact-core\src\view\devtools_state.rs:191:1: [style/non-leaf-implementation] non-leaf modules contain only module declarations and re-exports; declare a reasoned exception for glue code
+error: W:\w\kivact\crates\kivact-core\src\view\devtools_state.rs:257:1: [style/non-leaf-implementation] non-leaf modules contain only module declarations and re-exports; declare a reasoned exception for glue code
+error: W:\w\kivact\crates\kivact-core\src\view\devtools_state.rs:269:1: [style/non-leaf-implementation] non-leaf modules contain only module declarations and re-exports; declare a reasoned exception for glue code
+error: W:\w\kivact\crates\kivact-core\src\view\devtools_state.rs:281:1: [style/non-leaf-implementation] non-leaf modules contain only module declarations and re-exports; declare a reasoned exception for glue code
+error: W:\w\kivact\crates\kivact-core\src\view\devtools_state.rs:290:1: [style/non-leaf-implementation] non-leaf modules contain only module declarations and re-exports; declare a reasoned exception for glue code
+32 error(s)

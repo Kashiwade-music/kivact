@@ -1,4 +1,4 @@
-//! Role: One editing transaction: a snapshot taken at Begin and dropped at Commit or Cancel.
+//! Role: One editing transaction: a Begin snapshot dropped at Commit or Cancel.
 
 use kivact::state::{Signal, signal};
 
