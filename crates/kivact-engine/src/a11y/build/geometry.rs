@@ -48,14 +48,23 @@ impl Model {
         &self,
         dirty: &mut std::collections::BTreeSet<NodeId>,
     ) {
+        let mut seen = std::collections::BTreeSet::new();
         for id in dirty.clone() {
-            for ancestor in self.tree().chain(Some(id)).into_iter().skip(1) {
+            let mut at = self.tree().get(id).and_then(|n| self.tree().parent_id(n));
+            while let Some(ancestor) = at {
+                if !seen.insert(ancestor) {
+                    break; // it and its ancestors were looked at
+                }
                 if self
                     .node(ancestor)
                     .is_some_and(|node| node.is_transparent())
                 {
                     dirty.insert(ancestor);
                 }
+                at = self
+                    .tree()
+                    .get(ancestor)
+                    .and_then(|n| self.tree().parent_id(n));
             }
         }
     }

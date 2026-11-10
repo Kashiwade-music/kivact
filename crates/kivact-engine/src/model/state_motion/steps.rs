@@ -319,7 +319,7 @@ impl Model {
             if a.target.transform != PaintProps::default().transform
                 || self.tree.get(*id).is_some_and(|n| n.place.transformed)
             {
-                self.a11y.subtree(*id);
+                self.a11y.moved(*id);
                 self.changes
                     .layout
                     .insert(crate::model::changes::LayoutReasons::PASS);

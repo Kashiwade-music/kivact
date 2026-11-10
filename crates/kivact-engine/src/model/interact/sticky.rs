@@ -55,7 +55,7 @@ impl Model {
             {
                 n.shift = shift;
                 self.changes.stuck(id);
-                self.a11y.subtree(id);
+                self.a11y.moved(id);
             }
         }
     }

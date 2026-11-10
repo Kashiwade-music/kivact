@@ -170,7 +170,7 @@ impl Model {
             .and_then(|n| n.states())
             .is_some_and(crate::tree::states_place)
         {
-            self.a11y.subtree(id);
+            self.a11y.moved(id);
             self.changes
                 .layout
                 .insert(crate::model::changes::LayoutReasons::PASS);

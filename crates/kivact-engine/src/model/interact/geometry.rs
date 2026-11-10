@@ -668,7 +668,7 @@ impl Model {
             n.scroll = o;
         }
         self.changes.scrolled(id);
-        self.a11y.moved(id);
+        self.a11y_scrolled(id);
         true
     }
 

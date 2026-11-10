@@ -102,7 +102,7 @@ impl Model {
                 .collect()
         });
         for root in roots {
-            self.a11y.subtree(root);
+            self.a11y.moved(root);
         }
         if let Some(focus) = self
             .focused()
@@ -135,19 +135,21 @@ impl Model {
 
     /// Scroll the container `id` to `offset`.
     pub(crate) fn scroll_to(&mut self, id: NodeId, offset: Point) {
-        if let Some(n) = self.tree.get_mut(id) {
+        let Some(n) = self.tree.get_mut(id) else {
+            return;
+        };
+        let moved = n.scroll != offset;
+        n.scroll = offset;
+        if moved {
             // Like a wheel or a scroll by a delta, a new offset moves the
             // content (the paint list redraws positions on `moved`).
-            if n.scroll != offset {
-                self.changes.moved();
-                self.changes.mark(id, Dirty::SCROLLED);
-                self.a11y.subtree(id);
-            }
-            n.scroll = offset;
-            self.changes
-                .layout
-                .insert(crate::model::changes::LayoutReasons::PASS);
+            self.changes.moved();
+            self.changes.mark(id, Dirty::SCROLLED);
+            self.a11y_scrolled(id);
         }
+        self.changes
+            .layout
+            .insert(crate::model::changes::LayoutReasons::PASS);
     }
 
     /// Report `LayoutChanged` for `id` while `on`; `false` when it
@@ -389,28 +391,33 @@ impl Model {
             .node(id)
             .is_some_and(|n| n.states().is_some_and(crate::tree::states_place))
         {
-            self.a11y.subtree(id);
+            self.a11y.moved(id);
         }
         self.changes.mark(id, Dirty::WRITTEN);
     }
 
+    /// What a write can change in the accessibility tree. A layout style
+    /// (hidden, visibility, display, overflow), an inherited disabled state,
+    /// read-only and every write not marked payload-only (role, name, actions,
+    /// relations, editing, a drawable role ..) may change identities, parents,
+    /// regions or clipping: the metadata is enumerated again. A payload-only
+    /// write (a text, a paint, state styles, a text style, an image, a
+    /// placeholder) changes the node's own payload; a paint may change its clip;
+    /// a new transform or placement moves its subtree.
     fn invalidate_semantics(&mut self, id: NodeId, mutation: Mutation) {
-        let local = mutation.local_text
-            && !(mutation.style
-                || mutation.text
-                || mutation.placed
-                || mutation.subtree
-                || mutation.restack
-                || mutation.paint
-                || mutation.states
-                || mutation.read_only);
-        if local {
-            self.a11y.local_text(id);
+        if mutation.payload_only && !(mutation.style || mutation.subtree || mutation.read_only) {
+            self.a11y.payload(id);
         } else {
             self.a11y.node(id);
         }
-        if mutation.style || mutation.text || mutation.placed || mutation.subtree {
+        if mutation.style || mutation.subtree {
             self.a11y.subtree(id);
+        }
+        if mutation.paint {
+            self.a11y.reclip(id);
+        }
+        if mutation.placed {
+            self.a11y.moved(id);
         }
     }
 
@@ -433,12 +440,12 @@ impl Model {
             self.measure.forget_computed_text(slot);
             if drawn {
                 self.changes.mark(x, Dirty::MEASURE.union(Dirty::REDRAW));
-                self.a11y.node(x);
+                self.a11y.payload(x);
                 let now = text_reach_of(&self.text_props(x));
                 self.changes.restack |= before.is_none_or(|b| text_reach_of(&b) != now);
             } else if kind == NodeType::Image {
                 self.changes.mark(x, Dirty::REDRAW);
-                self.a11y.node(x);
+                self.a11y.payload(x);
             }
         }
         self.changes
