@@ -1,6 +1,6 @@
 # Kivact Slim-Fast V2 設計書
 
-版 2.0（2026-11-10）。作業ブランチ `refactor/kashiwade/slim-fast`、基点 HEAD `73c36c7c`（= `db8d679b` W7-1 の判定 + 引継ぎ文書）。
+版 2.0（2026-11-10）。**2026-11-10 にユーザー（設計者）が承認済み**（DEC-01 は「`gpu` を既定に残す」、K6 は MS-5 の定義）。作業ブランチ `refactor/kashiwade/slim-fast`、基点 HEAD `73c36c7c`（= `db8d679b` W7-1 の判定 + 引継ぎ文書）。
 
 手順は [SLIM_FAST_V2_WORK_ORDER.md](SLIM_FAST_V2_WORK_ORDER.md)（V2 作業指示書）に書く。本書は「何を、なぜ、どの形にするか」と、付属書どうしの調整と、設計者の判断の結果を持つ。各変更の型・関数・書き手・呼出元・試験の詳細は付属書 `slim-fast-v2/D1〜D8` にある。実装者は本書と付属書の決定を変えない。
 
