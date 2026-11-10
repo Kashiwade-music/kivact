@@ -57,10 +57,10 @@ mod tests {
 
 | 概念 | React | SolidJS | Kivact |
 | --- | --- | --- | --- |
-| コンポーネント | JSX を返す関数 | JSX を返す関数 | 一つのルートは `impl Element`、複数のルートは `impl IntoView` を返す関数 |
-| props | props オブジェクト | props オブジェクト | 関数の引数。文字には `impl IntoText`、変化しうる値には `impl IntoValue<T>` |
-| 子 | `children` | `props.children` | `V: IntoView` 型の引数 |
-| コールバックの prop | `onSave` prop | `onSave` prop | 引数なしは `impl Into<Callback<()>>`。payload 付きは `Fn(T) -> R` と `HandlerResult`。`callback(..)` は共有できる `Copy` ハンドルを返す |
+| コンポーネント | JSX を返す関数 | JSX を返す関数 | `#[component] fn card(..) -> impl IntoView`。props が無ければ普通の関数 |
+| props | props オブジェクト | props オブジェクト | コンポーネントの引数。変化しうる値は `Value<T>`、子は `View`、ハンドラーは `Callback<E>`。必須は位置引数、任意は setter |
+| 子 | `children` | `props.children` | `View` の prop（1 つのスロット）、`Vec<View>`（複数）、`ViewFn`（開くたびに作り直す） |
+| コールバックの prop | `onSave` prop | `onSave` prop | 引数なしは `Callback<()>` の prop。setter は `impl Into<Callback<()>>` を受け取り、クロージャーを一度だけ保存する |
 | 状態 | `useState` | `createSignal` | `signal(value)`。1 つの `Signal<T>` が `get`、`with`、`set`、`update` を持つ |
 | 派生値 | render 内の計算、`useMemo` | `createMemo` | 1 か所の利用ならクロージャ、共有やキャッシュなら `memo(..)` |
 | effect | `useEffect` | `createEffect` | `effect(..)`。最初の実行を飛ばすなら `effect_on(source, f)` |
@@ -100,24 +100,27 @@ mod tests {
 
 ## props、子、コールバック
 
+props を取る関数には `#[component]` を付けます。props のビルダーは Kivact が署名から書きます。
+
 ```rust,test_harness
 use kivact::prelude::*;
 
-// `impl IntoText`: リテラル、String、または文字を返すクロージャ。
-// `impl IntoValue<i32>`: 数値、シグナル、memo、クロージャ。
-fn stat(label: impl IntoText, value: impl IntoValue<i32>) -> impl IntoView {
-    let value = value.into_value();
+// `Value<String>`: リテラル、String、シグナル、または文字を返すクロージャ。
+// `Value<i32>`: 数値、シグナル、memo、クロージャ。
+#[component]
+fn stat(label: Value<String>, value: Value<i32>) -> impl IntoView {
     row((text(label), text(move || value.get().to_string()))).style(style().gap(8))
 }
 
-// `V: IntoView`: ほかのコンポーネントを含む、あらゆる view。
-fn panel<V: IntoView>(title: &str, child: V) -> impl IntoView {
+// `View`: ほかのコンポーネントを含む、あらゆる view。
+#[component]
+fn panel(title: Value<String>, child: View) -> impl IntoView {
     column((text(title), child)).style(style().gap(8).padding(12))
 }
 
 // コールバックの prop: 呼び出し側が渡すクロージャ。
-fn buttons(on_add: impl Into<Callback<()>>) -> impl IntoView {
-    let on_add = on_add.into();
+#[component]
+fn buttons(on_add: Callback<()>) -> impl IntoView {
     row((button("追加").on_press(on_add), button("もう一度追加").on_press(on_add)))
 }
 
@@ -154,9 +157,10 @@ mod tests {
 }
 ```
 
-- 変わりうる prop は `impl IntoValue<T>` を受け取ります。呼び出し側は定数、シグナル、memo、クロージャのどれでも渡せ、あなたは `.into_value()` を一度呼んで、読み取り用の `Value<T>` ハンドルを得ます。
-- 入力のないコールバックの prop は `impl Into<Callback<()>>` として受け取ります。`.into()` で一度だけ変換すると、得られるハンドルは `Copy` なので、両方のボタンで同じ操作を使えます。呼び出し側は `move || ...` のクロージャをそのまま渡せます。
+- 変わりうる prop は `Value<T>` です。コンストラクターは `impl IntoValue<T>` を受け取るので、呼び出し側は定数、シグナル、memo、クロージャのどれでも渡せます。本体は `Value<T>` を受け取り、`.get()` や `.with(..)` で読みます。
+- 入力のないコールバックの prop は `Callback<()>` です。コンストラクターは `impl Into<Callback<()>>` を受け取り、クロージャを一度だけ保存します。得られるハンドルは `Copy` なので、両方のボタンで同じ操作を使えます。呼び出し側は `move || ...` のクロージャをそのまま渡せます。
 - `()` を返すクロージャを受け取る場所は、`Result<(), UiError>` を返すクロージャも受け取るので、ハンドラーの中で `?` が使えます。エラーは最も近いエラーハンドラーに届きます。
+- コンポーネントはジェネリックにできません。Rust で `fn panel<V: IntoView>(..)` と書く場所では、`View` の prop、`Vec<View>` の prop、`Value<T>` の prop を使います。生成されたコンポーネントが実装するのは `IntoView` で `Element` ではないので、呼び出し側は `.style(..)` ではなく props で変更します。
 
 ## effect、クリーンアップ、マウント
 

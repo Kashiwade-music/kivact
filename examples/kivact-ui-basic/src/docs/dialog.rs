@@ -16,7 +16,7 @@ pub(crate) fn page() -> Page {
             Example::new(
                 "default",
                 "Default",
-                "open の signal と題名を渡し、show に本文とフッターを返す関数を渡します。右上の閉じるボタンと Escape で閉じます。",
+                "open の signal と題名を渡し、content(..) と footer(..) に本文とフッターを作る関数を渡します。右上の閉じるボタンと Escape で閉じます。",
                 default,
             ),
             Example::new(

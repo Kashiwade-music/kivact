@@ -364,6 +364,18 @@ override it. Without a wish the window prefers the low-power adapter, Vulkan fir
 then Direct3D 12 on Windows. The engine always follows `adapter()`, never its own
 preference.
 
+`start` decides when the device is created. The default, `GpuStart::OnDemand`,
+draws frames on the CPU and starts the device the first time the window needs it:
+a composition with a user shader, a GPU export, GPU texture sharing, or CPU
+frames that keep missing half the display period. Screens that never use the GPU
+then pay nothing for its driver memory, and the first shader or shared image
+appears a little later, after the device is ready; the frames drawn in the
+meantime are CPU frames. Choose `GpuStart::AtLaunch` when the first frame must
+already be the GPU's, for example a viewport that fills the window from the start,
+a measurement, or a case where a short CPU fallback is not acceptable.
+`ARVANE_RENDERER=gpu` forces `AtLaunch`, `ARVANE_RENDERER=auto` forces
+`OnDemand`, and `ARVANE_RENDERER=cpu` never starts the device.
+
 ## Limits
 
 - **One window.** An image is drawn only in the App's window, by its GPU. A window that

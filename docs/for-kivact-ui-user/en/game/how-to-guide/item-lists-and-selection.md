@@ -9,7 +9,7 @@ writes the player's choices back; it keeps no copy.
 
 ## Pick one item from a list
 
-`list(label, items).selection(selected)` is a standard component. The Game theme draws
+`list(label, items, selected)` is a standard component. The Game theme draws
 it with hard edges and a selection edge.
 
 ```rust,no_run
@@ -25,7 +25,7 @@ fn inventory() -> impl IntoView {
         ListItem::new(3, "Prototype Cannon").with_description("LOCKED").disabled(true),
     ];
     column((
-        list("Inventory", items).selection(selected),
+        list("Inventory", items, selected),
         game::mono(move || format!("SELECTED {:?}", selected.get())),
     ))
     .style(style().gap(12).width(320).margin(24))
@@ -73,7 +73,7 @@ fn weapons(all: Signal<Vec<Weapon>>, selected: Signal<Option<u32>>) -> impl Into
                 .collect::<Vec<_>>()
         })
     });
-    list("Weapons", rows).selection(selected)
+    list("Weapons", rows, selected)
 }
 # fn main() {}
 ```
@@ -83,7 +83,7 @@ list never edits your signals except to write the player's choice.
 
 ## Pick several items
 
-`.selection(signal)` accepts `Signal<Option<K>>` for one choice or
+The third argument accepts `Signal<Option<K>>` for one choice or
 `Signal<Vec<K>>` for several. A click selects one, Ctrl (Cmd on macOS) toggles
 one, and Shift extends from the last one.
 
@@ -98,7 +98,9 @@ fn squad() -> impl IntoView {
             ListItem::new(1, "Aya"),
             ListItem::new(2, "Ben"),
             ListItem::new(3, "Cho"),
-        ]).selection(picked)
+        ],
+        picked,
+    )
 }
 # fn main() {}
 ```
@@ -117,7 +119,9 @@ fn missions() -> impl IntoView {
     let selected = signal(Some("alpha"));
     list(
         "Missions",
-        vec![ListItem::new("alpha", "Alpha"), ListItem::new("bravo", "Bravo")]).selection(selected)
+        vec![ListItem::new("alpha", "Alpha"), ListItem::new("bravo", "Bravo")],
+        selected,
+    )
     .item(|item, state| {
         row((
             game::mono(move || if state.get().selected { ">" } else { " " }),

@@ -45,10 +45,32 @@ kivact = { git = "https://github.com/Kashiwade-music/kivact", features = ["test"
 The repository pins its toolchain to Rust 1.98.1 (edition 2024) in
 `rust-toolchain.toml`; use that version or newer.
 
-By default Kivact renders on the GPU and falls back to the CPU automatically
-when no GPU is usable. To build without GPU support, disable default features
-(`default-features = false`). To force CPU rendering at run time, set the
-environment variable `ARVANE_RENDERER=cpu`.
+By default Kivact draws frames on the CPU and starts the GPU device when the
+window needs it (a user shader, a GPU export or GPU texture sharing; CPU frames
+that keep missing half the display period start it too). Without a usable GPU it
+stays on the CPU. To force CPU rendering at run time, set the environment variable
+`ARVANE_RENDERER=cpu`; `ARVANE_RENDERER=gpu` starts the device with the window.
+
+### Ship a smaller binary
+
+The facade enables two features by default: `gpu`, the GPU renderer, and
+`complex-scripts`, ICU's word and line dictionaries for scripts without spaces
+(Thai, Lao, Khmer, Myanmar and Chinese/Japanese word breaking, about 3 MB). An
+app that does not need that segmentation can leave `complex-scripts` out and keep
+everything else:
+
+```toml
+[dependencies]
+kivact = { git = "https://github.com/Kashiwade-music/kivact", default-features = false, features = ["gpu"] }
+```
+
+Leave `gpu` out of the list too for a build with no GPU renderer. `kivact-bench`
+enables only `gpu` for its `--no-default-features` binary, which measures the
+smaller build.
+The `[profile.release]` of `templates/basic/Cargo.toml` (fat LTO, one codegen
+unit, `opt-level = "s"` with `3` for the drawing, shaping and layout crates,
+stripped symbols) is the other half: it makes the binary smaller and its hot
+paths faster, and it makes the release build longer.
 
 ## Where to start
 

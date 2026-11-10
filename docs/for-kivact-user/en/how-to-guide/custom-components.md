@@ -9,48 +9,61 @@ change, how to carry your own colors on the theme and how to keep accessibility
 intact when a component wraps another control. It assumes you have read the
 getting-started tutorial.
 
-A component is a plain function. It runs once, in the setup of the place where it
-is used, and returns something that can be shown. Two shapes cover almost
-everything:
+A component is a plain function that returns a view. When it takes props, mark it
+with `#[component]`: Kivact writes the props builder from the signature, so you
+never write a builder by hand. Three shapes cover almost everything:
 
 | Shape | Use it when |
 |---|---|
-| A function returning `impl Element` | There are a few props, all of them needed. |
-| A builder struct that holds a root `Node` | There are optional props, slots or settings that read better as methods. |
+| `#[component] fn card(title: Value<String>, ..) -> impl IntoView` | The component takes props, children or callbacks, optional ones included. |
+| `fn header() -> impl Element` | There are no props, and callers should add `.style(..)`, `.test_id(..)` or another node modifier. |
+| `fn section() -> impl IntoView` | The result has no single modifiable root: a branch, a fragment or `scope(..)`. |
 
-## Start with a function
+## Start with a component
 
-The shortest reusable component takes its props as arguments and returns `impl Element`.
+The shortest reusable component takes its props as arguments and returns
+`impl IntoView`. `#[component]` turns it into a struct, its constructor and a
+setter for each optional prop.
 
 ```rust,no_run
 use kivact::prelude::*;
 
 #[derive(Clone, Copy, PartialEq)]
-pub enum ChipTone { Normal, Accent }
+pub enum ChipTone {
+    Normal,
+    Accent,
+}
 constant_value!(ChipTone);
 
-/// A reusable label with a reactive tone and an optional action.
+/// A reusable label with a reactive tone and an action.
+#[component]
 pub fn chip(
-    label: impl IntoText,
-    tone: impl IntoValue<ChipTone>,
-    on_press: impl Into<Callback<()>>,
-) -> impl Element {
-    let tone = tone.into_value();
-    button(label)
-        .on_press(on_press)
-        .style(move || style().radius(12).padding_x(10).padding_y(4)
+    label: Value<String>,
+    #[prop(default = ChipTone::Normal)] tone: Value<ChipTone>,
+    on_press: Callback<()>,
+) -> impl IntoView {
+    button(label).on_press(on_press).style(move || {
+        style()
+            .radius(12)
+            .padding_x(10)
+            .padding_y(4)
             .background(if tone.get() == ChipTone::Accent {
                 ColorToken::Accent
             } else {
                 ColorToken::SurfaceAlt
-            }))
+            })
+    })
 }
 
 fn app() -> impl IntoView {
     let highlighted = signal(false);
-    chip("Kivact", move || if highlighted.get() { ChipTone::Accent } else { ChipTone::Normal },
-        move || highlighted.update(|value| *value = !*value))
-        .test_id("chip")
+    chip("Kivact", move || highlighted.update(|value| *value = !*value)).tone(move || {
+        if highlighted.get() {
+            ChipTone::Accent
+        } else {
+            ChipTone::Normal
+        }
+    })
 }
 
 fn main() -> kivact::Result<()> {
@@ -58,19 +71,38 @@ fn main() -> kivact::Result<()> {
 }
 ```
 
-`constant_value!(ChipTone)` lets callers pass a custom enum as a constant prop.
-`impl IntoValue<ChipTone>` also accepts a signal or a closure. Convert reactive
-props once with `into_value()`; the resulting `Value` is a small `Copy` handle.
-Payload-free callbacks take `impl Into<Callback<()>>`, so callers can pass a
-closure or an existing callback. Returning `impl Element` keeps the root's
-common modifiers available. Use `impl IntoView` for several roots.
+How the signature becomes the API:
+
+- **A required prop is a positional argument.** `chip("Kivact", ..)` takes the
+  label and the press handler by position.
+- **`#[prop(default = expr)]` and `#[prop(optional)]` become setters.** The chip
+  above can also be written `chip("Kivact", ..)` with the tone left out, or
+  `chip("Kivact", ..).tone(ChipTone::Accent)`. An optional prop is declared
+  `Option<X>` and its setter takes the input `X` accepts. An optional callback is
+  `#[prop(optional)] on_close: Option<Callback<()>>`: the body receives
+  `Option<Callback<()>>` and converts it (`on_close.map(|f| f())`), because the
+  conversion needs the component's setup.
+- **The body runs once, in its own setup owner.** The generated
+  `impl IntoView` puts the body in `scope(..)`: signals, effects, callbacks and
+  cleanup that it creates belong to this instance and are disposed when the view
+  is removed. It adds no layout box; the body's root is the component's root.
+- **Only the return value is public.** The generated struct is named after the
+  function (`chip` → `Chip`) and implements `IntoView`, not `Element`, so a
+  caller cannot write `.style(..)` or `.test_id(..)` on it. Anything the caller
+  may change is a prop; anything else is the component's own decision.
+
+`Value<T>` takes a constant, a signal, a `Value` or a closure, so a prop can be
+static or reactive without a second API. A `Value<String>` prop also accepts
+`&str` and `String`. A value prop's type must be `Clone + PartialEq`, which is
+what lets Kivact skip updates when the value did not change.
+
+## Use your own type as a prop
 
 If a prop has a type of your own, register it once so a constant can be passed
 directly. Put this next to the type, in the crate that defines it:
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::state::constant_value;
 
 #[derive(Clone, Copy, PartialEq)]
 pub enum Tone {
@@ -80,9 +112,9 @@ pub enum Tone {
 
 constant_value!(Tone);
 
-pub fn badge(label: impl IntoText, tone: impl IntoValue<Tone>) -> impl Element {
-    let label = label.into_text_value();
-    let tone = tone.into_value();
+/// A label with a tone that follows a signal.
+#[component]
+pub fn badge(label: Value<String>, tone: Value<Tone>) -> impl IntoView {
     node()
         .name(label)
         .style(move || match tone.get() {
@@ -107,17 +139,16 @@ fn main() -> kivact::Result<()> {
 ```
 
 Without `constant_value!(Tone)`, `badge("Saved", Tone::Info)` fails to compile.
-Signals, `Value`s and closures of `Tone` work either way. The prop type must be
-`Clone + PartialEq`, which is what lets Kivact skip updates when the value did not
-change.
+Signals, `Value`s and closures of `Tone` work either way.
 
-## Give setup its own lifetime
+## Give a plain function its own setup lifetime
 
-A plain Rust function is called when its caller evaluates it. When the function
-creates signals, effects or cleanup callbacks that should belong to one mounted
-instance, return `scope(move || ...)`. Kivact calls this initializer once
-when that instance mounts, under its own owner and the mounting parent's context.
-It disposes those resources when the instance is removed. It adds no layout box.
+A `#[component]` already has the setup boundary described above. A plain Rust
+function that creates signals, effects or cleanup callbacks and should own them
+per instance returns `scope(move || ...)` instead. Kivact calls this initializer
+once when that instance mounts, under its own owner and the mounting parent's
+context, and disposes those resources when the instance is removed. It adds no
+layout box.
 
 ```rust,no_run
 use kivact::prelude::*;
@@ -139,22 +170,21 @@ fn local_counter(label: impl IntoText) -> impl IntoView {
 Changing `count` updates the text; it does not call the initializer again.
 Return `impl IntoView` for this boundary: a transparent `View` does not expose a
 root node for modifiers. Put a visible root inside it when you need one.
-`component` itself provides no context value; use `provide(value, factory)` to
-pass a value to its children. For a
-builder, callers configure its `Node` first; its `IntoView` implementation can
-return `scope(move || ...)` to defer final setup until mounting.
+`scope(..)` itself provides no context value; use `provide(value, factory)` to
+pass a value to its children.
 
 ## Take children and slots
 
-A component that wraps content takes it as `impl IntoView`. Several children are a
-tuple, because a tuple of views is a view, and `()` means "nothing here", so it
+A component that wraps content takes it as `View`. Several children are a tuple,
+because a tuple of views is a view, and `()` means "nothing here", so it
 doubles as an empty slot. A component with named slots takes one parameter per slot.
 
 ```rust,no_run
 use kivact::prelude::*;
 
 /// A titled box. `body` is whatever the caller wants inside, `footer` may be `()`.
-pub fn card(title: impl IntoText, body: impl IntoView, footer: impl IntoView) -> impl Element {
+#[component]
+pub fn card(title: Value<String>, body: View, footer: View) -> impl IntoView {
     column((
         text(title).style(style().padding_bottom(4)),
         body,
@@ -176,24 +206,23 @@ fn main() -> kivact::Result<()> {
 }
 ```
 
-An `impl IntoView` slot is consumed once. Store it as `View` if the builder needs to keep it until mounting. If your component
-mounts its content more than once, for example each time a section opens, ask for a
-function that builds the content, as `show` does:
+A `View` slot is consumed once, when the component is used. If your component
+mounts its content more than once, for example each time a section opens, ask for
+`ViewFn`: the caller passes a function, and the content is built again on every
+opening.
 
 ```rust,no_run
-use kivact::state::Binding;
 use kivact::prelude::*;
 
 /// A section that builds its content when it opens and drops it when it closes.
-pub fn collapsible<V: IntoView>(
-    title: impl IntoText,
-    open: impl IntoBinding<bool>,
-    content: impl kivact::view::IntoViewFn<V>,
-) -> impl Element {
-    let title = title.into_text_value();
-    let open = open.into_binding();
+#[component]
+pub fn collapsible(
+    title: Value<String>,
+    open: Binding<bool>,
+    content: ViewFn,
+) -> impl IntoView {
     column((
-        button(title).on_press(move || open.set(!open.get())),
+        button(title).on_press(move || open.update(|open| *open = !*open)),
         show(open, content),
     ))
 }
@@ -212,27 +241,23 @@ A signal converts into a `Binding<bool>`, so the caller can hand over the signal
 itself. A `Binding` is the type for state a component both reads and writes.
 
 When each child needs its own wrapper, for example every pane of a split view,
-take `impl kivact::view::IntoChildren`. It accepts a tuple of up to 16 views or a
-`Vec` of one kind of view, and gives you each child as a `View` to wrap.
-
-A once-mounted child takes `impl IntoView` and is stored as `View`. A slot
-that is rebuilt takes `impl IntoViewFn<V>` and is stored as `ViewFn<()>`; a
-parameterized row takes `impl Fn(A) -> V + 'static` and uses `ViewFn<A>`.
+take `Vec<View>`. The constructor accepts `impl IntoChildren`: a tuple of up to 16
+views or a `Vec` of one kind of view, and the body receives each child as a `View`
+to wrap.
 
 ## Take callbacks
 
-A callback without a payload takes `impl Into<Callback<()>>`:
+A callback without a payload takes `Callback<()>`:
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::view::{Handled, KeyEvent};
 
 /// A chip with a remove button. Delete removes it too.
-pub fn removable_chip(label: impl IntoText, on_remove: impl Into<Callback<()>>) -> impl Element {
-    let label = label.into_text_value();
+#[component]
+pub fn removable_chip(label: Value<String>, on_remove: Callback<()>) -> impl IntoView {
     // `on_remove` is used by two handlers. A plain closure can be moved into only
-    // one of them; the conversion stores it and gives back a Copy handle.
-    let remove = on_remove.into();
+    // one of them; a `Callback` is a Copy handle.
+    let remove = on_remove;
     row((
         text(label),
         button("Remove").on_press(move || remove.call(())),
@@ -262,11 +287,11 @@ fn main() -> kivact::Result<()> {
 }
 ```
 
-The Rust point behind the conversion: a closure that owns captured data can be moved
-into one place only, and an `Fn` bound gives you no way to clone it. `on_remove.into()` stores
-the closure in the app's arena and returns a `Callback`, which is `Copy`, so any number of
-`move` closures can hold it. Call it with `.call(argument)`; for a callback without
-input, use `()` as the argument as above.
+The constructor takes `impl Into<Callback<()>>`, so a caller passes a closure or
+an existing callback. The closure is stored once, in the app's arena, and the
+`Callback` it becomes is `Copy`: any number of `move` closures can hold it. Call
+it with `.call(argument)`; for a callback without input, use `()` as the argument
+as above.
 
 A press handler gets no event. To see whether a modifier key is held, as
 `event.getModifierState("Control")` does in React, read `modifiers()`:
@@ -276,10 +301,11 @@ use kivact::prelude::*;
 use kivact::view::modifiers;
 
 /// Opens its panel; Ctrl+click (Cmd+click) opens only this one.
-fn open_button<R: kivact::view::HandlerResult>(open: impl Fn(bool) -> R + 'static) -> impl Element {
+#[component]
+pub fn open_button(open: Callback<bool>) -> impl IntoView {
     button("Open").on_press(move || {
         let held = modifiers().get();
-        open(held.ctrl || held.meta)
+        open.call(held.ctrl || held.meta)
     })
 }
 
@@ -288,188 +314,51 @@ fn main() -> kivact::Result<()> {
 }
 ```
 
-If the caller's closure may fail, widen the bound so `?` works for them:
-`impl Fn(E) -> R + 'static where R: HandlerResult` accepts `()` and
-`Result<(), UiError>`, and `callback` takes either. A failure is reported to the
-nearest `error_boundary` (see [Find out why something failed or
-updated](diagnostics.md)).
+A callback with a payload is declared `Callback<E>`; the setter accepts
+`impl Fn(E) -> R` and infers the closure's argument type, so `|only| ..` needs no
+annotation. If the caller's closure may fail, `R` may be `Result<(), UiError>`
+instead of `()`; a failure is reported to the nearest `error_boundary` (see
+[Find out why something failed or updated](diagnostics.md)).
 
-## Use a builder when props pile up
+## Ship a default look
 
-Once a component has optional props, slots or settings, a builder reads better than a
-long argument list. A builder is a struct that holds its root `Node`, implements
-`Element` to get all the everyday modifiers for free, and implements `IntoView`
-to finish the job.
+A component owns its root and its default style. The caller changes what the
+props expose, not the root directly, because a `#[component]` type has no node
+modifiers.
 
-```rust,test_harness
-use kivact::state::Callback;
-use kivact::prelude::*;
-use kivact::style::{Align, Direction, use_theme};
-use kivact::view::View;
-use kivact::state::constant_value;
+- **Style the component's root in the body.** A style closure that reads a
+  signal, a `Value` or `use_theme()` follows changes without a remount.
+- **Expose the look as props.** A tone, a size or a variant prop is better than
+  a caller's `.style(..)`: it says what may change, and the component keeps the
+  rest consistent.
+- **A themed default is a value, not a constant.** Read the tokens with
+  `use_theme()` inside the style closure, as `chip` does with `ColorToken`. Hard
+  coded colors cannot follow a theme.
 
-#[derive(Clone, Copy, PartialEq)]
-pub enum Tone {
-    Info,
-    Warning,
-}
+An element builder (a type that implements `Element`) is different: the caller
+holds the same root, so its default look belongs in `base_style`, which sits
+**below** every `.style(..)` the caller adds whatever the order of the calls.
+Use `.style(..)` inside such a component only for styling that must beat the
+caller, which is rarely what you want. A `#[component]` takes a prop instead.
 
-constant_value!(Tone);
+### When you need an `Element`
 
-pub struct Notice {
-    root: Node,
-    message: Value<String>,
-    tone: Value<Tone>,
-    action: Option<View>,
-    on_dismiss: Option<Callback<()>>,
-}
-
-/// A message bar. `#[track_caller]` makes every notice report the place it was
-/// created, not a line inside this file.
-#[track_caller]
-pub fn notice(message: impl IntoText) -> Notice {
-    let message = message.into_text_value();
-    Notice {
-        root: node().role(Role::Alert).name(message),
-        message,
-        tone: Tone::Info.into_value(),
-        action: None,
-        on_dismiss: None,
-    }
-}
-
-impl Notice {
-    pub fn tone(mut self, tone: impl IntoValue<Tone>) -> Self {
-        self.tone = tone.into_value();
-        self
-    }
-
-    /// A slot for one extra control, such as a retry button.
-    pub fn action(mut self, action: impl IntoView) -> Self {
-        self.action = Some(action.into_view());
-        self
-    }
-
-    pub fn on_dismiss(mut self, f: impl Into<Callback<()>>) -> Self {
-        self.on_dismiss = Some(f.into());
-        self
-    }
-}
-
-impl Element for Notice {
-    fn node_mut(&mut self) -> &mut Node {
-        &mut self.root
-    }
-}
-
-impl IntoView for Notice {
-    fn into_view(self) -> View {
-        scope(move || {
-            let Notice { root, message, tone, action, on_dismiss } = self;
-            // The default look. It goes below every style the caller adds.
-            let mut root = root.base_style(move || {
-                let (background, color) = match tone.get() {
-                    Tone::Info => (ColorToken::Accent, ColorToken::AccentText),
-                    Tone::Warning => (ColorToken::Warning, ColorToken::Text),
-                };
-                let theme = use_theme().get();
-                style()
-                    .direction(Direction::Row)
-                    .align_items(Align::Center)
-                    .gap(theme.space().sm)
-                    .padding(theme.space().md)
-                    .radius(theme.radius().md)
-                    .width(240)
-                    .background(background)
-                    .color(color)
-            });
-            root = root.child(text(message).style(style().grow(1)));
-            if let Some(action) = action {
-                root = root.child(action);
-            }
-            if let Some(dismiss) = on_dismiss {
-                root = root.child(button("Dismiss").on_press(move || dismiss.call(())));
-            }
-            root.into_view()
-        })
-    }
-}
-
-fn app() -> impl IntoView {
-    let visible = signal(true);
-    column((
-        notice("Saved").test_id("plain"),
-        notice("Narrow").style(style().width(120)).test_id("narrow"),
-        show(visible, move || {
-            notice("Offline")
-                .tone(Tone::Warning)
-                .action(button("Retry"))
-                .on_dismiss(move || visible.set(false))
-        }),
-    ))
-    .style(style().gap(8).padding(16))
-}
-
-fn main() -> kivact::Result<()> {
-    App::new("Notices").run(app)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn the_caller_style_beats_the_default_and_the_slots_work() {
-        let screen = kivact::test::render(app);
-
-        // The default width is 240; the caller's style wins although the
-        // component's `base_style` ran after the caller's `.style(..)`.
-        let plain = screen.get_by_test_id("plain").rect().expect("laid out");
-        let narrow = screen.get_by_test_id("narrow").rect().expect("laid out");
-        assert_eq!((plain.width, narrow.width), (240.0, 120.0));
-
-        screen.get_by_role(Role::Button, "Retry");
-        screen.get_by_role(Role::Button, "Dismiss").click();
-        assert!(screen.query_by_text("Offline").is_none());
-        assert!(screen.errors().is_empty(), "{:?}", screen.errors());
-    }
-}
-```
-
-Points worth knowing about this shape:
+Write a type that implements `Element` only when callers must apply node
+modifiers to it, or when the standard components require one (for example
+`field(label, control)` takes an `Element`). Implement `IntoView` to finish the
+view, and `Element` by returning the root node from `node_mut`:
 
 - **`Element` is one method.** `fn node_mut(&mut self) -> &mut Node` gives
-  `style`, `name`, `disabled`, `test_id`, `on_key`, `on_press`, `draw` and the rest
-  to your builder. A modifier the caller writes after your constructor wins over
-  what the constructor set.
-- **Modify the root with `with_node`.** Node has inherent methods for `role`,
-  `checked`, `expanded`, `selected`, `value_text` and `base_style`. A builder uses
-  `.with_node(|root| root.role(Role::Alert))` to configure them.
-
-- **Finish configuration in `into_view`.** All builder setters have run by then.
-  Conversion itself is not a mount callback: use `scope(move || ...)` inside
-  it when setup must wait for mounting. Read the final fields rather than sharing
-  a `Cell` between setters and style closures.
-- **State belongs to its setup owner.** Create instance resources inside the
-  `component` initializer. Creating them in a constructor instead attaches them
-  to the caller's current setup owner. Use the boundary when removal of this
-  component must dispose its effects and callbacks. Two notices on the same
-  screen then share nothing; no string keys or global ids are needed.
-- **`#[track_caller]` names each instance.** Diagnostics and test failure reports
-  name a node by the place its builder was called. Put the attribute on your
-  constructor, and every instance is reported at its own call site. A component
-  can locate its root with `.located_at_caller()` inside the tracked constructor.
-
-### Default styles the caller can override
-
-`base_style` adds a style layer **below** every `.style(..)` of the caller, whatever
-the order of the calls. It is the right place for a component's default look. The
-test above shows it: the notice sets `width(240)` as its default, and
-`.style(style().width(120))` still wins. Use `.style(..)` inside a component only
-for styling that must beat the caller, which is rarely what you want.
-
-A base style may be a closure. Reading a signal, a `Value` or `use_theme()`
-inside it makes the style follow the change, with no remount.
+  `style`, `name`, `disabled`, `test_id`, `on_key`, `on_press`, `draw` and the
+  rest to your type. `node_mut` is `doc(hidden)` because it is the implementation
+  seam of the trait, not an everyday call: the trait is not sealed, so an
+  external type can implement it, but application code never calls the method.
+- **Configure the root with `with_node`.** `role`, `checked`, `expanded`,
+  `selected`, `value_text` and `base_style` are `Node`'s own methods, which
+  `with_node` reaches from a builder: `.with_node(|root| root.role(Role::Alert))`.
+- **State belongs to the setup owner.** Create instance resources inside
+  `scope(..)` in `into_view`, not in the constructor: a constructor runs in the
+  caller's setup, so the resources would live as long as the caller.
 
 ## Carry your own design tokens on the theme
 
@@ -481,7 +370,7 @@ under any theme.
 
 ```rust,test_harness
 use kivact::prelude::*;
-use kivact::style::{Color, ThemeExtension, use_theme};
+use kivact::style::ThemeExtension;
 use kivact::test::{RenderOptions, render_with};
 
 /// The colors of `status_dot`. One type per component library.
@@ -505,7 +394,8 @@ pub fn status_dot(online: impl IntoValue<bool>) -> impl Element {
     let online = online.into_value();
     node()
         .role(Role::Status)
-        .name(move || if online.get() { "online" } else { "offline" }.to_owned())
+        // `Value` reads are tracked, so the name follows the signal.
+        .name(move || if online.get() { "online" } else { "offline" })
         .style(move || {
             // Reading the theme inside the style closure follows theme changes.
             let colors = use_theme().get().ext::<StatusColors>();
@@ -627,80 +517,35 @@ either. The standard set already has the marks the standard components draw, suc
 as `check` and `chevron-right`; add yours with `Theme::with_icon(name, image)`.
 An unknown name draws nothing and, in debug builds, is reported once.
 
-## Forward accessibility to the real control
+## Put the accessible name on the real control
 
 A composite component, such as a search box made of an icon and a text input, has a
-root that is not the control the user types into. Callers still write
-`.name("Site search")`, `.disabled(..)` and `.invalid(..)` on the component, and a
-`field` wraps it with `.labelled_by(..)` and `.described_by(..)`. Those settings land
-on your root. Read them from the root and apply them to the real control, otherwise
-a screen reader announces an unnamed text box.
+root that is not the control the user types into. The name and the disabled state
+belong to that control: if they stay on the wrapper, a screen reader announces an
+unnamed text box. Take them as props and apply them to the control:
 
 ```rust,test_harness
-use kivact::state::Binding;
 use kivact::prelude::*;
-use kivact::view::View;
 
-pub struct SearchBox {
-    root: Node,
+/// A search box: an icon and a text field that carry the caller's name and state.
+#[component]
+pub fn site_search(
     value: Binding<String>,
-}
-
-#[track_caller]
-pub fn search_box(value: impl IntoBinding<String>) -> SearchBox {
-    SearchBox {
-        root: row(()).style(style().gap(6).align_items(Align::Center)),
-        value: value.into_binding(),
-    }
-}
-
-impl Element for SearchBox {
-    fn node_mut(&mut self) -> &mut Node {
-        &mut self.root
-    }
-}
-
-impl IntoView for SearchBox {
-    fn into_view(self) -> View {
-        scope(move || {
-            let SearchBox { mut root, value } = self;
-
-            // What the caller said about the component as a whole.
-            let name = root.accessible_name();
-            let disabled = root.accessible_disabled();
-            let invalid = root.accessible_invalid();
-            let labelled_by = root.accessible_labelled_by();
-            let described_by = root.accessible_described_by();
-
-            // The name the caller gave wins; otherwise the component has its own.
-            let label: Value<String> = match name {
-                Some(read) => read,
-                None => "Search".into_text_value(),
-            };
-
-            // Hand all of it to the control that takes the keystrokes.
-            let mut input = text_input(label, value).style(style().grow(1));
-            if let Some(read) = disabled {
-                input = input.disabled(move || read.get());
-            }
-            if let Some(read) = invalid {
-                input = input.invalid(move || read.get());
-            }
-            for target in labelled_by {
-                input = input.with_node(|host| host.labelled_by(target));
-            }
-            for target in described_by {
-                input = input.with_node(|host| host.described_by(target));
-            }
-
-            root.child((icon("search"), input)).into_view()
-        })
-    }
+    #[prop(default = "Site search")] label: Value<String>,
+    #[prop(default = false)] disabled: Value<bool>,
+) -> impl IntoView {
+    let input = text_input(label, value)
+        .style(style().grow(1))
+        .disabled(move || disabled.get());
+    field(
+        label,
+        row((icon("search"), input)).style(style().gap(6).align_items(Align::Center)),
+    )
 }
 
 fn app() -> impl IntoView {
     let query = signal(String::new());
-    field("Site search", search_box(query)).hint("Searches every page")
+    site_search(query).label("Site search")
 }
 
 fn main() -> kivact::Result<()> {
@@ -712,10 +557,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn the_text_box_carries_the_name_and_the_description() {
+    fn the_text_box_carries_the_name() {
         let screen = kivact::test::render(app);
         let input = screen.get_by_role(Role::TextBox, "Site search");
-        assert_eq!(input.described_by().len(), 1);
         input.type_text("kivact");
         assert_eq!(input.value().as_deref(), Some("kivact"));
     }
@@ -729,12 +573,13 @@ mod tests {
 }
 ```
 
-The `accessible_*` readers copy what the caller set without consuming it, so the
-root keeps its own settings as well. The same pattern applies to anything a
-caller can set on the whole component and that belongs to one part inside it.
+`field(label, control)` also accepts only an `Element`, not a `#[component]`
+type. When the caller should wrap your component in a field, either take the
+label and the hint as props and build the `field` inside the component, or return
+an element builder from a plain function.
 
-Focus needs no forwarding: pressing the field's label activates the first
-focusable element inside your root, here the text box, as the second test shows.
+Focus needs no forwarding: pressing a field's label activates the first focusable
+element inside it, here the text box, as the second test shows.
 
 ## Report misuse of your component
 
@@ -767,6 +612,19 @@ fn main() -> kivact::Result<()> {
 Use it for programmer errors only. A problem the user can cause, such as a bad file,
 is a `Result` that your component shows, not a misuse.
 
+## What `#[component]` rejects
+
+The macro reports a signature it cannot turn into a builder, with a message that
+says what to change:
+
+- generic parameters or a `where` clause: take `Value<T>` props instead;
+- a return type other than `impl IntoView`;
+- a method: a `#[component]` is a free function;
+- a destructuring pattern: each prop is a named argument;
+- `#[prop(optional)]` on a type that is not `Option<..>`;
+- `#[prop(optional)]` together with `#[prop(default = ..)]`;
+- an unknown key in `#[prop(..)]`.
+
 ## See also
 
 - [Find out why something failed or updated](diagnostics.md) for what happens to a
@@ -777,4 +635,4 @@ is a `Result` that your component shows, not a misuse.
   from the app's side.
 - [Lay out a screen](layout.md) for the style properties a base style can set.
 - `cargo doc -p kivact --open`: `kivact::view::Element`,
-  `kivact::view::Node`, `kivact::style::{Theme, ThemeExtension, IconSet}`.
+  `kivact::view::Node`, `kivact::component`, `kivact::style::{Theme, ThemeExtension, IconSet}`.

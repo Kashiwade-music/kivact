@@ -218,7 +218,7 @@ fn main() -> kivact::Result<()> {
 - **Dragging is off without `on_item_drop`.** The pointer's vertical position over a row decides the place: the upper third inserts before it as a sibling, the lower third after it, the middle third inside it as its last child. An item cannot be dropped on itself or into its own subtree. `Esc` cancels a drag.
 - **Restriction paints.** Pressing a visibility toggle and dragging across rows sets many rows to the same value in one gesture: a `Begin`, requests carrying all the ids touched so far with one `value`, and a `Commit` or `Cancel`. If several selected rows are involved, they all take the opposite of the pressed row's flag. Hide the toggles with `.restrictions(false)`.
 - **`OutlinerState`** bundles `expanded` (open ids), `selection` and `renaming`. Replace any of them with your own signal to share it, as the tutorial does with the selection.
-- **More row options.** `.active(id)` marks one item as current (separate from the selection) and `reveal_active` opens its ancestors; `.on_item_activate(f)` runs on `Enter` or a double click (a double click then no longer renames; `F2` does). `.cell(width, render)` adds a fixed-width cell of your own controls to every row. `TreeItem::tone(..)` and `placeholder(true)` change the label's look.
+- **More row options.** `.active(id)` marks one item as current (separate from the selection) and `reveal_active` opens its ancestors; `.on_activate(f)` runs on `Enter` or a double click (a double click then no longer renames; `F2` does). `.cell(width, render)` adds a fixed-width cell of your own controls to every row. `TreeItem::tone(..)` and `placeholder(true)` change the label's look.
 
 ## Group inspector sections
 
@@ -269,7 +269,7 @@ fn add_node_button() -> impl IntoView {
             .icon("wave"),
         ui::PickerItem::new("solid", "Solid").section("Generate").enabled(false),
     ])
-    .on_pick(move |key: &'static str| last.set(key.to_string()))
+    .on_activate(move |key: &'static str| last.set(key.to_string()))
     .on_preview(|_key: Option<&'static str>| {
         // `Some(key)` while a row is active, `None` when the picker closes.
     });
@@ -283,7 +283,7 @@ fn add_node_button() -> impl IntoView {
 
 `attach(button)` opens the picker below the button; `.at(anchor, position)` opens it at a window point instead, for a shortcut-triggered picker. The key type (here `&'static str`) is yours, and the picker hands back the key of the picked item. Several `.column(title, items)` calls make a multi-column picker with a shared search.
 
-Radial menus work similarly: `ui::pie_menu(entries, state, choose)` shows `PieEntry`s around a point, and its public `PieState` lets you open it from your own shortcut (open on key down, commit on key up).
+Radial menus work similarly: `ui::pie_menu(items, state).on_activate(choose)` shows `PieEntry`s around a point, and its public `PieState` lets you open it from your own shortcut (open on key down, commit on key up).
 
 ## See also
 

@@ -77,7 +77,7 @@ fn app() -> impl IntoView {
     let notifications = signal(false);
     column((
         pill_switch("Notifications", notifications),
-        text(move || if notifications.get() { "On" } else { "Off" }.to_owned()),
+        text(move || if notifications.get() { "On" } else { "Off" }),
     ))
     .style(style().gap(8).padding(16))
 }
@@ -651,7 +651,7 @@ pub fn limited_input(label: impl IntoText, value: impl IntoBinding<String>, max:
     let editor = node().part(control).name(label).style(move || {
         style()
             .grow(1)
-            .border_bottom(if state.get().focused { 2 } else { 1 }, ColorToken::Accent)
+            .border_bottom(if state.get().is_focused() { 2 } else { 1 }, ColorToken::Accent)
             .padding_y(6)
     });
     row((editor, text(move || format!("{}/{max}", value.with(|text| text.chars().count())))))

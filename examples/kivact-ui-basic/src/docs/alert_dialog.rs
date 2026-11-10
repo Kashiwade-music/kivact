@@ -16,7 +16,7 @@ pub(crate) fn page() -> Page {
             Example::new(
                 "default",
                 "Default",
-                "open の signal と題名を渡し、kind を DialogMode::AlertModal にします。キャンセルと実行のボタンは footer に置き、押したときに open を false にします。閉じるボタンは closable(false) で出しません。",
+                "open の signal と題名を渡し、mode を DialogMode::AlertModal にします。キャンセルと実行のボタンは footer に置き、押したときに open を false にします。閉じるボタンは closable(false) で出しません。",
                 default,
             ),
             Example::new(

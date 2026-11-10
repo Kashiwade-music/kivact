@@ -86,6 +86,10 @@ dev/tools/check-features.sh
 
 `cargo xtask devtools-codegen --check` は `cargo xtask check` に含まれるため、別に実行しません。DevTools の Python client を変えたときは、`python -m unittest discover python/kivact-devtools/tests` も実行します（任意）。
 
+KPI（起動・メモリ・CPU・フレーム時間・更新レイテンシ・バイナリサイズ）は `dev/tools/window-lock.sh -- dev/bench/run.sh <label>` で測ります。
+実 window を開き release の build も行うため、時間がかかります（`dev/bench/README.md` を参照）。
+手動の道具であり、CI には組み込みません。結果の Markdown は `dev/bench/results/` に置きます。
+
 ## commit と PR
 
 commit は目的ごとに conventional commits で分けます。PR には、具体的な問題、変更後の挙動、実施した検証、未実施の理由、残る制限を書きます。

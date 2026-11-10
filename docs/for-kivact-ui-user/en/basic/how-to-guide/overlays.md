@@ -4,7 +4,7 @@
 
 This guide shows how to put something above the page: a dialog, a confirmation, a side sheet, a bottom drawer, a popover, a hover card, a menu and a toast. It assumes you have done the [tutorial](../getting-started/README.md) and that the app uses `basic::theme`.
 
-Most of these are not kit components. Dialogs, alert dialogs, sheets and popovers are the standard `dialog(title, open)` with a different `.kind(..)`, menus are the standard `menu(..)`, and toasts are the standard `toast_region`/`toaster`. The theme draws them in the Lyra look. Swipe drawers also use this standard dialog; hover previews use standard `kivact::ui::hover_card` with the Basic surface recipe.
+Most of these are not kit components. Dialogs, alert dialogs, sheets and popovers are the standard `dialog(title, open)` with a different `.mode(..)`, menus are the standard `menu(..)`, and toasts are the standard `toast_region`/`toaster`. The theme draws them in the Lyra look. Swipe drawers also use this standard dialog; hover previews use standard `kivact::ui::hover_card` with the Basic surface recipe.
 
 Two rules hold for all of them:
 

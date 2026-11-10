@@ -140,7 +140,7 @@ fn tools(zoom: Signal<f64>) -> impl IntoView {
             "More",
             vec![MenuEntry::item("reset", "Reset view"), MenuEntry::item("quit", "Quit")],
         )
-        .on_select(move |key| {
+        .on_activate(move |key| {
             if key == "reset" {
                 zoom.set(1.0);
             }

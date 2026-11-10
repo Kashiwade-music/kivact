@@ -289,7 +289,7 @@ Other rules:
 - `.max_length(n)` limits the input by characters (Unicode scalar values), and a
   composition in progress is never cut.
 - `.read_only(true)` allows selecting and copying; `.disabled(..)` blocks input;
-  `.purpose(kivact::view::InputPurpose::Password)` hides the text and blocks copy and cut.
+  `.purpose(InputPurpose::Password)` hides the text and blocks copy and cut.
 
 ## Commit a single field with Enter or blur
 
@@ -364,7 +364,7 @@ Enter belongs to the draft, and `.on_edit(..)` reports `Begin`, `Commit` and
 
 ### Mobile input and restoration
 
-Set `.purpose(kivact::view::InputPurpose::Email)` to describe the expected input.
+Set `.purpose(InputPurpose::Email)` to describe the expected input.
 The other purposes are Text, Number, Decimal, Url, Phone, Password and Search.
 Password also masks the value and prevents clipboard and accessibility disclosure.
 Desktop winit maps Password to its password hint and all other purposes to Normal.

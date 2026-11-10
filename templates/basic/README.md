@@ -14,6 +14,10 @@ Guides: [tutorial](../../docs/for-kivact-user/en/getting-started/README.md).
 
 In a standalone app, remove `[lints] workspace = true` or define matching workspace lint rules in the new workspace root.
 
+## Release-build performance and size
+
+The template's `Cargo.toml` also carries Kivact's recommended `[profile.release]`: fat LTO, one codegen unit, `opt-level = "s"` with `opt-level = 3` for the drawing, shaping and layout crates, and stripped symbols. It makes the binary smaller and its hot paths faster, and it makes the release build much longer, because fat LTO links the whole dependency graph in one step. Use it for the build you ship; `panic` stays `unwind` so a plugin host can catch a panic from an embedded UI. Cargo reads profiles only from the root manifest, so keep this block when the copy becomes a standalone project.
+
 ## Debug-build performance
 
 Unoptimized, the engine, layout, renderer and font pipeline are too slow for a debug build to keep up with a drag or a hover. Kivact's workspace root optimizes them in debug builds, which covers this template while it is a member of Kivact's workspace. Cargo reads profiles only from the root manifest, so once your copy is a standalone root (its own `Cargo.toml` at the top of the project), add this to that `Cargo.toml`. App, component and runtime code remains debuggable.

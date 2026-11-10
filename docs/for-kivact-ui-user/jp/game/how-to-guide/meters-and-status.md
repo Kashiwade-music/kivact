@@ -113,7 +113,7 @@ fn statuses() -> impl IntoView {
 
 ## フィードバックを見せる
 
-`alert(title)` は説明、アイコン、操作、開くたびに作る詳細を持てます。`.visible(binding)` でアプリケーションを唯一の表示状態の所有者にします。setter は閉じる要求を拒否できます。`.on_dismiss(..)` は受け入れられた操作が完了してフォーカスが戻った後の通知です。`.dismiss_content(..)` は操作の見た目、`.dismiss_label(..)` はアクセシブルな名前です。既定は assertive ですが、情報やバナーには明示的に polite な状態通知を選べます。
+`alert(title)` は説明、アイコン、操作、開くたびに作る詳細を持てます。`.open(binding)` でアプリケーションを唯一の表示状態の所有者にします。setter は閉じる要求を拒否できます。`.on_dismiss(..)` は受け入れられた操作が完了してフォーカスが戻った後の通知です。`.dismiss_content(..)` は操作の見た目、`.dismiss_label(..)` はアクセシブルな名前です。既定は assertive ですが、情報やバナーには明示的に polite な状態通知を選べます。
 
 バナーは `AlertVariant::Banner` で、縞の見出しと全幅の紺色の面を描きます。空状態は操作とイラストを持てます（`.icon(())` は Game recipe のイラストです）。`SkeletonVariant::Rows` はカットコーナーのアバターと 2 本のキャプションを表示します。標準スケルトンがアニメーションを所有し、動きを減らす設定で止まります。
 
@@ -129,7 +129,7 @@ fn warning() -> impl IntoView {
             .tone(Tone::Warning)
             .icon(icon("alert-triangle"))
             .description("Return to base within 2 minutes.")
-            .visible(visible)
+            .open(visible)
             .dismissible(true)
             .dismiss_label("Close alert")
             .dismiss_content(text("×")),

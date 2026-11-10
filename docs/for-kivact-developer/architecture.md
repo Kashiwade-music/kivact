@@ -143,7 +143,7 @@ Machine は独自 control のための、小さい reducer に effect と timer 
 | API-10 | kit の名前は facade prelude、ui、標準 prelude と衝突させない |
 | API-11 | conversion trait の診断を具体的にする。自 crate の enum は所有 crate で constant_value を実装し、それ以外は closure を案内 |
 | API-12 | setup/context の misuse は track_caller 付きで、修正方法の分かる panic にする |
-| API-13 | 必須位置引数は label/title、data、binding/selection、children。具体 builder と IntoView を保ち、一つの root は NodeBuilder、attach は合成 view を返す |
+| API-13 | 必須位置引数は label/title、data、binding/selection、children。具体 builder と IntoView を保ち、一つの root は Element、attach は合成 view を返す |
 | API-14 | bool query は is_/has_、それ以外は名詞。get_/_value は使わず、更新は set/動詞、失敗可能は try_。略語は a11y/ime/id 以外を増やさない |
 | API-15 | Api、State、Variant、Recipes、Tokens、Options、Policy、Mode、Kind、Event、Phase、Reason を役割どおり使う。InteractionPolicy の入れ子も Policy |
 
@@ -313,7 +313,7 @@ APG は公式の keyboard interaction と roles/states/properties を基準に�
 | file | 変更する理由 |
 |---|---|
 | `crates/kivact-types/src/semantics/node.rs` | Semanticsに省略可能なshortcut文字列とDefaultを追加し、map_relationsで非relation値としてそのまま移す。relationのgenericな写像と順序は変更しない |
-| `crates/kivact-core/src/view/node_modifiers.rs` | Nodeの固有setterから既存Common.semanticへreactive text patchを登録する。builderはwith_nodeを使え、NodeBuilderへ同じsetterを複製しない |
+| `crates/kivact-core/src/view/node_modifiers.rs` | Nodeの固有setterから既存Common.semanticへreactive text patchを登録する。builderはwith_nodeを使え、Elementへ同じsetterを複製しない |
 | `crates/arvane-native/src/a11y/conversion.rs` | 確定したSemanticsの値をAccessKitのshortcut属性へ写す |
 
 **3 runtime crate、3 file。** engineとshellは同じSemanticsを運ぶため変更不要。新しいSemanticInput/source getterはこの性質をbehaviorが読む要求がない限り足さない。Common.semanticとmountのpatch foldも既存のまま使う。
@@ -399,7 +399,7 @@ pointer/focusによるpreviewとcaller bindingの確定値を区別する小さ�
 
 | 追加例 | 機能実装のcrate / file | 再公開・検証も含む変更先 | 既存境界で不要なもの |
 |---|---|---|---|
-| key_shortcuts | 3 / 3 | 3 crate / 3 file | engine/shellの意味情報の別コピー、NodeBuilderの同義setter |
+| key_shortcuts | 3 / 3 | 3 crate / 3 file | engine/shellの意味情報の別コピー、Elementの同義setter |
 | text_wrap_style | 3 / 14 | 3 crate / 14 file（所有style語彙の再公開を含む） | coreのexport追従、engineの継承model、別adapter |
 | beep | 3 / 9 | 3 crate / 9 file | virtualのsource追従、shell/arvaneのservice別method、engineのservice別転送 |
 | background_blend_mode | 3 / 5 | 3 crate / 5 file | render命令のvariant追加、CPU/GPU adapter |

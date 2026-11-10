@@ -57,7 +57,7 @@ The standard APIs in this table come from `kivact::ui`.
 | Date Input | Standard `date_input`, `date_range_input`, `date_time_input` |
 | Dialog | Standard `dialog`, `dialog_header`, `alert_dialog`. Signals own imperative open state. |
 | Divider | `divider` |
-| Drawer | Standard `dialog(...).kind(DialogKind::Drawer(...))`, `drawer_header` |
+| Drawer | Standard `dialog(...).mode(DialogMode::Drawer(...))`, `drawer_header` |
 | Dropdown Menu | Standard `menu`. Use `MenuEntry::item`, `checkbox`, `separator`, `group`, `radio`, and `submenu`. A radio group is a group of radio entries. |
 | Empty State | Standard `empty_state`; `.announce_changes()` retains change announcements and `EmptyStateVariant::compact(value)` controls density |
 | Field / Field Label | Pass the label to standard `field(label, control)`. Use `field_status`, standard `input_group`, `input_addon`, and standard `dropzone` for the surrounding controls. |
@@ -74,7 +74,7 @@ The standard APIs in this table come from `kivact::ui`.
 | More Menu | `more_menu` |
 | Navigation | `mobile_nav`, `mobile_nav_toggle`, `nav_heading_menu`, `nav_icon`, `side_nav`, `side_nav_collapse_button`, `side_nav_heading`, `side_nav_item`, `side_nav_section`, `top_nav`, `top_nav_heading`, `top_nav_item`, `top_nav_menu`, `top_nav_mega_menu`, `top_nav_mega_menu_item`, `top_nav_featured_card` |
 | Number Input / Outline / Overflow List / Overlay / Pagination | Standard `number_input`, `outline`, `pagination`, `overflow_list`, `media_overlay` |
-| Popover | Standard `dialog(...).kind(DialogKind::Popover)` and `kivact::view::overlay` |
+| Popover | Standard `dialog(...).mode(DialogMode::Popover)` and `kivact::view::overlay` |
 | Power Search / Progress Bar | `power_search`, standard `progress` |
 | Radio | `radio_list`, standard `ListItem` |
 | Resizable | standard `splitter(...).collapsible(..).snaps(..)` |
@@ -333,8 +333,8 @@ names and their replacements:
 | `MultiSelector`, `multi_selector` | `ui::combobox(label, options, Vec<K> binding).chips()` |
 | `Pagination`, `pagination`, `PaginationVariant`, `table_pagination` | `ui::pagination(count, page)` (zero-based `usize`; `ui::Pagination`); `.mode(ui::PaginationMode::..)`, `.window(ui::PaginationWindow::Buffered)`, `.summary(soft::pagination_status)`; `.variant(soft::PaginationAppearance::new(size))` |
 | `PillPlacement`, `ResizableConfig`, `ResizableState`, `ResizeHandle`, `resize_handle`, `ResizeSize`, `use_resizable` | `ui::splitter(name, size, ScalarRange)` (`ui::Splitter`) with `.collapsible(..)`, `.snaps(..)`, `.handle(..)`; headless `kivact::interaction::use_splitter(value, range, axis)` |
-| `Segmented`, `SegmentedControl`, `segmented_control`, `SegmentedIconOnly` | `radio_group(label, options, value).variant(ui::RadioGroupVariant::Segmented)` + `.variant(soft::SegmentedLook { layout, icon_only })` |
-| `Selector`, `selector` | `ui::select(label, options, selected).open_on_arrow(true)` |
+| `Segmented`, `SegmentedControl`, `segmented_control`, `SegmentedIconOnly` | `radio_group(label, items, selected).variant(ui::RadioGroupVariant::Segmented)` + `.variant(soft::SegmentedLook { layout, icon_only })` |
+| `Selector`, `selector` | `ui::select(label, items, selected).open_on_arrow(true)` |
 | `SelectorPresentation`, `complex_selector`, `complex_selector_with_presentation` | `ui::selection_field(label, value_label).content(factory).presentation(ui::SelectPresentation::..)` |
 | `Skeleton`, `skeleton` | `ui::skeleton()` (`ui::Skeleton`); `.shape(ui::SkeletonShape::..)`, `.lines(n)`, `.index(n)`; `.variant(soft::SkeletonRadius::..)` |
 | `Spinner`, `spinner`, `SpinnerSize` | `ui::spinner().size(ControlSize::ExtraSmall\|Small\|Medium\|Large)` (= Sm/Md/Lg/Xl) (`ui::Spinner`); `.variant(soft::SpinnerVariant { shade, ink })`, `.label_content(..)` |

@@ -218,7 +218,7 @@ fn main() -> kivact::Result<()> {
 - **`on_item_drop` を指定しないと、ドラッグは無効です。** 行の上でのポインターの縦位置が、置き場所を決めます。上の 3 分の 1 は兄弟としてその行の前、下の 3 分の 1 は兄弟としてその後、真ん中の 3 分の 1 は子としてその最後に入ります。自分自身や自分の部分木の中へは置けません。`Esc` でドラッグを取り消します。
 - **制限のペイント。** 表示のトグルを押したまま行をまたいでドラッグすると、1 回のジェスチャーで多くの行に同じ値を設定します。流れは、`Begin`、それまでに触れたすべての ID と 1 つの `value` を持つ要求、そして `Commit` か `Cancel` です。選択した行が複数あるときは、押した行のフラグの反対の値にそろいます。トグルを隠すには `.restrictions(false)` を使います。
 - **`OutlinerState`** は、`expanded`（開いている ID）、`selection`、`renaming` をまとめます。どれも自分のシグナルに差し替えて共有できます。チュートリアルで選択を共有したのと同じです。
-- **行のそのほかのオプション。** `.active(id)` は、選択とは別に現在のアイテムを示し、`reveal_active` はその祖先を開きます。`.on_item_activate(f)` は `Enter` かダブルクリックで実行されます（その場合、ダブルクリックでは名前の変更をせず、`F2` で変更します）。`.cell(width, render)` は、すべての行に、自分の部品を入れる固定幅のセルを加えます。`TreeItem::tone(..)` と `placeholder(true)` は、ラベルの見た目を変えます。
+- **行のそのほかのオプション。** `.active(id)` は、選択とは別に現在のアイテムを示し、`reveal_active` はその祖先を開きます。`.on_activate(f)` は `Enter` かダブルクリックで実行されます（その場合、ダブルクリックでは名前の変更をせず、`F2` で変更します）。`.cell(width, render)` は、すべての行に、自分の部品を入れる固定幅のセルを加えます。`TreeItem::tone(..)` と `placeholder(true)` は、ラベルの見た目を変えます。
 
 ## インスペクターの区画をまとめる
 
@@ -269,7 +269,7 @@ fn add_node_button() -> impl IntoView {
             .icon("wave"),
         ui::PickerItem::new("solid", "ベタ塗り").section("生成").enabled(false),
     ])
-    .on_pick(move |key: &'static str| last.set(key.to_string()))
+    .on_activate(move |key: &'static str| last.set(key.to_string()))
     .on_preview(|_key: Option<&'static str>| {
         // 行がアクティブな間は `Some(key)`、ピッカーが閉じると `None`。
     });
@@ -283,7 +283,7 @@ fn add_node_button() -> impl IntoView {
 
 `attach(button)` はボタンの下にピッカーを開きます。ショートカットで開くピッカーには、代わりに `.at(anchor, position)` でウィンドウ上の点を指定します。キーの型（ここでは `&'static str`）はあなたが決め、ピッカーは選ばれたアイテムのキーを返します。`.column(title, items)` を複数回呼ぶと、検索欄を共有する複数列のピッカーになります。
 
-放射状のメニューも同じように使えます。`ui::pie_menu(entries, state, choose)` は、`PieEntry` を 1 点の周りに表示し、公開されている `PieState` を使うと、自分のショートカットで開けます（キーを押したときに開き、離したときに確定します）。
+放射状のメニューも同じように使えます。`ui::pie_menu(items, state).on_activate(choose)` は、`PieEntry` を 1 点の周りに表示し、公開されている `PieState` を使うと、自分のショートカットで開けます（キーを押したときに開き、離したときに確定します）。
 
 ## 関連項目
 

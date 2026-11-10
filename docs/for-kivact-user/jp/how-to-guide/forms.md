@@ -246,7 +246,7 @@ fn main() -> kivact::Result<()> {
 - 入力が独自の理由で invalid(`text_input(..).invalid(..)`)のときは、`field` に error がなくても invalid のままです。入力は、どちらか一方でも invalid と言えば invalid になります。
 - バインディングの書き込み側(`binding(read, write)` の `write`)が値を拒否すると、入力欄はバインディングの値へ戻ります。これは「数字だけ」のような入力フィルター向けで、「必須」の表現には使いません。
 - `.max_length(n)` は文字数(Unicode スカラー値)で入力を制限します。変換中の文字が途中で切られることはありません。
-- `.read_only(true)` は選択とコピーを許し、`.disabled(..)` は入力を受け付けません。`.purpose(kivact::view::InputPurpose::Password)` は文字を隠し、コピーと切り取りを防ぎます。
+- `.read_only(true)` は選択とコピーを許し、`.disabled(..)` は入力を受け付けません。`.purpose(InputPurpose::Password)` は文字を隠し、コピーと切り取りを防ぎます。
 
 ## 1 つの欄を Enter かフォーカス移動で確定する
 
@@ -307,7 +307,7 @@ fn main() -> kivact::Result<()> {
 
 ### モバイル入力と状態復元
 
-`.purpose(kivact::view::InputPurpose::Email)` で期待する入力を指定します。
+`.purpose(InputPurpose::Email)` で期待する入力を指定します。
 ほかに Text、Number、Decimal、Url、Phone、Password、Search があります。
 Password は値を隠し、クリップボードやアクセシビリティへの文字列公開を防ぎます。
 デスクトップの winit は Password をパスワードのヒントに、それ以外を Normal に写します。

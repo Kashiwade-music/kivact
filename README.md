@@ -40,6 +40,7 @@ an asset and clone it when reused so its cache identity stays stable.
 
 - **Plain functions and signals.** `signal`, `memo`, `effect` and keyed
   lists, with no virtual DOM and no re-rendering of whole components.
+  `#[component]` writes the props builder of a function that takes props.
 - **Standard components.** Buttons, inputs, selects, dialogs, menus, tabs,
   tables, toasts and more in `kivact::ui`, styled by the active theme.
 - **Accessibility by default.** Every component exposes role, name and state
@@ -175,7 +176,8 @@ flowchart TD
 
 | Feature | Default | Description |
 |---|---|---|
-| `gpu` | yes | GPU rendering with automatic CPU fallback. Without it the build is CPU-only. `ARVANE_RENDERER=cpu` forces the CPU renderer at run time. |
+| `gpu` | yes | GPU rendering with automatic CPU fallback. Without it the build is CPU-only. `ARVANE_RENDERER=cpu` forces the CPU renderer at run time; by default the device starts when the window needs it (`GpuStart::OnDemand`). |
+| `complex-scripts` | yes | ICU's word and line dictionaries for Thai, Lao, Khmer, Myanmar and Chinese/Japanese word breaking (about 3 MB). Turn it off for a smaller binary when the app does not need that segmentation. |
 | `test` | no | App-wide virtual E2E through `kivact::test`, with optional native mirrors. |
 | `devtools` | no | The DevTools agent in the app, for the separate DevTools app, MCP server and Python client. Release builds that enable it warn at startup. |
 | `tokio` | no | Tokio integration for asynchronous tasks. |

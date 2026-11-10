@@ -49,6 +49,35 @@ a view with one modifiable root, so callers can add `.style(..)`, `.name(..)` or
 other standard node modifiers. Use `impl IntoView` when the result can be a
 branch, a fragment or another view without one modifiable root.
 
+**A helper with props is a component.** When a helper takes props, add
+`#[component]` and declare each prop as a `Value`, a `View`, a `Callback` and so
+on; Kivact writes the props builder, so you never write it by hand (see
+[Write reusable components](../how-to-guide/custom-components.md)). A helper with
+no props whose callers keep the node modifiers stays a plain function.
+
+```rust,no_run
+use kivact::prelude::*;
+
+/// One task line. `#[component]` writes the props builder.
+#[component]
+fn task_row(title: Value<String>) -> impl IntoView {
+    row((text("-"), text(title))).style(style().gap(8))
+}
+
+fn app() -> impl IntoView {
+    column((
+        task_row("Buy milk"),
+        task_row("Write the tutorial"),
+        task_row("Go for a walk"),
+    ))
+    .style(style().gap(8))
+}
+```
+
+A `Value<String>` prop takes a `&str` or a signal, so `task_row("Buy milk")`
+works. Helpers without props, such as `header` and `task_list`, stay plain
+functions.
+
 **A setup boundary is explicit.** Calling a Rust helper does not create a new
 lifetime for its state. `App::run(app)` sets up the root once. When state
 changes, only the reactive closures introduced in the next step run again;
@@ -77,7 +106,7 @@ The boundary adds no visible layout box. Style the `column` inside it, since
 the returned `View` does not expose a single root to modify. You will use
 signals and reactive closures in the next step.
 
-Create signals and memos in setup code: the App root, `component`, and the
+Create signals and memos in setup code: the App root, `scope`, and the
 setup that `show`, `dynamic` and `for_each` run. Reactive closures such as
 `text(move || ..)` and `style(move || ..)` run again on changes, so they read
 values that setup already created.

@@ -96,7 +96,7 @@ fn loadout() -> impl IntoView {
                     .collect::<Vec<_>>()
             })
         });
-        list("Items", rows).selection(selected)
+        list("Items", rows, selected)
     };
 
     game::hud(
@@ -271,7 +271,7 @@ a `Signal<Option<u32>>`. The list and the tabs show them and write the user's
 choices back into the signals you pass; they keep no copy. When you equip an
 item, you change `items`, and everything derived from it updates.
 
-**`list(label, items).selection(selected)`** is a standard component: a list of options
+**`list(label, items, selected)`** is a standard component: a list of options
 with keyboard movement, typeahead and selection. Its first argument names the
 list for assistive technology and is not drawn. Each row is a
 `ListItem::new(key, label)` with an optional `.with_description(..)`, and the key

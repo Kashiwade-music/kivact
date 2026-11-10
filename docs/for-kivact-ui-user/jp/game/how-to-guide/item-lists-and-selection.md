@@ -6,7 +6,7 @@
 
 ## 一覧から 1 つ選ぶ
 
-`list(label, items).selection(selected)` は標準コンポーネントです。Game テーマは、直線的な角と選択の縁取りで描きます。
+`list(label, items, selected)` は標準コンポーネントです。Game テーマは、直線的な角と選択の縁取りで描きます。
 
 ```rust,no_run
 use kivact::prelude::*;
@@ -21,7 +21,7 @@ fn inventory() -> impl IntoView {
         ListItem::new(3, "Prototype Cannon").with_description("LOCKED").disabled(true),
     ];
     column((
-        list("Inventory", items).selection(selected),
+        list("Inventory", items, selected),
         game::mono(move || format!("SELECTED {:?}", selected.get())),
     ))
     .style(style().gap(12).width(320).margin(24))
@@ -61,7 +61,7 @@ fn weapons(all: Signal<Vec<Weapon>>, selected: Signal<Option<u32>>) -> impl Into
                 .collect::<Vec<_>>()
         })
     });
-    list("Weapons", rows).selection(selected)
+    list("Weapons", rows, selected)
 }
 # fn main() {}
 ```
@@ -70,7 +70,7 @@ fn weapons(all: Signal<Vec<Weapon>>, selected: Signal<Option<u32>>) -> impl Into
 
 ## 複数のアイテムを選ぶ
 
-`.selection(signal)` は単一選択なら `Signal<Option<K>>`、複数選択なら `Signal<Vec<K>>` を受け取ります。クリックで選択し、Ctrl（macOS は Cmd）で切り替え、Shift で範囲を選びます。
+第 3 引数は単一選択なら `Signal<Option<K>>`、複数選択なら `Signal<Vec<K>>` を受け取ります。クリックで選択し、Ctrl（macOS は Cmd）で切り替え、Shift で範囲を選びます。
 
 ```rust,no_run
 use kivact::prelude::*;
@@ -83,7 +83,9 @@ fn squad() -> impl IntoView {
             ListItem::new(1, "Aya"),
             ListItem::new(2, "Ben"),
             ListItem::new(3, "Cho"),
-        ]).selection(picked)
+        ],
+        picked,
+    )
 }
 # fn main() {}
 ```
@@ -100,7 +102,9 @@ fn missions() -> impl IntoView {
     let selected = signal(Some("alpha"));
     list(
         "Missions",
-        vec![ListItem::new("alpha", "Alpha"), ListItem::new("bravo", "Bravo")]).selection(selected)
+        vec![ListItem::new("alpha", "Alpha"), ListItem::new("bravo", "Bravo")],
+        selected,
+    )
     .item(|item, state| {
         row((
             game::mono(move || if state.get().selected { ">" } else { " " }),

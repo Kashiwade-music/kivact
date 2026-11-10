@@ -37,7 +37,7 @@ sliders, splitters and the toast region through `kivact::ui`; they take the
 kit's look from the recipes. Every component of the kit, like `kivact::ui`,
 takes the values it edits as constructor arguments and keeps no hidden copy.
 A segmented control is the standard radio group in the kit's look:
-`radio_group(label, options, value).orientation(Orientation::Horizontal)
+`radio_group(label, items, selected).orientation(Orientation::Horizontal)
 .variant(kivact::ui::RadioGroupVariant::Segmented)`. Domain controls such as
 `document_tabs`, the numeric fields, dock and editor surfaces remain in this
 kit; tool toggles, progress bars, inspector sections and split panes are the
@@ -199,8 +199,8 @@ the ends, Enter or a click activates (`on_activate`), Escape, an outside press a
 (`on_cancel`), and `on_preview` reports the active key for a live preview and `None`
 when it ends.
 `popup_button` and `dialog_button` open a popover below the button and a modal
-dialog: they are the core `dialog` parts (`DialogKind::Popover` and
-`DialogKind::Modal`) drawn in Creative's look, named like the button, with the
+dialog: they are the core `dialog` parts (`DialogMode::Popover` and
+`DialogMode::Modal`) drawn in Creative's look, named like the button, with the
 title as a heading, a Close button under the content, and Escape, outside
 press and assistive technology's Dismiss closing them.
 `tool_window_button(label, options, content)` provides a draggable, collapsible
@@ -288,7 +288,7 @@ theme draws, and `.body(..)` adds its second line.
 canvas with one keyboard focus: a press on the track moves the nearer end, a
 press on an end or on the movable interval drags it, and the keys edit what
 was pressed, selected or moved last. Context menus are
-`kivact::ui::menu(label, entries, choose).attach_context(target)`.
+`kivact::ui::menu(label, items).on_activate(choose).attach_context(target)`.
 
 `arrangement(clips, tracks, state).length(beats)` defaults to 16 beats. `split_button(label, primary, items).on_activate(choose)` keeps the primary action required. `tool_window(anchor, open, options).content(factory)` rebuilds content on opening and defaults to empty content. Document-tab close/reorder callbacks default to no action. Mixer inserts/routes and pie-menu entries accept reactive read-only lists. Segmented radio groups use the standard item slot.
 

@@ -39,7 +39,18 @@ kivact = { git = "https://github.com/Kashiwade-music/kivact", features = ["test"
 
 リポジトリは `rust-toolchain.toml` でツールチェーンを Rust 1.98.1 (edition 2024) に固定しています。このバージョン以降を使ってください。
 
-既定では GPU で描画し、使える GPU がなければ自動で CPU 描画に切り替わります。GPU 対応なしでビルドするには、既定の feature を無効にします (`default-features = false`)。実行時に CPU 描画を強制するには、環境変数 `ARVANE_RENDERER=cpu` を設定します。
+既定では CPU で frame を描き、window が GPU を必要としたとき（ユーザーの shader、GPU export、GPU texture の共有）に GPU device を起動します。CPU の frame が表示周期の半分を続けて超える場合も起動します。使える GPU がなければ CPU のままです。実行時に CPU 描画を強制するには、環境変数 `ARVANE_RENDERER=cpu` を設定します。`ARVANE_RENDERER=gpu` は window の起動時に device を起動します。
+
+### 小さいバイナリを配布する
+
+facade は既定で 2 つの feature を有効にします。`gpu`（GPU レンダラー）と `complex-scripts`（空白で単語を区切らない言語のための ICU の分かち書き・行分割の辞書。タイ語、ラオ語、クメール語、ミャンマー語、中国語・日本語の分かち書きを含み、約 3 MB）です。その分かち書きが要らないアプリは `complex-scripts` を外し、ほかはそのまま使えます。
+
+```toml
+[dependencies]
+kivact = { git = "https://github.com/Kashiwade-music/kivact", default-features = false, features = ["gpu"] }
+```
+
+`gpu` も一覧から外せば、GPU レンダラーのないビルドになります。`kivact-bench` は `--no-default-features` のバイナリで `gpu` だけを有効にし、小さくなったビルドを測ります。`templates/basic/Cargo.toml` の `[profile.release]`（fat LTO、codegen-units 1、描画・shaping・layout の crate だけ `opt-level = 3` でほかは `"s"`、symbol の strip）がもう半分です。バイナリが小さくなり、hot path が速くなり、release のビルドは長くなります。
 
 ## どこから読むか
 

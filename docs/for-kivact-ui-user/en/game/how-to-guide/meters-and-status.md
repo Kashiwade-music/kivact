@@ -113,7 +113,7 @@ Use `kivact::ui::avatar(name).fallback_content(..)` for exact initials. `.varian
 
 ## Show feedback
 
-`alert(title)` supports a description, icon, actions and recreated detail content. `.visible(binding)` makes the application the sole visibility authority: its setter can refuse a dismissal. `.on_dismiss(..)` reports a completed accepted dismissal after focus returns. `.dismiss_content(..)` changes visible control contents while `.dismiss_label(..)` retains its accessible name. The default alert is assertive; callers can explicitly choose polite status semantics for informational messages and banners.
+`alert(title)` supports a description, icon, actions and recreated detail content. `.open(binding)` makes the application the sole visibility authority: its setter can refuse a dismissal. `.on_dismiss(..)` reports a completed accepted dismissal after focus returns. `.dismiss_content(..)` changes visible control contents while `.dismiss_label(..)` retains its accessible name. The default alert is assertive; callers can explicitly choose polite status semantics for informational messages and banners.
 
 A banner is `AlertVariant::Banner`; the theme draws its striped title tape and full-width navy surface. Empty states accept an action and optional illustration (`.icon(())` uses the Game recipe's illustration). `SkeletonVariant::Rows` shows the cut-corner avatar and two caption placeholders, animated by the standard skeleton owner and paused for reduced motion.
 
@@ -129,7 +129,7 @@ fn warning() -> impl IntoView {
             .tone(Tone::Warning)
             .icon(icon("alert-triangle"))
             .description("Return to base within 2 minutes.")
-            .visible(visible)
+            .open(visible)
             .dismissible(true)
             .dismiss_label("Close alert")
             .dismiss_content(text("×")),

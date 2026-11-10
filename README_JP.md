@@ -33,7 +33,7 @@ identity を維持します。
 
 ## 特徴
 
-- **普通の関数とシグナル。** `signal`・`memo`・`effect` と key 付きの一覧。仮想 DOM はなく、コンポーネント全体を再実行しません。
+- **普通の関数とシグナル。** `signal`・`memo`・`effect` と key 付きの一覧。仮想 DOM はなく、コンポーネント全体を再実行しません。props を取る関数は `#[component]` が props のビルダーを書きます。
 - **標準コンポーネント。** button・入力欄・select・dialog・menu・tabs・表・toast などを `kivact::ui` に持ち、見た目は有効なテーマが決めます。
 - **既定でアクセシブル。** どのコンポーネントも役割・名前・状態を OS の支援技術へ出し、キーボードで操作できます。
 - **App 全体のテスト。** `kivact::test` は `arvane-virtual` の上で実アプリと同じ描画 driver と仮想時計を使い、役割と名前で App 全体を操作します。手元では実 window に mirror できます。
@@ -160,7 +160,8 @@ flowchart TD
 
 | Feature | 既定 | 説明 |
 |---|---|---|
-| `gpu` | 有効 | GPU で描画し、使えなければ CPU に切り替えます。無効にすると CPU だけで build します。`ARVANE_RENDERER=cpu` で実行時に CPU へ固定できます。 |
+| `gpu` | 有効 | GPU で描画し、使えなければ CPU に切り替えます。無効にすると CPU だけで build します。`ARVANE_RENDERER=cpu` で実行時に CPU へ固定できます。既定ではウィンドウが GPU を必要としたときに device を起動します (`GpuStart::OnDemand`)。 |
+| `complex-scripts` | 有効 | タイ語、ラオ語、クメール語、ミャンマー語、中国語・日本語の分かち書きのための ICU の辞書 (約 3 MB)。その分かち書きが要らないアプリは無効にするとバイナリが小さくなります。 |
 | `test` | 無効 | `kivact::test` の App 全体の仮想 E2E と任意の実窓 mirror。 |
 | `devtools` | 無効 | アプリ内の DevTools の agent。別アプリの DevTools、MCP server、Python client から使います。有効にした release build は起動時に警告を出します。 |
 | `tokio` | 無効 | 非同期 task の Tokio 連携。 |
