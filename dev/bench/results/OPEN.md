@@ -99,3 +99,15 @@ B0 と CP2（`dev/bench/results/CP2.md`、どちらも有効）の比較。倍�
   1. 共有 target の衝突：W2 の途中で lane が AB・CD・EF の target を共有した。cargo は同じ相対 path の workspace crate に同じ metadata hash を付けるため、別の worktree の成果物を再利用し得る。また `cargo xtask` は、同じ target で別の worktree から build された binary を実行し、別の worktree を解析する（`CARGO_MANIFEST_DIR` が埋め込まれる）。これで確認が汚れた unit（M7-fix、M9、S45 の xtask など）は、専用 target での再確認と統合 tree の確認で確かめ直した。W3 以降は lane ごとの target（`W:/kv-target/<L>`）を使う。
   2. lane の subagent が自分の loop のプロセスを止めようとして `Stop-Process` を使い、自動判定で拒否された。以後の subagent への指示に「他の worktree のプロセスや cargo を止めない」を入れた。
 - 次：W3（M3→T3、AH3→T7→AH2、T6→S6、G4→S3）。CP1 はその後。
+
+## W3 の結果（2026-11-10）
+
+- 統合：lane A（M3 `a3a058de`、T3 `475ac82a`）、lane B（AH3 `7ff975f7`、T7 `c8c03348`、AH2 `0be678b8`）、lane D（T6 `51866413`、S6 `64362b28`）、lane F（G4 `224ae1f6`、S3 `4df48fab`）を `--no-ff` で merge（conflict なし）。統合 HEAD は lane F の merge の `5a77fdf3`。
+- 統合 tree（`W:/kv-target/int`）の確認：`cargo fmt --all -- --check` 成功、`cargo check --workspace --all-targets --all-features` 成功、`cargo clippy --workspace --all-targets --all-features -- -D warnings` 成功、`cargo xtask check --no-write` 成功。
+- 統合 tree の E2E と unit：W3 が名指したものの E2E 233 件（`transform` から `snapshot` まで）成功。GPU の `gpu_on_demand` 6 件（RTX 3060 Ti、`KIVACT_TEST_MIRROR=required`）成功。`kivact-types`・`kivact-runtime`・`arvane-text` の unit 成功。
+- 記録すること：
+  1. T6 は途中で subagent が報告を返したため、同じ subagent を SendMessage で再開させ、xtask・E2E・fmt・commit を終えさせた。
+  2. S6：dev/bench の `gpu` feature を kivact 依存から外し、bench 自身の feature に置いた（DEC-01）。bench の `cargo tree` の wgpu の数え方は、D11 の「wgpu 18 行」と合わない（既定の build の数え方が違う）。CP1 の前に、既定の build の依存が変わっていないことを確かめる。
+  3. S3：`control` の next に `release_at` を足した。W6 の EN-2 は、この要素と `LastPresent::Shown` を残す（D9「全体」3）。
+  4. AH2：`Stats::a11y_enumerated` を公開（DEC-05）。
+- 次：W4（AH4、T5）。W4 の後は CP1。
