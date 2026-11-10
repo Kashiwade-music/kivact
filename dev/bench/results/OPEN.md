@@ -40,4 +40,15 @@ B0 と CP2（`dev/bench/results/CP2.md`、どちらも有効）の比較。倍�
 - AC-4 ✗（U23 の STOP が K2 に影響。GPU OnDemand の E2E が未実施。撤退規則の適用は無し）
 - 判定：受入れは満たされない。W7-2（書き戻し・後片付け）と W7-3（PR の下書き）は行わない。設計書・作業指示書・レビューは残す。
 
+## V2 環境（2026-11-10）
+
+- 機械：Windows 11、24 logical CPUs、137 GB RAM、GeForce RTX 3060 Ti（Vulkan）。
+- ディスク：C: 約 64.8 GB 空き、W: 約 26.4 GB 空き。1.1 節の「70 GB 以上があれば lane ごと」には届かないため、**3 つの共有 target** を使う：`C:/Users/ryo/AppData/Local/Temp/opencode/kv-target/AB`（lane A・B）、`.../CD`（lane C・D）、`.../EF`（lane E・F）。KPI の計測は `.../kv-target/kpi`。
+- すべての cargo に `CARGO_PROFILE_DEV_DEBUG=0 CARGO_PROFILE_TEST_DEBUG=0` を付ける（ディスクと PDB の上限。debug assertions は有効）。
+- `B0-here`：V1 で同じ機械・同じ commit `79bbd409` に取った `dev/bench/results/B0.md` を `B0-here.md` として使う（機械・commit・条件が同じため再計測しない）。
+- `B1-start`：V1 の `B1.md`（commit `0699af99`、コードは現在の HEAD と同一）を `B1-start.md` として使う。
+- `fonttools`：`python -m pip install --user fonttools` 成功（4.68.0）。S9 を実施できる。
+- V2 差戻し：この節の下に追記する。
+
+
 

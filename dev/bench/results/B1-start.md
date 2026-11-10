@@ -1,0 +1,91 @@
+# KPI B1 (2026-11-10T01:23Z, MINGW64_NT-10.0-26200, commit 0699af99)
+
+release build of kivact-example-counter (cold for its own target dir): 208 s
+
+## K1 startup (5 runs, median) and the first frame
+- K1 main_to_first_present renderer=default median_ms=41.1 samples=[ 44.2 40.7 41.1 42.2 39.4 ]
+- K4 first_frame_raster renderer=default median_ms=3.3 samples=[ 3.3 3.2 3.7 3.4 3.1 ]
+- K1 main_to_first_present renderer=cpu median_ms=42.0 samples=[ 42.1 42.0 42.3 40.5 41.4 ]
+- K4 first_frame_raster renderer=cpu median_ms=3.3 samples=[ 3.2 3.6 3.4 3.2 3.3 ]
+- K1 catalog_spawn_to_first_present renderer=default median_ms=189.6 samples=[ 581.5 189.6 188.9 186.9 193.3 ] (includes OS process creation)
+
+## K2/K3 idle (3 s settle, then 10 s sampled)
+- counter renderer=default ws_kib=34912 private_kib=13548 idle_cpu_ms_per_s=0.000 idle_frames=0 cpu_ticks_100ns=0 
+- counter renderer=cpu ws_kib=34968 private_kib=13636 idle_cpu_ms_per_s=0.000 idle_frames=0 cpu_ticks_100ns=0 
+- counter renderer=gpu ws_kib=94396 private_kib=111920 idle_cpu_ms_per_s=0.000 idle_frames=0 cpu_ticks_100ns=0 [renderer=gpu adapter=NVIDIA GeForce RTX 3060 Ti (Vulkan) init_ms=352.5 configure_ms=14.5]
+- basic-catalog renderer=default ws_kib=151736 private_kib=88956 idle_cpu_ms_per_s=140.907 idle_frames=626 cpu_ticks_100ns=14687500 
+- rows3000-still renderer=default ws_kib=292776 private_kib=359408 idle_cpu_ms_per_s=0.000 idle_frames=0 cpu_ticks_100ns=0 
+- basic-catalog renderer=cpu ws_kib=151616 private_kib=88968 idle_cpu_ms_per_s=124.301 idle_frames=626 cpu_ticks_100ns=12968750 
+- rows3000-still renderer=cpu ws_kib=292328 private_kib=358684 idle_cpu_ms_per_s=0.000 idle_frames=0 cpu_ticks_100ns=0 
+
+## K2 memory per item (kv_stress STILL, CPU renderer, (WS(3000) - WS(0)) / 3000)
+- item-box-0 renderer=cpu ws_kib=35796 private_kib=15740 idle_cpu_ms_per_s=0.000 idle_frames=0 cpu_ticks_100ns=0 
+- item-box-3000 renderer=cpu ws_kib=72968 private_kib=58276 idle_cpu_ms_per_s=0.000 idle_frames=0 cpu_ticks_100ns=0 
+- K2 per_item mode=box kib_per_item=12.39
+- item-text-0 renderer=cpu ws_kib=35792 private_kib=15740 idle_cpu_ms_per_s=0.000 idle_frames=0 cpu_ticks_100ns=0 
+- item-text-3000 renderer=cpu ws_kib=67244 private_kib=52400 idle_cpu_ms_per_s=0.000 idle_frames=0 cpu_ticks_100ns=0 
+- K2 per_item mode=text kib_per_item=10.48
+- item-button-0 renderer=cpu ws_kib=35796 private_kib=15744 idle_cpu_ms_per_s=0.000 idle_frames=0 cpu_ticks_100ns=0 
+- item-button-3000 renderer=cpu ws_kib=235568 private_kib=230836 idle_cpu_ms_per_s=0.000 idle_frames=0 cpu_ticks_100ns=0 
+- K2 per_item mode=button kib_per_item=66.59
+- item-row-0 renderer=cpu ws_kib=35800 private_kib=15756 idle_cpu_ms_per_s=0.000 idle_frames=0 cpu_ticks_100ns=0 
+- item-row-3000 renderer=cpu ws_kib=292112 private_kib=358448 idle_cpu_ms_per_s=0.000 idle_frames=0 cpu_ticks_100ns=0 
+- K2 per_item mode=row kib_per_item=85.44
+
+## K2 diagnostics (kv_heap, CPU, live heap bytes; not a KPI row)
+- heap mode=box live_bytes_per_item=12828
+    [box] H site   12759.6 B/item   102606 allocs 
+    [box] H site    3392.3 B/item      284 allocs CallWindowProcW
+    [box] H site       0.2 B/item        1 allocs IsWindowEnabled
+    [box] H site       0.2 B/item        5 allocs KiUserCallbackDispatcher
+- heap mode=text live_bytes_per_item=11185
+    [text] H site   11086.2 B/item    49459 allocs 
+    [text] H site    3419.5 B/item      662 allocs CallWindowProcW
+    [text] H site       0.2 B/item        1 allocs IsWindowEnabled
+    [text] H site       0.2 B/item        5 allocs KiUserCallbackDispatcher
+- heap mode=button live_bytes_per_item=67039
+    [button] H site   66974.3 B/item   786135 allocs 
+    [button] H site    3395.6 B/item      133 allocs CallWindowProcW
+    [button] H site       0.2 B/item        1 allocs IsWindowEnabled
+    [button] H site       0.2 B/item        5 allocs KiUserCallbackDispatcher
+- heap mode=row live_bytes_per_item=108877
+    [row] H site  108424.3 B/item   914444 allocs 
+    [row] H site    3758.0 B/item      552 allocs CallWindowProcW
+    [row] H site       0.2 B/item        1 allocs IsWindowEnabled
+    [row] H site       0.2 B/item        5 allocs KiUserCallbackDispatcher
+
+## K3/K4 frame time and CPU under continuous update (kv_stress, 5 s)
+- rows=0 renderer=default frames=326 fps=60.0 frame_period_ns=16666666 cpu_pct_of_core=11.21 ws_kib=38380 work_ms p50=1.4507 p95=1.8071 p99=2.1881 scene_p95=0.0383 raster_p95=1.6976 interval_p99=17.3952
+- rows=0 renderer=cpu frames=326 fps=60.0 frame_period_ns=16666666 cpu_pct_of_core=10.92 ws_kib=38364 work_ms p50=1.4364 p95=1.7861 p99=2.1994 scene_p95=0.0373 raster_p95=1.6713 interval_p99=17.526
+- rows=3000 renderer=default frames=297 fps=53.7 frame_period_ns=16666666 cpu_pct_of_core=99.08 ws_kib=274756 work_ms p50=17.5208 p95=19.2755 p99=21.5115 scene_p95=17.1118 raster_p95=2.0611 interval_p99=22.8869
+- rows=3000 renderer=cpu frames=298 fps=54.1 frame_period_ns=16666666 cpu_pct_of_core=99.79 ws_kib=274188 work_ms p50=17.589 p95=18.7445 p99=20.6548 scene_p95=16.857 raster_p95=2.0476 interval_p99=21.4991
+
+## K5 update latency (kv_latency, test driver, CPU, mirror off)
+- L mount_counter n=1 mean=6.848 p50=6.848 p95=6.848 p99=6.848
+- L counter_click n=200 mean=1.954 p50=1.978 p95=2.100 p99=2.380
+- L mount_n100 n=1 mean=38.007 p50=38.007 p95=38.007 p99=38.007
+- L unrelated_update_n100 n=50 mean=3.460 p50=3.407 p95=3.955 p99=5.110
+- L row_update_n100 n=50 mean=7.700 p50=7.823 p95=8.089 p99=8.187
+- L pointer_move_n100 n=120 mean=1.284 p50=0.564 p95=3.818 p99=4.287
+- L wheel_n100 n=40 mean=0.485 p50=0.483 p95=0.495 p99=0.517
+- S stats_n100 Stats { batches: 101, a11y_constructed: 2270, a11y_published: 1573, ops: 2853, last_batch_ops: 1, creates: 1223, set_props: 4993, structural: 1222, host_touched_last: 1, turns: 222, stale_events: 0, core_ns: 18388500, live_reactive: 4730, live_owners: 101, live_objects: 205, live_constants: 714, arena_slots: 5750, tree_nodes: 1223, timers: 0, frame_loops: 0, animations: 0 }
+- L mount_n1000 n=1 mean=362.753 p50=362.753 p95=362.753 p99=362.753
+- L unrelated_update_n1000 n=50 mean=17.005 p50=16.560 p95=20.436 p99=23.115
+- L row_update_n1000 n=50 mean=25.175 p50=25.163 p95=26.647 p99=27.067
+- L pointer_move_n1000 n=120 mean=10.898 p50=6.895 p95=24.705 p99=25.221
+- L wheel_n1000 n=40 mean=6.362 p50=6.360 p95=7.434 p99=8.043
+- S stats_n1000 Stats { batches: 101, a11y_constructed: 13070, a11y_published: 12373, ops: 27153, last_batch_ops: 1, creates: 12023, set_props: 48193, structural: 12022, host_touched_last: 1, turns: 222, stale_events: 0, core_ns: 108589600, live_reactive: 46130, live_owners: 1001, live_objects: 2005, live_constants: 7014, arena_slots: 56150, tree_nodes: 12023, timers: 0, frame_loops: 0, animations: 0 }
+- L mount_n3000 n=1 mean=1507.433 p50=1507.433 p95=1507.433 p99=1507.433
+- L unrelated_update_n3000 n=50 mean=57.529 p50=57.249 p95=58.931 p99=64.991
+- L row_update_n3000 n=50 mean=78.976 p50=78.125 p95=83.782 p99=88.019
+- L pointer_move_n3000 n=120 mean=38.501 p50=23.066 p95=89.048 p99=89.629
+- L wheel_n3000 n=40 mean=22.022 p50=22.006 p95=22.311 p99=23.124
+- S stats_n3000 Stats { batches: 101, a11y_constructed: 37070, a11y_published: 36373, ops: 81153, last_batch_ops: 1, creates: 36023, set_props: 144193, structural: 36022, host_touched_last: 1, turns: 222, stale_events: 0, core_ns: 302599200, live_reactive: 138130, live_owners: 3001, live_objects: 6005, live_constants: 21014, arena_slots: 168150, tree_nodes: 36023, timers: 0, frame_loops: 0, animations: 0 }
+
+## K6 release binary size (bytes)
+- K6 counter default 18978816
+- K6 kv_startup default 18976768
+- K6 kv_startup no-default-features 15922688
+- K6 basic-catalog default 43090432
+
+- note: V1 の B1.md（commit 0699af99、コードは現在の HEAD と同一）を B1-start として使う。
