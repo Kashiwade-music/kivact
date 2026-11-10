@@ -14,8 +14,8 @@
 //!   its own (in the order attached), then the fixed boxes, laid out as
 //!   children of the shared viewport (position zero) in `NodeId` order;
 //!   consumers retain their own presentation order independently.
-//! - A leaf's measurements are recorded by request (`Record`) and taken
-//!   from the record before the leaf is measured.
+//! - A leaf's measurements are recorded by request (`Record`), in the f32
+//!   the layout reads, and taken from the record before the leaf is measured.
 //! - A leaf's first baseline is placed inside its padding and border:
 //!   from the content top, or from the content centre (a single-line text
 //!   input's).
@@ -38,17 +38,16 @@
 
 use crate::calcs::CalcAlloc;
 use crate::calcs::Calcs;
-use crate::columns::scale_item_styles;
+use crate::columns::{SlotMap, scale_item_styles};
 use crate::style::node::{NodeStyle, TStyle};
 use crate::traversal::{Entry, Traversal, entry, taffy_id, viewport};
 use crate::{
     Flow, GeometryChange, GeometryChangeKind, LayoutState, LayoutTree, LeafMeasurer, NodeLayout,
     NodeLayoutColumns, NodeLayoutState, NodeLayoutValues,
 };
-use kivact_types::{
-    AvailableSpace, Baseline, Insets, MeasureRequest, NodeId, Orientation, Point, Rect, Size,
-};
+use kivact_types::{Baseline, Insets, NodeId, Orientation, Point, Rect, Size};
 use std::collections::{BTreeMap, BTreeSet};
+use std::rc::Rc;
 use taffy::{
     CacheTree, ClearState, CoreStyle, Display, Layout, LayoutFlexboxContainer, LayoutGridContainer,
     LayoutInput, LayoutOutput, LayoutPartialTree, LengthPercentageAuto, NodeId as TId,
@@ -61,7 +60,7 @@ struct LayoutPass<'a, Tree: LayoutTree + ?Sized> {
     calcs: &'a Calcs,
     no_grid: &'a TStyle,
     records: &'a mut [NodeLayoutState],
-    styles: &'a [NodeStyle],
+    styles: &'a [Rc<NodeStyle>],
     /// The styles of the size-animated items as their parents see them,
     /// scaled along their axis; every other item's is its own style.
     item_styles: &'a BTreeMap<usize, NodeStyle>,
@@ -72,7 +71,7 @@ struct LayoutPass<'a, Tree: LayoutTree + ?Sized> {
     unrounded: &'a mut [Layout],
     final_layout: &'a mut [Option<Layout>],
     geometry_changed: &'a mut Vec<GeometryChange>,
-    performed: &'a mut [Option<LayoutInput>],
+    performed: &'a mut SlotMap<LayoutInput>,
     touched: &'a mut [u32],
     below: &'a mut [u32],
     origin: &'a mut [(f32, f32)],
@@ -86,7 +85,7 @@ impl<Tree: LayoutTree + ?Sized> LayoutPass<'_, Tree> {
     #[inline(always)]
     fn item_style(&self, t: TId) -> &NodeStyle {
         let index = usize::from(t);
-        self.item_styles.get(&index).unwrap_or(&self.styles[index])
+        self.item_styles.get(&index).unwrap_or(&*self.styles[index])
     }
 
     #[inline(never)]
@@ -100,7 +99,7 @@ impl<Tree: LayoutTree + ?Sized> LayoutPass<'_, Tree> {
             records,
             ..
         } = self;
-        let style = &styles[index];
+        let style: &NodeStyle = &styles[index];
         let resolve = |handle, basis| calcs.resolve(handle, basis);
         let mut baseline = None;
         let mut out = taffy::compute_leaf_layout(inputs, style, resolve, |known, avail| {
@@ -108,27 +107,25 @@ impl<Tree: LayoutTree + ?Sized> LayoutPass<'_, Tree> {
                 Entry::Viewport => return taffy::Size::ZERO,
                 Entry::Slot(slot) => slot,
             };
-            let request = MeasureRequest {
-                known_width: known.width.map(f64::from),
-                known_height: known.height.map(f64::from),
-                available_width: from_taffy(avail.width),
-                available_height: from_taffy(avail.height),
-            };
+            let ask = crate::columns::Ask::new(known, avail);
             let id = tree.id_at(slot).expect("invariant: layout node exists");
             let record = &mut records[index].measured;
             let cached = record
                 .sizes
                 .iter()
-                .find(|(r, _)| *r == request)
-                .map(|(_, s)| *s);
+                .find(|(r, _)| *r == ask)
+                .map(|(_, m)| m.leaf());
             let leaf = cached.unwrap_or_else(|| {
-                let leaf = measure.measure(id, request);
+                let leaf = measure.measure(id, ask.request());
                 if record.sizes.len() == 16 {
                     record.sizes.remove(0);
                     record.state = crate::columns::RecordState::Incomplete;
                 }
-                record.sizes.push((request, leaf));
-                leaf
+                let measured = crate::columns::Measured::of(&leaf);
+                // A leaf is measured under a few requests: keep no spare capacity.
+                record.sizes.reserve_exact(1);
+                record.sizes.push((ask, measured));
+                measured.leaf()
             });
             baseline = leaf.baseline;
             taffy::Size {
@@ -414,14 +411,6 @@ fn resolve_dimension(value: taffy::Dimension, basis: Option<f32>, calcs: &Calcs)
     }
 }
 
-fn from_taffy(space: taffy::AvailableSpace) -> AvailableSpace {
-    match space {
-        taffy::AvailableSpace::Definite(v) => AvailableSpace::Definite(f64::from(v)),
-        taffy::AvailableSpace::MinContent => AvailableSpace::MinContent,
-        taffy::AvailableSpace::MaxContent => AvailableSpace::MaxContent,
-    }
-}
-
 impl<Tree: LayoutTree + ?Sized> LayoutPartialTree for LayoutPass<'_, Tree> {
     type CoreContainerStyle<'a>
         = &'a NodeStyle
@@ -432,7 +421,7 @@ impl<Tree: LayoutTree + ?Sized> LayoutPartialTree for LayoutPass<'_, Tree> {
 
     #[inline(always)]
     fn get_core_container_style(&self, t: TId) -> Self::CoreContainerStyle<'_> {
-        &self.styles[usize::from(t)]
+        &*self.styles[usize::from(t)]
     }
 
     #[inline(always)]
@@ -463,7 +452,7 @@ impl<Tree: LayoutTree + ?Sized> LayoutPartialTree for LayoutPass<'_, Tree> {
             let mut natural_inputs = inputs;
             let mut natural = pass.natural_size[usize::from(t)];
             if let Some((axis, _)) = scale {
-                let style = &pass.styles[usize::from(t)];
+                let style: &NodeStyle = &pass.styles[usize::from(t)];
                 let preferred = match axis {
                     Orientation::Horizontal => {
                         resolve_dimension(style.size.width, inputs.parent_size.width, pass.calcs)
@@ -529,8 +518,9 @@ impl<Tree: LayoutTree + ?Sized> LayoutPartialTree for LayoutPass<'_, Tree> {
             }
             output
         });
-        if inputs.run_mode == RunMode::PerformLayout {
-            self.performed[usize::from(t)] = Some(inputs);
+        // Only a parent is laid out again alone (`relayout_parents`): a leaf keeps none.
+        if inputs.run_mode == RunMode::PerformLayout && self.child_count(t) > 0 {
+            self.performed.insert(usize::from(t) as u64, inputs);
         }
         output
     }
@@ -566,7 +556,7 @@ impl<Tree: LayoutTree + ?Sized> LayoutFlexboxContainer for LayoutPass<'_, Tree> 
 
     #[inline(always)]
     fn get_flexbox_container_style(&self, t: TId) -> Self::FlexboxContainerStyle<'_> {
-        &self.styles[usize::from(t)]
+        &*self.styles[usize::from(t)]
     }
 
     #[inline(always)]
@@ -734,7 +724,7 @@ impl NodeLayoutColumns {
         let root = self.values.styles[index].position == taffy::Position::Absolute
             && style.position == taffy::Position::Absolute;
         self.values.relative[index] = uses_parent_size(&style);
-        self.values.styles[index] = style;
+        self.values.styles[index] = self.values.recent_styles.share(style);
         state.mark_dirty();
         self.states[index].measured = Default::default();
         if root {
@@ -844,7 +834,7 @@ impl NodeLayoutColumns {
                 continue;
             }
             let at = slot + 1;
-            let performed = self.values.performed[at];
+            let performed = self.values.performed.get(&(at as u64)).copied();
             let previous = performed.and_then(|inputs| {
                 self.values.caches[at]
                     .get(&inputs)
@@ -901,6 +891,8 @@ impl NodeLayoutColumns {
             origin,
             scaled,
             never_rounded,
+            default_style: _,
+            recent_styles: _,
         } = values;
         let mut pass_calcs = std::borrow::Cow::Borrowed(&*calcs);
         let item_styles =
@@ -1055,7 +1047,7 @@ impl NodeLayoutColumns {
         let index = usize::from(overlay);
         let Some(fit) = tree.overlay_fit(slot) else {
             let values = &mut self.values;
-            if values.styles[index].set_min_width_floor(floor as f32) {
+            if Rc::make_mut(&mut values.styles[index]).set_min_width_floor(floor as f32) {
                 values.caches[index].clear();
             }
             self.compute_at(tree, state, overlay, available, false, measure);
@@ -1067,7 +1059,7 @@ impl NodeLayoutColumns {
             width: limit.width.min(rect.width).floor(),
             height: limit.height.min(rect.height).floor(),
         };
-        let style = &mut self.values.styles[index];
+        let style = Rc::make_mut(&mut self.values.styles[index]);
         let (min, max) = (style.min_size, style.max_size);
         let cap = |length: LengthPercentageAuto, limit, fallback| {
             LengthPercentageAuto::length(
@@ -1090,7 +1082,7 @@ impl NodeLayoutColumns {
         );
         self.values.caches[index].clear();
         self.compute_at(tree, state, overlay, bounds, false, measure);
-        self.values.styles[index].set_size_bounds(min, max);
+        Rc::make_mut(&mut self.values.styles[index]).set_size_bounds(min, max);
     }
     fn compute_at<Tree: LayoutTree + ?Sized>(
         &mut self,
@@ -1103,7 +1095,7 @@ impl NodeLayoutColumns {
     ) {
         if fill {
             let values = &mut self.values;
-            let style = &mut values.styles[usize::from(root)];
+            let style = Rc::make_mut(&mut values.styles[usize::from(root)]);
             let size = taffy::Size {
                 width: taffy::Dimension::length(available.width as f32),
                 height: taffy::Dimension::length(available.height as f32),

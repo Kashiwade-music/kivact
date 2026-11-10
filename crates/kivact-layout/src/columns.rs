@@ -4,9 +4,11 @@ use crate::LayoutTree;
 use crate::calcs::{CalcAlloc, Calcs};
 use crate::pass_state::Epoch;
 use crate::style::node::NodeStyle;
-use kivact_types::{Insets, LeafSize, MeasureRequest, Orientation, Point, Rect, Size};
+use kivact_types::cell::Recent;
+use kivact_types::{Baseline, Insets, LeafSize, MeasureRequest, Orientation, Point, Rect, Size};
 use std::cell::Cell;
 use std::collections::{BTreeMap, BTreeSet};
+use std::rc::Rc;
 
 /// The computed layout of one node.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
@@ -29,14 +31,106 @@ pub struct NodeLayout {
     pub margin: Insets,
 }
 
-/// What a leaf measured to, by request: the last 16 requests (`sizes`);
-/// `incomplete` once an older one was dropped, so the record no longer
+/// A measure request as the layout pass asks it: taffy's f32 values as
+/// bits (known width, known height, available width, available height).
+/// An absent known size and the content-based available spaces are bit
+/// patterns no f32 arithmetic produces (NaNs with every payload bit set).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct Ask([u32; 4]);
+
+const UNKNOWN: u32 = u32::MAX;
+const MIN_CONTENT: u32 = u32::MAX - 1;
+const MAX_CONTENT: u32 = u32::MAX;
+
+impl Ask {
+    pub(crate) fn new(
+        known: taffy::Size<Option<f32>>,
+        available: taffy::Size<taffy::AvailableSpace>,
+    ) -> Self {
+        let known_bits = |v: Option<f32>| v.map_or(UNKNOWN, f32::to_bits);
+        let space_bits = |s: taffy::AvailableSpace| match s {
+            taffy::AvailableSpace::Definite(v) => v.to_bits(),
+            taffy::AvailableSpace::MinContent => MIN_CONTENT,
+            taffy::AvailableSpace::MaxContent => MAX_CONTENT,
+        };
+        Self([
+            known_bits(known.width),
+            known_bits(known.height),
+            space_bits(available.width),
+            space_bits(available.height),
+        ])
+    }
+
+    /// The request the leaf measurer is asked (the f32 values widened, as before).
+    pub(crate) fn request(self) -> MeasureRequest {
+        let known = |b: u32| (b != UNKNOWN).then(|| f64::from(f32::from_bits(b)));
+        let space = |b: u32| match b {
+            MIN_CONTENT => kivact_types::AvailableSpace::MinContent,
+            MAX_CONTENT => kivact_types::AvailableSpace::MaxContent,
+            b => kivact_types::AvailableSpace::Definite(f64::from(f32::from_bits(b))),
+        };
+        MeasureRequest {
+            known_width: known(self.0[0]),
+            known_height: known(self.0[1]),
+            available_width: space(self.0[2]),
+            available_height: space(self.0[3]),
+        }
+    }
+}
+
+/// What a leaf measured to, as the layout pass reads it (f32).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) struct Measured {
+    width: f32,
+    height: f32,
+    baseline: f32,
+    from: BaselineFrom,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum BaselineFrom {
+    None,
+    Top,
+    Center,
+}
+
+impl Measured {
+    pub(crate) fn of(leaf: &LeafSize) -> Self {
+        let (from, baseline) = match leaf.baseline {
+            None => (BaselineFrom::None, 0.0),
+            Some(Baseline::FromTop(y)) => (BaselineFrom::Top, y as f32),
+            Some(Baseline::FromCenter(y)) => (BaselineFrom::Center, y as f32),
+        };
+        Self {
+            width: leaf.size.width as f32,
+            height: leaf.size.height as f32,
+            baseline,
+            from,
+        }
+    }
+
+    /// The leaf size these values are (widened back exactly).
+    pub(crate) fn leaf(self) -> LeafSize {
+        let y = f64::from(self.baseline);
+        LeafSize {
+            size: Size::new(f64::from(self.width), f64::from(self.height)),
+            baseline: match self.from {
+                BaselineFrom::None => None,
+                BaselineFrom::Top => Some(Baseline::FromTop(y)),
+                BaselineFrom::Center => Some(Baseline::FromCenter(y)),
+            },
+        }
+    }
+}
+
+/// What a leaf measured to, by request: the last 16 requests (`sizes`), in
+/// the f32 the layout reads; `incomplete` once an older one was dropped, so the record no longer
 /// covers every request the last computation made (see
 /// [`NodeLayoutColumns::remeasures_same`]). An edit that invalidates the leaf's layout
 /// clears it; nothing else measures a leaf again, frame after frame.
 #[derive(Clone, Debug, Default)]
 pub(crate) struct Record {
-    pub(crate) sizes: Vec<(MeasureRequest, LeafSize)>,
+    pub(crate) sizes: Vec<(Ask, Measured)>,
     pub(crate) state: RecordState,
 }
 
@@ -105,10 +199,19 @@ pub(crate) struct NodeLayoutState {
     pub(crate) measured: Record,
 }
 
+/// Values of a few slots, by layout position (`slot + 1`).
+pub(crate) type SlotMap<V> =
+    std::collections::HashMap<u64, V, std::hash::BuildHasherDefault<kivact_types::IdHasher>>;
+
 /// Style, caches and optional geometry borrowed for one root computation.
 #[derive(Clone, Debug)]
 pub(crate) struct NodeLayoutValues {
-    pub(crate) styles: Vec<NodeStyle>,
+    /// The style of each slot; slots that share a style share its `Rc` (M3-9).
+    pub(crate) styles: Vec<Rc<NodeStyle>>,
+    /// The default style every new or reset slot shares.
+    pub(crate) default_style: Rc<NodeStyle>,
+    /// The last distinct styles built from layout props: equal ones are shared (M3-9).
+    pub(crate) recent_styles: Recent<NodeStyle>,
     /// Whether its own box resolves a length against its parent's size: a
     /// percentage or calc in its size, min/max size, flex basis, margin, padding,
     /// border or inset. Only then do its cache keys keep the parent's size.
@@ -121,9 +224,10 @@ pub(crate) struct NodeLayoutValues {
     pub(crate) final_layout: Vec<Option<taffy::Layout>>,
     /// Rounded geometry changes awaiting consumption by the integration.
     pub(crate) geometry_changed: Vec<GeometryChange>,
-    /// The inputs of the node's last full layout (taffy's `PerformLayout`),
+    /// The inputs of a parent's last full layout (taffy's `PerformLayout`),
     /// which lay a parent of an absolute box out again on its own (`tree`).
-    pub(crate) performed: Vec<Option<taffy::LayoutInput>>,
+    /// Only a node with children keeps them: a sparse table (M3-10).
+    pub(crate) performed: SlotMap<taffy::LayoutInput>,
     /// The pass number of the last `set_unrounded_layout` that changed this
     /// slot's value (taffy sets every child again when it lays out the parent).
     pub(crate) touched: Vec<u32>,
@@ -145,8 +249,11 @@ pub(crate) struct NodeLayoutValues {
 
 impl Default for NodeLayoutValues {
     fn default() -> Self {
+        let default_style = Rc::new(NodeStyle::default());
         Self {
-            styles: vec![NodeStyle::default()],
+            styles: vec![Rc::clone(&default_style)],
+            default_style,
+            recent_styles: Recent::default(),
             relative: vec![false],
             presence_scale: vec![None],
             natural_size: vec![None],
@@ -154,7 +261,7 @@ impl Default for NodeLayoutValues {
             unrounded: vec![taffy::Layout::new()],
             final_layout: vec![None],
             geometry_changed: Vec::new(),
-            performed: vec![None],
+            performed: SlotMap::default(),
             touched: vec![0],
             below: vec![0],
             origin: vec![(f32::NAN, f32::NAN)],
@@ -223,14 +330,13 @@ impl NodeLayoutColumns {
         self.cursors.push(ChildCursor::default());
         self.states.push(NodeLayoutState::default());
         let values = &mut self.values;
-        values.styles.push(NodeStyle::default());
+        values.styles.push(Rc::clone(&values.default_style));
         values.relative.push(false);
         values.presence_scale.push(None);
         values.natural_size.push(None);
         values.caches.push(taffy::Cache::new());
         values.unrounded.push(taffy::Layout::new());
         values.final_layout.push(None);
-        values.performed.push(None);
         values.touched.push(0);
         values.below.push(0);
         values.origin.push((f32::NAN, f32::NAN));
@@ -249,14 +355,14 @@ impl NodeLayoutColumns {
         self.states[index] = NodeLayoutState::default();
         self.cursors[index] = ChildCursor::default();
         let values = &mut self.values;
-        values.styles[index] = NodeStyle::default();
+        values.styles[index] = Rc::clone(&values.default_style);
         values.relative[index] = false;
         values.presence_scale[index] = None;
         values.natural_size[index] = None;
         values.caches[index] = taffy::Cache::new();
         values.unrounded[index] = taffy::Layout::new();
         values.final_layout[index] = None;
-        values.performed[index] = None;
+        values.performed.remove(&(index as u64));
         values.touched[index] = 0;
         values.below[index] = 0;
         values.origin[index] = (f32::NAN, f32::NAN);
@@ -375,7 +481,7 @@ fn scaled_length(
 
 pub(crate) fn scale_item_styles<Tree: LayoutTree + ?Sized>(
     tree: &Tree,
-    styles: &[NodeStyle],
+    styles: &[Rc<NodeStyle>],
     presence_scale: &[Option<(Orientation, f64)>],
     scaled: &BTreeSet<usize>,
     calcs: &Calcs,
@@ -391,7 +497,7 @@ pub(crate) fn scale_item_styles<Tree: LayoutTree + ?Sized>(
         }
         let style = item_styles
             .entry(index)
-            .or_insert_with(|| styles[index].clone());
+            .or_insert_with(|| (*styles[index]).clone());
         let mut alloc = CalcAlloc {
             calcs: pass_calcs.to_mut(),
             owned: Vec::new(),

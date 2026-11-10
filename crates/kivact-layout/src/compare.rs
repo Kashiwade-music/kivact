@@ -1,7 +1,7 @@
 //! Role: Normal recorded-measurement revalidation and independent result reconciliation.
 
 use crate::borrowed_tree::{LayoutTree, LeafMeasurer};
-use crate::columns::NodeLayoutColumns;
+use crate::columns::{Measured, NodeLayoutColumns};
 use crate::pass_state::LayoutState;
 use kivact_types::NodeId;
 
@@ -53,10 +53,9 @@ impl NodeLayoutColumns {
     ) -> bool {
         let record = &self.states[slot + 1].measured;
         record.state == crate::columns::RecordState::Complete
-            && record
-                .sizes
-                .iter()
-                .all(|(request, retained)| measure.measure(id, *request) == *retained)
+            && record.sizes.iter().all(|(ask, retained)| {
+                Measured::of(&measure.measure(id, ask.request())) == *retained
+            })
     }
     /// Compare retained requests with current content, including bounded incomplete records.
     /// This diagnostic operation never updates retained measurements or repairs layout.
@@ -73,13 +72,15 @@ impl NodeLayoutColumns {
             let Some(id) = tree.id_at(slot) else {
                 continue;
             };
-            for (request, retained) in &self.states[slot + 1].measured.sizes {
-                let rebuilt = measure.measure(id, *request);
-                if *retained != rebuilt {
+            for (ask, retained) in &self.states[slot + 1].measured.sizes {
+                let request = ask.request();
+                let rebuilt = measure.measure(id, request);
+                if Measured::of(&rebuilt) != *retained {
                     errors.push(LayoutDifference {
                         id,
                         detail: format!(
-                            "measurement {request:?}: retained {retained:?}, rebuilt {rebuilt:?}"
+                            "measurement {request:?}: retained {:?}, rebuilt {rebuilt:?}",
+                            retained.leaf()
                         ),
                     });
                 }
@@ -112,7 +113,7 @@ impl NodeLayoutColumns {
         for cache in &mut self.values.caches {
             cache.clear();
         }
-        self.values.performed.fill(None);
+        self.values.performed.clear();
     }
     /// Compare full geometry and available parent-visible outputs for identical inputs.
     /// None/None is the sole geometry skip. This is strict equality, distinct from
@@ -132,7 +133,7 @@ impl NodeLayoutColumns {
             if before.final_layout[at].is_none() && after.final_layout[at].is_none() {
                 continue;
             }
-            if let Some(input) = before.performed[at] {
+            if let Some(input) = before.performed.get(&(at as u64)).copied() {
                 let a = before.caches[at].clone().get(&input);
                 let b = after.caches[at].clone().get(&input);
                 if let (Some(a), Some(b)) = (a, b)
