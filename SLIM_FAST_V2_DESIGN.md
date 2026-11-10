@@ -1,6 +1,6 @@
 # Kivact Slim-Fast V2 設計書
 
-版 2.0（2026-11-10）。**2026-11-10 にユーザー（設計者）が承認済み**（DEC-01 は「`gpu` を既定に残す」、K6 は MS-5 の定義）。作業ブランチ `refactor/kashiwade/slim-fast`、基点 HEAD `73c36c7c`（= `db8d679b` W7-1 の判定 + 引継ぎ文書）。
+版 2.1（2026-11-10、W1 の後の再監査を反映。0.4 節）。版 2.0：**2026-11-10 にユーザー（設計者）が承認済み**（DEC-01 は「`gpu` を既定に残す」、K6 は MS-5 の定義）。作業ブランチ `refactor/kashiwade/slim-fast`、基点 HEAD `73c36c7c`（= `db8d679b` W7-1 の判定 + 引継ぎ文書）。
 
 手順は [SLIM_FAST_V2_WORK_ORDER.md](SLIM_FAST_V2_WORK_ORDER.md)（V2 作業指示書）に書く。本書は「何を、なぜ、どの形にするか」と、付属書どうしの調整と、設計者の判断の結果を持つ。各変更の型・関数・書き手・呼出元・試験の詳細は付属書 `slim-fast-v2/D1〜D8` にある。実装者は本書と付属書の決定を変えない。
 
@@ -13,9 +13,10 @@
 衝突したら上が優先する。
 
 1. 本書（V2 設計書）。特に 4 章（決定）と 5 章（付属書間の調整）は、付属書の記述を上書きする。
-2. 付属書 `slim-fast-v2/D1〜D8`（下の表）。付属書の「8 章 設計者（人間）の判断が要る点」は、すべて本書 4 章で決めた。付属書の 8 章の「推奨」「選択肢」を実装者が読み直して選ぶことはしない。
-3. 旧設計書 [SLIM_FAST_DESIGN.md](SLIM_FAST_DESIGN.md)（版 1.1）。本書と付属書が触れない事項についてだけ有効（0.2 前提、1.1 計測の定義、1.4 必達、2.2 規則、5 章の公開 API、6.1〜6.3 の状態の規則、8 章の決定）。版 1.1 の節のうち本書が置き換えたものは 2.5 節の表にある。
-4. `docs/for-kivact-developer/architecture.md`、`decisions.md`、`strategy.md`。
+2. **V2.1 修正付属書 `slim-fast-v2/D9〜D14`**（0.4 節）。W1 の後の再監査で、W2 以降の全 unit を HEAD `2a3b06b8` のコードに合わせて確定したもの。D1〜D8 と食い違えば D9〜D14 が正。
+3. 付属書 `slim-fast-v2/D1〜D8`（下の表）。付属書の「8 章 設計者（人間）の判断が要る点」は、すべて本書 4 章で決めた。付属書の 8 章の「推奨」「選択肢」を実装者が読み直して選ぶことはしない。
+4. 旧設計書 [SLIM_FAST_DESIGN.md](SLIM_FAST_DESIGN.md)（版 1.1）。本書と付属書が触れない事項についてだけ有効（0.2 前提、1.1 計測の定義、1.4 必達、2.2 規則、5 章の公開 API、6.1〜6.3 の状態の規則、8 章の決定）。版 1.1 の節のうち本書が置き換えたものは 2.5 節の表にある。
+5. `docs/for-kivact-developer/architecture.md`、`decisions.md`、`strategy.md`。
 
 旧作業指示書 [SLIM_FAST_WORK_ORDER.md](SLIM_FAST_WORK_ORDER.md)・`20261109_2107_CODEX_REVIEW.md`・`20261110_1145_CLAUDE_CODE.md` は履歴として残す。手順には V2 作業指示書だけを使う。
 
@@ -33,6 +34,28 @@
 | [D8-state-sweep.md](slim-fast-v2/D8-state-sweep.md) | `CheckableState` の排他の型化（`CheckControl`）、workspace の全 marker 917 行の判定 | AC-3 | P8-* の名前をそのまま使う |
 
 付属書の行番号は HEAD `73c36c7c` のもの。前の unit がファイルを変えると行はずれる。実装者は関数名・型名・field 名で場所を探す（作業指示書 0.2）。
+
+### 0.4 V2.1（W1 の後の再監査）
+
+W1 の実装で、設計判断を求める差戻しが 7 件出た（`dev/bench/results/OPEN.md`「V2 差戻し（W1）」）。原因は 4 つの型に分かれる：
+
+| 原因 | W1 の例 | V2.1 の対策 |
+|---|---|---|
+| 新しく作る型が state-fields lint に当たるのに、閉じ方（型・marker の文言）が付属書に無い | F5 `Indexed`、M7 `Plan`、T8 `OwnerEntry.extra`、M6 `InStylePaint` | W2 以降の全 unit の新しい型を lint の規則で走査し、型で閉じる形（なるべく marker を使わない）か marker の文言を一字一句確定した（D9〜D14） |
+| 公開・crate 間の署名の変更と、その呼出し元が別の unit・別の wave にある | S4（`FontSource`）と S5、G1（`RendererChange`）と G2 | 全ての署名の変更の呼出し元を workspace で列挙し、同じ unit に入れた（S4＋S5 → S45 など） |
+| 付属書のコード片が実コードと合わない、既存の試験の期待値と衝突する | M6（`text_measurer` の型、style_paint の E2E） | 監査で試作し、compile・clippy・xtask・名前を挙げた E2E を実行して確かめた形を書いた。期待値を変える試験は一字一句書いた |
+| unit の確認コマンドが不足 | F4 の `Indexed.size`・`content` が feature 無しの build で dead_code（clippy が失敗） | 作業指示書の雛形に feature 無しの clippy と crate ごとの xtask を足した。F4-fix を W2 に置いた |
+
+再監査の結果、ユーザー（人間）にしか決められない項目は無かった。設計者が決めた点は 4 章の DEC-24〜DEC-30。
+
+| 修正付属書 | 範囲 |
+|---|---|
+| [D9-fix-engine.md](slim-fast-v2/D9-fix-engine.md) | F5-fix、AH1〜AH4、F7、T7、S3 |
+| [D10-fix-memory.md](slim-fast-v2/D10-fix-memory.md) | M7-fix、T8-fix、M6（設計し直し）、M3（T2・T9 を統合）、M8、M9、T1、T3、T5、T6 |
+| [D11-fix-size-gpu.md](slim-fast-v2/D11-fix-size-gpu.md) | S45（S4＋S5）、S6〜S9、T4 の順序、G3、G4 |
+| [D12-fix-api.md](slim-fast-v2/D12-fix-api.md) | G5〜G8、FINAL-1、G9 |
+| [D13-fix-state-L1-L3.md](slim-fast-v2/D13-fix-state-L1-L3.md) | W6 の L1〜L3 |
+| [D14-fix-state-L4-L6.md](slim-fast-v2/D14-fix-state-L4-L6.md) | W6 の L4〜L6、FINAL-2 |
 
 ### 0.3 変わらない前提（版 1.1 の 0.2 を引き継ぐ）
 
@@ -155,19 +178,26 @@ V2 は crate を追加・統合しない。調べた境界の候補と判断：
 | DEC-08 | D2 8-5、8-6 | 相対座標 + AccessKit transform、Mut::NONE の prop の細分 | どちらも採らない（後続の候補として 7 章に記録） |
 | DEC-09 | D1 8-1〜8-4 | row 更新の余裕、compositor と試験 driver を D1 に含めること、hit の担当、残る O(N) | row 更新は a11y が ≤ 0.5 ms（D2）なので総額約 8 ms で必達内。arvane-compose・arvane-virtual は D1（F5・F6）が持つ。hit は D2（AH3）。D1 4.4 の残る O(N)（image 数・observed 数に比例するもの）は後続（7 章） |
 | DEC-10 | D3 H1・H2・H3 | text item、3000 行の WS、button・row の余裕 | D7 で解決（text 約 3.0〜3.2、button 20.8、row 26.6、3000 行約 116 MB）。D3 H3 の追加策は行わない |
-| DEC-11 | D3 H4 | `Style::paint` の callback を持つ box で style の compile も再実行されること | 許容する |
+| DEC-11 | D3 H4 | `Style::paint` の callback を持つ box で style の compile も再実行されること | **取り消し（V2.1）**。M6 は「paint の callback が最初に現れたときに局所 paint の機構（今の `draw::bind` と同じもの）を遅延して作る」に設計し直した（D10 M6）。callback が読む signal で style の closure は再実行されず、E2E `style_paint::paint_only_style_tracks_size_signals_theme_and_removal` の期待をそのまま満たす。callback を持たない box は何も作らない（メモリの効果は同じ） |
 | DEC-12 | D3 H5 | `kv_heap` の `CHAIN`・`TOP` の出力 | 採る（診断の道具の変更、CI ではない） |
 | DEC-13 | D4 Q4 | idle の window が CPU の frame state を手放すまでの時間 | 1 s（`FRAME_STATE_KEEP_NS`） |
 | DEC-14 | D5 8-1 | 公開の recipe state の形の変更（PartState などを accessor に） | 採る（D5 で確定済み）。外部の theme 作者は `state.input.pressed` → `state.input.is_pressed()` のように直す。V2 の変更点の一覧（作業指示書 W8 の PR 下書き）に書く |
 | DEC-15 | D5 8-2 | `CheckableState` の排他を型にするか | 型にする（D8 3.1・3.2 `CheckControl`）。D5 の F-T4（`SwitchFacts`）は行わない（5.2） |
 | DEC-16 | D5 8-3 | 抜き取りしていない crate の marker を人が読むか | D8 で全 917 行を判定した。V2 の後、`state-audit.md` を人が確認することは版 1.1 6.1 の 5 のとおり AC-3 の条件に残す（W8） |
-| DEC-17 | D6 8-1 | `GpuPreference`・`GpuPower`・`GpuBackend`・`GpuStart`・`AdapterMatch` の所在 | `kivact::launch` に移し、feature なしで公開する（G8）。`App::gpu_preference` と `RenderOptions::gpu_preference` の cfg を外す。feature `gpu` が無い build では無視されることを doc に書く。`gpu_interop` からの再公開は削除する |
-| DEC-18 | D6 8-2 | ARG-6 の `show`/`hide` と既存の `MenuApi::show(factory)`・`CommandPaletteApi::show(factory)` の衝突 | content を mount する method を `content(factory)` に改名する（G9） |
+| DEC-17 | D6 8-1 | `GpuPreference`・`GpuPower`・`GpuBackend`・`GpuStart`・`AdapterMatch` の所在 | `kivact::launch` で feature なしで公開する。facade には `launch` module が無いので、**この 5 型だけを再公開する `crates/kivact/src/launch.rs` を新しく作る**（core の launch module を丸ごと出さない。内部の型を公開しないため。D12 G8）。`App::gpu_preference` と `RenderOptions::gpu_preference` の cfg を外す。feature `gpu` が無い build では無視されることを doc に書く。`gpu_interop` からの再公開は削除する |
+| DEC-18 | D6 8-2 | ARG-6 の `show`/`hide` と既存の `MenuApi::show(factory)`・`CommandPaletteApi::show(factory)` の衝突 | content を mount する method を **`while_open(factory)`** に改名する（V2.1。`content` は既存の `content() -> Part` と衝突するため使えない。意味は「開いている間だけ factory の view を mount する」で、React の `{open && <X/>}`、Solid の `<Show when>` に当たる。G9、D12） |
 | DEC-19 | D6 8-3 | API-3（handler を位置引数にしない）と `#[component]` の必須 callback の位置引数 | `#[component]` は「必須の props は位置引数」を優先する。architecture.md の API-3 を「kit の builder の任意 handler は setter で受ける」に限定して書き直す（W8 の書き戻し） |
 | DEC-20 | D6 C-15 | prelude の `provide_theme` | prelude から外す（`provide_locale`・`provide_messages` と揃える。App の root で一度書くだけなので明示の import が分かりやすい）。G6 が行い、呼出し元の import を直す |
 | DEC-21 | D7 H-P7-1〜5 | WS の回ごとの揺れ、f32 の測定記録と `remeasures_same`、最初の frame の追加の shaping 1 回、`Semantics` を疎にせず共有、`Model::sync` の 63 B/item | すべて D7 の推奨のとおり。判定は MS-4 |
 | DEC-22 | D8 8-1 | `TimestampEntry.copyable`（読み手が無く copy 操作も未実装） | V2 では field を残し、marker を事実どおりの `option:` にする（P8-SOFT）。copy 操作の実装は V2 の範囲外の kit の作業（7 章） |
 | DEC-23 | D8 8-2 | P8-GPU の時期 | G1・G3・G8 の後（作業指示書 W6） |
+| DEC-24 | V2.1 | W1 の新しい型の閉じ方 | 型で閉じる：F5 `Indexed` の 2 つの `Option<PixelRect>` を enum `Reach { Nothing, Draws(..), Opens(..) }` に（D9 F5-fix）、M7 `Plan` の `checked`・`indeterminate` を 5 状態の enum `CheckFold` に（D10 M7-fix）。T8 `OwnerEntry.extra` は `independent:` の marker（文言は D10 T8-fix） |
+| DEC-25 | V2.1 | F4 の `Indexed.size`・`content`（読み手が無い） | 削除する（F4-fix、作業指示書 W2） |
+| DEC-26 | V2.1 | W1 の M1 の後に失敗する E2E `diagnostics::why_follows_the_prop_to_the_write_through_a_memo` | 期待値の node 番号と semantics patch の行を、T1 の後の実際の出力に合わせる（node 番号は振る舞いではない。冗長な role の patch が消えるのは T1 の目的どおり）。文言は D10 T1 |
+| DEC-27 | V2.1 | D7 が足す kivact-types・kivact-layout の単体試験 | 足さない（0.3 節の前提。E2E で確かめる） |
+| DEC-28 | V2.1 | 公開の recipe state の命名 | 排他な事実は pub の enum の field（名前は型名から owner の接頭辞を除いたもの。部分を表す enum の名前は `State` で終わらせない）、常にある事実は pub の field、一部の種類にだけある事実と導出する事実は accessor。bool の accessor は `is_`／`has_` で始める（D14 冒頭）。例：`CardActionState` → `CardAction`、`icon_only()` → `is_icon_only()` |
+| DEC-29 | V2.1 | D5 の E-7（creative の clock の Machine 化）、E-8（date_input の feed）、E-9（DataTable builder の page）、E-11（creative TargetState） | 行わない（E-7 は clock と machine の相互参照の循環になる。E-8・E-9 は D14 の各節の理由。E-11 は推測で、どの unit にも無い） |
+| DEC-30 | V2.1 | G9 の改名の範囲 | D12 G9 の改名表（HEAD の実際の署名で書き直したもの）。ARG-2/3/6 の漏れ（`use_tabs`・`use_select`・`use_menu`・`use_tree` 等の引数名、`ComboboxApi::open_sheet` → `show_sheet`、`LightboxHandle`・`AppShellMobile` の `close` → `hide`）を含む |
 
 ---
 
@@ -296,7 +326,7 @@ V2 の完了後、W8 で `dev/bench/results/OPEN.md` の「後続」節に書く
 | SLIM-11 | facade の既定 feature は `gpu` と `complex-scripts` のまま（DEC-01）。K6 は Kivact 自身の大きさを GPU 一式を除く構成で測り、GPU 込みの既定の build は悪化させない（MS-5） |
 | SLIM-12 | GPU の起動の入口は二つ（`begin`、`demand`）。CPU だけの window は需要があっても起動しない（D6 3.2） |
 | SLIM-13 | 試験は `RenderOptions::gpu_on_demand()` と `Screen::renderer()` で GPU OnDemand を検証する（D6 3.4） |
-| SLIM-14 | 公開の recipe state は accessor で読む。排他な事実は enum（`CheckControl` 等）で持つ（DEC-14、DEC-15） |
+| SLIM-14 | 公開の recipe state は accessor で読む。排他な事実は enum（`CheckControl` 等）で持つ。命名は DEC-28 の規則（DEC-14、DEC-15） |
 | SLIM-15 | `#[component]` の必須 props は位置引数（handler を含む）。API-3 は kit の builder の任意 handler に限る（DEC-19） |
 | SLIM-16 | lint の gate と audit の条件は一致させる。`projection:` は名指す関数の実在と唯一の書き手であることを xtask が検査する。`independent:` の理由文はファイルをまたいで共有しない（D5 X3〜X5） |
 
