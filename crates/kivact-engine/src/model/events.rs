@@ -28,17 +28,11 @@ impl EventQueue {
     }
 
     /// Take every queued event in order, with the commit boundaries among them: the
-    /// number of events before each boundary and its revision.
+    /// number of events before each boundary and its revision. The queue
+    /// hands its buffers over, so it keeps no capacity of a burst.
     fn drain(&mut self) -> (Vec<HostEvent>, Vec<(usize, Revision)>) {
-        let events: Vec<HostEvent> = self.events.drain(..).collect();
-        let boundaries = self.boundaries.drain(..).collect();
-        // M-R4: the drained queue keeps the mount burst's capacity; shrink it
-        // back to the size it just held, keeping room for a small burst (a
-        // burst of the same size does not shrink and grow again).
-        let keep = events.len().max(1024);
-        if self.events.capacity() > 4 * keep {
-            self.events.shrink_to(keep);
-        }
+        let events: Vec<HostEvent> = std::mem::take(&mut self.events).into();
+        let boundaries: Vec<(usize, Revision)> = std::mem::take(&mut self.boundaries).into();
         (events, boundaries)
     }
 
@@ -185,4 +179,29 @@ pub(crate) struct Shared {
     pub(crate) events: EventSink,
     pub(crate) assets: Rc<RefCell<ArvaneAssets>>,
     pub(crate) log: EngineLog,
+}
+
+#[cfg(test)]
+mod tests {
+    //! Role: Tests of the queue's drain: the burst buffer is handed over in push order.
+
+    use super::*;
+
+    #[test]
+    fn drain_hands_over_the_burst_buffer_in_push_order() {
+        let mut queue = EventQueue::default();
+        for turns in 0..5000 {
+            queue.push(HostEvent::TurnsCut { turns });
+        }
+        let (events, boundaries) = queue.drain();
+        assert_eq!(queue.events.capacity(), 0);
+        assert!(boundaries.is_empty());
+        assert_eq!(events.len(), 5000);
+        assert!(
+            events
+                .iter()
+                .enumerate()
+                .all(|(i, event)| *event == HostEvent::TurnsCut { turns: i as u32 })
+        );
+    }
 }
