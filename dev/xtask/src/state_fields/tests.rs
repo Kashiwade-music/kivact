@@ -1,7 +1,7 @@
 //! Role: Verify state-field classification, markers and module statics.
 
 use super::check::check;
-use super::mode::{Mode, Strictness};
+use super::mode::Mode;
 use crate::check_source::fixture;
 use std::collections::BTreeSet;
 
@@ -15,20 +15,8 @@ fn run_with_report(text: &str, policy: &str, enums: &[&str], report: bool) -> Ve
         policy,
         enums,
         Mode {
-            strictness: Strictness::Current,
             report,
-        },
-    )
-}
-
-fn run_strict(text: &str, policy: &str, enums: &[&str]) -> Vec<String> {
-    run_mode(
-        text,
-        policy,
-        enums,
-        Mode {
-            strictness: Strictness::Strict,
-            report: false,
+            audit: false,
         },
     )
 }
@@ -38,7 +26,7 @@ fn run_mode(text: &str, policy: &str, enums: &[&str], mode: Mode) -> Vec<String>
     let policy: toml::Table = policy.parse().unwrap();
     let enums: BTreeSet<String> = enums.iter().map(|name| (*name).to_owned()).collect();
     let mut errors = Vec::new();
-    check(
+    let _ = check(
         &source,
         &policy,
         &Default::default(),
@@ -53,7 +41,7 @@ fn run_mode(text: &str, policy: &str, enums: &[&str], mode: Mode) -> Vec<String>
 #[test]
 fn detects_wrapped_fields_and_inline_exceptions() {
     let errors = run(
-        "struct Hidden { open: Cell<bool>, pending: Option<Job> }\nstruct Fact { open: bool }\nstruct Single { state: Option<LoadPhase> }\nstruct Facts {\n// xtask-allow(state-fields): independent facts\na: bool,\n// xtask-allow(state-fields): independent facts\nb: bool,\n}\nstruct Mixed { pending: Option<Job>, phase: LoadPhase }",
+        "struct Hidden { open: Cell<bool>, pending: Option<Job> }\nstruct Fact { open: bool }\nstruct Single { state: Option<LoadPhase> }\nstruct Facts {\n// xtask-allow(state-fields): independent: facts\na: bool,\n// xtask-allow(state-fields): independent: facts\nb: bool,\n}\nstruct Mixed { pending: Option<Job>, phase: LoadPhase }",
         "",
         &["kivact_ui_soft::widgets::LoadPhase"],
     );
@@ -75,8 +63,8 @@ fn exempts_roles_and_builder_implementations() {
         &Default::default(),
         &Default::default(),
         Mode {
-            strictness: Strictness::Current,
             report: false,
+            audit: false,
         },
         &mut errors,
     );
@@ -106,8 +94,8 @@ fn enum_and_builder_identities_do_not_leak_across_modules() {
         &["kivact_ui_soft::other::LoadState".into()].into(),
         &Default::default(),
         Mode {
-            strictness: Strictness::Current,
             report: false,
+            audit: false,
         },
         &mut errors,
     );
@@ -177,7 +165,7 @@ fn machine_handle_beside_option_combines() {
 }
 
 #[test]
-fn api_exemption_counts_only_atomics_and_wrapped_integers() {
+fn api_exemption_is_disabled_by_mutable_cells() {
     let errors = run(
         "struct ProbeApi { plain: Option<Job>, wrapped: Signal<Option<Job>>, counter: Cell<u64> }",
         "",
@@ -185,7 +173,7 @@ fn api_exemption_counts_only_atomics_and_wrapped_integers() {
     );
     assert_eq!(errors.len(), 1, "{errors:?}");
     assert!(
-        errors[0].contains("ProbeApi combines state fields: wrapped, counter"),
+        errors[0].contains("ProbeApi combines state fields: plain, wrapped, counter"),
         "{errors:?}"
     );
 }
@@ -246,7 +234,7 @@ fn unused_marker_needs_a_counted_field() {
 #[test]
 fn fully_marked_state_has_no_errors() {
     let errors = run(
-        "struct Probe {\n// xtask-allow(state-fields): independent fact\na: bool,\n// xtask-allow(state-fields): independent fact\nb: Option<Job>,\n}",
+        "struct Probe {\n// xtask-allow(state-fields): independent: fact\na: bool,\n// xtask-allow(state-fields): independent: fact\nb: Option<Job>,\n}",
         "",
         &[],
     );
@@ -301,7 +289,7 @@ fn tuple_fields_count_per_element() {
 #[test]
 fn marker_before_tuple_field_covers_every_element() {
     let errors = run(
-        "struct Pair {\n// xtask-allow(state-fields): passive record\nvalues: (bool, Option<Job>),\n}",
+        "struct Pair {\n// xtask-allow(state-fields): independent: passive record\nvalues: (bool, Option<Job>),\n}",
         "",
         &[],
     );
@@ -323,7 +311,7 @@ fn dimension_rule_uses_field_names() {
 }
 
 #[test]
-fn local_variables_are_reported_only_in_report_mode() {
+fn local_variables_are_noted_in_report_mode_and_combine_as_errors() {
     let text = "fn sample() {\nlet flag = signal(false);\nlet pending = RefCell::new(None);\nlet count = Cell::new(0u32);\nlet nested = Rc::new(Cell::new(0u32));\nlet plain = 1;\n}";
     let reported = run_with_report(text, "", &[], true);
     assert_eq!(
@@ -343,7 +331,12 @@ fn local_variables_are_reported_only_in_report_mode() {
         );
     }
     assert!(reported.iter().all(|line| !line.ends_with(" plain")));
-    assert!(run_with_report(text, "", &[], false).is_empty());
+    let errors = run_with_report(text, "", &[], false);
+    assert_eq!(errors.len(), 1, "{errors:?}");
+    assert!(
+        errors[0].contains("function combines state locals: flag, pending, count, nested"),
+        "{errors:?}"
+    );
 }
 
 fn source_in(module: &str, text: &str) -> crate::check_source::Source {
@@ -374,8 +367,8 @@ fn builder_errors(struct_body: &str) -> Vec<String> {
             &enums,
             &surface,
             Mode {
-                strictness: Strictness::Current,
                 report: false,
+                audit: false,
             },
             &mut errors,
         );
@@ -399,14 +392,68 @@ fn marker_inside_builder_struct_is_unused() {
 }
 
 #[test]
-fn strict_counts_slots_filled_after_construction() {
+fn counts_slots_filled_after_construction() {
     let text = "struct Probe { job: OnceCell<Job>, other: OnceLock<Job> }";
-    assert!(run(text, "", &[]).is_empty());
-    let errors = run_strict(text, "", &[]);
+    let errors = run(text, "", &[]);
     assert_eq!(errors.len(), 1, "{errors:?}");
-    assert!(errors[0].starts_with("state-fields-strict:"), "{errors:?}");
+    assert!(errors[0].starts_with("state-fields:"), "{errors:?}");
     assert!(
         errors[0].contains("Probe combines state fields: job, other"),
         "{errors:?}"
     );
+}
+
+fn audit_rows(text: &str, policy: &str, enums: &[&str]) -> Vec<super::audit::AuditRow> {
+    let source = fixture(text);
+    let policy: toml::Table = policy.parse().unwrap();
+    let enums: BTreeSet<String> = enums.iter().map(|name| (*name).to_owned()).collect();
+    let mut errors = Vec::new();
+    check(
+        &source,
+        &policy,
+        &Default::default(),
+        &enums,
+        &Default::default(),
+        Mode {
+            report: false,
+            audit: true,
+        },
+        &mut errors,
+    )
+}
+
+#[test]
+fn audit_lists_counted_fields_of_multi_state_items_only() {
+    let rows = audit_rows(
+        "struct Single { open: bool, note: String }\nstruct Mixed { pending: Option<Job>, phase: LoadPhase }\nstruct Closed {\n// xtask-allow(state-fields): projection: written only by publish\na: bool,\n// xtask-allow(state-fields): independent: all four combinations are valid\nb: bool,\n}",
+        "",
+        &["kivact_ui_soft::widgets::LoadPhase"],
+    );
+    assert_eq!(super::audit::open_count(&rows), 1, "{rows:?}");
+    let closure = |field: &str| {
+        rows.iter()
+            .find(|row| row.field == field)
+            .map(|row| row.closure.as_str())
+    };
+    assert_eq!(closure("Single.open"), None);
+    assert_eq!(closure("Mixed.pending"), Some("OPEN"));
+    assert_eq!(closure("Mixed.phase"), Some("type"));
+    assert_eq!(closure("Closed.a"), Some("projection"));
+    assert_eq!(closure("Closed.b"), Some("independent"));
+}
+
+#[test]
+fn audit_file_records_open_rows() {
+    let rows = audit_rows(
+        "struct Mixed { pending: Option<Job>, phase: LoadPhase }",
+        "",
+        &["kivact_ui_soft::widgets::LoadPhase"],
+    );
+    let root = std::env::temp_dir().join(format!("kivact-xtask-audit-{}", std::process::id()));
+    std::fs::create_dir_all(&root).unwrap();
+    super::audit::write(&root, &rows).unwrap();
+    let text = std::fs::read_to_string(root.join("dev/xtask/state-audit.md")).unwrap();
+    assert!(text.contains("| OPEN |"), "{text}");
+    assert!(text.contains("Mixed"), "{text}");
+    std::fs::remove_dir_all(root).unwrap();
 }

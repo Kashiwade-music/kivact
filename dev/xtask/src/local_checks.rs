@@ -1,11 +1,17 @@
 //! Role: Run the workspace's local architectural checks under shared selectors.
 use crate::check_cli::{Options, RULES};
 use crate::check_policy::is_kit;
-use crate::state_fields::{Mode, Strictness};
+use crate::state_fields::{AuditRow, Mode};
 use std::collections::BTreeSet;
 use std::path::Path;
 
-pub(crate) fn check(root: &Path, policy: &Path, options: &Options) -> Result<Vec<String>, String> {
+/// The errors and the open rows of `--report-audit`.
+pub(crate) struct Outcome {
+    pub(crate) errors: Vec<String>,
+    pub(crate) audit_open: usize,
+}
+
+pub(crate) fn check(root: &Path, policy: &Path, options: &Options) -> Result<Outcome, String> {
     let text = std::fs::read_to_string(policy).map_err(|e| format!("{}: {e}", policy.display()))?;
     let policy: toml::Table = text.parse().map_err(|e| format!("{e}"))?;
     validate_policy(&policy)?;
@@ -23,7 +29,10 @@ pub(crate) fn check(root: &Path, policy: &Path, options: &Options) -> Result<Vec
             })
     };
     if !RULES.iter().any(|rule| active(rule)) {
-        return Ok(Vec::new());
+        return Ok(Outcome {
+            errors: Vec::new(),
+            audit_open: 0,
+        });
     }
     let public_needed = [
         "api-shape",
@@ -35,54 +44,111 @@ pub(crate) fn check(root: &Path, policy: &Path, options: &Options) -> Result<Vec
     .any(|rule| active(rule));
     let surface = crate::public_surface::build_for(&sources, public_needed);
     let (builders, enums) = model_types(&sources, &surface);
-    let empty = toml::Table::new();
+    let scope = Scope {
+        sources: &sources,
+        surface: &surface,
+        builders: &builders,
+        enums: &enums,
+        policy: &policy,
+    };
     let mut errors = Vec::new();
-    for rule in RULES {
-        if !options.selected(rule) {
-            continue;
-        }
-        // The widened rule is opt-in until its migration finishes (design 6.1).
-        if rule == "state-fields-strict" && options.only.is_none() {
-            continue;
-        }
-        if rule == "devtools-codegen" {
-            if options
-                .package
-                .as_deref()
-                .is_none_or(|package| package == "kivact-devtools-protocol")
-            {
-                errors.extend(crate::devtools_codegen::check(root));
-            }
-            continue;
-        }
-        let key = if rule == "state-fields-strict" {
-            "state_fields".to_owned()
-        } else {
-            rule.replace('-', "_")
-        };
-        let settings = policy
-            .get(&key)
-            .and_then(toml::Value::as_table)
-            .unwrap_or(&empty);
-        for source in &sources {
-            if !selected_source(source, options) {
-                continue;
-            }
-            run_rule(
-                rule,
-                source,
-                settings,
-                &builders,
-                &enums,
-                &surface,
-                options.report,
-                &mut errors,
-            );
-        }
-    }
+    let mut audit = Vec::new();
+    scope.run(root, options, &mut errors, &mut audit);
     errors.sort();
     errors.dedup();
-    Ok(errors)
+    let audit_open = write_audit(root, options, &audit)?;
+    Ok(Outcome { errors, audit_open })
+}
+
+/// The loaded workspace facts one check run shares across rules.
+struct Scope<'a> {
+    sources: &'a [crate::check_source::Source],
+    surface: &'a crate::public_surface::Surface,
+    builders: &'a BTreeSet<String>,
+    enums: &'a BTreeSet<String>,
+    policy: &'a toml::Table,
+}
+
+impl Scope<'_> {
+    fn run(
+        &self,
+        root: &Path,
+        options: &Options,
+        errors: &mut Vec<String>,
+        audit: &mut Vec<AuditRow>,
+    ) {
+        let empty = toml::Table::new();
+        for rule in RULES {
+            if !options.selected(rule) {
+                continue;
+            }
+            if rule == "devtools-codegen" {
+                if options
+                    .package
+                    .as_deref()
+                    .is_none_or(|package| package == "kivact-devtools-protocol")
+                {
+                    errors.extend(crate::devtools_codegen::check(root));
+                }
+                continue;
+            }
+            let key = rule.replace('-', "_");
+            let settings = self
+                .policy
+                .get(&key)
+                .and_then(toml::Value::as_table)
+                .unwrap_or(&empty);
+            for source in self.sources {
+                if !selected_source(source, options) {
+                    continue;
+                }
+                run_rule(
+                    rule,
+                    source,
+                    settings,
+                    self.builders,
+                    self.enums,
+                    self.surface,
+                    Mode {
+                        report: options.report,
+                        audit: options.audit && rule == "state-fields",
+                    },
+                    audit,
+                    errors,
+                );
+            }
+        }
+    }
+}
+
+fn write_audit(root: &Path, options: &Options, audit: &[AuditRow]) -> Result<usize, String> {
+    if !(options.audit && options.selected("state-fields")) {
+        return Ok(0);
+    }
+    crate::state_fields::write(root, audit)?;
+    Ok(crate::state_fields::open_count(audit))
+}
+
+/// Print one selected rule's errors and choose the exit code.
+pub(crate) fn selected(options: &Options, local: &Outcome) -> std::process::ExitCode {
+    for error in &local.errors {
+        if options.report {
+            println!("{error}");
+        } else {
+            eprintln!("error: {error}");
+        }
+    }
+    if local.audit_open > 0 {
+        eprintln!(
+            "state-audit: {} open row(s) in dev/xtask/state-audit.md",
+            local.audit_open
+        );
+    }
+    if (local.errors.is_empty() || options.report) && local.audit_open == 0 {
+        std::process::ExitCode::SUCCESS
+    } else {
+        std::process::ExitCode::FAILURE
+    }
 }
 
 fn validate_policy(policy: &toml::Table) -> Result<(), String> {
@@ -153,7 +219,7 @@ pub(crate) fn model_types(
 
 #[allow(
     clippy::too_many_arguments,
-    reason = "one shared dispatcher passes the policy, model sets and report flag to every rule"
+    reason = "one shared dispatcher passes the policy, model sets and reporting sinks to every rule"
 )]
 fn run_rule(
     rule: &str,
@@ -162,34 +228,14 @@ fn run_rule(
     builders: &BTreeSet<String>,
     enums: &BTreeSet<String>,
     surface: &crate::public_surface::Surface,
-    report: bool,
+    mode: Mode,
+    audit: &mut Vec<AuditRow>,
     errors: &mut Vec<String>,
 ) {
     match rule {
-        "state-fields" => crate::state_fields::check(
-            source,
-            settings,
-            builders,
-            enums,
-            surface,
-            Mode {
-                strictness: Strictness::Current,
-                report,
-            },
-            errors,
-        ),
-        "state-fields-strict" => crate::state_fields::check(
-            source,
-            settings,
-            builders,
-            enums,
-            surface,
-            Mode {
-                strictness: Strictness::Strict,
-                report,
-            },
-            errors,
-        ),
+        "state-fields" => audit.extend(crate::state_fields::check(
+            source, settings, builders, enums, surface, mode, errors,
+        )),
         "effect-writes" => crate::effect_writes::check(source, errors),
         "api-shape" => crate::api_shape::check(source, surface, errors),
         "canonical-path" => crate::canonical_path::check(source, surface, errors),
@@ -247,13 +293,25 @@ mod tests {
             only: Some("state-fields".into()),
             ..Default::default()
         };
-        assert_eq!(super::check(&root, &policy, &options).unwrap().len(), 3);
+        assert_eq!(
+            super::check(&root, &policy, &options).unwrap().errors.len(),
+            3
+        );
         options.package = Some("demo".into());
-        assert_eq!(super::check(&root, &policy, &options).unwrap().len(), 3);
+        assert_eq!(
+            super::check(&root, &policy, &options).unwrap().errors.len(),
+            3
+        );
         options.module = Some("state".into());
-        assert_eq!(super::check(&root, &policy, &options).unwrap().len(), 2);
+        assert_eq!(
+            super::check(&root, &policy, &options).unwrap().errors.len(),
+            2
+        );
         options.module = Some("demo::state::child".into());
-        assert_eq!(super::check(&root, &policy, &options).unwrap().len(), 1);
+        assert_eq!(
+            super::check(&root, &policy, &options).unwrap().errors.len(),
+            1
+        );
         options.package = Some("unknown".into());
         assert!(super::check(&root, &policy, &options).is_err());
         std::fs::remove_dir_all(root).unwrap();

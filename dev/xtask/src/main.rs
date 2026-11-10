@@ -51,7 +51,7 @@ fn main() -> ExitCode {
         .any(|argument| matches!(argument.as_str(), "--help" | "-h"))
     {
         println!(
-            "Local checks: --only <{}> [--crate <crate> [--module <path>]] [--report]",
+            "Local checks: --only <{}> [--crate <crate> [--module <path>]] [--report] [--report-audit]",
             check_cli::RULES.join("|")
         );
         return xtask_core::main(root);
@@ -78,18 +78,7 @@ fn main() -> ExitCode {
         }
     };
     if options.only.is_some() {
-        for error in &local {
-            if options.report {
-                println!("{error}");
-            } else {
-                eprintln!("error: {error}");
-            }
-        }
-        return if local.is_empty() || options.report {
-            ExitCode::SUCCESS
-        } else {
-            ExitCode::FAILURE
-        };
+        return local_checks::selected(&options, &local);
     }
     let rules = match policy::prepare(&mut config) {
         Ok(rules) => rules,
@@ -113,9 +102,15 @@ fn main() -> ExitCode {
     }
     report.errors.extend(impl_model::check(&config.root));
     if options.report {
-        report.notes.extend(local);
+        report.notes.extend(local.errors);
     } else {
-        report.errors.extend(local);
+        report.errors.extend(local.errors);
+    }
+    if local.audit_open > 0 {
+        report.errors.push(format!(
+            "state-audit: {} open row(s) in dev/xtask/state-audit.md",
+            local.audit_open
+        ));
     }
     report::print(&report)
 }

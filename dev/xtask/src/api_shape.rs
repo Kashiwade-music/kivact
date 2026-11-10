@@ -10,6 +10,8 @@ const SLOTS: &[&str] = &[
     "content", "header", "footer", "media", "image", "icon", "trailing", "actions", "item",
     "option", "fallback", "start", "center", "end",
 ];
+/// Lifecycle setters take `FnOnce`, not an event callback (ARG-1).
+const LIFECYCLE: [&str; 3] = ["on_mount", "on_cleanup", "on_attach"];
 
 pub(crate) fn check(source: &Source, surface: &Surface, errors: &mut Vec<String>) {
     if !source.library {
@@ -135,12 +137,13 @@ fn check_signature(source: &Source, sig: &syn::Signature, method: bool, errors: 
     let name = sig.ident.to_string();
     if method
         && name.starts_with("on_")
-        && (args.len() != 1 || !args.first().is_some_and(|ty| callback_type(ty, sig)))
+        && !LIFECYCLE.contains(&name.as_str())
+        && !args.last().is_some_and(|ty| arg1_callback(ty, sig))
     {
         source.error(
             "api-shape",
             sig.span(),
-            "on_ method requires exactly one Fn, IntoAction or Into<Callback> callback",
+            "on_ method requires a last argument of impl Into<Callback<()>> or impl Fn(..) -> R with R: HandlerResult",
             errors,
         );
     }
@@ -156,34 +159,138 @@ fn check_signature(source: &Source, sig: &syn::Signature, method: bool, errors: 
         );
     }
 }
-fn callback_type(ty: &syn::Type, sig: &syn::Signature) -> bool {
-    let valid = |bounds: &syn::punctuated::Punctuated<syn::TypeParamBound, syn::token::Plus>| {
-        bounds.iter().any(|bound| {
-            let syn::TypeParamBound::Trait(bound) = bound else {
-                return false;
-            };
-            let Some(segment) = bound.path.segments.last() else {
-                return false;
-            };
-            matches!(segment.ident.to_string().as_str(), "Fn" | "IntoAction")
-                || (segment.ident == "Into"
-                    && matches!(&segment.arguments, syn::PathArguments::AngleBracketed(arguments)
-                        if arguments.args.iter().any(|argument| matches!(argument,
-                            syn::GenericArgument::Type(syn::Type::Path(path))
-                            if path.path.segments.last().is_some_and(|name| name.ident == "Callback")))))
-        })
+/// The last argument of an `on_*` setter follows ARG-1.
+fn arg1_callback(ty: &syn::Type, sig: &syn::Signature) -> bool {
+    into_unit_callback(ty) || fn_output_handler(ty, sig)
+}
+
+/// `impl Into<Callback<()>>`, also with a qualified path or `+ 'static`.
+fn into_unit_callback(ty: &syn::Type) -> bool {
+    let syn::Type::ImplTrait(ty) = ty else {
+        return false;
     };
+    ty.bounds.iter().any(|bound| {
+        let syn::TypeParamBound::Trait(bound) = bound else {
+            return false;
+        };
+        let Some(segment) = bound.path.segments.last() else {
+            return false;
+        };
+        if segment.ident != "Into" {
+            return false;
+        }
+        let syn::PathArguments::AngleBracketed(arguments) = &segment.arguments else {
+            return false;
+        };
+        arguments.args.iter().any(|argument| {
+            let syn::GenericArgument::Type(ty) = argument else {
+                return false;
+            };
+            callback_unit(ty)
+        })
+    })
+}
+
+/// Whether `ty` is `Callback<()>`.
+fn callback_unit(ty: &syn::Type) -> bool {
+    let syn::Type::Path(path) = ty else {
+        return false;
+    };
+    let Some(segment) = path.path.segments.last() else {
+        return false;
+    };
+    if segment.ident != "Callback" {
+        return false;
+    }
+    let syn::PathArguments::AngleBracketed(arguments) = &segment.arguments else {
+        return false;
+    };
+    arguments.args.len() == 1
+        && matches!(
+            arguments.args.first(),
+            Some(syn::GenericArgument::Type(syn::Type::Tuple(tuple))) if tuple.elems.is_empty()
+        )
+}
+
+/// `impl Fn(..) -> R` or a generic `F: Fn(..) -> R`, where `R` has a
+/// `HandlerResult` bound.
+fn fn_output_handler(ty: &syn::Type, sig: &syn::Signature) -> bool {
     match ty {
-        syn::Type::ImplTrait(ty) => valid(&ty.bounds),
+        syn::Type::ImplTrait(ty) => ty.bounds.iter().any(|bound| fn_bound_handler(bound, sig)),
         syn::Type::Path(path) if path.path.segments.len() == 1 => {
             let name = &path.path.segments[0].ident;
-            sig.generics.type_params().any(|parameter| parameter.ident == *name && valid(&parameter.bounds))
-                || sig.generics.where_clause.as_ref().is_some_and(|clause| clause.predicates.iter().any(|predicate| {
-                    matches!(predicate, syn::WherePredicate::Type(predicate) if predicate.bounded_ty == *ty && valid(&predicate.bounds))
-                }))
+            sig.generics.type_params().any(|parameter| {
+                parameter.ident == *name
+                    && parameter
+                        .bounds
+                        .iter()
+                        .any(|bound| fn_bound_handler(bound, sig))
+            }) || sig.generics.where_clause.as_ref().is_some_and(|clause| {
+                clause.predicates.iter().any(|predicate| {
+                    matches!(predicate, syn::WherePredicate::Type(predicate)
+                        if predicate.bounded_ty == *ty
+                            && predicate
+                                .bounds
+                                .iter()
+                                .any(|bound| fn_bound_handler(bound, sig)))
+                })
+            })
         }
         _ => false,
     }
+}
+
+fn fn_bound_handler(bound: &syn::TypeParamBound, sig: &syn::Signature) -> bool {
+    let syn::TypeParamBound::Trait(bound) = bound else {
+        return false;
+    };
+    let Some(segment) = bound.path.segments.last() else {
+        return false;
+    };
+    if segment.ident != "Fn" {
+        return false;
+    }
+    let syn::PathArguments::Parenthesized(arguments) = &segment.arguments else {
+        return false;
+    };
+    let syn::ReturnType::Type(_, output) = &arguments.output else {
+        return false;
+    };
+    handler_type_param(output, sig)
+}
+
+fn handler_type_param(ty: &syn::Type, sig: &syn::Signature) -> bool {
+    let syn::Type::Path(path) = ty else {
+        return false;
+    };
+    if path.path.segments.len() != 1 {
+        return false;
+    }
+    let name = &path.path.segments[0].ident;
+    sig.generics
+        .type_params()
+        .any(|parameter| parameter.ident == *name && has_handler_bound(&parameter.bounds))
+        || sig.generics.where_clause.as_ref().is_some_and(|clause| {
+            clause.predicates.iter().any(|predicate| {
+                matches!(predicate, syn::WherePredicate::Type(predicate)
+                if predicate.bounded_ty == *ty && has_handler_bound(&predicate.bounds))
+            })
+        })
+}
+
+fn has_handler_bound(
+    bounds: &syn::punctuated::Punctuated<syn::TypeParamBound, syn::token::Plus>,
+) -> bool {
+    bounds.iter().any(|bound| {
+        let syn::TypeParamBound::Trait(bound) = bound else {
+            return false;
+        };
+        bound
+            .path
+            .segments
+            .last()
+            .is_some_and(|segment| segment.ident == "HandlerResult")
+    })
 }
 fn check_impl(source: &Source, surface: &Surface, item: &syn::ItemImpl, errors: &mut Vec<String>) {
     if !surface
@@ -208,24 +315,25 @@ mod tests {
     #[test]
     fn checks_reachable_public_shapes() {
         let mut source = crate::check_source::fixture(
-            "pub struct Widget { pub x: f32, hidden: f32 } impl Widget { pub fn on_press(self, f: impl Fn()) {} pub fn on_bad(self, f: bool) {} pub fn content(self, f: impl FnOnce()) {} pub fn shared(self) -> Rc<Data> { loop {} } } struct Hidden { pub x: f32 }",
+            "pub struct Widget { pub x: f32, hidden: f32 } impl Widget { pub fn on_press(self, f: impl Into<Callback<()>>) {} pub fn on_bad(self, f: bool) {} pub fn on_plain(self, f: impl Fn()) {} pub fn content(self, f: impl FnOnce()) {} pub fn shared(self) -> Rc<Data> { loop {} } } struct Hidden { pub x: f32 }",
         );
         source.module.clear();
         let surface = crate::public_surface::build(std::slice::from_ref(&source));
         let mut errors = Vec::new();
         super::check(&source, &surface, &mut errors);
-        assert_eq!(errors.len(), 4);
+        assert_eq!(errors.len(), 5);
     }
     #[test]
-    fn accepts_inline_generic_and_callback_bounds() {
+    fn accepts_arg1_callback_bounds_and_lifecycle_exceptions() {
         let mut source = crate::check_source::fixture(
-            "pub struct Widget; impl Widget { pub fn on_inline(self, f: impl Fn()) {} pub fn on_generic<F: Fn()>(self, f: F) {} pub fn on_where<F>(self, f: F) where F: Fn() {} pub fn on_callback(self, f: impl Into<Callback<()>>) {} pub fn on_fake(self, f: impl Into<bool>) {} }",
+            "pub struct Widget; impl Widget { pub fn on_inline<R: HandlerResult>(self, f: impl Fn() -> R) {} pub fn on_generic<F, R>(self, f: F) where F: Fn(u8) -> R, R: HandlerResult {} pub fn on_path<R>(self, f: impl Fn() -> R) where R: HandlerResult {} pub fn on_callback(self, f: impl Into<Callback<()>>) {} pub fn on_many(self, a: bool, f: impl Into<Callback<()>>) {} pub fn on_mount(self, f: impl FnOnce()) {} pub fn on_cleanup(self, f: impl FnOnce()) {} pub fn on_attach(self, f: impl FnOnce()) {} pub fn on_fake(self, f: impl Into<bool>) {} pub fn on_plain(self, f: impl Fn()) {} }",
         );
         source.module.clear();
         let surface = crate::public_surface::build(std::slice::from_ref(&source));
         let mut errors = Vec::new();
         super::check(&source, &surface, &mut errors);
-        assert_eq!(errors.len(), 1);
+        assert_eq!(errors.len(), 2, "{errors:?}");
+        assert!(errors.iter().all(|error| error.contains("on_ method")));
     }
     #[test]
     fn follows_alias_fields_but_not_private_fields() {

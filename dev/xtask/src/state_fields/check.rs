@@ -1,8 +1,9 @@
 //! Role: Find implicit state combinations in structs, enum variants and statics.
 
+use super::audit::{AuditRow, marker_closure};
 use super::classify::{Class, RuleContext, classify};
 use super::locals;
-use super::mode::{Mode, Strictness};
+use super::mode::Mode;
 use crate::check_policy::strings;
 use crate::check_source::Source;
 use crate::public_surface::definition;
@@ -11,6 +12,9 @@ use syn::spanned::Spanned;
 
 /// The marker that explains a field, static or local.
 const MARKER: &str = "state-fields";
+
+/// The rule name reported by this check.
+const RULE: &str = "state-fields";
 
 /// The openings of a reason that closes a state (design 6.2, SL-8).
 const REASON_PREFIXES: [&str; 6] = [
@@ -22,6 +26,7 @@ const REASON_PREFIXES: [&str; 6] = [
     "option:",
 ];
 
+/// Run the rule over one source, returning the audit rows of counted state.
 pub(crate) fn check(
     source: &Source,
     policy: &toml::Table,
@@ -30,64 +35,50 @@ pub(crate) fn check(
     surface: &crate::public_surface::Surface,
     mode: Mode,
     errors: &mut Vec<String>,
-) {
+) -> Vec<AuditRow> {
     let context = RuleContext {
         source,
         surface,
         enums,
         policy,
-        strictness: mode.strictness,
     };
-    let skip = is_value_module(source, policy, mode.strictness);
+    let skip = is_value_module(source, policy);
     let mut struct_markers = BTreeSet::new();
     let mut statics = Vec::new();
+    let mut rows = Vec::new();
     if !skip {
         for item in &source.items {
             match item {
-                syn::Item::Struct(item) => {
-                    check_struct(&context, item, builders, &mut struct_markers, errors)
-                }
-                syn::Item::Enum(item) => check_enum(&context, item, errors),
+                syn::Item::Struct(item) => check_struct(
+                    &context,
+                    item,
+                    builders,
+                    &mut struct_markers,
+                    mode,
+                    &mut rows,
+                    errors,
+                ),
+                syn::Item::Enum(item) => check_enum(&context, item, mode, &mut rows, errors),
                 syn::Item::Static(item) => collect_static(&context, item, &mut statics),
                 syn::Item::Macro(item) => collect_thread_local(&context, item, &mut statics),
                 _ => {}
             }
         }
-    } else if mode.strictness == Strictness::Current {
-        // Current skips value modules, but the strict rules check them: their
-        // counted fields keep the markers used instead of "unused marker".
-        mark_strict_fields(&context, builders);
     }
     report_statics(&context, &statics, errors);
     let functions = locals::scan(source);
-    if mode.strictness == Strictness::Strict {
-        locals::check(source, &functions, errors);
-    } else if mode.report {
+    if mode.audit {
+        rows.extend(locals::audit(source, &functions));
+    }
+    locals::check(source, &functions, errors);
+    if mode.report {
         errors.extend(locals::collect(source, &functions));
     }
-    report_unused_markers(source, mode.strictness, &struct_markers, errors);
+    report_unused_markers(source, &struct_markers, errors);
+    rows
 }
 
-/// Record the markers of a module that Current skips but the strict rules count.
-fn mark_strict_fields(context: &RuleContext<'_>, builders: &BTreeSet<String>) {
-    let strict = RuleContext {
-        strictness: Strictness::Strict,
-        ..*context
-    };
-    let mut struct_markers = BTreeSet::new();
-    let mut ignored = Vec::new();
-    for item in &context.source.items {
-        match item {
-            syn::Item::Struct(item) => {
-                check_struct(&strict, item, builders, &mut struct_markers, &mut ignored)
-            }
-            syn::Item::Enum(item) => check_enum(&strict, item, &mut ignored),
-            _ => {}
-        }
-    }
-}
-
-fn is_value_module(source: &Source, policy: &toml::Table, strictness: Strictness) -> bool {
+fn is_value_module(source: &Source, policy: &toml::Table) -> bool {
     let root = if source.library {
         source.package.clone()
     } else {
@@ -96,9 +87,6 @@ fn is_value_module(source: &Source, policy: &toml::Table, strictness: Strictness
     let qualified = format!("{root}::{}", source.module);
     strings(policy, "value_modules")
         .iter()
-        .filter(|module| {
-            strictness != Strictness::Strict || module.as_str() != "kivact-engine::contract"
-        })
         .any(|module| qualified == *module || qualified.starts_with(&format!("{module}::")))
 }
 
@@ -113,14 +101,8 @@ fn is_exempt(policy: &toml::Table, name: &str) -> bool {
 }
 
 /// Whether a data-shaped name still hides state behind a mutable cell (SL-4).
-fn struct_exempt(
-    context: &RuleContext<'_>,
-    name: &str,
-    fields: &syn::Fields,
-    strictness: Strictness,
-) -> bool {
-    is_exempt(context.policy, name)
-        && !(strictness == Strictness::Strict && has_mutable_cell(fields))
+fn struct_exempt(context: &RuleContext<'_>, name: &str, fields: &syn::Fields) -> bool {
+    is_exempt(context.policy, name) && !has_mutable_cell(fields)
 }
 
 fn has_mutable_cell(fields: &syn::Fields) -> bool {
@@ -137,14 +119,15 @@ fn check_struct(
     item: &syn::ItemStruct,
     builders: &BTreeSet<String>,
     struct_markers: &mut BTreeSet<usize>,
+    mode: Mode,
+    rows: &mut Vec<AuditRow>,
     errors: &mut Vec<String>,
 ) {
     let name = item.ident.to_string();
-    let rule = context.strictness.rule();
     if let Some(line) = context.source.marker_line(MARKER, item.span()) {
         struct_markers.insert(line);
         context.source.error_at(
-            rule,
+            RULE,
             item.span(),
             "struct-level marker; put a marker before each field instead",
             errors,
@@ -153,60 +136,105 @@ fn check_struct(
     if builders.contains(&definition(context.source, &name)) {
         return;
     }
-    let exempt = struct_exempt(context, &name, &item.fields, context.strictness);
-    let (stored, phase) = count_fields(context, &item.fields, exempt, "", context.strictness);
-    report_combination(context, item.span(), &name, &stored, phase, errors);
-    let other = opposite(context.strictness);
-    let other_exempt = struct_exempt(context, &name, &item.fields, other);
-    let _ = count_fields(context, &item.fields, other_exempt, "", other);
+    let exempt = struct_exempt(context, &name, &item.fields);
+    let counting = count_fields(context, &item.fields, exempt, "", mode.audit);
+    report_combination(
+        context,
+        item.span(),
+        &name,
+        &counting.stored,
+        counting.phase,
+        errors,
+    );
+    rows.extend(counting.rows(context.source, &name));
 }
 
-fn check_enum(context: &RuleContext<'_>, item: &syn::ItemEnum, errors: &mut Vec<String>) {
+fn check_enum(
+    context: &RuleContext<'_>,
+    item: &syn::ItemEnum,
+    mode: Mode,
+    rows: &mut Vec<AuditRow>,
+    errors: &mut Vec<String>,
+) {
     let enum_name = item.ident.to_string();
     let exempt = is_exempt(context.policy, &enum_name);
-    let other = opposite(context.strictness);
     for variant in &item.variants {
         if !matches!(variant.fields, syn::Fields::Named(_)) {
             continue;
         }
         let prefix = variant.ident.to_string();
-        let (stored, phase) = count_fields(
-            context,
-            &variant.fields,
-            exempt,
-            &prefix,
-            context.strictness,
-        );
+        let counting = count_fields(context, &variant.fields, exempt, &prefix, mode.audit);
         let name = format!("{enum_name}::{}", variant.ident);
-        report_combination(context, variant.span(), &name, &stored, phase, errors);
-        let _ = count_fields(context, &variant.fields, exempt, &prefix, other);
-    }
-}
-
-fn opposite(strictness: Strictness) -> Strictness {
-    match strictness {
-        Strictness::Current => Strictness::Strict,
-        Strictness::Strict => Strictness::Current,
+        report_combination(
+            context,
+            variant.span(),
+            &name,
+            &counting.stored,
+            counting.phase,
+            errors,
+        );
+        rows.extend(counting.rows(context.source, &name));
     }
 }
 
 /// One field or tuple element: its report label, class, and marker.
-type Entry = (String, Class, bool, Option<usize>);
+type Entry = (String, Class, bool, Option<usize>, usize);
+
+/// A counted field with everything the audit records about it.
+struct Counted {
+    label: String,
+    line: usize,
+    marker: Option<usize>,
+    class: Class,
+}
+
+/// The counted state of one struct, variant or static group.
+struct Counting {
+    stored: Vec<String>,
+    phase: usize,
+    counted: Vec<Counted>,
+}
+
+impl Counting {
+    fn rows(&self, source: &Source, owner: &str) -> Vec<AuditRow> {
+        if self.counted.len() < 2 {
+            return Vec::new();
+        }
+        self.counted
+            .iter()
+            .map(|field| {
+                let (reason, closure) = match field.marker {
+                    Some(line) => {
+                        let reason = source.allow_reason(MARKER, line).unwrap_or_default();
+                        let closure = marker_closure(&reason);
+                        (reason, closure)
+                    }
+                    None if field.class == Class::Phase => ("-".to_owned(), "type".to_owned()),
+                    None => ("-".to_owned(), "OPEN".to_owned()),
+                };
+                AuditRow {
+                    path: source.path.clone(),
+                    line: field.line,
+                    field: format!("{owner}.{}", field.label),
+                    reason,
+                    closure,
+                }
+            })
+            .collect()
+    }
+}
 
 fn count_fields(
     context: &RuleContext<'_>,
     fields: &syn::Fields,
     exempt: bool,
     prefix: &str,
-    strictness: Strictness,
-) -> (Vec<String>, usize) {
-    let rules = RuleContext {
-        strictness,
-        ..*context
-    };
+    audit: bool,
+) -> Counting {
     let mut entries: Vec<Entry> = Vec::new();
     for (index, field) in fields.iter().enumerate() {
         let marker = context.source.allow_line(MARKER, field.span());
+        let line = field.span().start().line;
         let ident = field.ident.as_ref().map(ToString::to_string);
         let field_name = ident.as_deref().unwrap_or(prefix);
         match &field.ty {
@@ -216,25 +244,25 @@ fn count_fields(
                         Some(name) => format!("{name}.{element}"),
                         None => format!("{index}.{element}"),
                     };
-                    let class = classify(&rules, field_name, ty, exempt);
-                    entries.push((label, class, marker.is_some(), marker));
+                    let class = classify(context, field_name, ty, exempt);
+                    entries.push((label, class, marker.is_some(), marker, line));
                 }
             }
             ty => {
                 let label = ident.clone().unwrap_or_else(|| index.to_string());
-                let class = classify(&rules, field_name, ty, exempt);
-                entries.push((label, class, marker.is_some(), marker));
+                let class = classify(context, field_name, ty, exempt);
+                entries.push((label, class, marker.is_some(), marker, line));
             }
         }
     }
-    let promote = strictness == Strictness::Strict
-        && entries
-            .iter()
-            .any(|(_, class, _, _)| *class == Class::Stored);
+    let promote = entries
+        .iter()
+        .any(|(_, class, _, _, _)| *class == Class::Stored);
     let mut stored = Vec::new();
     let mut phase = 0;
-    for (label, class, marked, marker) in &entries {
-        let counted = match class {
+    let mut counted = Vec::new();
+    for (label, class, marked, marker, line) in entries {
+        let counted_field = match class {
             Class::None => false,
             Class::Phase => {
                 phase += 1;
@@ -254,11 +282,25 @@ fn count_fields(
             }
             Class::Helper => false,
         };
-        if counted && let Some(line) = marker {
-            context.source.use_allow(*line);
+        if counted_field {
+            if let Some(line) = marker {
+                context.source.use_allow(line);
+            }
+            if audit {
+                counted.push(Counted {
+                    label,
+                    line,
+                    marker,
+                    class,
+                });
+            }
         }
     }
-    (stored, phase)
+    Counting {
+        stored,
+        phase,
+        counted,
+    }
 }
 
 fn report_combination(
@@ -271,7 +313,7 @@ fn report_combination(
 ) {
     if stored.len() >= 2 || (phase > 0 && !stored.is_empty()) {
         context.source.error_at(
-            context.strictness.rule(),
+            RULE,
             span,
             &format!("{name} combines state fields: {}", stored.join(", ")),
             errors,
@@ -291,17 +333,6 @@ fn collect_static(
         match marker {
             Some(line) => context.source.use_allow(line),
             None => statics.push((name, item.span())),
-        }
-        return;
-    }
-    // A marker also explains the static when only the other rule set counts it.
-    if let Some(line) = marker {
-        let rules = RuleContext {
-            strictness: opposite(context.strictness),
-            ..*context
-        };
-        if classify(&rules, &name.to_lowercase(), &item.ty, false) == Class::Stored {
-            context.source.use_allow(line);
         }
     }
 }
@@ -344,7 +375,7 @@ fn report_statics(
         .collect::<Vec<_>>()
         .join(", ");
     context.source.error_at(
-        context.strictness.rule(),
+        RULE,
         statics[0].1,
         &format!(
             "{}: static flags/counters combine: {names}",
@@ -364,12 +395,10 @@ fn has_known_reason(reason: &str) -> bool {
 
 fn report_unused_markers(
     source: &Source,
-    strictness: Strictness,
     struct_markers: &BTreeSet<usize>,
     errors: &mut Vec<String>,
 ) {
     let used = source.used_allows();
-    let rule = strictness.rule();
     let marker = "// xtask-allow(state-fields):";
     for (index, line) in source.text.lines().enumerate() {
         let Some(reason) = line.trim_start().strip_prefix(marker) else {
@@ -380,10 +409,10 @@ fn report_unused_markers(
             continue;
         }
         if !used.contains(&number) {
-            source.error_at_line(rule, number, "unused marker", errors);
-        } else if strictness == Strictness::Strict && !has_known_reason(reason) {
+            source.error_at_line(RULE, number, "unused marker", errors);
+        } else if !has_known_reason(reason) {
             source.error_at_line(
-                rule,
+                RULE,
                 number,
                 "marker reason must start with independent:, projection:, cache:, identity:, statistic: or option:",
                 errors,

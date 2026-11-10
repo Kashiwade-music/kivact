@@ -75,6 +75,14 @@ impl Source {
     pub(crate) fn marker_line(&self, rule: &str, span: proc_macro2::Span) -> Option<usize> {
         self.marker_before(rule, span).map(|(line, _)| line)
     }
+    /// The reason written after `// xtask-allow(rule):` on `line`.
+    pub(crate) fn allow_reason(&self, rule: &str, line: usize) -> Option<String> {
+        let marker = format!("// xtask-allow({rule}):");
+        let text = self.text.lines().nth(line.checked_sub(1)?)?;
+        text.trim_start()
+            .strip_prefix(&marker)
+            .map(|reason| reason.trim().to_owned())
+    }
     /// Record that the marker on `line` explained a counted field or static.
     pub(crate) fn use_allow(&self, line: usize) {
         self.used_allows.borrow_mut().insert(line);
@@ -507,6 +515,7 @@ mod tests {
         assert_eq!(
             crate::local_checks::check(&root, &policy, &options)
                 .unwrap()
+                .errors
                 .len(),
             4
         );

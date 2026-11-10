@@ -479,7 +479,7 @@ role_suffixes = ["Options", "Event", "Phase", "Reason", "Input", "Report", "Toke
 record_types = ["SemanticNode", "LayoutViolation", "ListItem", "MenuEntry", "Command", "TreeNode", "DataColumn", "ToastOptions", "CalendarOptions", "StepperItem"]
 named_helpers = ["Generation", "Sent", "ReportOnce", "ReportOnceSet", "Mailbox", "LocalMailbox", "Registry"]
 # Mobile input purposes and launch restoration snapshots remain passive transport values.
-value_modules = ["kivact-engine::contract", "kivact-types::semantics", "kivact-types::env", "kivact-types::scroll", "kivact-types::layout", "kivact-types::paint", "kivact-types::text", "kivact-types::scene", "kivact-types::render", "kivact-types::input", "kivact-types::platform", "kivact-types::embed", "kivact-types::check", "kivact-devtools-protocol", "kivact-types::window"]
+value_modules = ["kivact-types::semantics", "kivact-types::env", "kivact-types::scroll", "kivact-types::layout", "kivact-types::paint", "kivact-types::text", "kivact-types::scene", "kivact-types::render", "kivact-types::input", "kivact-types::platform", "kivact-types::embed", "kivact-types::check", "kivact-devtools-protocol", "kivact-types::window"]
 
 [kit_literal_color]
 allowed_files = ["tokens.rs", "theme.rs", "color.rs"]

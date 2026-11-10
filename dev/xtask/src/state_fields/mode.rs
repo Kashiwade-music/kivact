@@ -1,26 +1,10 @@
-//! Role: The rule set and reporting mode of one state-fields run.
+//! Role: The reporting mode of one state-fields run.
 
-/// Which rule set to apply: the gaps the rule always had, or the widened
-/// checks that every crate must satisfy before `state-fields` replaces them.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum Strictness {
-    Current,
-    Strict,
-}
-
-impl Strictness {
-    /// The check name reported by this rule set.
-    pub(crate) fn rule(self) -> &'static str {
-        match self {
-            Self::Current => "state-fields",
-            Self::Strict => "state-fields-strict",
-        }
-    }
-}
-
-/// How one run reports: the rule set, and whether local guesses are notes.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+/// How one run reports: local notes on the console, and the audit file.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub(crate) struct Mode {
-    pub(crate) strictness: Strictness,
+    // xtask-allow(state-fields): independent: all four combinations are valid because console notes and the audit file are separate requests
     pub(crate) report: bool,
+    // xtask-allow(state-fields): independent: the audit file can be requested without console notes
+    pub(crate) audit: bool,
 }

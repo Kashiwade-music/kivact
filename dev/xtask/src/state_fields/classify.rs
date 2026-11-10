@@ -1,6 +1,5 @@
 //! Role: Classify a field or static type as phase, stored state or neither.
 
-use super::mode::Strictness;
 use crate::check_policy::strings;
 use crate::check_source::Source;
 use crate::public_surface::Surface;
@@ -23,7 +22,6 @@ pub(super) struct RuleContext<'a> {
     pub(super) surface: &'a Surface,
     pub(super) enums: &'a BTreeSet<String>,
     pub(super) policy: &'a toml::Table,
-    pub(super) strictness: Strictness,
 }
 
 /// The outermost type name, ignoring references and `Box`.
@@ -63,25 +61,17 @@ pub(super) fn classify(rules: &RuleContext<'_>, name: &str, ty: &syn::Type, exem
         return Class::None;
     }
     if strings(rules.policy, "named_helpers").contains(&bare_name) {
-        return if rules.strictness == Strictness::Strict && is_named_counter_helper(&bare_name) {
+        return if is_named_counter_helper(&bare_name) {
             Class::Helper
         } else {
             Class::None
         };
     }
-    if rules.strictness == Strictness::Strict && is_lazy_slot(&bare_name) {
+    if is_lazy_slot(&bare_name) {
         return Class::Stored;
     }
     let phase = peel(ty, &["Cell", "RefCell", "Signal", "Var", "Rc"]);
-    if !exempt
-        && is_phase(
-            &phase,
-            rules.source,
-            rules.surface,
-            rules.enums,
-            rules.strictness,
-        )
-    {
+    if !exempt && is_phase(&phase, rules.source, rules.surface, rules.enums) {
         return Class::Phase;
     }
     if exempt {
@@ -96,7 +86,7 @@ pub(super) fn classify(rules: &RuleContext<'_>, name: &str, ty: &syn::Type, exem
         || is_atomic(ty)
         || is_counted_mutable(ty)
         || is_named_counter(name, ty)
-        || (rules.strictness == Strictness::Strict && is_state_collection(name, ty))
+        || is_state_collection(name, ty)
     {
         return Class::Stored;
     }
@@ -123,17 +113,11 @@ fn is_state_collection(name: &str, ty: &syn::Type) -> bool {
         .any(|prefix| name.starts_with(prefix))
 }
 
-fn is_phase(
-    ty: &syn::Type,
-    source: &Source,
-    surface: &Surface,
-    enums: &BTreeSet<String>,
-    strictness: Strictness,
-) -> bool {
+fn is_phase(ty: &syn::Type, source: &Source, surface: &Surface, enums: &BTreeSet<String>) -> bool {
     if outer(ty) == "MachineHandle" {
         return true;
     }
-    phase_identity(source, surface, ty, enums, strictness).is_some()
+    phase_identity(source, surface, ty, enums).is_some()
 }
 
 fn phase_identity(
@@ -141,11 +125,10 @@ fn phase_identity(
     surface: &Surface,
     ty: &syn::Type,
     enums: &BTreeSet<String>,
-    strictness: Strictness,
 ) -> Option<String> {
     let name = outer(ty);
     if let Some(identity) = surface.resolve_type(source, ty)
-        && is_phase_enum(&identity, enums, strictness)
+        && is_phase_enum(&identity, enums)
     {
         return Some(identity);
     }
@@ -157,7 +140,7 @@ fn phase_identity(
         .any(|item| matches!(item, syn::Item::Enum(item) if item.ident == name))
     {
         let identity = crate::public_surface::definition(source, &name);
-        if is_phase_enum(&identity, enums, strictness) {
+        if is_phase_enum(&identity, enums) {
             return Some(identity);
         }
     }
@@ -177,7 +160,7 @@ fn phase_identity(
             } else {
                 target
             };
-            if is_phase_enum(&identity, enums, strictness) {
+            if is_phase_enum(&identity, enums) {
                 return Some(identity);
             }
         }
@@ -186,22 +169,19 @@ fn phase_identity(
 }
 
 /// Whether `identity` names a workspace enum that is a phase (SL-2 widens the names).
-fn is_phase_enum(identity: &str, enums: &BTreeSet<String>, strictness: Strictness) -> bool {
-    let named = match strictness {
-        Strictness::Current => identity.ends_with("State") || identity.ends_with("Phase"),
-        Strictness::Strict => [
-            "State",
-            "Phase",
-            "Status",
-            "Stage",
-            "Connection",
-            "Lifecycle",
-            "Run",
-            "Present",
-        ]
-        .iter()
-        .any(|suffix| identity.ends_with(suffix)),
-    };
+fn is_phase_enum(identity: &str, enums: &BTreeSet<String>) -> bool {
+    let named = [
+        "State",
+        "Phase",
+        "Status",
+        "Stage",
+        "Connection",
+        "Lifecycle",
+        "Run",
+        "Present",
+    ]
+    .iter()
+    .any(|suffix| identity.ends_with(suffix));
     named && enums.contains(identity)
 }
 
