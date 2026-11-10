@@ -259,6 +259,13 @@ pub(crate) struct Measured {
     pub(crate) layout_rect: crate::geometry::Rect,
 }
 
+/// The last layout report of a node that had no observation yet: its window
+/// layout box (`Measured`, when it has one) and whether its text was
+/// truncated. The engine reports a node once per change and does not repeat
+/// it, so a report that arrives before the observation exists is kept in
+/// `ViewNodes::layout_seeds`, and `observe_node` seeds the observation with it.
+pub(crate) type LayoutSeed = (Option<Measured>, bool);
+
 /// Sources shared by all node and region references bound to one host node.
 #[derive(Clone, Copy)]
 pub(crate) struct NodeObservation {
@@ -390,6 +397,9 @@ pub(crate) struct ViewNodes {
     engine: Writer,
     pub(super) future_text_edits: Rc<std::cell::RefCell<TextEditsInFlight>>,
     leaving: IdMap<Leaving>,
+    /// The latest layout report of each node that has no observation yet
+    /// (`LayoutSeed`); `observe_node` takes it, `remove` drops it.
+    layout_seeds: IdMap<LayoutSeed>,
     /// Choice candidate invalidation; only Hidden changes notify it.
     visibility_revision: Notifier,
     live_region_revision: Notifier,
@@ -415,6 +425,7 @@ impl ViewNodes {
                 TextEditsInFlight(IdMap::default()),
             )),
             leaving: IdMap::default(),
+            layout_seeds: IdMap::default(),
             visibility_revision: owner.notifier(Location::caller()),
             live_region_revision: owner.notifier(Location::caller()),
         }
@@ -515,9 +526,10 @@ impl ViewNodes {
         if let Some(observation) = node.observation() {
             return Some(observation);
         }
+        let (measured, text_truncated) = self.layout_seeds.remove(&id).unwrap_or_default();
         let observation = NodeObservation {
-            measured: node.owner.signal(None::<Measured>, at),
-            text_truncated: node.owner.signal(false, at),
+            measured: node.owner.signal(measured, at),
+            text_truncated: node.owner.signal(text_truncated, at),
             scroll_geometry: node.owner.signal(ScrollState::default(), at),
             image_status: node.owner.signal(image_status, at),
             scene_revision: node.owner.notifier(at),
@@ -722,6 +734,12 @@ impl ViewNodes {
         }
     }
 
+    /// Keep the latest layout report of `id` for the observation it may get
+    /// later (`observe_node` takes it).
+    pub(crate) fn note_layout(&mut self, id: NodeId, seed: LayoutSeed) {
+        self.layout_seeds.insert(id, seed);
+    }
+
     pub(crate) fn set_observe(&mut self, id: NodeId, on: bool) {
         if self.nodes.0.contains_key(&id) {
             self.engine().observe_layout(id, on);
@@ -748,6 +766,7 @@ impl ViewNodes {
         let mut records = Vec::new();
         for id in &ids {
             self.future_text_edits.borrow_mut().0.remove(id);
+            self.layout_seeds.remove(id);
             if let Some(record) = self.nodes.0.remove(id) {
                 for reference in record.rare.iter().flat_map(|r| r.references.iter()) {
                     if reference

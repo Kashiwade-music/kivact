@@ -106,11 +106,22 @@ pub(super) fn layout_changed(
     measured_layout: Option<Rect>,
 ) {
     let observation = {
-        let tree = ViewState::tree(rt);
-        let Some(node) = tree.get(node) else {
-            return stale(rt, "layout", node);
-        };
-        node.observation()
+        let mut tree = ViewState::tree_mut(rt);
+        match tree.get(node).map(crate::view::tree::CoreNode::observation) {
+            None => {
+                drop(tree);
+                return stale(rt, "layout", node);
+            }
+            Some(Some(observation)) => Some(observation),
+            Some(None) => {
+                // No observation yet: keep the report for `observe_node`, which
+                // seeds the observation with it (the report can come before it).
+                let measured = measured_layout
+                    .map(|layout_rect| crate::view::tree::Measured { rect, layout_rect });
+                tree.note_layout(node, (measured, text_truncated));
+                None
+            }
+        }
     };
     let layout_handler = handler(rt, node, |h| h.layout.clone());
     if observation.is_some() || layout_handler.is_some() {
