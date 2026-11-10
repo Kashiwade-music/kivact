@@ -44,6 +44,7 @@ B0 と CP2（`dev/bench/results/CP2.md`、どちらも有効）の比較。倍�
 
 - 機械：Windows 11、24 logical CPUs、137 GB RAM、GeForce RTX 3060 Ti（Vulkan）。
 - ディスク：当初は C: 約 64.8 GB、W: 約 26.4 GB 空きだったため **3 つの共有 target**（`C:/Users/ryo/AppData/Local/Temp/opencode/kv-target/AB`・`CD`・`EF`）を使った。W1 の途中（2026-11-10 15:35）に C: 約 27 GB、W: 約 15 GB、E: 約 302 GB まで減り、C: の共有 target が増え続けるため、**W1 の残りの unit から target を E: の lane ごとに変える**：`E:/kv-target/<A〜F>`（1.1 節「70 GB 以上のドライブがあれば lane ごと」。E: は十分に空いている）。W6 の L1〜L6 は A〜F に読み替える。KPI の計測は `E:/kv-target/kpi`。旧の C: の共有 target は W1 の merge と確認の後に消す。
+- 追記（ユーザーの指示、2026-11-10）：W: の空きを増やしたので、以後の target は **`W:/kv-target/<A〜F>`** にする。E: は ST4000DM004（HDD）で書き込みが遅いため、新しい unit では使わない。W: は ADATA SU650（USB 接続の SSD）。E: に作った target（W1 の途中で作った分）は、その lane の unit が終わったら消す。KPI の計測は `W:/kv-target/kpi`。
 - すべての cargo に `CARGO_PROFILE_DEV_DEBUG=0 CARGO_PROFILE_TEST_DEBUG=0` を付ける（ディスクと PDB の上限。debug assertions は有効）。
 - `B0-here`：V1 で同じ機械・同じ commit `79bbd409` に取った `dev/bench/results/B0.md` を `B0-here.md` として使う（機械・commit・条件が同じため再計測しない）。
 - `B1-start`：V1 の `B1.md`（commit `0699af99`、コードは現在の HEAD と同一）を `B1-start.md` として使う。
