@@ -323,8 +323,6 @@ pub(crate) struct Indexed {
     pub(super) sticky: bool,
     /// Its layout location in the container.
     pub(super) location: Point,
-    pub(super) size: Size,
-    pub(super) content: Size,
     pub(super) extent: Extent,
 }
 

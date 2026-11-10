@@ -115,16 +115,12 @@ fn same_index(before: &ChildIndex, after: &ChildIndex) -> bool {
                     before.order,
                     before.sticky,
                     before.location,
-                    before.size,
-                    before.content,
                     before.extent,
                 ) == (
                     after.id,
                     after.order,
                     after.sticky,
                     after.location,
-                    after.size,
-                    after.content,
                     after.extent,
                 )
             })
