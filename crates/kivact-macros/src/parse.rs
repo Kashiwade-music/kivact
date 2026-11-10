@@ -11,6 +11,10 @@ pub(crate) struct Model {
     pub(crate) name: Ident,
     pub(crate) struct_name: Ident,
     pub(crate) docs: Vec<Attribute>,
+    /// `allow`, `warn` and `deny`: put on every generated item.
+    pub(crate) attrs: Vec<Attribute>,
+    /// `deprecated`: put on the builder function, the name callers write.
+    pub(crate) deprecated: Vec<Attribute>,
     pub(crate) props: Vec<Prop>,
     pub(crate) body: Block,
 }
@@ -71,12 +75,27 @@ pub(crate) fn component(function: ItemFn) -> syn::Result<Model> {
     check_signature(&function)?;
     let name = function.sig.ident.clone();
     let struct_name = Ident::new(&upper_camel(&name.to_string()), name.span());
-    let docs = function
-        .attrs
-        .iter()
-        .filter(|attr| attr.path().is_ident("doc"))
-        .cloned()
-        .collect();
+    let mut docs = Vec::new();
+    let mut attrs = Vec::new();
+    let mut deprecated = Vec::new();
+    for attr in &function.attrs {
+        let path = attr.path();
+        if path.is_ident("doc") {
+            docs.push(attr.clone());
+        } else if path.is_ident("deprecated") {
+            deprecated.push(attr.clone());
+        } else if ["allow", "warn", "deny"]
+            .iter()
+            .any(|name| path.is_ident(name))
+        {
+            attrs.push(attr.clone());
+        } else {
+            return Err(syn::Error::new_spanned(
+                attr,
+                "#[component] keeps doc comments and the allow, warn, deny and deprecated attributes; use #[allow(..)] instead of #[expect(..)] and remove any other attribute",
+            ));
+        }
+    }
     let mut props = Vec::with_capacity(function.sig.inputs.len());
     for input in &function.sig.inputs {
         props.push(prop(input)?);
@@ -86,6 +105,8 @@ pub(crate) fn component(function: ItemFn) -> syn::Result<Model> {
         name,
         struct_name,
         docs,
+        attrs,
+        deprecated,
         props,
         body: *function.block,
     })
@@ -106,6 +127,17 @@ pub(crate) fn upper_camel(name: &str) -> String {
 
 fn check_signature(function: &ItemFn) -> syn::Result<()> {
     let sig = &function.sig;
+    if sig.constness.is_some()
+        || sig.asyncness.is_some()
+        || sig.unsafety.is_some()
+        || sig.abi.is_some()
+        || sig.variadic.is_some()
+    {
+        return Err(syn::Error::new_spanned(
+            &sig.ident,
+            "a #[component] function is a plain `fn`",
+        ));
+    }
     if !sig.generics.params.is_empty() || sig.generics.where_clause.is_some() {
         return Err(syn::Error::new_spanned(
             &sig.generics,

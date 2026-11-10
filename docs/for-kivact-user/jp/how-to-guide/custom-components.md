@@ -65,7 +65,7 @@ fn main() -> kivact::Result<()> {
 署名が API になる規則です。
 
 - **必須の prop は位置引数。** `chip("Kivact", ..)` はラベルと押下のハンドラーを位置で受け取ります。
-- **`#[prop(default = expr)]` と `#[prop(optional)]` は setter になる。** 上のチップは、tone を省いて `chip("Kivact", ..)` とも、`chip("Kivact", ..).tone(ChipTone::Accent)` とも書けます。省略可能な prop は `Option<X>` と宣言し、その setter は `X` が受け取る入力を受け取ります。省略可能なコールバックは `#[prop(optional)] on_close: Option<Callback<()>>` と書き、本体は `Option<Callback<()>>` を受け取って変換します（`on_close.map(|f| f())`）。変換にはコンポーネントの setup が要るためです。
+- **`#[prop(default = expr)]` と `#[prop(optional)]` は setter になる。** 上のチップは、tone を省いて `chip("Kivact", ..)` とも、`chip("Kivact", ..).tone(ChipTone::Accent)` とも書けます。省略可能な prop は `Option<X>` と宣言し、その setter は `X` が受け取る入力を受け取ります。省略可能なコールバックは `#[prop(optional)] on_close: Option<Callback<()>>` と書きます。本体が受け取るのは、コンポーネントの setup で変換済みの `Option<Callback<()>>` です。
 - **本体は専用の setup の owner の中で一度だけ実行される。** 生成される `impl IntoView` は本体を `scope(..)` の中に置きます。本体が作るシグナル、effect、コールバック、cleanup はそのインスタンスに属し、表示が取り除かれると破棄されます。レイアウトの箱は追加しません。本体のルートがコンポーネントのルートです。
 - **公開されるのは戻り値だけ。** 生成される構造体は関数名を UpperCamelCase にした名前（`chip` → `Chip`）で、`IntoView` は実装しますが `Element` は実装しません。呼び出し側は `.style(..)` や `.test_id(..)` を書けません。呼び出し側が変えてよいものは prop にし、それ以外はコンポーネントの判断にします。
 
@@ -519,6 +519,8 @@ fn main() -> kivact::Result<()> {
 - `Option<..>` でない型への `#[prop(optional)]`。
 - `#[prop(optional)]` と `#[prop(default = ..)]` の併用。
 - `#[prop(..)]` の未知の key。
+- `async`、`const`、`unsafe`、`extern` の関数: `#[component]` の関数は普通の `fn` です。
+- doc コメント、`allow`、`warn`、`deny`、`deprecated` 以外の属性（`#[expect(..)]` の代わりに `#[allow(..)]` を書きます）。
 
 ## 関連項目
 

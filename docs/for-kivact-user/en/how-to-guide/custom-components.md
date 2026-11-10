@@ -80,8 +80,7 @@ How the signature becomes the API:
   `chip("Kivact", ..).tone(ChipTone::Accent)`. An optional prop is declared
   `Option<X>` and its setter takes the input `X` accepts. An optional callback is
   `#[prop(optional)] on_close: Option<Callback<()>>`: the body receives
-  `Option<Callback<()>>` and converts it (`on_close.map(|f| f())`), because the
-  conversion needs the component's setup.
+  `Option<Callback<()>>`, already converted in the component's setup.
 - **The body runs once, in its own setup owner.** The generated
   `impl IntoView` puts the body in `scope(..)`: signals, effects, callbacks and
   cleanup that it creates belong to this instance and are disposed when the view
@@ -623,7 +622,9 @@ says what to change:
 - a destructuring pattern: each prop is a named argument;
 - `#[prop(optional)]` on a type that is not `Option<..>`;
 - `#[prop(optional)]` together with `#[prop(default = ..)]`;
-- an unknown key in `#[prop(..)]`.
+- an unknown key in `#[prop(..)]`;
+- an `async`, `const`, `unsafe` or `extern` function: a `#[component]` function is a plain `fn`;
+- an attribute other than doc comments, `allow`, `warn`, `deny` and `deprecated` (write `#[allow(..)]` instead of `#[expect(..)]`).
 
 ## See also
 
