@@ -5,8 +5,9 @@ use super::frame::{FramePlan, Presented};
 use super::gpu::{Fallback, Gpu};
 use super::health::{FrameHealth, LossAction};
 use crate::ShellWaker;
+use crate::env::RendererStart;
 use crate::error::{self, Failure, FailureKind};
-use crate::presentation::{Notes, Renderer, RendererChange};
+use crate::presentation::{GpuStartCause, Notes, Renderer, RendererChange};
 use arvane_compose::{CpuCompositor, CpuOutput, Damage, GpuContext, GpuSurface, Presentation};
 use arvane_render::RenderError;
 use arvane_shell::{BufferAge, ShellWindow};
@@ -72,6 +73,12 @@ impl Presenter {
         self.gpu.release_caches();
     }
 
+    /// Release the CPU frame state of an idle window; its next frame redraws
+    /// everything. The GPU state is kept (its memory is not in the CPU frame state).
+    pub(crate) fn forget_frame_state(&mut self) {
+        self.cpu.invalidate();
+    }
+
     /// A presenter noting its renderer changes to `notes`, its GPU devices
     /// made as `env` says.
     pub(crate) fn new(notes: Notes, env: &crate::env::Env) -> Self {
@@ -84,11 +91,6 @@ impl Presenter {
             shader_failed: HashSet::new(),
             limits_noted: HashSet::new(),
         }
-    }
-
-    /// Note a renderer change.
-    pub(crate) fn note(&mut self, change: RendererChange) {
-        self.notes.note(change);
     }
 
     /// The adapter of the GPU device drawing the window's frames, when it
@@ -203,25 +205,16 @@ impl Presenter {
         self.health = FrameHealth::Healthy;
     }
 
-    /// Start the GPU renderer on a worker thread; frames are drawn on the
-    /// CPU until it is ready, and when no hardware adapter is available,
-    /// or GPU support is not built in, for the whole session. `waker`
-    /// wakes the window's thread when a start step finishes
-    /// ([`Presenter::prepare`] then).
-    pub(crate) fn start_gpu(&mut self, waker: ShellWaker) {
-        self.gpu.start(waker, &mut self.notes);
+    /// The renderer the window starts with (see [`Gpu::begin`]); call once,
+    /// when the window opened.
+    pub(crate) fn begin(&mut self, start: RendererStart, waker: ShellWaker) {
+        self.gpu.begin(start, waker, &mut self.notes);
     }
 
-    /// Defer the GPU start until the window needs it (the first demand, or
-    /// slow CPU frames; `GpuStart::OnDemand`).
-    pub(crate) fn defer_gpu(&mut self, waker: ShellWaker) {
-        self.gpu.defer(waker);
-    }
-
-    /// Start the GPU device now: the window needs it (a composition with a
-    /// user shader, or a GPU texture the App shares). Nothing once started.
-    pub(crate) fn demand_gpu(&mut self, waker: ShellWaker) {
-        self.gpu.start(waker, &mut self.notes);
+    /// Start the GPU device the window waits for: the App asks for it (a GPU
+    /// texture the App shares). See [`Gpu::demand`].
+    pub(crate) fn demand_gpu(&mut self) {
+        self.gpu.demand(GpuStartCause::App, &mut self.notes);
     }
 
     /// Move a GPU start along for `window` without drawing: once the
@@ -325,19 +318,24 @@ impl Presenter {
         let was_ready = self.gpu.ready();
         let drawn = self.draw_native(window, composition, plan);
         let (now, period) = (window.now_ns(), window.frame_period_ns());
-        if let Ok(Drawn::Shown {
-            renderer: Renderer::Cpu,
-            raster,
-            present,
-            ..
-        }) = &drawn
+        if self.gpu.waits()
+            && let Ok(drawn) = &drawn
         {
-            self.gpu.note_cpu_frame(
-                *raster + *present,
-                Duration::from_nanos(period),
-                composition.needs_gpu(),
-                &mut self.notes,
-            );
+            if drawn.report().shader_fallback {
+                self.gpu.demand(GpuStartCause::Shader, &mut self.notes);
+            } else if let Drawn::Shown {
+                renderer: Renderer::Cpu,
+                raster,
+                present,
+                ..
+            } = drawn
+            {
+                self.gpu.note_cpu_frame(
+                    *raster + *present,
+                    Duration::from_nanos(period),
+                    &mut self.notes,
+                );
+            }
         }
         let renderer = if self.gpu.ready() {
             Renderer::Gpu

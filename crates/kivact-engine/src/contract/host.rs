@@ -89,9 +89,10 @@ pub enum HostRequest {
     Emulate(EngineEmulation),
     /// Multiply the motion clock of every window.
     TimeScale(f64),
-    /// Start `window`'s GPU device now: the App needs it (a composition
-    /// with a user shader, or a GPU texture it shares with the window).
-    /// Starting again changes nothing.
+    /// Start `window`'s GPU device when it waits for a reason
+    /// (`GpuStart::OnDemand`): the App reads the window's adapter to share
+    /// GPU textures with it. Nothing for a window on the CPU only or whose
+    /// device started; nothing is answered.
     DemandGpu {
         /// The window whose device is needed.
         window: kivact_types::WindowId,

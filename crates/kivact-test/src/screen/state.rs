@@ -7,6 +7,7 @@ use std::fmt::Write as _;
 use std::panic::Location;
 
 use kivact_engine::contract::SceneLayer;
+use kivact_engine::testing::Renderer;
 use kivact_types::NodeId;
 use kivact_types::WindowId;
 use kivact_types::render::FrameStats;
@@ -44,6 +45,18 @@ impl Screen {
         let mut stats = self.inspect().stats();
         stats.core_ns = self.app.record.core_ns.get();
         stats
+    }
+
+    /// What draws the window's frames now, and where its GPU device stands:
+    /// [`Renderer::Cpu`] for a window on the CPU only or one waiting until it
+    /// needs the GPU ([`RenderOptions::gpu_on_demand`](crate::RenderOptions::gpu_on_demand)),
+    /// [`Renderer::GpuStarting`] while its device starts (frames are still
+    /// drawn on the CPU), [`Renderer::Gpu`], or [`Renderer::GpuFailed`].
+    pub fn renderer(&self) -> Renderer {
+        self.check_open();
+        self.host()
+            .renderer(self.window)
+            .expect("invariant: an open window noted the renderer it started with")
     }
 
     /// The work counts of the last frame the window presented (chunks

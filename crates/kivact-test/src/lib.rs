@@ -29,7 +29,9 @@
 //! - Options: [`RenderOptions`] defaults to 800 × 600 at scale 1, the
 //!   bundled font only, a real window (headless when none opens), the CPU
 //!   and 60 Hz. The Cargo GPU feature only enables the capability; a test
-//!   picks how it draws with `gpu` (no API says which one drew).
+//!   picks how it draws with `gpu` (the GPU from the first frame) or
+//!   `gpu_on_demand` (the CPU until the window needs the GPU), and reads what
+//!   draws with `Screen::renderer`.
 //!   The default reads `KIVACT_TEST_MIRROR` (`off`, `auto`, or `required`).
 //!   [`RenderOptions::from_env`] also reads `KIVACT_TEST_GPU=1`.
 //!   [`render_with_handle`] also returns values made by the root setup.
@@ -92,7 +94,7 @@ mod screen;
 
 /// The work counts of a presented frame, as [`Screen::frame_stats`] reports them.
 pub use kivact_types::render::FrameStats;
-pub use options::{MirrorMode, RenderOptions, TestFonts};
+pub use options::{MirrorMode, RenderOptions, Renderer, TestFonts};
 pub use render::{gpu_unavailable, native_unavailable, render, render_with, render_with_handle};
 
 pub use screen::{

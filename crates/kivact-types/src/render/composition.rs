@@ -25,33 +25,6 @@ pub struct Composition {
     pub exports: Vec<Export>,
 }
 
-impl Composition {
-    /// Whether drawing this frame needs the window's GPU device: a layer
-    /// applies a user shader as a layer filter, a backdrop filter or a paint
-    /// shader. External GPU textures and GPU exports are demands of their
-    /// own (the engine asks for the device when they are made, so they do
-    /// not appear in a composition before the device is ready).
-    pub fn needs_gpu(&self) -> bool {
-        self.layers.iter().any(|layer| {
-            layer.effects.filters.iter().any(is_shader)
-                || layer
-                    .effects
-                    .backdrop
-                    .as_ref()
-                    .is_some_and(|backdrop| backdrop.filters.iter().any(is_shader))
-                || layer
-                    .items
-                    .iter()
-                    .any(|item| matches!(item, LayerItem::Shader(_)))
-        })
-    }
-}
-
-/// Whether `filter` is a user shader.
-fn is_shader(filter: &LayerFilter) -> bool {
-    matches!(filter, LayerFilter::Shader(_))
-}
-
 /// Stable identity of a layer across frames (cache key).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum LayerKey {
@@ -366,6 +339,9 @@ pub struct FrameReport {
     pub missed: Vec<ExternalFrame>,
     /// (program hash, message) of shader pipelines that failed, once each.
     pub shader_failures: Vec<(u64, String)>,
+    /// A user shader (paint or filter) was drawn by its fallback on the CPU
+    /// this frame; the GPU draws it.
+    pub shader_fallback: bool,
     /// Exports skipped this frame because no slot was released.
     pub pending_exports: Vec<DrawableId>,
     /// Work counts of this frame.
