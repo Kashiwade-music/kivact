@@ -56,7 +56,7 @@ use kivact_types::{A11yRequest, NodeId, OverlayProps};
 
 use kivact_runtime::{IntoValue, Prop as InputProp};
 
-use crate::view::descriptor::{IntoView, View, mount, view_fn};
+use crate::view::descriptor::{IntoView, View, view_fn};
 use crate::view::element_data::{Content, Element, Node};
 use crate::view::input::{DismissReason, Key, KeyEvent, Modifiers};
 use crate::view::mount::mount_host;
@@ -437,8 +437,7 @@ impl IntoView for Overlay {
                     );
                 }
             });
-            let c = mount(child, cx);
-            cx.append(id, c);
+            child.mount_into(cx, id);
             if modal {
                 restore_focus_on_unmount(cx.rt, cx.window, cx.owner, id);
             }

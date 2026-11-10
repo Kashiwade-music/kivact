@@ -25,7 +25,7 @@ use kivact_engine::contract::NodeType;
 
 use crate::state::IntoValue;
 use crate::view::descriptor::Mcx;
-use crate::view::descriptor::{mount, view_fn};
+use crate::view::descriptor::view_fn;
 use crate::view::element_data::Common;
 use crate::view::element_data::{Content, Node};
 use crate::view::mount::mount_host;
@@ -259,8 +259,7 @@ impl IntoView for Node {
                 n.at = None;
             }
             for child in children {
-                let child = mount(child, cx);
-                cx.append(id, child);
+                child.mount_into(cx, id);
             }
             match content {
                 Content::Box => {}
