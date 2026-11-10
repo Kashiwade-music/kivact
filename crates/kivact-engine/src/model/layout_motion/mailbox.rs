@@ -9,7 +9,7 @@
 //! - The mailbox is emptied at the end of every layout pass that retargets
 //!   the runs, so a record lives until the next pass only.
 
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{BTreeSet, HashSet};
 use std::sync::Arc;
 
 use kivact_types::{NodeId, Rect};
@@ -22,16 +22,11 @@ impl Model {
     /// (the one created last) is named. A duplicate is an error of the app
     /// (`HostEvent::DuplicateLayoutId`), and the record goes to that node.
     pub(crate) fn report_duplicate_layout_ids(&mut self) {
-        let mut first: HashMap<Arc<str>, NodeId> = HashMap::new();
-        let mut duplicates = Vec::new();
-        for (id, node) in self.tree.iter() {
-            let Some(key) = node.layout_id() else {
-                continue;
-            };
-            if first.insert(key.clone(), id).is_some() {
-                duplicates.push((id, key.clone()));
-            }
-        }
+        let duplicates: Vec<(NodeId, Arc<str>)> = self
+            .sources
+            .duplicate_layout_ids()
+            .map(|(node, key)| (node, key.clone()))
+            .collect();
         for (node, id) in duplicates {
             if self.layout_motion.reported_ids.note(id.clone()) {
                 self.push(HostEvent::DuplicateLayoutId { node, id });
@@ -69,31 +64,21 @@ impl Model {
             return Vec::new();
         }
         let known: HashSet<NodeId> = previous.iter().map(|(id, _)| *id).collect();
-        let mut chosen: BTreeMap<Arc<str>, NodeId> = BTreeMap::new();
-        for (id, node) in self.tree.iter() {
-            if known.contains(&id) {
-                continue;
-            }
-            if !node.layout().is_some_and(|l| l.layout_transition.is_some()) {
-                continue;
-            }
-            let Some(key) = node.layout_id().cloned() else {
+        let keys: BTreeSet<Arc<str>> = self.layout_motion.shared.departed.keys().cloned().collect();
+        let mut arrivals = Vec::new();
+        for key in keys {
+            let taker = self
+                .sources
+                .layout_id_nodes(&key)
+                .filter(|id| !known.contains(id) && self.sources.has_layout_transition(*id))
+                .max();
+            let Some(id) = taker else {
                 continue;
             };
-            if !self.layout_motion.shared.departed.contains_key(&key) {
-                continue;
-            }
-            let slot = chosen.entry(key).or_insert(id);
-            if id > *slot {
-                *slot = id;
+            if let Some(rect) = self.layout_motion.shared.departed.remove(&key) {
+                arrivals.push((id, rect));
             }
         }
-        chosen
-            .into_iter()
-            .filter_map(|(key, id)| {
-                let rect = self.layout_motion.shared.departed.remove(&key)?;
-                Some((id, rect))
-            })
-            .collect()
+        arrivals
     }
 }

@@ -4,14 +4,15 @@
 //! - A node needs frames only while it is drawn with a shader whose clock
 //!   runs: not `Still`, and not under reduced motion unless the shader is
 //!   essential.
+//! - The nodes with a shader clock come from `MotionSources`, and their
+//!   drawn state is read at a paint list rebuild (`Model::refresh_shader_clocks`).
 //! - At each tick every such node is repainted (its time advanced), and the
 //!   next frame is the earliest of the nodes' next times: a display clock
 //!   wants every tick, an `Hz(r)` clock wants the tick after `⌊now·r⌋`.
 
 use std::collections::BTreeMap;
 
-use kivact_types::paint::{Fill, FillImage, FilterOp, ShaderClock, ShaderSpec};
-use kivact_types::{DrawCmd, DrawList, NodeId};
+use kivact_types::NodeId;
 
 use super::state::ClockNeed;
 use crate::model::Model;
@@ -19,17 +20,14 @@ use crate::model::Model;
 impl Model {
     /// Rebuild the clock needs of the drawn nodes at a paint list rebuild, and
     /// request the next frame they need.
-    pub(crate) fn sync_shader_clocks(&mut self) {
+    pub(crate) fn refresh_shader_clocks(&mut self) {
         let reduced = self.frame.reduced_motion();
-        let mut needs = BTreeMap::new();
-        for (id, node) in self.tree.iter() {
-            if !self.tree.drawn(id) {
-                continue;
-            }
-            if let Some(need) = node_clock(node, reduced) {
-                needs.insert(id, need);
-            }
-        }
+        let needs: BTreeMap<NodeId, ClockNeed> = self
+            .sources
+            .shaders()
+            .filter(|(id, _)| self.tree.drawn(*id))
+            .filter_map(|(id, need)| Some((id, if reduced { need.reduced? } else { need.moving })))
+            .collect();
         self.frame.shader_clocks = needs;
         self.request_clock_frames(self.frame.now());
     }
@@ -71,80 +69,5 @@ fn hz_next(now: u64, rate: f64) -> u64 {
         at as u64
     } else {
         now.saturating_add(1)
-    }
-}
-
-/// The clock need of `node`'s shaders: its background, its filters and
-/// backdrop, and the shaders of its draw scenes.
-fn node_clock(node: &crate::tree::node::HostNode, reduced: bool) -> Option<ClockNeed> {
-    let paint = node.paint();
-    let mut need = paint
-        .and_then(|p| p.background.as_ref())
-        .and_then(|f| fill_clock(f, reduced));
-    if let Some(effects) = paint.and_then(|p| p.effects.as_deref()) {
-        need = combine(need, ops_clock(&effects.filter, reduced));
-        need = combine(need, ops_clock(&effects.backdrop, reduced));
-    }
-    for scene in node.scenes().iter().flatten() {
-        need = combine(need, scene_clock(scene, reduced));
-    }
-    need
-}
-
-/// The clock need of the shaders of a draw list.
-fn scene_clock(scene: &DrawList, reduced: bool) -> Option<ClockNeed> {
-    scene.cmds.iter().fold(None, |need, cmd| {
-        let own = match cmd {
-            DrawCmd::Rect { fill, .. } | DrawCmd::RoundedRect { fill, .. } => {
-                fill_clock(fill, reduced)
-            }
-            DrawCmd::Shape(shape) => fill_clock(&shape.paint, reduced),
-            DrawCmd::PushLayer(layer) => ops_clock(&layer.filter, reduced),
-            _ => None,
-        };
-        combine(need, own)
-    })
-}
-
-/// The clock need of the shader layers of `fill`.
-fn fill_clock(fill: &Fill, reduced: bool) -> Option<ClockNeed> {
-    let Fill::Layers(layers) = fill else {
-        return None;
-    };
-    layers.iter().fold(None, |need, layer| match &layer.image {
-        FillImage::Shader(spec) => combine(need, spec_clock(spec, reduced)),
-        _ => need,
-    })
-}
-
-/// The clock need of the shader filters among `ops`.
-fn ops_clock(ops: &[FilterOp], reduced: bool) -> Option<ClockNeed> {
-    ops.iter().fold(None, |need, op| match op {
-        FilterOp::Shader(spec) => combine(need, spec_clock(spec, reduced)),
-        _ => need,
-    })
-}
-
-/// The clock need of one shader: none when it is still, or when reduced
-/// motion stops it (unless it is essential).
-fn spec_clock(spec: &ShaderSpec, reduced: bool) -> Option<ClockNeed> {
-    if reduced && !spec.essential {
-        return None;
-    }
-    match spec.clock {
-        ShaderClock::Still => None,
-        ShaderClock::Hz(rate) if rate.is_finite() && rate > 0.0 => Some(ClockNeed::Hz(rate)),
-        ShaderClock::Hz(_) => None,
-        ShaderClock::Display => Some(ClockNeed::Display),
-    }
-}
-
-/// The more frequent of two needs (a display clock is the most frequent).
-fn combine(a: Option<ClockNeed>, b: Option<ClockNeed>) -> Option<ClockNeed> {
-    match (a, b) {
-        (Some(ClockNeed::Display), _) | (_, Some(ClockNeed::Display)) => Some(ClockNeed::Display),
-        (Some(ClockNeed::Hz(x)), Some(ClockNeed::Hz(y))) => Some(ClockNeed::Hz(x.max(y))),
-        (x, None) => x,
-        (None, y) => y,
     }
 }

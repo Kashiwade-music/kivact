@@ -412,14 +412,16 @@ impl Model {
 
     /// Bring the paint list up to date for the next frame: rebuilt if
     /// anything restacked since the last one (see the module invariants).
-    pub(crate) fn paint_list(&mut self) {
+    /// Returns whether it was rebuilt.
+    pub(crate) fn paint_list(&mut self) -> bool {
         let mut list = std::mem::take(&mut self.paint.list);
         let window = self.window();
         let key = ListState::Built {
             size: window,
             scale: self.paint.scale,
         };
-        if list.state != key {
+        let rebuilt = list.state != key;
+        if rebuilt {
             let margin = MARGIN.max(1.0 / self.paint.scale.max(f64::MIN_POSITIVE));
             let viewport = Rect {
                 x: -margin,
@@ -466,6 +468,7 @@ impl Model {
             list.state = key;
         }
         self.paint.list = list;
+        rebuilt
     }
 
     /// Bring `facts` up to date with the nodes marked stale since the last list.
