@@ -28,7 +28,7 @@ use std::rc::Rc;
 use kivact_types::NodeId;
 
 use crate::view::boundary::mount_in;
-use crate::view::descriptor::{IntoView, Mcx, View, view_fn};
+use crate::view::descriptor::{IntoView, View, view_fn};
 use crate::view::flow::branch::{Branch, mount_branch, unmount_branch};
 use crate::view::state::ViewState;
 use kivact_runtime::keyed::{self, Diff, Plan, Rows};
@@ -240,14 +240,9 @@ fn apply_list<T: Clone + 'static, K: kivact_runtime::ItemKey>(
                     continue;
                 };
                 let item = keyed.item();
-                let cx = Mcx {
-                    rt,
-                    owner: keyed.owner(),
-                    window,
-                };
-                let node = cx.fragment();
-                let child = mount_in(rt, keyed.owner(), window, || row.call((k, item)));
-                cx.append(node, child);
+                // The row's own node: its view's root, or a fragment for an empty view
+                // or a group (`View::mount`).
+                let node = mount_in(rt, keyed.owner(), window, || row.call((k, item)));
                 new_rows.push(Row { row: keyed, node });
                 fresh.push(true);
                 moved.push(false);
@@ -341,13 +336,7 @@ where
                 let owner = parent.child(at);
                 let sig = owner.signal(item, at);
                 let b = mount_branch(&rt, owner, window, frag, || {
-                    let child = row(i, sig.into_value()).into_view();
-                    view_fn(move |cx| {
-                        let fragment = cx.fragment();
-                        let child = cx.mount_child(child);
-                        cx.append(fragment, child);
-                        fragment
-                    })
+                    row(i, sig.into_value()).into_view()
                 });
                 rows.borrow_mut().push((b, sig));
             }

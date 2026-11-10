@@ -530,10 +530,8 @@ fn apply_visible<K: kivact_runtime::ItemKey, T: Clone + 'static>(
                         });
                     }
                 }
-                let fragment = cx.fragment();
                 let content = mount_in(rt, owner, window, || row.call((k.clone(), sig)));
-                cx.append(fragment, content);
-                cx.append(wrapper, fragment);
+                cx.append(wrapper, content);
                 order.push(wrapper);
                 fresh.push(true);
                 state.borrow_mut().rows.insert(

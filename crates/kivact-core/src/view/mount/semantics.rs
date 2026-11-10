@@ -8,26 +8,92 @@ use kivact_engine::api::PropValue;
 use kivact_runtime::{EffectKind, ErrorKind, Prop as InputProp, UiError};
 use kivact_style::asset::ImageFit;
 use kivact_types::{CheckedState, FocusTarget, NodeId, Semantics};
-use std::cell::RefCell;
 use std::panic::Location;
+use std::rc::Rc;
+
+/// What a node's semantic publisher keeps after mounting (M-R5): the fold of
+/// the patches before the first reactive one, and the patches from it on.
+/// A node with only constant patches keeps nothing: it publishes once.
+struct Plan {
+    base: Semantics<FocusTarget>,
+    checked: Option<bool>,
+    indeterminate: Option<bool>,
+    rest: Box<[Rest]>,
+}
+
+/// One patch from the first reactive one on, in layer order.
+struct Rest {
+    apply: Rc<dyn Fn(&mut Semantics<FocusTarget>)>,
+    input: RestInput,
+}
+
+/// The preserved input a later patch publishes through the checked state.
+enum RestInput {
+    Other,
+    Checked(InputProp<bool>),
+    Indeterminate(InputProp<bool>),
+}
+
+impl Plan {
+    /// `patches` sorted by layer.
+    fn new(patches: Vec<SemanticsPatch>) -> Self {
+        let split = patches
+            .iter()
+            .position(|p| p.reactive)
+            .unwrap_or(patches.len());
+        let mut base = Semantics::default();
+        let (mut checked, mut indeterminate) = (None, None);
+        let mut rest = Vec::with_capacity(patches.len() - split);
+        for (index, patch) in patches.into_iter().enumerate() {
+            if index < split {
+                (patch.apply)(&mut base);
+                match &patch.input {
+                    SemanticInput::Checked(source) => checked = Some(source.get()),
+                    SemanticInput::Indeterminate(source) => indeterminate = Some(source.get()),
+                    _ => {}
+                }
+            } else {
+                let input = match patch.input {
+                    SemanticInput::Checked(source) => RestInput::Checked(source),
+                    SemanticInput::Indeterminate(source) => RestInput::Indeterminate(source),
+                    _ => RestInput::Other,
+                };
+                rest.push(Rest {
+                    apply: patch.apply,
+                    input,
+                });
+            }
+        }
+        Plan {
+            base,
+            checked,
+            indeterminate,
+            rest: rest.into_boxed_slice(),
+        }
+    }
+
+    /// The canonical value: the base, then each later patch in order.
+    fn resolve(&self) -> Semantics<FocusTarget> {
+        let mut semantics = self.base.clone();
+        let (mut checked, mut indeterminate) = (self.checked, self.indeterminate);
+        for patch in self.rest.iter() {
+            (patch.apply)(&mut semantics);
+            match &patch.input {
+                RestInput::Checked(source) => checked = Some(source.get()),
+                RestInput::Indeterminate(source) => indeterminate = Some(source.get()),
+                RestInput::Other => {}
+            }
+        }
+        if checked.is_some() || indeterminate.is_some() {
+            semantics.checked = checked_state(checked, indeterminate);
+        }
+        semantics
+    }
+}
 
 /// Fold declaration layers in order, retaining relation declaration order.
 pub(super) fn resolve(patches: &[SemanticsPatch]) -> Semantics<FocusTarget> {
-    let mut semantics = Semantics::default();
-    let mut checked = None;
-    let mut indeterminate = None;
-    for patch in patches {
-        (patch.apply)(&mut semantics);
-        match &patch.input {
-            SemanticInput::Checked(source) => checked = Some(source.get()),
-            SemanticInput::Indeterminate(source) => indeterminate = Some(source.get()),
-            _ => {}
-        }
-    }
-    if checked.is_some() || indeterminate.is_some() {
-        semantics.checked = checked_state(checked, indeterminate);
-    }
-    semantics
+    Plan::new(patches.to_vec()).resolve()
 }
 
 pub(super) fn checked_state(
@@ -51,52 +117,35 @@ fn bind(
         return;
     }
     patches.sort_by_key(|p| p.layer);
-    let reactive = patches.iter().any(|patch| patch.reactive);
     if let Some(node) = ViewState::tree_mut(cx.rt).get_mut(id) {
         node.semantic_origins = patches.iter().map(|p| p.at).collect();
     }
+    let text_at = patches.iter().rev().find(|p| p.text).map_or(at, |p| p.at);
+    let reactive = patches.iter().any(|patch| patch.reactive);
+    let plan = Plan::new(patches);
     let weak = cx.weak();
     let owner = cx.owner;
-    let previous: RefCell<Option<Semantics<FocusTarget>>> = RefCell::new(None);
     let publish = move || {
-        let mut props = resolve(&patches);
-        if let Some(rt) = weak.upgrade() {
-            if let Some(Err(why)) = props.text.as_ref().map(kivact_types::check_text) {
-                props.text = None;
-                let at = patches.iter().rev().find(|p| p.text).map_or(at, |p| p.at);
-                rt.report(
-                    Some(owner),
-                    UiError::new(
-                        ErrorKind::Unsupported,
-                        format!("semantics_text is not published: {why}"),
-                        Some(at),
-                    ),
-                );
-            }
-            if previous.borrow().as_ref() != Some(&props) {
-                let old = previous.replace(Some(props.clone()));
-                let writer = rt.running_effect();
-                let mut tree = ViewState::tree_mut(&rt);
-                // These facts also drive native input and layout, independently
-                // of the canonical semantic payload.
-                if old
-                    .as_ref()
-                    .is_none_or(|old| old.disabled != props.disabled)
-                {
-                    tree.update(id, PropValue::Disabled(props.disabled), writer);
-                }
-                if old.as_ref().is_none_or(|old| old.hidden != props.hidden) {
-                    tree.update(id, PropValue::Hidden(props.hidden), writer);
-                }
-                if old
-                    .as_ref()
-                    .is_none_or(|old| old.focusable != props.focusable)
-                {
-                    tree.update(id, PropValue::Focusable(props.focusable), writer);
-                }
-                tree.update(id, PropValue::Semantics(props), writer);
-            }
+        let mut props = plan.resolve();
+        let Some(rt) = weak.upgrade() else { return };
+        if let Some(Err(why)) = props.text.as_ref().map(kivact_types::check_text) {
+            props.text = None;
+            rt.report(
+                Some(owner),
+                UiError::new(
+                    ErrorKind::Unsupported,
+                    format!("semantics_text is not published: {why}"),
+                    Some(text_at),
+                ),
+            );
         }
+        let writer = rt.running_effect();
+        let mut tree = ViewState::tree_mut(&rt);
+        // These facts also drive native input and layout; the engine ignores equal values.
+        tree.update(id, PropValue::Disabled(props.disabled), writer);
+        tree.update(id, PropValue::Hidden(props.hidden), writer);
+        tree.update(id, PropValue::Focusable(props.focusable), writer);
+        tree.update(id, PropValue::Semantics(props), writer);
     };
     if reactive {
         cx.effect(EffectKind::Render, at, publish);
