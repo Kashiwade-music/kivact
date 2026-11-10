@@ -33,10 +33,8 @@ pub fn render_with<V: IntoView>(
     options: RenderOptions,
     root: impl FnOnce() -> V + 'static,
 ) -> Screen {
-    let gpu = options.uses_gpu();
     Screen::start(
         options,
-        gpu,
         Vec::new(),
         Box::new(move || root().into_view()),
         std::panic::Location::caller(),

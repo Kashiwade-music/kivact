@@ -54,10 +54,11 @@ pub struct TestHostOptions {
     /// deterministic layout); `false` uses the asset store's worker thread
     /// like a running App (results arrive in real time and wake the host).
     pub inline_assets: bool,
-    /// Draw frames on the GPU: through a GPU surface of the real window
-    /// (read back for [`ArvaneTestHost::frame`]). Requires a native mirror.
-    /// Starting fails when the GPU renderer cannot start
-    /// ([`gpu_unavailable`]). Frames then differ slightly from the CPU's.
+    /// The window can draw on the GPU, through a GPU surface of the real
+    /// window (requires a native mirror). The device starts as
+    /// `gpu_preference.start` says: with the window (the host then waits
+    /// until it is ready, and fails to start when it cannot) or when the
+    /// window needs it. `Off`: the CPU only.
     pub gpu: GpuMode,
     /// How the window's GPU device is made, as a native window's
     /// (`HostOptions::gpu_preference`).
