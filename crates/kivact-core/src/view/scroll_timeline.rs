@@ -31,6 +31,10 @@ pub enum ViewRange {
 #[track_caller]
 pub fn scroll_progress(scroller: NodeRef, axis: Orientation) -> Value<f64> {
     require_setup("scroll_progress");
+    scroller.require_observation(
+        crate::view::state::RefObservation::Sources,
+        std::panic::Location::caller(),
+    );
     memo(move || {
         scroller
             .tracked_observation()
