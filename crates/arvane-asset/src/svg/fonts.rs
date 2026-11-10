@@ -2,13 +2,14 @@
 
 use std::sync::{Arc, Mutex};
 
+use kivact_types::render::FontSource;
 use resvg::usvg;
 
 /// System fonts plus the App's fonts, loaded the first time an SVG with
 /// text is parsed (on the asset worker thread), never at startup.
 pub(crate) struct SvgFonts {
     /// The App's font files, in registration order.
-    app: Vec<Arc<Vec<u8>>>,
+    app: Vec<FontSource>,
     /// The database once built (a pure cache of `app` and the system fonts).
     db: Mutex<Option<Arc<usvg::fontdb::Database>>>,
 }
@@ -22,10 +23,10 @@ impl SvgFonts {
         }
     }
 
-    /// The same App fonts plus `bytes`; the database is built again on its next use.
-    pub(crate) fn with_font(&self, bytes: Vec<u8>) -> Self {
+    /// The same App fonts plus `font`; the database is built again on its next use.
+    pub(crate) fn with_font(&self, font: FontSource) -> Self {
         let mut app = self.app.clone();
-        app.push(Arc::new(bytes));
+        app.push(font);
         Self {
             app,
             db: Mutex::new(None),
@@ -46,7 +47,7 @@ impl SvgFonts {
             let mut fonts = usvg::fontdb::Database::new();
             fonts.load_system_fonts();
             for font in &self.app {
-                fonts.load_font_data(font.as_ref().clone());
+                fonts.load_font_source(usvg::fontdb::Source::Binary(Arc::clone(font.source())));
             }
             Arc::new(fonts)
         }))

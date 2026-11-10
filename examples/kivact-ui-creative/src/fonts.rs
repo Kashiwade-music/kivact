@@ -5,6 +5,6 @@ pub fn fonts() -> &'static [&'static [u8]] {
     &[
         include_bytes!("../../shared-assets/fonts/geist/Geist[wght].ttf"),
         include_bytes!("../../shared-assets/fonts/geistmono/GeistMono[wght].ttf"),
-        include_bytes!("../../shared-assets/fonts/notosansjp/NotoSansJP[wght].ttf"),
+        include_bytes!("../../shared-assets/fonts/notosansjp/NotoSansJP-subset[wght].ttf"),
     ]
 }

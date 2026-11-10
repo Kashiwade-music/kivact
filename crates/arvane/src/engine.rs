@@ -3,7 +3,7 @@
 use crate::asset;
 use crate::error::{self, Failure};
 use kivact_types::ComputedTextStyle;
-use kivact_types::render::{InlineBox, RichText, ShapedInlineText};
+use kivact_types::render::{FontSource, InlineBox, RichText, ShapedInlineText};
 use kivact_types::{Size, TextMetrics};
 use std::cell::RefCell;
 use std::marker::PhantomData;
@@ -54,15 +54,13 @@ impl Engine {
         }
     }
 
-    /// Register application-owned font bytes and return the available family names.
+    /// Register a font file and return the available family names. The
+    /// font's bytes are shared with `font`, not copied.
     ///
     /// New fonts can change fallback, so cached shaping and measurement are
     /// discarded, and so are the answers of [`Engine::has_font_family`].
-    pub fn register_font(&mut self, bytes: Arc<[u8]>) -> Result<Vec<String>, Failure> {
-        self.text
-            .get_mut()
-            .register_font(bytes)
-            .map_err(error::text)
+    pub fn register_font(&mut self, font: FontSource) -> Result<Vec<String>, Failure> {
+        self.text.get_mut().register_font(font).map_err(error::text)
     }
 
     /// System and registered font names, sorted and unique, preserving case.
@@ -75,10 +73,10 @@ impl Engine {
 
     /// Release the text adapter's caches
     /// when the platform is short of memory: paragraph layouts, measured
-    /// and shaped snapshots, ellipses, font copies and shaping scratch.
+    /// and shaped snapshots, ellipses and shaping scratch.
     ///
     /// The font database and registered fonts remain. Snapshots already
-    /// returned to a caller keep their shared font bytes and remain valid;
+    /// returned to a caller keep the font files they share alive and remain valid;
     /// later measurements and shapes rebuild the released work. Window
     /// renderers and the asset store own their caches separately.
     pub fn release_caches(&mut self) {
@@ -128,7 +126,8 @@ impl Engine {
     /// (colors, decorations, highlights, alignment, overflow and line clamp
     /// aside); another width only breaks its lines again. Input text and
     /// spans are borrowed for this call; the returned snapshot owns its
-    /// runs and font bytes independently of this engine and its caches.
+    /// runs, which share the font files they were shaped with (kept alive by
+    /// the runs), independently of this engine and its caches.
     pub fn shape<'t>(
         &mut self,
         text: impl Into<RichText<'t>>,
@@ -174,7 +173,8 @@ impl Engine {
     /// The extent [`Engine::shape`] would give a paragraph, without glyph
     /// runs or carets (for layout). Cached by text, spans, style (except
     /// what only drawing reads: colors, decorations, highlights) and
-    /// width; it shares the shaped paragraph with `shape`.
+    /// width once the paragraph was used before; it shares the shaped
+    /// paragraph with `shape`.
     pub fn measure_text<'t>(
         &mut self,
         text: impl Into<RichText<'t>>,

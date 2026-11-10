@@ -57,3 +57,51 @@ opt-level = 3
 opt-level = 3
 [profile.release.package.arvane-text]
 opt-level = 3
+
+# Third-party crates that run only on the asset worker thread (SVG parsing
+# and rasterizing, image decoding) or wait on the OS (file dialogs, the
+# clipboard) favour size. Crates on the UI thread keep their level, even
+# when they look cold: the accessibility adapter (AccessKit, every update
+# while assistive technology is active), shader validation and translation
+# (naga), date, number and message formatting (ICU, kivact-i18n) and SVG
+# path data (svgtypes, `Path::parse_svg`).
+[profile.release.package.usvg]
+opt-level = "z"
+[profile.release.package.resvg]
+opt-level = "z"
+[profile.release.package.tiny-skia]
+opt-level = "z"
+[profile.release.package.tiny-skia-path]
+opt-level = "z"
+[profile.release.package.rustybuzz]
+opt-level = "z"
+[profile.release.package.ttf-parser]
+opt-level = "z"
+[profile.release.package.fontdb]
+opt-level = "z"
+[profile.release.package.roxmltree]
+opt-level = "z"
+[profile.release.package.simplecss]
+opt-level = "z"
+[profile.release.package.image]
+opt-level = "z"
+[profile.release.package.zune-jpeg]
+opt-level = "z"
+[profile.release.package.zune-core]
+opt-level = "z"
+[profile.release.package.image-webp]
+opt-level = "z"
+[profile.release.package.png]
+opt-level = "z"
+[profile.release.package.gif]
+opt-level = "z"
+[profile.release.package.fdeflate]
+opt-level = "z"
+[profile.release.package.miniz_oxide]
+opt-level = "z"
+[profile.release.package.flate2]
+opt-level = "z"
+[profile.release.package.rfd]
+opt-level = "z"
+[profile.release.package.arboard]
+opt-level = "z"

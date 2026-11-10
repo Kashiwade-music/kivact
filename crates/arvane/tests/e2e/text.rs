@@ -127,3 +127,37 @@ fn an_unknown_family_falls_back_to_the_fonts_there_are() {
         "the bundled font stands in"
     );
 }
+
+#[test]
+fn glyph_runs_share_the_registered_font() {
+    let font = arvane::test_font();
+    let mut engine = arvane::Engine::with_fonts_only(std::slice::from_ref(&font))
+        .expect("the test font is usable");
+    for text in ["Shared bytes", "Another paragraph"] {
+        let shaped = engine.shape(text, &style(16.0), None).expect("shape");
+        assert!(!shaped.runs.is_empty(), "{text:?} is drawn");
+        for run in &shaped.runs {
+            assert_eq!(
+                run.font.as_ptr(),
+                font.as_ptr(),
+                "{text:?}: the run shares the registered bytes"
+            );
+        }
+    }
+}
+
+#[test]
+fn glyph_runs_of_one_system_font_share_one_source() {
+    let mut engine = arvane::Engine::new();
+    let first = engine.shape("Alpha", &style(16.0), None).expect("shape");
+    let second = engine.shape("Beta", &style(16.0), None).expect("shape");
+    assert!(
+        !first.runs.is_empty() && !second.runs.is_empty(),
+        "both are drawn"
+    );
+    assert_eq!(
+        first.runs[0].font.id(),
+        second.runs[0].font.id(),
+        "one system font, one shared source"
+    );
+}

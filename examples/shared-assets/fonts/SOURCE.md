@@ -1,10 +1,17 @@
 # Shared catalog font provenance
 
-Noto Sans JP was copied without byte changes from the existing Game catalog assets.
-The Basic, Pop and Creative copies have the same SHA-256 digest. The source is
-[Google Fonts Noto Sans JP](https://github.com/google/fonts/tree/main/ofl/notosansjp).
-The family's original `OFL.txt` notice is preserved beside the font.
-`SHA256SUMS.txt` records the original hashes and byte sizes. No font was upgraded.
+Noto Sans JP is a subset of the Google Fonts file
+[Noto Sans JP](https://github.com/google/fonts/tree/main/ofl/notosansjp)
+`NotoSansJP[wght].ttf` (9,589,900 bytes, SHA-256
+`c2f3b4d463500a2ddcd3849cded1fceeb9fd6d1c32e6cbecd568453ba50fc68f`), made by
+`dev/tools/subset-catalog-font.py`: the characters above ASCII that the
+catalogs, the kits and the public API tests use, ASCII, Latin-1, General
+Punctuation, Hiragana and Katakana, CJK symbols, and the full-width forms. The
+weight axis, metrics, layout features and names are kept. Run the script again
+after adding text with new characters; it takes the original from the git
+history. The SIL Open Font License allows subsets, and the family has no
+Reserved Font Name. The family's original `OFL.txt` notice is preserved beside
+the font. `SHA256SUMS.txt` records the hashes and byte sizes.
 
 Geist and Geist Mono were copied without byte changes from the Creative catalog.
 The Basic Geist Mono copy had identical bytes. Original Google Fonts sources:

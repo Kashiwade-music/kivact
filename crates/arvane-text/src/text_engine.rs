@@ -4,13 +4,13 @@ use crate::cache::{Cache, TextKeyRef};
 use crate::error::TextError;
 use crate::metrics::line_height;
 use crate::{build, layouts, output, transform};
+use kivact_types::render::FontSource;
 use kivact_types::render::{RichText, ShapedText};
 use kivact_types::{ComputedTextStyle, TextDecoration, TextWrap};
 use kivact_types::{Rect, TextAlign, TextCaret, TextMetrics, TextOverflow, TextTransform};
 use parley::{
     Alignment, AlignmentOptions, FontContext, GenericFamily, LayoutContext, PositionedLayoutItem,
 };
-use std::collections::HashMap;
 use std::sync::Arc;
 
 /// Reusable font database and shaping scratch space, used on its owner's UI thread.
@@ -21,7 +21,6 @@ pub struct TextEngine {
     pub(super) cache: Cache,
     pub(crate) fonts: FontContext,
     pub(crate) layouts: LayoutContext<u32>,
-    pub(super) font_bytes: HashMap<u64, Arc<[u8]>>,
 }
 
 /// Ellipses kept before they are all forgotten.
@@ -50,7 +49,6 @@ impl TextEngine {
                 source_cache: SourceCache::default(),
             },
             layouts: LayoutContext::new(),
-            font_bytes: HashMap::new(),
         };
         let mut families = Vec::new();
         for bytes in fonts {
@@ -82,14 +80,14 @@ impl TextEngine {
         Ok(engine)
     }
 
-    /// Registers owned font bytes and returns the discovered family names.
+    /// Registers a font file, sharing its bytes, and returns the discovered family names.
     ///
     /// Registration allows applications and headless tests to choose explicit fonts.
-    pub fn register_font(&mut self, bytes: Arc<[u8]>) -> Result<Vec<String>, TextError> {
+    pub fn register_font(&mut self, font: FontSource) -> Result<Vec<String>, TextError> {
         let faces = self
             .fonts
             .collection
-            .register_fonts(parley::fontique::Blob::new(Arc::new(bytes)), None);
+            .register_fonts(parley::fontique::Blob::new(Arc::clone(font.source())), None);
         if faces.is_empty() {
             return Err(TextError::InvalidFont);
         }
@@ -131,25 +129,25 @@ impl TextEngine {
         found
     }
 
-    /// Release cached layouts, ellipses, copied font bytes, loaded system
-    /// font sources and shaping scratch when memory is short.
+    /// Release cached layouts, ellipses, loaded system font sources and
+    /// shaping scratch when memory is short.
     ///
     /// Font discovery, registered bytes and the family-name snapshot remain.
-    /// Returned glyph runs own their font copies independently and remain
-    /// valid; later calls shape again and reload system sources as needed.
+    /// Returned glyph runs share their font sources and remain valid; later
+    /// calls shape again and reload system sources as needed.
     pub fn release_caches(&mut self) {
         let font_names = self.cache.font_names.take();
         self.cache = Cache {
             font_names,
             ..Cache::default()
         };
-        self.font_bytes = HashMap::new();
         self.fonts.source_cache.prune(0, true);
         self.layouts = LayoutContext::new();
     }
 
-    /// Measure a paragraph, caching successes and errors by text, style and width.
-    /// Drawing-only properties are excluded from the measurement key.
+    /// Measure a paragraph, caching successes and errors by text, style and width once the
+    /// paragraph was used before (a text measured once is not kept: its node keeps the answer,
+    /// `kivact_engine` `TextExtents`). Drawing-only properties are excluded from the measurement key.
     pub fn measure(
         &mut self,
         text: RichText<'_>,
@@ -160,8 +158,10 @@ impl TextEngine {
         if let Some(result) = self.cache.measured.get(&key) {
             return result;
         }
-        let result = self.measure_uncached(text, style, max_width);
-        self.cache.measured.insert(key.to_owned(), result.clone());
+        let (result, found) = self.measure_uncached(text, style, max_width);
+        if found == layouts::Found::Kept {
+            self.cache.measured.insert(key.to_owned(), result.clone());
+        }
         result
     }
 
@@ -170,21 +170,27 @@ impl TextEngine {
     /// A paragraph is shaped once per text and style (color and alignment
     /// aside): measuring or shaping it again at another width only breaks
     /// its lines again.
+    ///
+    /// Also returns whether the paragraph was kept (see [`layouts::Found`]); the
+    /// cheap early answers are not kept.
     fn measure_uncached(
         &mut self,
         text: RichText<'_>,
         style: &ComputedTextStyle,
         max_width: Option<f64>,
-    ) -> Result<TextMetrics, TextError> {
-        let height = line_height(style, max_width)?;
+    ) -> (Result<TextMetrics, TextError>, layouts::Found) {
+        let height = match line_height(style, max_width) {
+            Ok(height) => height,
+            Err(error) => return (Err(error), layouts::Found::Shaped),
+        };
         if text.text.is_empty() {
-            return Ok(TextMetrics::default());
+            return (Ok(TextMetrics::default()), layouts::Found::Shaped);
         }
         if !build::valid_spans(text.text, text.spans) {
-            return Err(TextError::InvalidSpans);
+            return (Err(TextError::InvalidSpans), layouts::Found::Shaped);
         }
         let ellipsis = self.ellipsis_for(text, style, max_width, height);
-        let layout = layout_at(
+        let (layout, found) = layout_at(
             &mut self.cache.paragraphs,
             &mut self.fonts,
             &mut self.layouts,
@@ -203,7 +209,7 @@ impl TextEngine {
                 .chars()
                 .any(|character| !character.is_whitespace())
         {
-            return Err(TextError::MissingFont);
+            return (Err(TextError::MissingFont), found);
         }
         let plan = output::plan(layout, style, max_width, ellipsis.as_ref());
         let mut metrics = TextMetrics {
@@ -214,7 +220,7 @@ impl TextEngine {
             metrics.size.height = bottom - top;
             metrics.baseline -= top;
         }
-        Ok(metrics)
+        (Ok(metrics), found)
     }
 
     /// Shapes, wraps, and aligns text in logical pixels using actual font glyphs.
@@ -270,7 +276,7 @@ impl TextEngine {
         if !style.ellipsizes() {
             return None;
         }
-        let layout = layout_at(
+        let (layout, _) = layout_at(
             &mut self.cache.paragraphs,
             &mut self.fonts,
             &mut self.layouts,
@@ -304,7 +310,7 @@ impl TextEngine {
             height,
         );
         layout.break_all_lines(None);
-        let ellipsis = output::Ellipsis::of(&layout, &mut self.font_bytes);
+        let ellipsis = output::Ellipsis::of(&layout);
         if self.cache.ellipses.len() >= ELLIPSES {
             self.cache.ellipses.clear();
         }
@@ -327,7 +333,7 @@ impl TextEngine {
             return Err(TextError::InvalidSpans);
         }
         let ellipsis = self.ellipsis_for(text, style, max_width, height);
-        let layout = layout_at(
+        let (layout, _) = layout_at(
             &mut self.cache.paragraphs,
             &mut self.fonts,
             &mut self.layouts,
@@ -344,14 +350,7 @@ impl TextEngine {
         };
         layout.align(alignment, AlignmentOptions::default());
         let plan = output::plan(layout, style, max_width, ellipsis.as_ref());
-        let drawn = output::draw(
-            layout,
-            style,
-            text.spans,
-            &plan,
-            ellipsis.as_ref(),
-            &mut self.font_bytes,
-        );
+        let drawn = output::draw(layout, style, text.spans, &plan, ellipsis.as_ref());
         if drawn.runs.is_empty()
             && text
                 .text
@@ -462,9 +461,9 @@ fn layout_at<'a>(
     style: &ComputedTextStyle,
     max_width: Option<f64>,
     height: f64,
-) -> &'a mut parley::Layout<u32> {
+) -> (&'a mut parley::Layout<u32>, layouts::Found) {
     let key = layouts::Key::new(text.text, text.spans, style, height);
-    let layout = shaped.get_or_insert(key, || {
+    let (layout, found) = shaped.get_or_insert(key, || {
         let (converted, spans) = transform::apply(text.text, text.spans, style.transform);
         let spans = crlf_spans(&converted, spans);
         let converted = crlf_as_one_break(&converted);
@@ -476,7 +475,7 @@ fn layout_at<'a>(
     } else {
         max_width.map(|value| value as f32)
     });
-    layout
+    (layout, found)
 }
 
 /// Parley breaks a line at both CR and LF; a CR before LF becomes an

@@ -166,12 +166,12 @@ impl AssetStore {
         }
     }
 
-    /// Registers the font `bytes` for SVG `<text>`. Every SVG that is pending
+    /// Registers the font `font` for SVG `<text>`. Every SVG that is pending
     /// or parsed is parsed again with the new fonts (its rasters are dropped,
     /// and the results of the parses of the old fonts are dropped when they
     /// land).
-    pub fn register_font(&mut self, bytes: Arc<[u8]>) {
-        self.fonts = Arc::new(self.fonts.with_font(bytes.to_vec()));
+    pub fn register_font(&mut self, font: kivact_types::render::FontSource) {
+        self.fonts = Arc::new(self.fonts.with_font(font));
         let stale: Vec<Asset> = self
             .entries
             .iter()
