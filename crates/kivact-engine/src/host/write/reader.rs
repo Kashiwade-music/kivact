@@ -112,10 +112,25 @@ impl Reader {
             .unwrap_or_default()
     }
 
-    /// Clone the one canonical semantics value stored for this node.
+    /// The semantics of `id` as written, with its role as
+    /// [`NodeProperties::role`](crate::contract::NodeProperties::role) gives
+    /// it (a `Text` node that states none has `Role::Text`).
     pub fn semantics(&self, id: NodeId) -> Option<kivact_types::Semantics<FocusTarget>> {
-        self.with_model(id, |model| model.tree().get(id)?.semantics().cloned())
-            .flatten()
+        self.with_model(id, |model| {
+            let properties = &model.tree().get(id)?.properties;
+            let role = properties.role();
+            match properties.semantics.as_deref() {
+                Some(semantics) => Some(kivact_types::Semantics {
+                    role,
+                    ..semantics.clone()
+                }),
+                None => role.map(|role| kivact_types::Semantics {
+                    role: Some(role),
+                    ..Default::default()
+                }),
+            }
+        })
+        .flatten()
     }
 
     /// Registered and system font family names, sorted and unique, preserving case.

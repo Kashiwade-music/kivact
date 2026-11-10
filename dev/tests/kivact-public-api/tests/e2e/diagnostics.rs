@@ -88,11 +88,10 @@ fn normalize(s: &str) -> String {
     out
 }
 
-const WHY: &str = "node 5 Text \"doubled: 4\"
+const WHY: &str = "node 4 Text \"doubled: 4\"
   Content set by the effect created at dev/tests/kivact-public-api/tests/e2e/diagnostics.rs:L:C
     reads memo i32 created at dev/tests/kivact-public-api/tests/e2e/diagnostics.rs:L:C
       reads signal i32 created at dev/tests/kivact-public-api/tests/e2e/diagnostics.rs:L:C, last written at dev/tests/kivact-public-api/tests/e2e/diagnostics.rs:L:C (turn 4)
-  semantics patch declared at dev/tests/kivact-public-api/tests/e2e/diagnostics.rs:L:C
   semantics patch declared at dev/tests/kivact-public-api/tests/e2e/diagnostics.rs:L:C";
 
 #[test]
