@@ -160,7 +160,7 @@ flowchart TD
 
 | Feature | 既定 | 説明 |
 |---|---|---|
-| `gpu` | 有効 | GPU で描画し、使えなければ CPU に切り替えます。無効にすると CPU だけで build します。`ARVANE_RENDERER=cpu` で実行時に CPU へ固定できます。既定ではウィンドウが GPU を必要としたときに device を起動します (`GpuStart::OnDemand`)。 |
+| `gpu` | 有効 | GPU で描画し、使えなければ CPU に切り替えます。無効にすると CPU だけで build します。`ARVANE_RENDERER=cpu` で実行時に CPU へ固定できます。既定ではウィンドウが GPU を必要としたとき（ユーザーの shader を描いた、App が `gpu_interop::adapter()` を読んだ）に device を起動します (`GpuStart::OnDemand`)。 |
 | `complex-scripts` | 有効 | タイ語、ラオ語、クメール語、ミャンマー語、中国語・日本語の分かち書きのための ICU の辞書 (約 3 MB)。その分かち書きが要らないアプリは無効にするとバイナリが小さくなります。 |
 | `test` | 無効 | `kivact::test` の App 全体の仮想 E2E と任意の実窓 mirror。 |
 | `devtools` | 無効 | アプリ内の DevTools の agent。別アプリの DevTools、MCP server、Python client から使います。有効にした release build は起動時に警告を出します。 |

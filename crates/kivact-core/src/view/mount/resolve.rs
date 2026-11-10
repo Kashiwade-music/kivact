@@ -6,9 +6,7 @@
 //! composition of the edit callbacks, the draw-size observer), and each stage then only binds its
 //! own input, moved into it by value.
 
-use std::cell::RefCell;
 use std::panic::Location;
-use std::rc::Rc;
 
 use kivact_engine::contract::NodeType;
 use kivact_runtime::Prop;
@@ -19,7 +17,7 @@ use kivact_types::NodeId;
 use super::attachments::Attached;
 use super::create::FirstWrite;
 use super::draw::DrawInput;
-use super::facts::{LocalPaintSource, NodeFacts};
+use super::facts::{LocalPaint, LocalPaintSource, NodeFacts};
 use super::parts::ConstraintSources;
 use super::semantics::SemanticProps;
 use super::{diagnostics, part_input, parts, regions};
@@ -71,18 +69,29 @@ pub(super) fn resolve(
         common.handlers.selection = on_selection;
         props
     });
+    // Read before `attach_parts` takes the regions.
+    let declares_regions = !common.regions.is_empty();
     let attached = attach_parts(&mut common, cx, id, at);
     let focus_stop = common
         .focusable_source()
         .as_ref()
         .is_some_and(|f| f.fixed() != Some(false))
         || editing.is_some();
-    let local_paint = (!common.style.is_empty() && kind == NodeType::Box && editing.is_none())
-        .then(|| LocalPaintSource {
-            value: Rc::new(RefCell::new(None)),
-            revision: cx.owner.notifier(at),
-        });
-    let draw = prepare_draw(&mut common, cx, attached.as_ref(), local_paint.clone(), at);
+    let styled_box = !common.style.is_empty() && kind == NodeType::Box && editing.is_none();
+    let own_draw = common.draw.is_some()
+        || common.draw_over.is_some()
+        || common.draw_with_layout.is_some()
+        || declares_regions;
+    let local_paint = match (styled_box, own_draw) {
+        (true, true) => LocalPaint::WithDraw(LocalPaintSource::new(cx.owner, at)),
+        (true, false) => LocalPaint::OnFirstPaint,
+        (false, _) => LocalPaint::None,
+    };
+    let draw_paint = match &local_paint {
+        LocalPaint::WithDraw(source) => Some(source.clone()),
+        LocalPaint::None | LocalPaint::OnFirstPaint => None,
+    };
+    let draw = prepare_draw(&mut common, cx, attached.as_ref(), draw_paint, at);
     finish_resolve(
         common,
         kind,

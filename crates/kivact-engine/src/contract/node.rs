@@ -228,6 +228,16 @@ impl NodeKind {
 }
 
 impl NodeProperties {
+    /// The node's role: the one its semantics state, else `Role::Text` for a
+    /// text node that is not a native editor (its kind's role, which the
+    /// platform tree also gives it, `model::semantics::semantic_role`).
+    pub fn role(&self) -> Option<kivact_types::Role> {
+        self.semantics.as_deref().and_then(|s| s.role).or_else(|| {
+            (matches!(self.kind, NodeKind::Text(_)) && self.editing.is_none())
+                .then_some(kivact_types::Role::Text)
+        })
+    }
+
     /// Build properties containing this payload and no optional overrides.
     pub fn new(kind: NodeKind) -> Self {
         Self {

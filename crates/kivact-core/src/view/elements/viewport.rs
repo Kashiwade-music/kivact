@@ -81,14 +81,8 @@ impl Viewport {
     /// Display a shared GPU frame when the window supports import; retain the
     /// supplied pixels for CPU rendering and subtree snapshots.
     #[cfg(feature = "gpu-interop")]
-    #[track_caller]
     pub fn gpu_frame(mut self, frame: impl IntoValue<Option<GpuFrame>>) -> Self {
         self.gpu_frame = frame.into_value();
-        // The viewport displays the window's GPU frames: it needs the device.
-        let owner =
-            kivact_runtime::Owner::current("Viewport::gpu_frame", std::panic::Location::caller());
-        let rt = owner.runtime();
-        crate::gpu_interop::demand_gpu(&rt, crate::view::state::current_window(owner));
         self
     }
 }
@@ -132,7 +126,7 @@ impl IntoView for Viewport {
         let content = memo(move || {
             if let Some(frame) = gpu_frame
                 .get()
-                .filter(|_| crate::gpu_interop::adapter().is_some())
+                .filter(|_| crate::gpu_interop::has_adapter())
             {
                 return Rect::new(0.0, 0.0, frame.width() as f64, frame.height() as f64);
             }
@@ -165,7 +159,7 @@ impl IntoView for Viewport {
             };
             if let Some(frame) = gpu_frame
                 .get()
-                .filter(|_| crate::gpu_interop::adapter().is_some())
+                .filter(|_| crate::gpu_interop::has_adapter())
             {
                 draw.gpu_frame_with_pixels(&frame, &image, destination, options);
                 return;

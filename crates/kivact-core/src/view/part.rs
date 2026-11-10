@@ -60,8 +60,11 @@ enum Hover {
 pub fn part<S: kivact_runtime::PropValue>(state: impl Fn(PartState) -> S + 'static) -> Part<S> {
     Owner::current();
     let node = node_ref();
-    let focused = node.focused();
-    let focus_visible = node.focus_visible();
+    let focus = node.focus_memo(|focus| match focus {
+        None => Focus::None,
+        Some(false) => Focus::Focused,
+        Some(true) => Focus::FocusedVisible,
+    });
     let input = signal(PartInput::default());
     let availability = signal(None::<(Value<bool>, Value<bool>)>);
     let enabled = move || {
@@ -78,11 +81,7 @@ pub fn part<S: kivact_runtime::PropValue>(state: impl Fn(PartState) -> S + 'stat
         state(PartState {
             pressed: !disabled && !hidden && input.press != Press::Idle,
             hovered: !disabled && !hidden && input.hover == Hover::Inside,
-            focus: match (focused.get(), focus_visible.get()) {
-                (_, true) => Focus::FocusedVisible,
-                (true, false) => Focus::Focused,
-                _ => Focus::None,
-            },
+            focus: focus.get(),
             disabled,
             hidden,
         })
@@ -98,7 +97,7 @@ pub fn part<S: kivact_runtime::PropValue>(state: impl Fn(PartState) -> S + 'stat
                 let disabled = mount.disabled.get();
                 let hidden = mount.hidden.get();
                 let hovered = hover.get();
-                let focused = focused.get();
+                let focused = focus.get() != Focus::None;
                 input.update(|input| {
                     if disabled || hidden {
                         *input = PartInput::default();
@@ -121,7 +120,7 @@ pub fn part<S: kivact_runtime::PropValue>(state: impl Fn(PartState) -> S + 'stat
             availability.set(None);
         });
     });
-    let mut common = input_observers(input, focused, enabled);
+    let mut common = input_observers(input, focus, enabled);
     let binding = PartBinding {
         node,
         hooks: vec![Rc::new(move |mount| {
@@ -139,12 +138,15 @@ pub fn part<S: kivact_runtime::PropValue>(state: impl Fn(PartState) -> S + 'stat
 
 fn input_observers(
     input: crate::state::Signal<PartInput>,
-    focused: Value<bool>,
+    focus: Value<Focus>,
     enabled: impl Fn() -> bool + Copy + 'static,
 ) -> Common {
     let mut common = Common::default();
     common.handlers.key.observer(move |event| {
-        if matches!(event.key(), Key::Space | Key::Enter) && focused.get_untracked() && enabled() {
+        if matches!(event.key(), Key::Space | Key::Enter)
+            && focus.get_untracked() != Focus::None
+            && enabled()
+        {
             input.update(|input| input.press = Press::Key(event.key()));
         }
     });

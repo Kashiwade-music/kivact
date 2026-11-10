@@ -25,7 +25,7 @@ use super::tree::ViewNodes;
 use kivact_runtime::Completion;
 use kivact_types::Capabilities;
 
-pub(crate) use super::ref_data::{Bound, LayoutObservation, NodeRefState, RefState};
+pub(crate) use super::ref_data::{Bound, NodeRefState, RefObservation, RefState};
 
 /// The node the host last reported under the pointer (`view::hover`).
 #[derive(Clone, Copy)]

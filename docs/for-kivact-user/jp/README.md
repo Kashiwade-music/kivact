@@ -39,7 +39,7 @@ kivact = { git = "https://github.com/Kashiwade-music/kivact", features = ["test"
 
 リポジトリは `rust-toolchain.toml` でツールチェーンを Rust 1.98.1 (edition 2024) に固定しています。このバージョン以降を使ってください。
 
-既定では CPU で frame を描き、window が GPU を必要としたとき（ユーザーの shader、GPU export、GPU texture の共有）に GPU device を起動します。CPU の frame が表示周期の半分を続けて超える場合も起動します。使える GPU がなければ CPU のままです。実行時に CPU 描画を強制するには、環境変数 `ARVANE_RENDERER=cpu` を設定します。`ARVANE_RENDERER=gpu` は window の起動時に device を起動します。
+既定では CPU で frame を描き、window が GPU を必要としたとき（ユーザーの shader を描いた、GPU texture の共有のために App が `gpu_interop::adapter()` を読んだ）に GPU device を起動します。CPU の frame が表示周期の半分を続けて超える場合も起動します。使える GPU がなければ CPU のままです。実行時に CPU 描画を強制するには、環境変数 `ARVANE_RENDERER=cpu` を設定します。`ARVANE_RENDERER=gpu` は window の起動時に device を起動します。
 
 ### 小さいバイナリを配布する
 

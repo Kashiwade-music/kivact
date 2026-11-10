@@ -10,7 +10,7 @@ use std::rc::Rc;
 use kivact_types::{FocusTarget, NodeId};
 
 use crate::view::state::{
-    Bound, LayoutObservation, NodeRefState, RefState, ViewState, current_window,
+    Bound, NodeRefState, RefObservation, RefState, ViewState, current_window,
 };
 use kivact_runtime::{
     AppId, ErrorKind, Owned, Owner, Runtime, Signal, UiError, Value, require_effectful,
@@ -54,17 +54,38 @@ impl NodeRef {
     pub(crate) fn owned_by(owner: Owner, at: &'static Location<'static>) -> Self {
         let app = owner.app();
         let bound = owner.signal(RefState::Unbound, at);
-        let rect_value = resolved_rect(app, bound);
-        let scroll_value = resolved_scroll(app, bound);
         let state = Rc::new(NodeRefState {
             owner,
             bound,
-            observes_layout: Cell::new(LayoutObservation::NotRequested),
-            rect_value,
-            scroll_value,
+            observation: Cell::new(RefObservation::Unrequested),
+            rect_value: Cell::new(None),
+            scroll_value: Cell::new(None),
         });
         let state = owner.store("NodeRef", state, at);
         NodeRef { app, state }
+    }
+
+    /// Keep what `need` asks on every node this ref binds to, from now on:
+    /// the node's graph sources (`NodeObservation`) and, for
+    /// `SourcesAndLayout`, the engine's layout reports of it. The node bound
+    /// now gets them at once; a node bound later gets them in `bind_target`.
+    pub(crate) fn require_observation(&self, need: RefObservation, at: &'static Location<'static>) {
+        let (rt, s) = self.state(at);
+        if s.observation.get() >= need {
+            return;
+        }
+        s.observation.set(need);
+        let Some(bound) = s.bound.try_get_untracked().and_then(RefState::bound) else {
+            return;
+        };
+        let mut tree = ViewState::tree_mut(&rt);
+        let _ = tree.observe_node(bound.node(), at);
+        if need == RefObservation::SourcesAndLayout {
+            tree.set_observe(bound.node(), true);
+        }
+        drop(tree);
+        // The next layout pass reports the node (a call outside a turn).
+        rt.request_turn();
     }
 }
 
@@ -156,17 +177,23 @@ impl NodeRef {
             );
             return;
         }
-        // One host-owned callback pair serves every ref, including references
-        // whose item owner will disappear while this canvas survives.
-        if ViewState::tree_mut(rt).observe_node(id, at).is_none() {
+        // One host-owned callback pair serves every ref that reads the
+        // observation; a region binding always needs it (`target_value` and
+        // `focused` read its scene revision).
+        let observation = state.observation.get();
+        if observation > RefObservation::Unrequested || matches!(bound, Bound::Region { .. }) {
+            if ViewState::tree_mut(rt).observe_node(id, at).is_none() {
+                return;
+            }
+        } else if ViewState::tree(rt).get(id).is_none() {
             return;
         }
-        if matches!(state.observes_layout.get(), LayoutObservation::Requested) {
+        if observation == RefObservation::SourcesAndLayout {
             ViewState::tree_mut(rt).set_observe(id, true);
         }
         ViewState::tree_mut(rt)
             .get_mut(id)
-            .expect("invariant: the observed node exists")
+            .expect("invariant: the bound node exists")
             .references
             .push(state.bound);
         state.bound.set(RefState::Bound(bound));
@@ -316,9 +343,17 @@ impl NodeRef {
     /// Reactive scroll offset of the bound node; zero while unbound.
     #[track_caller]
     pub fn scroll_offset(&self) -> Value<crate::geometry::Point> {
-        let (rt, state) = self.state(Location::caller());
-        drop(rt);
-        state.scroll_value
+        let at = Location::caller();
+        self.require_observation(RefObservation::Sources, at);
+        let (_, state) = self.state(at);
+        if let Some(value) = state.scroll_value.get() {
+            return value;
+        }
+        let value = state
+            .owner
+            .with_setup(|| resolved_scroll(self.app, state.bound));
+        state.scroll_value.set(Some(value));
+        value
     }
     /// Move the bound scroll container to an absolute logical offset.
     #[track_caller]
@@ -571,12 +606,14 @@ impl NodeRef {
     #[track_caller]
     pub fn rect(&self) -> Value<Option<Rect>> {
         let at = Location::caller();
-        let (rt, s) = self.state(at);
-        s.observes_layout.set(LayoutObservation::Requested);
-        if let Some(bound) = s.bound.try_get_untracked().and_then(RefState::bound) {
-            ViewState::tree_mut(&rt).set_observe(bound.node(), true);
+        self.require_observation(RefObservation::SourcesAndLayout, at);
+        let (_, s) = self.state(at);
+        if let Some(value) = s.rect_value.get() {
+            return value;
         }
-        s.rect_value
+        let value = s.owner.with_setup(|| resolved_rect(self.app, s.bound));
+        s.rect_value.set(Some(value));
+        value
     }
 }
 
@@ -610,22 +647,7 @@ impl NodeRef {
         let node = s.bound;
         drop(rt);
         kivact_runtime::memo(move || {
-            let Some(bound) = node.get().bound() else {
-                return false;
-            };
-            let id = bound.target();
-            if id.region.is_some()
-                && let Some(rt) = Runtime::get(app)
-                && let Some(observation) = ViewState::tree(&rt)
-                    .get(id.node)
-                    .and_then(|node| node.observation)
-            {
-                observation.scene_revision.track();
-            }
-            let Some(id) = bound_node(app, node) else {
-                return false;
-            };
-            keys.selector.is(&id)
+            focus_target(app, node).is_some_and(|id| keys.selector.is(&id))
         })
     }
 
@@ -641,6 +663,34 @@ impl NodeRef {
             .expect("invariant: the node reference's window is open");
         kivact_runtime::memo(move || {
             focused.get() && keys.focus.get().is_some_and(|key| key.visible)
+        })
+    }
+
+    /// The focus of the bound target as one memo of `of(focus)`: `None`
+    /// while the target is not focused, else whether the host asks for a
+    /// visible indicator (`focused` and `focus_visible` in one, for a part's
+    /// state). Setup only.
+    #[track_caller]
+    pub(crate) fn focus_memo<T: PartialEq + 'static>(&self, of: fn(Option<bool>) -> T) -> Value<T> {
+        let at = Location::caller();
+        let (rt, s) = self.state(at);
+        require_setup("NodeRef::focus_memo");
+        let window = current_window(s.owner);
+        let keys = ViewState::of(&rt)
+            .focus_keys(window)
+            .expect("invariant: the node reference's window is open");
+        let app = rt.id();
+        let node = s.bound;
+        drop(rt);
+        kivact_runtime::memo(move || {
+            let Some(id) = focus_target(app, node) else {
+                return of(None);
+            };
+            if !keys.selector.is(&id) {
+                return of(None);
+            }
+            // The indicator is read only while focused (as `focus_visible`).
+            of(Some(keys.focus.get().is_some_and(|key| key.visible)))
         })
     }
 
@@ -713,19 +763,12 @@ impl NodeRef {
         let app = rt.id();
         let node = s.bound;
         drop(rt);
-        let owner_hover = within(app, node, hover);
-        kivact_runtime::memo(move || {
-            if !owner_hover.get() {
-                return false;
+        kivact_runtime::memo(move || match node.get().bound() {
+            Some(Bound::Region { .. }) => {
+                bound_node(app, node).is_some_and(|target| hover.get() == Some(target))
             }
-            match node.get().bound() {
-                Some(Bound::Region { .. }) => node
-                    .get()
-                    .bound()
-                    .is_some_and(|bound| hover.get() == Some(bound.target())),
-                Some(Bound::Node(_)) => true,
-                None => false,
-            }
+            Some(Bound::Node(_)) => is_within(app, node, hover),
+            None => false,
         })
     }
 }
@@ -779,28 +822,42 @@ fn resolved_scroll(app: AppId, binding: Signal<RefState>) -> Value<crate::geomet
 }
 
 /// Whether the node `source` holds is the node a ref is bound to (through
-/// its node source `node`) or lies in its subtree, as a memo.
-fn within(app: AppId, node: Signal<RefState>, source: Signal<Option<FocusTarget>>) -> Value<bool> {
-    kivact_runtime::memo(move || {
-        let Some(me) = bound_node(app, node) else {
-            return false;
-        };
-        let Some(inner) = source.try_get().flatten() else {
-            return false;
-        };
-        let Some(rt) = Runtime::get(app) else {
-            return false;
-        };
-        let tree = ViewState::tree(&rt);
-        let mut cur = Some(inner.node);
-        while let Some(id) = cur {
-            if id == me.node {
-                return true;
-            }
-            cur = tree.reader().parent(id);
+/// its node source `node`) or lies in its subtree; read inside a memo.
+fn is_within(app: AppId, node: Signal<RefState>, source: Signal<Option<FocusTarget>>) -> bool {
+    let Some(me) = bound_node(app, node) else {
+        return false;
+    };
+    let Some(inner) = source.try_get().flatten() else {
+        return false;
+    };
+    let Some(rt) = Runtime::get(app) else {
+        return false;
+    };
+    let tree = ViewState::tree(&rt);
+    let mut cur = Some(inner.node);
+    while let Some(id) = cur {
+        if id == me.node {
+            return true;
         }
-        false
-    })
+        cur = tree.reader().parent(id);
+    }
+    false
+}
+
+/// The bound target if it is still mounted, tracking the binding and, for a
+/// region, its node's scene revision (the region may be gone).
+fn focus_target(app: AppId, node: Signal<RefState>) -> Option<FocusTarget> {
+    let bound = node.get().bound()?;
+    let id = bound.target();
+    if id.region.is_some()
+        && let Some(rt) = Runtime::get(app)
+        && let Some(observation) = ViewState::tree(&rt)
+            .get(id.node)
+            .and_then(|node| node.observation)
+    {
+        observation.scene_revision.track();
+    }
+    bound_node(app, node)
 }
 
 /// The node a ref is bound to (tracked through its node source), if it is

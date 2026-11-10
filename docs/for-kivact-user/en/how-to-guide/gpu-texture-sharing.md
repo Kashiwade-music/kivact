@@ -366,8 +366,9 @@ preference.
 
 `start` decides when the device is created. The default, `GpuStart::OnDemand`,
 draws frames on the CPU and starts the device the first time the window needs it:
-a composition with a user shader, a GPU export, GPU texture sharing, or CPU
-frames that keep missing half the display period. Screens that never use the GPU
+a user shader drawn, the App reading `gpu_interop::adapter()` (a `shared_image`
+does, and an engine that imports textures or receives a drawable's export reads
+it first), or CPU frames that keep missing half the display period. Screens that never use the GPU
 then pay nothing for its driver memory, and the first shader or shared image
 appears a little later, after the device is ready; the frames drawn in the
 meantime are CPU frames. Choose `GpuStart::AtLaunch` when the first frame must

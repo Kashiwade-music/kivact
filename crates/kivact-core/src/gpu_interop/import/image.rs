@@ -188,8 +188,6 @@ pub(crate) fn import_in(
 ) -> ExternalImage {
     let size = (textures.width, textures.height);
     let window = current_window(owner);
-    // The App imports textures into the window's device: it needs the device.
-    crate::gpu_interop::demand::demand_gpu(rt, window);
     let status: Signal<ImportPhase> = owner.signal(ImportPhase::Pending, at);
     let id = State::of(rt).register(window, status, at);
     ViewState::tree(rt)

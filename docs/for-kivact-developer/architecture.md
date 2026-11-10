@@ -256,6 +256,8 @@ Timeline は Playing の間だけ MotionState の Anim として登録し、毎 
 
 reactive の frame kind（Handler/Setup/Computation）と pure/tracking/owner/writer は別の事実であり、untrack/callback/pure が元の kind を消さない。Watcher の最初の評価は依存と queue を初期化するだけで通知しない。以後の callback は untracked で呼び、値の PartialEq 比較を勝手に加えない。
 
+host の資源を使うことの宣言（`gpu_interop::adapter()` が `None` の読取りで送る `HostRequest::DemandGpu`）は、答えを返さず、App が読む状態を書かず、何度送っても一度と同じで、閉じた window の分は host が捨てる。render effect が engine の木を書くのと同じく、memo・render effect・draw・text の closure の中で送ってよい。答えや UI の状態の変化を伴う platform request、signal の書込み、focus の移動は従来どおり `require_effectful` の対象とする。window ごとの「需要を待つか」は presenter の `Gpu::State` だけが持ち、core は記録しない。
+
 ## 検証と保守の単位
 
 一つの関数は80 code行、fileは1000 code行を上限とする。長い処理は意味のある helper に分け、line packing、無意味な型/module、新しいstate、抑制属性で件数だけを減らさない。依存、状態、effect書込み、公開署名、正準path、名前衝突、kit色、OS分岐、構造optionを全workspaceで検査する。検査の例外は実際の境界と理由に限る。

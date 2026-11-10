@@ -85,3 +85,34 @@ fn a_relation_disappears_with_its_target_and_returns_with_a_new_one() {
     assert_eq!(described[0].text(), "Use letters only.");
     assert!(screen.errors().is_empty());
 }
+
+#[test]
+fn constant_semantics_publish_once_and_keep_no_publisher() {
+    let (screen, (plain, named)) = mount(|| {
+        let plain = signal(false);
+        let named = signal(false);
+        (
+            (plain, named),
+            column((
+                show(plain, || node()),
+                show(named, || node().role(Role::Button).name("Save")),
+            )),
+        )
+    });
+    let before_plain = screen.stats().live_reactive;
+    plain.set(true);
+    screen.run_until_idle();
+    let plain_cost = screen.stats().live_reactive - before_plain;
+    plain.set(false);
+    screen.run_until_idle();
+    let before_named = screen.stats().live_reactive;
+    named.set(true);
+    screen.run_until_idle();
+    let named_cost = screen.stats().live_reactive - before_named;
+    assert_eq!(
+        named_cost, plain_cost,
+        "constant semantics add no reactive node"
+    );
+    screen.get_by_role(Role::Button, "Save");
+    assert!(screen.errors().is_empty());
+}

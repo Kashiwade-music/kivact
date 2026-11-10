@@ -27,6 +27,10 @@ impl NodeRef {
     #[track_caller]
     pub fn image_status(&self) -> Value<ImageStatus> {
         require_setup("NodeRef::image_status");
+        self.require_observation(
+            crate::view::state::RefObservation::Sources,
+            std::panic::Location::caller(),
+        );
         let node = *self;
         memo(move || {
             node.observed_status(|observation| observation.image_status.get())

@@ -176,7 +176,7 @@ flowchart TD
 
 | Feature | Default | Description |
 |---|---|---|
-| `gpu` | yes | GPU rendering with automatic CPU fallback. Without it the build is CPU-only. `ARVANE_RENDERER=cpu` forces the CPU renderer at run time; by default the device starts when the window needs it (`GpuStart::OnDemand`). |
+| `gpu` | yes | GPU rendering with automatic CPU fallback. Without it the build is CPU-only. `ARVANE_RENDERER=cpu` forces the CPU renderer at run time; by default the device starts when the window needs it: a user shader drawn, or the App reading `gpu_interop::adapter()` (`GpuStart::OnDemand`). |
 | `complex-scripts` | yes | ICU's word and line dictionaries for Thai, Lao, Khmer, Myanmar and Chinese/Japanese word breaking (about 3 MB). Turn it off for a smaller binary when the app does not need that segmentation. |
 | `test` | no | App-wide virtual E2E through `kivact::test`, with optional native mirrors. |
 | `devtools` | no | The DevTools agent in the app, for the separate DevTools app, MCP server and Python client. Release builds that enable it warn at startup. |

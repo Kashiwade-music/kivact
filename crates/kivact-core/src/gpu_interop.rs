@@ -82,15 +82,12 @@
 //! request, provides it and waits until it is ready; for
 //! [`ShareMode::Pixels`] it draws on the CPU.
 
-mod demand;
 mod import;
 mod share;
 
-pub(crate) use demand::demand_gpu;
-
 #[doc(inline)]
 pub use import::{ExternalImage, FramePublisher, ImportStatus, adapter, import};
-pub(crate) use import::{State, adapter_changed, imported};
+pub(crate) use import::{State, adapter_changed, has_adapter, imported};
 #[doc(inline)]
 pub use kivact_style::draw::GpuFrame;
 #[doc(inline)]

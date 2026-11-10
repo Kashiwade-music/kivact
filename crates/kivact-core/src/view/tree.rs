@@ -603,10 +603,7 @@ impl ViewNodes {
         })
     }
     pub(crate) fn role(&self, id: NodeId) -> Option<kivact_types::Role> {
-        self.with_node(id, |node| {
-            node.and_then(|node| node.semantics.as_deref())
-                .and_then(|semantics| semantics.role)
-        })
+        self.with_node(id, |node| node.and_then(NodeProperties::role))
     }
 
     pub(crate) fn hidden(&self, id: NodeId) -> Option<bool> {
