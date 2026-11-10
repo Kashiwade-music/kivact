@@ -3,17 +3,71 @@
 //! `selector`; the setup functions (`signal`, `memo`, ...) are in `setup`.
 
 use crate::reactive::AppId;
+use std::any::Any;
 use std::cell::RefCell;
 use std::marker::PhantomData;
 use std::panic::Location;
 use std::rc::Rc;
 
-use super::graph::{is_memo, source_cell};
+use super::graph::{memo_cell, source_cell};
 use crate::reactive::arena::Key;
 use crate::reactive::data::{Binding, Callback, Signal, Value, Var};
 use crate::reactive::data::{BindingRepr, CallbackFn, Runtime, ValueRepr};
 use crate::reactive::error::{ErrorKind, UiError, misuse, misuse_at, new_error};
 use crate::reactive::registry::{runtime, try_runtime};
+
+// ---------------------------------------------------------------------------
+// Reads before the value type is known
+//
+// The steps of a read that do not depend on the value type are compiled once
+// here; the generic `with_impl`s keep only the downcast and the caller's `f`.
+
+/// What a `Value` read found before its value type is known.
+enum Resolved {
+    /// A constant's value (an `Rc<T>` behind `dyn Any`).
+    Const(Rc<dyn Any>),
+    /// A source's or a memo's cell, read as `track` asked.
+    Cell(Rc<dyn Any>),
+}
+
+/// Find what `repr` of `app` holds, read as `track` asks (a stale memo is
+/// computed first); a located misuse when the App, the node or the
+/// constant is gone.
+#[inline(never)]
+fn resolve_value(
+    app: AppId,
+    repr: ValueRepr,
+    track: bool,
+    at: &'static Location<'static>,
+) -> Resolved {
+    let rt = runtime(app, at);
+    match repr {
+        ValueRepr::Const(key) => {
+            let data = rt
+                .consts
+                .borrow()
+                .get(key)
+                .map(|entry| Rc::clone(&entry.data));
+            match data {
+                Some(data) => Resolved::Const(data),
+                None => rt.const_disposed_panic(key, at),
+            }
+        }
+        ValueRepr::Node(key) => Resolved::Cell(rt.read_or_panic(key, track, "Value", at)),
+    }
+}
+
+/// The cell of the source `key` of `app`, read as `track` asks; a located
+/// misuse when the App or the node is gone.
+#[inline(never)]
+fn resolve_signal(
+    app: AppId,
+    key: Key,
+    track: bool,
+    at: &'static Location<'static>,
+) -> Rc<dyn Any> {
+    runtime(app, at).read_or_panic(key, track, "Signal", at)
+}
 
 // ---------------------------------------------------------------------------
 // Signal
@@ -33,9 +87,7 @@ impl<T: 'static> Signal<T> {
         at: &'static Location<'static>,
         f: impl FnOnce(&T) -> R,
     ) -> R {
-        let rt = runtime(self.app, at);
-        let cell = rt.read_or_panic(self.key, track, "Signal", at);
-        drop(rt);
+        let cell = resolve_signal(self.app, self.key, track, at);
         let Some(src) = source_cell::<T>(&cell) else {
             misuse_at(ErrorKind::WrongApp, "handle type mismatch", at)
         };
@@ -263,20 +315,16 @@ impl<T: 'static> Value<T> {
         at: &'static Location<'static>,
         f: impl FnOnce(&T) -> R,
     ) -> R {
-        let rt = runtime(self.app, at);
-        let key = match self.repr {
-            ValueRepr::Const(key) => {
-                let Some(value) = rt.const_value::<T>(key) else {
-                    rt.const_disposed_panic(key, at)
+        let cell = match resolve_value(self.app, self.repr, track, at) {
+            Resolved::Const(data) => {
+                let Ok(value) = data.downcast::<T>() else {
+                    misuse_at(ErrorKind::WrongApp, "handle type mismatch", at)
                 };
-                drop(rt);
                 return f(&value);
             }
-            ValueRepr::Node(key) => key,
+            Resolved::Cell(cell) => cell,
         };
-        let cell = rt.read_or_panic(key, track, "Value", at);
         if let Some(src) = source_cell::<T>(&cell) {
-            drop(rt);
             let guard = match src.value.try_borrow() {
                 Ok(g) => g,
                 Err(_) => misuse_at(
@@ -286,8 +334,11 @@ impl<T: 'static> Value<T> {
                 ),
             };
             f(&guard)
-        } else if is_memo::<T>(&cell) {
-            rt.memo_value::<T, R>(&cell, f, at)
+        } else if let Some(memo) = memo_cell::<T>(&cell) {
+            let value = memo.value.borrow();
+            f(value
+                .as_ref()
+                .expect("invariant: read_node computed the memo (a self-read is a Cycle there)"))
         } else {
             misuse_at(ErrorKind::WrongApp, "handle type mismatch", at)
         }
