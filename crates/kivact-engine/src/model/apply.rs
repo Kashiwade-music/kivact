@@ -63,7 +63,7 @@ impl Model {
         self.a11y.request_publication(std::iter::empty());
         self.changes.restack = true;
         if let Some(parent) = self.tree.detach(id) {
-            self.stale_fact(parent);
+            self.stale_children_of(parent);
             self.changes.mark(parent, Dirty::LAYOUT_CHAIN);
             self.changes.outdate_viewport();
             self.changes
@@ -306,6 +306,27 @@ impl Model {
         self.set_prop(id, value.map(Box::new), field, mutation)
     }
 
+    /// [`Model::set_boxed_prop`] for a property stored shared: an equal recent
+    /// value of the window is reused instead of allocating another.
+    pub(crate) fn set_shared_prop<T: super::recent::SharedProp>(
+        &mut self,
+        id: NodeId,
+        value: Option<T>,
+        field: impl Fn(&mut NodeProperties) -> Option<&mut Option<std::rc::Rc<T>>>,
+        mutation: Mutation,
+    ) -> bool {
+        let unchanged = self
+            .tree
+            .get_mut(id)
+            .and_then(|node| field(&mut node.properties))
+            .is_some_and(|old| old.as_deref() == value.as_ref());
+        if unchanged {
+            return false;
+        }
+        let value = value.map(|v| T::recent(&mut self.recent).share(v));
+        self.set_prop(id, value, field, mutation)
+    }
+
     /// Record the consumers affected by one typed property change.
     pub(super) fn changed(&mut self, id: NodeId, mutation: Mutation) {
         self.invalidate_semantics(id, mutation);
@@ -453,6 +474,17 @@ impl Model {
             .insert(crate::model::changes::LayoutReasons::PASS);
     }
 
+    /// What a structural change among the children of `id` (one inserted,
+    /// detached or moved) outdates: the facts of the box that lays them out,
+    /// `id` itself or its nearest ancestor that is not a Contents node (the
+    /// root's when `id` is detached). The other children keep their facts: a
+    /// child's facts come from its own subtree, never from its siblings.
+    fn stale_children_of(&mut self, id: NodeId) {
+        if let Some(at) = self.tree.box_of(id).or_else(|| self.tree.root()) {
+            self.paint.stale_fact(at);
+        }
+    }
+
     /// Attach or reparent a node under `parent`, before `before` (append if
     /// `None`), invalidating both its old and new ancestry.
     pub(crate) fn insert(
@@ -466,7 +498,7 @@ impl Model {
         // text descendants even though the root itself has no layout box.
         let inherited = inherit.then(|| self.text_props(id));
         if let Some(previous) = self.tree.detach(id) {
-            self.stale_fact(previous);
+            self.stale_children_of(previous);
             self.changes.mark(previous, Dirty::LAYOUT_CHAIN);
             self.a11y.subtree(previous);
         }
@@ -512,7 +544,7 @@ impl Model {
         }
         self.changes.regroup(parent);
         self.a11y.node(parent);
-        self.stale_fact(parent);
+        self.stale_children_of(parent);
         self.changes
             .layout
             .insert(crate::model::changes::LayoutReasons::PASS);

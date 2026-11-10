@@ -255,3 +255,66 @@ impl<T: ?Sized> Default for Registry<T> {
         Self::new()
     }
 }
+
+/// The last few distinct values of one kind, shared behind `Rc` between the
+/// owners that store an equal value (repeated components): a value equal to a
+/// recent one is that one's `Rc`, any other value replaces the oldest.
+/// Compared by value; an `Rc` handed out is never changed in place (a writer
+/// that changes it clones it, `Rc::make_mut`).
+pub struct Recent<T> {
+    slots: [Option<Rc<T>>; RECENT],
+    /// The slot the next new value takes (the oldest).
+    next: usize,
+    /// The slot of the last hit or insert, compared first.
+    last: usize,
+}
+
+const RECENT: usize = 8;
+
+impl<T> Default for Recent<T> {
+    fn default() -> Self {
+        Self {
+            slots: std::array::from_fn(|_| None),
+            next: 0,
+            last: 0,
+        }
+    }
+}
+
+// The derives would require `T: Clone` / `T: Debug`; the slots are `Rc`s.
+impl<T> Clone for Recent<T> {
+    fn clone(&self) -> Self {
+        Self {
+            slots: self.slots.clone(),
+            next: self.next,
+            last: self.last,
+        }
+    }
+}
+
+impl<T> std::fmt::Debug for Recent<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let kept = self.slots.iter().flatten().count();
+        f.debug_struct("Recent").field("kept", &kept).finish()
+    }
+}
+
+impl<T: PartialEq> Recent<T> {
+    /// `value` behind an `Rc`: an equal recent value's, else a new one.
+    pub fn share(&mut self, value: T) -> Rc<T> {
+        for step in 0..RECENT {
+            let at = (self.last + RECENT - step) % RECENT;
+            if let Some(found) = &self.slots[at]
+                && **found == value
+            {
+                self.last = at;
+                return Rc::clone(found);
+            }
+        }
+        let rc = Rc::new(value);
+        self.slots[self.next] = Some(Rc::clone(&rc));
+        self.last = self.next;
+        self.next = (self.next + 1) % RECENT;
+        rc
+    }
+}
