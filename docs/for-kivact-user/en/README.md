@@ -66,8 +66,8 @@ kivact = { git = "https://github.com/Kashiwade-music/kivact", default-features =
 ```
 
 Leave `gpu` out of the list too for a build with no GPU renderer. `kivact-bench`
-enables only `gpu` for its `--no-default-features` binary, which measures the
-smaller build.
+builds with neither feature for its `--no-default-features` binary, which measures
+the smallest build.
 The `[profile.release]` of `templates/basic/Cargo.toml` (fat LTO, one codegen
 unit, `opt-level = "s"` with `3` for the drawing, shaping and layout crates,
 stripped symbols) is the other half: it makes the binary smaller and its hot
