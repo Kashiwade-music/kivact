@@ -26,6 +26,11 @@ build() { # <copy as> <bin> <cargo args...>
   local as="$1" bin="$2"; shift 2
   (cd "$root" && CARGO_TARGET_DIR="$target" cargo build --release "$@") >"$kpi/$as.build.log" 2>&1     || invalid "build failed: cargo build --release $* (see $kpi/$as.build.log)"
   cp "$target/release/$bin$exe" "$kpi/$as$exe" || invalid "missing binary $bin after: cargo build --release $*"
+  # Windows: the exe names its PDB by file name only (/PDBALTPATH:%_PDB%) and
+  # the symbol resolver looks beside the exe, so the PDB travels with it.
+  if [ -n "$exe" ] && [ -f "$target/release/$bin.pdb" ]; then
+    cp "$target/release/$bin.pdb" "$kpi/$bin.pdb" || invalid "missing PDB $bin.pdb after: cargo build --release $*"
+  fi
 }
 t0=$(date +%s)
 build counter kivact-example-counter -p kivact-example-counter
@@ -34,6 +39,8 @@ build catalog kivact-ui-basic-catalog -p kivact-ui-basic-catalog
 build kv_startup kv_startup -p kivact-bench --bin kv_startup
 build kv_stress kv_stress -p kivact-bench --bin kv_stress
 build kv_startup_min kv_startup -p kivact-bench --no-default-features --bin kv_startup
+build kv_startup_nogpu kv_startup -p kivact-bench --no-default-features --features complex-scripts --bin kv_startup
+build catalog_nogpu kivact-ui-basic-catalog -p kivact-ui-basic-catalog --no-default-features --features complex-scripts
 build kv_latency kv_latency -p kivact-bench --features latency --bin kv_latency
 CARGO_PROFILE_RELEASE_STRIP=none CARGO_PROFILE_RELEASE_DEBUG=line-tables-only   build kv_heap kv_heap -p kivact-bench --bin kv_heap
 startup="$kpi/kv_startup$exe"; stress="$kpi/kv_stress$exe"; catalog="$kpi/catalog$exe"; counter="$kpi/counter$exe"
@@ -133,6 +140,7 @@ for mode in box text button row; do
   out3=$(ARVANE_RENDERER=cpu MODE=$mode ROWS=3000 "$heap" 2>&1)
   h3=$(echo "$out3" | awk '/^H total_mib/{print $3}')
   need "$h0" "kv_heap mode=$mode rows=0 failed"; need "$h3" "kv_heap mode=$mode rows=3000 failed"
+  echo "$out3" | grep -m1 '^H site' | grep -qE 'allocs [^ ]' || invalid "kv_heap mode=$mode: allocation sites unresolved (kv_heap.pdb beside $heap?)"
   log "- heap mode=$mode live_bytes_per_item=$(awk -v a="$h0" -v b="$h3" 'BEGIN{printf "%.0f", (b - a) * 1048576 / 3000}')"
   echo "$out3" | grep '^H site' | head -10 | sed "s/^/    [$mode] /" | tee -a "$out"
 done
@@ -181,4 +189,6 @@ log "- K6 counter default $(wc -c < "$counter")"
 log "- K6 kv_startup default $(wc -c < "$startup")"
 log "- K6 kv_startup no-default-features $(wc -c < "$kpi/kv_startup_min$exe")"
 log "- K6 basic-catalog default $(wc -c < "$catalog")"
+log "- K6 counter_nogpu $(wc -c < "$kpi/kv_startup_nogpu$exe")"
+log "- K6 basic-catalog_nogpu $(wc -c < "$kpi/catalog_nogpu$exe")"
 echo "wrote $out"

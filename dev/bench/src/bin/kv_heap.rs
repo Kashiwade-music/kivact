@@ -2,8 +2,9 @@
 //!
 //! A counting global allocator records the call stack of every allocation
 //! made after `main` starts; `SETTLE_SECS` (3) after the root mounted (the
-//! window is idle) it prints the live bytes per first Kivact/Arvane function
-//! and exits. Build with line
+//! window is idle) it prints the live bytes per site (the first `CHAIN`
+//! (default 1) Kivact/Arvane functions on the stack, outermost last) and
+//! exits, the `TOP` (default 40) largest first. Build with line
 //! tables and no strip (`CARGO_PROFILE_RELEASE_STRIP=none CARGO_PROFILE_RELEASE_DEBUG=line-tables-only`) so sites resolve.
 //! Modes are those of `kv_stress` (`box`, `text`, `button`, `row`).
 
@@ -116,8 +117,16 @@ unsafe impl GlobalAlloc for Counting {
 #[global_allocator]
 static ALLOCATOR: Counting = Counting;
 
-/// The first Kivact/Arvane function on the stack of `site`.
-fn owner(site: &Site) -> String {
+/// Whether a function path belongs to Kivact or Arvane (not the bench itself).
+/// A path that starts with the name is enough: a generic argument that names a
+/// std type does not make a std function a site.
+fn is_kivact(name: &str) -> bool {
+    (name.starts_with("kivact") || name.starts_with("arvane")) && !name.starts_with("kivact_bench")
+}
+
+/// The first `chain` Kivact/Arvane functions on the stack of `site`, joined
+/// with ` <- `; a run of equal names counts once.
+fn owner(site: &Site, chain: usize) -> String {
     let mut names = Vec::new();
     for ip in site.ips[2..].iter().take_while(|ip| **ip != 0) {
         backtrace::resolve(*ip as *mut std::ffi::c_void, |symbol| {
@@ -126,14 +135,26 @@ fn owner(site: &Site) -> String {
             }
         });
     }
-    names
+    let mut owners: Vec<&String> = Vec::new();
+    for name in names.iter().filter(|n| is_kivact(n.as_str())) {
+        if owners.last() != Some(&name) {
+            owners.push(name);
+        }
+        if owners.len() == chain {
+            break;
+        }
+    }
+    if owners.is_empty() {
+        return names.get(3).cloned().unwrap_or_default();
+    }
+    owners
         .iter()
-        .find(|n| (n.contains("kivact") || n.contains("arvane")) && !n.contains("kivact_bench"))
-        .cloned()
-        .unwrap_or_else(|| names.get(3).cloned().unwrap_or_default())
+        .map(|name| name.as_str())
+        .collect::<Vec<_>>()
+        .join(" <- ")
 }
 
-fn dump(rows: u32) -> ! {
+fn dump(rows: u32, chain: usize, top: usize) -> ! {
     INSIDE.with(|c| c.set(true));
     TRACKING.store(false, Ordering::SeqCst);
     let sites = SITES
@@ -147,14 +168,14 @@ fn dump(rows: u32) -> ! {
     let total: usize = sites.iter().map(|s| s.live).sum();
     let mut by_fn: HashMap<String, (usize, usize)> = HashMap::new();
     for site in sites {
-        let entry = by_fn.entry(owner(site)).or_default();
+        let entry = by_fn.entry(owner(site, chain)).or_default();
         entry.0 += site.live;
         entry.1 += site.count;
     }
     let mut lines: Vec<_> = by_fn.into_iter().collect();
     lines.sort_by_key(|line| std::cmp::Reverse(line.1.0));
     eprintln!("H total_mib {:.1}", total as f64 / 1_048_576.0);
-    for (name, (live, count)) in lines.iter().take(40) {
+    for (name, (live, count)) in lines.iter().take(top) {
         let per_item = *live as f64 / f64::from(rows.max(1));
         eprintln!("H site {per_item:>9.1} B/item {count:>8} allocs {name}");
     }
@@ -165,6 +186,8 @@ fn main() -> kivact::Result<()> {
     let rows: u32 = env_or("ROWS", 3000);
     let mode: String = env_or("MODE", "box".to_owned());
     let settle: u64 = env_or("SETTLE_SECS", 3);
+    let chain: usize = env_or("CHAIN", 1);
+    let top: usize = env_or("TOP", 40);
     TRACKING.store(true, Ordering::SeqCst);
     App::new("kv_heap").run(move || {
         let mode = mode.clone();
@@ -173,7 +196,7 @@ fn main() -> kivact::Result<()> {
         on_mount(move || {
             std::thread::spawn(move || {
                 std::thread::sleep(std::time::Duration::from_secs(settle));
-                dump(rows);
+                dump(rows, chain, top);
             });
         });
         column((
@@ -183,7 +206,9 @@ fn main() -> kivact::Result<()> {
                 move |i, _| match mode.as_str() {
                     "text" => text(format!("Row {i}")).into_view(),
                     "button" => button("x").into_view(),
-                    "row" => row((text(format!("Row {i}")), button("x"))).into_view(),
+                    "row" => row((text(format!("Row {i}")), button("x")))
+                        .style(style().gap(4))
+                        .into_view(),
                     _ => node().style(style().height(20).width(200)).into_view(),
                 },
             ))),
