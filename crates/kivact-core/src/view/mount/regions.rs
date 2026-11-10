@@ -54,6 +54,11 @@ impl Registry {
         self.state.borrow().by_id.get(&id).cloned()
     }
 
+    /// Whether the node declares canvas regions (a group per declaration).
+    pub(super) fn declares_regions(&self) -> bool {
+        !self.state.borrow().groups.is_empty()
+    }
+
     /// End the pointer gestures that target `id` (it was disabled, hidden or retired).
     pub(super) fn cancel(&self, id: TargetId) {
         super::part_pointer::cancel(self, id);
@@ -338,6 +343,7 @@ pub(super) fn prepare(
         phase: Cell::new(RegistryPhase::Mounting),
         gestures: RefCell::new(Gestures::default()),
     });
+    let declares = !declarations.is_empty();
     registry
         .state
         .borrow_mut()
@@ -352,24 +358,35 @@ pub(super) fn prepare(
             Declaration::Collection(register) => register(cx, registry.clone(), index),
         }
     }
-    // Drivers have lower creation order than this shared reconciler, so every
-    // collection settles before duplicate checks, adoption, or drawing runs.
-    let weak = Rc::downgrade(&registry);
-    cx.effect(EffectKind::Internal, at, move || {
-        if let Some(registry) = weak.upgrade() {
-            registry.changed.track();
-            registry.reconcile();
-        }
-    });
-    // The node itself ends its gestures when it is disabled or hidden.
-    let weak = Rc::downgrade(&registry);
+    if declares {
+        // Drivers have lower creation order than this shared reconciler, so every
+        // collection settles before duplicate checks, adoption, or drawing runs.
+        let weak = Rc::downgrade(&registry);
+        cx.effect(EffectKind::Internal, at, move || {
+            if let Some(registry) = weak.upgrade() {
+                registry.changed.track();
+                registry.reconcile();
+            }
+        });
+    }
+    // The node itself ends its gestures when it is disabled or hidden; constant
+    // constraints never change after the mount, before any gesture.
     let constraints = registry.root.constraints;
-    cx.effect(EffectKind::Internal, at, move || {
-        if (constraints.disabled.get() || constraints.hidden.get())
-            && let Some(registry) = weak.upgrade()
-        {
-            registry.cancel(TargetId::Root);
-        }
-    });
+    let fixed = kivact_runtime::Prop::value(constraints.disabled)
+        .fixed()
+        .is_some()
+        && kivact_runtime::Prop::value(constraints.hidden)
+            .fixed()
+            .is_some();
+    if !fixed {
+        let weak = Rc::downgrade(&registry);
+        cx.effect(EffectKind::Internal, at, move || {
+            if (constraints.disabled.get() || constraints.hidden.get())
+                && let Some(registry) = weak.upgrade()
+            {
+                registry.cancel(TargetId::Root);
+            }
+        });
+    }
     registry
 }

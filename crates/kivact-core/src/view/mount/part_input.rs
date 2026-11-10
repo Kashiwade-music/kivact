@@ -234,6 +234,7 @@ fn route_actions(caller: &mut Handlers, registry: &Rc<Registry>) {
 
 fn route_accessibility(caller: &mut Handlers, registry: &Rc<Registry>) {
     let custom = Rc::new(std::mem::take(&mut caller.a11y));
+    let declares = registry.declares_regions();
     for action in [
         A11yAction::Focus,
         A11yAction::Increment,
@@ -247,6 +248,17 @@ fn route_accessibility(caller: &mut Handlers, registry: &Rc<Registry>) {
         A11yAction::ShowMenu,
         A11yAction::Dismiss,
     ] {
+        // Without regions only the node's own handlers can run: route no other action.
+        let offered = custom.iter().any(|(candidate, _)| *candidate == action)
+            || registry
+                .root
+                .actions
+                .a11y
+                .iter()
+                .any(|(candidate, _)| *candidate == action);
+        if !declares && !offered {
+            continue;
+        }
         let custom = custom.clone();
         let root = registry.root.clone();
         let registry = registry.clone();
