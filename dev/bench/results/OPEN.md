@@ -111,3 +111,13 @@ B0 と CP2（`dev/bench/results/CP2.md`、どちらも有効）の比較。倍�
   3. S3：`control` の next に `release_at` を足した。W6 の EN-2 は、この要素と `LastPresent::Shown` を残す（D9「全体」3）。
   4. AH2：`Stats::a11y_enumerated` を公開（DEC-05）。
 - 次：W4（AH4、T5）。W4 の後は CP1。
+
+## W4 の結果（2026-11-10）
+
+- 統合：lane A（AH4 `17290654`）と lane C（T5 `b778e293`）を `--no-ff` で merge（conflict なし）。統合 HEAD は lane C の merge の `ae98f440`。
+- 統合 tree（`W:/kv-target/int`）の確認：`cargo fmt --all -- --check` 成功、`cargo check --workspace --all-targets --all-features` 成功、`cargo clippy --workspace --all-targets --all-features -- -D warnings` 成功、`cargo xtask check --no-write` 成功。
+- 統合 tree の E2E と unit：名指しの E2E 262 件（`a11y_incremental` と layout・a11y の系統）成功。GPU の `gpu_on_demand` 6 件成功。`kivact-types`・`kivact-runtime`・`arvane-text`・`kivact-layout` の unit 成功。
+- 記録すること：
+  1. AH4：D15 Q1 の追加 3 本を含む E2E 8 件を新しいファイル `a11y_incremental.rs` に置いた。`a11y_enumerated` の増加と self_check の不一致は出ていない。
+  2. T5：`kivact-layout` の measure の記録を f32 にし、node の style を共有した。単体試験は足していない（DEC-27）。U-M5 は行っていない。
+- 次：CP1（gate、`B0-here2`、`B1-cp1`）。
