@@ -302,9 +302,7 @@ fn keyboard(state: &Rc<State>, message: u32, w: WPARAM, l: LPARAM) {
         state.event(arvane_shell::pipeline::KeyPipeline::default().key(
             arvane_shell::pipeline::RawKey {
                 key: raw_key,
-                pressed: false,
-                repeat: Some(false),
-                text: None,
+                phase: arvane_shell::pipeline::RawKeyPhase::Up,
             },
             self::modifiers(state),
             state.mouse.get().window_position(),
@@ -345,9 +343,10 @@ fn keyboard(state: &Rc<State>, message: u32, w: WPARAM, l: LPARAM) {
     state.event(arvane_shell::pipeline::KeyPipeline::default().key(
         arvane_shell::pipeline::RawKey {
             key: raw_key,
-            pressed: true,
-            repeat: Some(l & (1 << 30) != 0),
-            text: Some(text),
+            phase: arvane_shell::pipeline::RawKeyPhase::Down {
+                repeat: Some(l & (1 << 30) != 0),
+                text: Some(text),
+            },
         },
         self::modifiers(state),
         state.mouse.get().window_position(),

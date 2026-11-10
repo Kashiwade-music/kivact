@@ -1,5 +1,5 @@
 //! Role: Map platform keys and normalize repeats and key text.
-use super::raw::{PlatformKey, RawKey};
+use super::raw::{PlatformKey, RawKey, RawKeyPhase};
 use crate::ShellEvent;
 use kivact_types::{Key, KeyCode, KeyInput, KeyPhase, Modifiers, Point};
 use std::collections::HashSet;
@@ -28,17 +28,19 @@ impl KeyPipeline {
             ),
             PlatformKey::Code { key, code } => (key, code, PhysicalKey::Code(code)),
         };
-        let phase = if raw.pressed {
-            let repeated = !self.pressed.insert(physical);
-            KeyPhase::Down {
-                repeat: raw.repeat.unwrap_or(repeated),
-                text: raw
-                    .text
-                    .filter(|text| !text.is_empty() && text.chars().all(|c| !c.is_control())),
+        let phase = match raw.phase {
+            RawKeyPhase::Down { repeat, text } => {
+                let repeated = !self.pressed.insert(physical);
+                KeyPhase::Down {
+                    repeat: repeat.unwrap_or(repeated),
+                    text: text
+                        .filter(|text| !text.is_empty() && text.chars().all(|c| !c.is_control())),
+                }
             }
-        } else {
-            self.pressed.remove(&physical);
-            KeyPhase::Up
+            RawKeyPhase::Up => {
+                self.pressed.remove(&physical);
+                KeyPhase::Up
+            }
         };
         ShellEvent::Key(KeyInput {
             key,

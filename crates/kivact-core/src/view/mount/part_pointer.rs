@@ -124,7 +124,10 @@ impl PartCapture {
 
 fn event_for(mut event: PointerEvent, target: &Target, phase: PointerPhase) -> PointerEvent {
     event.routed.input.phase = phase;
-    event.routed.region = target.region();
+    let region = target.region();
+    if let Some(route) = &mut event.routed.target {
+        route.region = region;
+    }
     if phase == PointerPhase::Cancel {
         event.routed.input.buttons = PointerButtons::NONE;
     }

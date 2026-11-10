@@ -12,6 +12,7 @@ use super::devtools::{
 use super::window::{HostWindow, ImeAllowed, LastPresent, SoftKeyboard, Surface};
 use crate::contract::{
     DevtoolsChange, DrawableTexturesHandle, EngineEmulation, FrameRecord, HostEvent, PickPhase,
+    TurnOutput,
 };
 use crate::model::edit::state::ImeUpdate;
 use crate::model::{AppModel, DeferredRequest};
@@ -42,7 +43,7 @@ pub(super) enum HostPhase {
     Starting,
     /// Handling the shell's events.
     Running,
-    /// The client finished (`TurnOutput::exit`): no more turns; every return asks
+    /// The client finished (`TurnOutput::Exit`): no more turns; every return asks
     /// the shell to exit.
     Exiting,
     Closed,
@@ -427,9 +428,9 @@ impl Host {
         if self.observe_close() {
             return Ok(());
         }
-        self.next_wake = output.next_wake_ns;
-        if output.exit {
-            self.phase = HostPhase::Exiting;
+        match output {
+            TurnOutput::Continue { next_wake_ns } => self.next_wake = next_wake_ns,
+            TurnOutput::Exit => self.phase = HostPhase::Exiting,
         }
         self.apply_window_changes(windows);
         self.apply_devtools_changes();

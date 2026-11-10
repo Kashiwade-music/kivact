@@ -21,14 +21,24 @@ pub struct HostInfo {
 
 /// Result of one turn. A turn may commit several revisions (user effects
 /// that write state produce a follow-up revision within the same turn).
-#[derive(Clone, Debug, Default, PartialEq)]
-pub struct TurnOutput {
-    /// Host clock time at which the client wants the next turn even without
-    /// events (timers). Frame-synchronised work uses
-    /// the bridge's `Writer::request_frame`.
-    pub next_wake_ns: Option<u64>,
+#[derive(Clone, Debug, PartialEq)]
+pub enum TurnOutput {
+    /// The App continues.
+    Continue {
+        /// Host clock time at which the client wants the next turn even
+        /// without events (timers). Frame-synchronised work uses
+        /// the bridge's `Writer::request_frame`.
+        next_wake_ns: Option<u64>,
+    },
     /// The App finished (close accepted and queues drained).
-    pub exit: bool,
+    Exit,
+}
+
+impl Default for TurnOutput {
+    /// A turn that asks for nothing more: it continues without a deadline.
+    fn default() -> Self {
+        Self::Continue { next_wake_ns: None }
+    }
 }
 
 /// A host operation failure reported to its client.

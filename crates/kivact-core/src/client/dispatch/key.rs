@@ -4,7 +4,7 @@
 
 use kivact_engine::contract::HostEvent;
 use kivact_runtime::Runtime;
-use kivact_types::{A11yRequest, DismissReason, KeyPhase, NodeId};
+use kivact_types::{A11yRequest, DismissReason, KeyPhase, NodeId, RegionId, Role};
 
 use super::a11y::run_a11y;
 use super::common::{handler, is_disabled, node_owner, run_handler, stale};
@@ -18,8 +18,8 @@ pub(super) fn key(rt: &Runtime, host_event: &HostEvent) {
     let HostEvent::Key(routed) = host_event else {
         unreachable!("dispatch routes key input here");
     };
-    let node = routed.target;
-    let region = routed.region;
+    let node = routed.target.map(|target| target.node);
+    let region = routed.target.and_then(|target| target.region);
     let window = routed.window;
     let phase = &routed.input.phase;
     let released = matches!(phase, KeyPhase::Up);
@@ -29,29 +29,14 @@ pub(super) fn key(rt: &Runtime, host_event: &HostEvent) {
         return stale(rt, "key", target);
     }
     let mut handler_route = routed.clone();
-    if Some(target) != node {
-        handler_route.region = None;
+    if Some(target) != node
+        && let Some(route) = &mut handler_route.target
+    {
+        route.region = None;
     }
     let e = KeyEvent {
         routed: handler_route,
-        target_role: region
-            .and_then(|region| {
-                let tree = ViewState::tree(rt);
-                [
-                    kivact_engine::contract::SceneLayer::Draw,
-                    kivact_engine::contract::SceneLayer::DrawOver,
-                ]
-                .into_iter()
-                .filter_map(|layer| tree.scene(target, layer))
-                .find_map(|scene| {
-                    scene
-                        .regions
-                        .iter()
-                        .find(|r| r.id == region)
-                        .and_then(|r| r.semantics.role)
-                })
-            })
-            .or_else(|| ViewState::tree(rt).role(target)),
+        target_role: target_role(rt, target, region),
     };
     // A failed handler stops the route like `Yes`.
     let mut handled = Handled::No;
@@ -100,6 +85,28 @@ pub(super) fn key(rt: &Runtime, host_event: &HostEvent) {
         // Nobody handled Escape: dismiss the topmost overlay.
         run_a11y(rt, o, None, A11yRequest::Dismiss(DismissReason::Escape));
     }
+}
+
+/// The role of the routed region on `target`, or the node's own role.
+fn target_role(rt: &Runtime, target: NodeId, region: Option<RegionId>) -> Option<Role> {
+    region
+        .and_then(|region| {
+            let tree = ViewState::tree(rt);
+            [
+                kivact_engine::contract::SceneLayer::Draw,
+                kivact_engine::contract::SceneLayer::DrawOver,
+            ]
+            .into_iter()
+            .filter_map(|layer| tree.scene(target, layer))
+            .find_map(|scene| {
+                scene
+                    .regions
+                    .iter()
+                    .find(|r| r.id == region)
+                    .and_then(|r| r.semantics.role)
+            })
+        })
+        .or_else(|| ViewState::tree(rt).role(target))
 }
 
 /// Run one key handler and record its outcome for the DevTools input log.

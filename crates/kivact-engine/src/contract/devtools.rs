@@ -123,12 +123,23 @@ pub struct BoxModelRects {
 
 /// The text input state of one window for the DevTools.
 #[derive(Clone, Debug, PartialEq)]
-pub struct ImeStateInfo {
-    pub node: Option<NodeId>,
-    pub composing: bool,
-    pub preedit: Option<String>,
-    pub cursor_area: Option<Rect>,
-    pub purpose: InputPurpose,
+pub enum ImeStateInfo {
+    /// No text input has focus in the window.
+    Inactive,
+    /// The text input of `node` has focus.
+    Focused {
+        /// The node that receives text.
+        node: NodeId,
+        /// The software keyboard hint of the focused input.
+        purpose: InputPurpose,
+        // xtask-allow(state-fields): option: absent means the window has no cursor area to report
+        /// The area of the cursor, when the window has one.
+        cursor_area: Option<Rect>,
+        // xtask-allow(state-fields): option: absent means no IME composition is in progress
+        /// The text being composed (`composing` in the protocol means
+        /// `composition.is_some()`).
+        composition: Option<String>,
+    },
 }
 
 /// A change the host applies to `DevtoolsHost` after the turn.

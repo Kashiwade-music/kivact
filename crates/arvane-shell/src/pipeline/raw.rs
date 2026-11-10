@@ -10,12 +10,15 @@ pub enum RawInput {
 #[derive(Clone, Debug, PartialEq)]
 pub struct RawKey {
     pub key: PlatformKey,
-    // xtask-allow(state-fields): independent: the event records the platform's press separately from the repeat flag and the text; the platform may send any combination and the shell normalizes each field
-    pub pressed: bool,
-    // xtask-allow(state-fields): independent: the event records the repeat flag separately from the press and the text; the platform may send any combination and the shell normalizes each field
-    pub repeat: Option<bool>,
-    // xtask-allow(state-fields): independent: the event records its text separately from the press and the repeat flag; the platform may send any combination and the shell normalizes each field
-    pub text: Option<String>,
+    pub phase: RawKeyPhase,
+}
+#[derive(Clone, Debug, PartialEq)]
+pub enum RawKeyPhase {
+    Down {
+        repeat: Option<bool>,
+        text: Option<String>,
+    },
+    Up,
 }
 #[derive(Clone, Debug, PartialEq)]
 pub enum PlatformKey {

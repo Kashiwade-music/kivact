@@ -175,16 +175,18 @@ pub(crate) fn input_event(_: &Runtime, _: &HostEvent, _: WindowId) {}
 #[cfg(feature = "devtools")]
 fn input_description(event: &HostEvent) -> Option<(Option<NodeId>, &'static str, String)> {
     match event {
-        HostEvent::Pointer(route) => {
-            Some((route.target, "pointer", format!("{:?}", route.input.phase)))
-        }
+        HostEvent::Pointer(route) => Some((
+            route.target.map(|target| target.node),
+            "pointer",
+            format!("{:?}", route.input.phase),
+        )),
         HostEvent::Wheel(route) => Some((
-            route.target,
+            route.target.map(|target| target.node),
             "wheel",
             format!("{:.1}, {:.1}", route.input.delta.x, route.input.delta.y),
         )),
         HostEvent::Key(route) => Some((
-            route.target,
+            route.target.map(|target| target.node),
             "key",
             format!(
                 "{:?} {}",
@@ -197,7 +199,7 @@ fn input_description(event: &HostEvent) -> Option<(Option<NodeId>, &'static str,
         )),
         HostEvent::Ime { node, event } => Some((Some(*node), "ime", format!("{event:?}"))),
         HostEvent::File(route) => Some((
-            route.target,
+            route.target.map(|target| target.node),
             "file",
             format!(
                 "{:?} ({} files)",

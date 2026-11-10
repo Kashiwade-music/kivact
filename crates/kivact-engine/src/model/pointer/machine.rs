@@ -61,11 +61,8 @@ impl Model {
         let source = *self.pointer.state.track(pointer).source();
         crate::contract::Routed {
             window: self.window,
-            target: Some(node),
-            region,
+            target: Some(crate::contract::RouteTarget { node, region }),
             local: pos,
-            captured: matches!(phase, PointerPhase::Up(_) | PointerPhase::Cancel)
-                || self.pointer.state.track(pointer).capture() == Some(node),
             activation: None,
             input: PointerSample {
                 id: source.id,
@@ -701,10 +698,8 @@ impl Model {
             let region = space.region(self, t, pos);
             self.push(HostEvent::Wheel(crate::contract::Routed {
                 window: self.window,
-                target: Some(t),
-                region,
+                target: Some(crate::contract::RouteTarget { node: t, region }),
                 local: pos,
-                captured: false,
                 activation: None,
                 input: kivact_types::WheelInput {
                     delta,

@@ -55,11 +55,11 @@ fn deliver(rt: &Runtime, host_event: &HostEvent) {
         HostEvent::Pointer(route) => pointer::pointer(rt, host_event, *route),
         HostEvent::Wheel(route) => pointer::wheel(rt, host_event, *route),
         HostEvent::File(route) => {
-            if let Some(node) = route.target {
+            if let Some(target) = route.target {
                 pointer::file(
                     rt,
                     host_event,
-                    node,
+                    target.node,
                     route.input.phase,
                     &route.input.files,
                     route.input.position,

@@ -45,9 +45,10 @@ pub(super) fn pointer(
     host_event: &HostEvent,
     routed: kivact_engine::contract::Routed<kivact_types::PointerSample>,
 ) {
-    let Some(node) = routed.target else {
+    let Some(target) = routed.target else {
         return;
     };
+    let node = target.node;
     if ViewState::tree(rt).get(node).is_none() {
         return stale(rt, "pointer", node);
     }
@@ -106,9 +107,10 @@ pub(super) fn wheel(
     host_event: &HostEvent,
     routed: kivact_engine::contract::Routed<kivact_types::WheelInput>,
 ) {
-    let Some(node) = routed.target else {
+    let Some(target) = routed.target else {
         return;
     };
+    let node = target.node;
     let delta = routed.input.delta;
     if ViewState::tree(rt).get(node).is_none() {
         return stale(rt, "wheel", node);

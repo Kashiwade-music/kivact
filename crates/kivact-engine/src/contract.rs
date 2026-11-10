@@ -10,7 +10,7 @@ pub use devtools::{
 // shell itself.
 // xtask-allow(internal-contract): the core's DevTools agent builds injected input and cannot depend on the shell
 pub use arvane::InjectedInput;
-pub use arvane_shell::pipeline::{PlatformKey, RawDrop, RawIme, RawInput, RawKey};
+pub use arvane_shell::pipeline::{PlatformKey, RawDrop, RawIme, RawInput, RawKey, RawKeyPhase};
 mod events;
 pub use events::{DrawableTexturesHandle, HostEvent};
 mod host;
@@ -24,7 +24,7 @@ pub use node::{
 };
 
 mod routed;
-pub use routed::{Activation, Routed};
+pub use routed::{Activation, RouteTarget, Routed};
 
 mod close;
 pub use close::CloseSignal;

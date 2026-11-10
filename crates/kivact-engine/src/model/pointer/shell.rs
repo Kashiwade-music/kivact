@@ -400,10 +400,8 @@ impl Model {
                 let pos = self.pointer_local(node, point);
                 self.push(HostEvent::File(crate::contract::Routed {
                     window: self.window,
-                    target: Some(node),
-                    region: None,
+                    target: Some(crate::contract::RouteTarget { node, region: None }),
                     local: pos,
-                    captured: false,
                     activation: None,
                     input: kivact_types::FileDrop {
                         phase: FilePhase::Leave,
@@ -416,10 +414,8 @@ impl Model {
                 let pos = self.pointer_local(node, point);
                 self.push(HostEvent::File(crate::contract::Routed {
                     window: self.window,
-                    target: Some(node),
-                    region: None,
+                    target: Some(crate::contract::RouteTarget { node, region: None }),
                     local: pos,
-                    captured: false,
                     activation: None,
                     input: kivact_types::FileDrop {
                         phase: FilePhase::Enter,
@@ -438,10 +434,8 @@ impl Model {
             };
             self.push(HostEvent::File(crate::contract::Routed {
                 window: self.window,
-                target: Some(node),
-                region: None,
+                target: Some(crate::contract::RouteTarget { node, region: None }),
                 local: pos,
-                captured: false,
                 activation: None,
                 input: kivact_types::FileDrop {
                     phase,

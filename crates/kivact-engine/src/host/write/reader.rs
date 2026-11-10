@@ -5,8 +5,8 @@ use crate::contract::{
 };
 use crate::model::AppModel;
 use kivact_types::{
-    ComputedTextStyle, DrawList, FocusTarget, InputPurpose, LayoutCheck, LayoutFinding,
-    LayoutProps, NodeId, PaintProps, Point, Rect, WindowId,
+    ComputedTextStyle, DrawList, FocusTarget, LayoutCheck, LayoutFinding, LayoutProps, NodeId,
+    PaintProps, Point, Rect, WindowId,
 };
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -407,50 +407,39 @@ impl Reader {
         use crate::model::edit::state::ImeTarget;
         let app = self.app.borrow();
         let Some(model) = app.model(window) else {
-            return ImeStateInfo {
-                node: None,
-                composing: false,
-                preedit: None,
-                cursor_area: None,
-                purpose: InputPurpose::Text,
-            };
+            return ImeStateInfo::Inactive;
         };
         let purpose = model.ime_purpose();
-        let (node, composing, preedit) = match model.edits.target {
-            ImeTarget::None => (None, false, None),
+        let (node, composition) = match model.edits.target {
+            ImeTarget::None => return ImeStateInfo::Inactive,
             ImeTarget::Native(slot) => {
                 let id = model.tree.nodes.id_at(slot.0);
                 let Some(editor) = model.editors[slot.0.0].as_deref() else {
-                    return ImeStateInfo {
-                        node: Some(id),
-                        composing: false,
-                        preedit: None,
-                        cursor_area: None,
+                    return ImeStateInfo::Focused {
+                        node: id,
                         purpose,
+                        cursor_area: None,
+                        composition: None,
                     };
                 };
                 let state = editor.editor.state();
-                let preedit = state.marked().map(|range| state.value()[range].to_owned());
-                (Some(id), state.is_composing(), preedit)
+                let composition = state.marked().map(|range| state.value()[range].to_owned());
+                (id, composition)
             }
-            ImeTarget::Session(id) => (Some(id), false, None),
+            ImeTarget::Session(id) => (id, None),
         };
-        let cursor_area = match node {
-            Some(id) if matches!(model.edits.target, ImeTarget::Native(_)) => {
-                let mut engine = self.engine.borrow_mut();
-                let caret =
-                    crate::model::interact::text_geometry::caret_rect(model, id, &mut engine);
-                Some(model.drawn_rect(id, caret))
-            }
-            Some(_) => model.session_area(),
-            None => None,
+        let cursor_area = if matches!(model.edits.target, ImeTarget::Native(_)) {
+            let mut engine = self.engine.borrow_mut();
+            let caret = crate::model::interact::text_geometry::caret_rect(model, node, &mut engine);
+            Some(model.drawn_rect(node, caret))
+        } else {
+            model.session_area()
         };
-        ImeStateInfo {
+        ImeStateInfo::Focused {
             node,
-            composing,
-            preedit,
-            cursor_area,
             purpose,
+            cursor_area,
+            composition,
         }
     }
 

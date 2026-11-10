@@ -77,12 +77,12 @@ impl KeyEvent {
         self.routed.input.pointer
     }
     pub fn region(&self) -> Option<RegionId> {
-        self.routed.region
+        self.routed.target.and_then(|target| target.region)
     }
     pub(crate) fn origin(&self) -> Option<p::FocusTarget> {
-        self.routed.target.map(|node| p::FocusTarget {
-            node,
-            region: self.routed.region,
+        self.routed.target.map(|target| p::FocusTarget {
+            node: target.node,
+            region: target.region,
         })
     }
 }
@@ -143,12 +143,13 @@ impl PointerEvent {
         self.routed.input.is_primary
     }
     pub fn region(&self) -> Option<RegionId> {
-        self.routed.region
+        self.routed.target.and_then(|target| target.region)
     }
     pub(crate) fn origin(&self) -> p::FocusTarget {
+        let target = self.routed.target.expect("pointer handler has a target");
         p::FocusTarget {
-            node: self.routed.target.expect("pointer handler has a target"),
-            region: self.routed.region,
+            node: target.node,
+            region: target.region,
         }
     }
 }
@@ -172,12 +173,13 @@ impl WheelEvent {
         self.routed.input.modifiers
     }
     pub fn region(&self) -> Option<RegionId> {
-        self.routed.region
+        self.routed.target.and_then(|target| target.region)
     }
     pub(crate) fn origin(&self) -> p::FocusTarget {
+        let target = self.routed.target.expect("wheel handler has a target");
         p::FocusTarget {
-            node: self.routed.target.expect("wheel handler has a target"),
-            region: self.routed.region,
+            node: target.node,
+            region: target.region,
         }
     }
 }

@@ -11,7 +11,7 @@ mod text_reference;
 
 pub use arvane::{Renderer, ShellEvent, ShellImeText};
 pub use arvane_native::mirror::MirrorStats;
-pub use arvane_virtual::raw::{PlatformKey, RawDrop, RawIme, RawInput, RawKey};
+pub use arvane_virtual::raw::{PlatformKey, RawDrop, RawIme, RawInput, RawKey, RawKeyPhase};
 pub use arvane_virtual::{GpuMode, MirrorMode};
 pub use kivact_types::render::{SemanticsNode, SemanticsTree};
 pub use kivact_types::{

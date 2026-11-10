@@ -394,9 +394,11 @@ fn settle_user_effects(
 }
 
 fn output(report: TurnReport) -> TurnOutput {
-    TurnOutput {
+    if matches!(report.exit, ExitState::Exited) {
+        return TurnOutput::Exit;
+    }
+    TurnOutput::Continue {
         next_wake_ns: report.next_deadline,
-        exit: matches!(report.exit, ExitState::Exited),
     }
 }
 
@@ -455,12 +457,14 @@ fn describe(e: &kivact_engine::contract::HostEvent) -> String {
         E::Pointer(route) => format!(
             "Pointer {} {:?}",
             phase_name(route.input.phase),
-            route.target
+            route.target.map(|target| target.node)
         ),
-        E::Wheel(route) => format!("Wheel {:?}", route.target),
+        E::Wheel(route) => format!("Wheel {:?}", route.target.map(|target| target.node)),
         E::Key(route) => format!(
             "Key {:?} {:?} region {:?}",
-            route.input.key, route.target, route.region
+            route.input.key,
+            route.target.map(|target| target.node),
+            route.target.and_then(|target| target.region)
         ),
         E::Activate { node, region, .. } => {
             format!("Activate n{} region {:?}", node.0, region.map(|r| r.0))

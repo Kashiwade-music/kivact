@@ -272,7 +272,7 @@ fn a_reactive_active_descendant_moves_in_the_accessibility_tree() {
 #[test]
 fn raw_key_mapping_reaches_handlers() {
     use kivact::custom::primitive;
-    use kivact::test::raw::{PlatformKey, RawInput, RawKey};
+    use kivact::test::raw::{PlatformKey, RawInput, RawKey, RawKeyPhase};
     use kivact::view::{Handled, KeyEvent};
     let (screen, seen) = mount(|| {
         let seen = signal(Vec::<Key>::new());
@@ -301,9 +301,10 @@ fn raw_key_mapping_reaches_handlers() {
     ] {
         screen.raw_input(RawInput::Key(RawKey {
             key,
-            pressed: true,
-            repeat: None,
-            text: None,
+            phase: RawKeyPhase::Down {
+                repeat: None,
+                text: None,
+            },
         }));
     }
     assert_eq!(seen.get_untracked(), vec![Key::Char('a'), Key::Enter]);

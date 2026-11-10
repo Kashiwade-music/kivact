@@ -161,11 +161,9 @@ fn a_primary_down_of_the_gesture_pointer_releases_a_gesture_whose_up_was_lost() 
         .borrow_mut()
         .inject(HostEvent::Pointer(kivact_engine::contract::Routed {
             window: WindowId::MAIN,
-            target: Some(node),
+            target: Some(region_target(node)),
             local: Point::new(20., 20.),
-            captured: false,
             activation: None,
-            region: Some(kivact_types::RegionId(1)),
             input: PointerSample {
                 id: kivact_types::PointerId(1),
                 phase: PointerPhase::Down(press),
@@ -413,6 +411,14 @@ fn replacing_editing_drops_line_state_after_releasing_the_model() {
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 
+/// The route target of `node`'s region 1.
+fn region_target(node: NodeId) -> kivact_engine::contract::RouteTarget {
+    kivact_engine::contract::RouteTarget {
+        node,
+        region: Some(kivact_types::RegionId(1)),
+    }
+}
+
 fn gesture_sample(
     node: NodeId,
     id: u64,
@@ -423,11 +429,9 @@ fn gesture_sample(
     let is_primary = id != 22;
     kivact_engine::contract::Routed {
         window: WindowId::MAIN,
-        target: Some(node),
+        target: Some(region_target(node)),
         local: Point::new(20., 20.),
-        captured: false,
         activation: None,
-        region: Some(kivact_types::RegionId(1)),
         input: PointerSample {
             id: kivact_types::PointerId(id),
             phase,
