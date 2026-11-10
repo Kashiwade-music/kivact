@@ -76,3 +76,26 @@ B0 と CP2（`dev/bench/results/CP2.md`、どちらも有効）の比較。倍�
 
 
 
+
+## W2 の結果（2026-11-10）
+
+- 統合：lane A〜F を `refactor/kashiwade/slim-fast` に `--no-ff` で merge（conflict なし）。統合 HEAD は W2-F merge の `7a907e69`。
+- 完了した unit と commit（lane 順）：
+  - A：AH1 `15c1aa50`
+  - B：F5-fix `d22b2e12`、F4-fix `75cd6329`、F7 `0ec4a8c2`
+  - C：S45 `edd34df2`、T4 `2dc7bf46`、S8 `c2815cf8`、S9 `2f41d9fa`
+  - D：M7-fix `0aab46cd`、M6 `0b3d3ca7`、M8 `d815c624`、T1 `5a632ea3`、G3 `eca6a920`
+  - E：T8-fix `bea69f63`、S7 `19309b7a`
+  - F：M9 `01361150`
+- 統合 tree（`W:/kv-target/int`）の確認：`cargo fmt --all -- --check` 成功、`cargo check --workspace --all-targets --all-features` 成功、`cargo clippy --workspace --all-targets --all-features -- -D warnings` 成功、`cargo xtask check --no-write` 成功（`analyzed 49 workspace crates`、ok。xtask の path は `W:\w\kivact`）。
+- 統合 tree の E2E と unit：kivact の E2E（各 lane が名指したもの、`hover` から `constant_semantics_publish_once_and_keep_no_publisher` まで）216 件成功。arvane の E2E `text` 9 件成功。`kivact-runtime`・`arvane-text`・`kivact-ui-basic-catalog` の unit 成功。
+- W1 の差戻しの解消：F5（`Indexed` の state-fields）は F5-fix で enum `Reach`（DEC-24）。M7（`Plan`）は M7-fix で `CheckFold`（DEC-24）。T8（`OwnerEntry.extra`）は T8-fix の marker（付属書の文言）。M6 は D10 の遅延の draw effect（DEC-11 の取消し）。S4 は S45 で完了。G1・G2 は W1 で完了。
+- 確認を求める点（設計者）：
+  1. T4：付属書 D10 の `xtask-allow(state-fields): cache:` marker は、xtask が「unused marker」の error を出したため削除した（allow は足していない）。試験は `arvane` の font を `include_bytes!("../../arvane/assets/fonts/Tuffy.ttf")` で読む cross-crate の参照。公開の前に見直す。
+  2. S45：fontdb の版は lock file では 0.23.0、付属書は 0.24.0。0.23.0 のまま（compile・試験は通る）。
+  3. S8：D11 の S8 節への 1 行の読み替え（D15 の末尾）は、所有外のため行っていない（build に影響しない）。
+  4. G3：drawable の GPU export は device を要求しなくなり、App は `adapter()` を読む（D15 Q3）。既存の GPU の E2E（`gpu_on_demand` 系）は W2 では実行していない。W3 と CP1 の GPU の確認で確かめる。
+- 作業中に起きた問題（記録）：
+  1. 共有 target の衝突：W2 の途中で lane が AB・CD・EF の target を共有した。cargo は同じ相対 path の workspace crate に同じ metadata hash を付けるため、別の worktree の成果物を再利用し得る。また `cargo xtask` は、同じ target で別の worktree から build された binary を実行し、別の worktree を解析する（`CARGO_MANIFEST_DIR` が埋め込まれる）。これで確認が汚れた unit（M7-fix、M9、S45 の xtask など）は、専用 target での再確認と統合 tree の確認で確かめ直した。W3 以降は lane ごとの target（`W:/kv-target/<L>`）を使う。
+  2. lane の subagent が自分の loop のプロセスを止めようとして `Stop-Process` を使い、自動判定で拒否された。以後の subagent への指示に「他の worktree のプロセスや cargo を止めない」を入れた。
+- 次：W3（M3→T3、AH3→T7→AH2、T6→S6、G4→S3）。CP1 はその後。
