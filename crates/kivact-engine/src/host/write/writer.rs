@@ -142,6 +142,11 @@ impl Writer {
                 .map(|model| model.a11y.constructed)
                 .sum(),
             a11y_published: app.windows.values().map(|model| model.a11y.published).sum(),
+            a11y_enumerated: app
+                .windows
+                .values()
+                .map(|model| model.a11y.enumerated)
+                .sum(),
             ..stats
         };
         stats

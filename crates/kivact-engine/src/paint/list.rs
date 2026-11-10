@@ -84,6 +84,7 @@
 //!   look at that child again; a change of the container's children drops
 //!   it (`PaintList::invalidate`). Scrolling keeps it.
 
+mod hit_reach;
 mod index;
 mod ink;
 mod invalidation;

@@ -5,7 +5,7 @@
 //! kept as a [`LayerSpec`]. Any other node is walked in the space of the
 //! transforms pushed around it, as before.
 
-use super::ink::{grow, ink, ink_local, local_transform, overlaps, placed, reach};
+use super::ink::{drawn, grow, ink_local, local_transform, overlaps, placed, reach};
 use crate::contract::NodeType;
 use crate::layer::LayerView;
 use crate::model::Model;
@@ -136,14 +136,16 @@ impl Walk<'_> {
             _ => overlaps(placed(local.as_ref(), own, origin), clip),
         };
         if !visible {
-            // Neither it nor anything in its subtree shows.
-            let shows = ink(host, id, n, &layout, self.generation).is_some_and(|k| {
+            // Neither it nor anything in its subtree shows, unless a box of the
+            // subtree is drawn outside its ink (projected, or placed by a
+            // drawing).
+            let shows = drawn(host, id, n, &layout, self.generation).is_some_and(|d| {
                 let at = Rect {
-                    x: k.x + origin.x,
-                    y: k.y + origin.y,
-                    ..k
+                    x: d.rect.x + origin.x,
+                    y: d.rect.y + origin.y,
+                    ..d.rect
                 };
-                overlaps(at, clip)
+                d.beyond || overlaps(at, clip)
             });
             if !shows {
                 return;

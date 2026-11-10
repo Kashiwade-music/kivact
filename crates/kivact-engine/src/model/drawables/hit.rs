@@ -14,14 +14,22 @@ use kivact_types::{DrawableId, Matrix4, NodeId, Point, Rect};
 
 use crate::contract::{DrawableMode, SceneLayer};
 use crate::model::Model;
+use crate::model::interact::hit::HitWalk;
 use crate::model::interact::visual;
 
 use super::place::{DrawnPlacement, drawable_placements};
 
 impl Model {
     /// The deepest drawable of `host` drawn in `slot` (0 or 1) under `p`,
-    /// where `p` is in `host`'s box space. The latest drawn answers first.
-    pub(crate) fn drawable_hit(&self, host: NodeId, slot: u8, p: Point) -> Option<NodeId> {
+    /// where `p` is in `host`'s box space, walked as `walk`. The latest
+    /// drawn answers first.
+    pub(crate) fn drawable_hit(
+        &self,
+        host: NodeId,
+        slot: u8,
+        p: Point,
+        walk: HitWalk,
+    ) -> Option<NodeId> {
         let canvas = self.canvas_point(host, p)?;
         let mut drawn: Vec<(DrawableId, DrawnPlacement)> = self
             .host_placements(host)
@@ -31,7 +39,7 @@ impl Model {
         drawn.sort_by_key(|(_, placed)| std::cmp::Reverse(placed.order));
         drawn
             .iter()
-            .find_map(|(id, placed)| self.hit_placed(*id, placed, canvas, p))
+            .find_map(|(id, placed)| self.hit_placed(*id, placed, canvas, p, walk))
     }
 
     /// The placement of canvas drawable `drawable` by `host`'s two scenes:
@@ -61,14 +69,15 @@ impl Model {
         Some(Matrix4::from_projective(placed.map).then(Matrix4::translate(origin.x, origin.y, 0.0)))
     }
 
-    /// The exported drawable of `host` under `p` (`p` in `host`'s box space).
-    /// Its root's own map (`export_step`) takes the point into its box.
-    pub(crate) fn exported_hit(&self, host: NodeId, p: Point) -> Option<NodeId> {
+    /// The exported drawable of `host` under `p` (`p` in `host`'s box space),
+    /// walked as `walk`. Its root's own map (`export_step`) takes the point
+    /// into its box.
+    pub(crate) fn exported_hit(&self, host: NodeId, p: Point, walk: HitWalk) -> Option<NodeId> {
         self.drawables
             .iter()
             .filter(|(_, entry)| entry.mode == DrawableMode::Export)
             .filter(|(_, entry)| self.parent_of(entry.root) == Some(host))
-            .find_map(|(_, entry)| self.hit_node(entry.root, p))
+            .find_map(|(_, entry)| self.hit_node(entry.root, p, walk))
     }
 
     /// The origin of `host`'s padding box in its border box: the canvas that
@@ -136,13 +145,14 @@ impl Model {
 
     /// Hit a placed drawable: `canvas` is the point in the host's padding box
     /// and `at` the same point in its border box, where the root's own map
-    /// (`to_parent`) takes it into the drawable's box.
+    /// (`to_parent`) takes it into the drawable's box, walked as `walk`.
     fn hit_placed(
         &self,
         id: DrawableId,
         placed: &DrawnPlacement,
         canvas: Point,
         at: Point,
+        walk: HitWalk,
     ) -> Option<NodeId> {
         if placed.back_hidden {
             return None;
@@ -154,6 +164,6 @@ impl Model {
             }
         }
         let root = self.drawables.get(id)?.root;
-        self.hit_node(root, at)
+        self.hit_node(root, at, walk)
     }
 }

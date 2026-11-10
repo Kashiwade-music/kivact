@@ -307,7 +307,12 @@ impl Model {
             };
             let status = assets.image_status(asset);
             reports.extend(assets.check_image(*id, asset));
-            if n.sent_image.update(status).is_some() {
+            if n.sent
+                .get_or_insert_default()
+                .image
+                .update(status)
+                .is_some()
+            {
                 statuses.push((*id, status));
             }
         }

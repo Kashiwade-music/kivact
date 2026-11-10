@@ -29,6 +29,9 @@ pub struct Stats {
     pub a11y_constructed: u64,
     /// Cumulative accessibility payloads sent, including rejected attempts.
     pub a11y_published: u64,
+    /// Cumulative nodes the accessibility identity enumeration visited (a
+    /// complete pass per structural change; payload-only changes visit none).
+    pub a11y_enumerated: u64,
     /// Writes given to the engine.
     pub ops: u64,
     /// Writes of the most recent revision.
