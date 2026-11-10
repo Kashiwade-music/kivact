@@ -62,6 +62,7 @@ B0 と CP2（`dev/bench/results/CP2.md`、どちらも有効）の比較。倍�
 - F4（commit `81db248b`）の副作用：`crates/kivact-engine/src/paint/list/invalidation.rs` の `invalidate` の doc が「layout pass の後に全 location（と変わった size）」と書いたまま古い。doc だけなので、W8 の書き戻しで直す（F4 の所有外）。
 - M2 の副作用：付属書の `V2 設計書 4.9（EVT-1）` と `M-R4` の文が、旧い縮小動作を書いたままなので、W8 で直す（上の M2 の項目と同じ）。
 - T8（付属書 D7 3.7、lane E、commit `636c4794`）— **差戻し**。`crates/kivact-runtime/src/reactive/data.rs:331` の `OwnerEntry` の `extra`（`Option<Box<OwnerExtra>>`）が `xtask check` の `state-fields` に「OwnerEntry combines state fields: extra」で当たる。付属書は marker を指定していないので足していない。設計者が marker の文言を決めるか、構造を変えるかを決める。M11 の残りの差分（`M11-leftover.patch`）は T8 の作業だったので、T8 が取り込んだ。
+- G1（付属書 D6 3.1・3.2、lane F、commit `ef29066e`）：`arvane::RendererChange` に `GpuStarting { cause }` を足したため、`kivact-engine`（`host/testing/test_host.rs:199` ほか）と `kivact-test` の match が compile しない。直しは G2（P6-2、本来 W2）の範囲。W1 の終わりに compile が通る必要があるため、G2 を lane F の続きとして W1 に前倒しした（同じ lane の続き。他の lane の変更は前提にしない）。付属書の順と違う点はこれだけ。
 
 
 
