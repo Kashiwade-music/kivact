@@ -8,10 +8,19 @@ use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
 use std::rc::Rc;
 
+/// One flat child: its id and its slot (both are fixed while the list is cached:
+/// a child that leaves or is destroyed forgets its parent's list first).
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct FlatChild {
+    pub(crate) id: NodeId,
+    pub(crate) slot: NodeIndex,
+}
+
 /// The node tree.
 #[derive(Clone, Debug, Default)]
 pub(crate) struct NodeTree {
-    flat: RefCell<BTreeMap<NodeId, Rc<[NodeId]>>>,
+    /// Cached flat children, indexed by the parent's slot.
+    flat: RefCell<Vec<Option<Rc<[FlatChild]>>>>,
     // xtask-allow(state-fields): independent: a queue of child orders to pack; any set of parents can be pending
     /// Derived packing work only; the child order remains solely in NodeLinks.
     pending_child_order: BTreeSet<NodeId>,
@@ -70,41 +79,62 @@ impl NodeTree {
         &self,
         id: NodeId,
     ) -> impl DoubleEndedIterator<Item = NodeId> + ExactSizeIterator {
-        let children = self.flat(id);
-        (0..children.len()).map(move |index| children[index])
+        let children = self.flat_list(id);
+        (0..children.len()).map(move |index| children[index].id)
     }
 
-    /// The `index`-th of [`NodeTree::flat_children`] of `id`.
-    pub(crate) fn flat_child(&self, id: NodeId, index: usize) -> Option<NodeId> {
-        self.flat(id).get(index).copied()
+    /// The slot of the `raw`-th flat child of the node at `slot` (layout's
+    /// constant-time child access).
+    pub(crate) fn flat_child_slot(&self, slot: usize, raw: usize) -> usize {
+        if let Some(Some(list)) = self.flat.borrow().get(slot) {
+            return list[raw].slot.0;
+        }
+        self.flat_at(NodeIndex(slot))[raw].slot.0
     }
 
-    /// The flat children of `id`, cached until the tree's structure or a
-    /// node's Contents role changes ([`NodeTree::forget_flat`]).
-    fn flat(&self, id: NodeId) -> Rc<[NodeId]> {
-        let cached = self.flat.borrow().get(&id).cloned();
-        cached.unwrap_or_else(|| {
-            let mut children = Vec::new();
-            let mut stack = self
-                .get(id)
-                .map(|n| self.children_ids(n).rev().collect::<Vec<_>>())
-                .unwrap_or_default();
-            while let Some(child) = stack.pop() {
-                let Some(node) = self.get(child) else {
-                    continue;
-                };
-                if node.is_transparent() {
-                    if !node.hidden() {
-                        stack.extend(self.children_ids(node).rev());
-                    }
-                } else {
-                    children.push(child);
+    /// The number of flat children of the node at `slot`.
+    pub(crate) fn flat_len(&self, slot: usize) -> usize {
+        if let Some(Some(list)) = self.flat.borrow().get(slot) {
+            return list.len();
+        }
+        self.flat_at(NodeIndex(slot)).len()
+    }
+
+    fn flat_list(&self, id: NodeId) -> Rc<[FlatChild]> {
+        match self.nodes.index_of(id) {
+            Some(slot) => self.flat_at(slot),
+            None => Rc::from(Vec::new()),
+        }
+    }
+
+    /// The flat children of the node at `slot`, cached until the tree's
+    /// structure or a node's Contents role changes ([`NodeTree::forget_flat`]).
+    fn flat_at(&self, slot: NodeIndex) -> Rc<[FlatChild]> {
+        if let Some(Some(list)) = self.flat.borrow().get(slot.0) {
+            return list.clone();
+        }
+        let mut children = Vec::new();
+        let mut stack: Vec<NodeIndex> = self.nodes.links(slot).children.iter().rev().collect();
+        while let Some(child) = stack.pop() {
+            let node = self.nodes.at(child);
+            if node.is_transparent() {
+                if !node.hidden() {
+                    stack.extend(self.nodes.links(child).children.iter().rev());
                 }
+            } else {
+                children.push(FlatChild {
+                    id: self.nodes.id_at(child),
+                    slot: child,
+                });
             }
-            let children: Rc<[NodeId]> = children.into();
-            self.flat.borrow_mut().insert(id, children.clone());
-            children
-        })
+        }
+        let children: Rc<[FlatChild]> = children.into();
+        let mut flat = self.flat.borrow_mut();
+        if flat.len() <= slot.0 {
+            flat.resize(slot.0 + 1, None);
+        }
+        flat[slot.0] = Some(children.clone());
+        children
     }
 
     /// A node started or stopped being a Contents node, or a Contents node
@@ -116,16 +146,22 @@ impl NodeTree {
     /// Forget the cached flat lists that can contain `id`: its own and those of
     /// its ancestors up to and including the nearest one that is not transparent.
     pub(crate) fn forget_flat_around(&self, id: NodeId) {
+        let Some(index) = self.nodes.index_of(id) else {
+            return;
+        };
         let mut flat = self.flat.borrow_mut();
-        flat.remove(&id);
-        let mut at = self.get(id).and_then(|n| self.parent_id(n));
+        if let Some(entry) = flat.get_mut(index.0) {
+            *entry = None;
+        }
+        let mut at = self.nodes.links(index).parent;
         while let Some(parent) = at {
-            flat.remove(&parent);
-            let Some(node) = self.get(parent) else { break };
-            if !node.is_transparent() {
+            if let Some(entry) = flat.get_mut(parent.0) {
+                *entry = None;
+            }
+            if !self.nodes.at(parent).is_transparent() {
                 break;
             }
-            at = self.parent_id(node);
+            at = self.nodes.links(parent).parent;
         }
     }
 
@@ -524,8 +560,10 @@ impl NodeTree {
                 let payload = prepare(slot, node);
                 self.nodes.release(slot);
                 stack.extend(links.children);
-                // The entry of the id is the list of its flat children.
-                self.flat.borrow_mut().remove(&x);
+                // The entry of the slot is the list of its flat children.
+                if let Some(entry) = self.flat.get_mut().get_mut(slot.0) {
+                    *entry = None;
+                }
                 self.pending_child_order.remove(&x);
                 self.overlays.retain(|o| *o != x);
                 self.scrollers.remove(&x);
