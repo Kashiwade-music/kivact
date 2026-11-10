@@ -4,13 +4,13 @@ use crate::cache::{Cache, TextKeyRef};
 use crate::error::TextError;
 use crate::metrics::line_height;
 use crate::{build, layouts, output, transform};
-use kivact_types::render::FontSource;
 use kivact_types::render::{RichText, ShapedText};
 use kivact_types::{ComputedTextStyle, TextDecoration, TextWrap};
 use kivact_types::{Rect, TextAlign, TextCaret, TextMetrics, TextOverflow, TextTransform};
 use parley::{
     Alignment, AlignmentOptions, FontContext, GenericFamily, LayoutContext, PositionedLayoutItem,
 };
+use std::collections::HashMap;
 use std::sync::Arc;
 
 /// Reusable font database and shaping scratch space, used on its owner's UI thread.
@@ -21,6 +21,7 @@ pub struct TextEngine {
     pub(super) cache: Cache,
     pub(crate) fonts: FontContext,
     pub(crate) layouts: LayoutContext<u32>,
+    pub(super) font_bytes: HashMap<u64, Arc<[u8]>>,
 }
 
 /// Ellipses kept before they are all forgotten.
@@ -49,6 +50,7 @@ impl TextEngine {
                 source_cache: SourceCache::default(),
             },
             layouts: LayoutContext::new(),
+            font_bytes: HashMap::new(),
         };
         let mut families = Vec::new();
         for bytes in fonts {
@@ -80,14 +82,14 @@ impl TextEngine {
         Ok(engine)
     }
 
-    /// Registers a font file, sharing its bytes, and returns the discovered family names.
+    /// Registers owned font bytes and returns the discovered family names.
     ///
     /// Registration allows applications and headless tests to choose explicit fonts.
-    pub fn register_font(&mut self, font: FontSource) -> Result<Vec<String>, TextError> {
+    pub fn register_font(&mut self, bytes: Arc<[u8]>) -> Result<Vec<String>, TextError> {
         let faces = self
             .fonts
             .collection
-            .register_fonts(parley::fontique::Blob::new(Arc::clone(font.source())), None);
+            .register_fonts(parley::fontique::Blob::new(Arc::new(bytes)), None);
         if faces.is_empty() {
             return Err(TextError::InvalidFont);
         }
@@ -129,18 +131,19 @@ impl TextEngine {
         found
     }
 
-    /// Release cached layouts, ellipses, loaded system font sources and
-    /// shaping scratch when memory is short.
+    /// Release cached layouts, ellipses, copied font bytes, loaded system
+    /// font sources and shaping scratch when memory is short.
     ///
     /// Font discovery, registered bytes and the family-name snapshot remain.
-    /// Returned glyph runs share their font sources and remain valid; later
-    /// calls shape again and reload system sources as needed.
+    /// Returned glyph runs own their font copies independently and remain
+    /// valid; later calls shape again and reload system sources as needed.
     pub fn release_caches(&mut self) {
         let font_names = self.cache.font_names.take();
         self.cache = Cache {
             font_names,
             ..Cache::default()
         };
+        self.font_bytes = HashMap::new();
         self.fonts.source_cache.prune(0, true);
         self.layouts = LayoutContext::new();
     }
@@ -301,7 +304,7 @@ impl TextEngine {
             height,
         );
         layout.break_all_lines(None);
-        let ellipsis = output::Ellipsis::of(&layout);
+        let ellipsis = output::Ellipsis::of(&layout, &mut self.font_bytes);
         if self.cache.ellipses.len() >= ELLIPSES {
             self.cache.ellipses.clear();
         }
@@ -341,7 +344,14 @@ impl TextEngine {
         };
         layout.align(alignment, AlignmentOptions::default());
         let plan = output::plan(layout, style, max_width, ellipsis.as_ref());
-        let drawn = output::draw(layout, style, text.spans, &plan, ellipsis.as_ref());
+        let drawn = output::draw(
+            layout,
+            style,
+            text.spans,
+            &plan,
+            ellipsis.as_ref(),
+            &mut self.font_bytes,
+        );
         if drawn.runs.is_empty()
             && text
                 .text

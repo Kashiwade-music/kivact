@@ -8,7 +8,7 @@ use crate::paint::{self, Brush, PatternFill};
 use crate::text;
 use crate::validate::Fonts;
 use kivact_types::geometry::Transform;
-use kivact_types::render::{FontSource, GlyphStroke, Group, Paint, RenderCmd, RenderScene};
+use kivact_types::render::{GlyphStroke, Group, Paint, RenderCmd, RenderScene};
 use kivact_types::scene::Shape;
 use kivact_types::{PaintOrder, Point, Rect as LogicalRect};
 use std::collections::HashMap;
@@ -54,16 +54,16 @@ macro_rules! group_commands {
     };
 }
 
-/// Fonts by the identity of their source and face index; the `FontData`
-/// keeps the source's `Arc`, so the identity is not reused while it lives.
+/// Fonts by the address of their bytes and face index; the `FontData`
+/// keeps the bytes' `Arc`, so the address is not reused while it lives.
 #[derive(Default)]
 pub(crate) struct FontCache(HashMap<(usize, u32), FontData>);
 
 impl FontCache {
-    fn get(&mut self, font: &FontSource, index: u32) -> &FontData {
+    fn get(&mut self, font: &Arc<[u8]>, index: u32) -> &FontData {
         self.0
-            .entry((font.id(), index))
-            .or_insert_with(|| FontData::new(Blob::new(Arc::clone(font.source())), index))
+            .entry((font.as_ptr() as usize, index))
+            .or_insert_with(|| FontData::new(Blob::new(Arc::new(Arc::clone(font))), index))
     }
 }
 
@@ -691,7 +691,7 @@ impl<C: Canvas> Painter<'_, C> {
                 }
                 self.canvas.set_stroke(style);
                 let coords = glyph_coords(run);
-                let font = self.fonts.get(&run.font, run.font_index);
+                let font = self.fonts.get(run.font.as_shared(), run.font_index);
                 // Outlines are stroked as they are: unhinted, no darkening,
                 // never from the atlas.
                 self.canvas.stroke_glyphs(
@@ -722,7 +722,7 @@ impl<C: Canvas> Painter<'_, C> {
     /// (`solid`: the glyphs may come from the atlas).
     fn fill_glyphs(&mut self, run: &kivact_types::render::GlyphRun, origin: Point, solid: bool) {
         let coords = glyph_coords(run);
-        let font = self.fonts.get(&run.font, run.font_index);
+        let font = self.fonts.get(run.font.as_shared(), run.font_index);
         let scale = self.scale;
         let t = self.transform;
         if t.is_identity() {

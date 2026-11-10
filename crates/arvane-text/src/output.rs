@@ -17,10 +17,11 @@
 //! - Decorations and bands follow the glyphs drawn: a dropped glyph has
 //!   none, the ellipsis has the paragraph's decoration.
 
+use std::collections::HashMap;
+use std::sync::Arc;
+
 use kivact_types::render::TextSpan;
-use kivact_types::render::{
-    FontSource, Glyph, GlyphRun, TextDecorationRect, TextHighlight, TextLine,
-};
+use kivact_types::render::{Glyph, GlyphRun, TextDecorationRect, TextHighlight, TextLine};
 use kivact_types::{ComputedTextStyle, TextDecoration};
 use kivact_types::{DecorationLines, Rect, Size, TextAlign, TextOverflow};
 use parley::{Layout, PositionedLayoutItem};
@@ -63,7 +64,7 @@ pub(crate) struct Ellipsis {
 
 impl Ellipsis {
     /// The ellipsis of a layout of "…" broken into one line.
-    pub(crate) fn of(layout: &Layout<u32>) -> Self {
+    pub(crate) fn of(layout: &Layout<u32>, fonts: &mut HashMap<u64, Arc<[u8]>>) -> Self {
         let mut out = Ellipsis {
             run: None,
             advance: 0.0,
@@ -92,7 +93,7 @@ impl Ellipsis {
                 .collect();
             out.advance = pen;
             out.metrics = Metrics::of(run.run().metrics());
-            out.run = Some(glyph_run(&run, glyphs));
+            out.run = Some(glyph_run(&run, glyphs, fonts));
             break;
         }
         out
@@ -380,6 +381,7 @@ pub(crate) fn draw(
     spans: &[TextSpan],
     plan: &Plan,
     ellipsis: Option<&Ellipsis>,
+    fonts: &mut HashMap<u64, Arc<[u8]>>,
 ) -> Drawn {
     let mut runs = Vec::new();
     let mut segments = Vec::new();
@@ -413,7 +415,7 @@ pub(crate) fn draw(
                 x1 = pen + shift;
             }
             let Some(x0) = x0 else { continue };
-            let mut glyph_run = glyph_run(&run, glyphs);
+            let mut glyph_run = glyph_run(&run, glyphs, fonts);
             glyph_run.color = color;
             glyph_run.stroke = span_style.and_then(|s| s.stroke);
             segments.push(Segment {
@@ -461,11 +463,17 @@ pub(crate) fn draw(
 
 /// An Arvane glyph run of a parley one holding `glyphs`, in the default
 /// color.
-fn glyph_run(run: &parley::GlyphRun<'_, u32>, glyphs: Vec<Glyph>) -> GlyphRun {
+fn glyph_run(
+    run: &parley::GlyphRun<'_, u32>,
+    glyphs: Vec<Glyph>,
+    fonts: &mut HashMap<u64, Arc<[u8]>>,
+) -> GlyphRun {
     let run = run.run();
+    let font = fonts
+        .entry(run.font().data.id())
+        .or_insert_with(|| Arc::from(run.font().data.as_ref()));
     GlyphRun {
-        // The font's mapped or registered bytes, shared (no copy).
-        font: FontSource::new(run.font().data.clone().into_raw_parts().0),
+        font: kivact_types::AssetBytes::from_shared(Arc::clone(font)),
         font_index: run.font().index,
         font_size: f64::from(run.font_size()),
         color: ComputedTextStyle::default().color,

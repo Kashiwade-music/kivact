@@ -1,6 +1,5 @@
 //! Role: Bounded successful font metadata with allocation lifetime protection.
 use crate::error::RenderError;
-use kivact_types::render::FontSource;
 use skrifa::raw::TableProvider;
 use std::sync::{Arc, Weak};
 #[derive(Default)]
@@ -8,7 +7,7 @@ pub(crate) struct Fonts {
     entries: Vec<Entry>,
 }
 struct Entry {
-    bytes: Weak<dyn AsRef<[u8]> + Send + Sync>,
+    bytes: Weak<[u8]>,
     index: u32,
     glyphs: u32,
     len: usize,
@@ -17,11 +16,11 @@ impl Fonts {
     pub(crate) fn clear(&mut self) {
         self.entries.clear();
     }
-    pub(super) fn glyphs(&mut self, bytes: &FontSource, index: u32) -> Result<u32, RenderError> {
+    pub(super) fn glyphs(&mut self, bytes: &Arc<[u8]>, index: u32) -> Result<u32, RenderError> {
         self.entries.retain(|entry| entry.bytes.strong_count() != 0);
         if let Some(at) = self.entries.iter().position(|entry| {
             entry.index == index
-                && entry.bytes.as_ptr().cast::<u8>() as usize == bytes.id()
+                && entry.bytes.ptr_eq(&Arc::downgrade(bytes))
                 && entry.len == bytes.len()
         }) {
             let entry = self.entries.remove(at);
@@ -40,7 +39,7 @@ impl Fonts {
             self.entries.remove(0);
         }
         self.entries.push(Entry {
-            bytes: Arc::downgrade(bytes.source()),
+            bytes: Arc::downgrade(bytes),
             len: bytes.len(),
             index,
             glyphs,
