@@ -73,14 +73,8 @@ impl Model {
         let hidden = self.hidden(id, clipped);
         // A node without a box (not laid out, hidden, or a boxless group
         // with nothing shown) has empty bounds at the origin: like every
-        // other content-space bounds they follow no scroll above it.
-        let bounds = self
-            .semantic_rect(id)
-            .map_or_else(types::Rect::default, |rect| types::Rect {
-                x: rect.x + offset.x,
-                y: rect.y + offset.y,
-                ..rect
-            });
+        // other content-space bounds they follow no scroll above its layer.
+        let bounds = self.content_bounds(id).unwrap_or_default();
         let scroll = n.scroll();
 
         let (bounds, transform) = self.a11y_placement(id, n.is_layer(), bounds, offset);
@@ -139,7 +133,7 @@ impl Model {
             .node(id)
             .is_some_and(|n| self.editors[n.index.0].is_some() && !n.password())
         {
-            let text = self.editing_semantics(id, offset, engine);
+            let text = self.editing_semantics(id, self.layer_offset(id), engine);
             output.semantics.text = Some(text);
         } else if let Some(authored) = authored_text {
             // A node that draws and edits its own text publishes its own runs.
@@ -351,8 +345,8 @@ impl Model {
         let Some(ancestor) = frame else {
             return self.window_map(id)?.bounds(own);
         };
-        let r = self.rect(ancestor)?;
-        let above = self.scroll_above(ancestor);
+        let r = self.content_rect(ancestor)?;
+        let above = self.layer_offset(ancestor);
         let inside = self.content_map_between(id, ancestor)?.bounds(own)?;
         Some(types::Rect {
             x: r.x + above.x + inside.x,
