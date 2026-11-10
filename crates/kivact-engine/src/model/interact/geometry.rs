@@ -173,6 +173,13 @@ impl Model {
             let geometry: Vec<_> = self.layout.drain_geometry_changes().collect();
             for change in &geometry {
                 self.a11y.moved(change.id);
+                if let Some(parent) = self
+                    .tree
+                    .get(change.id)
+                    .and_then(|n| self.tree.flat_parent(n))
+                {
+                    self.paint.moved_child(parent, change.id);
+                }
             }
             if recording {
                 laid_out = geometry.iter().map(|change| change.id).collect();

@@ -13,11 +13,12 @@
 //! - An entry's reach is the child's ink (`super::ink`: what its subtree
 //!   can draw on) at its location, grown by [`SLACK`]; a child whose ink is
 //!   not finite reaches everywhere.
-//! - After a layout pass every entry takes its child's new location; only
-//!   the children whose size or content size changed are looked at again
-//!   (their ink). After a change in a child's subtree
-//!   (`ChildIndex::touch`), that child is. The container's children
-//!   changing drops the index (the parent module).
+//! - After a layout pass the children whose layout changed
+//!   (`PaintState::moved_child`, from the pass's geometry changes) are
+//!   looked at again: their location, size and ink. After a change in a
+//!   child's subtree (`ChildIndex::touch`), that child is looked at again
+//!   too. Nothing else is visited. The container's children changing drops
+//!   the index (the parent module).
 
 use crate::model::Model;
 use crate::paint::state::{Axis, ChildIndex, Extent, Indexed};
@@ -127,32 +128,28 @@ impl ChildIndex {
         index
     }
 
-    /// Something in the subtree of the child `id` changed (its ink).
-    pub(super) fn touch(&mut self, id: NodeId) {
+    /// Something in the subtree of the child `id` changed (its ink), or
+    /// the child moved or resized in a layout pass.
+    pub(crate) fn touch(&mut self, id: NodeId) {
         self.touched.push(id);
     }
 
-    /// Bring the entries up to layout pass `pass` and the touched children
-    /// (inks of generation `generation`).
+    /// Bring the touched children's entries up to layout pass `pass` and
+    /// inks of generation `generation`.
     pub(super) fn refresh(&mut self, host: &Model, pass: Generation, generation: Generation) {
-        let relaid = pass != self.pass;
-        if !relaid && self.touched.is_empty() {
+        if self.touched.is_empty() {
+            self.pass = pass;
             return;
         }
         let mut touched = std::mem::take(&mut self.touched);
         touched.sort_unstable();
         let layouts = host;
         for e in &mut self.entries {
-            let again = touched.binary_search(&e.id).is_ok();
-            if !relaid && !again {
+            if touched.binary_search(&e.id).is_err() {
                 continue;
             }
             let layout = layouts.computed_layout(e.id).unwrap_or_default();
-            if again || layout.size != e.size || layout.content_size != e.content {
-                *e = Indexed::new(host, e.id, host.node(e.id), layout, generation, e.order);
-            } else {
-                e.location = layout.location;
-            }
+            *e = Indexed::new(host, e.id, host.node(e.id), layout, generation, e.order);
         }
         self.pass = pass;
         self.sort();

@@ -351,11 +351,19 @@ pub(crate) struct ChildIndex {
     // xtask-allow(state-fields): identity: the layout pass the entries' geometry is from; readers compare it with their own
     /// The layout pass the entries' geometry is from.
     pub(super) pass: Generation,
-    /// Children whose own drawing changed since.
+    /// Children whose own drawing or layout changed since.
     pub(super) touched: Vec<NodeId>,
 }
 
 impl PaintState {
+    /// `child` of `parent` moved or resized in a layout pass: its entry in
+    /// the parent's child index (if it has one) is looked at again.
+    pub(crate) fn moved_child(&mut self, parent: NodeId, child: NodeId) {
+        if let Some(index) = self.list.indices.get_mut(&parent) {
+            index.touch(child);
+        }
+    }
+
     pub(crate) fn push_slot(&mut self) {
         self.ink.push(Cell::new(None));
         self.look.push(None);
