@@ -10,8 +10,10 @@ const SLOTS: &[&str] = &[
     "content", "header", "footer", "media", "image", "icon", "trailing", "actions", "item",
     "option", "fallback", "start", "center", "end",
 ];
-/// Lifecycle setters take `FnOnce`, not an event callback (ARG-1).
-const LIFECYCLE: [&str; 3] = ["on_mount", "on_cleanup", "on_attach"];
+/// Lifecycle setters take `FnOnce`, not an event callback (ARG-1); the
+/// embedding `Parent::on_resize_request` is a host integration hook whose
+/// return value is the host's acceptance, not a `HandlerResult`.
+const LIFECYCLE: [&str; 4] = ["on_mount", "on_cleanup", "on_attach", "on_resize_request"];
 
 pub(crate) fn check(source: &Source, surface: &Surface, errors: &mut Vec<String>) {
     if !source.library {
