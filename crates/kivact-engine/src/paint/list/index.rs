@@ -12,7 +12,8 @@
 //!   stuck anywhere): [`ChildIndex::sticky`] lists them all.
 //! - An entry's reach is the child's ink (`super::ink`: what its subtree
 //!   can draw on) at its location, grown by [`SLACK`]; a child whose ink is
-//!   not finite reaches everywhere.
+//!   not finite, or whose subtree draws outside its ink (`Drawn::beyond`),
+//!   reaches everywhere.
 //! - After a layout pass the children whose layout changed
 //!   (`PaintState::moved_child`, from the pass's geometry changes) are
 //!   looked at again: their location, size and ink. After a change in a
@@ -27,7 +28,7 @@ use kivact_layout::NodeLayout;
 use kivact_types::cell::Generation;
 use kivact_types::{NodeId, Rect};
 
-use super::ink::{grow, ink, overlaps};
+use super::ink::{drawn, grow, overlaps};
 
 /// Logical pixels an entry is grown by: the index computes a child's reach
 /// relative to its location, the walk in window space, and the two may
@@ -43,9 +44,14 @@ impl Indexed {
         generation: Generation,
         order: usize,
     ) -> Self {
-        let extent = match n.and_then(|n| ink(host, id, n, &layout, generation)) {
-            Some(r) if [r.x, r.y, r.width, r.height].iter().all(|v| v.is_finite()) => {
-                Extent::Within(grow(r, SLACK))
+        let extent = match n.and_then(|n| drawn(host, id, n, &layout, generation)) {
+            Some(d)
+                if !d.beyond
+                    && [d.rect.x, d.rect.y, d.rect.width, d.rect.height]
+                        .iter()
+                        .all(|v| v.is_finite()) =>
+            {
+                Extent::Within(grow(d.rect, SLACK))
             }
             Some(_) => Extent::Anywhere,
             None => Extent::Nothing,

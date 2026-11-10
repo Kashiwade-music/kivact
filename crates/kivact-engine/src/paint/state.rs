@@ -154,11 +154,24 @@ impl PaintState {
 pub(crate) struct Ink {
     // xtask-allow(state-fields): cache: the drawn area of the node; absent means nothing is drawn
     /// `None`: nothing (hidden).
-    pub(super) rect: Option<Rect>,
+    pub(super) rect: Option<Drawn>,
     pub(super) size: Size,
     pub(super) content: Size,
     // xtask-allow(state-fields): identity: the layout generation the ink was found for; readers compare it with their own
     pub(super) generation: Generation,
+}
+
+/// Where a drawn subtree draws (an [`Ink`]).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) struct Drawn {
+    /// Everything it draws on as the paint list places it: each box mapped
+    /// by the plane map of its transform.
+    pub(super) rect: Rect,
+    /// A box in it lands outside `rect` once drawn: one whose transform is
+    /// not 2D (a perspective or a 3D rendering context projects it) or a
+    /// drawable (its host's drawing places it). Its hits are not bounded
+    /// by `rect`.
+    pub(super) beyond: bool,
 }
 
 /// The compositor layer one listed node is drawn in.
@@ -307,7 +320,8 @@ pub(crate) struct PaintList {
 pub(crate) enum Extent {
     /// Hidden: nothing.
     Nothing,
-    /// Its subtree may draw anywhere (its extent is not finite).
+    /// Its subtree may draw anywhere (its extent is not finite, or a box
+    /// of it is drawn outside its ink).
     Anywhere,
     /// Within this rectangle.
     Within(Rect),

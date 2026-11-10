@@ -1,7 +1,7 @@
 //! Role: Compare retained paint order, ink and child indices with a fresh walk.
 
 use crate::model::Model;
-use crate::paint::state::{ChildIndex, Ink, PaintList, StaleFacts};
+use crate::paint::state::{ChildIndex, Drawn, Ink, PaintList, StaleFacts};
 
 impl Model {
     pub(crate) fn paint_self_check(&mut self) -> Vec<String> {
@@ -87,13 +87,7 @@ impl Model {
     }
 }
 
-fn ink_value(
-    ink: Ink,
-) -> (
-    Option<kivact_types::Rect>,
-    kivact_types::Size,
-    kivact_types::Size,
-) {
+fn ink_value(ink: Ink) -> (Option<Drawn>, kivact_types::Size, kivact_types::Size) {
     (ink.rect, ink.size, ink.content)
 }
 
