@@ -121,3 +121,26 @@ B0 と CP2（`dev/bench/results/CP2.md`、どちらも有効）の比較。倍�
   1. AH4：D15 Q1 の追加 3 本を含む E2E 8 件を新しいファイル `a11y_incremental.rs` に置いた。`a11y_enumerated` の増加と self_check の不一致は出ていない。
   2. T5：`kivact-layout` の measure の記録を f32 にし、node の style を共有した。単体試験は足していない（DEC-27）。U-M5 は行っていない。
 - 次：CP1（gate、`B0-here2`、`B1-cp1`）。
+
+## CP1 の結果（2026-11-10 〜 11-11）
+
+- KPI（`dev/bench/results/CP1-V2.md`）：`B0-here2`（79bbd409、この機械）と `B1-cp1`（443ed1c3）を測り、DESIGN 2.3 の必達と比べた。K2・K3・K4・K5・K1 は満たす。K6 は counter（GPU 抜き・既定）と basic catalog（GPU 抜き・既定）を満たす。**未達：K6 `kv_startup` no-default**（11,246,592 B、必達 11,177,658 B、+68,934 B）。サイズは決定的なので測り直していない。DESIGN 2.3 と D15 Q6 のとおり、未達の crate を `opt-level = "z"` に戻して補っていない。**設計者の判断が要る**（必達の見直し、または原因の調査：統合後の build の差）。
+- workspace の試験（`cargo test --workspace --exclude gpu-interop-producer --exclude kivact-docs --all-features --no-fail-fast`）：6 件が失敗。すべて debug の self_check（`crates/kivact-test/src/screen/driver.rs:215`）の「the engine's retained results diverged from a fresh computation」。
+  - 失敗：kivact-ui-game-catalog の 3 件、kivact-ui-pop-catalog の 2 件、kivact-ui-soft-catalog の 1 件（carousel）。
+  - 食い違いの中身：a11y ノードの bounds の末尾の桁（例：published `y: 1803.925`、rebuilt `y: 1803.9250000000002`）。
+  - 切り分け（同じ試験 `kivact-ui-game-catalog --test catalog`）：
+    - `79bbd409`（V2 の基点）：通る（4 件）。
+    - `2a3b06b8`（W1 の終わり）：通る（4 件）。
+    - `f03dd92b`（W2-A の AH1 の merge）：**失敗**（3 件）。
+    - `be83900b`（W2 の終わり）：失敗（3 件）。
+    - `8ec2d474`（W3 の前、T5 の前）：失敗（3 件）。
+    - つまり原因は W2-A の AH1（commit `15c1aa50`）。T5（W4）は原因ではない。
+  - AH1 の E2E 168 件は通っていた。これらの試験は scroll 中のフォーム（text box の bounds）を通らず、AH1 の lane では検出できなかった。
+  - 直し：7.1 の手順のとおり、AH1 の lane の fix（`CP1-A-fix`、統合 HEAD `443ed1c3` から切った worktree）で行う。禁止：self_check の比較を緩めること、試験の期待値を変えること、allow の追加。2 回直して通らなければ差戻し。
+- 一時の worktree：`W:/w/kv-bisect`（切り分け用、detached）、`W:/kv-target/bisect`。CP1 の後に消す。
+
+## 次
+
+1. `CP1-A-fix` の結果を確認し、統合 branch に merge する。
+2. workspace の全試験をもう一度流し、gpu-interop-producer と kivact-docs も流す（7.1）。
+3. K6 `kv_startup` no-default の未達は、設計者の判断を待つ（W5 の前に決める）。
