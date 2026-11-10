@@ -13,7 +13,7 @@ use vello_cpu::peniko::{
     self, BlendMode, Blob, Extend, ImageAlphaType, ImageFormat, ImageQuality, ImageSampler,
 };
 use vello_cpu::{
-    Glyph, Image, ImageSource, PaintType, Pixmap, RenderContext, RenderSettings, Resources,
+    Glyph, Image, ImageSource, PaintType, PixmapMut, RenderContext, RenderSettings, Resources,
 };
 
 /// CPU rasterizer, used serially on the thread which owns it.
@@ -29,8 +29,8 @@ pub struct CpuRaster {
     caches: draw::Caches,
     /// Premultiplied images of the last frame, by their pixels' identity.
     images: images::ImageCache<ImageSource>,
-    /// The raster of the frame being drawn, copied out when it is done.
-    pixmap: Pixmap,
+    /// The raster of a partial frame's region, copied out row by row.
+    scratch: Vec<u8>,
 }
 
 impl Default for CpuRaster {
@@ -47,7 +47,7 @@ impl Default for CpuRaster {
             resources: Resources::new(),
             caches: draw::Caches::default(),
             images: images::ImageCache::new(),
-            pixmap: Pixmap::new(1, 1),
+            scratch: Vec::new(),
         }
     }
 }
@@ -61,6 +61,11 @@ impl CpuRaster {
     /// Release rebuildable font validation metadata, retaining live drawing resources.
     pub fn release_caches(&mut self) {
         self.caches.validation.clear();
+    }
+
+    /// Release the partial-frame scratch; the next partial frame grows it again.
+    pub fn forget_scratch(&mut self) {
+        self.scratch = Vec::new();
     }
 
     /// Rasterize `scene` mapped by scale(scale) · translate(−origin) into
@@ -126,15 +131,20 @@ impl CpuRaster {
         draw::draw(&mut canvas, &mut self.caches, scene, &frame);
         self.images.end_frame();
         self.context.flush();
-        self.pixmap.resize(width, height);
-        self.context.render(&mut self.pixmap, &mut self.resources);
-        let source = self.pixmap.data_as_u8_slice();
+        // A whole frame is drawn straight into `out`. Its target is covered by
+        // the scene, so vello_cpu writes every pixel without clearing first.
         if region.width == frame_width && region.height == frame_height {
-            out.copy_from_slice(source);
+            let target = PixmapMut::new(width, height, out).ok_or(RenderError::InvalidSize)?;
+            self.context.render(target, &mut self.resources);
             return Ok(());
         }
+        let len = usize::from(width) * usize::from(height) * 4;
+        self.scratch.resize(len, 0);
+        let target = PixmapMut::new(width, height, &mut self.scratch[..len])
+            .ok_or(RenderError::InvalidSize)?;
+        self.context.render(target, &mut self.resources);
         let row_bytes = usize::from(width) * 4;
-        for (y, row) in source.chunks_exact(row_bytes).enumerate() {
+        for (y, row) in self.scratch[..len].chunks_exact(row_bytes).enumerate() {
             let start = ((region.y as usize + y) * frame_width as usize + region.x as usize) * 4;
             out[start..start + row_bytes].copy_from_slice(row);
         }
