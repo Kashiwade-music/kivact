@@ -144,3 +144,13 @@ B0 と CP2（`dev/bench/results/CP2.md`、どちらも有効）の比較。倍�
 1. `CP1-A-fix` の結果を確認し、統合 branch に merge する。
 2. workspace の全試験をもう一度流し、gpu-interop-producer と kivact-docs も流す（7.1）。
 3. K6 `kv_startup` no-default の未達は、設計者の判断を待つ（W5 の前に決める）。
+
+## CP1 の差戻し（2026-11-11）
+
+- 試験の回帰（AH1 由来）：`kivact-ui-game-catalog`・`kivact-ui-pop-catalog`・`kivact-ui-soft-catalog` の 6 件。基点 79bbd409 と W1 の終わり 2a3b06b8 では通り、W2-A（AH1、f03dd92b）で失敗する。
+  - 原因 1（rounding）：AH1 の `build_node` が、scroll を引いてから足し直す（`(L - s) + s`）ため、古い scroll で丸めた値が published に残る。修正（commit `a0c62113`、`CP1-A-fix` branch、未 merge）：a11y の bounds を scroll を含まない content 空間で作り、layer より上の scroll だけを足す。self_check の比較は変えていない。
+  - 原因 2（pop の scroll spy）：spy の viewport の rect が、観測の付与より前に送られた `LayoutChanged` を失い、以後の report は重複として捨てられる。修正（commit `52810781`、未 merge）：同じ node への繰り返しの observe は、layout の報告を出し直す。
+- **設計の判断が要る（未決）**：修正 2 は、文書化された契約（「もう一度頼んでも何も変わらない」）を変える。繰り返しの要求で layout の報告と layout pass が増えるため、style の経路（WithDraw、style の解決の度）のコストは未測定。代案：core の `node_ref`・`observe_node` で、新しい NodeObservation の初期値を直前のエンジンの報告から取る（契約は残る。engine の外の変更）。推奨は代案（契約を残す。コストが増えない）。どちらも `CP1-A-fix` の commit で切り替えられる。
+- 残るリスク：`drawable_root_transform` は scroll された親の下で `to_parent` を使うため、古い transform が残り得る（今の試験では出ていない）。
+- 未決のもう 1 件：K6 `kv_startup` no-default の未達（+68,934 B、CP1-V2.md）。
+- 状態：CP1 の gate は未通過。W5 以降は、この 2 件の判断の後に始める。merge は判断の後。
