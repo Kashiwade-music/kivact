@@ -56,8 +56,6 @@ impl Indexed {
             sticky: n
                 .is_some_and(|n| n.place.positioning == crate::tree::node::Positioning::Sticky),
             location: layout.location,
-            size: layout.size,
-            content: layout.content_size,
             extent,
         }
     }

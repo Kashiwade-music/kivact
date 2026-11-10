@@ -12,7 +12,7 @@ use super::builder::Builder;
 use super::frame::{area, ceil_px, floor_px};
 use super::hash;
 use super::ops::{ChunkTask, Damage, Grid, PlanError, Redraw};
-use crate::cache::{ChunkKey, ChunkRecord, Indexed, LayerRecord, Retained};
+use crate::cache::{ChunkKey, ChunkRecord, Indexed, LayerRecord, Reach, Retained};
 
 /// Changed commands beyond which their bounds merge into one rectangle.
 const MERGE_AT: usize = 17;
@@ -105,23 +105,13 @@ fn coalesce(mut rects: Vec<PixelRect>) -> Vec<PixelRect> {
 
 /// The index entry of a command with its chunk px bounds.
 fn indexed(command: &RenderCmd, hash: u64, clipped: Option<PixelRect>) -> Indexed {
-    match command {
-        RenderCmd::PushClip(_) | RenderCmd::PushTransform(_) => Indexed {
-            hash,
-            bounds: None,
-            group: clipped,
-        },
-        RenderCmd::PushGroup(g) if g.blur.is_none() => Indexed {
-            hash,
-            bounds: None,
-            group: clipped,
-        },
-        _ => Indexed {
-            hash,
-            bounds: clipped,
-            group: None,
-        },
-    }
+    let reach = match (command, clipped) {
+        (_, None) => Reach::Nothing,
+        (RenderCmd::PushClip(_) | RenderCmd::PushTransform(_), Some(rect)) => Reach::Opens(rect),
+        (RenderCmd::PushGroup(g), Some(rect)) if g.blur.is_none() => Reach::Opens(rect),
+        (_, Some(rect)) => Reach::Draws(rect),
+    };
+    Indexed { hash, reach }
 }
 
 /// The rectangles of a chunk's commands that changed between two indexes (old and new bounds).

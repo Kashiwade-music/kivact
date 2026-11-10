@@ -50,30 +50,55 @@ pub(crate) enum Retained {
     Glyphs(GlyphRunSnapshot),
 }
 
-/// One command of a chunk's index. A group opener (a clip, a transform, a group
-/// without blur) draws nothing of its own: it damages its group's bounds only
-/// when it changed itself (`hash`), never because its content's extent moved
-/// (each content command damages its own place).
+/// Where one command of a chunk's index reaches, in chunk px.
+#[derive(Clone, Copy, Debug)]
+pub(crate) enum Reach {
+    /// Nothing of it lands in the chunk.
+    Nothing,
+    /// A command that draws: it damages this rectangle when it changes or
+    /// moves.
+    Draws(PixelRect),
+    /// A group opener (a clip, a transform, a group without blur): it draws
+    /// nothing of its own and damages its group's bounds only when it
+    /// changed itself (its hash), never because its content's extent moved
+    /// (each content command damages its own place).
+    Opens(PixelRect),
+}
+
+/// One command of a chunk's index: its hash and where it reaches.
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct Indexed {
     pub(crate) hash: u64,
-    pub(crate) bounds: Option<PixelRect>,
-    pub(crate) group: Option<PixelRect>,
+    pub(crate) reach: Reach,
+}
+
+impl Indexed {
+    /// The rectangle this command draws in (`None` for an opener or a
+    /// command outside the chunk): with the hash, what makes two entries
+    /// the same.
+    fn drawn(&self) -> Option<PixelRect> {
+        match self.reach {
+            Reach::Draws(rect) => Some(rect),
+            Reach::Opens(_) | Reach::Nothing => None,
+        }
+    }
+
+    /// What a change of this command damages.
+    pub(crate) fn damage(&self) -> Option<PixelRect> {
+        match self.reach {
+            Reach::Draws(rect) | Reach::Opens(rect) => Some(rect),
+            Reach::Nothing => None,
+        }
+    }
 }
 
 impl PartialEq for Indexed {
     fn eq(&self, o: &Self) -> bool {
-        self.hash == o.hash && self.bounds == o.bounds
+        self.hash == o.hash && self.drawn() == o.drawn()
     }
 }
 
 impl Eq for Indexed {}
-
-impl Indexed {
-    pub(crate) fn damage(&self) -> Option<PixelRect> {
-        self.bounds.or(self.group)
-    }
-}
 
 /// The previous frame's record of one chunk.
 #[derive(Clone, Debug)]
