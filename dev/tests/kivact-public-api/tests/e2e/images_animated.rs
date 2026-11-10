@@ -39,7 +39,7 @@ fn frames() -> Vec<RgbaImage> {
 }
 
 /// A GIF of the three frames, 100 ms each.
-fn gif() -> Vec<u8> {
+pub(super) fn gif() -> Vec<u8> {
     let mut out = Vec::new();
     let frames = frames()
         .into_iter()
