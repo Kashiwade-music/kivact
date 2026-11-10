@@ -194,6 +194,7 @@ impl NodeRef {
         ViewState::tree_mut(rt)
             .get_mut(id)
             .expect("invariant: the bound node exists")
+            .rare_mut()
             .references
             .push(state.bound);
         state.bound.set(RefState::Bound(bound));
@@ -244,7 +245,7 @@ impl NodeRef {
         if matches!(bound, Bound::Region { .. })
             && let Some(observation) = ViewState::tree(&rt)
                 .get(bound.node())
-                .and_then(|node| node.observation)
+                .and_then(|node| node.observation())
         {
             observation.scene_revision.track();
         }
@@ -776,7 +777,7 @@ impl NodeRef {
 /// Read the host-owned record selected by a reference's current binding.
 fn observation(app: AppId, target: FocusTarget) -> Option<crate::view::tree::NodeObservation> {
     let rt = Runtime::get(app)?;
-    ViewState::tree(&rt).get(target.node)?.observation
+    ViewState::tree(&rt).get(target.node)?.observation()
 }
 
 /// Resolve exact transformed region bounds without allocating during a read.
@@ -853,7 +854,7 @@ fn focus_target(app: AppId, node: Signal<RefState>) -> Option<FocusTarget> {
         && let Some(rt) = Runtime::get(app)
         && let Some(observation) = ViewState::tree(&rt)
             .get(id.node)
-            .and_then(|node| node.observation)
+            .and_then(|node| node.observation())
     {
         observation.scene_revision.track();
     }

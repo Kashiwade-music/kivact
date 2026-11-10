@@ -79,7 +79,9 @@ pub(super) fn write(cx: &Mcx<'_>, id: NodeId, first: FirstWrite, at: &'static Lo
         if let Some(n) = tree.get_mut(id) {
             n.at = Some(at);
             n.exit_layout = exit_layout;
-            n.exit_complete = exit_complete;
+            if exit_complete.is_some() {
+                n.rare_mut().exit_complete = exit_complete;
+            }
             // A node that declared no handler keeps no record of them: an
             // observer added later creates it (`ViewNodes::handlers_mut`).
             if !is_default_handlers(&handlers) {

@@ -8,13 +8,14 @@ description = "Manual KPI probes (startup, memory, CPU, frame time, update laten
 
 [features]
 # The App configurations K1/K6 compare.
-default = ["complex-scripts"]
+default = ["complex-scripts", "gpu"]
 complex-scripts = ["kivact/complex-scripts"]
+gpu = ["kivact/gpu"]
 # `kv_latency` drives the test driver.
 latency = ["kivact/test"]
 
 [dependencies]
-kivact = { path = "../../crates/kivact", default-features = false, features = ["gpu"] }
+kivact = { path = "../../crates/kivact", default-features = false }
 # Resolves allocation sites for `kv_heap` (build it with line tables, see README).
 backtrace = "=0.3.76"
 
