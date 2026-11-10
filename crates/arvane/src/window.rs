@@ -12,7 +12,6 @@ use arvane_shell::{
 };
 use kivact_types::Environment;
 use kivact_types::GpuPreference;
-use kivact_types::gpu::GpuStart;
 use kivact_types::ids::DrawableId;
 use kivact_types::render::{Composition, SemanticsTree, SemanticsUpdate};
 use kivact_types::{Capabilities, Cursor, Rect, RequestId, Size, WindowId, WindowRequest};
@@ -195,9 +194,6 @@ pub struct Windows<'a> {
     shell: &'a mut dyn ShellLoop,
     presenters: &'a mut BTreeMap<WindowId, Presenter>,
     env: crate::env::Env,
-    /// How the windows start the GPU renderer (`None`: they draw on the CPU
-    /// only).
-    gpu: Option<GpuStart>,
     // xtask-allow(state-fields): option: the renderer observer from ShellSetup, cloned into every presenter's Notes
     /// The renderer observer, cloned into the notes of every presenter.
     observer: Option<Observer>,
@@ -228,24 +224,17 @@ impl<'a> Windows<'a> {
         }
         // Only an opened window starts its renderer.
         if let Some(presenter) = self.presenters.get_mut(&id) {
-            presenter.note(RendererChange::Start {
-                gpu: matches!(self.gpu, Some(GpuStart::AtLaunch)),
-            });
-            match self.gpu {
-                Some(GpuStart::AtLaunch) => presenter.start_gpu(self.shell.waker()),
-                Some(GpuStart::OnDemand) => presenter.defer_gpu(self.shell.waker()),
-                None => {}
-            }
+            presenter.begin(self.env.start, self.shell.waker());
         }
         Ok(())
     }
 
-    /// Start `id`'s GPU device now: the window needs it (a composition with
-    /// a user shader, or a GPU texture the App shares). Nothing once it is
-    /// started, and in a window that draws on the CPU only.
+    /// Start `id`'s GPU device when it waits for a reason (`GpuStart::OnDemand`):
+    /// the App reads the window's adapter to share GPU textures with it. Nothing
+    /// for a window on the CPU only or whose device started.
     pub fn demand_gpu(&mut self, id: WindowId) {
         if let Some(presenter) = self.presenters.get_mut(&id) {
-            presenter.demand_gpu(self.shell.waker());
+            presenter.demand_gpu();
         }
     }
 
@@ -394,12 +383,10 @@ pub(crate) fn driver<H: Handler>(
     gpu_preference: GpuPreference,
     observer: Option<Observer>,
 ) -> Driver<H> {
-    let env = crate::env::Env::read(gpu_preference);
-    let gpu = crate::env::gpu_start(env.renderer, prefer_gpu, gpu_preference.start);
+    let env = crate::env::Env::read(prefer_gpu, gpu_preference);
     Driver {
         handler,
         presenters: BTreeMap::new(),
-        gpu,
         env,
         observer,
     }
@@ -409,9 +396,6 @@ pub(crate) fn driver<H: Handler>(
 pub(crate) struct Driver<H> {
     handler: H,
     presenters: BTreeMap<WindowId, Presenter>,
-    /// How the windows start the GPU renderer (`None`: they draw on the CPU
-    /// only).
-    gpu: Option<GpuStart>,
     /// The renderers' environment, read once per loop.
     env: crate::env::Env,
     // xtask-allow(state-fields): option: the renderer observer from ShellSetup, cloned into every presenter's Notes
@@ -425,7 +409,6 @@ impl<H: Handler> ShellHandler for Driver<H> {
             shell,
             presenters: &mut self.presenters,
             env: self.env,
-            gpu: self.gpu,
             observer: self.observer.clone(),
         };
         self.handler.close(&mut windows);
@@ -445,20 +428,12 @@ impl<H: Handler> ShellHandler for Driver<H> {
         // On a worker thread: the first frames are drawn on the CPU.
         let mut presenter =
             Presenter::new(Notes::new(self.observer.clone(), WindowId::MAIN), &self.env);
-        presenter.note(RendererChange::Start {
-            gpu: matches!(self.gpu, Some(GpuStart::AtLaunch)),
-        });
-        match self.gpu {
-            Some(GpuStart::AtLaunch) => presenter.start_gpu(waker.clone()),
-            Some(GpuStart::OnDemand) => presenter.defer_gpu(waker.clone()),
-            None => {}
-        }
+        presenter.begin(self.env.start, waker.clone());
         self.presenters.insert(WindowId::MAIN, presenter);
         let mut windows = Windows {
             shell,
             presenters: &mut self.presenters,
             env: self.env,
-            gpu: self.gpu,
             observer: self.observer.clone(),
         };
         self.handler.start(&mut windows, waker)
@@ -494,7 +469,6 @@ impl<H: Handler> ShellHandler for Driver<H> {
             shell,
             presenters: &mut self.presenters,
             env: self.env,
-            gpu: self.gpu,
             observer: self.observer.clone(),
         };
         self.handler.event(target, event, &mut windows)

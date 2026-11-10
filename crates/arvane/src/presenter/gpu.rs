@@ -38,7 +38,8 @@
 //! leaves the presenter on the CPU.
 
 use crate::ShellWaker;
-use crate::presentation::{Notes, RendererChange};
+use crate::env::RendererStart;
+use crate::presentation::{GpuStartCause, Notes, RendererChange};
 use arvane_compose::{GpuContext, GpuEnv, GpuSurface, Presentation};
 use arvane_render::RenderError;
 use kivact_types::render::{Composition, CpuFrame, FrameReport};
@@ -248,10 +249,15 @@ enum Step {
 
 /// The GPU renderer's life cycle (see the module documentation).
 enum State {
-    /// Not started: frames are drawn on the CPU.
+    /// No device, and none starts: the window draws on the CPU only (the
+    /// host or `ARVANE_RENDERER` chose it), or its presenter shut down. A new
+    /// presenter is here until [`Gpu::begin`].
     Off,
-    /// Not started yet: started on the first GPU demand (`demand`), or when
-    /// `slow` consecutive CPU frames missed half the display period.
+    /// No device yet (`GpuStart::OnDemand`): one starts on the App's demand
+    /// ([`Gpu::demand`]), for a drawn user shader, or after [`SLOW_FRAMES`]
+    /// CPU frames in a row over half the display period
+    /// ([`Gpu::note_cpu_frame`]); `waker` wakes the window's thread for its
+    /// start steps.
     Deferred { slow: u8, waker: ShellWaker },
     /// Started on worker threads.
     Background(Background),
@@ -351,14 +357,64 @@ impl Gpu {
         )
     }
 
-    /// Create the device on a worker thread; frames are drawn on the CPU
-    /// until it and the window's surface are ready. `waker` wakes the
-    /// window's thread when a worker finishes. Nothing once started, and
-    /// for the CPU for the rest of the session.
-    pub(crate) fn start(&mut self, waker: ShellWaker, notes: &mut Notes) {
-        if !matches!(self.state, State::Off | State::Deferred { .. }) {
+    /// The renderer the window starts with, as `start` says (once, when the
+    /// window opens): the CPU only, a device started on a worker now, or a
+    /// device that waits until the window needs it. Notes
+    /// [`RendererChange::Start`].
+    pub(crate) fn begin(&mut self, start: RendererStart, waker: ShellWaker, notes: &mut Notes) {
+        debug_assert!(
+            matches!(self.state, State::Off),
+            "invariant: begin runs once, on a new presenter"
+        );
+        notes.note(RendererChange::Start {
+            gpu: start == RendererStart::GpuAtLaunch,
+        });
+        match start {
+            RendererStart::Cpu => {}
+            RendererStart::GpuAtLaunch => self.spawn(waker, notes),
+            RendererStart::GpuOnDemand => self.state = State::Deferred { slow: 0, waker },
+        }
+    }
+
+    /// Whether the device waits for a reason to start (`GpuStart::OnDemand`).
+    pub(crate) fn waits(&self) -> bool {
+        matches!(self.state, State::Deferred { .. })
+    }
+
+    /// Start the device the window waited for, for `cause`. Nothing in any
+    /// other state: a window on the CPU only never starts one.
+    pub(crate) fn demand(&mut self, cause: GpuStartCause, notes: &mut Notes) {
+        let State::Deferred { waker, .. } = &self.state else {
+            return;
+        };
+        let waker = waker.clone();
+        notes.note(RendererChange::GpuStarting { cause });
+        self.spawn(waker, notes);
+    }
+
+    /// A CPU frame took `spent` of the `period` the display gives a frame:
+    /// a device that waits starts after [`SLOW_FRAMES`] frames in a row over
+    /// half of it.
+    pub(crate) fn note_cpu_frame(&mut self, spent: Duration, period: Duration, notes: &mut Notes) {
+        let State::Deferred { slow, .. } = &mut self.state else {
+            return;
+        };
+        if spent <= period / 2 {
+            *slow = 0;
             return;
         }
+        // Below SLOW_FRAMES here: the device starts at SLOW_FRAMES.
+        *slow += 1;
+        if *slow >= SLOW_FRAMES {
+            self.demand(GpuStartCause::SlowFrames, notes);
+        }
+    }
+
+    /// Create the device on a worker thread; frames are drawn on the CPU
+    /// until it and the window's surface are ready. `waker` wakes the
+    /// window's thread when a worker finishes. The CPU for the rest of the
+    /// session when no worker can start.
+    fn spawn(&mut self, waker: ShellWaker, notes: &mut Notes) {
         let wake: Wake = Arc::new(move || waker.wake(crate::WakeReasons::GPU_STEP));
         self.state = match start_device(self.env, &wake) {
             Some(worker) => State::Background(Background {
@@ -368,43 +424,6 @@ impl Gpu {
             }),
             None => cpu_session(notes, "the GPU worker thread cannot start"),
         };
-    }
-
-    /// Wait for a reason to start the device: the first demand, or slow CPU
-    /// frames. Nothing once started.
-    pub(crate) fn defer(&mut self, waker: ShellWaker) {
-        if matches!(self.state, State::Off) {
-            self.state = State::Deferred { slow: 0, waker };
-        }
-    }
-
-    /// A CPU frame took `spent` of the `period` the display gives a frame:
-    /// start the device when the composition needs it, or after
-    /// [`SLOW_FRAMES`] frames in a row took more than half the period.
-    pub(crate) fn note_cpu_frame(
-        &mut self,
-        spent: Duration,
-        period: Duration,
-        needs_gpu: bool,
-        notes: &mut Notes,
-    ) {
-        let waker = match &mut self.state {
-            State::Deferred { slow, waker } => {
-                if !needs_gpu && spent <= period / 2 {
-                    *slow = 0;
-                    return;
-                }
-                if !needs_gpu {
-                    *slow = slow.saturating_add(1);
-                    if *slow < SLOW_FRAMES {
-                        return;
-                    }
-                }
-                waker.clone()
-            }
-            _ => return,
-        };
-        self.start(waker, notes);
     }
 
     /// Move a background start along for the window (`make` makes its
@@ -546,11 +565,16 @@ impl Gpu {
             State::Background(Background { wake, restarts, .. }) if restarts > 0 => {
                 notes.note(cpu(format!("GPU device failed, restarting: {error}")));
                 match start_device(self.env, &wake) {
-                    Some(worker) => State::Background(Background {
-                        wake,
-                        restarts: restarts - 1,
-                        step: Step::Starting(worker),
-                    }),
+                    Some(worker) => {
+                        notes.note(RendererChange::GpuStarting {
+                            cause: GpuStartCause::Restart,
+                        });
+                        State::Background(Background {
+                            wake,
+                            restarts: restarts - 1,
+                            step: Step::Starting(worker),
+                        })
+                    }
                     None => cpu_session(notes, "the GPU worker thread cannot start"),
                 }
             }

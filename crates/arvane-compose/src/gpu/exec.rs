@@ -130,6 +130,7 @@ impl GpuContext {
             exports: exported,
             missed,
             shader_failures: std::mem::take(&mut self.shader_failures),
+            shader_fallback: false,
             pending_exports: pending,
             stats,
         };

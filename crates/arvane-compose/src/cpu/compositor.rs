@@ -10,7 +10,7 @@ use kivact_types::ids::DrawableId;
 use kivact_types::pixel::{BlendMode, Pixels};
 use kivact_types::render::{
     Composite, Composition, CpuFrame, ExportFrame, ExportMode, ExportedFrame, FrameReport,
-    FrameStats, LayerKey, PixelRect, RenderScene,
+    FrameStats, LayerFilter, LayerKey, PixelRect, RenderScene,
 };
 
 use super::draw::{self, Chunks};
@@ -239,7 +239,16 @@ fn run(
     }
     let mut targets = make_targets(&plan.targets, output, &mut stores.surfaces);
     let mut missed: Vec<ExternalFrame> = Vec::new();
+    let mut shader_fallback = false;
     for op in &plan.ops {
+        shader_fallback |= matches!(
+            op,
+            Op::Shader(_)
+                | Op::Filter {
+                    filter: LayerFilter::Shader(_),
+                    ..
+                }
+        );
         exec(op, &mut targets, &stores.chunks, &mut missed)?;
     }
     let exports = export_frames(composition, &plan.exports, &targets, stores);
@@ -255,6 +264,7 @@ fn run(
             exports: exports.frames,
             missed,
             shader_failures: Vec::new(),
+            shader_fallback,
             pending_exports: exports.pending,
             stats,
         },
