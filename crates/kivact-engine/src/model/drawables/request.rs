@@ -39,7 +39,7 @@ pub(crate) fn apply_request(m: &mut Model, request: HostRequest) {
             // The root's drawn map is its window map, so its bounds and its
             // accessibility transform follow the geometry.
             if let Some(root) = m.drawables.get(id).map(|entry| entry.root) {
-                m.a11y.subtree(root);
+                m.a11y.moved(root);
                 m.changes.moved();
             }
         }

@@ -140,7 +140,7 @@ impl Model {
                 if initialize {
                     Mutation::NONE
                 } else {
-                    Mutation::LOCAL_TEXT
+                    Mutation::PAYLOAD_ONLY
                 },
             );
             self.remeasure(id);

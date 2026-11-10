@@ -142,7 +142,7 @@ impl Model {
                 {
                     editor.lines = Default::default();
                 }
-                self.a11y.node(id);
+                self.a11y.payload(id);
                 self.remeasure(id);
             }
             self.changes.paint = true;
@@ -277,7 +277,7 @@ impl Model {
                 if self.assets.borrow_mut().natural_changed(image, used) {
                     self.remeasure(*id);
                     self.changes.mark(*id, Dirty::REDRAW);
-                    self.a11y.node(*id);
+                    self.a11y.payload(*id);
                 }
             }
             self.changes.restack = true;

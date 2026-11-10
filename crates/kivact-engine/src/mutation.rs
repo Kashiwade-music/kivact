@@ -10,6 +10,8 @@ pub struct WriteStats {
     pub a11y_constructed: u64,
     /// Cumulative payloads sent to the window, including rejected attempts.
     pub a11y_published: u64,
+    /// Cumulative nodes the accessibility identity enumeration visited, excluding debug references.
+    pub a11y_enumerated: u64,
     pub creates: u64,
     pub set_props: u64,
     pub structural: u64,
@@ -121,8 +123,10 @@ pub(crate) struct Mutation {
     /// Inherited semantic state changes throughout the subtree.
     pub(super) subtree: bool,
     // xtask-allow(state-fields): independent: a fact reported by the write; any set of them can be reported
-    /// Existing plain text content or native document/session only.
-    pub(super) local_text: bool,
+    /// Only the node's own accessibility payload can change: its exposure,
+    /// hierarchy, relations, regions and clipping stay (a text, a paint,
+    /// state styles, a text style, an image, a placeholder).
+    pub(super) payload_only: bool,
 }
 impl Mutation {
     /// Only the node itself is redrawn and exposed again.
@@ -136,10 +140,10 @@ impl Mutation {
         states: false,
         read_only: false,
         subtree: false,
-        local_text: false,
+        payload_only: false,
     };
-    pub(crate) const LOCAL_TEXT: Self = Self {
-        local_text: true,
+    pub(crate) const PAYLOAD_ONLY: Self = Self {
+        payload_only: true,
         ..Self::NONE
     };
     pub(crate) const SUBTREE: Self = Self {
@@ -191,7 +195,7 @@ impl Mutation {
             states: self.states || other.states,
             read_only: self.read_only || other.read_only,
             subtree: self.subtree || other.subtree,
-            local_text: self.local_text || other.local_text,
+            payload_only: self.payload_only || other.payload_only,
         }
     }
 

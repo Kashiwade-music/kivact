@@ -304,7 +304,8 @@ impl Model {
             }
         }
         if old_target != target {
-            self.a11y.request_publication(std::iter::empty());
+            self.a11y
+                .focus_moved(old_target.map(|t| t.node), target.map(|t| t.node));
         }
         self.focus.focused = new;
         self.update_ime_target();

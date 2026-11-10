@@ -521,18 +521,15 @@ impl Host {
             }
             ShellEvent::AccessibilityActivated => {
                 if let Some(model) = self.app.borrow_mut().model_mut(id)
-                    && model.a11y.publish == crate::a11y::state::A11yPublish::Inactive
+                    && model.a11y.activate()
+                    && self.accessibility_noted.note()
                 {
-                    model.a11y.publish = crate::a11y::state::A11yPublish::AwaitingFirstTree;
-                    model.a11y.invalidate();
-                    if self.accessibility_noted.note() {
-                        self.frame_log.borrow_mut().note("accessibility=on");
-                    }
+                    self.frame_log.borrow_mut().note("accessibility=on");
                 }
             }
             ShellEvent::AccessibilityDeactivated => {
                 if let Some(model) = self.app.borrow_mut().model_mut(id) {
-                    model.a11y.publish = crate::a11y::state::A11yPublish::Inactive;
+                    model.a11y.deactivate();
                 }
             }
             ShellEvent::Accessibility { node, request } => {

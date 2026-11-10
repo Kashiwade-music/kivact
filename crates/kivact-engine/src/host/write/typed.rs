@@ -169,15 +169,15 @@ props! {
     /// Replace the node's paint when its value differs.
     Paint: set_paint(v: PaintProps)
         => boxed((v != PaintProps::default()).then_some(v), |p| Some(&mut p.paint)),
-        mut = Mut::PAINT;
+        mut = Mut::PAINT.and(Mut::PAYLOAD_ONLY);
     /// Replace the node's text style when its value differs.
     TextStyle: set_text_style(v: Option<TextStyle>)
         => boxed(v, |p| Some(&mut p.text)),
-        mut = Mut::TEXT;
+        mut = Mut::TEXT.and(Mut::PAYLOAD_ONLY);
     /// Replace the node's states when its value differs.
     States: set_states(v: StateStyles)
         => custom(write_states),
-        mut = Mut::STATES;
+        mut = Mut::STATES.and(Mut::PAYLOAD_ONLY);
     /// Replace the node's disabled when its value differs.
     Disabled: set_disabled(v: bool)
         => field(Some(v), |p| Some(&mut p.input.disabled)),
@@ -265,11 +265,11 @@ props! {
     /// Replace the node's content when its value differs.
     Content: set_content(v: String)
         => field(Some(v), |p| Some(&mut text(p)?.content)),
-        mut = Mut::MEASURE.and(Mut::LOCAL_TEXT);
+        mut = Mut::MEASURE.and(Mut::PAYLOAD_ONLY);
     /// Replace the node's text spans when its value differs.
     TextSpans: set_text_spans(v: Vec<TextSpan>)
         => field(Some(v), |p| Some(&mut text(p)?.spans)),
-        mut = Mut::MEASURE;
+        mut = Mut::MEASURE.and(Mut::PAYLOAD_ONLY);
     /// Replace the node's editing data when its value differs: it gains,
     /// keeps or loses its native editing state with it.
     Editing: set_editing(v: Option<EditingData>)
@@ -308,7 +308,7 @@ props! {
     /// Replace the node's placeholder when its value differs.
     Placeholder: set_placeholder(v: String)
         => field(Some(v), |p| Some(&mut editing(p)?.placeholder)),
-        mut = Mut::MEASURE;
+        mut = Mut::MEASURE.and(Mut::PAYLOAD_ONLY);
     /// Control keys owned by the client's handlers instead of native editing.
     ForwardKeys: set_forward_keys(v: Vec<Key>)
         => field(Some(v), |p| Some(&mut editing(p)?.forward_keys)),
@@ -339,7 +339,7 @@ props! {
     /// Replace the node's image when its value differs.
     Image: set_image(v: Asset)
         => field(Some(v), |p| Some(&mut image(p)?.image)),
-        mut = Mut::MEASURE;
+        mut = Mut::MEASURE.and(Mut::PAYLOAD_ONLY);
     /// Replace the node's image fit when its value differs.
     ImageFit: set_image_fit(v: ImageFit)
         => field(Some(v), |p| Some(&mut image(p)?.fit)),

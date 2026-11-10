@@ -181,7 +181,7 @@ impl Model {
         let moving: Vec<_> = self.layout_motion.runs.keys().copied().collect();
         for id in moving {
             self.repaint(id);
-            self.a11y.subtree(id);
+            self.a11y.moved(id);
             self.repaint_corrected_below(id);
         }
         let before: Vec<NodeId> = self.layout_motion.runs.keys().copied().collect();

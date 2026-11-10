@@ -34,9 +34,9 @@
 //!   supported: no such action exists.
 
 mod dirty;
-pub(super) use dirty::Built;
+pub(super) use dirty::{Built, MetadataUpdate};
 mod geometry;
 mod identity;
-mod local_text;
 mod node;
+mod payload;
 mod relations;

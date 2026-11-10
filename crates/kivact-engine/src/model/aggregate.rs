@@ -170,21 +170,44 @@ impl Model {
     /// promote this to a subtree/metadata refresh during the same settle.
     pub(crate) fn repaint_text(&mut self, id: NodeId) {
         if self.tree.contains(id) {
-            self.a11y.local_text(id);
+            self.a11y.payload(id);
             self.changes.mark(id, super::changes::Dirty::REDRAW);
         }
     }
 
+    /// `id` is drawn again (its paint or state styles): only its own payload
+    /// (its scene regions' padding box) can change; a state style that moves
+    /// or reorders it moves its subtree.
     pub(crate) fn repaint(&mut self, id: NodeId) {
         if self.tree.contains(id) {
-            self.a11y.node(id);
+            self.a11y.payload(id);
             if self
                 .node(id)
                 .is_some_and(|n| n.states().is_some_and(crate::tree::states_place))
             {
-                self.a11y.subtree(id);
+                self.a11y.moved(id);
             }
             self.changes.mark(id, super::changes::Dirty::REDRAW);
+        }
+    }
+
+    /// The scroll offset of `id` changed: its own payload and the clipping
+    /// lists at or above it. Every other payload under it keeps its
+    /// content-space bounds, except the layers under it (an overlay, a fixed
+    /// box), drawn at their window origins: they move in content space.
+    /// Overlays anchored under it follow (`a11y::build::payload`).
+    pub(crate) fn a11y_scrolled(&mut self, id: NodeId) {
+        self.a11y.scrolled(id);
+        let layers: Vec<NodeId> = self
+            .tree
+            .overlays
+            .iter()
+            .chain(self.tree.fixed.iter())
+            .copied()
+            .filter(|x| *x != id && self.tree.is_in_subtree(*x, id))
+            .collect();
+        for layer in layers {
+            self.a11y.moved(layer);
         }
     }
 }
