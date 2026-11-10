@@ -164,7 +164,7 @@ cargo check --workspace --all-targets --all-features
 
 ## 2. W0：準備（Orchestrator が自分で行う）
 
-1. **ユーザー確認の記録**：V2 設計書 DEC-01（`gpu` を facade の既定 feature から外す）について、ユーザーの指示がこの作業の依頼文や `dev/bench/results/OPEN.md` に「不承認」と書かれていれば、S6 の D4 の部分（`crates/kivact/Cargo.toml` の default と各 consumer の default の変更、README の表）を行わないと `OPEN.md` に記録する。書かれていなければ DEC-01 のとおり行う。
+1. V2 設計書 DEC-01 は「`gpu` を既定 feature から外さない」（ユーザーの決定）。`crates/kivact/Cargo.toml` と各 consumer の `[features] default` は変えない。K6 は MS-5 の行で測る。
 2. 統合 branch を最新にする：`git checkout refactor/kashiwade/slim-fast && git pull --ff-only && git submodule update --init`。
 3. 計測用の worktree を作り、この機械で B0 を取る：
 
@@ -219,7 +219,7 @@ git worktree remove ../kv-start
 | E | M11 | D3 3.14（M2-14） | U-M11 | 所有ファイルは `crates/kivact-runtime/src/reactive/{links.rs（新）,data.rs,graph.rs,frame.rs,selector.rs,arena.rs}` と `crates/kivact-runtime/src/reactive.rs` |
 | E | T8 | D7 3.7（M3-7） | U-T8 | — |
 | E | M10 | D3 3.12（M2-12）、3.11 の button の部分 | U-M10 | 確認の consumer の試験は `dev/tools/window-lock.sh --timeout 900 -- cargo test -p kivact-ui-soft --test consumer -- button_busy` で実行する |
-| E | M12 | D3 3.15（M2-15） | U-M12 | 確認は付属書の行の代わりに次を行う（`H=<lane の target>-heap`）：(1) `CARGO_TARGET_DIR=$H CARGO_PROFILE_RELEASE_STRIP=none CARGO_PROFILE_RELEASE_DEBUG=line-tables-only cargo build --release -p kivact-bench --bin kv_heap`、(2) `mkdir -p $H/kpi && cp $H/release/kv_heap.exe $H/release/kv_heap.pdb $H/kpi/`、(3) `MODE=button ROWS=10 SETTLE_SECS=1 dev/tools/window-lock.sh --timeout 600 -- $H/kpi/kv_heap.exe`、(4) 出力の最初の `H site` の行が `allocs ` の後に空でない名前（`kivact` か `arvane` で始まる）を持つこと。終わったら `rm -rf $H` |
+| E | M12 | D3 3.15（M2-15） | U-M12 | 付属書に加えて `dev/bench/run.sh` に次を足す（V2 設計書 MS-5）：build の並びに `build kv_startup_nogpu kv_startup -p kivact-bench --no-default-features --features complex-scripts --bin kv_startup` と `build catalog_nogpu kivact-ui-basic-catalog -p kivact-ui-basic-catalog --no-default-features --features complex-scripts`、K6 の節に `log "- K6 counter_nogpu $(wc -c < "$kpi/kv_startup_nogpu$exe")"` と `log "- K6 basic-catalog_nogpu $(wc -c < "$kpi/catalog_nogpu$exe")"`（既存の K6 の行の並びに合わせる）。`dev/bench/README.md` に MS-3 の 1 行（K2 を単独で測るときは build 直後の最初の起動を捨てる）。確認は付属書の行の代わりに次を行う（`H=<lane の target>-heap`）：(1) `CARGO_TARGET_DIR=$H CARGO_PROFILE_RELEASE_STRIP=none CARGO_PROFILE_RELEASE_DEBUG=line-tables-only cargo build --release -p kivact-bench --bin kv_heap`、(2) `mkdir -p $H/kpi && cp $H/release/kv_heap.exe $H/release/kv_heap.pdb $H/kpi/`、(3) `MODE=button ROWS=10 SETTLE_SECS=1 dev/tools/window-lock.sh --timeout 600 -- $H/kpi/kv_heap.exe`、(4) 出力の最初の `H site` の行が `allocs ` の後に空でない名前（`kivact` か `arvane` で始まる）を持つこと。終わったら `rm -rf $H` |
 | F | S1 | D4 3 章「D1」 | P4-U1 | — |
 | F | S4 | D4 3 章「D3」 | P4-U4 | — |
 | F | S2 | D4 3 章「D2」（Arvane 側） | P4-U2 | — |
@@ -260,7 +260,7 @@ W1 の後に compile が失敗してよい crate：なし。
 | B | T7 | D7 3.6（M3-6） | U-T7 | — |
 | B | AH2 | D2 3.5 の診断 counter | P2-U1b | `Stats::a11y_enumerated` を公開する（DEC-05） |
 | D | T6 | D7 3.5（M3-5） | U-T6 | — |
-| D | S6 | D4 3 章「D4」「D5」 | P4-U6 | W0 の手順 1 で DEC-01 が不承認と記録されていれば、D4 の部分を行わず D5（`dev/bench/Cargo.toml`）だけを行う |
+| D | S6 | D4 3 章「D5」だけ | P4-U6 | DEC-01（外さない）により D4 3 章「D4」は行わない。所有ファイルは `dev/bench/Cargo.toml` だけ（`[features] default = ["complex-scripts", "gpu"]`、`gpu = ["kivact/gpu"]`、依存の `kivact` から `features = ["gpu"]` を外す）。確認：`cargo check -p kivact-bench --all-targets`、`cargo tree -p kivact-bench --no-default-features -e normal \| grep -c wgpu` が 0 |
 | F | G4 | D6 3.6 | P6-4 | — |
 | F | S3 | D4 3 章「D2」（host 側）と 5.2 の E2E 3 本 | P4-U3 | — |
 
@@ -400,19 +400,16 @@ KIVACT_TEST_MIRROR=off dev/tools/window-lock.sh --timeout 5400 -- cargo test -p 
 KIVACT_TEST_MIRROR=required dev/tools/window-lock.sh --timeout 900 -- cargo test -p kivact-public-api-tests --features gpu-interop --test e2e gpu_on_demand
 ```
 
-feature の組合せ（package を一つずつ。DEC-01 の後は既定の build に GPU が入らない）：
+feature の組合せ（package を一つずつ。workspace の `--no-default-features` は GPU なしの確認にならないので使わない）：
 
 ```bash
 cargo check -p kivact --no-default-features
-cargo check -p kivact
 cargo check -p kivact --no-default-features --features gpu
 cargo check -p kivact --features gpu-interop
-cargo tree -p kivact -e features -i arvane-compose | grep -E '"gpu"' && echo "NG: gpu in the default build" || echo ok
-cargo tree -p kivact -e normal | grep -E '^.*wgpu' && echo "NG: wgpu in the default build" || echo ok
+cargo tree -p kivact --no-default-features -e features -i arvane-compose | grep -E '"gpu"' && echo "NG: gpu leaked" || echo ok
 KIVACT_TEST_MIRROR=off dev/tools/window-lock.sh --timeout 5400 -- cargo test -p kivact-public-api-tests --no-default-features
 ```
 
-（DEC-01 が不承認と記録された場合は、`cargo tree` の 2 行を旧作業指示書 11 章のとおり `--no-default-features` に対して行う。）
 
 - WSL があれば、WSL の中（`wsl -d "${KIVACT_WSL_DISTRO:-Ubuntu-24.04}"`）で上の clippy と `cargo test --workspace --exclude gpu-interop-producer --exclude kivact-docs --all-features` を同じ形で実行する。無ければ報告に「Linux 未確認」と書く。
 - `architecture/` の変更を commit する。
@@ -445,8 +442,8 @@ CARGO_TARGET_DIR=<空きの多いドライブ>/kv-target/kpi dev/tools/window-lo
 
 ### 12.2 書き戻しと後片付け（AC をすべて満たしたときだけ）
 
-1. `docs/for-kivact-developer/architecture.md`：旧作業指示書 W7-2 の手順 1 の内容に加え、V2 設計書 8 章の規則（PERF-1 の補足、PERF-4、PERF-5、MEM-8、MEM-9）を足す。DEP の feature の表で `kivact` の default を `complex-scripts` にする（DEC-01）。API-3 を DEC-19 のとおり書き直す。
-2. `docs/for-kivact-developer/decisions.md`：旧作業指示書 W7-2 の手順 2 の内容（版 1.1 の 8.1・8.2）に加え、V2 設計書 8 章の SLIM-11〜SLIM-16 と、4 章の DEC-01・DEC-14・DEC-15・DEC-17〜DEC-20 を「実装の決定」の表の末尾に足す。
+1. `docs/for-kivact-developer/architecture.md`：旧作業指示書 W7-2 の手順 1 の内容に加え、V2 設計書 8 章の規則（PERF-1 の補足、PERF-4、PERF-5、MEM-8、MEM-9）を足す。DEP の feature の表で `kivact` の default を `gpu, complex-scripts` にする（版 1.1 のまま、DEC-01）。API-3 を DEC-19 のとおり書き直す。
+2. `docs/for-kivact-developer/decisions.md`：旧作業指示書 W7-2 の手順 2 の内容（版 1.1 の 8.1・8.2）に加え、V2 設計書 8 章の SLIM-11〜SLIM-16 と、4 章の DEC-01（外さない理由）・DEC-14・DEC-15・DEC-17〜DEC-20 を「実装の決定」の表の末尾に足す。
 3. `dev/bench/results/OPEN.md` の「後続」節に V2 設計書 7 章の表を写す。
 4. `SLIM_FAST_DESIGN.md`、`SLIM_FAST_WORK_ORDER.md`、`20261109_2107_CODEX_REVIEW.md`、`20261110_1145_CLAUDE_CODE.md`、`SLIM_FAST_V2_DESIGN.md`、`SLIM_FAST_V2_WORK_ORDER.md`、`slim-fast-v2/` を `git rm` する。`dev/bench/results/` と `dev/xtask/state-audit.md` は残す。
 5. commit し、push する。
@@ -456,6 +453,6 @@ CARGO_TARGET_DIR=<空きの多いドライブ>/kv-target/kpi dev/tools/window-lo
 `dev/bench/results/PR_DRAFT.md` に次を書いて commit し、push する（PR は作らない）：
 
 - 概要（V2 設計書 2.4 と 6 章の原因と、直した内容を 15 行以内）
-- KPI の表（`RESULT-V2.md` の表）
-- 公開 API の変更：版 1.1 の改名（付録 B）、ARG-1〜6、`#[component]`、`Binding::update`、`GpuStart`、`complex-scripts`、V2 の変更（`gpu` が既定でない、`GpuPreference` 一式が `kivact::launch` に移動、`RenderOptions::gpu_on_demand`・`Screen::renderer`・`Screen::wait_for_gpu`、`Stats::a11y_enumerated`、recipe state の accessor 化と `CheckControl`、G9 の改名と `content(factory)`、prelude から `provide_theme` を削除、D8 の公開 API の変更 3 件（`LayoutInset.own_outer`、`ShellImeText.password` の削除、`GpuAdapter` の `AdapterIds`））
+- KPI の表（`RESULT-V2.md` の表。K6 は MS-5 の定義であることを注記する）
+- 公開 API の変更：版 1.1 の改名（付録 B）、ARG-1〜6、`#[component]`、`Binding::update`、`GpuStart`、`complex-scripts`、V2 の変更（`GpuPreference` 一式が `kivact::launch` に移動、`RenderOptions::gpu_on_demand`・`Screen::renderer`・`Screen::wait_for_gpu`、`Stats::a11y_enumerated`、recipe state の accessor 化と `CheckControl`、G9 の改名と `content(factory)`、prelude から `provide_theme` を削除、D8 の公開 API の変更 3 件（`LayoutInset.own_outer`、`ShellImeText.password` の削除、`GpuAdapter` の `AdapterIds`））
 - 確認の状況（CP2 の各コマンドの結果、Linux の確認の有無、AC-3 の人間の確認が残っていること）

@@ -70,6 +70,7 @@ AC の定義（版 1.1 の 1.6 節）は変えない。完了の判定は V2 作
 | MS-1 | K6 の `kv_startup --no-default-features` の行は、facade の最小構成（GPU なし・`complex-scripts` なし）で測る（D4 D5：`dev/bench/Cargo.toml` の `kivact` 依存から `features = ["gpu"]` を外し、bench の既定 feature に `gpu` を置く）。B0 の行は版 1.1 の表のとおり「B0 の同じ build の既定」 | 必達値（約 11 MB）は GPU なし・`complex-scripts` なしの構成から算出された。今の bench は GPU を固定して測っており、目標の根拠と食い違っていた（D4 E-4） |
 | MS-2 | `run.sh` が `kv_heap` の PDB も複製する。`kv_heap` の site の選び方を直し、`kv_stress` と同じ row の定義にする（D3 M2-15） | site 名が空・誤帰属だった。診断値で、KPI の行ではない |
 | MS-3 | K2 を単独で測るときは、build 直後の最初の起動を捨てる（`dev/bench/README.md` に 1 行、D4 E-5） | 初回だけ exe の image 全体が WS に入る。`run.sh` は K1 の 5 回の後に K2 を測るので正式値には影響しない |
+| MS-5 | K6 の既定 feature の 2 行（counter と basic catalog）は、それぞれ 2 行にする（DEC-01）。(1) **GPU 抜きの build**：counter は `kv_startup`（counter と同じ画面）を `-p kivact-bench --no-default-features --features complex-scripts`、catalog は `-p kivact-ui-basic-catalog --no-default-features --features complex-scripts` で build したもの。必達は版 1.1 のまま 1.7 倍（B0 は既定の build：counter 24,594,432 B → ≤ 14,467,313 B、catalog 54,251,520 B → ≤ 31,912,659 B）。(2) **既定の build（`gpu` 込み）**：必達は「V2 の前より大きくしない」（≤ W0 で測る `B1-start` の値。元の機械の B1 は counter 18,978,816 B、catalog 43,090,432 B）。`run.sh` に (1) の 2 つの build と `K6 counter_nogpu`・`K6 basic-catalog_nogpu` の行を足す（M12） | 1.7 倍は誤った見積り（2.4 節）から決められ、`gpu` を既定に残すと届かない（GPU 一式 約 4.6 MB）。製品の既定を変えずに、Kivact 自身の大きさは 1.7 倍の目標で測り、GPU 込みの既定の build は悪化しないことを測る。B0 との比べ方は `kv_startup` の no-default の行と同じ（B0 は既定の build） |
 | MS-4 | 必達に届かない行は同じ条件で 2 回測り直し、3 回中 2 回で判定する（版 1.1 の 1.6 AC-2 のとおり）。W7-1 の「再計測しない」は誤りだった | 雑音の扱い。WS は同じ exe でも回により item あたり ±0.25 KiB 動く（D7 H-P7-1） |
 
 ### 2.3 見積り（付属書の試作の実測と見積り）
@@ -90,18 +91,20 @@ B1 は元の機械の値。V2 の見積りは付属書のこの機械の試作�
 | K5 | wheel n3000 | ≤ 16.29 ms | 22.02 | 約 0.9 | D2 4.2 |
 | K5 | mount n3000 | ≤ 813.8 ms | 1,507.4 | 約 780〜800 | D3 4.3（試作で 830〜837 を実測、残りは見積り） |
 | K5 | counter click | ≤ 1.907 ms | 1.954 | 約 0.93 | D1 4.1 |
-| K6 | counter default | ≤ 14,467,313 B | 18,978,816 | 約 14,070,000 | D4 4.1（D4・D7・D6） |
+| K6 | counter 画面の GPU 抜き（MS-5 (1)） | ≤ 14,467,313 B | —（同じ構成の HEAD は 14,406,656 を実測） | 約 14,120,000 | D4 4.1（D7・D6） |
+| K6 | counter default（`gpu` 込み、MS-5 (2)） | ≤ B1-start（元の機械 18,978,816） | 18,978,816 | 約 18,170,000 | D7 の実測（GPU 込みで −0.76 MB）と D6 |
 | K6 | `kv_startup` no-default | ≤ 11,177,658 B | 15,922,688 | 11,062,784（実測） | D4 4.1（MS-1・D7） |
-| K6 | basic catalog default | ≤ 31,912,659 B | 43,090,432 | 約 28.2〜28.8 MB | D4 4.1（D8 の font の subset が必要） |
+| K6 | basic catalog の GPU 抜き（MS-5 (1)） | ≤ 31,912,659 B | — | 約 28.2〜28.8 MB | D4 4.1（D7・D6・D8 の font の subset） |
+| K6 | basic catalog default（`gpu` 込み、MS-5 (2)） | ≤ B1-start（元の機械 43,090,432） | 43,090,432 | 約 32.8〜33.4 MB | D4 4.1 に GPU 一式 4.57 MB を足したもの |
 | K1・K3 idle・K4 0 行・K4 初回 raster | 達成済みの行 | — | — | 悪化させない | 各付属書の 4 章 |
 
-余裕が小さい行：mount（2〜4 %）、K6 の counter（約 0.4 MB）と `kv_startup`（約 0.17 MB）。CP1 で測り、未達なら作業指示書 7.3 節（CP2 では 11.3 節）の手順に従う。
+余裕が小さい行：mount（2〜4 %）、K6 の counter 画面の GPU 抜き（約 0.35 MB）と `kv_startup`（約 0.17 MB）。K6 の catalog の GPU 抜きは D8（font の subset、`fonttools` が必要）が無いと約 37 MB で未達。CP1 で測り、未達なら作業指示書 7.3 節（CP2 では 11.3 節）の手順に従う。
 
 ### 2.4 版 1.1 の誤りの訂正
 
 | 版 1.1 | 訂正 | 出典 |
 |---|---|---|
-| 1.2 節 K6 の「fat LTO・cgu 1・s・strip で 14.5 MB」「GPU 一式約 0.9 MB」 | 再現しない。同じ指定で B0 のコードは 18.14 MB、GPU 一式は 4.57 MB。MSVC の exe に strip はほぼ効かない。K6 の counter は `gpu` を既定 feature に含めたままでは届かない | D4 1.1、E-3 |
+| 1.2 節 K6 の「fat LTO・cgu 1・s・strip で 14.5 MB」「GPU 一式約 0.9 MB」 | 再現しない。同じ指定で B0 のコードは 18.14 MB、GPU 一式は 4.57 MB。MSVC の exe に strip はほぼ効かない。K6 の counter は `gpu` を既定 feature に含めたままでは届かない。`gpu` は既定に残し（DEC-01）、counter の行を MS-5 で定義し直した | D4 1.1、E-3 |
 | 1.5 節「scroll 時の a11y payload の作り直し（絶対座標で公開しているため）」 | a11y の bounds は既に content 空間で、祖先の scroll では子孫の payload は変わらない。範囲外とした理由は誤り。V2 は scroll を O(changed) で公開する | D2 1.5、3.7 |
 | 4.7 MEM-6「3000 行の live_reactive は B0 の 0.6 倍以下」 | B1 は 0.82 倍で未達だったが RESULT・OPEN に記録が無かった。V2 の見積りは約 0.30 倍 | D3 7 章 5 |
 | 4.6 A11Y-1（Geometry 経路） | `Model::repaint` が `a11y.node` を呼ぶため、hover・press・focus で必ず Metadata 経路（O(N)）に入り、K5 では一度も効いていなかった。Geometry 経路自体も O(N) が残っていた | D2 2.1、2.2 |
@@ -119,7 +122,6 @@ B1 は元の機械の値。V2 の見積りは付属書のこの機械の試作�
 | 4.7 MEM-4 M-R5（STOP） | D3 3.7 M2-7（確定） |
 | 4.7 MEM-5 `ComputedTextStyle` の共有 | D7 M3-2（葉にも効く共有、`Recent`） |
 | 4.8 の profile | D4 D7（第三者の cold crate だけ `opt-level = "z"` を追加） |
-| 4.8 の feature（`default = ["gpu", "complex-scripts"]`） | 4 章 DEC-01：`default = ["complex-scripts"]` |
 | 7 章の GPU OnDemand の E2E の書き方 | D6 3.6（`gpu_on_demand.rs` の完全なコード） |
 
 ---
@@ -143,7 +145,7 @@ V2 は crate を追加・統合しない。調べた境界の候補と判断：
 
 | ID | 出典 | 問い | 決定 |
 |---|---|---|---|
-| DEC-01 | D4 Q1 | `gpu` を facade の既定 feature から外すか | **外す**（D4 D4）。`crates/kivact/Cargo.toml` の `default = ["complex-scripts"]`。既定の app は CPU だけで描く（今の既定 OnDemand でも業務画面は GPU を起動していない）。GPU の機能は `features = ["gpu"]` で今と同じ。SLIM-02 は「app が `gpu` を有効にし、かつ必要になったとき」に読み替える。shader を使う `examples/kivact-ui-game`、試験の crate、`dev/bench` は `gpu` を既定に残す（D4 D4 の一覧）。**ユーザー確認事項**：この決定だけは製品の既定を変える。作業指示書 W0 の手順 1 で、ユーザーの不承認が記録されていれば S6 の D4 部分を行わない（その場合 K6 の counter は未達、約 16.8 MB） |
+| DEC-01 | D4 Q1 | `gpu` を facade の既定 feature から外すか | **外さない**（ユーザーの決定、2026-11-10）。既定は版 1.1 のまま `default = ["gpu", "complex-scripts"]`（GPU は OnDemand で起動）。D4 の「D4」（既定 feature の変更、consumer の default、README の表）は行わない。K6 の counter の行は MS-5 で定義し直す。理由：既定から外すと、CPU の raster が重い画面で GPU への自動の切替えが無くなり、user shader が CPU の代わりの見た目になる。製品の既定の性能と機能を、誤った見積りから決めた目標のために変えない |
 | DEC-02 | D4 Q2 | K6 の no-default を GPU なしで測るか | 測る（MS-1） |
 | DEC-03 | D4 Q3 | catalog の NotoSansJP を subset にするか | する（D4 D8）。subset の生成に Python の `fonttools` が要る。Orchestrator が W0 で `python -m pip install --user fonttools` を行う。入れられない環境では S9 だけを STOP にして他を進める |
 | DEC-04 | D2 8-1 | `HitInk` による model → paint の依存性逆転 | 採る。model が「描画側が hit の上界を答える」interface を定義し、paint が実装する |
@@ -202,8 +204,8 @@ V2 は crate を追加・統合しない。調べた境界の候補と判断：
 | `crates/kivact-runtime/src/reactive/{data,graph}.rs` | M11 → T8、S7 →（RT、P8-RT） | |
 | `crates/kivact-ui/src/button.rs` | M10 → UI-3 | `crates/kivact-interaction/src/toggle.rs` は M10 だけが変える（UI-3 が持つのは `crates/kivact-ui/src/toggle.rs`） |
 | `crates/kivact-interaction/src/menu/handle.rs`、`crates/kivact-ui/src/calendar/view.rs`、`dev/xtask/src/api_shape.rs` | G7 →（IN-2、P8-UI6、P8-XT） | |
-| `README.md`、`README_JP.md`、`docs/for-kivact-user/{en,jp}/README.md` | G3 → S6 → G6 | |
-| `templates/basic/Cargo.toml` | S8 → S6 | |
+| `README.md`、`README_JP.md`、`docs/for-kivact-user/{en,jp}/README.md` | G3 → G6 | |
+| `templates/basic/Cargo.toml` | S8 だけ | |
 
 ### 5.4 V2 の性能の変更の後に書く状態の unit
 
@@ -211,6 +213,12 @@ D5・D8 は HEAD のコードに対して書かれている。状態の unit（W
 
 - 対象の field・関数が同じ名前で残っていれば、付属書の手順をそのまま行う。
 - 性能の unit が対象の field を消した・改名した・型を変えた場合は、その項目を STOP にする（推測で marker を付けない、推測で enum にしない）。ただし D8 P8-GPU の「P6-1 が field を消した場合はその行は不要」のように付属書が扱いを書いている場合はそれに従う。
+
+### 5.5 DEC-01 による D4 の変更
+
+- D4 3 章の「D4」（`gpu` を既定 feature から外す）と、5.4 節の D4 の部分、4.1 の表の「D4」の列は行わない。S6 は「D5」（`dev/bench/Cargo.toml`）だけを行う。
+- D4 4.1 の K6 の見積りは MS-5 の行で読み替える：counter 画面の GPU 抜き 約 14.12 MB、counter の `gpu` 込みの既定 約 18.17 MB（B1 18.98 − D7 の実測 0.76 − D6 約 0.05）、catalog の GPU 抜き 約 28.2〜28.8 MB（D4 4.1 の値そのまま）、catalog の `gpu` 込みの既定 約 32.8〜33.4 MB。
+- D4 D8（catalog の font の subset）は変えない（catalog の GPU 抜きの行に必要）。
 
 ---
 
@@ -285,7 +293,7 @@ V2 の完了後、W8 で `dev/bench/results/OPEN.md` の「後続」節に書く
 | PERF-5 | hit test は paint の ink（描画の上界）で子を枝刈りする。ink は model が定義する `HitInk` で読む（DEC-04） |
 | MEM-8 | 空の view・tuple・Vec は host node を作らない（D3 M2-1）。多くのノードが同じ値を持つ prop・style・text style は `kivact_types::cell::Recent` で直近値を共有する（D3 M2-5、D7 M3-2・M3-11） |
 | MEM-9 | idle の window は 1 s 後に CPU compositor の frame state を手放す。状態は `LastPresent` の variant で表す（D4 D2） |
-| SLIM-11 | facade の既定 feature は `complex-scripts` だけ（DEC-01） |
+| SLIM-11 | facade の既定 feature は `gpu` と `complex-scripts` のまま（DEC-01）。K6 は Kivact 自身の大きさを GPU 一式を除く構成で測り、GPU 込みの既定の build は悪化させない（MS-5） |
 | SLIM-12 | GPU の起動の入口は二つ（`begin`、`demand`）。CPU だけの window は需要があっても起動しない（D6 3.2） |
 | SLIM-13 | 試験は `RenderOptions::gpu_on_demand()` と `Screen::renderer()` で GPU OnDemand を検証する（D6 3.4） |
 | SLIM-14 | 公開の recipe state は accessor で読む。排他な事実は enum（`CheckControl` 等）で持つ（DEC-14、DEC-15） |
