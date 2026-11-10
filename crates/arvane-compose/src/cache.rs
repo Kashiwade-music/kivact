@@ -50,6 +50,31 @@ pub(crate) enum Retained {
     Glyphs(GlyphRunSnapshot),
 }
 
+/// One command of a chunk's index. A group opener (a clip, a transform, a group
+/// without blur) draws nothing of its own: it damages its group's bounds only
+/// when it changed itself (`hash`), never because its content's extent moved
+/// (each content command damages its own place).
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct Indexed {
+    pub(crate) hash: u64,
+    pub(crate) bounds: Option<PixelRect>,
+    pub(crate) group: Option<PixelRect>,
+}
+
+impl PartialEq for Indexed {
+    fn eq(&self, o: &Self) -> bool {
+        self.hash == o.hash && self.bounds == o.bounds
+    }
+}
+
+impl Eq for Indexed {}
+
+impl Indexed {
+    pub(crate) fn damage(&self) -> Option<PixelRect> {
+        self.bounds.or(self.group)
+    }
+}
+
 /// The previous frame's record of one chunk.
 #[derive(Clone, Debug)]
 pub(crate) struct ChunkRecord {
@@ -59,8 +84,8 @@ pub(crate) struct ChunkRecord {
     pub(crate) origin: kivact_types::geometry::Point,
     /// Size in px.
     pub(crate) size: (u32, u32),
-    /// Per command: hash and chunk px bounds (None: draws nothing there).
-    pub(crate) index: Arc<[(u64, Option<PixelRect>)]>,
+    /// Per command: its index entry.
+    pub(crate) index: Arc<[Indexed]>,
     /// The frame that last used the record.
     pub(crate) frame: u64,
     /// Allocations the index hashes by address.
