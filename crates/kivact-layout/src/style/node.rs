@@ -31,7 +31,7 @@ pub(crate) type TStyle = taffy::Style<String>;
 
 /// What a node's box is: none, a flex box, or a grid container with the full
 /// taffy style of its tracks (a grid container whose props have none: `None`).
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub(crate) enum NodeDisplay {
     None,
     Flex,
@@ -70,14 +70,14 @@ impl NodeDisplay {
 
 /// An item's place in both axes of its grid container (most nodes are
 /// auto-placed in flex parents and have none).
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) struct GridArea {
     pub(crate) column: GridLine,
     pub(crate) row: GridLine,
 }
 
 /// The taffy style of one layout node (see the module docs).
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub(crate) struct NodeStyle {
     pub(crate) display: NodeDisplay,
     pub(crate) position: Position,
