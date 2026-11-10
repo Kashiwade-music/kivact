@@ -135,6 +135,8 @@ pub trait ShellWindow {
     /// `None` for the whole frame. The callback receives the buffer's
     /// [`BufferAge`]: with `Previous`, the pixels outside `damage` already hold
     /// the last presented frame. The callback runs synchronously at most once.
+    /// The callback returns `false` only before it has written any pixel, so the
+    /// window can keep the last presented frame as the base of the next damaged frame.
     /// `false` discards its buffer without presentation. `Ok(true)` acknowledges
     /// a committed frame; `Ok(false)` means no buffer was offered or the callback
     /// declined it. A backend error is independent of an error captured by the
