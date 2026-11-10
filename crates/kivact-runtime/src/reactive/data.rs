@@ -317,17 +317,24 @@ pub struct NodeInfo {
     pub deps: Vec<NodeId>,
 }
 
+/// What only some owners have: objects, constants, cleanups, contexts and
+/// an error handler (`OwnerEntry::extra`, created by the first of them).
+#[derive(Default)]
+pub(crate) struct OwnerExtra {
+    pub(crate) objects: Vec<Key>,
+    pub(crate) consts: Vec<Key>,
+    pub(crate) cleanups: Vec<Box<dyn FnOnce()>>,
+    pub(crate) contexts: Vec<(TypeId, Rc<dyn Any>)>,
+    pub(crate) on_error: Option<Rc<dyn Fn(UiError)>>,
+}
+
 pub(crate) struct OwnerEntry {
     // xtask-allow(state-fields): option: absent means the root owner, which has no parent
     pub(crate) parent: Option<Key>,
     pub(crate) parent_index: u32,
     pub(crate) children: Vec<Key>,
     pub(crate) nodes: Vec<Key>,
-    pub(crate) objects: Vec<Key>,
-    pub(crate) consts: Vec<Key>,
-    pub(crate) cleanups: Vec<Box<dyn FnOnce()>>,
-    pub(crate) contexts: Vec<(TypeId, Rc<dyn Any>)>,
-    pub(crate) on_error: Option<Rc<dyn Fn(UiError)>>,
+    pub(crate) extra: Option<Box<OwnerExtra>>,
     /// Where the boundary that created this owner was called (root, flow
     /// branch, list row, `provide`, `error_boundary`): how diagnostics name
     /// the owner.
@@ -336,6 +343,18 @@ pub(crate) struct OwnerEntry {
     /// (`owner.rs`).
     pub(crate) phase: OwnerPhase,
 }
+
+impl OwnerEntry {
+    /// The rare members, created on first use.
+    pub(crate) fn extra_mut(&mut self) -> &mut OwnerExtra {
+        self.extra.get_or_insert_default()
+    }
+}
+
+const _: () = assert!(
+    std::mem::size_of::<OwnerEntry>() <= 88,
+    "OwnerEntry grew: put the new member in OwnerExtra"
+);
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(crate) enum OwnerPhase {

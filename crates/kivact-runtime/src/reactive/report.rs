@@ -27,7 +27,7 @@ impl Runtime {
             let owners = self.owners.borrow();
             while let Some(k) = cur {
                 let Some(o) = owners.get(k) else { break };
-                if let Some(h) = &o.on_error {
+                if let Some(h) = o.extra.as_ref().and_then(|x| x.on_error.as_ref()) {
                     handler = Some(h.clone());
                     break;
                 }
