@@ -51,5 +51,13 @@ B0 と CP2（`dev/bench/results/CP2.md`、どちらも有効）の比較。倍�
 - `fonttools`：`python -m pip install --user fonttools` 成功（4.68.0）。S9 を実施できる。
 - V2 差戻し：この節の下に追記する。
 
+## V2 差戻し（W1、2026-11-10）
+
+- F5 `crates/arvane-compose/src/cache.rs:53`（commit `a8f6ad32`、付属書 D1 3.6）— `xtask check` の `state-fields`：`Indexed` が `bounds`・`group` の 2 つの `Option<PixelRect>` を持つため error。付属書は marker を指定していないので、marker を足さず型も変えていない。設計者の判断（marker の文言、または型の形）が要る。
+- M7 `crates/kivact-core/src/view/mount/semantics.rs:14`（commit `a087054c`、付属書 D3 3.7）— `xtask check` の `state-fields`：`Plan` が `checked`・`indeterminate` を持つため error。同じく marker を足していない。設計者の判断が要る。
+- S4（付属書 D4 3 章「D3」）— **W2 に回した**。元の commit `3c284b0b` は残し、W1 の lane F では `3224b48b`（revert）で打ち消した。理由：`kivact-engine/src/lower/assets.rs:256` の `register_font(bytes)` が `FontSource` を要求し、呼出しの直し（S5、P4-U5）が W2 の lane B にあるため、W1 の後に compile が通らない（本書 3 章「W1 の後に compile が失敗してよい crate：なし」）。本書 0.5 の「未 merge の変更を前提にする compile error は次の wave へ」に従った。W2 では S4 の commit を cherry-pick してから S5 を行い、同じ lane に並べる。S4 の xtask の後半（kivact-types 以降）の結果は未確認（報告で fmt 後の再実行が完了していない）。
+- M2（commit `42c8db7a`）は完了。付属書の `V2 設計書 4.9（EVT-1）` と `M-R4` の文は旧い縮小動作を書いたままなので、W8 の書き戻し項目にする。
+- M7 の作業中に、付属書が名前を挙げていない e2e 試験 1 件（`constant_semantics_publish_once_and_keep_no_publisher`）を取り除いた（本書 0.2 の 3）。退避先は `C:/Users/ryo/AppData/Local/Temp/claude/eab73ffa7cd53a85/c0105c61-711d-4a11-89c2-54c01c5acade/scratchpad/M7-leftover.patch`。
+
 
 
