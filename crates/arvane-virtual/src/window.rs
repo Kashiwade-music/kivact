@@ -489,25 +489,38 @@ impl ShellWindow for VirtualWindow {
         if (width, height) != self.physical_size() {
             return Err(ShellError::new("frame size differs from window surface"));
         }
-        // With damage, the buffer starts as the CPU frame presented last time, of the same size.
+        // With damage, the buffer is the CPU frame presented last time, taken from the surface and
+        // updated in place (copied only while a mirror or a screenshot still holds it).
         // A GPU frame kept for the device-loss fallback is not that frame.
-        let previous = match &self.shown {
-            Shown::OnCpuSurface(kept) if (kept.width, kept.height) == (width, height) => {
-                Some(kept.pixels.to_vec())
+        let kept = match std::mem::replace(&mut self.shown, Shown::Nothing) {
+            Shown::OnCpuSurface(kept)
+                if damage.is_some() && (kept.width, kept.height) == (width, height) =>
+            {
+                Some(kept)
             }
-            _ => None,
+            other => {
+                self.shown = other;
+                None
+            }
         };
-        let (mut pixels, age) = match (damage, previous) {
-            (Some(_), Some(previous)) => (previous, BufferAge::Previous),
-            _ => (
-                vec![0; width as usize * height as usize],
+        let reused = kept.is_some();
+        let (mut pixels, age): (Arc<[u32]>, BufferAge) = match kept {
+            Some(kept) => (kept.pixels, BufferAge::Previous),
+            None => (
+                vec![0_u32; width as usize * height as usize].into(),
                 BufferAge::Unknown,
             ),
         };
-        if !draw(&mut pixels, age) {
+        if !draw(unique_pixels(&mut pixels), age) {
+            if reused {
+                self.shown = Shown::OnCpuSurface(Kept {
+                    width,
+                    height,
+                    pixels,
+                });
+            }
             return Ok(false);
         }
-        let pixels: Arc<[u32]> = pixels.into();
         if let Display::Mirrored(real) = &self.display {
             real.present(width, height, pixels.clone());
         }
@@ -518,6 +531,14 @@ impl ShellWindow for VirtualWindow {
         });
         Ok(true)
     }
+}
+
+/// The pixels to write: the buffer itself when nothing else holds it, otherwise a copy of it.
+fn unique_pixels(pixels: &mut Arc<[u32]>) -> &mut [u32] {
+    if Arc::get_mut(pixels).is_none() {
+        *pixels = Arc::from(&pixels[..]);
+    }
+    Arc::get_mut(pixels).expect("the buffer is unique after the copy")
 }
 
 pub(crate) fn physical(size: Size, scale: f64) -> (u32, u32) {
