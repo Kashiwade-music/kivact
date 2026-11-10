@@ -27,6 +27,7 @@ use std::rc::Rc;
 use crate::reactive::arena::{Arena, Key};
 use crate::reactive::detail::DetailLog;
 use crate::reactive::error::UiError;
+use crate::reactive::links::Links;
 
 /// Upper bound of effect runs per stabilisation and of user-effect rounds per turn.
 pub(crate) const CYCLE_LIMIT: usize = 100;
@@ -204,7 +205,7 @@ pub(crate) enum NodeData {
 
 pub(crate) struct SourceNode {
     /// (subscriber, index of this node in subscriber.deps).
-    pub(crate) subs: Vec<(Key, u32)>,
+    pub(crate) subs: Links,
     // xtask-allow(state-fields): independent: the write version the graph comparisons read; the diagnostic record below may be absent
     /// Write generation of the last change.
     pub(crate) changed_at: kivact_types::cell::Generation,
@@ -215,7 +216,7 @@ pub(crate) struct SourceNode {
 
 pub(crate) struct MemoNode {
     /// (subscriber, index of this node in subscriber.deps).
-    pub(crate) subs: Vec<(Key, u32)>,
+    pub(crate) subs: Links,
     pub(crate) run: Computation,
 }
 
@@ -231,7 +232,7 @@ pub(crate) struct EffectNode {
 pub(crate) struct Computation {
     pub(crate) compute: Rc<dyn Compute>,
     /// (source, index of this node in source.subs), in read order.
-    pub(crate) deps: Vec<(Key, u32)>,
+    pub(crate) deps: Links,
     pub(crate) state: CompState,
 }
 
@@ -240,7 +241,7 @@ impl Computation {
     pub(crate) fn new(compute: Rc<dyn Compute>) -> Self {
         Computation {
             compute,
-            deps: Vec::new(),
+            deps: Links::default(),
             state: CompState::Stale(Staleness::Dirty),
         }
     }
@@ -265,7 +266,7 @@ impl RNode {
         }
     }
 
-    pub(crate) fn subs_mut(&mut self) -> Option<&mut Vec<(Key, u32)>> {
+    pub(crate) fn subs_mut(&mut self) -> Option<&mut Links> {
         match &mut self.data {
             NodeData::Source(s) => Some(&mut s.subs),
             NodeData::Memo(m) => Some(&mut m.subs),
