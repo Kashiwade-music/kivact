@@ -577,7 +577,12 @@ impl Model {
             };
             let state =
                 crate::tree::node::ScrollReport(n.scroll, l.size, l.content_size, n.scroll_axes());
-            if n.sent_scroll.update(state).is_some() {
+            if n.sent
+                .get_or_insert_default()
+                .scroll
+                .update(state)
+                .is_some()
+            {
                 self.push(HostEvent::ScrollChanged {
                     node: id,
                     offset: state.0,
@@ -599,7 +604,9 @@ impl Model {
             let layout = self.window_layout_rect(id);
             let text_truncated = super::text_geometry::text_truncated(self, engine, id);
             if let Some(n) = self.tree.get_mut(id)
-                && n.sent_layout
+                && n.sent
+                    .get_or_insert_default()
+                    .layout
                     .update(crate::tree::node::LayoutReport(
                         rect,
                         size,

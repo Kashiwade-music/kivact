@@ -471,8 +471,11 @@ impl NodeTree {
         } else {
             self.observed.remove(&id)
         };
-        if changed && let Some(n) = self.nodes.get_mut(&id) {
-            n.sent_layout = Default::default();
+        if changed
+            && let Some(n) = self.nodes.get_mut(&id)
+            && let Some(sent) = n.sent.as_deref_mut()
+        {
+            sent.layout = Default::default();
         }
         changed
     }

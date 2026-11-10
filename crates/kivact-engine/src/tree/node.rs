@@ -25,10 +25,9 @@ pub(crate) struct HostNode {
     pub(crate) properties: NodeProperties,
     pub(crate) scenes: [Option<Arc<DrawList>>; 2],
     pub(crate) scroll: Point,
-    pub(crate) sent_layout: kivact_types::cell::Sent<LayoutReport>,
-    pub(crate) sent_scroll: kivact_types::cell::Sent<ScrollReport>,
-    /// The last published loading status of an `Image` node's asset.
-    pub(crate) sent_image: kivact_types::cell::Sent<kivact_types::ImageStatus>,
+    /// What was last published about it: only an observed, scrolling or
+    /// image node publishes (`Model::report_geometry`, `Model::report_images`).
+    pub(crate) sent: Option<Box<SentReports>>,
     /// Where its paint and layout place it (`model::transform`), read when
     /// its `Paint`, `States` or `Layout` prop is stored.
     pub(crate) place: Place,
@@ -38,9 +37,18 @@ pub(crate) struct HostNode {
 }
 
 const _: () = assert!(
-    std::mem::size_of::<HostNode>() <= 464,
+    std::mem::size_of::<HostNode>() <= 312,
     "HostNode grew: box the new rare field"
 );
+
+/// The last values published to the client about one node.
+#[derive(Clone, Debug, Default)]
+pub(crate) struct SentReports {
+    pub(crate) layout: kivact_types::cell::Sent<LayoutReport>,
+    pub(crate) scroll: kivact_types::cell::Sent<ScrollReport>,
+    /// The last published loading status of an `Image` node's asset.
+    pub(crate) image: kivact_types::cell::Sent<kivact_types::ImageStatus>,
+}
 
 /// The last published geometry, text clipping and window layout box observation.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -170,9 +178,7 @@ impl HostNode {
             index,
             scenes: [None, None],
             scroll: Point::default(),
-            sent_layout: Default::default(),
-            sent_scroll: Default::default(),
-            sent_image: Default::default(),
+            sent: None,
             place: Place::default(),
             shift: Point::default(),
         };
