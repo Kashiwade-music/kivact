@@ -75,12 +75,9 @@ impl Model {
     /// The window layout boxes of the nodes with a layout transition, before
     /// a layout pass.
     pub(crate) fn capture_layout_motion(&self) -> Vec<(NodeId, Rect)> {
-        self.tree
-            .iter()
-            .filter_map(|(id, n)| {
-                n.layout()?.layout_transition.as_ref()?;
-                Some((id, self.window_layout_rect(id)?))
-            })
+        self.sources
+            .layout_transitions()
+            .filter_map(|id| Some((id, self.window_layout_rect(id)?)))
             .collect()
     }
 

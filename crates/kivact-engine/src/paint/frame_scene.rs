@@ -40,9 +40,10 @@ impl Model {
     /// The frame's composition: the paint list brought up to date, drawn at
     /// the window's scale into the root layer.
     pub(crate) fn composition(&mut self, engine: &mut arvane::Engine) -> Composition {
-        self.paint_list();
-        self.sync_playback();
-        self.sync_shader_clocks();
+        if self.paint_list() {
+            self.refresh_shader_clocks();
+            self.refresh_playback();
+        }
         let pass = PaintPass {
             scale: self.paint.scale,
             size: self.window(),

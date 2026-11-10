@@ -54,8 +54,9 @@ pub(crate) struct Frame {
     /// The environment as the client last saw it: the one source of the
     /// display period, reduced motion and drawability.
     pub(super) env: Environment,
-    /// The painted nodes with a shader clock, as of the last paint
-    /// list; each needs frames while it is painted.
+    /// The painted nodes with a shader clock; each needs frames while it is
+    /// painted. A projection, written only by `Model::refresh_shader_clocks`
+    /// at a paint list rebuild.
     pub(super) shader_clocks: BTreeMap<NodeId, ClockNeed>,
     /// The DevTools' time scale for the motion clock.
     pub(super) time_scale: TimeScale,

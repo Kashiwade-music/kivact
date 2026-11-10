@@ -2,10 +2,9 @@
 
 use std::collections::BTreeMap;
 
-use kivact_types::paint::{Fill, FillImage};
 use kivact_types::{Asset, NodeId};
 
-use super::state::{Entry, PlaybackState, background_slot};
+use super::state::{Entry, PlaybackState};
 use super::timing::{frame_at, next_switch, settle};
 use crate::model::Model;
 
@@ -14,10 +13,10 @@ use crate::model::Model;
 type Wanted = BTreeMap<(NodeId, u8), Asset>;
 
 impl Model {
-    /// Bring the playbacks up to date with the images drawn now: an entry
-    /// is dropped when its image no longer plays or its asset changed, and a
-    /// new animated image starts at this frame.
-    pub(crate) fn sync_playback(&mut self) {
+    /// Bring the playbacks up to date with the images drawn now, at a paint
+    /// list rebuild: an entry is dropped when its image no longer plays or
+    /// its asset changed, and a new animated image starts at this frame.
+    pub(crate) fn refresh_playback(&mut self) {
         let wanted = self.playing_images();
         self.playback
             .0
@@ -43,34 +42,17 @@ impl Model {
         }
     }
 
-    /// The animated images drawn now that play: a content image whose
-    /// `playing` prop is not false, and each animated background layer. Reduced
+    /// The animated images drawn now that play, from the image index. Reduced
     /// motion plays none.
     fn playing_images(&self) -> Wanted {
-        let mut wanted = Wanted::new();
         if self.frame.reduced_motion() {
-            return wanted;
+            return Wanted::new();
         }
-        for (id, node) in self.tree.iter() {
-            if !self.tree.drawn(id) {
-                continue;
-            }
-            if let Some(asset) = node.image() {
-                let playing = node.image_data().and_then(|d| d.playing).unwrap_or(true);
-                if playing {
-                    wanted.insert((id, 0), asset.clone());
-                }
-            }
-            let background = node.paint().and_then(|p| p.background.as_ref());
-            if let Some(Fill::Layers(layers)) = background {
-                for (index, layer) in layers.iter().enumerate() {
-                    if let FillImage::Image(asset) = &layer.image {
-                        wanted.insert((id, background_slot(index)), asset.clone());
-                    }
-                }
-            }
-        }
-        wanted
+        self.sources
+            .images()
+            .filter(|((id, _), _)| self.tree.drawn(*id))
+            .map(|(key, asset)| (key, asset.clone()))
+            .collect()
     }
 
     /// The frame of the content image of `id` to draw now (0 without a

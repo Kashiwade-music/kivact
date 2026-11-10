@@ -527,6 +527,11 @@ impl Model {
         }
     }
 
+    /// `id` is destroyed: it leaves the motion index.
+    fn forget_sources(&mut self, id: NodeId) {
+        self.sources.file(id, None);
+    }
+
     /// Remove and destroy `id` and its whole subtree now.
     pub(crate) fn remove_now(&mut self, id: NodeId) {
         self.a11y.request_publication(std::iter::empty());
@@ -583,6 +588,7 @@ impl Model {
             debug_assert!(previous.is_none());
             self.changes.forget(gone);
             self.paint.forget_fact(gone);
+            self.forget_sources(gone);
         }
         if was_overlay || (had_root && self.tree.root().is_none()) {
             // An overlay or the root went: the set of layer roots changed.

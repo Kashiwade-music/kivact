@@ -219,6 +219,16 @@ impl Model {
                 self.stale_fact(child);
             }
         }
+        self.index_sources(id);
+    }
+
+    /// File `id` again in the motion index from its props. A changed frame
+    /// source restacks and redraws, so the next paint list refreshes it.
+    fn index_sources(&mut self, id: NodeId) {
+        if self.sources.file(id, self.tree.get(id)) {
+            self.changes.restack = true;
+            self.changes.paint = true;
+        }
     }
 
     /// Run pending layout work, then distribute its geometry changes.
@@ -270,6 +280,7 @@ impl Model {
                     self.a11y.node(*id);
                 }
             }
+            self.changes.restack = true;
             self.changes.paint = true;
         }
         self.sync();

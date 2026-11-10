@@ -7,8 +7,9 @@
 //! way (in its own slot).
 //!
 //! Invariants:
-//! - An entry exists only for a drawn image that plays; it is dropped when
-//!   the image stops playing or its asset changes (then it starts again).
+//! - An entry exists only for a drawn image that plays, as of the last paint
+//!   list rebuild; it is dropped when the image stops playing or its asset
+//!   changes (then it starts again).
 //! - Frame changes are ticks: each playing image asks for its next change
 //!   and is repainted at it (`Model::step_playback`). Nothing is requested
 //!   for a finished run.
