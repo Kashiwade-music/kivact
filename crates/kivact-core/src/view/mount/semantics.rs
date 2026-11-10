@@ -16,9 +16,70 @@ use std::rc::Rc;
 /// A node with only constant patches keeps nothing: it publishes once.
 struct Plan {
     base: Semantics<FocusTarget>,
-    checked: Option<bool>,
-    indeterminate: Option<bool>,
+    check: CheckFold,
     rest: Box<[Rest]>,
+}
+
+/// What the `checked` and `indeterminate` patches fold to, in layer order:
+/// an `indeterminate(true)` wins until a later `indeterminate(false)`
+/// uncovers the last `checked` value.
+#[derive(Clone, Copy, Default)]
+enum CheckFold {
+    /// Neither input yet: the patches' own `checked` stands.
+    #[default]
+    Unset,
+    /// Only `indeterminate(false)`: no checked state.
+    Cleared,
+    /// The last `checked` value.
+    Checked(bool),
+    /// `indeterminate(true)`, over the last `checked` value if there was one.
+    Indeterminate(Option<bool>),
+}
+
+impl CheckFold {
+    /// The fold after a `checked(value)` patch.
+    fn checked(self, value: bool) -> Self {
+        match self {
+            CheckFold::Indeterminate(_) => CheckFold::Indeterminate(Some(value)),
+            CheckFold::Unset | CheckFold::Cleared | CheckFold::Checked(_) => {
+                CheckFold::Checked(value)
+            }
+        }
+    }
+
+    /// The fold after an `indeterminate(value)` patch.
+    fn indeterminate(self, value: bool) -> Self {
+        match (self, value) {
+            (CheckFold::Indeterminate(under), true) => CheckFold::Indeterminate(under),
+            (CheckFold::Checked(checked), true) => CheckFold::Indeterminate(Some(checked)),
+            (CheckFold::Unset | CheckFold::Cleared, true) => CheckFold::Indeterminate(None),
+            (CheckFold::Indeterminate(Some(checked)) | CheckFold::Checked(checked), false) => {
+                CheckFold::Checked(checked)
+            }
+            (CheckFold::Indeterminate(None) | CheckFold::Unset | CheckFold::Cleared, false) => {
+                CheckFold::Cleared
+            }
+        }
+    }
+
+    /// The fold after `input`'s patch (other inputs leave it as it is).
+    fn after(self, input: &SemanticInput) -> Self {
+        match input {
+            SemanticInput::Checked(source) => self.checked(source.get()),
+            SemanticInput::Indeterminate(source) => self.indeterminate(source.get()),
+            _ => self,
+        }
+    }
+
+    /// Write the fold over the patches' `checked` (nothing while `Unset`).
+    fn apply(self, semantics: &mut Semantics<FocusTarget>) {
+        semantics.checked = match self {
+            CheckFold::Unset => return,
+            CheckFold::Cleared => None,
+            CheckFold::Checked(checked) => Some(CheckedState::from_bool(checked)),
+            CheckFold::Indeterminate(_) => Some(CheckedState::Indeterminate),
+        };
+    }
 }
 
 /// One patch from the first reactive one on, in layer order.
@@ -42,16 +103,12 @@ impl Plan {
             .position(|p| p.reactive)
             .unwrap_or(patches.len());
         let mut base = Semantics::default();
-        let (mut checked, mut indeterminate) = (None, None);
+        let mut check = CheckFold::Unset;
         let mut rest = Vec::with_capacity(patches.len() - split);
         for (index, patch) in patches.into_iter().enumerate() {
             if index < split {
                 (patch.apply)(&mut base);
-                match &patch.input {
-                    SemanticInput::Checked(source) => checked = Some(source.get()),
-                    SemanticInput::Indeterminate(source) => indeterminate = Some(source.get()),
-                    _ => {}
-                }
+                check = check.after(&patch.input);
             } else {
                 let input = match patch.input {
                     SemanticInput::Checked(source) => RestInput::Checked(source),
@@ -66,8 +123,7 @@ impl Plan {
         }
         Plan {
             base,
-            checked,
-            indeterminate,
+            check,
             rest: rest.into_boxed_slice(),
         }
     }
@@ -75,18 +131,16 @@ impl Plan {
     /// The canonical value: the base, then each later patch in order.
     fn resolve(&self) -> Semantics<FocusTarget> {
         let mut semantics = self.base.clone();
-        let (mut checked, mut indeterminate) = (self.checked, self.indeterminate);
+        let mut check = self.check;
         for patch in self.rest.iter() {
             (patch.apply)(&mut semantics);
-            match &patch.input {
-                RestInput::Checked(source) => checked = Some(source.get()),
-                RestInput::Indeterminate(source) => indeterminate = Some(source.get()),
-                RestInput::Other => {}
-            }
+            check = match &patch.input {
+                RestInput::Checked(source) => check.checked(source.get()),
+                RestInput::Indeterminate(source) => check.indeterminate(source.get()),
+                RestInput::Other => check,
+            };
         }
-        if checked.is_some() || indeterminate.is_some() {
-            semantics.checked = checked_state(checked, indeterminate);
-        }
+        check.apply(&mut semantics);
         semantics
     }
 }
@@ -94,17 +148,6 @@ impl Plan {
 /// Fold declaration layers in order, retaining relation declaration order.
 pub(super) fn resolve(patches: &[SemanticsPatch]) -> Semantics<FocusTarget> {
     Plan::new(patches.to_vec()).resolve()
-}
-
-pub(super) fn checked_state(
-    checked: Option<bool>,
-    indeterminate: Option<bool>,
-) -> Option<CheckedState> {
-    match (checked, indeterminate) {
-        (_, Some(true)) => Some(CheckedState::Indeterminate),
-        (Some(checked), _) => Some(CheckedState::from_bool(checked)),
-        _ => None,
-    }
 }
 
 fn bind(
