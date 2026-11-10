@@ -160,3 +160,12 @@ B0 と CP2（`dev/bench/results/CP2.md`、どちらも有効）の比較。倍�
 - K6 `kv_startup` no-default の未達（11,246,592 B、必達 11,177,658 B、+68,934 B）：**許容する**。DESIGN 2.3 の数値は変えない（記録のみ）。V2 の AC-2 はこの 1 行について未達として扱い、W8 で明記する。
 - observe の修正：**案 A を承認**（core 側で、新しい NodeObservation の初期値を直前のエンジンの報告から取る。observe の契約「もう一度頼んでも何も変わらない」は残す）。`CP1-A-fix` の commit `52810781`（契約を変える案）は採用しない。
 - rounding の修正（`a0c62113`）は採用し、`CP1-A-fix2` branch（統合 HEAD `a2b05579` から切った worktree）に載せる。
+
+## CP1 の結果（gate 通過、2026-11-11）
+
+- 統合：`CP1-A-fix2`（`d22cd5fc` の rounding と `d7df81ed` の core の seed）を merge。統合 HEAD は `8c126015`。
+- gate（統合 tree、`W:/kv-target/int`）：`cargo fmt --all -- --check`、`cargo check --workspace --all-targets --all-features`、`cargo clippy --workspace --all-targets --all-features -- -D warnings`、`cargo xtask check --no-write` はすべて成功。
+- 試験：`cargo test --workspace --exclude gpu-interop-producer --exclude kivact-docs --all-features --no-fail-fast` は 2046 件成功、失敗 0。gpu-interop-producer・kivact-docs・GPU の `gpu_on_demand` も成功。
+- KPI：`CP1-V2.md` のとおり。K6 `kv_startup` no-default の未達は、ユーザーの承認で許容（上の判断の節）。
+- 未merge のまま残す：`wt/CP1-A-fix` の commit `52810781`（契約を変える案。採用しない）。
+- 次：W5（G5、G7、G6→G8）。
