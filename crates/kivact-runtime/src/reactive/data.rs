@@ -334,6 +334,7 @@ pub(crate) struct OwnerEntry {
     pub(crate) parent_index: u32,
     pub(crate) children: Vec<Key>,
     pub(crate) nodes: Vec<Key>,
+    // xtask-allow(state-fields): independent: the box of the rare members, created by the first object, constant, cleanup, context or error handler registered on the owner and kept until the entry is removed; either phase holds it or not (disposal empties it, never drops it)
     pub(crate) extra: Option<Box<OwnerExtra>>,
     /// Where the boundary that created this owner was called (root, flow
     /// branch, list row, `provide`, `error_boundary`): how diagnostics name
