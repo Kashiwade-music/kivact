@@ -29,8 +29,9 @@ pub enum NodeKind {
 }
 
 /// A node's typed props: its kind's payload, the input flags, and the
-/// rest boxed, so only the nodes that have them allocate them (a setter
-/// compares before it allocates a box).
+/// rest boxed, or shared (`Rc`) when many nodes write equal values
+/// (`Model::set_shared_prop`), so only the nodes that have them allocate
+/// them (a setter compares before it allocates a box).
 #[derive(Clone, Debug, PartialEq)]
 pub struct NodeProperties {
     /// Node type and its corresponding payload.
@@ -43,21 +44,21 @@ pub struct NodeProperties {
     pub ime: Option<Box<ImeSessionProps>>,
     // xtask-allow(state-fields): option: absent uses the host's layout defaults
     /// Optional layout properties; absent uses host defaults.
-    pub layout: Option<Box<LayoutProps>>,
+    pub layout: Option<std::rc::Rc<LayoutProps>>,
     // xtask-allow(state-fields): option: absent draws nothing
     /// Optional resolved paint properties.
-    pub paint: Option<Box<PaintProps>>,
+    pub paint: Option<std::rc::Rc<PaintProps>>,
     // xtask-allow(state-fields): option: absent inherits the parent's text style
     /// Optional inherited text properties.
-    pub text: Option<Box<TextStyle>>,
+    pub text: Option<std::rc::Rc<TextStyle>>,
     // xtask-allow(state-fields): option: absent has no state styles
     /// Optional state-dependent style overrides.
-    pub states: Option<Box<StateStyles>>,
+    pub states: Option<std::rc::Rc<StateStyles>>,
     /// Input participation and focus flags.
     pub input: NodeInput,
     // xtask-allow(state-fields): option: absent exposes no accessible properties
     /// Optional accessible node properties.
-    pub semantics: Option<Box<kivact_types::Semantics<FocusTarget>>>,
+    pub semantics: Option<std::rc::Rc<kivact_types::Semantics<FocusTarget>>>,
     // xtask-allow(state-fields): option: absent means it is not a drawable root
     /// The drawable this node is the root of, if any (its id and mode).
     pub drawable: Option<DrawableRole>,

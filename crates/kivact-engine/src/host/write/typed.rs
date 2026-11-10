@@ -43,7 +43,8 @@ use kivact_types::{
 };
 
 fn semantics(p: &mut NodeProperties) -> &mut Semantics<FocusTarget> {
-    p.semantics.get_or_insert_default()
+    // A shared value is copied before one field of it changes.
+    std::rc::Rc::make_mut(p.semantics.get_or_insert_default())
 }
 fn text(p: &mut NodeProperties) -> Option<&mut TextData> {
     match &mut p.kind {
@@ -66,7 +67,8 @@ fn read_only(value: Option<&EditingData>) -> bool {
 
 /// The property table: `Variant: setter(value: Type) => store, mut = ..;`
 /// with `store` one of `field(value, place)`, `boxed(value, place)` (the
-/// place holds a box) or `custom(method)`, and an optional `then =
+/// place holds a box), `shared(value, place)` (the place holds an `Rc`
+/// that equal nodes share) or `custom(method)`, and an optional `then =
 /// method` run after a change. Engine-owned values follow in `@owned`.
 macro_rules! props {
     (
@@ -156,6 +158,9 @@ macro_rules! props {
     (@store $w:ident, $id:ident, $v:ident, $m:ident, boxed($value:expr, $place:expr)) => {
         $w.record($id, |model| model.set_boxed_prop($id, $value, $place, $m))
     };
+    (@store $w:ident, $id:ident, $v:ident, $m:ident, shared($value:expr, $place:expr)) => {
+        $w.record($id, |model| model.set_shared_prop($id, $value, $place, $m))
+    };
     (@store $w:ident, $id:ident, $v:ident, $m:ident, custom($method:ident)) => {
         $w.$method($id, $v, $m)
     };
@@ -164,15 +169,15 @@ macro_rules! props {
 props! {
     /// Replace the node's layout when its value differs.
     Layout: set_layout(v: LayoutProps)
-        => boxed((v != LayoutProps::default()).then_some(v), |p| Some(&mut p.layout)),
+        => shared((v != LayoutProps::default()).then_some(v), |p| Some(&mut p.layout)),
         mut = Mut::STYLE.and(Mut::RESTACK);
     /// Replace the node's paint when its value differs.
     Paint: set_paint(v: PaintProps)
-        => boxed((v != PaintProps::default()).then_some(v), |p| Some(&mut p.paint)),
+        => shared((v != PaintProps::default()).then_some(v), |p| Some(&mut p.paint)),
         mut = Mut::PAINT.and(Mut::PAYLOAD_ONLY);
     /// Replace the node's text style when its value differs.
     TextStyle: set_text_style(v: Option<TextStyle>)
-        => boxed(v, |p| Some(&mut p.text)),
+        => shared(v, |p| Some(&mut p.text)),
         mut = Mut::TEXT.and(Mut::PAYLOAD_ONLY);
     /// Replace the node's states when its value differs.
     States: set_states(v: StateStyles)
@@ -252,7 +257,7 @@ props! {
         mut = Mut::NONE;
     /// Replace the node's accessibility when its value differs.
     Semantics: set_semantics(v: Semantics<FocusTarget>)
-        => boxed(Some(v), |p| Some(&mut p.semantics)),
+        => shared(Some(v), |p| Some(&mut p.semantics)),
         mut = Mut::NONE;
     /// Replace the node's actions when its value differs.
     Actions: set_actions(v: Vec<A11yAction>)

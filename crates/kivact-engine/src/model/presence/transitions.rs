@@ -253,7 +253,7 @@ impl Model {
         // The client already dropped the host's core record and cannot write
         // another layout. Reuse the ordinary style invalidation path.
         if let Some(node) = self.tree.get_mut(id) {
-            node.properties.layout = Some(Box::new(layout));
+            node.properties.layout = Some(std::rc::Rc::new(layout));
         }
         self.changed(id, Mutation::STYLE.and(Mutation::RESTACK));
     }

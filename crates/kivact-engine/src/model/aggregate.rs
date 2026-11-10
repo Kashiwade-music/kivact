@@ -31,6 +31,8 @@ pub(crate) struct Model {
     pub(crate) playback: super::playback::state::Playback,
     pub(crate) sources: super::frame::sources::MotionSources,
     pub(crate) measure: crate::measure::state::MeasureColumns,
+    /// The recent values of the shared node properties (`Model::set_shared_prop`).
+    pub(crate) recent: super::recent::RecentProps,
     pub(crate) editors: Vec<Option<Box<crate::measure::editor::EditorNode>>>,
     pub(crate) events: super::events::EventSink,
     pub(crate) changes: super::changes::Changes,
@@ -88,6 +90,7 @@ impl Model {
             playback: Default::default(),
             sources: Default::default(),
             measure: Default::default(),
+            recent: Default::default(),
             editors: Vec::new(),
             events: shared.events.clone(),
             changes: super::changes::Changes::initial(),

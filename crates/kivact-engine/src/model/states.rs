@@ -148,7 +148,7 @@ impl Model {
         for x in &members {
             self.prepare_state_motion(*x);
         }
-        let changed = self.set_boxed_prop(
+        let changed = self.set_shared_prop(
             id,
             (states != StateStyles::default()).then_some(states),
             |p| Some(&mut p.states),

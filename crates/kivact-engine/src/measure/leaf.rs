@@ -139,10 +139,10 @@ impl<'a> Measure<'a> {
         style.color = kivact_types::ComputedTextStyle::default().color;
         style.decoration = kivact_types::TextDecoration::default();
         let mut extents = self.cache.extents(node.index.0)?;
-        if extents.as_ref().is_none_or(|e| e.style != style) {
+        if extents.as_ref().is_none_or(|e| *e.style != style) {
             let single = self.engine.text_metrics(text, &style, None).ok();
             *extents = Some(Box::new(TextExtents {
-                style,
+                style: self.cache.share_style(style),
                 single,
                 wrapped: Vec::new(),
             }));

@@ -28,9 +28,10 @@ pub(crate) fn text_props(tree: &crate::tree::NodeTree, id: NodeId) -> ComputedTe
 /// after the node or an ancestor changed (`Model::forget_text_below`),
 /// then shared by every reader. A node the tree does not have reads the
 /// defaults. A style equal to its parent's already resolved one shares the
-/// parent's `Rc` (MEM-5), so a long chain of inherited styles keeps one
-/// allocation; a parent that is not resolved yet is never resolved here
-/// (that would make a deep chain quadratic).
+/// parent's `Rc`, any other one an equal recent style's of the window
+/// (`MeasureColumns::share_style`), so the text leaves of one list keep one
+/// allocation (MEM-5); a parent that is not resolved yet is never resolved
+/// here (that would make a deep chain quadratic).
 pub(crate) fn computed_text(
     tree: &crate::tree::NodeTree,
     columns: &MeasureColumns,
@@ -49,7 +50,7 @@ pub(crate) fn computed_text(
         .and_then(|parent| columns.computed_text(parent.index.0));
     let resolved = match parent_kept {
         Some(parent_rc) if *parent_rc == value => parent_rc,
-        _ => Rc::new(value),
+        _ => columns.share_style(value),
     };
     columns.set_computed_text(n.index.0, Rc::clone(&resolved));
     resolved

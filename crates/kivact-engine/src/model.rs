@@ -75,6 +75,7 @@ pub(crate) mod modal;
 pub(crate) mod playback;
 pub(crate) mod pointer;
 pub(crate) mod presence;
+pub(crate) mod recent;
 pub(crate) mod scrollbar;
 pub(crate) mod semantics;
 pub(crate) mod state_motion;
