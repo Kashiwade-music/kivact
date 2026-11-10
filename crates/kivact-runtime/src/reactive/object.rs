@@ -42,8 +42,9 @@ impl Runtime {
             created_at: at,
         });
         let index = self.owners.borrow_mut().get_mut(owner).map(|o| {
-            o.objects.push(key);
-            o.objects.len() as u32 - 1
+            let objects = &mut o.extra_mut().objects;
+            objects.push(key);
+            objects.len() as u32 - 1
         });
         match index {
             Some(i) => {
@@ -124,14 +125,17 @@ impl Runtime {
             let (owner, index, at) = (obj.owner, obj.owner_index as usize, obj.created_at);
             let moved = {
                 let mut owners = self.owners.borrow_mut();
-                owners.get_mut(owner).and_then(|o| {
-                    if index < o.objects.len() && o.objects[index] == key {
-                        o.objects.swap_remove(index);
-                        o.objects.get(index).copied()
-                    } else {
-                        None
-                    }
-                })
+                owners
+                    .get_mut(owner)
+                    .and_then(|o| o.extra.as_deref_mut())
+                    .and_then(|x| {
+                        if index < x.objects.len() && x.objects[index] == key {
+                            x.objects.swap_remove(index);
+                            x.objects.get(index).copied()
+                        } else {
+                            None
+                        }
+                    })
             };
             if let Some(m) = moved.and_then(|m| objects.get_mut(m)) {
                 m.owner_index = index as u32;

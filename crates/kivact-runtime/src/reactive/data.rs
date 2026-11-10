@@ -27,6 +27,7 @@ use std::rc::Rc;
 use crate::reactive::arena::{Arena, Key};
 use crate::reactive::detail::DetailLog;
 use crate::reactive::error::UiError;
+use crate::reactive::links::Links;
 
 /// Upper bound of effect runs per stabilisation and of user-effect rounds per turn.
 pub(crate) const CYCLE_LIMIT: usize = 100;
@@ -204,7 +205,7 @@ pub(crate) enum NodeData {
 
 pub(crate) struct SourceNode {
     /// (subscriber, index of this node in subscriber.deps).
-    pub(crate) subs: Vec<(Key, u32)>,
+    pub(crate) subs: Links,
     // xtask-allow(state-fields): independent: the write version the graph comparisons read; the diagnostic record below may be absent
     /// Write generation of the last change.
     pub(crate) changed_at: kivact_types::cell::Generation,
@@ -215,7 +216,7 @@ pub(crate) struct SourceNode {
 
 pub(crate) struct MemoNode {
     /// (subscriber, index of this node in subscriber.deps).
-    pub(crate) subs: Vec<(Key, u32)>,
+    pub(crate) subs: Links,
     pub(crate) run: Computation,
 }
 
@@ -231,7 +232,7 @@ pub(crate) struct EffectNode {
 pub(crate) struct Computation {
     pub(crate) compute: Rc<dyn Compute>,
     /// (source, index of this node in source.subs), in read order.
-    pub(crate) deps: Vec<(Key, u32)>,
+    pub(crate) deps: Links,
     pub(crate) state: CompState,
 }
 
@@ -240,7 +241,7 @@ impl Computation {
     pub(crate) fn new(compute: Rc<dyn Compute>) -> Self {
         Computation {
             compute,
-            deps: Vec::new(),
+            deps: Links::default(),
             state: CompState::Stale(Staleness::Dirty),
         }
     }
@@ -265,7 +266,7 @@ impl RNode {
         }
     }
 
-    pub(crate) fn subs_mut(&mut self) -> Option<&mut Vec<(Key, u32)>> {
+    pub(crate) fn subs_mut(&mut self) -> Option<&mut Links> {
         match &mut self.data {
             NodeData::Source(s) => Some(&mut s.subs),
             NodeData::Memo(m) => Some(&mut m.subs),
@@ -316,17 +317,24 @@ pub struct NodeInfo {
     pub deps: Vec<NodeId>,
 }
 
+/// What only some owners have: objects, constants, cleanups, contexts and
+/// an error handler (`OwnerEntry::extra`, created by the first of them).
+#[derive(Default)]
+pub(crate) struct OwnerExtra {
+    pub(crate) objects: Vec<Key>,
+    pub(crate) consts: Vec<Key>,
+    pub(crate) cleanups: Vec<Box<dyn FnOnce()>>,
+    pub(crate) contexts: Vec<(TypeId, Rc<dyn Any>)>,
+    pub(crate) on_error: Option<Rc<dyn Fn(UiError)>>,
+}
+
 pub(crate) struct OwnerEntry {
     // xtask-allow(state-fields): option: absent means the root owner, which has no parent
     pub(crate) parent: Option<Key>,
     pub(crate) parent_index: u32,
     pub(crate) children: Vec<Key>,
     pub(crate) nodes: Vec<Key>,
-    pub(crate) objects: Vec<Key>,
-    pub(crate) consts: Vec<Key>,
-    pub(crate) cleanups: Vec<Box<dyn FnOnce()>>,
-    pub(crate) contexts: Vec<(TypeId, Rc<dyn Any>)>,
-    pub(crate) on_error: Option<Rc<dyn Fn(UiError)>>,
+    pub(crate) extra: Option<Box<OwnerExtra>>,
     /// Where the boundary that created this owner was called (root, flow
     /// branch, list row, `provide`, `error_boundary`): how diagnostics name
     /// the owner.
@@ -335,6 +343,18 @@ pub(crate) struct OwnerEntry {
     /// (`owner.rs`).
     pub(crate) phase: OwnerPhase,
 }
+
+impl OwnerEntry {
+    /// The rare members, created on first use.
+    pub(crate) fn extra_mut(&mut self) -> &mut OwnerExtra {
+        self.extra.get_or_insert_default()
+    }
+}
+
+const _: () = assert!(
+    std::mem::size_of::<OwnerEntry>() <= 88,
+    "OwnerEntry grew: put the new member in OwnerExtra"
+);
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(crate) enum OwnerPhase {

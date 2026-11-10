@@ -68,6 +68,7 @@ impl ButtonApi {
     /// Also marks the root disabled and makes it unfocusable. Setup only.
     #[track_caller]
     pub fn disabled(self, disabled: impl IntoValue<bool>) -> Self {
+        kivact_core::custom::require_setup("ButtonApi::disabled");
         let disabled = disabled.into_value();
         self.disabled.update(|slot| *slot = Some(disabled));
         self
@@ -82,14 +83,17 @@ impl ButtonApi {
         self.observed.set(Some(part_state));
         Part::new(part_state, move |mut host| {
             let caller_disabled = host.accessible_disabled();
-
-            host.part(input)
-                .role(Role::Button)
-                .focusable(true)
-                .disabled(move || {
+            let host = host.part(input).role(Role::Button).focusable(true);
+            // A button nobody disables keeps no disabled computed: its
+            // constraints stay constant.
+            if caller_disabled.is_none() && disabled.get_untracked().is_none() {
+                host
+            } else {
+                host.disabled(move || {
                     caller_disabled.is_some_and(|value| value.get())
                         || disabled.with(|d| d.is_some_and(|d| d.get()))
                 })
+            }
         })
     }
 }

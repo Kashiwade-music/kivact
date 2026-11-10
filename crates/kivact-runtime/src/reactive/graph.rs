@@ -40,6 +40,7 @@ use crate::reactive::data::{
     EffectKind, EffectNode, MemoNode, NodeData, NodeInfo, SourceCell, SourceNode,
 };
 use crate::reactive::error::{ErrorKind, misuse_at, new_error};
+use crate::reactive::links::Links;
 
 impl<T: 'static> Compute for MemoCell<T> {
     fn run(&self) -> bool {
@@ -163,7 +164,7 @@ impl Runtime {
         });
         let ty = std::any::type_name::<T>();
         let data = NodeData::Source(SourceNode {
-            subs: Vec::new(),
+            subs: Links::default(),
             changed_at: kivact_types::cell::Generation::new(),
             written: None,
         });
@@ -185,7 +186,7 @@ impl Runtime {
         let compute: Rc<dyn Compute> = cell.clone();
         let ty = std::any::type_name::<T>();
         let data = NodeData::Memo(MemoNode {
-            subs: Vec::new(),
+            subs: Links::default(),
             run: Computation::new(compute),
         });
         self.insert_node(owner, cell, data, at, ty)
@@ -434,7 +435,7 @@ impl Runtime {
                             continue;
                         }
                         if was_clean {
-                            for (s, _) in &m.subs {
+                            for (s, _) in m.subs.iter() {
                                 diag.detail.edge(NodeId(k), NodeId(*s));
                             }
                             stack.extend(m.subs.iter().map(|(s, _)| (*s, Staleness::Check)));

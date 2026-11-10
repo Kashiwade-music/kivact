@@ -40,6 +40,7 @@ mod host;
 pub(crate) mod host_types;
 mod identity;
 pub mod keyed;
+mod links;
 mod mounts;
 mod object;
 mod owner;
