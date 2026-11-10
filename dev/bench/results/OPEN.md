@@ -64,5 +64,15 @@ B0 と CP2（`dev/bench/results/CP2.md`、どちらも有効）の比較。倍�
 - T8（付属書 D7 3.7、lane E、commit `636c4794`）— **差戻し**。`crates/kivact-runtime/src/reactive/data.rs:331` の `OwnerEntry` の `extra`（`Option<Box<OwnerExtra>>`）が `xtask check` の `state-fields` に「OwnerEntry combines state fields: extra」で当たる。付属書は marker を指定していないので足していない。設計者が marker の文言を決めるか、構造を変えるかを決める。M11 の残りの差分（`M11-leftover.patch`）は T8 の作業だったので、T8 が取り込んだ。
 - G1（付属書 D6 3.1・3.2、lane F、commit `ef29066e`）：`arvane::RendererChange` に `GpuStarting { cause }` を足したため、`kivact-engine`（`host/testing/test_host.rs:199` ほか）と `kivact-test` の match が compile しない。直しは G2（P6-2、本来 W2）の範囲。W1 の終わりに compile が通る必要があるため、G2 を lane F の続きとして W1 に前倒しした（同じ lane の続き。他の lane の変更は前提にしない）。付属書の順と違う点はこれだけ。
 
+## W1 の結果（2026-11-10、設計見直しのため W1 の後で停止）
+
+- 統合：lane A〜F を `refactor/kashiwade/slim-fast` に merge（`b2177e0f`〜`0b5e0f80`）。`cargo fmt --all -- --check` 成功。`cargo check --workspace --all-targets --all-features` 成功（exit 0、エラー 0）。
+- 完了した unit：F1（A）、F3・M2・F4（B）、F2・F5・F6（C）、M1・M7（D）、M11・T8・M10・M12（E）、S1・S2・G1・G2（F）。
+- 完了しなかった unit：M6（D、差戻し、commit なし）。S4（F、revert して W2 へ移動。元の commit は `3c284b0b`）。
+- xtask の `state-fields` が残る unit（設計者判断を待つ）：F5（`Indexed`）、M7（`Plan`）、T8（`OwnerEntry.extra`）。
+- 付記：M12 の nogpu の K6 の数値は、S6（W3）で `dev/bench/Cargo.toml` の `gpu` が外れるまで正しくない。
+- 付記：F4 の `invalidation.rs` の `invalidate` の doc、M2 の `EVT-1`・`M-R4` の文は、W8 で直す。
+- 付記：W1 の終わりの時点で W2 以降の unit は始めていない。
+
 
 
