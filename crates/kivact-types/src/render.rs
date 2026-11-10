@@ -26,7 +26,7 @@ pub use paint::{Gradient, GradientShape, Paint, Pattern, PatternSource};
 pub use scene::{CpuFrame, GlyphStroke, Group, RenderCmd, RenderScene, SHADOW_REACH};
 pub use semantics::{SemanticsNode, SemanticsTree, SemanticsUpdate};
 pub use shaped::{
-    Glyph, GlyphRun, GlyphRunSnapshot, InlineBox, InlineBoxPlacement, ShapedInlineText, ShapedText,
-    ShapedTextSnapshot, TextDecorationRect, TextHighlight, TextLine,
+    FontSource, Glyph, GlyphRun, GlyphRunSnapshot, InlineBox, InlineBoxPlacement, ShapedInlineText,
+    ShapedText, ShapedTextSnapshot, TextDecorationRect, TextHighlight, TextLine,
 };
 pub use text::{RichText, SpanStyle, TextSpan};

@@ -252,8 +252,8 @@ impl ArvaneAssets {
                 ));
             }
         };
-        let bytes = file.bytes().to_shared();
-        if let Err(e) = engine.register_font(bytes.clone()) {
+        let font = file.bytes().to_source();
+        if let Err(e) = engine.register_font(font.clone()) {
             return PlatformResult::Failed(kivact_types::Failure::new(
                 kivact_types::FailureKind::Resource,
                 format!(
@@ -262,7 +262,7 @@ impl ArvaneAssets {
                 ),
             ));
         }
-        self.store.register_font(bytes);
+        self.store.register_font(font);
         for family in file.families() {
             if !self.registered.contains(family) {
                 self.registered.push(family.clone());
