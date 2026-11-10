@@ -9,7 +9,9 @@ use super::devtools::{
     DevtoolsHost, append_overlay_layer, apply_emulation, chord_matches, effective_scale,
     emulated_viewport,
 };
-use super::window::{HostWindow, ImeAllowed, LastPresent, SoftKeyboard, Surface};
+use super::window::{
+    FRAME_STATE_KEEP_NS, HostWindow, ImeAllowed, LastPresent, SoftKeyboard, Surface,
+};
 use crate::contract::{
     DevtoolsChange, DrawableTexturesHandle, EngineEmulation, FrameRecord, HostEvent, PickPhase,
     TurnOutput,
@@ -677,8 +679,36 @@ impl Host {
     /// When window `id`'s skipped frame is drawn again.
     fn retry_at(&self, id: WindowId) -> Option<u64> {
         match self.windows.get(&id)?.last_present {
-            LastPresent::Settled => None,
+            LastPresent::Shown { .. } | LastPresent::Settled => None,
             LastPresent::Skipped { retry_at_ns } => Some(retry_at_ns),
+        }
+    }
+
+    /// When window `id` releases the CPU frame state of its last shown
+    /// frame ([`FRAME_STATE_KEEP_NS`] after it).
+    fn release_at(&self, id: WindowId) -> Option<u64> {
+        match self.windows.get(&id)?.last_present {
+            LastPresent::Shown { at_ns } => Some(at_ns.saturating_add(FRAME_STATE_KEEP_NS)),
+            LastPresent::Settled | LastPresent::Skipped { .. } => None,
+        }
+    }
+
+    /// Release the CPU frame state of every window whose last shown frame
+    /// is [`FRAME_STATE_KEEP_NS`] old at `now`, unless it has a frame due
+    /// (that frame shows again). The window keeps showing its picture;
+    /// its next frame redraws everything.
+    pub(super) fn release_idle_frames(&mut self, now: u64, windows: &mut Windows<'_>) {
+        for id in self.windows.keys().copied().collect::<Vec<_>>() {
+            if self.release_at(id).is_none_or(|at| at > now) || self.paint_due(id) {
+                continue;
+            }
+            if let Some(mut window) = windows.get(id) {
+                window.forget_frame_state();
+            }
+            self.windows
+                .get_mut(&id)
+                .expect("invariant: the released window has host state")
+                .last_present = LastPresent::Settled;
         }
     }
 
@@ -795,6 +825,10 @@ impl Host {
                 self.windows
                     .keys()
                     .filter_map(|id| self.retry_at(*id))
+                    .min(),
+                self.windows
+                    .keys()
+                    .filter_map(|id| self.release_at(*id))
                     .min(),
                 // A retry that is due was asked for by the redraw of `pump`,
                 // which runs the export; only a later retry is a wake.

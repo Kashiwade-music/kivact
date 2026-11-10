@@ -537,3 +537,65 @@ fn root_shader_fallback_is_not_blended_again_outside_the_damage() {
         "the shader fallback after partial frames",
     );
 }
+
+/// A window idle for a second releases its CPU frame state: the next
+/// frame redraws the whole window, with the same pixels as a fresh one.
+#[test]
+fn idle_window_redraws_whole_after_release() {
+    let (screen, hot) = mount(|| {
+        let hot = signal(BLUE);
+        (hot, grid(hot))
+    });
+    screen.screenshot();
+    hot.set(RED);
+    screen.screenshot();
+    let damage = screen.frame_stats().damage_pixels;
+    assert!(
+        damage < u64::from(W * H) / 10,
+        "a frame within the keep time is partial: {damage} px"
+    );
+    screen.advance(Duration::from_millis(1_100));
+    hot.set(GREEN);
+    let shot = screen.screenshot();
+    let rastered = screen.frame_stats().pixels_rastered;
+    assert!(
+        rastered >= u64::from(W * H),
+        "the first frame after the release rasters the whole window: {rastered} px"
+    );
+    let fresh = render(|| grid(signal(GREEN))).screenshot();
+    assert_same_pixels(&shot, &fresh, 2, "the frame after the release");
+}
+
+/// Releasing the frame state draws no frame.
+#[test]
+fn release_draws_no_frame() {
+    let (screen, _hot) = mount(|| {
+        let hot = signal(BLUE);
+        (hot, grid(hot))
+    });
+    screen.screenshot();
+    let (ticks, stats) = (screen.frame_ticks(), screen.frame_stats());
+    screen.advance(Duration::from_secs(2));
+    assert_eq!(screen.frame_ticks(), ticks, "no frame tick");
+    assert_eq!(screen.frame_stats(), stats, "no frame presented");
+}
+
+/// Frames less than a second apart keep the frame state: each is partial.
+#[test]
+fn frames_within_keep_time_stay_partial() {
+    let (screen, hot) = mount(|| {
+        let hot = signal(BLUE);
+        (hot, grid(hot))
+    });
+    screen.screenshot();
+    for (i, colour) in [RED, GREEN, RED, GREEN].into_iter().enumerate() {
+        screen.advance(Duration::from_millis(500));
+        hot.set(colour);
+        screen.screenshot();
+        let damage = screen.frame_stats().damage_pixels;
+        assert!(
+            damage < u64::from(W * H) / 10,
+            "update {i}, 500 ms after the last frame, is partial: {damage} px"
+        );
+    }
+}

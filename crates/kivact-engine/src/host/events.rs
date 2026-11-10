@@ -257,7 +257,9 @@ impl Host {
                     self.windows
                         .get_mut(&id)
                         .expect("invariant: a drawn window has host state")
-                        .last_present = LastPresent::Settled;
+                        .last_present = LastPresent::Shown {
+                        at_ns: windows.now_ns(),
+                    };
                 }
                 // The window had no buffer (timed out, occluded):
                 // the picture is drawn again when Arvane says.
@@ -324,6 +326,7 @@ impl Host {
                 }
             }
         }
+        self.release_idle_frames(now, windows);
         self.tick_windows(now);
         let mut events = false;
         for id in self.window_ids() {

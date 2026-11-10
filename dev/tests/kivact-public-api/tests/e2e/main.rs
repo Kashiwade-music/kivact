@@ -45,6 +45,11 @@ mod focus;
 mod frame_sources;
 #[cfg(all(feature = "gpu-interop", any(windows, target_os = "linux")))]
 mod gpu_interop;
+mod gpu_on_demand;
+#[cfg(all(feature = "gpu-interop", any(windows, target_os = "linux")))]
+mod gpu_on_demand_shared;
+#[cfg(all(feature = "gpu-interop", any(windows, target_os = "linux")))]
+mod gpu_on_demand_windows;
 mod grid;
 mod hover;
 mod i18n;
