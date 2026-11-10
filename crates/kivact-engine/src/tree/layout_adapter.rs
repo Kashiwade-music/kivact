@@ -35,17 +35,11 @@ impl LayoutTree for NodeTree {
     }
     #[inline]
     fn child_count(&self, slot: usize) -> usize {
-        self.flat_children(self.nodes.id_at(NodeIndex(slot))).len()
+        self.flat_len(slot)
     }
     #[inline]
     fn child_at(&self, slot: usize, raw_child: usize) -> usize {
-        self.nodes
-            .index_of(
-                self.flat_child(self.nodes.id_at(NodeIndex(slot)), raw_child)
-                    .expect("invariant: layout child exists"),
-            )
-            .expect("invariant: layout child is retained")
-            .0
+        self.flat_child_slot(slot, raw_child)
     }
     #[inline]
     fn flow(&self, slot: usize) -> Flow {
