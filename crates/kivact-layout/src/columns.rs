@@ -1,11 +1,12 @@
 //! Role: Per-node layout columns: results, measure records, cursors and geometry changes.
 
-use crate::calcs::Calcs;
+use crate::LayoutTree;
+use crate::calcs::{CalcAlloc, Calcs};
 use crate::pass_state::Epoch;
 use crate::style::node::NodeStyle;
 use kivact_types::{Insets, LeafSize, MeasureRequest, Orientation, Point, Rect, Size};
 use std::cell::Cell;
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 /// The computed layout of one node.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
@@ -108,6 +109,11 @@ pub(crate) struct NodeLayoutState {
 #[derive(Clone, Debug)]
 pub(crate) struct NodeLayoutValues {
     pub(crate) styles: Vec<NodeStyle>,
+    /// Whether its own box resolves a length against its parent's size: a
+    /// percentage or calc in its size, min/max size, flex basis, margin, padding,
+    /// border or inset. Only then do its cache keys keep the parent's size.
+    /// Written with `styles` only: `push`, `reset`, `rebuild_style`.
+    pub(crate) relative: Vec<bool>,
     pub(crate) presence_scale: Vec<Option<(Orientation, f64)>>,
     pub(crate) natural_size: Vec<Option<taffy::Size<f32>>>,
     pub(crate) caches: Vec<taffy::Cache>,
@@ -130,9 +136,10 @@ pub(crate) struct NodeLayoutValues {
     /// The slots (`position + 1`) whose presence scale is set (LAY-2): the
     /// sparse index `scale_item_styles` walks instead of every slot.
     pub(crate) scaled: BTreeSet<usize>,
-    /// The live slots (`position + 1`) no pass has rounded since they were
-    /// allocated or reset: a subtree taffy skips under a cached ancestor
-    /// still needs a final layout, as its whole-tree rounding gave it.
+    /// The live slots (`position + 1`) that take part in layout and that no pass
+    /// has rounded since they were allocated or reset: a subtree taffy skips under
+    /// a cached ancestor still needs a final layout (`finish_rounding` rounds it
+    /// from its nearest rounded ancestor).
     pub(crate) never_rounded: BTreeSet<usize>,
 }
 
@@ -140,6 +147,7 @@ impl Default for NodeLayoutValues {
     fn default() -> Self {
         Self {
             styles: vec![NodeStyle::default()],
+            relative: vec![false],
             presence_scale: vec![None],
             natural_size: vec![None],
             caches: vec![taffy::Cache::new()],
@@ -216,6 +224,7 @@ impl NodeLayoutColumns {
         self.states.push(NodeLayoutState::default());
         let values = &mut self.values;
         values.styles.push(NodeStyle::default());
+        values.relative.push(false);
         values.presence_scale.push(None);
         values.natural_size.push(None);
         values.caches.push(taffy::Cache::new());
@@ -241,6 +250,7 @@ impl NodeLayoutColumns {
         self.cursors[index] = ChildCursor::default();
         let values = &mut self.values;
         values.styles[index] = NodeStyle::default();
+        values.relative[index] = false;
         values.presence_scale[index] = None;
         values.natural_size[index] = None;
         values.caches[index] = taffy::Cache::new();
@@ -304,4 +314,116 @@ impl Drop for GeometryChanges<'_> {
     fn drop(&mut self) {
         self.values.geometry_changed.clear();
     }
+}
+
+/// The calc value `handle` scaled by `scale`: a calc is linear in its
+/// basis, so it is read back as `percent% + px` and both parts are scaled.
+fn scaled_calc(
+    handle: *const (),
+    scale: f64,
+    calcs: &Calcs,
+    alloc: &mut CalcAlloc<'_>,
+) -> *const () {
+    let px = f64::from(calcs.resolve(handle, 0.0));
+    let percent = f64::from(calcs.resolve(handle, 100.0)) - px;
+    alloc.calc(percent * scale, px * scale)
+}
+
+fn scaled_dimension(
+    value: taffy::Dimension,
+    scale: f64,
+    calcs: &Calcs,
+    alloc: &mut CalcAlloc<'_>,
+) -> taffy::Dimension {
+    use taffy::style::CompactLength;
+    match value.tag() {
+        CompactLength::LENGTH_TAG => taffy::Dimension::length(value.value() * scale as f32),
+        CompactLength::PERCENT_TAG => taffy::Dimension::percent(value.value() * scale as f32),
+        CompactLength::CALC_TAG => taffy::Dimension::calc(scaled_calc(
+            value.into_raw().calc_value(),
+            scale,
+            calcs,
+            alloc,
+        )),
+        _ => value,
+    }
+}
+
+fn scaled_length(
+    value: taffy::LengthPercentageAuto,
+    scale: f64,
+    calcs: &Calcs,
+    alloc: &mut CalcAlloc<'_>,
+) -> taffy::LengthPercentageAuto {
+    use taffy::style::CompactLength;
+    match value.into_raw().tag() {
+        CompactLength::LENGTH_TAG => {
+            taffy::LengthPercentageAuto::length(value.into_raw().value() * scale as f32)
+        }
+        CompactLength::PERCENT_TAG => {
+            taffy::LengthPercentageAuto::percent(value.into_raw().value() * scale as f32)
+        }
+        CompactLength::CALC_TAG => taffy::LengthPercentageAuto::calc(scaled_calc(
+            value.into_raw().calc_value(),
+            scale,
+            calcs,
+            alloc,
+        )),
+        _ => value,
+    }
+}
+
+pub(crate) fn scale_item_styles<Tree: LayoutTree + ?Sized>(
+    tree: &Tree,
+    styles: &[NodeStyle],
+    presence_scale: &[Option<(Orientation, f64)>],
+    scaled: &BTreeSet<usize>,
+    calcs: &Calcs,
+    pass_calcs: &mut std::borrow::Cow<'_, Calcs>,
+) -> BTreeMap<usize, NodeStyle> {
+    let mut item_styles = BTreeMap::new();
+    for &index in scaled {
+        let Some((axis, scale)) = presence_scale[index] else {
+            continue;
+        };
+        if axis == Orientation::Unspecified {
+            continue;
+        }
+        let style = item_styles
+            .entry(index)
+            .or_insert_with(|| styles[index].clone());
+        let mut alloc = CalcAlloc {
+            calcs: pass_calcs.to_mut(),
+            owned: Vec::new(),
+        };
+        let (size, min, max) = match axis {
+            Orientation::Horizontal => (
+                &mut style.size.width,
+                &mut style.min_size.width,
+                &mut style.max_size.width,
+            ),
+            Orientation::Vertical => (
+                &mut style.size.height,
+                &mut style.min_size.height,
+                &mut style.max_size.height,
+            ),
+            Orientation::Unspecified => continue,
+        };
+        *size = scaled_dimension(*size, scale, calcs, &mut alloc);
+        *min = scaled_length(*min, scale, calcs, &mut alloc);
+        *max = scaled_length(*max, scale, calcs, &mut alloc);
+        if axis == Orientation::Horizontal {
+            style.min_width_floor *= scale as f32;
+        }
+        if let Some(parent) = index.checked_sub(1).and_then(|slot| tree.parent(slot)) {
+            let row = matches!(
+                styles[parent + 1].flex_direction,
+                taffy::FlexDirection::Row | taffy::FlexDirection::RowReverse
+            );
+            if row == (axis == Orientation::Horizontal) {
+                style.flex_basis = scaled_dimension(style.flex_basis, scale, calcs, &mut alloc);
+            }
+        }
+    }
+    item_styles
 }

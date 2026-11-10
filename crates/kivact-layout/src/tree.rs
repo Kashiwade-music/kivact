@@ -33,9 +33,12 @@
 //!   `round_layout` only where something changed);
 //!   `NodeLayoutColumns::layout_at` reads a node's by its position, and only a
 //!   lookup by `NodeId` goes through the store's index.
+//! - A box whose own lengths are absolute is cached without its parent's size
+//!   (`relative`).
 
 use crate::calcs::CalcAlloc;
 use crate::calcs::Calcs;
+use crate::columns::scale_item_styles;
 use crate::style::node::{NodeStyle, TStyle};
 use crate::traversal::{Entry, Traversal, entry, taffy_id, viewport};
 use crate::{
@@ -63,6 +66,7 @@ struct LayoutPass<'a, Tree: LayoutTree + ?Sized> {
     /// scaled along their axis; every other item's is its own style.
     item_styles: &'a BTreeMap<usize, NodeStyle>,
     presence_scale: &'a [Option<(Orientation, f64)>],
+    relative: &'a [bool],
     natural_size: &'a mut [Option<taffy::Size<f32>>],
     caches: &'a mut [taffy::Cache],
     unrounded: &'a mut [Layout],
@@ -185,6 +189,58 @@ impl<Tree: LayoutTree + ?Sized> LayoutPass<'_, Tree> {
             self.round_all(child, child_cum);
         }
     }
+
+    /// The layout parent of taffy index `i` (`None`: a layout root or detached).
+    fn layout_parent(&self, i: usize) -> Option<usize> {
+        let slot = i.checked_sub(1)?;
+        let id = self.tree.id_at(slot)?;
+        match self.tree.flow(slot) {
+            Flow::Overlay => None,
+            Flow::Fixed => self.tree.parent(slot).map(|_| 0),
+            Flow::Normal if self.tree.root() == Some(id) => None,
+            Flow::Normal => self.tree.parent(slot).map(|p| p + 1),
+        }
+    }
+
+    /// The topmost never-rounded slot above (or at) `i` and its parent's cumulative
+    /// origin, or `None` when that slot is detached.
+    fn unrounded_top(&self, i: usize) -> Option<(TId, (f32, f32))> {
+        let mut top = i;
+        loop {
+            match self.layout_parent(top) {
+                Some(p) if self.origin[p].0.is_nan() => top = p,
+                Some(p) => {
+                    let l = self.unrounded[p].location;
+                    return Some((
+                        TId::from(top),
+                        (self.origin[p].0 + l.x, self.origin[p].1 + l.y),
+                    ));
+                }
+                None => {
+                    let slot = top.checked_sub(1);
+                    let root = top == 0
+                        || slot
+                            .and_then(|s| self.tree.id_at(s))
+                            .is_some_and(|id| self.tree.root() == Some(id))
+                        || slot.is_some_and(|s| self.tree.flow(s) == Flow::Overlay);
+                    return root.then(|| (TId::from(top), (0.0, 0.0)));
+                }
+            }
+        }
+    }
+
+    /// Whether taffy index `i` lies at or below `root` in the layout tree.
+    fn within(&self, mut i: usize, root: usize) -> bool {
+        loop {
+            if i == root {
+                return true;
+            }
+            match self.layout_parent(i) {
+                Some(p) => i = p,
+                None => return false,
+            }
+        }
+    }
 }
 
 impl<Tree: LayoutTree + ?Sized> TraversePartialTree for LayoutPass<'_, Tree> {
@@ -286,6 +342,66 @@ fn rounded(unrounded: Layout, cum: (f32, f32)) -> Layout {
     layout
 }
 
+fn relative_length(raw: taffy::style::CompactLength) -> bool {
+    use taffy::style::CompactLength;
+    matches!(
+        raw.tag(),
+        CompactLength::PERCENT_TAG | CompactLength::CALC_TAG
+    )
+}
+
+/// Whether `s` resolves a length of its own box against its parent's size.
+fn uses_parent_size(s: &NodeStyle) -> bool {
+    let d = |v: taffy::Dimension| relative_length(v.into_raw());
+    let a = |v: taffy::LengthPercentageAuto| relative_length(v.into_raw());
+    let p = |v: taffy::LengthPercentage| relative_length(v.into_raw());
+    d(s.size.width)
+        || d(s.size.height)
+        || d(s.flex_basis)
+        || a(s.min_size.width)
+        || a(s.min_size.height)
+        || a(s.max_size.width)
+        || a(s.max_size.height)
+        || [
+            s.margin.left,
+            s.margin.right,
+            s.margin.top,
+            s.margin.bottom,
+            s.inset.left,
+            s.inset.right,
+            s.inset.top,
+            s.inset.bottom,
+        ]
+        .into_iter()
+        .any(a)
+        || [
+            s.padding.left,
+            s.padding.right,
+            s.padding.top,
+            s.padding.bottom,
+            s.border.left,
+            s.border.right,
+            s.border.top,
+            s.border.bottom,
+        ]
+        .into_iter()
+        .any(p)
+}
+
+/// `inputs` with the parent's size left out unless the box is `relative`: a box
+/// whose own lengths are absolute lays out the same at any parent size, and taffy
+/// keys its caches by the parent's size.
+fn keep_parent_size(relative: bool, inputs: LayoutInput) -> LayoutInput {
+    if relative {
+        inputs
+    } else {
+        LayoutInput {
+            parent_size: taffy::Size::NONE,
+            ..inputs
+        }
+    }
+}
+
 fn resolve_dimension(value: taffy::Dimension, basis: Option<f32>, calcs: &Calcs) -> Option<f32> {
     use taffy::style::CompactLength;
     match value.tag() {
@@ -295,63 +411,6 @@ fn resolve_dimension(value: taffy::Dimension, basis: Option<f32>, calcs: &Calcs)
             basis.map(|basis| calcs.resolve(value.into_raw().calc_value(), basis))
         }
         _ => None,
-    }
-}
-
-/// The calc value `handle` scaled by `scale`: a calc is linear in its
-/// basis, so it is read back as `percent% + px` and both parts are scaled.
-fn scaled_calc(
-    handle: *const (),
-    scale: f64,
-    calcs: &Calcs,
-    alloc: &mut CalcAlloc<'_>,
-) -> *const () {
-    let px = f64::from(calcs.resolve(handle, 0.0));
-    let percent = f64::from(calcs.resolve(handle, 100.0)) - px;
-    alloc.calc(percent * scale, px * scale)
-}
-
-fn scaled_dimension(
-    value: taffy::Dimension,
-    scale: f64,
-    calcs: &Calcs,
-    alloc: &mut CalcAlloc<'_>,
-) -> taffy::Dimension {
-    use taffy::style::CompactLength;
-    match value.tag() {
-        CompactLength::LENGTH_TAG => taffy::Dimension::length(value.value() * scale as f32),
-        CompactLength::PERCENT_TAG => taffy::Dimension::percent(value.value() * scale as f32),
-        CompactLength::CALC_TAG => taffy::Dimension::calc(scaled_calc(
-            value.into_raw().calc_value(),
-            scale,
-            calcs,
-            alloc,
-        )),
-        _ => value,
-    }
-}
-
-fn scaled_length(
-    value: taffy::LengthPercentageAuto,
-    scale: f64,
-    calcs: &Calcs,
-    alloc: &mut CalcAlloc<'_>,
-) -> taffy::LengthPercentageAuto {
-    use taffy::style::CompactLength;
-    match value.into_raw().tag() {
-        CompactLength::LENGTH_TAG => {
-            taffy::LengthPercentageAuto::length(value.into_raw().value() * scale as f32)
-        }
-        CompactLength::PERCENT_TAG => {
-            taffy::LengthPercentageAuto::percent(value.into_raw().value() * scale as f32)
-        }
-        CompactLength::CALC_TAG => taffy::LengthPercentageAuto::calc(scaled_calc(
-            value.into_raw().calc_value(),
-            scale,
-            calcs,
-            alloc,
-        )),
-        _ => value,
     }
 }
 
@@ -398,6 +457,7 @@ impl<Tree: LayoutTree + ?Sized> LayoutPartialTree for LayoutPass<'_, Tree> {
         if inputs.run_mode == RunMode::PerformHiddenLayout {
             return taffy::compute_hidden_layout(self, t);
         }
+        let inputs = keep_parent_size(self.relative[usize::from(t)], inputs);
         let output = taffy::compute_cached_layout(self, t, inputs, |pass, t, inputs| {
             let scale = pass.presence_scale[usize::from(t)];
             let mut natural_inputs = inputs;
@@ -673,6 +733,7 @@ impl NodeLayoutColumns {
         };
         let root = self.values.styles[index].position == taffy::Position::Absolute
             && style.position == taffy::Position::Absolute;
+        self.values.relative[index] = uses_parent_size(&style);
         self.values.styles[index] = style;
         state.mark_dirty();
         self.states[index].measured = Default::default();
@@ -828,6 +889,7 @@ impl NodeLayoutColumns {
         let NodeLayoutValues {
             styles,
             presence_scale,
+            relative,
             natural_size,
             caches,
             unrounded,
@@ -856,6 +918,7 @@ impl NodeLayoutColumns {
             styles,
             item_styles: &item_styles,
             presence_scale,
+            relative,
             natural_size,
             caches,
             unrounded,
@@ -906,45 +969,32 @@ impl NodeLayoutColumns {
             self.finish_rounding(tree, state, measure);
         }
     }
-    /// Round the live slots no pass has rounded since they were allocated or
-    /// reset. A cached ancestor can keep taffy from laying a new subtree out;
-    /// taffy's whole-tree rounding still rounded those slots from the
-    /// unrounded layout they hold, and skipping them leaves `final_layout`
-    /// unset. The walk runs only while such a slot exists.
+    /// Round the live slots that take part in layout and that no pass has
+    /// rounded since they were allocated or reset: each such subtree from its
+    /// nearest rounded ancestor, never the whole tree. A Contents slot never takes
+    /// part (its children are its flat parent's) and leaves the set; a detached
+    /// slot stays (attaching it lays it out under a new parent, whose pass rounds
+    /// it: its origin is NaN).
     fn finish_rounding<Tree: LayoutTree + ?Sized>(
         &mut self,
         tree: &Tree,
         state: &LayoutState,
         measure: &mut dyn LeafMeasurer,
     ) {
-        if !self.has_never_rounded(tree) {
+        let pending = self.pending_rounding(tree);
+        if pending.is_empty() {
             return;
         }
-        let mut roots: Vec<TId> = tree
-            .root()
-            .and_then(|id| tree.index_of(id))
-            .map(taffy_id)
-            .into_iter()
-            .collect();
-        roots.extend(
-            tree.overlays()
-                .iter()
-                .filter_map(|id| tree.index_of(*id))
-                .map(taffy_id),
-        );
-        let traversal = Traversal {
-            tree,
-            cursors: &self.cursors,
-            state,
-        };
-        if traversal.child_count(viewport()) != 0 {
-            roots.push(viewport());
-        }
-        for root in roots {
-            self.with_pass(tree, state, measure, |pass| {
-                pass.round_all(root, (0.0, 0.0))
-            });
-        }
+        self.with_pass(tree, state, measure, |pass| {
+            for index in pending {
+                if !pass.never_rounded.contains(&index) {
+                    continue;
+                }
+                if let Some((top, cum)) = pass.unrounded_top(index) {
+                    pass.round_all(top, cum);
+                }
+            }
+        });
     }
     /// Round the live slots no pass has rounded below the overlay `id`.
     pub(crate) fn finish_rounding_at<Tree: LayoutTree + ?Sized>(
@@ -954,22 +1004,37 @@ impl NodeLayoutColumns {
         id: NodeId,
         measure: &mut dyn LeafMeasurer,
     ) {
-        if !self.has_never_rounded(tree) {
+        let pending = self.pending_rounding(tree);
+        if pending.is_empty() {
             return;
         }
         let Some(slot) = tree.index_of(id) else {
             return;
         };
+        let root = usize::from(taffy_id(slot));
         self.with_pass(tree, state, measure, |pass| {
-            pass.round_all(taffy_id(slot), (0.0, 0.0));
+            for index in pending {
+                if !pass.never_rounded.contains(&index) || !pass.within(index, root) {
+                    continue;
+                }
+                if let Some((top, cum)) = pass.unrounded_top(index) {
+                    pass.round_all(top, cum);
+                }
+            }
         });
     }
-    /// Whether a live slot has never been rounded (vacant slots are dropped).
-    fn has_never_rounded<Tree: LayoutTree + ?Sized>(&mut self, tree: &Tree) -> bool {
-        self.values
-            .never_rounded
-            .retain(|&index| index > 0 && tree.id_at(index - 1).is_some());
-        !self.values.never_rounded.is_empty()
+    /// The never-rounded slots that take part in layout, in index order.
+    /// Vacant slots and Contents slots leave the set.
+    fn pending_rounding<Tree: LayoutTree + ?Sized>(&mut self, tree: &Tree) -> Vec<usize> {
+        self.values.never_rounded.retain(|&index| {
+            index > 0
+                && tree.id_at(index - 1).is_some()
+                && !tree
+                    .layout_props(index - 1)
+                    .0
+                    .is_some_and(|p| p.display == kivact_types::Display::Contents)
+        });
+        self.values.never_rounded.iter().copied().collect()
     }
     /// Compute one overlay root again with an optional limit from anchor placement.
     pub(crate) fn compute_overlay<Tree: LayoutTree + ?Sized>(
@@ -1059,59 +1124,4 @@ impl NodeLayoutColumns {
             pass.round_changed(root, (0.0, 0.0), stamp);
         });
     }
-}
-
-fn scale_item_styles<Tree: LayoutTree + ?Sized>(
-    tree: &Tree,
-    styles: &[NodeStyle],
-    presence_scale: &[Option<(Orientation, f64)>],
-    scaled: &BTreeSet<usize>,
-    calcs: &Calcs,
-    pass_calcs: &mut std::borrow::Cow<'_, Calcs>,
-) -> BTreeMap<usize, NodeStyle> {
-    let mut item_styles = BTreeMap::new();
-    for &index in scaled {
-        let Some((axis, scale)) = presence_scale[index] else {
-            continue;
-        };
-        if axis == Orientation::Unspecified {
-            continue;
-        }
-        let style = item_styles
-            .entry(index)
-            .or_insert_with(|| styles[index].clone());
-        let mut alloc = CalcAlloc {
-            calcs: pass_calcs.to_mut(),
-            owned: Vec::new(),
-        };
-        let (size, min, max) = match axis {
-            Orientation::Horizontal => (
-                &mut style.size.width,
-                &mut style.min_size.width,
-                &mut style.max_size.width,
-            ),
-            Orientation::Vertical => (
-                &mut style.size.height,
-                &mut style.min_size.height,
-                &mut style.max_size.height,
-            ),
-            Orientation::Unspecified => continue,
-        };
-        *size = scaled_dimension(*size, scale, calcs, &mut alloc);
-        *min = scaled_length(*min, scale, calcs, &mut alloc);
-        *max = scaled_length(*max, scale, calcs, &mut alloc);
-        if axis == Orientation::Horizontal {
-            style.min_width_floor *= scale as f32;
-        }
-        if let Some(parent) = index.checked_sub(1).and_then(|slot| tree.parent(slot)) {
-            let row = matches!(
-                styles[parent + 1].flex_direction,
-                taffy::FlexDirection::Row | taffy::FlexDirection::RowReverse
-            );
-            if row == (axis == Orientation::Horizontal) {
-                style.flex_basis = scaled_dimension(style.flex_basis, scale, calcs, &mut alloc);
-            }
-        }
-    }
-    item_styles
 }
