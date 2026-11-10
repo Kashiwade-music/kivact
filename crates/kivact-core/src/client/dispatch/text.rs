@@ -86,7 +86,7 @@ pub(super) fn focus_result(rt: &Runtime, request: RequestId, result: Result<(), 
 fn notify_geometry(rt: &Runtime, node: NodeId) {
     let observation = ViewState::tree(rt)
         .get(node)
-        .and_then(|node| node.observation);
+        .and_then(|node| node.observation());
     if let Some(observation) = observation {
         observation.editing_revision.notify();
     }

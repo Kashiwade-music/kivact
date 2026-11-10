@@ -110,7 +110,7 @@ pub(super) fn layout_changed(
         let Some(node) = tree.get(node) else {
             return stale(rt, "layout", node);
         };
-        node.observation
+        node.observation()
     };
     let layout_handler = handler(rt, node, |h| h.layout.clone());
     if observation.is_some() || layout_handler.is_some() {

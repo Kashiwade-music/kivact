@@ -47,7 +47,7 @@ fn deliver(rt: &Runtime, host_event: &HostEvent) {
         HostEvent::PresenceChanged { node, presence } => {
             let source = crate::view::state::ViewState::tree(rt)
                 .get(*node)
-                .and_then(|node| node.presence);
+                .and_then(|node| node.presence());
             if let Some(source) = source {
                 source.set(*presence);
             }
@@ -293,7 +293,7 @@ fn dispatch_export_host(rt: &Runtime, host_event: &HostEvent) -> bool {
 fn set_image_status(rt: &Runtime, node: kivact_types::NodeId, status: kivact_types::ImageStatus) {
     let observation = crate::view::state::ViewState::tree(rt)
         .get(node)
-        .and_then(|node| node.observation);
+        .and_then(|node| node.observation());
     if let Some(observation) = observation {
         observation.image_status.set(status);
     }
