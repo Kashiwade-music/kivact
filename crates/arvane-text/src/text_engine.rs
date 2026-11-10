@@ -145,8 +145,9 @@ impl TextEngine {
         self.layouts = LayoutContext::new();
     }
 
-    /// Measure a paragraph, caching successes and errors by text, style and width.
-    /// Drawing-only properties are excluded from the measurement key.
+    /// Measure a paragraph, caching successes and errors by text, style and width once the
+    /// paragraph was used before (a text measured once is not kept: its node keeps the answer,
+    /// `kivact_engine` `TextExtents`). Drawing-only properties are excluded from the measurement key.
     pub fn measure(
         &mut self,
         text: RichText<'_>,
@@ -157,8 +158,10 @@ impl TextEngine {
         if let Some(result) = self.cache.measured.get(&key) {
             return result;
         }
-        let result = self.measure_uncached(text, style, max_width);
-        self.cache.measured.insert(key.to_owned(), result.clone());
+        let (result, found) = self.measure_uncached(text, style, max_width);
+        if found == layouts::Found::Kept {
+            self.cache.measured.insert(key.to_owned(), result.clone());
+        }
         result
     }
 
@@ -167,21 +170,27 @@ impl TextEngine {
     /// A paragraph is shaped once per text and style (color and alignment
     /// aside): measuring or shaping it again at another width only breaks
     /// its lines again.
+    ///
+    /// Also returns whether the paragraph was kept (see [`layouts::Found`]); the
+    /// cheap early answers are not kept.
     fn measure_uncached(
         &mut self,
         text: RichText<'_>,
         style: &ComputedTextStyle,
         max_width: Option<f64>,
-    ) -> Result<TextMetrics, TextError> {
-        let height = line_height(style, max_width)?;
+    ) -> (Result<TextMetrics, TextError>, layouts::Found) {
+        let height = match line_height(style, max_width) {
+            Ok(height) => height,
+            Err(error) => return (Err(error), layouts::Found::Shaped),
+        };
         if text.text.is_empty() {
-            return Ok(TextMetrics::default());
+            return (Ok(TextMetrics::default()), layouts::Found::Shaped);
         }
         if !build::valid_spans(text.text, text.spans) {
-            return Err(TextError::InvalidSpans);
+            return (Err(TextError::InvalidSpans), layouts::Found::Shaped);
         }
         let ellipsis = self.ellipsis_for(text, style, max_width, height);
-        let layout = layout_at(
+        let (layout, found) = layout_at(
             &mut self.cache.paragraphs,
             &mut self.fonts,
             &mut self.layouts,
@@ -200,7 +209,7 @@ impl TextEngine {
                 .chars()
                 .any(|character| !character.is_whitespace())
         {
-            return Err(TextError::MissingFont);
+            return (Err(TextError::MissingFont), found);
         }
         let plan = output::plan(layout, style, max_width, ellipsis.as_ref());
         let mut metrics = TextMetrics {
@@ -211,7 +220,7 @@ impl TextEngine {
             metrics.size.height = bottom - top;
             metrics.baseline -= top;
         }
-        Ok(metrics)
+        (Ok(metrics), found)
     }
 
     /// Shapes, wraps, and aligns text in logical pixels using actual font glyphs.
@@ -267,7 +276,7 @@ impl TextEngine {
         if !style.ellipsizes() {
             return None;
         }
-        let layout = layout_at(
+        let (layout, _) = layout_at(
             &mut self.cache.paragraphs,
             &mut self.fonts,
             &mut self.layouts,
@@ -324,7 +333,7 @@ impl TextEngine {
             return Err(TextError::InvalidSpans);
         }
         let ellipsis = self.ellipsis_for(text, style, max_width, height);
-        let layout = layout_at(
+        let (layout, _) = layout_at(
             &mut self.cache.paragraphs,
             &mut self.fonts,
             &mut self.layouts,
@@ -452,9 +461,9 @@ fn layout_at<'a>(
     style: &ComputedTextStyle,
     max_width: Option<f64>,
     height: f64,
-) -> &'a mut parley::Layout<u32> {
+) -> (&'a mut parley::Layout<u32>, layouts::Found) {
     let key = layouts::Key::new(text.text, text.spans, style, height);
-    let layout = shaped.get_or_insert(key, || {
+    let (layout, found) = shaped.get_or_insert(key, || {
         let (converted, spans) = transform::apply(text.text, text.spans, style.transform);
         let spans = crlf_spans(&converted, spans);
         let converted = crlf_as_one_break(&converted);
@@ -466,7 +475,7 @@ fn layout_at<'a>(
     } else {
         max_width.map(|value| value as f32)
     });
-    layout
+    (layout, found)
 }
 
 /// Parley breaks a line at both CR and LF; a CR before LF becomes an
