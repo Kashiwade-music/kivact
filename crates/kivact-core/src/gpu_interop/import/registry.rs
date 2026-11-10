@@ -1,10 +1,11 @@
 //! Role: The App's record of its imports and the adapters of its windows.
 
-use crate::view::state::current_window;
+use crate::view::state::{ViewState, current_window};
+use kivact_engine::contract::HostRequest;
 use kivact_runtime::Signal;
 use kivact_runtime::{ErrorKind, UiError};
 use kivact_runtime::{Owner, Runtime};
-use kivact_types::{ExternalImageId, ExternalImport, GpuAdapter, WindowId};
+use kivact_types::{ExternalImageId, ExternalImport, GpuAdapter, RequestId, WindowId};
 use std::cell::RefCell;
 use std::collections::{BTreeMap, HashMap};
 use std::panic::Location;
@@ -139,6 +140,13 @@ pub enum ImportStatus {
 /// [`import`](super::import) its textures. A new [`GpuAdapter::generation`]
 /// means a new device: every import of the window before it is `Lost`.
 ///
+/// Reading it asks the window to start its GPU device when the device
+/// waits until it is needed (`GpuStart::OnDemand`, the default): it is
+/// `None` until the device is ready. The ask changes nothing the App
+/// reads and is answered by nothing but the adapter's change, so any
+/// code may read it, a memo, a draw closure or a text's closure included;
+/// a window on the CPU only, or whose device started or failed, ignores it.
+///
 /// Like `platform::window_size`, it resolves the nearest owner at the
 /// call (setup, handler, task or effect); a located `SetupOnly` misuse
 /// outside every owner.
@@ -146,10 +154,41 @@ pub enum ImportStatus {
 pub fn adapter() -> Option<GpuAdapter> {
     let owner = Owner::ambient("adapter", Location::caller());
     let window = current_window(owner);
+    let adapter = with_adapter(owner, window, |adapter| adapter.cloned());
+    if adapter.is_none() {
+        demand(&owner.runtime(), window);
+    }
+    adapter
+}
+
+/// Whether the window the call belongs to has an adapter ([`adapter`]),
+/// tracked, without asking for its device: a viewport draws a GPU frame
+/// only on the device it was imported into, which the App's own read of
+/// the adapter started.
+#[track_caller]
+pub(crate) fn has_adapter() -> bool {
+    let owner = Owner::ambient("Viewport::gpu_frame", Location::caller());
+    with_adapter(owner, current_window(owner), |adapter| adapter.is_some())
+}
+
+/// `f` of `window`'s adapter, tracked.
+fn with_adapter<R>(owner: Owner, window: WindowId, f: impl FnOnce(Option<&GpuAdapter>) -> R) -> R {
     let rt = owner.runtime();
     let signal = State::of(&rt).adapter;
     drop(rt);
-    signal.with(|adapters| adapters.get(&window).cloned())
+    signal.with(|adapters| f(adapters.get(&window)))
+}
+
+/// Ask `window`'s host to start its GPU device (`HostRequest::DemandGpu`).
+/// The window's presenter keeps whether it waits for one: only a waiting
+/// device starts, and the request of a closed window is dropped, so the
+/// App keeps no record of it.
+fn demand(rt: &Runtime, window: WindowId) {
+    let id = ViewState::of(rt).requests.borrow_mut().request_id();
+    ViewState::tree(rt)
+        .engine()
+        .effect(RequestId(id), HostRequest::DemandGpu { window });
+    rt.request_turn();
 }
 
 /// The window answered the import `image` (`HostEvent::ExternalImported`).

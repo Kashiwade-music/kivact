@@ -46,8 +46,9 @@ The repository pins its toolchain to Rust 1.98.1 (edition 2024) in
 `rust-toolchain.toml`; use that version or newer.
 
 By default Kivact draws frames on the CPU and starts the GPU device when the
-window needs it (a user shader, a GPU export or GPU texture sharing; CPU frames
-that keep missing half the display period start it too). Without a usable GPU it
+window needs it (a user shader drawn, or the App reading `gpu_interop::adapter()`
+to share GPU textures; CPU frames that keep missing half the display period start
+it too). Without a usable GPU it
 stays on the CPU. To force CPU rendering at run time, set the environment variable
 `ARVANE_RENDERER=cpu`; `ARVANE_RENDERER=gpu` starts the device with the window.
 

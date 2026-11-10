@@ -49,8 +49,9 @@ pub enum AdapterMatch {
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 pub enum GpuStart {
     /// Frames are drawn on the CPU until the window needs the GPU: a
-    /// composition with a user shader or a GPU export, or CPU frames that
-    /// keep missing half the display period (the default).
+    /// user shader drawn, the App reading the window's adapter to share
+    /// GPU textures, or CPU frames that keep missing half the display
+    /// period (the default).
     #[default]
     OnDemand,
     /// Start the device with the window (frames are drawn on the CPU until

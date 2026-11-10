@@ -66,7 +66,6 @@ pub fn drawable() -> Drawable {
     });
     let changed = owner.notifier(at);
     let app = owner.app();
-    let window = crate::view::state::current_window(owner);
     let state = Rc::new(DrawableState {
         owner,
         binding: Cell::new(DrawableBinding::Unbound),
@@ -87,7 +86,7 @@ pub fn drawable() -> Drawable {
     let sent = RefCell::new(kivact_types::cell::Sent::new());
     effect(move || {
         changed.track();
-        send_requests(app, id, window, &sending, &sent);
+        send_requests(app, id, &sending, &sent);
     });
     owner.on_cleanup(move || {
         registry::remove(id);
