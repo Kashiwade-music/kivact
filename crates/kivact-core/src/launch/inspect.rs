@@ -78,6 +78,7 @@ impl Inspect<'_> {
             batches: ts.batches,
             a11y_constructed: ts.a11y_constructed,
             a11y_published: ts.a11y_published,
+            a11y_enumerated: ts.a11y_enumerated,
             ops: ts.ops,
             last_batch_ops: ts.last_ops,
             creates: ts.creates,
