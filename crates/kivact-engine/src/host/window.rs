@@ -7,11 +7,19 @@ use kivact_types::WindowId;
 use kivact_types::WindowMode;
 use kivact_types::cell::Sent;
 
+/// How long an idle window keeps the CPU frame state of its last shown
+/// frame (a later frame redraws only what changed); after it the state is
+/// released and the next frame redraws everything.
+pub(super) const FRAME_STATE_KEEP_NS: u64 = 1_000_000_000;
+
 /// What became of the last frame presented.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum LastPresent {
-    /// Shown, dropped or lost: nothing is retried (a change or a surface loss
-    /// redraws).
+    /// Shown at `at_ns`: the window keeps its CPU frame state for the next
+    /// partial frame until `at_ns + FRAME_STATE_KEEP_NS`.
+    Shown { at_ns: u64 },
+    /// Nothing to keep or retry: dropped, lost, retried, or released after
+    /// idling (a change or a surface loss redraws).
     Settled,
     /// The window had no buffer (occluded, timed out): the frame is drawn again at
     /// `retry_at_ns`, or at once when the window regains the focus.
