@@ -3,7 +3,7 @@
 use crate::asset;
 use crate::error::{self, Failure};
 use kivact_types::ComputedTextStyle;
-use kivact_types::render::{InlineBox, RichText, ShapedInlineText};
+use kivact_types::render::{FontSource, InlineBox, RichText, ShapedInlineText};
 use kivact_types::{Size, TextMetrics};
 use std::cell::RefCell;
 use std::marker::PhantomData;
@@ -54,15 +54,13 @@ impl Engine {
         }
     }
 
-    /// Register application-owned font bytes and return the available family names.
+    /// Register a font file and return the available family names. The
+    /// font's bytes are shared with `font`, not copied.
     ///
     /// New fonts can change fallback, so cached shaping and measurement are
     /// discarded, and so are the answers of [`Engine::has_font_family`].
-    pub fn register_font(&mut self, bytes: Arc<[u8]>) -> Result<Vec<String>, Failure> {
-        self.text
-            .get_mut()
-            .register_font(bytes)
-            .map_err(error::text)
+    pub fn register_font(&mut self, font: FontSource) -> Result<Vec<String>, Failure> {
+        self.text.get_mut().register_font(font).map_err(error::text)
     }
 
     /// System and registered font names, sorted and unique, preserving case.

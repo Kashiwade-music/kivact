@@ -61,14 +61,7 @@ impl TextEngine {
             AlignmentOptions::default(),
         );
         let plan = output::plan(&layout, style, max_width, None);
-        let drawn = output::draw(
-            &layout,
-            style,
-            text.spans,
-            &plan,
-            None,
-            &mut self.font_bytes,
-        );
+        let drawn = output::draw(&layout, style, text.spans, &plan, None);
         if drawn.runs.is_empty()
             && text
                 .text
