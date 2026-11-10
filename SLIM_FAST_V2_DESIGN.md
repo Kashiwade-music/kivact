@@ -1,6 +1,6 @@
 # Kivact Slim-Fast V2 設計書
 
-版 2.1（2026-11-10、W1 の後の再監査を反映。0.4 節）。版 2.0：**2026-11-10 にユーザー（設計者）が承認済み**（DEC-01 は「`gpu` を既定に残す」、K6 は MS-5 の定義）。作業ブランチ `refactor/kashiwade/slim-fast`、基点 HEAD `73c36c7c`（= `db8d679b` W7-1 の判定 + 引継ぎ文書）。
+版 2.2（2026-11-10、W1 の後の再監査（V2.1、0.4 節）と、実装予定の AI のレビューの検証（V2.2、0.5 節）を反映）。版 2.0：**2026-11-10 にユーザー（設計者）が承認済み**（DEC-01 は「`gpu` を既定に残す」、K6 は MS-5 の定義）。作業ブランチ `refactor/kashiwade/slim-fast`、基点 HEAD `73c36c7c`（= `db8d679b` W7-1 の判定 + 引継ぎ文書）。
 
 手順は [SLIM_FAST_V2_WORK_ORDER.md](SLIM_FAST_V2_WORK_ORDER.md)（V2 作業指示書）に書く。本書は「何を、なぜ、どの形にするか」と、付属書どうしの調整と、設計者の判断の結果を持つ。各変更の型・関数・書き手・呼出元・試験の詳細は付属書 `slim-fast-v2/D1〜D8` にある。実装者は本書と付属書の決定を変えない。
 
@@ -13,7 +13,7 @@
 衝突したら上が優先する。
 
 1. 本書（V2 設計書）。特に 4 章（決定）と 5 章（付属書間の調整）は、付属書の記述を上書きする。
-2. **V2.1 修正付属書 `slim-fast-v2/D9〜D14`**（0.4 節）。W1 の後の再監査で、W2 以降の全 unit を HEAD `2a3b06b8` のコードに合わせて確定したもの。D1〜D8 と食い違えば D9〜D14 が正。
+2. **V2.2 修正付属書 `slim-fast-v2/D15-fix-review.md`**（0.5 節）と **V2.1 修正付属書 `slim-fast-v2/D9〜D14`**（0.4 節）。D15 が D9〜D14 より優先する。W1 の後の再監査で、W2 以降の全 unit を HEAD `2a3b06b8` のコードに合わせて確定したもの。D1〜D8 と食い違えば D9〜D14 が正。
 3. 付属書 `slim-fast-v2/D1〜D8`（下の表）。付属書の「8 章 設計者（人間）の判断が要る点」は、すべて本書 4 章で決めた。付属書の 8 章の「推奨」「選択肢」を実装者が読み直して選ぶことはしない。
 4. 旧設計書 [SLIM_FAST_DESIGN.md](SLIM_FAST_DESIGN.md)（版 1.1）。本書と付属書が触れない事項についてだけ有効（0.2 前提、1.1 計測の定義、1.4 必達、2.2 規則、5 章の公開 API、6.1〜6.3 の状態の規則、8 章の決定）。版 1.1 の節のうち本書が置き換えたものは 2.5 節の表にある。
 5. `docs/for-kivact-developer/architecture.md`、`decisions.md`、`strategy.md`。
@@ -57,6 +57,29 @@ W1 の実装で、設計判断を求める差戻しが 7 件出た（`dev/bench/
 | [D13-fix-state-L1-L3.md](slim-fast-v2/D13-fix-state-L1-L3.md) | W6 の L1〜L3 |
 | [D14-fix-state-L4-L6.md](slim-fast-v2/D14-fix-state-L4-L6.md) | W6 の L4〜L6、FINAL-2 |
 
+### 0.5 V2.2（実装予定の AI のレビューの検証）
+
+実装予定の AI が V2.1 を批判的にレビューした（`20261110_1828_CODEX_REVIEW.md`、指摘 R01〜R11 と 3.1〜3.4）。全ての指摘を、6 つの担当がコードと付属書で事実として確かめた（多くは試作と実 window の試験で再現した）。結論は付属書 [D15-fix-review.md](slim-fast-v2/D15-fix-review.md)。レビューの直し方をそのまま採らず、目的（性能・リファクタリング）と方針（統一的な公開 API、単純な内部、暗黙の状態の解消）に照らして直し方を決めた。
+
+| 指摘 | 判定 | V2.2 の扱い（レビューの案との違い） | unit |
+|---|---|---|---|
+| R01 3D の投影の子孫を祖先の ink で枝刈りする | 妥当（再現） | 新しい cache を作らず、既存の ink に「ink の外に描かれる box を含む」1 bit（`Drawn { rect, beyond }`）を足し、その subtree は枝刈りしない。drawable の免除も同じ bit に寄せ、hit ごとの `HashSet` を無くした（速くなる） | AH3・AH4 |
+| R02 drawable の内部で参照計算も枝刈りされる | 妥当（再現） | 参照経路の `HitWalk::Complete` を drawable の再帰まで渡す | AH3 |
+| （R01 の調査で発見）paint の culling も同じ ink を使い、画面外の箱から投影された子が描かれない | 妥当（再現） | 同じ bit で walk・index の culling を外す（その subtree だけ） | AH3・AH4 |
+| R03 DataTable の設定の排他・含意を marker の文言だけで閉じる | 妥当 | 公開の builder の書き方は変えず、内部を enum（`SortSetting`・`PageSetting`・`PagingPlan`）にする。`page_sizes` は enum の外。D14 の E-9 の取消しを取り消す | P8-UI5 |
+| R04 G3 の `asked` が window の close で消えない | 妥当 | レビューの「window ごとの状態にする」ではなく、**core に需要の状態を作らない**。window の寿命の需要は arvane の presenter の `Gpu::State::Deferred` が既に持ち、`Gpu::demand` は冪等 | G3・G4 |
+| R05 FINAL-2 の projection の検査器の誤検出・見逃し | 妥当（再現） | 範囲を Rust の可視性（`pub(super)` まで）で決め、範囲内の alias・`&mut`・未知の method・pattern 束縛は「未検証」として error。`transition` の名前だけの特例は削除。巨大な意味解析にはしない | FINAL-2 |
+| R06 開閉の命令の名前と意味が揃わない | 妥当 | 全数表と規約（`show`/`hide` は冪等、反転は `toggle`、`hide(reason)` は残す）。`SelectApi::open_sheet` の反転を冪等な `show_sheet` に。調査で `dismiss` の不統一と `ComboboxApi::toggle` の panic も見つけて直す | G9 |
+| R07 adapter の指定が `gpu` の build で黙って無視される | 妥当 | 文書で断るのではなく、`gpu` の build でも効くようにする（kv_startup +11,776 B、K6 の余裕の中） | G8 |
+| R08 callback の lint が `-> ()`・`F: Fn()` で回避できる | 妥当 | 判定を「`Fn` の入力が 0 個」に | G7 |
+| R09 KPI の B0 が二つ | 妥当 | CP1 で `B0-here2` を一度測り、以後の判定はすべてそれ | 作業指示書 7.2 |
+| R10 AC-3 の人間の確認の前に完了処理へ進める | 妥当 | W8 で AC-3 を「人間の確認待ち」にし、`AC3_REVIEW.md` に人間が書くまで 12.2・12.3 に進まない | 作業指示書 12.1 |
+| R11 Codex の実行プロファイルが無い | 妥当 | 実行環境ごとの subagent の起動の表（規則は共通） | 作業指示書 0.1 |
+| 3.1 macro の回帰試験が無い | 妥当 | 依存を足さずに、E2E 2 本と doctest の `compile_fail` 5 本 | G5 |
+| 3.2 S8 の `opt-level = "z"` が UI thread の経路を含む | 一部妥当 | AccessKit・naga・ICU・kivact-i18n・svgtypes は UI thread を通るので外す。画像・SVG の decode は worker thread なので `z` のまま（レビューの「保留」は採らない）。K6 は実測で目標内（kv_startup no-default は S7 を前提に余裕 11,962 B） | S8 |
+| 3.3 `adapter()` を memo・draw で読んで需要を出す是非 | 妥当（説明の誤り） | 需要は答えを返さず App の状態を書かない冪等な宣言なので、memo・draw の中で出してよいと契約を書く。viewport は需要を出さない `has_adapter()` を読む | G3 |
+| 3.4 破棄された content の状態を親が読む | 妥当（再現：`UiError(Disposed)` の panic、kivact-interaction の 21 箇所） | 新しい状態を作らず、content の Part の状態を同じ owner の終わりで空にする `attach_part_state` に置き換える | IN-3 |
+
 ### 0.3 変わらない前提（版 1.1 の 0.2 を引き継ぐ）
 
 - 互換は残さない（wrapper、alias、旧名、二重 mode、deprecated を作らない）。in-repo のすべての呼出し元（kit、catalog、例、試験、文書）を同じ変更で直す。
@@ -73,7 +96,7 @@ W1 の実装で、設計判断を求める差戻しが 7 件出た（`dev/bench/
 |---|---|---|
 | AC-1 正しさ | CP3 の gate は成功 | 付属書の「既存欠陥」（6 章）を直し、V2 の最後に同じ gate を通す |
 | AC-2 KPI | K2・K3/K4（3000 行）・K5 の大半・K6 が必達未達 | 2 章の原因を直す。見積りはすべての必達行を満たす（2.3 節） |
-| AC-3 状態 | `dev/xtask/state-audit.md` に OPEN 27 件。lint の gate と audit が食い違い、偽の marker が多数 | OPEN 27 件を閉じ（D5・D6）、偽の marker 70 行と誤った理由文 284 行を直し（D8）、lint の穴を塞ぐ（D5 X1〜X6） |
+| AC-3 状態 | `dev/xtask/state-audit.md` に OPEN 27 件。lint の gate と audit が食い違い、偽の marker が多数 | OPEN 27 件を閉じ（D5・D6）、偽の marker 70 行と誤った理由文 284 行を直し（D8）、lint の穴を塞ぐ（D5 X1〜X6）。V2 が新しく作る状態（6.1 節）も監査の対象にする。完了は「機械の検査（OPEN 0）」と「人間の確認（`AC3_REVIEW.md`）」の両方（作業指示書 12.1） |
 | AC-4 未実施 | U23（M-R5）と U56（GPU OnDemand の E2E）が STOP | U23 は D3 M2-7（と M2-12）で確定。U56 は D6 で試験 API と E2E を確定し、GPU OnDemand の欠陥 D1〜D7 を直す |
 
 AC の定義（版 1.1 の 1.6 節）は変えない。完了の判定は V2 作業指示書の W8。
@@ -84,7 +107,7 @@ AC の定義（版 1.1 の 1.6 節）は変えない。完了の判定は V2 作
 
 ### 2.1 目標
 
-必達の倍率は版 1.1 の 1.4 節のまま変えない。B0 と B1 は**同じ機械**で取る。V2 を実装する機械で、基点 `79bbd409749e49dfdc581c7c6497eac1ac52ca92` の B0 を取り直す（`B0-here`、作業指示書 W0）。元の機械の B0（`dev/bench/results/B0.md`）と B1（`B1.md`）は未達の証拠として残し、判定には使わない。
+必達の倍率は版 1.1 の 1.4 節のまま変えない。B0 と B1 は**同じ機械**で取る。V2 を実装する機械で、基点 `79bbd409749e49dfdc581c7c6497eac1ac52ca92` の B0 を取り直す。**判定に使う B0 は CP1 で測る `B0-here2` だけ**（作業指示書 7.2。W0 の `B0-here` は V1 の値の流用で、参考）。元の機械の B0（`dev/bench/results/B0.md`）と B1（`B1.md`）は未達の証拠として残し、判定には使わない。
 
 ### 2.2 計測の定義の変更
 
@@ -114,14 +137,14 @@ B1 は元の機械の値。V2 の見積りは付属書のこの機械の試作�
 | K5 | wheel n3000 | ≤ 16.29 ms | 22.02 | 約 0.9 | D2 4.2 |
 | K5 | mount n3000 | ≤ 813.8 ms | 1,507.4 | 約 780〜800 | D3 4.3（試作で 830〜837 を実測、残りは見積り） |
 | K5 | counter click | ≤ 1.907 ms | 1.954 | 約 0.93 | D1 4.1 |
-| K6 | counter 画面の GPU 抜き（MS-5 (1)） | ≤ 14,467,313 B | —（同じ構成の HEAD は 14,406,656 を実測） | 約 14,120,000 | D4 4.1（D7・D6） |
-| K6 | counter default（`gpu` 込み、MS-5 (2)） | ≤ B1-start（元の機械 18,978,816） | 18,978,816 | 約 18,170,000 | D7 の実測（GPU 込みで −0.76 MB）と D6 |
-| K6 | `kv_startup` no-default | ≤ 11,177,658 B | 15,922,688 | 11,062,784（実測） | D4 4.1（MS-1・D7） |
-| K6 | basic catalog の GPU 抜き（MS-5 (1)） | ≤ 31,912,659 B | — | 約 28.2〜28.8 MB | D4 4.1（D7・D6・D8 の font の subset） |
+| K6 | counter 画面の GPU 抜き（MS-5 (1)） | ≤ 14,467,313 B | —（同じ構成の HEAD は 14,406,656 を実測） | 14,220,288（V2.2 の S8 の一覧＋S7 で実測） | D15 Q6 |
+| K6 | counter default（`gpu` 込み、MS-5 (2)） | ≤ B1-start（元の機械 18,978,816） | 18,978,816 | 18,800,640（同上で実測） | D15 Q6 |
+| K6 | `kv_startup` no-default | ≤ 11,177,658 B | 15,922,688 | 11,165,696（同上で実測。余裕 11,962 B。S7 が前提） | D15 Q6 |
+| K6 | basic catalog の GPU 抜き（MS-5 (1)） | ≤ 31,912,659 B | — | 約 28,497,000（同上の実測 37,217,792 から S9 の font の subset −8,720,328） | D15 Q6、D11 S9 |
 | K6 | basic catalog default（`gpu` 込み、MS-5 (2)） | ≤ B1-start（元の機械 43,090,432） | 43,090,432 | 約 32.8〜33.4 MB | D4 4.1 に GPU 一式 4.57 MB を足したもの |
 | K1・K3 idle・K4 0 行・K4 初回 raster | 達成済みの行 | — | — | 悪化させない | 各付属書の 4 章 |
 
-余裕が小さい行：mount（2〜4 %）、K6 の counter 画面の GPU 抜き（約 0.35 MB）と `kv_startup`（約 0.17 MB）。K6 の catalog の GPU 抜きは D8（font の subset、`fonttools` が必要）が無いと約 37 MB で未達。CP1 で測り、未達なら作業指示書 7.3 節（CP2 では 11.3 節）の手順に従う。
+余裕が小さい行：mount（2〜4 %）と K6 の `kv_startup` no-default（約 12 KB。S8 で AccessKit 等を `z` から外した後の実測。CP1 で未達なら外した crate を `z` に戻して補わない：D15 Q6）。K6 の catalog の GPU 抜きは D8（font の subset、`fonttools` が必要）が無いと約 37 MB で未達。CP1 で測り、未達なら作業指示書 7.3 節（CP2 では 11.3 節）の手順に従う。
 
 ### 2.4 版 1.1 の誤りの訂正
 
@@ -197,6 +220,10 @@ V2 は crate を追加・統合しない。調べた境界の候補と判断：
 | DEC-27 | V2.1 | D7 が足す kivact-types・kivact-layout の単体試験 | 足さない（0.3 節の前提。E2E で確かめる） |
 | DEC-28 | V2.1 | 公開の recipe state の命名 | 排他な事実は pub の enum の field（名前は型名から owner の接頭辞を除いたもの。部分を表す enum の名前は `State` で終わらせない）、常にある事実は pub の field、一部の種類にだけある事実と導出する事実は accessor。bool の accessor は `is_`／`has_` で始める（D14 冒頭）。例：`CardActionState` → `CardAction`、`icon_only()` → `is_icon_only()` |
 | DEC-29 | V2.1 | D5 の E-7（creative の clock の Machine 化）、E-8（date_input の feed）、E-9（DataTable builder の page）、E-11（creative TargetState） | 行わない（E-7 は clock と machine の相互参照の循環になる。E-8・E-9 は D14 の各節の理由。E-11 は推測で、どの unit にも無い） |
+| DEC-31 | V2.2 | 3D の投影・drawable を含む subtree の hit と culling | ink の 1 bit（`beyond`）で枝刈り・culling を外す（D15 Q1）。PERF-5 の「ink は描画の上界」を「`beyond` でない subtree の上界」と読み替える |
+| DEC-32 | V2.2 | GPU の需要の記録の持ち主 | core は記録しない。arvane の presenter（window の寿命）が持つ。需要の宣言は memo・draw の中でもよい（D15 Q3） |
+| DEC-33 | V2.2 | 開閉の命令の規約 | `show`/`hide` は冪等、反転は `toggle`、閉じる理由を渡すものは `hide(reason)`。状態の名前（`is_open` 等）は open のまま（D15 Q5 SH-1〜5） |
+| DEC-34 | V2.2 | projection の唯一の書き手の検査 | 可視性で範囲を限り、範囲内で検証できない書込みは error（D15 Q4）。検査器が成功しても、AC-3 は人間の確認を要する（DEC-16） |
 | DEC-30 | V2.1 | G9 の改名の範囲 | D12 G9 の改名表（HEAD の実際の署名で書き直したもの）。ARG-2/3/6 の漏れ（`use_tabs`・`use_select`・`use_menu`・`use_tree` 等の引数名、`ComboboxApi::open_sheet` → `show_sheet`、`LightboxHandle`・`AppShellMobile` の `close` → `hide`）を含む |
 
 ---
@@ -298,6 +325,25 @@ D5・D8 は HEAD のコードに対して書かれている。状態の unit（W
 
 ---
 
+### 6.1 V2 が新しく作る状態（AC-3 の監査の対象。作業指示書 12.1 の `AC3_REVIEW.md` に載せる）
+
+lint が数える field かどうかに関係なく、V2 の性能の変更が足す索引・cache・需要・寿命の状態は、持ち主・書き手・破棄を監査する（R04・R10 の教訓）。
+
+| 状態 | 持ち主 | 書き手（単一の入口） | 破棄 | unit |
+|---|---|---|---|---|
+| frame 源と layout motion の索引（`MotionSources`） | engine の Model | prop の書き手（`index_sources`）と削除（`forget_sources`） | node の削除・window の close | F1 |
+| flat 子の slot の cache | engine の `NodeTree` | `flat_at`（cache の再構築）、`forget_flat_around`・`remove_with` | node の削除・子の変化 | F3 |
+| ChildIndex の部分更新の印 | engine の paint の state | layout pass の geometry の変化 | container の再構築 | F4 |
+| damage の判定の `Reach` | arvane-compose の cache | `plan/damage.rs` の `indexed` | frame の cache の再構築 | F5-fix |
+| a11y の dirt（`A11yPublish::Published` の中） | engine の a11y の state | `A11yState` の method | AT の停止（`deactivate`）で dirt と cache を捨てる | AH1 |
+| ink の `beyond` の bit | engine の paint の ink の cache | ink の計算 | ink の cache の世代 | AH3 |
+| `LastPresent::Shown { at_ns }` と CPU の frame state の解放 | engine の host の window | `redraw`（Shown）、`wake`（解放） | window の close | S2・S3 |
+| `Recent<T>`（直近値の共有） | engine の Model と layout | prop の書込み | Model と一緒 | M3 |
+| `RefObservation` | core の NodeRef | `require_observation` | owner の破棄 | M8 |
+| `CheckFold`（semantics の plan） | core の mount | `fold`（mount 時） | plan の破棄 | M7-fix |
+| font の bytes の共有（`FontSource`） | glyph run・登録 font・SVG の DB | 登録・shaping | 最後の参照 | S45 |
+| content の Part の状態の slot | interaction の各 Api | `attach_part_state` | content の owner の終わり | IN-3 |
+
 ## 7. 範囲外（V2 の後続に記録するもの）
 
 V2 の完了後、W8 で `dev/bench/results/OPEN.md` の「後続」節に書く。V2 では行わない。
@@ -311,6 +357,8 @@ V2 の完了後、W8 で `dev/bench/results/OPEN.md` の「後続」節に書く
 | SVG の描画を Arvane の painter へ（約 −1.2 MB） | 大工事で、既存 SVG E2E の期待値を変えるおそれ | D4 D7 補足 |
 | `TimestampEntry.copyable` の copy 操作の実装 | kit の機能追加 | DEC-22 |
 | scissor の矩形の判定を行ごとに前計算（CPU 合成の高速化） | 任意 | D6 C-17 |
+| core の adapter の表が閉じた window の要素を消さない（V2 の前からある小さな残り） | V2 が増やす状態ではない。window の close の後始末の全体の見直しと一緒に行う | D15 Q3 |
+| `#[component]` の診断の文言の検査（compile-fail の error の文） | 依存を足さないと文言を固定できない | D15 Q5 3.1 |
 
 ---
 

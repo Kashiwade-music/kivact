@@ -1,6 +1,6 @@
 # Kivact Slim-Fast V2 作業指示書
 
-版 2.1（2026-11-10、W1 の後の再監査を反映。V2 設計書 0.4 節）。版 2.0：設計は [SLIM_FAST_V2_DESIGN.md](SLIM_FAST_V2_DESIGN.md)（以下「V2 設計書」）と付属書 `slim-fast-v2/D1〜D8`（以下「付属書」）。本書は手順だけを書く。設計の判断は V2 設計書と付属書が持つ。旧作業指示書 `SLIM_FAST_WORK_ORDER.md` は使わない。
+版 2.2（2026-11-10、W1 の後の再監査（V2.1）と、実装予定の AI のレビュー `20261110_1828_CODEX_REVIEW.md` の妥当な指摘（V2.2）を反映。V2 設計書 0.4・0.5 節）。版 2.0：設計は [SLIM_FAST_V2_DESIGN.md](SLIM_FAST_V2_DESIGN.md)（以下「V2 設計書」）と付属書 `slim-fast-v2/D1〜D8`（以下「付属書」）。本書は手順だけを書く。設計の判断は V2 設計書と付属書が持つ。旧作業指示書 `SLIM_FAST_WORK_ORDER.md` は使わない。
 
 目標：V2 設計書 1 章の AC-1〜AC-4 をすべて満たす。
 
@@ -13,9 +13,17 @@
 | 役割 | 担当 | すること |
 |---|---|---|
 | Orchestrator | 本書を受け取った AI（親） | wave を順に進める。lane ごとに worktree を作り、unit ごとに subagent を起動する。結果を merge する。checkpoint（CP）の gate と計測を実行する。subagent の `STOP:` に 0.5 節の表で答える。**設計の判断をしない** |
-| Implementer | subagent（**同時に最大 6 体**。モデルは **Haiku 5.5、effort high**） | 割り当てられた unit を、指定の worktree の中で、付属書の手順どおりに実装する。完了条件のコマンドを実行し、結果を報告する |
+| Implementer | subagent（**同時に最大 6 体**） | 割り当てられた unit を、指定の worktree の中で、付属書の手順どおりに実装する。完了条件のコマンドを実行し、結果を報告する |
 
-- Orchestrator は Agent tool を `subagent_type: "general-purpose"`、`model: "haiku"`、`effort: "high"` で呼ぶ。同時に動かすのは最大 6 体（lane A〜F に 1 体ずつ）。subagent に、さらに subagent を作らせない（雛形の文に書いてある）。
+**実行プロファイル**（unit・lane・wave・STOP の規則は実行環境によらず同じ。変わるのは subagent を起動する道具だけ）：
+
+| 実行環境 | subagent の起動 | モデル |
+|---|---|---|
+| Claude Code | Agent tool を `subagent_type: "general-purpose"`、`model: "haiku"`、`effort: "high"` で呼ぶ | Haiku 5.5、effort high |
+| Codex | その環境の委譲の入口（例：`collaboration.spawn_agent`）に、1.2 節の雛形の文をそのまま渡す。モデルを選べる場合はユーザーが指定したもの（指定が無ければその環境の既定） | ユーザーの指定 |
+| その他 | その環境の subagent の起動の道具に、1.2 節の雛形の文をそのまま渡す | ユーザーの指定 |
+
+- どの環境でも：同時に動かすのは最大 6 体（lane A〜F に 1 体ずつ）。subagent に、さらに subagent を作らせない（雛形の文に書いてある）。雛形の「モデルは Haiku です」の 1 文は、使うモデルの名前に読み替えてよい（それ以外の文は変えない）。
 - Implementer は push・merge・PR 作成をしない。main に触れない。
 - Orchestrator は push を wave の merge の後と checkpoint の後にだけ行う（`git push origin refactor/kashiwade/slim-fast`。force push 禁止）。PR は作らない。main に merge しない（人間が PR で行う）。
 
@@ -38,7 +46,7 @@
 
 本書の各 unit の行は次を持つ。
 
-- **修正付属書の節**（W2 以降、V2.1）：`slim-fast-v2/D9〜D14` のその unit の節（`## <unit ID>`）。unit の手順・コード・所有ファイル・確認の本体はまずここにある。修正付属書が「元の付属書のとおり」とした部分だけ、括弧内の元の付属書（D1〜D8）の節を読む。
+- **修正付属書の節**（W2 以降、V2.1・V2.2）：`slim-fast-v2/D9〜D14` のその unit の節（`## <unit ID>`）と、行の「本書の追加の指示」が名指す `D15-fix-review.md` の節（`## Q<n>：…`。D15 が D9〜D14 より優先）。unit の手順・コード・所有ファイル・確認の本体はまずここにある。修正付属書が「元の付属書のとおり」とした部分だけ、括弧内の元の付属書（D1〜D8）の節を読む。
 - **付属書と節／付属書の unit**（W1 の表）：読む付属書のファイルと節、付属書の「6 章 unit 分割案」の行の名前。
 - **本書の追加の指示**：付属書・修正付属書に加えて守る指示（V2 設計書 4・5 章の結果）。食い違ったら、本書 → 修正付属書 → 元の付属書 の順に優先する。
 - 修正付属書が「期待値を変える」と一字一句書いた試験だけは、その期待値に変えてよい（0.2 の 4 の例外。例：DEC-26 の diagnostics の試験）。
@@ -117,7 +125,7 @@ Orchestrator は各 unit に次の文をそのまま渡し、`<..>` だけを埋
 すべての cargo のコマンドに次の環境変数を付けてください：CARGO_TARGET_DIR=<target の絶対 path> CARGO_PROFILE_DEV_DEBUG=0 CARGO_PROFILE_TEST_DEBUG=0
 最初に次を読んでください：
   1. <worktree>/SLIM_FAST_V2_WORK_ORDER.md の 0 章（規則）と、表の「<unit ID>」の行
-  2. その行が指す修正付属書 <worktree>/slim-fast-v2/<D9〜D14 のファイル>.md の「## <unit ID>」の節（W2 以降。W1 の unit は無し）
+  2. その行が指す修正付属書：D15（<worktree>/slim-fast-v2/D15-fix-review.md）の、行が名指す「## Q<n>：…」の節（あれば。D15 が最優先）と、<worktree>/slim-fast-v2/<D9〜D14 のファイル>.md の「## <unit ID>」の節（W2 以降。W1 の unit は無し）
   3. 修正付属書が参照する元の付属書 <worktree>/slim-fast-v2/<D1〜D8 のファイル>.md の <節>（unit の行「<付属書の unit>」を含む 6 章も）
   4. <worktree>/SLIM_FAST_V2_DESIGN.md の 4 章（決定）と 5 章（付属書間の調整）のうち、この unit に関係する行
 修正付属書の手順（無ければ付属書の手順）を順に実行してください。行番号はずれています。関数名・型名・field 名で場所を探してください。
@@ -243,9 +251,9 @@ W1 の後に compile が失敗してよい crate：なし。
 | lane | unit の順 | 修正付属書の節（元の付属書） | 本書の追加の指示 |
 |---|---|---|---|
 | A | AH1 | D9「AH1」（D2 3.1〜3.5、3.8） | 所有ファイルに `crates/kivact-engine/src/a11y.rs`（doc）と `model/interact/geometry.rs` の `set_scroll` の 1 行を足す（D9）。`build_identity_metadata` の doc comment に PERF-1 の例外の理由を 2 文で書く（DEC-06）。F1 が足した索引の書き手を消さない |
-| B | F5-fix → F4-fix → F7 | F5-fix：D9「F5-fix」。F4-fix：本書の下。F7：D9「F7」（D1 5.2） | **F4-fix**（DEC-25）：`crates/kivact-engine/src/paint/state.rs` の `struct Indexed` から field `size` と `content` を削除し、`crates/kivact-engine/src/paint/list/index.rs` の `Indexed::new` の `size: layout.size,` と `content: layout.content_size,` の 2 行を削除する。所有ファイルはこの 2 つだけ。確認：`cargo clippy -p kivact-engine --all-targets -- -D warnings`（feature なし）と `cargo clippy -p kivact-engine --all-targets --all-features -- -D warnings` |
-| C | S45 → T4 → S8 → S9 | S45：D11「S45」（D4 3 章「D3」）。T4：D11 の T4 の順序と D7 3.3。S8：D11「S8」。S9：D11「S9」 | **S45** は `git cherry-pick 3c284b0b`（W1 の S4）から始め、D11 のとおり S5 の 4 ファイル・試験 2 本・doc を足して一つの commit にする（`S45: FontSource shares font bytes (S4+S5)`）。W0 の手順 5 の `fonttools` が無ければ S9 を行わない |
-| D | M7-fix → M6 → M8 → T1 → G3 | D10「M7-fix」「M6」「M8」「T1」、D11「G3」 | M6 は D10 の設計（遅延の draw effect）で行い、D3 3.6 の InStyle の経路は使わない（DEC-11 の取消し）。M8 の手順 6 は行わない（D7 M3-5 が T6 で置き換える）。T1 は E2E `diagnostics::why_follows_the_prop_to_the_write_through_a_memo` の期待値を D10 の文に変える（DEC-26） |
+| B | F5-fix → F4-fix → F7 | F5-fix：D9「F5-fix」。F4-fix：本書の下。F7：D9「F7」（D1 5.2） | **F4-fix**（DEC-25）：`crates/kivact-engine/src/paint/state.rs` の `struct Indexed` から field `size` と `content` を削除し、`crates/kivact-engine/src/paint/list/index.rs` の `Indexed::new` の `size: layout.size,` と `content: layout.content_size,` の 2 行を削除する。`crates/kivact-engine/src/paint/list/self_check.rs` の `same_index` の tuple の比較から `before.size,`・`before.content,`・`after.size,`・`after.content,` の 4 行を削除する（この 2 つの field は debug の self_check の比較にだけ使われ、製品の経路は読まない。V2.2 の確認）。所有ファイルはこの 3 つだけ。確認には `cargo check -p kivact-engine --all-targets --features testing` も加える。確認：`cargo clippy -p kivact-engine --all-targets -- -D warnings`（feature なし）と `cargo clippy -p kivact-engine --all-targets --all-features -- -D warnings` |
+| C | S45 → T4 → S8 → S9 | S45：D11「S45」（D4 3 章「D3」）。T4：D11 の T4 の順序と D7 3.3。S8：D11「S8」。S9：D11「S9」 | **S45** は `git cherry-pick --no-commit 3c284b0b`（W1 の S4 の変更を commit せずに取り込む。D11 の「`git cherry-pick 3c284b0b`」はこれに読み替える。S4 だけの commit は engine の compile を壊すため作らない）から始め、D11 のとおり S5 の 4 ファイル・試験 2 本・doc を足して一つの commit にする（`S45: FontSource shares font bytes (S4+S5)`）。W0 の手順 5 の `fonttools` が無ければ S9 を行わない **V2.2**：S8 の profile 節の一覧は D15「Q6：3.2」の確定の 20 節（AccessKit・naga・ICU・kivact-i18n・svgtypes を `z` にしない）に置き換える（D11「S8」・D4「D7」の一覧は使わない）。 |
+| D | M7-fix → M6 → M8 → T1 → G3 | D10「M7-fix」「M6」「M8」「T1」、D11「G3」 | M6 は D10 の設計（遅延の draw effect）で行い、D3 3.6 の InStyle の経路は使わない（DEC-11 の取消し）。M8 の手順 6 は行わない（D7 M3-5 が T6 で置き換える）。T1 は E2E `diagnostics::why_follows_the_prop_to_the_write_through_a_memo` の期待値を D10 の文に変える（DEC-26） **V2.2**：G3 は D15「Q3：R04」「Q3：3.3」の手順で D11「G3」の registry と viewport の手順を置き換える（core は需要を記録しない。`asked` を作らない。viewport は `has_adapter()`）。所有に D15 Q3 の表のファイル（`docs/for-kivact-developer/architecture.md` の 1 段落、`adapter()` の doc）を足す。 |
 | E | T8-fix → S7 | D10「T8-fix」、D11「S7」 | — |
 | F | M9 | D10「M9」（D3 3.10、3.11 の core の部分） | — |
 
@@ -256,9 +264,9 @@ W1 の後に compile が失敗してよい crate：なし。
 | lane | unit の順 | 修正付属書の節（元の付属書） | 本書の追加の指示 |
 |---|---|---|---|
 | A | M3 → T3 | D10「M3」（D3 3.4・3.5、D7 3.0・3.8 を統合）、D10「T3」（D7 3.2） | **M3 は T2・T9 を含む**（D10）。`Recent<T>` は最初から `kivact_types::cell` に置く。`kivact-engine` の外で compile error が出たら直さずに STOP。AH1 が書いた `host/write/typed.rs` の `mut = ..PAYLOAD_ONLY..` と `model/aggregate.rs` の `repaint`・`a11y_scrolled` を戻さない（D9「全体」の申し送り 2）。D3 の U-M4（M2-5b）は行わない |
-| B | AH3 → T7 → AH2 | D9「AH3」「T7」「AH2」 | AH3 の所有に `crates/kivact-engine/src/paint/list/ink.rs`（cache の判定の条件 1 つ）を足す。`HitInk` を model に定義し paint が実装する（DEC-04）。AH2 は `Stats::a11y_enumerated` を公開する（DEC-05） |
+| B | AH3 → T7 → AH2 | D9「AH3」「T7」「AH2」 | AH3 の所有に `crates/kivact-engine/src/paint/list/ink.rs`（cache の判定の条件 1 つ）を足す。`HitInk` を model に定義し paint が実装する（DEC-04）。AH2 は `Stats::a11y_enumerated` を公開する（DEC-05） **V2.2**：AH3 は D15「Q1：R01」「Q1：R02」「Q1：追加：culling」の手順を行う（D9「AH3」の手順 3・5・6 を置き換え、8・9 を足す。ink の `Drawn { rect, beyond }`、hit の `HitReach`、参照経路の `HitWalk`、walk・index の culling）。所有に `paint/state.rs`・`paint/list/self_check.rs`・`model/drawables/hit.rs`・`paint/list/walk.rs`・`paint/list/index.rs` を足す。 |
 | D | T6 → S6 | D10「T6」（D7 3.5）、D11「S6」 | T6 は `CoreNode.at`・`handlers` の直前にある HEAD の marker 行をそのまま残す（D7 のコード片は省略している。D14「W6 の後に残る error と直し」の X3 の表）。S6 は D4「D5」だけ（DEC-01）で、所有に `docs/for-kivact-user/{en,jp}/README.md` の bench の 1 文を足す（D11） |
-| F | G4 → S3 | D11「G4」（D6 3.6）、D9「S3」 | G4 の所有に `dev/tests/kivact-public-api/tests/e2e/gpu_on_demand_shared.rs`（新）を足す（D11）。S3 は `control` の `next` に `release_at` の要素を足す（後の EN-2 が残す） |
+| F | G4 → S3 | D11「G4」（D6 3.6）、D9「S3」 | G4 の所有に `dev/tests/kivact-public-api/tests/e2e/gpu_on_demand_shared.rs`（新）を足す（D11）。S3 は `control` の `next` に `release_at` の要素を足す（後の EN-2 が残す） **V2.2**：G4 は D15「Q3：R04」の E2E 2 本（新しいファイル `gpu_on_demand_windows.rs`、`main.rs` に `mod` 1 行）も足す。 |
 
 ---
 
@@ -266,7 +274,7 @@ W1 の後に compile が失敗してよい crate：なし。
 
 | lane | unit の順 | 修正付属書の節（元の付属書） | 本書の追加の指示 |
 |---|---|---|---|
-| A | AH4 | D9「AH4」（D2 5.3） | `a11y_enumerated` が増える、または self_check の不一致が出たら STOP（修正を試みない） |
+| A | AH4 | D9「AH4」（D2 5.3） | `a11y_enumerated` が増える、または self_check の不一致が出たら STOP（修正を試みない） **V2.2**：D15「Q1：R01」「Q1：R02」「Q1：追加：culling」の E2E 3 本（`hit_reaches_projected_boxes_outside_their_parents`、`hit_reaches_a_projected_box_inside_a_drawable`、`a_projection_into_the_window_is_drawn_from_a_box_outside_it`）と import の変更も足す。 |
 | C | T5 | D10「T5」（D7 3.4・3.9・3.10） | D3 の U-M5（M2-13）は行わない。kivact-layout に単体試験を足さない（DEC-27） |
 
 ## 7. CP1（Orchestrator）
@@ -289,11 +297,13 @@ KIVACT_TEST_MIRROR=off dev/tools/window-lock.sh --timeout 5400 -- cargo test -p 
 
 ### 7.2 KPI
 
+**B0 の測り直し（V2.2、R09）**：W0 は B0 を測り直さず V1 の `B0.md` を `B0-here.md` として使った。CP1 の KPI の前に、同じ機械・同じ条件で B0 を一度だけ測り直す：W0 の手順 3 のとおり `../kv-b0`（commit `79bbd409749e49dfdc581c7c6497eac1ac52ca92`）の worktree を作り、`CARGO_TARGET_DIR=<空きの多いドライブ>/kv-target/b0 dev/tools/window-lock.sh --timeout 3600 -- dev/bench/run.sh B0-here2` を実行して `dev/bench/results/B0-here2.md` を commit する。**以後、CP1・CP2・W8 の判定の B0 はすべて `B0-here2`**。`B0-here` は参考で、判定に使わない。RESULT には、使った B0 のファイル名・commit・機械・測定の日時を書く。
+
 ```bash
 CARGO_TARGET_DIR=<空きの多いドライブ>/kv-target/kpi dev/tools/window-lock.sh --timeout 3600 -- dev/bench/run.sh B1-cp1
 ```
 
-`dev/bench/results/B0-here.md` に対する倍率を、V2 設計書 2.3 節の各行について `dev/bench/results/CP1-V2.md` に表で書く（KPI、指標、B0-here、B1-cp1、倍率、必達、判定）。K3 のアイドルは B1-cp1 の値そのもの。commit して push する。
+`dev/bench/results/B0-here2.md` に対する倍率を、V2 設計書 2.3 節の各行について `dev/bench/results/CP1-V2.md` に表で書く（KPI、指標、B0-here、B1-cp1、倍率、必達、判定）。K3 のアイドルは B1-cp1 の値そのもの。commit して push する。
 
 ### 7.3 未達の行がある場合
 
@@ -310,9 +320,9 @@ CARGO_TARGET_DIR=<空きの多いドライブ>/kv-target/kpi dev/tools/window-lo
 
 | lane | unit の順 | 修正付属書の節（元の付属書） | 本書の追加の指示 |
 |---|---|---|---|
-| A | G5 | D12「G5」（D6 9 章 C-1〜C-4。C-6 は G6 から G5 に移した） | — |
-| B | G7 | D12「G7」（D6 9 章 C-12） | — |
-| C | G6 → G8 | D12「G6」（C-6〜C-11・C-15）、D12「G8」（C-5、DEC-17） | G6 の所有ファイルと C-15 の波及の範囲は D12 の表が正（本書の旧版の G6 の行は使わない）。G8 は facade に `crates/kivact/src/launch.rs` を新しく作る（DEC-17） |
+| A | G5 | D12「G5」（D6 9 章 C-1〜C-4。C-6 は G6 から G5 に移した） | **V2.2**：D15「Q5：3.1」の回帰試験（`component_macro.rs` の E2E 2 本、`dev/tests/kivact-public-api/src/lib.rs` の doctest `compile_fail` 5 本）も足す。所有に `dev/tests/kivact-public-api/src/lib.rs` を足す。 |
+| B | G7 | D12「G7」（D6 9 章 C-12） | **V2.2**：api-shape の判定は D15「Q5：R08」のとおり「`Fn` の入力が 0 個」にし（`impl Fn()`・`impl Fn() -> ()`・`F: Fn()`・where 句を同じに扱う）、fixture の試験を足す。 |
+| C | G6 → G8 | D12「G6」（C-6〜C-11・C-15）、D12「G8」（C-5、DEC-17） | G6 の所有ファイルと C-15 の波及の範囲は D12 の表が正（本書の旧版の G6 の行は使わない）。G8 は facade に `crates/kivact/src/launch.rs` を新しく作る（DEC-17） **V2.2**：G8 に D15「Q3：R07」の手順 9（arvane-compose の feature `gpu` に kivact-gpu-share を入れ、adapter の検索の cfg を外し、kivact-types の doc を直す）を足す。所有に `crates/arvane-compose/Cargo.toml`・`crates/arvane-compose/src/gpu/context.rs`・`crates/kivact-types/src/gpu.rs` を足す。 |
 
 ---
 
@@ -330,6 +340,7 @@ D5 の 6 章の lane と D8 の 6 章の追加を合わせたもの。lane の�
 | L6 | UI-4 → SO → CR → EX → DT → P8-UI6 → P8-SOFT → P8-KITS |
 
 - **V2.1**：各 unit は、まず修正付属書のその unit の節を読む：L1〜L3 は D13、L4〜L6 は D14（`## <unit ID>` の見出し）。そこに書かれた手順・コード・marker の文言・所有ファイル・確認をすべて行い、「元の付属書のとおり」とある部分だけ D5・D8 を読む。D14 の先頭の「R6 共通の確定事項」（命名の規則 DEC-28 を含む）は L4〜L6 の全 unit に適用する。所有ファイルの組み直し（IN-3 に `calendar/data.rs`、CR に `region_parts.rs`、UI-1 と P8-UI5 の入替え、UI-3 から外すファイル、EX から外す `jobs.rs`）は D14「1. wave・lane・所有ファイルの組み直し」が正。lane の中の順は下の表のまま。
+- **V2.2（D15）**：**IN-3** は D15「Q2：3.4」の手順（新しい `part_slot.rs` の `attach_part_state` で 21 箇所を置き換え、content の Part の状態を owner の終わりで空にする。E2E 3 本）も行い、所有に D15 の表のファイルを足す（D14 IN-1 の「W6 では変えない」は取り消し）。**P8-UI5** は D15「Q2：R03」の手順（DataTable の内部を `SortSetting`・`PageSetting`・`PagingPlan` の enum にする。公開の builder の書き方は変えない。E2E 6 本）も行い、所有に `crates/kivact-ui/src/data_table/builder.rs` と `dev/tests/kivact-public-api/tests/e2e/ui_data_table.rs` を足す（D14 の E-9 の取消しと、DataTable の依存を marker の文言だけで閉じる指示は取り消す）。**EN-2** の `report_app_motion` は `finish_motion` の中で借用の衝突（E0502）になるので、D15「Q4：全体」の申し送りのとおり `Rc::clone(&self.app)` の 2 行で直す。**CO** の `renew` の書換えは clippy の `collapsible_if` に従って let chain で書く。
 - **CO** は G3 の後のコードで、`SharedImage.current` への全ての書込み（G3 が足したものを含む）を `replace_current` 経由にする（D14 X4 の条件）。
 - **P8-EN** の `Mutation.local_text` の行は、AH1 が改名した `Mutation.payload_only` の直前に置く（文言は D8 のまま。D9「全体」の申し送り 1、D13「P8-EN」）。
 - **EN-2** は S3 が `control` に足した `release_at` の要素を残す。
@@ -362,8 +373,8 @@ D5 の 6 章の lane と D8 の 6 章の追加を合わせたもの。lane の�
 | unit | 修正付属書の節（元の付属書） | 本書の追加の指示 |
 |---|---|---|
 | FINAL-1 | D12「FINAL-1」（D5 6 章 FINAL-1、付録 P5-D F-1） | 読み手は D12 の全数の表（43 ファイル・92 行と docs の 4 行）と書換え規則が正。`cargo check --workspace --all-targets` は確認に使う。`Availability` の `#[derive(..)]` から `Default` を外し、手書きの `impl Default` だけを残す（D14「3. 担当外の unit への申し送り」2）。marker の文言は D12 のとおり |
-| G9 | D12「G9」（D6 9 章 C-13、8 章 2） | D12 の G9 の改名表を上から順に行う（本書の旧版の改名表は使わない）。content を mount する method は `while_open(factory)`（DEC-18）。旧名は残さない。この unit に限り、所有ファイルは compile error と D12 が示す全ての file（docs・doctest を含む） |
-| FINAL-2 | D14「FINAL-2」（D5 3.4・3.7・6 章） | `claims.rs` と試験は D14 の付録 A・B の全文を使う。確認は D14 の FINAL-2 の節の「4. 確認」の表（STOP にしない）。確認の後 `git checkout -- dev/xtask/state-audit.md` で戻してから commit する（audit の commit は CP2 の 11.2） |
+| G9 | D12「G9」（D6 9 章 C-13、8 章 2） | D12 の G9 の改名表を上から順に行う（本書の旧版の改名表は使わない）。content を mount する method は `while_open(factory)`（DEC-18）。旧名は残さない。この unit に限り、所有ファイルは compile error と D12 が示す全ての file（docs・doctest を含む） **V2.2**：開閉の命令は D15「Q5：R06」の規約 SH-1〜5 と全数表（C1〜C24、G9-C 表）に従う（D12 G9 の順 2〜5 と「変えないもの」の close の文を置き換える。`show`・`hide` は冪等、反転は `toggle`、`dismiss` も揃える）。`ComboboxApi::toggle` の SetupOnly の panic の修正（D15 のコード A）と E2E `interaction_show_hide.rs` の 4 本も行う。D12 の「`cargo doc` の警告 0」の確認は D15 の置き換えた判定にする。 |
+| FINAL-2 | D14「FINAL-2」（D5 3.4・3.7・6 章） | `claims.rs` と試験は D14 の付録 A・B の全文を使う。確認は D14 の FINAL-2 の節の「4. 確認」の表（STOP にしない）。確認の後 `git checkout -- dev/xtask/state-audit.md` で戻してから commit する（audit の commit は CP2 の 11.2） **V2.2**：`claims.rs` と試験は D15「Q4：付録 A」「Q4：付録 B」の全文を使う（D14 付録 A・B は使わない）。D15「Q4：R05」の手順 0（F1〜F6：projection の field の可視性を絞る、`EditorNode::report_session`、facts の `Node` の accessor と `node_type`、`HostWindow.reported_adapter`、previewed の marker）を先に行う。検査器が「未検証」と報告するものは error で、成功扱いにしない。 |
 
 W7 の後、1.3 節の merge の手順で merge する（lane は 1 つ）。
 
@@ -403,7 +414,7 @@ D5 3.7 の「checkpoint（全体、OPEN 0 の確認）」の 4 行をそのま�
 
 ### 11.3 KPI
 
-W0 は B0 を測り直さず V1 の `B0.md` を `B0-here.md` として使った。判定の前に、同じ機械・同じ条件で B0 を測り直す（W0 の手順 3 の `../kv-b0` の worktree を作り、`run.sh B0-here2` を実行して `dev/bench/results/B0-here2.md` を commit する）。W8 の判定は `B0-here2` を B0 として使う（`B0-here` は参考）。
+B0 は CP1 で測った `B0-here2` を使う（7.2）。CP1 で `B0-here2` を測っていない場合は、ここで 7.2 の手順で測る。
 
 ```bash
 CARGO_TARGET_DIR=<空きの多いドライブ>/kv-target/kpi dev/tools/window-lock.sh --timeout 3600 -- dev/bench/run.sh B1-here
@@ -417,13 +428,13 @@ CARGO_TARGET_DIR=<空きの多いドライブ>/kv-target/kpi dev/tools/window-lo
 
 ### 12.1 受入れの判定
 
-1. `dev/bench/results/RESULT-V2.md` に、`B0-here` と `B1-here`（と r2・r3）から、V2 設計書 2.3 節の各行の倍率と判定を表で書く。
+1. `dev/bench/results/RESULT-V2.md` に、`B0-here2` と `B1-here`（と r2・r3）から、V2 設計書 2.3 節の各行の倍率と判定を表で書く。
 2. AC-1〜AC-4 を確かめ、`RESULT-V2.md` に AC ごとの結果を書く：
    - AC-1：CP2 の 11.1 がすべて成功。
    - AC-2：全ての必達行を満たす（MS-4 の 3 回中 2 回を含む）。
-   - AC-3：11.2 で OPEN 0 件、`OPEN.md` に状態の差戻しが無い。加えて「人間が audit を確認する」項目が残っていることを書く（DEC-16。Orchestrator は確認済みと書かない）。
+   - AC-3：(a) 機械の検査：11.2 で OPEN 0 件、`OPEN.md` に状態の差戻しが無い。(b) 人間の確認：`dev/bench/results/AC3_REVIEW.md` に人間が確認の結果を書いていること。Orchestrator は (a) が満たされたら `AC3_REVIEW.md` を次の内容で作り（確認の欄は空のまま）、AC-3 を「**人間の確認待ち**」と書く：`state-audit.md` の V2 の前（`B1-start` の時点の commit）からの差分の要約、閉じ方ごとの件数（型・導出・projection・independent・cache 等）、全ての `projection:` の行（field・名指す関数）、全ての `independent:` の行（field・理由）、FINAL-2 の検査器が「未検証」として報告した項目の一覧（無ければ「なし」）、V2 で新しく作った索引・cache・需要の状態の一覧（V2 設計書 6.1 節の表）。Orchestrator は確認の欄を書かない（DEC-16）。
    - AC-4：`OPEN.md` の「V2 差戻し」に AC-1〜AC-3 と公開 API に影響する項目が 0 件。U23 と U56 の項目に「V2 の M7・M10、G1〜G4 で解消」と書く。
-3. どれかを満たさなければここで止める：`RESULT-V2.md` と `OPEN.md` を commit・push し、満たさない項目を人間に報告する。12.2・12.3 は行わない。
+3. どれかを満たさない、または AC-3 が「人間の確認待ち」なら、ここで止める：`RESULT-V2.md`・`OPEN.md`・`AC3_REVIEW.md` を commit・push し、満たさない項目と確認を待つ項目を人間に報告する。12.2・12.3 は行わない。人間が `AC3_REVIEW.md` の確認の欄に結果を書いた（または作業の依頼文で確認済みと伝えた）後にだけ、12.1 をやり直して 12.2 に進む。
 
 ### 12.2 書き戻しと後片付け（AC をすべて満たしたときだけ）
 
