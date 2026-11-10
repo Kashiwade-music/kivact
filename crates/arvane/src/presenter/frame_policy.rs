@@ -72,6 +72,12 @@ impl Presenter {
         self.gpu.release_caches();
     }
 
+    /// Release the CPU frame state of an idle window; its next frame redraws
+    /// everything. The GPU state is kept (its memory is not in the CPU frame state).
+    pub(crate) fn forget_frame_state(&mut self) {
+        self.cpu.invalidate();
+    }
+
     /// A presenter noting its renderer changes to `notes`, its GPU devices
     /// made as `env` says.
     pub(crate) fn new(notes: Notes, env: &crate::env::Env) -> Self {

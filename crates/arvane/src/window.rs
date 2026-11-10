@@ -91,6 +91,11 @@ impl Window<'_> {
     pub fn release_caches(&mut self) {
         self.presenter.release_caches();
     }
+    /// Release the window's CPU frame state after it has been idle. The next
+    /// frame redraws everything; what the window shows stays on screen.
+    pub fn forget_frame_state(&mut self) {
+        self.presenter.forget_frame_state();
+    }
     pub fn frame_plan(&self) -> FramePlan {
         FramePlan::new(self.shell.physical_size(), self.shell.scale())
     }

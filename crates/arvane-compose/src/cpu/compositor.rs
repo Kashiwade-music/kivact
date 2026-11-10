@@ -140,11 +140,13 @@ impl CpuCompositor {
         self.raster.release_caches();
     }
 
-    /// Whether the next frame must redraw everything (after a resize or a lost buffer).
+    /// Whether the next frame must redraw everything (after a resize, a lost
+    /// buffer, or when the window has been idle).
     pub fn invalidate(&mut self) {
         self.cache.clear();
         self.stores = Stores::default();
         self.output = Pixmap::default();
+        self.raster.forget_scratch();
     }
 
     /// One window frame of physical `size` at `scale`.
