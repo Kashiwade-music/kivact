@@ -154,3 +154,9 @@ B0 と CP2（`dev/bench/results/CP2.md`、どちらも有効）の比較。倍�
 - 残るリスク：`drawable_root_transform` は scroll された親の下で `to_parent` を使うため、古い transform が残り得る（今の試験では出ていない）。
 - 未決のもう 1 件：K6 `kv_startup` no-default の未達（+68,934 B、CP1-V2.md）。
 - 状態：CP1 の gate は未通過。W5 以降は、この 2 件の判断の後に始める。merge は判断の後。
+
+## CP1 の判断（ユーザー承認、2026-11-11）
+
+- K6 `kv_startup` no-default の未達（11,246,592 B、必達 11,177,658 B、+68,934 B）：**許容する**。DESIGN 2.3 の数値は変えない（記録のみ）。V2 の AC-2 はこの 1 行について未達として扱い、W8 で明記する。
+- observe の修正：**案 A を承認**（core 側で、新しい NodeObservation の初期値を直前のエンジンの報告から取る。observe の契約「もう一度頼んでも何も変わらない」は残す）。`CP1-A-fix` の commit `52810781`（契約を変える案）は採用しない。
+- rounding の修正（`a0c62113`）は採用し、`CP1-A-fix2` branch（統合 HEAD `a2b05579` から切った worktree）に載せる。
