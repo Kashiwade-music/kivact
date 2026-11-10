@@ -71,9 +71,6 @@ and `OPEN` when the field has no closure.
 | crates/arvane-shell/src/clicks.rs:47 | ClickCounter.tap | independent: the last touch or pen contact's `Down`; the mouse history and the held buttons are kept separately | independent |
 | crates/arvane-shell/src/ime.rs:19 | ShellImeText.password | independent: the input is a password; a password field can still compose, so every combination with the other snapshot values is valid | independent |
 | crates/arvane-shell/src/ime.rs:33 | ShellImeText.composition | option: the composition's `[start, end)` in UTF-16 code units; absent when not composing | option |
-| crates/arvane-shell/src/pipeline/raw.rs:14 | RawKey.pressed | independent: the event records the platform's press separately from the repeat flag and the text; the platform may send any combination and the shell normalizes each field | independent |
-| crates/arvane-shell/src/pipeline/raw.rs:16 | RawKey.repeat | independent: the event records the repeat flag separately from the press and the text; the platform may send any combination and the shell normalizes each field | independent |
-| crates/arvane-shell/src/pipeline/raw.rs:18 | RawKey.text | independent: the event records its text separately from the press and the repeat flag; the platform may send any combination and the shell normalizes each field | independent |
 | crates/arvane-shell/src/window.rs:273 | StepOutcome::Idle.next_deadline | option: the next timer deadline the backend reports; absent when the backend wants no timer | option |
 | crates/arvane-shell/src/window.rs:275 | StepOutcome::Idle.redraw_requested | independent: whether any window asked for a redraw during the turn; a turn may have a deadline, a redraw or a wake in any combination | independent |
 | crates/arvane-shell/src/window.rs:278 | StepOutcome::Idle.woken | independent: whether the turn handled a wake; a turn may have a deadline, a redraw or a wake in any combination | independent |
@@ -292,16 +289,12 @@ and `OPEN` when the field has no closure.
 | crates/kivact-engine/src/contract/devtools.rs:107 | EngineEmulation.theme_hint | option: absent means the window's own theme | option |
 | crates/kivact-engine/src/contract/devtools.rs:109 | EngineEmulation.scale | option: absent means the window's own scale | option |
 | crates/kivact-engine/src/contract/devtools.rs:111 | EngineEmulation.touch | option: absent means the window's own touch support | option |
-| crates/kivact-engine/src/contract/devtools.rs:127 | ImeStateInfo.node | - | OPEN |
-| crates/kivact-engine/src/contract/devtools.rs:128 | ImeStateInfo.composing | - | OPEN |
-| crates/kivact-engine/src/contract/devtools.rs:129 | ImeStateInfo.preedit | - | OPEN |
-| crates/kivact-engine/src/contract/devtools.rs:130 | ImeStateInfo.cursor_area | - | OPEN |
-| crates/kivact-engine/src/contract/host.rs:26 | TurnOutput.next_wake_ns | - | OPEN |
-| crates/kivact-engine/src/contract/host.rs:30 | TurnOutput.exit | - | OPEN |
-| crates/kivact-engine/src/contract/host.rs:95 | HostRequest::DrawableExport.generation | independent: the generation of the export request; every combination with its other fields is valid | independent |
-| crates/kivact-engine/src/contract/host.rs:98 | HostRequest::DrawableExport.scale | option: absent follows the window's scale | option |
-| crates/kivact-engine/src/contract/host.rs:105 | HostRequest::SetDrawableGeometry.generation | independent: the generation of the placement request; every combination with its other fields is valid | independent |
-| crates/kivact-engine/src/contract/host.rs:107 | HostRequest::SetDrawableGeometry.geometry | option: absent hides the drawable | option |
+| crates/kivact-engine/src/contract/devtools.rs:136 | ImeStateInfo::Focused.cursor_area | option: absent means the window has no cursor area to report | option |
+| crates/kivact-engine/src/contract/devtools.rs:139 | ImeStateInfo::Focused.composition | option: absent means no IME composition is in progress | option |
+| crates/kivact-engine/src/contract/host.rs:105 | HostRequest::DrawableExport.generation | independent: the generation of the export request; every combination with its other fields is valid | independent |
+| crates/kivact-engine/src/contract/host.rs:108 | HostRequest::DrawableExport.scale | option: absent follows the window's scale | option |
+| crates/kivact-engine/src/contract/host.rs:115 | HostRequest::SetDrawableGeometry.generation | independent: the generation of the placement request; every combination with its other fields is valid | independent |
+| crates/kivact-engine/src/contract/host.rs:117 | HostRequest::SetDrawableGeometry.geometry | option: absent hides the drawable | option |
 | crates/kivact-engine/src/contract/node.rs:39 | NodeProperties.editing | option: absent means the node is not a native editor | option |
 | crates/kivact-engine/src/contract/node.rs:42 | NodeProperties.ime | option: absent means the node has no IME session | option |
 | crates/kivact-engine/src/contract/node.rs:45 | NodeProperties.layout | option: absent uses the host's layout defaults | option |
@@ -326,14 +319,12 @@ and `OPEN` when the field has no closure.
 | crates/kivact-engine/src/contract/node.rs:190 | EditingData.line_layout | option: absent means the editor's default | option |
 | crates/kivact-engine/src/contract/node.rs:193 | EditingData.report_text | option: absent means the editor's default | option |
 | crates/kivact-engine/src/contract/node.rs:196 | EditingData.report_session | option: absent means the editor's default | option |
-| crates/kivact-engine/src/contract/routed.rs:10 | Routed.target | - | OPEN |
-| crates/kivact-engine/src/contract/routed.rs:12 | Routed.region | - | OPEN |
-| crates/kivact-engine/src/contract/routed.rs:16 | Routed.captured | - | OPEN |
-| crates/kivact-engine/src/contract/routed.rs:18 | Routed.activation | - | OPEN |
-| crates/kivact-engine/src/host/pump.rs:53 | Host.phase | - | type |
-| crates/kivact-engine/src/host/pump.rs:61 | Host.next_wake | independent: the client's next turn deadline, valid in every host phase | independent |
-| crates/kivact-engine/src/host/pump.rs:67 | Host.reduced_motion_override | option: absent means the system's reduced-motion preference applies | option |
-| crates/kivact-engine/src/host/pump.rs:79 | Host.app_motion | projection: the App motion last reported to the client, written only by Host::begin and Host::finish_motion | projection |
+| crates/kivact-engine/src/contract/routed.rs:11 | Routed.target | option: absent means the input is window-directed (a key with no receiving node) | option |
+| crates/kivact-engine/src/contract/routed.rs:17 | Routed.activation | option: absent until the engine supplies the adoption result before activation dispatch | option |
+| crates/kivact-engine/src/host/pump.rs:54 | Host.phase | - | type |
+| crates/kivact-engine/src/host/pump.rs:62 | Host.next_wake | independent: the client's next turn deadline, valid in every host phase | independent |
+| crates/kivact-engine/src/host/pump.rs:68 | Host.reduced_motion_override | option: absent means the system's reduced-motion preference applies | option |
+| crates/kivact-engine/src/host/pump.rs:80 | Host.app_motion | projection: the App motion last reported to the client, written only by Host::begin and Host::finish_motion | projection |
 | crates/kivact-engine/src/host/testing/test_host.rs:32 | Counts.turns | statistic: turns counted for diagnostics; never used to control scheduling | statistic |
 | crates/kivact-engine/src/host/testing/test_host.rs:34 | Counts.frame_ticks | statistic: frame ticks counted for diagnostics; never used as an event or generation | statistic |
 | crates/kivact-engine/src/host/window.rs:47 | HostWindow.last_present | - | type |
@@ -784,9 +775,9 @@ and `OPEN` when the field has no closure.
 | crates/kivact-test/src/screen/host_sync_tests.rs:35 | rejected_pointer_down_cannot_retain_an_ended_region_gesture::disabled | independent: a test signal; the test observes it on its own | independent |
 | crates/kivact-test/src/screen/host_sync_tests.rs:113 | a_primary_down_of_the_gesture_pointer_releases_a_gesture_whose_up_was_lost::presses | statistic: a test counter of presses | statistic |
 | crates/kivact-test/src/screen/host_sync_tests.rs:116 | a_primary_down_of_the_gesture_pointer_releases_a_gesture_whose_up_was_lost::downs | statistic: a test counter of observed downs | statistic |
-| crates/kivact-test/src/screen/host_sync_tests.rs:355 | replacing_editing_drops_line_state_after_releasing_the_model::drops | statistic: a test counter of drops | statistic |
-| crates/kivact-test/src/screen/host_sync_tests.rs:357 | replacing_editing_drops_line_state_after_releasing_the_model::reentered | statistic: a test counter of re-entered drops | statistic |
-| crates/kivact-test/src/screen/host_sync_tests.rs:359 | replacing_editing_drops_line_state_after_releasing_the_model::reader | independent: a test slot holding the reader; written once | independent |
+| crates/kivact-test/src/screen/host_sync_tests.rs:353 | replacing_editing_drops_line_state_after_releasing_the_model::drops | statistic: a test counter of drops | statistic |
+| crates/kivact-test/src/screen/host_sync_tests.rs:355 | replacing_editing_drops_line_state_after_releasing_the_model::reentered | statistic: a test counter of re-entered drops | statistic |
+| crates/kivact-test/src/screen/host_sync_tests.rs:357 | replacing_editing_drops_line_state_after_releasing_the_model::reader | independent: a test slot holding the reader; written once | independent |
 | crates/kivact-test/src/screen/real_window_tests.rs:88 | virtual_time_drives_sleep_and_frame_loops_exactly::slot | independent: a test slot holding the frame loop; written once | independent |
 | crates/kivact-test/src/screen/real_window_tests.rs:119 | virtual_time_drives_sleep_and_frame_loops_exactly::shown | independent: a test signal; the test observes it on its own | independent |
 | crates/kivact-test/src/screen/real_window_tests.rs:138 | a_display_rate_loop_follows_the_window_to_a_faster_display::count | statistic: a test counter of ticks | statistic |
