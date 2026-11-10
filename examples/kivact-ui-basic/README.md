@@ -23,7 +23,7 @@ cargo run -p kivact-ui-basic-catalog --no-default-features
 
 ## フォント
 
-フォントはこのアプリのものです。`examples/shared-assets/fonts/` の Inter、Geist Mono、Noto Sans JP を読み込み、`SOURCE.md`、`OFL.txt`、`SHA256SUMS.txt` が出所、ライセンス、バイト列を記録しています。
+フォントはこのアプリのものです。`examples/shared-assets/fonts/` の Inter、Geist Mono、Noto Sans JP（catalog が使う文字の subset）を読み込み、`SOURCE.md`、`OFL.txt`、`SHA256SUMS.txt` が出所、ライセンス、バイト列を記録しています。
 
 ## 試験
 
