@@ -74,11 +74,11 @@ fn switch_sign() -> f64 {
 }
 
 /// The side the switch shows while a gesture moves the thumb.
-fn switch_on(t: &Tokens, s: &Look<CheckableState>, drag: Option<SwitchDragState>) -> bool {
+fn switch_on(s: &Look<CheckableState>, drag: Option<SwitchDragState>) -> bool {
     match drag {
-        Some(SwitchDragState::Tracking(TrackInput::Touch { offset })) => {
-            offset * switch_sign() > switch_travel(t, s) / 2.0
-        }
+        Some(SwitchDragState::Tracking(
+            TrackInput::Touch { on, .. } | TrackInput::Pointer { on },
+        )) => on,
         _ => s.is_checked(),
     }
 }
@@ -96,7 +96,7 @@ fn switch_lifted(drag: Option<SwitchDragState>) -> bool {
 
 fn switch_offset(drag: Option<SwitchDragState>) -> Option<f64> {
     match drag {
-        Some(SwitchDragState::Tracking(TrackInput::Touch { offset })) => Some(offset),
+        Some(SwitchDragState::Tracking(TrackInput::Touch { offset, .. })) => Some(offset),
         _ => None,
     }
 }
@@ -236,7 +236,7 @@ pub(super) fn switch_track(theme: &Theme, s: &Look<CheckableState>) -> Style {
     let c = &t.colors;
     let drag = s.switch_drag();
     let touch = drag.is_some_and(SwitchDragState::is_touch);
-    let on = switch_on(&t, s, drag);
+    let on = switch_on(s, drag);
     let fill = if on { c.accent } else { c.border_emphasized };
     let fill = if s.input.is_hovered() && !s.input.is_disabled() && !touch {
         if on {
@@ -277,7 +277,7 @@ pub(super) fn switch_track(theme: &Theme, s: &Look<CheckableState>) -> Style {
 pub(super) fn switch_thumb(theme: &Theme, s: &Look<CheckableState>) -> Style {
     let t = theme.ext::<Tokens>();
     let drag = s.switch_drag();
-    let on = switch_on(&t, s, drag);
+    let on = switch_on(s, drag);
     let (_, height) = switch_size(&t, s);
     let (base_side, inset, on_side) = switch_parts(&t, s);
     let movement = switch_travel(&t, s);

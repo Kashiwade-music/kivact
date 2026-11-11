@@ -95,14 +95,17 @@ impl State {
             Self::Gesture(SwitchGesture::Dragging {
                 contact,
                 axis: Axis::Horizontal { offset },
-                ..
-            }) => Some(SwitchDragState::Tracking(
-                if contact.kind == PointerKind::Touch {
-                    TrackInput::Touch { offset }
-                } else {
-                    TrackInput::Pointer
-                },
-            )),
+                latch,
+            }) => {
+                let on = latch.on(contact.started_on);
+                Some(SwitchDragState::Tracking(
+                    if contact.kind == PointerKind::Touch {
+                        TrackInput::Touch { offset, on }
+                    } else {
+                        TrackInput::Pointer { on }
+                    },
+                ))
+            }
             Self::Released {
                 kind: PointerKind::Touch,
                 lift,

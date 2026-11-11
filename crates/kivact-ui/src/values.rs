@@ -273,7 +273,7 @@ impl SwitchDragState {
         match self {
             Self::TouchPressed | Self::TouchReleased(_) => true,
             Self::Tracking(TrackInput::Touch { .. }) => true,
-            Self::Tracking(TrackInput::Pointer) => false,
+            Self::Tracking(TrackInput::Pointer { .. }) => false,
         }
     }
 }
@@ -285,9 +285,14 @@ pub enum TrackInput {
     Touch {
         /// Physical translation along the writing direction, in logical pixels.
         offset: f64,
+        /// The side the thumb shows before the binding commits.
+        on: bool,
     },
     /// A mouse or pen pointer.
-    Pointer,
+    Pointer {
+        /// The side the thumb shows before the binding commits.
+        on: bool,
+    },
 }
 
 /// Whether a released touch thumb is still raised or has settled.
