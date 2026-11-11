@@ -330,12 +330,7 @@ impl Machine {
                 }
                 PointerPhase::Up(press) if press.button == pan.button => {
                     return (
-                        self.stop(
-                            &next,
-                            true,
-                            valid.then(|| panned(*pan, event.pos())),
-                            true,
-                        ),
+                        self.stop(&next, true, valid.then(|| panned(*pan, event.pos())), true),
                         Handled::Yes,
                     );
                 }
