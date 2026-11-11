@@ -277,11 +277,8 @@ impl Calendar {
 
     /// Call `f` when a choice is complete: a day for [`calendar`], the second
     /// click of a range selection.
-    pub fn on_commit<R: kivact_core::view::HandlerResult>(
-        mut self,
-        f: impl Fn() -> R + 'static,
-    ) -> Self {
-        self.on_commit = Some(kivact_core::state::callback(move |()| f()));
+    pub fn on_commit(mut self, f: impl Into<Callback<()>>) -> Self {
+        self.on_commit = Some(f.into());
         self
     }
 }
