@@ -18,9 +18,9 @@ use crate::contract::HostEvent;
 use crate::model::Model;
 
 impl Model {
-    /// Report each layout id that two live nodes carry, once: the later node
-    /// (the one created last) is named. A duplicate is an error of the app
-    /// (`HostEvent::DuplicateLayoutId`), and the record goes to that node.
+    /// Report each layout id that two or more live nodes carry, once: the
+    /// node created right after the first one is named. A duplicate is an
+    /// error of the app (`HostEvent::DuplicateLayoutId`).
     pub(crate) fn report_duplicate_layout_ids(&mut self) {
         let duplicates: Vec<(NodeId, Arc<str>)> = self
             .sources

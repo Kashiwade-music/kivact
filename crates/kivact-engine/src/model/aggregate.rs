@@ -154,6 +154,25 @@ impl Model {
         }
     }
 
+    /// Mark the facts of `id` and of every node below it stale: a change
+    /// that hides or shows the whole subtree (each box of it derives its
+    /// facts again, its ancestors as they change).
+    pub(crate) fn stale_subtree_facts(&mut self, id: NodeId) {
+        self.stale_fact(id);
+        let mut stack: Vec<NodeId> = self
+            .tree
+            .get(id)
+            .map(|n| self.tree.children_ids(n).collect())
+            .unwrap_or_default();
+        while let Some(x) = stack.pop() {
+            let Some(n) = self.tree.get(x) else { continue };
+            if !n.is_transparent() {
+                self.paint.stale_fact(x);
+            }
+            stack.extend(self.tree.children_ids(n));
+        }
+    }
+
     /// Computed geometry from the retained node.
     pub(crate) fn computed_layout(&self, id: NodeId) -> Option<kivact_layout::NodeLayout> {
         self.layout.computed_layout(&self.tree, id)

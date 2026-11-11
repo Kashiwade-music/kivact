@@ -847,8 +847,11 @@ impl Host {
                     .keys()
                     .filter_map(|id| self.retry_at(*id))
                     .min(),
+                // A window with a frame due keeps its state for that frame:
+                // its release is not a wake.
                 self.windows
                     .keys()
+                    .filter(|id| !self.paint_due(**id))
                     .filter_map(|id| self.release_at(*id))
                     .min(),
                 // A retry that is due was asked for by the redraw of `pump`,

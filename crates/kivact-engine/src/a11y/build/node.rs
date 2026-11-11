@@ -355,7 +355,7 @@ impl Model {
         })
     }
 
-    /// The transform the accessibility node of `id` carries (G-07: the one
+    /// The transform the accessibility node of `id` carries (the one
     /// it is drawn and hit with), about its content-space box `bounds`
     /// (its layout box moved by the scrolls above it, `offset`). A layer
     /// (an overlay, a fixed box) is drawn at its window origin whatever

@@ -167,11 +167,6 @@ impl Dispatched {
             .map(|(id, _)| *id)
     }
 
-    /// Whether the layout was computed.
-    pub(crate) fn was_laid_out(&self) -> bool {
-        self.geometry == Geometry::LaidOut
-    }
-
     /// The nodes whose children changed.
     pub(crate) fn regrouped(&self) -> impl Iterator<Item = NodeId> + '_ {
         self.marked(Dirty::CHILDREN)

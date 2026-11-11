@@ -12,7 +12,7 @@
 //!   (CSS, `RoundedRect::fitted_radii`).
 //! - The padding box is the border box inset by the border widths, its
 //!   radii shrunk by them (CSS inner radii).
-//! - Hit testing (G-07, `layout::geometry`): a node is hit only inside its
+//! - Hit testing (`model::interact::hit`): a node is hit only inside its
 //!   rounded border box ([`hits`]); outside its clip path neither it nor
 //!   its descendants are ([`in_clip_path`]); the children of a clipping
 //!   node are hit only inside its rounded padding box ([`in_child_clip`]).

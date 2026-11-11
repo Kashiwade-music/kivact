@@ -143,25 +143,25 @@ impl NodeTree {
         self.flat.get_mut().clear();
     }
 
-    /// Forget the cached flat lists that can contain `id`: its own and those of
-    /// its ancestors up to and including the nearest one that is not transparent.
+    /// Forget the cached flat lists that list the children of `id`: its own,
+    /// and while the node is a Contents node, its parent's (repeatedly).
     pub(crate) fn forget_flat_around(&self, id: NodeId) {
-        let Some(index) = self.nodes.index_of(id) else {
+        let Some(mut index) = self.nodes.index_of(id) else {
             return;
         };
         let mut flat = self.flat.borrow_mut();
-        if let Some(entry) = flat.get_mut(index.0) {
-            *entry = None;
-        }
-        let mut at = self.nodes.links(index).parent;
-        while let Some(parent) = at {
-            if let Some(entry) = flat.get_mut(parent.0) {
+        loop {
+            if let Some(entry) = flat.get_mut(index.0) {
                 *entry = None;
             }
-            if !self.nodes.at(parent).is_transparent() {
+            // Only a Contents node's children are listed in its parent's list.
+            if !self.nodes.at(index).is_transparent() {
                 break;
             }
-            at = self.nodes.links(parent).parent;
+            let Some(parent) = self.nodes.links(index).parent else {
+                break;
+            };
+            index = parent;
         }
     }
 
@@ -384,10 +384,7 @@ impl NodeTree {
 
     /// Install a detached node into its reserved, initialized structural slot.
     pub(crate) fn install(&mut self, id: NodeId, node: HostNode, slot: NodeIndex) {
-        // Replacing an existing id keeps the cached flat lists of its ancestors.
-        if self.nodes.index_of(id).is_some() {
-            self.forget_flat_around(id);
-        }
+        // A new id: it is detached, so no cached flat list holds it.
         debug_assert_ne!(id.0, 0, "node zero is the layout viewport");
         if node.kind() == NodeType::Root {
             self.root = Some(id);

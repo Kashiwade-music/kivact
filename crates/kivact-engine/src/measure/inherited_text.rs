@@ -30,7 +30,7 @@ pub(crate) fn text_props(tree: &crate::tree::NodeTree, id: NodeId) -> ComputedTe
 /// defaults. A style equal to its parent's already resolved one shares the
 /// parent's `Rc`, any other one an equal recent style's of the window
 /// (`MeasureColumns::share_style`), so the text leaves of one list keep one
-/// allocation (MEM-5); a parent that is not resolved yet is never resolved
+/// allocation (MEM-3); a parent that is not resolved yet is never resolved
 /// here (that would make a deep chain quadratic).
 pub(crate) fn computed_text(
     tree: &crate::tree::NodeTree,

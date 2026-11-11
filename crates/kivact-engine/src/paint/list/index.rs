@@ -95,12 +95,11 @@ impl Axis {
 }
 
 impl ChildIndex {
-    /// The index of the children `children`, laid out by layout pass
-    /// `pass`, with inks of generation `generation`.
+    /// The index of the children `children`, with inks of generation
+    /// `generation`.
     pub(super) fn build(
         host: &Model,
         children: impl ExactSizeIterator<Item = NodeId>,
-        pass: Generation,
         generation: Generation,
     ) -> Self {
         let layouts = host;
@@ -125,7 +124,6 @@ impl ChildIndex {
             starts: Vec::new(),
             furthest: Vec::new(),
             sticky: Vec::new(),
-            pass,
             touched: Vec::new(),
         };
         index.sort();
@@ -138,11 +136,10 @@ impl ChildIndex {
         self.touched.push(id);
     }
 
-    /// Bring the touched children's entries up to layout pass `pass` and
+    /// Bring the touched children's entries up to the current layout and
     /// inks of generation `generation`.
-    pub(super) fn refresh(&mut self, host: &Model, pass: Generation, generation: Generation) {
+    pub(super) fn refresh(&mut self, host: &Model, generation: Generation) {
         if self.touched.is_empty() {
-            self.pass = pass;
             return;
         }
         let mut touched = std::mem::take(&mut self.touched);
@@ -155,7 +152,6 @@ impl ChildIndex {
             let layout = layouts.computed_layout(e.id).unwrap_or_default();
             *e = Indexed::new(host, e.id, host.node(e.id), layout, generation, e.order);
         }
-        self.pass = pass;
         self.sort();
     }
 

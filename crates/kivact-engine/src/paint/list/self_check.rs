@@ -18,6 +18,14 @@ impl Model {
             .collect();
         self.paint_list();
         let retained = std::mem::take(&mut self.paint.list);
+        let mut errors = Vec::new();
+        let reference = self.layer_facts();
+        if retained.facts != reference {
+            errors.push(format!(
+                "paint subtree facts: retained {:?}, reference {reference:?}",
+                retained.facts
+            ));
+        }
         let retained_inks: Vec<_> = self
             .tree
             .nodes
@@ -25,14 +33,12 @@ impl Model {
             .map(|(id, node)| (*id, self.paint.ink[node.index.0].take()))
             .collect();
         self.paint.list = PaintList {
-            pass: retained.pass,
             ink_gen: retained.ink_gen,
             ..PaintList::default()
         };
         self.paint.stale_facts = StaleFacts::All;
         self.paint_list();
         let rebuilt = std::mem::take(&mut self.paint.list);
-        let mut errors = Vec::new();
         compare_entries(&retained, &rebuilt, &mut errors);
         for (id, before) in &retained_inks {
             let Some(node) = self.tree.get(*id) else {
@@ -63,7 +69,7 @@ impl Model {
         for (id, after) in &rebuilt.indices {
             let before = retained.indices.get(id).map(|index| {
                 let mut index = index.clone();
-                index.refresh(self, retained.pass, retained.ink_gen);
+                index.refresh(self, retained.ink_gen);
                 index
             });
             match before.as_ref() {

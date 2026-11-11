@@ -262,8 +262,8 @@ impl Model {
                 .get(id)
                 .is_none_or(|n| (n.hidden(), n.visibility_hidden()) != was)
         }) {
-            // Hidden subtrees' facts are derived differently throughout.
-            self.paint.stale_all_facts();
+            // The whole subtree is drawn (or not) with it.
+            self.stale_subtree_facts(id);
         }
         self.changed(id, mutation);
         true
