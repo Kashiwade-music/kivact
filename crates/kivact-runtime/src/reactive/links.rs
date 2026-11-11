@@ -1,7 +1,7 @@
 //! Role: The links of one graph node (what it read, or who reads it): up to two inline.
 //!
 //! Most nodes have at most two links, so they are stored in the node itself;
-//! a third link moves them to a heap vector (M2-14).
+//! a third link moves them to a heap vector.
 
 use crate::reactive::arena::Key;
 

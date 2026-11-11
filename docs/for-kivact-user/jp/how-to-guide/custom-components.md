@@ -68,6 +68,7 @@ fn main() -> kivact::Result<()> {
 - **`#[prop(default = expr)]` と `#[prop(optional)]` は setter になる。** 上のチップは、tone を省いて `chip("Kivact", ..)` とも、`chip("Kivact", ..).tone(ChipTone::Accent)` とも書けます。省略可能な prop は `Option<X>` と宣言し、その setter は `X` が受け取る入力を受け取ります。省略可能なコールバックは `#[prop(optional)] on_close: Option<Callback<()>>` と書きます。本体が受け取るのは、コンポーネントの setup で変換済みの `Option<Callback<()>>` です。
 - **本体は専用の setup の owner の中で一度だけ実行される。** 生成される `impl IntoView` は本体を `scope(..)` の中に置きます。本体が作るシグナル、effect、コールバック、cleanup はそのインスタンスに属し、表示が取り除かれると破棄されます。レイアウトの箱は追加しません。本体のルートがコンポーネントのルートです。
 - **公開されるのは戻り値だけ。** 生成される構造体は関数名を UpperCamelCase にした名前（`chip` → `Chip`）で、`IntoView` は実装しますが `Element` は実装しません。呼び出し側は `.style(..)` や `.test_id(..)` を書けません。呼び出し側が変えてよいものは prop にし、それ以外はコンポーネントの判断にします。
+- **値を渡すハンドラーはクロージャで渡す。** `Callback<()>` の prop には `Callback<()>` の handle も渡せますが、`Callback<E>` の prop にはクロージャを渡します。親の `on_pick: Callback<i32>` は `picker(move |n| on_pick.call(n))` と渡します。
 
 `Value<T>` は定数、シグナル、`Value`、クロージャを受け取るので、prop を静的な値にもリアクティブな値にもできます。API を二つに分ける必要はありません。`Value<String>` の prop は `&str` と `String` も受け取ります。値の prop の型は `Clone + PartialEq` でなければなりません。値が変わっていないときに更新を省くためです。
 
