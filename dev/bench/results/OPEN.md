@@ -196,3 +196,10 @@ B0 と CP2（`dev/bench/results/CP2.md`、どちらも有効）の比較。倍�
 - gate（統合 tree、`d33dd3cf`）：fmt・check・workspace clippy（-D warnings）・xtask（state-fields を含む）は成功。workspace の全試験 2077 件成功、失敗 0。gpu-interop-producer・kivact-docs・GPU の `gpu_on_demand` は成功。
 - W6 の worktree と branch（L1〜L6、L5-fix）は merge 済みを確認のうえ削除した。
 - 次：W7（FINAL-1 → G9 → FINAL-2、1 lane）。
+
+## V2 の受入れの状況（W8、2026-11-11）
+
+- U23（M-R5）は V2 の M7・M10 で、U56（GPU OnDemand の E2E）は G1〜G4 で解消（作業指示書 12.1 の 2 の AC-4 の注記）。
+- 残る差戻し：(1) K6 `kv_startup` no-default の未達（+72,518 B、ユーザーが許容。AC-2 の判定は人間）、(2) `kivact-types` の `cargo doc` の警告 21 件（`geometry3d.rs`、W5 より前から。所有外、担当未決）。
+- AC-3 は機械の検査（OPEN 0）を満たし、人間の確認（`AC3_REVIEW.md`）待ち。
+- V2 は完了を宣言しない（12.1 の 3）。12.2・12.3 は未実施。結果は `RESULT-V2.md` と `AC3_REVIEW.md` を参照。
