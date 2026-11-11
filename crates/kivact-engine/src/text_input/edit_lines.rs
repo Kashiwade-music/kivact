@@ -21,14 +21,34 @@ pub(crate) struct EditLines {
     pub(crate) before: Vec<Before>,
     /// The widest shaped line's width.
     pub(crate) width: f64,
-    /// The colors the lines were colored with.
-    pub(crate) colors: Option<LineColors>,
-    pub(crate) colored: usize,
+    // xtask-allow(state-fields): cache: the colorizer the kept line colors were made with and how many leading lines hold them; any pending damage can stand beside it
+    /// The colors the lines were colored with, and how far.
+    pub(crate) coloring: Option<Coloring>,
     /// The lines last drawn.
     pub(crate) drawn: Range<usize>,
 }
 
+/// The colorizer of a text input's lines and how far it has colored them.
+#[derive(Clone, Debug)]
+pub(crate) struct Coloring {
+    pub(crate) colors: LineColors,
+    /// Lines `0..colored` hold colors made with `colors`.
+    pub(crate) colored: usize,
+}
+
 impl EditLines {
+    /// How many leading lines hold colors (0 without a colorizer).
+    pub(crate) fn colored(&self) -> usize {
+        self.coloring.as_ref().map_or(0, |c| c.colored)
+    }
+
+    /// Note that lines `0..n` hold colors; nothing without a colorizer.
+    pub(crate) fn set_colored(&mut self, n: usize) {
+        if let Some(c) = &mut self.coloring {
+            c.colored = n;
+        }
+    }
+
     pub(crate) fn hold_damage(&mut self, damage: kivact_editing::Damage) {
         self.damage = Some(match self.damage.take() {
             None => damage,
@@ -69,8 +89,7 @@ impl EditLines {
             chunks: Vec::new(),
             before: vec![Before::default()],
             width: 0.0,
-            colors: None,
-            colored: 0,
+            coloring: None,
             drawn: 0..0,
         };
         let text = lines.shown(source.value, source.placeholder);

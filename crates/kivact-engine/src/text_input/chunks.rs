@@ -63,7 +63,7 @@ impl EditLines {
             })
             .collect();
         self.restart(0);
-        self.colored = 0;
+        self.set_colored(0);
         self.drawn = 0..0;
     }
 
@@ -204,7 +204,8 @@ impl EditLines {
         }
         self.chunks.retain(|c| !c.lines.is_empty());
         self.restart(ck);
-        self.colored = self.colored.min(k);
+        let colored = self.colored().min(k);
+        self.set_colored(colored);
         true
     }
 
