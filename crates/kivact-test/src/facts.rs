@@ -6,10 +6,10 @@ use kivact_types::NodeId;
 use std::collections::HashMap;
 use std::panic::Location;
 pub(super) struct Node {
-    // xtask-allow(state-fields): independent: a per-query engine fact; any combination is valid
+    // xtask-allow(state-fields): projection: written only by Facts::new, which copies the engine reader's node type for each id
     pub(super) kind: Option<NodeType>,
     pub(super) children: Vec<NodeId>,
-    // xtask-allow(state-fields): independent: a per-query engine fact; any combination is valid
+    // xtask-allow(state-fields): projection: written only by Facts::new, which copies the engine reader's parent for each id
     pub(super) parent: Option<NodeId>,
     // xtask-allow(state-fields): independent: a per-query creation location; any combination is valid
     pub(super) at: Option<&'static Location<'static>>,

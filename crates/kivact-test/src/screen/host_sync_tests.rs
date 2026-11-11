@@ -112,7 +112,7 @@ fn a_primary_down_of_the_gesture_pointer_releases_a_gesture_whose_up_was_lost() 
     // xtask-allow(state-fields): statistic: a test counter of presses
     let presses = Rc::new(Cell::new(0));
     let calls = presses.clone();
-    // xtask-allow(state-fields): statistic: a test counter of observed downs
+    // xtask-allow(state-fields): independent: counts the Down events the canvas handler sees and lets only the first start a gesture; the press counter counts activations separately, so any pair of counts is valid
     let downs = Rc::new(Cell::new(0));
     let observed = downs.clone();
     let screen = render(move || {
@@ -353,23 +353,15 @@ fn replacing_editing_drops_line_state_after_releasing_the_model() {
     let drops = Rc::new(Cell::new(0));
     // xtask-allow(state-fields): statistic: a test counter of re-entered drops
     let reentered = Rc::new(Cell::new(0));
-    // xtask-allow(state-fields): independent: a test slot holding the reader; written once
-    let reader = Rc::new(RefCell::new(None));
     let probes: Rc<RefCell<Vec<Weak<Probe>>>> = Rc::default();
-    let (d, e, read, seen) = (
-        drops.clone(),
-        reentered.clone(),
-        reader.clone(),
-        probes.clone(),
-    );
+    let (d, e, seen) = (drops.clone(), reentered.clone(), probes.clone());
     let screen = render(move || {
         let editing =
             TextEditing::new("one line").line_styles((), move |_: &(), _: &str, _: &State| {
                 let probe = Rc::new(Probe {
-                    armed: Cell::new(false),
+                    armed: RefCell::new(None),
                     drops: d.clone(),
                     reentered: e.clone(),
-                    reader: read.clone(),
                 });
                 seen.borrow_mut().push(Rc::downgrade(&probe));
                 (Vec::new(), State(Some(probe)))
@@ -393,11 +385,10 @@ fn replacing_editing_drops_line_state_after_releasing_the_model() {
     let editor = screen.get_by_role(Role::TextBox, "editor").node;
     let independent = screen.get_by_test_id("independent").node;
     let writer = screen.with_host(|host| host.writer());
-    *reader.borrow_mut() = Some((writer.reader(), independent));
     let mut live = 0;
     for weak in probes.borrow().iter() {
         if let Some(probe) = weak.upgrade() {
-            probe.armed.set(true);
+            probe.armed.replace(Some((writer.reader(), independent)));
             live += 1;
         }
     }
