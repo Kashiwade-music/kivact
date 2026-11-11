@@ -21,7 +21,7 @@ pub(super) struct Demo {
 
 impl Demo {
     /// The overlay's open binding, for a dialog, drawer or command palette
-    /// (ARG-4: a component that is meaningless while closed takes `open`).
+    /// (API-13: a component that is meaningless while closed takes `open`).
     pub(super) fn open(self, which: Overlay) -> Binding<bool> {
         let overlay = self.overlay;
         binding(
