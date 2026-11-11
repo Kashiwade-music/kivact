@@ -169,3 +169,14 @@ B0 と CP2（`dev/bench/results/CP2.md`、どちらも有効）の比較。倍�
 - KPI：`CP1-V2.md` のとおり。K6 `kv_startup` no-default の未達は、ユーザーの承認で許容（上の判断の節）。
 - 未merge のまま残す：`wt/CP1-A-fix` の commit `52810781`（契約を変える案。採用しない）。
 - 次：W5（G5、G7、G6→G8）。
+
+## W5 の結果（2026-11-11）
+
+- 統合：lane A（G5 `0e70c572`）、lane B（G7 `78bf05aa`）、lane C（G6 `477d51f4`、G6-fix `bf790da4`、G8 `4688b3be`）を `--no-ff` で merge。統合 HEAD は `e60c9f72`。conflict なし。
+- gate（統合 tree）：fmt・check・workspace clippy（-D warnings）・xtask はすべて成功。workspace の全試験（`--no-fail-fast`）、gpu-interop-producer、kivact-docs、GPU の `gpu_on_demand` も成功（失敗 0）。
+- 記録すること：
+  1. G6 の完了時の「cargo doc の警告 0」は、kivact-core と kivact-style では G6-fix で満たした。kivact-types の `cargo doc` に、G8 より前からの警告 21 件がある（`crates/kivact-types/src/geometry3d.rs`、`m[0][0]` 形の link）。W5 の所有外。CP2 までに直す担当を決める。
+  2. G8：`kivact::launch` を新設し、GPU の型 5 件を feature なしで公開した（DEC-17）。`arvane-compose` の feature `gpu` に `kivact-gpu-share` を入れ、adapter の検索の cfg を外した（R07）。
+  3. G7：api-shape の判定を「Fn の入力が 0 個」にした（R08）。calendar の `on_commit` と menu の `trigger_action` を `impl Into<Callback<()>>` にした。
+  4. G5：`#[component]` の attribute・非 plain fn の拒否・default の評価時期・optional Value（D15 Q5 3.1）。
+- 次：W6（状態機械、L1〜L6）。
