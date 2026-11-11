@@ -157,7 +157,7 @@ pub(crate) struct Ink {
     pub(super) rect: Option<Drawn>,
     pub(super) size: Size,
     pub(super) content: Size,
-    // xtask-allow(state-fields): identity: the layout generation the ink was found for; readers compare it with their own
+    // xtask-allow(state-fields): identity: the ink generation (PaintList::ink_gen, advanced when fonts are added) the ink was found in; readers compare it with the current one
     pub(super) generation: Generation,
 }
 
@@ -315,8 +315,6 @@ pub(crate) struct PaintList {
     pub(super) state: ListState,
     /// The child indices of the containers with many children.
     pub(super) indices: HashMap<NodeId, ChildIndex>,
-    /// Layout passes so far (the indices' geometry is from one of them).
-    pub(super) pass: Generation,
     /// The generation of the nodes' inks: an ink of another is forgotten.
     pub(super) ink_gen: Generation,
 }
@@ -366,9 +364,6 @@ pub(crate) struct ChildIndex {
     pub(super) furthest: Vec<f64>,
     /// The entries of the sticky children.
     pub(super) sticky: Vec<usize>,
-    // xtask-allow(state-fields): identity: the layout pass the entries' geometry is from; readers compare it with their own
-    /// The layout pass the entries' geometry is from.
-    pub(super) pass: Generation,
     /// Children whose own drawing or layout changed since.
     pub(super) touched: Vec<NodeId>,
 }

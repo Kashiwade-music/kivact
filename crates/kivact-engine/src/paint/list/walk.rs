@@ -90,8 +90,6 @@ struct Walk<'a> {
     indices: &'a mut HashMap<NodeId, ChildIndex>,
     /// What each subtree holds (decides the layers).
     facts: &'a HashMap<NodeId, SubtreeFacts>,
-    /// The layout pass the tree is laid out by.
-    pass: Generation,
     /// The generation of the nodes' inks.
     generation: Generation,
     /// The containers whose index this walk used.
@@ -364,16 +362,15 @@ impl Walk<'_> {
             return;
         }
         self.used.insert(id);
-        let (pass, generation) = (self.pass, self.generation);
+        let generation = self.generation;
         let index = self.indices.entry(id).or_insert_with(|| {
             ChildIndex::build(
                 host,
                 host.tree().flat_children(host.tree().nodes.id_at(n.index)),
-                pass,
                 generation,
             )
         });
-        index.refresh(host, pass, generation);
+        index.refresh(host, generation);
         // The clip in the index's space (the children's layout space).
         let window = Rect {
             x: clip.x - base.x,
@@ -445,7 +442,6 @@ impl Model {
                 margin,
                 indices: &mut list.indices,
                 facts: &list.facts,
-                pass: list.pass,
                 generation: list.ink_gen,
                 used: HashSet::new(),
                 out: Vec::with_capacity(list.entries.len()),
@@ -524,12 +520,6 @@ impl Model {
                 }
             }
         }
-        #[cfg(debug_assertions)]
-        debug_assert_eq!(
-            *facts,
-            self.layer_facts(),
-            "paint: retained subtree facts diverged"
-        );
     }
 
     /// Build an independent list in the target's local output space.
@@ -551,7 +541,6 @@ impl Model {
             margin: MARGIN,
             indices: &mut indices,
             facts: &facts,
-            pass: self.paint.list.pass,
             generation: self.paint.list.ink_gen,
             used: HashSet::new(),
             out: Vec::new(),

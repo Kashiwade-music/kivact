@@ -9,8 +9,7 @@ impl PaintList {
         PaintList::default()
     }
 
-    /// Note what `changes` outdated in the inks and the child indices:
-    /// after a layout pass every location (and the sizes that changed); a
+    /// Note what `changes` outdated in the inks and the child indices: a
     /// node whose children changed (its index is dropped); a
     /// node whose drawing changed (its paint, scenes, states, visibility or
     /// inherited text size) or that scrolled forgets its ink and its
@@ -21,9 +20,6 @@ impl PaintList {
         tree: &crate::tree::NodeTree,
         ink: &[std::cell::Cell<Option<Ink>>],
     ) {
-        if changes.was_laid_out() {
-            self.pass.next();
-        }
         for id in changes.regrouped() {
             // A Contents node's children are indexed by the box they are
             // drawn in.
