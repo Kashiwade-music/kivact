@@ -639,11 +639,8 @@ fn page_sizes_set_the_size_of_a_remote_page_in_either_order() {
     });
     // The chosen size (10), not the given one (2), numbers the rows of page 4.
     screen.get_by_text("31");
-    assert!(
-        screen
-            .query_by_role(Role::ComboBox, "Rows per page")
-            .is_none()
-    );
+    // A remote page offers the page sizes too.
+    screen.get_by_role(Role::ComboBox, "Rows per page");
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 
