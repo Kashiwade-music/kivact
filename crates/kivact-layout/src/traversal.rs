@@ -10,7 +10,7 @@
 //!   links as they are: no cursor is read and nothing is filtered. A node
 //!   whose children are all in flow is walked directly as well.
 //! - Otherwise a node's cursor (`ChildCursor`: never counted, or counted at
-//!   an epoch with its count, whether it is unfiltered and the last position)
+//!   an epoch with its count, whether some child is filtered out and, if so, the last position)
 //!   only follows indices into its links past the filtered children; it
 //!   copies no child ids or links. It is counted again once per layout epoch, which the sync bumps when the
 //!   structure or the fixed membership changed: a new height alone counts
@@ -18,7 +18,7 @@
 //! - Iterators borrow the same concrete Tree for their entire traversal;
 //!   no boxing, conversion or ownership change accompanies specialization.
 
-use crate::{ChildCursor, Counted, Flow, LayoutState, LayoutTree};
+use crate::{ChildCursor, Counted, Filtering, Flow, LayoutState, LayoutTree};
 use kivact_types::NodeId;
 use taffy::{NodeId as TId, TraversePartialTree, TraverseTree};
 
@@ -156,14 +156,19 @@ impl<Tree: LayoutTree + ?Sized> Traversal<'_, Tree> {
         }
         let counted = self.flow_cursor(slot);
         assert!(index < counted.count, "invariant: valid layout child index");
-        if counted.unfiltered {
+        let Filtering::Filtered { at } = counted.filtering else {
             return taffy_id(self.tree.child_at(slot, index));
-        }
-        self.filtered_flow_child(slot, index, counted)
+        };
+        self.filtered_flow_child(slot, index, counted, at)
     }
     #[inline(never)]
-    fn filtered_flow_child(&self, slot: usize, index: usize, counted: Counted) -> TId {
-        let at = counted.at;
+    fn filtered_flow_child(
+        &self,
+        slot: usize,
+        index: usize,
+        counted: Counted,
+        at: Option<(usize, usize)>,
+    ) -> TId {
         let (mut filtered, mut raw) = at.unwrap_or((0, 0));
         if at.is_none() {
             raw = (0..self.tree.child_count(slot))
@@ -185,7 +190,9 @@ impl<Tree: LayoutTree + ?Sized> Traversal<'_, Tree> {
             filtered -= 1;
         }
         self.cursors[slot + 1].store(Counted {
-            at: Some((filtered, raw)),
+            filtering: Filtering::Filtered {
+                at: Some((filtered, raw)),
+            },
             ..counted
         });
         taffy_id(self.tree.child_at(slot, raw))
@@ -255,7 +262,7 @@ impl<Tree: LayoutTree + ?Sized> TraversePartialTree for Traversal<'_, Tree> {
                 tree: self.tree,
                 slot,
                 children: 0..self.tree.child_count(slot),
-                unfiltered: !self.filters_layout_children() || self.flow_cursor(slot).unfiltered,
+                unfiltered: !self.filters_layout_children() || self.flow_cursor(slot).unfiltered(),
             }),
         }
     }

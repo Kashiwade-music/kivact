@@ -16,7 +16,7 @@ const SLOTS: &[&str] = &[
 const LIFECYCLE: [&str; 4] = ["on_mount", "on_cleanup", "on_attach", "on_resize_request"];
 
 pub(crate) fn check(source: &Source, surface: &Surface, errors: &mut Vec<String>) {
-    if !source.library {
+    if !source.library() {
         return;
     }
     for item in &source.items {

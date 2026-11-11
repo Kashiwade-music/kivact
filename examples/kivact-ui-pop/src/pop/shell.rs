@@ -93,7 +93,6 @@ fn catalog_with_mode(initial: kivact::style::ThemeMode) -> impl IntoView {
     let dark = signal(initial == kivact::style::ThemeMode::Dark);
     let theme = catalog_theme(dark);
     toaster().max_visible(4);
-    // xtask-allow(state-fields): independent: the scroll-spy section is unrelated to which overlay is open
     let selected = signal(0usize);
     let activity_points = activity_counter();
     let scroll_ref = node_ref();
@@ -635,9 +634,9 @@ fn student_drawer(
     sheet: Binding<bool>,
     notify: kivact::state::Callback<(ui::Hue, String, String)>,
 ) -> kivact::ui::Dialog {
-    // xtask-allow(state-fields): independent: the two switches are set separately
+    // xtask-allow(state-fields): independent: bound only to the pin-to-main-team switch in the student drawer; the auto-skill switch has its own signal, so both, either or neither can be on
     let pin_student = signal(true);
-    // xtask-allow(state-fields): independent: the two switches are set separately
+    // xtask-allow(state-fields): independent: bound only to the auto-skill switch in the student drawer; the pin switch has its own signal, so both, either or neither can be on
     let auto_skill = signal(false);
     kivact::ui::dialog(drawer_title, sheet)
         .mode(kivact::interaction::DialogMode::Drawer(

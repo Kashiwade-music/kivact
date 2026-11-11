@@ -68,12 +68,14 @@ impl NodeDisplay {
     }
 }
 
-/// An item's place in both axes of its grid container (most nodes are
-/// auto-placed in flex parents and have none).
+/// An item's place in its grid container: both axes and its row-axis
+/// alignment (most nodes are auto-placed in flex parents and have none).
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) struct GridArea {
     pub(crate) column: GridLine,
     pub(crate) row: GridLine,
+    /// CSS `justify-self` (`None`: the container's `justify_items`).
+    pub(crate) justify_self: Option<AlignSelf>,
 }
 
 /// The taffy style of one layout node (see the module docs).
@@ -108,10 +110,9 @@ pub(crate) struct NodeStyle {
     pub(crate) flex_basis: Dimension,
     pub(crate) flex_grow: f32,
     pub(crate) flex_shrink: f32,
+    // xtask-allow(state-fields): option: the node's placement as a grid item (column, row, justify-self); absent means auto-placed and aligned by the container's justify_items
     /// Its place as a grid item (absent: auto-placed).
     pub(crate) grid_area: Option<Box<GridArea>>,
-    // xtask-allow(state-fields): option: the authored property; absent means the taffy default
-    pub(crate) justify_self: Option<AlignSelf>,
 }
 
 const _: () = assert!(
@@ -150,7 +151,6 @@ impl Default for NodeStyle {
             flex_grow: d.flex_grow,
             flex_shrink: d.flex_shrink,
             grid_area: None,
-            justify_self: d.justify_self,
         }
     }
 }
@@ -364,6 +364,6 @@ impl GridItemStyle for NodeStyle {
 
     #[inline(always)]
     fn justify_self(&self) -> Option<AlignSelf> {
-        self.justify_self
+        self.grid_area.as_deref().and_then(|area| area.justify_self)
     }
 }

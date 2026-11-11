@@ -125,8 +125,7 @@ pub(crate) struct FlowFields {
     // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
     pub(crate) align_content: Option<Justify>,
     // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
-    /// Lays the children out as a grid (CSS `display: grid`; set by
-    /// `grid(..)` only).
+    /// The display mode: flex (default), grid or a transparent container (`display(..)`, `grid(..)`).
     pub(crate) display: Option<kivact_types::Display>,
     // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
     pub(crate) visibility: Option<kivact_types::Visibility>,
@@ -387,6 +386,7 @@ impl TextFields {
 pub(crate) struct StateFields {
     // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
     pub(crate) hover: Option<Box<Style>>,
+    // xtask-allow(state-fields): option: one authored flag (style().group()); false means the node is not a group, and group_hover/group_focus read the nearest ancestor group, not this flag
     pub(crate) group: bool,
     // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
     pub(crate) group_hover: Option<Box<Style>>,

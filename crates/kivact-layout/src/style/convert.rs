@@ -183,9 +183,9 @@ pub(crate) fn taffy_style(l: &LayoutProps, hidden: bool, alloc: &mut CalcAlloc<'
             Box::new(GridArea {
                 column: g.column,
                 row: g.row,
+                justify_self: g.justify_self.map(align),
             })
         }),
-        justify_self: item.and_then(|g| g.justify_self).map(align),
     };
     if let Some(c) = container
         && let NodeDisplay::Grid(_) = style.display

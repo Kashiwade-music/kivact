@@ -272,7 +272,7 @@ fn is_setting_payload(ty: &syn::Type) -> bool {
     };
     match segment.ident.to_string().as_str() {
         "Callback" | "Handler" | "ViewFn" => true,
-        "Rc" | "Box" => single_type_argument(segment).is_some_and(is_fn_object),
+        "Rc" | "Arc" | "Box" => single_type_argument(segment).is_some_and(is_fn_object),
         _ => false,
     }
 }

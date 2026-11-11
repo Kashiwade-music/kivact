@@ -50,6 +50,7 @@ pub struct EditState {
     // xtask-allow(state-fields): option: absent means the editor has no scalar limit
     /// The scalar limit of the edits, if any.
     max_length: Option<usize>,
+    // xtask-allow(state-fields): independent: the edits kivact has not taken yet (take_changes, start_log, revert clear it); the line-cache damage is cleared only by take_damage, and set_controlled leaves damage without a log, so all four combinations occur
     /// The changes recorded since the log started; `None` when they cover
     /// nothing, which is the same as "the log starts at `revision`".
     log: Option<Log>,

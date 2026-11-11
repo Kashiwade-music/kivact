@@ -25,7 +25,7 @@ pub(super) struct Mission {
     /// The action button's label; `None` shows the message `mission.open`.
     pub action_label: Option<String>,
     pub action_tone: kivact_ui_pop::ButtonTone,
-    // xtask-allow(state-fields): independent: a mission is locked or open independently of its content
+    // xtask-allow(state-fields): option: the application's lock flag in each Mission literal (patterns.rs); true desaturates the card art, shows a lock icon and disables the action button
     pub locked: bool,
 }
 #[track_caller]

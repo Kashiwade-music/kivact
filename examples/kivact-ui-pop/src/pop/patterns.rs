@@ -16,9 +16,9 @@ use kivact::view::{rich_text, span as text_span};
 use kivact_ui_pop as ui;
 
 pub(super) fn feedback(notify: Callback<(ui::Hue, String, String)>) -> Node {
-    // xtask-allow(state-fields): independent: the two alerts are dismissed separately
+    // xtask-allow(state-fields): independent: set only by the maintenance notice's close button and never cleared; the success notice has its own signal, so both, either or neither notice can be dismissed
     let dismissed_info = signal(false);
-    // xtask-allow(state-fields): independent: the two alerts are dismissed separately
+    // xtask-allow(state-fields): independent: set only by the success notice's close button and never cleared; the maintenance notice has its own signal, so both, either or neither notice can be dismissed
     let dismissed_success = signal(false);
     section(
         "07",

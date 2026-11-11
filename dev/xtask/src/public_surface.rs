@@ -53,7 +53,9 @@ pub(crate) fn build_for(sources: &[Source], public_needed: bool) -> Surface {
     }
     let roots: BTreeSet<_> = sources
         .iter()
-        .filter(|s| s.library && (s.package == "kivact" || crate::check_policy::is_kit(&s.package)))
+        .filter(|s| {
+            s.library() && (s.package == "kivact" || crate::check_policy::is_kit(&s.package))
+        })
         .map(Source::identity_root)
         .collect();
     let mut pending: Vec<_> = roots

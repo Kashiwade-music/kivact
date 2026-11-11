@@ -58,9 +58,9 @@ impl From<Gradient> for BorderImageSource {
 pub struct BorderImage {
     source: BorderImageSource,
     slice: Insets,
-    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
+    // xtask-allow(state-fields): option: set by slice_pct() and cleared by slice(); false means the slice insets are px of the source, true percent
     slice_pct: bool,
-    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
+    // xtask-allow(state-fields): option: set by fill(); false (the CSS default) leaves the middle of the source unpainted
     fill: bool,
     // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
     width: Option<Insets>,
