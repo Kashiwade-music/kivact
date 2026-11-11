@@ -29,7 +29,7 @@ impl Session {
         let tables = signal(Vec::new());
         let panel = signal(Panel::Elements);
         let popped = signal(Vec::new());
-        // xtask-allow(state-fields): independent: the last RPC failure is reported separately from the panel and its pop-outs
+        // xtask-allow(state-fields): independent: becomes Session.status, empty at setup; the target var beside it is fixed for the session whether or not a failure is shown
         let status = signal(None);
         let detail = {
             let source = source.clone();
