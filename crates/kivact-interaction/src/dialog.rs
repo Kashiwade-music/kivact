@@ -302,7 +302,7 @@ impl DialogApi {
         };
         let surface = self.popup.content_with(allowed);
         let part_state = surface.state();
-        self.content_state.set(Some(part_state));
+        crate::part_slot::attach_part_state(self.content_state, part_state);
         Part::new(part_state, move |host| {
             let surface = host.part(surface);
             let surface = if self.popover() {

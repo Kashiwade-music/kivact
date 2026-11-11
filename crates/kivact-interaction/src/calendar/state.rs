@@ -23,7 +23,7 @@ pub(super) enum Choice {
 pub(super) struct State {
     pub(super) chosen_message: Value<String>,
     pub(super) selection_status: Signal<String>,
-    // xtask-allow(state-fields): independent: the observation of the attached grid part, absent until it attaches
+    // xtask-allow(state-fields): independent: the day grid part's state, set by calendar/handle.rs when the kit attaches the grid and absent before; the calendar's other state is made at setup and is valid both before and after the grid attaches
     pub(super) grid_state: Signal<Option<Value<kivact_core::custom::PartState>>>,
     pub(super) cell_states:
         Signal<std::collections::HashMap<CalendarDate, Value<super::data::CalendarDayState>>>,

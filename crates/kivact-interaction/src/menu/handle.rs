@@ -472,7 +472,7 @@ impl<K: kivact_core::state::ItemKey> MenuApi<K> {
             })
         };
         let part_state = base.state();
-        level.content_state.set(Some(part_state));
+        crate::part_slot::attach_part_state(level.content_state, part_state);
         Part::new(part_state, move |host| level.content(host.part(base)))
     }
 

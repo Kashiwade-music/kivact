@@ -119,7 +119,7 @@ impl CalendarGridApi {
         let multiple = matches!(self.state().choice, Choice::Range { .. });
         let input = part(|input| input);
         let part_state = input.state();
-        self.state().grid_state.set(Some(part_state));
+        crate::part_slot::attach_part_state(self.state().grid_state, part_state);
         Part::new(part_state, move |host| {
             host.part(input).role(Role::Grid).multiselectable(multiple)
         })

@@ -595,7 +595,7 @@ impl<K: kivact_core::state::ItemKey> SelectApi<K> {
             popup.content()
         };
         let part_state = base.state();
-        self.content_state.set(Some(part_state));
+        crate::part_slot::attach_part_state(self.content_state, part_state);
         Part::new(part_state, move |host| {
             let content = host.part(base);
             let content = content

@@ -133,6 +133,7 @@ pub use zoom_pan::{ViewTransform, ZoomPanApi, use_zoom_pan};
 mod inline_edit;
 mod interaction_policy;
 mod options_cell;
+mod part_slot;
 pub use inline_edit::{InlineEditApi, use_inline_edit};
 
 pub use interaction_policy::{

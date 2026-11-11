@@ -383,7 +383,7 @@ impl ScalarApi {
             }
         });
         let part_state = input.state();
-        self.edit.observed.set(Some(part_state));
+        crate::part_slot::attach_part_state(self.edit.observed, part_state);
         Part::new(part_state, move |mut host| {
             register_host_disabled(shared, host.accessible_disabled());
             let mut control = host

@@ -432,7 +432,7 @@ impl SplitterApi {
             dragging: matches!(machine.get().drag, machine::Drag::Dragging { .. }),
         });
         let part_state = input.state();
-        self.observed.set(Some(part_state));
+        crate::part_slot::attach_part_state(self.observed, part_state);
         Part::new(part_state, move |mut host| {
             let caller_disabled = host.accessible_disabled();
             let options = settings.value();

@@ -100,9 +100,9 @@ pub struct PopupState {
 #[derive(Clone, Copy)]
 pub struct PopupApi {
     disclosure: DisclosureApi,
-    // xtask-allow(state-fields): independent: the observation of the attached content part, absent until it attaches
+    // xtask-allow(state-fields): independent: set by PopupApi::content_with while the surface is mounted and emptied when it unmounts; the trigger has attached by then or is absent
     content_state: kivact_core::state::Signal<Option<Value<PopupState>>>,
-    // xtask-allow(state-fields): independent: the observation of the attached trigger part, absent until it attaches
+    // xtask-allow(state-fields): independent: set by PopupApi::base_trigger at the trigger's mount; while the popup is closed there is a trigger and no content
     trigger_state: kivact_core::state::Signal<Option<Value<PopupState>>>,
     /// The reference the trigger part binds.
     own_anchor: NodeRef,
@@ -418,7 +418,7 @@ impl PopupApi {
             .disclosure
             .base_trigger(|input, open| PopupState { input, open });
         let part_state = base.state();
-        self.trigger_state.set(Some(part_state));
+        crate::part_slot::attach_part_state(self.trigger_state, part_state);
         Part::new(part_state, move |host| {
             host.part(base)
                 .node_ref(self.own_anchor)
@@ -460,7 +460,7 @@ impl PopupApi {
             open: open.get(),
         });
         let part_state = input.state();
-        self.content_state.set(Some(part_state));
+        crate::part_slot::attach_part_state(self.content_state, part_state);
         Part::new(part_state, move |host| {
             host.part(input)
                 .node_ref(self.content_ref())
