@@ -242,7 +242,10 @@ impl<K: kivact_core::state::ItemKey> ComboboxApi<K> {
         kivact_core::state::effect_on(
             move || query.get(),
             move |_| {
-                session.send(machine::Event::QueryChanged);
+                // A closed list stays closed when the caller writes the query.
+                if self.shown() {
+                    session.send(machine::Event::QueryChanged);
+                }
             },
         );
         self

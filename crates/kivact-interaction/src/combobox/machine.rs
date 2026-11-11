@@ -124,6 +124,7 @@ impl<K: Clone + PartialEq + 'static> MachineTrait for Machine<K> {
                     return Step::stay();
                 }
                 next.mode = ComboMode::Closed;
+                next.highlight = None;
                 return Step::to(next).with(Effect::WriteOpen(false));
             }
             Event::FocusLeft { transferred } => {
@@ -131,6 +132,7 @@ impl<K: Clone + PartialEq + 'static> MachineTrait for Machine<K> {
                     return Step::stay();
                 }
                 next.mode = ComboMode::Closed;
+                next.highlight = None;
                 return Step::to(next).with(Effect::WriteOpen(false));
             }
             Event::Highlight(key) => next.highlight = Some(key),
