@@ -14,6 +14,7 @@
 | 2026-11-04 | Q-06 | mirror=off の E2E を App 全体の E2E と認めるか | 認める。戦略の文言は変更しない | 元から入力は注入であり、mirror の有無によらず本番 presenter/driver を通るため |
 | 2026-11-04 | Q-07 | ICU4X の全 locale data を含めるか | 数 MB の増加を受け入れ compiled data を含める | locale ごとの独自 table を作らず標準書式を提供するため |
 | 2026-11-04 | Q-08 | macOS/mobile/Web backend も実装するか | 実装しない | 実機と環境がなく検証できないため |
+| 2026-11-10 | Q-09 | 既定の binary を小さくするため `gpu` を facade の既定 feature から外すか | 外さない。既定は `gpu` と `complex-scripts` で、GPU の device は必要時に起動する | 既定から外すと、CPU の raster が重い画面で GPU への自動の切替えが無くなり、user shader が代わりの見た目になる。製品の既定の性能と機能を binary の大きさのために変えない |
 
 ### APG と platform の慣習
 
@@ -75,7 +76,7 @@
 | 2026-11-05 | ADR-31 | Part が独自 hover を保存するか | engine の FocusTarget(node,region) をそのまま読み、正確に一致する region だけ hovered | node だけの比較や第二の hover state は region の意味を失うため |
 | 2026-11-05 | ADR-32 | handler の返り値をどう揃えるか | HandlerResult 一つに ()、Handled、Result<(),UiError>、Result<Handled,UiError> の四実装。Handled の PreventDefault を合成でも保つ | 処理済みと既定動作の禁止を区別し、error も同じ入口で扱うため |
 | 2026-11-05 | ADR-33 | Callback の構築は setup に限るか | payload なし Callback は現在の owner があれば handler/effect 下でも構築可能。owner がなければ misuse | 正当な owner-bound callback の利用を不必要に制限しないため |
-| 2026-11-05 | ADR-34 | 外部 Element 実装を閉じるか | node_mut は公開だが doc(hidden)、trait（Element）は seal しない。with_node は普通の公開 API（2026-11-09 SLIM-05 で改名） | 外部 builder が標準 setter を継承できる実装用の口が必要だから |
+| 2026-11-05 | ADR-34 | 外部 Element 実装を閉じるか | node_mut は公開だが doc(hidden)、trait は seal しない。with_node は普通の公開 API | 外部 builder が標準 setter を継承できる実装用の口が必要だから |
 | 2026-11-05 | ADR-35 | 公開 API の改名をどう進めるか | 層をまたぐ署名は family 単位で一度に変え、改名と振る舞いの変更は別の変更に分ける | 同じ利用箇所を何度も書き直すことと、改名に紛れた振る舞い変更を避けるため |
 | 2026-11-05 | ADR-36 | InteractionPolicy の所属と形はどうするか | interaction に inputs/menu/tooltip/button/slider/switch/toast/select/hover_card/drawer の nested policy を置く。ui が依存し、逆向きにしない。tooltip に第二の context config を残さない | behavior の設定の正本を一つにするため |
 | 2026-11-05 | ADR-37 | UiTokens にすべての recipe 値を移すか | 部品ごとの nested tokens に、kit が上書きする値と theme 依存値だけを置く。形は recipes。data table の sticky/status paint 値も Tokens | recipe の値を無差別に token 化すると設定面が増え、形と値の境界も失われるため |
@@ -88,37 +89,23 @@
 | 2026-11-05 | ADR-44 | text 色の Transition と未確認の option を増やすか | Paint が text color を担うため新 Color TransitionProp は不要。Combobox/Select の option は kit の利用者が実際に使っていた option の和集合だけを実装 | 同義の表現と要求のない knob を増やさないため |
 | 2026-11-05 | ADR-45 | touch の日付入力は kit 固有か | DatePresentation Adaptive/Desktop/BottomSheet を構造 option とし、Adaptive は capabilities.touch。calendar/date/time/wheel は標準 UI と scalar に統合し kit の option をすべて維持 | 同じ日付入力の behavior と OS 判断を kit に重複させないため |
 | 2026-11-05 | ADR-46 | Creative picker を全て標準 combobox に置換するか | 共通 body は標準 API を使うが、Creative 固有の column-follow picker は kit に残す | column に追従する domain の意味が一般の選択 field と異なるため |
-| 2026-11-05 | ADR-47 | 一度だけ mount する setup closure をどう渡すか | view::scope(FnOnce→IntoView) と prelude を公開。mount 時に child owner/transparent fragment の下で一度実行し、context を登録しない。Variant Default は通常値、reactive 値は明示 setter（2026-11-09 SLIM-05 で改名） | eager 評価、provide(())、recipe 評価中の hook で owner と cleanup の寿命を変えないため |
+| 2026-11-05 | ADR-47 | 一度だけ mount する setup closure をどう渡すか | view::scope(FnOnce→IntoView) と prelude を公開。mount 時に child owner/transparent fragment の下で一度実行し、context を登録しない。Variant Default は通常値、reactive 値は明示 setter | eager 評価、provide(())、recipe 評価中の hook で owner と cleanup の寿命を変えないため |
 | 2026-11-08 | ADR-48 | 複数の window を扱う shell の境界をどうするか | 一つの handler が loop 全体と複数の window を相手にし、backend の event を `EventTarget::{Loop, Window(WindowId)}` で分ける。handler の口は `ShellLoop`・`ShellWindow` とし、`open_window`・`close_window` を持つ | window ごとに backend と handler の組を増やさず、loop 全体の event（SaveState・Wake など）と window の event を一つの型で区別するため |
 | 2026-11-08 | ADR-49 | engine の model を App 全体で一つにするか window ごとに分けるか | 一つの window の `Model` と App 全体の `AppModel` に分ける。`AppModel` が `windows`・`window_changes`・`AppClock`・`client_frames`・共有の `EventSink` と assets と writes を持つ | window ごとの tree・focus・surface を保ちながら、motion の時計と frame の要求を App に一つにし、ある window の surface が止まっても他の window の animated が進むようにするため |
 | 2026-11-08 | ADR-50 | OS の window を公開 API でどう表すか | `window(title, open)` を `overlay` と同じ構造の view とし、content は宣言した場所の context を引き継ぐ（React の Portal と同じ）。閉じる操作は `on_dismiss` が取り消さない限り既定で window を閉じる（`dialog` と同じ） | open の binding で寿命を表し、overlay・dialog と同じ組み立てと dismiss の規則を共有するため |
 | 2026-11-08 | ADR-51 | DevTools を target の中の UI にするか別プロセスにするか、protocol の定義をどこに置くか | DevTools は別プロセスのアプリとし、loopback TCP の JSON-RPC で target の agent に繋ぐ。protocol の型・method・通知は `kivact-devtools-protocol` を単一の正本とし、JSON Schema・Python・MCP をそこから生成する | DevTools の不具合で target を止めず、同じ語彙を Rust・Python・MCP に複製しないため |
 | 2026-11-08 | ADR-52 | 状態の合成を許す印を型の前と field の前に書けるようにするか | 印は field の直前だけに置き、型の前の印は error にする。印の無い stored の field を名前付きで error に並べる | 型の前の印が中の field すべてを黙らせ、どの field が何の事実かを失うため |
-| 2026-11-09 | SLIM-01 | 性能の目標をどう表すか | K1〜K6 を `dev/bench` で測り、同じ機械の B0 に対する倍率で判定する | 実装する機械が分析した機械と異なるため |
-| 2026-11-09 | SLIM-02 | GPU をいつ起動するか | 必要時（shader、GPU export、CPU が周期の半分を 8 frame 続けて超える） | 業務画面では GPU のドライバのメモリが WS の大半を占め、CPU 合成は高速経路で十分速い |
-| 2026-11-09 | SLIM-03 | handler の型を一つの trait にするか | しない。API-3 を全部品に守らせる | marker 型の trait では closure の引数の型が推論されない |
-| 2026-11-09 | SLIM-04 | props の builder をどう作るか | `#[component]` が関数から生成する | 手書きの builder（約 80 行）は Rust 未経験者の障壁 |
-| 2026-11-09 | SLIM-05 | 名前の衝突をどう解くか | `NodeBuilder`→`Element`、`Component` 削除、`component()`→`scope()`、試験の `Element`→`Locator` | 一つの名前に一つの意味（P-02、6 章の 4） |
-| 2026-11-09 | SLIM-06 | `complex-scripts` を任意にするか | facade の既定 feature のまま任意にする | 多言語の既定の挙動を保ちつつ、3 MB を外せるようにする |
-| 2026-11-09 | SLIM-07 | release の profile | fat LTO、codegen-units=1、opt-level="s"、hot path の crate だけ 3、strip、panic は unwind。雛形にも同じ profile を書く | サイズと速度の両立。embed の安全。profile は root の manifest からしか読まれない |
-| 2026-11-09 | SLIM-08 | authored `Style` の表現 | 8 つの群の疎な struct（操作の履歴を持たない） | 履歴の再生は merge で指数的に増え、上書きで肥大する |
-| 2026-11-09 | SLIM-09 | GPU の需要をどう届けるか | shader は composition から、GPU 共有と GPU export は core が `HostRequest::DemandGpu` で明示する。起動は presenter の `Gpu` だけが持つ | GPU 共有は GPU の準備の後でないと composition に現れない |
-| 2026-11-09 | SLIM-10 | 完了の判定 | 1.6 節の AC-1〜AC-4 をすべて満たしたときだけ完了。未達・未実施は報告して止める | 「試して報告した」と「達成した」を区別する |
-| 2026-11-10 | SLIM-11 | facade の既定 feature を外すか、K6 を何で測るか | facade の既定 feature は `gpu` と `complex-scripts` のまま（DEC-01）。K6 は Kivact 自身の大きさを GPU 一式を除く構成で測り、GPU 込みの既定の build は悪化させない（MS-5） | DEC-01 の理由（既定から外すと、CPU の raster が重い画面で GPU への自動の切替えが無くなるため） |
-| 2026-11-10 | SLIM-12 | GPU の起動の入口をどうするか | 入口は二つ（`begin`、`demand`）。CPU だけの window は需要があっても起動しない | 付属書 D6 3.2 |
-| 2026-11-10 | SLIM-13 | GPU OnDemand をどう試験するか | 試験は `RenderOptions::gpu_on_demand()` と `Screen::renderer()` で GPU OnDemand を検証する | 付属書 D6 3.4 |
-| 2026-11-10 | SLIM-14 | 公開の recipe state をどう読ませ、排他な事実をどう表すか | 公開の recipe state は accessor で読む。排他な事実は enum（`CheckControl` 等）で持つ。命名は DEC-28 の規則 | DEC-14、DEC-15 |
-| 2026-11-10 | SLIM-15 | `#[component]` の必須 props と API-3 の関係 | `#[component]` の必須 props は位置引数（handler を含む）。API-3 は kit の builder の任意 handler に限る | DEC-19 |
-| 2026-11-10 | SLIM-16 | lint の gate と audit の条件をどう一致させるか | `projection:` は名指す関数の実在と唯一の書き手であることを xtask が検査する。`independent:` の理由文はファイルをまたいで共有しない | 付属書 D5 X3〜X5 |
-| 2026-11-10 | DEC-01 | `gpu` を facade の既定 feature から外すか | 外さない（ユーザーの決定）。既定は版 1.1 のまま `gpu, complex-scripts`（GPU は OnDemand で起動）。既定 feature の変更、consumer の default、README の表の変更は行わない。K6 の counter の行は MS-5 で定義し直す | 既定から外すと、CPU の raster が重い画面で GPU への自動の切替えが無くなり、user shader が CPU の代わりの見た目になる。製品の既定の性能と機能を、誤った見積りから決めた目標のために変えない |
-| 2026-11-10 | DEC-14 | 公開の recipe state の形を変えるか（PartState などを accessor にするか） | 採る（accessor 化）。外部の theme 作者は `state.input.pressed` を `state.input.is_pressed()` のように直す | 付属書 D5 8-1 の問いへの結論（D5 で確定済み） |
-| 2026-11-10 | DEC-15 | `CheckableState` の排他を型にするか | 型にする（D8 3.1・3.2 の `CheckControl`）。D5 の F-T4（`SwitchFacts`）は行わない | 付属書 D5 8-2 の問いへの結論 |
-| 2026-11-10 | DEC-17 | `GpuPreference`・`GpuPower`・`GpuBackend`・`GpuStart`・`AdapterMatch` の所在 | `kivact::launch` で feature なしで公開する。`crates/kivact/src/launch.rs` を新しく作り、この 5 型だけを再公開する。`App::gpu_preference` と `RenderOptions::gpu_preference` の cfg を外す。feature `gpu` が無い build では無視されることを doc に書く。`gpu_interop` からの再公開は削除する | 内部の型を公開しないため（付属書 D12 G8）。付属書 D6 8-1 の問いへの結論 |
-| 2026-11-10 | DEC-18 | ARG-6 の `show`/`hide` と既存の `MenuApi::show(factory)`・`CommandPaletteApi::show(factory)` の衝突をどう解くか | content を mount する method を `while_open(factory)` に改名する。意味は「開いている間だけ factory の view を mount する」（React の `{open && <X/>}`、Solid の `<Show when>` に当たる） | `content` は既存の `content() -> Part` と衝突するため使えない（付属書 D12 G9）。付属書 D6 8-2 の問いへの結論 |
-| 2026-11-10 | DEC-19 | API-3 と `#[component]` の必須 callback の位置引数をどう両立させるか | `#[component]` は必須の props を位置引数にする。architecture.md の API-3 は「kit の builder の任意 handler は setter で受ける」に限定して書き直す | 付属書 D6 8-3 の問いへの結論 |
-| 2026-11-10 | DEC-20 | prelude の `provide_theme` を残すか | prelude から外す（`provide_locale`・`provide_messages` と揃える） | App の root で一度書くだけなので、明示の import が分かりやすいため（付属書 D6 C-15） |
-| 2026-11-10 | DEC-24 | V2.1 で見つかった新しい型の閉じ方 | 型で閉じる。F5 `Indexed` の 2 つの `Option<PixelRect>` を enum `Reach { Nothing, Draws(..), Opens(..) }` に（付属書 D9 F5-fix）。M7 `Plan` の `checked`・`indeterminate` を 5 状態の enum `CheckFold` に（付属書 D10 M7-fix）。T8 `OwnerEntry.extra` は `independent:` の marker（文言は付属書 D10 T8-fix） | V2.1 の再監査の結論（付属書 D9・D10 の該当の fix） |
-| 2026-11-10 | DEC-28 | 公開の recipe state の命名 | 排他な事実は pub の enum の field（名前は型名から owner の接頭辞を除いたもの。部分を表す enum の名前は `State` で終わらせない）。常にある事実は pub の field。一部の種類にだけある事実と導出する事実は accessor。bool の accessor は `is_`／`has_` で始める。例：`CardActionState` → `CardAction`、`icon_only()` → `is_icon_only()` | 付属書 D14 冒頭の規則。bool の query を `is_`／`has_` に揃える（API-14） |
+| 2026-11-09 | ADR-53 | 性能の改善と後退をどう測るか | K1〜K6 を `dev/bench` で測り、比べる二つの commit を同じ機械で取った値の比で判定する。frame・turn・layout・a11y は「変わったものだけを処理する」（PERF-1）一つの規則にする | 機械ごとに絶対値が違い、全走査の後退は小さい試験では見えないため |
+| 2026-11-09 | ADR-54 | GPU をいつ起動するか（Arvane の起動時の GPU の開始を置き換える） | `GpuStart::OnDemand` を既定にし、user shader の描画、`gpu_interop::adapter()` の読取り、CPU の frame が表示周期の半分を 8 frame 続けて超えたときに起動する。`AtLaunch` を選べる。初回の shader は device の準備まで CPU の代わりの見た目を描く | 業務画面では GPU のドライバのメモリが working set の大半を占め、CPU 合成は高速経路で十分に速い。device と pipeline は worker で作り、その間も CPU で描き続ける |
+| 2026-11-10 | ADR-55 | GPU の需要をどう届け、誰が記録するか | shader の需要は composition の報告から、GPU 共有と GPU export の需要は core が `HostRequest::DemandGpu` で明示する。core は記録せず、window の寿命を持つ presenter の `Gpu` だけが起動の入口（begin、demand）と状態を持つ。需要の宣言は memo・draw の中でもよい | GPU 共有は GPU の準備の後でないと composition に現れない。記録を二か所に持つと window の close で食い違う |
+| 2026-11-09 | ADR-56 | release の profile をどうするか | fat LTO、codegen-units 1、opt-level "s"、描画・shaping・layout の crate は 3、asset の worker だけで動く第三者の crate は "z"、strip、panic は unwind。雛形にも同じ profile を書く | 大きさと速度を両立する。embed（DAW の plugin）で panic を host の外へ出さない。profile は root の manifest からしか読まれない |
+| 2026-11-09 | ADR-57 | authored `Style` をどう表すか | 8 つの群の疎な struct にし、操作の履歴を持たない | 履歴の再生は merge で指数的に増え、上書きで肥大する |
+| 2026-11-09 | ADR-58 | ICU の分かち書きの辞書を任意にするか | facade の既定 feature `complex-scripts` にし、外せるようにする | 多言語の既定の挙動を保ちながら約 3 MB を外せるようにするため |
+| 2026-11-10 | ADR-59 | hit test が paint の ink を読むとき依存の向きをどうするか | model が `HitInk` を定義し paint が実装する。3D の投影・drawable を含む subtree は ink の `beyond` の印で枝刈りと culling から外す | engine の中で hit と paint を分けたまま model が paint の内部を参照しないため。上界にならない subtree を誤って枝刈りしないため |
+| 2026-11-10 | ADR-60 | a11y の構造の変化（Metadata の経路）を増分にするか | 全比較のまま残し、PERF-1 の例外として関数の doc comment に理由を書く | 構造の変化の正しさを writer の通知の完全さに頼らず全比較で守る。値と geometry の日常の更新には現れない |
+| 2026-11-10 | ADR-61 | 公開の診断に a11y の走査の件数を出すか | `Stats::a11y_enumerated` を足す | E2E で a11y の全走査の後退を検出する唯一の観測点であるため |
+| 2026-11-10 | ADR-62 | idle の window の CPU の frame state をいつ手放すか | 最後の present から 1 秒後 | 再描画のたびの再確保を避けながら、止まった window のメモリを返すため |
+| 2026-11-10 | ADR-63 | catalog の Noto Sans JP をどう持つか | 使う文字の subset を commit し、`dev/tools/subset-catalog-font.py` で作り直す | 原本（約 9.6 MB）が catalog の binary の大半を占める。OFL は subset を許す |
 
 ### 実装の決定の補足
 
@@ -170,7 +157,7 @@
 | 日付 | ID | 問い | 決定 | 理由 |
 |---|---|---|---|---|
 | 2026-11-05 | BOUNDARY-01 | Theme の値と source を二重に持つか | 固定 root theme は必要な Signal へ一度正規化し、動的 theme は元の Value を保つ | query のために別の source を同期しないため |
-| 2026-11-05 | BOUNDARY-02 | Drag/Select に不足した口を alias で埋めるか | Drag.source_with は press 時 factory、active_payload は readonly、Generation.as_u64 は明示 query。Select.trigger_with_sheet/open_sheet/is_sheet_open は既存 owner の実 port | 新しい payload copy や open mirror を作らず実際の要求を表すため |
+| 2026-11-05 | BOUNDARY-02 | Drag/Select に不足した口を alias で埋めるか | Drag.source_with は press 時 factory、active_payload は readonly、Generation.as_u64 は明示 query。Select.trigger_with_sheet/show_sheet/is_sheet_open は既存 owner の実 port | 新しい payload copy や open mirror を作らず実際の要求を表すため |
 | 2026-11-05 | BOUNDARY-03 | editor drag と domain selection を混ぜるか | editor は zero slop。pointer/origin/payload は Drag、選択意図は domain、numeric payload は一度だけ保持 | 入力経路と選択の意味が異なるため |
 | 2026-11-05 | BOUNDARY-04 | authored text decoration に backend 型を出すか | Color/TextLength を入口とし Rgba/TextLen は内部解決値。Draw と呼び Canvas alias は置かない | API の値と backend 表現を分け一つの名前にするため |
 | 2026-11-05 | BOUNDARY-05 | Contents と a11y の論理構造をどう両立するか | layout/paint/input の透過走査を共有しつつ、意味のある論理 hierarchy を a11y で保ち、bounds は実 children の合併にする | 透明 layout を理由に親子の意味や正確な bounds を失わないため |
@@ -184,13 +171,20 @@
 
 | 日付 | ID | 問い | 決定 | 理由 |
 |---|---|---|---|---|
-| 2026-11-05 | CONTRACT-01 | 部品の constructor は opaque な Component を返すか、具体 builder を返すか | 固有 option を持たない合成部品は impl Element を返す。アプリの部品は #[component] で impl IntoView を返す。固有 option を持つ標準・kit の constructor は具体 builder を返し、fluent API を保つ（2026-11-09 SLIM-05 で改名） | opaque な型は固有 option を呼び出し側から隠してしまうため |
+| 2026-11-05 | CONTRACT-01 | 部品の constructor は opaque な Component を返すか、具体 builder を返すか | 固有 option を持たない合成部品は impl Element を返す。固有 option を持つ標準・kit の constructor は具体 builder を返し、fluent API を保つ。アプリの部品は #[component] で props の builder を生成し、impl IntoView を返す（CONTRACT-08） | opaque な型は固有 option を呼び出し側から隠してしまうため |
 | 2026-11-05 | CONTRACT-02 | ScrollSnap をどう表すか | ScrollSnap は None/Start/Center/End とし、ScrollAxes の方向で子を整列する。可変サイズの子を扱い、raw pixel の停止位置の別設定は増やさない。nearest_snap と DragVelocity は types の一つの純粋実装を interaction が再公開する | snap の位置を子の配置から導き、同じ計算を二か所に持たないため |
 | 2026-11-05 | CONTRACT-03 | window の寸法をどこまで受け入れるか | window の寸法は少なくとも 1 logical pixel、有限、unsigned の native extent 内とし、App の起動と resize が同じ判定を使う。native は scale 後の physical size も検証する | f64 で有限になったことを理由に不正な寸法を通さず、f32 の underflow に共有 API を依存させないため |
 | 2026-11-05 | CONTRACT-04 | reactive な theme を thread をまたいで渡すか | 固定の theme と Send な起動用 data だけを UI thread に渡す。embed の reactive theme は root factory の中で provide_theme し、App 側の呼出し元で作った reactive theme は明示的に Unsupported とする | Rc や owner に束縛された Value は Send でなく、unsafe や snapshot で偽装しないため |
 | 2026-11-05 | CONTRACT-05 | 非同期 action の結果をどう表すか | ActionOutcome は Clone の Succeeded(T)/Failed(UiError) とし、完了だけを通知する。キャンセル時の通知は増やさない | 完了の結果と取消を混ぜず、既存の完了の契約を保つため |
 | 2026-11-05 | CONTRACT-06 | Pagination の総数をどう渡すか | pagination の総数は pages と items のどちらか一方で受け、内部の PageCount で排他にする。Stepper の collapsed は geometry から導く値とする | 二つの総数の不整合と、導ける値の別保存を避けるため |
 | 2026-11-05 | CONTRACT-07 | 失敗の分類をどこまで増やすか | FailureKind は Content/Resource/Backend/Surface/Unavailable とし、任意の新分類を足さない。render/text adapter の error は Failure へ分類し、core の利用者向け診断は source location を持つ別の意味として保つ | 分類を増やしても境界は増えず、診断の出所を失わないため |
+| 2026-11-09 | CONTRACT-08 | props の builder をどう作るか | `#[component]` が関数の署名から struct、constructor、任意 props の setter と `IntoView` を生成する。必須の props（handler を含む）は位置引数、任意の props は名前付きの setter。生成した型は `Element` を実装しない | 手書きの builder（約 80 行）は Rust に慣れない利用者の障壁であり、React の「component は view を返す関数」と同じ形にするため。外から変えてよいものを props で表すため |
+| 2026-11-09 | CONTRACT-09 | 名前の衝突をどう解くか | `NodeBuilder` を `Element` に、trait `Component` を削除して `impl Element` に、setup の境界の関数 `component()` を `scope()` に、試験の `Element` を `Locator` に改名する | 一つの名前に一つの意味を持たせ、component を `#[component]` の意味に一本化するため |
+| 2026-11-09 | CONTRACT-10 | handler の型を一つの trait にするか | しない。payload ありは `Fn(E) -> R`、なしは `Into<Callback<()>>` を全部品に守らせ、xtask の api-shape で検査する。builder の handler は setter、`#[component]` の必須の handler は位置引数 | marker 型の trait では closure の引数の型が推論されず、`on_edit(\|phase\| ..)` に型注釈が要るため |
+| 2026-11-10 | CONTRACT-11 | GPU の起動の希望をどこから公開するか | feature なしの `kivact::launch` に GpuPreference など 5 型だけを置き、`App::gpu_preference` と `RenderOptions::gpu_preference` も feature なしにする。gpu の無い build では無視する。`gpu_interop` からの再公開はしない | GPU 共有を使わないアプリも起動の時期を選ぶため。core の launch module を丸ごと出すと内部の型が公開されるため |
+| 2026-11-10 | CONTRACT-12 | 開閉の命令をどう名付けるか | `show`/`hide` は冪等、反転は `toggle`、閉じる理由を渡すものは `hide(reason)`。状態は `is_open` のまま。menu と command palette の content を開いている間だけ mount する method は `while_open(factory)` | 命令を binding の setter `.open(..)` と別の名前にし、`content()`（content の Part）と衝突させないため。React の `{open && <X/>}`、Solid の `<Show when>` に当たる |
+| 2026-11-10 | CONTRACT-13 | 公開の recipe state の形と名前 | 排他な事実は pub の enum の field、常にある事実は pub の field、一部の種類にだけある事実と導出する事実は accessor（bool は is_/has_）。外部の theme は `state.input.pressed` を `state.input.is_pressed()` のように読む | 無効な組合せを型で除き、読み方を部品の間で揃えるため |
+| 2026-11-10 | CONTRACT-14 | `provide_theme` を prelude に置くか | 置かない。`kivact::style::provide_theme` を明示して import する | `provide_locale`・`provide_messages` と揃える。App の root で一度書くだけで、明示の import の方が出所が分かる |
 | 2026-11-07 | CONTRACT-ISOLATION | blend の isolated group | CSS と同じ。stacking context（z-index による分離を除く）が isolated group になる | CSS の利用者の期待と一致させるため |
 | 2026-11-07 | CONTRACT-FILTER-SURFACE | 色の filter を各色に掛ける最適化（Tint）を残すか | 残さない。filter はすべて合成後の layer の surface に掛ける | clamp を含む色の行列は合成と交換できず、CSS と結果が変わるため。経路を一つにして内部も単純になる |
 | 2026-11-07 | CONTRACT-COLOR | 広色域の色をどこまで元の空間のまま運ぶか | gradient の stop（engine が CSS の補間と gamut mapping で展開する）、style の `Color::mix`、`Animated<Color>` は元の色を保ち、最後に一度だけ CSS の gamut mapping で sRGB へ写す。engine の state transition だけは、sRGB に写した端点から Oklab で補間する | wire の `PaintProps` の色の型をすべて変える複雑さを避けるため。広色域の出力を行わない範囲での制限である |
@@ -215,6 +209,8 @@
 | 2026-11-05 | STATE-CHAT | catalog chat の text と typing をどう表すか | ChatContent::Message(text)/Typing。id/mine は passive identity/著者情報 | 空textとtypingの無効組合せを除き、時間と通知/選択ownerを保つため |
 | 2026-11-05 | STATE-METER | integrated meter の latch をどこが持つか | 単一測定ownerがUnmeasured/Measuredと実transportのSample/Resetを処理 | playing mirror、時刻、epochを追加せず測定の事実を保つため |
 | 2026-11-05 | STATE-SCROLL-SPY | scroll spy とnavigationが別のactive sectionを持つか | 一つのMachineへObserved/Requestedを送り、geometryがないとき最後の事実を保つ | navigation直後の選択を保ち、scroll/geometry/selectionのmirrorを除くため |
+| 2026-11-09 | STATE-AUDIT | 暗黙の状態機械をどう見つけ、閉じたと言えるか | lint（state-fields）は補助、人の監査が主。閉じ方は型（enum、Machine）、導出して保持しない、唯一の書き手の投影、真に独立の四つ。`--report-audit` の一覧を人が読む | 名前と型の構文を見る lint は関数・crate をまたぐ意味の制約を網羅できず、静的な検査だけでは隠れた状態が無いことを証明できないため |
+| 2026-11-10 | STATE-CLAIMS | 印の主張を機械で検査するか | `projection:` は見える範囲で唯一の書き手を検査し、検証できない書込みは error。`independent:` の理由文はファイルをまたいで共有しない。閉じていない組合せは通常の検査で error | 偽の投影と定型文の理由は機械で検出でき、gate と監査の条件を一致させるため。意味の確認は人に残る |
 
 ## 拡張の境界
 

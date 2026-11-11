@@ -9,8 +9,8 @@ workspace は 49 package からなる。アプリと公式 kit は `kivact` faca
 | package | 担当と境界の理由 |
 |---|---|
 | `kivact` | 公開 facade。正準 module と prelude を再公開し、任意機能の入口をまとめる |
-| `kivact-macros` | `#[component]` の proc-macro。proc-macro は Rust の規則で独立の crate でなければならない。入力は関数の構文木、出力は token だけで、Kivact の内部状態を読まない。facade `kivact` だけが依存し再公開する |
-| `kivact-types` | workspace 共通の純粋な値、識別子、幾何、入力、描画・意味情報。ほかの workspace crate に依存しない |
+| `kivact-macros` | `#[component]` の attribute macro。関数の署名から props の struct、constructor、任意 props の setter、`IntoView` の実装を生成する。生成するコードは facade の path（`::kivact::…`）だけを使い、facade が root から再公開する。proc-macro は独立の crate でなければならない |
+| `kivact-types` | workspace 共通の純粋な値、識別子、幾何、入力、描画・意味情報。ほかの workspace crate に依存しない。多数の owner が等しい値の `Rc` を共有する `cell::Recent` を置く |
 | `kivact-runtime` | reactive、task、motion、Machine、turn の状態と wake。これらは同じ owner と実行順に依存するため一つに置く |
 | `kivact-i18n` | Locale、messages、ICU4X による地域書式・日付計算。reactive context の所有は core |
 | `kivact-style` | authored Style、Theme、Draw、Path と値の解決。外部描画 library の型を公開契約に出さない |
@@ -43,7 +43,7 @@ workspace は 49 package からなる。アプリと公式 kit は `kivact` faca
 | `kivact-public-api-tests` | facade と公式 kit の公開契約の試験 |
 | `kivact-docs` | 文書中の Rust のコンパイル |
 | `gpu-interop-producer` | GPU 共有を検証する別の描画 producer |
-| `kivact-bench` | KPI の手動計測。公開 API（facade）だけを使う葉。誰も依存しない |
+| `kivact-bench` | 性能の指標（K1〜K6）を手動で測る probe と `run.sh`。facade の公開 API だけを使い、CI では実行しない |
 | `xtask` | 依存、API、状態、style と図の検査 |
 
 library は 31、アプリは 2、雛形・小例・catalog は 11、試験・道具は 5 package。検査用 package も workspace の数に含める。旧 wire、reactive、task、motion、text、lower の独立 crate は復活させない。
@@ -56,26 +56,6 @@ library は 31、アプリは 2、雛形・小例・catalog は 11、試験・�
 - B-4: crate/module の先頭に英語の `//! Role:` と役割を書く。crate の境界の根拠も説明する。
 - B-5: `visible_to` にない利用者は追加しない。新しい依存が必要なら境界の判断と policy を先に変更する。
 
-### 性能・メモリ・依存の規則（PERF・MEM・DEP）
-
-| ID | 規則 |
-|---|---|
-| PERF-1 | frame・turn・layout pass・a11y 公開の処理は、変わったノードとその祖先（と、その祖先の子の一覧の安価な比較）だけを処理する。全ノードの走査は、構造の初期化・font の登録・環境の変化・明示的な全体の再構築（`Full`）だけに使う。新しい O(N) の処理を足すときは、その理由を関数の doc comment に書く |
-| PERF-1 の補足 | PERF-1 の例外（全走査を許す処理）は、doc comment に理由を書いたものだけ：構造の初期化、font の登録、環境の変化、明示的な `Full`、a11y の Metadata 経路（DEC-06） |
-| PERF-2 | 一度しか要らない重い初期化（system font の DB、GPU、pipeline、ICU の formatter）は、使う時に作る。起動の critical path（main→初回 present）に新しい同期処理を足さない |
-| PERF-3 | CPU 合成は、平行移動だけ・不透明度 1・Normal と SrcOver・mask と cover なしの描画に整数の高速経路を使う。汎用 loop はそれ以外にだけ使う |
-| PERF-4 | frame ごとの処理が読む「特別な prop を持つノードの集合」（shader の clock、再生中の画像、layout motion 等）は、prop の書き手が更新する索引（単一の書き手の投影）で持つ。毎 frame の全走査で探さない（D1 S-1） |
-| PERF-5 | hit test は paint の ink（描画の上界）で子を枝刈りする。ink は model が定義する `HitInk` で読む（DEC-04） |
-| MEM-1 | ノードごとに保持する値は、既定値なら保持しない（`None`）。読む側は `None` を既定値として扱う |
-| MEM-2 | 64 byte を超える値を `Rc<RefCell<Option<T>>>`・`Rc<Cell<Option<T>>>`・`Option<T>` の field として多数のノードに持たせない。`Option<Box<T>>` にする |
-| MEM-3 | 多数のノードが同じ値を持つ場合（継承した computed text style など）は、親と同じなら `Rc` を共有する |
-| MEM-4 | authored `Style` は field の群ごとの疎な struct で持つ（使った群だけを確保する）。操作の履歴を保持しない |
-| MEM-5 | 部品 1 つの reactive node は、その部品が実際に独立して変わる値の数までにする。同じ source から導く複数の `memo<bool>` は、`Copy` な struct を返す一つの `memo` にする |
-| MEM-6 | ノードごとの主要な型に、`const` の大きさの上限を置く（4.7 節 MEM-7 の表）。上限を超える変更はコンパイルできない |
-| MEM-8 | 空の view・tuple・Vec は host node を作らない（D3 M2-1）。多くのノードが同じ値を持つ prop・style・text style は `kivact_types::cell::Recent` で直近値を共有する（D3 M2-5、D7 M3-2・M3-11） |
-| MEM-9 | idle の window は 1 s 後に CPU compositor の frame state を手放す。状態は `LastPresent` の variant で表す（D4 D2） |
-| DEP-5 | 重い任意機能（ICU の分かち書き辞書）は facade の feature にし、末端の crate が実装する（DEP-4 の形）。既定では有効 |
-
 ### module の向き
 
 矢印は「右側を参照する」を表す。正確な許可リストと理由のある例外は policy を正とし、再公開だけの facade を実装の循環と混同しない。
@@ -86,7 +66,7 @@ library は 31、アプリは 2、雛形・小例・catalog は 11、試験・�
 | core | `view → state/geometry/task/motion/style`、`platform/diagnostics/gpu_interop → view`、`client → platform/diagnostics/gpu_interop/view`、`devtools → task/motion/style/state/geometry/sync/view/platform/diagnostics/client`、`launch → client/devtools`、`app → launch`、`embed → app/launch/view`。`custom → view/draw`。`client` は `devtools` を参照せず、`view/devtools_hooks.rs` の hook を呼ぶ |
 | style | asset/length/color などの値 → geometry/path/theme/effect/paint/text → draw/sheet → resolve の順に組み立てる。上位から下位だけを参照 |
 | interaction | policy、axis、press、edit、disclosure、focus_return、roving などの小さい behavior を下に置き、list/drag、popup/scalar、dialog/select/menu、table/palette を組む。UI への逆依存は禁止 |
-| engine | `Model` は window ごとの tree/model、`AppModel` は App 全体の event の列・motion の時計・frame の要求を持つ。contract/lower/text_input が基底。tree/mutation → measure → model → text_measure/paint/a11y/check → host/api/embed/testing。model が読む paint/a11y/check の passive state leaf は明示した例外だけ |
+| engine | `Model` は window ごとの tree/model、`AppModel` は App 全体の event の列・motion の時計・frame の要求を持つ。contract/lower/text_input が基底。tree/mutation → measure → model → text_measure/paint/a11y/check → host/api/embed/testing。model が読む paint/a11y/check の passive state leaf は明示した例外だけ。hit test（`model/interact/hit`）は描画の上界を答える `HitInk` を model で定義し、paint が実装する。model から paint の内部を参照しない |
 | shell | `events → types`、`pipeline → events/types/ime`、`input → pipeline`、`window_input → events/types/ime/pipeline/mouse/clicks/contacts/input`、`window → events/ime/types/services/a11y/target/input`。正規化は backend から独立 |
 | native | port が present/a11y/services/display を使い、mirror が port/present/a11y を使う。OS 固有の入口から engine へ逆依存しない |
 | virtual | clock を script が使い、window が clock/script/surface を使い、backend と mirror がそれを組み立てる |
@@ -111,6 +91,8 @@ VOC-1 は一つの意味に一つの型、VOC-2 は値を types、closure・動�
 | S-9 | ReportOnce、Sent、Generation、Mailbox、純粋 cache、統計を区別する。異なる事実を無理に一つの phase にしない |
 
 Options/Event/Phase/Reason/Input/Report/Tokens/Recipes、Element の builder、Api、policy、純粋値は、それ自体では lifecycle を表さない。passive な record を検査から除くときは、各 field の直前に `xtask-allow(state-fields)` とその field が状態でない正確な理由を書く。型全体の曖昧なコメント、名前による広い除外は使わない。
+
+印の理由は閉じ方を表す接頭辞で始める：`independent:`（すべての組合せが有効である理由。他のファイルと同じ定型文にしない）、`projection:`（同じ事実の投影。`written only by <関数>` で唯一の書き手を名指す）、`cache:`、`identity:`、`statistic:`、`option:`。xtask は、`projection:` の名指す関数が field の見える範囲に実在し、その範囲でその field を書く式がその関数の中だけにあること（Machine の状態は `transition` だけが書くので、名指すのは event の送り手）と、`independent:` の理由文がファイルをまたいで同じでないことを検査し、検証できない書込みは error にする。関数の中の状態の local（`signal(false)`、`signal(None)`、`Cell::new` など）も二つ以上あれば同じ検査の対象とし、印は local の直前に書く。閉じていない組合せは通常の検査で error になる。検査は意味の誤り（真に排他なのに independent と書いた等）までは見つけられないので、`cargo xtask check --only state-fields --report-audit` が数えたすべての field と閉じ方を `dev/xtask/state-audit.md`（commit しない生成物）に書き出し、人が読んで確かめる。
 
 Creative jobs の run/stop は独立した一つの入力であり、progress/amount は数値の測定事実である。effect が実 FrameLoop の start/stop だけを行う場合、bool を置換するだけの第二の Machine は不要である。
 
@@ -138,40 +120,6 @@ Creative jobs の run/stop は独立した一つの入力であり、progress/am
 
 catalog でも同じ規則を使う。chat entry は Message(text)/Typing、integrated meter は Unmeasured/Measured と実 Sample/Reset、active section は単一 owner が Observed/Requested を受ける。最後の観測を保持し、geometry、scroll、playing、selection の mirror を足さない。
 
-### 暗黙の状態の閉じ方（SM・SL）
-
-見つかった暗黙の状態は、次のどれかで閉じる：型で表す（enum、単一の Machine）、導出して保持しない、単一の書き手の投影（SM-12）、真に独立（SM-11。すべての組合せが有効と示せるもの）。
-
-| ID | 見つかった形 | 直した形 |
-|---|---|---|
-| SM-1 | 二つ以上の `bool` が同時に true にならない | 一つの enum。variant 名は状態の名前（`Idle`、`Running`、`Paused` など） |
-| SM-2 | `bool` と、その bool が true のときだけ意味のある `Option<T>` | `enum { Off, On(T) }`（名前は意味に合わせる） |
-| SM-3 | 二つの `Option` がともに `Some` かともに `None` | `Option<(A, B)>` または意味のある struct の `Option` |
-| SM-4 | 二つの `Option` が排他 | `enum { None, A(A), B(B) }` |
-| SM-5 | 構築後に埋める slot（`OnceCell`、`Option` を後で `Some` にする） | constructor に渡す（S-7）。渡せない循環は `Rc::new_cyclic`。どちらも無理なら報告する |
-| SM-6 | 古い仕事を捨てるための `Generation`/`epoch` の比較 | 仕事の識別子を `Running { id }` の variant に持たせ、完了は id の一致で受ける |
-| SM-7 | 期限の時刻を保存し、読む時に比べる | Machine の `Step::after(期間, Event::Expire)` |
-| SM-8 | effect が別の signal を補修する | 二つを一つの Machine の状態にし、effect を消す |
-| SM-9 | caller の `open: Binding<bool>` と部品内の Machine が同じ開閉を持つ | Machine が正本。初期状態は構築時の `open.get_untracked()` から作り、以後の変化は `feed(open, Event::OpenRequested)` で入れる。開閉の遷移は `Effect::WriteOpen(bool)` を出し、値が違うときだけ `open.set(v)` を呼ぶ。owner の破棄で Machine も破棄される |
-| SM-10 | drag の session と並べて、同じ gesture を別の signal で追う | drag の Start/Update/End/Cancel を一つの domain の Machine に送る |
-| SM-11 | 本当に独立した事実（すべての組合せが有効） | 直さない。field の直前に `xtask-allow(state-fields): independent: <すべての組合せが有効である理由>` を書く。「排他でない」は独立の理由にならない（一方が他方を含意するなら SM-1・SM-2） |
-| SM-12 | 同じ事実の公開の投影（通知の粒度のために別の signal に持つ等） | 書き手を一つの private な関数（例：`publish(next)`）に集め、その関数だけが両方を書く。marker は `projection: written only by <関数名>` |
-
-限界：静的な検査と台帳では、意味の上で隠れた状態を「全て」見つけたとは証明できない。完了の条件は、既知の項目が 0 件であることと、監査の報告を人間が確認したことである。
-
-| ID | lint の規則 |
-|---|---|
-| SL-1 | `OnceCell<T>`、`OnceLock<T>`、`LazyCell`、`LazyLock` を stored に数える |
-| SL-2 | phase として数える enum の名前の接尾辞を `State`・`Phase`・`Status`・`Stage`・`Connection`・`Lifecycle`・`Run`・`Present` に広げる。`Align` のような値の enum は数えない |
-| SL-3 | named helper（`Generation`、`Sent`、`Revision`、`Epoch`）は、同じ struct に他の stored field があるときは stored に数える |
-| SL-4 | role の接尾辞による除外（`Input`、`Report` など）は、`Cell`・`RefCell`・`Signal`・`Var`・`Mutex` を field に持つ struct には適用しない |
-| SL-5 | `kivact-engine::contract` の除外をやめる（`bool` と `Option` を持つ struct を検査する） |
-| SL-6 | 名前が `pending*`・`dirty*`・`awaiting*`・`relayout*`・`stale*` の `Vec`・`VecDeque`・`BTreeSet`・`HashSet` を stored に数える |
-| SL-7 | 関数内の local（`signal(false)`、`signal(None)`、`Cell::new` など）が同じ関数に 2 個以上あるとき error にする。例外は local の直前の `// xtask-allow(state-fields): <理由>` |
-| SL-8 | marker の理由は `independent:`、`projection:`、`cache:`、`identity:`、`statistic:`、`option:` のどれかで始める（それ以外は error）。`independent:` は「全組合せが有効」の理由を、`projection:` は書き手の関数名を書く |
-
-監査：`cargo xtask check --only state-fields --report-audit` は、stored の field を 2 つ以上持つ struct・variant・関数の local を、field と marker の閉じ方ごとに `dev/xtask/state-audit.md` に書き出す。報告に「閉じ方が無い」行が 0 件であることと、設計で定めた全行が実装済みであることを確かめ、人間（設計者）が報告を読んで確認するまで完了としない。
-
 ### Machine の書き方
 
 Machine は独自 control のための、小さい reducer に effect と timer を加えたもの。通常の部品利用に必要な prelude の概念にはしない。
@@ -183,13 +131,13 @@ Machine は独自 control のための、小さい reducer に effect と timer 
 5. feed は指定 source の変化を送る。最初の依存収集では callback を呼ばない。MachineCx は send の口であり、timer や状態の補修用の第二 owner にしない。
 6. owner の破棄後は Disposed。timer、task、frame の停止も同じ owner の cleanup に従う。
 
-## 公開 API の 15 規則
+## 公開 API の 17 規則
 
 | ID | 規則 |
 |---|---|
 | API-1 | 正準 module path と prelude だけを入口にする。constructor と型を同じ module に置く。behavior/data は interaction、部品/state/variant/recipes/tokens は ui |
 | API-2 | 動的な builder option は IntoValue。構造を決める flag/mode、構築前の option 束、passive record は通常の値 |
-| API-3 | on_ は event だけ。payload は Fn(E) → R: HandlerResult、payload なしは Into<Callback<()>>。純粋 query は名詞と借用値。kit の builder の任意 handler は setter で受ける。`#[component]` の必須 props は位置引数（handler を含む。SLIM-15） |
+| API-3 | on_ は event だけ。payload は Fn(E) → R: HandlerResult、payload なしは Into<Callback<()>>。`Fn() -> R` や HandlerResult を返さない `Fn(E)` は使わない（xtask の api-shape が検査）。lifecycle の登録は FnOnce。純粋 query は名詞と借用値。標準部品・kit の builder の handler は setter で受け、位置引数にしない。`#[component]` の部品は必須の props を位置引数で受け、必須の handler もそこに含む |
 | API-4 | 論理座標、寸法、連続値は入力も読み返しも f64。件数/index/level/font weight は整数。整数 literal の変換と異なり reactive closure は f64 を返す |
 | API-5 | 見える text は IntoText、ID/name は Into<String>、message key/default は static str。label は control の名前、title は見える container 見出し、Node.name は生の意味情報 |
 | API-6 | 一度 mount する slot は IntoView、作り直す content は Fn/IntoViewFn、項目は item ごとの factory。slot 名の語彙を揃える |
@@ -199,24 +147,15 @@ Machine は独自 control のための、小さい reducer に effect と timer 
 | API-10 | kit の名前は facade prelude、ui、標準 prelude と衝突させない |
 | API-11 | conversion trait の診断を具体的にする。自 crate の enum は所有 crate で constant_value を実装し、それ以外は closure を案内 |
 | API-12 | setup/context の misuse は track_caller 付きで、修正方法の分かる panic にする |
-| API-13 | 必須位置引数は label/title、data、binding/selection、children。具体 builder と IntoView を保ち、一つの root は Element、attach は合成 view を返す |
+| API-13 | 必須位置引数は label/title、data、選択、開閉、children。項目の集まりは items（options・entries・nodes と呼ばない）。0 個以上を選ぶ部品は selected: IntoSelection、単一だけを選ぶ部品は selected: IntoBinding<Option<K>>、必ず一つを選ぶ部品（tabs、segmented）は value: IntoBinding<K>。閉じていると意味の無い部品（dialog、window、drawer、sheet）は open: IntoBinding<bool>、開閉が任意の部品は setter `.open(binding)` で受け、visible と呼ばない。具体 builder と IntoView を保ち、一つの root は Element、attach は合成 view を返す |
 | API-14 | bool query は is_/has_、それ以外は名詞。get_/_value は使わず、更新は set/動詞、失敗可能は try_。略語は a11y/ime/id 以外を増やさない |
 | API-15 | Api、State、Variant、Recipes、Tokens、Options、Policy、Mode、Kind、Event、Phase、Reason を役割どおり使う。InteractionPolicy の入れ子も Policy |
-
-### 引数の規約（ARG）
-
-| ID | 規約 |
-|---|---|
-| ARG-1 | payload の無い event の setter は `impl Into<Callback<()>>`、payload のある event は `impl Fn(E) -> R + 'static`（`R: HandlerResult`）。`impl Fn() -> R`、`impl Fn(K) + 'static`（`HandlerResult` なし）は使わない |
-| ARG-2 | 項目の集まりの位置引数の名前は `items`（`options`、`entries`、`nodes` を使わない） |
-| ARG-3 | 0 個か 1 個（か複数）を選ぶ部品の選択は位置引数 `selected: impl IntoSelection<K>`（単一だけの部品は `impl IntoBinding<Option<K>>`）。必ず一つを選ぶ部品（tabs、segmented）は位置引数 `value: impl IntoBinding<K>` |
-| ARG-4 | 開閉。開いていない状態が無意味な部品（dialog、window、drawer、sheet）は位置引数 `open: impl IntoBinding<bool>`。開閉が任意の部品は setter `.open(impl IntoBinding<bool>)`。`visible` という名前で開閉を表さない |
-| ARG-5 | 項目の活性化（menu の項目を選んで実行する、tree の行を開く等）の event は `on_activate`。`on_select`、`on_pick`、`on_item_activate` を使わない（選択は binding が正本で通知を足さない、既存の規則） |
-| ARG-6 | 状態を変える命令の method（`self` を取り何かを開く）は動詞 `show`/`hide`。setter（binding を受ける）と同じ名前にしない |
+| API-16 | 開閉の命令は `show`/`hide`（何度呼んでも同じ結果）、反転は `toggle`、閉じる理由を渡すものは `hide(reason)`。状態の読み出しは `is_open`。開いている間だけ content を mount する method は `while_open(factory)` とし、`content()` は content の Part を返す名前として全 Api で使う。命令を binding を受ける setter（`.open(..)`）と同じ名前にしない |
+| API-17 | 公開の recipe state は、排他な事実を pub の enum の field（型名は owner の接頭辞を除いた名前。部分を表す enum は State で終わらせない。例 CardAction、CheckControl）、常にある事実を pub の field、一部の種類にだけある事実と導出する事実を accessor で表す。bool の accessor は is_/has_ で始める |
 
 ### 公開 module と利用者の入口
 
-root は App、Result、UiError、ErrorKind。state、view、geometry、style、draw、motion、task、i18n、platform、diagnostics、interaction、ui、custom を意味ごとの正準 module とし、test/embed/gpu_interop は feature の入口とする。prelude は日常の利用に必要な名前を明示再公開し、同じ型を別の業務 module からも出さない。custom は正式な独自部品境界で、内部 engine の型を直接使わせない。
+root は App、Result、UiError、ErrorKind と attribute macro の `component`。state、view、geometry、style、draw、motion、task、i18n、platform、diagnostics、interaction、ui、custom を意味ごとの正準 module とし、launch は GPU の起動の希望（GpuPreference、GpuPower、GpuBackend、GpuStart、AdapterMatch の 5 型だけ。gpu feature の無い build では無視する）を feature なしで置き、test/embed/gpu_interop は feature の入口とする。prelude は日常の利用に必要な名前を明示再公開し、同じ型を別の業務 module からも出さない。custom は正式な独自部品境界で、内部 engine の型を直接使わせない。
 
 定数 prop は literal または所有 crate の constant_value で扱う。保存用 Reactive は独自 data 型の作者のための境界であり、通常利用者に Prop や内部 ID を見せない。binding は caller の値の書込み先、Selection は single/multiple の選択、CalendarSelection は日付の Single/Range descriptor であり、異なる情報を一つの conversion trait に押し込めない。
 
@@ -226,7 +165,7 @@ HandlerResult は `()`、Handled、Result<(), UiError>、Result<Handled, UiError
 
 内部 handler は runtime の一つの Handler<E> に揃える。payload なしの Callback は setup に限らず現在の owner の下で構築できるが、owner なしでは misuse。payload ありは Fn を受け、必要なら Callback.to_fn を使う。user handler、Part、既定動作の順序で伝播と既定動作の防止を区別する。
 
-state の on_mount/on_cleanup は FnOnce の lifecycle 登録であり、node の実装用 on_attach(PartMount) と区別する。イベントは on_press、on_edit(EditPhase)、on_submit、on_activate(key)、drag の on_start/on_update/on_end、on_files、on_dismiss(reason)、on_complete/on_exit_complete、on_error(UiError)、on_composition_change、on_active_change、on_add/on_remove/on_reorder とする。selection は binding が正本で、通知のための on_select を足さない。支援技術 action は a11y_action に登録する。
+state の on_mount/on_cleanup は FnOnce の lifecycle 登録であり、node の実装用 on_attach(PartMount) と区別する。イベントは on_press、on_edit(EditPhase)、on_submit、on_activate(key)、drag の on_start/on_update/on_end、on_files、on_dismiss(reason)、on_complete/on_exit_complete、on_error(UiError)、on_composition_change、on_active_change、on_add/on_remove/on_reorder とする。項目の活性化（menu の項目の実行、tree の行を開く等）は on_activate とし、on_select・on_pick・on_item_activate を使わない。selection は binding が正本で、通知のための on_select を足さない。支援技術 action は a11y_action に登録する。
 
 ### 構造 option と slot
 
@@ -237,6 +176,8 @@ state の on_mount/on_cleanup は FnOnce の lifecycle 登録であり、node �
 ListItem、MenuEntry、Command、TreeNode、DataColumn、ToastOptions、StepperItem は passive な値として構築し、collection の reactive 性は外側に持つ。RenderOptions と AppOptions は private field と setter にまとめる。ThemeOptions と InteractionPolicy のような FRU の設定値は公開 field を持ち、構築前の通常値として渡す。variant の Default では owner を要する reactive 値を作らず、必要な reactive 値は明示 setter に渡す。
 
 `view::scope(FnOnce → IntoView)` は mount 時に一度だけ実行する setup の境界。新しい child owner と透明な fragment の下で hook/cleanup を保つ。eager に factory を呼ぶことや、`provide(())` で空の context を置いて owner を偽造することでは代用しない。再度開く content は必要な factory を保ち、捨てた editor owner を再利用しない。
+
+アプリ・kit・catalog・例の部品は `#[component]` で書く。必須の props は位置引数、`#[prop(optional)]`・`#[prop(default = ..)]` は名前付きの setter になる。生成する型は `IntoView` を実装し、本体は `scope` の中で一度だけ実行する。`Element` は実装しないので、呼出し側が変えてよいものは props で表す。`kivact-ui`・`kivact-interaction` の内部と kit の既存の公開 builder は具体 builder のまま保つ。
 
 API-11 の診断は blanket impl の内側の bound を rustc が先に報告する場合もある。診断属性に加えて rustdoc の冒頭とガイドにも同じ修正 hint を記し、属性の文言が常に表示されることまでは前提にしない。
 
@@ -273,31 +214,53 @@ DatePresentation は Adaptive/Desktop/BottomSheet。Adaptive は capabilities.to
 
 chat、code block、stat、collections でも同じ原則を適用する。CodeBlock は既存 disclosure の owner と controls 関係、show/presence の高さ motion を使い、第二の disclosure を作らない。history は実 editor の selection を操作する。stat の animation と chart は caller の値と slot を合成する。Contents は layout/paint/input の走査では透過し、a11y の論理 hierarchy と子の bounds の合併は保つ。
 
+## 性能とメモリ（PERF、MEM）
+
+| 規則 | 内容 |
+|---|---|
+| PERF-1 | frame・turn・layout pass・a11y の公開は、変わったノードとその祖先（と、その祖先の子の一覧の安価な比較）だけを処理する。全ノードの走査は、構造の初期化、font の登録、環境の変化、明示的な全体の再構築（`Full`）、a11y の構造・role・名前の変化（Metadata の経路）だけに使い、その関数の doc comment に理由を書く。新しい O(N) の処理を足すときも同じ |
+| PERF-2 | 一度しか要らない重い初期化（system font の DB、GPU の device、pipeline、ICU の formatter）は使う時に作る。起動の critical path（main から最初の present まで）に同期の処理を足さない |
+| PERF-3 | CPU 合成は、平行移動だけ・不透明度 1・Normal と SrcOver・mask と cover なしの描画に整数の高速経路を使う。汎用の loop はそれ以外にだけ使う |
+| PERF-4 | frame ごとの処理が読む特別な prop を持つノードの集合（shader の clock、再生中の画像、layout motion など）は、prop の書き手が更新する索引（engine の `MotionSources`）で持つ。毎 frame の全走査で探さない |
+| PERF-5 | hit test は paint の ink（描画の上界）で子を枝刈りする。ink は model が定義する `HitInk` で読む。3D の投影や drawable を含み ink が上界にならない subtree は、ink の `beyond` の印で枝刈りと culling から外す |
+| MEM-1 | ノードごとの値は、既定値なら保持しない（None）。読む側は None を既定値として扱う |
+| MEM-2 | 64 byte を超える値を、多数のノードが持つ `Option<T>`・`Rc<RefCell<Option<T>>>`・`Rc<Cell<Option<T>>>` の field にしない。`Option<Box<T>>` にする |
+| MEM-3 | 多数のノードが同じ値（継承した computed text style、prop、style）を持つときは `Rc` を共有する。親と同じなら親の `Rc`、そうでなければ `kivact_types::cell::Recent` で直近の等しい値の `Rc` を使う |
+| MEM-4 | authored `Style` は field の群ごとの疎な struct で持ち、使った群だけを確保する。操作の履歴を保持しない |
+| MEM-5 | 部品 1 つの reactive node は、その部品で実際に独立して変わる値の数までにする。同じ source から導く複数の `memo<bool>` は、Copy な struct を返す一つの memo にする。使わない機能の clock・Machine・node は作らない |
+| MEM-6 | ノードごとの主要な型（`HostNode`、`NodeProperties`、`NodeStyle`、`Style`、`StateStyles`、`Look`）に `const` の大きさの上限を置き、超える変更をコンパイルできないようにする。上限を上げるときは同じ変更に理由を書く |
+| MEM-7 | 空の view・tuple・Vec は host node を作らない |
+| MEM-8 | idle の window は最後の present から 1 秒後に CPU compositor の frame state を手放す。状態は `LastPresent` の variant で表す |
+
 ## feature と OS（DEP）
 
-DEP-1 は同じ意味の feature 名を揃えること、DEP-2 は feature が自 crate の振る舞いだけを変えること、DEP-3 は OS の判断を port と事実に閉じること、DEP-4 は optional な機能の入口を facade/core と末端の実装に閉じ、中間層を常にコンパイルすることである。別 crate が match する enum variant や構築する struct field を feature で増減しない。
+DEP-1 は同じ意味の feature 名を揃えること、DEP-2 は feature が自 crate の振る舞いだけを変えること、DEP-3 は OS の判断を port と事実に閉じること、DEP-4 は optional な機能の入口を facade/core と末端の実装に閉じ、中間層を常にコンパイルすることである。別 crate が match する enum variant や構築する struct field を feature で増減しない。DEP-5 は、重い任意機能（ICU の分かち書きの辞書など）を facade の feature にして末端の crate が実装し（DEP-4 の形）、既定では有効にすることである。
 
 | package | feature と意味 |
 |---|---|
-| kivact | default は `gpu, complex-scripts`。gpu は arvane-render/gpu、complex-scripts は arvane-text/complex-scripts、gpu-interop は gpu と render/core/test の共有入口、embed は native/core/test、test は kivact-test、devtools は core と test の devtools（有効な release build は起動時に警告する）、tokio は core/tokio |
+| kivact | default は gpu と complex-scripts。gpu は arvane-compose/gpu（arvane-render/gpu を含む）、complex-scripts は arvane-text/complex-scripts、gpu-interop は gpu と compose/core/test の共有入口、embed は native/core/test、test は kivact-test、devtools は core と test の devtools（有効な release build は起動時に警告する）、tokio は core/tokio |
 | kivact-core | tokio、embed、gpu-interop、devtools。gpu/test feature は持たない |
 | kivact-runtime | tokio（task の実行 adapter） |
 | kivact-test | embed、gpu-interop、devtools を core に転送 |
 | kivact-engine | testing（virtual/mirror、png、native/test）。これは内部試験の意味なので test に改名しない |
 | arvane-native | default は空、embed、test（embed を含む） |
 | arvane-virtual | default は空、mirror（native/test） |
-| arvane-render | gpu、gpu-interop（gpu を含む） |
-| arvane-text | default は空。complex-scripts は parley/complex-scripts |
+| arvane-render | gpu |
+| arvane-compose | gpu（render の gpu、wgpu と GPU 共有の契約）、gpu-interop（gpu を含む） |
+| arvane-text | complex-scripts（Parley の ICU の分かち書きの辞書） |
 | kivact-gpu-share | default は空、export、import、wgpu（export と wgpu adapter） |
 | gpu-interop-producer | wgpu |
-| public-api-tests | default gpu、gpu、gpu-interop、devtools、embed、tokio を facade に転送 |
-| docs、template、五つの catalog | default gpu、gpu を facade に転送 |
-| kivact-devtools、kivact-bench | default は gpu と complex-scripts。gpu と complex-scripts を kivact の同名 feature に転送 |
+| public-api-tests | default は gpu と complex-scripts。gpu、complex-scripts、gpu-interop、devtools、embed、tokio を facade に転送 |
+| docs | default は gpu と complex-scripts を facade に転送。gpu-interop は GPU 共有のガイドの例 |
+| template、五つの catalog、kivact-devtools | default は gpu と complex-scripts。どちらも facade に転送 |
+| kivact-bench | default は gpu と complex-scripts。latency は facade の test（`kv_latency`） |
 | その他 | feature なし。五つの kit に gpu-interop 等の中継 feature を置かない |
 
 GPU 無効時も GpuContext/GpuSurface は空 enum、GpuEnv は空の値として同じ名前がある。GPU_BUILT は false、利用不能は NoAdapter/External や FailureKind::Unavailable で説明し、feature のための API 分岐を利用者へ移さない。embed 無効の native open は Unsupported を返す。
 
 OS 分岐の主な持ち主は arvane-native の Windows/Linux port。共有 GPU texture の handle/import/export に必要な分岐だけは kivact-types の gpu、kivact-gpu-share、arvane-render の GPU context に置く。core、interaction、UI、kit は command key、context-menu trigger、pointer class、touch 等を Environment/Capabilities から読む。macOS、Android、iOS、Web backend は未実装で、SPI があることと対応済みであることを混同しない。
+
+GPU の device は window ごとに必要時に起動する（既定は `GpuStart::OnDemand`）。起動の入口は presenter の `Gpu` の二つだけで、`begin`（`AtLaunch` のとき window の作成時）と `demand`（OnDemand で待っているとき）である。需要は、composition の user shader（CPU で代わりの見た目を描いた報告）、core の `gpu_interop::adapter()` の読取り（`HostRequest::DemandGpu`）、CPU の frame が表示周期の半分を 8 frame 続けて超えたこと、の三つ。CPU だけの window（gpu feature が無い、`ARVANE_RENDERER=cpu`、App が GPU を望まない）は需要があっても起動しない。試験は `RenderOptions::gpu_on_demand()` で OnDemand を選び、`Screen::renderer()` で何が描いているかを確かめる。
 
 ## turn、Stage と時間
 
@@ -330,6 +293,8 @@ host の資源を使うことの宣言（`gpu_interop::adapter()` が `None` の
 ## 検証と保守の単位
 
 一つの関数は80 code行、fileは1000 code行を上限とする。長い処理は意味のある helper に分け、line packing、無意味な型/module、新しいstate、抑制属性で件数だけを減らさない。依存、状態、effect書込み、公開署名、正準path、名前衝突、kit色、OS分岐、構造optionを全workspaceで検査する。検査の例外は実際の境界と理由に限る。
+
+性能は `dev/bench` の K1（起動）、K2（メモリ）、K3（CPU）、K4（フレーム時間）、K5（更新の遅延）、K6（バイナリの大きさ）で測る。比べる二つの commit を同じ機械で `run.sh` にかけ、比で判定する（機械ごとに絶対値が違うため）。K6 は Kivact 自身の大きさを GPU 一式を除く build（`--no-default-features --features complex-scripts`）で比べ、既定の build（`gpu` 込み）は大きくしないことを確かめる。結果は commit しない。E2E の `Stats` の a11y の走査の件数（`a11y_enumerated`）と資源の回収（mount の前の `live_reactive`・`live_owners`・`tree_nodes` に戻ること）で PERF-1 と回収の後退を検出する。
 
 behavior の保存は既存 E2E の契約で確認する。trace は失敗診断用で、golden やf64の丸め一致を作らない。windowを開く試験は全worktreeで同じlockを使う。通常は既定並列、実際に同時doctest compile/linkでlink.exe1180とrustc ICEが起きたためkivact-docsだけ別実行でtest-threads=1とする。GPU試験は別の逐次実行。required mirrorのpublic API e2e binaryも、並列native実行で実際に異常終了したため、そのbinaryを逐次で再実行する。Cargo job数は制限しない。これはCPU buildの並列性とwindow/focus/実際のlink障害を混同しないための区別である。
 
