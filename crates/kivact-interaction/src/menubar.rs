@@ -93,7 +93,7 @@ pub fn use_menubar<K: kivact_core::state::ItemKey>(
         })
     });
     // The triggers are a horizontal list: the arrows move the focus along it.
-    // xtask-allow(state-fields): independent: the focused trigger index of the bar; the menus and the focus move separately
+    // xtask-allow(state-fields): independent: the trigger list's selection, written by use_list as the arrows and activation move along the bar; menus is fixed at setup, so any index or none pairs with it
     let focus = signal(None::<usize>);
     let list = use_list(
         items,

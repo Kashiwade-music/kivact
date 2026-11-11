@@ -13,12 +13,12 @@ use kivact_core::view::SortDirection;
 pub(super) struct Header<C> {
     pub(super) key: C,
     pub(super) label: Reactive<String>,
-    // xtask-allow(state-fields): option: whether activating the header sorts by the column
+    // xtask-allow(state-fields): option: whether the caller gave the column a ColumnDef::compare, copied by ColumnDef::header; false leaves the header unsortable
     pub(super) sortable: bool,
     // xtask-allow(state-fields): option: the starting width in the caller's unit; absent leaves it to layout
     /// The starting width in the caller's unit; `None` leaves it to layout.
     pub(super) width: Option<f64>,
-    // xtask-allow(state-fields): option: the minimum width in the caller's unit
+    // xtask-allow(state-fields): option: the caller's ColumnDef::min_width, copied by ColumnDef::header; absent keeps the resize range's own minimum
     pub(super) min_width: Option<f64>,
 }
 

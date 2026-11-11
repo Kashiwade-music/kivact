@@ -117,7 +117,7 @@ pub struct Toast {
     pub body: Option<String>,
     /// The tone.
     pub tone: Tone,
-    // xtask-allow(state-fields): option: how long it stays; absent until it is dismissed
+    // xtask-allow(state-fields): option: the caller's display time from Toast::duration (default 5 s); absent keeps the toast until it is dismissed
     /// How long it stays; `None` until it is dismissed.
     pub duration: Option<Duration>,
     // xtask-allow(state-fields): option: the action's label and function, if there is one

@@ -62,15 +62,15 @@ impl FilterValue {
 pub struct ColumnDef<R, C> {
     key: C,
     label: Reactive<String>,
-    // xtask-allow(state-fields): option: width
+    // xtask-allow(state-fields): option: the caller's starting width from with_width; absent leaves the column width to layout
     width: Option<f64>,
-    // xtask-allow(state-fields): option: min width
+    // xtask-allow(state-fields): option: the caller's resize lower bound from min_width, finite and non-negative only; absent keeps the resize range's own minimum
     pub(super) min_width: Option<f64>,
-    // xtask-allow(state-fields): option: compare
+    // xtask-allow(state-fields): option: the caller's row ordering from compare; absent (or without_ordering) makes the column unsortable
     compare: Option<Compare<R>>,
-    // xtask-allow(state-fields): option: matches
+    // xtask-allow(state-fields): option: the caller's text matcher from filter; absent leaves the column out of text filtering
     matches: Option<Matches<R>>,
-    // xtask-allow(state-fields): option: matches value
+    // xtask-allow(state-fields): option: the caller's typed-filter matcher from filter_value; absent leaves the column out of typed filtering
     matches_value: Option<MatchesValue<R>>,
     visible: Reactive<bool>,
 }
@@ -346,7 +346,7 @@ where
     let column_queries = signal(None::<Value<Vec<(C, String)>>>);
     // xtask-allow(state-fields): option: the row arrangement a setter supplies; absent keeps the caller's rows
     let arrangement = signal(None::<RowArrangement<R>>);
-    // xtask-allow(state-fields): option: the typed queries a setter supplies; absent searches every label
+    // xtask-allow(state-fields): option: the typed column filters a setter supplies; absent applies no typed filter
     let typed_queries = signal(None::<TypedQueries<C>>);
     // xtask-allow(state-fields): option: the paging a setter supplies; absent shows every row
     let paging = signal(None::<Paging>);
