@@ -55,8 +55,9 @@ pub fn view_progress(
     range: ViewRange,
 ) -> Value<f64> {
     require_setup("view_progress");
-    let _ = target.rect();
-    let _ = scroller.rect();
+    let at = std::panic::Location::caller();
+    target.require_observation(crate::view::state::RefObservation::SourcesAndLayout, at);
+    scroller.require_observation(crate::view::state::RefObservation::SourcesAndLayout, at);
     memo(move || {
         let (Some(target), Some(scroller)) = (layout_rect(target), layout_rect(scroller)) else {
             return 0.0;

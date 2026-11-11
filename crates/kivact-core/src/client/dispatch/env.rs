@@ -114,11 +114,18 @@ pub(super) fn layout_changed(
             }
             Some(Some(observation)) => Some(observation),
             Some(None) => {
-                // No observation yet: keep the report for `observe_node`, which
-                // seeds the observation with it (the report can come before it).
-                let measured = measured_layout
-                    .map(|layout_rect| crate::view::tree::Measured { rect, layout_rect });
-                tree.note_layout(node, (measured, text_truncated));
+                // No observation yet: a node a reference is bound to may get one
+                // later, so keep its report for `observe_node`, which seeds the
+                // observation with it (the report can come before it). A node
+                // without a reference never gets one: keep nothing.
+                if tree
+                    .get(node)
+                    .is_some_and(crate::view::tree::CoreNode::has_references)
+                {
+                    let measured = measured_layout
+                        .map(|layout_rect| crate::view::tree::Measured { rect, layout_rect });
+                    tree.note_layout(node, (measured, text_truncated));
+                }
                 None
             }
         }
