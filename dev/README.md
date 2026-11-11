@@ -13,7 +13,9 @@
 | `../crates/arvane-virtual/` | 仮想時計・入力台本・共通描画 driver・任意の実 window mirror |
 | `tools/window-lock.sh` | App の E2E と window を開くコマンドを worktree 間で一つずつ実行する lock |
 | `tools/check-features.sh` | library の非既定 feature を一つずつコンパイルする |
+| `tools/subset-catalog-font.py` | catalog の Noto Sans JP を使う文字の subset に作り直す（要 fontTools、原本は `--source`） |
 | `xtask/` | workspace の規則の検査と `architecture/` の依存図の生成 |
+| `bench/` | 性能の指標（K1〜K6）を手動で測る probe と `run.sh`（[README](bench/README.md)、CI では実行しない） |
 
 ## 静的な検査
 
@@ -37,6 +39,13 @@ cargo xtask check --no-write --only effect-writes --crate kivact-ui-soft
 `--only` には検査の名前を一つ、またはコンマ区切りで複数（例：`--only state-fields,effect-writes`）
 渡せます。ほかに `api-shape`・`canonical-path`・`name-collision`・
 `kit-literal-color`・`os-branch`・`structural-options`・`devtools-codegen` を選べます。
+
+`--report-audit` は、状態の検査が数えたすべての field と local の閉じ方（印の理由の接頭辞、enum や Machine なら `type`、閉じていなければ `OPEN`）を
+`dev/xtask/state-audit.md` に書き出します（`--no-write` でも書きます）。人が印の理由の意味を確かめるための一覧で、commit しません。
+
+```text
+cargo xtask check --no-write --only state-fields --report-audit
+```
 
 ## E2E と doctest
 
@@ -66,7 +75,7 @@ cargo check -p kivact --no-default-features --features test --lib
 dev/tools/check-features.sh
 ```
 
-`kivact` の既定は `gpu` です。任意の `test` は `kivact-test`、`embed` は native 埋込み、
+`kivact` の既定は `gpu` と `complex-scripts`（ICU の分かち書きの辞書）です。任意の `test` は `kivact-test`、`embed` は native 埋込み、
 `devtools` は DevTools の agent と protocol、`gpu-interop` は GPU texture 共有、`tokio` は非同期 task の連携を有効にします。
 workspace 全体の build は dev-dependency 経由で feature が統合されるため、
 `check-features.sh` が `kivact-core`・`kivact-test`・`kivact-engine`・Arvane adapters・

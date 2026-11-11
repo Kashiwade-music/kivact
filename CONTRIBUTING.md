@@ -82,13 +82,13 @@ KIVACT_TEST_MIRROR=off dev/tools/window-lock.sh --timeout 5400 -- cargo test -p 
 dev/tools/check-features.sh
 ```
 
-`cargo xtask check` はファイルごとの code 行の上限、crate の `visible_to`、module の依存の向き、Google Rust Style Guide の規則（rustfmt と Clippy を含む）を検査し、`architecture/` の図と `architecture/index.html` を生成します。`state-fields`、`effect-writes`、`api-shape`、`canonical-path`、`name-collision`、`kit-literal-color`、`os-branch`、`structural-options` も含み、`--only <検査> --crate <crate> --module <module path>` で範囲を絞れます（`--only` はコンマ区切りで複数指定可、`--report` は違反を一覧にして成功で終了、例外は対象の field や項目の直前の `// xtask-allow(<検査>): <理由>`）。CI は fmt と `cargo xtask check --no-write` だけを実行します。`dev/tools/check-features.sh` は library の非既定 feature を一つずつ有効にしてコンパイルします。
+`cargo xtask check` はファイルごとの code 行の上限、crate の `visible_to`、module の依存の向き、Google Rust Style Guide の規則（rustfmt と Clippy を含む）を検査し、`architecture/` の図と `architecture/index.html` を生成します。`state-fields`、`effect-writes`、`api-shape`、`canonical-path`、`name-collision`、`kit-literal-color`、`os-branch`、`structural-options` も含み、`--only <検査> --crate <crate> --module <module path>` で範囲を絞れます（`--only` はコンマ区切りで複数指定可、`--report` は違反を一覧にして成功で終了、`--report-audit` は状態の閉じ方の一覧を `dev/xtask/state-audit.md` に書き出す（commit しない）、例外は対象の field や項目の直前の `// xtask-allow(<検査>): <理由>`）。CI は fmt と `cargo xtask check --no-write` だけを実行します。`dev/tools/check-features.sh` は library の非既定 feature を一つずつ有効にしてコンパイルします。
 
 `cargo xtask devtools-codegen --check` は `cargo xtask check` に含まれるため、別に実行しません。DevTools の Python client を変えたときは、`python -m unittest discover python/kivact-devtools/tests` も実行します（任意）。
 
-KPI（起動・メモリ・CPU・フレーム時間・更新レイテンシ・バイナリサイズ）は `dev/tools/window-lock.sh -- dev/bench/run.sh <label>` で測ります。
-実 window を開き release の build も行うため、時間がかかります（`dev/bench/README.md` を参照）。
-手動の道具であり、CI には組み込みません。結果の Markdown は `dev/bench/results/` に置きます。
+KPI（起動・メモリ・CPU・フレーム時間・更新レイテンシ・バイナリサイズ）は `dev/tools/window-lock.sh --timeout 5400 -- dev/bench/run.sh <label>` で測ります。
+実 window を開き release の build を 9 回行うため、時間がかかります。比べる二つの commit を同じ機械で測り、report を比べます（[dev/bench/README.md](dev/bench/README.md)）。
+手動の道具であり、CI には組み込みません。結果の Markdown は `dev/bench/results/` に書かれ、commit しません。
 
 ## commit と PR
 
