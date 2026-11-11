@@ -167,7 +167,7 @@ fn item(t: &Theme, s: &Look<MenuItemState>) -> Style {
                 p.colors.focus_ring,
             ))
     };
-    let base = if s.expanded {
+    let base = if s.is_expanded() {
         base.merge(&highlight)
     } else {
         base

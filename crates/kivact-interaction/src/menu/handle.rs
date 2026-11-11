@@ -3,7 +3,7 @@
 use super::level::Level;
 use super::session::Session;
 use super::state::Edge;
-use super::state::{MenuEntry, MenuItemState, MenuOrigin, MenuRow, PressOver};
+use super::state::{MenuEntry, MenuItemDisplay, MenuItemState, MenuOrigin, MenuRow, PressOver};
 use crate::focus_return::PopupCloseReason;
 use crate::popup::PopupState;
 use kivact_core::ErrorKind;
@@ -169,6 +169,7 @@ impl<K: kivact_core::state::ItemKey> MenuApi<K> {
         })
     }
     /// Drawing state of the actual mounted menu item.
+    /// Before the item mounts it reads as a plain item (`MenuItemDisplay::Action`).
     pub fn item_state(self, key: K) -> Value<MenuItemState> {
         memo(move || {
             self.level
@@ -178,8 +179,7 @@ impl<K: kivact_core::state::ItemKey> MenuApi<K> {
                 .unwrap_or(MenuItemState {
                     input: PartState::default(),
                     pressed_over: PressOver::None,
-                    check: None,
-                    expanded: false,
+                    display: MenuItemDisplay::Action,
                     destructive: false,
                 })
         })

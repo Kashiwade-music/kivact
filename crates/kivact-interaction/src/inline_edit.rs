@@ -62,26 +62,21 @@ impl<K: ItemKey> Phase<K> {
     }
 }
 
-/// The rename request and the key last written to the caller's binding.
+/// The rename request. The key last written to the caller's `editing`
+/// binding is always the key of the phase, so it is not stored.
 struct InlineEdit<K: ItemKey> {
     phase: Phase<K>,
-    // xtask-allow(state-fields): projection: the key last written to the caller's binding, written only by the machine's request transition
-    /// The key the machine last reported to the caller's `editing` binding;
-    /// a request that differs from it is written once, and its echo is a
-    /// request for the state the machine already holds.
-    reported: Option<K>,
 }
 impl<K: ItemKey> Clone for InlineEdit<K> {
     fn clone(&self) -> Self {
         Self {
             phase: self.phase.clone(),
-            reported: self.reported.clone(),
         }
     }
 }
 impl<K: ItemKey> PartialEq for InlineEdit<K> {
     fn eq(&self, other: &Self) -> bool {
-        self.phase == other.phase && self.reported == other.reported
+        self.phase == other.phase
     }
 }
 impl<K: ItemKey> InlineEdit<K> {
@@ -115,15 +110,12 @@ impl<K: ItemKey> Machine for Rename<K> {
         match event {
             Event::Request(Some(key)) if state.key().as_ref() == Some(&key) => Step::stay(),
             Event::Request(key) => {
-                let write = state.reported != key;
-                let mut next = state.clone();
-                next.phase = match &key {
-                    Some(key) => Phase::Requested { key: key.clone() },
-                    None => Phase::Idle,
+                let write = state.key() != key;
+                let next = InlineEdit {
+                    phase: key
+                        .clone()
+                        .map_or(Phase::Idle, |key| Phase::Requested { key }),
                 };
-                if write {
-                    next.reported = key.clone();
-                }
                 let step = Step::to(next);
                 if write { step.with(key) } else { step }
             }
@@ -157,10 +149,7 @@ impl<K: ItemKey> Machine for Rename<K> {
                 _ => Step::stay(),
             },
             Event::Ended(key) if state.key().as_ref() == Some(&key) => {
-                let mut next = state.clone();
-                next.phase = Phase::Idle;
-                next.reported = None;
-                Step::to(next).with(None)
+                Step::to(InlineEdit { phase: Phase::Idle }).with(None)
             }
             _ => Step::stay(),
         }
@@ -184,15 +173,17 @@ pub fn use_inline_edit<K: ItemKey>(editing: impl IntoBinding<Option<K>>) -> Inli
     let initial = editing.get_untracked();
     let rename = machine(
         InlineEdit {
-            phase: initial
-                .clone()
-                .map_or(Phase::Idle, |key| Phase::Requested { key }),
-            reported: initial,
+            phase: initial.map_or(Phase::Idle, |key| Phase::Requested { key }),
         },
         || Rename(std::marker::PhantomData),
-        // The machine is the one writer of the request it reports; the echo of
-        // its own write comes back as a request for the state it holds.
-        move |_, key| editing.set(key),
+        // The machine is the one writer of the request it reports; it writes
+        // only a key the binding does not already hold, and the echo of its
+        // own write comes back as a request for the state it holds.
+        move |_, key| {
+            if editing.get_untracked() != key {
+                editing.set(key);
+            }
+        },
     );
     rename.feed(editing.into_value(), Event::Request);
     InlineEditApi { rename }

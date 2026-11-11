@@ -106,9 +106,9 @@ pub struct TableHeaderState {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct TableRowState {
     pub input: PartState,
-    // xtask-allow(state-fields): projection: readonly snapshot of the table selection for recipes, written only by the row part
+    // xtask-allow(state-fields): independent: whether the table selection holds the row; Space, a pointer press and the caller's binding change it, and a multiple selection keeps rows selected while the tab stop is elsewhere
     pub selected: bool,
-    // xtask-allow(state-fields): projection: readonly snapshot of the list tab stop for recipes, written only by the row part
+    // xtask-allow(state-fields): independent: whether the row holds the tab stop (itself under TableFocus::Rows, one of its cells under TableFocus::Cells); arrows between cells and under Manual activation move it without changing the selection
     /// The row holds the tab stop: itself with [`TableFocus::Rows`], one of
     /// its cells with [`TableFocus::Cells`].
     pub active: bool,
@@ -118,10 +118,10 @@ pub struct TableRowState {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct TableCellState {
     pub input: PartState,
-    // xtask-allow(state-fields): projection: readonly snapshot of the table selection for recipes, written only by the cell part
+    // xtask-allow(state-fields): independent: copied from the cell's row selection; Space selects the row of the focused cell, and arrows leave the selection where it is
     /// The cell's row is selected.
     pub selected: bool,
-    // xtask-allow(state-fields): projection: readonly snapshot of the list tab stop for recipes, written only by the cell part
+    // xtask-allow(state-fields): independent: whether the cell holds the tab stop, only under TableFocus::Cells; arrows move it between cells of selected and unselected rows alike
     /// The cell holds the tab stop only with [`TableFocus::Cells`].
     pub active: bool,
 }
