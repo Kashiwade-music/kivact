@@ -348,7 +348,7 @@ impl PopupApi {
     /// Request closure and apply the focus-return policy only after the
     /// controlled binding accepts it. A missing target receives no focus request.
     #[track_caller]
-    pub fn close(self, reason: PopupCloseReason) {
+    pub fn hide(self, reason: PopupCloseReason) {
         if !self.is_open().get_untracked() {
             return;
         }
@@ -385,7 +385,7 @@ impl PopupApi {
 
     fn toggle(self) {
         if self.is_open().get() {
-            self.close(PopupCloseReason::Programmatic);
+            self.hide(PopupCloseReason::Programmatic);
         } else {
             self.disclosure.open.set(true);
         }
@@ -406,7 +406,7 @@ impl PopupApi {
                 .on_press(move || self.toggle())
                 .a11y_action(A11yAction::Expand, move |_| self.disclosure.open.set(true))
                 .a11y_action(A11yAction::Collapse, move |_| {
-                    self.close(PopupCloseReason::Accessibility)
+                    self.hide(PopupCloseReason::Accessibility)
                 })
         })
     }
@@ -428,7 +428,7 @@ impl PopupApi {
                 // as the anchor is part of its focus range.
                 .on_key_up(move |event: KeyEvent| {
                     if event.key() == Key::Tab && self.is_open().get() {
-                        self.close(PopupCloseReason::Tab);
+                        self.hide(PopupCloseReason::Tab);
                     }
                     Handled::No
                 })

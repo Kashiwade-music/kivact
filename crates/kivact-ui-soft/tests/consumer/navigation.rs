@@ -586,7 +586,7 @@ fn controlled_menu_uses_only_accepted_opening_and_dismissal() {
                         .part(menu.trigger())
                         .name("Controlled")
                         .child(text("Controlled")),
-                    menu.show(move || {
+                    menu.while_open(move || {
                         overlay(
                             anchor,
                             Placement::Below,

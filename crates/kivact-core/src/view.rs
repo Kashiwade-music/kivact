@@ -91,7 +91,7 @@ pub use modifier_keys::modifiers;
 #[doc(inline)]
 pub use mounted::is_mounted;
 #[doc(inline)]
-pub use part_data::Focus;
+pub use part_data::{Availability, Focus};
 #[doc(inline)]
 pub use scroll_timeline::{ViewRange, scroll_progress, view_progress};
 #[doc(inline)]

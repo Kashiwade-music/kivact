@@ -100,7 +100,7 @@ fn root(t: &Theme, s: &Look<InputGroupState>) -> Style {
         .radius(0)
         .background(crate::theme_access::field_fill(&p))
         .border(1, p.input);
-    let base = if s.input.disabled {
+    let base = if s.input.is_disabled() {
         base.merge(&crate::theme_access::disabled())
             .background(p.input.with_alpha(if dark { 0.8 } else { 0.5 }))
     } else {

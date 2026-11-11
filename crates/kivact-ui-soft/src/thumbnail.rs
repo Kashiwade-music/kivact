@@ -357,9 +357,9 @@ fn thumbnail_open(
             .child(node().hit_testable(false).style(move || {
                 let p = kivact::style::use_tokens::<crate::Tokens>();
                 let input = state.get();
-                let color = if input.pressed {
+                let color = if input.is_pressed() {
                     p.colors.overlay_pressed
-                } else if input.hovered {
+                } else if input.is_hovered() {
                     p.colors.overlay_hover
                 } else {
                     kivact::style::Color::TRANSPARENT

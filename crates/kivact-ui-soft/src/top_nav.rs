@@ -308,7 +308,7 @@ impl IntoView for TopNavItem {
                         if !disabled.get() {
                             action.call(());
                             if drawer {
-                                mobile.close();
+                                mobile.hide();
                             }
                         }
                     })
@@ -710,7 +710,7 @@ impl IntoView for TopNavMegaMenuItem {
                             popup.0.set(false);
                         }
                         if drawer {
-                            mobile.close();
+                            mobile.hide();
                         }
                     })
             } else {
@@ -813,7 +813,7 @@ impl IntoView for TopNavMegaMenuFeaturedCard {
                             popup.0.set(false);
                         }
                         if drawer {
-                            mobile.close();
+                            mobile.hide();
                         }
                     })
                     .style(|| {

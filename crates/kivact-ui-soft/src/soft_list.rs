@@ -60,9 +60,9 @@ fn item(t: &Theme, s: &Look<ItemRowState>) -> Style {
     let highlighted = s
         .variant::<ItemLook>()
         .is_some_and(|look| look.highlighted.get());
-    let selected = if s.actionable && s.pressed {
+    let selected = if s.actionable && s.is_pressed() {
         p.colors.overlay_pressed
-    } else if s.actionable && s.hovered {
+    } else if s.actionable && s.is_hovered() {
         p.colors.overlay_hover
     } else {
         p.colors.accent_muted

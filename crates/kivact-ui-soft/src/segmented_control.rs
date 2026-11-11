@@ -77,7 +77,7 @@ pub(crate) fn segment(theme: &Theme, look: &Look<CheckableState>) -> Style {
         .cursor(Cursor::Pointer)
         .focus_visible(ring(&t, c.focus_ring))
         .disabled(style().color(c.text_disabled).cursor(Cursor::Default));
-    if !selected && !look.input.disabled {
+    if !selected && !look.input.is_disabled() {
         base = base
             .hover(style().background(c.overlay_hover))
             .pressed(style().background(c.overlay_pressed));

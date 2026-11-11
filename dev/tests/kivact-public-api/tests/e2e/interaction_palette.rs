@@ -70,7 +70,7 @@ fn opener(open: Signal<bool>) -> Node {
 }
 
 fn palette_with_height(p: CommandPaletteApi<&'static str>, height: f64) -> View {
-    p.show(move || {
+    p.while_open(move || {
         let rows = for_each(
             p.visible(),
             |g| (g.index, g.heading.is_some()),

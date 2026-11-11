@@ -39,10 +39,10 @@ impl<K: kivact_core::state::ItemKey> Clone for ListApi<K> {
 #[track_caller]
 pub fn use_list<K: kivact_core::state::ItemKey>(
     items: impl IntoValue<Vec<ListItem<K>>>,
-    selection: impl crate::IntoSelection<K>,
+    selected: impl crate::IntoSelection<K>,
     policy: ListOptions,
 ) -> ListApi<K> {
-    let selection = selection.into_selection();
+    let selection = selected.into_selection();
     check_list_axis(policy.axis, "use_list");
     ListApi {
         state: state::create(items.into_value(), selection, policy),

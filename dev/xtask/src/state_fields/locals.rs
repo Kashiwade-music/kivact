@@ -87,7 +87,7 @@ pub(super) fn check(source: &Source, functions: &[Function], errors: &mut Vec<St
             .iter()
             .filter(|local| local.marker.is_none())
             .collect();
-        if open.len() < 2 {
+        if open.is_empty() || function.locals.len() < 2 {
             continue;
         }
         let names = open

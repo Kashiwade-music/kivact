@@ -544,7 +544,7 @@ fn resize_grip(
                 .radius(t.radius.full)
                 .translate_x(if rtl() { -7.0 } else { 7.0 })
                 .opacity(
-                    if state.dragging || state.input.hovered || state.input.is_focused() {
+                    if state.dragging || state.input.is_hovered() || state.input.is_focused() {
                         1.0
                     } else {
                         0.0

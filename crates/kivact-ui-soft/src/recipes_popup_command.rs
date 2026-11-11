@@ -123,7 +123,7 @@ fn row(t: &Theme, s: &Look<ListItemState>) -> Style {
         .min_height(p.sizes.control_lg)
         .radius(p.radius.inner)
         .background(fill);
-    if s.input.disabled {
+    if s.input.is_disabled() {
         base.opacity(p.sizes.disabled_opacity)
     } else {
         base.hover(style().background(p.colors.overlay_hover))

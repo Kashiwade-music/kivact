@@ -143,7 +143,7 @@ pub(super) fn switch(theme: &Theme, s: &Look<CheckableState>) -> Style {
 }
 
 fn pressed_fill(theme: &Theme, t: &Tokens, s: &Look<CheckableState>, fill: Color) -> Color {
-    if s.input.pressed && !s.input.disabled {
+    if s.input.is_pressed() && !s.input.is_disabled() {
         overlay(theme, fill, t.colors.overlay_pressed)
     } else {
         fill
@@ -153,11 +153,11 @@ fn pressed_fill(theme: &Theme, t: &Tokens, s: &Look<CheckableState>, fill: Color
 fn check_surface(theme: &Theme, t: &Tokens, s: &Look<CheckableState>, radius: f64) -> Style {
     let c = &t.colors;
     let on = s.checked() != CheckedState::Unchecked;
-    let hovered = s.input.hovered && !s.input.disabled;
+    let hovered = s.input.is_hovered() && !s.input.is_disabled();
     let (fill, border) = if on {
         let accent = if hovered { c.accent_hover } else { c.accent };
         (accent, accent)
-    } else if s.input.disabled {
+    } else if s.input.is_disabled() {
         (c.bg_muted, c.border)
     } else if hovered {
         (c.choice_surface_hover, c.choice_border_hover)
@@ -238,7 +238,7 @@ pub(super) fn switch_track(theme: &Theme, s: &Look<CheckableState>) -> Style {
     let touch = drag.is_some_and(SwitchDragState::is_touch);
     let on = switch_on(&t, s, drag);
     let fill = if on { c.accent } else { c.border_emphasized };
-    let fill = if s.input.hovered && !s.input.disabled && !touch {
+    let fill = if s.input.is_hovered() && !s.input.is_disabled() && !touch {
         if on {
             c.accent_hover
         } else {
@@ -250,7 +250,7 @@ pub(super) fn switch_track(theme: &Theme, s: &Look<CheckableState>) -> Style {
     let base = inline_start(style().size(width, height).radius(t.radius.full), 0.0)
         .top(pct(50) - height / 2.0)
         .background(pressed_fill(theme, &t, s, fill))
-        .opacity(if s.input.disabled {
+        .opacity(if s.input.is_disabled() {
             t.sizes.disabled_opacity
         } else {
             1.0

@@ -148,9 +148,9 @@ impl HoverSurfaceApi {
     pub fn phase(self) -> Value<crate::DelayedPhase> {
         self.delayed.phase()
     }
-    /// Close until the pointer leaves and enters again.
-    pub fn dismiss(self) {
-        self.delayed.dismiss();
+    /// Hide until the pointer leaves and enters again.
+    pub fn hide(self) {
+        self.delayed.hide();
     }
     /// Renew the close delay.
     pub fn pulse(self) {

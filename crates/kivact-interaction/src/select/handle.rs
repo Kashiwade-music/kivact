@@ -153,14 +153,14 @@ impl<K: kivact_core::state::ItemKey> Clone for SelectApi<K> {
 }
 impl<K: kivact_core::state::ItemKey> Copy for SelectApi<K> {}
 
-/// A select over `options` whose choice is written to `value`. Setup only.
+/// A select over `items` whose choice is written to `selected`. Setup only.
 #[track_caller]
 pub fn use_select<K: kivact_core::state::ItemKey>(
-    options: impl IntoValue<Vec<ListItem<K>>>,
-    value: impl kivact_core::state::IntoBinding<Option<K>>,
+    items: impl IntoValue<Vec<ListItem<K>>>,
+    selected: impl kivact_core::state::IntoBinding<Option<K>>,
 ) -> SelectApi<K> {
-    let options = options.into_value();
-    let original = value.into_binding();
+    let options = items.into_value();
+    let original = selected.into_binding();
     let edit = crate::EditSession::new(move |value| original.set(value));
     let selected = kivact_core::state::binding(original.into_value(), move |value: Option<K>| {
         edit.once(original.get_untracked(), || original.set(value))
@@ -379,15 +379,35 @@ impl<K: kivact_core::state::ItemKey> SelectApi<K> {
         })
     }
 
-    /// Open the options in a touch sheet, or close an already open select.
-    /// Use [`Self::trigger_with_sheet`] to route a trigger activation through
-    /// one opening or closing decision.
-    pub fn open_sheet(self) {
-        if self.is_open().get_untracked() {
-            self.toggle();
-        } else {
+    /// Show the options in a touch sheet; an open popover list moves to the
+    /// sheet. Nothing changes while the sheet shows. Use
+    /// [`Self::trigger_with_sheet`] for a trigger that chooses the surface.
+    pub fn show_sheet(self) {
+        let in_sheet = self.session.state().with_untracked(|state| {
+            matches!(
+                state,
+                machine::State::Open {
+                    surface: machine::Surface::Sheet,
+                    ..
+                }
+            )
+        });
+        if !in_sheet {
             self.session.send(machine::Event::OpenSheet);
         }
+    }
+
+    /// Show the options in the popover. Nothing changes while they show.
+    pub fn show(self) {
+        if !self.is_open().get_untracked() {
+            self.open_binding().set(true);
+        }
+    }
+
+    /// Hide the options as [`PopupCloseReason::Programmatic`]. Nothing
+    /// changes while they are hidden.
+    pub fn hide(self) {
+        self.popup.hide(PopupCloseReason::Programmatic);
     }
 
     /// The binding shared with an alternative select surface.
@@ -395,12 +415,12 @@ impl<K: kivact_core::state::ItemKey> SelectApi<K> {
         self.popup.open_binding()
     }
 
-    /// Activate the trigger using the ordinary popup's toggle policy.
+    /// Show hidden options and hide shown ones.
     pub fn toggle(self) {
         if self.is_open().get_untracked() {
-            self.popup.close(PopupCloseReason::Programmatic);
+            self.hide();
         } else {
-            self.open_binding().set(true);
+            self.show();
         }
     }
 
@@ -442,17 +462,19 @@ impl<K: kivact_core::state::ItemKey> SelectApi<K> {
                 .part(base)
                 .on_press(move || {
                     let sheet = choose();
-                    if sheet {
-                        self.open_sheet();
+                    if self.is_open().get_untracked() {
+                        self.hide();
+                    } else if sheet {
+                        self.show_sheet();
                     } else {
-                        self.toggle();
+                        self.show();
                     }
                 })
                 .a11y_action(kivact_core::view::A11yAction::Expand, move |_| {
                     popup.open_binding().set(true)
                 })
                 .a11y_action(kivact_core::view::A11yAction::Collapse, move |_| {
-                    popup.close(PopupCloseReason::Accessibility)
+                    popup.hide(PopupCloseReason::Accessibility)
                 })
                 .role(Role::ComboBox)
                 .value_text(label)
@@ -462,7 +484,7 @@ impl<K: kivact_core::state::ItemKey> SelectApi<K> {
                         // The focus is back on the trigger while the list is open
                         // (Shift+Tab, or a click on it): the list's keys apply.
                         return if event.key() == Key::Escape || is_alt_up(&event) {
-                            popup.close(PopupCloseReason::Escape);
+                            popup.hide(PopupCloseReason::Escape);
                             Handled::Yes
                         } else if retained.get() {
                             retained_key(self.list, popup, event)
@@ -602,7 +624,7 @@ impl<K: kivact_core::state::ItemKey> SelectApi<K> {
                 .role(Role::ListBox)
                 .on_key(move |event: KeyEvent| {
                     if !sheet && (event.key() == Key::Escape || is_alt_up(&event)) {
-                        popup.close(PopupCloseReason::Escape);
+                        popup.hide(PopupCloseReason::Escape);
                         return Handled::Yes;
                     }
                     Handled::No
@@ -611,7 +633,7 @@ impl<K: kivact_core::state::ItemKey> SelectApi<K> {
                 // release, aimed at the option that has the focus now.
                 .on_key_up(move |event: KeyEvent| {
                     if !sheet && event.key() == Key::Tab {
-                        popup.close(PopupCloseReason::Tab);
+                        popup.hide(PopupCloseReason::Tab);
                         Handled::Yes
                     } else {
                         Handled::No
@@ -699,7 +721,7 @@ impl<K: kivact_core::state::ItemKey> SelectApi<K> {
                         if sheet {
                             popup.open_binding().set(false);
                         } else {
-                            popup.close(PopupCloseReason::Selection);
+                            popup.hide(PopupCloseReason::Selection);
                         }
                     }
                 })
@@ -748,7 +770,7 @@ fn retained_key<K: kivact_core::state::ItemKey>(
             // Consume even an empty list or a repeat. Otherwise the core's
             // default Activate would reach the trigger and toggle the popup.
             if !event.repeat() && active.is_some_and(|key| list.select_mounted(key)) {
-                popup.close(PopupCloseReason::Selection);
+                popup.hide(PopupCloseReason::Selection);
             }
             return Handled::Yes;
         }

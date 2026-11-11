@@ -2,7 +2,7 @@
 
 [English](../../en/how-to-guide/keyed-suggestions.md)
 
-`kivact::ui::combobox(label, options, selection)` は `Option<K>` の単一選択または `Vec<K>` の複数選択を編集します。label は入力欄のアクセシブルな名前です。入力すると候補のラベルを絞り、矢印キーで有効な候補を移動し、Enter で選びます。Escape は選択値を変えずに閉じます。通常のテキスト編集キーは入力欄を編集します。
+`kivact::ui::combobox(label, items, selected)` は `Option<K>` の単一選択または `Vec<K>` の複数選択を編集します。label は入力欄のアクセシブルな名前です。入力すると候補のラベルを絞り、矢印キーで有効な候補を移動し、Enter で選びます。Escape は選択値を変えずに閉じます。通常のテキスト編集キーは入力欄を編集します。
 
 ```rust,no_run
 use kivact::prelude::*;

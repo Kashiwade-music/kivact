@@ -16,7 +16,7 @@ use std::rc::Rc;
 use crate::state::{Value, memo, on_cleanup, signal};
 use crate::view::element_data::Common;
 use crate::view::owner::Owner;
-use crate::view::part_data::{Focus, PartBinding, PartMount};
+use crate::view::part_data::{Availability, Focus, PartBinding, PartMount};
 use crate::view::{ButtonPress, Key, MouseButton, PointerPhase, node_ref};
 use kivact_runtime::EffectKind;
 
@@ -79,11 +79,8 @@ pub fn part<S: kivact_runtime::PropValue>(state: impl Fn(PartState) -> S + 'stat
             .unwrap_or_default();
         let input = input.get();
         state(PartState {
-            pressed: !disabled && !hidden && input.press != Press::Idle,
-            hovered: !disabled && !hidden && input.hover == Hover::Inside,
+            availability: part_availability(disabled, hidden, input),
             focus: focus.get(),
-            disabled,
-            hidden,
         })
     });
     let mounted = Rc::new(move |mount: PartMount| {
@@ -134,6 +131,21 @@ pub fn part<S: kivact_runtime::PropValue>(state: impl Fn(PartState) -> S + 'stat
         target.common.attach_part(common);
         target
     })
+}
+
+/// The availability of a target: hidden wins over disabled, and pressed and
+/// hovered exist only while the target takes input.
+fn part_availability(disabled: bool, hidden: bool, input: PartInput) -> Availability {
+    if hidden {
+        Availability::Hidden
+    } else if disabled {
+        Availability::Disabled
+    } else {
+        Availability::Enabled {
+            pressed: input.press != Press::Idle,
+            hovered: input.hover == Hover::Inside,
+        }
+    }
 }
 
 fn input_observers(

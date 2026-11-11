@@ -108,7 +108,7 @@ impl SpacePanApi {
         self.held.feed(
             memo(move || {
                 let state = state.get();
-                focus.get() && !state.disabled && !state.hidden
+                focus.get() && !state.is_disabled() && !state.is_hidden()
             }),
             machine::Event::Available,
         );

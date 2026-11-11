@@ -14,10 +14,10 @@ impl<K: 'static> Clone for DisclosureGroupApi<K> {
 }
 /// Create an accordion selection controller during setup.
 pub fn use_disclosure_group<K: Clone + PartialEq + 'static>(
-    selection: impl IntoSelection<K>,
+    selected: impl IntoSelection<K>,
 ) -> DisclosureGroupApi<K> {
     DisclosureGroupApi {
-        selection: selection.into_selection(),
+        selection: selected.into_selection(),
     }
 }
 impl<K: Clone + PartialEq + 'static> DisclosureGroupApi<K> {

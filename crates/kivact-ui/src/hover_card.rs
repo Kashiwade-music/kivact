@@ -177,7 +177,7 @@ impl HoverCard {
                         anchor.focus();
                     }
                     requested.set(false);
-                    behavior.dismiss();
+                    behavior.hide();
                 });
             match self.label {
                 Some(label) => layer.with_node(|node| node.role(Role::Dialog)).name(label),

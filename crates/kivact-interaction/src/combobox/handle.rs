@@ -149,15 +149,15 @@ fn first_enabled<K: Clone>(options: &[ListItem<K>]) -> Option<K> {
         .map(|option| option.key.clone())
 }
 
-/// A combobox over `options` whose choice is written to `selection`, with an
+/// A combobox over `items` whose choice is written to `selected`, with an
 /// empty query. Setup only.
 #[track_caller]
 pub fn use_combobox<K: kivact_core::state::ItemKey>(
-    options: impl IntoValue<Vec<ListItem<K>>>,
-    selection: impl crate::IntoSelection<K>,
+    items: impl IntoValue<Vec<ListItem<K>>>,
+    selected: impl crate::IntoSelection<K>,
 ) -> ComboboxApi<K> {
-    let selection = selection.into_selection();
-    let source = OptionsCell::new(options.into_value());
+    let selection = selected.into_selection();
+    let source = OptionsCell::new(items.into_value());
     let options = memo(move || source.value().get().get());
     // The one open state; the machine writes the caller's binding, never the reverse.
     let mode = OptionsCell::new(PresentationMode::Inline);
@@ -435,31 +435,58 @@ impl<K: kivact_core::state::ItemKey> ComboboxApi<K> {
         })
     }
 
-    /// Open the same list in a touch sheet.
-    pub fn open_sheet(self) {
-        self.session.send(machine::Event::OpenSheet);
+    /// Show the list in a touch sheet; an open popover list moves to the
+    /// sheet. Nothing changes while the sheet shows.
+    pub fn show_sheet(self) {
+        let in_sheet = self.session.state().with_untracked(|state| {
+            matches!(
+                state.mode,
+                machine::ComboMode::Browsing(crate::surface::Surface::Sheet)
+                    | machine::ComboMode::Filtering(crate::surface::Surface::Sheet)
+            )
+        });
+        if !in_sheet {
+            self.session.send(machine::Event::OpenSheet);
+        }
     }
 
-    /// Open a popup list. Nothing happens without [`popup`](Self::popup).
-    pub fn open(self) {
-        self.session.send(machine::Event::Open);
+    /// Show a popup list. Nothing changes while the list shows (its query and
+    /// surface stay), and nothing happens without [`popup`](Self::popup).
+    pub fn show(self) {
+        if !self.shown() {
+            self.session.send(machine::Event::Open);
+        }
     }
 
-    /// Close a popup list. Nothing happens without [`popup`](Self::popup).
-    pub fn close(self) {
+    /// Hide a popup list. Nothing changes while it is hidden, and nothing
+    /// happens without [`popup`](Self::popup).
+    pub fn hide(self) {
         if let PresentationMode::Popup(_) = self.mode.get() {
             self.session.send(machine::Event::Close);
         }
     }
 
-    /// Open a closed popup list and close an open one.
+    /// Show a hidden popup list and hide a shown one.
     pub fn toggle(self) {
         if let PresentationMode::Popup(_) = self.mode.get() {
-            if self.is_open().get_untracked() {
-                self.close();
+            if self.shown() {
+                self.hide();
             } else {
-                self.open();
+                self.show();
             }
+        }
+    }
+
+    /// Whether the list shows now, read untracked: [`is_open`](Self::is_open)
+    /// makes a value, which only setup may do, and the commands run in
+    /// handlers.
+    fn shown(self) -> bool {
+        match self.mode.get() {
+            PresentationMode::Inline => true,
+            PresentationMode::Popup(_) => self
+                .session
+                .state()
+                .with_untracked(|state| state.mode.is_open()),
         }
     }
 
@@ -517,7 +544,7 @@ impl<K: kivact_core::state::ItemKey> ComboboxApi<K> {
             }
             Selection::Single(value) => {
                 value.set(Some(key));
-                self.close();
+                self.hide();
             }
         }
     }
@@ -590,7 +617,7 @@ impl<K: kivact_core::state::ItemKey> ComboboxApi<K> {
                 .on_key(move |event: KeyEvent| {
                     let m = event.modifiers();
                     if m.alt && !m.ctrl && !m.meta && !m.shift {
-                        match event.key() { Key::ArrowDown => self.open(), Key::ArrowUp => self.close(), _ => return Handled::No }
+                        match event.key() { Key::ArrowDown => self.show(), Key::ArrowUp => self.hide(), _ => return Handled::No }
                         return Handled::Yes;
                     }
                     if m.ctrl || m.alt || m.meta || m.shift {
@@ -598,7 +625,7 @@ impl<K: kivact_core::state::ItemKey> ComboboxApi<K> {
                     }
                     let closed = matches!(self.mode.get(), PresentationMode::Popup(open) if !open.get_untracked());
                     match event.key() {
-                        Key::ArrowDown | Key::ArrowUp if closed => self.open(),
+                        Key::ArrowDown | Key::ArrowUp if closed => self.show(),
                         Key::ArrowDown => self.step(1),
                         Key::ArrowUp => self.step(-1),
                         // A closed list has nothing to choose.
@@ -611,7 +638,7 @@ impl<K: kivact_core::state::ItemKey> ComboboxApi<K> {
                         Key::Escape
                             if matches!(self.mode.get(), PresentationMode::Popup(_)) && !closed =>
                         {
-                            self.close();
+                            self.hide();
                         }
                         Key::Backspace
                             if self.session.state().with_untracked(|state| state.query.get().is_empty()) =>

@@ -93,7 +93,7 @@ fn level<K: ItemKey>(m: MenuApi<K>) -> Node {
                         .child(text(label));
                     if submenu {
                         let sub = m.submenu(key);
-                        row.child(sub.show(move || {
+                        row.child(sub.while_open(move || {
                             overlay(anchor, Placement::End, level(sub))
                                 .with_node(move |node| node.part(sub.content()))
                                 .name(label)
@@ -115,7 +115,7 @@ pub(super) fn menu_button<K: ItemKey>(name: &'static str, m: MenuApi<K>) -> View
     let anchor = node_ref();
     (
         action(name).part(trigger).node_ref(anchor),
-        m.show(move || {
+        m.while_open(move || {
             overlay(anchor, Placement::Below, level(m))
                 .offset(4)
                 .with_node(move |node| node.part(m.content()))
@@ -133,7 +133,7 @@ fn context_area<K: ItemKey>(name: &'static str, area: Node, m: MenuApi<K>) -> Vi
     let origin = m.origin();
     (
         area.part(trigger).node_ref(anchor),
-        m.show(move || {
+        m.while_open(move || {
             let content = level(m);
             let placed = match origin.get_untracked() {
                 Some(MenuOrigin::Pointer(point)) => overlay_at(point, Placement::Below, content),

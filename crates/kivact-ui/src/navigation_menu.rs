@@ -215,7 +215,7 @@ fn navigation_panel(
             move || state.get(),
         )
         .child(crate::navigation_context::provide_panel(
-            kivact_core::state::callback(move |()| api.close()),
+            kivact_core::state::callback(move |()| api.hide()),
             variants.clone(),
             move || content(),
         ));
@@ -234,7 +234,7 @@ fn navigation_panel(
             })
             .on_key(move |event| {
                 if event.key() == Key::Escape {
-                    api.close();
+                    api.hide();
                     anchor.focus();
                     Handled::Yes
                 } else {
@@ -255,9 +255,9 @@ fn pinned_binding(
         move || state.get() == NavOpen::Pinned(at),
         move |pin| {
             if pin {
-                api.pin(at);
+                api.show(at);
             } else if state.get_untracked() == NavOpen::Pinned(at) {
-                api.close();
+                api.hide();
             }
         },
     )
@@ -299,11 +299,11 @@ fn navigation_trigger(
             })
             .on_key(move |event| match event.key() {
                 Key::Escape if shown.get_untracked() => {
-                    api.close();
+                    api.hide();
                     Handled::Yes
                 }
                 Key::ArrowDown if !disabled.get_untracked() => {
-                    api.pin(at);
+                    api.show(at);
                     Handled::Yes
                 }
                 _ => Handled::No,
@@ -328,7 +328,7 @@ fn navigation_action(
             .disabled(disabled)
             .with_node(|node| node.role(Role::Link))
             .on_press(move || {
-                api.close();
+                api.hide();
                 press.call(());
             }),
         |r| r.navigation_menu_recipes().action_recipe(),

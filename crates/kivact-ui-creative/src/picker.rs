@@ -698,7 +698,7 @@ fn column_machine<K: kivact::state::ItemKey>(
             ColumnEffect::Preview(key) => outcomes.preview(key),
             ColumnEffect::Settle(outcome) => {
                 if let PickerOutcome::Picked(_) = &outcome {
-                    popup.close(PopupCloseReason::Selection);
+                    popup.hide(PopupCloseReason::Selection);
                 }
                 outcomes.settle(outcome);
             }

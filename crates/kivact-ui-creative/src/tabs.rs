@@ -31,11 +31,11 @@ const SWAP_DISTANCE: f64 = 60.0;
 pub fn document_tabs<K: kivact::state::ItemKey>(
     label: impl IntoText,
     items: impl IntoValue<Vec<ListItem<K>>>,
-    selected: impl IntoBinding<K>,
+    value: impl IntoBinding<K>,
 ) -> DocumentTabs<K> {
     let items = items.into_value();
     DocumentTabs {
-        tabs: tabs(label, items, selected),
+        tabs: tabs(label, items, value),
         options: items,
         on_reorder: callback(|_| ()),
         on_close: callback(|_| ()),

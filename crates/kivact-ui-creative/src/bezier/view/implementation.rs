@@ -247,7 +247,7 @@ fn control_point(
     c.edit.feed(
         memo(move || {
             let input = state.get();
-            input.disabled || input.hidden
+            input.is_disabled() || input.is_hidden()
         }),
         machine::Event::InputChanged,
     );

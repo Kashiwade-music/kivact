@@ -164,7 +164,7 @@ belong to the application. Loop, playhead, tool and view values are the bindings
 `zoom_range`, `min_duration` and `loop_min_duration` configure proposals;
 `automation_label` supplies the optional lane heading. Track regions
 are allocated independently of model identities, including large knot IDs.
-`document_tabs(label, items, selected).on_reorder(on_reorder).on_close(on_close)` is `kivact::ui::tabs`
+`document_tabs(label, items, value).on_reorder(on_reorder).on_close(on_close)` is `kivact::ui::tabs`
 with a tab slot that closes a tab and drags it 60 px to swap with a
 neighbor; the application applies both to its items. `.content(|key| ..)`
 and `.keep_mounted(true)` are the standard tabs'.
@@ -209,7 +209,7 @@ restore its opener focus; outside dismissal preserves the newly focused
 control. `ToolWindowOptions` sets a separate title, width, center or top-right
 placement, modal containment and chrome spacing (`ToolWindowOptions::default()` is
 a 520-pixel nonmodal centered window). Its content factory receives a
-`ToolWindowApi` whose `close()` closes the window and restores opener focus. Collapsing retains edited content; reopening mounts
+`ToolWindowApi` whose `hide()` closes the window and restores opener focus. Collapsing retains edited content; reopening mounts
 the factory again. Modal backdrop presses keep the confirmation open,
 while Escape closes it. Optional backdrop blur uses ordinary public styles.
 
@@ -221,14 +221,14 @@ fn tool_window() -> impl IntoView {
     ui::tool_window_button("Settings…",
         ui::ToolWindowOptions::default().title("Settings").width(340.0)
             .position(ui::WindowPosition::TopRight { right: 40.0, top: 120.0 }),
-        |window: ui::ToolWindowApi| kivact::ui::button("Apply").on_press(move || window.close()))
+        |window: ui::ToolWindowApi| kivact::ui::button("Apply").on_press(move || window.hide()))
 }
 ```
 
 `tool_window(anchor, open, options).content(content)` is the same window that the
 application opens and closes through a `Binding<bool>`; `tool_window_button` is
 a button and a state of its own on top of it. Every way to close it (the close
-button, Escape, Dismiss, `ToolWindowApi::close`, an outside press on a
+button, Escape, Dismiss, `ToolWindowApi::hide`, an outside press on a
 nonmodal window, unmounting) writes `false`. A nonmodal window gives the focus
 back with `anchor.restore_focus()`, which does nothing if the anchor has gone;
 a modal window gives it back to the element that had it when it opened. Each
@@ -274,7 +274,7 @@ Gain uses `gain_range(min, max)` (default 0..1); audio applications can supply
 `fader` maps a normalized value `t` to position `sqrt(t)` and position `n` back
 to `min + (max - min) * n²` over its configured range; audio applications can
 explicitly choose `range(-60.0, 6.0)`.
-`GradientStop::new(position, color)` has no identity. `gradient_editor(stops, selection)`
+`GradientStop::new(position, color)` has no identity. `gradient_editor(stops, selected)`
 takes the selected stop as an `Option<usize>` into the stop vector; adding and
 deleting adjust that index.
 
@@ -312,7 +312,7 @@ names and their replacements:
 | `SurfaceSize` | `kivact::view::SurfaceSize` (from `viewport(..).on_resize(..)`) |
 | `theme(mode).accent(a).density(d)` (`ThemeOptions` trait) | `creative::theme_with(mode, creative::ThemeOptions { accent, density })` (`ThemeOptions` is a struct) |
 | `kivact::interaction::Toaster` | `kivact::interaction::ToasterApi`, the handle `toaster()` returns |
-| `ToolWindow` (the handle given to content) | `creative::ToolWindowApi` (`.close()`) |
+| `ToolWindow` (the handle given to content) | `creative::ToolWindowApi` (`.hide()`) |
 | `ToolWindowBuilder` (returned by `tool_window(..)`) | `creative::ToolWindow` (`tool_window(anchor, open, options).content(\|w: ToolWindowApi\| ..)`) |
 | `viewport_surface(image)`, `ViewportSurface` | `kivact::view::viewport(pixels)` (takes `Pixels`, not `Option<Pixels>`), with `.fit(..)`, `.pixelated(..)` and `.on_resize(..)`; `.transform(binding)` -> `.transform(kivact::interaction::use_zoom_pan(binding))`; `.on_edit(..)` -> `use_zoom_pan(..).on_edit(..)`; `.overlay(..)` -> `.with_node(\|n\| n.draw_over(..))` with `zoom.to_view(..)` |
 

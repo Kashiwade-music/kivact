@@ -27,7 +27,7 @@
 //! `overlay_at` or an anchored overlay; the focus held before opening comes
 //! back on a best-effort basis after Escape, a choice or assistive
 //! technology, while Tab and an outside press keep their destination.
-//! [`MenuApi::open`] and [`MenuApi::close`] let a component that switches between
+//! [`MenuApi::show`] and [`MenuApi::hide`] let a component that switches between
 //! several menus (a menu bar) drive them.
 //!
 //! Menus and selects use the list's private mounted selection path, so an

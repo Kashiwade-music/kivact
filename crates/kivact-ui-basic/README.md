@@ -190,7 +190,7 @@ names and their replacements:
 | `code_block(lines)`, `CodeBlock`, `code_lines` | `kivact::ui::code_block(source)` / `kivact::ui::CodeBlock` (plain text needs no `code_lines`); `.size(..)` -> `.variant(basic::CodeBlockSize::Sm)` (reactive: `basic::CodeBlockLook`); the copy button is built in (`.copy_button(false)` hides it); `.footer(view)` |
 | `collapsible`, `Collapsible` | `kivact::ui::disclosure(title, open).variant(basic::DisclosureVariant::Plain).content(..).attach(trigger)` / `kivact::ui::Disclosure` |
 | `Color` | `basic::ColorName` |
-| `combobox(items, value)`, `Combobox` | `kivact::ui::combobox(label, items, selection)` / `kivact::ui::Combobox`; `.chips()` for a multi-select with chips |
+| `combobox(items, value)`, `Combobox` | `kivact::ui::combobox(label, items, selected)` / `kivact::ui::Combobox`; `.chips()` for a multi-select with chips |
 | `date_picker`, `DatePicker` | `kivact::ui::date_input(label, date).presentation(kivact::ui::DatePresentation::Desktop).variant(basic::DatePickerVariant::Flush).attach(button(..))` / `kivact::ui::DateInput`; `.placeholder(..)` and `.format(..)` -> the attached button's label |
 | `date_range_picker`, `DateRangePicker` | `kivact::ui::date_range_input(label, range)` with the same options / `kivact::ui::DateRangeInput`; `.calendar(\|c\| ..)` unchanged |
 | `drawer(open, title)`, `Drawer` | `kivact::ui::dialog(title, open).mode(kivact::interaction::DialogMode::Drawer(kivact::geometry::Edge::Bottom)).variant(basic::DrawerVariant::Drawer)` / `kivact::ui::Dialog`; `.side(s)` -> the `Drawer(edge)` value |
@@ -217,7 +217,7 @@ names and their replacements:
 | `skeleton`, `Skeleton`, `spinner` | `kivact::ui::skeleton()` / `kivact::ui::Skeleton`, `kivact::ui::spinner()` |
 | `table`, `table_body`, `table_cell`, `table_footer`, `table_head`, `table_header`, `table_row`, `TableCell`, `TableRow`, `TableAlign` | `kivact::ui::table*` with tuple or `Vec` children (`table_header((row,))`); `kivact::ui::TableCell`, `kivact::ui::Table`, `kivact::ui::TableRow`; `.align(kivact::style::TextAlign::End)`; `table_row(..).selected(b)` (`kivact::ui::TableRow`); `basic::table_caption(..)` after the table |
 | `kivact::interaction::Toaster` | `kivact::interaction::ToasterApi`, the handle `toaster()` returns |
-| `toggle_group(items, value)`, `ToggleGroup` | `kivact::ui::toggle_group(label, items, selection)` / `kivact::ui::ToggleGroup` |
+| `toggle_group(items, value)`, `ToggleGroup` | `kivact::ui::toggle_group(label, items, selected)` / `kivact::ui::ToggleGroup` |
 | `trace_collapsible(open, line, content)` | Same function; `content` is a closure `\|\| view` that runs each time the line opens |
 
 ## Filled standard recipes

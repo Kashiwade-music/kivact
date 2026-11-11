@@ -117,7 +117,7 @@ pub(super) fn button(theme: &Theme, state: &Look<ButtonState>) -> Style {
             // The label inherits the root's text decoration; the actual hover
             // state underlines it, as CSS `hover:underline` (a text
             // decoration is not a state style property).
-            if state.input.hovered {
+            if state.input.is_hovered() {
                 s.text_decoration(TextDecorationLine::UNDERLINE)
             } else {
                 s

@@ -120,9 +120,9 @@ pub fn use_menubar<K: kivact_core::state::ItemKey>(
                         (at + len - 1) % len
                     };
                     if next != at {
-                        items[at].close();
+                        items[at].hide();
                         list.focus(next);
-                        items[next].open();
+                        items[next].show();
                     }
                 });
             }));
@@ -174,8 +174,8 @@ impl<K: kivact_core::state::ItemKey> MenubarApi<K> {
                         };
                         if next != open {
                             list.focus(next);
-                            menus[open].close();
-                            menus[next].open();
+                            menus[open].hide();
+                            menus[next].show();
                         }
                         Some(())
                     });
@@ -212,7 +212,7 @@ impl<K: kivact_core::state::ItemKey> MenubarApi<K> {
                             let mut moved = false;
                             for other in menus.iter() {
                                 if other.is_open().get_untracked() {
-                                    other.close();
+                                    other.hide();
                                     moved = true;
                                 }
                             }
@@ -221,7 +221,7 @@ impl<K: kivact_core::state::ItemKey> MenubarApi<K> {
                                 // stop, which the focus returns to when the menu
                                 // closes.
                                 list.focus(at);
-                                this.open();
+                                this.show();
                             }
                         });
                     }

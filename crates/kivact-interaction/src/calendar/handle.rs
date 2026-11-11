@@ -30,18 +30,18 @@ pub struct CalendarGridApi {
 #[track_caller]
 pub fn use_calendar_grid(
     month: impl kivact_core::state::IntoBinding<CalendarMonth>,
-    selection: CalendarSelection,
+    selected: CalendarSelection,
     policy: CalendarOptions,
 ) -> CalendarGridApi {
     require_setup("use_calendar_grid");
-    if policy.select_on_move && matches!(selection, CalendarSelection::Range(_)) {
+    if policy.select_on_move && matches!(selected, CalendarSelection::Range(_)) {
         raise(
             ErrorKind::Message,
             "use_calendar_grid: CalendarOptions::select_on_move applies to a single day",
         );
     }
     CalendarGridApi {
-        state: state::create(month.into_binding(), selection, policy),
+        state: state::create(month.into_binding(), selected, policy),
     }
 }
 

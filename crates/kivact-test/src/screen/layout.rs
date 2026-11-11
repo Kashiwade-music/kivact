@@ -100,7 +100,7 @@ impl Screen {
                         created_at = Some(at);
                         break;
                     }
-                    cur = n.and_then(|n| n.parent);
+                    cur = n.and_then(|n| n.parent());
                 }
                 drop(tree);
                 LayoutViolation {

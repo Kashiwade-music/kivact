@@ -13,11 +13,11 @@ pub struct DisclosureGroup<K: 'static> {
 }
 /// Create a single-selection or multiple-selection accordion.
 pub fn disclosure_group<K: Clone + PartialEq + 'static>(
-    selection: impl IntoSelection<K>,
+    selected: impl IntoSelection<K>,
 ) -> DisclosureGroup<K> {
     DisclosureGroup {
         root: column(()),
-        group: use_disclosure_group(selection),
+        group: use_disclosure_group(selected),
         panels: Vec::new(),
         variants: crate::variants::Variants::default(),
         heading_level: 3,

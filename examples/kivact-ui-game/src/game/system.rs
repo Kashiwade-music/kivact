@@ -728,48 +728,51 @@ fn workspace_files(
     selection: kivact::state::Binding<Option<String>>,
 ) -> impl IntoView {
     let expanded = signal(vec!["operations".to_owned()]);
-    kivact::ui::tree("Workspace files", nodes)
-        .expanded(expanded)
-        .selection(binding(selection, move |key: Option<String>| {
+    kivact::ui::tree(
+        "Workspace files",
+        nodes,
+        binding(selection, move |key: Option<String>| {
             if key
                 .as_deref()
                 .is_none_or(|id| !["operations", "inventory", "archive"].contains(&id))
             {
                 selection.set(key);
             }
-        }))
-        .on_activate(move |key| {
-            if ["operations", "inventory", "archive"].contains(&key.as_str()) {
-                expanded.update(|keys| {
-                    if keys.contains(&key) {
-                        keys.retain(|k| k != &key);
-                    } else {
-                        keys.push(key);
-                    }
-                });
-            }
-        })
-        .item(|item, _| {
-            let key = item.get_untracked().key;
-            let folder = ["operations", "inventory", "archive"].contains(&key.as_str());
-            let marker = match key.as_str() {
-                "OPS-2041.md" => "M",
-                "OPS-2043.md" => "A",
-                _ => "",
-            };
-            row((
-                kivact::view::icon(if folder { "folder" } else { "file-text" }).style(
-                    style().size(14, 14).color(if folder {
-                        ColorToken::Warning
-                    } else {
-                        ColorToken::TextMuted
-                    }),
-                ),
-                text(key).style(style().grow(1).font_size(12.5)),
-                g::mono(marker),
-            ))
-            .style(style().grow(1).gap(6).align_items(Align::Center))
-        })
+        }),
+    )
+    .expanded(expanded)
+    .on_activate(move |key| {
+        if ["operations", "inventory", "archive"].contains(&key.as_str()) {
+            expanded.update(|keys| {
+                if keys.contains(&key) {
+                    keys.retain(|k| k != &key);
+                } else {
+                    keys.push(key);
+                }
+            });
+        }
+    })
+    .item(|item, _| {
+        let key = item.get_untracked().key;
+        let folder = ["operations", "inventory", "archive"].contains(&key.as_str());
+        let marker = match key.as_str() {
+            "OPS-2041.md" => "M",
+            "OPS-2043.md" => "A",
+            _ => "",
+        };
+        row((
+            kivact::view::icon(if folder { "folder" } else { "file-text" }).style(
+                style().size(14, 14).color(if folder {
+                    ColorToken::Warning
+                } else {
+                    ColorToken::TextMuted
+                }),
+            ),
+            text(key).style(style().grow(1).font_size(12.5)),
+            g::mono(marker),
+        ))
+        .style(style().grow(1).gap(6).align_items(Align::Center))
+    })
 }
 
 fn document_preview(

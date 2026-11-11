@@ -17,7 +17,7 @@
 | 候補つきの検索ボックス | `use_combobox` | `input()`、`content()`、`item(key)` |
 | コマンドパレット | `use_command_palette` | `content()`、`input()`、`list()`、`item(key)` |
 | 開閉する本体、ポップオーバー、ツールチップ | `use_disclosure`、`use_popup`、`use_tooltip` | `trigger()`、`content()` |
-| ホバーカード、遅れて出るヒント、一時的な確認表示 | `use_delayed` | `is_open()`、`dismiss()`、`pulse()` |
+| ホバーカード、遅れて出るヒント、一時的な確認表示 | `use_delayed` | `is_open()`、`hide()`、`pulse()` |
 | ダイアログ | `use_dialog` | `trigger()`、`content()`、`title()`、`description()`、`close_trigger()` |
 | タブ | `use_tabs` | `list()`、`item(key)`、`panel(key)` |
 | ツリー | `use_tree` | `list()`、`item(key)` |
@@ -56,7 +56,7 @@ pub fn pill_switch(label: impl IntoText, on: impl IntoBinding<bool>) -> impl Ele
                 .padding(3)
                 .radius(12)
                 .background(if on { ColorToken::Accent } else { ColorToken::Border })
-                .opacity(if state.input.pressed { 0.8 } else { 1.0 })
+                .opacity(if state.input.is_pressed() { 0.8 } else { 1.0 })
         })
         .child(node().style(style().size(18, 18).radius(9).background(ColorToken::Surface)))
 }
@@ -190,7 +190,7 @@ pub fn segmented<K: ItemKey>(
                         .padding_y(6)
                         .background(if state.selected { ColorToken::Accent } else { ColorToken::SurfaceAlt })
                         .color(if state.selected { ColorToken::AccentText } else { ColorToken::Text })
-                        .opacity(if state.input.disabled { 0.4 } else { 1.0 })
+                        .opacity(if state.input.is_disabled() { 0.4 } else { 1.0 })
                 })
                 .child(text(move || option.with(|option| option.label())))
         },

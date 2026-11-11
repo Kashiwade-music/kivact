@@ -83,7 +83,7 @@ names and their replacements:
 | `tag_badge(label, tone, variant)` | `kivact::ui::badge(label).tone(tone).variant(game::BadgeVariant::..)` |
 | `theme(mode).density(d)` (`ThemeOptions` trait) | `game::theme_with(mode, game::ThemeOptions { density })` (`ThemeOptions` is a struct) |
 | `toolbar(children)` | `kivact::ui::toolbar(label).start(..).center(..).end(..)` |
-| `tree(entries, selection)`, `TreeEntry` | `kivact::ui::tree(label, nodes)` of `kivact::interaction::TreeNode::new(key, parent, label)`, with `.selection(..)`, `.expanded(..)` and `.marker_content(..)` |
+| `tree(entries, selection)`, `TreeEntry` | `kivact::ui::tree(label, items, selected)` of `kivact::interaction::TreeNode::new(key, parent, label)`, with `.expanded(..)` and `.marker_content(..)` |
 
 ## Documentation
 

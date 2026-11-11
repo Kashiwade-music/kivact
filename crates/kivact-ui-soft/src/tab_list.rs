@@ -261,11 +261,11 @@ pub struct TabList<K: ItemKey> {
 }
 
 /// Create a named strip bound to the currently selected key.
-pub fn tab_list<K: ItemKey>(name: impl IntoText, binding: impl IntoBinding<K>) -> TabList<K> {
+pub fn tab_list<K: ItemKey>(label: impl IntoText, value: impl IntoBinding<K>) -> TabList<K> {
     TabList {
         root: node(),
-        label: name.into_text_value(),
-        binding: binding.into_binding(),
+        label: label.into_text_value(),
+        binding: value.into_binding(),
         entries: Vec::new(),
         look: Look {
             size: ControlSize::Medium,
@@ -748,7 +748,7 @@ fn tab_menu_view<K: ItemKey>(
             crate::nav_heading::menu_chevron(open),
             indicator(look, selected, true),
         ));
-    let menu = behavior.show(move || {
+    let menu = behavior.while_open(move || {
         let options = options.clone();
         let rows = for_each(
             behavior.entries(),

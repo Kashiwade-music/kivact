@@ -214,8 +214,8 @@ impl AppShellMobile {
             context.set_open(true);
         }
     }
-    /// Request that the configured drawer close; do nothing outside a shell.
-    pub fn close(self) {
+    /// Hide the configured drawer; do nothing outside a shell.
+    pub fn hide(self) {
         if let Some(context) = self.context {
             context.set_open(false);
         }

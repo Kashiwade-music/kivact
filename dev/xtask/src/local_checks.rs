@@ -117,6 +117,13 @@ impl Scope<'_> {
                     errors,
                 );
             }
+            if rule == "state-fields" {
+                crate::state_fields::verify(
+                    self.sources,
+                    &|source| selected_source(source, options),
+                    errors,
+                );
+            }
         }
     }
 }

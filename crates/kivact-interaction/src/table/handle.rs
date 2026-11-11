@@ -113,7 +113,7 @@ pub fn use_data_table<R, K, C>(
     rows: impl IntoValue<Vec<R>>,
     key: impl Fn(&R) -> K + 'static,
     columns: impl IntoValue<Vec<ColumnDef<R, C>>>,
-    selection: impl crate::IntoSelection<K>,
+    selected: impl crate::IntoSelection<K>,
     focus: TableFocus,
 ) -> DataTableApi<K, C>
 where
@@ -121,7 +121,7 @@ where
     K: kivact_core::state::ItemKey,
     C: kivact_core::state::ItemKey,
 {
-    let selection = selection.into_selection();
+    let selection = selected.into_selection();
     if let TableFocus::Rows(policy) = focus {
         if policy.mode != ListMode::Select {
             raise(

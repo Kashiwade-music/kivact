@@ -202,7 +202,7 @@ impl NodeEditor {
         let input = root_part.state();
         let blocked = memo(move || {
             let input = input.get();
-            input.disabled || input.hidden || !reference.is_visible()
+            input.is_disabled() || input.is_hidden() || !reference.is_visible()
         });
         // The canvas pans and zooms; the pan forwards its phases as the
         // editor's own.

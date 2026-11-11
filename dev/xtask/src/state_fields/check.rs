@@ -143,7 +143,7 @@ fn check_struct(
         item.span(),
         &name,
         &counting.stored,
-        counting.phase,
+        counting.total,
         errors,
     );
     rows.extend(counting.rows(context.source, &name));
@@ -170,7 +170,7 @@ fn check_enum(
             variant.span(),
             &name,
             &counting.stored,
-            counting.phase,
+            counting.total,
             errors,
         );
         rows.extend(counting.rows(context.source, &name));
@@ -191,7 +191,8 @@ struct Counted {
 /// The counted state of one struct, variant or static group.
 struct Counting {
     stored: Vec<String>,
-    phase: usize,
+    /// Every counted field, marked or not (Stored, promoted Helper, Phase).
+    total: usize,
     counted: Vec<Counted>,
 }
 
@@ -259,15 +260,12 @@ fn count_fields(
         .iter()
         .any(|(_, class, _, _, _)| *class == Class::Stored);
     let mut stored = Vec::new();
-    let mut phase = 0;
+    let mut total = 0;
     let mut counted = Vec::new();
     for (label, class, marked, marker, line) in entries {
         let counted_field = match class {
             Class::None => false,
-            Class::Phase => {
-                phase += 1;
-                true
-            }
+            Class::Phase => true,
             Class::Stored => {
                 if !marked {
                     stored.push(label.clone());
@@ -283,6 +281,7 @@ fn count_fields(
             Class::Helper => false,
         };
         if counted_field {
+            total += 1;
             if let Some(line) = marker {
                 context.source.use_allow(line);
             }
@@ -298,7 +297,7 @@ fn count_fields(
     }
     Counting {
         stored,
-        phase,
+        total,
         counted,
     }
 }
@@ -308,14 +307,19 @@ fn report_combination(
     span: proc_macro2::Span,
     name: &str,
     stored: &[String],
-    phase: usize,
+    total: usize,
     errors: &mut Vec<String>,
 ) {
-    if stored.len() >= 2 || (phase > 0 && !stored.is_empty()) {
+    // A counted field without a closure beside any other counted field is an
+    // implicit combination: the audit's OPEN row (design 6.4).
+    if !stored.is_empty() && total >= 2 {
         context.source.error_at(
             RULE,
             span,
-            &format!("{name} combines state fields: {}", stored.join(", ")),
+            &format!(
+                "{name} combines state fields: {} (close each with a type, a derivation, `projection:` or `independent:`)",
+                stored.join(", ")
+            ),
             errors,
         );
     }

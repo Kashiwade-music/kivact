@@ -97,8 +97,8 @@ impl HoverCardApi {
         self.shown
     }
     /// Hide until the current engagement ends.
-    pub fn dismiss(self) {
+    pub fn hide(self) {
         self.open.set(false);
-        self.surface.dismiss();
+        self.surface.hide();
     }
 }

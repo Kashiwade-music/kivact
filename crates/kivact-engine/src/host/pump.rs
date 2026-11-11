@@ -300,9 +300,9 @@ impl Host {
             .get_mut(&id)
             .expect("invariant: an adapter is read for an open window");
         let changed = match &adapter {
-            Some(value) => host_window.adapter.update(value.clone()).is_some(),
-            None if host_window.adapter.get().is_some() => {
-                host_window.adapter = Sent::new();
+            Some(value) => host_window.reported_adapter.update(value.clone()).is_some(),
+            None if host_window.reported_adapter.get().is_some() => {
+                host_window.reported_adapter = Sent::new();
                 true
             }
             None => false,

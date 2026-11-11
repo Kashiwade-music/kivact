@@ -176,7 +176,7 @@ fn menu_surface<K: kivact::state::ItemKey>(
     label: kivact::state::Value<String>,
     sub: bool,
 ) -> View {
-    menu.show(move || {
+    menu.while_open(move || {
         let rows = kivact::view::for_each(
             menu.entries(),
             |(row, _)| row.clone(),

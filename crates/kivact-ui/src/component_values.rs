@@ -145,17 +145,17 @@ pub struct EmptyStateState {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct InputGroupState {
     pub input: kivact_core::custom::PartState,
-    // xtask-allow(state-fields): projection: readonly snapshot of the component's state for recipes, written only by its render function
+    // xtask-allow(state-fields): independent: focus is within the group (focus_within of its root); invalid and any adornment combine with it
     pub focused: bool,
-    // xtask-allow(state-fields): projection: readonly snapshot of the component's state for recipes, written only by its render function
+    // xtask-allow(state-fields): independent: the group's .invalid(..) (accessible_invalid); a group is invalid whether focused or not
     pub invalid: bool,
-    // xtask-allow(state-fields): projection: readonly snapshot of the component's state for recipes, written only by its render function
+    // xtask-allow(state-fields): independent: InputGroup::start fills the inline start adornment, with or without an end one
     pub has_start: bool,
-    // xtask-allow(state-fields): projection: readonly snapshot of the component's state for recipes, written only by its render function
+    // xtask-allow(state-fields): independent: InputGroup::end fills the inline end adornment, with or without a start one
     pub has_end: bool,
-    // xtask-allow(state-fields): projection: readonly snapshot of the component's state for recipes, written only by its render function
+    // xtask-allow(state-fields): independent: InputGroup::block_start adds a row above the controls, beside any inline adornments
     pub has_block_start: bool,
-    // xtask-allow(state-fields): projection: readonly snapshot of the component's state for recipes, written only by its render function
+    // xtask-allow(state-fields): independent: InputGroup::block_end adds a row below the controls, beside any inline adornments
     pub has_block_end: bool,
     pub size: ControlSize,
     pub direction: ReadingDirection,
@@ -165,11 +165,11 @@ pub struct InputGroupState {
 pub struct InputGroupMemberState {
     pub kind: InputGroupMemberKind,
     pub group: InputGroupState,
-    // xtask-allow(state-fields): projection: readonly snapshot of the component's state for recipes, written only by its render function
+    // xtask-allow(state-fields): independent: index == 0 in GroupRender::member; a single member is both first and last
     pub first: bool,
-    // xtask-allow(state-fields): projection: readonly snapshot of the component's state for recipes, written only by its render function
+    // xtask-allow(state-fields): independent: index + 1 == count in GroupRender::member; the middle member of three is neither
     pub last: bool,
-    // xtask-allow(state-fields): projection: readonly snapshot of the component's state for recipes, written only by its render function
+    // xtask-allow(state-fields): independent: focus is within this member (focus_within of its node), at any position in the group
     pub focused: bool,
 }
 /// Semantic heading level passed to its recipe.

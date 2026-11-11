@@ -478,7 +478,7 @@ fn disclosure_trigger(t: &Theme, state: &Look<DisclosureRecipeState>) -> Style {
         .color(p.foreground);
     // `hover:underline`: a text decoration, which a state style cannot
     // change, so it follows the trigger's state.
-    let s = if state.input.hovered && !state.input.disabled {
+    let s = if state.input.is_hovered() && !state.input.is_disabled() {
         s.text_decoration(TextDecorationLine::UNDERLINE)
     } else {
         s

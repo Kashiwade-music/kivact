@@ -281,7 +281,7 @@ impl ZoomPanApi {
             self.gesture.feed(
                 memo(move || {
                     let state = state.get();
-                    focus.get() && !state.disabled && !state.hidden
+                    focus.get() && !state.is_disabled() && !state.is_hidden()
                 }),
                 machine::Event::Available,
             );
@@ -297,7 +297,7 @@ impl ZoomPanApi {
                     };
                     let handled = snapshot.pointer(&self.gesture.get(), event).1;
                     // The machine input reads the same surface snapshot used to accept input.
-                    if state.get_untracked().disabled
+                    if state.get_untracked().is_disabled()
                         && matches!(event.phase(), PointerPhase::Down(_))
                     {
                         return Handled::No;
@@ -312,7 +312,7 @@ impl ZoomPanApi {
                     if !finite(event.pos())
                         || !event.delta().y.is_finite()
                         || event.delta().y == 0.0
-                        || state.get().disabled
+                        || state.get().is_disabled()
                     {
                         return Handled::No;
                     }

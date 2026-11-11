@@ -140,7 +140,7 @@ impl IntoView for ColorWheel {
         let root_state = root_part.state();
         let blocked = memo(move || {
             let input = root_state.get();
-            input.disabled || input.hidden
+            input.is_disabled() || input.is_hidden()
         });
         let alpha = self.options.alpha;
         let drag = use_drag::<Channel>(DragCoordinates::Local);
@@ -365,7 +365,7 @@ fn observed_canvas(
         group.focus_within(),
         memo(move || {
             let input = canvas_state.get();
-            input.disabled || input.hidden
+            input.is_disabled() || input.is_hidden()
         }),
         alpha,
     );

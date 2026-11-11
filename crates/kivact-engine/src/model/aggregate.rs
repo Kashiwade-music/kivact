@@ -43,7 +43,7 @@ pub(crate) struct Model {
     pub(crate) admission: super::modal::state::Admission,
     // xtask-allow(state-fields): projection: the modifiers last reported to the client, written only by Model::report_modifiers
     /// The keyboard modifiers the shell reports held.
-    pub(crate) modifiers: kivact_types::cell::Sent<Modifiers>,
+    pub(super) modifiers: kivact_types::cell::Sent<Modifiers>,
     pub(crate) key_down_targets: super::focus::state::KeyDownTargets,
     pub(crate) edits: super::edit::state::Edits,
     pub(crate) motion: super::state_motion::state::StateMotion,

@@ -127,13 +127,13 @@ fn render_settings(status: Signal<String>) -> impl kivact::view::Element {
                         .variant(kivact::ui::ButtonVariant::Secondary)
                         .on_press(move || {
                             status.set("Render settings cancelled".into());
-                            close.close();
+                            close.hide();
                         }),
                     kivact::ui::button("Render")
                         .variant(kivact::ui::ButtonVariant::Primary)
                         .on_press(move || {
                             status.set("Render requested (demo)".into());
-                            close.close();
+                            close.hide();
                         }),
                 )),
             ))
@@ -152,7 +152,7 @@ fn close_project(status: Signal<String>) -> impl kivact::view::Element {
             on_mount(move || default_action.focus());
             let save = callback(move |()| {
                 status.set("Saved and closed (demo)".into());
-                close.close();
+                close.hide();
             });
             column((
                 row((
@@ -171,12 +171,12 @@ fn close_project(status: Signal<String>) -> impl kivact::view::Element {
                 window_footer((
                     kivact::ui::button("Don't Save").variant(kivact::ui::ButtonVariant::Secondary).on_press(move || {
                         status.set("Closed without saving (demo)".into());
-                        close.close();
+                        close.hide();
                     }),
                     node().style(style().grow(1)),
                     kivact::ui::button("Cancel").variant(kivact::ui::ButtonVariant::Secondary).on_press(move || {
                         status.set("Close cancelled".into());
-                        close.close();
+                        close.hide();
                     }),
                     kivact::ui::button("Save").variant(kivact::ui::ButtonVariant::Primary).with_node(|node| node.node_ref(default_action)).on_press(move || save.call(())),
                 )),

@@ -483,3 +483,282 @@ fn enum_variants_named_none_are_not_option_locals() {
     assert_eq!(errors.len(), 1, "{errors:?}");
     assert!(errors[0].contains("function combines state locals: section, empty"));
 }
+
+#[test]
+fn one_unmarked_field_beside_a_marked_one_is_an_error() {
+    let errors = run(
+        "struct Probe {\n// xtask-allow(state-fields): independent: probe fact\na: bool,\nb: Option<Job>,\n}",
+        "",
+        &[],
+    );
+    assert_eq!(errors.len(), 1, "{errors:?}");
+    assert!(
+        errors[0].contains("Probe combines state fields: b"),
+        "{errors:?}"
+    );
+}
+
+#[test]
+fn one_unmarked_local_beside_a_marked_one_is_an_error() {
+    let text = "fn sample() {\n// xtask-allow(state-fields): independent: probe fact\nlet a = signal(false);\nlet b = signal(None);\n}";
+    let errors = run(text, "", &[]);
+    assert_eq!(errors.len(), 1, "{errors:?}");
+    assert!(
+        errors[0].contains("function combines state locals: b"),
+        "{errors:?}"
+    );
+}
+
+/// Run X4 and X5 over fixtures, one per `(module, text)`, each in its own file.
+fn verify_sources(modules: &[(&str, &str)]) -> Vec<String> {
+    let sources: Vec<crate::check_source::Source> = modules
+        .iter()
+        .map(|(module, text)| {
+            let mut source = fixture(text);
+            source.module = (*module).to_owned();
+            source.path =
+                format!("crates/kivact-ui-soft/src/{}.rs", module.replace("::", "/")).into();
+            source
+        })
+        .collect();
+    let mut errors = Vec::new();
+    super::verify(&sources, &|_| true, &mut errors);
+    errors
+}
+
+/// A struct whose field `a` carries the projection `reason`.
+fn projected(reason: &str, visibility: &str) -> String {
+    format!(
+        "struct S {{\n// xtask-allow(state-fields): projection: {reason}\n{visibility} a: Cell<bool>,\n// xtask-allow(state-fields): independent: probe b\nb: Cell<bool>,\n}}\n"
+    )
+}
+
+/// `S` with the writer `S::publish`, followed by `rest`.
+fn published(rest: &str) -> String {
+    projected("written only by S::publish", "")
+        + "impl S { fn publish(&self) { self.a.set(true); } }\n"
+        + rest
+}
+
+/// The errors of `published(rest)` alone in module `widgets::list`.
+fn verify_published(rest: &str) -> Vec<String> {
+    verify_sources(&[("widgets::list", &published(rest))])
+}
+
+#[test]
+fn projection_needs_an_existing_single_writer() {
+    let errors = verify_published("impl S { fn other(&self) { self.a.set(false) } }");
+    assert_eq!(errors.len(), 1, "{errors:?}");
+    assert!(
+        errors[0].contains("S.a is also written in other"),
+        "{errors:?}"
+    );
+}
+
+#[test]
+fn projection_writer_must_exist() {
+    let text = projected("written only by missing", "")
+        + "impl S { fn publish(&self) { self.a.set(true) } }";
+    let errors = verify_sources(&[("widgets::list", &text)]);
+    assert_eq!(errors.len(), 1, "{errors:?}");
+    assert!(
+        errors[0].contains("projection writer missing of S.a does not exist"),
+        "{errors:?}"
+    );
+}
+
+#[test]
+fn projection_allows_empty_initial_values_in_constructors() {
+    let text = projected("written only by S::publish", "")
+        + "impl S {\nfn new() -> Self { Self { a: Cell::new(false), b: Cell::new(false) } }\nfn publish(&self) { self.a.set(true) }\n}\n\
+           struct T {\n// xtask-allow(state-fields): projection: written only by T::report\nsent: Sent<Option<u8>>,\n// xtask-allow(state-fields): independent: probe c\nc: bool,\n}\n\
+           impl T {\nfn new() -> Self { Self { sent: { let mut sent = Sent::new(); sent.update(None); sent }, c: true } }\nfn report(&mut self) { self.sent.update(Some(1)); }\n}";
+    let errors = verify_sources(&[("widgets::list", &text)]);
+    assert!(errors.is_empty(), "{errors:?}");
+}
+
+#[test]
+fn projection_marker_must_name_one_writer() {
+    let text = projected("readonly snapshot", "");
+    let errors = verify_sources(&[("widgets::list", &text)]);
+    assert_eq!(errors.len(), 1, "{errors:?}");
+    assert!(errors[0].contains("must name one writer"), "{errors:?}");
+}
+
+#[test]
+fn projection_fields_visible_to_the_whole_crate_are_rejected() {
+    for (module, visibility) in [
+        ("widgets::list", "pub(crate)"),
+        ("widgets::list", "pub"),
+        ("widgets", "pub(super)"),
+        ("", ""),
+    ] {
+        let text = projected("written only by S::publish", visibility)
+            + "impl S { fn publish(&self) { self.a.set(true) } }";
+        let errors = verify_sources(&[(module, &text)]);
+        assert_eq!(errors.len(), 1, "{module} {visibility}: {errors:?}");
+        assert!(
+            errors[0].contains("visible to the whole crate"),
+            "{errors:?}"
+        );
+    }
+}
+
+#[test]
+fn projection_fields_are_checked_in_the_module_their_visibility_allows() {
+    let other = "struct T { a: Cell<bool> }\nfn touch(t: &T) { t.a.set(true) }";
+    let private = published("");
+    let errors = verify_sources(&[("widgets::list", &private), ("widgets::other", other)]);
+    assert!(errors.is_empty(), "{errors:?}");
+    let shared = projected("written only by S::publish", "pub(super)")
+        + "impl S { fn publish(&self) { self.a.set(true) } }";
+    let errors = verify_sources(&[("widgets::list", &shared), ("widgets::other", other)]);
+    assert_eq!(errors.len(), 1, "{errors:?}");
+    assert!(
+        errors[0].contains("S.a is also written in touch"),
+        "{errors:?}"
+    );
+}
+
+#[test]
+fn a_same_name_field_is_the_projection_unless_its_receiver_is_another_types_self() {
+    let errors = verify_published(
+        "struct T { a: Cell<bool> }\nimpl T { fn touch(&self) { self.a.set(true); } }",
+    );
+    assert!(errors.is_empty(), "{errors:?}");
+    let errors = verify_published("struct T { a: Cell<bool> }\nfn touch(t: &T) { t.a.set(true); }");
+    assert_eq!(errors.len(), 1, "{errors:?}");
+    assert!(
+        errors[0].contains("S.a is also written in touch"),
+        "{errors:?}"
+    );
+}
+
+#[test]
+fn an_alias_of_the_field_is_unverified() {
+    let errors = verify_published("fn other(s: &S) { let cell = &s.a; cell.set(false); }");
+    assert_eq!(errors.len(), 1, "{errors:?}");
+    assert!(
+        errors[0].contains("S.a may be changed in other") && errors[0].contains("borrowed with &"),
+        "{errors:?}"
+    );
+}
+
+#[test]
+fn a_reference_passed_to_another_function_is_unverified() {
+    let errors = verify_published(
+        "impl S { fn other(&mut self) { flip(&mut self.a); } }\nfn flip(cell: &mut Cell<bool>) { cell.set(false); }",
+    );
+    assert_eq!(errors.len(), 1, "{errors:?}");
+    assert!(errors[0].contains("borrowed with &mut"), "{errors:?}");
+}
+
+#[test]
+fn an_unknown_method_on_the_field_is_unverified_and_known_reads_pass() {
+    let errors = verify_published(
+        "impl S { fn read(&self) -> bool { self.a.get() && self.a.clone().get() } fn other(&self) { self.a.toggle(); } }",
+    );
+    assert_eq!(errors.len(), 1, "{errors:?}");
+    assert!(
+        errors[0].contains("may be changed in other") && errors[0].contains("calls `toggle`"),
+        "{errors:?}"
+    );
+}
+
+#[test]
+fn writes_through_parts_handles_and_literals_are_writes() {
+    let text = "struct S {\n// xtask-allow(state-fields): projection: written only by S::publish\na: RefCell<Inner>,\n// xtask-allow(state-fields): independent: probe b\nb: Cell<bool>,\n}\n\
+                impl S {\nfn publish(&self) { self.a.borrow_mut().x = 1; }\nfn part(&mut self) { self.a.get_mut().x = 2; }\nfn handle(&self) { *self.a.borrow_mut() = Inner::default(); }\nfn copy(&self) -> Self { Self { b: Cell::new(true), ..self.clone() } }\n}";
+    let errors = verify_sources(&[("widgets::list", text)]);
+    assert_eq!(errors.len(), 3, "{errors:?}");
+    for function in ["part", "handle", "copy"] {
+        assert!(
+            errors
+                .iter()
+                .any(|error| error.contains(&format!("S.a is also written in {function}"))),
+            "{function}: {errors:?}"
+        );
+    }
+}
+
+#[test]
+fn a_pattern_binding_of_the_field_is_unverified() {
+    let errors = verify_published(
+        "fn ignore(s: &S) { let S { a: _, .. } = s; }\nfn bind(s: &mut S) { let S { a, .. } = s; a.set(false); }",
+    );
+    assert_eq!(errors.len(), 1, "{errors:?}");
+    assert!(
+        errors[0].contains("may be changed in bind") && errors[0].contains("bound by a pattern"),
+        "{errors:?}"
+    );
+}
+
+#[test]
+fn uses_inside_macros_are_checked() {
+    let errors = verify_published(
+        "impl S { fn checked(&self) { assert!(self.a.replace(true)); } fn opaque(&self) { let _ = vec![self.a.take(); 1]; } fn custom(&self) { flip!(self.a); } fn shown(&self) { println!(\"{}\", self.a.get()); } }",
+    );
+    assert_eq!(errors.len(), 3, "{errors:?}");
+    assert!(
+        errors
+            .iter()
+            .any(|error| error.contains("S.a is also written in checked")),
+        "{errors:?}"
+    );
+    for function in ["opaque", "custom"] {
+        assert!(
+            errors.iter().any(
+                |error| error.contains(&format!("may be changed in {function}"))
+                    && error.contains("inside a macro")
+            ),
+            "{function}: {errors:?}"
+        );
+    }
+}
+
+#[test]
+fn a_writer_returning_a_reference_is_rejected() {
+    let text = projected("written only by S::publish", "")
+        + "impl S { fn publish(&self) -> &Cell<bool> { &self.a } }";
+    let errors = verify_sources(&[("widgets::list", &text)]);
+    assert_eq!(errors.len(), 1, "{errors:?}");
+    assert!(errors[0].contains("returns a reference"), "{errors:?}");
+}
+
+#[test]
+fn machine_state_projections_name_the_machine_transition() {
+    let machine = "pub(super) enum State {\nClosed,\nOpen {\n// xtask-allow(state-fields): projection: written only by Machine::transition on Event::Preview\npreviewed: Option<u8>,\n// xtask-allow(state-fields): independent: probe hovered\nhovered: Option<u8>,\n},\n}\n\
+                   pub(super) struct Machine;\n\
+                   impl MachineTrait for Machine {\ntype State = State;\nfn transition(&self, state: &State, key: Option<u8>) -> State {\nlet mut next = State::Open { previewed: None, hovered: None };\nif let State::Open { previewed, .. } = &mut next { *previewed = key; }\nnext\n}\n}";
+    let errors = verify_sources(&[("select::machine", machine)]);
+    assert!(errors.is_empty(), "{errors:?}");
+    let reset = "fn reset() -> State { State::Open { previewed: Some(1), hovered: None } }";
+    let errors = verify_sources(&[("select::machine", machine), ("select::handle", reset)]);
+    assert_eq!(errors.len(), 1, "{errors:?}");
+    assert!(
+        errors[0].contains("State::Open.previewed is also written in reset"),
+        "{errors:?}"
+    );
+    let named = "fn transition() -> State { State::Open { previewed: Some(1), hovered: None } }";
+    let errors = verify_sources(&[("select::machine", machine), ("select::handle", named)]);
+    assert_eq!(errors.len(), 1, "{errors:?}");
+    assert!(
+        errors[0].contains("State::Open.previewed is also written in transition"),
+        "{errors:?}"
+    );
+}
+
+#[test]
+fn independent_reasons_are_not_shared_across_files() {
+    let text = "struct P {\n// xtask-allow(state-fields): independent: probe fact\na: bool,\n// xtask-allow(state-fields): independent: probe fact\nb: bool,\n}";
+    let errors = verify_sources(&[("widgets", text)]);
+    assert!(errors.is_empty(), "{errors:?}");
+    let errors = verify_sources(&[("widgets", text), ("other", text)]);
+    assert_eq!(errors.len(), 4, "{errors:?}");
+    assert!(
+        errors
+            .iter()
+            .all(|error| error.contains("reason repeats in")),
+        "{errors:?}"
+    );
+}

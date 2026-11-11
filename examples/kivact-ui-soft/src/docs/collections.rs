@@ -281,6 +281,7 @@ fn example_tree_list() -> Node {
                 TreeNode::new("main.rs", Some("src"), "main.rs"),
                 TreeNode::new("README.md", None, "README.md"),
             ],
+            signal(None),
         )
         .expanded(signal(vec!["src"]))
         .reveal(
@@ -291,7 +292,7 @@ fn example_tree_list() -> Node {
             ),
         )
         .style(style().width(240)),
-        "kivact::ui::tree(\"Files\", files).expanded(expanded).reveal(2.0, transition)",
+        "kivact::ui::tree(\"Files\", files, selected).expanded(expanded).reveal(2.0, transition)",
     )
 }
 

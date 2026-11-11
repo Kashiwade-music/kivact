@@ -42,7 +42,7 @@ pub(crate) fn switch(
         },
     );
     let state = control.state();
-    session.feed(move || state.get().input.disabled, Event::Disabled);
+    session.feed(move || state.get().input.is_disabled(), Event::Disabled);
     let visual = memo(move || session.get().visual());
     let control = Part::new(state, move |host| {
         host.part(control).on_pointer(move |event| {

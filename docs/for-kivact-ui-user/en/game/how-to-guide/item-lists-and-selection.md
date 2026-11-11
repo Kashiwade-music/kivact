@@ -138,7 +138,7 @@ row updates when they change.
 
 ## Show a hierarchy as a tree
 
-`kivact::ui::tree(label, nodes)` renders flat `TreeNode` data under the Game theme. The application owns expansion, selection and revision markers. Guard the selection binding to select only leaves; use `.on_activate(..)` to toggle a folder on Enter or double click. A folder starts closed when its key is absent from `expanded`. The row slot can combine icons, labels and revision markers. The tree remains one Tab stop with arrow navigation and a pointer expander. Reactive node labels follow their source.
+`kivact::ui::tree(label, items, selected)` renders flat `TreeNode` data under the Game theme. The application owns expansion, selection and revision markers. Guard the selection binding to select only leaves; use `.on_activate(..)` to toggle a folder on Enter or double click. A folder starts closed when its key is absent from `expanded`. The row slot can combine icons, labels and revision markers. The tree remains one Tab stop with arrow navigation and a pointer expander. Reactive node labels follow their source.
 
 ```rust,no_run
 use kivact::prelude::*;
@@ -156,12 +156,12 @@ fn files() -> impl IntoView {
         TreeNode::new("readme".to_owned(), None, "README.txt"),
     ];
     column((
-        kivact::ui::tree("Files", nodes).expanded(expanded)
-            .selection(binding(selected, move |key: Option<String>| {
+        kivact::ui::tree("Files", nodes, binding(selected, move |key: Option<String>| {
                 if key.as_deref().is_none_or(|id| !["saves", "mods"].contains(&id)) {
                     selected.set(key);
                 }
             }))
+            .expanded(expanded)
             .on_activate(move |key| {
                 if key == "saves" {
                     expanded.update(|keys| if keys.contains(&key) {

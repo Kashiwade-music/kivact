@@ -25,14 +25,14 @@ use std::time::Duration;
 #[track_caller]
 pub fn combobox<K: ItemKey>(
     label: impl IntoText,
-    options: impl IntoValue<Vec<ListItem<K>>>,
-    selection: impl IntoSelection<K>,
+    items: impl IntoValue<Vec<ListItem<K>>>,
+    selected: impl IntoSelection<K>,
 ) -> Combobox<K> {
     Combobox {
         root: node(),
         label: label.into_text_value(),
-        options: options.into_value(),
-        selection: selection.into_selection(),
+        options: items.into_value(),
+        selection: selected.into_selection(),
         query: None,
         open: None,
         on_edit: None,

@@ -68,6 +68,7 @@ mod interaction_list_nav;
 mod interaction_menu;
 mod interaction_palette;
 mod interaction_select;
+mod interaction_show_hide;
 mod interaction_slider;
 mod interaction_splitter;
 mod interaction_state;
