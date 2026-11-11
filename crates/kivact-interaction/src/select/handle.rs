@@ -128,7 +128,7 @@ pub struct SelectApi<K: kivact_core::state::ItemKey> {
     options: Value<Vec<ListItem<K>>>,
     selected: Binding<Option<K>>,
     edit: crate::EditSession<Option<K>>,
-    // xtask-allow(state-fields): independent: the observation of the attached content part, absent until it attaches
+    // xtask-allow(state-fields): independent: set by SelectApi::content_in when the option list or sheet mounts; the preview callback beside it is set by the caller at setup, before or without any surface
     content_state: Signal<Option<Value<PopupState>>>,
     /// What the trigger shows while nothing is selected; read tracked.
     placeholder: Signal<Value<String>>,
@@ -788,6 +788,7 @@ fn group<K: kivact_core::state::ItemKey>(
 /// rests on, else the focused one. The machine holds the last reported key and
 /// reports `None` when the list closes. Setup only, under the mounted
 /// surface's owner.
+/// This is the only sender of machine::Event::Preview.
 fn track_preview<K: kivact_core::state::ItemKey>(
     list: ListApi<K>,
     hovered: Binding<Option<K>>,
