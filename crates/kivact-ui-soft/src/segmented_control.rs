@@ -55,7 +55,7 @@ pub(crate) fn segment(theme: &Theme, look: &Look<CheckableState>) -> Style {
         ControlSize::Medium => (24, 12, 14),
         ControlSize::Large => (28, 12, 14),
     };
-    let selected = look.checked.is_checked();
+    let selected = look.is_checked();
     let (fill, ink) = if selected {
         (c.bg_surface, c.text_primary)
     } else {

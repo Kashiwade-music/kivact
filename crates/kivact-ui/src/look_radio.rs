@@ -27,7 +27,7 @@ pub(super) fn item(t: &Theme, look: &Look<CheckableState>) -> Style {
         .padding_right(t.space().md)
         .padding_top(t.space().sm)
         .padding_bottom(t.space().sm);
-    if look.checked.is_checked() {
+    if look.is_checked() {
         base.background(ColorToken::Accent)
             .color(ColorToken::AccentText)
     } else {

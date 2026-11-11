@@ -12,9 +12,9 @@ use kivact::style::Justify;
 use kivact::style::Position;
 use kivact::style::style;
 use kivact::style::use_theme;
-use kivact::ui::CheckableState;
 use kivact::ui::ControlSize;
 use kivact::ui::Look;
+use kivact::ui::{CheckControl, CheckableState};
 use kivact::view::CheckedState;
 use kivact::view::Element;
 use kivact::view::IntoView;
@@ -112,6 +112,7 @@ impl IntoView for Indicator {
         let actual = attachment.state();
         self.root = self.root.with_node(move |node| node.part(attachment));
         let checked = self.checked;
+        let kind = self.kind;
         let input = self.input;
         let look = move || {
             let mut input = input.get();
@@ -121,11 +122,14 @@ impl IntoView for Indicator {
             }
             Look::new(CheckableState {
                 input,
-                checked: checked.get(),
+                control: match kind {
+                    Kind::Radio => CheckControl::Radio {
+                        selected: checked.get().is_checked(),
+                    },
+                    Kind::Checkbox | Kind::Check => CheckControl::CheckBox(checked.get()),
+                },
                 size,
                 invalid: false,
-                text: None,
-                switch_drag: None,
             })
         };
         match self.kind {
@@ -175,11 +179,7 @@ fn check_view(
         node.base_style(move || {
             let t = kivact::style::use_tokens::<crate::Tokens>();
             let state = look();
-            let side = if custom || state.checked.is_checked() {
-                16
-            } else {
-                0
-            };
+            let side = if custom || state.is_checked() { 16 } else { 0 };
             style()
                 .size(side, side)
                 .clip(true)

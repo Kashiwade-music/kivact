@@ -185,10 +185,11 @@ pub use toggle::{Checkbox, Switch, checkbox, switch};
 pub use toggle_button::{ToggleButton, ToggleButtonTokens, ToggleLabelReservation, toggle_button};
 pub use tree::{Tree, TreeRows, tree, tree_rows};
 pub use values::{
-    AxisState, ButtonState, ButtonVariant, CheckableState, ControlSize, DataTableCellState,
-    DataTableCheckState, DataTablePageState, DataTableRowState, DialogState, FieldState, Lift,
-    ProgressState, RadioGroupVariant, SelectTriggerState, SwitchDragState, TextInputState,
-    ToastGroupState, ToggleButtonState, TooltipArrowState, TrackInput, provide_control_size,
+    AxisState, ButtonState, ButtonVariant, CheckControl, CheckableState, ControlSize,
+    DataTableCellState, DataTableCheckState, DataTablePageState, DataTableRowState, DialogState,
+    FieldState, Lift, ProgressState, RadioGroupVariant, SelectTriggerState, SwitchDragState,
+    TextInputState, ToastGroupState, ToggleButtonState, TooltipArrowState, TrackInput,
+    provide_control_size,
 };
 pub use variants::{Look, Variant};
 

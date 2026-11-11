@@ -79,7 +79,7 @@ fn switch_on(t: &Tokens, s: &Look<CheckableState>, drag: Option<SwitchDragState>
         Some(SwitchDragState::Tracking(TrackInput::Touch { offset })) => {
             offset * switch_sign() > switch_travel(t, s) / 2.0
         }
-        _ => s.checked.is_checked(),
+        _ => s.is_checked(),
     }
 }
 
@@ -152,7 +152,7 @@ fn pressed_fill(theme: &Theme, t: &Tokens, s: &Look<CheckableState>, fill: Color
 
 fn check_surface(theme: &Theme, t: &Tokens, s: &Look<CheckableState>, radius: f64) -> Style {
     let c = &t.colors;
-    let on = s.checked != CheckedState::Unchecked;
+    let on = s.checked() != CheckedState::Unchecked;
     let hovered = s.input.hovered && !s.input.disabled;
     let (fill, border) = if on {
         let accent = if hovered { c.accent_hover } else { c.accent };
@@ -204,7 +204,7 @@ pub(super) fn checkbox_check(theme: &Theme, s: &Look<CheckableState>) -> Style {
         t.typography.size_md
     };
     let ink = t.colors.on_accent;
-    centered_mark(side, side, s.checked == CheckedState::Checked).paint(move |d, size| {
+    centered_mark(side, side, s.is_checked()).paint(move |d, size| {
         // The Astryx indicator path is in a 10 × 10 view box.
         let unit = size.width / 10.0;
         let path = Path::new()
@@ -225,20 +225,16 @@ pub(super) fn checkbox_mixed(theme: &Theme, s: &Look<CheckableState>) -> Style {
     } else {
         t.spacing.s3
     };
-    centered_mark(
-        width,
-        t.spacing.s0_5,
-        s.checked == CheckedState::Indeterminate,
-    )
-    .radius(t.radius.full)
-    .background(t.colors.on_accent)
+    centered_mark(width, t.spacing.s0_5, s.is_mixed())
+        .radius(t.radius.full)
+        .background(t.colors.on_accent)
 }
 
 pub(super) fn switch_track(theme: &Theme, s: &Look<CheckableState>) -> Style {
     let t = theme.ext::<Tokens>();
     let (width, height) = switch_size(&t, s);
     let c = &t.colors;
-    let drag = s.switch_drag;
+    let drag = s.switch_drag();
     let touch = drag.is_some_and(SwitchDragState::is_touch);
     let on = switch_on(&t, s, drag);
     let fill = if on { c.accent } else { c.border_emphasized };
@@ -280,7 +276,7 @@ pub(super) fn switch_track(theme: &Theme, s: &Look<CheckableState>) -> Style {
 
 pub(super) fn switch_thumb(theme: &Theme, s: &Look<CheckableState>) -> Style {
     let t = theme.ext::<Tokens>();
-    let drag = s.switch_drag;
+    let drag = s.switch_drag();
     let on = switch_on(&t, s, drag);
     let (_, height) = switch_size(&t, s);
     let (base_side, inset, on_side) = switch_parts(&t, s);
@@ -400,7 +396,7 @@ fn mark(theme: &Theme, s: &Look<CheckableState>) -> Style {
     } else {
         t.typography.size_xs
     };
-    centered_mark(side, side, s.checked.is_checked())
+    centered_mark(side, side, s.is_checked())
         .radius(t.radius.full)
         .background(t.colors.on_accent)
 }

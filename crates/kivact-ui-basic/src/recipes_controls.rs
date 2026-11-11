@@ -64,7 +64,7 @@ fn radio_item(t: &Theme, _: &kivact::ui::Look<CheckableState>) -> Style {
 /// inside the focused item, so the recipe reads the item's state.
 fn radio_indicator(t: &Theme, s: &kivact::ui::Look<CheckableState>) -> Style {
     let p = t.ext::<Tokens>();
-    let checked = s.checked.is_checked();
+    let checked = s.is_checked();
     let base = style()
         .position(Position::Relative)
         .size(16, 16)

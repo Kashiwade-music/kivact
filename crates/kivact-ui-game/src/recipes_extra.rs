@@ -338,7 +338,7 @@ pub(crate) fn radio_item(t: &Theme, state: &Look<CheckableState>) -> Style {
         .selected(choice_style::segment_chosen());
     }
     if state.variant::<ChoiceCard>().is_some() {
-        return choice_style::card_item(state.checked.is_checked());
+        return choice_style::card_item(state.is_checked());
     }
     style()
         .direction(Direction::Row)
@@ -356,7 +356,7 @@ pub(crate) fn radio_indicator(_: &Theme, state: &Look<CheckableState>) -> Style 
     {
         return choice_style::hidden_indicator();
     }
-    let checked = state.checked.is_checked();
+    let checked = state.is_checked();
     style()
         .size(16, 16)
         .shrink(0)

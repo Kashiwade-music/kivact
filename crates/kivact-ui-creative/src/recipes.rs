@@ -14,7 +14,6 @@ use kivact::ui::{
     ButtonState, ButtonVariant, CheckableState, ControlSize, DialogState, SelectTriggerState,
     TextInputState, ToggleButtonState, UiRecipes,
 };
-use kivact::view::CheckedState;
 
 use crate::tokens::Tokens;
 
@@ -196,8 +195,8 @@ fn toggle(t: &Theme, s: &CheckableState, switch: bool) -> Style {
         .padding_left(if switch { 37 } else { 21 })
         .paint(move |d, size| {
             let p = d.theme().ext::<Tokens>();
-            let on = state.checked.is_checked();
-            let mixed = state.checked == CheckedState::Indeterminate;
+            let on = state.is_checked();
+            let mixed = state.is_mixed();
             let y = (size.height - 16.) / 2.;
             if switch {
                 d.rounded_rect(

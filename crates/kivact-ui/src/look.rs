@@ -174,11 +174,11 @@ pub(super) fn draw_checkbox(theme: &Theme, look: &CheckableState, d: &mut Draw, 
     let side = indicator(theme, look.size);
     let r = theme.radius().sm;
     let rect = Rect::new(leading(theme), (size.height - side) / 2.0, side, side);
-    if look.checked != CheckedState::Unchecked {
+    if look.checked() != CheckedState::Unchecked {
         d.rounded_rect(rect, r, ColorToken::Accent);
         let at = |x: f64, y: f64| Point::new(rect.x + side * x, rect.y + side * y);
         let mark = Stroke::new(2.0).cap(LineCap::Round).join(LineJoin::Round);
-        if look.checked == CheckedState::Indeterminate {
+        if look.is_mixed() {
             d.polyline(
                 [at(0.25, 0.5), at(0.75, 0.5)],
                 &mark,
@@ -208,7 +208,7 @@ pub(super) fn draw_checkbox(theme: &Theme, look: &CheckableState, d: &mut Draw, 
 
 /// The track and thumb of a switch.
 pub(super) fn draw_switch(theme: &Theme, look: &CheckableState, d: &mut Draw, size: Size) {
-    let on = look.checked.is_checked();
+    let on = look.is_checked();
     let h = indicator(theme, look.size);
     let w = indicator_width(theme, look.size, true);
     let track = Rect::new(leading(theme), (size.height - h) / 2.0, w, h);

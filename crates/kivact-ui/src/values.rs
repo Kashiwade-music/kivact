@@ -1,8 +1,8 @@
 //! Role: Passive state and appearance settings for standard component recipes.
 //!
 //! Each recipe gets the actual state of the part it styles. Checkbox, switch
-//! and radio items get [`CheckableState`] (the real `CheckedState` plus size and
-//! invalid); a select's trigger gets [`SelectTriggerState`], its surface
+//! and radio items get [`CheckableState`] (which control it is and its checked
+//! state, [`CheckControl`], plus size and invalid); a select's trigger gets [`SelectTriggerState`], its surface
 //! `PopupState` and its options `ListItemState`; a tooltip's optional arrow
 //! gets [`TooltipArrowState`], found from the anchor's and the surface's
 //! rects after the host's flip (the requested side before placement); a
@@ -299,38 +299,115 @@ pub enum Lift {
     Settled,
 }
 
-/// The state of a check box, a switch or a radio item for its recipe.
+/// Which control a [`CheckableState`] describes, with the state only that
+/// control has.
 #[derive(Clone, Copy, Debug)]
+pub enum CheckControl {
+    /// A check box: on, off or mixed
+    /// ([`Checkbox::indeterminate`](super::Checkbox::indeterminate)).
+    CheckBox(CheckedState),
+    /// A switch: on or off.
+    Switch {
+        // xtask-allow(state-fields): independent: the switch's bound value; the opted-in drag starts from either value and moves the thumb whichever one the binding holds
+        /// Whether the switch is on.
+        on: bool,
+        /// The localized word for the state: `switch.on` ("ON") or
+        /// `switch.off` ("OFF"). The handle is made at setup and stays the
+        /// same for the mounted control; read it in the paint, which follows
+        /// its text. It is not part of the state's equality.
+        text: kivact_core::state::Value<String>,
+        // xtask-allow(state-fields): independent: the live visual of the opted-in drag gesture, None when the switch has no drag or none is running; it runs while the switch is on or off
+        /// Live visual state while the opted-in drag gesture moves the thumb.
+        drag: Option<SwitchDragState>,
+    },
+    /// A radio item: whether it is the group's chosen option.
+    Radio {
+        /// Whether this option is chosen.
+        selected: bool,
+    },
+}
+
+impl PartialEq for CheckControl {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::CheckBox(a), Self::CheckBox(b)) => a == b,
+            (
+                Self::Switch {
+                    on: a,
+                    drag: drag_a,
+                    ..
+                },
+                Self::Switch {
+                    on: b,
+                    drag: drag_b,
+                    ..
+                },
+            ) => a == b && drag_a == drag_b,
+            (Self::Radio { selected: a }, Self::Radio { selected: b }) => a == b,
+            _ => false,
+        }
+    }
+}
+
+/// The state of a check box, a switch or a radio item for its recipe.
+///
+/// Most recipes read [`is_checked`](Self::is_checked) and
+/// [`is_mixed`](Self::is_mixed); `match state.control` tells the three
+/// controls apart.
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct CheckableState {
     /// The actual input state of the control.
     pub input: PartState,
-    /// Whether it is on; only a check box is ever
-    /// [`Indeterminate`](CheckedState::Indeterminate).
-    pub checked: CheckedState,
+    /// Which control this is, with its checked state.
+    pub control: CheckControl,
     /// The size the caller chose with `.size(..)` (default `Medium`).
     pub size: ControlSize,
-    // xtask-allow(state-fields): projection: readonly snapshot of the component's state for recipes, written only by its render function
-    /// Whether the caller marked the value invalid (`.invalid(..)`).
+    /// Whether the caller marked the value invalid: `.invalid(..)` on the
+    /// check box or switch, or on the radio group around a radio item
+    /// (a `field` with an error sets it too).
     pub invalid: bool,
-    // xtask-allow(state-fields): projection: readonly snapshot of the component's state for recipes, written only by its render function
-    /// The localized word for the state, for a recipe that paints it: a
-    /// switch's `switch.on` ("ON") or `switch.off` ("OFF") message, `None`
-    /// for a check box and a radio item. The handle is made at setup and
-    /// stays the same for the mounted control; read it in the paint, which
-    /// follows its text. It is not part of the state's equality.
-    pub text: Option<kivact_core::state::Value<String>>,
-    // xtask-allow(state-fields): projection: readonly snapshot of the component's state for recipes, written only by its render function
-    /// Live visual state for an opted-in Switch gesture.
-    pub switch_drag: Option<SwitchDragState>,
 }
 
-impl PartialEq for CheckableState {
-    fn eq(&self, other: &Self) -> bool {
-        self.input == other.input
-            && self.checked == other.checked
-            && self.size == other.size
-            && self.invalid == other.invalid
-            && self.switch_drag == other.switch_drag
+impl CheckableState {
+    /// The checked state as assistive technology reports it; only a check
+    /// box is ever [`Indeterminate`](CheckedState::Indeterminate).
+    pub fn checked(&self) -> CheckedState {
+        match self.control {
+            CheckControl::CheckBox(checked) => checked,
+            CheckControl::Switch { on, .. } => CheckedState::from_bool(on),
+            CheckControl::Radio { selected } => CheckedState::from_bool(selected),
+        }
+    }
+
+    /// Whether it is on: a checked box, a switch that is on, or the chosen
+    /// radio item.
+    pub fn is_checked(&self) -> bool {
+        self.checked().is_checked()
+    }
+
+    /// Whether a check box shows its mixed (partially checked) state.
+    pub fn is_mixed(&self) -> bool {
+        matches!(
+            self.control,
+            CheckControl::CheckBox(CheckedState::Indeterminate)
+        )
+    }
+
+    /// A switch's localized word for its state; `None` for a check box and
+    /// a radio item.
+    pub fn switch_text(&self) -> Option<kivact_core::state::Value<String>> {
+        match self.control {
+            CheckControl::Switch { text, .. } => Some(text),
+            CheckControl::CheckBox(_) | CheckControl::Radio { .. } => None,
+        }
+    }
+
+    /// The live visual of a switch's opted-in drag; `None` otherwise.
+    pub fn switch_drag(&self) -> Option<SwitchDragState> {
+        match self.control {
+            CheckControl::Switch { drag, .. } => drag,
+            CheckControl::CheckBox(_) | CheckControl::Radio { .. } => None,
+        }
     }
 }
 

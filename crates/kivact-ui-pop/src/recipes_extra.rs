@@ -294,7 +294,7 @@ fn radio_indicator(t: &Theme, s: &Look<CheckableState>) -> Style {
         return style().position(Position::Absolute).size(0, 0).clip(true);
     }
     let p = t.ext::<Tokens>();
-    let on = s.checked.is_checked();
+    let on = s.is_checked();
     style()
         .size(16, 16)
         .shrink(0)
