@@ -7,7 +7,7 @@ use quote::quote;
 mod expand;
 mod parse;
 
-/// Turn a component function into its props builder (see the guide "Writing components").
+/// Turn a component function into its props builder (see the guide "Write reusable components").
 ///
 /// Required arguments become the builder's positional arguments; arguments
 /// marked `#[prop(optional)]` or `#[prop(default = ..)]` become named setters

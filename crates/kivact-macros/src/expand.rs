@@ -98,6 +98,10 @@ fn into_view(model: &Model) -> TokenStream {
     let struct_name = &model.struct_name;
     let names = model.props.iter().map(|prop| &prop.name);
     let mounts = model.props.iter().filter_map(mount);
+    let rebinds = model.props.iter().filter(|prop| prop.mutable).map(|prop| {
+        let name = &prop.name;
+        quote! { #[allow(unused_mut)] let mut #name = #name; }
+    });
     let statements = &model.body.stmts;
     let attrs = &model.attrs;
     quote! {
@@ -107,6 +111,7 @@ fn into_view(model: &Model) -> TokenStream {
                 let #struct_name { #(#names),* } = self;
                 ::kivact::view::scope(move || {
                     #(#mounts)*
+                    #(#rebinds)*
                     #(#statements)*
                 })
             }
@@ -122,6 +127,23 @@ fn initializer(prop: &Prop) -> TokenStream {
             quote! { #name: #value }
         }
         Required::Optional => quote! { #name: ::std::option::Option::None },
+        Required::Default(expr) if matches!(prop.kind, PropKind::Callback(_)) => {
+            let PropKind::Callback(ty) = &prop.kind else {
+                unreachable!("guarded above")
+            };
+            let value = store(prop, quote! { __default });
+            quote! {
+                #name: {
+                    fn __typed<R: ::kivact::view::HandlerResult>(
+                        f: impl ::std::ops::Fn(#ty) -> R + 'static,
+                    ) -> impl ::std::ops::Fn(#ty) -> R + 'static {
+                        f
+                    }
+                    let __default = __typed(#expr);
+                    #value
+                }
+            }
+        }
         Required::Default(expr) => {
             let value = store(prop, quote! { __default });
             quote! { #name: { let __default = #expr; #value } }

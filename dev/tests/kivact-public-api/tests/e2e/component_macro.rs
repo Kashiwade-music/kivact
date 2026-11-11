@@ -222,3 +222,30 @@ fn allow_and_deprecated_reach_the_generated_items() {
     screen.get_by_text("Old");
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
+
+/// A count whose argument the body changes.
+#[component]
+fn bumped(mut start: i32) -> impl IntoView {
+    start += 1;
+    text(format!("start={start}"))
+}
+
+#[test]
+fn mut_arguments_stay_mutable_in_the_body() {
+    let screen = render(|| bumped(1));
+    screen.get_by_text("start=2");
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+/// A button whose default handler writes no type.
+#[component]
+fn defaulted(#[prop(default = |n| { let _ = n.abs(); })] on_pick: Callback<i32>) -> impl IntoView {
+    button("Pick").on_press(move || on_pick.call(-7))
+}
+
+#[test]
+fn default_payload_callback_infers_the_argument() {
+    let screen = render(defaulted);
+    screen.get_by_role(Role::Button, "Pick").click();
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}

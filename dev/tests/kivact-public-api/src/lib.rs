@@ -68,3 +68,13 @@
 //!     text(title)
 //! }
 //! ```
+//!
+//! An `impl Trait` prop does not (write `Value<T>`):
+//!
+//! ```compile_fail
+//! use kivact::prelude::*;
+//! #[component]
+//! fn card(title: impl Into<String>) -> impl IntoView {
+//!     text(title.into())
+//! }
+//! ```
