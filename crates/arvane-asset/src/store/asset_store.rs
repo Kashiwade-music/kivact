@@ -1,6 +1,6 @@
 //! Role: AssetStore: schedules asset jobs and answers images and pixels from its cache.
 
-use super::entry::{Entry, Recheck, Residency, Stamp, State, Variant, VariantKey};
+use super::entry::{Entry, Recheck, Residency, Stamp, State, Variant, VariantKey, VariantSource};
 use super::image_state::{AnimationInfo, ImageState};
 use super::job::{Done, Job, Loaded};
 use super::worker::Worker;
@@ -278,10 +278,8 @@ impl AssetStore {
                 }
                 let (index, source) = self.resident_frame(asset, frame)?;
                 let base = VariantKey {
-                    size: None,
-                    crop: None,
+                    source: VariantSource::Frame(index),
                     tint: None,
-                    frame: index,
                 };
                 self.tinted(asset, base, source, tint)
                     .map(|p| (p, Region::WHOLE))
@@ -291,10 +289,8 @@ impl AssetStore {
                     pixels::raster_plan(device, visible, MAX_SVG_RASTER_EDGE, max_bytes)?;
                 let svg = Arc::clone(svg);
                 let key = VariantKey {
-                    size: Some(size),
-                    crop,
+                    source: VariantSource::Svg { size, crop },
                     tint: None,
-                    frame: 0,
                 };
                 match entry.variants.get_mut(&key) {
                     None => self.start_raster(asset, svg, key, now),
@@ -419,7 +415,9 @@ impl AssetStore {
 
     /// Rasterizes `svg` for the variant `key` (its size and crop).
     fn start_raster(&mut self, asset: &Asset, svg: Arc<Svg>, key: VariantKey, now: Stamp) {
-        let (Some(entry), Some(size)) = (self.entries.get_mut(asset), key.size) else {
+        let (Some(entry), VariantSource::Svg { size, crop }) =
+            (self.entries.get_mut(asset), key.source)
+        else {
             return;
         };
         entry
@@ -431,7 +429,7 @@ impl AssetStore {
             generation,
             svg,
             size,
-            crop: key.crop,
+            crop,
         });
     }
 
@@ -520,10 +518,8 @@ impl AssetStore {
                     return false;
                 }
                 let key = VariantKey {
-                    size: Some(size),
-                    crop,
+                    source: VariantSource::Svg { size, crop },
                     tint: None,
-                    frame: 0,
                 };
                 self.land_raster(&asset, key, bitmap)
             }
@@ -712,9 +708,7 @@ impl AssetStore {
                 .variants
                 .iter()
                 .filter_map(|(k, v)| match v {
-                    Variant::Ready { used, .. }
-                        if k.tint == want && (!whole || k.crop.is_none()) =>
-                    {
+                    Variant::Ready { used, .. } if k.tint == want && (!whole || k.is_whole()) => {
                         Some((*used, *k))
                     }
                     _ => None,

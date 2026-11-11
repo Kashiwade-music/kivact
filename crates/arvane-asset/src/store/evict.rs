@@ -123,8 +123,7 @@ impl AssetStore {
             let mut oldest: Option<(Stamp, VariantKey)> = None;
             for (key, variant) in &entry.variants {
                 if let Variant::Ready { used, .. } = variant
-                    && key.size == base.size
-                    && key.crop == base.crop
+                    && key.same_shape(&base)
                     && key.tint.is_some()
                 {
                     count += 1;
