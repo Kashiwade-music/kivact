@@ -140,7 +140,7 @@ struct Layout {
     api: kivact_interaction::CarouselApi,
     navigation: Value<kivact_interaction::CarouselState>,
     mode: CarouselMode,
-    // xtask-allow(state-fields): independent: a construction option; every combination is valid
+    // xtask-allow(state-fields): option: Carousel::looping; false stops navigation at the first and last slides
     looping: bool,
     snap: Value<Snap>,
     vertical: Value<bool>,

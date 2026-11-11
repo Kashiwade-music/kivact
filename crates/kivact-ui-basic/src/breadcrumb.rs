@@ -39,7 +39,7 @@ fn item(t: &Theme, s: &Look<kivact::ui::BreadcrumbItemState>) -> Style {
         .font_size(12)
         .weight(400)
         .text_wrap(false)
-        .color(if s.current {
+        .color(if s.is_current() {
             p.foreground
         } else {
             p.muted_foreground

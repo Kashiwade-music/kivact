@@ -40,9 +40,9 @@ pub struct ToolbarState {
     pub size: ControlSize,
     // xtask-allow(state-fields): option: absent means the component's default
     pub gap: Option<f64>,
-    // xtask-allow(state-fields): independent: a construction option; every combination is valid
+    // xtask-allow(state-fields): independent: Toolbar::center gave a centre region; it is laid out in either reading direction
     pub centered: bool,
-    // xtask-allow(state-fields): independent: a construction option; every combination is valid
+    // xtask-allow(state-fields): independent: the reading direction from use_direction at mount; it mirrors the start and end regions with or without a centre region
     pub rtl: bool,
     pub dividers: Vec<ToolbarEdge>,
 }
@@ -79,17 +79,17 @@ pub struct TableTokens {
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct ItemRowState {
     pub input: kivact_core::custom::PartState,
-    // xtask-allow(state-fields): projection: readonly snapshot of the item's state for recipes, written only by its render function
+    // xtask-allow(state-fields): independent: ItemRow::description (text or content) was given; pressable and passive rows both show one
     pub has_description: bool,
-    // xtask-allow(state-fields): projection: readonly snapshot of the item's state for recipes, written only by its render function
+    // xtask-allow(state-fields): independent: ItemRow::on_press or a delegated target makes the row pressable, with or without a description or a list position
     pub actionable: bool,
-    // xtask-allow(state-fields): projection: readonly snapshot of the item's state for recipes, written only by its render function
+    // xtask-allow(state-fields): option: ItemRow::position, else the enclosing item list's numbering; absent for a row outside a numbered list
     pub position: Option<ItemPosition>,
     pub marker: ItemListMarker,
     pub start: u32,
-    // xtask-allow(state-fields): projection: readonly snapshot of the item's state for recipes, written only by its render function
+    // xtask-allow(state-fields): option: ItemRow::title_lines, else ItemListTokens::title_lines; absent means the title is not clamped
     pub title_lines: Option<u32>,
-    // xtask-allow(state-fields): projection: readonly snapshot of the item's state for recipes, written only by its render function
+    // xtask-allow(state-fields): option: ItemRow::description_lines, else ItemListTokens::description_lines; absent means no clamp, and a row without a description ignores it
     pub description_lines: Option<u32>,
 }
 impl std::ops::Deref for ItemRowState {

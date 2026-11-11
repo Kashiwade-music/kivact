@@ -24,11 +24,11 @@ pub struct Combobox<K: ItemKey> {
     // xtask-allow(state-fields): option: absent means the component's default
     pub(super) open: Option<Binding<bool>>,
     pub(super) on_edit: Option<kivact_core::state::Callback<kivact_core::view::EditPhase>>,
-    // xtask-allow(state-fields): independent: a construction option; every combination is valid
+    // xtask-allow(state-fields): option: Combobox::free_text; false accepts only listed options
     pub(super) free_text: bool,
     // xtask-allow(state-fields): option: absent means the component's default
     pub(super) mode: Option<ComboboxMode>,
-    // xtask-allow(state-fields): independent: a construction option; every combination is valid
+    // xtask-allow(state-fields): option: Combobox::chips; false shows no chips for the selected keys
     pub(super) chips: bool,
     // xtask-allow(state-fields): option: absent means the component's default
     pub(super) placeholder: Option<Value<String>>,
@@ -40,7 +40,7 @@ pub struct Combobox<K: ItemKey> {
     // xtask-allow(state-fields): option: absent means the component's default
     pub(super) search: Option<Search<K>>,
     pub(super) debounce: Value<Duration>,
-    // xtask-allow(state-fields): independent: a construction option; every combination is valid
+    // xtask-allow(state-fields): option: Combobox::exclude_selected; false keeps selected options in the list
     pub(super) exclude_selected: bool,
     pub(super) presentation: SelectPresentation,
     pub(super) variants: Variants,

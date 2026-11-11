@@ -177,7 +177,7 @@ pub fn button_group_text(label: impl IntoText) -> ButtonGroupCell {
 pub struct ButtonGroupMember {
     button: crate::Button,
     solid: Value<bool>,
-    // xtask-allow(state-fields): independent: a construction option; every combination is valid
+    // xtask-allow(state-fields): option: ButtonGroupMember::keep_size; false lets the group size the member like its siblings
     keep_size: bool,
 }
 impl From<crate::Button> for ButtonGroupMember {
