@@ -807,25 +807,25 @@ fn catalog_frame(
 #[derive(Clone, Copy)]
 struct CatalogControls {
     accent: Signal<ui::Accent>,
-    // xtask-allow(state-fields): independent: the catalog's compact-row toggle; its own controls write it
+    // xtask-allow(state-fields): independent: flipped by the density button and Ctrl+Alt+D only; either row density shows with any chapter, sidebar and search overlay state
     compact: Signal<bool>,
     category: Signal<Category>,
     filter: Signal<String>,
-    // xtask-allow(state-fields): independent: the selected chapter index; any chapter is valid
+    // xtask-allow(state-fields): independent: the chapter chosen in the sidebar list; every chapter is a reachable view in either density and with the sidebar or search overlay in any state
     current: Signal<usize>,
-    // xtask-allow(state-fields): independent: the sidebar's visibility; either value is valid
+    // xtask-allow(state-fields): independent: the top bar's sidebar toggle; the sidebar hides or shows over any chapter and density, with the search overlay up or down
     sidebar_open: Signal<bool>,
     status: Signal<String>,
     transport: Signal<TransportState>,
-    // xtask-allow(state-fields): independent: the search overlay's visibility; either value is valid
+    // xtask-allow(state-fields): independent: opened by the search button, F3 and the feedback chapter's button, and closed by the overlay; it covers any chapter, density and sidebar state
     search: Signal<bool>,
     pie: Signal<ui::PieState>,
     pointer: Signal<Point>,
     pie_zone: NodeRef,
     viewport_ref: NodeRef,
-    // xtask-allow(state-fields): independent: the viewport shading mode; any mode is valid
+    // xtask-allow(state-fields): independent: the viewport shading mode chosen in the viewport toolbar or the pie menu; every mode draws with the viewport grid on or off
     shading: Signal<usize>,
-    // xtask-allow(state-fields): independent: the viewport grid toggle; either value is valid
+    // xtask-allow(state-fields): independent: the viewport grid flipped from the viewport toolbar or the pie menu; the grid draws over every shading mode
     viewport_grid: Signal<bool>,
     main_scroll: NodeRef,
     main_offset: Value<Point>,
@@ -833,26 +833,26 @@ struct CatalogControls {
 impl CatalogControls {
     fn new() -> Self {
         let accent = signal(ui::Accent::Iris);
-        // xtask-allow(state-fields): independent: the compact-row toggle; its own control writes it
+        // xtask-allow(state-fields): independent: flipped by the density button and Ctrl+Alt+D only; either row density shows with any chapter, sidebar and search overlay state
         let compact = signal(false);
         let category = signal(Category::All);
         let filter = signal(String::new());
-        // xtask-allow(state-fields): independent: the selected chapter index; any chapter is valid
+        // xtask-allow(state-fields): independent: the chapter chosen in the sidebar list; every chapter is a reachable view in either density and with the sidebar or search overlay in any state
         let current = signal(0_usize);
-        // xtask-allow(state-fields): independent: the sidebar's visibility; either value is valid
+        // xtask-allow(state-fields): independent: the top bar's sidebar toggle; the sidebar hides or shows over any chapter and density, with the search overlay up or down
         let sidebar_open = signal(true);
         let status = signal("Ready — Space: Play · F3: Search · F12: Render".to_string());
         let transport = signal(TransportState::default());
         super::audio_values::playback(transport);
-        // xtask-allow(state-fields): independent: the search overlay's visibility; either value is valid
+        // xtask-allow(state-fields): independent: opened by the search button, F3 and the feedback chapter's button, and closed by the overlay; it covers any chapter, density and sidebar state
         let search = signal(false);
         let pie = signal(ui::PieState::default());
         let pointer = signal(Point::new(0.0, 0.0));
         let pie_zone = node_ref();
         let viewport_ref = node_ref();
-        // xtask-allow(state-fields): independent: the viewport shading mode; any mode is valid
+        // xtask-allow(state-fields): independent: the viewport shading mode chosen in the viewport toolbar or the pie menu; every mode draws with the viewport grid on or off
         let shading = signal(1_usize);
-        // xtask-allow(state-fields): independent: the viewport grid toggle; either value is valid
+        // xtask-allow(state-fields): independent: the viewport grid flipped from the viewport toolbar or the pie menu; the grid draws over every shading mode
         let viewport_grid = signal(true);
         let main_scroll = node_ref();
         let main_offset = main_scroll.scroll_offset();

@@ -185,7 +185,7 @@ struct ButtonCfg {
     cx: Option<SidebarCx>,
     active: Value<bool>,
     size: kivact::state::Value<SidebarMenuButtonSize>,
-    // xtask-allow(state-fields): projection: written only by SidebarMenuButton::build from whether it has an action view
+    // xtask-allow(state-fields): projection: whether the button has an action view, written only by build_button
     has_action: bool,
 }
 

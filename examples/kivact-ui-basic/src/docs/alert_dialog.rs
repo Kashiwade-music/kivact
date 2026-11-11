@@ -74,9 +74,9 @@ fn default() -> impl IntoView {
 
 // example: destructive
 fn destructive() -> impl IntoView {
-    // xtask-allow(state-fields): independent: the dialog can be opened again after the deletion; every open and closed state is valid
+    // xtask-allow(state-fields): independent: "Delete Chat" opens the alert and Cancel or Delete closes it; it opens again after a deletion, so it is true or false with either value of deleted
     let open = signal(false);
-    // xtask-allow(state-fields): independent: a one-way record of the deletion, kept after the dialog closes
+    // xtask-allow(state-fields): independent: set by the alert's Delete button and never cleared; the muted line shows it while the alert is open or closed
     let deleted = signal(false);
     column((
         button("Delete Chat")

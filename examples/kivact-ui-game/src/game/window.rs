@@ -5,7 +5,7 @@ use kivact_ui_game as g;
 
 const INITIAL_SOURCE: &str = "# checklist.yaml\ntargets: PB-01..PB-12";
 
-/// What the editor chrome's run commands do; the status texts come from it.
+/// What the editor chrome's run commands set; the status bar's activity word comes from it.
 #[derive(Clone, Copy, PartialEq)]
 enum Run {
     Idle,
@@ -18,14 +18,6 @@ impl Run {
         match self {
             Run::Running => "RUNNING",
             Run::Idle | Run::Paused => "IDLE",
-        }
-    }
-    /// The status bar's message while `Run` explains it; `None` for a notice.
-    fn message(self) -> Option<&'static str> {
-        match self {
-            Run::Running => Some("Running"),
-            Run::Paused => Some("Paused"),
-            Run::Idle => None,
         }
     }
 }
@@ -66,8 +58,7 @@ pub(super) fn frame(
         }
         "edit" => mode.set(Some("edit")),
         "preview" => mode.set(Some("preview")),
-        "run" => run.set(Run::Running),
-        "pause" => run.set(Run::Paused),
+        "run" | "pause" => run_command(key, run, status),
         "help" => help.set(true),
         _ => (),
     };
@@ -198,6 +189,7 @@ fn window_tools(
                 .padding_y(4)
                 .background(ColorToken::SurfaceAlt),
         )
+        .test_id("game-window-toolbar")
 }
 
 fn document_pane(
@@ -226,6 +218,18 @@ fn document_pane(
     .style(style().grow(1).min_width(0))
 }
 
+/// Record a run command: the activity it sets and the notice it leaves in
+/// the status bar, where later commands such as Save replace the notice.
+fn run_command(key: &str, run: Signal<Run>, status: Signal<String>) {
+    let (next, notice) = if key == "run" {
+        (Run::Running, "Running")
+    } else {
+        (Run::Paused, "Paused")
+    };
+    run.set(next);
+    status.set(notice.to_owned());
+}
+
 fn window_status(
     status: Signal<String>,
     content: Signal<String>,
@@ -233,12 +237,7 @@ fn window_status(
     run: Signal<Run>,
 ) -> Node {
     row((
-        g::mono(move || {
-            run.get()
-                .message()
-                .map_or_else(|| status.get(), str::to_owned)
-        })
-        .test_id("game-window-status"),
+        g::mono(move || status.get()).test_id("game-window-status"),
         g::mono(message("game.window.branch", "main")),
         g::mono(move || {
             if content.get() == saved.get() {

@@ -62,9 +62,9 @@ pub(super) fn buttons(scene: Demo) -> Node {
     let (sync, sync_busy) = task();
     let (verify, verify_busy) = task();
     let period = signal(Some("7d".to_owned()));
-    // xtask-allow(state-fields): independent: the grid and filter toggles belong to their own toolbar buttons
+    // xtask-allow(state-fields): independent: the grid toggle and the filter toggle are pressed separately and all four combinations are valid views
     let grid_on = signal(true);
-    // xtask-allow(state-fields): independent: the grid and filter toggles belong to their own toolbar buttons
+    // xtask-allow(state-fields): independent: the grid toggle and the filter toggle are pressed separately and all four combinations are valid views
     let filter_on = signal(false);
     cards(
         (
