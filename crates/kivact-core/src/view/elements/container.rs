@@ -133,7 +133,12 @@ impl IntoView for Scroll {
                 .semantics
                 .iter()
                 .rev()
-                .find_map(|patch| patch.orientation.clone());
+                .find_map(|patch| match &patch.input {
+                    crate::view::semantics_data::SemanticInput::Orientation(source) => {
+                        Some(source.clone())
+                    }
+                    _ => None,
+                });
             let weak = cx.weak();
             let owner = cx.owner;
             let reported = kivact_types::cell::ReportOnce::new();

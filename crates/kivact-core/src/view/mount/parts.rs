@@ -155,7 +155,7 @@ pub(super) struct ConstraintSources {
     pub(super) disabled: Option<InputProp<bool>>,
     // xtask-allow(state-fields): option: a builder input carried to mount; absent means shown
     pub(super) hidden: Option<InputProp<bool>>,
-    // xtask-allow(state-fields): option: a builder input carried to mount; absent means not focusable
+    // xtask-allow(state-fields): option: the caller's own last `focusable` modifier; absent lets the parts decide: focusable when a part requires focus, otherwise not
     pub(super) focusable: Option<InputProp<bool>>,
     pub(super) required: PartConstraints,
 }

@@ -124,7 +124,7 @@ pub(crate) enum ExportRequest {
     Pixels {
         // xtask-allow(state-fields): identity: the generation of the App's request; a frame of another generation is dropped
         generation: u64,
-        // xtask-allow(state-fields): independent: the newest frame received for this request; any request phase may have one
+        // xtask-allow(state-fields): independent: set only by ExportOpen::on_frame with a frame of this request's generation; None until the first such frame, and any generation may still lack one
         latest: Option<DrawableFrame>,
     },
     /// The window has to make the pool; no GPU frames yet.
@@ -147,7 +147,7 @@ pub(crate) enum ExportRequest {
         adapter: GpuAdapter,
         /// Take-once hand-over of the pool to `wait` (S-9 Mailbox, not an `Option` that is taken).
         textures: Mailbox<SharedTextures>,
-        // xtask-allow(state-fields): independent: the newest frame received for this request; any request phase may have one
+        // xtask-allow(state-fields): independent: set only by ExportOpen::on_frame with a GPU frame of this request's generation; None until the first such frame, and any generation may still lack one
         latest: Option<DrawableFrame>,
     },
     /// The request failed; `wait` reports it.

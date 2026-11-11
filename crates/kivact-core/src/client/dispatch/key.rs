@@ -24,7 +24,7 @@ pub(super) fn key(rt: &Runtime, host_event: &HostEvent) {
     let phase = &routed.input.phase;
     let released = matches!(phase, KeyPhase::Up);
     let route = overlays::key_route(rt, window, node);
-    let target = route.target;
+    let target = route.target();
     if ViewState::tree(rt).get(target).is_none() {
         return stale(rt, "key", target);
     }
@@ -57,7 +57,7 @@ pub(super) fn key(rt: &Runtime, host_event: &HostEvent) {
                 break;
             }
         }
-        if Some(id) == route.stop {
+        if Some(id) == route.stop() {
             break; // keys do not leave an open modal
         }
         cur = ViewState::tree(rt).reader().parent(id);
@@ -66,7 +66,7 @@ pub(super) fn key(rt: &Runtime, host_event: &HostEvent) {
     // `PreventDefault`.
     let default = handled == Handled::No;
     if default
-        && route.activates
+        && route.activates()
         && matches!(phase, KeyPhase::Down { repeat: false, .. })
         && matches!(e.key(), UKey::Enter | UKey::Space)
         && e.modifiers() == Modifiers::default()

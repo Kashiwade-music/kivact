@@ -780,7 +780,7 @@ impl Node {
             .semantics
             .last_mut()
             .expect("invariant: semantic appends a patch")
-            .text = true;
+            .input = crate::view::semantics_data::SemanticInput::Text;
         self
     }
 

@@ -163,7 +163,11 @@ fn bind(
     if let Some(node) = ViewState::tree_mut(cx.rt).get_mut(id) {
         node.rare_mut().semantic_origins = patches.iter().map(|p| p.at).collect();
     }
-    let text_at = patches.iter().rev().find(|p| p.text).map_or(at, |p| p.at);
+    let text_at = patches
+        .iter()
+        .rev()
+        .find(|p| matches!(p.input, SemanticInput::Text))
+        .map_or(at, |p| p.at);
     let reactive = patches.iter().any(|patch| patch.reactive);
     let plan = Plan::new(patches);
     let weak = cx.weak();

@@ -105,8 +105,11 @@ impl Node {
     /// Preserved label relations after caller and part sources are merged.
     pub(crate) fn labelled_by_sources(&self) -> Vec<crate::view::NodeRef> {
         self.semantic_inputs()
-            .filter_map(|patch| match patch.relation {
-                Some((crate::view::semantics_data::Relation::LabelledBy, target)) => Some(target),
+            .filter_map(|patch| match &patch.input {
+                crate::view::semantics_data::SemanticInput::Relation(
+                    crate::view::semantics_data::Relation::LabelledBy,
+                    target,
+                ) => Some(*target),
                 _ => None,
             })
             .collect()
@@ -115,8 +118,11 @@ impl Node {
     /// Preserved description relations after caller and part sources are merged.
     pub(crate) fn described_by_sources(&self) -> Vec<crate::view::NodeRef> {
         self.semantic_inputs()
-            .filter_map(|patch| match patch.relation {
-                Some((crate::view::semantics_data::Relation::DescribedBy, target)) => Some(target),
+            .filter_map(|patch| match &patch.input {
+                crate::view::semantics_data::SemanticInput::Relation(
+                    crate::view::semantics_data::Relation::DescribedBy,
+                    target,
+                ) => Some(*target),
                 _ => None,
             })
             .collect()

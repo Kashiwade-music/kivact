@@ -20,11 +20,11 @@ pub(crate) struct Trace {
 
 struct Sink {
     file: BufWriter<File>,
-    // xtask-allow(state-fields): option: a trace stream the test selects; any combination of the three is valid
+    // xtask-allow(state-fields): option: whether KIVACT_TRACE names the `stage` stream, read once by Trace::new; false means stage lines are not written (a sink always has at least one stream)
     stage: bool,
-    // xtask-allow(state-fields): option: a trace stream the test selects; any combination of the three is valid
+    // xtask-allow(state-fields): option: whether KIVACT_TRACE names the `semantics` stream, read once by Trace::new; false means semantic diffs are not written (a sink always has at least one stream)
     semantics: bool,
-    // xtask-allow(state-fields): option: a trace stream the test selects; any combination of the three is valid
+    // xtask-allow(state-fields): option: whether KIVACT_TRACE names the `host_events` stream, read once by Trace::new; false means host events are not written (a sink always has at least one stream)
     host_events: bool,
     previous: Vec<(NodeId, String)>,
 }
