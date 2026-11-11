@@ -622,7 +622,11 @@ impl<K: kivact_core::state::ItemKey> ComboboxApi<K> {
                 .on_key(move |event: KeyEvent| {
                     let m = event.modifiers();
                     if m.alt && !m.ctrl && !m.meta && !m.shift {
-                        match event.key() { Key::ArrowDown => self.show(), Key::ArrowUp => self.hide(), _ => return Handled::No }
+                        match event.key() {
+                            Key::ArrowDown => self.show(),
+                            Key::ArrowUp => self.hide(),
+                            _ => return Handled::No,
+                        }
                         return Handled::Yes;
                     }
                     if m.ctrl || m.alt || m.meta || m.shift {
@@ -646,7 +650,10 @@ impl<K: kivact_core::state::ItemKey> ComboboxApi<K> {
                             self.hide();
                         }
                         Key::Backspace
-                            if self.session.state().with_untracked(|state| state.query.get().is_empty()) =>
+                            if self
+                                .session
+                                .state()
+                                .with_untracked(|state| state.query.get().is_empty()) =>
                         {
                             let Selection::Multiple(values) = self.selection else {
                                 return Handled::No;
