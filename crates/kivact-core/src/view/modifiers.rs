@@ -55,10 +55,7 @@ impl Common {
             layer: self.semantics.last().map_or(0, |patch| patch.layer),
             at: Location::caller(),
             reactive,
-            text: false,
             apply: Rc::new(move |semantics| apply(semantics, source.get())),
-            relation: None,
-            orientation: None,
         });
     }
 
@@ -79,7 +76,7 @@ impl Common {
         self.semantics
             .last_mut()
             .expect("invariant: semantic appends a patch")
-            .relation = Some((relation, target));
+            .input = SemanticInput::Relation(relation, target);
     }
 
     #[track_caller]
@@ -91,7 +88,7 @@ impl Common {
         self.semantics
             .last_mut()
             .expect("invariant: semantic appends a patch")
-            .orientation = Some(source);
+            .input = SemanticInput::Orientation(source);
     }
 
     pub(crate) fn append_semantics(&mut self, patches: &mut Vec<SemanticsPatch>) {

@@ -83,24 +83,52 @@ pub struct GpuPreference {
     pub start: GpuStart,
 }
 
+/// How an adapter's graphics API identifies it (`GpuAdapter::ids`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum AdapterIds {
+    /// Direct3D 12: DXGI's adapter LUID ([`AdapterMatch::Luid`]'s bytes).
+    Dx12 {
+        /// The adapter LUID.
+        luid: [u8; 8],
+    },
+    /// Vulkan: `VkPhysicalDeviceIDProperties`.
+    Vulkan {
+        /// `deviceUUID`.
+        device_uuid: [u8; 16],
+        /// `driverUUID`.
+        driver_uuid: [u8; 16],
+        /// `deviceLUID`, where the driver reports one (Windows).
+        luid: Option<[u8; 8]>,
+    },
+}
+
+impl AdapterIds {
+    /// The graphics API.
+    pub fn backend(&self) -> GpuBackend {
+        match self {
+            Self::Dx12 { .. } => GpuBackend::Dx12,
+            Self::Vulkan { .. } => GpuBackend::Vulkan,
+        }
+    }
+
+    /// The LUID, when the API reports one.
+    pub fn luid(&self) -> Option<[u8; 8]> {
+        match *self {
+            Self::Dx12 { luid } => Some(luid),
+            Self::Vulkan { luid, .. } => luid,
+        }
+    }
+}
+
 /// The adapter a window's GPU device is on, when the device can import
 /// shared textures. Direct3D 12 reports the LUID; Vulkan reports the device
 /// and driver UUIDs, and on Windows the LUID as well.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct GpuAdapter {
-    /// The graphics API of the device.
-    pub backend: GpuBackend,
+    /// How the graphics API identifies the adapter (and so which API it is).
+    pub ids: AdapterIds,
     /// The adapter's name, for diagnostics.
     pub name: String,
-    // xtask-allow(state-fields): identity: DXGI's (or Vulkan's) adapter LUID, in `AdapterMatch::Luid`'s bytes
-    /// DXGI's (or Vulkan's) adapter LUID ([`AdapterMatch::Luid`]'s bytes).
-    pub luid: Option<[u8; 8]>,
-    // xtask-allow(state-fields): identity: Vulkan's `deviceUUID`
-    /// Vulkan's `deviceUUID`.
-    pub device_uuid: Option<[u8; 16]>,
-    // xtask-allow(state-fields): identity: Vulkan's `driverUUID`
-    /// Vulkan's `driverUUID`.
-    pub driver_uuid: Option<[u8; 16]>,
     // xtask-allow(state-fields): identity: the device instance; a new generation means every image imported before is gone
     /// The device's generation: 1 for the process's first GPU device, one
     /// more for each device made after it. A new generation means every
@@ -109,14 +137,24 @@ pub struct GpuAdapter {
 }
 
 impl GpuAdapter {
+    /// The graphics API of the device.
+    pub fn backend(&self) -> GpuBackend {
+        self.ids.backend()
+    }
+
     /// Whether this is the adapter `identity` names.
     pub fn matches(&self, identity: &AdapterMatch) -> bool {
-        match identity {
-            AdapterMatch::Luid(luid) => self.luid.as_ref() == Some(luid),
-            AdapterMatch::Uuid { device, driver } => {
-                self.device_uuid.as_ref() == Some(device)
-                    && self.driver_uuid.as_ref() == Some(driver)
-            }
+        match (identity, self.ids) {
+            (AdapterMatch::Luid(luid), ids) => ids.luid().as_ref() == Some(luid),
+            (
+                AdapterMatch::Uuid { device, driver },
+                AdapterIds::Vulkan {
+                    device_uuid,
+                    driver_uuid,
+                    ..
+                },
+            ) => device_uuid == *device && driver_uuid == *driver,
+            (AdapterMatch::Uuid { .. }, AdapterIds::Dx12 { .. }) => false,
         }
     }
 }

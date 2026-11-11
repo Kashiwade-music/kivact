@@ -155,10 +155,10 @@ fn gpu_viewport(backend: GpuBackend) -> Result<(Viewport, GpuAdapter), String> {
             "the {backend:?} device cannot import shared textures"
         ));
     };
-    if adapter.backend != backend {
+    if adapter.backend() != backend {
         return Err(format!(
             "the window's device is {:?} (WGPU_BACKEND?)",
-            adapter.backend
+            adapter.backend()
         ));
     }
     Ok((viewport, adapter))
@@ -503,11 +503,11 @@ fn shared_image_round(backend: GpuBackend, start: Start) -> Result<(), String> {
     }
     let viewport = SharedViewport::mount(gpu_options(backend));
     match viewport.adapter.get_untracked() {
-        Some(adapter) if adapter.backend == backend => {}
+        Some(adapter) if adapter.backend() == backend => {}
         Some(adapter) => {
             return Err(format!(
                 "the window's device is {:?} (WGPU_BACKEND?)",
-                adapter.backend
+                adapter.backend()
             ));
         }
         None => {

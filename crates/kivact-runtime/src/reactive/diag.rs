@@ -29,6 +29,7 @@ const PER_TURN: usize = 64;
 
 /// One error or diagnostic in report order, as the DevTools reads them.
 pub struct Reported {
+    // xtask-allow(state-fields): identity: the report's number in the sequence the error and diagnostic rings share; DevTools pages by it (since) and keys rows by it
     /// The report sequence number (the rings share one counter).
     pub seq: u64,
     // xtask-allow(state-fields): independent: a read-only error report; whether a handler handled it is a separate fact from the sequence number

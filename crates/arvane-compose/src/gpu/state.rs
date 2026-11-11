@@ -25,10 +25,10 @@ use std::sync::{Arc, Mutex};
 /// [`GpuContext::new`].
 #[derive(Clone, Copy, Debug)]
 pub struct GpuEnv {
-    // xtask-allow(state-fields): option: `WGPU_BACKEND`
+    // xtask-allow(state-fields): option: the backends the `WGPU_BACKEND` environment variable names, read once by `from_env`; absent when it is unset, and then the application's `GpuPreference::backend` decides
     /// `WGPU_BACKEND`.
     pub(crate) backends: Option<wgpu::Backends>,
-    // xtask-allow(state-fields): option: `WGPU_POWER_PREF`
+    // xtask-allow(state-fields): option: the power preference the `WGPU_POWER_PREF` environment variable names, read once by `from_env`; absent when it is unset, and then the application's `GpuPreference::power` decides
     /// `WGPU_POWER_PREF`.
     pub(crate) power: Option<wgpu::PowerPreference>,
     pub(crate) flags: wgpu::InstanceFlags,

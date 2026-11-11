@@ -67,12 +67,12 @@ pub struct Runtime {
     pub(crate) collectors: RefCell<Vec<Collector>>,
     pub(crate) sched: RefCell<Sched>,
     pub(crate) scratch: RefCell<Vec<(Key, Staleness)>>,
-    // xtask-allow(state-fields): statistic: the effect creation-order ID counter; any value is valid on its own
+    // xtask-allow(state-fields): identity: allocates effect creation-order ids
     pub(crate) seq: Cell<u64>,
-    // xtask-allow(state-fields): independent: the write counter labels every notification; it is valid at any value beside the extension set
+    // xtask-allow(state-fields): identity: the write generation stamped on each notified source (SourceNode::changed_at) and compared by effects after their own writes
     pub(crate) write_epoch: Cell<kivact_types::cell::Generation>,
     pub(crate) root: Key,
-    // xtask-allow(state-fields): independent: the extensions installed when the App is created; the write counter is unrelated
+    // xtask-allow(state-fields): independent: ADR-17: filled by the constructor before it returns; never observed empty
     #[expect(
         clippy::disallowed_types,
         reason = "Construction fills this cell before returning or polling; its empty state is inaccessible."
@@ -85,7 +85,7 @@ pub struct Runtime {
     pub(crate) host: Rc<dyn crate::reactive::host_types::Host>,
     pub(crate) state: Cell<crate::reactive::host_types::TurnState>,
     pub(crate) exit: Cell<crate::reactive::host_types::ExitState>,
-    // xtask-allow(state-fields): statistic: the runtime's clock reading in nanoseconds; any value is valid on its own
+    // xtask-allow(state-fields): independent: the App's monotonic time, written only by advance_clock from each turn's host time; timers and gestures read it, and every reading is valid in any turn or exit state
     pub(crate) clock: Cell<u64>,
     pub(crate) diag: RefCell<Diag>,
     /// Errors raised where no user code may run (inside the engine's
@@ -174,7 +174,7 @@ pub(crate) struct MemoCell<T> {
     // xtask-allow(state-fields): cache: the memo's last computed value; the graph state is CompState
     pub(crate) value: RefCell<Option<T>>,
     pub(crate) f: Box<dyn Fn(Option<&T>) -> T>,
-    // xtask-allow(state-fields): cache: part of the memo's cache entry; the value and its equality function are used only together
+    // xtask-allow(state-fields): option: absent means every recomputation notifies (no equality check)
     pub(crate) eq: Option<fn(&T, &T) -> bool>,
 }
 
@@ -206,10 +206,10 @@ pub(crate) enum NodeData {
 pub(crate) struct SourceNode {
     /// (subscriber, index of this node in subscriber.deps).
     pub(crate) subs: Links,
-    // xtask-allow(state-fields): independent: the write version the graph comparisons read; the diagnostic record below may be absent
+    // xtask-allow(state-fields): identity: the write epoch notify_subscribers stamps on every change or trigger; recheck_after_own_writes compares it with the epoch before an effect ran, and no running flag sits beside it
     /// Write generation of the last change.
     pub(crate) changed_at: kivact_types::cell::Generation,
-    // xtask-allow(state-fields): independent: the diagnostic record of the last value-changing write; absent until one happens
+    // xtask-allow(state-fields): statistic: where and in which turn the last value-changing write happened; only the node diagnostics (why chains, DevTools) read it
     /// Location and turn of the last value-changing write (why chains).
     pub(crate) written: Option<(&'static Location<'static>, Turn)>,
 }
@@ -329,7 +329,7 @@ pub(crate) struct OwnerExtra {
 }
 
 pub(crate) struct OwnerEntry {
-    // xtask-allow(state-fields): option: absent means the root owner, which has no parent
+    // xtask-allow(state-fields): independent: the creating owner, set by create_owner and cleared only by detach_owner when this owner's disposal starts; the root is live without one, a detached disposal root is disposing without one, and children keep theirs
     pub(crate) parent: Option<Key>,
     pub(crate) parent_index: u32,
     pub(crate) children: Vec<Key>,
@@ -384,14 +384,14 @@ pub(crate) struct Object {
 /// One execution context. Copies never own dependency storage.
 #[derive(Clone, Copy, Default)]
 pub(crate) struct Frame {
-    // xtask-allow(state-fields): independent: ADR-20: the frame kind and pure/tracking/owner/writer are separate facts
+    // xtask-allow(state-fields): independent: callback_frame and handler_frame replace the owner under any frame kind
     pub(crate) owner: Option<Key>,
     pub(crate) kind: FrameKind,
-    // xtask-allow(state-fields): independent: ADR-20: the frame kind and pure/tracking/owner/writer are separate facts
+    // xtask-allow(state-fields): independent: pure_section sets it under any frame kind and owner
     pub(crate) pure: bool,
-    // xtask-allow(state-fields): independent: ADR-20: the frame kind and pure/tracking/owner/writer are separate facts
+    // xtask-allow(state-fields): independent: inherited from the enclosing frame except in a non-user effect's own frame (tracking_frame)
     pub(crate) writer: Option<Key>,
-    // xtask-allow(state-fields): independent: ADR-20: the frame kind and pure/tracking/owner/writer are separate facts
+    // xtask-allow(state-fields): independent: untracked_frame and callback_frame clear it under any kind
     pub(crate) tracking: Option<CollectorSlot>,
 }
 

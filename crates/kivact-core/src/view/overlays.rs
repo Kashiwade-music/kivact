@@ -510,17 +510,42 @@ impl Drop for ModalScope {
 
 /// Where a key goes and where its handler chain stops (see [`key_route`]).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) struct KeyRoute {
+pub(crate) enum KeyRoute {
+    /// The node the host named, else the focused node; no modal is open, so
+    /// the chain runs to the root.
+    Focused { target: NodeId },
+    /// A modal is shown: the named or focused node inside it, else the modal
+    /// itself; the chain stops at `modal`.
+    Modal { target: NodeId, modal: NodeId },
+    /// Nothing is named or focused and no modal is open: the App's view (else
+    /// the root) sees the key, so window-level shortcuts work; an unhandled
+    /// Enter or Space does not activate it.
+    Unfocused { view: NodeId },
+}
+
+impl KeyRoute {
     /// The first node of the chain.
-    pub target: NodeId,
-    // xtask-allow(state-fields): independent: the topmost shown modal; any target may have one or none
+    pub(crate) fn target(self) -> NodeId {
+        match self {
+            Self::Focused { target } | Self::Modal { target, .. } => target,
+            Self::Unfocused { view } => view,
+        }
+    }
+
     /// The topmost shown modal, where the chain stops.
-    pub stop: Option<NodeId>,
-    // xtask-allow(state-fields): independent: whether the key activates the target; independent of where the chain stops
-    /// Whether an unhandled Enter or Space activates `target`: not when
-    /// the key reached the App's view (or the root) only because nothing
-    /// has the focus and no modal is open.
-    pub activates: bool,
+    pub(crate) fn stop(self) -> Option<NodeId> {
+        match self {
+            Self::Modal { modal, .. } => Some(modal),
+            Self::Focused { .. } | Self::Unfocused { .. } => None,
+        }
+    }
+
+    /// Whether an unhandled Enter or Space activates the target: not when the
+    /// key reached the App's view (or the root) only because nothing has the
+    /// focus and no modal is open.
+    pub(crate) fn activates(self) -> bool {
+        !matches!(self, Self::Unfocused { .. })
+    }
 }
 
 /// The route of a key the host aimed at `named` in `window`: that node, else
@@ -536,17 +561,28 @@ pub(crate) fn key_route(
     let focused = focus::focused(rt, window).map(|f| f.node);
     let tree = ViewState::tree(rt);
     let modal = tree.reader().active_modal(window);
-    let target = named
-        .or(focused)
-        .filter(|t| modal.is_none_or(|m| tree.is_within(*t, m)))
-        .or(modal);
-    let root = tree.root(window).unwrap_or(NodeId(1));
-    KeyRoute {
-        activates: target.is_some(),
-        target: target
-            .or_else(|| tree.reader().children(root).first().copied())
-            .unwrap_or(root),
-        stop: modal,
+    let chosen = named.or(focused);
+    match modal {
+        Some(modal) => KeyRoute::Modal {
+            target: chosen
+                .filter(|t| tree.is_within(*t, modal))
+                .unwrap_or(modal),
+            modal,
+        },
+        None => match chosen {
+            Some(target) => KeyRoute::Focused { target },
+            None => {
+                let root = tree.root(window).unwrap_or(NodeId(1));
+                KeyRoute::Unfocused {
+                    view: tree
+                        .reader()
+                        .children(root)
+                        .first()
+                        .copied()
+                        .unwrap_or(root),
+                }
+            }
+        },
     }
 }
 

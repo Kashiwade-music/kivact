@@ -27,7 +27,7 @@ pub(super) struct FirstWrite {
     pub(super) handlers: Handlers,
     // xtask-allow(state-fields): option: a builder input carried to mount; absent means none
     pub(super) intrinsic: Option<IntrinsicSize>,
-    // xtask-allow(state-fields): option: a builder input carried to mount; absent means no draw layer
+    // xtask-allow(state-fields): option: set once by finish_resolve when the node has a draw, draw_over or draw_with_layout layer; false means the layout is not observed for a layer's size
     /// The node has an explicit draw layer: its layout is observed for the layer's size.
     pub(super) observe_layout: bool,
     // xtask-allow(state-fields): option: a builder input carried to mount; absent means the node does not edit

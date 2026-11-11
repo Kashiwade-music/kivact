@@ -1,5 +1,6 @@
 //! Role: Records a scene's commands in order through a Canvas, tracking open groups.
 
+use super::GlyphRaster;
 use super::canvas::{Canvas, GlyphRun};
 use crate::convert;
 use crate::derived::Derived;
@@ -702,8 +703,7 @@ impl<C: Canvas> Painter<'_, C> {
                         embolden: glifo::FontEmbolden::new(vello_cpu::kurbo::Diagonal2::new(
                             0.0, 0.0,
                         )),
-                        hint: false,
-                        cached: false,
+                        raster: GlyphRaster::Outline,
                     },
                     run.glyphs.iter().map(|g| Glyph {
                         id: g.id,
@@ -732,8 +732,7 @@ impl<C: Canvas> Painter<'_, C> {
                     font_size: run.font_size,
                     coords: &coords,
                     embolden: glifo::FontEmbolden::new(text::darkening(run.font_size * scale)),
-                    hint: true,
-                    cached: solid,
+                    raster: GlyphRaster::Hinted { atlas: solid },
                 },
                 run.glyphs.iter().map(|g| Glyph {
                     id: g.id,
@@ -749,8 +748,7 @@ impl<C: Canvas> Painter<'_, C> {
                     font_size: run.font_size,
                     coords: &coords,
                     embolden: glifo::FontEmbolden::new(text::darkening(run.font_size * scale * s)),
-                    hint: true,
-                    cached: solid,
+                    raster: GlyphRaster::Hinted { atlas: solid },
                 },
                 run.glyphs.iter().map(|g| Glyph {
                     id: g.id,
@@ -768,8 +766,7 @@ impl<C: Canvas> Painter<'_, C> {
                     font_size: run.font_size,
                     coords: &coords,
                     embolden: glifo::FontEmbolden::new(text::darkening(size)),
-                    hint: false,
-                    cached: false,
+                    raster: GlyphRaster::Outline,
                 },
                 run.glyphs.iter().map(|g| Glyph {
                     id: g.id,

@@ -72,7 +72,7 @@ pub(crate) struct SessionData {
     pub(crate) sent_tree: RefCell<HashMap<NodeId, p::ElementInfo>>,
     // xtask-allow(state-fields): cache: the last windows report sent; the whole report is compared with the next one
     pub(crate) sent_windows: RefCell<Sent<Vec<p::WindowInfo>>>,
-    // xtask-allow(state-fields): cache: the last error count sent; the number is compared with the next one
+    // xtask-allow(state-fields): cache: the seq of the last reported error already notified (S-9 `Sent`); the next turn notifies only entries of `rt.reported()` with a larger seq
     pub(crate) errors_sent: RefCell<Sent<u64>>,
     pub(crate) open_failed: ReportOnce,
 }
@@ -92,6 +92,7 @@ pub(crate) struct PropWrite {
     pub(crate) prop: Prop,
     // xtask-allow(state-fields): statistic: a diagnostic record of the effect that wrote the prop; known only for effect-driven writes
     pub(crate) effect: Option<EffectId>,
+    // xtask-allow(state-fields): independent: whether this one write changed the node's value (the engine's comparison); a write from an effect and a direct write can each change the value or leave it equal, and DevTools shows all four
     pub(crate) changed: bool,
 }
 

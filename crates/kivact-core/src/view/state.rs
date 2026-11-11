@@ -47,7 +47,7 @@ pub(crate) struct FocusRequest {
     pub(crate) target: kivact_types::FocusTarget,
     pub(crate) reply: FocusReply,
     pub(crate) stage: RequestStage,
-    // xtask-allow(state-fields): independent: the requested indicator; any value is valid in either request stage
+    // xtask-allow(state-fields): independent: given once by the caller of request_focus and never changed; the stage moves from Queued to Sent on the host write whatever the indicator, so both values occur in both stages
     /// The requested focus indicator, independent of request progress.
     pub(crate) visible: bool,
 }
@@ -194,7 +194,7 @@ pub(crate) struct Requests {
     pub(crate) effects: HashMap<u64, EffectWaiter>,
     /// Pending CPU captures, answered at the settled host boundary.
     pub(crate) snapshots: HashMap<u64, SnapshotWaiter>,
-    // xtask-allow(state-fields): independent: a work list drained per dispatch; any length beside any id counter
+    // xtask-allow(state-fields): independent: pushed by request_activation (NodeRef::activate) and taken whole by the client after each event; the id counter grows only on host requests, so any queue length goes with any id
     /// Activations `NodeRef::activate` asked for, run by the client after
     /// the handler that asked.
     pub(crate) pending_activations: Vec<kivact_types::FocusTarget>,
@@ -235,7 +235,7 @@ pub(crate) struct ViewState {
     pub(super) host_capabilities: Signal<Capabilities>,
     pub(crate) capabilities: Value<Capabilities>,
     pub(crate) fonts_value: Signal<Vec<String>>,
-    // xtask-allow(state-fields): independent: one-way latch: the first frame was drawn
+    // xtask-allow(state-fields): independent: one-way latch: true until the first frame is drawn (launch::runtime sets it false once)
     pub(crate) initial_render: Signal<bool>,
     /// The App-wide motion clock input.
     pub(crate) app_motion: Signal<AppMotion>,
@@ -265,7 +265,7 @@ pub(crate) struct WindowRecord {
         reason = "the record keeps the window's title for DevTools and diagnostics"
     )]
     pub(crate) title: Value<String>,
-    // xtask-allow(state-fields): option: `Window::min_size`; absent means the engine's minimum
+    // xtask-allow(state-fields): option: `Window::min_size`, or `App::min_window_size` for the main window; absent means the engine's minimum
     pub(crate) min_size: Option<kivact_types::Size>,
     pub(crate) dismiss: Option<Handler<DismissReason>>,
     pub(crate) open: Binding<bool>,

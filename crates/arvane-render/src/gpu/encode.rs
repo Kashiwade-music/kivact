@@ -298,7 +298,7 @@ impl draw::Canvas for HybridCanvas<'_> {
         glyphs: impl Iterator<Item = Glyph> + Clone,
     ) {
         run.apply(self.scene.glyph_run(self.resources, run.font))
-            .atlas_cache(run.cached)
+            .atlas_cache(run.atlas())
             .fill_glyphs(glyphs);
     }
 

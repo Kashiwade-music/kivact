@@ -95,6 +95,9 @@ pub use share::link::{ShareLink, ShareMode, ShareRequest};
 #[doc(inline)]
 pub use share::{ShareStatus, SharedImage, shared_image};
 
+/// How the graphics API identifies an adapter (`GpuAdapter::ids`).
+#[doc(inline)]
+pub use kivact_types::AdapterIds;
 /// The adapter of the window's GPU device ([`adapter`]).
 #[doc(inline)]
 pub use kivact_types::GpuAdapter;

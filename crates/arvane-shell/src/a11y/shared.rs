@@ -145,6 +145,15 @@ pub struct PlatformTree {
     shared: Arc<Mutex<Shared>>,
 }
 
+/// Which text runs an update carries.
+#[derive(Clone, Copy)]
+enum RunSelection<'a> {
+    /// Every text run of each selected node.
+    All,
+    /// Only the runs that changed (possibly none).
+    Changed(&'a [Arc<SemanticsTextRun>]),
+}
+
 /// The current semantics selected for one platform update, borrowed under lock.
 ///
 /// Node references come from the current accepted tree, never an earlier update.
@@ -152,12 +161,8 @@ pub struct PlatformTree {
 /// update separately carries only the text runs that changed.
 pub struct PlatformUpdate<'a> {
     tree: &'a state::AcceptedTree,
-    // xtask-allow(state-fields): option: the focus the latest accepted update supplies; absent when no node has the focus
-    focus: Option<SemanticsId>,
     nodes: Vec<&'a kivact_types::render::SemanticsNode>,
-    runs: &'a [Arc<SemanticsTextRun>],
-    // xtask-allow(state-fields): independent: whether every text run is carried; any focus and node selection can carry all runs or only the changed ones
-    all_runs: bool,
+    runs: RunSelection<'a>,
     scale: f64,
 }
 
@@ -169,7 +174,7 @@ impl PlatformUpdate<'_> {
 
     /// The focus supplied by the latest accepted update.
     pub fn focus(&self) -> Option<SemanticsId> {
-        self.focus
+        self.tree.focus()
     }
 
     /// The current nodes the platform needs, in delivery order.
@@ -179,12 +184,16 @@ impl PlatformUpdate<'_> {
 
     /// Whether conversion must include every text run of each selected node.
     pub fn all_runs(&self) -> bool {
-        self.all_runs
+        matches!(self.runs, RunSelection::All)
     }
 
     /// Additional changed text runs, used when [`Self::all_runs`] is false.
     pub fn changed_runs(&self) -> impl Iterator<Item = &SemanticsTextRun> {
-        self.runs.iter().map(AsRef::as_ref)
+        let runs: &[Arc<SemanticsTextRun>] = match self.runs {
+            RunSelection::All => &[],
+            RunSelection::Changed(runs) => runs,
+        };
+        runs.iter().map(AsRef::as_ref)
     }
 
     /// Logical-to-physical scale, applied after the root's own transform.
@@ -257,10 +266,8 @@ impl PlatformTree {
         let tree = shared.tree.as_ref()?;
         let result = convert(PlatformUpdate {
             tree,
-            focus: tree.focus(),
             nodes: tree.nodes(),
-            runs: &[],
-            all_runs: true,
+            runs: RunSelection::All,
             scale: shared.scale,
         });
         shared.reader = Reader::Active {
@@ -302,9 +309,9 @@ impl PlatformTree {
             Reader::Active { unsent } => unsent,
             Reader::Inactive => &whole,
         };
-        let (mut nodes, runs, all_runs) = match unsent {
-            Unsent::Tree => (tree.nodes(), &[][..], true),
-            Unsent::Nothing => (Vec::new(), &[][..], false),
+        let (mut nodes, runs) = match unsent {
+            Unsent::Tree => (tree.nodes(), RunSelection::All),
+            Unsent::Nothing => (Vec::new(), RunSelection::Changed(&[])),
             Unsent::Changed {
                 nodes,
                 runs,
@@ -316,15 +323,12 @@ impl PlatformTree {
                     .filter(|id| *merged == Merge::Separate || seen.insert(**id))
                     .filter_map(|id| tree.node(*id))
                     .collect();
-                (
-                    current,
-                    if *merged == Merge::Merged {
-                        &[][..]
-                    } else {
-                        &runs[..]
-                    },
-                    *merged == Merge::Merged,
-                )
+                let runs = if *merged == Merge::Merged {
+                    RunSelection::All
+                } else {
+                    RunSelection::Changed(&runs[..])
+                };
+                (current, runs)
             }
         };
         if include_root && !nodes.iter().any(|node| node.id == root) {
@@ -332,10 +336,8 @@ impl PlatformTree {
         }
         let result = convert(PlatformUpdate {
             tree,
-            focus: tree.focus(),
             nodes,
             runs,
-            all_runs,
             scale: shared.scale,
         });
         shared.reader = Reader::Active {

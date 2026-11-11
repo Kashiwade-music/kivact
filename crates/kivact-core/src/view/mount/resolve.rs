@@ -37,13 +37,13 @@ pub(super) struct Resolved {
     pub(super) selected: Option<InputProp<bool>>,
     pub(super) style: Vec<StyleLayer>,
     pub(super) facts: NodeFacts,
-    // xtask-allow(state-fields): option: a builder input carried to mount; absent means no drawing
+    // xtask-allow(state-fields): option: made once by prepare_draw when the node has a draw layer or a local paint channel; None means no draw effect is bound
     pub(super) draw: Option<DrawInput>,
     pub(super) late_semantics: Vec<crate::view::semantics_data::SemanticsPatch>,
     // xtask-allow(state-fields): option: a builder input carried to mount; absent means no IME session
     pub(super) ime: Option<ImeSession>,
     pub(super) refs: Vec<NodeRef>,
-    // xtask-allow(state-fields): option: a builder input carried to mount; absent means nothing attached
+    // xtask-allow(state-fields): option: made once by attach_parts when the node has part bindings, regions or part constraints; None means no part router, constraints or region registry
     pub(super) attached: Option<Attached>,
 }
 
@@ -273,7 +273,10 @@ fn finish_resolve(
         layout_id,
         at: _,
     } = common;
-    let (early, late) = if semantics.iter().any(|p| p.text) {
+    let (early, late) = if semantics
+        .iter()
+        .any(|p| matches!(p.input, crate::view::semantics_data::SemanticInput::Text))
+    {
         (Vec::new(), semantics)
     } else {
         (semantics, Vec::new())
