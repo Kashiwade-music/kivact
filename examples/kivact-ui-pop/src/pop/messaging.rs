@@ -27,16 +27,18 @@ enum ChatContent {
     Typing,
 }
 
-/// The pending reply: none, waiting for the typing placeholder, or showing it.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+/// The pending replies: none, or one being answered and the ones sent after it.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 enum Reply {
     #[default]
     Idle,
-    Waiting {
-        id: u64,
-    },
-    Typing {
-        id: u64,
+    Busy {
+        /// The sent message being answered.
+        current: u64,
+        /// Whether its typing placeholder is shown.
+        typing: bool,
+        /// Messages sent meanwhile, answered in order.
+        queued: Vec<u64>,
     },
 }
 
@@ -60,13 +62,61 @@ impl Machine for ReplyMachine {
     type Effect = ReplyEffect;
     fn transition(&self, state: &Reply, event: ReplyEvent) -> Step<Reply, ReplyEvent, ReplyEffect> {
         match (state, event) {
-            (Reply::Idle, ReplyEvent::Sent { id }) => Step::to(Reply::Waiting { id })
-                .after(Duration::from_millis(400), ReplyEvent::ShowTyping),
-            (Reply::Waiting { id }, ReplyEvent::ShowTyping) => Step::to(Reply::Typing { id: *id })
-                .with(ReplyEffect::ShowTyping { id: *id })
-                .after(Duration::from_millis(1300), ReplyEvent::Arrive),
-            (Reply::Typing { id }, ReplyEvent::Arrive) => {
-                Step::to(Reply::Idle).with(ReplyEffect::Arrived { id: *id })
+            (Reply::Idle, ReplyEvent::Sent { id }) => Step::to(Reply::Busy {
+                current: id,
+                typing: false,
+                queued: Vec::new(),
+            })
+            .after(Duration::from_millis(400), ReplyEvent::ShowTyping),
+            (
+                Reply::Busy {
+                    current,
+                    typing,
+                    queued,
+                },
+                ReplyEvent::Sent { id },
+            ) => {
+                let mut queued = queued.clone();
+                queued.push(id);
+                Step::to(Reply::Busy {
+                    current: *current,
+                    typing: *typing,
+                    queued,
+                })
+            }
+            (
+                Reply::Busy {
+                    current,
+                    typing: false,
+                    queued,
+                },
+                ReplyEvent::ShowTyping,
+            ) => Step::to(Reply::Busy {
+                current: *current,
+                typing: true,
+                queued: queued.clone(),
+            })
+            .with(ReplyEffect::ShowTyping { id: *current })
+            .after(Duration::from_millis(1300), ReplyEvent::Arrive),
+            (
+                Reply::Busy {
+                    current,
+                    typing: true,
+                    queued,
+                },
+                ReplyEvent::Arrive,
+            ) => {
+                let arrived = ReplyEffect::Arrived { id: *current };
+                match queued.split_first() {
+                    Some((next, rest)) => Step::to(Reply::Busy {
+                        current: *next,
+                        typing: false,
+                        queued: rest.to_vec(),
+                    })
+                    .with(arrived)
+                    .after(Duration::from_millis(400), ReplyEvent::ShowTyping),
+                    None => Step::to(Reply::Idle).with(arrived),
+                }
             }
             _ => Step::stay(),
         }
@@ -111,7 +161,7 @@ pub(super) fn messaging() -> Node {
     let chat_scroll = node_ref();
     let send = callback(move |s: String| send_message(s, reply, messages, draft));
     let list = thread_sidebar(active, unread);
-    let body = chat_body(messages, chat_scroll, reply, send);
+    let body = chat_body(messages, chat_scroll, send);
     let main = chat_main(active, draft, send, body);
     section(
         "10",
@@ -261,11 +311,11 @@ fn live_messages(messages: kivact::state::Signal<Vec<ChatEntry>>) -> impl IntoVi
 }
 
 fn quick_replies(
-    reply: MachineHandle<ReplyMachine>,
+    messages: kivact::state::Signal<Vec<ChatEntry>>,
     send: kivact::state::Callback<String>,
 ) -> impl IntoView {
     show(
-        move || reply.get() == Reply::Idle,
+        move || messages.with(|entries| !entries.iter().any(|entry| entry.mine)),
         move || {
             column((
                 text("返信を選択")
@@ -367,7 +417,6 @@ fn morning_report() -> impl IntoView {
 fn chat_body(
     messages: kivact::state::Signal<Vec<ChatEntry>>,
     chat_scroll: kivact::view::NodeRef,
-    reply: MachineHandle<ReplyMachine>,
     send: kivact::state::Callback<String>,
 ) -> kivact::ui::ChatThread {
     kivact::ui::chat_thread(
@@ -429,7 +478,7 @@ fn chat_body(
                             .status_content(look.decorations())
                     })
             },
-            quick_replies(reply, send),
+            quick_replies(messages, send),
             live_messages(messages),
         ))
         .style(style().gap(14).padding_x(20).padding_y(18)),

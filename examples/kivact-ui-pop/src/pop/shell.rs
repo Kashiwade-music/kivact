@@ -62,7 +62,15 @@ impl Overlay {
     fn open(self, overlay: Signal<Overlay>) -> Binding<bool> {
         binding(
             move || overlay.get() == self,
-            move |open| overlay.set(if open { self } else { Overlay::None }),
+            move |open| {
+                if open {
+                    overlay.set(self);
+                } else if overlay.get_untracked() == self {
+                    // Only the open overlay closes itself; a closing
+                    // palette must not close the dialog it just opened.
+                    overlay.set(Overlay::None);
+                }
+            },
         )
     }
 }

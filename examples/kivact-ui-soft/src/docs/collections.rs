@@ -355,7 +355,7 @@ fn example_chat_tool_calls() -> Node {
             ToolCall::new("review", "Review notes").status(ToolStatus::Running),
         ])
         .expanded(signal(true)),
-        "chat_tool_calls(calls).expanded(expanded)",
+        "chat_tool_calls(items).expanded(expanded)",
     )
 }
 
