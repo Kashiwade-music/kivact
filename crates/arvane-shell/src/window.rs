@@ -274,7 +274,7 @@ pub enum StepOutcome {
         // xtask-allow(state-fields): independent: the loop control's earliest timer deadline when the turn ends; timers come from the handler, apart from window redraw flags and wakes, so it is present or absent with any mix of them
         next_deadline: Option<u64>,
         // xtask-allow(state-fields): independent: whether any window's redraw flag is still set when the turn ends; windows set it from their own requests, apart from the timer deadline and pending wakes, so a turn may end with any mix
-        /// Whether any window asked for a redraw during the turn.
+        /// Whether a window's redraw is still pending when the turn ends (asked and not delivered yet).
         redraw_requested: bool,
         // xtask-allow(state-fields): independent: whether a wake is still pending when the turn ends (`WakePending::pending`); wakers set it from any thread, apart from the timer deadline and redraw flags, so a turn may end with any mix
         woken: bool,

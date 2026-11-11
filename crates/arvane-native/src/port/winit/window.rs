@@ -265,8 +265,8 @@ impl ShellWindow for WinitWindow {
     }
     /// The generation of the window's presentation surface: the count of
     /// surfaces the platform gave the window (the first is 1), or `None`
-    /// while it has none ([`ShellEvent::SurfaceDestroyed`] until
-    /// [`ShellEvent::SurfaceCreated`]). Desktops keep the first.
+    /// while it has none ([`ShellEvent::SurfaceDestroyed`](arvane_shell::ShellEvent::SurfaceDestroyed) until
+    /// [`ShellEvent::SurfaceCreated`](arvane_shell::ShellEvent::SurfaceCreated)). Desktops keep the first.
     fn surface_generation(&self) -> Option<u64> {
         match self.surface {
             Surface::Live { generation, .. } => Some(generation.get()),
@@ -287,7 +287,7 @@ impl ShellWindow for WinitWindow {
             .set_min_inner_size(size.map(|s| LogicalSize::new(s.width, s.height)));
     }
     /// Whether the system asks to reduce motion (Windows: animation effects
-    /// are off). A change arrives as [`ShellEvent::EnvironmentChanged`].
+    /// are off). A change arrives as [`ShellEvent::EnvironmentChanged`](arvane_shell::ShellEvent::EnvironmentChanged).
     fn reduced_motion(&self) -> bool {
         self.input.reduced_motion.get()
     }
@@ -295,8 +295,8 @@ impl ShellWindow for WinitWindow {
     /// and theme preferences, safe area (zero: no desktop covers a window's
     /// content with system UI; winit 0.30 reports none elsewhere either),
     /// mouse settings and the system's locale. A change arrives as
-    /// [`ShellEvent::EnvironmentChanged`] (the scale's as
-    /// [`ShellEvent::Resized`]).
+    /// [`ShellEvent::EnvironmentChanged`](arvane_shell::ShellEvent::EnvironmentChanged) (the scale's as
+    /// [`ShellEvent::Resized`](arvane_shell::ShellEvent::Resized)).
     fn environment(&self) -> kivact_types::Environment {
         let (double_click_ns, double_click_distance) = self.double_click();
         let mouse = self.input.mouse.get();
@@ -401,7 +401,7 @@ impl ShellWindow for WinitWindow {
     /// rate it was rounded down from (Windows reports a 60 Hz mode as
     /// 59 Hz). An unknown or implausible report keeps the last period
     /// ([`kivact_types::defaults::FRAME_PERIOD_NS`] before any). A move to another
-    /// monitor is announced as [`ShellEvent::EnvironmentChanged`].
+    /// monitor is announced as [`ShellEvent::EnvironmentChanged`](arvane_shell::ShellEvent::EnvironmentChanged).
     fn frame_period_ns(&self) -> u64 {
         self.frame_period_ns
     }
