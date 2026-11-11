@@ -180,3 +180,12 @@ B0 と CP2（`dev/bench/results/CP2.md`、どちらも有効）の比較。倍�
   3. G7：api-shape の判定を「Fn の入力が 0 個」にした（R08）。calendar の `on_commit` と menu の `trigger_action` を `impl Into<Callback<()>>` にした。
   4. G5：`#[component]` の attribute・非 plain fn の拒否・default の評価時期・optional Value（D15 Q5 3.1）。
 - 次：W6（状態機械、L1〜L6）。
+
+## W6 の結果（2026-11-11）
+
+- 統合：lane L1〜L6 を `--no-ff` で merge（conflict なし）。統合 HEAD は lane L6 の merge の `16362092`。
+- 各 lane の最後の commit：L1 `b0cad9a1`（XT-1、P8-POP、LY、ST・ED、P8-L1、P8-XT）、L2 `c80f541f`（NA、P8-NA、AS、EN-1、EN-2、P8-EN、KT、P8-KT）、L3 `06d3169e`（RT、P8-RT、CO、P8-CO、P8-ARV、P8-GPU）、L4 `9365eba9`（IN-1、IN-2、IN-3、P8-IN）、L5 `4b0f4d03`（UI-1、UI-2、UI-3 `473a0414`、P8-CK、P8-UI5）、L6 `6bb5cdd1`（UI-4、SO、CR、EX、DT、P8-UI6、P8-SOFT、P8-KITS）。
+- gate（統合 tree）：fmt・check・workspace clippy（-D warnings）・xtask（state-fields を含む）は成功。gpu-interop-producer・kivact-docs・GPU の `gpu_on_demand` は成功。workspace の全試験は 2076 件成功、失敗 1 件。
+- 失敗 1 件（未決）：`ui_toolbar::toggle_group_icon_only_keeps_iconless_items_out_of_the_square_look`（UI-3 の commit `473a0414` に含まれる）。原因：`look.rs` の `toggle_button` が全 toggle に `min_width(height)` を付け、icon-only の group で label が全 item で隠れるため、アイコンの無い item が正方形に縮む。試験は 26 px を求める。直し方の案は次の 2 つで、設計者（ユーザー）の判断待ち：案 1（推奨）＝`min_width(height)` と label の隠しを、icon の付いた item だけに限る。案 2＝`min_width` は icon-only の toggle だけに付け、label の隠し方は変えない。試験の期待値は変えない。
+- 次：この判断の後、lane L5 で直す（merge 後の統合 tree で gate をやり直す）。判断が決まるまで W7 には進まない。
+- 注記：W6 の marker 書き換えは、xtask の state-fields lint を全 crate で通っている。`dev/xtask/state-audit.md`（AC-3 の OPEN 0 の確認）は CP2 で確かめる。
