@@ -69,7 +69,7 @@ pub(super) struct HostWindow {
     // xtask-allow(state-fields): projection: the adapter last reported to the client, written only by Host::adapter_changed
     /// The window's adapter the client was told of last
     /// (`HostEvent::GpuAdapterChanged`).
-    pub(super) adapter: Sent<kivact_types::GpuAdapter>,
+    pub(super) reported_adapter: Sent<kivact_types::GpuAdapter>,
     // xtask-allow(state-fields): independent: the stats of the last shown frame stay readable while later presents are skipped
     /// The work counts of the last frame presented (`Presented::Shown`),
     /// overwritten by every one; `None` before the first.
@@ -89,7 +89,7 @@ impl HostWindow {
             surface: Surface::Unavailable(Unavailable::NoSurface),
             soft_keyboard: Sent::new(),
             ime_allowed: Sent::new(),
-            adapter: Sent::new(),
+            reported_adapter: Sent::new(),
             last_stats: None,
             mode,
             parent,

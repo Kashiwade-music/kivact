@@ -68,7 +68,8 @@ impl Screen {
             let Some(n) = tree.get(id) else { continue };
             match q {
                 Query::Text(t) => {
-                    if n.kind == Some(NodeType::Text) && tree.content(id).as_ref() == Some(t) {
+                    if n.node_type() == Some(NodeType::Text) && tree.content(id).as_ref() == Some(t)
+                    {
                         out.push((id, None));
                     }
                 }
@@ -209,7 +210,7 @@ impl Screen {
             if n.at.is_some() {
                 return n.at;
             }
-            cur = n.parent;
+            cur = n.parent();
         }
         None
     }

@@ -22,7 +22,7 @@ pub(crate) struct SemanticsPatch {
     pub(crate) layer: usize,
     pub(crate) at: &'static Location<'static>,
     // xtask-allow(state-fields): projection: written only by Common::semantic from whether the patch's source is fixed; the source itself is erased into `apply`
-    pub(crate) reactive: bool,
+    pub(super) reactive: bool,
     pub(crate) apply: Rc<dyn Fn(&mut Semantics<FocusTarget>)>,
 }
 

@@ -21,15 +21,22 @@ pub(crate) struct EditorNode {
     /// A controlled value given while the IME composes, taken when the
     /// composition ends.
     pub(crate) controlled: ControlledValue,
-    // xtask-allow(state-fields): projection: the session last sent to the selection listener, written only by Model::report_sessions
+    // xtask-allow(state-fields): projection: the session last sent to the selection listener, written only by EditorNode::report_session
     /// Last session sent to the selection listener.
-    pub(crate) reported_session: kivact_types::cell::Sent<kivact_editing::TextSession>,
+    reported_session: kivact_types::cell::Sent<kivact_editing::TextSession>,
     /// Horizontal text scroll, independent of container scrolling.
     pub(crate) scroll_x: f64,
     /// Vertical scroll of an automatically sized or wrapped field.
     pub(crate) scroll_y: f64,
 }
 impl EditorNode {
+    /// Note `session` as the one last sent to the selection listener;
+    /// whether it differs from the one before (the only writer of
+    /// `reported_session`).
+    pub(crate) fn report_session(&mut self, session: &kivact_editing::TextSession) -> bool {
+        self.reported_session.update(session.clone()).is_some()
+    }
+
     pub(crate) fn new(state: EditState) -> Self {
         Self {
             editor: Editor::new(state),

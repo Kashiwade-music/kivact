@@ -212,7 +212,7 @@ impl Model {
             };
             let changed = self.editors[n.index.0]
                 .as_mut()
-                .is_some_and(|node| node.reported_session.update(session.clone()).is_some());
+                .is_some_and(|node| node.report_session(&session));
             if changed {
                 events.push(HostEvent::SelectionChanged { node: id, session });
             }
