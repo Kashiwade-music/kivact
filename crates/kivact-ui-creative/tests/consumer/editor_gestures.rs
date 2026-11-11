@@ -161,7 +161,7 @@ fn playhead_arrow_keys_edit_the_time_without_moving_selected_items() {
         let before = model.snapshot();
         let marker = screen.get_by_role(Role::Slider, "Playhead");
         marker.press_key(Key::ArrowRight);
-        // Graph uses the explicit logical-time step configured by the D4 fixture.
+        // The graph fixture sets an explicit logical-time step (`.step(10.0, 0.01)`).
         assert_eq!(
             model.frame.get_untracked(),
             if kind == Kind::Graph { 10.0 } else { 1.0 },

@@ -21,7 +21,7 @@ pub struct LayoutInset {
     // xtask-allow(state-fields): option: this Layout's padding from Layout::padding, written only in Layout::into_view; absent uses the inherited outer_x and outer_y.
     /// This layout's own outer padding (`Layout::padding`) on both axes in
     /// logical pixels; when set it replaces `outer_x` and `outer_y`.
-    pub own_outer: Option<f64>,
+    pub(crate) own_outer: Option<f64>,
 }
 
 impl LayoutInset {

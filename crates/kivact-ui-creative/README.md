@@ -43,12 +43,12 @@ A segmented control is the standard radio group in the kit's look:
 kit; tool toggles, progress bars, inspector sections and split panes are the
 standard `kivact::ui::toggle`, `progress`, `disclosure` and `split` in its look.
 
-Components implement `kivact::control::Element` and `IntoView`.
+Components implement `kivact::view::Element` and `IntoView`.
 Use ordinary `Element` modifiers for layout, styles, names, IDs and callbacks.
 There is no official-component-only rendering or input route.
 
 Icons are names in the theme's `IconSet`, drawn with
-`kivact::control::icon("name")` like every icon: a 16px Tabler outline in the
+`kivact::view::icon("name")` like every icon: a 16px Tabler outline in the
 inherited text color. The kit's theme has `click`, `adjustments-horizontal`,
 `checkbox`, `bulb`, `adjustments`, `chart-bar`, `layout-columns`, `hierarchy`,
 `table`, `stack`, `timeline`, `keyframes`, `schema`, `palette`, `color-picker`,
@@ -73,7 +73,7 @@ use kivact_ui_creative as ui;
 
 static NODE: &[u8] = br#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 3l9 9-9 9-9-9z"/></svg>"#;
 let theme = ui::theme(ThemeMode::Dark).with_icon("node", Asset::from(NODE));
-let view = kivact::control::icon("node");
+let view = kivact::view::icon("node");
 ```
 
 `LabelTone` (`Normal`, `Muted`, `Accent`, `Warning`, `Error`, `Custom(color)`)
@@ -290,7 +290,7 @@ press on an end or on the movable interval drags it, and the keys edit what
 was pressed, selected or moved last. Context menus are
 `kivact::ui::menu(label, items).on_activate(choose).attach_context(target)`.
 
-`arrangement(clips, tracks, state).length(beats)` defaults to 16 beats. `split_button(label, primary, items).on_activate(choose)` keeps the primary action required. `tool_window(anchor, open, options).content(factory)` rebuilds content on opening and defaults to empty content. Document-tab close/reorder callbacks default to no action. Mixer inserts/routes and pie-menu entries accept reactive read-only lists. Segmented radio groups use the standard item slot.
+`arrangement(clips, tracks, state).length(beats)` defaults to 16 beats. `split_button(label, items).on_press(primary).on_activate(choose)` takes the primary action through `on_press`. `tool_window(anchor, open, options).content(factory)` rebuilds content on opening and defaults to empty content. Document-tab close/reorder callbacks default to no action. Mixer inserts/routes and pie-menu entries accept reactive read-only lists. Segmented radio groups use the standard item slot.
 
 ## Migrating from the previous release
 

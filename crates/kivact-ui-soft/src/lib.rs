@@ -93,6 +93,7 @@ mod soft_tree;
 mod spinner;
 mod stack;
 mod stepper;
+mod tab_entries;
 mod tab_list;
 mod text;
 mod theme;
