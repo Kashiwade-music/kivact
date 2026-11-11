@@ -29,7 +29,7 @@
 | K5 | counter click（mean）ms | 1.971 | 0.878 | 2.24 | ≤ 1.907 | 満たす |
 | K6 | counter GPU 抜き（MS-5 (1)）B | 24,594,432 | 14,304,768 | 1.72 | ≤ 14,467,313 | 満たす |
 | K6 | counter 既定（gpu 込み、MS-5 (2)）B | 24,594,432 | 18,900,480 | 1.30 | ≤ 18,978,816（B1-start） | 満たす |
-| K6 | kv_startup no-default B | 24,590,848 | 11,250,176 | 2.19 | ≤ 11,177,658 | **未達**（+72,518 B、+0.65 %）。ユーザーが許容（下の AC-2） |
+| K6 | kv_startup no-default B | 24,590,848 | 11,250,176 | 2.19 | ≤ 11,250,176（改定後。旧 ≤ 11,177,658） | 満たす（必達は設計者が改定、下の 2026-11-11 の判断） |
 | K6 | basic catalog GPU 抜き（MS-5 (1)）B | 54,251,520 | 29,166,080 | 1.86 | ≤ 31,912,659 | 満たす |
 | K6 | basic catalog 既定（gpu 込み、MS-5 (2)）B | 54,251,520 | 33,744,384 | 1.61 | ≤ 43,090,432（B1-start） | 満たす |
 | K1 | main → first present（default）ms | 484.8 | 42.3 | 11.5 | 悪化させない | 満たす |
@@ -49,37 +49,28 @@ CP2 11.1 の結果（統合 HEAD `1f000b93` の上、フルの xtask は `XTASK_
 - workspace の全試験（`--no-fail-fast`）：失敗 0。gpu-interop-producer、kivact-docs、GPU の `gpu_on_demand`：成功。
 - Linux：未確認。WSL（Ubuntu-24.04）は起動できなかった（`ERROR_INVALID_DATA`）。作業指示書の規則に従い、「Linux 未確認」と記録する。
 
-### AC-2 性能：未達 1 行（ユーザーが許容）
+### AC-2 性能：満たす（K6 `kv_startup` no-default の必達を改定した後）
 
-作業指示書 12.1 は「全ての必達行を満たす」を求める。上の表で満たさないのは K6 `kv_startup` no-default の 1 行だけ（+72,518 B）。ユーザーがこの未達を許容した（2026-11-11）。したがって、AC-2 は厳密には未達として記録し、許容の扱いを人間が決める。
+上の表で満たさなかったのは K6 `kv_startup` no-default の 1 行（+72,518 B）だけだった。設計者（ユーザー）の判断（2026-11-11）により、この行の必達を B1-here の実測値 11,250,176 B に改めた。改定後は全行を満たす。
 
 ### AC-3 状態：機械の検査は満たす、人間の確認待ち
 
 - (a) 機械の検査：`dev/xtask/state-audit.md` の OPEN は 0 件（V2 の前は 27 件）。
-- (b) 人間の確認：`dev/bench/results/AC3_REVIEW.md` を作成した（確認の欄は空のまま、DEC-16）。**人間の確認が済むまで AC-3 は「人間の確認待ち」。**
+- (b) 人間の確認：`dev/bench/results/AC3_REVIEW.md` の確認の欄に、ユーザーの承認（2026-11-11、chat）を記録した。
 
-### AC-4 公開 API・差戻し：残件あり
+### AC-4 公開 API・差戻し：残件なし（下の判断で処理）
 
 - `OPEN.md` の「V2 差戻し」は、W1 の差戻し（F5・M7・T8・M6・S4・M2・F4・G1）を D9〜D15 と W2〜W7 で解消済み。
-- 残る差戻し：(1) K6 `kv_startup` no-default の未達（許容済みだが、AC-2 の判定の扱いが未決）、(2) `kivact-types` の `cargo doc` の警告 21 件（`geometry3d.rs`、W5 より前からあり、作業指示書の所有の外。担当が未決）。
+- 残っていた差戻し：(1) K6 `kv_startup` no-default（必達を改定して解消）、(2) `kivact-types` の `cargo doc` の警告 21 件（`geometry3d.rs`、W5 より前から。設計者の判断で無視する）。
 - 公開 API の変更は G5〜G9 と FINAL-1 で入った。版 1.1 の改名（付録 B）、ARG-1〜6、`#[component]`、`Binding::update`、`GpuStart`、`complex-scripts`、`kivact::launch`、`while_open`、show/hide/toggle の規約。
 - U23（M-R5）は V2 の M7・M10 で、U56（GPU OnDemand の E2E）は G1〜G4 で解消（OPEN.md に記録）。
 
-## 判定と止めた理由
+## 2026-11-11 の設計者（ユーザー）の判断
 
-**V2 は完了を宣言しない。** 作業指示書 12.1 の 3 により、次の 2 つが残るため、12.2（書き戻し・後片付け）と 12.3（PR の下書き）は行わない。
-1. AC-3 の人間の確認（`AC3_REVIEW.md`）が未了。
-2. AC-2 の K6 `kv_startup` no-default が必達を超えたまま（許容済みだが、AC-2 の判定は人間が決める）。
+- K6 `kv_startup` no-default の必達を 11,250,176 B に改定（B1-here の実測値）。
+- `kivact-types` の `cargo doc` 警告 21 件は無視する。
+- その他（AC-3 の確認、Linux の未確認、S45 の fontdb の版と T4 の marker の差、後片付け）は承認。
 
-## 人間に確認をお願いする項目
+## 判定（改定後）
 
-1. `AC3_REVIEW.md` の確認欄に結果を書く（AC-3 (b)）。
-2. K6 `kv_startup` no-default（+72,518 B）の扱い：許容として AC-2 を「満たす（例外あり）」とするか、必達を見直すか。
-3. `kivact-types` の `cargo doc` の警告 21 件（`geometry3d.rs`）の担当。
-4. Linux の確認（WSL が起動できないため未確認）。
-5. S45 の fontdb の版（lock は 0.23.0、付属書は 0.24.0）と、T4 の `xtask-allow` marker の削除（付属書の文言と差がある）の確認。
-6. 残りの後片付け：`W:/w/kv-b0`（B0 の計測用の worktree、W8 の後に消す）と、`wt/CP1-A-fix`（不採用の案 `52810781` を含む branch）。
-
-## 次（人間の確認の後）
-
-確認が承認されて、K6 と kivact-types の警告の扱いが決まったら、作業指示書 12.1 をやり直して 12.2（書き戻し・後片付け）と 12.3（PR の下書き）に進む。
+AC-1〜AC-4 は満たす（AC-1 は Linux を除く）。作業指示書 12.1 の 3 の条件（AC-3 の人間の確認、AC-2 の未達）は解消した。12.2（書き戻し・後片付け）と 12.3（PR の下書き）に進む。
