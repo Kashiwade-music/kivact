@@ -27,9 +27,10 @@ pub struct CalendarDayVisual {
     /// Date represented by this recipe projection.
     pub date: CalendarDate,
     pub day: kivact_interaction::CalendarDayState,
-    // xtask-allow(state-fields): independent: a measured value; any value is valid on its own
+    // xtask-allow(state-fields): independent: date == the clock's today; the grid shows today inside or outside the displayed month, with or without a tone
     pub today: bool,
-    // xtask-allow(state-fields): independent: a measured value; any value is valid on its own
+    // xtask-allow(state-fields): independent: date lies in the displayed month; the grid's leading and trailing days are outside it whether or not they are today or toned
     pub in_month: bool,
+    // xtask-allow(state-fields): independent: the tone from Calendar::marks, else Calendar::weekend, for this date; the caller's callbacks may tone any date, today or not, in the month or not
     pub mark: Option<kivact_interaction::Tone>,
 }
