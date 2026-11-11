@@ -51,9 +51,9 @@ pub struct DisclosureApi {
     pub(crate) open: Binding<bool>,
     /// The shown state: the requested state.
     shown: Value<bool>,
-    // xtask-allow(state-fields): independent: the observation of the attached trigger part, absent until it attaches
+    // xtask-allow(state-fields): independent: set by DisclosureApi::trigger when the kit attaches a trigger; the content part attaches through its own call, so a disclosure may have either part without the other
     trigger_state: Signal<Option<Value<DisclosureState>>>,
-    // xtask-allow(state-fields): independent: the observation of the attached content part, absent until it attaches
+    // xtask-allow(state-fields): independent: set by DisclosureApi::content while the content part is mounted and emptied when that mount ends; a closed disclosure has its trigger and no content
     content_state: Signal<Option<Value<DisclosureState>>>,
     settings: OptionsCell<DisclosureOptions>,
     /// The disabled state each mounted trigger received from its caller;
@@ -205,7 +205,7 @@ impl DisclosureApi {
     pub fn trigger(self) -> Part<DisclosureState> {
         let base = self.base_trigger(|input, open| DisclosureState { input, open });
         let part_state = base.state();
-        self.trigger_state.set(Some(part_state));
+        crate::part_slot::attach_part_state(self.trigger_state, part_state);
         Part::new(part_state, move |host| {
             host.part(base)
                 .on_press(move || self.write(None))
@@ -225,7 +225,7 @@ impl DisclosureApi {
             open: shown.get(),
         });
         let part_state = input.state();
-        self.content_state.set(Some(part_state));
+        crate::part_slot::attach_part_state(self.content_state, part_state);
         let target = kivact_core::view::node_ref();
         let presence = target.presence();
         Part::new(part_state, move |host| {

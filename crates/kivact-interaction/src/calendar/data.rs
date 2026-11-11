@@ -38,7 +38,6 @@ pub struct CalendarDayState {
     pub selection: DaySelection,
     /// Where the day lies in a range of several days.
     pub span: CalendarSpan,
-    // xtask-allow(state-fields): projection: readonly snapshot of the calendar policy for recipes, written only by the cell part
     /// The policy refuses the day.
     pub disabled: bool,
 }

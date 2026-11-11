@@ -16,7 +16,7 @@ pub(super) fn container<K: kivact_core::state::ItemKey>(state: Rc<State<K>>) -> 
     let policy = state.policy.value();
     let input = part(|input| input);
     let part_state = input.state();
-    state.container_state.set(Some(part_state));
+    crate::part_slot::attach_part_state(state.container_state, part_state);
     Part::new(part_state, move |host| {
         host.part(input)
             .role(Role::ListBox)

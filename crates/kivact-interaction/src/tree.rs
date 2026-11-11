@@ -328,8 +328,9 @@ struct Shared<K: kivact_core::state::ItemKey> {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct TreeItemState {
     pub input: PartState,
+    // xtask-allow(state-fields): independent: copied from the row's ListItemState; a multiple selection or a caller's binding write keeps rows selected while another row is active
     pub selected: bool,
-    // xtask-allow(state-fields): projection: readonly snapshot of the row for recipes, written only by TreeApi::item
+    // xtask-allow(state-fields): independent: copied from the row's ListItemState; Ctrl+arrow moves the active row without selecting it
     pub active: bool,
     pub branch: TreeBranch,
     pub level: u32,

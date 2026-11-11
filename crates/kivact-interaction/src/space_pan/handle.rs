@@ -62,7 +62,7 @@ impl SpacePanApi {
     pub fn control(self) -> Part<PartState> {
         let input = part(|input| input);
         let part_state = input.state();
-        self.observed.set(Some(part_state));
+        crate::part_slot::attach_part_state(self.observed, part_state);
         let target = kivact_core::view::node_ref();
         Part::new(part_state, move |host| {
             let surface = host.part(input).node_ref(target).region_events();

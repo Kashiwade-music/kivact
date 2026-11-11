@@ -267,7 +267,7 @@ impl ZoomPanApi {
         let edit = self.edit;
         let input = part(|input| input);
         let part_state = input.state();
-        self.observed.set(Some(part_state));
+        crate::part_slot::attach_part_state(self.observed, part_state);
         let target = kivact_core::view::node_ref();
         Part::new(part_state, move |host| {
             let surface = host

@@ -60,23 +60,53 @@ pub enum PressOver {
     Away,
 }
 
+/// What kind of row a menu item is, with the state only that kind has.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum MenuItemDisplay {
+    /// A plain item ([`MenuEntry::item`]).
+    Action,
+    /// A check or radio item ([`MenuEntry::checkbox`], [`MenuEntry::radio`])
+    /// and its checked state.
+    Check(MenuCheck),
+    /// An item that opens a submenu ([`MenuEntry::submenu`]).
+    Submenu {
+        /// Its submenu is open.
+        expanded: bool,
+    },
+}
+
 /// The state of a menu item for the caller's drawing.
+///
+/// Most recipes read [`check`](Self::check) and
+/// [`is_expanded`](Self::is_expanded); `match state.display` tells the kinds
+/// of row apart.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct MenuItemState {
     /// Which row the tracked menu press is over; [`PressOver::None`] leaves
     /// highlighting to the ordinary focus and hover states.
     pub pressed_over: PressOver,
     pub input: PartState,
-    // xtask-allow(state-fields): projection: readonly snapshot of the entry for recipes, written only by MenuApi::item
-    /// The checked state of a check or radio item; `None` for other items.
-    pub check: Option<MenuCheck>,
-    // xtask-allow(state-fields): projection: readonly snapshot of the session path for recipes, written only by MenuApi::item
-    /// A submenu item whose submenu is open.
-    pub expanded: bool,
+    /// What kind of row this is, with its kind's state.
+    pub display: MenuItemDisplay,
     // xtask-allow(state-fields): option: the entry's authored destructive mark, read for a warning color
     /// The entry is marked destructive ([`MenuEntry::destructive`]), for a
     /// warning color.
     pub destructive: bool,
+}
+
+impl MenuItemState {
+    /// The checked state of a check or radio item; `None` for other items.
+    pub fn check(&self) -> Option<MenuCheck> {
+        match self.display {
+            MenuItemDisplay::Check(check) => Some(check),
+            MenuItemDisplay::Action | MenuItemDisplay::Submenu { .. } => None,
+        }
+    }
+
+    /// Whether this is a submenu item whose submenu is open.
+    pub fn is_expanded(&self) -> bool {
+        matches!(self.display, MenuItemDisplay::Submenu { expanded: true })
+    }
 }
 
 /// One row of a [`MenuApi`](super::MenuApi): an item, a check or radio item, a

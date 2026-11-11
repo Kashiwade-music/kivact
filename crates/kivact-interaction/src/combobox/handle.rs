@@ -112,7 +112,7 @@ fn contains_query<K>(query: &str, option: &ListItem<K>) -> bool {
 pub struct ComboboxApi<K: kivact_core::state::ItemKey> {
     // xtask-allow(state-fields): independent: the observation of the attached input part, absent until it attaches
     input_state: Signal<Option<Value<PartState>>>,
-    // xtask-allow(state-fields): independent: the observation of the attached content part, absent until it attaches
+    // xtask-allow(state-fields): independent: set by ComboboxApi::content when the list surface attaches; the input part attaches separately through ComboboxApi::input, before the surface first mounts
     content_state: Signal<Option<Value<PartState>>>,
     item_states: Signal<HashMap<K, Value<ListItemState>>>,
     options: Value<Vec<ListItem<K>>>,
@@ -569,7 +569,7 @@ impl<K: kivact_core::state::ItemKey> ComboboxApi<K> {
         let (active, rows) = (self.active, self.rows);
         let input = part(|input| input);
         let part_state = input.state();
-        self.input_state.set(Some(part_state));
+        crate::part_slot::attach_part_state(self.input_state, part_state);
         let expanded = self.is_open();
         Part::new(part_state, move |host| {
             let host = if matches!(self.mode.get(), PresentationMode::Popup(_)) {
@@ -640,7 +640,7 @@ impl<K: kivact_core::state::ItemKey> ComboboxApi<K> {
     pub fn content(self) -> Part<PartState> {
         let input = part(|input| input);
         let part_state = input.state();
-        self.content_state.set(Some(part_state));
+        crate::part_slot::attach_part_state(self.content_state, part_state);
         Part::new(part_state, move |host| {
             host.part(input)
                 .node_ref(self.list_ref)

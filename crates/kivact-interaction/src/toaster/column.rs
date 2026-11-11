@@ -38,9 +38,9 @@ pub(super) enum Event {
 }
 pub(super) enum Effect {
     Dismiss {
-        // xtask-allow(state-fields): independent: the focus target to restore, absent when there is none
+        // xtask-allow(state-fields): independent: the return target when the focus was inside the dismissed toast; a toast with or without an on_dismiss handler can hold the focus, so it pairs with either callback
         previous: Option<NodeToken>,
-        // xtask-allow(state-fields): option: the caller's dismiss callback, absent when there is none
+        // xtask-allow(state-fields): option: the caller's on_dismiss handler, absent when the toast set none or was still waiting beyond the limit
         callback: Option<DismissHandler>,
         reason: DismissReason,
     },

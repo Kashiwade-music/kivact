@@ -108,9 +108,9 @@ enum Step<T> {
     /// invalid coordinates).
     Stop {
         stop: Stop,
-        // xtask-allow(state-fields): independent: whether the ended drag owned the edit session
+        // xtask-allow(state-fields): independent: copied from the ended drag's EditOwnership (Owned when the drag began the edit); a drag with or without an edit can end with or without an update
         owns_edit: bool,
-        // xtask-allow(state-fields): independent: what on_end receives, absent for an event with invalid coordinates
+        // xtask-allow(state-fields): independent: what on_end receives, absent when the delta from the drag's start is not finite; that depends on the positions alone, so it comes with either edit ownership
         update: Option<DragUpdate<T>>,
     },
 }
@@ -641,7 +641,7 @@ impl<T: Clone + 'static> DragApi<T> {
             active: active_source.get() == Some(id),
         });
         let part_state = input.state();
-        self.observed.set(Some(part_state));
+        crate::part_slot::attach_part_state(self.observed, part_state);
         Part::new(part_state, move |mut host| {
             let caller_disabled = host.accessible_disabled();
             host.part(input)

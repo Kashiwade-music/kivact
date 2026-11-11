@@ -96,8 +96,8 @@ pub use list::{
     use_list,
 };
 pub use menu::{
-    DisabledMenuFocus, MenuApi, MenuCheck, MenuEntry, MenuItemKind, MenuItemState, MenuOrigin,
-    MenuPress, MenuRow, PressOver, SubmenuTiming, use_menu, use_menu_with_open,
+    DisabledMenuFocus, MenuApi, MenuCheck, MenuEntry, MenuItemDisplay, MenuItemKind, MenuItemState,
+    MenuOrigin, MenuPress, MenuRow, PressOver, SubmenuTiming, use_menu, use_menu_with_open,
 };
 pub use menubar::{MenubarApi, use_menubar};
 pub use palette::{Command, CommandGroup, CommandPaletteApi, filter_commands, use_command_palette};
@@ -133,6 +133,7 @@ pub use zoom_pan::{ViewTransform, ZoomPanApi, use_zoom_pan};
 mod inline_edit;
 mod interaction_policy;
 mod options_cell;
+mod part_slot;
 pub use inline_edit::{InlineEditApi, use_inline_edit};
 
 pub use interaction_policy::{

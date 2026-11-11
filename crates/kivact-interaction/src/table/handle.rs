@@ -334,7 +334,7 @@ impl<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey> DataTableAp
             part(|input| input)
         };
         let part_state = input.state();
-        state.grid_state.set(Some(part_state));
+        crate::part_slot::attach_part_state(state.grid_state, part_state);
         Part::new(part_state, move |host| {
             let host = host.part(input).role(if state.focus == TableFocus::None {
                 Role::Table

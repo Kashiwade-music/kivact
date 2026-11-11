@@ -61,10 +61,10 @@ pub enum DialogMode {
 /// does.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct DismissOn {
-    // xtask-allow(state-fields): option: an unhandled Escape closes it
+    // xtask-allow(state-fields): option: the caller's rule from DialogApi::dismiss (default true); false keeps the dialog open on an unhandled Escape or a window-close request
     /// An unhandled Escape closes it.
     pub escape: bool,
-    // xtask-allow(state-fields): option: a pointer press outside it (and outside its anchor) closes it
+    // xtask-allow(state-fields): option: the caller's rule from DialogApi::dismiss (default true, false for an alert modal); false keeps the dialog open on a pointer press outside it and its anchor
     /// A pointer press outside it (and outside its anchor) closes it.
     pub outside: bool,
 }
@@ -302,7 +302,7 @@ impl DialogApi {
         };
         let surface = self.popup.content_with(allowed);
         let part_state = surface.state();
-        self.content_state.set(Some(part_state));
+        crate::part_slot::attach_part_state(self.content_state, part_state);
         Part::new(part_state, move |host| {
             let surface = host.part(surface);
             let surface = if self.popover() {

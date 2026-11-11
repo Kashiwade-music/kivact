@@ -144,6 +144,7 @@ impl Shared {
 /// The edit plumbing of one thumb.
 #[derive(Clone, Copy)]
 pub(crate) struct Edit {
+    // xtask-allow(state-fields): independent: the state of the part the kit attached, absent until input() or thumb() attaches it; single and range thumbs (bounds None or Some) exist both before and after attaching
     pub(crate) observed: Signal<Option<Value<super::data::ScalarState>>>,
     pub(crate) shared: Shared,
     /// Which thumb of the slider this is, from 0.

@@ -404,7 +404,7 @@ impl TextEditApi {
         require_setup("TextEditApi::control");
         let input = part(|state| state);
         let state = input.state();
-        self.data.get().observed.set(Some(state));
+        crate::part_slot::attach_part_state(self.data.get().observed, state);
         let node = node_ref();
         let options = self.data.get().options.value();
         let line_layout = memo(move || {

@@ -80,7 +80,7 @@ impl ButtonApi {
         let disabled = self.disabled;
         let input = part(|input| input);
         let part_state = input.state();
-        self.observed.set(Some(part_state));
+        crate::part_slot::attach_part_state(self.observed, part_state);
         Part::new(part_state, move |mut host| {
             let caller_disabled = host.accessible_disabled();
             let host = host.part(input).role(Role::Button).focusable(true);
@@ -376,7 +376,7 @@ impl Core {
             },
         });
         let part_state = input.state();
-        self.observed.set(Some(part_state));
+        crate::part_slot::attach_part_state(self.observed, part_state);
         Part::new(part_state, move |mut host| {
             let caller_disabled = host.accessible_disabled();
 

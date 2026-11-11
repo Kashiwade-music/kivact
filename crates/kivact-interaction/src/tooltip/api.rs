@@ -127,9 +127,9 @@ impl Hub {
 #[derive(Clone, Copy)]
 pub struct TooltipApi {
     options: OptionsCell<TooltipOptions>,
-    // xtask-allow(state-fields): independent: the observation of the attached trigger part, absent until it attaches
+    // xtask-allow(state-fields): independent: set by TooltipApi::trigger at mount; the hint content is mounted only while the tooltip shows
     trigger_state: Signal<Option<Value<PopupState>>>,
-    // xtask-allow(state-fields): independent: the observation of the attached content part, absent until it attaches
+    // xtask-allow(state-fields): independent: set by TooltipApi::content when the hint mounts after the show delay, after the trigger attached
     content_state: Signal<Option<Value<PopupState>>>,
     delayed: DelayedApi,
     visible: Value<bool>,
@@ -278,7 +278,7 @@ impl TooltipApi {
             open: visible.get(),
         });
         let part_state = input.state();
-        self.trigger_state.set(Some(part_state));
+        crate::part_slot::attach_part_state(self.trigger_state, part_state);
         Part::new(part_state, move |host| {
             host.part(input)
                 .node_ref(self.anchor)
@@ -319,7 +319,7 @@ impl TooltipApi {
             open: visible.get(),
         });
         let part_state = input.state();
-        self.content_state.set(Some(part_state));
+        crate::part_slot::attach_part_state(self.content_state, part_state);
         Part::new(part_state, move |host| {
             host.part(input)
                 .node_ref(self.surface)

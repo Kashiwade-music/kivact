@@ -20,6 +20,7 @@ pub(super) enum State<K> {
         highlight: Option<K>,
         // xtask-allow(state-fields): independent: the key the pointer is over in the open list
         hovered: Option<K>,
+        // xtask-allow(state-fields): projection: written only by track_preview through Event::Preview (the hovered key, else the list's active key); Open starts it at None and Close reports None
         /// The option last reported to the caller's preview callback.
         previewed: Option<K>,
         opened_by: OpenedBy,

@@ -5,7 +5,9 @@ use kivact_core::state::IntoBinding;
 
 use super::order::{Rows, edge_item, rows};
 use super::session::Session;
-use super::state::{Edge, MenuCheck, MenuEntry, MenuItemKind, MenuItemState, Opened, Target, Want};
+use super::state::{
+    Edge, MenuCheck, MenuEntry, MenuItemDisplay, MenuItemKind, MenuItemState, Opened, Target, Want,
+};
 use crate::{
     ListApi, ListItem, ListOptions, PopupCloseReason, PopupState, use_hover_corridor, use_list,
 };
@@ -20,7 +22,7 @@ pub use crate::menu_policy::{DisabledMenuFocus, SubmenuTiming};
 
 /// One level of a menu: the top level or a submenu. All handles are `Copy`.
 pub(super) struct Level<K: kivact_core::state::ItemKey> {
-    // xtask-allow(state-fields): independent: the observation of the attached content part, absent until it attaches
+    // xtask-allow(state-fields): independent: set by MenuApi::content when this level's surface mounts; a submenu level exists in its session before its surface first mounts
     pub(super) content_state: Signal<Option<Value<PopupState>>>,
     pub(super) item_states: Signal<std::collections::HashMap<K, Value<MenuItemState>>>,
     session: Session<K>,
@@ -370,8 +372,7 @@ impl<K: kivact_core::state::ItemKey> Level<K> {
         let member = member.map_state(move |state| MenuItemState {
             pressed_over: pressed_over.get(),
             input: state.input,
-            check: check.get(),
-            expanded: expanded.get(),
+            display: item_display(check.get(), submenu, expanded.get()),
             destructive: destructive.get(),
         });
         let part_state = member.state();
@@ -405,6 +406,16 @@ impl<K: kivact_core::state::ItemKey> Level<K> {
                 member
             }
         })
+    }
+}
+
+/// What kind of row an item is: its checked state for a check or radio item,
+/// whether its submenu is open for a submenu item.
+fn item_display(check: Option<MenuCheck>, submenu: bool, expanded: bool) -> MenuItemDisplay {
+    match check {
+        Some(check) => MenuItemDisplay::Check(check),
+        None if submenu => MenuItemDisplay::Submenu { expanded },
+        None => MenuItemDisplay::Action,
     }
 }
 
