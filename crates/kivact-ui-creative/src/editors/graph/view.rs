@@ -300,8 +300,8 @@ fn observe_inputs(
             let input = availability_state.get();
             state.press.inputs_changed(
                 focused,
-                visible && !input.hidden,
-                !input.disabled,
+                visible && !input.is_hidden(),
+                !input.is_disabled(),
                 !missing,
                 move || state.cancel(),
             );

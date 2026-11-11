@@ -67,7 +67,7 @@ pub fn pill_switch(label: impl IntoText, on: impl IntoBinding<bool>) -> impl Ele
                 .padding(3)
                 .radius(12)
                 .background(if on { ColorToken::Accent } else { ColorToken::Border })
-                .opacity(if state.input.pressed { 0.8 } else { 1.0 })
+                .opacity(if state.input.is_pressed() { 0.8 } else { 1.0 })
         })
         .child(node().style(style().size(18, 18).radius(9).background(ColorToken::Surface)))
 }
@@ -226,7 +226,7 @@ pub fn segmented<K: ItemKey>(
                         .padding_y(6)
                         .background(if state.selected { ColorToken::Accent } else { ColorToken::SurfaceAlt })
                         .color(if state.selected { ColorToken::AccentText } else { ColorToken::Text })
-                        .opacity(if state.input.disabled { 0.4 } else { 1.0 })
+                        .opacity(if state.input.is_disabled() { 0.4 } else { 1.0 })
                 })
                 .child(text(move || option.with(|option| option.label())))
         },

@@ -275,7 +275,7 @@ fn row_marker<K: kivact_core::state::ItemKey>(
                 "Toggle children",
             ))
             .expanded(move || state.get().branch.is_expanded())
-            .disabled(move || state.get().input.disabled)
+            .disabled(move || state.get().input.is_disabled())
             .on_press(move || behavior.toggle(key.clone()))
             .child(match marker_content {
                 Some(content) => content.call(recipe_state.into_value()),

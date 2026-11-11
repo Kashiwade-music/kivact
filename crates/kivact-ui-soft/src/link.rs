@@ -310,10 +310,10 @@ impl LinkAppearance {
         if let Some(weight) = weight {
             base = base.weight(weight);
         }
-        if underline || (interactive && !input.get().disabled && input.get().hovered) {
+        if underline || (interactive && !input.get().is_disabled() && input.get().is_hovered()) {
             base = base.text_decoration(TextDecorationLine::UNDERLINE);
         }
-        if input.get().disabled {
+        if input.get().is_disabled() {
             base.opacity(t.sizes.disabled_opacity)
                 .cursor(Cursor::Default)
         } else if interactive {

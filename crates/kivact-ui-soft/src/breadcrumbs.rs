@@ -66,7 +66,7 @@ fn item(theme: &Theme, s: &Look<BreadcrumbItemState>) -> Style {
     if s.input().is_none() {
         base.weight(t.typography.weight_semibold)
     } else {
-        let base = if s.input().is_some_and(|input| input.hovered) {
+        let base = if s.input().is_some_and(|input| input.is_hovered()) {
             base.text_decoration(TextDecorationLine::UNDERLINE)
         } else {
             base

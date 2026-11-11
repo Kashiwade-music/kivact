@@ -116,8 +116,10 @@ impl IntoView for Indicator {
         let input = self.input;
         let look = move || {
             let mut input = input.get();
-            input.disabled |= actual.get().disabled;
-            if input.disabled {
+            if actual.get().is_disabled() && !input.is_hidden() {
+                input.availability = kivact::view::Availability::Disabled;
+            }
+            if input.is_disabled() {
                 input.focus = kivact::view::Focus::None;
             }
             Look::new(CheckableState {
@@ -153,7 +155,7 @@ impl IntoView for Indicator {
                             if matches!(kind, Kind::Radio) {
                                 base = base.radius(t.radius.full);
                             }
-                            if look.input.disabled {
+                            if look.input.is_disabled() {
                                 base = base
                                     .opacity(t.sizes.disabled_opacity)
                                     .border_color(t.colors.border);
@@ -184,7 +186,7 @@ fn check_view(
                 .size(side, side)
                 .clip(true)
                 .shrink(0)
-                .color(if state.input.disabled {
+                .color(if state.input.is_disabled() {
                     t.colors.icon_disabled
                 } else {
                     t.colors.accent

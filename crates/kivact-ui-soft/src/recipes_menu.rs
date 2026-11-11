@@ -151,7 +151,7 @@ fn item(t: &Theme, s: &Look<MenuItemState>) -> Style {
         } else {
             p.colors.text_primary
         });
-    let base = if s.input.disabled {
+    let base = if s.input.is_disabled() {
         base.opacity(p.sizes.disabled_opacity)
     } else if s.pressed_over == PressOver::Over {
         base.background(p.colors.overlay_hover)

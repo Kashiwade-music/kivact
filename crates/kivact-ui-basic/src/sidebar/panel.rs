@@ -216,7 +216,7 @@ fn build_rail(cx: SidebarCx) -> Node {
             let closed = !cx.open.get();
             // The 2 px line is local paint, which a state style cannot
             // draw, so it follows the rail's hover.
-            let line = if state.get().hovered {
+            let line = if state.get().is_hovered() {
                 p.sidebar_border
             } else {
                 Color::TRANSPARENT

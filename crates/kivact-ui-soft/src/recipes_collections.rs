@@ -205,7 +205,7 @@ fn tab(t: &Theme, s: &Look<TabState>) -> Style {
         })
         .focus_visible(focus(&p))
         .transition(TransitionProp::All, paint_transition(&p, p.motion.fast));
-    if !s.input.disabled {
+    if !s.input.is_disabled() {
         tab = tab
             .hover(style().background(p.colors.overlay_hover))
             .pressed(style().background(p.colors.overlay_pressed));
@@ -278,7 +278,7 @@ pub(crate) fn disclosure(r: DisclosureRecipes) -> DisclosureRecipes {
                     .line_height(1.0)
                     .weight(p.typography.weight_semibold)
                     .color(p.colors.text_primary)
-                    .opacity(if s.input.disabled {
+                    .opacity(if s.input.is_disabled() {
                         p.sizes.disabled_opacity
                     } else {
                         1.0
@@ -354,7 +354,7 @@ pub(crate) fn splitter(r: SplitterRecipes) -> SplitterRecipes {
             let vertical = s.orientation == Orientation::Vertical;
             // Splitter has no grip child, while Split only builds one when its
             // caller opts in. Keep the shared handle visible as a divider.
-            let divider = if s.input.pressed {
+            let divider = if s.input.is_pressed() {
                 p.colors.border_emphasized
             } else {
                 p.colors.border
@@ -380,7 +380,7 @@ pub(crate) fn splitter(r: SplitterRecipes) -> SplitterRecipes {
                     .width(pct(100))
                     .height(hit)
                     .margin_y(-hit / 2.0)
-                    .cursor(if s.input.disabled {
+                    .cursor(if s.input.is_disabled() {
                         Cursor::Default
                     } else {
                         Cursor::NsResize
@@ -390,7 +390,7 @@ pub(crate) fn splitter(r: SplitterRecipes) -> SplitterRecipes {
                     .height(pct(100))
                     .width(hit)
                     .margin_x(-hit / 2.0)
-                    .cursor(if s.input.disabled {
+                    .cursor(if s.input.is_disabled() {
                         Cursor::Default
                     } else {
                         Cursor::EwResize
@@ -408,7 +408,7 @@ pub(crate) fn split(r: SplitRecipes) -> SplitRecipes {
             let grip = style()
                 .shrink(0)
                 .radius(p.radius.full)
-                .background(if s.input.pressed {
+                .background(if s.input.is_pressed() {
                     p.colors.border_emphasized
                 } else {
                     p.colors.border
@@ -441,7 +441,7 @@ pub(crate) fn list(r: ListRecipes) -> ListRecipes {
                     .radius(p.radius.element)
                     .font_size(p.typography.body.size_px)
                     .line_height(p.typography.body.line_height_px / p.typography.body.size_px)
-                    .color(if s.input.disabled {
+                    .color(if s.input.is_disabled() {
                         p.colors.text_disabled
                     } else {
                         p.colors.text_primary
@@ -449,7 +449,7 @@ pub(crate) fn list(r: ListRecipes) -> ListRecipes {
                     .selected(style().background(p.colors.accent_muted))
                     .focus_visible(focus(&p))
                     .transition(TransitionProp::All, paint_transition(&p, p.motion.fast_min));
-                if !s.input.disabled {
+                if !s.input.is_disabled() {
                     item = item
                         .hover(style().background(p.colors.overlay_hover))
                         .pressed(style().background(p.colors.overlay_pressed));
@@ -596,7 +596,7 @@ fn sort_mark(t: &Theme, s: &Look<TableHeaderState>) -> Style {
     } else {
         p.colors
             .icon_secondary
-            .with_alpha(if s.input.hovered || s.input.is_focused() {
+            .with_alpha(if s.input.is_hovered() || s.input.is_focused() {
                 1.0
             } else {
                 0.35

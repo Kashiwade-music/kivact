@@ -12,6 +12,15 @@ use kivact_core::view::{
 };
 use kivact_interaction::{ComboboxApi, ComboboxMode, ListItem, Selection, use_combobox};
 
+/// The combobox frame takes no input while the combobox is disabled.
+fn frame_availability(disabled: bool) -> kivact_core::view::Availability {
+    if disabled {
+        kivact_core::view::Availability::Disabled
+    } else {
+        kivact_core::view::Availability::default()
+    }
+}
+
 pub(super) fn render<K: ItemKey>(mut field: Combobox<K>) -> View {
     let mounted = prepare(&mut field);
     let Mounted {
@@ -71,8 +80,7 @@ pub(super) fn render<K: ItemKey>(mut field: Combobox<K>) -> View {
             } else {
                 kivact_core::view::Focus::None
             },
-            disabled: disabled.get(),
-            ..PartState::default()
+            availability: frame_availability(disabled.get()),
         },
     );
     let empty =

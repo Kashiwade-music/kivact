@@ -198,18 +198,18 @@ fn root(theme: &Theme, s: &Look<CardState>) -> Style {
 }
 fn overlay(theme: &Theme, s: &Look<CardState>) -> Style {
     let t = theme.ext::<crate::Tokens>();
-    let color = s
-        .input()
-        .filter(|input| !input.disabled)
-        .map_or(Color::TRANSPARENT, |input| {
-            if input.pressed {
-                t.colors.overlay_pressed
-            } else if input.hovered {
-                t.colors.overlay_hover
-            } else {
-                Color::TRANSPARENT
-            }
-        });
+    let color =
+        s.input()
+            .filter(|input| !input.is_disabled())
+            .map_or(Color::TRANSPARENT, |input| {
+                if input.is_pressed() {
+                    t.colors.overlay_pressed
+                } else if input.is_hovered() {
+                    t.colors.overlay_hover
+                } else {
+                    Color::TRANSPARENT
+                }
+            });
     style()
         .radius(t.radius.container)
         .background(color)

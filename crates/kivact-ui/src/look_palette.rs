@@ -82,7 +82,7 @@ pub(super) fn row(t: &Theme, state: &ListItemState) -> Style {
         // disabled one takes the theme's opacity here.
         .disabled(style().opacity(t.disabled_opacity()))
         .selected(style().background(ColorToken::Selection));
-    if state.input.hovered && !state.input.disabled {
+    if state.input.is_hovered() && !state.input.is_disabled() {
         s.background(ColorToken::Hover)
     } else {
         s

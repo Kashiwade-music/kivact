@@ -348,7 +348,7 @@ fn range_regions(
     let end_template = message("creative.range.end", "{label} end");
     let start_template = message("creative.range.start", "{label} start");
     let interval_template = message("creative.range.interval", "{label} interval");
-    let pressed = |state: Value<PartState>| memo(move || state.get().pressed);
+    let pressed = |state: Value<PartState>| memo(move || state.get().is_pressed());
     let follow_press = move |pressed: Value<bool>, part: RangePart| {
         controller.feed(pressed, move |pressed| machine::Event::Press {
             part,
@@ -395,7 +395,7 @@ fn range_regions(
                 })
         });
         let state = control.state();
-        follow_press(memo(move || state.get().input.pressed), part);
+        follow_press(memo(move || state.get().input.is_pressed()), part);
         root = root.region(part.region(), control);
     }
     root

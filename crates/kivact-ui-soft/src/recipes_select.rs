@@ -110,7 +110,7 @@ fn option(theme: &Theme, s: &Look<ListItemState>) -> Style {
         .padding_y(padding_y)
         .gap(t.spacing.s2)
         .radius(t.radius.element);
-    if s.active && !s.input.disabled {
+    if s.active && !s.input.is_disabled() {
         base.background(t.colors.overlay_hover)
     } else {
         base
@@ -120,7 +120,7 @@ fn option(theme: &Theme, s: &Look<ListItemState>) -> Style {
 fn check(theme: &Theme, s: &Look<ListItemState>) -> Style {
     let t = theme.ext::<Tokens>();
     let size = if s.selected { t.sizes.icon_sm } else { 0.0 };
-    let color = if s.input.disabled {
+    let color = if s.input.is_disabled() {
         t.colors.icon_disabled
     } else {
         t.colors.accent

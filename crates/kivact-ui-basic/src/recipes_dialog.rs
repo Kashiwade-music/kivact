@@ -226,7 +226,7 @@ fn drag_handle(t: &Theme, s: &Look<DialogState>) -> Style {
     let base = style()
         .position(Position::Absolute)
         .shrink(0)
-        .cursor(if s.input.pressed {
+        .cursor(if s.input.is_pressed() {
             kivact::style::Cursor::Grabbing
         } else {
             kivact::style::Cursor::Grab

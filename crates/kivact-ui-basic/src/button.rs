@@ -124,7 +124,7 @@ pub(crate) fn trigger_style(
         }
         Look::Link => {
             let s = s.background(Color::TRANSPARENT).text_underline_offset(4);
-            if input.hovered && !input.disabled {
+            if input.is_hovered() && !input.is_disabled() {
                 s.text_decoration(TextDecorationLine::UNDERLINE)
             } else {
                 s

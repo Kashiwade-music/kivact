@@ -111,7 +111,7 @@ fn surface(t: &Theme) -> Style {
 fn when_lit(s: &kivact::ui::Look<MenuItemState>, base: Style, lit: Style) -> Style {
     if s.is_expanded() {
         base.merge(&lit)
-    } else if s.input.disabled {
+    } else if s.input.is_disabled() {
         base
     } else {
         base.group_hover(lit.clone()).group_focus(lit)

@@ -122,7 +122,7 @@ impl IntoView for GradientEditor {
         let input = root_part.state();
         let blocked = memo(move || {
             let input = input.get();
-            input.disabled || input.hidden
+            input.is_disabled() || input.is_hidden()
         });
         let drag = use_drag::<(usize, f64, f64)>(DragCoordinates::Local);
         let state = Model::new(self.stops, selection, valid, self.edit, blocked, drag);

@@ -377,11 +377,11 @@ fn release_capture_returns_to_hit_testing() {
     let (ox, oy) = center(&screen, "outside");
     screen.mouse_move(x, y);
     screen.mouse_down(MouseButton::Primary);
-    assert!(state.get().pressed);
+    assert!(state.get().is_pressed());
     log.borrow_mut().clear();
     screen.mouse_move(ox, oy);
     assert!(
-        !state.get().pressed,
+        !state.get().is_pressed(),
         "releasing capture ends the attached part press"
     );
     screen.mouse_move(ox + 1.0, oy);
@@ -392,7 +392,7 @@ fn release_capture_returns_to_hit_testing() {
     log.borrow_mut().clear();
     screen.mouse_down(MouseButton::Primary);
     assert!(
-        !state.get().pressed,
+        !state.get().is_pressed(),
         "capture and release in one callback ends the part press"
     );
     screen.mouse_move(ox, oy);

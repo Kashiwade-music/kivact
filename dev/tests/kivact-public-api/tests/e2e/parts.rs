@@ -38,9 +38,9 @@ fn node_part_hover_includes_children_with_their_own_pointer_listener() {
         .rect()
         .unwrap();
     screen.mouse_move(child.x + 10.0, child.y + 10.0);
-    assert!(state.get().hovered);
+    assert!(state.get().is_hovered());
     screen.mouse_leave();
-    assert!(!state.get().hovered);
+    assert!(!state.get().is_hovered());
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 
@@ -62,21 +62,21 @@ fn region_pointer_capture_and_hover_use_independent_targets_and_shared_refs() {
         .rect()
         .unwrap();
     screen.mouse_move(rect.x + 20.0, rect.y + 20.0);
-    assert!(first.get().hovered && hovered.get());
+    assert!(first.get().is_hovered() && hovered.get());
     screen.mouse_move(rect.x + 120.0, rect.y + 20.0);
-    assert!(!first.get().hovered && !hovered.get());
-    assert!(second.get().hovered);
+    assert!(!first.get().is_hovered() && !hovered.get());
+    assert!(second.get().is_hovered());
     screen.mouse_move(rect.x + 210.0, rect.y + 20.0);
-    assert!(!second.get().hovered);
+    assert!(!second.get().is_hovered());
     screen.mouse_move(rect.x + 20.0, rect.y + 20.0);
     calls.borrow_mut().clear();
     screen.mouse_down(MouseButton::Primary);
     screen.mouse_move(rect.x + 120.0, rect.y + 20.0);
-    assert!(first.get().pressed && !second.get().pressed);
-    assert!(!first.get().hovered && second.get().hovered);
+    assert!(first.get().is_pressed() && !second.get().is_pressed());
+    assert!(!first.get().is_hovered() && second.get().is_hovered());
     screen.mouse_move(rect.x + 280.0, rect.y + 90.0);
     screen.mouse_up(MouseButton::Primary);
-    assert!(!first.get().pressed && !second.get().pressed);
+    assert!(!first.get().is_pressed() && !second.get().is_pressed());
     assert!(calls.borrow().iter().any(|(id, phase, region)| *id == 1
         && matches!(phase, PointerPhase::Up(_))
         && *region == Some(RegionId(1))));
@@ -89,9 +89,9 @@ fn region_pointer_capture_and_hover_use_independent_targets_and_shared_refs() {
     consume.set(true);
     screen.mouse_move(rect.x + 120.0, rect.y + 20.0);
     screen.mouse_up(MouseButton::Primary);
-    assert!(!first.get().pressed && !second.get().pressed);
+    assert!(!first.get().is_pressed() && !second.get().is_pressed());
     screen.mouse_leave();
-    assert!(!first.get().hovered && !second.get().hovered && !hovered.get());
+    assert!(!first.get().is_hovered() && !second.get().is_hovered() && !hovered.get());
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 
@@ -140,12 +140,12 @@ fn node_parts_keep_customizations_first_and_observe_consumed_input() {
     button.focus();
     screen.key_down(Key::Space, KeyCode::Space, Modifiers::default());
     assert!(
-        state.get().pressed,
+        state.get().is_pressed(),
         "observation precedes the consuming key handler"
     );
     assert_eq!(&*calls.borrow(), &["caller key"]);
     screen.key_up(Key::Space, KeyCode::Space, Modifiers::default());
-    assert!(!state.get().pressed);
+    assert!(!state.get().is_pressed());
     calls.borrow_mut().clear();
     button.a11y(A11yAction::Activate);
     assert_eq!(&*calls.borrow(), &["caller press", "behavior press"]);
@@ -156,13 +156,13 @@ fn node_parts_keep_customizations_first_and_observe_consumed_input() {
     screen.mouse_move(rect.x + 10.0, rect.y + 10.0);
     screen.mouse_down(MouseButton::Primary);
     assert!(
-        state.get().pressed,
+        state.get().is_pressed(),
         "consumed pointer input still updates state"
     );
     screen.mouse_up(MouseButton::Primary);
-    assert!(!state.get().pressed);
+    assert!(!state.get().is_pressed());
     screen.mouse_leave();
-    assert!(!state.get().hovered);
+    assert!(!state.get().is_hovered());
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 
@@ -188,10 +188,10 @@ fn canvas_parts_have_independent_focus_actions_input_state_and_geometry_lifetime
     assert_eq!(first_calls.get(), 1);
     assert_eq!(second_calls.get(), 0);
     screen.key_down(Key::Space, KeyCode::Space, Modifiers::default());
-    assert!(first_state.get().pressed);
-    assert!(!second_state.get().pressed);
+    assert!(first_state.get().is_pressed());
+    assert!(!second_state.get().is_pressed());
     screen.key_up(Key::Space, KeyCode::Space, Modifiers::default());
-    assert!(!first_state.get().pressed);
+    assert!(!first_state.get().is_pressed());
     screen.press_key(Key::Tab);
     assert!(
         second_state.get().is_focused(),

@@ -513,7 +513,7 @@ fn nav_entry_style(
         .line_height(t.typography.body.line_height_px / t.typography.body.size_px)
         .radius(t.radius.element)
         .background(
-            if !input.disabled && (input.is_focused() || input.hovered) {
+            if !input.is_disabled() && (input.is_focused() || input.is_hovered()) {
                 t.colors.overlay_hover
             } else {
                 kivact::style::Color::TRANSPARENT
@@ -634,7 +634,7 @@ pub(crate) fn menu_option_style(
             role.weight
         })
         .disabled(style().opacity(t.sizes.disabled_opacity));
-    if input.hovered || input.is_focused() {
+    if input.is_hovered() || input.is_focused() {
         base.background(t.colors.overlay_hover)
     } else {
         base
