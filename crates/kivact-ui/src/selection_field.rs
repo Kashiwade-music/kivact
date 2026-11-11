@@ -48,9 +48,9 @@ pub(crate) enum FieldEffect {
 /// The construction constants of one chooser's machine.
 pub(crate) struct FieldMachine {
     presentation: crate::SelectPresentation,
-    // xtask-allow(state-fields): independent: the trigger's measured bounds, separately from its availability
+    // xtask-allow(state-fields): independent: the trigger rect read from layout for each event, None until it is first laid out; a disabled trigger still has bounds and an unmeasured one may be enabled
     bounds: Option<Rect>,
-    // xtask-allow(state-fields): independent: the caller's availability, separately from the measured bounds
+    // xtask-allow(state-fields): independent: the caller's disabled flag read for each event; it is set apart from layout, so it is true or false whether or not the trigger has been measured
     disabled: bool,
     slop: f64,
 }

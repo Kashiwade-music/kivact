@@ -44,7 +44,7 @@ Navigation triggers open on hover. Clicking, Enter, Space or ArrowDown pins a pa
 
 Stepper item recipes receive `index`, `count`, and actual `orientation` from the same responsive layout projection; visual variants do not need to copy the axis or item count.
 
-Breadcrumb item recipes receive `BreadcrumbItemState { current, input }`; `input` comes from the actual link part and is absent for passive/current labels. Use this snapshot for state-dependent typography such as hover underline; paint-only pseudo-state styles cannot change text decoration.
+Breadcrumb item recipes receive `BreadcrumbItemState`: `Current`, `Label` or `Link(input)`. `is_current()` tells the current page, and `input()` is the actual link part's state, `None` for passive and current labels. Use this snapshot for state-dependent typography such as hover underline; paint-only pseudo-state styles cannot change text decoration.
 
 ## Choose a page-control layout
 

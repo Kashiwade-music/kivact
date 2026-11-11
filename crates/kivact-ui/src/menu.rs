@@ -39,7 +39,7 @@ pub struct Menu<K: kivact_core::state::ItemKey> {
     placement: Placement,
     // xtask-allow(state-fields): option: absent means the component's default
     align: Option<OverlayAlign>,
-    // xtask-allow(state-fields): independent: a construction option; every combination is valid
+    // xtask-allow(state-fields): option: Menu::at_least_anchor_width; false sizes the surface to its content
     at_least_anchor_width: bool,
     // xtask-allow(state-fields): option: absent means the component's default
     item: Option<ItemContent<K>>,
@@ -275,7 +275,7 @@ struct Level<K: kivact_core::state::ItemKey> {
     placement: Placement,
     // xtask-allow(state-fields): option: absent means the component's default
     align: Option<OverlayAlign>,
-    // xtask-allow(state-fields): independent: a construction option; every combination is valid
+    // xtask-allow(state-fields): option: copied from Menu::at_least_anchor_width for the top level; submenu levels are false
     at_least_anchor_width: bool,
     kind: LevelKind,
     label: Value<String>,

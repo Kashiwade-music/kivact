@@ -15,9 +15,9 @@ pub(super) enum FieldValidity {
 enum Draft {
     Following(Option<DateRange>),
     Editing {
-        // xtask-allow(state-fields): independent: the typed start endpoint, absent while that field is empty
+        // xtask-allow(state-fields): independent: the last date the start DateInput published, None once it is cleared; the two editors publish separately, so any pair with end is a draft, and start after end shows order_invalid
         start: Option<CalendarDate>,
-        // xtask-allow(state-fields): independent: the typed end endpoint, absent while that field is empty
+        // xtask-allow(state-fields): independent: the last date the end DateInput published, None once it is cleared; it is set apart from start, and an end before start is kept and reported by order_invalid
         end: Option<CalendarDate>,
         fields: FieldValidity,
     },

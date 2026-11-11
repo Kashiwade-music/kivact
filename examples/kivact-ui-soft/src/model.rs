@@ -5,9 +5,9 @@ use kivact::style::ThemeMode;
 
 #[derive(Clone, Copy)]
 pub(super) struct CatalogState {
-    // xtask-allow(state-fields): independent: caller-controlled appearance preference, unrelated to selected page or query
+    // xtask-allow(state-fields): independent: the appearance, seeded from the caller's ThemeMode and flipped by the Toggle appearance button; it only picks the theme, so every page and query can be shown in light or dark
     pub(super) dark: Signal<bool>,
-    // xtask-allow(state-fields): independent: the single selected-page index, independent of appearance and search text
+    // xtask-allow(state-fields): independent: the shown page, seeded from the caller's slug and set by the navigation buttons; the theme toggle never writes it, so any page shows in light or dark
     pub(super) selected: Signal<usize>,
     pub(super) query: Signal<String>,
 }

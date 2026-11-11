@@ -72,9 +72,9 @@ fn basic() -> impl IntoView {
 
 // example: checkboxes
 fn checkboxes() -> impl IntoView {
-    // xtask-allow(state-fields): independent: each checkbox of the demo is toggled separately
+    // xtask-allow(state-fields): independent: the Status Bar checkbox, flipped only by its own menu entry; the Activity Bar entry never touches it, so both, either or neither bar can be on
     let status = signal(true);
-    // xtask-allow(state-fields): independent: each checkbox of the demo is toggled separately
+    // xtask-allow(state-fields): independent: the Activity Bar checkbox, flipped only by its own menu entry; the Status Bar entry never touches it, so both, either or neither bar can be on
     let activity = signal(false);
     let entries = move || {
         vec![

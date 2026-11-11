@@ -44,7 +44,7 @@ Navigation の trigger は hover で開きます。click、Enter、Space、Arrow
 
 Stepper の項目の recipe は、同じ responsive layout の投影から `index`、`count`、実際の `orientation` を受け取ります。見た目の variant が向きや項目数をコピーする必要はありません。
 
-Breadcrumb の項目の recipe は `BreadcrumbItemState { current, input }` を受け取ります。`input` は実際のリンクの Part から来る値で、操作できないラベルや現在ページのラベルでは `None` です。hover 時の下線のような状態に応じた文字の装飾はこの値で設定します。描画だけの疑似状態の style では文字の装飾を変えられません。
+Breadcrumb の項目の recipe は `BreadcrumbItemState`（`Current`、`Label`、`Link(input)` のどれか）を受け取ります。`is_current()` は現在ページかどうか、`input()` は実際のリンクの Part の値で、操作できないラベルや現在ページのラベルでは `None` です。hover 時の下線のような状態に応じた文字の装飾はこの値で設定します。描画だけの疑似状態の style では文字の装飾を変えられません。
 
 ## ページ操作の形を選ぶ
 

@@ -481,9 +481,9 @@ fn dot_control(
         })
 }
 struct ControlContent {
-    // xtask-allow(state-fields): option: absent means the component's default
+    // xtask-allow(state-fields): option: the summary built from the caller's summary slot, or the page count in Count and Compact modes; absent places no summary between the controls
     summary: Option<View>,
-    // xtask-allow(state-fields): option: absent means the component's default
+    // xtask-allow(state-fields): option: the page field built only for PaginationMode::Input; absent in every other mode, and it may sit beside a caller summary
     input: Option<View>,
 }
 fn render_controls(
@@ -694,7 +694,7 @@ fn control_disabled(
 struct PageExtras {
     // xtask-allow(state-fields): option: absent means the component's default
     summary: Option<SummarySlot>,
-    // xtask-allow(state-fields): option: absent means the component's default
+    // xtask-allow(state-fields): option: the caller's Pagination::page_size binding; absent shows no size select and counts one item per page
     page_size: Option<Binding<u32>>,
     size_options: Value<Vec<u32>>,
     page_label: Value<String>,

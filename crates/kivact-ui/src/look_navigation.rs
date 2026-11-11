@@ -94,7 +94,7 @@ pub(super) fn breadcrumb_item(t: &Theme, s: &Look<crate::BreadcrumbItemState>) -
         .min_width(0)
         .border(0, kivact_core::style::Color::TRANSPARENT)
         .background(kivact_core::style::Color::TRANSPARENT)
-        .color(if s.current {
+        .color(if s.is_current() {
             t.colors().text
         } else {
             t.colors().text_muted

@@ -42,9 +42,9 @@ pub struct DataTableStickyPaint {
     pub selected: Color,
     pub shadow: Color,
     pub shadow_width: f64,
-    // xtask-allow(state-fields): option: absent means the theme's default
+    // xtask-allow(state-fields): option: a theme author's tween for the pinned-column shadow; None switches the shadow without animation
     pub shadow_transition: Option<Transition>,
-    // xtask-allow(state-fields): option: absent means the theme's default
+    // xtask-allow(state-fields): option: a theme author's tween for the pinned cells' hover overlay; None changes the overlay without animation
     pub overlay_transition: Option<Transition>,
 }
 

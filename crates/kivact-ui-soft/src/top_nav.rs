@@ -60,13 +60,13 @@ struct TopNavCx {
 
 #[derive(Default)]
 struct Slots {
-    // xtask-allow(state-fields): option: absent means the component's default
+    // xtask-allow(state-fields): option: caller content from TopNav::heading, mounted once; absent leaves the heading area empty.
     heading: Option<View>,
-    // xtask-allow(state-fields): option: absent means the component's default
+    // xtask-allow(state-fields): option: caller content from TopNav::start, mounted once and dropped in the mobile bar; absent leaves the start area empty.
     start: Option<View>,
-    // xtask-allow(state-fields): option: absent means the component's default
+    // xtask-allow(state-fields): option: caller content from TopNav::center, mounted once and dropped in the mobile bar; absent leaves the center area empty.
     center: Option<View>,
-    // xtask-allow(state-fields): option: absent means the component's default
+    // xtask-allow(state-fields): option: caller content from TopNav::end, mounted once; absent leaves the end area empty.
     end: Option<View>,
 }
 

@@ -126,7 +126,7 @@ pub struct BottomSheet {
     snap_points: Vec<SnapPoint>,
     scrim: kivact::state::Value<bool>,
     padding: kivact::state::Value<f64>,
-    // xtask-allow(state-fields): option: caller-selected focus destination, not a pending focus phase.
+    // xtask-allow(state-fields): option: caller target from BottomSheet::final_focus; absent leaves focus restoration to the modal overlay's opener.
     final_focus: Option<NodeRef>,
     content: Option<ViewFn>,
 }

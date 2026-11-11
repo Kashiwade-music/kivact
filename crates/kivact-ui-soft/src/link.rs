@@ -264,13 +264,13 @@ struct LinkAppearance {
     size: Option<Value<f64>>,
     // xtask-allow(state-fields): option: immutable font-weight override.
     weight: Option<u16>,
-    // xtask-allow(state-fields): independent: readonly underline choice sampled from the builder.
+    // xtask-allow(state-fields): option: caller choice from Link::underline sampled once in into_view; false underlines only on hover of an interactive link.
     underline: bool,
     color: LinkColor,
-    // xtask-allow(state-fields): independent: readonly typography fallback choice sampled from the builder.
+    // xtask-allow(state-fields): option: caller choice from Link::standalone sampled once in into_view; false inherits the surrounding typography.
     standalone: bool,
     direction: Direction,
-    // xtask-allow(state-fields): independent: readonly presence of the caller activation callback.
+    // xtask-allow(state-fields): option: whether the caller gave Link an activation callback; false paints a static link without pointer cursor or pressed state.
     interactive: bool,
 }
 impl LinkAppearance {

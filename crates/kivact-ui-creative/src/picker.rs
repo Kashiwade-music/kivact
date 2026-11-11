@@ -70,7 +70,7 @@ pub struct PickerItem<K> {
     // xtask-allow(state-fields): option: absent means the row has no icon
     /// An icon before the label: a name in the theme's icon set or an image.
     pub icon: Option<Icon>,
-    // xtask-allow(state-fields): independent: the application's availability input; an enabled and a disabled item are both valid
+    // xtask-allow(state-fields): option: the application's PickerItem::enabled (default true), a constant inside the items value; false keeps the row listed but never active or pickable
     /// A disabled item stays in the list but is never active and cannot be
     /// picked.
     pub enabled: bool,

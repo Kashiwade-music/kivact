@@ -119,9 +119,9 @@ fn no_close_button() -> impl IntoView {
 
 // example: confirm
 fn confirm() -> impl IntoView {
-    // xtask-allow(state-fields): independent: the dialog can be opened again after the deletion; every open and closed state is valid
+    // xtask-allow(state-fields): independent: "Delete account" opens the dialog and Cancel or Delete closes it; reopening after the deletion keeps deleted true
     let open = signal(false);
-    // xtask-allow(state-fields): independent: a one-way record of the deletion, kept after the dialog closes
+    // xtask-allow(state-fields): independent: set by the dialog's Delete button and never cleared; the account line reads it with the dialog open or closed
     let deleted = signal(false);
     column((
         button("Delete account")

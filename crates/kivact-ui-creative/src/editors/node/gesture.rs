@@ -48,6 +48,19 @@ impl Target {
 
 pub(crate) type ConnectGuard = Value<Rc<dyn Fn(&NodeLink) -> bool>>;
 
+/// What a region reports besides its name, value and role; decided by the target's kind.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) enum Facet {
+    /// Items, sockets and choice controls.
+    Plain,
+    /// A toggle control.
+    Toggle { checked: bool },
+    /// A number control.
+    Range { min: f64, max: f64, now: f64 },
+    /// A link between two sockets.
+    Link { selected: bool },
+}
+
 #[derive(Clone, PartialEq)]
 pub(crate) struct Info {
     pub(crate) id: RegionId,
@@ -55,11 +68,25 @@ pub(crate) struct Info {
     pub(crate) name: String,
     pub(crate) value: String,
     pub(crate) role: Role,
-    // xtask-allow(state-fields): option: a target reports a checked state only when its role has one
-    pub(crate) checked: Option<bool>,
-    pub(crate) selected: bool,
-    // xtask-allow(state-fields): option: a target reports a numeric range only when its role has one
-    pub(crate) range: Option<(f64, f64, f64)>,
+    pub(crate) facet: Facet,
+}
+
+impl Info {
+    pub(crate) fn checked(&self) -> Option<bool> {
+        match self.facet {
+            Facet::Toggle { checked } => Some(checked),
+            _ => None,
+        }
+    }
+    pub(crate) fn range(&self) -> Option<(f64, f64, f64)> {
+        match self.facet {
+            Facet::Range { min, max, now } => Some((min, max, now)),
+            _ => None,
+        }
+    }
+    pub(crate) fn is_selected(&self) -> bool {
+        matches!(self.facet, Facet::Link { selected: true })
+    }
 }
 
 /// What the editor does besides a pointer drag. Its data lives in the variant.

@@ -22,11 +22,11 @@ pub struct Sidebar {
     pub(super) side: SidebarSide,
     pub(super) variant: SidebarVariant,
     pub(super) collapsible: SidebarCollapsible,
-    // xtask-allow(state-fields): option: absent means the component's default
+    // xtask-allow(state-fields): option: the caller's Sidebar::header; absent means the panel has no top section
     header: Option<kivact::view::View>,
-    // xtask-allow(state-fields): option: absent means the component's default
+    // xtask-allow(state-fields): option: the caller's Sidebar::content; absent means the panel has no scrolling middle section
     content: Option<kivact::view::View>,
-    // xtask-allow(state-fields): option: absent means the component's default
+    // xtask-allow(state-fields): option: the caller's Sidebar::footer; absent means the panel has no bottom section
     footer: Option<kivact::view::View>,
     rail: Value<bool>,
 }

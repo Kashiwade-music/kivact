@@ -13,9 +13,9 @@ pub(super) struct TransportState {
     pub fps: f64,
     // xtask-allow(state-fields): independent: Play and Stop toggle playing; Record and Cycle leave it
     pub playing: bool,
-    // xtask-allow(state-fields): independent: Record toggles recording; Play, Stop and Cycle leave it
+    // xtask-allow(state-fields): independent: the catalog's record toggle (audio_samples.rs) and the kit transport (controls) flip it; the stop button clears only playing and the loop switches only cycling
     pub recording: bool,
-    // xtask-allow(state-fields): independent: Cycle toggles cycling; Play, Stop and Record leave it
+    // xtask-allow(state-fields): independent: the loop switches in arrange.rs and audio_samples.rs and the kit transport set it; play, stop and record leave it
     pub cycling: bool,
     pub loop_start: f64,
     pub loop_end: f64,

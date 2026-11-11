@@ -153,15 +153,17 @@ fn breadcrumb_entry<K: Clone + PartialEq + 'static>(
     let body = item.map_or_else(|| text(label).into_view(), |slot| slot(entry.clone()));
     if current || activate.is_none() {
         let current = current.then_some(CurrentItem::Page);
+        let state = if current.is_some() {
+            BreadcrumbItemState::Current
+        } else {
+            BreadcrumbItemState::Label
+        };
         if item.is_none() {
             crate::layer::with_recipe_style(
                 text(label).current_item(current),
                 |r| r.breadcrumb_recipes().item_recipe(),
                 variants,
-                move || BreadcrumbItemState {
-                    current: current.is_some(),
-                    input: None,
-                },
+                move || state,
             )
             .into_view()
         } else {
@@ -173,10 +175,7 @@ fn breadcrumb_entry<K: Clone + PartialEq + 'static>(
                     .child(body),
                 |r| r.breadcrumb_recipes().item_recipe(),
                 variants,
-                move || BreadcrumbItemState {
-                    current: current.is_some(),
-                    input: None,
-                },
+                move || state,
             )
             .into_view()
         }
@@ -200,10 +199,7 @@ fn breadcrumb_entry<K: Clone + PartialEq + 'static>(
                 .child(body),
             |r| r.breadcrumb_recipes().item_recipe(),
             variants,
-            move || BreadcrumbItemState {
-                current,
-                input: Some(input.get()),
-            },
+            move || BreadcrumbItemState::Link(input.get()),
         )
         .into_view()
     }

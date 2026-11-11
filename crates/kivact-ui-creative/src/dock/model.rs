@@ -55,7 +55,7 @@ pub struct DockTab<K> {
     pub title: String,
     // xtask-allow(state-fields): option: absent means the tab shows no icon
     pub icon: Option<Icon>,
-    // xtask-allow(state-fields): independent: whether the application allows closing this tab; either value is valid
+    // xtask-allow(state-fields): option: the application's DockTab::closable (default true), a constant inside the layout value; false hides the close button and makes the close commands skip the tab
     /// Whether the tab shows a close button and the close commands remove it.
     pub closable: bool,
 }

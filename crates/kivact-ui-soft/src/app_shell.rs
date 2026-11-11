@@ -81,13 +81,13 @@ pub(crate) fn shell_nav_mode() -> ShellNavMode {
 
 /// Automatic mobile navigation configuration; defaults to a toggle and the Md breakpoint.
 pub struct MobileNavConfig {
-    // xtask-allow(state-fields): independent: whether the automatic configuration shows its toggle; unrelated to the caller's open binding
+    // xtask-allow(state-fields): option: caller choice from MobileNavConfig::has_toggle (default true); false hides the automatic drawer toggle so the app opens the drawer through its own control or the open binding.
     has_toggle: bool,
-    // xtask-allow(state-fields): option: caller binding to the existing drawer owner, not mirrored openness.
+    // xtask-allow(state-fields): option: caller binding from MobileNavConfig::open; absent makes configure_mobile create an initially closed local signal.
     open: Option<Binding<bool>>,
     on_change: Option<Callback<bool>>,
     content: Option<ViewFn>,
-    // xtask-allow(state-fields): option: viewport threshold construction configuration.
+    // xtask-allow(state-fields): option: caller threshold from MobileNavConfig::breakpoint (default Md); None disables viewport-driven switching to the mobile layout.
     breakpoint: Option<Breakpoint>,
 }
 
@@ -326,11 +326,11 @@ struct ShellPresentation {
     mobile: AppShellMobile,
     height: Value<ShellHeight>,
     variant: Value<ShellVariant>,
-    // xtask-allow(state-fields): independent: readonly presence of the actual top-navigation slot.
+    // xtask-allow(state-fields): option: whether the caller supplied AppShell::top_nav, captured once in into_view; false means the shell has no top navigation.
     has_top: bool,
-    // xtask-allow(state-fields): independent: readonly presence of the actual side-navigation slot.
+    // xtask-allow(state-fields): option: whether the caller supplied AppShell::side_nav, captured once in into_view; false means the shell has no sidebar.
     has_side: bool,
-    // xtask-allow(state-fields): independent: readonly presence of the actual banner slot.
+    // xtask-allow(state-fields): option: whether the caller supplied AppShell::banner, captured once in into_view; false means the shell has no banner.
     has_banner: bool,
 }
 fn configure_mobile(

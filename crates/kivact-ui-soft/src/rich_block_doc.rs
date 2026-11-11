@@ -21,9 +21,9 @@ pub(super) enum Kind {
     Heading(u32),
     Quote,
     List {
-        // xtask-allow(state-fields): independent: the number of an ordered list item, absent for a bullet
+        // xtask-allow(state-fields): independent: parsed from the `N.` marker and incremented on split; a task checkbox may sit on ordered or bullet items, so every number and checked pair comes from valid source.
         number: Option<u32>,
-        // xtask-allow(state-fields): independent: the check state of a task item, absent for a plain item
+        // xtask-allow(state-fields): independent: parsed from the `[ ]` / `[x]` prefix and toggled only by Document::task, which rewrites the head text in the same step; numbering never constrains it.
         checked: Option<bool>,
     },
     Code(String),

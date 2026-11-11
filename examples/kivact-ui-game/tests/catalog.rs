@@ -251,3 +251,16 @@ fn game_effects_page_mounts_its_samples_with_main_roles() {
     screen.get_by_role(Role::Button, "再生し直す");
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
+
+#[test]
+fn window_status_shows_the_last_command_after_run() {
+    let screen = mount();
+    chapter(&screen, "layout");
+    let tools = screen.get_by_test_id("game-window-toolbar");
+    let status = || screen.get_by_test_id("game-window-status").text();
+    tools.get_by_role(Role::Button, "実行").click();
+    assert_eq!(status(), "Running");
+    tools.get_by_role(Role::Button, "保存").click();
+    assert!(status().starts_with("Saved "), "{}", status());
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}

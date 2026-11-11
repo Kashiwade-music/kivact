@@ -74,20 +74,20 @@ kivact_core::state::constant_value!(
 #[derive(Clone, Debug, PartialEq)]
 pub struct ChatMessageState {
     pub sender: ChatSender,
-    // xtask-allow(state-fields): projection: readonly snapshot of the chat part's state for recipes, written only by its render function
+    // xtask-allow(state-fields): option: ChatMessage::status; absent for a message without a delivery state
     pub status: Option<ChatMessageStatus>,
     pub align: ChatAlign,
     pub group: ChatBubbleGroup,
     pub reactions_side: ChatReactionsSide,
-    // xtask-allow(state-fields): projection: readonly snapshot of the chat part's state for recipes, written only by its render function
+    // xtask-allow(state-fields): independent: ChatMessage::reactions fills the reaction slot of a message with or without header, footer, avatar or press handler
     pub has_reactions: bool,
-    // xtask-allow(state-fields): projection: readonly snapshot of the chat part's state for recipes, written only by its render function
+    // xtask-allow(state-fields): independent: ChatMessage::on_press makes the bubble pressable, whichever of its slots are filled
     pub actionable: bool,
-    // xtask-allow(state-fields): projection: readonly snapshot of the chat part's state for recipes, written only by its render function
+    // xtask-allow(state-fields): independent: ChatMessage::header fills the slot above the bubble; header, footer and avatar are separate builder calls and each renders alone
     pub has_header: bool,
-    // xtask-allow(state-fields): projection: readonly snapshot of the chat part's state for recipes, written only by its render function
+    // xtask-allow(state-fields): independent: ChatMessage::footer fills the slot below the bubble, with or without a header
     pub has_footer: bool,
-    // xtask-allow(state-fields): projection: readonly snapshot of the chat part's state for recipes, written only by its render function
+    // xtask-allow(state-fields): independent: ChatMessage::avatar fills the avatar slot beside a bubble of any group position, with or without header or footer
     pub has_avatar: bool,
 }
 /// Scroll-follow facts supplied by the shared follow behavior.

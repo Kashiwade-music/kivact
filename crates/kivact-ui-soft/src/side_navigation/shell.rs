@@ -235,9 +235,8 @@ impl IntoView for SideNav {
                 None
             };
             let collapsed = sidebar_collapse(collapse, resize.as_ref());
-            let expanded_width = signal(SidebarWidth::Expanded(
-                resize.as_ref().map_or(260.0, |resize| resize.default_width),
-            ));
+            let expanded_width =
+                signal(resize.as_ref().map_or(260.0, |resize| resize.default_width));
             let cx = SideNavCx {
                 surface: collapsed.map_or(NavSurface::Fixed, NavSurface::Collapsible),
                 ..SideNavCx::default()
@@ -373,13 +372,13 @@ fn sidebar_collapse(
 
 struct SideNavSlots {
     children: View,
-    // xtask-allow(state-fields): independent: a measured or construction value; retained header content slot; this record owns no sidebar phase.
+    // xtask-allow(state-fields): option: caller content from SideNav::header, mounted once; absent means no sidebar header.
     header: Option<View>,
-    // xtask-allow(state-fields): independent: a measured or construction value; retained top content slot; this record owns no sidebar phase.
+    // xtask-allow(state-fields): option: caller content from SideNav::top_content, mounted once; absent means nothing above the entries.
     top: Option<View>,
-    // xtask-allow(state-fields): independent: a measured or construction value; retained footer content slot; this record owns no sidebar phase.
+    // xtask-allow(state-fields): option: caller content from SideNav::footer, mounted once; absent means no footer content.
     footer: Option<View>,
-    // xtask-allow(state-fields): independent: a measured or construction value; retained icons content slot; this record owns no sidebar phase.
+    // xtask-allow(state-fields): option: caller actions from SideNav::footer_icons, mounted once; absent means no compact rail actions.
     icons: Option<View>,
 }
 impl SideNavSlots {
@@ -485,31 +484,10 @@ fn sidebar_bottom_style(cx: SideNavCx, mode: ShellNavMode) -> kivact::style::Sty
     base
 }
 
-/// The width a resizable sidebar remembers while its rail is collapsed.
-#[derive(Clone, Copy, PartialEq)]
-enum SidebarWidth {
-    /// The rail is collapsed; `restore` is the expanded width it returns to.
-    Collapsed {
-        /// The width the sidebar expands to again.
-        restore: f64,
-    },
-    /// The sidebar is expanded at this width.
-    Expanded(f64),
-}
-
-impl SidebarWidth {
-    fn expanded(self) -> f64 {
-        match self {
-            Self::Collapsed { restore } => restore,
-            Self::Expanded(width) => width,
-        }
-    }
-}
-
 fn resize_grip(
     resize: SideNavResize,
     collapsed: Option<Binding<bool>>,
-    expanded_width: kivact::state::Signal<SidebarWidth>,
+    expanded_width: kivact::state::Signal<f64>,
     nav_ref: kivact::view::NodeRef,
 ) -> Node {
     let size = binding(
@@ -517,7 +495,7 @@ fn resize_grip(
             if collapsed.is_some_and(|collapsed| collapsed.get()) {
                 0.0
             } else {
-                expanded_width.get().expanded()
+                expanded_width.get()
             }
         },
         move |size| {
@@ -525,13 +503,11 @@ fn resize_grip(
                 if let Some(collapsed) = collapsed {
                     collapsed.set(true);
                 }
-                let restore = expanded_width.get().expanded();
-                expanded_width.set(SidebarWidth::Collapsed { restore });
             } else {
                 if let Some(collapsed) = collapsed {
                     collapsed.set(false);
                 }
-                expanded_width.set(SidebarWidth::Expanded(size.clamp(resize.min, resize.max)));
+                expanded_width.set(size.clamp(resize.min, resize.max));
             }
         },
     );
@@ -584,14 +560,14 @@ fn resize_grip(
 
 fn sidebar_width(
     cx: SideNavCx,
-    expanded_width: kivact::state::Signal<SidebarWidth>,
+    expanded_width: kivact::state::Signal<f64>,
     animate: bool,
 ) -> impl Fn() -> f64 {
     let target = move || {
         if cx.rail() {
             kivact::style::use_tokens::<crate::Tokens>().spacing.s12
         } else {
-            expanded_width.get().expanded()
+            expanded_width.get()
         }
     };
     let animated_width = if animate {

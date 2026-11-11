@@ -233,7 +233,7 @@ struct RowFactory {
     row_height: Option<Value<f64>>,
     levels: Value<HashMap<u64, u32>>,
     item_drop: Option<Callback<TreeDrop>>,
-    // xtask-allow(state-fields): option: absent means a double click renames instead of activating
+    // xtask-allow(state-fields): option: whether the caller set Outliner::on_activate; false means a double click renames the row instead of activating it
     has_activation: bool,
 }
 impl RowFactory {

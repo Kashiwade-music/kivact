@@ -42,10 +42,10 @@ use std::time::Duration;
 /// An action entry for a navigation heading menu, with optional supporting content.
 pub struct NavHeadingMenuItem {
     pub(crate) label: Value<String>,
-    // xtask-allow(state-fields): option: absent means the component's default
+    // xtask-allow(state-fields): option: caller supporting text from NavHeadingMenuItem::description; absent renders the label alone.
     pub(crate) description: Option<Value<String>>,
     pub(crate) icon: Option<ViewFn>,
-    // xtask-allow(state-fields): option: absent means the component's default
+    // xtask-allow(state-fields): option: caller availability from NavHeadingMenuItem::disabled; false keeps the entry selectable.
     pub(crate) disabled: bool,
     pub(crate) action: Option<Callback<()>>,
 }
