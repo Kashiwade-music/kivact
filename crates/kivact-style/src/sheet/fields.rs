@@ -524,24 +524,25 @@ const _: () = assert!(
     "Style keeps its groups boxed"
 );
 
+/// Whether two optional groups are equal, an unset group counting as its defaults.
+fn group_eq<T: Default + PartialEq>(a: Option<&T>, b: Option<&T>) -> bool {
+    match (a, b) {
+        (Some(a), Some(b)) => a == b,
+        (None, None) => true,
+        (Some(set), None) | (None, Some(set)) => *set == T::default(),
+    }
+}
+
 impl PartialEq for Style {
     fn eq(&self, other: &Self) -> bool {
-        self.size.as_deref().cloned().unwrap_or_default()
-            == other.size.as_deref().cloned().unwrap_or_default()
-            && self.spacing.as_deref().cloned().unwrap_or_default()
-                == other.spacing.as_deref().cloned().unwrap_or_default()
-            && self.flow.as_deref().cloned().unwrap_or_default()
-                == other.flow.as_deref().cloned().unwrap_or_default()
-            && self.paint.as_deref().cloned().unwrap_or_default()
-                == other.paint.as_deref().cloned().unwrap_or_default()
-            && self.transform.as_deref().cloned().unwrap_or_default()
-                == other.transform.as_deref().cloned().unwrap_or_default()
-            && self.text.as_deref().cloned().unwrap_or_default()
-                == other.text.as_deref().cloned().unwrap_or_default()
-            && self.states.as_deref().cloned().unwrap_or_default()
-                == other.states.as_deref().cloned().unwrap_or_default()
-            && self.motion.as_deref().cloned().unwrap_or_default()
-                == other.motion.as_deref().cloned().unwrap_or_default()
+        group_eq(self.size.as_deref(), other.size.as_deref())
+            && group_eq(self.spacing.as_deref(), other.spacing.as_deref())
+            && group_eq(self.flow.as_deref(), other.flow.as_deref())
+            && group_eq(self.paint.as_deref(), other.paint.as_deref())
+            && group_eq(self.transform.as_deref(), other.transform.as_deref())
+            && group_eq(self.text.as_deref(), other.text.as_deref())
+            && group_eq(self.states.as_deref(), other.states.as_deref())
+            && group_eq(self.motion.as_deref(), other.motion.as_deref())
             && self.duplicates == other.duplicates
     }
 }
@@ -572,3 +573,17 @@ impl Style {
     }
 }
 kivact_runtime::constant_value!(Style);
+
+#[cfg(test)]
+mod eq_tests {
+    //! Role: Tests of Style equality: an unset group equals its defaults.
+    use super::*;
+
+    #[test]
+    fn an_unset_group_equals_its_defaults() {
+        let mut set = Style::default();
+        set.size_mut();
+        assert_eq!(set, Style::default());
+        assert_eq!(Style::default(), set);
+    }
+}
