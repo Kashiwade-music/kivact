@@ -85,7 +85,7 @@ pub struct Runtime {
     pub(crate) host: Rc<dyn crate::reactive::host_types::Host>,
     pub(crate) state: Cell<crate::reactive::host_types::TurnState>,
     pub(crate) exit: Cell<crate::reactive::host_types::ExitState>,
-    // xtask-allow(state-fields): statistic: the runtime's clock reading in nanoseconds; any value is valid on its own
+    // xtask-allow(state-fields): independent: the App's monotonic time, written only by advance_clock from each turn's host time; timers and gestures read it, and every reading is valid in any turn or exit state
     pub(crate) clock: Cell<u64>,
     pub(crate) diag: RefCell<Diag>,
     /// Errors raised where no user code may run (inside the engine's
@@ -206,10 +206,10 @@ pub(crate) enum NodeData {
 pub(crate) struct SourceNode {
     /// (subscriber, index of this node in subscriber.deps).
     pub(crate) subs: Links,
-    // xtask-allow(state-fields): independent: the write version the graph comparisons read; the diagnostic record below may be absent
+    // xtask-allow(state-fields): identity: the write epoch notify_subscribers stamps on every change or trigger; recheck_after_own_writes compares it with the epoch before an effect ran, and no running flag sits beside it
     /// Write generation of the last change.
     pub(crate) changed_at: kivact_types::cell::Generation,
-    // xtask-allow(state-fields): independent: the diagnostic record of the last value-changing write; absent until one happens
+    // xtask-allow(state-fields): statistic: where and in which turn the last value-changing write happened; only the node diagnostics (why chains, DevTools) read it
     /// Location and turn of the last value-changing write (why chains).
     pub(crate) written: Option<(&'static Location<'static>, Turn)>,
 }
@@ -329,7 +329,7 @@ pub(crate) struct OwnerExtra {
 }
 
 pub(crate) struct OwnerEntry {
-    // xtask-allow(state-fields): option: absent means the root owner, which has no parent
+    // xtask-allow(state-fields): independent: the creating owner, set by create_owner and cleared only by detach_owner when this owner's disposal starts; the root is live without one, a detached disposal root is disposing without one, and children keep theirs
     pub(crate) parent: Option<Key>,
     pub(crate) parent_index: u32,
     pub(crate) children: Vec<Key>,

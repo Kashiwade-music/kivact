@@ -3,16 +3,16 @@
 /// What a runtime has queued, as one snapshot ([`Runtime::pending`](crate::reactive::Runtime::pending)).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Pending {
-    // xtask-allow(state-fields): independent: one of four independent wake facts; any combination can be pending
+    // xtask-allow(state-fields): independent: a snapshot of the user-effect queue taken by Runtime::pending; user effects queue whether or not render effects, deferred reports or a sent wake exist
     /// User effects wait for [`Runtime::run_user_effects`](crate::reactive::Runtime::run_user_effects).
     pub user: bool,
-    // xtask-allow(state-fields): independent: one of four independent wake facts; any combination can be pending
+    // xtask-allow(state-fields): independent: a snapshot of the render and internal effect queue taken by Runtime::pending; a render effect queues with or without user effects, deferred reports or a sent wake
     /// Render or Internal effects wait for [`Runtime::stabilize`](crate::reactive::Runtime::stabilize).
     pub render: bool,
-    // xtask-allow(state-fields): independent: one of four independent wake facts; any combination can be pending
+    // xtask-allow(state-fields): independent: a snapshot of the deferred error reports taken by Runtime::pending; layout can report an error whatever effects are queued and whether a wake was sent
     /// Errors wait for [`Runtime::deliver_later`](crate::reactive::Runtime::deliver_later).
     pub later: bool,
-    // xtask-allow(state-fields): independent: one of four independent wake facts; any combination can be pending
+    // xtask-allow(state-fields): independent: a snapshot of TurnState::WakeSent taken by Runtime::pending; a wake is also sent for tasks and timers, and a running turn has queued work without one, so it pairs with any queue contents
     /// A turn was requested of the driver and has not started.
     pub turn_requested: bool,
 }
