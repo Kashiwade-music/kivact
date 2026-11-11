@@ -19,7 +19,7 @@ use kivact::ui::ControlSize;
 use kivact::ui::Lift;
 use kivact::ui::Look;
 use kivact::ui::RadioGroupRecipes;
-use kivact::ui::SwitchDragState;
+use kivact::ui::ThumbDrag;
 use kivact::ui::TrackInput;
 use kivact::view::CheckedState;
 use kivact::view::Orientation;
@@ -74,29 +74,27 @@ fn switch_sign() -> f64 {
 }
 
 /// The side the switch shows while a gesture moves the thumb.
-fn switch_on(s: &Look<CheckableState>, drag: Option<SwitchDragState>) -> bool {
+fn switch_on(s: &Look<CheckableState>, drag: Option<ThumbDrag>) -> bool {
     match drag {
-        Some(SwitchDragState::Tracking(
-            TrackInput::Touch { on, .. } | TrackInput::Pointer { on },
-        )) => on,
+        Some(ThumbDrag::Tracking(TrackInput::Touch { on, .. } | TrackInput::Pointer { on })) => on,
         _ => s.is_checked(),
     }
 }
 
-fn switch_lifted(drag: Option<SwitchDragState>) -> bool {
+fn switch_lifted(drag: Option<ThumbDrag>) -> bool {
     matches!(
         drag,
         Some(
-            SwitchDragState::TouchPressed
-                | SwitchDragState::Tracking(TrackInput::Touch { .. })
-                | SwitchDragState::TouchReleased(Lift::Raised)
+            ThumbDrag::TouchPressed
+                | ThumbDrag::Tracking(TrackInput::Touch { .. })
+                | ThumbDrag::TouchReleased(Lift::Raised)
         )
     )
 }
 
-fn switch_offset(drag: Option<SwitchDragState>) -> Option<f64> {
+fn switch_offset(drag: Option<ThumbDrag>) -> Option<f64> {
     match drag {
-        Some(SwitchDragState::Tracking(TrackInput::Touch { offset, .. })) => Some(offset),
+        Some(ThumbDrag::Tracking(TrackInput::Touch { offset, .. })) => Some(offset),
         _ => None,
     }
 }
@@ -235,7 +233,7 @@ pub(super) fn switch_track(theme: &Theme, s: &Look<CheckableState>) -> Style {
     let (width, height) = switch_size(&t, s);
     let c = &t.colors;
     let drag = s.switch_drag();
-    let touch = drag.is_some_and(SwitchDragState::is_touch);
+    let touch = drag.is_some_and(ThumbDrag::is_touch);
     let on = switch_on(s, drag);
     let fill = if on { c.accent } else { c.border_emphasized };
     let fill = if s.input.is_hovered() && !s.input.is_disabled() && !touch {
@@ -308,10 +306,10 @@ pub(super) fn switch_thumb(theme: &Theme, s: &Look<CheckableState>) -> Style {
             return base;
         }
         let transition = match drag {
-            SwitchDragState::Tracking(_) => spring(304.6, 34.91),
-            SwitchDragState::TouchReleased(Lift::Settled) => spring(157.9, 17.59),
-            SwitchDragState::TouchReleased(Lift::Raised) => spring(438.6, 41.89),
-            SwitchDragState::TouchPressed => spring(746.3, 30.05),
+            ThumbDrag::Tracking(_) => spring(304.6, 34.91),
+            ThumbDrag::TouchReleased(Lift::Settled) => spring(157.9, 17.59),
+            ThumbDrag::TouchReleased(Lift::Raised) => spring(438.6, 41.89),
+            ThumbDrag::TouchPressed => spring(746.3, 30.05),
         };
         base.transition(kivact::style::TransitionProp::All, transition)
     } else {

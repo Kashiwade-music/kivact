@@ -187,8 +187,8 @@ pub use tree::{Tree, TreeRows, tree, tree_rows};
 pub use values::{
     AxisState, ButtonState, ButtonVariant, CheckControl, CheckableState, ControlSize,
     DataTableCellState, DataTableCheckState, DataTablePageState, DataTableRowState, DialogState,
-    FieldState, Lift, ProgressState, RadioGroupVariant, SelectTriggerState, SwitchDragState,
-    TextInputState, ToastGroupState, ToggleButtonState, TooltipArrowState, TrackInput,
+    FieldState, Lift, ProgressState, RadioGroupVariant, SelectTriggerState, TextInputState,
+    ThumbDrag, ToastGroupState, ToggleButtonState, TooltipArrowState, TrackInput,
     provide_control_size,
 };
 pub use variants::{Look, Variant};

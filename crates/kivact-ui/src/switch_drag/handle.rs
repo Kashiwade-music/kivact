@@ -1,13 +1,13 @@
 //! Role: Attach a switch gesture machine and publish its recipe projection.
 use super::geometry::Geometry;
 use super::machine::{self, Event, State, SwitchGesture};
-use crate::values::{ControlSize, SwitchDragState};
+use crate::values::{ControlSize, ThumbDrag};
 use kivact_core::custom::{Part, clock_now};
 use kivact_core::state::{Binding, Value, machine, memo};
 use kivact_core::style::use_theme;
 use kivact_core::view::{Handled, MouseButton, PointerKind, PointerPhase};
 use kivact_interaction::ToggleState;
-pub(crate) type Visual = Option<Value<Option<SwitchDragState>>>;
+pub(crate) type Visual = Option<Value<Option<ThumbDrag>>>;
 pub(crate) fn switch(
     control: Part<ToggleState>,
     value: Binding<bool>,

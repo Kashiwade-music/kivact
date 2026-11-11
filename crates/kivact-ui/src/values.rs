@@ -258,7 +258,7 @@ pub struct FieldState {
 /// tracked contact (touch with its offset, or a pointer), and a released touch
 /// thumb which is still raised or has settled.
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub enum SwitchDragState {
+pub enum ThumbDrag {
     /// A touch contact pressed the switch before moving it.
     TouchPressed,
     /// The contact moves the thumb.
@@ -267,7 +267,7 @@ pub enum SwitchDragState {
     TouchReleased(Lift),
 }
 
-impl SwitchDragState {
+impl ThumbDrag {
     /// Whether the gesture follows a touch contact.
     pub fn is_touch(self) -> bool {
         match self {
@@ -323,7 +323,7 @@ pub enum CheckControl {
         text: kivact_core::state::Value<String>,
         // xtask-allow(state-fields): independent: the live visual of the opted-in drag gesture, None when the switch has no drag or none is running; it runs while the switch is on or off
         /// Live visual state while the opted-in drag gesture moves the thumb.
-        drag: Option<SwitchDragState>,
+        drag: Option<ThumbDrag>,
     },
     /// A radio item: whether it is the group's chosen option.
     Radio {
@@ -408,7 +408,7 @@ impl CheckableState {
     }
 
     /// The live visual of a switch's opted-in drag; `None` otherwise.
-    pub fn switch_drag(&self) -> Option<SwitchDragState> {
+    pub fn switch_drag(&self) -> Option<ThumbDrag> {
         match self.control {
             CheckControl::Switch { drag, .. } => drag,
             CheckControl::CheckBox(_) | CheckControl::Radio { .. } => None,
