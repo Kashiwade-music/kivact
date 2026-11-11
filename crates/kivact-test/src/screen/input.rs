@@ -256,10 +256,17 @@ impl Screen {
         }
         let id = self.app.last_contact.get() + 1;
         self.app.last_contact.set(id);
+        let primary = !self
+            .app
+            .contacts
+            .borrow()
+            .iter()
+            .any(|(c, _)| c.window == self.window && c.kind == kind);
         let contact = Contact {
             id,
             window: self.window,
             kind,
+            primary,
         };
         let at = Point::new(x, y);
         self.app.contacts.borrow_mut().push((contact, at));
@@ -374,7 +381,7 @@ impl Screen {
                 },
                 time_ns: 0,
                 modifiers,
-                is_primary: true,
+                is_primary: contact.primary,
             },
         );
     }

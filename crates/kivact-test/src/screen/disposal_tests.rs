@@ -32,9 +32,9 @@ fn a_cleanup_writes_signals_and_registers_on_its_disposing_owner() {
     let slots = Rc::new(Cell::new(None));
     let (seen, slot) = (log.clone(), slots.clone());
     let screen = render(move || {
-        // xtask-allow(state-fields): independent: a test signal; the test observes it on its own
+        // xtask-allow(state-fields): independent: the show() condition the test flips to dispose the branch; the closed counter and the slot are written by other steps
         let open = signal(true);
-        // xtask-allow(state-fields): independent: a test signal; the test observes it on its own
+        // xtask-allow(state-fields): independent: the counter a late cleanup writes after the branch is gone; the test reads it whether open is true or false
         let closed = signal(0);
         slot.set(Some((open, closed)));
         let seen = seen.clone();

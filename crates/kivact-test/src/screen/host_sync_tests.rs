@@ -31,7 +31,7 @@ fn rejected_pointer_down_cannot_retain_an_ended_region_gesture() {
     let disabled = Rc::new(Cell::new(None));
     let disabled_slot = disabled.clone();
     let screen = render(move || {
-        // xtask-allow(state-fields): independent: a test signal; the test observes it on its own
+        // xtask-allow(state-fields): independent: the canvas's disabled input the test sets to reject a pointer down; the press and down counters move only on accepted input
         let disabled = signal(false);
         disabled_slot.set(Some(disabled));
         canvas(|draw, _| draw.region(RegionId(1), Rect::new(0., 0., 100., 60.)))

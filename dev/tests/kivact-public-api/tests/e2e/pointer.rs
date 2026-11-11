@@ -7,7 +7,8 @@
 //! the window ends the press, and a transform moves the drawing, not the
 //! hit area. A touch or pen contact presses like the primary button,
 //! hovers only while it lasts, ends without activating when canceled, and
-//! leaves the mouse's hover alone (several pointers at once: `multi_touch`).
+//! leaves the mouse's hover alone (several pointers at once:
+//! `a_second_touch_is_not_primary_and_leaves_hover_and_activation_to_the_first`).
 //! Key events carry the mouse's window position while it is in the window.
 
 use std::cell::RefCell;
@@ -399,4 +400,78 @@ fn release_capture_returns_to_hit_testing() {
     assert_eq!(&*log.borrow(), &["hit"]);
     screen.mouse_up(MouseButton::Primary);
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+/// A second finger down while the first is still down is not primary: it
+/// neither hovers, shows pressed nor activates; the first finger does.
+/// A finger that goes down after both lifted is primary again.
+#[test]
+fn a_second_touch_is_not_primary_and_leaves_hover_and_activation_to_the_first() {
+    let log: Log = Rc::default();
+    let (pa, pb) = (Rc::new(RefCell::new(0)), Rc::new(RefCell::new(0)));
+    let (out_a, out_b, ca, cb) = (log.clone(), log.clone(), pa.clone(), pb.clone());
+    let button = |id: &'static str, count: Rc<RefCell<i32>>, out: Log| {
+        node()
+            .role(Role::Button)
+            .name(id)
+            .test_id(id)
+            .focusable(true)
+            .on_press(move || *count.borrow_mut() += 1)
+            .on_pointer(move |e: PointerEvent| {
+                out.borrow_mut()
+                    .push(format!("{id} {:?} primary={}", e.phase(), e.is_primary()));
+                Handled::No
+            })
+            .style(
+                style()
+                    .size(60, 40)
+                    .background(rgb(0x101010))
+                    .pressed(style().background(rgb(0xc00000))),
+            )
+    };
+    let screen = render(move || {
+        column((button("a", ca, out_a), button("b", cb, out_b)))
+            .style(style().align_items(Align::Start))
+    });
+    let (ax, ay) = center(&screen, "a");
+    let (bx, by) = center(&screen, "b");
+    let first = screen.contact_down(PointerKind::Touch, ax, ay);
+    let second = screen.contact_down(PointerKind::Touch, bx, by);
+    let color = |x: f64, y: f64| screen.screenshot().pixel(x as u32, y as u32);
+    assert_eq!(color(ax, ay), Some(0xc00000), "the first finger presses a");
+    assert_eq!(
+        color(bx, by),
+        Some(0x101010),
+        "the second finger does not show pressed"
+    );
+    assert_eq!(
+        screen.hovered().and_then(|h| h.rect()),
+        screen.get_by_test_id("a").rect(),
+        "only the primary finger hovers"
+    );
+    screen.contact_up(second);
+    assert_eq!(*pb.borrow(), 0, "a non-primary finger does not activate");
+    screen.contact_up(first);
+    assert_eq!(*pa.borrow(), 1, "the primary finger activates");
+    let entries = std::mem::take(&mut *log.borrow_mut());
+    assert!(
+        entries
+            .iter()
+            .any(|e| e.starts_with("a Down") && e.ends_with("primary=true")),
+        "{entries:?}"
+    );
+    assert!(
+        entries
+            .iter()
+            .any(|e| e.starts_with("b Down") && e.ends_with("primary=false")),
+        "{entries:?}"
+    );
+    let again = screen.contact_down(PointerKind::Touch, bx, by);
+    assert_eq!(
+        color(bx, by),
+        Some(0xc00000),
+        "after both lifted, a new finger is primary"
+    );
+    screen.contact_up(again);
+    assert_eq!(*pb.borrow(), 1);
 }
