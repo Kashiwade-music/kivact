@@ -173,8 +173,8 @@ impl Engine {
     /// The extent [`Engine::shape`] would give a paragraph, without glyph
     /// runs or carets (for layout). Cached by text, spans, style (except
     /// what only drawing reads: colors, decorations, highlights) and
-    /// width once the paragraph was used before; it shares the shaped
-    /// paragraph with `shape`.
+    /// width from the paragraph's second use on; a paragraph measured and
+    /// shaped soon after (within the next few new paragraphs) is shaped once.
     pub fn measure_text<'t>(
         &mut self,
         text: impl Into<RichText<'t>>,

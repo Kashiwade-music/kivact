@@ -7,7 +7,7 @@
 //!
 //! Invariants:
 //! - Measuring and drawing size a paragraph by the same [`Plan`]; without
-//!   a cut it is parley's size, as before ellipses existed.
+//!   a cut it is parley's size.
 //! - A cut keeps whole clusters (a base character with its marks, a
 //!   ligature) from the line's visual start while they leave room for the
 //!   ellipsis, drops trailing white space, and draws "…" in the

@@ -218,8 +218,8 @@ fn same_variations(a: Option<VariationsRef<'_>>, b: Option<&[layouts::VariationB
 }
 
 /// The rest of the text vocabulary in a key, kept out of line: plain text
-/// in a plain style keys none (its key is as small and as quick to hash
-/// as before the vocabulary existed).
+/// in a plain style keys none (its key is the text and the common style only,
+/// small and quick to hash).
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 struct RichKey {
     letter_spacing: u64,
