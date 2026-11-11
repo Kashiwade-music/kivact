@@ -60,7 +60,7 @@ pub(crate) struct ArvaneAssets {
     reported_images: kivact_types::cell::ReportOnceSet<(NodeId, Asset)>,
     /// Missing families already reported (lowercase).
     reported_families: kivact_types::cell::ReportOnceSet<String>,
-    // xtask-allow(state-fields): independent: diagnostics found but not yet reported; any content is valid on its own
+    // xtask-allow(state-fields): independent: missing-family reports check_family queues during a layout pass and sync takes each commit; the font and store generations version other data and never gate the queue
     /// Reports found during a layout pass (missing families).
     pending: Vec<AssetEvent>,
 }

@@ -136,7 +136,6 @@ impl Model {
         let area = self.drawn_rect(id, area);
         let text = if session.purpose == kivact_types::InputPurpose::Password {
             arvane::ShellImeText {
-                password: true,
                 rects: vec![caret],
                 area,
                 ..arvane::ShellImeText::default()
@@ -145,7 +144,6 @@ impl Model {
             let units = |byte: usize| kivact_types::text_utf::utf16_offset(&session.text, byte);
             let (start, end) = (units(session.selection.start), units(session.selection.end));
             arvane::ShellImeText {
-                password: false,
                 text: session.text.clone(),
                 text_start: 0,
                 selection: (start.min(end), start.max(end)),

@@ -7,7 +7,7 @@ use std::thread::JoinHandle;
 pub(super) const MAX_DIMENSION: u32 = u16::MAX as u32;
 pub(super) struct Notifier {
     pub(super) wake: OwnedFd,
-    // xtask-allow(state-fields): option: the wake reasons coalesced across threads until the UI loop takes them
+    // xtask-allow(state-fields): independent: bits OR-ed in by `request` on any thread and swapped to zero by `take` on the UI thread; a request in any UiThread state only sets bits, which wait until the UI loop takes them
     pub(super) reasons: AtomicU8,
     /// The UI thread's lifetime: spawned once, and joined once at close.
     pub(super) thread: Mutex<UiThread>,

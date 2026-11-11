@@ -1,7 +1,7 @@
 //! Role: Incrementally reconcile one explicitly borrowed editor source.
 use crate::measure::editor::EditorNode;
 use crate::measure::state::MeasureColumns;
-use crate::text_input::{EditLines, RefreshError, RefreshMode, Source};
+use crate::text_input::{Breaks, EditLines, RefreshError, RefreshMode, Source};
 use crate::tree::NodeTree;
 use kivact_types::NodeId;
 use std::cell::RefMut;
@@ -88,8 +88,13 @@ pub(crate) fn refresh_lines<'a>(
         },
         placeholder: n.placeholder(),
         password: n.password(),
-        multiline: n.multiline(),
-        wrap_width: width.filter(|width| wrap && width.is_finite() && *width > 0.0),
+        breaks: if n.multiline() {
+            Breaks::Lines {
+                wrap: width.filter(|width| wrap && width.is_finite() && *width > 0.0),
+            }
+        } else {
+            Breaks::Single
+        },
     };
     #[cfg(all(debug_assertions, feature = "testing"))]
     let reference_style = (mode == RefreshMode::Verify).then(|| style.clone());

@@ -366,7 +366,7 @@ impl State {
                     locale: crate::native_input::locale::system_locale(),
                     ..Default::default()
                 },
-                None,
+                waker.clone(),
             ),
             target: Arc::new(super::target::Target {
                 instance,

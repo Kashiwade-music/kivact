@@ -53,6 +53,9 @@ pub struct Contact {
     /// The window the contact went down in.
     pub(super) window: WindowId,
     pub(super) kind: PointerKind,
+    /// Whether the platform calls it the primary contact: the first contact
+    /// of its kind down in the window. A later one is not primary.
+    pub(super) primary: bool,
 }
 
 impl Contact {

@@ -58,7 +58,9 @@ impl Model {
     ) -> crate::contract::Routed<PointerSample> {
         let pos = self.pointer_local(node, at);
         let region = self.node(node).and_then(|n| n.region_at(pos));
-        let source = *self.pointer.state.track(pointer).source();
+        let track = self.pointer.state.track(pointer);
+        let source = *track.source();
+        let is_primary = track.is_primary();
         crate::contract::Routed {
             window: self.window,
             target: Some(crate::contract::RouteTarget { node, region }),
@@ -79,15 +81,16 @@ impl Model {
                 kind: source.kind,
                 pressure: source.pressure,
                 tilt: source.tilt,
-                is_primary: source.primary,
+                is_primary,
                 time_ns: source.time_ns,
             },
         }
     }
 
-    /// Follow a new contact, `source`, at the window position `at`.
-    pub(super) fn begin_pointer(&mut self, source: PointerSource, at: Point) {
-        let mut track = Track::new(source);
+    /// Follow a new contact, `source`, at the window position `at`; `primary`
+    /// is the platform's `isPrimary` at its `Down`.
+    pub(super) fn begin_pointer(&mut self, source: PointerSource, primary: bool, at: Point) {
+        let mut track = Track::contact(source, primary);
         track.set_at(at);
         self.pointer.state.tracks.insert(source.id.0, track);
     }
@@ -241,7 +244,7 @@ impl Model {
         modifiers: Modifiers,
         space: &PointerSpace<'_>,
     ) {
-        if self.pointer.state.track(pointer).source().primary {
+        if self.pointer.state.track(pointer).is_primary() {
             let chain = self.tree.chain(hit);
             self.set_chain(pointer, Chain::Hover, chain);
         }
@@ -287,7 +290,7 @@ impl Model {
         let hit = self.scoped(hit);
         self.track_hover(pointer, hit, modifiers, space);
         let capture = self.pointer.state.track(pointer).capture();
-        if self.pointer.state.track(pointer).source().primary {
+        if self.pointer.state.track(pointer).is_primary() {
             self.primary_press(pointer, hit, press.button, modifiers, capture, space);
         }
         let target =

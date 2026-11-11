@@ -115,7 +115,7 @@ fn virtual_time_drives_sleep_and_frame_loops_exactly() {
 
     // Waiting in virtual time.
     let screen = render(|| {
-        // xtask-allow(state-fields): independent: a test signal; the test observes it on its own
+        // xtask-allow(state-fields): independent: set by the spawned sleep after 300 ms of virtual time; the frame-loop slot of the same test is filled at mount, before and after it flips
         let shown = signal(false);
         kivact_core::task::spawn(async move {
             kivact_core::task::sleep(Duration::from_millis(300)).await;

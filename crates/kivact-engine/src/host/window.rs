@@ -54,7 +54,7 @@ pub(super) enum ImeAllowed {
 pub(super) struct HostWindow {
     /// What became of the last frame presented (`Presented`).
     pub(super) last_present: LastPresent,
-    // xtask-allow(state-fields): projection: the environment last reported to the client, written only by Host::environment_changed
+    // xtask-allow(state-fields): projection: the environment last reported to the client, written only by Host::record_environment
     /// The window's environment as last read: a change of the system's
     /// theme is found by comparing with it (the theme reported at start is
     /// the host's own, not the snapshot's).
@@ -76,7 +76,7 @@ pub(super) struct HostWindow {
     pub(super) last_stats: Option<kivact_types::render::FrameStats>,
     /// The kind of window this is.
     pub(super) mode: WindowMode,
-    // xtask-allow(state-fields): independent: the parent window fixed when the window opened; modal input routing reads it
+    // xtask-allow(state-fields): option: the window the app declared this one in, given by its open request (window_changes.rs) and never changed; absent for a top-level window; modal input routing reads it
     /// The window the request was declared in.
     pub(super) parent: Option<WindowId>,
 }

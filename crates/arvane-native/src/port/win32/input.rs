@@ -145,16 +145,7 @@ pub(super) fn message(state: &Rc<State>, message: u32, w: WPARAM, l: LPARAM) -> 
         // A separate WM_CHAR (for example test text injection) remains a commit.
         WM_CHAR => {
             let unit = w as u16;
-            let text = {
-                let mut decoder = state.decoder.borrow_mut();
-                decoder.push(unit).map(|first| {
-                    let mut text = first.to_string();
-                    if let Some(tail) = decoder.take_tail() {
-                        text.push(tail);
-                    }
-                    text
-                })
-            };
+            let text = state.decoder.borrow_mut().push(unit);
             if let Some(text) = text
                 && !text.chars().all(char::is_control)
             {

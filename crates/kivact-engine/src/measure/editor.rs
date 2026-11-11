@@ -21,6 +21,7 @@ pub(crate) struct EditorNode {
     /// A controlled value given while the IME composes, taken when the
     /// composition ends.
     pub(crate) controlled: ControlledValue,
+    // xtask-allow(state-fields): projection: the session last sent to the selection listener, written only by Model::report_sessions
     /// Last session sent to the selection listener.
     pub(crate) reported_session: kivact_types::cell::Sent<kivact_editing::TextSession>,
     /// Horizontal text scroll, independent of container scrolling.

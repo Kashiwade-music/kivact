@@ -63,7 +63,7 @@ impl EditLines {
             })
             .collect();
         self.restart(0);
-        self.colored = 0;
+        self.set_colored(0);
         self.drawn = 0..0;
     }
 
@@ -73,8 +73,8 @@ impl EditLines {
         text: &str,
         engine: &mut arvane::Engine,
     ) -> Vec<(usize, usize, usize)> {
-        let hard = split(text, 0, text.len(), self.key.multiline, true);
-        let Some(width) = self.key.wrap_width else {
+        let hard = split(text, 0, text.len(), self.key.breaks.multiline(), true);
+        let Some(width) = self.key.breaks.wrap_width() else {
             return hard;
         };
         let mut style = self.key.style.clone();
@@ -142,7 +142,7 @@ impl EditLines {
         let m = self.line_of(old_end).max(k);
         let from = self.range(k).start;
         let to = (self.range(m).end as isize + delta) as usize;
-        let multiline = self.key.multiline;
+        let multiline = self.key.breaks.multiline();
         let bounded = from <= to
             && to <= text.len()
             && text.is_char_boundary(from)
@@ -204,7 +204,8 @@ impl EditLines {
         }
         self.chunks.retain(|c| !c.lines.is_empty());
         self.restart(ck);
-        self.colored = self.colored.min(k);
+        let colored = self.colored().min(k);
+        self.set_colored(colored);
         true
     }
 

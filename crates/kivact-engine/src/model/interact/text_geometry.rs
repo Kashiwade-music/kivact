@@ -244,7 +244,6 @@ pub(crate) fn ime_text(
     let area = host.drawn_rect(id, area);
     if node.password() {
         let text = arvane::ShellImeText {
-            password: true,
             text: String::new(),
             text_start: 0,
             selection: (0, 0),
@@ -262,7 +261,6 @@ pub(crate) fn ime_text(
         |byte: usize| lines.utf16_of_byte(value, byte.clamp(excerpt.start, excerpt.end)) - start;
     let selection = edit.selection();
     let text = arvane::ShellImeText {
-        password: false,
         text: value[excerpt.clone()].to_string(),
         text_start: start,
         selection: (units(selection.start), units(selection.end)),

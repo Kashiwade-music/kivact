@@ -21,10 +21,7 @@ pub(crate) enum Shown {
 pub(crate) struct Key {
     pub(crate) style: kivact_types::ComputedTextStyle,
     pub(crate) shown: Shown,
-    // xtask-allow(state-fields): cache: one component of a cache key; equality of the whole key is what matters
-    pub(crate) multiline: bool,
-    // xtask-allow(state-fields): cache: one component of a cache key; equality of the whole key is what matters
-    pub(crate) wrap_width: Option<f64>,
+    pub(crate) breaks: crate::text_input::source::Breaks,
 }
 
 impl Key {
@@ -49,8 +46,7 @@ impl Key {
         let key = Key {
             style,
             shown,
-            multiline: source.multiline,
-            wrap_width: source.wrap_width,
+            breaks: source.breaks,
         };
         (key, align)
     }

@@ -169,7 +169,7 @@ pub struct EditingData {
     // xtask-allow(state-fields): option: absent means the editor's default
     /// Keys bypassing native editing and its behavior, forwarded to client handlers.
     pub forward_keys: Option<Vec<Key>>,
-    // xtask-allow(state-fields): option: absent means the editor's default
+    // xtask-allow(state-fields): option: the controlled value the app writes (InputValue, Model::controlled_value); absent until the first write, when the editor starts from empty text
     /// Controlled document value; identity and revision govern host adoption.
     pub value: Option<std::rc::Rc<str>>,
     // xtask-allow(state-fields): option: absent means the editor's default

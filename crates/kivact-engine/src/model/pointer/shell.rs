@@ -287,7 +287,6 @@ impl Model {
                     let space = PointerSpace::new(self.pointer.state.track(id).at(), engine);
                     self.end_contact(id, modifiers, &space);
                 }
-                let primary = input.is_primary;
                 self.begin_pointer(
                     PointerSource {
                         time_ns: input.time_ns,
@@ -296,8 +295,8 @@ impl Model {
                         pressure: input.pressure,
                         tilt: input.tilt,
                         buttons: input.buttons,
-                        primary,
                     },
+                    input.is_primary,
                     at,
                 );
                 let hit = self.hit(at);

@@ -121,29 +121,47 @@ impl Recheck {
     }
 }
 
+/// What a derived raster is made from.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub(crate) enum VariantSource {
+    /// Frame `0` of a still, or frame `n` of an animation, of a raster source.
+    Frame(u32),
+    /// An SVG at a device size, or the part `crop` of it.
+    Svg { size: PixelSize, crop: Option<Crop> },
+}
+
 /// A derived raster: an SVG at a device size (or the part `crop` of it),
 /// and/or a tinted copy, of one frame of a raster source.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub(crate) struct VariantKey {
-    // xtask-allow(state-fields): cache: the device size, for SVG rasters only
-    /// The device size (SVG rasters only).
-    pub(crate) size: Option<PixelSize>,
-    // xtask-allow(state-fields): cache: the part of that size rasterized, for SVG rasters of a visible part
-    /// The part of that size rasterized (SVG rasters of a visible part).
-    pub(crate) crop: Option<Crop>,
-    // xtask-allow(state-fields): cache: the tint of the derived raster
+    pub(crate) source: VariantSource,
+    /// The tint of the copy (`None`: untinted).
     pub(crate) tint: Option<Tint>,
-    /// The frame of an animation a tinted copy is of (0 for stills and SVGs).
-    pub(crate) frame: u32,
 }
 
 impl VariantKey {
     /// The part of the image this variant covers.
     pub(crate) fn region(&self) -> crate::fit::Region {
-        match self.size {
-            Some(size) => Crop::region(self.crop, size),
-            None => crate::fit::Region::WHOLE,
+        match self.source {
+            VariantSource::Svg { size, crop } => Crop::region(crop, size),
+            VariantSource::Frame(_) => crate::fit::Region::WHOLE,
         }
+    }
+
+    /// Same picture apart from tint and animation frame (`trim_tints` counts these together).
+    pub(crate) fn same_shape(&self, other: &Self) -> bool {
+        match (self.source, other.source) {
+            (VariantSource::Frame(_), VariantSource::Frame(_)) => true,
+            (VariantSource::Svg { size: a, crop: c }, VariantSource::Svg { size: b, crop: d }) => {
+                a == b && c == d
+            }
+            _ => false,
+        }
+    }
+
+    /// Whether the variant covers the whole image (not only a part of an SVG).
+    pub(crate) fn is_whole(&self) -> bool {
+        !matches!(self.source, VariantSource::Svg { crop: Some(_), .. })
     }
 }
 

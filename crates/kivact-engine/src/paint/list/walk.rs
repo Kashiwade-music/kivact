@@ -11,8 +11,8 @@ use crate::layer::LayerView;
 use crate::model::Model;
 use crate::model::transform::map_rect;
 use crate::paint::state::{
-    ChildIndex, Entry, Grouping, LayerSpec, ListState, Look, PaintList, StaleFacts, Step,
-    SubtreeFacts,
+    ChildIndex, ClipShape, Entry, Grouping, LayerSpec, ListState, Look, PaintList, StaleFacts,
+    Step, SubtreeFacts,
 };
 use crate::tree::node::HostNode;
 use kivact_types::cell::Generation;
@@ -159,14 +159,18 @@ impl Walk<'_> {
         let (grouping, alpha) = opacity(host, id, n, &look, parent_alpha);
         // A layer applies its node's opacity itself.
         let alpha = if layer.is_some() { parent_alpha } else { alpha };
+        let clip_shape = match (clips, look.rounded) {
+            (false, _) => ClipShape::None,
+            (true, false) => ClipShape::Rect,
+            (true, true) => ClipShape::Rounded,
+        };
         let step = Step {
             id,
             origin: o,
             transform,
             alpha,
-            clips,
+            clip_shape,
             presence_clip,
-            rounded: look.rounded,
             own: visible,
             grouping,
             clip,

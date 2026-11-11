@@ -93,7 +93,7 @@ impl EditLines {
             let text = self.shown(source.value, source.placeholder);
             self.rebuild_with_metrics(text, engine);
         } else if self.revision != source.revision && self.shows_value() {
-            let fits = self.key.wrap_width.is_none()
+            let fits = self.key.breaks.wrap_width().is_none()
                 && source
                     .damage
                     .filter(|d| d.base == self.revision)
