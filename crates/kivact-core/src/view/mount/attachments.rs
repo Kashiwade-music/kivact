@@ -11,7 +11,7 @@ use crate::view::element_data::{Constraints, Registry};
 use crate::view::node_ref::NodeRef;
 use crate::view::part_data::PartBinding;
 
-/// What the parts and canvas regions attached to one node resolved to (C18).
+/// What the parts and canvas regions attached to one node resolved to.
 pub(super) struct Attached {
     pub(super) constraints: Constraints,
     pub(super) bindings: Vec<PartBinding>,

@@ -24,6 +24,8 @@ pub(crate) struct Prop {
     pub(crate) name: Ident,
     pub(crate) kind: PropKind,
     pub(crate) required: Required,
+    /// Declared `mut` in the function, so the body may change it.
+    pub(crate) mutable: bool,
 }
 
 impl Prop {
@@ -193,13 +195,26 @@ fn prop(input: &FnArg) -> syn::Result<Prop> {
             "a #[component] prop is a named argument",
         ));
     };
+    if binding.by_ref.is_some() || binding.subpat.is_some() {
+        return Err(syn::Error::new_spanned(
+            &pat.pat,
+            "a #[component] prop is a plain named argument (no `ref` or `@` pattern)",
+        ));
+    }
     let name = binding.ident.clone();
     let (required, ty) = required(&pat.attrs, &pat.ty)?;
+    if matches!(ty, Type::ImplTrait(_)) {
+        return Err(syn::Error::new_spanned(
+            &ty,
+            "a #[component] prop has a concrete type: write `Value<T>` for a value, `View` for content or `Callback<E>` for a handler instead of `impl Trait`",
+        ));
+    }
     let kind = kind(&ty)?;
     Ok(Prop {
         name,
         kind,
         required,
+        mutable: binding.mutability.is_some(),
     })
 }
 

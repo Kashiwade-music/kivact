@@ -371,6 +371,12 @@ impl CoreNode {
         self.rare.as_ref().and_then(|r| r.presence)
     }
 
+    /// Whether a node reference is bound to the node (only such a node can get
+    /// an observation after its first layout report).
+    pub(crate) fn has_references(&self) -> bool {
+        self.rare.as_ref().is_some_and(|r| !r.references.is_empty())
+    }
+
     /// The locations of the semantic patches that set the node's semantics.
     pub(crate) fn semantic_origins(&self) -> &[&'static Location<'static>] {
         self.rare.as_ref().map_or(&[], |r| &r.semantic_origins)
@@ -397,7 +403,7 @@ pub(crate) struct ViewNodes {
     engine: Writer,
     pub(super) future_text_edits: Rc<std::cell::RefCell<TextEditsInFlight>>,
     leaving: IdMap<Leaving>,
-    /// The latest layout report of each node that has no observation yet
+    /// The latest layout report of each referenced node that has no observation yet
     /// (`LayoutSeed`); `observe_node` takes it, `remove` drops it.
     layout_seeds: IdMap<LayoutSeed>,
     /// Choice candidate invalidation; only Hidden changes notify it.

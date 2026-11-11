@@ -11,7 +11,7 @@ use kivact_types::{CheckedState, FocusTarget, NodeId, Semantics};
 use std::panic::Location;
 use std::rc::Rc;
 
-/// What a node's semantic publisher keeps after mounting (M-R5): the fold of
+/// What a node's semantic publisher keeps after mounting: the fold of
 /// the patches before the first reactive one, and the patches from it on.
 /// A node with only constant patches keeps nothing: it publishes once.
 struct Plan {
@@ -147,7 +147,14 @@ impl Plan {
 
 /// Fold declaration layers in order, retaining relation declaration order.
 pub(super) fn resolve(patches: &[SemanticsPatch]) -> Semantics<FocusTarget> {
-    Plan::new(patches.to_vec()).resolve()
+    let mut semantics = Semantics::default();
+    let mut check = CheckFold::Unset;
+    for patch in patches {
+        (patch.apply)(&mut semantics);
+        check = check.after(&patch.input);
+    }
+    check.apply(&mut semantics);
+    semantics
 }
 
 fn bind(

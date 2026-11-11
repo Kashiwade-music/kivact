@@ -185,10 +185,10 @@ pub(super) fn pick_event(rt: &Runtime, window: WindowId, node: Option<NodeId>, p
 /// Begin pick mode in `window`.
 pub(super) fn start_pick_in(rt: &Runtime, window: WindowId) {
     let i = DevtoolsState::inspector(rt);
-    i.session.inspector.set(Inspect::Picking {
-        window,
-        hover: None,
-    });
+    // The highlight stays until the pointer hovers a node (and comes back
+    // when the pick ends without one); its layout overlay choice carries over.
+    let hover = i.session.inspector.get().highlight();
+    i.session.inspector.set(Inspect::Picking { window, hover });
     ViewState::tree(rt).engine().set_pick(Some(window));
 }
 

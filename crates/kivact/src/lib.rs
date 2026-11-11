@@ -51,7 +51,7 @@ pub use kivact_core::{App, ErrorKind, Result, UiError};
 pub use kivact_core::{
     custom, diagnostics, draw, geometry, i18n, motion, platform, state, style, task, view,
 };
-/// Turn a component function into its props builder (see the guide "Writing components").
+/// Turn a component function into its props builder (see the guide "Write reusable components").
 pub use kivact_macros::component;
 #[cfg(feature = "test")]
 #[doc(inline)]

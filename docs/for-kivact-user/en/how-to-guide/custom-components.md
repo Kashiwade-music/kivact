@@ -89,6 +89,7 @@ How the signature becomes the API:
   function (`chip` → `Chip`) and implements `IntoView`, not `Element`, so a
   caller cannot write `.style(..)` or `.test_id(..)` on it. Anything the caller
   may change is a prop; anything else is the component's own decision.
+- **Pass a payload handler on with a closure.** A `Callback<()>` prop also takes a `Callback<()>` handle, but a `Callback<E>` prop takes a closure: forward a parent's `on_pick: Callback<i32>` as `picker(move |n| on_pick.call(n))`.
 
 `Value<T>` takes a constant, a signal, a `Value` or a closure, so a prop can be
 static or reactive without a second API. A `Value<String>` prop also accepts

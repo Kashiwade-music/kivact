@@ -48,7 +48,7 @@
 //! | draw | `.draw(..)` / `.draw_over(..)` ([`Element`]): the [`Draw`] vocabulary at the laid-out size, run again when the size or a signal it reads changes |
 //! | input | `.on_pointer(..)`, `.on_key(..)`, `.on_wheel(..)`, `.a11y_action(..)`; `Draw::region` for hit areas |
 //! | focus | `.focusable(true)`, the `focus` state style |
-//! | accessibility | `.role(..)` and `.value_text(..)` ([`Node`](crate::view::Node)),`.name(..)`, [`Primitive::checked`], [`Primitive::expanded`], `.a11y_action(..)`; `Draw::region` for parts |
+//! | accessibility | `.role(..)` and `.value_text(..)` ([`Node`](crate::view::Node)), `.name(..)`, [`Primitive::checked`], [`Primitive::expanded`], `.a11y_action(..)`; `Draw::region` for parts |
 //! | test identification | `.test_id(..)` |
 //! | resource lifetime | the primitive's owner: its effects, handlers and measure function are dropped when it unmounts; `on_cleanup` for the author's own resources |
 //!

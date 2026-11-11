@@ -36,21 +36,39 @@ pub(super) struct FirstWrite {
 
 /// Whether `handlers` is the default record: the node declared no handler.
 fn is_default_handlers(handlers: &Handlers) -> bool {
-    handlers.activate.is_none()
-        && handlers.secondary_context.is_none()
-        && handlers.text.is_none()
-        && handlers.selection.is_none()
-        && handlers.edit_phase.is_none()
-        && handlers.image_error.is_none()
-        && handlers.scroll.is_none()
-        && handlers.layout.is_none()
-        && handlers.a11y.is_empty()
-        && handlers.key.is_empty()
-        && handlers.file.is_empty()
-        && handlers.key_up.is_empty()
-        && handlers.pointer.is_empty()
-        && handlers.wheel.is_empty()
-        && handlers.ime.is_empty()
+    // Destructured so that a new field of `Handlers` must be listed here.
+    let Handlers {
+        activate,
+        key,
+        file,
+        key_up,
+        pointer,
+        secondary_context,
+        wheel,
+        ime,
+        a11y,
+        text,
+        selection,
+        edit_phase,
+        image_error,
+        scroll,
+        layout,
+    } = handlers;
+    activate.is_none()
+        && secondary_context.is_none()
+        && text.is_none()
+        && selection.is_none()
+        && edit_phase.is_none()
+        && image_error.is_none()
+        && scroll.is_none()
+        && layout.is_none()
+        && a11y.is_empty()
+        && key.is_empty()
+        && file.is_empty()
+        && key_up.is_empty()
+        && pointer.is_empty()
+        && wheel.is_empty()
+        && ime.is_empty()
 }
 
 /// Stage 1: decide the listener flags from the final handlers, then write the node's first
