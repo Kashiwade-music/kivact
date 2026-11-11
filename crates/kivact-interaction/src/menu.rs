@@ -17,7 +17,7 @@
 //! draws nothing.
 //!
 //! A submenu is a child level of the same session; its `shown`, `origin`
-//! and `show` mount the content in a new owner while it is open. A level
+//! and [`while_open`](MenuApi::while_open) mount the content in a new owner while it is open. A level
 //! moves with the list's menu policy (vertical, wrapping, manual activation)
 //! plus typeahead, and hovering a submenu item opens it after a delay.
 //! A context menu is the same [`MenuApi`] through

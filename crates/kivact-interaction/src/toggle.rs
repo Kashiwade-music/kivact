@@ -66,6 +66,7 @@ impl ButtonApi {
     /// Ignore input and assistive technology while true.
     ///
     /// Also marks the root disabled and makes it unfocusable. Setup only.
+    /// Call it before [`control`](Self::control).
     #[track_caller]
     pub fn disabled(self, disabled: impl IntoValue<bool>) -> Self {
         kivact_core::custom::require_setup("ButtonApi::disabled");

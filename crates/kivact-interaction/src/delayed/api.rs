@@ -33,7 +33,7 @@ pub enum DelayedPhase {
     Shown,
     /// No longer wanted (or pulsed); still shown while the close delay runs.
     Closing,
-    /// Hidden by `dismiss` while wanted: stays hidden until `wanted` goes false.
+    /// Hidden by [`hide`](DelayedApi::hide) while wanted: stays hidden until `wanted` goes false.
     Dismissed,
 }
 
@@ -143,7 +143,7 @@ impl DelayedApi {
         self.state.send(Event::Pulse);
     }
 
-    /// Dismiss whenever `requested` changes to `false`, as `dismiss` does; a
+    /// Dismiss whenever `requested` changes to `false`, as `hide` does; a
     /// change to `true` changes nothing. Setup only.
     pub(crate) fn dismiss_on_release(self, requested: impl IntoValue<bool>) {
         self.state.feed(requested, Event::Request);

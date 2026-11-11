@@ -120,7 +120,7 @@ impl<K: kivact_core::state::ItemKey> Clone for MenuApi<K> {
 
 impl<K: kivact_core::state::ItemKey> Copy for MenuApi<K> {}
 
-/// A menu over `entries` that calls `choose` with the key of a chosen item.
+/// A menu over `items`; [`on_activate`](MenuApi::on_activate) receives the key of a chosen item.
 /// Setup only.
 #[track_caller]
 pub fn use_menu<K: kivact_core::state::ItemKey>(

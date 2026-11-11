@@ -1,6 +1,6 @@
 //! Role: Pure menu session transitions own levels, focus requests and submenu timers.
-use super::order::{item_enabled, kept_levels, rows};
-use super::state::{Edge, MenuEntry, MenuItemKind, Opened, PressOver, Target, Want};
+use super::order::{item_enabled, kept_levels};
+use super::state::{Edge, MenuEntry, Opened, PressOver, Target, Want};
 use crate::list::typeahead::Typeahead;
 
 /// The complete state of one menu, shared by every rendered level.
@@ -166,6 +166,7 @@ pub(super) enum Event<K> {
     Pointer {
         depth: usize,
         key: K,
+        submenu: bool,
         hovered: bool,
         press: PressOver,
     },
@@ -226,7 +227,7 @@ impl<K: kivact_core::state::ItemKey> kivact_core::state::Machine for Machine<K> 
             return Step::stay();
         };
         let typing = matches!(&event, Event::Typeahead(Typeahead::Typing { .. }));
-        let timer = update_level_event(&self.entries, levels, want, typeahead, event);
+        let timer = update_level_event(levels, want, typeahead, event);
         // All topology repairs happen in this transition, before publishing state.
         let path = levels.path();
         let kept = kept_levels(&self.entries, &path, levels.focus.as_ref());
@@ -268,7 +269,6 @@ impl<K: kivact_core::state::ItemKey> kivact_core::state::Machine for Machine<K> 
 }
 
 fn update_level_event<K: kivact_core::state::ItemKey>(
-    entries: &[MenuEntry<K>],
     levels: &mut Levels<K>,
     want: &mut Option<Want<K>>,
     typeahead: &mut Typeahead,
@@ -279,15 +279,10 @@ fn update_level_event<K: kivact_core::state::ItemKey>(
         Event::Pointer {
             depth,
             key,
+            submenu: opens,
             hovered,
             press,
         } => {
-            let path = levels.path();
-            let opens = path.get(..depth).is_some_and(|prefix| {
-                rows(entries, prefix).iter().any(|(_, entry)| {
-                    entry.key() == Some(&key) && entry.item_kind() == Some(MenuItemKind::Submenu)
-                })
-            });
             let over = match press {
                 PressOver::Over => true,
                 PressOver::Away => false,
