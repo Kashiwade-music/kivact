@@ -1,6 +1,6 @@
 # kivact-bench
 
-KPI の手動計測（`SLIM_FAST_DESIGN.md` 1 章）。CI には組み込まない。
+KPI の手動計測（定義は `docs/for-kivact-developer/architecture.md` の PERF 節と、設計の経緯は git 履歴の `SLIM_FAST_DESIGN.md` 1 章）。CI には組み込まない。
 
 ```bash
 # 何も描画していない状態で、window-lock を通して実行する

@@ -203,3 +203,19 @@ B0 と CP2（`dev/bench/results/CP2.md`、どちらも有効）の比較。倍�
 - 残る差戻し：(1) K6 `kv_startup` no-default の未達（+72,518 B、ユーザーが許容。AC-2 の判定は人間）、(2) `kivact-types` の `cargo doc` の警告 21 件（`geometry3d.rs`、W5 より前から。所有外、担当未決）。
 - AC-3 は機械の検査（OPEN 0）を満たし、人間の確認（`AC3_REVIEW.md`）待ち。
 - V2 は完了を宣言しない（12.1 の 3）。12.2・12.3 は未実施。結果は `RESULT-V2.md` と `AC3_REVIEW.md` を参照。
+
+## 後続
+
+V2 設計書 7 章の範囲外の項目。V2 では行わない。
+
+| 項目 | 理由 | 出典 |
+|---|---|---|
+| a11y の Metadata 経路（構造の変化）の増分化 | K5 の場面に現れない。writer の通知の完全性に依存する | D2 8-3、DEC-06 |
+| turn の固定費（約 2.7 ms）の内訳と削減 | 必達内 | DEC-07 |
+| image 数・observed 数に比例する `report_images`・`poll_assets`・`report_geometry` | K に効かない | D1 4.4 |
+| 相対座標 + AccessKit transform、Mut::NONE の prop の細分 | 必要性が無い | DEC-08 |
+| SVG の描画を Arvane の painter へ（約 −1.2 MB） | 大工事で、既存 SVG E2E の期待値を変えるおそれ | D4 D7 補足 |
+| `TimestampEntry.copyable` の copy 操作の実装 | kit の機能追加 | DEC-22 |
+| scissor の矩形の判定を行ごとに前計算（CPU 合成の高速化） | 任意 | D6 C-17 |
+| core の adapter の表が閉じた window の要素を消さない（V2 の前からある小さな残り） | V2 が増やす状態ではない。window の close の後始末の全体の見直しと一緒に行う | D15 Q3 |
+| `#[component]` の診断の文言の検査（compile-fail の error の文） | 依存を足さないと文言を固定できない | D15 Q5 3.1 |

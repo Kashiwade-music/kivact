@@ -75,7 +75,7 @@
 | 2026-11-05 | ADR-31 | Part が独自 hover を保存するか | engine の FocusTarget(node,region) をそのまま読み、正確に一致する region だけ hovered | node だけの比較や第二の hover state は region の意味を失うため |
 | 2026-11-05 | ADR-32 | handler の返り値をどう揃えるか | HandlerResult 一つに ()、Handled、Result<(),UiError>、Result<Handled,UiError> の四実装。Handled の PreventDefault を合成でも保つ | 処理済みと既定動作の禁止を区別し、error も同じ入口で扱うため |
 | 2026-11-05 | ADR-33 | Callback の構築は setup に限るか | payload なし Callback は現在の owner があれば handler/effect 下でも構築可能。owner がなければ misuse | 正当な owner-bound callback の利用を不必要に制限しないため |
-| 2026-11-05 | ADR-34 | 外部 Element 実装を閉じるか | node_mut は公開だが doc(hidden)、trait は seal しない。with_node は普通の公開 API | 外部 builder が標準 setter を継承できる実装用の口が必要だから |
+| 2026-11-05 | ADR-34 | 外部 Element 実装を閉じるか | node_mut は公開だが doc(hidden)、trait（Element）は seal しない。with_node は普通の公開 API（2026-11-09 SLIM-05 で改名） | 外部 builder が標準 setter を継承できる実装用の口が必要だから |
 | 2026-11-05 | ADR-35 | 公開 API の改名をどう進めるか | 層をまたぐ署名は family 単位で一度に変え、改名と振る舞いの変更は別の変更に分ける | 同じ利用箇所を何度も書き直すことと、改名に紛れた振る舞い変更を避けるため |
 | 2026-11-05 | ADR-36 | InteractionPolicy の所属と形はどうするか | interaction に inputs/menu/tooltip/button/slider/switch/toast/select/hover_card/drawer の nested policy を置く。ui が依存し、逆向きにしない。tooltip に第二の context config を残さない | behavior の設定の正本を一つにするため |
 | 2026-11-05 | ADR-37 | UiTokens にすべての recipe 値を移すか | 部品ごとの nested tokens に、kit が上書きする値と theme 依存値だけを置く。形は recipes。data table の sticky/status paint 値も Tokens | recipe の値を無差別に token 化すると設定面が増え、形と値の境界も失われるため |
@@ -88,12 +88,37 @@
 | 2026-11-05 | ADR-44 | text 色の Transition と未確認の option を増やすか | Paint が text color を担うため新 Color TransitionProp は不要。Combobox/Select の option は kit の利用者が実際に使っていた option の和集合だけを実装 | 同義の表現と要求のない knob を増やさないため |
 | 2026-11-05 | ADR-45 | touch の日付入力は kit 固有か | DatePresentation Adaptive/Desktop/BottomSheet を構造 option とし、Adaptive は capabilities.touch。calendar/date/time/wheel は標準 UI と scalar に統合し kit の option をすべて維持 | 同じ日付入力の behavior と OS 判断を kit に重複させないため |
 | 2026-11-05 | ADR-46 | Creative picker を全て標準 combobox に置換するか | 共通 body は標準 API を使うが、Creative 固有の column-follow picker は kit に残す | column に追従する domain の意味が一般の選択 field と異なるため |
-| 2026-11-05 | ADR-47 | 一度だけ mount する setup closure をどう渡すか | view::scope(FnOnce→IntoView) と prelude を公開。mount 時に child owner/transparent fragment の下で一度実行し、context を登録しない。Variant Default は通常値、reactive 値は明示 setter | eager 評価、provide(())、recipe 評価中の hook で owner と cleanup の寿命を変えないため |
+| 2026-11-05 | ADR-47 | 一度だけ mount する setup closure をどう渡すか | view::scope(FnOnce→IntoView) と prelude を公開。mount 時に child owner/transparent fragment の下で一度実行し、context を登録しない。Variant Default は通常値、reactive 値は明示 setter（2026-11-09 SLIM-05 で改名） | eager 評価、provide(())、recipe 評価中の hook で owner と cleanup の寿命を変えないため |
 | 2026-11-08 | ADR-48 | 複数の window を扱う shell の境界をどうするか | 一つの handler が loop 全体と複数の window を相手にし、backend の event を `EventTarget::{Loop, Window(WindowId)}` で分ける。handler の口は `ShellLoop`・`ShellWindow` とし、`open_window`・`close_window` を持つ | window ごとに backend と handler の組を増やさず、loop 全体の event（SaveState・Wake など）と window の event を一つの型で区別するため |
 | 2026-11-08 | ADR-49 | engine の model を App 全体で一つにするか window ごとに分けるか | 一つの window の `Model` と App 全体の `AppModel` に分ける。`AppModel` が `windows`・`window_changes`・`AppClock`・`client_frames`・共有の `EventSink` と assets と writes を持つ | window ごとの tree・focus・surface を保ちながら、motion の時計と frame の要求を App に一つにし、ある window の surface が止まっても他の window の animated が進むようにするため |
 | 2026-11-08 | ADR-50 | OS の window を公開 API でどう表すか | `window(title, open)` を `overlay` と同じ構造の view とし、content は宣言した場所の context を引き継ぐ（React の Portal と同じ）。閉じる操作は `on_dismiss` が取り消さない限り既定で window を閉じる（`dialog` と同じ） | open の binding で寿命を表し、overlay・dialog と同じ組み立てと dismiss の規則を共有するため |
 | 2026-11-08 | ADR-51 | DevTools を target の中の UI にするか別プロセスにするか、protocol の定義をどこに置くか | DevTools は別プロセスのアプリとし、loopback TCP の JSON-RPC で target の agent に繋ぐ。protocol の型・method・通知は `kivact-devtools-protocol` を単一の正本とし、JSON Schema・Python・MCP をそこから生成する | DevTools の不具合で target を止めず、同じ語彙を Rust・Python・MCP に複製しないため |
 | 2026-11-08 | ADR-52 | 状態の合成を許す印を型の前と field の前に書けるようにするか | 印は field の直前だけに置き、型の前の印は error にする。印の無い stored の field を名前付きで error に並べる | 型の前の印が中の field すべてを黙らせ、どの field が何の事実かを失うため |
+| 2026-11-09 | SLIM-01 | 性能の目標をどう表すか | K1〜K6 を `dev/bench` で測り、同じ機械の B0 に対する倍率で判定する | 実装する機械が分析した機械と異なるため |
+| 2026-11-09 | SLIM-02 | GPU をいつ起動するか | 必要時（shader、GPU export、CPU が周期の半分を 8 frame 続けて超える） | 業務画面では GPU のドライバのメモリが WS の大半を占め、CPU 合成は高速経路で十分速い |
+| 2026-11-09 | SLIM-03 | handler の型を一つの trait にするか | しない。API-3 を全部品に守らせる | marker 型の trait では closure の引数の型が推論されない |
+| 2026-11-09 | SLIM-04 | props の builder をどう作るか | `#[component]` が関数から生成する | 手書きの builder（約 80 行）は Rust 未経験者の障壁 |
+| 2026-11-09 | SLIM-05 | 名前の衝突をどう解くか | `NodeBuilder`→`Element`、`Component` 削除、`component()`→`scope()`、試験の `Element`→`Locator` | 一つの名前に一つの意味（P-02、6 章の 4） |
+| 2026-11-09 | SLIM-06 | `complex-scripts` を任意にするか | facade の既定 feature のまま任意にする | 多言語の既定の挙動を保ちつつ、3 MB を外せるようにする |
+| 2026-11-09 | SLIM-07 | release の profile | fat LTO、codegen-units=1、opt-level="s"、hot path の crate だけ 3、strip、panic は unwind。雛形にも同じ profile を書く | サイズと速度の両立。embed の安全。profile は root の manifest からしか読まれない |
+| 2026-11-09 | SLIM-08 | authored `Style` の表現 | 8 つの群の疎な struct（操作の履歴を持たない） | 履歴の再生は merge で指数的に増え、上書きで肥大する |
+| 2026-11-09 | SLIM-09 | GPU の需要をどう届けるか | shader は composition から、GPU 共有と GPU export は core が `HostRequest::DemandGpu` で明示する。起動は presenter の `Gpu` だけが持つ | GPU 共有は GPU の準備の後でないと composition に現れない |
+| 2026-11-09 | SLIM-10 | 完了の判定 | 1.6 節の AC-1〜AC-4 をすべて満たしたときだけ完了。未達・未実施は報告して止める | 「試して報告した」と「達成した」を区別する |
+| 2026-11-10 | SLIM-11 | facade の既定 feature を外すか、K6 を何で測るか | facade の既定 feature は `gpu` と `complex-scripts` のまま（DEC-01）。K6 は Kivact 自身の大きさを GPU 一式を除く構成で測り、GPU 込みの既定の build は悪化させない（MS-5） | DEC-01 の理由（既定から外すと、CPU の raster が重い画面で GPU への自動の切替えが無くなるため） |
+| 2026-11-10 | SLIM-12 | GPU の起動の入口をどうするか | 入口は二つ（`begin`、`demand`）。CPU だけの window は需要があっても起動しない | 付属書 D6 3.2 |
+| 2026-11-10 | SLIM-13 | GPU OnDemand をどう試験するか | 試験は `RenderOptions::gpu_on_demand()` と `Screen::renderer()` で GPU OnDemand を検証する | 付属書 D6 3.4 |
+| 2026-11-10 | SLIM-14 | 公開の recipe state をどう読ませ、排他な事実をどう表すか | 公開の recipe state は accessor で読む。排他な事実は enum（`CheckControl` 等）で持つ。命名は DEC-28 の規則 | DEC-14、DEC-15 |
+| 2026-11-10 | SLIM-15 | `#[component]` の必須 props と API-3 の関係 | `#[component]` の必須 props は位置引数（handler を含む）。API-3 は kit の builder の任意 handler に限る | DEC-19 |
+| 2026-11-10 | SLIM-16 | lint の gate と audit の条件をどう一致させるか | `projection:` は名指す関数の実在と唯一の書き手であることを xtask が検査する。`independent:` の理由文はファイルをまたいで共有しない | 付属書 D5 X3〜X5 |
+| 2026-11-10 | DEC-01 | `gpu` を facade の既定 feature から外すか | 外さない（ユーザーの決定）。既定は版 1.1 のまま `gpu, complex-scripts`（GPU は OnDemand で起動）。既定 feature の変更、consumer の default、README の表の変更は行わない。K6 の counter の行は MS-5 で定義し直す | 既定から外すと、CPU の raster が重い画面で GPU への自動の切替えが無くなり、user shader が CPU の代わりの見た目になる。製品の既定の性能と機能を、誤った見積りから決めた目標のために変えない |
+| 2026-11-10 | DEC-14 | 公開の recipe state の形を変えるか（PartState などを accessor にするか） | 採る（accessor 化）。外部の theme 作者は `state.input.pressed` を `state.input.is_pressed()` のように直す | 付属書 D5 8-1 の問いへの結論（D5 で確定済み） |
+| 2026-11-10 | DEC-15 | `CheckableState` の排他を型にするか | 型にする（D8 3.1・3.2 の `CheckControl`）。D5 の F-T4（`SwitchFacts`）は行わない | 付属書 D5 8-2 の問いへの結論 |
+| 2026-11-10 | DEC-17 | `GpuPreference`・`GpuPower`・`GpuBackend`・`GpuStart`・`AdapterMatch` の所在 | `kivact::launch` で feature なしで公開する。`crates/kivact/src/launch.rs` を新しく作り、この 5 型だけを再公開する。`App::gpu_preference` と `RenderOptions::gpu_preference` の cfg を外す。feature `gpu` が無い build では無視されることを doc に書く。`gpu_interop` からの再公開は削除する | 内部の型を公開しないため（付属書 D12 G8）。付属書 D6 8-1 の問いへの結論 |
+| 2026-11-10 | DEC-18 | ARG-6 の `show`/`hide` と既存の `MenuApi::show(factory)`・`CommandPaletteApi::show(factory)` の衝突をどう解くか | content を mount する method を `while_open(factory)` に改名する。意味は「開いている間だけ factory の view を mount する」（React の `{open && <X/>}`、Solid の `<Show when>` に当たる） | `content` は既存の `content() -> Part` と衝突するため使えない（付属書 D12 G9）。付属書 D6 8-2 の問いへの結論 |
+| 2026-11-10 | DEC-19 | API-3 と `#[component]` の必須 callback の位置引数をどう両立させるか | `#[component]` は必須の props を位置引数にする。architecture.md の API-3 は「kit の builder の任意 handler は setter で受ける」に限定して書き直す | 付属書 D6 8-3 の問いへの結論 |
+| 2026-11-10 | DEC-20 | prelude の `provide_theme` を残すか | prelude から外す（`provide_locale`・`provide_messages` と揃える） | App の root で一度書くだけなので、明示の import が分かりやすいため（付属書 D6 C-15） |
+| 2026-11-10 | DEC-24 | V2.1 で見つかった新しい型の閉じ方 | 型で閉じる。F5 `Indexed` の 2 つの `Option<PixelRect>` を enum `Reach { Nothing, Draws(..), Opens(..) }` に（付属書 D9 F5-fix）。M7 `Plan` の `checked`・`indeterminate` を 5 状態の enum `CheckFold` に（付属書 D10 M7-fix）。T8 `OwnerEntry.extra` は `independent:` の marker（文言は付属書 D10 T8-fix） | V2.1 の再監査の結論（付属書 D9・D10 の該当の fix） |
+| 2026-11-10 | DEC-28 | 公開の recipe state の命名 | 排他な事実は pub の enum の field（名前は型名から owner の接頭辞を除いたもの。部分を表す enum の名前は `State` で終わらせない）。常にある事実は pub の field。一部の種類にだけある事実と導出する事実は accessor。bool の accessor は `is_`／`has_` で始める。例：`CardActionState` → `CardAction`、`icon_only()` → `is_icon_only()` | 付属書 D14 冒頭の規則。bool の query を `is_`／`has_` に揃える（API-14） |
 
 ### 実装の決定の補足
 
@@ -159,7 +184,7 @@
 
 | 日付 | ID | 問い | 決定 | 理由 |
 |---|---|---|---|---|
-| 2026-11-05 | CONTRACT-01 | 部品の constructor は opaque な Component を返すか、具体 builder を返すか | 固有 option を持たない合成部品は impl Element を返す。固有 option を持つ標準・kit の constructor は具体 builder を返し、fluent API を保つ | opaque な型は固有 option を呼び出し側から隠してしまうため |
+| 2026-11-05 | CONTRACT-01 | 部品の constructor は opaque な Component を返すか、具体 builder を返すか | 固有 option を持たない合成部品は impl Element を返す。アプリの部品は #[component] で impl IntoView を返す。固有 option を持つ標準・kit の constructor は具体 builder を返し、fluent API を保つ（2026-11-09 SLIM-05 で改名） | opaque な型は固有 option を呼び出し側から隠してしまうため |
 | 2026-11-05 | CONTRACT-02 | ScrollSnap をどう表すか | ScrollSnap は None/Start/Center/End とし、ScrollAxes の方向で子を整列する。可変サイズの子を扱い、raw pixel の停止位置の別設定は増やさない。nearest_snap と DragVelocity は types の一つの純粋実装を interaction が再公開する | snap の位置を子の配置から導き、同じ計算を二か所に持たないため |
 | 2026-11-05 | CONTRACT-03 | window の寸法をどこまで受け入れるか | window の寸法は少なくとも 1 logical pixel、有限、unsigned の native extent 内とし、App の起動と resize が同じ判定を使う。native は scale 後の physical size も検証する | f64 で有限になったことを理由に不正な寸法を通さず、f32 の underflow に共有 API を依存させないため |
 | 2026-11-05 | CONTRACT-04 | reactive な theme を thread をまたいで渡すか | 固定の theme と Send な起動用 data だけを UI thread に渡す。embed の reactive theme は root factory の中で provide_theme し、App 側の呼出し元で作った reactive theme は明示的に Unsupported とする | Rc や owner に束縛された Value は Send でなく、unsafe や snapshot で偽装しないため |

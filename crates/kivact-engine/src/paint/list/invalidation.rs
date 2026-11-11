@@ -9,12 +9,14 @@ impl PaintList {
         PaintList::default()
     }
 
-    /// Note what `changes` outdated in the inks and the child indices:
-    /// after a layout pass every location (and the sizes that changed); a
-    /// node whose children changed (its index is dropped); a
-    /// node whose drawing changed (its paint, scenes, states, visibility or
-    /// inherited text size) or that scrolled forgets its ink and its
-    /// ancestors' ([`PaintList::forget_ink`]).
+    /// Note what `changes` outdated in the inks and the child indices. A
+    /// layout pass only advances the pass: the children that moved or
+    /// resized in it were marked in their parent's index by
+    /// [`PaintState::moved_child`], and only those are looked at again. A
+    /// node whose children changed drops its index. A node whose drawing
+    /// changed (its paint, scenes, states, visibility or inherited text
+    /// size) or that scrolled forgets its ink and its ancestors'
+    /// ([`PaintList::forget_ink`]).
     fn invalidate(
         &mut self,
         changes: &Dispatched,
