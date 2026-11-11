@@ -125,15 +125,16 @@ impl AppOptions {
         self
     }
 
-    /// What the App wishes of the window's GPU device (experimental,
-    /// feature `gpu-interop`): the kind of adapter, the graphics API and
-    /// the adapter itself (default: Arvane's own choice). A wish: the
-    /// device is made on another adapter or API when the one asked for is
-    /// not there, and the environment variables `WGPU_BACKEND` and
-    /// `WGPU_POWER_PREF` override it. Read the adapter the device is on
-    /// with [`gpu_interop::adapter`](crate::gpu_interop::adapter).
-    #[cfg(feature = "gpu-interop")]
-    pub fn gpu_preference(mut self, preference: crate::gpu_interop::GpuPreference) -> Self {
+    /// What the App wishes of the window's GPU device: when it starts
+    /// ([`GpuStart`](crate::launch::GpuStart), default on demand), the kind of
+    /// adapter, the graphics API and the adapter itself (default: Arvane's own
+    /// choice). A wish: the device is made on another adapter or API when the
+    /// one asked for is not there, and the environment variables
+    /// `ARVANE_RENDERER`, `WGPU_BACKEND` and `WGPU_POWER_PREF` override it. A
+    /// build without the feature `gpu` draws on the CPU and ignores it. Read the
+    /// adapter the device is on with `kivact::gpu_interop::adapter` (feature
+    /// `gpu-interop`).
+    pub fn gpu_preference(mut self, preference: crate::launch::GpuPreference) -> Self {
         self.settings.gpu_preference = preference;
         self
     }

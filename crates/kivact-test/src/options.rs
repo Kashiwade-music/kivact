@@ -160,8 +160,7 @@ impl RenderOptions {
     }
     /// Its `start` is the test's: [`Self::gpu`] or [`Self::gpu_on_demand`]
     /// decide it, as `ARVANE_RENDERER` does for a running App.
-    #[cfg(feature = "gpu-interop")]
-    pub fn gpu_preference(mut self, preference: kivact_types::GpuPreference) -> Self {
+    pub fn gpu_preference(mut self, preference: kivact_core::launch::GpuPreference) -> Self {
         self.app = self.app.gpu_preference(preference);
         self
     }

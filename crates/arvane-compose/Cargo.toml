@@ -14,12 +14,13 @@ arvane-render = { path = "../arvane-render", version = "0.1.0" }
 wgpu = { workspace = true, optional = true }
 pollster = { workspace = true, optional = true }
 raw-window-handle = { workspace = true, optional = true }
-# Shared textures with external render engines (the import side of the device).
+# The identity of adapters (`GpuPreference::adapter`), and shared textures with
+# external render engines (the import side of the device).
 kivact-gpu-share = { path = "../kivact-gpu-share", version = "0.1.0", features = ["import", "wgpu"], optional = true }
 
 [features]
-gpu = ["arvane-render/gpu", "dep:wgpu", "dep:pollster", "dep:raw-window-handle"]
-gpu-interop = ["gpu", "dep:kivact-gpu-share"]
+gpu = ["arvane-render/gpu", "dep:wgpu", "dep:pollster", "dep:raw-window-handle", "dep:kivact-gpu-share"]
+gpu-interop = ["gpu"]
 
 [lints]
 workspace = true

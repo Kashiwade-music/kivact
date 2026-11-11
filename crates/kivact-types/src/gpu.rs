@@ -75,8 +75,9 @@ pub struct GpuPreference {
     /// The graphics API (`None`: Arvane's order).
     pub backend: Option<GpuBackend>,
     // xtask-allow(state-fields): option: absent means the default (as `power` picks)
-    /// The adapter (`None`: as `power` picks). Only builds with GPU
-    /// texture sharing look adapters up by identity; others ignore it.
+    /// The adapter (`None`: as `power` picks), looked up by its identity on
+    /// Windows and Linux (Direct3D 12 and Vulkan report it); as `power`
+    /// picks when no adapter has it.
     pub adapter: Option<AdapterMatch>,
     /// When the device is started.
     pub start: GpuStart,

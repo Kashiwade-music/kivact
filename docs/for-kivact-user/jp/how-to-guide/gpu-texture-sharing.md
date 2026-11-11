@@ -274,7 +274,7 @@ GPU デバイスを先に作るのはウィンドウで、どのアダプター�
 エンジンが特定のものを必要とする場合など、ウィンドウにグラフィックス API、アダプターの種類、特定のアダプターを選ばせたいときは、希望を設定します。
 
 ```rust,no_run
-use kivact::gpu_interop::{GpuBackend, GpuPower, GpuPreference, GpuStart};
+use kivact::launch::{GpuBackend, GpuPower, GpuPreference, GpuStart};
 use kivact::prelude::*;
 # fn app() -> impl IntoView { text("Viewport") }
 
