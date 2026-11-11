@@ -17,7 +17,7 @@ use crate::engine::{Engine, POOL, WAIT};
 use ash::vk;
 use kivact_gpu_share::vulkan::{self as interop, Pool};
 use kivact_gpu_share::{FrameReady, PoolConfig};
-use kivact_types::{GpuAdapter, GpuBackend, SHARED_PREPARED, SharedHandle, SharedTextures};
+use kivact_types::{AdapterIds, GpuAdapter, SHARED_PREPARED, SharedHandle, SharedTextures};
 use std::time::Duration;
 
 fn failed(what: &'static str) -> impl Fn(vk::Result) -> String {
@@ -199,14 +199,15 @@ pub(crate) fn adapters() -> Vec<GpuAdapter> {
             continue;
         }
         found.push(GpuAdapter {
-            backend: GpuBackend::Vulkan,
+            ids: AdapterIds::Vulkan {
+                device_uuid: id.device_uuid,
+                driver_uuid: id.driver_uuid,
+                luid: (id.device_luid_valid == vk::TRUE).then_some(id.device_luid),
+            },
             name: base
                 .device_name_as_c_str()
                 .map(|name| name.to_string_lossy().into_owned())
                 .unwrap_or_default(),
-            luid: (id.device_luid_valid == vk::TRUE).then_some(id.device_luid),
-            device_uuid: Some(id.device_uuid),
-            driver_uuid: Some(id.driver_uuid),
             generation: 1,
         });
     }

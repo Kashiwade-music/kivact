@@ -24,7 +24,7 @@ pub struct Producer {
     width: u32,
     height: u32,
     engine: Box<dyn Engine>,
-    // xtask-allow(state-fields): option: absent once the pool's handles are shared
+    // xtask-allow(state-fields): independent: the pool's handles until shared_textures or signal_prepared takes them, once per engine; draw numbers frames before or after that, since the engine's first frames wait for the preparation signal
     /// The pool's handles, until they are shared.
     shared: Option<SharedTextures>,
     // xtask-allow(state-fields): identity: the number of the frame drawn next
@@ -102,7 +102,7 @@ impl Producer {
                 });
             }
         };
-        let (engine, shared): (Box<dyn Engine>, _) = match adapter.backend {
+        let (engine, shared): (Box<dyn Engine>, _) = match adapter.backend() {
             #[cfg(windows)]
             GpuBackend::Dx12 => {
                 let (engine, shared) = crate::d3d12::D3d12::new(adapter, (width, height), storage)?;

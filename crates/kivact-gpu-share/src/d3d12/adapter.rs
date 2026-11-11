@@ -2,22 +2,20 @@
 
 use crate::common::{Error, api};
 use crate::d3d12_contract::luid_bytes;
-use kivact_types::{GpuAdapter, GpuBackend};
+use kivact_types::{AdapterIds, GpuAdapter};
 use windows::Win32::Graphics::Dxgi::{
     CreateDXGIFactory2, DXGI_CREATE_FACTORY_FLAGS, IDXGIAdapter1, IDXGIFactory4,
 };
 
 /// The LUID `adapter` reports for Direct3D 12.
 pub(crate) fn luid(adapter: &GpuAdapter) -> Result<[u8; 8], Error> {
-    if adapter.backend != GpuBackend::Dx12 {
-        return Err(Error::Mismatch(format!(
+    match adapter.ids {
+        AdapterIds::Dx12 { luid } => Ok(luid),
+        AdapterIds::Vulkan { .. } => Err(Error::Mismatch(format!(
             "the window's device is {:?}, not Direct3D 12",
-            adapter.backend
-        )));
+            adapter.backend()
+        ))),
     }
-    adapter
-        .luid
-        .ok_or_else(|| Error::Mismatch("the adapter has no LUID".into()))
 }
 
 /// The DXGI adapter that is `adapter` (its LUID), to make the engine's

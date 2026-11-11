@@ -1,25 +1,8 @@
 //! Role: Adapter identities, contract mismatches and shared graphics API errors.
 
-use kivact_types::GpuBackend;
 #[cfg(feature = "import")]
-use kivact_types::SharedTextures;
+use kivact_types::{GpuBackend, SharedTextures};
 use std::fmt;
-
-/// An adapter's identity.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Identity {
-    /// The graphics API.
-    pub backend: GpuBackend,
-    // xtask-allow(state-fields): identity: part of the adapter identity its graphics API reports
-    /// DXGI's (or Vulkan's) adapter LUID.
-    pub luid: Option<[u8; 8]>,
-    // xtask-allow(state-fields): identity: part of the adapter identity its graphics API reports
-    /// Vulkan's `deviceUUID`.
-    pub device_uuid: Option<[u8; 16]>,
-    // xtask-allow(state-fields): identity: part of the adapter identity its graphics API reports
-    /// Vulkan's `driverUUID`.
-    pub driver_uuid: Option<[u8; 16]>,
-}
 
 /// A sharing contract, graphics API, or bounded-wait failure.
 #[derive(Clone, Debug, PartialEq, Eq)]

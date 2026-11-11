@@ -183,7 +183,7 @@ pub mod wgpu;
 ))]
 mod wgpu_device;
 
-pub use common::{Error, Identity};
+pub use common::Error;
 #[cfg(feature = "export")]
 pub use pool::{DEFAULT_SLOTS, FrameReady, PoolConfig};
 #[cfg(feature = "import")]

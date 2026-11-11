@@ -334,8 +334,9 @@ raw objects instead of freeing them under the GPU.
 The window makes its GPU device first and tells you which adapter it is on. Read it with
 `gpu_interop::adapter()`: `None` until the device is ready, while the window draws on the
 CPU (`ARVANE_RENDERER=cpu`, or no GPU) and on other platforms. It is tracked, so a
-`memo` can follow it. A `GpuAdapter` names the graphics API, the adapter's LUID or
-Vulkan UUIDs, and a `generation`; a new generation means a new device.
+`memo` can follow it. A `GpuAdapter`'s `ids` is an `AdapterIds`: Direct3D 12's LUID, or
+Vulkan's device and driver UUIDs (and the LUID on Windows); `backend()` names the graphics
+API, and a new `generation` means a new device.
 
 To make the window choose a graphics API, a kind of adapter or an exact adapter, which is
 useful when the engine needs a specific one, set a wish:

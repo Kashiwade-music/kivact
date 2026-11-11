@@ -34,7 +34,7 @@ impl Wgpu {
         adapter: &GpuAdapter,
         (width, height): (u32, u32),
     ) -> Result<(Self, SharedTextures), String> {
-        let backends = match adapter.backend {
+        let backends = match adapter.backend() {
             GpuBackend::Dx12 => wgpu::Backends::DX12,
             GpuBackend::Vulkan => wgpu::Backends::VULKAN,
         };

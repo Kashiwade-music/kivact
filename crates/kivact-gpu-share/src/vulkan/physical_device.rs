@@ -6,7 +6,7 @@ use crate::pool::PoolConfig;
 use crate::vulkan_contract::API_VERSION;
 use crate::vulkan_contract::{MEMORY_HANDLE, usage};
 use ash::vk;
-use kivact_types::{GpuAdapter, GpuBackend};
+use kivact_types::{AdapterIds, GpuAdapter};
 
 /// Fail unless `physical` exports images of the contract's usage (with
 /// storage or not) at `config`'s size.
@@ -70,29 +70,22 @@ pub(crate) unsafe fn identity(
     physical: vk::PhysicalDevice,
 ) -> ([u8; 16], [u8; 16], u32) {
     // SAFETY: the caller provides a physical device of the live instance.
-    let (identity, version) = unsafe { crate::vulkan_raw::identity(instance, physical) };
-    (
-        identity
-            .device_uuid
-            .expect("invariant: Vulkan reports a device UUID"),
-        identity
-            .driver_uuid
-            .expect("invariant: Vulkan reports a driver UUID"),
-        version,
-    )
+    let ids = unsafe { crate::vulkan_raw::identity(instance, physical) };
+    (ids.device_uuid, ids.driver_uuid, ids.version)
 }
 
 /// The UUIDs `adapter` reports for Vulkan.
 pub(crate) fn uuids(adapter: &GpuAdapter) -> Result<([u8; 16], [u8; 16]), Error> {
-    if adapter.backend != GpuBackend::Vulkan {
-        return Err(Error::Mismatch(format!(
+    match adapter.ids {
+        AdapterIds::Vulkan {
+            device_uuid,
+            driver_uuid,
+            ..
+        } => Ok((device_uuid, driver_uuid)),
+        AdapterIds::Dx12 { .. } => Err(Error::Mismatch(format!(
             "the window's device is {:?}, not Vulkan",
-            adapter.backend
-        )));
-    }
-    match (adapter.device_uuid, adapter.driver_uuid) {
-        (Some(device), Some(driver)) => Ok((device, driver)),
-        _ => Err(Error::Mismatch("the adapter has no Vulkan UUIDs".into())),
+            adapter.backend()
+        ))),
     }
 }
 

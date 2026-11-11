@@ -4,7 +4,8 @@
 //! both need the same device: the Vulkan extensions both sides need are
 //! asked for here, so this module is the one path both sides name.
 
-use crate::common::{Error, Identity, api};
+use crate::common::{Error, api};
+use kivact_types::AdapterIds;
 
 /// A device opened with the shared-texture extensions when available.
 pub struct Opened {
@@ -18,7 +19,7 @@ pub struct Opened {
 
 /// The identity of `adapter` (`None`: neither Direct3D 12 nor Vulkan, or
 /// unreadable).
-pub fn identity(adapter: &::wgpu::Adapter) -> Option<Identity> {
+pub fn identity(adapter: &::wgpu::Adapter) -> Option<AdapterIds> {
     #[cfg(windows)]
     if let Some(identity) = crate::import::dx12::identity(adapter) {
         return Some(identity);

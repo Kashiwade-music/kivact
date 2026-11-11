@@ -16,7 +16,7 @@
 use crate::engine::{Engine, POOL, WAIT};
 use kivact_gpu_share::d3d12::{self as interop, Pool};
 use kivact_gpu_share::{FrameReady, PoolConfig};
-use kivact_types::{GpuAdapter, GpuBackend, SHARED_PREPARED, SharedHandle, SharedTextures};
+use kivact_types::{AdapterIds, GpuAdapter, SHARED_PREPARED, SharedHandle, SharedTextures};
 use std::os::windows::io::{AsHandle, AsRawHandle};
 use std::time::Duration;
 use windows::Win32::Foundation::HANDLE;
@@ -168,11 +168,8 @@ pub(crate) fn adapters() -> Vec<GpuAdapter> {
         luid[4..].copy_from_slice(&desc.AdapterLuid.HighPart.to_le_bytes());
         let name = String::from_utf16_lossy(&desc.Description);
         found.push(GpuAdapter {
-            backend: GpuBackend::Dx12,
+            ids: AdapterIds::Dx12 { luid },
             name: name.trim_end_matches('\0').to_owned(),
-            luid: Some(luid),
-            device_uuid: None,
-            driver_uuid: None,
             generation: 1,
         });
     }

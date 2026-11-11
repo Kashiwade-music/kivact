@@ -269,7 +269,7 @@ fn serve_pixels(link: &ShareLink, request: &ShareRequest) {
 
 ## アダプターと API を選ぶ
 
-GPU デバイスを先に作るのはウィンドウで、どのアダプターの上にあるかを教えてくれます。`gpu_interop::adapter()` で読みます。デバイスの準備ができるまで、ウィンドウが CPU で描いている間 (`ARVANE_RENDERER=cpu` や GPU なし)、そして他のプラットフォームでは `None` です。追跡されるので、`memo` で追えます。`GpuAdapter` はグラフィックス API、アダプターの LUID または Vulkan の UUID、`generation` を持ち、新しい世代は新しいデバイスを意味します。
+GPU デバイスを先に作るのはウィンドウで、どのアダプターの上にあるかを教えてくれます。`gpu_interop::adapter()` で読みます。デバイスの準備ができるまで、ウィンドウが CPU で描いている間 (`ARVANE_RENDERER=cpu` や GPU なし)、そして他のプラットフォームでは `None` です。追跡されるので、`memo` で追えます。`GpuAdapter` の `ids` は `AdapterIds` で、Direct3D 12 では LUID、Vulkan ではデバイスとドライバーの UUID（Windows では LUID も）を持ちます。`backend()` がグラフィックス API を返し、`generation` が変わると新しいデバイスを意味します。
 
 エンジンが特定のものを必要とする場合など、ウィンドウにグラフィックス API、アダプターの種類、特定のアダプターを選ばせたいときは、希望を設定します。
 
