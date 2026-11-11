@@ -11,7 +11,7 @@ use syn::visit::Visit;
 const RULE: &str = "state-fields";
 /// The marker that explains a field.
 const MARKER: &str = "// xtask-allow(state-fields):";
-/// The phrase that names a projection's one writer (SL-9).
+/// The phrase that names a projection's one writer.
 const WRITER: &str = "written only by ";
 /// Method calls that write the value they are called on or hand out a
 /// mutable handle to it.
@@ -131,7 +131,7 @@ struct Use {
     effect: Effect,
 }
 
-/// Check every `projection:` claim and every `independent:` reason (X4, X5).
+/// Check every `projection:` claim and every `independent:` reason.
 ///
 /// `all` is every loaded source; errors are reported only in the sources
 /// `report` selects.
@@ -144,7 +144,7 @@ pub(crate) fn verify(all: &[Source], report: &dyn Fn(&Source) -> bool, errors: &
     }
 }
 
-/// X5: an `independent:` reason shared with another file says nothing about
+/// An `independent:` reason shared with another file says nothing about
 /// the item it closes.
 fn duplicate_reasons(all: &[Source], report: &dyn Fn(&Source) -> bool, errors: &mut Vec<String>) {
     let mut paths: BTreeMap<String, BTreeSet<PathBuf>> = BTreeMap::new();
@@ -346,7 +346,7 @@ fn in_scope(scope: &str, declared: &Source, source: &Source) -> bool {
         && (source.module == scope || source.module.starts_with(&format!("{scope}::")))
 }
 
-/// Rules 2 and 3 of SL-9 for one claim.
+/// For one claim: the named writer exists where the field is visible, and is its only writer there.
 fn verify_claim(all: &[Source], claim: &Claim<'_>, errors: &mut Vec<String>) {
     let visible: Vec<&Source> = all
         .iter()

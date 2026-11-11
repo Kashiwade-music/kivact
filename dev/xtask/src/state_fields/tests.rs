@@ -509,7 +509,7 @@ fn one_unmarked_local_beside_a_marked_one_is_an_error() {
     );
 }
 
-/// Run X4 and X5 over fixtures, one per `(module, text)`, each in its own file.
+/// Run the projection and independent-reason checks over fixtures, one per `(module, text)`, each in its own file.
 fn verify_sources(modules: &[(&str, &str)]) -> Vec<String> {
     let sources: Vec<crate::check_source::Source> = modules
         .iter()

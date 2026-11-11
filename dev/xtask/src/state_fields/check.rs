@@ -16,7 +16,7 @@ const MARKER: &str = "state-fields";
 /// The rule name reported by this check.
 const RULE: &str = "state-fields";
 
-/// The openings of a reason that closes a state (design 6.2, SL-8).
+/// The openings of a reason that closes a state.
 const REASON_PREFIXES: [&str; 6] = [
     "independent:",
     "projection:",
@@ -100,7 +100,7 @@ fn is_exempt(policy: &toml::Table, name: &str) -> bool {
             .any(|record| record == name)
 }
 
-/// Whether a data-shaped name still hides state behind a mutable cell (SL-4).
+/// Whether a data-shaped name still hides state behind a mutable cell.
 fn struct_exempt(context: &RuleContext<'_>, name: &str, fields: &syn::Fields) -> bool {
     is_exempt(context.policy, name) && !has_mutable_cell(fields)
 }
@@ -311,7 +311,7 @@ fn report_combination(
     errors: &mut Vec<String>,
 ) {
     // A counted field without a closure beside any other counted field is an
-    // implicit combination: the audit's OPEN row (design 6.4).
+    // implicit combination: the audit's OPEN row.
     if !stored.is_empty() && total >= 2 {
         context.source.error_at(
             RULE,
@@ -389,7 +389,7 @@ fn report_statics(
     );
 }
 
-/// Whether `reason` starts with a closure that design 6.2 allows (SL-8).
+/// Whether `reason` starts with one of the allowed closures.
 fn has_known_reason(reason: &str) -> bool {
     let reason = reason.trim();
     REASON_PREFIXES

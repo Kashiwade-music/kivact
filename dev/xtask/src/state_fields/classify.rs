@@ -11,7 +11,7 @@ pub(super) enum Class {
     None,
     Phase,
     Stored,
-    /// A named counter that counts only beside another stored field (SL-3).
+    /// A named counter that counts only beside another stored field.
     Helper,
 }
 
@@ -93,17 +93,17 @@ pub(super) fn classify(rules: &RuleContext<'_>, name: &str, ty: &syn::Type, exem
     Class::None
 }
 
-/// The named counters that count beside another stored field (SL-3).
+/// The named counters that count beside another stored field.
 fn is_named_counter_helper(name: &str) -> bool {
     matches!(name, "Generation" | "Sent" | "Revision" | "Epoch")
 }
 
-/// A slot filled after construction (SL-1).
+/// A slot filled after construction.
 fn is_lazy_slot(name: &str) -> bool {
     matches!(name, "OnceCell" | "OnceLock" | "LazyCell" | "LazyLock")
 }
 
-/// A queue of work to do, such as `pending` or `dirty` plans (SL-6).
+/// A queue of work to do, such as `pending` or `dirty` plans.
 fn is_state_collection(name: &str, ty: &syn::Type) -> bool {
     matches!(
         outer(ty).as_str(),
@@ -168,7 +168,8 @@ fn phase_identity(
     None
 }
 
-/// Whether `identity` names a workspace enum that is a phase (SL-2 widens the names).
+/// Whether `identity` names a workspace enum that is a phase (State, Phase, Status, Stage,
+/// Connection, Lifecycle, Run, Present).
 fn is_phase_enum(identity: &str, enums: &BTreeSet<String>) -> bool {
     let named = [
         "State",

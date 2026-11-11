@@ -10,7 +10,7 @@ const SLOTS: &[&str] = &[
     "content", "header", "footer", "media", "image", "icon", "trailing", "actions", "item",
     "option", "fallback", "start", "center", "end",
 ];
-/// Lifecycle setters take `FnOnce`, not an event callback (ARG-1); the
+/// Lifecycle setters take `FnOnce`, not an event callback (API-3); the
 /// embedding `Parent::on_resize_request` is a host integration hook whose
 /// return value is the host's acceptance, not a `HandlerResult`.
 const LIFECYCLE: [&str; 4] = ["on_mount", "on_cleanup", "on_attach", "on_resize_request"];
@@ -140,7 +140,7 @@ fn check_signature(source: &Source, sig: &syn::Signature, method: bool, errors: 
     if method
         && name.starts_with("on_")
         && !LIFECYCLE.contains(&name.as_str())
-        && !args.last().is_some_and(|ty| arg1_callback(ty, sig))
+        && !args.last().is_some_and(|ty| handler_callback(ty, sig))
     {
         source.error(
             "api-shape",
@@ -157,7 +157,7 @@ fn check_signature(source: &Source, sig: &syn::Signature, method: bool, errors: 
         source.error(
             "api-shape",
             sig.span(),
-            "a builder method takes a handler without a payload as impl Into<Callback<()>> (ARG-1)",
+            "a builder method takes a handler without a payload as impl Into<Callback<()>> (API-3)",
             errors,
         );
     }
@@ -173,8 +173,8 @@ fn check_signature(source: &Source, sig: &syn::Signature, method: bool, errors: 
         );
     }
 }
-/// The last argument of an `on_*` setter follows ARG-1.
-fn arg1_callback(ty: &syn::Type, sig: &syn::Signature) -> bool {
+/// The last argument of an `on_*` setter follows API-3.
+fn handler_callback(ty: &syn::Type, sig: &syn::Signature) -> bool {
     into_unit_callback(ty) || fn_output_handler(ty, sig)
 }
 
@@ -345,7 +345,7 @@ mod tests {
         assert_eq!(errors.len(), 6);
     }
     #[test]
-    fn accepts_arg1_callback_bounds_and_lifecycle_exceptions() {
+    fn accepts_handler_bounds_and_lifecycle_exceptions() {
         let mut source = crate::check_source::fixture(
             "pub struct Widget; impl Widget { pub fn on_inline<R: HandlerResult>(self, f: impl Fn() -> R) {} pub fn on_generic<F, R>(self, f: F) where F: Fn(u8) -> R, R: HandlerResult {} pub fn on_path<R>(self, f: impl Fn() -> R) where R: HandlerResult {} pub fn on_callback(self, f: impl Into<Callback<()>>) {} pub fn on_many(self, a: bool, f: impl Into<Callback<()>>) {} pub fn on_mount(self, f: impl FnOnce()) {} pub fn on_cleanup(self, f: impl FnOnce()) {} pub fn on_attach(self, f: impl FnOnce()) {} pub fn on_fake(self, f: impl Into<bool>) {} pub fn on_plain(self, f: impl Fn()) {} }",
         );
@@ -367,7 +367,7 @@ mod tests {
         super::check(&source, &surface, &mut errors);
         assert_eq!(errors.len(), 5, "{errors:?}");
         assert!(
-            errors.iter().all(|error| error.contains("(ARG-1)")),
+            errors.iter().all(|error| error.contains("(API-3)")),
             "{errors:?}"
         );
     }
