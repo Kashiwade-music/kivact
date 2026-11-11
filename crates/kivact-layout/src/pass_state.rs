@@ -30,16 +30,6 @@ pub(crate) enum Pending {
     Dirty { relayout: Vec<NodeId> },
 }
 
-impl Pending {
-    /// The queued parents; empty for `Clean`.
-    pub(crate) fn into_relayout(self) -> Vec<NodeId> {
-        match self {
-            Pending::Clean => Vec::new(),
-            Pending::Dirty { relayout } => relayout,
-        }
-    }
-}
-
 /// Pending work and traversal generations for one columns/tree allocation domain.
 /// Keep it paired with the same NodeLayoutColumns and authoritative slot mapping.
 /// Cloning all three produces independent derived state; mixing a state from an
@@ -51,7 +41,7 @@ pub(crate) struct LayoutState {
     pending: Pending,
     /// The shared generation of derived child traversal cursors.
     pub(crate) epoch: Epoch,
-    // xtask-allow(state-fields): cache: a traversal cursor counted at one epoch
+    // xtask-allow(state-fields): cache: the last fixed child looked up in this computation; `compute` resets it before each pass
     /// The last indexed fixed child; this is a traversal cursor only.
     pub(crate) fixed_cursor: Cell<Option<(usize, NodeId)>>,
 }
@@ -120,13 +110,13 @@ impl LayoutState {
         }
     }
 
-    /// Take the pending computation, leaving the state clean: `None` when there
-    /// is nothing to do. The caller hands the queued parents to the computation.
+    /// Take the pending computation, leaving the state clean: the queued
+    /// parents, or `None` when there is nothing to do.
     /// Geometry reports and scrolling can still require work when this is `None`.
-    pub(crate) fn take_changed(&mut self) -> Option<Pending> {
+    pub(crate) fn take_changed(&mut self) -> Option<Vec<NodeId>> {
         match std::mem::replace(&mut self.pending, Pending::Clean) {
             Pending::Clean => None,
-            pending => Some(pending),
+            Pending::Dirty { relayout } => Some(relayout),
         }
     }
 }

@@ -146,8 +146,10 @@ impl TextEngine {
     }
 
     /// Measure a paragraph, caching successes and errors by text, style and width once the
-    /// paragraph was used before (a text measured once is not kept: its node keeps the answer,
-    /// `kivact_engine` `TextExtents`). Drawing-only properties are excluded from the measurement key.
+    /// paragraph's shaping is reused (it was kept, or is one of the last few paragraphs shaped
+    /// for the first time): a text measured only once leaves nothing in this cache, so a caller
+    /// that measures a text once keeps the answer itself. Drawing-only properties are excluded
+    /// from the measurement key.
     pub fn measure(
         &mut self,
         text: RichText<'_>,

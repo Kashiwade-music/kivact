@@ -44,8 +44,7 @@ impl std::ops::Deref for FontSource {
 }
 
 impl PartialEq for FontSource {
-    // Same source: equal without comparing contents (the same meaning as the
-    // old `Arc<[u8]>` equality).
+    // Same source: equal without comparing the bytes; different sources compare their bytes.
     fn eq(&self, other: &Self) -> bool {
         self.id() == other.id() || **self == **other
     }

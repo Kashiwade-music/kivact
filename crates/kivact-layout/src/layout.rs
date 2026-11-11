@@ -73,16 +73,11 @@ impl Layout {
             // Nothing to compute: keep the pending work for the first root.
             return false;
         }
-        let Some(pending) = self.state.take_changed() else {
+        let Some(relayout) = self.state.take_changed() else {
             return false;
         };
-        self.columns.compute(
-            tree,
-            &mut self.state,
-            pending.into_relayout(),
-            available,
-            measure,
-        );
+        self.columns
+            .compute(tree, &mut self.state, relayout, available, measure);
         true
     }
     /// Compute one overlay with an optional anchor placement limit.
@@ -133,3 +128,6 @@ impl Layout {
         self.columns.compare(&other.columns, tree)
     }
 }
+
+#[cfg(test)]
+mod tests;

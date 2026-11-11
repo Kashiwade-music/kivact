@@ -27,12 +27,6 @@ pub(super) enum Drawn {
     },
     /// The window had no buffer to give: the frame is drawn again later.
     NoBuffer {
-        /// The rasterizer that drew the frame, kept as [`Drawn::Shown`] keeps it.
-        #[expect(
-            dead_code,
-            reason = "the design keeps the renderer in both variants; the skip path treats every renderer alike"
-        )]
-        renderer: Renderer,
         /// The frame's exports, missed external frames, shader failures and stats.
         report: FrameReport,
     },
@@ -409,7 +403,6 @@ impl Presenter {
         // the configuration at once).
         if self.gpu.configuring() && window.shows_cpu_frame() {
             return Ok(Drawn::NoBuffer {
-                renderer: Renderer::Cpu,
                 report: FrameReport::default(),
             });
         }
@@ -426,10 +419,7 @@ impl Presenter {
                         report,
                     });
                 }
-                return Ok(Drawn::NoBuffer {
-                    renderer: Renderer::Gpu,
-                    report,
-                });
+                return Ok(Drawn::NoBuffer { report });
             }
             // vello_cpu draws what vello_hybrid cannot (the device is
             // fine); the frame goes through the window's GPU surface.
@@ -452,10 +442,7 @@ impl Presenter {
                                 report,
                             });
                         }
-                        return Ok(Drawn::NoBuffer {
-                            renderer: Renderer::Cpu,
-                            report,
-                        });
+                        return Ok(Drawn::NoBuffer { report });
                     }
                     Some(Err(e)) => self.gpu_failed(e)?,
                     None => {}
@@ -540,10 +527,7 @@ impl Presenter {
                 report,
             })
         } else {
-            Ok(Drawn::NoBuffer {
-                renderer: Renderer::Cpu,
-                report,
-            })
+            Ok(Drawn::NoBuffer { report })
         }
     }
 

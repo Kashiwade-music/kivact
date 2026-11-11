@@ -55,8 +55,8 @@ pub use geometry::{Edge, Edges, Insets, Point, Rect, Size, Transform};
 pub use geometry3d::{Decomposed, Matrix4, Polygon, Projective, W_EPS};
 pub use gpu::{
     AdapterIds, AdapterMatch, ExternalFrame, ExternalImageId, ExternalImport, GpuAdapter,
-    GpuBackend, GpuPower, GpuPreference, SHARED_PREPARED, SharedHandle, SharedTextureFormat,
-    SharedTextures,
+    GpuBackend, GpuPower, GpuPreference, GpuStart, SHARED_PREPARED, SharedHandle,
+    SharedTextureFormat, SharedTextures,
 };
 pub use ids::{
     DrawableId, FocusTarget, IdHasher, IdMap, NodeId, RegionId, RequestId, Revision, SemanticsId,

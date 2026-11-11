@@ -201,9 +201,9 @@ lto = "fat"
 codegen-units = 1
 opt-level = "s"
 strip = "symbols"
-# panic は unwind のまま: embed（DAW の plugin）は panic を host の外へ出さない。
+# panic stays "unwind": an embedded App (a DAW plugin editor) must not let a panic escape into its host.
 
-# 描画・shaping・layout の hot path は速度を優先する。
+# The drawing, shaping and layout hot paths favour speed.
 [profile.release.package.vello_cpu]
 opt-level = 3
 [profile.release.package.vello_common]

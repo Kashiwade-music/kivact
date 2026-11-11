@@ -658,8 +658,8 @@ pub struct ShaderSpec {
 pub struct ElementTransform {
     /// The move in px (x, y, z) ...
     pub translate: [f64; 3],
-    /// ... plus fractions of the box size, as before:
-    /// x += per_size[0]·w + per_size[1]·h, y += per_size[2]·w + per_size[3]·h.
+    /// ... plus fractions of the box size (`w` and `h` are its width and height):
+    /// `x += per_size[0]·w + per_size[1]·h`, `y += per_size[2]·w + per_size[3]·h`.
     pub per_size: [f64; 4],
     /// Degrees about x, y and z.
     pub rotate: [f64; 3],

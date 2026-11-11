@@ -304,7 +304,7 @@ fn pixel_rect(points: &[Point]) -> Option<(i64, i64, i64, i64)> {
 }
 
 /// `paint` for a source-over copy of a premultiplied texture moved by whole
-/// pixels into a pixel-aligned rectangle (PERF-3): integer src-over per byte.
+/// pixels into a pixel-aligned rectangle, the common case of a cached chunk: integer src-over per byte.
 /// None when the op is not of that kind.
 fn paint_fast(
     dst: &mut Pixmap,

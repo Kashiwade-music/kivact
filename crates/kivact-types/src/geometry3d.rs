@@ -21,7 +21,7 @@ fn det3(m: &[[f64; 3]; 3]) -> f64 {
 
 /// A 4×4 matrix on column vectors (x, y, z, w): p' = M · p, `m[row][col]`.
 /// CSS `matrix3d(a1, …, a16)` lists the matrix column by column:
-/// a1 = m[0][0], a2 = m[1][0], a3 = m[2][0], a4 = m[3][0], a5 = m[0][1], …
+/// `a1 = m[0][0]`, `a2 = m[1][0]`, `a3 = m[2][0]`, `a4 = m[3][0]`, `a5 = m[0][1]`, …
 /// Positive z points toward the viewer; y points down (as in CSS).
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Matrix4 {
@@ -67,19 +67,19 @@ impl Matrix4 {
         out
     }
 
-    /// CSS rotateX: [[1,0,0],[0,c,-s],[0,s,c]] in the upper 3×3.
+    /// CSS `rotateX`: `[[1,0,0],[0,c,-s],[0,s,c]]` in the upper 3×3.
     pub fn rotate_x(deg: f64) -> Matrix4 {
         let (s, c) = deg.to_radians().sin_cos();
         Self::from_linear([[1.0, 0.0, 0.0], [0.0, c, -s], [0.0, s, c]])
     }
 
-    /// CSS rotateY: [[c,0,s],[0,1,0],[-s,0,c]].
+    /// CSS `rotateY`: `[[c,0,s],[0,1,0],[-s,0,c]]`.
     pub fn rotate_y(deg: f64) -> Matrix4 {
         let (s, c) = deg.to_radians().sin_cos();
         Self::from_linear([[c, 0.0, s], [0.0, 1.0, 0.0], [-s, 0.0, c]])
     }
 
-    /// CSS rotate / rotateZ: [[c,-s,0],[s,c,0],[0,0,1]] (clockwise on screen).
+    /// CSS `rotate` / `rotateZ`: `[[c,-s,0],[s,c,0],[0,0,1]]` (clockwise on screen).
     pub fn rotate_z(deg: f64) -> Matrix4 {
         let (s, c) = deg.to_radians().sin_cos();
         Self::from_linear([[c, -s, 0.0], [s, c, 0.0], [0.0, 0.0, 1.0]])
@@ -111,7 +111,7 @@ impl Matrix4 {
         ])
     }
 
-    /// CSS perspective(d): m[3][2] = -1/d. d <= 0 or non-finite gives the identity.
+    /// CSS `perspective(d)`: `m[3][2] = -1/d`. `d <= 0` or non-finite gives the identity.
     pub fn perspective(distance: f64) -> Matrix4 {
         let mut out = Self::IDENTITY;
         if distance.is_finite() && distance > 0.0 {
@@ -233,7 +233,7 @@ impl Matrix4 {
     }
 
     /// CSS flattening into a flat parent: row 2 and column 2 become those
-    /// of the identity (m[2][*] = m[*][2] = 0 except m[2][2] = 1).
+    /// of the identity (`m[2][*] = m[*][2] = 0` except `m[2][2] = 1`).
     pub fn flattened(&self) -> Matrix4 {
         let mut out = *self;
         for k in 0..4 {
@@ -325,7 +325,7 @@ impl Matrix4 {
     }
 
     /// The back face is toward the viewer: invertible and the inverse has
-    /// m[2][2] < 0 (CSS Transforms 2). Mirrors (scale(−1, 1, 1)) show the front.
+    /// `m[2][2] < 0` (CSS Transforms 2). Mirrors (`scale(−1, 1, 1)`) show the front.
     pub fn shows_back(&self) -> bool {
         self.invert().is_some_and(|inv| inv.m[2][2] < 0.0)
     }
@@ -426,7 +426,7 @@ impl Projective {
         }
     }
 
-    /// Some when m[2] == [0, 0, 1] within 1e-12.
+    /// Some when `m[2] == [0, 0, 1]` within 1e-12.
     pub fn as_affine(&self) -> Option<Transform> {
         let m = &self.m;
         (near(m[2][0], 0.0) && near(m[2][1], 0.0) && near(m[2][2], 1.0)).then_some(Transform {

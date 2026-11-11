@@ -55,7 +55,7 @@ pub enum GpuStart {
     #[default]
     OnDemand,
     /// Start the device with the window (frames are drawn on the CPU until
-    /// it is ready), as before.
+    /// it is ready).
     AtLaunch,
 }
 

@@ -50,7 +50,7 @@ pub enum TransitionProp {
     Filter,
     /// The backdrop filter chain.
     BackdropFilter,
-    /// Presence size (enter_size / exit_size), as before.
+    /// Presence size (enter_size / exit_size).
     Size,
 }
 

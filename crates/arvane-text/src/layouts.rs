@@ -7,7 +7,7 @@
 //!
 //! Bounded: two generations of [`ENTRIES`] layouts; an entry used from the
 //! older generation moves to the newer one, and a full newer generation
-//! drops the older one. A paragraph is kept from its second shaping on (a
+//! drops the older one. A paragraph is kept from its second use on (a
 //! text measured once and never drawn keeps only its key's hash,
 //! `Shaped::seen`).
 //!
@@ -16,9 +16,9 @@
 //! a paragraph and its spans are applied to the shaped layout afterwards,
 //! so changing them never shapes again. Plain text in a plain style keys
 //! nothing but the text and its common style (no allocation besides the
-//! text, as quick to hash as before the rest of the vocabulary).
+//! text, and quick to hash).
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet, VecDeque};
 
 use kivact_types::render::SpanStyle;
 use kivact_types::render::TextSpan;
@@ -178,20 +178,25 @@ impl Key {
 /// Shaped layouts by [`Key`]; a glyph's brush is the index of its span
 /// plus one (0: the paragraph's style).
 ///
-/// A paragraph is kept from its second shaping on: the first time a key is
-/// shaped its layout stays in `scratch` only (until another first-time
-/// paragraph replaces it) and its hash is remembered in `seen`, so a text
-/// measured once and never drawn keeps nothing but the hash.
+/// A paragraph is kept from its second use on: the first time a key is
+/// shaped its layout waits in `scratch` (the last [`SCRATCH`] first-time
+/// paragraphs) and its hash is remembered in `seen`; a later use takes it
+/// from the scratch (or shapes it again once the scratch dropped it) and
+/// keeps it. A text measured once and never drawn keeps nothing but the hash.
 #[derive(Default)]
 pub(crate) struct Shaped {
     current: HashMap<Key, parley::Layout<u32>>,
     previous: HashMap<Key, parley::Layout<u32>>,
-    /// The last paragraph shaped for the first time.
-    scratch: Option<(Key, parley::Layout<u32>)>,
+    /// The last paragraphs shaped for the first time, oldest first.
+    scratch: VecDeque<(Key, parley::Layout<u32>)>,
     /// The hashes of the keys shaped once and not kept: two generations of
     /// at most `SEEN` each, as the layouts' two generations.
     seen: [HashSet<u64>; 2],
 }
+
+/// First-time paragraphs waiting for their second use (a frame measures its
+/// new texts, then draws them).
+const SCRATCH: usize = 16;
 
 /// Whether a layout was kept from an earlier call or shaped by this one.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -212,8 +217,9 @@ fn key_hash(key: &Key) -> u64 {
 }
 
 impl Shaped {
-    /// The layout of `key`: kept, the scratch's, or shaped by `shape` (kept
-    /// when the key was shaped once before, else into the scratch).
+    /// The layout of `key`: kept, waiting in the scratch (then kept), or
+    /// shaped by `shape` (kept when the key was shaped once before, else into
+    /// the scratch).
     pub(crate) fn get_or_insert(
         &mut self,
         key: Key,
@@ -226,9 +232,13 @@ impl Shaped {
         if let Some(layout) = self.previous.remove(&key) {
             return (self.keep(key, layout), Found::Kept);
         }
-        if self.scratch.as_ref().is_some_and(|(kept, _)| *kept == key) {
-            let (_, layout) = self.scratch.as_mut().expect("invariant: matched");
-            return (layout, Found::Kept);
+        if let Some(at) = self.scratch.iter().position(|(waiting, _)| *waiting == key) {
+            let (key, layout) = self.scratch.remove(at).expect("invariant: found above");
+            let hash = key_hash(&key);
+            if !self.seen[0].remove(&hash) {
+                self.seen[1].remove(&hash);
+            }
+            return (self.keep(key, layout), Found::Kept);
         }
         let hash = key_hash(&key);
         let layout = shape();
@@ -239,7 +249,11 @@ impl Shaped {
             self.seen[1] = std::mem::take(&mut self.seen[0]);
         }
         self.seen[0].insert(hash);
-        let (_, layout) = self.scratch.insert((key, layout));
+        if self.scratch.len() >= SCRATCH {
+            self.scratch.pop_front();
+        }
+        self.scratch.push_back((key, layout));
+        let (_, layout) = self.scratch.back_mut().expect("invariant: pushed above");
         (layout, Found::Shaped)
     }
 
@@ -261,8 +275,9 @@ mod tests {
     use kivact_types::render::RichText;
     use std::sync::Arc;
 
-    /// The bundled test font (Tuffy; its file lives in the `arvane` crate).
-    static FONT: &[u8] = include_bytes!("../../arvane/assets/fonts/Tuffy.ttf");
+    /// The bundled test font (Tuffy; a copy of the `arvane` crate's file, so
+    /// this crate's tests build from its own package).
+    static FONT: &[u8] = include_bytes!("../tests/fixtures/Tuffy.ttf");
 
     fn engine() -> TextEngine {
         TextEngine::isolated(&[Arc::from(FONT)]).expect("the test font loads")
@@ -304,19 +319,45 @@ mod tests {
     }
 
     #[test]
-    fn a_measurement_is_kept_from_its_third_call_with_equal_metrics() {
+    fn a_measurement_is_kept_from_its_second_call_with_equal_metrics() {
         let mut engine = engine();
         let style = ComputedTextStyle::default();
         let first = engine.measure("again".into(), &style, None);
+        assert!(!measured_kept(&mut engine, "again", &style));
         engine
             .measure("other".into(), &style, None)
             .expect("measures");
         let second = engine.measure("again".into(), &style, None);
-        assert!(!measured_kept(&mut engine, "again", &style));
-        let third = engine.measure("again".into(), &style, None);
         assert!(measured_kept(&mut engine, "again", &style));
         assert!(!measured_kept(&mut engine, "other", &style));
         assert_eq!(first, second);
-        assert_eq!(second, third);
+    }
+
+    /// Uses `texts` in order through one paragraph cache; how many shapings ran.
+    fn shapings(texts: &[&str]) -> usize {
+        let style = ComputedTextStyle::default();
+        let mut shaped = Shaped::default();
+        let mut count = 0;
+        for text in texts {
+            shaped.get_or_insert(Key::new(text, &[], &style, 20.0), || {
+                count += 1;
+                parley::Layout::new()
+            });
+        }
+        count
+    }
+
+    #[test]
+    fn texts_measured_then_drawn_are_shaped_once_each() {
+        assert_eq!(shapings(&["first", "second", "first", "second"]), 2);
+    }
+
+    #[test]
+    fn a_paragraph_dropped_from_the_scratch_is_shaped_again_and_kept() {
+        let mut texts: Vec<String> = (0..=SCRATCH).map(|i| format!("text {i}")).collect();
+        texts.push("text 0".to_owned());
+        texts.push("text 0".to_owned());
+        let texts: Vec<&str> = texts.iter().map(String::as_str).collect();
+        assert_eq!(shapings(&texts), SCRATCH + 2);
     }
 }
