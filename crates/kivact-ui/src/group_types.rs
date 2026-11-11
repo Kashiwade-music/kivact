@@ -32,7 +32,7 @@ impl Default for ButtonGroupTokens {
 pub struct ButtonGroupState {
     pub orientation: Orientation,
     pub size: ControlSize,
-    // xtask-allow(state-fields): independent: a derived position or construction input; every combination is valid
+    // xtask-allow(state-fields): independent: the inherited reading direction at render; the caller's orientation and size are set apart from it, so a group of either axis and size may read right to left
     pub rtl: bool,
 }
 
@@ -40,9 +40,9 @@ pub struct ButtonGroupState {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ButtonGroupMemberState {
     pub layout: ButtonGroupState,
-    // xtask-allow(state-fields): independent: a derived position or construction input; every combination is valid
+    // xtask-allow(state-fields): independent: index == 0 in ButtonGroup's member memo; a lone child is both first and last and a middle child neither, so all four pairs occur
     pub first: bool,
-    // xtask-allow(state-fields): independent: a derived position or construction input; every combination is valid
+    // xtask-allow(state-fields): independent: index + 1 == count in ButtonGroup's member memo; with first it marks a lone child (both), the two ends (one each) and middle children (neither)
     pub last: bool,
 }
 
@@ -64,7 +64,7 @@ pub struct ToggleGroupState {
     pub size: ControlSize,
     // xtask-allow(state-fields): option: absent means the component's default
     pub spacing: Option<f64>,
-    // xtask-allow(state-fields): independent: a derived position or construction input; every combination is valid
+    // xtask-allow(state-fields): independent: the inherited reading direction at render; the caller's spacing is set apart from it, so either direction pairs with a set or default spacing
     pub rtl: bool,
 }
 
@@ -73,9 +73,9 @@ pub struct ToggleGroupState {
 pub struct ToggleGroupItemState {
     pub toggle: ToggleButtonState,
     pub layout: ToggleGroupState,
-    // xtask-allow(state-fields): independent: a derived position or construction input; every combination is valid
+    // xtask-allow(state-fields): independent: whether this toggle's key is the first of the group's items; a lone item is both first and last and a middle one neither, so all four pairs occur
     pub first: bool,
-    // xtask-allow(state-fields): independent: a derived position or construction input; every combination is valid
+    // xtask-allow(state-fields): independent: whether this toggle's key is the last of the group's items; with first it marks a lone item (both), the two ends (one each) and middle ones (neither)
     pub last: bool,
 }
 impl std::ops::Deref for ToggleGroupItemState {

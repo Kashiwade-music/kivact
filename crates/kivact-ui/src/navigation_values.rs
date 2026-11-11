@@ -20,7 +20,7 @@ pub struct StepperItemState {
     pub current: usize,
     pub status: StepStatus,
     pub indicator: StepIndicatorKind,
-    // xtask-allow(state-fields): independent: whether the caller supplied an activation handler; any status can have one
+    // xtask-allow(state-fields): independent: whether Stepper::on_step_press was given, the same for every step; a disabled, optional or collapsed step keeps it, and disabled alone refuses the press
     pub interactive: bool,
     // xtask-allow(state-fields): independent: copied from StepperState::collapsed, the whole stepper's responsive layout; disabled and optional steps appear in either layout
     pub collapsed: bool,

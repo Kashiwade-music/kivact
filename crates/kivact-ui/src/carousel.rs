@@ -154,7 +154,7 @@ struct Layout {
     disabled: Value<bool>,
     buttons: Value<bool>,
     edge_fade: Value<bool>,
-    // xtask-allow(state-fields): option: absent means the component's default
+    // xtask-allow(state-fields): option: copied from Carousel::items_per_view; absent shows one slide per view and leaves scroll-mode slides at their natural size
     per_view: Option<Value<f64>>,
     // xtask-allow(state-fields): option: absent means the component's default
     gap: Option<Value<f64>>,

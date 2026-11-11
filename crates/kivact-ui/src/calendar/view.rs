@@ -29,7 +29,7 @@ pub struct Calendar {
     cell_size: Value<f64>,
     variants: crate::variants::Variants,
     selection: CalendarSelection,
-    // xtask-allow(state-fields): option: absent means the component's default
+    // xtask-allow(state-fields): option: Calendar::default_month; absent starts at the selection's month or today, and a caller month binding (displayed_month) takes precedence over it
     month: Option<CalendarMonth>,
     disabled: Rc<dyn Fn(CalendarDate) -> bool>,
     count: Value<usize>,
@@ -39,7 +39,7 @@ pub struct Calendar {
     week_start: Option<Value<Weekday>>,
     on_commit: Option<Callback<()>>,
     autofocus: Value<bool>,
-    // xtask-allow(state-fields): option: absent means the component's default
+    // xtask-allow(state-fields): option: Calendar::month binds the shown month to the caller; absent keeps it in the calendar's own signal seeded from default_month
     displayed_month: Option<Binding<CalendarMonth>>,
     today: Value<CalendarDate>,
     min: Value<Option<CalendarDate>>,

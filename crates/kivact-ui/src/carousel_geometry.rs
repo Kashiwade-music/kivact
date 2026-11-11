@@ -3,13 +3,13 @@ use kivact_core::geometry::Point;
 use kivact_core::view::{NodeRef, ScrollBehavior};
 use kivact_interaction::Snap;
 pub(super) struct PageRequest {
-    // xtask-allow(state-fields): independent: a request fact; every combination is valid
+    // xtask-allow(state-fields): independent: the carousel orientation read when a page step is requested; the caller sets it apart from reading direction, step sign and looping, and page() handles every pair
     pub(super) vertical: bool,
-    // xtask-allow(state-fields): independent: a request fact; every combination is valid
+    // xtask-allow(state-fields): independent: the inherited reading direction at the request; page() reads it only on the horizontal axis, so a vertical request with rtl set is valid and ignores it
     pub(super) rtl: bool,
-    // xtask-allow(state-fields): independent: a request fact; every combination is valid
+    // xtask-allow(state-fields): independent: the sign of the key or button step (delta > 0); either direction can be asked on any axis, in either reading direction, with or without looping
     pub(super) next: bool,
-    // xtask-allow(state-fields): independent: a request fact; every combination is valid
+    // xtask-allow(state-fields): option: copied from the setup-only Carousel::looping; false stops a page step at either end instead of wrapping
     pub(super) looping: bool,
     pub(super) snap: Snap,
     pub(super) padding: f64,

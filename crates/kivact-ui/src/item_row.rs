@@ -17,22 +17,22 @@ struct RowContents {
     title: Value<String>,
     // xtask-allow(state-fields): option: absent means the component's default
     title_content: Option<View>,
-    // xtask-allow(state-fields): option: absent means the component's default
+    // xtask-allow(state-fields): option: ItemRow::description text; absent shows no description unless description_content gives one
     description: Option<Value<String>>,
-    // xtask-allow(state-fields): option: absent means the component's default
+    // xtask-allow(state-fields): option: ItemRow::description_content; present it replaces the plain description text, absent falls back to that text
     description_content: Option<View>,
-    // xtask-allow(state-fields): option: absent means the component's default
+    // xtask-allow(state-fields): option: ItemRow::media; absent leaves the media slot out of the row body
     media: Option<View>,
-    // xtask-allow(state-fields): option: absent means the component's default
+    // xtask-allow(state-fields): option: ItemRow::actions; absent leaves the trailing actions slot out of the row body
     actions: Option<View>,
-    // xtask-allow(state-fields): option: absent means the component's default
+    // xtask-allow(state-fields): option: ItemRow::header; absent draws nothing above the row body
     header: Option<View>,
-    // xtask-allow(state-fields): option: absent means the component's default
+    // xtask-allow(state-fields): option: ItemRow::footer; absent draws nothing below the row body
     footer: Option<View>,
     // xtask-allow(state-fields): option: absent means the component's default
     marker: Option<View>,
     press: Option<Callback<()>>,
-    // xtask-allow(state-fields): option: absent means the component's default
+    // xtask-allow(state-fields): option: ItemRow::delegate_to; absent lets the row itself take on_press, present forwards activation to the target instead
     delegate: Option<NodeRef>,
     // xtask-allow(state-fields): option: absent means the component's default
     position: Option<(Value<usize>, Value<usize>)>,

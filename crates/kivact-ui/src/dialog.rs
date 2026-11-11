@@ -39,7 +39,7 @@ pub struct Dialog {
     align: Option<OverlayAlign>,
     // xtask-allow(state-fields): option: absent means the component's default
     width: Option<Value<Length>>,
-    // xtask-allow(state-fields): option: absent means the component's default
+    // xtask-allow(state-fields): option: Dialog::description; absent draws no description and links none to the dialog
     description: Option<Value<String>>,
     // xtask-allow(state-fields): option: absent means the component's default
     initial_focus: Option<NodeRef>,

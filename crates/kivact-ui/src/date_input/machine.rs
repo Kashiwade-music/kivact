@@ -81,9 +81,9 @@ pub(crate) enum Effect {
 
 pub(crate) struct Snapshot {
     pub(crate) locale: Locale,
-    // xtask-allow(state-fields): option: absent means the component's default
+    // xtask-allow(state-fields): option: the caller's DateInput min bound read for each event; absent accepts any early date
     pub(crate) min: Option<CalendarDate>,
-    // xtask-allow(state-fields): option: absent means the component's default
+    // xtask-allow(state-fields): option: the caller's DateInput max bound read for each event; absent accepts any late date
     pub(crate) max: Option<CalendarDate>,
 }
 
