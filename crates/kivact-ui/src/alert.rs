@@ -172,12 +172,11 @@ impl IntoView for Alert {
         let has_description = self.description.is_some();
         let state = move || AlertState {
             tone: tone.get(),
-            expansion: Expansion::new(has_details && collapsible.get(), details.get()),
+            content: has_details.then(|| Expansion::new(collapsible.get(), details.get())),
             dismissible: dismissible.get(),
             has_icon,
             has_actions,
             has_description,
-            has_content: has_details,
         };
         let contents = self.render_contents(state, collapsible, details, phase);
         with_base_recipe_style(

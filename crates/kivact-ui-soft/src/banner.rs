@@ -119,7 +119,7 @@ fn header(theme: &Theme, s: &Look<AlertState>) -> Style {
     let t = theme.ext::<crate::Tokens>();
     let (bg, ink) = colors(&t, s.tone);
     let radius = radius(&t, s);
-    let bottom = if s.has_content && s.expansion != Expansion::Collapsed {
+    let bottom = if s.has_content() && s.expansion() != Expansion::Collapsed {
         0.0
     } else {
         radius
@@ -132,7 +132,7 @@ fn header(theme: &Theme, s: &Look<AlertState>) -> Style {
         .padding_y(12)
         .padding_x(16)
         .align_items(
-            if (s.has_actions || s.dismissible || s.expansion != Expansion::NotExpandable)
+            if (s.has_actions || s.dismissible || s.expansion() != Expansion::NotExpandable)
                 && !s.has_description
             {
                 Align::Center
@@ -175,7 +175,7 @@ fn content(theme: &Theme, s: &Look<AlertState>) -> Style {
 fn control(theme: &Theme, s: &Look<AlertState>, dismiss: bool) -> Style {
     let t = theme.ext::<crate::Tokens>();
     let (_, ink) = colors(&t, s.tone);
-    let expanded = s.expansion == Expansion::Expanded;
+    let expanded = s.expansion() == Expansion::Expanded;
     style()
         .size(24, 24)
         .padding(0)

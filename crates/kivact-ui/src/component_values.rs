@@ -7,33 +7,69 @@ use kivact_interaction::Tone;
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct AlertState {
     pub tone: Tone,
-    pub expansion: Expansion,
-    // xtask-allow(state-fields): projection: readonly snapshot of the component's state for recipes, written only by its render function
+    // xtask-allow(state-fields): independent: Alert::content fills the content slot (Some) and Alert::collapsible with the open binding choose its Expansion; it combines with any icon, actions, description or dismiss button
+    /// The content slot ([`Alert::content`](super::Alert::content)): `None`
+    /// without content, otherwise whether it can collapse and is open.
+    pub content: Option<Expansion>,
+    // xtask-allow(state-fields): independent: Alert::dismissible shows the dismiss button, with or without content, icon or actions
     pub dismissible: bool,
-    // xtask-allow(state-fields): projection: readonly snapshot of the component's state for recipes, written only by its render function
+    // xtask-allow(state-fields): independent: Alert::icon fills the icon slot of a dismissible or fixed alert alike
     pub has_icon: bool,
-    // xtask-allow(state-fields): projection: readonly snapshot of the component's state for recipes, written only by its render function
+    // xtask-allow(state-fields): independent: Alert::actions fills the action slot, beside or without a dismiss button
     pub has_actions: bool,
-    // xtask-allow(state-fields): projection: readonly snapshot of the component's state for recipes, written only by its render function
+    // xtask-allow(state-fields): independent: Alert::description adds the description line, with or without content below it
     pub has_description: bool,
-    // xtask-allow(state-fields): projection: readonly snapshot of the component's state for recipes, written only by its render function
-    pub has_content: bool,
+}
+
+impl AlertState {
+    /// Whether the alert has a content slot ([`Alert::content`](super::Alert::content)),
+    /// collapsible or not.
+    pub fn has_content(&self) -> bool {
+        self.content.is_some()
+    }
+    /// Whether the content can collapse and, if so, whether it is open;
+    /// [`NotExpandable`](Expansion::NotExpandable) without content or when
+    /// it cannot collapse.
+    pub fn expansion(&self) -> Expansion {
+        self.content.unwrap_or(Expansion::NotExpandable)
+    }
 }
 
 /// Card semantics supplied to recipes.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct CardState {
-    // xtask-allow(state-fields): projection: readonly snapshot of the component's state for recipes, written only by its render function
-    pub input: Option<kivact_core::custom::PartState>,
-    pub selection: Selectable,
-    // xtask-allow(state-fields): projection: readonly snapshot of the component's state for recipes, written only by its render function
+    /// What activating the card does; `match` it, or read
+    /// [`input`](Self::input), [`is_interactive`](Self::is_interactive) and
+    /// [`selection`](Self::selection).
+    pub action: CardAction,
+    // xtask-allow(state-fields): independent: the caller's Card::disabled value applies to any action
     pub disabled: bool,
-    // xtask-allow(state-fields): projection: readonly snapshot of the component's state for recipes, written only by its render function
-    pub interactive: bool,
-    // xtask-allow(state-fields): projection: readonly snapshot of the component's state for recipes, written only by its render function
+    // xtask-allow(state-fields): independent: media and footer are separate optional slots; all four combinations render
     pub has_media: bool,
-    // xtask-allow(state-fields): projection: readonly snapshot of the component's state for recipes, written only by its render function
+    // xtask-allow(state-fields): independent: media and footer are separate optional slots; all four combinations render
     pub has_footer: bool,
+}
+
+impl CardState {
+    /// The actual input state of the card's button or check box part;
+    /// `None` for a plain card.
+    pub fn input(&self) -> Option<kivact_core::custom::PartState> {
+        match self.action {
+            CardAction::Plain => None,
+            CardAction::Press { input } | CardAction::Select { input, .. } => Some(input),
+        }
+    }
+    /// Whether the card can be pressed or selected.
+    pub fn is_interactive(&self) -> bool {
+        !matches!(self.action, CardAction::Plain)
+    }
+    /// Whether the card can be selected and, if so, whether it is.
+    pub fn selection(&self) -> Selectable {
+        match self.action {
+            CardAction::Select { selected, .. } => Selectable::new(true, selected),
+            CardAction::Plain | CardAction::Press { .. } => Selectable::NotSelectable,
+        }
+    }
 }
 
 /// Whether a part can expand and, if so, whether it is expanded.
@@ -78,6 +114,25 @@ impl Selectable {
             (true, true) => Self::Selected,
         }
     }
+}
+
+/// What activating a card does, with the actual input of the part that does it.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum CardAction {
+    /// A plain surface; nothing activates it.
+    Plain,
+    /// Pressing activates it ([`Card::on_press`](super::Card::on_press)).
+    Press {
+        /// The actual input state of the card's button part.
+        input: kivact_core::custom::PartState,
+    },
+    /// It is a check box ([`Card::selected`](super::Card::selected)).
+    Select {
+        /// The actual input state of the card's check box part.
+        input: kivact_core::custom::PartState,
+        /// Whether the card is selected.
+        selected: bool,
+    },
 }
 
 /// The semantic state passed to every empty-state recipe.
