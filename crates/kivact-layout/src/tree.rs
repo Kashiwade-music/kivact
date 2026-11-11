@@ -74,7 +74,7 @@ struct LayoutPass<'a, Tree: LayoutTree + ?Sized> {
     performed: &'a mut SlotMap<LayoutInput>,
     touched: &'a mut [u32],
     below: &'a mut [u32],
-    origin: &'a mut [(f32, f32)],
+    origin: &'a mut [Option<(f32, f32)>],
     stamp: u32,
     never_rounded: &'a mut BTreeSet<usize>,
     measure: &'a mut dyn LeafMeasurer,
@@ -152,7 +152,7 @@ impl<Tree: LayoutTree + ?Sized> LayoutPass<'_, Tree> {
     /// only where something changed).
     fn round_changed(&mut self, node: TId, cum: (f32, f32), stamp: u32) {
         let i = usize::from(node);
-        let same_origin = self.origin[i] == cum;
+        let same_origin = self.origin[i] == Some(cum);
         if same_origin && self.below[i] != stamp {
             return;
         }
@@ -160,7 +160,7 @@ impl<Tree: LayoutTree + ?Sized> LayoutPass<'_, Tree> {
         if !same_origin || self.touched[i] == stamp {
             let layout = rounded(unrounded, cum);
             self.set_final_layout(node, &layout);
-            self.origin[i] = cum;
+            self.origin[i] = Some(cum);
             self.never_rounded.remove(&i);
         }
         let child_cum = (cum.0 + unrounded.location.x, cum.1 + unrounded.location.y);
@@ -178,7 +178,7 @@ impl<Tree: LayoutTree + ?Sized> LayoutPass<'_, Tree> {
         let unrounded = self.unrounded[i];
         let layout = rounded(unrounded, cum);
         self.set_final_layout(node, &layout);
-        self.origin[i] = cum;
+        self.origin[i] = Some(cum);
         self.never_rounded.remove(&i);
         let child_cum = (cum.0 + unrounded.location.x, cum.1 + unrounded.location.y);
         for index in 0..self.child_count(node) {
@@ -205,21 +205,21 @@ impl<Tree: LayoutTree + ?Sized> LayoutPass<'_, Tree> {
         let mut top = i;
         loop {
             match self.layout_parent(top) {
-                Some(p) if self.origin[p].0.is_nan() => top = p,
-                Some(p) => {
-                    let l = self.unrounded[p].location;
-                    return Some((
-                        TId::from(top),
-                        (self.origin[p].0 + l.x, self.origin[p].1 + l.y),
-                    ));
-                }
+                Some(p) => match self.origin[p] {
+                    None => top = p,
+                    Some((ox, oy)) => {
+                        let l = self.unrounded[p].location;
+                        return Some((TId::from(top), (ox + l.x, oy + l.y)));
+                    }
+                },
                 None => {
-                    let slot = top.checked_sub(1);
+                    // A layout root: the viewport, the main root or an
+                    // attached overlay (a detached overlay is not laid out).
+                    let id = top.checked_sub(1).and_then(|s| self.tree.id_at(s));
                     let root = top == 0
-                        || slot
-                            .and_then(|s| self.tree.id_at(s))
-                            .is_some_and(|id| self.tree.root() == Some(id))
-                        || slot.is_some_and(|s| self.tree.flow(s) == Flow::Overlay);
+                        || id.is_some_and(|id| {
+                            self.tree.root() == Some(id) || self.tree.overlays().contains(&id)
+                        });
                     return root.then(|| (TId::from(top), (0.0, 0.0)));
                 }
             }
@@ -308,35 +308,43 @@ fn touch(
 
 /// The rounded copy of `unrounded`, whose parent's cumulative origin is `cum`
 /// (the `layout` part of taffy 0.14's `round_layout_inner`, and its
-/// `round_scrollable_overflow_rect`: the same arithmetic in the same order).
+/// `round_scrollable_overflow_rect`: the same arithmetic in the same order,
+/// with taffy's `round`).
 fn rounded(unrounded: Layout, cum: (f32, f32)) -> Layout {
     let mut layout = unrounded;
     let x = cum.0 + unrounded.location.x;
     let y = cum.1 + unrounded.location.y;
-    layout.location.x = unrounded.location.x.round();
-    layout.location.y = unrounded.location.y.round();
-    layout.size.width = (x + unrounded.size.width).round() - x.round();
-    layout.size.height = (y + unrounded.size.height).round() - y.round();
-    layout.scrollbar_size.width = unrounded.scrollbar_size.width.round();
-    layout.scrollbar_size.height = unrounded.scrollbar_size.height.round();
-    layout.border.left = (x + unrounded.border.left).round() - x.round();
-    layout.border.right = (x + unrounded.size.width).round()
-        - (x + unrounded.size.width - unrounded.border.right).round();
-    layout.border.top = (y + unrounded.border.top).round() - y.round();
-    layout.border.bottom = (y + unrounded.size.height).round()
-        - (y + unrounded.size.height - unrounded.border.bottom).round();
-    layout.padding.left = (x + unrounded.padding.left).round() - x.round();
-    layout.padding.right = (x + unrounded.size.width).round()
-        - (x + unrounded.size.width - unrounded.padding.right).round();
-    layout.padding.top = (y + unrounded.padding.top).round() - y.round();
-    layout.padding.bottom = (y + unrounded.size.height).round()
-        - (y + unrounded.size.height - unrounded.padding.bottom).round();
+    layout.location.x = round(unrounded.location.x);
+    layout.location.y = round(unrounded.location.y);
+    layout.size.width = round(x + unrounded.size.width) - round(x);
+    layout.size.height = round(y + unrounded.size.height) - round(y);
+    layout.scrollbar_size.width = round(unrounded.scrollbar_size.width);
+    layout.scrollbar_size.height = round(unrounded.scrollbar_size.height);
+    layout.border.left = round(x + unrounded.border.left) - round(x);
+    layout.border.right =
+        round(x + unrounded.size.width) - round(x + unrounded.size.width - unrounded.border.right);
+    layout.border.top = round(y + unrounded.border.top) - round(y);
+    layout.border.bottom = round(y + unrounded.size.height)
+        - round(y + unrounded.size.height - unrounded.border.bottom);
+    layout.padding.left = round(x + unrounded.padding.left) - round(x);
+    layout.padding.right =
+        round(x + unrounded.size.width) - round(x + unrounded.size.width - unrounded.padding.right);
+    layout.padding.top = round(y + unrounded.padding.top) - round(y);
+    layout.padding.bottom = round(y + unrounded.size.height)
+        - round(y + unrounded.size.height - unrounded.padding.bottom);
     let overflow = unrounded.scrollable_overflow_rect;
-    layout.scrollable_overflow_rect.left = (x + overflow.left).round() - x.round();
-    layout.scrollable_overflow_rect.right = (x + overflow.right).round() - x.round();
-    layout.scrollable_overflow_rect.top = (y + overflow.top).round() - y.round();
-    layout.scrollable_overflow_rect.bottom = (y + overflow.bottom).round() - y.round();
+    layout.scrollable_overflow_rect.left = round(x + overflow.left) - round(x);
+    layout.scrollable_overflow_rect.right = round(x + overflow.right) - round(x);
+    layout.scrollable_overflow_rect.top = round(y + overflow.top) - round(y);
+    layout.scrollable_overflow_rect.bottom = round(y + overflow.bottom) - round(y);
     layout
+}
+
+/// Taffy's rounding (`(value + 0.5).floor()`, not `f32::round`): halves
+/// round toward positive infinity, also below zero.
+#[inline(always)]
+fn round(value: f32) -> f32 {
+    (value + 0.5).floor()
 }
 
 fn relative_length(raw: taffy::style::CompactLength) -> bool {
@@ -428,8 +436,8 @@ impl<Tree: LayoutTree + ?Sized> LayoutPartialTree for LayoutPass<'_, Tree> {
     fn set_unrounded_layout(&mut self, t: TId, layout: &Layout) {
         let index = usize::from(t);
         // Taffy sets every child again when it lays out the parent: mark only a
-        // new value, or a slot that was never rounded (its origin is NaN).
-        let changed = self.unrounded[index] != *layout || self.origin[index].0.is_nan();
+        // new value, or a slot that was never rounded (its origin is `None`).
+        let changed = self.unrounded[index] != *layout || self.origin[index].is_none();
         self.unrounded[index] = *layout;
         if changed {
             touch(self.tree, self.touched, self.below, self.stamp, index);
@@ -966,7 +974,7 @@ impl NodeLayoutColumns {
     /// nearest rounded ancestor, never the whole tree. A Contents slot never takes
     /// part (its children are its flat parent's) and leaves the set; a detached
     /// slot stays (attaching it lays it out under a new parent, whose pass rounds
-    /// it: its origin is NaN).
+    /// it: its origin is `None`).
     fn finish_rounding<Tree: LayoutTree + ?Sized>(
         &mut self,
         tree: &Tree,

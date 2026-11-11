@@ -114,6 +114,8 @@ impl NodeLayoutColumns {
             cache.clear();
         }
         self.values.performed.clear();
+        // Round every laid-out node again instead of keeping its last rounding.
+        self.values.origin.fill(None);
     }
     /// Compare full geometry and available parent-visible outputs for identical inputs.
     /// None/None is the sole geometry skip. This is strict equality, distinct from

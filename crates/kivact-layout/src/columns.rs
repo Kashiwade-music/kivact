@@ -61,7 +61,7 @@ impl Ask {
         ])
     }
 
-    /// The request the leaf measurer is asked (the f32 values widened, as before).
+    /// The request the leaf measurer is asked (the f32 values widened to f64).
     pub(crate) fn request(self) -> MeasureRequest {
         let known = |b: u32| (b != UNKNOWN).then(|| f64::from(f32::from_bits(b)));
         let space = |b: u32| match b {
@@ -224,11 +224,11 @@ pub(crate) type SlotMap<V> =
 /// Style, caches and optional geometry borrowed for one root computation.
 #[derive(Clone, Debug)]
 pub(crate) struct NodeLayoutValues {
-    /// The style of each slot; slots that share a style share its `Rc` (M3-9).
+    /// The style of each slot; slots with equal styles share one `Rc` (`recent_styles`).
     pub(crate) styles: Vec<Rc<NodeStyle>>,
     /// The default style every new or reset slot shares.
     pub(crate) default_style: Rc<NodeStyle>,
-    /// The last distinct styles built from layout props: equal ones are shared (M3-9).
+    /// The last distinct styles built from layout props: a rebuilt style equal to one of them shares its `Rc`.
     pub(crate) recent_styles: Recent<NodeStyle>,
     /// Whether its own box resolves a length against its parent's size: a
     /// percentage or calc in its size, min/max size, flex basis, margin, padding,
@@ -244,7 +244,7 @@ pub(crate) struct NodeLayoutValues {
     pub(crate) geometry_changed: Vec<GeometryChange>,
     /// The inputs of a parent's last full layout (taffy's `PerformLayout`),
     /// which lay a parent of an absolute box out again on its own (`tree`).
-    /// Only a node with children keeps them: a sparse table (M3-10).
+    /// Only a node with children keeps them (a sparse table: most nodes are leaves).
     pub(crate) performed: SlotMap<taffy::LayoutInput>,
     /// The pass number of the last `set_unrounded_layout` that changed this
     /// slot's value (taffy sets every child again when it lays out the parent).
@@ -253,9 +253,9 @@ pub(crate) struct NodeLayoutValues {
     /// descendants (the path `round_changed` visits).
     pub(crate) below: Vec<u32>,
     /// The parent's cumulative origin when this slot was last rounded;
-    /// `(f32::NAN, f32::NAN)` until it is rounded (or after `reset`).
-    pub(crate) origin: Vec<(f32, f32)>,
-    /// The slots (`position + 1`) whose presence scale is set (LAY-2): the
+    /// `None` until it is rounded (or after `reset`).
+    pub(crate) origin: Vec<Option<(f32, f32)>>,
+    /// The slots (`position + 1`) whose presence scale is set: the
     /// sparse index `scale_item_styles` walks instead of every slot.
     pub(crate) scaled: BTreeSet<usize>,
     /// The live slots (`position + 1`) that take part in layout and that no pass
@@ -282,7 +282,7 @@ impl Default for NodeLayoutValues {
             performed: SlotMap::default(),
             touched: vec![0],
             below: vec![0],
-            origin: vec![(f32::NAN, f32::NAN)],
+            origin: vec![None],
             scaled: BTreeSet::new(),
             never_rounded: BTreeSet::new(),
         }
@@ -333,7 +333,13 @@ impl Default for NodeLayoutColumns {
 impl NodeLayoutColumns {
     /// Advance and return the pass number, never `0` (the unmarked value).
     pub(crate) fn next_stamp(&mut self) -> u32 {
-        self.stamp = self.stamp.wrapping_add(1).max(1);
+        self.stamp = self.stamp.wrapping_add(1);
+        if self.stamp == 0 {
+            // Wrapped: forget every old mark so none equals a new pass number.
+            self.values.touched.fill(0);
+            self.values.below.fill(0);
+            self.stamp = 1;
+        }
         self.stamp
     }
 }
@@ -357,7 +363,7 @@ impl NodeLayoutColumns {
         values.final_layout.push(None);
         values.touched.push(0);
         values.below.push(0);
-        values.origin.push((f32::NAN, f32::NAN));
+        values.origin.push(None);
         values.never_rounded.insert(index);
     }
 
@@ -383,7 +389,7 @@ impl NodeLayoutColumns {
         values.performed.remove(&(index as u64));
         values.touched[index] = 0;
         values.below[index] = 0;
-        values.origin[index] = (f32::NAN, f32::NAN);
+        values.origin[index] = None;
         values.scaled.remove(&index);
         values.never_rounded.insert(index);
     }
