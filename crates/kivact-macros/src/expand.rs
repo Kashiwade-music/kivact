@@ -10,6 +10,7 @@ pub(crate) fn component(model: &Model) -> TokenStream {
     let struct_name = &model.struct_name;
     let vis = &model.vis;
     let docs = &model.docs;
+    let attrs = &model.attrs;
     let fields = model.props.iter().map(field);
     let constructor = constructor(model);
     let setters = model
@@ -20,6 +21,7 @@ pub(crate) fn component(model: &Model) -> TokenStream {
     let into_view = into_view(model);
     quote! {
         #(#docs)*
+        #(#attrs)*
         #[must_use]
         #vis struct #struct_name {
             #(#fields),*
@@ -27,6 +29,7 @@ pub(crate) fn component(model: &Model) -> TokenStream {
 
         #constructor
 
+        #(#attrs)*
         impl #struct_name {
             #(#setters)*
         }
@@ -47,6 +50,7 @@ fn field(prop: &Prop) -> TokenStream {
 
 fn constructor(model: &Model) -> TokenStream {
     let (vis, name, struct_name, docs) = (&model.vis, &model.name, &model.struct_name, &model.docs);
+    let (attrs, deprecated) = (&model.attrs, &model.deprecated);
     let positional: Vec<&Prop> = model
         .props
         .iter()
@@ -60,6 +64,7 @@ fn constructor(model: &Model) -> TokenStream {
     });
     let fields = model.props.iter().map(initializer);
     quote! {
+        #(#attrs)* #(#deprecated)*
         #(#docs)*
         #[track_caller]
         #vis fn #name #generics (#(#params),*) -> #struct_name {
@@ -94,7 +99,9 @@ fn into_view(model: &Model) -> TokenStream {
     let names = model.props.iter().map(|prop| &prop.name);
     let mounts = model.props.iter().filter_map(mount);
     let statements = &model.body.stmts;
+    let attrs = &model.attrs;
     quote! {
+        #(#attrs)*
         impl ::kivact::view::IntoView for #struct_name {
             fn into_view(self) -> ::kivact::view::View {
                 let #struct_name { #(#names),* } = self;
@@ -116,8 +123,8 @@ fn initializer(prop: &Prop) -> TokenStream {
         }
         Required::Optional => quote! { #name: ::std::option::Option::None },
         Required::Default(expr) => {
-            let value = store(prop, quote! { #expr });
-            quote! { #name: #value }
+            let value = store(prop, quote! { __default });
+            quote! { #name: { let __default = #expr; #value } }
         }
     }
 }
@@ -125,6 +132,12 @@ fn initializer(prop: &Prop) -> TokenStream {
 fn mount(prop: &Prop) -> Option<TokenStream> {
     let name = &prop.name;
     match &prop.kind {
+        PropKind::Text if prop.is_optional() => Some(quote! {
+            let #name = #name.map(|v| ::kivact::state::IntoValue::<::std::string::String>::into_value(v));
+        }),
+        PropKind::Value(ty) if prop.is_optional() => Some(quote! {
+            let #name = #name.map(|v| ::kivact::state::IntoValue::<#ty>::into_value(v));
+        }),
         PropKind::Text | PropKind::Value(_) => {
             Some(quote! { let #name = ::kivact::state::IntoValue::into_value(#name); })
         }

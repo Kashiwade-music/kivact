@@ -4,10 +4,14 @@
 //! Required props are the builder's positional arguments; `#[prop(optional)]`
 //! and `#[prop(default = ..)]` props are named setters; text borrows only for
 //! the call, and a `ViewFn` prop is created again on every opening.
+//! Unused variables are errors here: `old_card` proves that `#[component]`
+//! keeps its `#[allow(..)]`.
+#![deny(unused_variables)]
 
 use crate::support::mount;
 use kivact::prelude::*;
 use kivact::test::render;
+use std::sync::atomic::{AtomicU32, Ordering};
 
 /// A card with a title and one content slot.
 #[component]
@@ -124,5 +128,97 @@ fn payload_callback_infers_the_argument() {
     screen.get_by_text("picked=0");
     screen.get_by_role(Role::Button, "Pick").click();
     screen.get_by_text("picked=7");
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+/// A heading with an optional subtitle and an optional level.
+#[component]
+fn heading(
+    title: Value<String>,
+    #[prop(optional)] subtitle: Option<Value<String>>,
+    #[prop(optional)] level: Option<Value<u32>>,
+) -> impl IntoView {
+    let level = level.map(|level| text(move || format!("level={}", level.get())));
+    column((text(title), subtitle.map(text), level))
+}
+
+#[test]
+fn optional_value_props_are_none_or_reactive() {
+    let (screen, subtitle) = mount(|| {
+        let subtitle = signal(String::from("Second"));
+        let view = column((
+            heading("Plain"),
+            heading("Full").subtitle(subtitle).level(2_u32),
+        ));
+        (subtitle, view)
+    });
+    screen.get_by_text("Plain");
+    screen.get_by_text("Full");
+    screen.get_by_text("Second");
+    screen.get_by_text("level=2");
+    assert_eq!(screen.all_by_text("level=2").len(), 1);
+    subtitle.set(String::from("Changed"));
+    screen.run_until_idle();
+    screen.get_by_text("Changed");
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+/// How many times [`counted_dismiss`] ran: the default expression of
+/// `notice`'s `on_dismiss`.
+static DISMISS_DEFAULTS: AtomicU32 = AtomicU32::new(0);
+
+/// The default handler of `notice`, counting each run of the expression.
+fn counted_dismiss() -> impl Fn() + 'static {
+    DISMISS_DEFAULTS.fetch_add(1, Ordering::SeqCst);
+    || {}
+}
+
+/// A notice with a default dismiss handler.
+#[component]
+fn notice(
+    message: Value<String>,
+    #[prop(default = counted_dismiss())] on_dismiss: Callback<()>,
+) -> impl IntoView {
+    column((text(message), button("Dismiss").on_press(on_dismiss)))
+}
+
+#[test]
+fn callback_default_runs_when_the_builder_is_called() {
+    let (screen, made_by_call) = mount(|| {
+        let before = DISMISS_DEFAULTS.load(Ordering::SeqCst);
+        let view = notice("Saved");
+        (DISMISS_DEFAULTS.load(Ordering::SeqCst) - before, view)
+    });
+    assert_eq!(made_by_call, 1, "the default runs in the builder call");
+    assert_eq!(
+        DISMISS_DEFAULTS.load(Ordering::SeqCst),
+        1,
+        "mounting does not run the default again"
+    );
+    screen.get_by_text("Saved");
+    screen.get_by_role(Role::Button, "Dismiss").click();
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+/// A card kept for old callers, with the attributes `#[component]` keeps:
+/// `allow` on every generated item, `deprecated` on the builder. The file's
+/// `deny(unused_variables)` makes a dropped `allow` a compile error.
+#[component]
+#[allow(
+    unused_variables,
+    reason = "the unused name proves the allow reaches the body"
+)]
+#[deprecated(note = "use `card`")]
+fn old_card(title: Value<String>) -> impl IntoView {
+    let unused = 0;
+    text(title)
+}
+
+#[test]
+#[deny(unfulfilled_lint_expectations)]
+#[expect(deprecated, reason = "#[component] keeps #[deprecated] on the builder")]
+fn allow_and_deprecated_reach_the_generated_items() {
+    let screen = render(|| old_card("Old"));
+    screen.get_by_text("Old");
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
