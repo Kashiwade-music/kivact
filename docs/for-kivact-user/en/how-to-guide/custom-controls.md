@@ -45,7 +45,6 @@ The shortest custom control is a switch. Everything it does comes from the
 controller; the code only decides what it looks like.
 
 ```rust,test_harness
-use kivact::state::Binding;
 use kivact::interaction::use_switch;
 use kivact::prelude::*;
 use kivact::style::Direction;
@@ -193,8 +192,7 @@ list semantics; you provide the keys, the order and the looks.
 ```rust,test_harness
 use std::hash::Hash;
 
-use kivact::state::Binding;
-use kivact::interaction::{ListItem, ListOptions, Selection, use_list};
+use kivact::interaction::{ListOptions, use_list};
 use kivact::prelude::*;
 
 /// A row of options; the arrow keys move and select, Tab leaves the row.
@@ -305,10 +303,9 @@ and `overlay` while `is_open()` is true.
 ```rust,test_harness
 use std::hash::Hash;
 
-use kivact::state::Binding;
-use kivact::interaction::{ListItem, use_select};
+use kivact::interaction::use_select;
 use kivact::prelude::*;
-use kivact::view::{Placement, overlay};
+use kivact::view::overlay;
 
 pub fn dropdown<K: ItemKey>(
     label: impl IntoText,
@@ -422,9 +419,7 @@ Use `.source_with(move || value.get_untracked())` when the payload must snapshot
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use kivact::geometry::Point;
 use kivact::interaction::{DragCoordinates, DragUpdate, EditSession, use_drag};
-use kivact::view::{EditPhase};
 use kivact::prelude::*;
 
 /// A number you change by dragging sideways.
@@ -526,11 +521,9 @@ node has: draw layers, input handlers, focus, accessibility and test ids. The AP
 experimental.
 
 ```rust,test_harness
-use kivact::state::Binding;
-use kivact::geometry::{Point, Size};
 use kivact::prelude::*;
 use kivact::custom::{Constraints, primitive};
-use kivact::view::{A11yAction, Handled, KeyEvent, PointerEvent, PointerPhase};
+use kivact::view::{A11yAction, PointerPhase};
 
 const CELL: f64 = 20.0;
 
@@ -637,10 +630,8 @@ padding and a counter are yours. The standard `text_input` is this controller pl
 themed frame.
 
 ```rust,test_harness
-use kivact::state::Binding;
 use kivact::interaction::use_text_edit;
 use kivact::prelude::*;
-use kivact::style::Align;
 
 /// A field with a character counter. `max` is enforced by the editor.
 pub fn limited_input(label: impl IntoText, value: impl IntoBinding<String>, max: usize) -> impl Element {

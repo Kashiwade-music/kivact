@@ -21,7 +21,7 @@ fn inspector() -> impl IntoView {
 ```
 
 Install `ui::theme(ThemeMode::Dark)` on an App or with
-`kivact::view::provide_theme`: it is a plain `Theme` in the Iris accent and
+`kivact::style::provide_theme`: it is a plain `Theme` in the Iris accent and
 the comfortable density. Choose others with
 `ui::theme_with(ThemeMode::Dark, ui::ThemeOptions { accent: ui::Accent::Lime,
 density: ui::Density::Compact })`. Use `..Default::default()` to keep omitted

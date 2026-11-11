@@ -141,7 +141,6 @@ fn main() -> kivact::Result<()> {
 
 ```rust,test_harness
 use kivact::prelude::*;
-use kivact::view::RowHeight;
 
 #[derive(Clone, PartialEq)]
 struct Entry {

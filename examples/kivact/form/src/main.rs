@@ -20,7 +20,7 @@ fn app() -> impl IntoView {
         text_input("Email", email).style(style().width(280)),
         show_some(email_error, text),
         text_input("Password", password)
-            .purpose(kivact::view::InputPurpose::Password)
+            .purpose(InputPurpose::Password)
             .style(style().width(280)),
         show_some(password_error, text),
         button("Sign up")

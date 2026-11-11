@@ -105,13 +105,13 @@
 //! The types and API reference are here; installing a kit is in the
 //! official UI guide.
 //!
-//! Callbacks are plain closures (`impl Fn(T) -> R` or `impl Fn() -> R`, where
-//! `R` is `()` or `Result<(), UiError>`), and bool options such as
-//! [`Button::hide_label`] take a constant or a reactive value.
+//! Handlers are closures. One without a payload takes
+//! `impl Into<Callback<()>>` (a closure `move || ..` or a shared `Callback`);
+//! one with a payload takes `impl Fn(T) -> R`, where `R` is `()` or
+//! `Result<(), UiError>`. Bool options such as [`Button::hide_label`] take a constant or a reactive value.
 //!
 //! ```no_run
 //! use kivact::prelude::*;
-//! use kivact::ui::ButtonVariant;
 //!
 //! fn sign_up() -> impl IntoView {
 //!     let name = signal(String::new());

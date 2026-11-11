@@ -51,7 +51,6 @@ kivact-gpu-share = { git = "https://github.com/Kashiwade-music/kivact", features
 `shared_image(width, height)` が UI 側の作業を引き受けます。setup で作り、その `link()` をエンジンのスレッドに渡し、`frame()` を canvas で描きます。`pixels()` は、インポートできないウィンドウ向けに同じ画像が持つ代替です。
 
 ```rust,no_run
-use kivact::view::canvas;
 use kivact::draw::{ImageOptions};
 use kivact::geometry::{Rect};
 use kivact::gpu_interop;

@@ -20,7 +20,6 @@
 `animated(target, transition)` は、`target` に追従する値を返します。目標が変わると、値は今の位置から新しい目標へ動きます。シグナルを読むのと同じように `.get()` で読めるので、それを読んでいるものはすべて、ステップごとに更新されます。
 
 ```rust,no_run
-use kivact::motion::{Easing, Transition, animated};
 use kivact::prelude::*;
 
 fn progress() -> impl IntoView {
@@ -54,7 +53,7 @@ fn main() -> kivact::Result<()> {
 キーフレームは、ある位置の値であり、次のキーフレームまでの区間を始めます。`Keyframe::new(オフセット, 値)` は、後ろが直線の区間になるキーフレームを作ります。組 `(オフセット, 値)` は、これと同じです。`.easing(イージング)` は、そのキーフレームから始まる区間のイージングを設定するので、一つの動きの中で区間ごとに別の曲線をたどれます。区間は、二つのオフセットのあいだで 0 から 1 までの進み具合を求め、そのイージングで形を変えます。最後のキーフレームのイージングは使われません。そこから始まる区間がないからです。
 
 ```rust,no_run
-use kivact::motion::{Easing, Keyframe, Transition, animated};
+use kivact::motion::Keyframe;
 use kivact::prelude::*;
 
 fn lift_card() -> impl IntoView {
@@ -86,7 +85,6 @@ fn lift_card() -> impl IntoView {
 `transform` と `opacity` で要素を動かすのは軽い処理です。レイアウトが変わらないからです。スタイルのクロージャの中で、アニメーションする値を読みます。
 
 ```rust,no_run
-use kivact::motion::{Spring, Transition, animated};
 use kivact::prelude::*;
 
 fn drawer() -> impl IntoView {
@@ -128,7 +126,6 @@ fn drawer() -> impl IntoView {
 状態の間で見た目を変えたいとき（ホバー、押下、フォーカス、あるいは値が変わるスタイルのクロージャ）は、スタイルにトランジションを付けます。不透明度、単色の背景、枠線の色、transform、影、フィルターを補間します。
 
 ```rust,no_run
-use kivact::motion::{Easing, Transition};
 use kivact::prelude::*;
 use kivact::style::TransitionProp;
 
@@ -152,7 +149,6 @@ fn hover_card() -> impl IntoView {
 `TransitionProp::All` は、すべてのプロパティを対象にします（CSS の `transition: all` と同じ）。1 つのプロパティにだけ transition を付けると、そのプロパティは `All` より優先され、残りは別の時間の取り方を使えます。
 
 ```rust,no_run
-use kivact::motion::{Easing, Spring, Transition};
 use kivact::prelude::*;
 use kivact::style::TransitionProp;
 
@@ -178,7 +174,6 @@ fn chip() -> impl IntoView {
 `enter` は要素が追加されたときの出発点の見た目、`exit` は取り除かれるときに向かう見た目です。どちらもスタイルの `TransitionProp::All` トランジションを使います。`show`・`show_some`・リストなど、要素が出入りする仕組みと組み合わせます。
 
 ```rust,no_run
-use kivact::motion::{Easing, Transition};
 use kivact::prelude::*;
 use kivact::style::TransitionProp;
 
@@ -220,10 +215,8 @@ fn app() -> impl IntoView {
 自分の計算（シミュレーション、時計、ゲームループ）が必要なときは `frame_loop` を使います。コールバックは、ティックの時刻、前のティックからの経過時間（`delta`）、フレーム番号、表示時刻の推定値を持つ `FrameInfo` を受け取ります。レートを指定して開始します。
 
 ```rust,no_run
-use kivact::view::canvas;
 use kivact::draw::{Path, Stroke};
-use kivact::geometry::{Point};
-use kivact::motion::{FrameInfo, FrameRate, frame_loop};
+use kivact::motion::{FrameInfo, FrameRate};
 use kivact::prelude::*;
 
 fn clock_hand() -> impl IntoView {
@@ -268,7 +261,7 @@ fn clock_hand() -> impl IntoView {
 - ゲームやシミュレーションのように、動き続けることに意味があるループは、セットアップで `.essential()` を付けて指定します。コールバックはこれまでどおりレートで動くので、処理は軽く保ち、描く内容で動きを減らす設定に従うかどうかを決めてください。
 
 ```rust,no_run
-use kivact::motion::{FrameInfo, FrameRate, frame_loop};
+use kivact::motion::{FrameInfo, FrameRate};
 use kivact::prelude::*;
 
 fn starfield() -> impl IntoView {
@@ -289,7 +282,6 @@ fn starfield() -> impl IntoView {
 テストの時計は仮想で、フレームとともに進み、止まります。そのため、テストは待ちません。`screen.advance(Duration)` は、すべてのフレームを通して時間を進めます。テストは、動きを減らす設定をオンにして始めることも、画面が動いている間に切り替えることもできます。
 
 ```rust,test_harness
-use kivact::motion::{Easing, Transition, animated};
 use kivact::prelude::*;
 
 fn progress() -> impl IntoView {

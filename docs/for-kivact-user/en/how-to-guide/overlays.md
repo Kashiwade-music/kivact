@@ -15,8 +15,6 @@ dialog writes `false` when the user closes it.
 
 ```rust,test_harness
 use kivact::prelude::*;
-use kivact::interaction::{DialogMode};
-use kivact::interaction::{DismissOn};
 
 fn app() -> impl IntoView {
     let open = signal(false);
@@ -33,10 +31,10 @@ fn app() -> impl IntoView {
             .footer(move || {
                 row((
                     button("Cancel")
-                        .variant(kivact::ui::ButtonVariant::Outline)
+                        .variant(ButtonVariant::Outline)
                         .on_press(move || open.set(false)),
                     button("Delete")
-                        .variant(kivact::ui::ButtonVariant::Danger)
+                        .variant(ButtonVariant::Danger)
                         .on_press(move || {
                             deleted.set(true);
                             open.set(false);
@@ -141,7 +139,6 @@ second press on the trigger closes it again.
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::interaction::DialogMode;
 
 fn help() -> impl IntoView {
     let open = signal(false);
@@ -294,8 +291,6 @@ A toast is a short notification that disappears by itself. Mount one
 use std::time::Duration;
 
 use kivact::prelude::*;
-use kivact::interaction::{Toast, Tone, toaster};
-use kivact::ui::{toast_region};
 
 fn app() -> impl IntoView {
     let toaster = toaster();

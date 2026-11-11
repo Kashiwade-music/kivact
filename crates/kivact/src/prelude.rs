@@ -24,8 +24,7 @@ pub use crate::view::{
 };
 
 pub use crate::style::{
-    Align, Color, ColorToken, Justify, Style, Theme, ThemeColor, ThemeMode, pct, provide_theme,
-    rgb, style,
+    Align, Color, ColorToken, Justify, Style, Theme, ThemeColor, ThemeMode, pct, rgb, style,
 };
 
 pub use crate::style::{use_theme, use_tokens};

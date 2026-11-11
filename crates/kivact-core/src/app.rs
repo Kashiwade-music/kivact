@@ -20,7 +20,7 @@ impl App {
     }
     /// Theme of the whole App, evaluated reactively under its root owner.
     /// Embedded startup accepts only a fixed theme; create reactive themes with
-    /// [`view::provide_theme`](crate::view::provide_theme) inside the embedded root factory.
+    /// [`style::provide_theme`](crate::style::provide_theme) inside the embedded root factory.
     pub fn theme(mut self, theme: impl kivact_runtime::IntoValue<Theme>) -> Self {
         self.options = self.options.theme(theme);
         self
@@ -30,7 +30,7 @@ impl App {
     /// system names none) and follows it when the user changes it while
     /// the App runs; with it the App keeps this locale whatever the system
     /// says. To switch it at runtime, wrap the root in
-    /// [`view::provide_locale`](crate::view::provide_locale) with a `Signal<Locale>`. Read it with
+    /// [`i18n::provide_locale`](crate::i18n::provide_locale) with a `Signal<Locale>`. Read it with
     /// [`i18n::locale`](crate::i18n::locale).
     pub fn locale(mut self, locale: Locale) -> Self {
         self.options = self.options.locale(locale);
@@ -39,7 +39,7 @@ impl App {
     /// The App's texts: the replacements for the default (English) texts
     /// of components, by key (`"dialog.close"`). Each component lists its
     /// keys. To switch them at runtime, wrap the root in
-    /// [`view::provide_messages`](crate::view::provide_messages) with a `Signal<Messages>`.
+    /// [`i18n::provide_messages`](crate::i18n::provide_messages) with a `Signal<Messages>`.
     pub fn messages(mut self, messages: Messages) -> Self {
         self.options = self.options.messages(messages);
         self

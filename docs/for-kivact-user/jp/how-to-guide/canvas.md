@@ -9,8 +9,7 @@
 `canvas` は `Draw` と、そのノードの現在の `Size` を受け取るクロージャを取ります。座標は論理ピクセルで、キャンバス自身の左上を原点にします。
 
 ```rust,no_run
-use kivact::view::canvas;
-use kivact::geometry::{Point, Rect};
+use kivact::geometry::Rect;
 use kivact::prelude::*;
 
 fn badge() -> impl IntoView {
@@ -44,9 +43,7 @@ fn main() -> kivact::Result<()> {
 `Path` は、移動と線分をつないだものです。`fill_path` は塗りつぶし、`stroke_path` は輪郭線を描きます。
 
 ```rust,no_run
-use kivact::view::canvas;
 use kivact::draw::{LineCap, LineJoin, Path, Stroke};
-use kivact::geometry::{Point};
 use kivact::prelude::*;
 
 fn wave() -> impl IntoView {
@@ -85,9 +82,8 @@ fn wave() -> impl IntoView {
 グラデーションには 2 種類あり、色の置き方が違います。
 
 ```rust,no_run
-use kivact::view::canvas;
 use kivact::draw::{CanvasGradient, linear_gradient};
-use kivact::geometry::{Point, Rect};
+use kivact::geometry::Rect;
 use kivact::prelude::*;
 
 fn gradients() -> impl IntoView {
@@ -117,9 +113,8 @@ fn gradients() -> impl IntoView {
 `draw.text(text, position, style)` は 1 行を描きます。`TextFormat` の `align` と `baseline` で基準点を変えない限り、位置はテキストの左上です。ラベルの周りの大きさを決めるには、描画と同じ組版で先に測ります。
 
 ```rust,no_run
-use kivact::view::canvas;
 use kivact::draw::{Draw, TextBaseline, TextFormat};
-use kivact::geometry::{Point, Rect};
+use kivact::geometry::Rect;
 use kivact::prelude::*;
 use kivact::style::TextAlign;
 
@@ -195,9 +190,8 @@ fn spinner() -> impl IntoView {
 `draw.border_image(rect, &image)` は九分割の枠を描きます。絵の四隅は変わらず、辺と中央が伸びるか繰り返して `rect` を埋めます。`BorderImage::new(source)` には、画像のバイト列（SVG も可）、ファイル名、グラデーションのいずれかを渡します。`.slice(n)` は絵のどこで切るかを絵の画素で指定し、`.width(..)` は画面での枠の大きさ、`.repeat(BorderImageRepeat::Round)` は辺の部分を整数回に収まるよう繰り返します。
 
 ```rust,no_run
-use kivact::view::canvas;
-use kivact::draw::{BorderImage, Composite, Layer, Transform};
-use kivact::geometry::{Point, Rect};
+use kivact::draw::{BorderImage, Composite, Layer};
+use kivact::geometry::Rect;
 use kivact::prelude::*;
 use kivact::style::{BackfaceVisibility, TransformStyle};
 
@@ -239,9 +233,7 @@ fn tilted_panel() -> impl IntoView {
 `layout_paragraph` で一度作った段落は 3 通りに描けます。その塗りには任意の paint を使えるので、グラデーションで文字を塗れます。`stroke_paragraph` は `Stroke` でグリフの縁を描き、`paragraph_path` はグリフの輪郭を `Path` として返します。その `Path` は塗っても線を引いてもかまいません。1 行のテキストなら、`draw.text_path(text, 位置, &format)` で輪郭を直接得られます。
 
 ```rust,no_run
-use kivact::view::canvas;
 use kivact::draw::{Stroke, TextFormat, linear_gradient};
-use kivact::geometry::Point;
 use kivact::prelude::*;
 
 fn headline() -> impl IntoView {
@@ -280,9 +272,7 @@ fn headline() -> impl IntoView {
 クロージャの中でシグナルから読んだものは、すべて依存関係になります。シグナルが変わると、このキャンバスだけが再描画されます。「汚れた」フラグを立てたり、再描画の関数を呼んだりする必要はありません。
 
 ```rust,no_run
-use kivact::view::canvas;
 use kivact::draw::{LineJoin, Path, Stroke};
-use kivact::geometry::{Point};
 use kivact::prelude::*;
 
 fn sparkline(values: Signal<Vec<f64>>) -> impl IntoView {
@@ -327,7 +317,6 @@ fn main() -> kivact::Result<()> {
 2. 描画のクロージャで、同じ `RegionId` に `draw.region(id, rect)` で形を与えます。
 
 ```rust,test_harness
-use kivact::view::canvas;
 use kivact::draw::{RegionId};
 use kivact::geometry::{Rect};
 use kivact::prelude::*;
@@ -402,7 +391,6 @@ mod tests {
 
 ```rust,no_run
 use std::time::Duration;
-use kivact::view::canvas;
 use kivact::draw::{ImageOptions, Pixels};
 use kivact::geometry::{Rect};
 use kivact::prelude::*;
@@ -468,7 +456,7 @@ fn main() -> kivact::Result<()> {
 
 ```rust
 use kivact::draw::{Draw, Offscreen};
-use kivact::geometry::{Point, Rect, Size};
+use kivact::geometry::Rect;
 use kivact::prelude::*;
 
 fn artwork(draw: &mut Draw, size: Size) {
@@ -499,7 +487,7 @@ fn main() -> kivact::Result<()> {
 
 ```rust,no_run
 use kivact::draw::{Draw, Offscreen};
-use kivact::geometry::{Rect, Size};
+use kivact::geometry::Rect;
 use kivact::prelude::*;
 
 fn artwork(draw: &mut Draw, size: Size) {

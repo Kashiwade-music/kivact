@@ -172,7 +172,6 @@ the example below) or a `Binding`.
 
 ```rust,test_harness
 use kivact::prelude::*;
-use kivact::view::RowHeight;
 
 #[derive(Clone, PartialEq)]
 struct Entry {

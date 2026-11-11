@@ -322,7 +322,7 @@ mod tests {
 A few rules:
 
 - `screen.window(..)` returns a temporary. Store the handle in a `let` before
-  you take an `Element` from it: `let save =
+  you take an `Locator` from it: `let save =
   screen.window("Settings").get_by_role(..);` does not compile (E0716). The
   `let` only keeps the handle value alive; it does not keep the window open
   (writing `false` to `open` still closes it, and `is_open()` turns false).

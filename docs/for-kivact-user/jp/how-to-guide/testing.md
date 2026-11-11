@@ -85,7 +85,7 @@ screen.within(row).get_by_role(Role::Button, "削除").click();
 
 ## 利用者のように操作する
 
-`Element` への操作は、人が行うことをそのまま行います。ポインター操作の前に、人が使える状態の要素かどうかを確かめ、そうでなければ理由を示して失敗します。要素はマウントされていて、見えていて、大きさがあり、有効で、ウィンドウの中にあり、その中心でポインターが実際に当たるのがその要素自身である（ほかの要素やモーダルの背景に覆われていない）必要があります。
+`Locator` への操作は、人が行うことをそのまま行います。ポインター操作の前に、人が使える状態の要素かどうかを確かめ、そうでなければ理由を示して失敗します。要素はマウントされていて、見えていて、大きさがあり、有効で、ウィンドウの中にあり、その中心でポインターが実際に当たるのがその要素自身である（ほかの要素やモーダルの背景に覆われていない）必要があります。
 
 | 目的 | 呼び出し |
 |---|---|
@@ -150,7 +150,7 @@ mod tests {
 
 ## 利用者に見えるものを確かめる
 
-`Element` に尋ねられるのは、スクリーンリーダーが受け取るのと同じ公開された状態であり、内部の変数ではありません。
+`Locator` に尋ねられるのは、スクリーンリーダーが受け取るのと同じ公開された状態であり、内部の変数ではありません。
 
 | 知りたいこと | 呼び出し |
 |---|---|
@@ -284,7 +284,7 @@ mod tests {
 
 ## ウィンドウをテストする
 
-ウィンドウは、それぞれが独立した `Screen` です。`screen.window("設定")` はそのウィンドウが開くまで待ち（`find_by_*` と同じ時間上限）、ハンドルを返します。`screen.windows()` は開いているすべてのウィンドウを id の昇順で返します。`Screen::has_window()` は `is_mirrored()` に改名しました（公開の変更。この window が本物の window に写っているか、という意味は変わりません）。`RenderOptions::default().single_window()` は、埋め込みの editor のように、追加の window を開けない環境を表します。`Element` を取る前に、ハンドルを `let` に入れてください。
+ウィンドウは、それぞれが独立した `Screen` です。`screen.window("設定")` はそのウィンドウが開くまで待ち（`find_by_*` と同じ時間上限）、ハンドルを返します。`screen.windows()` は開いているすべてのウィンドウを id の昇順で返します。`Screen::has_window()` は `is_mirrored()` に改名しました（公開の変更。この window が本物の window に写っているか、という意味は変わりません）。`RenderOptions::default().single_window()` は、埋め込みの editor のように、追加の window を開けない環境を表します。`Locator` を取る前に、ハンドルを `let` に入れてください。
 
 ```rust,no_run
 # use kivact::prelude::*;
@@ -464,7 +464,6 @@ GPU のテストは、`RenderOptions::from_env().gpu()` でレーンを要求し
 use kivact::draw::PaintShader;
 use kivact::geometry::Rect;
 use kivact::prelude::*;
-use kivact::view::canvas;
 
 const WAVE: &str = r#"
 struct Params { speed: f32, tint: vec4<f32> }

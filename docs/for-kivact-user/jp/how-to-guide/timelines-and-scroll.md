@@ -19,7 +19,7 @@
 timeline は独自の時計を持ちます。セットアップで作り、駆動する値ごとに **track** を、track を目標へ動かす **segment** を加え、`on_mount` またはイベントハンドラーから開始します。track は signal と同じように読めるので、再生中は view が更新されます。
 
 ```rust,no_run
-use kivact::motion::{At, Easing, Stagger, Timeline, Transition, timeline};
+use kivact::motion::{At, Stagger, Timeline};
 use kivact::prelude::*;
 
 fn boot_line(tl: Timeline, delay_ms: f64, label: &'static str) -> impl IntoView {
@@ -74,7 +74,7 @@ fn main() -> kivact::Result<()> {
 - `StaggerFrom::Index(i)` は項目 `i` から数えます。
 
 ```rust,no_run
-use kivact::motion::{Easing, Stagger, StaggerFrom, Transition};
+use kivact::motion::{Stagger, StaggerFrom};
 use kivact::prelude::*;
 use kivact::style::TransitionProp;
 
@@ -167,7 +167,6 @@ fn release_notes(lines: usize) -> impl IntoView {
 timeline は、自分の時計ではなく進み具合の値から時間をもらうこともできます。`tl.drive(progress)` は `0..=1` を timeline 全体に対応づけます。segment を加えたあとで呼びます。駆動される timeline は再生・一時停止・再開ができず、終わることもないので、動かすのはスクロールだけになります。フレームループを使わずにスクロールに連動するアニメーションを書くにはこうします。
 
 ```rust,no_run
-use kivact::motion::{Easing, Transition, timeline};
 use kivact::prelude::*;
 use kivact::view::scroll_progress;
 
@@ -196,7 +195,6 @@ fn reading_progress(scroller: NodeRef) -> impl IntoView {
 退場を待たせるには、内容に `style().exit(..)` と `TransitionProp::All` の transition を付けて、待つべき退場があるようにします。どちらも無ければ、どのモードでも即座に取り外されます。
 
 ```rust,no_run
-use kivact::motion::{Easing, Transition};
 use kivact::prelude::*;
 use kivact::style::TransitionProp;
 use kivact::view::PresenceMode;
@@ -228,7 +226,6 @@ fn play_pause(playing: Signal<bool>) -> impl IntoView {
 同じものを表す 2 つのノードに、同じ `layout_id` を付けます。一方が、もう一方のあった場所に現れると、Kivact は、同じ id を持っていた直前のノードの箱から、新しいノードを動かします。動きには新しいノードの**layout transition** が使われるので、無ければ何も動きません。id はノードの属性であり、スタイルのプロパティではありません。
 
 ```rust,no_run
-use kivact::motion::{Spring, Transition};
 use kivact::prelude::*;
 
 fn tabs() -> impl IntoView {

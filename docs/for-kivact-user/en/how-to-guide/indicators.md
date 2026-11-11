@@ -6,9 +6,7 @@ Use the standard indicators with any kit theme. Their recipes receive the same s
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::interaction::Tone;
 use kivact::ui::{self, ControlSize, SkeletonShape};
-use kivact::view::Modifiers;
 
 fn indicators() -> impl IntoView {
     column((

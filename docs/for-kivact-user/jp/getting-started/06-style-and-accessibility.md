@@ -8,6 +8,7 @@
 
 ```rust,no_run
 use kivact::prelude::*;
+use kivact::style::provide_theme;
 
 const LOGO: &[u8] = br##"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#336699"/><path d="M6 12.5l4 4 8-9" stroke="white" stroke-width="2.5" fill="none"/></svg>"##;
 
@@ -38,7 +39,7 @@ fn task_row(tasks: Signal<Vec<Task>>, task: Binding<Task>) -> impl Element {
         checkbox(move || task.get().title, done),
         button("削除")
             .name(move || format!("{} を削除", task.get().title))
-            .variant(kivact::ui::ButtonVariant::Ghost)
+            .variant(ButtonVariant::Ghost)
             .on_press(move || tasks.update(|list| list.retain(|task| task.id != id))),
     ))
     .role(Role::ListItem)
@@ -133,7 +134,7 @@ fn main() -> kivact::Result<()> {
 
 **画像とフォントのバイト列。** `image(LOGO)` は、このプログラムに埋め込んだ SVG のバイト列を使います。ファイルをビルド時に埋め込む場合は `include_bytes!("logo.svg").as_slice()` を渡せます。実行時に得たバイト列は、`kivact::view::AssetBytes::new(bytes)` に所有する `Vec<u8>` を渡して保持します。生成した生の RGBA 画素には `kivact::draw::Pixels::new(width, height, rgba)` を使い、`rgba` にも 1 画素あたり 4 バイトの `Vec<u8>` を渡せます。同じバイト列を再利用するときは、保持した `AssetBytes` を clone します。フォントは `.run(app)` の前に `App::fonts(iter)` で登録し、埋め込みフォントのバイトスライスなどをイテレーターから渡します。これらの API が、データを保持する領域を管理します。
 
-**ボタンの種類。** ボタンは、既定では主要な操作です (`Primary`、アクセントカラーで塗りつぶし)。`.variant(kivact::ui::ButtonVariant::Ghost)` を付けると、ホバーするまで塗りのない控えめな見た目になるので、削除ボタンに使っています。ほかの種類は、`Secondary`、`Outline`、`Danger`、`Link` です。
+**ボタンの種類。** ボタンは、既定では主要な操作です (`Primary`、アクセントカラーで塗りつぶし)。`.variant(ButtonVariant::Ghost)` を付けると、ホバーするまで塗りのない控えめな見た目になるので、削除ボタンに使っています。ほかの種類は、`Secondary`、`Outline`、`Danger`、`Link` です。
 
 **アクセシブルな名前。** スクリーンリーダーはコントロールを役割と名前で読み上げ、キーボード操作やテストのツールも、同じ方法でコントロールを見つけます。そのため、すべてのコントロールに名前が必要です。
 

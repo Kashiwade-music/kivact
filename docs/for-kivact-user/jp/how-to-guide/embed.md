@@ -40,8 +40,7 @@ kivact = { git = "https://github.com/Kashiwade-music/kivact", features = ["embed
 ```rust,test_harness
 use std::sync::Arc;
 
-use kivact::view::EditPhase;
-use kivact::motion::{FrameRate, frame_loop};
+use kivact::motion::FrameRate;
 use kivact::prelude::*;
 
 /// エディターがプラグインに求めるもの。wrapper が実装します。

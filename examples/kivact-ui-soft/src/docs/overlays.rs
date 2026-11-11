@@ -157,7 +157,7 @@ fn example_overlay() -> Node {
     specimen(
         "Overlay on a preview",
         media_overlay(text("Document preview")).attach(button("Cover")),
-        "media_overlay(|| text(\"Document preview\")).attach(button(\"Cover\"))",
+        "media_overlay(text(\"Document preview\")).attach(button(\"Cover\"))",
     )
 }
 
@@ -200,7 +200,7 @@ fn example_dropdown_menu() -> Node {
         )
         .on_activate(|_| {})
         .attach(button("Actions")),
-        "menu(\"Actions\", entries, on_pick).attach(button(\"Actions\"))",
+        "menu(\"Actions\", items).on_activate(on_activate).attach(button(\"Actions\"))",
     )
 }
 
@@ -216,7 +216,7 @@ fn example_context_menu() -> Node {
         )
         .on_activate(|_| {})
         .attach_context(button("Document")),
-        "menu(\"Document actions\", entries, on_pick).attach_context(button(\"Document\"))",
+        "menu(\"Document actions\", items).on_activate(on_activate).attach_context(button(\"Document\"))",
     )
 }
 
@@ -267,6 +267,6 @@ fn example_more_menu() -> Node {
             ],
             |_| {},
         ),
-        "more_menu(entries, on_pick)",
+        "more_menu(items, on_activate)",
     )
 }

@@ -210,7 +210,7 @@ impl App {
     /// may continue under module retention after `Err` is returned. Title and
     /// fullscreen have no effect.
     /// The App theme must be fixed. A reactive theme returns `ErrorKind::Unsupported`;
-    /// create it with [`view::provide_theme`](crate::view::provide_theme) inside
+    /// create it with [`style::provide_theme`](crate::style::provide_theme) inside
     /// the `Send` root factory so it belongs to the App UI thread.
     /// `min_window_size` clamps `platform::request_window_size`, not the host.
     #[track_caller]

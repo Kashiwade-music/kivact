@@ -6,7 +6,7 @@
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::ui::{combobox, select, SelectPresentation};
+use kivact::ui::SelectPresentation;
 
 fn pickers() -> impl IntoView {
     let one = signal(None::<&str>);

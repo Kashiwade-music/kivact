@@ -372,8 +372,7 @@ mod tests {
   nothing was provided. When the value is optional, use
   `kivact::state::try_use_context::<T>()`, which returns an `Option<Value<T>>`.
 - `provide` only affects its child. Siblings built after it do not see the value.
-- Themes, locale, messages and reading direction have their own `provide_*`
-  functions in `kivact::view` ([Theming](theming.md), [Internationalization](i18n.md)).
+- Themes, locale, messages and reading direction have their own `provide_*` functions: `kivact::style::provide_theme`, `kivact::i18n::provide_locale` and `kivact::i18n::provide_messages`, and `kivact::view::provide_direction` ([Theming](theming.md), [Internationalization](i18n.md)).
 
 ## Refs
 
