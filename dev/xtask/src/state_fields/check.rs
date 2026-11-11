@@ -79,7 +79,7 @@ pub(crate) fn check(
 }
 
 fn is_value_module(source: &Source, policy: &toml::Table) -> bool {
-    let root = if source.library {
+    let root = if source.library() {
         source.package.clone()
     } else {
         source.identity_root()

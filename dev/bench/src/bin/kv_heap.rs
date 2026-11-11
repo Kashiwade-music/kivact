@@ -33,13 +33,20 @@ struct Site {
     ips: [usize; DEPTH],
 }
 
-// xtask-allow(state-fields): independent: allocation telemetry of the probe; its allocator wrapper is the only writer and reader, and every combination is a valid measurement.
-static PTRS: Mutex<Option<HashMap<usize, (usize, u64)>>> = Mutex::new(None);
-// xtask-allow(state-fields): independent: allocation telemetry of the probe; its allocator wrapper is the only writer and reader, and every combination is a valid measurement.
-static SITES: Mutex<Option<HashMap<u64, Site>>> = Mutex::new(None);
-// xtask-allow(state-fields): independent: allocation telemetry of the probe; its allocator wrapper is the only writer and reader, and every combination is a valid measurement.
+/// What the probe recorded: the live allocations and their sites.
+#[derive(Default)]
+struct Heap {
+    /// Each live allocation's size and site key, by address.
+    ptrs: HashMap<usize, (usize, u64)>,
+    /// The sites by key.
+    sites: HashMap<u64, Site>,
+}
+
+// xtask-allow(state-fields): independent: the probe's record of live allocations and their sites, filled by record and drained by forget under one lock; tracking only gates new records and the guard only blocks reentry, so it pairs with either of them
+static HEAP: Mutex<Option<Heap>> = Mutex::new(None);
+// xtask-allow(state-fields): independent: main turns recording on before the App starts and dump turns it off; frees are forgotten whether or not it is on, so it pairs with any recorded contents
 static TRACKING: AtomicBool = AtomicBool::new(false);
-// xtask-allow(state-fields): independent: allocation telemetry of the probe; its allocator wrapper is the only writer and reader, and every combination is a valid measurement.
+// xtask-allow(state-fields): independent: the per-thread reentrancy guard the allocator holds while it records or forgets, and dump keeps set; any thread can be inside with tracking on or off
 thread_local! { static INSIDE: Cell<bool> = const { Cell::new(false) }; }
 
 fn record(ptr: usize, size: usize) {
@@ -57,32 +64,24 @@ fn record(ptr: usize, size: usize) {
     let key = ips[2..].iter().fold(1_469_598_103_934_665_603u64, |h, ip| {
         (h ^ *ip as u64).wrapping_mul(1_099_511_628_211)
     });
-    if let Ok(mut sites) = SITES.lock() {
-        let site = sites
-            .get_or_insert_with(HashMap::new)
-            .entry(key)
-            .or_insert(Site {
-                live: 0,
-                count: 0,
-                ips,
-            });
+    if let Ok(mut heap) = HEAP.lock() {
+        let heap = heap.get_or_insert_with(Heap::default);
+        let site = heap.sites.entry(key).or_insert(Site {
+            live: 0,
+            count: 0,
+            ips,
+        });
         site.live += size;
         site.count += 1;
-    }
-    if let Ok(mut ptrs) = PTRS.lock() {
-        ptrs.get_or_insert_with(HashMap::new)
-            .insert(ptr, (size, key));
+        heap.ptrs.insert(ptr, (size, key));
     }
 }
 
 fn forget(ptr: usize) {
-    let hit = PTRS
-        .lock()
-        .ok()
-        .and_then(|mut ptrs| ptrs.as_mut().and_then(|p| p.remove(&ptr)));
-    if let Some((size, key)) = hit
-        && let Ok(mut sites) = SITES.lock()
-        && let Some(site) = sites.as_mut().and_then(|s| s.get_mut(&key))
+    if let Ok(mut heap) = HEAP.lock()
+        && let Some(heap) = heap.as_mut()
+        && let Some((size, key)) = heap.ptrs.remove(&ptr)
+        && let Some(site) = heap.sites.get_mut(&key)
     {
         site.live -= size;
         site.count -= 1;
@@ -157,12 +156,12 @@ fn owner(site: &Site, chain: usize) -> String {
 fn dump(rows: u32, chain: usize, top: usize) -> ! {
     INSIDE.with(|c| c.set(true));
     TRACKING.store(false, Ordering::SeqCst);
-    let sites = SITES
+    let heap = HEAP
         .lock()
         .expect("invariant: the probe never poisons its lock");
-    let sites: Vec<&Site> = sites
+    let sites: Vec<&Site> = heap
         .iter()
-        .flat_map(|s| s.values())
+        .flat_map(|h| h.sites.values())
         .filter(|s| s.live > 0)
         .collect();
     let total: usize = sites.iter().map(|s| s.live).sum();
