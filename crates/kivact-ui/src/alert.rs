@@ -41,7 +41,7 @@ pub struct Alert {
     icon: Option<View>,
     actions: Option<View>,
     content: Option<ViewFn>,
-    collapsible: Value<bool>,
+    collapsible: bool,
     tone: Value<Tone>,
     dismissible: Value<bool>,
     dismiss_label: Value<String>,
@@ -63,7 +63,7 @@ pub fn alert(title: impl IntoText) -> Alert {
         icon: None,
         actions: None,
         content: None,
-        collapsible: false.into_value(),
+        collapsible: false,
         tone: Tone::Neutral.into_value(),
         dismissible: false.into_value(),
         dismiss_label: "Dismiss notification".into_text_value(),
@@ -99,9 +99,10 @@ impl Alert {
         self.content = Some(content.into_view_fn());
         self
     }
-    /// Make details collapsible.
-    pub fn collapsible(mut self, value: impl IntoValue<bool>) -> Self {
-        self.collapsible = value.into_value();
+    /// Make details collapsible. It is fixed for the mounted alert, since it
+    /// decides what [`open`](Self::open) controls.
+    pub fn collapsible(mut self, value: bool) -> Self {
+        self.collapsible = value;
         self
     }
     /// Show a dismiss control; dismissal lasts until remount.
@@ -149,11 +150,12 @@ impl IntoView for Alert {
         let reference = node_ref();
         let tone = self.tone;
         let dismissible = self.dismissible;
-        let collapsible = self.collapsible;
+        let fixed = self.collapsible;
+        let collapsible: Value<bool> = fixed.into_value();
         let has_details = self.content.is_some();
         // The alert has one open state: its disclosure when it has collapsible
         // details, otherwise its visibility.
-        let (details, visible) = if has_details && collapsible.get_untracked() {
+        let (details, visible) = if has_details && fixed {
             (
                 self.open.unwrap_or_else(|| signal(false).into_binding()),
                 None,

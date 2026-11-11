@@ -257,3 +257,26 @@ fn range_presets_validate_endpoints_and_publish_only_on_activation() {
     assert!(screen.query_by_role(Role::Button, "New range").is_none());
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
+
+#[test]
+fn date_input_invalid_commit_keeps_value_and_reports_error() {
+    let (screen, (selected, valid)) = render_with_handle(
+        RenderOptions::with_theme(kivact_ui_soft::theme(ThemeMode::Light)),
+        || {
+            let selected = signal(Some(date(14)));
+            let valid = signal(true);
+            (
+                (selected, valid),
+                kivact::ui::date_input("Due", selected)
+                    .valid(valid)
+                    .presentation(kivact::ui::DatePresentation::Desktop),
+            )
+        },
+    );
+    screen.get_by_role(Role::TextBox, "Due").type_text("x");
+    screen.press_key(Key::Enter);
+    assert_eq!(selected.get_untracked(), Some(date(14)));
+    assert!(!valid.get_untracked());
+    assert!(screen.get_by_role(Role::TextBox, "Due").is_invalid());
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}

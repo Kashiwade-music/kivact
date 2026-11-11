@@ -82,9 +82,14 @@ pub(super) fn footer<R: kivact_core::state::PropValue, K: kivact_core::state::It
             Some(pager(context, page, None, variants)),
             sizes.map(|sizes| size_picker(page_size, sizes)),
         ),
-        Paging::Remote { page, has_more } => {
-            (Some(pager(context, page, Some(has_more), variants)), None)
-        }
+        Paging::Remote {
+            page,
+            page_size,
+            has_more,
+        } => (
+            Some(pager(context, page, Some(has_more), variants)),
+            sizes.map(|sizes| size_picker(page_size, sizes)),
+        ),
     };
     let spacer = summary.is_none().then(|| node().style(style().grow(1)));
     Some(

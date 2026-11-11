@@ -72,13 +72,15 @@ pub enum Paging {
     Local {
         /// The page shown, from 0.
         page: Binding<usize>,
-        /// The writable rows per page.
+        /// The rows per page. Writing it chooses a size (and shows the first page) only when the table has [`page_sizes`](DataTable::page_sizes); otherwise a write is ignored.
         page_size: Binding<usize>,
     },
     /// The caller supplies one page and says whether another is available.
     Remote {
         /// The page shown, from 0.
         page: Binding<usize>,
+        /// The rows per page. Writing it chooses a size (and shows the first page) only when the table has [`page_sizes`](DataTable::page_sizes); otherwise a write is ignored.
+        page_size: Binding<usize>,
         /// Whether another page is available.
         has_more: Value<bool>,
     },
