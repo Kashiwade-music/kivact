@@ -136,7 +136,7 @@ fn button(t: &Theme, state: &kivact::ui::Look<ButtonState>) -> Style {
         s
     };
     // button.tsx `size="icon"`: a square, as wide as the button is high.
-    let s = if state.icon_only {
+    let s = if state.is_icon_only() {
         s.aspect_ratio(1.0).padding_x(0)
     } else {
         s

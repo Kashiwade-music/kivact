@@ -79,7 +79,7 @@ pub(super) fn button(theme: &Theme, state: &Look<ButtonState>) -> Style {
         .weight(theme.text().weight_strong)
         .border(1, Color::TRANSPARENT);
     // An icon button is a square of the button's height.
-    let s = if state.icon_only {
+    let s = if state.is_icon_only() {
         s.width(height(theme, size)).padding_x(0)
     } else {
         s
@@ -262,7 +262,7 @@ pub(super) fn toggle_button(theme: &Theme, state: &ToggleButtonState) -> Style {
         .color(ColorToken::Text)
         .hover(style().background(ColorToken::Hover))
         .pressed(style().background(ColorToken::Pressed));
-    let s = if state.icon_only {
+    let s = if state.is_icon_only() {
         s.width(height(theme, size)).padding_x(0)
     } else {
         s

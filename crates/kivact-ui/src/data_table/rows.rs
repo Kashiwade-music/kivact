@@ -20,8 +20,8 @@ use kivact_core::style::{
     Color, Cursor, Direction, Justify, Position, Style, TransitionProp, pct, style, use_theme,
 };
 use kivact_core::view::{
-    ButtonPress, CheckedState, Handled, Key as KeyboardKey, MouseButton, NodeRef, PointerEvent,
-    PointerPhase, ReadingDirection, Role, View, dynamic, node_ref, use_direction,
+    ButtonPress, Handled, Key as KeyboardKey, MouseButton, NodeRef, PointerEvent, PointerPhase,
+    ReadingDirection, Role, View, dynamic, node_ref, use_direction,
 };
 use kivact_core::view::{Node, column, icon, node, row, text};
 use kivact_interaction::{
@@ -562,10 +562,7 @@ where
     let chosen = move || selection.with(|keys| keys.contains(&key));
     let state = {
         let chosen = chosen.clone();
-        move || DataTableCheckState {
-            header: false,
-            checked: CheckedState::from_bool(chosen()),
-        }
+        move || DataTableCheckState::Row { checked: chosen() }
     };
     let label = grid.row_label.clone();
     let name = message_with("data_table.select_named", "Select {row}", move || {

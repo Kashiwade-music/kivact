@@ -169,7 +169,7 @@ fn button(t: &Theme, s: &Look<ButtonState>) -> Style {
         ControlSize::Large => base.height(30).font_size(13).radius(9).padding_x(18),
     };
     // A square toolbar action: as wide as the button is high.
-    if s.icon_only {
+    if s.is_icon_only() {
         base.aspect_ratio(1.0).padding(0)
     } else {
         base
@@ -180,7 +180,7 @@ fn toggle_button(t: &Theme, s: &Look<ToggleButtonState>) -> Style {
     let p = t.ext::<Tokens>();
     let mut state = ButtonState::new(s.input, s.size);
     state.leading_icon = s.leading_icon;
-    state.icon_only = s.icon_only;
+    state.label_hidden = s.label_hidden;
     let base = button(t, &Look::new(state).with_variant(ButtonVariant::Secondary));
     if s.pressed {
         base.background(p.selection)

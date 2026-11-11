@@ -408,7 +408,7 @@ pub use chat_values::{
     ComposerStatusPosition, TypingIndicatorState,
 };
 pub use code_block::{CodeBlock, code_block};
-pub use code_values::CodeBlockState;
+pub use code_values::{CodeBlockState, CodeCollapse};
 pub use recipes::{
     ChatComposerRecipes, ChatMessageRecipes, ChatThreadRecipes, CodeBlockRecipes,
     TypingIndicatorRecipes,

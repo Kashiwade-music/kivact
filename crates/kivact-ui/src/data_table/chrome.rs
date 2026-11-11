@@ -208,15 +208,14 @@ pub(super) fn select_page<K: kivact_core::state::ItemKey>(
         }
         selection.set(next);
     });
-    let state = move || DataTableCheckState {
-        header: true,
-        checked: if all() {
+    let state = move || {
+        DataTableCheckState::Header(if all() {
             CheckedState::Checked
         } else if mixed() {
             CheckedState::Indeterminate
         } else {
             CheckedState::Unchecked
-        },
+        })
     };
     let root = with_recipe_style(
         node().role(Role::ColumnHeader),
