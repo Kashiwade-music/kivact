@@ -8,7 +8,7 @@
 
 名前付きのツールバーは `kivact::ui::toolbar(label).start(children).center(children).end(children)`、
 連結したアクションは `button_group(label, children)`、単一選択や複数選択は
-`toggle_group(label, options, selection)` を使います。Creative テーマが密な間隔、
+`toggle_group(label, items, selected)` を使います。Creative テーマが密な間隔、
 フィールドの背景、押された状態の色を設定します。排他的なセグメントには
 `kivact::ui::radio_group(label, items, selected).variant(kivact::ui::RadioGroupVariant::Segmented)`
 を使います。キーボード操作と選択は標準部品が持ち、テーマが見た目を設定します。

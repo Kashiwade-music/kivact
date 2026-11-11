@@ -636,7 +636,7 @@ impl RowFactory {
             data,
             rows: mounted.clone(),
         };
-        let start_rename = move || rename_edit.open(id);
+        let start_rename = move || rename_edit.show(id);
         let dragger = row_drag(id, data, mounted.clone(), drag, item_drop, dragger);
         // Consume the drag Part after the Tree Part so selection runs
         // before a drag or double-click rename can handle the press.

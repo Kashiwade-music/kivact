@@ -14,8 +14,10 @@
 //! container `list()`, a table has `grid()`, `header`, `row` and `cell`, the
 //! zoom and pan surface is `viewport()`, a slider has `thumb()` and
 //! `track(axis)`, a number field `input()`, and a one-element behavior
-//! `control()`. The open query is `is_open()` and the commands are `open()`,
-//! `close()` and `toggle()` on a Copy `self`. State a caller may own is a
+//! `control()`. The open query is `is_open()` and the commands are `show()`,
+//! `hide()` and `toggle()` on a Copy `self`: `show` and `hide` change nothing when
+//! the surface already is so, `toggle` inverts, and a kind of surface is a suffix
+//! (`show_sheet()`). State a caller may own is a
 //! builder of that name taking a `Binding` (`sort(binding)`,
 //! `widths(binding)`, `anchor(binding)`), read back with `<name>_value()`.
 //!

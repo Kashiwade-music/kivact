@@ -34,7 +34,7 @@ fn card_shown(screen: &Screen) -> bool {
 fn page(wanted: Signal<bool>, delays: Delays) -> View {
     let card: DelayedApi = use_delayed(wanted, delays);
     column((
-        button("Dismiss").on_press(move || card.dismiss()),
+        button("Dismiss").on_press(move || card.hide()),
         button("Pulse").on_press(move || card.pulse()),
         show(card.is_open(), || text("Card")),
     ))

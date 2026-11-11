@@ -8,7 +8,7 @@
 //! `group(index)` and `item(key)`, and its state is `visible` (a
 //! `Value<Vec<CommandGroup<K>>>`), `active` and `query`; the parts add the
 //! input's `controls` and `active_descendant`, the group names and the
-//! options' `selected`. [`CommandPaletteApi::show`] only manages the content's
+//! options' `selected`. [`CommandPaletteApi::while_open`] only manages the content's
 //! lifetime. A [`Command`] is plain data (key, reactive label, group, hint,
 //! keywords, disabled), and the caller draws its icon from the key. The
 //! default search is [`filter_commands`] (a substring of the label, group,
@@ -205,7 +205,7 @@ type CloseOn = fn(&KeyEvent) -> bool;
 /// when it closes. The shortcut that opens it (Ctrl K in most apps) is the
 /// application's to bind.
 ///
-/// It joins a modal [`DialogApi`] and a [`ComboboxApi`]: [`show`](Self::show)
+/// It joins a modal [`DialogApi`] and a [`ComboboxApi`]: [`while_open`](Self::while_open)
 /// mounts the caller's content while it is open, with
 /// [`content`](Self::content) on the caller's centered `overlay(..)`,
 /// [`input`](Self::input) on a caller-owned editing node bound to [`query`](Self::query),
@@ -252,7 +252,7 @@ type CloseOn = fn(&KeyEvent) -> bool;
 ///         Command::new("theme", "Toggle theme").with_keywords(["dark", "light"]),
 ///     ];
 ///     let p = use_command_palette(commands, open).on_activate(move |key| last.set(Some(key)));
-///     p.show(move || {
+///     p.while_open(move || {
 ///         let rows = for_each(p.visible(), |g| g.index, move |group| {
 ///             let commands = memo(move || group.with(|g| g.commands.clone()));
 ///             for_each(commands, |c| *c.key(), move |command| {
@@ -491,10 +491,10 @@ impl<K: kivact_core::state::ItemKey> CommandPaletteApi<K> {
     /// owner on every opening. Nothing is rendered besides the factory's view.
     ///
     /// The palette keeps its open state with its dialog, so this method,
-    /// like [`MenuApi::show`](crate::MenuApi::show), is how its content mounts;
+    /// like [`MenuApi::while_open`](crate::MenuApi::while_open), is how its content mounts;
     /// the other overlays mount theirs with `show(x.is_open(), ..)`.
     #[track_caller]
-    pub fn show<V: IntoView>(self, factory: impl kivact_core::view::IntoViewFn<V>) -> View {
+    pub fn while_open<V: IntoView>(self, factory: impl kivact_core::view::IntoViewFn<V>) -> View {
         let factory = factory.into_view_fn();
         kivact_core::view::show(self.dialog.is_open(), move || factory.call(())).into_view()
     }

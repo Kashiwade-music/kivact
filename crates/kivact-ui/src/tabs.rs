@@ -48,14 +48,14 @@ pub struct Tabs<K: kivact_core::state::ItemKey> {
 /// what a tab shows, keeping its keys, semantics and recipe.
 pub fn tabs<K: kivact_core::state::ItemKey>(
     label: impl IntoText,
-    options: impl IntoValue<Vec<ListItem<K>>>,
-    binding: impl kivact_core::state::IntoBinding<K>,
+    items: impl IntoValue<Vec<ListItem<K>>>,
+    value: impl kivact_core::state::IntoBinding<K>,
 ) -> Tabs<K> {
     let variants = Variants::default();
     Tabs {
         root: node().name(label),
-        options: options.into_value(),
-        binding: binding.into_binding(),
+        options: items.into_value(),
+        binding: value.into_binding(),
         on_edit: None,
         activation: ListActivation::Automatic,
         orientation: Orientation::Horizontal,

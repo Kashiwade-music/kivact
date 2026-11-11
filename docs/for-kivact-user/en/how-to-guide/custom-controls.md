@@ -26,7 +26,7 @@ official kits are built from the same ones.
 | a search box with suggestions | `use_combobox` | `input()`, `content()`, `item(key)` |
 | a command palette | `use_command_palette` | `content()`, `input()`, `list()`, `item(key)` |
 | an open/close body, a popover, a tooltip | `use_disclosure`, `use_popup`, `use_tooltip` | `trigger()`, `content()` |
-| a hover card, a delayed hint, a flashing confirmation | `use_delayed` | `is_open()`, `dismiss()`, `pulse()` |
+| a hover card, a delayed hint, a flashing confirmation | `use_delayed` | `is_open()`, `hide()`, `pulse()` |
 | a dialog | `use_dialog` | `trigger()`, `content()`, `title()`, `description()`, `close_trigger()` |
 | tabs | `use_tabs` | `list()`, `item(key)`, `panel(key)` |
 | a tree | `use_tree` | `list()`, `item(key)` |
@@ -399,8 +399,8 @@ The controller kept all of these promises: Up and Down at the closed trigger cha
 the value without opening, Alt+Down, F4, Enter, Space and a click open it, the list
 takes focus on the selected option, Escape closes without choosing, and focus goes
 back to the trigger. The same pairing of `trigger()`, `content()` and `show` works
-for `use_popup`, `use_disclosure`, `use_tooltip`, `use_dialog` and `use_menu`; only
-the Parts differ. For a modal surface, a dialog's content also traps Tab inside
+for `use_popup`, `use_disclosure`, `use_tooltip` and `use_dialog`; a menu mounts its
+content with `MenuApi::while_open` instead of `show`. Only the Parts differ. For a modal surface, a dialog's content also traps Tab inside
 and returns focus to the opener when it closes.
 
 ## Drag to change a value

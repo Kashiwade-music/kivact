@@ -59,7 +59,7 @@ fn inline_edit_opens_focused_commits_cancels_and_ends_with_its_row() {
             move |name: Binding<(u32, String)>| {
                 let id = name.with(|(id, _)| *id);
                 column((
-                    ui::button(format!("Rename {id}")).on_press(move || rename.open(id)),
+                    ui::button(format!("Rename {id}")).on_press(move || rename.show(id)),
                     show(
                         move || rename.is_open(&id),
                         move || {

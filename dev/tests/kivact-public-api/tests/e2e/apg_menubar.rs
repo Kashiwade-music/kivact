@@ -34,7 +34,7 @@ fn menubar_leaf_arrows_move_between_open_menus() {
                         .child(text("Edit")),
                 ))
                 .part(bar.bar()),
-                file.show(move || {
+                file.while_open(move || {
                     overlay(
                         file_anchor,
                         Placement::Below,
@@ -43,7 +43,7 @@ fn menubar_leaf_arrows_move_between_open_menus() {
                     .with_node(move |node| node.part(file.content()))
                     .name("File")
                 }),
-                edit.show(move || {
+                edit.while_open(move || {
                     overlay(
                         edit_anchor,
                         Placement::Below,

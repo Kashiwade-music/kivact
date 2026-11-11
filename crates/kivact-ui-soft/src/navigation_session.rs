@@ -33,9 +33,9 @@ impl NavPanel {
             move || eligible.get() && active(),
             move |open| {
                 if open && eligible.get_untracked() {
-                    api.pin(key);
+                    api.show(key);
                 } else if !open && active() {
-                    api.close();
+                    api.hide();
                 }
             },
         );

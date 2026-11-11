@@ -436,13 +436,13 @@ impl<K: 'static> Copy for TreeApi<K> {}
 /// Missing or hidden keys remain in the bindings. Setup only.
 #[track_caller]
 pub fn use_tree<K: kivact_core::state::ItemKey>(
-    nodes: impl IntoValue<Vec<TreeNode<K>>>,
+    items: impl IntoValue<Vec<TreeNode<K>>>,
     expanded: impl kivact_core::state::IntoBinding<Vec<K>>,
-    selection: impl crate::IntoSelection<K>,
+    selected: impl crate::IntoSelection<K>,
 ) -> TreeApi<K> {
-    let selection = selection.into_selection();
+    let selection = selected.into_selection();
     let owner = Owner::current();
-    let nodes = nodes.into_value();
+    let nodes = items.into_value();
     let expanded = expanded.into_binding();
     let options = OptionsCell::new(TreeOptions {
         filter: Reactive::<String>::new(String::new()),

@@ -262,7 +262,7 @@ impl DialogApi {
 
     fn close(self, reason: PopupCloseReason) {
         if self.popover() {
-            self.popup.close(reason);
+            self.popup.hide(reason);
         } else {
             self.popup.open_binding().set(false);
         }

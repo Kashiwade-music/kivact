@@ -182,7 +182,7 @@ fn tab_view<K: kivact::state::ItemKey>(
     cx.register_rect(id, member_ref.rect());
     let renaming = renaming(cx, key);
     let tab_drag = tab_drag(cx, key, renaming);
-    let start_rename = move || cx.rename.open(key.get());
+    let start_rename = move || cx.rename.show(key.get());
     let dragged = dragged(cx, key);
     let glyph_ref = node_ref();
     let glyph_rect = glyph_ref.rect();

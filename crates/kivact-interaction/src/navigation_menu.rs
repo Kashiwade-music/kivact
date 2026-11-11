@@ -263,12 +263,13 @@ impl NavigationMenuApi {
     pub fn toggle(self, index: usize) {
         self.machine.send(Event::Toggle(index));
     }
-    /// Keep a panel open after keyboard activation.
-    pub fn pin(self, index: usize) {
+    /// Show the panel `index` pinned: it stays open when the pointer
+    /// leaves. Nothing changes while it is pinned.
+    pub fn show(self, index: usize) {
         self.machine.send(Event::Pin(index));
     }
-    /// Close after dismissal or choosing a link.
-    pub fn close(self) {
+    /// Hide the open panel, after dismissal or choosing a link.
+    pub fn hide(self) {
         self.machine.send(Event::Close);
     }
 }

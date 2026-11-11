@@ -668,7 +668,7 @@ impl NumericView {
         let pointer = self.pointer;
         let rect = self.rect;
         let mapping = self.mapping;
-        let begin_text = move || typing.open(());
+        let begin_text = move || typing.show(());
         let normalized = move |v| mapping.normalized(v);
         let from_n = move |v| mapping.value_from_fraction(v);
         pointer
@@ -816,7 +816,7 @@ impl NumericView {
         let scalar = self.scalar;
         let pointer = self.pointer;
         let text_open = move || matches!(mode.get(), machine::State::Typing);
-        let begin_text = move || typing.open(());
+        let begin_text = move || typing.show(());
         let set = move |v: f64| {
             scalar.once(|| scalar.set(v));
         };
@@ -896,7 +896,7 @@ impl NumericView {
         let scalar = self.scalar;
         let pointer = self.pointer;
         let text_open = move || matches!(mode.get(), machine::State::Typing);
-        let begin_text = move || typing.open(());
+        let begin_text = move || typing.show(());
         let set = move |v: f64| {
             scalar.once(|| scalar.set(v));
         };

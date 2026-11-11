@@ -3,7 +3,7 @@
 //! A disclosure is the first link of the opening chain: a popup
 //! (`crate::popup`) adds overlay rules to it, and a tooltip and a dialog add
 //! theirs to a popup. Its shown state is the requested state, the caller's
-//! `Binding<bool>`; [`DisclosureApi::close`] writes `false` to it. A delayed
+//! `Binding<bool>`; [`DisclosureApi::hide`] writes `false` to it. A delayed
 //! shown state is a [`DelayedApi`](crate::DelayedApi).
 //! The parts are the trigger and the content, with [`DisclosureState`]
 //! (`input`, `open`). Mount content with `show` so engine presence owns
@@ -128,9 +128,9 @@ impl DisclosureApi {
         self.shown
     }
 
-    /// Close: write `false` to the binding.
+    /// Hide: write `false` to the binding.
     #[track_caller]
-    pub fn close(self) {
+    pub fn hide(self) {
         self.open.set(false);
     }
 

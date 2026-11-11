@@ -28,20 +28,20 @@ pub struct ToggleGroup<K: ItemKey> {
     variants: Variants,
 }
 
-/// A named group whose toggles edit `selection`. `Option<K>` allows zero or
+/// A named group whose toggles edit `selected`. `Option<K>` allows zero or
 /// one pressed item; `Vec<K>` allows many. Pressing a selected item releases
 /// it. Arrows only move focus; Space, Enter, click and accessibility activation
 /// toggle the focused item. Missing keys remain in the caller's selection.
 #[track_caller]
 pub fn toggle_group<K: ItemKey>(
     label: impl IntoText,
-    options: impl IntoValue<Vec<ListItem<K>>>,
-    selection: impl IntoSelection<K>,
+    items: impl IntoValue<Vec<ListItem<K>>>,
+    selected: impl IntoSelection<K>,
 ) -> ToggleGroup<K> {
     ToggleGroup {
         root: node().role(Role::Group).name(label),
-        options: options.into_value(),
-        selection: selection.into_selection(),
+        options: items.into_value(),
+        selection: selected.into_selection(),
         orientation: Orientation::Horizontal.into_value(),
         size: crate::values::default_control_size().into_value(),
         spacing: None,

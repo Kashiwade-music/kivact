@@ -36,11 +36,12 @@ pub struct Tree<K: kivact_core::state::ItemKey> {
 pub fn tree<K: kivact_core::state::ItemKey>(
     label: impl IntoText,
     items: impl IntoValue<Vec<TreeNode<K>>>,
+    selected: impl kivact_interaction::IntoSelection<K>,
 ) -> Tree<K> {
     Tree {
         root: node().name(label),
         nodes: items.into_value(),
-        selection: kivact_interaction::IntoSelection::into_selection(signal(None)),
+        selection: kivact_interaction::IntoSelection::into_selection(selected),
         expanded: kivact_core::state::IntoBinding::into_binding(signal(Vec::new())),
         item: None,
         marker_content: None,
@@ -60,11 +61,6 @@ impl<K: kivact_core::state::ItemKey> Tree<K> {
     /// Reveal branches with retained presence, as in `tree_rows`.
     pub fn reveal(mut self, gap: impl Into<f64>, transition: Transition) -> Self {
         self.reveal = Some((gap.into(), transition));
-        self
-    }
-    /// Bind the selected keys.
-    pub fn selection(mut self, selection: impl kivact_interaction::IntoSelection<K>) -> Self {
-        self.selection = selection.into_selection();
         self
     }
     /// Bind expanded branches.

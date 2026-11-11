@@ -58,6 +58,7 @@ fn ui_tree_exposes_parent_expansion_and_leaf_hierarchy() {
                     TreeNode::new("child", Some("parent"), "Child"),
                     TreeNode::new("leaf", None, "Leaf"),
                 ],
+                signal(None),
             )
             .expanded(expanded)
             .header(text("Files header")),
@@ -102,8 +103,8 @@ fn ui_tree_keeps_selection_separate_from_roving_focus() {
                     TreeNode::new("a", None, "Alpha"),
                     TreeNode::new("b", None, "Beta"),
                 ],
-            )
-            .selection(selected),
+                selected,
+            ),
         )
     });
     let alpha = screen.get_by_role(Role::TreeItem, "Alpha");

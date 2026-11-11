@@ -2,7 +2,7 @@
 //!
 //! [`DelayedApi`] follows a `wanted` condition late: it shows `open` after the
 //! condition turns true and hides `close` after it turns false, on owner-scoped
-//! machine timers (no polling). [`DelayedApi::dismiss`] hides it at once and keeps it
+//! machine timers (no polling). [`DelayedApi::hide`] hides it at once and keeps it
 //! hidden until the condition goes false, and [`DelayedApi::pulse`] shows it at
 //! once and hides it after the close delay (a "Copied" mark).
 
@@ -129,7 +129,7 @@ impl DelayedApi {
     /// `wanted` goes false; otherwise it is `Hidden`. Cancels a running delay.
     /// Call it from a handler or an effect.
     #[track_caller]
-    pub fn dismiss(self) {
+    pub fn hide(self) {
         self.state.send(Event::Dismiss);
     }
 

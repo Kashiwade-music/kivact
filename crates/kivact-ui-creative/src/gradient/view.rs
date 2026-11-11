@@ -40,20 +40,20 @@ pub struct GradientEditor {
     edit: Option<Callback<EditPhase>>,
 }
 
-/// Edit gradient `stops` by vector index; `selection` is the index of the
+/// Edit gradient `stops` by vector index; `selected` is the index of the
 /// selected stop, which selecting alone does not report to `on_edit`. The
 /// root name is set with Element::name.
 #[track_caller]
 pub fn gradient_editor(
     stops: impl IntoBinding<Vec<GradientStop>>,
-    selection: impl IntoBinding<Option<usize>>,
+    selected: impl IntoBinding<Option<usize>>,
 ) -> GradientEditor {
     GradientEditor {
         root: column(())
             .role(Role::Group)
             .style(style().gap(8).width(pct(100)).min_width(0)),
         stops: stops.into_binding(),
-        selection: selection.into_binding(),
+        selection: selected.into_binding(),
         to_display: Rc::new(|c| c),
         from_display: Rc::new(|c| c),
         edit: None,

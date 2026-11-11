@@ -739,7 +739,7 @@ impl ItemContext {
                 popup.set(false);
             }
             if mode == ShellNavMode::Drawer {
-                mobile.close();
+                mobile.hide();
             }
         } else if popup_panel.is_some()
             && let Some(open) = open

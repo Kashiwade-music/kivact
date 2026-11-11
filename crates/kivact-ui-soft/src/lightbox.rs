@@ -142,8 +142,8 @@ impl LightboxHandle {
         });
     }
 
-    /// Close this gallery.
-    pub fn close(self) {
+    /// Hide this gallery.
+    pub fn hide(self) {
         self.state.set(LightboxState::Closed);
     }
 
@@ -160,7 +160,7 @@ impl LightboxHandle {
                 if open {
                     self.show(0);
                 } else {
-                    self.close();
+                    self.hide();
                 }
             },
         );

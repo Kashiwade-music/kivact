@@ -277,7 +277,7 @@ fn editor_view<K: ItemKey>(
         move |text| {
             if !disabled.get_untracked() {
                 if !shown.get_untracked() {
-                    list.open();
+                    list.show();
                 }
                 query.set(text);
             }
@@ -348,13 +348,13 @@ fn editor_pointer<K: ItemKey>(
                     )
                 )
             {
-                list.open_sheet();
+                list.show_sheet();
                 gesture.send(crate::select::machine::Event::Reset);
             } else if matches!(event.phase(), PointerPhase::Down(_))
                 && ((event.kind() != PointerKind::Touch && !shown.get_untracked())
                     || (event.kind() == PointerKind::Touch && !presentation.uses_sheet()))
             {
-                list.open();
+                list.show();
             }
         }
         Handled::No
@@ -420,7 +420,7 @@ fn popup_surface<K: ItemKey>(
                             .combobox
                             .popup_offset,
                     )
-                    .on_dismiss(move |_| list.close())
+                    .on_dismiss(move |_| list.hide())
                     .into_view()
             }
         },
@@ -442,7 +442,7 @@ fn sheet_surface<K: ItemKey>(
     let query = list.query();
     let sheet_open = binding(sheet_shown, move |shown| {
         if !shown {
-            list.close();
+            list.hide();
         }
     });
     let sheet_input = node_ref();
@@ -516,7 +516,7 @@ fn prepare<K: ItemKey>(field: &mut Combobox<K>) -> Mounted<K> {
     );
     kivact_core::state::effect_on(disabled, move |disabled| {
         if *disabled {
-            list.close();
+            list.hide();
         }
     });
     let source = list.options();

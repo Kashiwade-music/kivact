@@ -38,7 +38,7 @@ Stepper current indices are zero based. A step's description, status, optional m
 
 Breadcrumbs expose a navigation landmark and list. The last item has `CurrentItem::Page` and is not an activation target. Earlier items activate their keys with Enter, Space or a pointer. `.item` replaces item contents and `.separator` replaces decorative separators.
 
-Navigation triggers open on hover. Clicking, Enter, Space or ArrowDown pins a panel; Escape dismisses it. Pinned panels also dismiss on outside press or focus departure. `.open_delay` and `.close_delay` accept `Duration`; `.placement` and `.align` position panels. Use `interaction::use_navigation_menu()` when composing a domain navigation control: `NavOpen` is its single visibility state, and `hover_after`, `leave_after`, `pin`, `toggle` and `close` send transitions to that owner.
+Navigation triggers open on hover. Clicking, Enter, Space or ArrowDown pins a panel; Escape dismisses it. Pinned panels also dismiss on outside press or focus departure. `.open_delay` and `.close_delay` accept `Duration`; `.placement` and `.align` position panels. Use `interaction::use_navigation_menu()` when composing a domain navigation control: `NavOpen` is its single visibility state, and `hover_after`, `leave_after`, `show`, `toggle` and `hide` send transitions to that owner.
 
 `breadcrumb(items).current(current_key)` overrides the default final current page. The source accepts `Option<K>` reactively: `Some(key)` marks that key, while explicit `None` marks no page. Omitting the method retains the final-item default.
 
@@ -99,7 +99,7 @@ fn docs_menu() -> impl IntoView {
 ```
 
 For a custom menu trigger, connect visibility to an application binding with
-`interaction::use_menu_with_open(entries, open_binding)`. `.trigger_action(callback)`
+`interaction::use_menu_with_open(items, open_binding)`. `.trigger_action(callback)`
 replaces the trigger's normal press action during setup; it is not an observer
 of visibility changes. Opening from outside does not move focus into the menu,
 while keyboard opening from the trigger keeps the standard initial focus, so do

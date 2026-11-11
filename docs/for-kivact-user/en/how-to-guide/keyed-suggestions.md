@@ -2,7 +2,7 @@
 
 [日本語](../../jp/how-to-guide/keyed-suggestions.md)
 
-`kivact::ui::combobox(label, options, selection)` edits one `Option<K>` or several `Vec<K>` keys. The label names the editor. Typing filters option labels; arrows highlight enabled suggestions, Enter chooses, and Escape dismisses without changing the choice. Native text editing keys continue to edit the text.
+`kivact::ui::combobox(label, items, selected)` edits one `Option<K>` or several `Vec<K>` keys. The label names the editor. Typing filters option labels; arrows highlight enabled suggestions, Enter chooses, and Escape dismisses without changing the choice. Native text editing keys continue to edit the text.
 
 ```rust,no_run
 use kivact::prelude::*;

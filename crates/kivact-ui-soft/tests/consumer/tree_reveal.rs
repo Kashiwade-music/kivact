@@ -24,6 +24,7 @@ fn branch_exit_keeps_its_paint_but_removes_the_child_from_navigation() {
                     TreeNode::new(2, Some(1), "Document"),
                     TreeNode::new(3, None, "Sibling"),
                 ],
+                signal(None),
             )
             .expanded(signal(vec![1]))
             .reveal(

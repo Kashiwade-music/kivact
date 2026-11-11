@@ -128,7 +128,7 @@ Drag the two handles, or focus one and use the arrow keys (`0.01` per press, `Sh
 
 ## Edit a gradient
 
-`gradient_editor(stops, selection)` shows a color ramp with draggable stops and, for the selected stop, a position field and a color wheel.
+`gradient_editor(stops, selected)` shows a color ramp with draggable stops and, for the selected stop, a position field and a color wheel.
 
 ```rust,no_run
 use kivact::draw::linear_gradient;

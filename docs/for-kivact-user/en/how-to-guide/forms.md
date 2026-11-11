@@ -300,7 +300,7 @@ before the edit.
 
 An inline rename also needs to know which item is being renamed, to open the
 field with its text selected and to close it again. `use_inline_edit` keeps
-that: `open(id)` starts a rename, `is_open(&id)` tells whether it runs, and
+that: `show(id)` starts a rename, `is_open(&id)` tells whether it runs, and
 `field(..)` builds the field.
 
 ```rust,no_run
@@ -319,7 +319,7 @@ fn names() -> impl IntoView {
                 text(move || item.get().1),
                 show(
                     move || !rename.is_open(&id),
-                    move || button("Rename").on_press(move || rename.open(id)),
+                    move || button("Rename").on_press(move || rename.show(id)),
                 ),
                 show(
                     move || rename.is_open(&id),

@@ -17,7 +17,7 @@
 | 候補つきの検索ボックス | `use_combobox` | `input()`、`content()`、`item(key)` |
 | コマンドパレット | `use_command_palette` | `content()`、`input()`、`list()`、`item(key)` |
 | 開閉する本体、ポップオーバー、ツールチップ | `use_disclosure`、`use_popup`、`use_tooltip` | `trigger()`、`content()` |
-| ホバーカード、遅れて出るヒント、一時的な確認表示 | `use_delayed` | `is_open()`、`dismiss()`、`pulse()` |
+| ホバーカード、遅れて出るヒント、一時的な確認表示 | `use_delayed` | `is_open()`、`hide()`、`pulse()` |
 | ダイアログ | `use_dialog` | `trigger()`、`content()`、`title()`、`description()`、`close_trigger()` |
 | タブ | `use_tabs` | `list()`、`item(key)`、`panel(key)` |
 | ツリー | `use_tree` | `list()`、`item(key)` |

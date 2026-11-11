@@ -292,7 +292,7 @@ impl ToolWindowOptions {
     }
 }
 
-/// What a tool window gives its content: [`close`](ToolWindowApi::close) closes
+/// What a tool window gives its content: [`hide`](ToolWindowApi::hide) closes
 /// the window, as its close button does.
 #[derive(Clone, Copy)]
 pub struct ToolWindowApi {
@@ -300,8 +300,8 @@ pub struct ToolWindowApi {
 }
 
 impl ToolWindowApi {
-    /// Close the window: its `open` value becomes `false`.
-    pub fn close(self) {
+    /// Hide the window: its `open` value becomes `false`.
+    pub fn hide(self) {
         self.open.set(false);
     }
 }
@@ -343,7 +343,7 @@ pub fn tool_window_button<V: IntoView>(
 /// that opens it. `open` is the only state: the window mounts when it
 /// becomes `true`, and it is written `false` by the close button, Escape,
 /// Dismiss from assistive technology, an outside press on a nonmodal window,
-/// [`ToolWindowApi::close`] and the unmounting of the window's part itself. A
+/// [`ToolWindowApi::hide`] and the unmounting of the window's part itself. A
 /// modal window keeps input and focus inside it and ignores an outside press.
 /// The title is [`ToolWindowOptions::title`], or the message `window.untitled`
 /// ("Window").
@@ -351,7 +351,7 @@ pub fn tool_window_button<V: IntoView>(
 /// Each time the window opens it starts expanded at its initial position,
 /// whatever the earlier use left.
 ///
-/// After Escape, the close button, [`ToolWindowApi::close`] or Dismiss, a
+/// After Escape, the close button, [`ToolWindowApi::hide`] or Dismiss, a
 /// nonmodal window uses the shared dialog to restore its anchor when focus
 /// was inside it. An unavailable anchor is harmless. A modal window gives it
 /// back to the element that had it when the window opened. An outside press
@@ -371,7 +371,7 @@ pub fn tool_window_button<V: IntoView>(
 ///             open,
 ///             ui::ToolWindowOptions::default().title("Tool"),
 ///         ).content(|window: ui::ToolWindowApi| {
-///                 kivact::ui::button("Done").on_press(move || window.close())
+///                 kivact::ui::button("Done").on_press(move || window.hide())
 ///             }),
 ///     ))
 /// }
@@ -635,7 +635,7 @@ fn window_header(
                     }
                 })
             })
-            .on_press(move || close.close()),
+            .on_press(move || close.hide()),
     ))
     .name(message_with(
         "creative.window.title_bar",

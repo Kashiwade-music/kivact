@@ -160,7 +160,7 @@ pub(crate) fn nav_menu_view(
     let heading = matches!(look, NavMenuLook::Heading);
     let default_min_width = menu_min_width(heading, size);
     let min_width = min_width.unwrap_or_else(|| default_min_width.into_value());
-    let surface = behavior.show(move || {
+    let surface = behavior.while_open(move || {
         let items = items.clone();
         let rows = for_each(
             behavior.entries(),

@@ -8,7 +8,7 @@ The kit's look is a plain Kivact `Theme`. Everything, including the standard com
 
 Use `kivact::ui::toolbar(label).start(children).center(children).end(children)`
 for a named toolbar, `button_group(label, children)` for joined actions, and
-`toggle_group(label, options, selection)` for a single or multiple selection.
+`toggle_group(label, items, selected)` for a single or multiple selection.
 The Creative theme supplies their dense spacing, field surfaces and pressed colors.
 For exclusive segments, use
 `kivact::ui::radio_group(label, items, selected).variant(kivact::ui::RadioGroupVariant::Segmented)`.

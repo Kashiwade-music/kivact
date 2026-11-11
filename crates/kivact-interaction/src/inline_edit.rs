@@ -190,7 +190,7 @@ pub fn use_inline_edit<K: ItemKey>(editing: impl IntoBinding<Option<K>>) -> Inli
 }
 impl<K: ItemKey> InlineEditApi<K> {
     /// Request renaming this key; the conditional field supplies its draft on mount.
-    pub fn open(self, key: K) {
+    pub fn show(self, key: K) {
         self.rename.send(Event::Request(Some(key)));
     }
     /// Read whether this key is requested or being renamed.

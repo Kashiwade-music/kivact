@@ -92,7 +92,7 @@ impl Hub {
 /// the tooltip then and goes on as usual otherwise), on a pointer press on the
 /// trigger and on a wheel over it. Tab and modifier keys alone do not hide
 /// it. After one of these it stays hidden until the condition stops and
-/// becomes true again, as [`DelayedApi::dismiss`](crate::DelayedApi::dismiss) does. A child
+/// becomes true again, as [`DelayedApi::hide`](crate::DelayedApi::hide) does. A child
 /// of the trigger that handles pointer presses itself is the one that receives
 /// them, so a press on it does not reach the trigger; Escape and a press
 /// outside still hide the tooltip.
@@ -262,7 +262,7 @@ impl TooltipApi {
     /// Hide the hint until the trigger is engaged again.
     #[track_caller]
     fn dismiss(self) {
-        self.delayed.dismiss();
+        self.delayed.hide();
     }
 
     /// The trigger whose hover and focus show the hint.

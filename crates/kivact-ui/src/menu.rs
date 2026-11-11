@@ -386,7 +386,7 @@ fn surface<K: kivact_core::state::ItemKey>(level: Level<K>, slot: Option<ItemCon
         offset,
         variants,
     } = level;
-    behavior.show(move || {
+    behavior.while_open(move || {
         let part = behavior.content();
         let state = part.state();
         let rows = menu_rows(behavior, slot.clone(), variants.clone());

@@ -252,7 +252,7 @@ fn main() -> kivact::Result<()> {
 
 その場での名前変更のように、ユーザーが確定したときだけ編集を反映したいことがあります。`text_input(..).on_draft_commit(on_commit)` は、欄を下書きにします。Enter か欄からフォーカスが外れると、テキストを渡して `on_commit` が呼ばれ、Escape は編集前の文字列に戻します。
 
-その場での名前変更では、どの項目を変更中かも分かっている必要があります。欄を文字列を選択した状態で開き、確定後に閉じるためです。`use_inline_edit` がそれを持ちます。`open(id)` で変更を始め、`is_open(&id)` で変更中かを調べ、`field(..)` で欄を作ります。
+その場での名前変更では、どの項目を変更中かも分かっている必要があります。欄を文字列を選択した状態で開き、確定後に閉じるためです。`use_inline_edit` がそれを持ちます。`show(id)` で変更を始め、`is_open(&id)` で変更中かを調べ、`field(..)` で欄を作ります。
 
 ```rust,no_run
 use kivact::prelude::*;
@@ -270,7 +270,7 @@ fn names() -> impl IntoView {
                 text(move || item.get().1),
                 show(
                     move || !rename.is_open(&id),
-                    move || button("名前を変更").on_press(move || rename.open(id)),
+                    move || button("名前を変更").on_press(move || rename.show(id)),
                 ),
                 show(
                     move || rename.is_open(&id),
